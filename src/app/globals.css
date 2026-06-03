@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  /* Colores Corporativos CSCloudSolutions */
+  --color-primary: #0054A6;
+  --color-secondary: #00AEEF;
+  --color-neutral-dark: #3C3C3C;
+  --color-neutral-soft: #7F7F7F;
+  /* Fuentes */
+  --font-sans: var(--font-open-sans);
+  --font-heading: var(--font-montserrat);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-open-sans), sans-serif;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-montserrat), sans-serif;
+}

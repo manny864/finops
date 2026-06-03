@@ -1,0 +1,49 @@
+Detalle de Colores y Fuentes:
+
+Azul: #1E3A8A (Un tono de azul profundo y profesional)
+
+Celeste: #90CAF9 (Un azul claro y moderno)
+
+Blanco: #FFFFFF (Para claridad y contraste)
+
+Gris: #9E9E9E (Un gris neutro para detalles y equilibrio)
+
+Fuente (ejemplo): Montserrat (Una fuente sans-serif moderna, geométrica y de fácil lectura)
+
+
+
+
+
+
+Paleta de colores sugerida
+Basado en el logo, estos son los colores principales que puedes usar:
+
+Elemento	Color sugerido	Código HEX	Uso recomendado
+Azul oscuro	#0054A6		Títulos, acentos visuales
+Azul claro	#00AEEF		Subtítulos, íconos secundarios
+Gris medio	#7F7F7F		Texto de párrafos, bordes suaves
+Gris oscuro	#3C3C3C		Fondo de pie de página, contraste
+Blanco	#FFFFFF		Fondo principal
+
+
+
+✍️ Tipografías recomendadas
+Para mantener un estilo moderno y profesional:
+
+Títulos: Montserrat Bold
+
+Estilo limpio, geométrico y corporativo.
+
+Subtítulos: Montserrat SemiBold
+
+Párrafos: Open Sans Regular
+
+Excelente legibilidad en documentos largos.
+
+
+
+
+
+Codigo QR AFIP
+
+<a href="http://qr.afip.gob.ar/?qr=2p7AhQ5dXrOZoD0kq46YNg,," target="_F960AFIPInfo"><img src="http://www.afip.gob.ar/images/f960/DATAWEB.jpg" border="0"></a>
