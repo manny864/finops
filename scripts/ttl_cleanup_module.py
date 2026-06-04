@@ -1,4 +1,72 @@
-"use client";
+import os
+
+base_dir = "/Users/manuelchavez/Documents/FinOpsProyect"
+
+def deploy():
+    print("Creando ttlService.ts...")
+    service_path = os.path.join(base_dir, "src/services/ttlService.ts")
+    with open(service_path, "w") as f:
+        f.write("""import { getAzureCredential } from "../lib/azure";
+import { ResourceGraphClient } from "@azure/arm-resourcegraph";
+import { kqlCatalog } from "../lib/kqlCatalog";
+
+export async function findExpiredResources(tenantId: string) {
+    const credential = await getAzureCredential(tenantId);
+    const client = new ResourceGraphClient(credential);
+
+    const query = kqlCatalog.expiredTtlResources;
+    if (!query) throw new Error("Query no encontrada en KQL Catalog");
+
+    const res = await client.resources({ query });
+    const resources = res.data as any[];
+
+    if (!resources || resources.length === 0) return [];
+
+    const now = new Date();
+    const expired: any[] = [];
+
+    for (const r of resources) {
+        if (!r.expirationDate) continue;
+        
+        const expDate = new Date(r.expirationDate);
+        
+        if (!isNaN(expDate.getTime()) && expDate < now) {
+            expired.push(r);
+        }
+    }
+
+    return expired;
+}
+""")
+
+    print("Creando /api/cleanup/ttl/route.ts...")
+    api_dir = os.path.join(base_dir, "src/app/api/cleanup/ttl")
+    os.makedirs(api_dir, exist_ok=True)
+    with open(os.path.join(api_dir, "route.ts"), "w") as f:
+        f.write("""import { NextRequest, NextResponse } from 'next/server';
+import { findExpiredResources } from '@/services/ttlService';
+
+export async function GET(request: NextRequest) {
+    try {
+        const tenantId = request.headers.get('x-tenant-id');
+
+        if (!tenantId) {
+            return NextResponse.json({ error: 'Falta tenant-id en headers' }, { status: 400 });
+        }
+
+        const expiredResources = await findExpiredResources(tenantId);
+        return NextResponse.json({ success: true, data: expiredResources });
+    } catch (error: any) {
+        console.error('TTL API Error:', error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+}
+""")
+
+    print("Creando UI en page.tsx...")
+    page_path = os.path.join(base_dir, "src/app/cleanup/ttl/page.tsx")
+    with open(page_path, "w") as f:
+        f.write(""""use client";
 import React, { useEffect, useState } from "react";
 import { useTenant } from "@/components/TenantProvider";
 import { Clock, CheckCircle, Trash2, AlertCircle } from "lucide-react";
@@ -171,3 +239,18 @@ export default function TtlCleanupPage() {
     </div>
   );
 }
+""")
+
+    print("Generando SOP de TTL Enforcement...")
+    sop_path = os.path.join(base_dir, "directivas/ttl_enforcement_SOP.md")
+    os.makedirs(os.path.dirname(sop_path), exist_ok=True)
+    with open(sop_path, "w") as f:
+        f.write("# TTL Enforcement SOP\\n\\n")
+        f.write("- **Fechas de Expiración**: La etiqueta `ExpireOn` o `TTL` se parsea a JS Date y se compara estrictamente (`< new Date()`). Entornos sin etiqueta válida son omitidos.\\n")
+        f.write("- **UI de Expiraciones**: Emplea estados de vacío atractivos usando Tailwind y lucide-react para maximizar la legibilidad en tableros limpios.\\n")
+        f.write("- **Remediación**: Llama al endpoint de remediación de zombis (`/api/remediation`) pasándole los parámetros para destruir la infraestructura subyacente.\\n")
+
+
+if __name__ == "__main__":
+    deploy()
+    print("TTL Cleanup Module Deploy completed.")
