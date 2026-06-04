@@ -1,0 +1,1 @@
+# R&D Power Schedules SOP\n\n- **Endpoint**: `/api/power` gestiona el array de VMs a afectar.\n- **Decisión Arquitectónica**: Las llamadas usan `beginDeallocate` y no `beginDeallocateAndWait` para evadir el timeout de la API al afectar a un grupo grande de máquinas. Dejamos que el plano de control de Azure procese asincrónicamente.\n

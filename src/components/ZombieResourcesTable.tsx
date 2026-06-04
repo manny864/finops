@@ -156,7 +156,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                 resourceGroup: r.resourceGroup,
                 issue: config.issue,
                 subscriptionId: r.subscriptionId || selectedSub,
-                potentialSavings: r.estimatedMonthlyCost ?? (r.diskSizeGB ? r.diskSizeGB * 0.15 : (r.sizeGB ? r.sizeGB * 0.05 : config.savings)),
+                potentialSavings: r.estimatedMonthlyCost || (r.diskSizeGB ? r.diskSizeGB * 0.15 : (r.sizeGB ? r.sizeGB * 0.05 : config.savings)),
                 issueType: config.issueType,
                 manualDelete: config.manualDelete
             }));

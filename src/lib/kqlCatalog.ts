@@ -1,4 +1,5 @@
 export const kqlCatalog: Record<string, string> = {
+  devVirtualMachines: `Resources | where type =~ 'microsoft.compute/virtualmachines' | where tags.Environment =~ 'Dev' or tags.Environment =~ 'Test' | project id, name, location, resourceGroup, subscriptionId, tags`,
   staleSnapshots: `Resources | where type =~ 'microsoft.compute/snapshots' | where properties.timeCreated < ago(90d) | project id, name, location, resourceGroup, subscriptionId, sizeGB=properties.diskSizeGB`,
   taggingNonCompliance: `Resources | where isnull(tags.CostCenter) or isnull(tags.Owner) or isnull(tags.Environment) | project id, name, type, location, resourceGroup, subscriptionId`,
   unattachedDisks: `Resources | where type =~ 'microsoft.compute/disks' | where properties.diskState == 'Unattached' | project id, name, location, resourceGroup, subscriptionId, sku=sku.name, diskSizeGB=properties.diskSizeGB`,

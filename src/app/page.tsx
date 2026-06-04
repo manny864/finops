@@ -7,6 +7,9 @@ import ZombieResourcesTable from "@/components/ZombieResourcesTable";
 import TagManager from "@/components/TagManager";
 import CostPieChart from "@/components/CostPieChart";
 import AdvisorPanel from "@/components/AdvisorPanel";
+import PowerSchedules from "@/components/dashboard/PowerSchedules";
+import BudgetBurnChart from "@/components/dashboard/BudgetBurnChart";
+import RightsizingBlade from "@/components/dashboard/RightsizingBlade";
 
 export default function Home() {
   const { activeTab, setActiveTab } = useContext(TabContext);
@@ -56,7 +59,7 @@ export default function Home() {
                           ...r,
                           type: (config as any).type,
                           issueType: (config as any).issueType,
-                          potentialSavings: r.diskSizeGB ? r.diskSizeGB * 0.15 : (r.sizeGB ? r.sizeGB * 0.05 : (config as any).savings)
+                          potentialSavings: r.estimatedMonthlyCost || (r.diskSizeGB ? r.diskSizeGB * 0.15 : (r.sizeGB ? r.sizeGB * 0.05 : (config as any).savings))
                       })));
                   }
                   setDashboardData(mappedData);
@@ -139,16 +142,20 @@ export default function Home() {
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 flex flex-col">
-             <h3 className="text-lg font-bold text-gray-800 mb-1">Distribución de Fugas Financieras</h3>
-             <p className="text-xs text-gray-500 mb-4">Haz clic en un segmento para ver los recursos afectados.</p>
-             {loading ? (
-                 <div className="flex-1 flex items-center justify-center text-gray-400 animate-pulse">Calculando métricas...</div>
-             ) : (
-                 <CostPieChart data={dashboardData} onSegmentClick={(cat) => setSelectedCategory(cat)} />
-             )}
+        <div className="flex flex-col">
+            <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 flex flex-col">
+                 <h3 className="text-lg font-bold text-gray-800 mb-1">Distribución de Fugas Financieras</h3>
+                 <p className="text-xs text-gray-500 mb-4">Haz clic en un segmento para ver los recursos afectados.</p>
+                 {loading ? (
+                     <div className="flex-1 flex items-center justify-center text-gray-400 animate-pulse">Calculando métricas...</div>
+                 ) : (
+                     <CostPieChart data={dashboardData} onSegmentClick={(cat) => setSelectedCategory(cat)} />
+                 )}
+            </div>
+            <RightsizingBlade />
         </div>
-        <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
+        <div className="flex flex-col">
+            <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
              <h3 className="text-lg font-bold text-gray-800 mb-4">Estado de Gobernanza</h3>
              <div className="h-64 flex flex-col items-center justify-center text-gray-400 bg-gray-50 rounded-lg border border-dashed border-gray-300">
                  <p className="text-sm font-medium">Score de Seguridad Financiera</p>
@@ -167,6 +174,9 @@ export default function Home() {
                      </button>
                  )}
              </div>
+        </div>
+        <PowerSchedules />
+        <BudgetBurnChart />
         </div>
       </div>
 

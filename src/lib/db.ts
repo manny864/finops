@@ -49,6 +49,18 @@ export async function initializeDatabase() {
             )
         `);
 
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS CostCenterBudgets (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                tenant_id VARCHAR(255) NOT NULL,
+                cost_center_name VARCHAR(255) NOT NULL,
+                monthly_budget_usd DECIMAL(10,2) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY unique_tenant_costcenter (tenant_id, cost_center_name),
+                FOREIGN KEY (tenant_id) REFERENCES Tenants(tenant_id) ON DELETE CASCADE
+            )
+        `);
+
         connection.release();
         dbInitialized = true;
         console.log("Database schema validated/initialized successfully.");

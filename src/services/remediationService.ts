@@ -30,3 +30,15 @@ export async function deleteResource(tenantId: string, subscriptionId: string, r
         throw new Error(`Tipo de recurso no soportado para borrado automático: ${resourceType}`);
     }
 }
+
+export async function deallocateVirtualMachine(tenantId: string, subscriptionId: string, resourceGroup: string, vmName: string) {
+    const credential = await getAzureCredential(tenantId);
+    const client = new ComputeManagementClient(credential, subscriptionId);
+    return await client.virtualMachines.beginDeallocate(resourceGroup, vmName);
+}
+
+export async function startVirtualMachine(tenantId: string, subscriptionId: string, resourceGroup: string, vmName: string) {
+    const credential = await getAzureCredential(tenantId);
+    const client = new ComputeManagementClient(credential, subscriptionId);
+    return await client.virtualMachines.beginStart(resourceGroup, vmName);
+}
