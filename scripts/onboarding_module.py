@@ -1,4 +1,110 @@
-"use client";
+import os
+
+base_dir = "/Users/manuelchavez/Documents/FinOpsProyect"
+
+def deploy():
+    print("Creando lib/onboardingScriptTemplate.ts...")
+    lib_path = os.path.join(base_dir, "src/lib/onboardingScriptTemplate.ts")
+    with open(lib_path, "w") as f:
+        f.write("""export function generateOnboardingScript(clientTenantId: string, subscriptionId: string): string {
+    return `# ==============================================================================
+# CSCloudSolutions FinOps Agent - Onboarding Script (PowerShell / Azure Cloud Shell)
+# ==============================================================================
+# Execute este script en Azure Cloud Shell (Modo PowerShell).
+#
+# Objetivo: Crea un Service Principal con permisos de solo lectura para facturación
+# e inventario, y un rol personalizado estrictamente limitado a 3 acciones para
+# automatización y remediación (apagado/encendido y etiquetado).
+
+$TenantId = "${clientTenantId}"
+$SubscriptionId = "${subscriptionId}"
+$AppName = "CSCloudSolutions-FinOps-Agent"
+$RoleName = "CSCloudSolutions Remediation Role"
+
+Write-Host "Seleccionando la suscripción $SubscriptionId..." -ForegroundColor Cyan
+Set-AzContext -SubscriptionId $SubscriptionId
+
+Write-Host "1. Creando la App Registration y el Service Principal..." -ForegroundColor Cyan
+$sp = New-AzADServicePrincipal -DisplayName $AppName
+$ClientId = $sp.AppId
+$spId = $sp.Id
+
+Write-Host "2. Generando Client Secret seguro..." -ForegroundColor Cyan
+$secretParams = @{
+    ObjectId = $sp.Id
+    DisplayName = "FinOpsAutomationSecret"
+    StartDate = (Get-Date)
+    EndDate = (Get-Date).AddYears(2)
+}
+$secret = New-AzADAppCredential @secretParams
+$ClientSecret = $secret.SecretText
+
+Write-Host "3. Asignando Roles Incorporados (Reader & Cost Management Reader)..." -ForegroundColor Cyan
+New-AzRoleAssignment -ObjectId $spId -RoleDefinitionName "Reader" -Scope "/subscriptions/$SubscriptionId"
+New-AzRoleAssignment -ObjectId $spId -RoleDefinitionName "Cost Management Reader" -Scope "/subscriptions/$SubscriptionId"
+
+Write-Host "4. Creando Rol Personalizado de Remediación Least-Privilege..." -ForegroundColor Cyan
+$roleDef = Get-AzRoleDefinition -Name "Reader"
+$roleDef.Id = $null
+$roleDef.Name = $RoleName
+$roleDef.Description = "Permite a CSCloudSolutions ejecutar acciones limitadas de FinOps (apagar, encender, etiquetar)"
+$roleDef.Actions.Clear()
+$roleDef.Actions.Add("Microsoft.Compute/virtualMachines/deallocate/action")
+$roleDef.Actions.Add("Microsoft.Compute/virtualMachines/start/action")
+$roleDef.Actions.Add("Microsoft.Resources/tags/write")
+$roleDef.AssignableScopes.Clear()
+$roleDef.AssignableScopes.Add("/subscriptions/$SubscriptionId")
+
+$customRole = New-AzRoleDefinition -Role $roleDef
+New-AzRoleAssignment -ObjectId $spId -RoleDefinitionName $RoleName -Scope "/subscriptions/$SubscriptionId"
+
+Write-Host "==============================================================================" -ForegroundColor Green
+Write-Host "¡Onboarding Completado con Éxito!" -ForegroundColor Green
+Write-Host "Por favor, copie de forma segura el siguiente bloque JSON y envíelo a nuestro equipo:" -ForegroundColor Yellow
+
+$output = @{
+    TenantId = $TenantId
+    SubscriptionId = $SubscriptionId
+    ClientId = $ClientId
+    ClientSecret = $ClientSecret
+}
+
+$output | ConvertTo-Json
+
+Write-Host "Nota: El ClientSecret solo es visible una vez. Si lo pierde, deberá regenerarlo." -ForegroundColor Red
+\`;
+}
+""")
+
+    print("Creando API route POST...")
+    api_dir = os.path.join(base_dir, "src/app/api/admin/onboarding")
+    os.makedirs(api_dir, exist_ok=True)
+    with open(os.path.join(api_dir, "route.ts"), "w") as f:
+        f.write("""import { NextRequest, NextResponse } from "next/server";
+import { generateOnboardingScript } from "@/lib/onboardingScriptTemplate";
+
+export async function POST(request: NextRequest) {
+    try {
+        const body = await request.json();
+        const { clientTenantId, subscriptionId } = body;
+
+        if (!clientTenantId || !subscriptionId) {
+            return NextResponse.json({ error: "Faltan parámetros clientTenantId o subscriptionId" }, { status: 400 });
+        }
+
+        const script = generateOnboardingScript(clientTenantId, subscriptionId);
+        
+        return NextResponse.json({ success: true, script });
+    } catch (e: any) {
+        return NextResponse.json({ error: "Error interno del servidor", details: e.message }, { status: 500 });
+    }
+}
+""")
+
+    print("Actualizando page.tsx...")
+    page_path = os.path.join(base_dir, "src/app/admin/onboarding/page.tsx")
+    with open(page_path, "w") as f:
+        f.write(""""use client";
 import React, { useState, useEffect } from "react";
 import { Terminal, Copy, Check, Server, ShieldCheck } from "lucide-react";
 
@@ -231,3 +337,18 @@ export default function OnboardingPage() {
     </div>
   );
 }
+""")
+
+    print("Generando SOP...")
+    sop_path = os.path.join(base_dir, "directivas/onboarding_SOP.md")
+    os.makedirs(os.path.dirname(sop_path), exist_ok=True)
+    with open(sop_path, "w") as f:
+        f.write("# Onboarding Module SOP\\n\\n")
+        f.write("- **Role-Based Access Control (RBAC)**: Se automatiza un principio de Privilegio Mínimo (Least Privilege). La aplicación usa los Roles Incorporados de Azure ('Reader', 'Cost Management Reader') combinados con un Rol Personalizado en el que solo se incluyen tres `Actions` de escritura.\\n")
+        f.write("- **Experiencia Frontend (UX)**: El panel de PowerShell se renderiza usando Tailwind imitando una terminal nativa de macOS, permitiendo a los clientes confiar en la plataforma SaaS.\\n")
+        f.write("- **Clipboard API**: Para evitar que los clientes corrompan el script al seleccionarlo manualmente con el mouse, el botón `navigator.clipboard.writeText` asegura la integridad del comando powershell.\\n")
+
+
+if __name__ == "__main__":
+    deploy()
+    print("Onboarding Module Deploy completed.")
