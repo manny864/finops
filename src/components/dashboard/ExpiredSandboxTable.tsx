@@ -76,8 +76,6 @@ export default function ExpiredSandboxTable() {
 
     if (accounts.length === 0 || selectedTenant.id === 'default') return null;
 
-    if (!loading && expiredResources.length === 0) return null;
-
     return (
         <div className="bg-white border border-red-200 rounded-lg shadow-sm p-6 mt-6">
             <h3 className="text-lg font-bold text-red-800 mb-2">Entornos de Desarrollo Expirados (TTL)</h3>
@@ -86,6 +84,11 @@ export default function ExpiredSandboxTable() {
             {loading ? (
                 <div className="h-20 flex items-center justify-center">
                     <div className="text-sm text-gray-400 animate-pulse">Consultando expiraciones...</div>
+                </div>
+            ) : expiredResources.length === 0 ? (
+                <div className="text-sm text-green-600 bg-green-50 p-4 rounded-md border border-green-100 flex items-center justify-center text-center">
+                    <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>
+                    Todo en orden. No hay entornos que hayan superado su Tiempo de Vida (TTL).
                 </div>
             ) : (
                 <div className="overflow-x-auto bg-white rounded-lg border border-red-200 shadow-sm">
