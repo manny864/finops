@@ -15,14 +15,40 @@ let dbInitialized = false;
 export async function initializeDatabase() {
     if (dbInitialized) return;
     try {
-        const schemaPath = path.join(process.cwd(), 'src', 'db', 'schema.sql');
-        const schema = fs.readFileSync(schemaPath, 'utf8');
-        const queries = schema.split(';').filter(q => q.trim().length > 0);
-        
         const connection = await pool.getConnection();
-        for (const query of queries) {
-            await connection.query(query);
-        }
+        
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS Tenants (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                tenant_id VARCHAR(255) UNIQUE NOT NULL,
+                company_name VARCHAR(255),
+                status VARCHAR(50) DEFAULT 'active',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS Users (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                entra_oid VARCHAR(255) UNIQUE NOT NULL,
+                tenant_id VARCHAR(255) NOT NULL,
+                email VARCHAR(255),
+                role VARCHAR(50) DEFAULT 'admin',
+                FOREIGN KEY (tenant_id) REFERENCES Tenants(tenant_id) ON DELETE CASCADE
+            )
+        `);
+
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS TaggingPolicies (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                tenant_id VARCHAR(255) NOT NULL,
+                tag_key VARCHAR(255) NOT NULL,
+                required BOOLEAN DEFAULT true,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (tenant_id) REFERENCES Tenants(tenant_id) ON DELETE CASCADE
+            )
+        `);
+
         connection.release();
         dbInitialized = true;
         console.log("Database schema validated/initialized successfully.");
