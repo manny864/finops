@@ -4,18 +4,18 @@ import "./globals.css";
 import ClientShell from "@/components/ClientShell";
 
 const montserrat = Montserrat({
-  variable: "--font-montserrat",
   subsets: ["latin"],
+  variable: "--font-montserrat",
 });
 
 const openSans = Open_Sans({
-  variable: "--font-open-sans",
   subsets: ["latin"],
+  variable: "--font-opensans",
 });
 
 export const metadata: Metadata = {
-  title: "FinOps Azure App - CSCloudSolutions",
-  description: "Análisis, recomendaciones y remediación automatizada de costos en Azure",
+  title: "CSCloudSolutions FinOps",
+  description: "Plataforma automatizada para optimización de costos en Azure y gobernanza cloud.",
 };
 
 export default function RootLayout({
@@ -24,8 +24,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es">
-      <body className={`${openSans.variable} ${montserrat.variable} antialiased`}>
+    <html lang="es" className={`${montserrat.variable} ${openSans.variable}`}>
+      <body className="font-sans antialiased text-gray-900 bg-gray-50">
         <ClientShell>
           {children}
         </ClientShell>
