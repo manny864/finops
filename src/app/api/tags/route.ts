@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import mysql from "mysql2/promise";
-
-const pool = mysql.createPool(process.env.DATABASE_URL || "mysql://finops_user:finopspassword@localhost:3306/finops_app");
+import pool from "@/lib/db";
 
 export async function GET(req: NextRequest) {
     try {
