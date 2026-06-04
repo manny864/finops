@@ -14,6 +14,7 @@ export default function Home() {
   const { selectedTenant } = useTenant();
   
   const [dashboardData, setDashboardData] = useState<any[]>([]);
+  const totalSavings = dashboardData.reduce((sum, item) => sum + (item.potentialSavings || 0), 0);
   const [loading, setLoading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [complianceScore, setComplianceScore] = useState<number | null>(null);
@@ -122,10 +123,18 @@ export default function Home() {
 
   return (
     <div className="flex flex-col gap-8 animate-in fade-in duration-500">
-      <div className="flex justify-between items-end border-b border-gray-200 pb-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-gray-200 pb-4 gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Dashboard General</h1>
           <p className="text-sm text-gray-500 mt-1">Visión global de rendimiento y eficiencia en la nube.</p>
+        </div>
+        
+        <div className="bg-green-50 border border-green-200 rounded-xl px-6 py-3 flex flex-col items-end shadow-sm">
+            <span className="text-xs font-bold text-green-700 uppercase tracking-widest mb-1">Ahorro Potencial Total</span>
+            <span className="text-4xl lg:text-5xl font-extrabold text-green-600">
+                {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalSavings)}
+            </span>
+            <span className="text-xs text-green-600 mt-1">/mes proyectado</span>
         </div>
       </div>
       

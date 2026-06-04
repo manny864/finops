@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getResourceGraphClient, getAzureCredential } from "@/lib/azure";
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { runGraphAudits, runMonitorAudits, runM365Audits } from "@/services/auditService";
+import { getMonthlyCostEstimate } from "@/services/pricingService";
 import jwt from "jsonwebtoken";
 
 export async function GET(request: NextRequest) {
@@ -43,6 +44,25 @@ export async function GET(request: NextRequest) {
 
     // 3. Orquestar Servicios de Auditoría
     const graphResults = await runGraphAudits(resourceGraphClient, credential, subscriptionId || undefined);
+    
+    // Interceptar para estimación de costos en huérfanos
+    if (graphResults.unattachedDisks && Array.isArray(graphResults.unattachedDisks)) {
+        await Promise.all(graphResults.unattachedDisks.map(async (disk: any) => {
+            const sku = disk.sku || "Standard_HDD";
+            const loc = disk.location || "eastus";
+            const cost = await getMonthlyCostEstimate("Storage", sku, loc);
+            disk.estimatedMonthlyCost = cost;
+        }));
+    }
+
+    if (graphResults.unusedIps && Array.isArray(graphResults.unusedIps)) {
+        await Promise.all(graphResults.unusedIps.map(async (ip: any) => {
+            const sku = ip.sku || "Standard";
+            const loc = ip.location || "eastus";
+            const cost = await getMonthlyCostEstimate("Virtual Network", sku, loc);
+            ip.estimatedMonthlyCost = cost;
+        }));
+    }
     
     // Ejecutar stubs (para futura expansión)
     // const monitorResults = await runMonitorAudits(credential, subscriptionId);

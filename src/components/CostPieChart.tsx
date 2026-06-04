@@ -79,7 +79,7 @@ export default function CostPieChart({ data, onSegmentClick }: { data: any[], on
                         innerRadius={65}
                         outerRadius={95}
                         paddingAngle={5}
-                        dataKey="value"
+                        dataKey="savings"
                         stroke="none"
                         onClick={handleClick}
                         className="cursor-pointer focus:outline-none"
@@ -93,7 +93,7 @@ export default function CostPieChart({ data, onSegmentClick }: { data: any[], on
                         ))}
                     </Pie>
                     <Tooltip 
-                        formatter={(value: any, name: any, props: any) => [`${value} recursos ($${props.payload.savings} USD ahorro potencial)`, name]}
+                        formatter={(value: any, name: any, props: any) => [`$${value} USD (${props.payload.count} recursos)`, name]}
                         contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                     />
                     <Legend wrapperStyle={{ fontSize: '12px', fontWeight: 600, paddingTop: '10px' }} />

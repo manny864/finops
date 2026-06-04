@@ -15,6 +15,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
   const [filterType, setFilterType] = useState<string>('all');
   const [filterGroup, setFilterGroup] = useState<string>('all');
   const [filterIssue, setFilterIssue] = useState<string>('all');
+  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>({ key: 'potentialSavings', direction: 'desc' });
 
   const handleDelete = async (item: any) => {
       if (item.manualDelete) {
@@ -155,7 +156,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                 resourceGroup: r.resourceGroup,
                 issue: config.issue,
                 subscriptionId: r.subscriptionId || selectedSub,
-                potentialSavings: r.diskSizeGB ? r.diskSizeGB * 0.15 : (r.sizeGB ? r.sizeGB * 0.05 : config.savings),
+                potentialSavings: r.estimatedMonthlyCost ?? (r.diskSizeGB ? r.diskSizeGB * 0.15 : (r.sizeGB ? r.sizeGB * 0.05 : config.savings)),
                 issueType: config.issueType,
                 manualDelete: config.manualDelete
             }));
@@ -249,7 +250,9 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                 <th className="p-4 font-medium">Suscripción</th>
                 <th className="p-4 font-medium">Tipo</th>
                 <th className="p-4 font-medium">Problema</th>
-                <th className="p-4 font-medium text-right">Ahorro Mensual (USD)</th>
+                <th className="p-4 font-medium text-right cursor-pointer hover:text-[#0054A6] transition-colors" onClick={() => setSortConfig(prev => ({ key: 'potentialSavings', direction: prev?.direction === 'desc' ? 'asc' : 'desc' }))}>
+                    Ahorro Mensual Estimado {sortConfig?.key === 'potentialSavings' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}
+                </th>
                 <th className="p-4 font-medium text-right">Acciones</th>
               </tr>
             </thead>
@@ -259,6 +262,11 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                   const matchGroup = filterGroup === "all" || item.resourceGroup === filterGroup;
                   const matchIssue = filterIssue === "all" || item.issueType === filterIssue;
                   return matchType && matchGroup && matchIssue;
+              }).sort((a, b) => {
+                  if (!sortConfig) return 0;
+                  if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'asc' ? -1 : 1;
+                  if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'asc' ? 1 : -1;
+                  return 0;
               }).map((item, i) => (
                 <tr key={`${item.id}-${i}`} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                   <td className="p-4 text-sm font-semibold text-gray-800">{item.resourceName}</td>
@@ -271,7 +279,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                       {item.issue}
                     </span>
                   </td>
-                  <td className="p-4 text-sm font-bold text-right ${item.potentialSavings > 0 ? 'text-green-600' : 'text-gray-400'}">${item.potentialSavings > 0 ? `$` + Number(item.potentialSavings).toFixed(2) : "-"}</td>
+                  <td className={`p-4 text-sm font-bold text-right ${item.potentialSavings > 0 ? "text-green-600" : "text-gray-400"}`}>{item.potentialSavings > 0 ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(item.potentialSavings) : "-"}</td>
                   <td className="p-4 text-right">
                     <button 
                         onClick={() => handleDelete(item)}
