@@ -83,11 +83,22 @@ export default function TtlCleanupPage() {
       </div>
 
       {error && (
-        <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg mb-6 flex items-start">
-            <AlertCircle className="w-6 h-6 text-red-500 mr-3 shrink-0" />
-            <div>
-                <p className="text-red-700 font-bold">Error de lectura:</p>
-                <p className="text-red-600 text-sm mt-1">{error}</p>
+        <div className="bg-white border-l-4 border-amber-500 shadow-sm p-6 rounded-lg mb-6 flex items-start">
+            <div className="flex-shrink-0">
+                <AlertCircle className="h-6 w-6 text-amber-500" />
+            </div>
+            <div className="ml-4">
+                <h3 className="text-lg font-bold text-gray-900">Permisos de Resource Graph Restringidos</h3>
+                <div className="mt-2 text-sm text-gray-600">
+                    <p>Azure Resource Graph ha bloqueado la lectura de entornos expirados. Esto sucede comúnmente por dos razones:</p>
+                    <ul className="list-disc pl-5 mt-2 space-y-1 text-gray-700">
+                        <li>El Service Principal (Enterprise App) no tiene el rol de <strong>Reader</strong> (Lector) en las suscripciones conectadas.</li>
+                        <li>Las suscripciones configuradas para este Tenant no existen o han sido canceladas.</li>
+                    </ul>
+                    <div className="mt-4 p-3 bg-gray-50 rounded border border-gray-200 font-mono text-xs text-red-600 break-all">
+                        <strong>Log técnico:</strong> {error}
+                    </div>
+                </div>
             </div>
         </div>
       )}
