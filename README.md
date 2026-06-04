@@ -28,3 +28,15 @@ To authenticate users across different organizations, you need to configure the 
 - **Zero-Trust JWT Isolation**: Endpoints backend altamente securizados que decodifican el Identity Token Bearer mediante `jsonwebtoken`. Verifican matemáticamente que el `tid` (Tenant ID) solicitado en la URL concuerde estrictamente con la firma criptográfica proveniente de Microsoft Entra ID.
 - **Azure Key Vault**: Extracción dinámica de los secretos del cliente para instanciar el Service Principal multi-tenant de forma segura utilizando `@azure/keyvault-secrets`.
 - **MSAL Autenticación y Registro**: Autenticación nativa integrada en Next.js App Router con `@azure/msal-react` (`loginRedirect`). Al retornar, intercepta el payload para enviar el `idToken` al endpoint local, el cual inserta a los nuevos Tenants atómicamente (`INSERT ON DUPLICATE KEY UPDATE`) en la base de datos MySQL.
+
+## Arquitectura de Fases 12-13 (Auditoría Omni-Scan KQL y Motor de Remediación)
+- **Motor Omni-Scan (KQL):** Integración de `@azure/arm-resourcegraph` para ejecutar consultas KQL masivas en paralelo (batching dinámico) a través del tenant, detectando hasta 25 tipos de fugas financieras (desde Snapshots Antiguos hasta VNet Gateways sin uso).
+- **Remediación Automatizada:** SDKs de Azure (`@azure/arm-compute`, `@azure/arm-network`, etc.) cableados para permitir el borrado o la actualización de recursos en un solo clic.
+- **Gestión de Roles Estricta:** El sistema valida dinámicamente si el usuario actual posee rol de `Contributor` o `Owner` sobre la suscripción antes de habilitar el botón de remediación.
+- **Fallback Multi-Tenant:** Si las suscripciones cruzadas fallan (por deshabilitación de CSP), el sistema hace un fallback local silencioso usando las credenciales en caché.
+
+## Arquitectura de Fases 14-16 (Gobernanza de Etiquetas, Dashboard SPA y UI Corporativa)
+- **Layout SPA & Navegación Optimizada:** Refactor completo del `ClientShell` para comportarse como una Single Page Application (SPA), inyectando componentes de Dashboard, Auditoría, y Etiquetas instantáneamente usando el Contexto de React.
+- **Gestión de Etiquetas (Tagging Governance):** Nuevo módulo impulsado por MySQL (`TaggingPolicies`). El backend compara en tiempo real el catálogo entero de Azure Graph contra las reglas obligatorias de negocio (ej. *CostCenter*, *Environment*) y devuelve un *Compliance Score* y las infracciones exactas.
+- **Dashboard Analítico:** Gráfico de Pastel Interactivo (`Recharts`) que dibuja el ecosistema financiero. Al interactuar con el gráfico, inyecta un filtro estricto cruzado a la tabla inferior de recursos.
+- **Corporate Landing Page:** Un escudo de acceso de seguridad antes del Login que utiliza la paleta oficial (Azul #0054A6, Celeste #00AEEF) y tipografías (Montserrat, Open Sans) de CSCloudSolutions para brindar una identidad corporativa pulida.
