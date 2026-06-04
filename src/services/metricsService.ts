@@ -1,46 +1,43 @@
-import { getAzureCredential } from "@/lib/azure";
 import { MonitorClient } from "@azure/arm-monitor";
+import { getAzureCredential } from "../lib/azure";
 
 export async function getVmUtilization(tenantId: string, subscriptionId: string, resourceId: string) {
     const credential = await getAzureCredential(tenantId);
-    // MonitorClient requires credential and an optional subscriptionId (though usually omitted for ARM calls directly on resourceId)
     const client = new MonitorClient(credential, subscriptionId);
-    
-    const end = new Date();
-    const start = new Date();
-    start.setDate(start.getDate() - 14);
-    const timespan = `${start.toISOString()}/${end.toISOString()}`;
-    const interval = "P1D";
-    
+
+    const now = new Date();
+    const past14Days = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+    const timespan = `${past14Days.toISOString()}/${now.toISOString()}`;
+
     try {
-        const response = await client.metrics.list(resourceId, {
-            metricnames: "Percentage CPU,Available Memory Bytes",
-            timespan: timespan,
-            interval: interval,
+        const metrics = await client.metrics.list(resourceId, {
+            timespan,
+            interval: "P1D",
+            metricnames: "Percentage CPU",
             aggregation: "Maximum,Average"
         });
-        
-        const metrics = response.value || [];
-        
+
         let maxCpu = 0;
-        let avgCpu = 0;
+        let avgSum = 0;
+        let avgCount = 0;
+
+        const timeSeries = metrics.value[0]?.timeseries?.[0]?.data || [];
         
-        for (const metric of metrics) {
-            if (metric.name?.value === "Percentage CPU") {
-                const timeseries = metric.timeseries?.[0]?.data || [];
-                for (const point of timeseries) {
-                    if (point.maximum && point.maximum > maxCpu) maxCpu = point.maximum;
-                    if (point.average && point.average > avgCpu) avgCpu = point.average;
-                }
+        for (const data of timeSeries) {
+            if (data.maximum !== undefined && data.maximum > maxCpu) {
+                maxCpu = data.maximum;
+            }
+            if (data.average !== undefined) {
+                avgSum += data.average;
+                avgCount++;
             }
         }
-        
-        return {
-            maxCpu,
-            avgCpu
-        };
-    } catch (e) {
-        console.error(`Error fetching metrics for ${resourceId}:`, e);
+
+        const avgCpu = avgCount > 0 ? avgSum / avgCount : 0;
+
+        return { maxCpu, avgCpu };
+    } catch (error) {
+        console.error(`Error fetching metrics for ${resourceId}:`, error);
         return { maxCpu: 0, avgCpu: 0 };
     }
 }

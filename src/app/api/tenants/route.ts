@@ -32,3 +32,24 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Fallo al sincronizar Tenant' }, { status: 500 });
     }
 }
+
+export async function PUT(request: NextRequest) {
+    try {
+        const body = await request.json();
+        const { tenantId, name } = body;
+
+        if (!tenantId || !name) {
+            return NextResponse.json({ error: 'Faltan datos' }, { status: 400 });
+        }
+
+        await pool.query(
+            'UPDATE Tenants SET company_name = ? WHERE tenant_id = ?',
+            [name, tenantId]
+        );
+
+        return NextResponse.json({ success: true });
+    } catch (error: any) {
+        console.error('API PUT /tenants error:', error);
+        return NextResponse.json({ error: 'Fallo al actualizar Tenant' }, { status: 500 });
+    }
+}

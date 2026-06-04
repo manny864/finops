@@ -24,9 +24,9 @@ export default function CostPieChart({ data, onSegmentClick }: { data: any[], on
 
     const chartData = Object.keys(grouped).map(key => ({
         name: key,
-        value: grouped[key].count,
+        count: grouped[key].count,
         savings: Number(grouped[key].savings.toFixed(2))
-    })).filter(d => d.value > 0).sort((a,b) => b.value - a.value);
+    })).filter(d => d.count > 0).sort((a,b) => b.count - a.count);
 
     const COLORS = ['#0054A6', '#F2A900', '#10B981', '#EF4444', '#8B5CF6', '#F43F5E', '#0EA5E9', '#F59E0B'];
 
@@ -93,7 +93,10 @@ export default function CostPieChart({ data, onSegmentClick }: { data: any[], on
                         ))}
                     </Pie>
                     <Tooltip 
-                        formatter={(value: any, name: any, props: any) => [`$${value} USD (${props.payload?.count ?? props.payload?.payload?.count ?? 0} recursos)`, name]}
+                        formatter={(value: any, name: any, props: any) => {
+                            const recursos = props.payload?.count ?? props.payload?.payload?.count ?? 0;
+                            return [`$${value} USD (${recursos} recursos detectados)`, name];
+                        }}
                         contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                     />
                     <Legend wrapperStyle={{ fontSize: '12px', fontWeight: 600, paddingTop: '10px' }} />

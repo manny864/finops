@@ -1,4 +1,10 @@
-"use client";
+import os
+
+base_dir = "/Users/manuelchavez/Documents/FinOpsProyect"
+
+def update_ui():
+    path = os.path.join(base_dir, "src/components/dashboard/PowerSchedules.tsx")
+    code = """"use client";
 import React, { useState, useEffect } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { useTenant } from '../TenantProvider';
@@ -135,44 +141,23 @@ export default function PowerSchedules() {
                                     </th>
                                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Máquina Virtual</th>
                                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Resource Group</th>
-                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
-                                {vms.map((vm) => {
-                                    let stateLabel = 'Sin reportar';
-                                    let isRunning = false;
-                                    if (vm.powerState) {
-                                        if (vm.powerState === 'PowerState/running') {
-                                            stateLabel = 'Encendida';
-                                            isRunning = true;
-                                        } else if (vm.powerState === 'PowerState/deallocated' || vm.powerState === 'PowerState/stopped') {
-                                            stateLabel = 'Apagada';
-                                        } else {
-                                            stateLabel = vm.powerState.replace('PowerState/', '');
-                                        }
-                                    }
-
-                                    return (
-                                        <tr key={vm.id} className="hover:bg-gray-50 transition-colors">
-                                            <td className="px-4 py-2">
-                                                <input 
-                                                    type="checkbox"
-                                                    checked={selectedVmIds.includes(vm.id)}
-                                                    onChange={() => toggleSelection(vm.id)}
-                                                    className="rounded text-[#0054A6] focus:ring-[#0054A6]"
-                                                />
-                                            </td>
-                                            <td className="px-4 py-2 text-sm text-gray-900">{vm.name}</td>
-                                            <td className="px-4 py-2 text-sm text-gray-500">{vm.resourceGroup}</td>
-                                            <td className="px-4 py-2 text-sm">
-                                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${isRunning ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-                                                    {stateLabel}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
+                                {vms.map((vm) => (
+                                    <tr key={vm.id} className="hover:bg-gray-50 transition-colors">
+                                        <td className="px-4 py-2">
+                                            <input 
+                                                type="checkbox"
+                                                checked={selectedVmIds.includes(vm.id)}
+                                                onChange={() => toggleSelection(vm.id)}
+                                                className="rounded text-[#0054A6] focus:ring-[#0054A6]"
+                                            />
+                                        </td>
+                                        <td className="px-4 py-2 text-sm text-gray-900">{vm.name}</td>
+                                        <td className="px-4 py-2 text-sm text-gray-500">{vm.resourceGroup}</td>
+                                    </tr>
+                                ))}
                             </tbody>
                         </table>
                     </div>
@@ -181,3 +166,16 @@ export default function PowerSchedules() {
         </div>
     );
 }
+"""
+    with open(path, "w") as f:
+        f.write(code)
+
+def update_sop():
+    path = os.path.join(base_dir, "directivas/power_schedules_SOP.md")
+    with open(path, "a") as f:
+        f.write("- **Selección Individual**: `PowerSchedules.tsx` muestra un listado interactivo con checkboxes para encender/apagar de manera granular.\\n")
+
+if __name__ == "__main__":
+    update_ui()
+    update_sop()
+    print("Power Schedules Update completado.")

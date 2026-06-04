@@ -3,6 +3,8 @@ import React, { useState, createContext } from 'react';
 import AuthProvider, { AuthButton } from "./AuthProvider";
 import { TenantProvider, useTenant } from './TenantProvider';
 import AuthSync from './AuthSync';
+import Sidebar from "./Sidebar";
+
 import { useMsal, useIsAuthenticated } from "@azure/msal-react";
 
 export const TabContext = createContext({ activeTab: 'dashboard', setActiveTab: (t: string) => {} });
@@ -95,31 +97,7 @@ function ShellContent({ children }: { children: React.ReactNode }) {
     <TabContext.Provider value={{ activeTab, setActiveTab }}>
     <div className="min-h-screen bg-gray-50 flex text-gray-900">
       {/* Sidebar */}
-      <aside className={`${sidebarOpen ? 'w-64' : 'w-20'} bg-white border-r border-gray-200 transition-all duration-300 flex flex-col shadow-sm`}>
-        <div className="h-16 flex items-center justify-center border-b border-gray-200 px-4">
-          <div className="flex items-center justify-center overflow-hidden w-full h-full">
-             {sidebarOpen ? (
-                <img src="/logo.png" alt="CSCloudSolutions FinOps" className="h-10 w-auto object-contain" />
-             ) : (
-                <div className="w-10 h-10 bg-[#0054A6] rounded-md flex items-center justify-center text-white font-bold text-xl shadow-sm">CS</div>
-             )}
-          </div>
-        </div>
-        <nav className="flex-1 py-6 px-3 space-y-2 overflow-y-auto">
-          {navItems.map(item => (
-              <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id)}
-                  className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg font-semibold transition-all duration-200 ${activeTab === item.id ? 'bg-blue-50 text-[#0054A6] shadow-sm border border-blue-100' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'}`}
-              >
-                  <svg className={`w-5 h-5 flex-shrink-0 ${activeTab === item.id ? 'text-[#0054A6]' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={item.icon}></path>
-                  </svg>
-                  {sidebarOpen && <span className="text-sm">{item.label}</span>}
-              </button>
-          ))}
-        </nav>
-      </aside>
+      <Sidebar sidebarOpen={sidebarOpen} />
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">

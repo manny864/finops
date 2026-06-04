@@ -153,8 +153,8 @@ export default function Home() {
                      <CostPieChart data={dashboardData} onSegmentClick={(cat) => setSelectedCategory(cat)} />
                  )}
             </div>
-            <ExpiredSandboxTable />
-            <RightsizingBlade />
+            
+            
         </div>
         <div className="flex flex-col">
             <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
@@ -177,7 +177,7 @@ export default function Home() {
                  )}
              </div>
         </div>
-        <PowerSchedules />
+        
         <BudgetBurnChart />
         </div>
       </div>

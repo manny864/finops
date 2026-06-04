@@ -1,0 +1,1 @@
+# App Router Navigation SOP\n\n- **Navegación**: Utiliza `next/link` y `usePathname` en lugar de estados. Sidebar vive en `src/components/Sidebar.tsx`.\n- **Iconos**: Usa `lucide-react` para estandarización visual.\n
