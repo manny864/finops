@@ -16,14 +16,16 @@ export default function CostPieChart({ data, onSegmentClick }: { data: any[], on
 
     const grouped = data.reduce((acc: any, item: any) => {
         if (item.issueType !== 'cost' || item.potentialSavings <= 0) return acc;
-        if (!acc[item.type]) acc[item.type] = 0;
-        acc[item.type] += item.potentialSavings;
+        if (!acc[item.type]) acc[item.type] = { count: 0, savings: 0 };
+        acc[item.type].count += 1;
+        acc[item.type].savings += item.potentialSavings;
         return acc;
     }, {});
 
     const chartData = Object.keys(grouped).map(key => ({
         name: key,
-        value: Number(grouped[key].toFixed(2))
+        value: grouped[key].count,
+        savings: Number(grouped[key].savings.toFixed(2))
     })).filter(d => d.value > 0).sort((a,b) => b.value - a.value);
 
     const COLORS = ['#0054A6', '#F2A900', '#10B981', '#EF4444', '#8B5CF6', '#F43F5E', '#0EA5E9', '#F59E0B'];
@@ -91,7 +93,7 @@ export default function CostPieChart({ data, onSegmentClick }: { data: any[], on
                         ))}
                     </Pie>
                     <Tooltip 
-                        formatter={(value: any) => [`$${value} USD`, 'Ahorro Potencial']}
+                        formatter={(value: any, name: any, props: any) => [`${value} recursos ($${props.payload.savings} USD ahorro potencial)`, name]}
                         contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                     />
                     <Legend wrapperStyle={{ fontSize: '12px', fontWeight: 600, paddingTop: '10px' }} />

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getResourceGraphClient } from "@/lib/azure";
+import { getResourceGraphClient, getAzureCredential } from "@/lib/azure";
+import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { runGraphAudits, runMonitorAudits, runM365Audits } from "@/services/auditService";
 import jwt from "jsonwebtoken";
 
@@ -37,10 +38,11 @@ export async function GET(request: NextRequest) {
     }
 
     // 2. Obtener Cliente Autenticado
-    const resourceGraphClient = await getResourceGraphClient(tenantId);
+    const credential = await getAzureCredential(tenantId);
+    const resourceGraphClient = new ResourceGraphClient(credential);
 
     // 3. Orquestar Servicios de Auditoría
-    const graphResults = await runGraphAudits(resourceGraphClient, subscriptionId || undefined);
+    const graphResults = await runGraphAudits(resourceGraphClient, credential, subscriptionId || undefined);
     
     // Ejecutar stubs (para futura expansión)
     // const monitorResults = await runMonitorAudits(credential, subscriptionId);

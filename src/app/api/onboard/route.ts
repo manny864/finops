@@ -21,8 +21,12 @@ export async function POST(request: NextRequest) {
 
         const tenantId = decoded.tid;
         const entraOid = decoded.oid;
-        const companyName = decoded.name || "Default Company";
         const email = decoded.preferred_username || decoded.email || "Unknown";
+        
+        let companyName = "Entorno: " + tenantId.substring(0,8);
+        if (email.includes('@')) {
+            companyName = email.split('@')[1];
+        }
 
         const connection = await pool.getConnection();
         
@@ -33,17 +37,17 @@ export async function POST(request: NextRequest) {
             const insertTenantQuery = `
                 INSERT INTO Tenants (tenant_id, company_name) 
                 VALUES (?, ?) 
-                ON DUPLICATE KEY UPDATE company_name = VALUES(company_name)
+                ON DUPLICATE KEY UPDATE company_name = ?
             `;
-            await connection.query(insertTenantQuery, [tenantId, companyName]);
+            await connection.query(insertTenantQuery, [tenantId, companyName, companyName]);
 
             // UPSERT User
             const insertUserQuery = `
                 INSERT INTO Users (entra_oid, tenant_id, email) 
                 VALUES (?, ?, ?) 
-                ON DUPLICATE KEY UPDATE email = VALUES(email)
+                ON DUPLICATE KEY UPDATE email = ?
             `;
-            await connection.query(insertUserQuery, [entraOid, tenantId, email]);
+            await connection.query(insertUserQuery, [entraOid, tenantId, email, email]);
 
             await connection.commit();
         } catch (dbError) {

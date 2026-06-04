@@ -12,6 +12,9 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
   const [selectedSub, setSelectedSub] = useState<string>("all");
     const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [filterType, setFilterType] = useState<string>('all');
+  const [filterGroup, setFilterGroup] = useState<string>('all');
+  const [filterIssue, setFilterIssue] = useState<string>('all');
 
   const handleDelete = async (item: any) => {
       if (item.manualDelete) {
@@ -78,7 +81,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
       try {
         setLoading(true);
         const account = accounts[0];
-        const tenantId = account.tenantId;
+        const tenantId = selectedTenant.id;
         
         const tokenResponse = await instance.acquireTokenSilent({
             scopes: ["User.Read"],
@@ -195,19 +198,43 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
             {error && error !== 'MISSING_RBAC_ROLE' && <span className="mt-2 inline-block text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded border border-amber-200">{error}</span>}
         </div>
         
-        {/* Selector de Suscripciones */}
-        <div className="flex items-center space-x-2 w-full sm:w-auto">
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Suscripción:</label>
-            <select 
-                value={selectedSub}
-                onChange={(e) => setSelectedSub(e.target.value)}
-                className="bg-white border border-gray-300 text-gray-700 text-sm rounded-md focus:ring-[#0054A6] focus:border-[#0054A6] block p-2 shadow-sm w-full sm:w-64"
-            >
-                <option value="all">Todas las Suscripciones</option>
-                {subscriptions.map((sub: any) => (
-                    <option key={sub.id} value={sub.id}>{sub.displayName}</option>
-                ))}
-            </select>
+        {/* Filtros */}
+        <div className="flex flex-wrap items-center gap-4 w-full sm:w-auto">
+            <div className="flex items-center space-x-2">
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Suscripción:</label>
+                <select 
+                    value={selectedSub}
+                    onChange={(e) => setSelectedSub(e.target.value)}
+                    className="bg-white border border-gray-300 text-gray-700 text-sm rounded-md focus:ring-[#0054A6] focus:border-[#0054A6] p-2 w-32"
+                >
+                    <option value="all">Todas</option>
+                    {subscriptions.map((sub: any) => (
+                        <option key={sub.id} value={sub.id}>{sub.displayName.substring(0,15)}...</option>
+                    ))}
+                </select>
+            </div>
+            <div className="flex items-center space-x-2">
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Tipo:</label>
+                <select value={filterType} onChange={e => setFilterType(e.target.value)} className="bg-white border border-gray-300 text-gray-700 text-sm rounded-md p-2 w-32">
+                    <option value="all">Todos</option>
+                    {Array.from(new Set(data.map(d => d.type))).filter(Boolean).sort().map((t: any) => <option key={t} value={t}>{t}</option>)}
+                </select>
+            </div>
+            <div className="flex items-center space-x-2">
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Grupo:</label>
+                <select value={filterGroup} onChange={e => setFilterGroup(e.target.value)} className="bg-white border border-gray-300 text-gray-700 text-sm rounded-md p-2 w-32">
+                    <option value="all">Todos</option>
+                    {Array.from(new Set(data.map(d => d.resourceGroup))).filter(Boolean).sort().map((g: any) => <option key={g} value={g}>{g}</option>)}
+                </select>
+            </div>
+            <div className="flex items-center space-x-2">
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Severidad:</label>
+                <select value={filterIssue} onChange={e => setFilterIssue(e.target.value)} className="bg-white border border-gray-300 text-gray-700 text-sm rounded-md p-2 w-32">
+                    <option value="all">Todas</option>
+                    <option value="cost">Costo</option>
+                    <option value="governance">Gobernanza</option>
+                </select>
+            </div>
         </div>
       </div>
       
@@ -227,7 +254,12 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
               </tr>
             </thead>
             <tbody>
-              {data.length > 0 ? data.map((item, i) => (
+              {data.length > 0 ? data.filter(item => {
+                  const matchType = filterType === "all" || item.type === filterType;
+                  const matchGroup = filterGroup === "all" || item.resourceGroup === filterGroup;
+                  const matchIssue = filterIssue === "all" || item.issueType === filterIssue;
+                  return matchType && matchGroup && matchIssue;
+              }).map((item, i) => (
                 <tr key={`${item.id}-${i}`} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                   <td className="p-4 text-sm font-semibold text-gray-800">{item.resourceName}</td>
                   <td className="p-4 text-xs font-mono text-gray-500">{item.subscriptionId === 'all' ? 'N/A' : item.subscriptionId.substring(0,8) + '...'}</td>

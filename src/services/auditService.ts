@@ -1,12 +1,13 @@
+import { SubscriptionClient } from "@azure/arm-subscriptions";
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { kqlCatalog } from "../lib/kqlCatalog";
 
-const getQuery = (query: string) => ({
-    subscriptions: [],
-    query
-});
+async function runInBatches(client: ResourceGraphClient, queries: {key: string, query: string}[], batchSize = 5, subscriptions: string[] = []) {
+    const getQuery = (query: string) => ({
+        subscriptions,
+        query
+    });
 
-async function runInBatches(client: ResourceGraphClient, queries: {key: string, query: string}[], batchSize = 5) {
     const results: any = {};
     for (let i = 0; i < queries.length; i += batchSize) {
         const batch = queries.slice(i, i + batchSize);
@@ -29,13 +30,40 @@ async function runInBatches(client: ResourceGraphClient, queries: {key: string, 
     return results;
 }
 
-export async function runGraphAudits(client: ResourceGraphClient, subscriptionId?: string) {
+export async function runGraphAudits(client: ResourceGraphClient, credential: any, subscriptionId?: string) {
+    let subs: string[] = [];
+    if (subscriptionId) {
+        subs = [subscriptionId];
+    } else {
+        try {
+            const tokenResponse = await credential.getToken("https://management.azure.com/.default");
+            const fetchRes = await fetch("https://management.azure.com/subscriptions?api-version=2020-01-01", {
+                headers: { "Authorization": `Bearer ${tokenResponse.token}` }
+            });
+            if (fetchRes.ok) {
+                const data = await fetchRes.json();
+                for (const sub of data.value) {
+                    if (sub.subscriptionId) subs.push(sub.subscriptionId);
+                }
+            } else {
+                console.error("Fetch API returned:", fetchRes.status, await fetchRes.text());
+                throw new Error("Failed to fetch subscriptions");
+            }
+        } catch (e) {
+            console.error("Failed to query subscriptions via REST", e);
+        }
+    }
+
+    if (subs.length === 0) {
+        throw Object.assign(new Error("No hay suscripciones disponibles o no se tienen permisos"), { code: "AccessDenied" });
+    }
+
     const queryList = Object.keys(kqlCatalog).map(key => ({
         key,
-        query: subscriptionId ? `${kqlCatalog[key]} | where subscriptionId =~ '${subscriptionId}'` : kqlCatalog[key]
+        query: kqlCatalog[key]
     }));
 
-    const results = await runInBatches(client, queryList, 5);
+    const results = await runInBatches(client, queryList, 5, subs);
     return results;
 }
 

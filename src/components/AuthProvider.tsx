@@ -85,7 +85,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
                         if (data.success) {
                             console.log("Onboarding en Base de Datos exitoso.");
                         } else {
-                            console.error("Fallo Onboarding DB:", data.error);
+                            console.error("Fallo Onboarding DB:", data.error, data.details);
                         }
                     }).catch(err => console.error("Error Fetch Onboard:", err));
                 }

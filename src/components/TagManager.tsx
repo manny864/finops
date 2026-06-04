@@ -12,6 +12,9 @@ export default function TagManager() {
     
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [nonCompliantResources, setNonCompliantResources] = useState<any[]>([]);
+    const [editingResource, setEditingResource] = useState<any>(null);
+    const [tagValues, setTagValues] = useState<Record<string, string>>({});
+    const [isApplying, setIsApplying] = useState(false);
     const [complianceScore, setComplianceScore] = useState<number | null>(null);
 
     const fetchPolicies = async () => {
@@ -91,6 +94,43 @@ export default function TagManager() {
         
         analyzeCompliance();
     }, [policies, selectedTenant, accounts, instance]);
+
+    
+    const applyTags = async () => {
+        if (!editingResource) return;
+        setIsApplying(true);
+        try {
+            const tokenResponse = await instance.acquireTokenSilent({
+                scopes: ["User.Read"],
+                account: accounts[0]
+            });
+            const payload = {
+                tenantId: selectedTenant.id,
+                resourceId: editingResource.id,
+                tags: tagValues
+            };
+            const res = await fetch('/api/tags/apply', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${tokenResponse.idToken}` 
+                },
+                body: JSON.stringify(payload)
+            });
+            const json = await res.json();
+            if (!res.ok) {
+                alert(`Error: ${json.details || json.error}`);
+            } else {
+                alert("¡Etiquetas aplicadas correctamente en Azure!");
+                setEditingResource(null);
+                setTagValues({});
+                fetchPolicies(); // Refrescar compliance
+            }
+        } catch (e: any) {
+            alert(`Error al aplicar etiquetas: ${e.message}`);
+        }
+        setIsApplying(false);
+    };
 
     const addPolicy = async () => {
         if (!newTag.trim() || selectedTenant.id === 'default') return;
@@ -217,6 +257,7 @@ export default function TagManager() {
                                     <th className="p-4">Recurso</th>
                                     <th className="p-4">Tipo</th>
                                     <th className="p-4">Etiquetas Faltantes</th>
+                                    <th className="p-4 text-right">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -237,6 +278,19 @@ export default function TagManager() {
                                                 ))}
                                             </div>
                                         </td>
+                                        <td className="p-4 text-right">
+                                            <button 
+                                                onClick={() => {
+                                                    setEditingResource(item);
+                                                    const initVals: Record<string,string> = {};
+                                                    item.missingTags.forEach((t: string) => initVals[t] = "");
+                                                    setTagValues(initVals);
+                                                }}
+                                                className="px-3 py-1 bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 rounded text-xs font-semibold transition-colors"
+                                            >
+                                                Editar Etiquetas
+                                            </button>
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -244,6 +298,53 @@ export default function TagManager() {
                     </div>
                 )}
             </div>
+
+            {/* Modal de Edición de Etiquetas */}
+            {editingResource && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in">
+                    <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden border border-gray-200">
+                        <div className="px-6 py-4 border-b border-gray-100 bg-gray-50">
+                            <h3 className="text-lg font-bold text-gray-800">Aplicar Etiquetas Requeridas</h3>
+                            <p className="text-sm text-gray-500 mt-1 truncate">{editingResource.name || editingResource.resourceName}</p>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            {editingResource.missingTags.map((tag: string) => (
+                                <div key={tag}>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-1">{tag}</label>
+                                    <input 
+                                        type="text" 
+                                        value={tagValues[tag] || ''} 
+                                        onChange={e => setTagValues({...tagValues, [tag]: e.target.value})}
+                                        className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-[#0054A6] focus:border-[#0054A6]"
+                                        placeholder={`Valor para ${tag}`}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                        <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end space-x-3">
+                            <button 
+                                onClick={() => setEditingResource(null)}
+                                className="px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                                disabled={isApplying}
+                            >
+                                Cancelar
+                            </button>
+                            <button 
+                                onClick={applyTags}
+                                disabled={isApplying || Object.values(tagValues).some(v => !v.trim())}
+                                className="px-4 py-2 text-sm font-semibold bg-[#0054A6] text-white hover:bg-blue-800 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                            >
+                                {isApplying ? (
+                                    <>
+                                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                        Aplicando en Azure...
+                                    </>
+                                ) : "Aplicar a Azure"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

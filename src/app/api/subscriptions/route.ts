@@ -14,9 +14,16 @@ export async function GET(request: NextRequest) {
     }
 
     const token = authHeader.split(" ")[1];
-    const decoded = jwt.decode(token) as { tid?: string } | null;
-    if (!decoded || decoded.tid !== tenantId) {
-      return NextResponse.json({ error: "Acceso denegado. Tenant ID inválido." }, { status: 403 });
+    const decoded = jwt.decode(token) as any;
+    if (!decoded || !decoded.tid) {
+      return NextResponse.json({ error: "Estructura de token inválida." }, { status: 401 });
+    }
+
+    const email = decoded.preferred_username || decoded.unique_name || decoded.email || "";
+    const isAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar");
+
+    if (decoded.tid !== tenantId && !isAdmin) {
+      return NextResponse.json({ error: `Acceso denegado. El token no coincide con el tenant.` }, { status: 403 });
     }
 
     // Paso 1: Obtener credencial (ClientSecretCredential)

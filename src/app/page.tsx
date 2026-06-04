@@ -6,9 +6,10 @@ import { useTenant } from '@/components/TenantProvider';
 import ZombieResourcesTable from "@/components/ZombieResourcesTable";
 import TagManager from "@/components/TagManager";
 import CostPieChart from "@/components/CostPieChart";
+import AdvisorPanel from "@/components/AdvisorPanel";
 
 export default function Home() {
-  const { activeTab } = useContext(TabContext);
+  const { activeTab, setActiveTab } = useContext(TabContext);
   const { instance, accounts } = useMsal();
   const { selectedTenant } = useTenant();
   
@@ -97,6 +98,14 @@ export default function Home() {
       );
   }
 
+  
+  if (activeTab === 'advisor') {
+      return (
+          <div className="animate-in fade-in duration-300">
+              <AdvisorPanel />
+          </div>
+      );
+  }
   if (activeTab === 'tags') {
       return <TagManager />;
   }
@@ -140,6 +149,14 @@ export default function Home() {
                  <p className="text-xs text-gray-400 mt-2 text-center px-8">
                      {complianceScore === -1 ? 'Añade reglas en Gestión de Etiquetas.' : 'Basado en las reglas de etiquetado activas.'}
                  </p>
+                 {complianceScore === -1 && (
+                     <button 
+                         onClick={() => setActiveTab('tags')} 
+                         className="mt-4 px-4 py-2 bg-[#0054A6] text-white text-xs font-semibold rounded shadow-sm hover:bg-blue-800 transition-colors"
+                     >
+                         Configurar Políticas
+                     </button>
+                 )}
              </div>
         </div>
       </div>
