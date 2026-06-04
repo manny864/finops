@@ -13,6 +13,7 @@ Refactorizar la API de recomendaciones (`src/app/api/recommendations/route.ts`) 
 ## Trampas Conocidas / Restricciones
 - El SDK de Resource Graph devuelve el payload crudo en la propiedad `response.data`. 
 - Es fundamental no quebrar el validador de JWT; se debe interceptar y verificar la identidad antes de delegar la consulta asíncrona a Azure.
+- **Nota (KQL ≠ JavaScript):** NUNCA usar `?.` (optional chaining) en queries KQL. Eso es sintaxis de JavaScript/TypeScript, no de Kusto. El operador correcto para acceder a propiedades anidadas en KQL es el punto simple: `connection.properties.privateLinkServiceConnectionState.status`. Usar `?.` causa un error del tipo "Please provide below info when asking for support" en Azure Resource Graph.
 
 
 ### Actualización Fase 4: Multi-Suscripción

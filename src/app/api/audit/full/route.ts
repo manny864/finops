@@ -59,13 +59,30 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error("Audit Engine Error:", error);
+    const errorMessage = error?.message || String(error) || "Error desconocido";
+    const errorCode = error?.code || error?.name || "";
+    const errorStatus = error?.statusCode || error?.status || 0;
+
+    console.error(`[Audit] ERROR capturado:`, {
+      name: error?.name,
+      code: errorCode,
+      statusCode: errorStatus,
+      message: errorMessage,
+    });
     
+    // Detectar secreto de cliente inválido o expirado (AADSTS7000215)
+    if (errorMessage.includes("AADSTS7000215") || errorMessage.includes("invalid_client") || errorMessage.includes("Invalid client secret")) {
+      return NextResponse.json({
+        error: "INVALID_CLIENT_SECRET",
+        details: "El Client Secret de la aplicación Azure AD es inválido o ha expirado. Genere uno nuevo en Azure Portal > App Registrations > Certificates & secrets."
+      }, { status: 401 });
+    }
+
     // Intercepción RBAC Inteligente (Fase 6)
-    if (error.code === "AccessDenied" || error.statusCode === 403 || (error.message && error.message.includes("AccessDenied"))) {
+    if (errorCode === "AccessDenied" || errorStatus === 403 || errorMessage.includes("AccessDenied") || errorMessage.includes("AuthorizationFailed")) {
       return NextResponse.json({ error: "MISSING_RBAC_ROLE", details: "La aplicación no tiene permisos de Lector en la suscripción." }, { status: 403 });
     }
     
-    return NextResponse.json({ error: "Error en el Motor de Auditoría", details: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Error en el Motor de Auditoría", details: errorMessage }, { status: 500 });
   }
 }

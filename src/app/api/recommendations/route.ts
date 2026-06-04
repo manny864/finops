@@ -78,9 +78,28 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error: any) {
-    if (error.code === "AccessDenied" || error.statusCode === 403 || error.message.includes("AccessDenied") || error.message.includes("AuthorizationFailed")) {
+    const errorMessage = error?.message || String(error) || "Error desconocido";
+    const errorCode = error?.code || error?.name || "";
+    const errorStatus = error?.statusCode || error?.status || 0;
+
+    console.error(`[Recommendations] ERROR capturado:`, {
+      name: error?.name,
+      code: errorCode,
+      statusCode: errorStatus,
+      message: errorMessage,
+    });
+
+    // Detectar secreto de cliente inválido o expirado (AADSTS7000215)
+    if (errorMessage.includes("AADSTS7000215") || errorMessage.includes("invalid_client") || errorMessage.includes("Invalid client secret")) {
+      return NextResponse.json({
+        error: "INVALID_CLIENT_SECRET",
+        details: "El Client Secret de la aplicación Azure AD es inválido o ha expirado. Genere uno nuevo en Azure Portal > App Registrations > Certificates & secrets."
+      }, { status: 401 });
+    }
+
+    if (errorCode === "AccessDenied" || errorStatus === 403 || errorMessage.includes("AccessDenied") || errorMessage.includes("AuthorizationFailed")) {
       return NextResponse.json({ error: "MISSING_RBAC_ROLE", details: "La aplicación no tiene permisos de Lector." }, { status: 403 });
     }
-    return NextResponse.json({ error: "Error en SDK o Resource Graph", details: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Error en SDK o Resource Graph", details: errorMessage }, { status: 500 });
   }
 }
