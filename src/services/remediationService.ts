@@ -25,7 +25,7 @@ export async function deleteResource(tenantId: string, subscriptionId: string, r
         return await client.publicIPAddresses.beginDeleteAndWait(resourceGroup, resourceName);
     } else if (type.includes("serverfarms")) {
         const client = new WebSiteManagementClient(credential, subscriptionId);
-        return await client.appServicePlans.beginDeleteAndWait(resourceGroup, resourceName);
+        return await client.appServicePlans.delete(resourceGroup, resourceName);
     } else {
         throw new Error(`Tipo de recurso no soportado para borrado automático: ${resourceType}`);
     }

@@ -141,7 +141,8 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
         };
 
         let allMappedData: any[] = [];
-        for (const [key, config] of Object.entries(resourceConfig)) {
+        for (const [key, configValue] of Object.entries(resourceConfig)) {
+            const config = configValue as any;
             const items = audit[key] || [];
             const mapped = items.map((r: any) => ({
                 id: r.id,

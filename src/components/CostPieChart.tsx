@@ -68,6 +68,7 @@ export default function CostPieChart({ data, onSegmentClick }: { data: any[], on
             <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                     <Pie
+                        // @ts-ignore
                         activeIndex={activeIndex !== null ? activeIndex : undefined}
                         activeShape={renderActiveShape}
                         data={chartData}
@@ -90,7 +91,7 @@ export default function CostPieChart({ data, onSegmentClick }: { data: any[], on
                         ))}
                     </Pie>
                     <Tooltip 
-                        formatter={(value: number) => [`$${value} USD`, 'Ahorro Potencial']}
+                        formatter={(value: any) => [`$${value} USD`, 'Ahorro Potencial']}
                         contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                     />
                     <Legend wrapperStyle={{ fontSize: '12px', fontWeight: 600, paddingTop: '10px' }} />
