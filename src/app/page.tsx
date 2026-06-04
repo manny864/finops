@@ -10,6 +10,7 @@ import AdvisorPanel from "@/components/AdvisorPanel";
 import PowerSchedules from "@/components/dashboard/PowerSchedules";
 import BudgetBurnChart from "@/components/dashboard/BudgetBurnChart";
 import RightsizingBlade from "@/components/dashboard/RightsizingBlade";
+import ExpiredSandboxTable from "@/components/dashboard/ExpiredSandboxTable";
 
 export default function Home() {
   const { activeTab, setActiveTab } = useContext(TabContext);
@@ -152,6 +153,7 @@ export default function Home() {
                      <CostPieChart data={dashboardData} onSegmentClick={(cat) => setSelectedCategory(cat)} />
                  )}
             </div>
+            <ExpiredSandboxTable />
             <RightsizingBlade />
         </div>
         <div className="flex flex-col">

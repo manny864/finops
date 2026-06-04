@@ -11,7 +11,10 @@ export async function deleteResource(tenantId: string, subscriptionId: string, r
         const client = new ComputeManagementClient(credential, subscriptionId);
         if (type.includes("disks")) {
             return await client.disks.beginDeleteAndWait(resourceGroup, resourceName);
-        } else {
+        } else if (type.includes("virtualmachines")) {
+        const client = new ComputeManagementClient(credential, subscriptionId);
+        return await client.virtualMachines.beginDeleteAndWait(resourceGroup, resourceName);
+    } else {
             return await client.snapshots.beginDeleteAndWait(resourceGroup, resourceName);
         }
     } else if (type.includes("networkinterfaces")) {
@@ -26,6 +29,9 @@ export async function deleteResource(tenantId: string, subscriptionId: string, r
     } else if (type.includes("serverfarms")) {
         const client = new WebSiteManagementClient(credential, subscriptionId);
         return await client.appServicePlans.delete(resourceGroup, resourceName);
+    } else if (type.includes("virtualmachines")) {
+        const client = new ComputeManagementClient(credential, subscriptionId);
+        return await client.virtualMachines.beginDeleteAndWait(resourceGroup, resourceName);
     } else {
         throw new Error(`Tipo de recurso no soportado para borrado automático: ${resourceType}`);
     }
