@@ -4,21 +4,22 @@ import { getComputeClient, getNetworkClient } from "@/lib/azure";
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const subscriptionId = searchParams.get('subscriptionId') || process.env.AZURE_SUBSCRIPTION_ID;
+    const subscriptionId = searchParams.get('subscriptionId');
+    const tenantId = searchParams.get('tenantId');
 
-    if (!subscriptionId) {
+    if (!subscriptionId || !tenantId) {
       return NextResponse.json(
-        { error: "El parámetro subscriptionId o la variable de entorno AZURE_SUBSCRIPTION_ID es requerida." },
+        { error: "Los parámetros 'tenantId' y 'subscriptionId' son estrictamente obligatorios en la URL." },
         { status: 400 }
       );
     }
 
-    const computeClient = getComputeClient(subscriptionId);
-    const networkClient = getNetworkClient(subscriptionId);
+    const computeClient = getComputeClient(tenantId, subscriptionId);
+    const networkClient = getNetworkClient(tenantId, subscriptionId);
 
     const zombieResources = [];
 
-    // 1. Detectar Discos No Asociados (Unattached Disks)
+    // 1. Detectar Discos No Asociados
     try {
       const disks = computeClient.disks.list();
       for await (const disk of disks) {
@@ -28,7 +29,7 @@ export async function GET(request: NextRequest) {
             resourceName: disk.name,
             type: "Disk",
             issue: "Disco sin asociar",
-            potentialSavings: disk.diskSizeGB ? disk.diskSizeGB * 0.15 : 0 // Estimación de precio
+            potentialSavings: disk.diskSizeGB ? disk.diskSizeGB * 0.15 : 0
           });
         }
       }
@@ -47,7 +48,7 @@ export async function GET(request: NextRequest) {
             resourceName: ip.name,
             type: "Public IP",
             issue: "IP Pública sin asignar",
-            potentialSavings: 3.5 // Estimación típica mensual
+            potentialSavings: 3.5
           });
         }
       }
@@ -58,6 +59,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      tenantId,
       subscriptionId,
       count: zombieResources.length,
       zombieResources,

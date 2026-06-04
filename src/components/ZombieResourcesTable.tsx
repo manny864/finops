@@ -11,18 +11,23 @@ export default function ZombieResourcesTable() {
     fetch('/api/recommendations?subscriptionId=mock-sub')
       .then(res => res.json())
       .then(json => {
-        if (json.error) throw new Error(json.error);
+        if (json.error) {
+          console.warn("Backend devolvió error:", json.error);
+          // Fallback robusto sin lanzar excepcion para no detonar el Error Overlay de Next.js
+          setData([
+            { id: '1', resourceName: 'vm-prod-analytics-disk', type: 'Disk', issue: 'Disco sin asociar', potentialSavings: 15.5 },
+            { id: '2', resourceName: 'ip-test-environment', type: 'Public IP', issue: 'IP Pública sin asignar', potentialSavings: 3.5 }
+          ]);
+          setError("Error de autenticación de Azure SDK. Mostrando datos de prueba locales.");
+          setLoading(false);
+          return;
+        }
         setData(json.zombieResources || []);
         setLoading(false);
       })
       .catch(err => {
-        console.error(err);
-        // Fallback robusto en caso de faltar DefaultAzureCredential en local
-        setData([
-          { id: '1', resourceName: 'vm-prod-analytics-disk', type: 'Disk', issue: 'Disco sin asociar', potentialSavings: 15.5 },
-          { id: '2', resourceName: 'ip-test-environment', type: 'Public IP', issue: 'IP Pública sin asignar', potentialSavings: 3.5 }
-        ]);
-        setError("Error de autenticación de Azure SDK. Mostrando datos de prueba locales.");
+        console.error("Error de red:", err);
+        setError("Fallo de red al consultar la API.");
         setLoading(false);
       });
   }, []);
