@@ -2,7 +2,13 @@ import mysql from 'mysql2/promise';
 import fs from 'fs';
 import path from 'path';
 
-const pool = mysql.createPool(process.env.DATABASE_URL || 'mysql://finops_user:finopspassword@localhost:3306/finops_app');
+const pool = mysql.createPool({
+    host: process.env.DB_HOST || 'localhost',
+    user: process.env.DB_USER || 'finops_user',
+    password: process.env.DB_PASSWORD || 'finopspassword',
+    database: process.env.DB_NAME || 'finops_app',
+    port: Number(process.env.DB_PORT || 3306)
+});
 
 let dbInitialized = false;
 
