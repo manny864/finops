@@ -43,10 +43,20 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
       const isAdminUser = username.toLowerCase().endsWith("@cscloudsolutions.com.ar");
       setIsAdmin(isAdminUser);
       
-      // Si no es admin, forzar su vista a su propio Tenant
-      if (!isAdminUser && tenantsList.length > 0 && selectedTenant.id === 'default') {
-          const myEnv = tenantsList.find(t => t.id === userTenant);
-          if (myEnv) setSelectedTenant(myEnv);
+      // Lógica de fallback robusta
+      if (selectedTenant.id === 'default') {
+          if (!isAdminUser) {
+              // Cliente normal: siempre usar su propio tenant (ignora si MySQL está atrasado)
+              const myEnv = tenantsList.find(t => t.id === userTenant);
+              setSelectedTenant(myEnv || { id: userTenant, name: "Mi Entorno (Azure)" });
+          } else if (tenantsList.length > 1) {
+              // Es Admin y hay tenants cargados: seleccionar el primero válido (no el default dummy)
+              const firstValid = tenantsList.find(t => t.id !== 'default');
+              if (firstValid) setSelectedTenant(firstValid);
+          } else {
+              // Es Admin pero MySQL falló o está vacío: fallback a su propio tenant
+              setSelectedTenant({ id: userTenant, name: "Admin Workspace" });
+          }
       }
     }
   }, [accounts, tenantsList]);
