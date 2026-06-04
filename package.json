@@ -12,12 +12,16 @@
     "@azure/arm-compute": "^24.0.0",
     "@azure/arm-network": "^36.0.0",
     "@azure/identity": "^4.13.1",
+    "@azure/keyvault-secrets": "^4.11.2",
+    "jsonwebtoken": "^9.0.3",
+    "mysql2": "^3.22.4",
     "next": "16.2.7",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

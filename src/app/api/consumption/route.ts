@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAzureCredential } from "@/lib/azure";
+import jwt from "jsonwebtoken";
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,34 +9,34 @@ export async function GET(request: NextRequest) {
     const tenantId = searchParams.get('tenantId');
 
     if (!subscriptionId || !tenantId) {
+      return NextResponse.json({ error: "Parámetros faltantes" }, { status: 400 });
+    }
+
+    // Aislamiento Multi-Tenant: Validación estricta JWT
+    const authHeader = request.headers.get("authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return NextResponse.json({ error: "Falta token Bearer de autenticación." }, { status: 401 });
+    }
+
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.decode(token) as { tid?: string } | null;
+
+    if (!decoded || !decoded.tid) {
+      return NextResponse.json({ error: "Estructura de token inválida." }, { status: 401 });
+    }
+
+    if (decoded.tid !== tenantId) {
       return NextResponse.json(
-        { error: "Los parámetros 'tenantId' y 'subscriptionId' son estrictamente obligatorios en la URL." },
-        { status: 400 }
+        { error: `Acceso denegado. El token (tid: ${decoded.tid}) no coincide con el tenant solicitado.` },
+        { status: 403 }
       );
     }
 
-    // Inicializar credenciales estrictamente para validar funcionamiento multi-tenant
-    getAzureCredential(tenantId);
+    await getAzureCredential(tenantId);
     
-    // Placeholder para la lógica real (ej. CostManagementClient)
-    const costSummary = {
-      amortizedCost: 0,
-      currency: "USD",
-      note: "El extractor de datos CostManagementClient para este Tenant aún no está implementado."
-    };
-
-    return NextResponse.json({
-      success: true,
-      tenantId,
-      subscriptionId,
-      costSummary,
-    });
+    return NextResponse.json({ success: true, tenantId, subscriptionId, costSummary: { amortizedCost: 0, currency: "USD", note: "Falta implementar CostManagementClient." } });
 
   } catch (error: any) {
-    console.error("Consumption API Error:", error);
-    return NextResponse.json(
-      { error: "Error interno del servidor al consultar Consumo", details: error.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Error interno", details: error.message }, { status: 500 });
   }
 }

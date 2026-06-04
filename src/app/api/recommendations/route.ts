@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getComputeClient, getNetworkClient } from "@/lib/azure";
+import jwt from "jsonwebtoken";
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,68 +9,60 @@ export async function GET(request: NextRequest) {
     const tenantId = searchParams.get('tenantId');
 
     if (!subscriptionId || !tenantId) {
+      return NextResponse.json({ error: "Parámetros faltantes" }, { status: 400 });
+    }
+
+    // Aislamiento Multi-Tenant: Validación estricta JWT
+    const authHeader = request.headers.get("authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return NextResponse.json({ error: "Falta token Bearer de autenticación." }, { status: 401 });
+    }
+
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.decode(token) as { tid?: string } | null;
+
+    if (!decoded || !decoded.tid) {
+      return NextResponse.json({ error: "Estructura de token inválida." }, { status: 401 });
+    }
+
+    if (decoded.tid !== tenantId) {
       return NextResponse.json(
-        { error: "Los parámetros 'tenantId' y 'subscriptionId' son estrictamente obligatorios en la URL." },
-        { status: 400 }
+        { error: `Acceso denegado. El token (tid: ${decoded.tid}) no coincide con el tenant solicitado.` },
+        { status: 403 }
       );
     }
 
-    const computeClient = getComputeClient(tenantId, subscriptionId);
-    const networkClient = getNetworkClient(tenantId, subscriptionId);
+    // Instanciación asíncrona tras validación
+    const computeClient = await getComputeClient(tenantId, subscriptionId);
+    const networkClient = await getNetworkClient(tenantId, subscriptionId);
 
     const zombieResources = [];
 
-    // 1. Detectar Discos No Asociados
     try {
       const disks = computeClient.disks.list();
       for await (const disk of disks) {
         if (disk.diskState === 'Unattached') {
-          zombieResources.push({
-            id: disk.id,
-            resourceName: disk.name,
-            type: "Disk",
-            issue: "Disco sin asociar",
-            potentialSavings: disk.diskSizeGB ? disk.diskSizeGB * 0.15 : 0
-          });
+          zombieResources.push({ id: disk.id, resourceName: disk.name, type: "Disk", issue: "Disco sin asociar", potentialSavings: disk.diskSizeGB ? disk.diskSizeGB * 0.15 : 0 });
         }
       }
     } catch (computeError: any) {
-      console.error("Error fetching disks:", computeError);
-      throw new Error(`Fallo al consultar los recursos Compute: ${computeError.message}`);
+      throw new Error(`Fallo en Compute: ${computeError.message}`);
     }
 
-    // 2. Detectar IPs Públicas Estáticas No Asignadas
     try {
       const publicIPs = networkClient.publicIPAddresses.listAll();
       for await (const ip of publicIPs) {
         if (!ip.ipConfiguration) {
-          zombieResources.push({
-            id: ip.id,
-            resourceName: ip.name,
-            type: "Public IP",
-            issue: "IP Pública sin asignar",
-            potentialSavings: 3.5
-          });
+          zombieResources.push({ id: ip.id, resourceName: ip.name, type: "Public IP", issue: "IP Pública sin asignar", potentialSavings: 3.5 });
         }
       }
     } catch (networkError: any) {
-      console.error("Error fetching Public IPs:", networkError);
-      throw new Error(`Fallo al consultar los recursos Network: ${networkError.message}`);
+      throw new Error(`Fallo en Network: ${networkError.message}`);
     }
 
-    return NextResponse.json({
-      success: true,
-      tenantId,
-      subscriptionId,
-      count: zombieResources.length,
-      zombieResources,
-    });
+    return NextResponse.json({ success: true, tenantId, subscriptionId, count: zombieResources.length, zombieResources });
 
   } catch (error: any) {
-    console.error("Recommendations API Error:", error);
-    return NextResponse.json(
-      { error: "Error interno del servidor durante la ejecución del SDK de Azure", details: error.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Error en SDK o Key Vault", details: error.message }, { status: 500 });
   }
 }

@@ -1,5 +1,6 @@
 "use client";
 import React, { useState } from 'react';
+import AdminConsentButton from "./AdminConsentButton";
 
 export default function ClientShell({ children }: { children: React.ReactNode }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -44,6 +45,7 @@ export default function ClientShell({ children }: { children: React.ReactNode })
               <option>Tenant: Asmepriv</option>
               <option>Tenant: Ctrl365</option>
             </select>
+            <AdminConsentButton />
             <button className="bg-[var(--color-primary)] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-800 transition-colors shadow-sm">
               Iniciar sesión con Microsoft
             </button>
