@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Montserrat, Open_Sans } from "next/font/google";
 import "./globals.css";
+import ClientShell from "@/components/ClientShell";
 
 const montserrat = Montserrat({
   variable: "--font-montserrat",
@@ -25,7 +26,9 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body className={`${openSans.variable} ${montserrat.variable} antialiased`}>
-        {children}
+        <ClientShell>
+          {children}
+        </ClientShell>
       </body>
     </html>
   );
