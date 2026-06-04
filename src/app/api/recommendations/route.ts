@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getComputeClient, getNetworkClient } from "@/lib/azure";
+import { getResourceGraphClient } from "@/lib/azure";
 import jwt from "jsonwebtoken";
 
 export async function GET(request: NextRequest) {
@@ -8,11 +8,10 @@ export async function GET(request: NextRequest) {
     const subscriptionId = searchParams.get('subscriptionId');
     const tenantId = searchParams.get('tenantId');
 
-    if (!subscriptionId || !tenantId) {
-      return NextResponse.json({ error: "Parámetros faltantes" }, { status: 400 });
+    if (!tenantId) {
+      return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
     }
 
-    // Aislamiento Multi-Tenant: Validación estricta JWT
     const authHeader = request.headers.get("authorization");
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return NextResponse.json({ error: "Falta token Bearer de autenticación." }, { status: 401 });
@@ -27,42 +26,55 @@ export async function GET(request: NextRequest) {
 
     if (decoded.tid !== tenantId) {
       return NextResponse.json(
-        { error: `Acceso denegado. El token (tid: ${decoded.tid}) no coincide con el tenant solicitado.` },
+        { error: `Acceso denegado. El token no coincide con el tenant.` },
         { status: 403 }
       );
     }
 
-    // Instanciación asíncrona tras validación
-    const computeClient = await getComputeClient(tenantId, subscriptionId);
-    const networkClient = await getNetworkClient(tenantId, subscriptionId);
+    const resourceGraphClient = await getResourceGraphClient(tenantId);
 
-    const zombieResources = [];
+    const disksQuery = `Resources | where type =~ 'microsoft.compute/disks' | where properties.diskState == 'Unattached' | project id, name, location, resourceGroup, subscriptionId, sku=sku.name, diskSizeGB=properties.diskSizeGB`;
+    const ipsQuery = `Resources | where type =~ 'microsoft.network/publicipaddresses' | where properties.ipConfiguration == '' or isnull(properties.ipConfiguration) | project id, name, location, resourceGroup, subscriptionId`;
+
+    const queryOptions: any = {};
+    if (subscriptionId) {
+        queryOptions.subscriptions = [subscriptionId];
+    }
+
+    let unattachedDisks = [];
+    let unusedIps = [];
 
     try {
-      const disks = computeClient.disks.list();
-      for await (const disk of disks) {
-        if (disk.diskState === 'Unattached') {
-          zombieResources.push({ id: disk.id, resourceName: disk.name, type: "Disk", issue: "Disco sin asociar", potentialSavings: disk.diskSizeGB ? disk.diskSizeGB * 0.15 : 0 });
-        }
-      }
-    } catch (computeError: any) {
-      throw new Error(`Fallo en Compute: ${computeError.message}`);
+      const diskResponse = await resourceGraphClient.resources({ 
+        query: disksQuery, 
+        ...queryOptions 
+      });
+      unattachedDisks = diskResponse.data || [];
+    } catch (e: any) {
+      console.error("Resource Graph Query Disks Error", e);
+      throw new Error(`Fallo en Query Disks: ${e.message}`);
     }
 
     try {
-      const publicIPs = networkClient.publicIPAddresses.listAll();
-      for await (const ip of publicIPs) {
-        if (!ip.ipConfiguration) {
-          zombieResources.push({ id: ip.id, resourceName: ip.name, type: "Public IP", issue: "IP Pública sin asignar", potentialSavings: 3.5 });
-        }
-      }
-    } catch (networkError: any) {
-      throw new Error(`Fallo en Network: ${networkError.message}`);
+      const ipResponse = await resourceGraphClient.resources({ 
+        query: ipsQuery, 
+        ...queryOptions 
+      });
+      unusedIps = ipResponse.data || [];
+    } catch (e: any) {
+      console.error("Resource Graph Query IPs Error", e);
+      throw new Error(`Fallo en Query IPs: ${e.message}`);
     }
 
-    return NextResponse.json({ success: true, tenantId, subscriptionId, count: zombieResources.length, zombieResources });
+    return NextResponse.json({ 
+        success: true, 
+        tenantId, 
+        mode: subscriptionId ? "single-subscription" : "tenant-wide",
+        unattachedDisks, 
+        unusedIps 
+    });
 
   } catch (error: any) {
-    return NextResponse.json({ error: "Error en SDK o Key Vault", details: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Error en SDK o Resource Graph", details: error.message }, { status: 500 });
   }
 }

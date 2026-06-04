@@ -1,3 +1,4 @@
+import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { ClientSecretCredential } from "@azure/identity";
 import { ComputeManagementClient } from "@azure/arm-compute";
 import { NetworkManagementClient } from "@azure/arm-network";
@@ -22,4 +23,9 @@ export async function getComputeClient(tenantId: string, subscriptionId: string)
 export async function getNetworkClient(tenantId: string, subscriptionId: string) {
   const credential = await getAzureCredential(tenantId);
   return new NetworkManagementClient(credential, subscriptionId);
+}
+
+export async function getResourceGraphClient(tenantId: string) {
+  const credential = await getAzureCredential(tenantId);
+  return new ResourceGraphClient(credential);
 }
