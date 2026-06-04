@@ -18,13 +18,16 @@ export async function GET(request: NextRequest) {
     }
 
     const token = authHeader.split(" ")[1];
-    const decoded = jwt.decode(token) as { tid?: string } | null;
+    const decoded = jwt.decode(token) as any;
 
     if (!decoded || !decoded.tid) {
       return NextResponse.json({ error: "Estructura de token inválida." }, { status: 401 });
     }
 
-    if (decoded.tid !== tenantId) {
+    const email = decoded.preferred_username || decoded.unique_name || decoded.email || "";
+    const isAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar");
+
+    if (decoded.tid !== tenantId && !isAdmin) {
       return NextResponse.json(
         { error: `Acceso denegado. El token no coincide con el tenant.` },
         { status: 403 }
@@ -75,6 +78,9 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error: any) {
+    if (error.code === "AccessDenied" || error.statusCode === 403 || error.message.includes("AccessDenied") || error.message.includes("AuthorizationFailed")) {
+      return NextResponse.json({ error: "MISSING_RBAC_ROLE", details: "La aplicación no tiene permisos de Lector." }, { status: 403 });
+    }
     return NextResponse.json({ error: "Error en SDK o Resource Graph", details: error.message }, { status: 500 });
   }
 }
