@@ -2,12 +2,22 @@
   "Navigation": {
     "dashboard": "Dashboard",
     "advisor": "Azure Advisor",
-    "finops_maturity": "FinOps Maturity",
-    "historical_progress": "Historical Progress",
-    "billing": "Actual Usage",
+    "finops_maturity": "Madurez FinOps",
+    "historical_progress": "Progreso Hist\u00f3rico",
+    "billing": "Consumo Real",
     "rightsizing": "Rightsizing",
-    "network_analytics": "Network Analytics",
-    "vm_control": "VM Control"
+    "network_analytics": "An\u00e1lisis de Red",
+    "vm_control": "Control de VM",
+    "visibilidad": "Visibilidad",
+    "inteligencia": "Inteligencia Financiera",
+    "limpieza": "Limpieza (TTL)",
+    "gobernanza": "Gobernanza Automatizada",
+    "admin": "Administraci\u00f3n",
+    "ttl_zombies": "TTL y Zombies",
+    "tag_manager": "Gesti\u00f3n de Etiquetas",
+    "onboarding": "Onboarding de Clientes",
+    "workbooks": "Artefactos y Workbooks",
+    "powerbi": "Reportes Power BI"
   },
   "Common": {
     "save": "Save",

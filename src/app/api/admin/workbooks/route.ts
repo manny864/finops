@@ -18,14 +18,14 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { subscriptionId, resourceGroupName } = body;
+        const { subscriptionId, resourceGroupName, createNewRg } = body;
 
         if (!subscriptionId || !resourceGroupName) {
             return NextResponse.json({ error: "Faltan parámetros requeridos: subscriptionId o resourceGroupName" }, { status: 400 });
         }
 
         const credential = getAzureCredential(decoded.tid);
-        const deploymentResult = await deployFinOpsWorkbook(credential, subscriptionId, resourceGroupName);
+        const deploymentResult = await deployFinOpsWorkbook(credential, subscriptionId, resourceGroupName, createNewRg);
 
         return NextResponse.json({ 
             success: true, 

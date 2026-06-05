@@ -1,4 +1,10 @@
-"use client";
+import os
+
+base_dir = "/Users/manuelchavez/Documents/FinOpsProyect"
+
+def deploy():
+    page_path = os.path.join(base_dir, "src/app/[locale]/admin/workbooks/page.tsx")
+    content = """"use client";
 import React, { useState, useEffect } from 'react';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
@@ -262,3 +268,10 @@ export default function WorkbooksPage() {
         </div>
     );
 }
+"""
+    with open(page_path, "w") as f:
+        f.write(content)
+        print("UI Generada exitosamente.")
+
+if __name__ == "__main__":
+    deploy()
