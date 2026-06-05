@@ -3,9 +3,11 @@ import React, { useState, createContext } from 'react';
 import AuthProvider, { AuthButton } from "./AuthProvider";
 import { TenantProvider, useTenant } from './TenantProvider';
 import { ViewModeProvider, useViewMode } from '../context/ViewModeContext';
-import { LayoutTemplate, Code2 } from 'lucide-react';
+import { LayoutTemplate, Code2, Bell } from 'lucide-react';
 import AuthSync from './AuthSync';
 import Sidebar from "./Sidebar";
+import ActionCenterDrawer from './ActionCenterDrawer';
+import { useActionLogStore } from '@/store/actionLogStore';
 
 import { useMsal, useIsAuthenticated } from "@azure/msal-react";
 
@@ -24,6 +26,8 @@ export default function ClientShell({ children }: { children: React.ReactNode })
 
 function ShellContent({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+    const [drawerOpen, setDrawerOpen] = useState(false);
+    const { actions } = useActionLogStore();
   const [activeTab, setActiveTab] = useState('dashboard');
   const { selectedTenant, setSelectedTenant, isAdmin, tenants } = useTenant();
   const { instance, accounts, inProgress } = useMsal();
@@ -115,7 +119,20 @@ function ShellContent({ children }: { children: React.ReactNode }) {
           </div>
           
           <div className="flex items-center space-x-6">
-            <div className="hidden md:flex items-center border border-gray-200 dark:border-slate-700 rounded-lg px-2 py-1 bg-gray-50 dark:bg-slate-800 relative">
+                <button 
+                    onClick={() => setDrawerOpen(true)}
+                    className="relative p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors mr-2"
+                >
+                    <Bell className="w-5 h-5" />
+                    {actions.length > 0 && (
+                        <span className="absolute top-1.5 right-1.5 flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                        </span>
+                    )}
+                </button>
+                
+                <div className="hidden md:flex items-center border border-gray-200 dark:border-slate-700 rounded-lg px-2 py-1 bg-gray-50 dark:bg-slate-800 relative">
               {isAdmin ? (
                 <div className="flex flex-col px-2">
                   <label htmlFor="tenant-select" className="text-[10px] text-[#00AEEF] font-bold uppercase tracking-wider mb-1">

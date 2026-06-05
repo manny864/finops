@@ -1,6 +1,8 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { useTenant } from "@/components/TenantProvider";
+import { toast } from 'sonner';
+import { useActionLogStore } from '@/store/actionLogStore';
 import { Clock, CheckCircle, Trash2, AlertCircle } from "lucide-react";
 
 export default function TtlCleanupPage() {
@@ -9,6 +11,7 @@ export default function TtlCleanupPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const { addAction } = useActionLogStore();
 
   useEffect(() => {
     if (!selectedTenant || selectedTenant.id === 'default') return;
@@ -59,11 +62,15 @@ export default function TtlCleanupPage() {
           const json = await res.json();
           if (json.success) {
               setResources(prev => prev.filter(r => r.id !== resourceId));
+              toast.success('Entorno Destruido');
+              addAction({ message: `Entorno TTL expirado destruido exitosamente.`, status: 'success' });
           } else {
-              alert("Error al eliminar: " + (json.error || "Fallo desconocido"));
+              toast.error('Error al eliminar', { description: json.error });
+              addAction({ message: `Fallo al eliminar entorno TTL: ${resourceId}`, status: 'error' });
           }
       } catch (e) {
-          alert("Error de red al intentar eliminar");
+          toast.error('Error de red al intentar eliminar');
+          addAction({ message: `Error de red eliminando entorno TTL.`, status: 'error' });
       }
       setDeletingId(null);
   };

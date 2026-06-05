@@ -4,11 +4,14 @@ import { useMsal } from '@azure/msal-react';
 import { useTenant } from './TenantProvider';
 import { useViewMode } from '../context/ViewModeContext';
 import RoleAssignmentBanner from './RoleAssignmentBanner';
+import { toast } from 'sonner';
+import { useActionLogStore } from '@/store/actionLogStore';
 
 export default function ZombieResourcesTable({ forceFilterType }: { forceFilterType?: string }) {
   const { instance, accounts } = useMsal();
   const { selectedTenant } = useTenant();
   const { viewMode } = useViewMode();
+  const { addAction } = useActionLogStore();
   const [data, setData] = useState<any[]>([]);
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const [selectedSub, setSelectedSub] = useState<string>("all");
@@ -21,7 +24,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
 
   const handleDelete = async (item: any) => {
       if (item.manualDelete) {
-          alert(`La eliminación automática de [${item.type}] requiere precaución extra y no está enlazada al SDK en esta versión.\n\nPor favor, bórralo manualmente en el portal de Azure.`);
+          toast.error('Requisito Manual', { description: `La eliminación de [${item.type}] debe hacerse en el portal.` }); return; // precaución extra y no está enlazada al SDK en esta versión.\n\nPor favor, bórralo manualmente en el portal de Azure.`);
           return;
       }
 
@@ -60,13 +63,17 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
           
           // Remover de la tabla local
           setData(prev => prev.filter(r => r.id !== item.id));
+          toast.success('Recurso Eliminado', { description: `${item.resourceName} fue destruido.` });
+          addAction({ message: `Se eliminó el recurso zombi: ${item.resourceName} exitosamente.`, status: 'success' });
       } catch (err: any) {
           console.error("Error de eliminación:", err);
           if (err.message && err.message.startsWith("MISSING_CONTRIBUTOR_ROLE")) {
               const clientId = err.message.split("|")[1];
-              alert(`¡Operación Denegada por Azure!\n\nTu aplicación FinOps solo tiene rol de 'Lector'. Para borrar recursos, debes asignar el rol de 'Colaborador' ejecutando:\n\naz role assignment create --assignee "${clientId}" --role "Contributor" --scope "/subscriptions/${item.subscriptionId}"`);
+              toast.error('¡Operación Denegada!', { description: 'Tu aplicación FinOps solo tiene rol de Lector.' });
+              addAction({ message: `Fallo de permisos al borrar ${item.resourceName}. Se requiere Rol Contributor.`, status: 'error' }); //\n\nTu aplicación FinOps solo tiene rol de 'Lector'. Para borrar recursos, debes asignar el rol de 'Colaborador' ejecutando:\n\naz role assignment create --assignee "${clientId}" --role "Contributor" --scope "/subscriptions/${item.subscriptionId}"`);
           } else {
-              alert(`Error al borrar: ${err.message || 'Sin permisos suficientes.'}`);
+              toast.error('Error al borrar', { description: err.message });
+              addAction({ message: `Error al borrar ${item.resourceName}: ${err.message}`, status: 'error' });
           }
       } finally {
           setDeletingId(null);

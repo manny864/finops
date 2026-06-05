@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Montserrat, Open_Sans } from "next/font/google";
 import "./globals.css";
+import { Toaster } from 'sonner';
 import { ThemeProvider } from "@/components/ThemeProvider";
 import ClientShell from "@/components/ClientShell";
 import CommandPalette from "@/components/CommandPalette";
@@ -29,6 +30,7 @@ export default function RootLayout({
     <html lang="es" suppressHydrationWarning className={`${montserrat.variable} ${openSans.variable}`}>
       <body className="font-sans antialiased text-gray-900 bg-gray-50">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <Toaster richColors position="bottom-right" theme="system" />
           <ClientShell>
           <CommandPalette />
           {children}
