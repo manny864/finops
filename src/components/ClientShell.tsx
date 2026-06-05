@@ -2,6 +2,8 @@
 import React, { useState, createContext } from 'react';
 import AuthProvider, { AuthButton } from "./AuthProvider";
 import { TenantProvider, useTenant } from './TenantProvider';
+import { ViewModeProvider, useViewMode } from '../context/ViewModeContext';
+import { LayoutTemplate, Code2 } from 'lucide-react';
 import AuthSync from './AuthSync';
 import Sidebar from "./Sidebar";
 
@@ -13,7 +15,9 @@ export default function ClientShell({ children }: { children: React.ReactNode })
   return <AuthProvider>
       <AuthSync />
       <TenantProvider>
+        <ViewModeProvider>
         <ShellContent>{children}</ShellContent>
+      </ViewModeProvider>
       </TenantProvider>
     </AuthProvider>;
 }
@@ -24,6 +28,7 @@ function ShellContent({ children }: { children: React.ReactNode }) {
   const { selectedTenant, setSelectedTenant, isAdmin, tenants } = useTenant();
   const { instance, accounts, inProgress } = useMsal();
   const isAuthenticated = useIsAuthenticated();
+  const { viewMode, toggleViewMode } = useViewMode();
 
   const navItems = [
       { id: 'dashboard', label: 'Dashboard', icon: 'M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z' },
@@ -137,6 +142,25 @@ function ShellContent({ children }: { children: React.ReactNode }) {
                 </div>
               )}
             </div>
+            
+            {/* View Toggle */}
+            <div className="hidden sm:flex items-center bg-gray-100 rounded-lg p-1 mr-4 border border-gray-200">
+                <button
+                    onClick={() => viewMode !== 'executive' && toggleViewMode()}
+                    className={`flex items-center px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${viewMode === 'executive' ? 'bg-white shadow-sm text-indigo-700' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                    <LayoutTemplate className="w-4 h-4 mr-1.5" />
+                    Ejecutivo
+                </button>
+                <button
+                    onClick={() => viewMode !== 'engineer' && toggleViewMode()}
+                    className={`flex items-center px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${viewMode === 'engineer' ? 'bg-gray-800 shadow-sm text-green-400' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                    <Code2 className="w-4 h-4 mr-1.5" />
+                    Ingeniero
+                </button>
+            </div>
+            
             <AuthButton />
           </div>
         </header>

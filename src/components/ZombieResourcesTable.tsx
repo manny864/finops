@@ -2,11 +2,13 @@
 import React, { useEffect, useState } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { useTenant } from './TenantProvider';
+import { useViewMode } from '../context/ViewModeContext';
 import RoleAssignmentBanner from './RoleAssignmentBanner';
 
 export default function ZombieResourcesTable({ forceFilterType }: { forceFilterType?: string }) {
   const { instance, accounts } = useMsal();
   const { selectedTenant } = useTenant();
+  const { viewMode } = useViewMode();
   const [data, setData] = useState<any[]>([]);
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const [selectedSub, setSelectedSub] = useState<string>("all");
@@ -247,7 +249,8 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
             <thead>
               <tr className="text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200 bg-white">
                 <th className="p-4 font-medium">Recurso</th>
-                <th className="p-4 font-medium">Suscripción</th>
+                {viewMode === 'engineer' && <th className="p-4 font-medium text-gray-400">Resource ID / ARM Type</th>}
+                {viewMode === 'engineer' && <th className="p-4 font-medium">Suscripción</th>}
                 <th className="p-4 font-medium">Tipo</th>
                 <th className="p-4 font-medium">Problema</th>
                 <th className="p-4 font-medium text-right cursor-pointer hover:text-[#0054A6] transition-colors" onClick={() => setSortConfig(prev => ({ key: 'potentialSavings', direction: prev?.direction === 'desc' ? 'asc' : 'desc' }))}>
@@ -270,7 +273,13 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
               }).map((item, i) => (
                 <tr key={`${item.id}-${i}`} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                   <td className="p-4 text-sm font-semibold text-gray-800">{item.resourceName}</td>
-                  <td className="p-4 text-xs font-mono text-gray-500">{item.subscriptionId === 'all' ? 'N/A' : item.subscriptionId.substring(0,8) + '...'}</td>
+                  {viewMode === 'engineer' && (
+                    <td className="p-4 text-xs font-mono text-gray-400 max-w-[150px] truncate" title={item.id}>
+                      <div className="text-gray-300 font-semibold">{item.id?.split('/').pop()}</div>
+                      <div className="text-[10px] text-gray-500 mt-1">{item.armType}</div>
+                    </td>
+                  )}
+                  {viewMode === 'engineer' && <td className="p-4 text-xs font-mono text-gray-500">{item.subscriptionId === 'all' ? 'N/A' : item.subscriptionId.substring(0,8) + '...'}</td>}
                   <td className="p-4 text-sm text-gray-600">
                     <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs">{item.type}</span>
                   </td>
@@ -292,7 +301,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                 </tr>
               )) : (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-sm text-gray-500">
+                  <td colSpan={viewMode === 'engineer' ? 8 : 6} className="p-8 text-center text-sm text-gray-500">
                     El entorno está 100% optimizado y bajo políticas de Gobernanza. ¡Excelente trabajo!
                   </td>
                 </tr>
