@@ -10,7 +10,12 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Faltan parámetros clientTenantId o subscriptionId" }, { status: 400 });
         }
 
-        const script = generateOnboardingScript(clientTenantId, subscriptionId);
+        let script;
+        try {
+            script = generateOnboardingScript(clientTenantId, subscriptionId);
+        } catch (err: any) {
+            return NextResponse.json({ error: err.message }, { status: 400 });
+        }
         
         return NextResponse.json({ success: true, script });
     } catch (e: any) {
