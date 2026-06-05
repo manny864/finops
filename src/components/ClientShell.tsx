@@ -5,6 +5,7 @@ import { TenantProvider, useTenant } from './TenantProvider';
 import { ViewModeProvider, useViewMode } from '../context/ViewModeContext';
 import { LayoutTemplate, Code2, Bell } from 'lucide-react';
 import AuthSync from './AuthSync';
+import LanguageSwitcher from './LanguageSwitcher';
 import Sidebar from "./Sidebar";
 import ActionCenterDrawer from './ActionCenterDrawer';
 import { useActionLogStore } from '@/store/actionLogStore';
@@ -178,6 +179,7 @@ function ShellContent({ children }: { children: React.ReactNode }) {
                 </button>
             </div>
             
+            <LanguageSwitcher />
             <AuthButton />
           </div>
         </header>

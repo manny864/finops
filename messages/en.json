@@ -1,0 +1,19 @@
+{
+  "Navigation": {
+    "dashboard": "Dashboard",
+    "advisor": "Azure Advisor",
+    "finops_maturity": "FinOps Maturity",
+    "historical_progress": "Historical Progress",
+    "billing": "Actual Usage",
+    "rightsizing": "Rightsizing",
+    "network_analytics": "Network Analytics",
+    "vm_control": "VM Control"
+  },
+  "Common": {
+    "save": "Save",
+    "deploy": "Deploy",
+    "cancel": "Cancel",
+    "analyze": "Analyze",
+    "loading": "Loading..."
+  }
+}

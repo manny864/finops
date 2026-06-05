@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Montserrat, Open_Sans } from "next/font/google";
-import "./globals.css";
+import "../globals.css";
 import { Toaster } from 'sonner';
+import { NextIntlClientProvider } from 'next-intl';
+import { getMessages } from 'next-intl/server';
 import { ThemeProvider } from "@/components/ThemeProvider";
 import ClientShell from "@/components/ClientShell";
 import CommandPalette from "@/components/CommandPalette";
@@ -21,21 +23,27 @@ export const metadata: Metadata = {
   description: "Plataforma automatizada para optimización de costos en Azure y gobernanza cloud.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
+  params: { locale }
 }: Readonly<{
   children: React.ReactNode;
+  params: { locale: string };
 }>) {
+  const messages = await getMessages();
+
   return (
-    <html lang="es" suppressHydrationWarning className={`${montserrat.variable} ${openSans.variable}`}>
+    <html lang={locale} suppressHydrationWarning className={`${montserrat.variable} ${openSans.variable}`}>
       <body className="font-sans antialiased text-gray-900 bg-gray-50">
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <Toaster richColors position="bottom-right" theme="system" />
-          <ClientShell>
-          <CommandPalette />
-          {children}
-        </ClientShell>
+        <NextIntlClientProvider messages={messages}>
+          <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+            <Toaster richColors position="bottom-right" theme="system" />
+            <ClientShell>
+              <CommandPalette />
+              {children}
+            </ClientShell>
           </ThemeProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

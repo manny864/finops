@@ -1,0 +1,19 @@
+{
+  "Navigation": {
+    "dashboard": "Painel de Controle",
+    "advisor": "Consultor Azure",
+    "finops_maturity": "Maturidade FinOps",
+    "historical_progress": "Progresso Histórico",
+    "billing": "Consumo Real",
+    "rightsizing": "Dimensionamento Ideal",
+    "network_analytics": "Análise de Rede",
+    "vm_control": "Controle de VM"
+  },
+  "Common": {
+    "save": "Salvar",
+    "deploy": "Implantar",
+    "cancel": "Cancelar",
+    "analyze": "Analisar",
+    "loading": "Carregando..."
+  }
+}
