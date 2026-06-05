@@ -21,6 +21,11 @@ const openSans = Open_Sans({
 export const metadata: Metadata = {
   title: "CSCloudSolutions FinOps",
   description: "Plataforma automatizada para optimización de costos en Azure y gobernanza cloud.",
+  icons: {
+    icon: '/favicon.png',
+    shortcut: '/favicon.png',
+    apple: '/favicon.png'
+  }
 };
 
 export default async function RootLayout({
