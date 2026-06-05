@@ -1,0 +1,1 @@
+# i18n Setup SOP (Next-Intl)\n\n## Objetivo\nSoportar múltiples idiomas (EN, ES, PT-BR) en la plataforma App Router mediante `next-intl`.\n\n## Restricciones/Casos Borde\n- Todas las rutas (excepto API) deben ubicarse dentro de `[locale]`.\n- `middleware.ts` requiere excluir las rutas estáticas y `/api`.\n

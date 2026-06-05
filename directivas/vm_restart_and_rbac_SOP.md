@@ -1,0 +1,1 @@
+# VM Restart y Least Privilege RBAC SOP\n\n## Objetivo\nIntegrar la función de reinicio de VMs y ajustar el RBAC para seguir el principio de Least Privilege.\n\n## Restricciones/Casos Borde\n- Usar `beginRestartAndWait` del cliente arm-compute.\n- Payload del script de RBAC debe incluir los 7 permisos estrictamente necesarios, ni uno más.\n

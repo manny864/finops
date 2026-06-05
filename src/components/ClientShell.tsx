@@ -5,6 +5,7 @@ import { TenantProvider, useTenant } from './TenantProvider';
 import { ViewModeProvider, useViewMode } from '../context/ViewModeContext';
 import { LayoutTemplate, Code2, Bell } from 'lucide-react';
 import AuthSync from './AuthSync';
+import LanguageSwitcher from './LanguageSwitcher';
 import Sidebar from "./Sidebar";
 import ActionCenterDrawer from './ActionCenterDrawer';
 import { useActionLogStore } from '@/store/actionLogStore';
@@ -106,7 +107,16 @@ function ShellContent({ children }: { children: React.ReactNode }) {
     <TabContext.Provider value={{ activeTab, setActiveTab }}>
     <div className="min-h-screen bg-gray-50 dark:bg-slate-950 flex text-gray-900 dark:text-gray-100">
       {/* Sidebar */}
-      <Sidebar sidebarOpen={sidebarOpen} />
+      {/* Mobile Overlay */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-gray-900/50 z-40 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+      <div className={`fixed inset-y-0 left-0 z-50 transform md:relative md:translate-x-0 transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <Sidebar sidebarOpen={sidebarOpen} />
+      </div>
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
@@ -178,6 +188,7 @@ function ShellContent({ children }: { children: React.ReactNode }) {
                 </button>
             </div>
             
+            <LanguageSwitcher />
             <AuthButton />
           </div>
         </header>

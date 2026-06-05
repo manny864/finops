@@ -22,13 +22,10 @@ $ClientId = $sp.AppId
 $spId = $sp.Id
 
 Write-Host "2. Generando Client Secret seguro..." -ForegroundColor Cyan
-$secretParams = @{
-    ObjectId = $sp.Id
-    DisplayName = "FinOpsAutomationSecret"
-    StartDate = (Get-Date)
-    EndDate = (Get-Date).AddYears(2)
-}
-$secret = New-AzADAppCredential @secretParams
+# New-AzADAppCredential must target the Application Object ID, not the SP.
+# Also, -DisplayName can conflict with other parameter sets.
+$app = Get-AzADApplication -AppId $sp.AppId
+$secret = New-AzADAppCredential -ObjectId $app.Id -StartDate (Get-Date) -EndDate (Get-Date).AddYears(2)
 $ClientSecret = $secret.SecretText
 
 Write-Host "3. Asignando Roles Incorporados (Reader & Cost Management Reader)..." -ForegroundColor Cyan
@@ -43,7 +40,11 @@ $roleDef.Description = "Permite a CSCloudSolutions ejecutar acciones limitadas d
 $roleDef.Actions.Clear()
 $roleDef.Actions.Add("Microsoft.Compute/virtualMachines/deallocate/action")
 $roleDef.Actions.Add("Microsoft.Compute/virtualMachines/start/action")
+$roleDef.Actions.Add("Microsoft.Compute/virtualMachines/restart/action")
 $roleDef.Actions.Add("Microsoft.Resources/tags/write")
+$roleDef.Actions.Add("Microsoft.Compute/disks/delete")
+$roleDef.Actions.Add("Microsoft.Network/networkInterfaces/delete")
+$roleDef.Actions.Add("Microsoft.Network/publicIPAddresses/delete")
 $roleDef.AssignableScopes.Clear()
 $roleDef.AssignableScopes.Add("/subscriptions/$SubscriptionId")
 

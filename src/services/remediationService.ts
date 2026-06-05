@@ -48,3 +48,9 @@ export async function startVirtualMachine(tenantId: string, subscriptionId: stri
     const client = new ComputeManagementClient(credential, subscriptionId);
     return await client.virtualMachines.beginStart(resourceGroup, vmName);
 }
+
+export async function restartVirtualMachine(tenantId: string, subscriptionId: string, resourceGroup: string, vmName: string) {
+    const credential = await getAzureCredential(tenantId);
+    const client = new ComputeManagementClient(credential, subscriptionId);
+    return await client.virtualMachines.beginRestartAndWait(resourceGroup, vmName);
+}

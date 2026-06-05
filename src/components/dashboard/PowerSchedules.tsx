@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import { useMsal } from '@azure/msal-react';
 import { useTenant } from '../TenantProvider';
 
@@ -52,7 +53,7 @@ export default function PowerSchedules() {
         fetchVms();
     }, [accounts, instance, selectedTenant.id]);
 
-    const handleAction = async (action: 'start' | 'stop') => {
+    const handleAction = async (action: 'start' | 'stop' | 'restart') => {
         const targetVms = vms.filter(vm => selectedVmIds.includes(vm.id));
         if (targetVms.length === 0) return;
         
@@ -81,7 +82,7 @@ export default function PowerSchedules() {
                 })
             });
             
-            alert(`Comando ${action === 'start' ? 'Encender' : 'Apagar'} enviado exitosamente a ${targetVms.length} VMs.`);
+            toast.success(`Comando ${action === 'start' ? 'Encender' : action === 'restart' ? 'Reiniciar' : 'Apagar'} enviado exitosamente a ${targetVms.length} VMs.`);
         } catch (e) {
             console.error(`Error al ejecutar ${action}:`, e);
             alert("Error al ejecutar la acción.");
@@ -210,6 +211,13 @@ export default function PowerSchedules() {
                             className="bg-green-100 hover:bg-green-200 text-green-700 px-4 py-2 rounded font-semibold text-sm transition-colors shadow-sm disabled:opacity-50"
                         >
                             {actionLoading === 'start' ? 'Procesando...' : 'Encender Selección'}
+                        </button>
+                        <button 
+                            onClick={() => handleAction('restart')}
+                            disabled={actionLoading !== null || selectedVmIds.length === 0}
+                            className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-4 py-2 rounded font-semibold text-sm transition-colors shadow-sm disabled:opacity-50"
+                        >
+                            {actionLoading === 'restart' ? 'Procesando...' : 'Reiniciar Selección'}
                         </button>
                     </div>
                     

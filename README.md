@@ -1,42 +1,160 @@
-# FinOps Azure App - CSCloudSolutions
+# CSCloudSolutions FinOps Platform 🚀
 
-Esta aplicación es un MVP (Minimum Viable Product) multi-tenant diseñado para el análisis, la detección de oportunidades de ahorro y la remediación automatizada de costos en Microsoft Azure.
+La Plataforma FinOps de CSCloudSolutions es una solución SaaS B2B automatizada construida sobre Next.js App Router (React) orientada a la gobernanza cloud, auditoría (Omni-Scan), y optimización financiera para entornos empresariales en Microsoft Azure.
 
-## Arquitectura de Fase 1 (Base Operativa)
-- **Framework Core:** Next.js 16.x (App Router) con soporte híbrido de Server/Client Components.
-- **Motor Backend Azure:** Endpoints REST robustos utilizando `@azure/identity`, `@azure/arm-compute`, y `@azure/arm-network` para detectar recursos zombies en la nube (Discos desasociados e IPs no asignadas).
-- **Frontend Interactivo:** Estilizado mediante Tailwind CSS v4, inyectando la identidad corporativa de CSCloudSolutions. Cuenta con un layout dinámico SPA, mockups de autenticación listos para MSAL (Entra ID) y vistas reservadas para iFrames de Power BI.
-- **Contenerización:** Configuración `standalone` y `Dockerfile` multi-stage preparados para un despliegue optimizado.
+---
 
-## Instalación y Ejecución
-1. Instalar dependencias: `npm install`
-2. Ejecutar entorno local: `npm run dev`
+## 🏗️ Architecture
 
-*Arquitectura estructurada de forma autónoma siguiendo directivas deterministas.*
+El sistema opera bajo una arquitectura de 3 capas fuertemente tipada y asegurada con autenticación basada en identidades de Azure:
 
-## Entra ID App Registration (Manual Setup)
-To authenticate users across different organizations, you need to configure the identity provider to generate the clientId for the MSAL configuration. 
+1. **Frontend (App Router)**: Interfaz de usuario dinámica construida con React, Tailwind CSS, y Zustand (manejo de estado). Adaptada con internacionalización (`next-intl`) y soporte de temas (Dark Mode).
+2. **API Layer (Next.js Edge/Node)**: Rutas backend que orquestan de manera segura la validación de acceso (`@azure/msal-react` / `@azure/msal-node`) y exponen lógica de negocio estructurada.
+3. **Services & Azure SDK**: Capa de servicios inyectados (`src/services/`) que interactúan directamente con Microsoft Azure (Resource Graph, Cost Management, Compute) y una base de datos MySQL para persistencia de datos multitenant (Logs, Historial de Ahorro, Tenants).
 
-- **Create Registration:** Navigate to Microsoft Entra ID > App registrations > New registration.
-- **Account Type:** Select *Accounts in any organizational directory (Any Microsoft Entra ID tenant - Multitenant)*. This is mandatory for the multi-tenant architecture.
-- **Redirect URI:** Select *Single-page application (SPA)* from the platform dropdown and set the URL to `http://localhost:3000`.
-- **API Permissions:** Add the required delegated permissions. For the core FinOps analysis, you need access to the Azure Service Management API (`user_impersonation`) and Microsoft Graph (`User.Read`).
-- **Admin Consent:** Crucially, execute the admin consent flow to grant these permissions globally across your testing tenant.
+### Infrastructure Diagram (Mermaid)
 
-## Arquitectura de Fase 3 (Base de Datos & MSAL Onboarding)
-- **MySQL & Docker**: Implementación de base de datos local `finops_app` orquestada mediante Docker Compose y el pool de conexiones `mysql2`. Contiene las tablas de persistencia `Tenants` y `Users` entrelazadas por restricciones de clave foránea.
-- **Zero-Trust JWT Isolation**: Endpoints backend altamente securizados que decodifican el Identity Token Bearer mediante `jsonwebtoken`. Verifican matemáticamente que el `tid` (Tenant ID) solicitado en la URL concuerde estrictamente con la firma criptográfica proveniente de Microsoft Entra ID.
-- **Azure Key Vault**: Extracción dinámica de los secretos del cliente para instanciar el Service Principal multi-tenant de forma segura utilizando `@azure/keyvault-secrets`.
-- **MSAL Autenticación y Registro**: Autenticación nativa integrada en Next.js App Router con `@azure/msal-react` (`loginRedirect`). Al retornar, intercepta el payload para enviar el `idToken` al endpoint local, el cual inserta a los nuevos Tenants atómicamente (`INSERT ON DUPLICATE KEY UPDATE`) en la base de datos MySQL.
+```mermaid
+graph TD
+    %% Entidades Externas
+    User[FinOps User / Admin]
+    Entra[Azure Entra ID]
+    
+    %% Frontend
+    subgraph Frontend [Next.js App Router]
+        UI[UI Components & Pages]
+        i18n[next-intl Middleware]
+        Zustand[Zustand State]
+    end
+    
+    %% Backend
+    subgraph Backend [Next.js API Routes]
+        API_Auth[Auth Validation]
+        API_Audit[Audit / Tags API]
+        API_Power[Power Schedules API]
+        API_Intel[Intelligence / Cost API]
+    end
+    
+    %% Services & Data
+    subgraph Core_Services [FinOps Services]
+        GraphService[Resource Graph Service]
+        CostService[Cost Management Service]
+        ComputeService[Compute / Remediation Service]
+    end
+    
+    MySQL[(MySQL Database\n- Tenants\n- Action Logs\n- Savings)]
+    
+    %% Azure Cloud
+    subgraph Azure_Cloud [Microsoft Azure Cloud]
+        ARG[Azure Resource Graph]
+        ACM[Azure Cost Management]
+        ARM[Azure Resource Manager]
+    end
+    
+    %% Relaciones
+    User -->|Access| i18n
+    i18n --> UI
+    UI -->|MSAL Token| Entra
+    Entra -->|JWT| UI
+    
+    UI -->|REST API Calls| API_Auth
+    API_Auth --> API_Audit
+    API_Auth --> API_Power
+    API_Auth --> API_Intel
+    
+    API_Audit --> GraphService
+    API_Power --> ComputeService
+    API_Intel --> CostService
+    
+    GraphService --> ARG
+    CostService --> ACM
+    ComputeService --> ARM
+    
+    API_Auth --> MySQL
+    API_Power --> MySQL
+```
 
-## Arquitectura de Fases 12-13 (Auditoría Omni-Scan KQL y Motor de Remediación)
-- **Motor Omni-Scan (KQL):** Integración de `@azure/arm-resourcegraph` para ejecutar consultas KQL masivas en paralelo (batching dinámico) a través del tenant, detectando hasta 25 tipos de fugas financieras (desde Snapshots Antiguos hasta VNet Gateways sin uso).
-- **Remediación Automatizada:** SDKs de Azure (`@azure/arm-compute`, `@azure/arm-network`, etc.) cableados para permitir el borrado o la actualización de recursos en un solo clic.
-- **Gestión de Roles Estricta:** El sistema valida dinámicamente si el usuario actual posee rol de `Contributor` o `Owner` sobre la suscripción antes de habilitar el botón de remediación.
-- **Fallback Multi-Tenant:** Si las suscripciones cruzadas fallan (por deshabilitación de CSP), el sistema hace un fallback local silencioso usando las credenciales en caché.
+---
 
-## Arquitectura de Fases 14-16 (Gobernanza de Etiquetas, Dashboard SPA y UI Corporativa)
-- **Layout SPA & Navegación Optimizada:** Refactor completo del `ClientShell` para comportarse como una Single Page Application (SPA), inyectando componentes de Dashboard, Auditoría, y Etiquetas instantáneamente usando el Contexto de React.
-- **Gestión de Etiquetas (Tagging Governance):** Nuevo módulo impulsado por MySQL (`TaggingPolicies`). El backend compara en tiempo real el catálogo entero de Azure Graph contra las reglas obligatorias de negocio (ej. *CostCenter*, *Environment*) y devuelve un *Compliance Score* y las infracciones exactas.
-- **Dashboard Analítico:** Gráfico de Pastel Interactivo (`Recharts`) que dibuja el ecosistema financiero. Al interactuar con el gráfico, inyecta un filtro estricto cruzado a la tabla inferior de recursos.
-- **Corporate Landing Page:** Un escudo de acceso de seguridad antes del Login que utiliza la paleta oficial (Azul #0054A6, Celeste #00AEEF) y tipografías (Montserrat, Open Sans) de CSCloudSolutions para brindar una identidad corporativa pulida.
+## 📂 Project Directory Structure
+
+```text
+src/
+├── app/
+│   ├── [locale]/                 # Rutas de UI Internacionalizadas (App Router)
+│   │   ├── admin/                # Configuración, Onboarding, Workbooks
+│   │   ├── advisor/              # Integración de Azure Advisor
+│   │   ├── cleanup/              # TTL Enforcement & Zombies
+│   │   ├── governance/           # Power Schedules (VMs) y Gestión de Etiquetas
+│   │   ├── intelligence/         # Facturación (Billing), Redes (Network), Rightsizing
+│   │   └── overview/             # Maturity Scoring, Progreso Histórico
+│   │   ├── layout.tsx            # Root Layout (Inyecta Providers y next-intl)
+│   │   └── page.tsx              # Dashboard Principal
+│   └── api/                      # Backend API Routes
+│       ├── admin/
+│       ├── advisor/
+│       ├── audit/
+│       ├── budgets/
+│       ├── cleanup/
+│       ├── consumption/
+│       ├── intelligence/
+│       ├── onboard/
+│       ├── power/
+│       ├── recommendations/
+│       ├── remediation/
+│       ├── subscriptions/
+│       ├── tags/
+│       └── tenants/
+├── components/                   # Componentes React Reusables
+│   ├── dashboard/                # Widgets de métricas, PowerSchedules
+│   ├── layout/                   # Sidebar, Navbar, etc.
+│   └── remediation/              # Modales de confirmación de acciones
+├── context/                      # React Context Providers (ViewMode, etc.)
+├── db/                           # Conexiones y utilidades de Base de Datos
+├── lib/                          # Utilidades Generales (Ej. Script Generator)
+├── services/                     # Lógica de Negocio y Consumo de Azure SDKs
+└── store/                        # Estado global de Zustand (ActionLogs, etc.)
+```
+
+---
+
+## 🔒 Authentication & Least Privilege
+
+El sistema opera un modelo de seguridad multi-nivel estricto:
+
+1. **User Identity**: El acceso de usuarios es manejado vía MSAL (`@azure/msal-react`). Los tokens JWT emitidos validan la identidad de la sesión en todos los llamados a la API en `src/app/api`.
+2. **Service Principal (Platform Agent)**: Los Tenants hacen Onboarding ejecutando un script de PowerShell que crea un **Service Principal Least-Privilege**.
+3. **Role-Based Access Control (RBAC)**:
+   - `Reader`
+   - `Cost Management Reader`
+   - **Custom Remediation Role**: Restringido **EXCLUSIVAMENTE** a las siguientes acciones operacionales:
+     - `Microsoft.Compute/virtualMachines/start/action`
+     - `Microsoft.Compute/virtualMachines/deallocate/action`
+     - `Microsoft.Compute/virtualMachines/restart/action`
+     - `Microsoft.Resources/tags/write`
+     - `Microsoft.Compute/disks/delete`
+     - `Microsoft.Network/networkInterfaces/delete`
+     - `Microsoft.Network/publicIPAddresses/delete`
+
+---
+
+## 🌐 Internacionalización (i18n)
+
+Soportado por `next-intl`. Todo el contenido visible se gestiona dinámicamente mediante diccionarios en la carpeta `/messages`:
+- `es.json` (Default)
+- `en.json` (English)
+- `pt-BR.json` (Português do Brasil)
+
+Cualquier cambio de estructura de UI o adición de páginas debe registrarse en los diccionarios respectivos antes del despliegue.
+
+---
+
+## 📜 Development Protocol
+
+**CRITICAL RULE: From this point forward, every time a new feature is added, an API route is modified, or a component is created, this README.md file MUST be updated to reflect the change. The Project Structure tree and the Mermaid Infrastructure diagram must be regenerated if the architecture changes.**
+
+### The Core Loop
+1. **Directivas (`/directivas/`)**: Antes de cualquier cambio, se consulta y se expande el archivo SOP (Standard Operating Procedure) correspondiente a la tarea.
+2. **Ejecución**: El código debe ser generado y validado contra las reglas establecidas de Arquitectura y TypeScript (`npm run dev`, `npx tsc --noEmit`).
+3. **Registro de Fallos**: Si un llamado a la API de Azure falla, la restricción debe plasmarse en el SOP para que el "Observer" de la plataforma mantenga una memoria viva del error.
+4. **Documentación Automática**: Actualizar SIEMPRE el `README.md` (este documento) como fuente central y unificada de la verdad del ecosistema.

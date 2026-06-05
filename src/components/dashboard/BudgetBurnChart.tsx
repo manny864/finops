@@ -49,7 +49,7 @@ export default function BudgetBurnChart() {
     if (accounts.length === 0 || selectedTenant.id === 'default') return null;
 
     return (
-        <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 mt-6">
+        <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 h-full">
             <h3 className="text-lg font-bold text-gray-800 mb-2">Presupuesto por Centro de Costos</h3>
             <p className="text-sm text-gray-500 mb-4">Muestra el límite asignado vs el gasto amortizado actual.</p>
             

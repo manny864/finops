@@ -2,8 +2,11 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { 
-    LayoutDashboard, 
+    LayoutDashboard,
+    Target,
+    TrendingDown, 
     Lightbulb, 
     PieChart, 
     Zap, 
@@ -15,7 +18,9 @@ import {
     Settings,
     ChevronDown,
     ChevronRight,
-    FileText
+    FileText,
+    BookOpen,
+    Activity
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -24,6 +29,7 @@ interface SidebarProps {
 
 export default function Sidebar({ sidebarOpen }: SidebarProps) {
     const pathname = usePathname();
+    const t = useTranslations('Navigation');
     const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
         visibilidad: true,
         inteligencia: true,
@@ -39,18 +45,21 @@ export default function Sidebar({ sidebarOpen }: SidebarProps) {
     const categories = [
         {
             id: 'visibilidad',
-            title: 'Visibilidad',
+            title: t('visibilidad'),
             items: [
-                { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-                { href: '/advisor', label: 'Azure Advisor', icon: Lightbulb }
+                { href: '/', label: t('dashboard'), icon: LayoutDashboard },
+                { href: '/advisor', label: t('advisor'), icon: Lightbulb },
+                { href: '/overview/maturity', label: t('finops_maturity'), icon: Target },
+                { href: '/overview/progress', label: t('historical_progress'), icon: TrendingDown }
             ]
         },
         {
             id: 'inteligencia',
-            title: 'Inteligencia Financiera',
+            title: t('inteligencia'),
             items: [
-                { href: '/intelligence/billing', label: 'Consumo Real', icon: PieChart },
-                { href: '/intelligence/rightsizing', label: 'Rightsizing', icon: Zap }
+                { href: '/intelligence/billing', label: t('billing'), icon: PieChart },
+                { href: '/intelligence/rightsizing', label: t('rightsizing'), icon: Zap },
+                { href: '/intelligence/network', label: t('network_analytics'), icon: Activity }
             ]
         },
         {
@@ -71,11 +80,12 @@ export default function Sidebar({ sidebarOpen }: SidebarProps) {
         },
         {
             id: 'admin',
-            title: 'Administración',
+            title: t('admin'),
             items: [
                 { href: '/admin/onboarding', label: 'Onboarding Clientes', icon: Users },
                 { href: '/admin/config', label: 'Configuración', icon: Settings },
-                { href: '/admin/report', label: 'Reporte Ejecutivo', icon: FileText }
+                { href: '/admin/report', label: 'Reporte Ejecutivo', icon: FileText },
+                { href: '/admin/workbooks', label: t('workbooks'), icon: BookOpen }
             ]
         }
     ];
