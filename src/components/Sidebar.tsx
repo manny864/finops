@@ -12,8 +12,10 @@ import {
     Tags, 
     Power, 
     Users,
+    Settings,
     ChevronDown,
-    ChevronRight
+    ChevronRight,
+    FileText
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -71,14 +73,16 @@ export default function Sidebar({ sidebarOpen }: SidebarProps) {
             id: 'admin',
             title: 'Administración',
             items: [
-                { href: '/admin/onboarding', label: 'Onboarding Clientes', icon: Users }
+                { href: '/admin/onboarding', label: 'Onboarding Clientes', icon: Users },
+                { href: '/admin/config', label: 'Configuración', icon: Settings },
+                { href: '/admin/report', label: 'Reporte Ejecutivo', icon: FileText }
             ]
         }
     ];
 
     return (
-        <aside className={`${sidebarOpen ? 'w-64' : 'w-20'} bg-white border-r border-gray-200 transition-all duration-300 flex flex-col shadow-sm h-full`}>
-            <div className="h-16 flex items-center justify-center border-b border-gray-200 px-4 shrink-0">
+        <aside className={`${sidebarOpen ? 'w-64' : 'w-20'} bg-white dark:bg-slate-900 border-r border-gray-200 dark:border-slate-800 transition-all duration-300 flex flex-col shadow-sm h-full`}>
+            <div className="h-16 flex items-center justify-center border-b border-gray-200 dark:border-slate-800 px-4 shrink-0">
                 <div className="flex items-center justify-center overflow-hidden w-full h-full">
                     {sidebarOpen ? (
                         <img src="/logo.png" alt="CSCloudSolutions FinOps" className="h-10 w-auto object-contain" />
@@ -121,7 +125,7 @@ export default function Sidebar({ sidebarOpen }: SidebarProps) {
                                             className={`w-full flex items-center px-3 py-2.5 rounded-lg font-medium transition-all duration-200 ${
                                                 isActive 
                                                     ? 'bg-[#0054A6] text-white shadow-md' 
-                                                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                                                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-white'
                                             }`}
                                         >
                                             <Icon className={`flex-shrink-0 ${sidebarOpen ? 'w-5 h-5 mr-3' : 'w-6 h-6 mx-auto'}`} />

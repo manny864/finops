@@ -2,8 +2,12 @@
 import React, { useState, createContext } from 'react';
 import AuthProvider, { AuthButton } from "./AuthProvider";
 import { TenantProvider, useTenant } from './TenantProvider';
+import { ViewModeProvider, useViewMode } from '../context/ViewModeContext';
+import { LayoutTemplate, Code2, Bell } from 'lucide-react';
 import AuthSync from './AuthSync';
 import Sidebar from "./Sidebar";
+import ActionCenterDrawer from './ActionCenterDrawer';
+import { useActionLogStore } from '@/store/actionLogStore';
 
 import { useMsal, useIsAuthenticated } from "@azure/msal-react";
 
@@ -13,17 +17,22 @@ export default function ClientShell({ children }: { children: React.ReactNode })
   return <AuthProvider>
       <AuthSync />
       <TenantProvider>
+        <ViewModeProvider>
         <ShellContent>{children}</ShellContent>
+      </ViewModeProvider>
       </TenantProvider>
     </AuthProvider>;
 }
 
 function ShellContent({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+    const [drawerOpen, setDrawerOpen] = useState(false);
+    const { actions } = useActionLogStore();
   const [activeTab, setActiveTab] = useState('dashboard');
   const { selectedTenant, setSelectedTenant, isAdmin, tenants } = useTenant();
   const { instance, accounts, inProgress } = useMsal();
   const isAuthenticated = useIsAuthenticated();
+  const { viewMode, toggleViewMode } = useViewMode();
 
   const navItems = [
       { id: 'dashboard', label: 'Dashboard', icon: 'M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z' },
@@ -95,22 +104,35 @@ function ShellContent({ children }: { children: React.ReactNode }) {
 
   return (
     <TabContext.Provider value={{ activeTab, setActiveTab }}>
-    <div className="min-h-screen bg-gray-50 flex text-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-950 flex text-gray-900 dark:text-gray-100">
       {/* Sidebar */}
       <Sidebar sidebarOpen={sidebarOpen} />
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 z-10 shadow-sm">
+        <header className="h-16 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 flex items-center justify-between px-6 z-10 shadow-sm">
           <div className="flex items-center">
             <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 mr-4 text-gray-400 hover:text-[#0054A6] transition-colors focus:outline-none">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
             </button>
-            <h1 className="text-xl font-bold text-gray-800 hidden sm:block tracking-tight">Cloud FinOps</h1>
+            <h1 className="text-xl font-bold text-gray-800 dark:text-white hidden sm:block tracking-tight">Cloud FinOps</h1>
           </div>
           
           <div className="flex items-center space-x-6">
-            <div className="hidden md:flex items-center border border-gray-200 rounded-lg px-2 py-1 bg-gray-50 relative">
+                <button 
+                    onClick={() => setDrawerOpen(true)}
+                    className="relative p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors mr-2"
+                >
+                    <Bell className="w-5 h-5" />
+                    {actions.length > 0 && (
+                        <span className="absolute top-1.5 right-1.5 flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                        </span>
+                    )}
+                </button>
+                
+                <div className="hidden md:flex items-center border border-gray-200 dark:border-slate-700 rounded-lg px-2 py-1 bg-gray-50 dark:bg-slate-800 relative">
               {isAdmin ? (
                 <div className="flex flex-col px-2">
                   <label htmlFor="tenant-select" className="text-[10px] text-[#00AEEF] font-bold uppercase tracking-wider mb-1">
@@ -123,7 +145,7 @@ function ShellContent({ children }: { children: React.ReactNode }) {
                       const found = tenants.find(t => t.id === e.target.value);
                       if (found) setSelectedTenant(found);
                     }}
-                    className="text-sm font-semibold text-gray-700 bg-transparent border-none outline-none focus:ring-0 cursor-pointer p-0 m-0"
+                    className="text-sm font-semibold text-gray-700 dark:text-gray-200 bg-transparent dark:bg-slate-800 border-none outline-none focus:ring-0 cursor-pointer p-0 m-0"
                   >
                     {tenants.map(t => (
                       <option key={t.id} value={t.id}>{t.name}</option>
@@ -137,11 +159,30 @@ function ShellContent({ children }: { children: React.ReactNode }) {
                 </div>
               )}
             </div>
+            
+            {/* View Toggle */}
+            <div className="hidden sm:flex items-center bg-gray-100 dark:bg-slate-800 rounded-lg p-1 mr-4 border border-gray-200 dark:border-slate-700">
+                <button
+                    onClick={() => viewMode !== 'executive' && toggleViewMode()}
+                    className={`flex items-center px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${viewMode === 'executive' ? 'bg-white shadow-sm text-indigo-700' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                    <LayoutTemplate className="w-4 h-4 mr-1.5" />
+                    Ejecutivo
+                </button>
+                <button
+                    onClick={() => viewMode !== 'engineer' && toggleViewMode()}
+                    className={`flex items-center px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${viewMode === 'engineer' ? 'bg-gray-800 shadow-sm text-green-400' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                    <Code2 className="w-4 h-4 mr-1.5" />
+                    Ingeniero
+                </button>
+            </div>
+            
             <AuthButton />
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto bg-gray-50/50 p-6">
+        <main className="flex-1 overflow-y-auto bg-gray-50/50 dark:bg-slate-950/50 p-6">
           {children}
         </main>
       </div>

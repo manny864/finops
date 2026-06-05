@@ -127,7 +127,7 @@ export default function Home() {
 
   return (
     <div className="flex flex-col gap-8 animate-in fade-in duration-500">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-gray-200 pb-4 gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-gray-200 dark:border-gray-800 pb-4 gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Dashboard General</h1>
           <p className="text-sm text-gray-500 mt-1">Visión global de rendimiento y eficiencia en la nube.</p>

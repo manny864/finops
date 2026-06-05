@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { Montserrat, Open_Sans } from "next/font/google";
 import "./globals.css";
+import { Toaster } from 'sonner';
+import { ThemeProvider } from "@/components/ThemeProvider";
 import ClientShell from "@/components/ClientShell";
+import CommandPalette from "@/components/CommandPalette";
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -24,11 +27,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className={`${montserrat.variable} ${openSans.variable}`}>
+    <html lang="es" suppressHydrationWarning className={`${montserrat.variable} ${openSans.variable}`}>
       <body className="font-sans antialiased text-gray-900 bg-gray-50">
-        <ClientShell>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <Toaster richColors position="bottom-right" theme="system" />
+          <ClientShell>
+          <CommandPalette />
           {children}
         </ClientShell>
+          </ThemeProvider>
       </body>
     </html>
   );

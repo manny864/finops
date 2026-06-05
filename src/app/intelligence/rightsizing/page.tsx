@@ -1,10 +1,12 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { useTenant } from "@/components/TenantProvider";
+import { useViewMode } from "@/context/ViewModeContext";
 import { Zap, AlertTriangle, ArrowRight, CheckCircle } from "lucide-react";
 
 export default function RightsizingPage() {
   const { selectedTenant } = useTenant();
+  const { viewMode } = useViewMode();
   const [vms, setVms] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -98,6 +100,7 @@ export default function RightsizingPage() {
                     <thead className="bg-gray-50">
                         <tr>
                             <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Nombre de VM</th>
+                            {viewMode === 'engineer' && <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Raw ARM ID</th>}
                             <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">SKU Actual</th>
                             <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Pico Máx. CPU (14 días)</th>
                             <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">SKU Recomendado</th>
@@ -111,6 +114,11 @@ export default function RightsizingPage() {
                                     <AlertTriangle className="w-4 h-4 text-amber-500 mr-2" />
                                     {vm.name}
                                 </td>
+                                {viewMode === 'engineer' && (
+                                    <td className="px-6 py-4 whitespace-nowrap text-xs font-mono text-gray-400 max-w-xs truncate" title={vm.id}>
+                                        {vm.id}
+                                    </td>
+                                )}
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                                     <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded border border-gray-200 font-mono text-xs">
                                         {vm.currentSku}
