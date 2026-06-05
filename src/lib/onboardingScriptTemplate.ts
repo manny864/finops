@@ -1,4 +1,9 @@
 export function generateOnboardingScript(clientTenantId: string, subscriptionId: string): string {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(clientTenantId) || !uuidRegex.test(subscriptionId)) {
+        throw new Error("Invalid ID format");
+    }
+
     return `# ==============================================================================
 # CSCloudSolutions FinOps Agent - Onboarding Script (PowerShell / Azure Cloud Shell)
 # ==============================================================================

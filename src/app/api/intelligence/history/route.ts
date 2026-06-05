@@ -80,8 +80,7 @@ export async function POST(request: NextRequest) {
 
         // Insert or update for the day
         await db.query(
-            "INSERT INTO SavingsHistory (tenant_id, scan_date, total_wasted_usd, potential_savings_usd) VALUES (?, ?, ?, ?) " +
-            "ON DUPLICATE KEY UPDATE total_wasted_usd = VALUES(total_wasted_usd), potential_savings_usd = VALUES(potential_savings_usd)",
+            `INSERT INTO SavingsHistory (tenant_id, scan_date, total_wasted_usd, potential_savings_usd) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE total_wasted_usd = VALUES(total_wasted_usd), potential_savings_usd = VALUES(potential_savings_usd)`,
             [tenantId, today, body.total_wasted_usd, body.potential_savings_usd]
         );
 
