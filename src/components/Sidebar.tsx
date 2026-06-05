@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
     LayoutDashboard,
-    Target, 
+    Target,
+    TrendingDown, 
     Lightbulb, 
     PieChart, 
     Zap, 
@@ -46,7 +47,8 @@ export default function Sidebar({ sidebarOpen }: SidebarProps) {
             items: [
                 { href: '/', label: 'Dashboard', icon: LayoutDashboard },
                 { href: '/advisor', label: 'Azure Advisor', icon: Lightbulb },
-                { href: '/overview/maturity', label: 'Madurez FinOps', icon: Target }
+                { href: '/overview/maturity', label: 'Madurez FinOps', icon: Target },
+                { href: '/overview/progress', label: 'Progreso Histórico', icon: TrendingDown }
             ]
         },
         {
