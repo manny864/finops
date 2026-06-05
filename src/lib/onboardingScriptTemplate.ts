@@ -22,13 +22,10 @@ $ClientId = $sp.AppId
 $spId = $sp.Id
 
 Write-Host "2. Generando Client Secret seguro..." -ForegroundColor Cyan
-$secretParams = @{
-    ObjectId = $sp.Id
-    DisplayName = "FinOpsAutomationSecret"
-    StartDate = (Get-Date)
-    EndDate = (Get-Date).AddYears(2)
-}
-$secret = New-AzADAppCredential @secretParams
+# New-AzADAppCredential must target the Application Object ID, not the SP.
+# Also, -DisplayName can conflict with other parameter sets.
+$app = Get-AzADApplication -AppId $sp.AppId
+$secret = New-AzADAppCredential -ObjectId $app.Id -StartDate (Get-Date) -EndDate (Get-Date).AddYears(2)
 $ClientSecret = $secret.SecretText
 
 Write-Host "3. Asignando Roles Incorporados (Reader & Cost Management Reader)..." -ForegroundColor Cyan
