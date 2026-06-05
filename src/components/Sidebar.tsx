@@ -17,7 +17,8 @@ import {
     ChevronDown,
     ChevronRight,
     FileText,
-    BookOpen
+    BookOpen,
+    Activity
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -53,7 +54,8 @@ export default function Sidebar({ sidebarOpen }: SidebarProps) {
             title: 'Inteligencia Financiera',
             items: [
                 { href: '/intelligence/billing', label: 'Consumo Real', icon: PieChart },
-                { href: '/intelligence/rightsizing', label: 'Rightsizing', icon: Zap }
+                { href: '/intelligence/rightsizing', label: 'Rightsizing', icon: Zap },
+                { href: '/intelligence/network', label: 'Análisis de Red', icon: Activity }
             ]
         },
         {
