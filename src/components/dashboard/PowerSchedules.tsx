@@ -36,10 +36,10 @@ export default function PowerSchedules() {
                     headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
                 });
                 const json = await res.json();
-                if (json.auditResults && json.auditResults.devVirtualMachines) {
-                    setVms(json.auditResults.devVirtualMachines);
+                if (json.auditResults && json.auditResults.allVirtualMachines) {
+                    setVms(json.auditResults.allVirtualMachines);
                     // Select all by default
-                    setSelectedVmIds(json.auditResults.devVirtualMachines.map((vm: any) => vm.id));
+                    setSelectedVmIds(json.auditResults.allVirtualMachines.map((vm: any) => vm.id));
                 } else {
                     setVms([]);
                     setSelectedVmIds([]);
@@ -113,13 +113,16 @@ export default function PowerSchedules() {
             <div className="bg-gray-50 p-4 rounded-md border border-gray-200 mb-6 flex flex-col md:flex-row items-end gap-4">
                 <div className="w-full md:w-1/3">
                     <label className="block text-xs font-medium text-gray-700 mb-1">Nombre de la Máquina</label>
-                    <input 
-                        type="text" 
+                    <select
                         value={scheduleVmName}
                         onChange={(e) => setScheduleVmName(e.target.value)}
-                        placeholder="ej. vm-dev-linux-01" 
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                    />
+                        className="w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    >
+                        <option value="">-- Seleccionar Máquina --</option>
+                        {vms.map(vm => (
+                            <option key={vm.id} value={vm.name}>{vm.name} ({vm.resourceGroup})</option>
+                        ))}
+                    </select>
                 </div>
                 <div className="w-full md:w-1/4">
                     <label className="block text-xs font-medium text-gray-700 mb-1">Hora de Apagado Automático</label>
@@ -137,14 +140,42 @@ export default function PowerSchedules() {
                         onChange={(e) => setGmtOffset(e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                     >
+                        <option value="-12:00">GMT-12:00</option>
+                        <option value="-11:00">GMT-11:00</option>
+                        <option value="-10:00">GMT-10:00</option>
+                        <option value="-09:00">GMT-09:00</option>
                         <option value="-08:00">GMT-08:00 (PST)</option>
                         <option value="-07:00">GMT-07:00 (MST)</option>
                         <option value="-06:00">GMT-06:00 (CST)</option>
                         <option value="-05:00">GMT-05:00 (EST/COT)</option>
-                        <option value="-04:00">GMT-04:00 (AST/BOT)</option>
-                        <option value="-03:00">GMT-03:00 (ART)</option>
+                        <option value="-04:00">GMT-04:00 (AST)</option>
+                        <option value="-03:30">GMT-03:30</option>
+                        <option value="-03:00">GMT-03:00 (ART/BRT)</option>
+                        <option value="-02:00">GMT-02:00</option>
+                        <option value="-01:00">GMT-01:00</option>
                         <option value="+00:00">GMT+00:00 (UTC)</option>
                         <option value="+01:00">GMT+01:00 (CET)</option>
+                        <option value="+02:00">GMT+02:00</option>
+                        <option value="+03:00">GMT+03:00</option>
+                        <option value="+03:30">GMT+03:30</option>
+                        <option value="+04:00">GMT+04:00</option>
+                        <option value="+04:30">GMT+04:30</option>
+                        <option value="+05:00">GMT+05:00</option>
+                        <option value="+05:30">GMT+05:30</option>
+                        <option value="+05:45">GMT+05:45</option>
+                        <option value="+06:00">GMT+06:00</option>
+                        <option value="+06:30">GMT+06:30</option>
+                        <option value="+07:00">GMT+07:00</option>
+                        <option value="+08:00">GMT+08:00</option>
+                        <option value="+08:45">GMT+08:45</option>
+                        <option value="+09:00">GMT+09:00 (JST)</option>
+                        <option value="+09:30">GMT+09:30</option>
+                        <option value="+10:00">GMT+10:00 (AEST)</option>
+                        <option value="+10:30">GMT+10:30</option>
+                        <option value="+11:00">GMT+11:00</option>
+                        <option value="+12:00">GMT+12:00</option>
+                        <option value="+13:00">GMT+13:00</option>
+                        <option value="+14:00">GMT+14:00</option>
                     </select>
                 </div>
                 <div className="w-full md:w-auto">
@@ -162,7 +193,7 @@ export default function PowerSchedules() {
             {loading ? (
                 <div className="text-sm text-gray-400 animate-pulse">Cargando VMs...</div>
             ) : vms.length === 0 ? (
-                <div className="text-sm text-gray-500">No se encontraron VMs etiquetadas como Dev o Test.</div>
+                <div className="text-sm text-gray-500">No se encontraron máquinas virtuales en el tenant.</div>
             ) : (
                 <>
                     <div className="flex gap-4 mb-4">
