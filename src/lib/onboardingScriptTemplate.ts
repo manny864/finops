@@ -43,7 +43,11 @@ $roleDef.Description = "Permite a CSCloudSolutions ejecutar acciones limitadas d
 $roleDef.Actions.Clear()
 $roleDef.Actions.Add("Microsoft.Compute/virtualMachines/deallocate/action")
 $roleDef.Actions.Add("Microsoft.Compute/virtualMachines/start/action")
+$roleDef.Actions.Add("Microsoft.Compute/virtualMachines/restart/action")
 $roleDef.Actions.Add("Microsoft.Resources/tags/write")
+$roleDef.Actions.Add("Microsoft.Compute/disks/delete")
+$roleDef.Actions.Add("Microsoft.Network/networkInterfaces/delete")
+$roleDef.Actions.Add("Microsoft.Network/publicIPAddresses/delete")
 $roleDef.AssignableScopes.Clear()
 $roleDef.AssignableScopes.Add("/subscriptions/$SubscriptionId")
 
