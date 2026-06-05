@@ -3,7 +3,8 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
-    LayoutDashboard, 
+    LayoutDashboard,
+    Target, 
     Lightbulb, 
     PieChart, 
     Zap, 
@@ -42,7 +43,8 @@ export default function Sidebar({ sidebarOpen }: SidebarProps) {
             title: 'Visibilidad',
             items: [
                 { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-                { href: '/advisor', label: 'Azure Advisor', icon: Lightbulb }
+                { href: '/advisor', label: 'Azure Advisor', icon: Lightbulb },
+                { href: '/overview/maturity', label: 'Madurez FinOps', icon: Target }
             ]
         },
         {
