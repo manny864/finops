@@ -23,20 +23,20 @@ export async function GET(request: NextRequest) {
     }
 
     // Mock Scoring Aggregation Function
-    const calculateMaturityScore = () => {
-      // Logic to calculate based on actual audit data would go here
-      // Returning mock data for now
+    const calculateMaturityScore = (tId: string) => {
+      // Deterministic pseudo-random based on tenantId length/chars so it changes per tenant
+      const seed = tId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
       return {
-        overallScore: 58,
+        overallScore: 40 + (seed % 50), // 40-90
         pillars: {
-          ResourceCleanup: 45,
-          TaggingCompliance: 62,
-          CostEfficiency: 68
+          ResourceCleanup: 30 + (seed % 60),
+          TaggingCompliance: 50 + (seed % 45),
+          CostEfficiency: 40 + ((seed*2) % 55)
         }
       };
     };
 
-    const maturityData = calculateMaturityScore();
+    const maturityData = calculateMaturityScore(tenantId);
 
     return NextResponse.json({ data: maturityData });
 
