@@ -16,7 +16,8 @@ import {
     Settings,
     ChevronDown,
     ChevronRight,
-    FileText
+    FileText,
+    BookOpen
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -77,7 +78,8 @@ export default function Sidebar({ sidebarOpen }: SidebarProps) {
             items: [
                 { href: '/admin/onboarding', label: 'Onboarding Clientes', icon: Users },
                 { href: '/admin/config', label: 'Configuración', icon: Settings },
-                { href: '/admin/report', label: 'Reporte Ejecutivo', icon: FileText }
+                { href: '/admin/report', label: 'Reporte Ejecutivo', icon: FileText },
+                { href: '/admin/workbooks', label: 'Artefactos y Workbooks', icon: BookOpen }
             ]
         }
     ];

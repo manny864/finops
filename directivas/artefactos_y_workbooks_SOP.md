@@ -1,0 +1,1 @@
+# Artefactos y Workbooks SOP\n\n## Objetivo\nDesplegar Azure Workbooks pre-compilados en el entorno del cliente usando la UI.\n\n## Restricciones/Casos Borde\n- Validar el token y tenantId en el endpoint API.\n- Manejar el despliegue de ARM templates a nivel del Resource Group especificado.\n- Usar `sonner` toast para el feedback al usuario.\n
