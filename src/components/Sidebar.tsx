@@ -14,7 +14,8 @@ import {
     Users,
     Settings,
     ChevronDown,
-    ChevronRight
+    ChevronRight,
+    FileText
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -73,7 +74,8 @@ export default function Sidebar({ sidebarOpen }: SidebarProps) {
             title: 'Administración',
             items: [
                 { href: '/admin/onboarding', label: 'Onboarding Clientes', icon: Users },
-                { href: '/admin/config', label: 'Configuración', icon: Settings }
+                { href: '/admin/config', label: 'Configuración', icon: Settings },
+                { href: '/admin/report', label: 'Reporte Ejecutivo', icon: FileText }
             ]
         }
     ];

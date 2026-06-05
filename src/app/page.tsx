@@ -7,7 +7,6 @@ import ZombieResourcesTable from "@/components/ZombieResourcesTable";
 import TagManager from "@/components/TagManager";
 import CostPieChart from "@/components/CostPieChart";
 import AdvisorPanel from "@/components/AdvisorPanel";
-import PdfExportButton from "@/components/PdfExportButton";
 import PowerSchedules from "@/components/dashboard/PowerSchedules";
 import BudgetBurnChart from "@/components/dashboard/BudgetBurnChart";
 import RightsizingBlade from "@/components/dashboard/RightsizingBlade";
@@ -128,12 +127,7 @@ export default function Home() {
 
   return (
     <div className="flex flex-col gap-8 animate-in fade-in duration-500">
-      <div className="flex justify-end w-full">
-          <PdfExportButton targetId="pdf-export-area" tenantName={selectedTenant.name || 'Global'} />
-      </div>
-      
-      <div id="pdf-export-area" className="flex flex-col gap-8 bg-transparent p-2">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-gray-200 dark:border-gray-800 pb-4 gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-gray-200 dark:border-gray-800 pb-4 gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Dashboard General</h1>
           <p className="text-sm text-gray-500 mt-1">Visión global de rendimiento y eficiencia en la nube.</p>
@@ -186,7 +180,6 @@ export default function Home() {
         
         <BudgetBurnChart />
         </div>
-      </div>
       </div>
 
       {selectedCategory && (

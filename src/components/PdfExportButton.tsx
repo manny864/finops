@@ -1,9 +1,10 @@
 "use client";
 import React, { useState } from 'react';
 import { FileDown, Loader2 } from 'lucide-react';
-import html2canvas from 'html2canvas';
+import { toPng } from 'html-to-image';
 import jsPDF from 'jspdf';
 import { toast } from 'sonner';
+import { useActionLogStore } from '@/store/actionLogStore';
 
 interface PdfExportButtonProps {
     targetId: string;
@@ -12,6 +13,7 @@ interface PdfExportButtonProps {
 
 export default function PdfExportButton({ targetId, tenantName }: PdfExportButtonProps) {
     const [loading, setLoading] = useState(false);
+    const { addAction } = useActionLogStore();
 
     const handleExport = async () => {
         setLoading(true);
@@ -19,9 +21,11 @@ export default function PdfExportButton({ targetId, tenantName }: PdfExportButto
             const element = document.getElementById(targetId);
             if (!element) throw new Error("Área de exportación no encontrada en el DOM.");
 
-            // Aumentar la escala para asegurar textos legibles
-            const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
-            const imgData = canvas.toDataURL('image/png');
+            // Usar html-to-image en lugar de html2canvas para soportar Tailwind V4 (lab/oklch)
+            const imgData = await toPng(element, { 
+                backgroundColor: '#ffffff',
+                pixelRatio: 2 // Mayor calidad
+            });
 
             const pdf = new jsPDF({
                 orientation: 'portrait',
@@ -43,7 +47,13 @@ export default function PdfExportButton({ targetId, tenantName }: PdfExportButto
 
             // Calcular dimensiones respetando márgenes
             const pdfWidth = pdf.internal.pageSize.getWidth() - 30; // 15mm por lado
-            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+            
+            // Cargar imagen temporal para sacar sus medidas
+            const img = new Image();
+            img.src = imgData;
+            await new Promise((resolve) => { img.onload = resolve; });
+            
+            const pdfHeight = (img.height * pdfWidth) / img.width;
 
             // Insertar captura del dashboard
             pdf.addImage(imgData, 'PNG', 15, 45, pdfWidth, pdfHeight);
@@ -52,10 +62,12 @@ export default function PdfExportButton({ targetId, tenantName }: PdfExportButto
             const filename = `${tenantName.replace(/\s+/g, '_')}_Executive_Report.pdf`;
             pdf.save(filename);
             
-            toast.success("Reporte Ejecutivo descargado exitosamente", { description: filename });
-        } catch (error) {
+            toast.success("Reporte Ejecutivo descargado", { description: filename });
+            addAction({ message: `Reporte Ejecutivo PDF generado exitosamente.`, status: 'success' });
+        } catch (error: any) {
             console.error(error);
-            toast.error("Fallo de renderizado", { description: "No se pudo generar el documento PDF." });
+            toast.error("Fallo de renderizado", { description: error.message || "No se pudo generar el documento PDF." });
+            addAction({ message: `Fallo al generar el PDF: ${error.message}`, status: 'error' });
         } finally {
             setLoading(false);
         }
@@ -68,7 +80,7 @@ export default function PdfExportButton({ targetId, tenantName }: PdfExportButto
             className="flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-md shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed ml-auto"
         >
             {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileDown className="w-4 h-4 mr-2" />}
-            {loading ? 'Renderizando PDF...' : 'Descargar Reporte Ejecutivo (PDF)'}
+            {loading ? 'Renderizando PDF...' : 'Generar Reporte Ejecutivo (PDF)'}
         </button>
     );
 }
