@@ -14,6 +14,13 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ success: true, data });
     } catch (error: any) {
         console.error('Billing API Error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        let errorCode = 'ERR_INTERNAL_SERVER';
+        const msg = (error.message || '').toLowerCase();
+        if (error.code === 'AuthorizationFailed' || error.statusCode === 403 || msg.includes('authorization')) {
+            errorCode = 'ERR_INSUFFICIENT_PERMISSIONS';
+        } else if (error.statusCode === 429 || msg.includes('too many requests') || msg.includes('throttl')) {
+            errorCode = 'ERR_COST_API_THROTTLED';
+        }
+        return NextResponse.json({ error: errorCode }, { status: error.statusCode || 500 });
     }
 }

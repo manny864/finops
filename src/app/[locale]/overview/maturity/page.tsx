@@ -2,11 +2,13 @@
 import React, { useEffect, useState } from 'react';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
-import { Target, TrendingUp, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
+import { Target, TrendingUp, AlertTriangle, CheckCircle2, Loader2, Info, Eye, DollarSign, Settings } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 export default function MaturityPage() {
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
+    const t = useTranslations("Maturity");
     const [loading, setLoading] = useState(false);
     const [scoreData, setScoreData] = useState<any>(null);
 
@@ -52,9 +54,15 @@ export default function MaturityPage() {
         );
     }
 
-
-
     const phase = scoreData ? getPhaseInfo((scoreData?.overallScore || 0)) : getPhaseInfo(0);
+
+    const pillars = [
+        { key: "VisibilityAndAllocation", icon: Eye, score: scoreData?.pillars?.VisibilityAndAllocation || 0 },
+        { key: "UsageOptimization", icon: AlertTriangle, score: scoreData?.pillars?.UsageOptimization || 0 },
+        { key: "RateOptimization", icon: TrendingUp, score: scoreData?.pillars?.RateOptimization || 0 },
+        { key: "ForecastingAndBudgeting", icon: DollarSign, score: scoreData?.pillars?.ForecastingAndBudgeting || 0 },
+        { key: "GovernanceAndAutomation", icon: Settings, score: scoreData?.pillars?.GovernanceAndAutomation || 0 }
+    ];
 
     return (
         <div className="max-w-6xl mx-auto animate-in fade-in duration-500">
@@ -65,13 +73,12 @@ export default function MaturityPage() {
                 </h1>
                 <p className="text-gray-500 dark:text-gray-400 mt-2">Alineación con el framework de la FinOps Foundation.</p>
             </div>
-
             
             <div className="relative">
                 {(loading || !scoreData) && (
                     <div className="absolute inset-0 bg-white/60 dark:bg-slate-900/60 z-50 flex flex-col items-center justify-center rounded-2xl backdrop-blur-sm">
                         <Loader2 className="w-10 h-10 text-indigo-600 animate-spin mb-4" />
-                        <span className="text-lg font-semibold text-gray-700 dark:text-gray-300">Procesando telemetría del cliente...</span>
+                        <span className="text-lg font-semibold text-gray-700 dark:text-gray-300">Procesando telemetría...</span>
                     </div>
                 )}
                 <div className={`grid grid-cols-1 lg:grid-cols-3 gap-8 ${(loading || !scoreData) ? 'opacity-50 pointer-events-none' : ''}`}>
@@ -91,68 +98,45 @@ export default function MaturityPage() {
                         </div>
                     </div>
 
-                    <div className={`mt-8 px-6 py-2 rounded-full border flex items-center font-bold uppercase tracking-widest ${phase.bg} ${phase.color}`}>
+                    <div className={`mt-8 px-6 py-2 rounded-full border flex items-center font-bold uppercase tracking-widest relative group ${phase.bg} ${phase.color}`}>
                         Fase Actual: {phase.label}
+                        <Info className="w-4 h-4 ml-2 cursor-pointer opacity-70 hover:opacity-100" />
+                        {/* Tooltip Phase */}
+                        <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 w-64 bg-gray-900 text-white text-xs rounded py-2 px-3 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
+                            {t('info_phase')}
+                        </div>
                     </div>
                 </div>
 
                 {/* Pillars Breakdown Section */}
-                <div className="lg:col-span-2 flex flex-col gap-6">
-                    <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200">Desglose por Pilares</h3>
+                <div className="lg:col-span-2 flex flex-col gap-4">
+                    <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200">Desglose por Pilares FinOps</h3>
                     
-                    {/* Pillar: Limpieza de Recursos */}
-                    <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-6 transition-all hover:shadow-md">
-                        <div className="flex justify-between items-center mb-4">
-                            <div className="flex items-center">
-                                <AlertTriangle className={`w-5 h-5 mr-3 ${(scoreData?.pillars?.ResourceCleanup || 0) < 50 ? 'text-red-500' : 'text-indigo-500'}`} />
-                                <div>
-                                    <h4 className="font-bold text-gray-900 dark:text-white">Limpieza de Recursos</h4>
-                                    <p className="text-xs text-gray-500">Recursos huérfanos, zombies y desasociados.</p>
+                    {pillars.map(pillar => (
+                        <div key={pillar.key} className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-4 transition-all hover:shadow-md">
+                            <div className="flex justify-between items-center mb-3">
+                                <div className="flex items-center">
+                                    <pillar.icon className={`w-5 h-5 mr-3 ${pillar.score < 50 ? 'text-red-500' : 'text-indigo-500'}`} />
+                                    <div className="flex items-center group relative">
+                                        <h4 className="font-bold text-gray-900 dark:text-white cursor-pointer hover:underline">{t(pillar.key)}</h4>
+                                        <Info className="w-4 h-4 ml-2 text-gray-400 cursor-pointer" />
+                                        
+                                        {/* Tooltip Pillar */}
+                                        <div className="absolute bottom-full mb-2 left-0 w-64 bg-gray-900 text-white text-xs rounded py-2 px-3 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
+                                            {t(`info_${pillar.key}`)}
+                                        </div>
+                                    </div>
                                 </div>
+                                <span className="text-xl font-black text-gray-700 dark:text-gray-300">{pillar.score}%</span>
                             </div>
-                            <span className="text-2xl font-black text-gray-700 dark:text-gray-300">{(scoreData?.pillars?.ResourceCleanup || 0)}%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-3">
-                            <div className={`h-3 rounded-full ${(scoreData?.pillars?.ResourceCleanup || 0) < 50 ? 'bg-red-500' : 'bg-indigo-500'}`} style={{ width: `${(scoreData?.pillars?.ResourceCleanup || 0)}%` }}></div>
-                        </div>
-                    </div>
-
-                    {/* Pillar: Cumplimiento de Etiquetas */}
-                    <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-6 transition-all hover:shadow-md">
-                        <div className="flex justify-between items-center mb-4">
-                            <div className="flex items-center">
-                                <CheckCircle2 className={`w-5 h-5 mr-3 ${(scoreData?.pillars?.TaggingCompliance || 0) < 50 ? 'text-red-500' : 'text-indigo-500'}`} />
-                                <div>
-                                    <h4 className="font-bold text-gray-900 dark:text-white">Cumplimiento de Etiquetas</h4>
-                                    <p className="text-xs text-gray-500">Etiquetado de Cost Center, Owner y Environment.</p>
-                                </div>
+                            <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2">
+                                <div className={`h-2 rounded-full ${pillar.score < 50 ? 'bg-red-500' : 'bg-indigo-500'}`} style={{ width: `${pillar.score}%` }}></div>
                             </div>
-                            <span className="text-2xl font-black text-gray-700 dark:text-gray-300">{(scoreData?.pillars?.TaggingCompliance || 0)}%</span>
                         </div>
-                        <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-3">
-                            <div className={`h-3 rounded-full ${(scoreData?.pillars?.TaggingCompliance || 0) < 50 ? 'bg-red-500' : 'bg-indigo-500'}`} style={{ width: `${(scoreData?.pillars?.TaggingCompliance || 0)}%` }}></div>
-                        </div>
-                    </div>
-
-                    {/* Pillar: Eficiencia de Costos */}
-                    <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-6 transition-all hover:shadow-md">
-                        <div className="flex justify-between items-center mb-4">
-                            <div className="flex items-center">
-                                <TrendingUp className={`w-5 h-5 mr-3 ${(scoreData?.pillars?.CostEfficiency || 0) < 50 ? 'text-red-500' : 'text-indigo-500'}`} />
-                                <div>
-                                    <h4 className="font-bold text-gray-900 dark:text-white">Eficiencia de Costos</h4>
-                                    <p className="text-xs text-gray-500">Rightsizing y planes de ahorro.</p>
-                                </div>
-                            </div>
-                            <span className="text-2xl font-black text-gray-700 dark:text-gray-300">{(scoreData?.pillars?.CostEfficiency || 0)}%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-3">
-                            <div className={`h-3 rounded-full ${(scoreData?.pillars?.CostEfficiency || 0) < 50 ? 'bg-red-500' : 'bg-indigo-500'}`} style={{ width: `${(scoreData?.pillars?.CostEfficiency || 0)}%` }}></div>
-                        </div>
-                    </div>
-                </div>
+                    ))}
                 </div>
             </div>
         </div>
+    </div>
     );
 }

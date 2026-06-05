@@ -19,7 +19,22 @@ const TenantContext = createContext<TenantContextType | undefined>(undefined);
 export function TenantProvider({ children }: { children: React.ReactNode }) {
   const { accounts } = useMsal();
   const [tenantsList, setTenantsList] = useState<Tenant[]>([{ id: 'default', name: 'Cargando entornos...' }]);
-  const [selectedTenant, setSelectedTenant] = useState<Tenant>(tenantsList[0]);
+  const [selectedTenant, setSelectedTenant] = useState<Tenant>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('finops_active_tenant');
+      if (saved) {
+        try { return JSON.parse(saved); } catch(e) {}
+      }
+    }
+    return { id: 'default', name: 'Cargando entornos...' };
+  });
+
+  // Sync to localStorage
+  useEffect(() => {
+    if (selectedTenant.id !== 'default') {
+      localStorage.setItem('finops_active_tenant', JSON.stringify(selectedTenant));
+    }
+  }, [selectedTenant]);
   const [isAdmin, setIsAdmin] = useState(false);
 
   // Leer Base de Datos MySQL
@@ -43,7 +58,7 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
       const isAdminUser = username.toLowerCase().endsWith("@cscloudsolutions.com.ar");
       setIsAdmin(isAdminUser);
       
-      // Lógica de fallback robusta
+      // Lógica de fallback robusta si no hay nada en localStorage
       if (selectedTenant.id === 'default') {
           if (!isAdminUser) {
               // Cliente normal: siempre usar su propio tenant (ignora si MySQL está atrasado)

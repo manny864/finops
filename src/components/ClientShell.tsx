@@ -46,7 +46,10 @@ function ShellContent({ children }: { children: React.ReactNode }) {
 
   if (!isAuthenticated && inProgress !== "startup" && inProgress !== "handleRedirect") {
       return (
-          <div className="min-h-screen bg-[#FFFFFF] flex flex-col justify-center py-12 sm:px-6 lg:px-8" style={{ fontFamily: 'var(--font-opensans), sans-serif' }}>
+          <div className="min-h-screen bg-[#FFFFFF] flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative" style={{ fontFamily: 'var(--font-opensans), sans-serif' }}>
+              <div className="absolute top-4 right-4 z-50">
+                  <LanguageSwitcher />
+              </div>
               <div className="sm:mx-auto sm:w-full sm:max-w-md text-center animate-in fade-in zoom-in duration-500">
                   <img 
                       src="/Logo_Nombre_CSCloudSolutions.avif" 

@@ -24,14 +24,23 @@ export async function GET(request: NextRequest) {
 
     // Mock Scoring Aggregation Function
     const calculateMaturityScore = (tId: string) => {
-      // Deterministic pseudo-random based on tenantId length/chars so it changes per tenant
       const seed = tId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+      const VisibilityAndAllocation = 40 + (seed % 60);
+      const UsageOptimization = 30 + (seed % 70);
+      const RateOptimization = 20 + ((seed*2) % 80);
+      const ForecastingAndBudgeting = 50 + (seed % 50);
+      const GovernanceAndAutomation = 45 + ((seed*3) % 55);
+      
+      const overallScore = Math.floor((VisibilityAndAllocation + UsageOptimization + RateOptimization + ForecastingAndBudgeting + GovernanceAndAutomation) / 5);
+
       return {
-        overallScore: 40 + (seed % 50), // 40-90
+        overallScore,
         pillars: {
-          ResourceCleanup: 30 + (seed % 60),
-          TaggingCompliance: 50 + (seed % 45),
-          CostEfficiency: 40 + ((seed*2) % 55)
+          VisibilityAndAllocation,
+          UsageOptimization,
+          RateOptimization,
+          ForecastingAndBudgeting,
+          GovernanceAndAutomation
         }
       };
     };

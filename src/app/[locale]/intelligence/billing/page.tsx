@@ -7,8 +7,12 @@ import {
 } from 'recharts';
 import { PieChart, DollarSign, Activity } from "lucide-react";
 
+import { useTranslations } from 'next-intl';
+import { toast } from 'sonner';
+
 export default function BillingPage() {
   const { selectedTenant } = useTenant();
+  const t = useTranslations();
   const [data, setData] = useState<{costByService: any[], dailyTrend: any[], totalCost: number} | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -30,10 +34,13 @@ export default function BillingPage() {
         if (json.success) {
             setData(json.data);
         } else {
-            setError(json.error || "Error al obtener facturación");
+            const errCode = json.error || "ERR_INTERNAL_SERVER";
+            setError(errCode);
+            toast.error(t(errCode));
         }
       } catch(e) {
-          setError("Error de red");
+          setError("ERR_INTERNAL_SERVER");
+          toast.error(t("ERR_INTERNAL_SERVER"));
       }
       setLoading(false);
     };

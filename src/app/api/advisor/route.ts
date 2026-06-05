@@ -6,6 +6,7 @@ import jwt from "jsonwebtoken";
 export async function GET(request: NextRequest) {
   try {
     const tenantId = request.nextUrl.searchParams.get('tenantId');
+    const locale = request.headers.get('accept-language') || 'es';
     if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
 
     const authHeader = request.headers.get("authorization");
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
     // Obtener suscripciones
     const tokenResponse = await credential.getToken("https://management.azure.com/.default");
     const fetchRes = await fetch("https://management.azure.com/subscriptions?api-version=2020-01-01", {
-        headers: { "Authorization": `Bearer ${tokenResponse.token}` }
+        headers: { "Authorization": `Bearer ${tokenResponse.token}`, "Accept-Language": locale }
     });
     
     let subs: any[] = [];
@@ -64,7 +65,7 @@ export async function GET(request: NextRequest) {
         // Extraer Scores REST API
         try {
             const scoreRes = await fetch(`https://management.azure.com/subscriptions/${subId}/providers/Microsoft.Advisor/advisorScores?api-version=2020-01-01`, {
-                headers: { "Authorization": `Bearer ${tokenResponse.token}` }
+                headers: { "Authorization": `Bearer ${tokenResponse.token}`, "Accept-Language": locale }
             });
             if (scoreRes.ok) {
                 const scoreData = await scoreRes.json();
@@ -82,7 +83,7 @@ export async function GET(request: NextRequest) {
         // Extraer Recomendaciones
         try {
             const advisorClient = new AdvisorManagementClient(credential, subId);
-            const recs = advisorClient.recommendations.list();
+            const recs = advisorClient.recommendations.list({ requestOptions: { customHeaders: { 'Accept-Language': locale } } });
             for await (const r of recs) {
                 const cat = r.category;
                 const recWithSub = { ...r, subscriptionId: subId };

@@ -2,11 +2,13 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { useTenant } from './TenantProvider';
+import { useLocale } from 'next-intl';
 import RoleAssignmentBanner from './RoleAssignmentBanner';
 
 export default function AdvisorPanel() {
   const { instance, accounts } = useMsal();
   const { selectedTenant } = useTenant();
+  const locale = useLocale();
   const [data, setData] = useState<any>(null);
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const [scores, setScores] = useState<Record<string, number>>({});
@@ -31,7 +33,7 @@ export default function AdvisorPanel() {
         });
         
         const res = await fetch(`/api/advisor?tenantId=${selectedTenant.id}`, {
-            headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
+            headers: { 'Authorization': `Bearer ${tokenResponse.idToken}`, 'Accept-Language': locale }
         });
         
         const json = await res.json();
@@ -274,7 +276,7 @@ export default function AdvisorPanel() {
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{rec.impactedField || 'Desconocido'}</td>
                                         <td className="px-6 py-4 text-sm text-gray-500 truncate max-w-[150px]">{subscriptions.find(s => s.id === rec.subscriptionId)?.name || rec.subscriptionId}</td>
                                         <td className="px-6 py-4 text-sm text-gray-500">{rec.shortDescription?.problem || 'N/A'}</td>
-                                        <td className="px-6 py-4 text-sm text-gray-500">{rec.shortDescription?.solution || 'Consulte el Portal de Azure'}</td>
+                                        <td className="px-6 py-4 text-sm text-gray-500">{rec.shortDescription?.solution || rec.recommendationType?.name || rec.impact || 'Consulte el Portal de Azure'}</td>
                                     </tr>
                                 ))}
                             </tbody>
