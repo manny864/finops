@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Estructura de token inválida." }, { status: 401 });
         }
 
-        const credential = getAzureCredential(decoded.tid);
+        const credential = await getAzureCredential(decoded.tid);
         const rawCosts = await getNetworkEgressCosts(credential, subscriptionId);
 
         // Process CostManagement Data
@@ -58,6 +58,14 @@ export async function GET(request: NextRequest) {
 
     } catch (error: any) {
         console.error("Network API Error:", error);
-        return NextResponse.json({ error: "Fallo al obtener costos de red." }, { status: 500 });
+        let errorCode = "ERR_INTERNAL_SERVER";
+        let status = 500;
+        
+        const msg = (error.message || "").toLowerCase();
+        if (error.code === "AuthorizationFailed" || error.code === "ScopeNotFound" || msg.includes("authorization") || msg.includes("linkedinvalidpropertyid") || msg.includes("subscriptionnotfound")) {
+            errorCode = "ERR_NETWORK_ACCESS_DENIED";
+            status = 403;
+        }
+        return NextResponse.json({ error: errorCode, message: error.message }, { status });
     }
 }
