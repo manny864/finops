@@ -64,10 +64,13 @@ export default function NetworkAnalyticsPage() {
                 scopes: ["User.Read"],
                 account: accounts[0]
             });
+            const targetSubscription = subscriptions.find(s => s.id === subscriptionId);
+            const targetTenantId = targetSubscription?.tenantId || selectedTenant.id;
+            
             const res = await fetch(`/api/intelligence/network?subscriptionId=${subscriptionId}`, {
                 headers: { 
                     'Authorization': `Bearer ${tokenResponse.idToken}`,
-                    'x-tenant-id': selectedTenant.id
+                    'x-tenant-id': targetTenantId
                 }
             });
             const json = await res.json();

@@ -53,7 +53,8 @@ export async function GET(request: NextRequest) {
     const subscriptions = (data.value || []).map((sub: any) => ({
         id: sub.subscriptionId,
         displayName: sub.displayName,
-        state: sub.state
+        state: sub.state,
+        tenantId: sub.tenantId
     }));
 
     console.log(`[Subscriptions] OK: ${subscriptions.length} suscripciones encontradas`);
