@@ -30,8 +30,9 @@ export default function BudgetBurnChart() {
                     return;
                 }
                 const subId = subJson.subscriptions[0].id;
+                const subTenantId = subJson.subscriptions[0].tenantId || selectedTenant.id;
                 
-                const res = await fetch(`/api/budgets/burn?tenantId=${selectedTenant.id}&subscriptionId=${subId}`, {
+                const res = await fetch(`/api/budgets/burn?tenantId=${subTenantId}&subscriptionId=${subId}`, {
                     headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
                 });
                 const json = await res.json();

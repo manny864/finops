@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import pool from "@/lib/db";
-import { getBudgetConsumption } from "@/services/budgetService";
-import jwt from "jsonwebtoken";
+import { getNativeBudgets } from "@/services/budgetService";
 
 export async function GET(request: NextRequest) {
     try {
@@ -18,21 +16,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "No autorizado." }, { status: 401 });
         }
 
-        const [rows] = await pool.query(
-            "SELECT cost_center_name, monthly_budget_usd FROM CostCenterBudgets WHERE tenant_id = ?",
-            [tenantId]
-        );
-
-        const budgets = rows as any[];
-        
-        const burnData = await Promise.all(budgets.map(async (b) => {
-            const actualCost = await getBudgetConsumption(tenantId, subscriptionId, b.cost_center_name);
-            return {
-                costCenter: b.cost_center_name,
-                budget: parseFloat(b.monthly_budget_usd),
-                actual: actualCost
-            };
-        }));
+        const burnData = await getNativeBudgets(tenantId, subscriptionId);
 
         return NextResponse.json({ burnData });
 

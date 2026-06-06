@@ -7,27 +7,48 @@ import {
 } from 'recharts';
 import { PieChart, DollarSign, Activity } from "lucide-react";
 
+import { useMsal } from '@azure/msal-react';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 
 export default function BillingPage() {
   const { selectedTenant } = useTenant();
+  const { instance, accounts } = useMsal();
   const t = useTranslations();
   const [data, setData] = useState<{costByService: any[], dailyTrend: any[], totalCost: number} | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!selectedTenant || selectedTenant.id === 'default') return;
+    if (!selectedTenant || selectedTenant.id === 'default' || accounts.length === 0) return;
 
     const fetchBilling = async () => {
       setLoading(true);
       setError("");
       try {
+        const tokenResponse = await instance.acquireTokenSilent({
+            scopes: ["User.Read"],
+            account: accounts[0]
+        });
+        
+        const subRes = await fetch(`/api/subscriptions?tenantId=${selectedTenant.id}`, {
+            headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
+        });
+        const subJson = await subRes.json();
+        
+        if (!subJson.subscriptions || subJson.subscriptions.length === 0) {
+            setError("No subscriptions found.");
+            setLoading(false);
+            return;
+        }
+        
+        const subId = subJson.subscriptions[0].id;
+        const subTenantId = subJson.subscriptions[0].tenantId || selectedTenant.id;
+
         const res = await fetch('/api/intelligence/billing', {
             headers: {
-                'x-tenant-id': selectedTenant.id,
-                'x-subscription-id': selectedTenant.id
+                'x-tenant-id': subTenantId,
+                'x-subscription-id': subId
             }
         });
         const json = await res.json();
@@ -46,7 +67,7 @@ export default function BillingPage() {
     };
 
     fetchBilling();
-  }, [selectedTenant]);
+  }, [selectedTenant, accounts, instance]);
 
   if (selectedTenant.id === 'default') return null;
 
