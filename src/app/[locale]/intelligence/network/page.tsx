@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { Activity, AlertTriangle, ArrowDownToLine, Loader2, Search } from 'lucide-react';
@@ -13,10 +13,52 @@ export default function NetworkAnalyticsPage() {
     const [data, setData] = useState<any[]>([]);
     const [subscriptionId, setSubscriptionId] = useState('');
     const [hasAnalyzed, setHasAnalyzed] = useState(false);
+    const [subscriptions, setSubscriptions] = useState<any[]>([]);
+    const [loadingSubs, setLoadingSubs] = useState(false);
+    const [missingConsent, setMissingConsent] = useState(false);
+
+    useEffect(() => {
+        if (!selectedTenant || selectedTenant.id === 'default' || accounts.length === 0) return;
+
+        const fetchSubscriptions = async () => {
+            setLoadingSubs(true);
+            setMissingConsent(false);
+            try {
+                const tokenResponse = await instance.acquireTokenSilent({
+                    scopes: ["User.Read"],
+                    account: accounts[0]
+                });
+                const res = await fetch(`/api/subscriptions?tenantId=${selectedTenant.id}`, {
+                    headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
+                });
+                const json = await res.json();
+                
+                if (json.error === "MISSING_ADMIN_CONSENT") {
+                    setMissingConsent(true);
+                    setLoadingSubs(false);
+                    return;
+                }
+
+                if (json.subscriptions) {
+                    setSubscriptions(json.subscriptions);
+                    if (json.subscriptions.length > 0) {
+                        setSubscriptionId(json.subscriptions[0].id);
+                    }
+                }
+            } catch (e) {
+                console.error("Error fetching subscriptions:", e);
+                toast.error("Error al cargar las suscripciones del tenant.");
+            }
+            setLoadingSubs(false);
+        };
+        fetchSubscriptions();
+        setHasAnalyzed(false);
+        setData([]);
+    }, [selectedTenant.id, accounts, instance]);
 
     const handleAnalyze = async () => {
         if (!subscriptionId) {
-            toast.error("Por favor ingresa un Subscription ID válido.");
+            toast.error("Por favor selecciona una suscripción.");
             return;
         }
         if (accounts.length === 0 || selectedTenant.id === 'default') {
@@ -31,15 +73,25 @@ export default function NetworkAnalyticsPage() {
                 scopes: ["User.Read"],
                 account: accounts[0]
             });
+            const targetSubscription = subscriptions.find(s => s.id === subscriptionId);
+            const targetTenantId = targetSubscription?.tenantId || selectedTenant.id;
+            
             const res = await fetch(`/api/intelligence/network?subscriptionId=${subscriptionId}`, {
-                headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
+                headers: { 
+                    'Authorization': `Bearer ${tokenResponse.idToken}`,
+                    'x-tenant-id': targetTenantId
+                }
             });
             const json = await res.json();
-            if (json.data) {
+            if (res.ok && json.data) {
                 setData(json.data);
-                toast.success("Análisis de red completado.");
+                if (json.data.length === 0) {
+                    toast.info("La suscripción actual no tiene datos o costos recientes de tráfico de red para analizar.");
+                } else {
+                    toast.success("Análisis de red completado.");
+                }
             } else {
-                toast.error(json.error || "Error al analizar la red.");
+                toast.error(json.message || "Error al analizar la red.");
             }
         } catch (e) {
             console.error(e);
@@ -93,20 +145,31 @@ export default function NetworkAnalyticsPage() {
                     <p className="text-gray-500 dark:text-gray-400 mt-2">Identifica y optimiza los costos ocultos de transferencia de datos cruzada y de salida.</p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <input 
-                        type="text" 
+                    <select 
                         value={subscriptionId}
                         onChange={e => setSubscriptionId(e.target.value)}
-                        placeholder="Subscription ID"
+                        disabled={loadingSubs || subscriptions.length === 0}
                         className="w-64 px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                    />
+                    >
+                        {loadingSubs ? (
+                            <option value="">Cargando suscripciones...</option>
+                        ) : subscriptions.length === 0 ? (
+                            <option value="">Sin suscripciones</option>
+                        ) : (
+                            subscriptions.map(sub => (
+                                <option key={sub.id} value={sub.id}>{sub.displayName || sub.id}</option>
+                            ))
+                        )}
+                    </select>
                     <button 
                         onClick={handleAnalyze}
                         disabled={loading}
                         className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md shadow-sm text-sm font-semibold transition-colors disabled:opacity-50 flex items-center"
                     >
-                        {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Search className="w-4 h-4 mr-2" />}
-                        Analizar
+                        <span className="flex items-center justify-center w-4 h-4 mr-2">
+                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                        </span>
+                        <span>Analizar</span>
                     </button>
                 </div>
             </div>
@@ -126,12 +189,12 @@ export default function NetworkAnalyticsPage() {
             </div>
 
             {loading ? (
-                <div className="flex flex-col items-center justify-center h-64 text-gray-400">
+                <div key="state-loading" className="flex flex-col items-center justify-center h-64 text-gray-400">
                     <Loader2 className="w-8 h-8 animate-spin mb-4 text-indigo-500" />
                     Obteniendo métricas de ancho de banda...
                 </div>
             ) : hasAnalyzed ? (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div key="state-analyzed" className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     {/* Pie Chart Card */}
                     <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-6 flex flex-col">
                         <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-6 flex items-center">
@@ -205,7 +268,7 @@ export default function NetworkAnalyticsPage() {
                     </div>
                 </div>
             ) : (
-                <div className="flex flex-col items-center justify-center h-64 border-2 border-dashed border-gray-300 dark:border-slate-700 rounded-lg">
+                <div key="state-empty" className="flex flex-col items-center justify-center h-64 border-2 border-dashed border-gray-300 dark:border-slate-700 rounded-lg">
                     <Activity className="w-12 h-12 text-gray-400 mb-4" />
                     <p className="text-gray-500 dark:text-gray-400 text-center max-w-sm">Ingresa el Subscription ID y presiona Analizar para descubrir costos ocultos de red.</p>
                 </div>

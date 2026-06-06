@@ -26,3 +26,27 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "Fallo al obtener Resource Groups" }, { status: 500 });
     }
 }
+
+export async function POST(req: NextRequest) {
+    try {
+        const body = await req.json();
+        const { tenantId, subscriptionId, rgName, location, tags } = body;
+
+        if (!tenantId || !subscriptionId || !rgName || !location) {
+            return NextResponse.json({ error: "Faltan parámetros requeridos (tenantId, subscriptionId, rgName, location)" }, { status: 400 });
+        }
+
+        const creds = await getAzureCredential(tenantId);
+        const client = new ResourceManagementClient(creds, subscriptionId);
+
+        const result = await client.resourceGroups.createOrUpdate(rgName, {
+            location: location,
+            tags: tags || {}
+        });
+
+        return NextResponse.json({ success: true, resourceGroup: result });
+    } catch (e: any) {
+        console.error("Error creating resource group:", e);
+        return NextResponse.json({ error: e.message || "Error al crear Resource Group" }, { status: 500 });
+    }
+}

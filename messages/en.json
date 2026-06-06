@@ -3,18 +3,18 @@
     "dashboard": "Dashboard",
     "advisor": "Azure Advisor",
     "finops_maturity": "Madurez FinOps",
-    "historical_progress": "Progreso Hist\u00f3rico",
+    "historical_progress": "Progreso Histórico",
     "billing": "Consumo Real",
     "rightsizing": "Rightsizing",
-    "network_analytics": "An\u00e1lisis de Red",
+    "network_analytics": "Análisis de Red",
     "vm_control": "Control de VM",
     "visibilidad": "Visibilidad",
     "inteligencia": "Inteligencia Financiera",
     "limpieza": "Limpieza (TTL)",
     "gobernanza": "Gobernanza Automatizada",
-    "admin": "Administraci\u00f3n",
+    "admin": "Administración",
     "ttl_zombies": "TTL y Zombies",
-    "tag_manager": "Gesti\u00f3n de Etiquetas",
+    "tag_manager": "Gestión de Etiquetas",
     "onboarding": "Onboarding de Clientes",
     "workbooks": "Artefactos y Workbooks",
     "powerbi": "Reportes Power BI"
@@ -25,5 +25,25 @@
     "cancel": "Cancel",
     "analyze": "Analyze",
     "loading": "Loading..."
+  },
+  "ERR_INSUFFICIENT_PERMISSIONS": "Insufficient permissions (Cost Management Reader) on this subscription.",
+  "ERR_COST_API_THROTTLED": "Cost API request limit exceeded. Try again later.",
+  "ERR_INTERNAL_SERVER": "Internal error fetching billing data.",
+  "Maturity": {
+    "VisibilityAndAllocation": "Visibility and Allocation",
+    "UsageOptimization": "Usage Optimization (Zombies)",
+    "RateOptimization": "Rate Optimization (Reservations)",
+    "ForecastingAndBudgeting": "Forecasting and Budgeting",
+    "GovernanceAndAutomation": "Governance and Automation",
+    "info_phase": "FinOps phases (Crawl, Walk, Run) determine your level of cloud practice evolution.",
+    "info_VisibilityAndAllocation": "Measures how well you are tagging and viewing your costs.",
+    "info_UsageOptimization": "Measures how much you are turning off or deleting idle/oversized resources.",
+    "info_RateOptimization": "Measures your reserved instance and savings plan coverage.",
+    "info_ForecastingAndBudgeting": "Measures the accuracy of your budgets vs actual spend.",
+    "info_GovernanceAndAutomation": "Measures how many automated policies you have active."
+  },
+  "governance": {
+    "tagInfoTooltip": "Tag Governance allows you to enforce mandatory tags (e.g., CostCenter, Environment) across all subscriptions to improve cost allocation accuracy.",
+    "tagInputTooltip": "Type the exact name of the tag key you want to make mandatory."
   }
 }

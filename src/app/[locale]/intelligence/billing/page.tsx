@@ -7,39 +7,73 @@ import {
 } from 'recharts';
 import { PieChart, DollarSign, Activity } from "lucide-react";
 
+import { useMsal } from '@azure/msal-react';
+import { useTranslations } from 'next-intl';
+import { toast } from 'sonner';
+
 export default function BillingPage() {
   const { selectedTenant } = useTenant();
+  const { instance, accounts } = useMsal();
+  const t = useTranslations();
   const [data, setData] = useState<{costByService: any[], dailyTrend: any[], totalCost: number} | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!selectedTenant || selectedTenant.id === 'default') return;
+    if (!selectedTenant || selectedTenant.id === 'default' || accounts.length === 0) return;
 
     const fetchBilling = async () => {
       setLoading(true);
       setError("");
       try {
+        const tokenResponse = await instance.acquireTokenSilent({
+            scopes: ["User.Read"],
+            account: accounts[0]
+        });
+        
+        const subRes = await fetch(`/api/subscriptions?tenantId=${selectedTenant.id}`, {
+            headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
+        });
+        const subJson = await subRes.json();
+        
+        if (subJson.error === "MISSING_ADMIN_CONSENT") {
+            setError("MISSING_ADMIN_CONSENT");
+            setLoading(false);
+            return;
+        }
+
+        if (!subJson.subscriptions || subJson.subscriptions.length === 0) {
+            setError("No subscriptions found.");
+            setLoading(false);
+            return;
+        }
+        
+        const subId = subJson.subscriptions[0].id;
+        const subTenantId = subJson.subscriptions[0].tenantId || selectedTenant.id;
+
         const res = await fetch('/api/intelligence/billing', {
             headers: {
-                'x-tenant-id': selectedTenant.id,
-                'x-subscription-id': selectedTenant.id
+                'x-tenant-id': subTenantId,
+                'x-subscription-id': subId
             }
         });
         const json = await res.json();
         if (json.success) {
             setData(json.data);
         } else {
-            setError(json.error || "Error al obtener facturación");
+            const errCode = json.error || "ERR_INTERNAL_SERVER";
+            setError(errCode);
+            toast.error(t(errCode));
         }
       } catch(e) {
-          setError("Error de red");
+          setError("ERR_INTERNAL_SERVER");
+          toast.error(t("ERR_INTERNAL_SERVER"));
       }
       setLoading(false);
     };
 
     fetchBilling();
-  }, [selectedTenant]);
+  }, [selectedTenant, accounts, instance]);
 
   if (selectedTenant.id === 'default') return null;
 
@@ -55,7 +89,26 @@ export default function BillingPage() {
         </div>
       </div>
 
-      {error && (
+      {error === "MISSING_ADMIN_CONSENT" && (
+        <div className="bg-amber-50 border border-amber-200 shadow-sm p-6 rounded-lg mb-6 flex items-start">
+            <div className="flex-shrink-0">
+                <svg className="h-6 w-6 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+            </div>
+            <div className="ml-4 w-full">
+                <h3 className="text-lg font-bold text-gray-900">Falta Admin Consent en el Tenant</h3>
+                <div className="mt-2 text-sm text-gray-600">
+                    <p>La aplicación de CSCloudSolutions no ha sido consentida en este Tenant. Crea el Service Principal en Azure Cloud Shell con el siguiente comando:</p>
+                    <div className="mt-4 p-3 bg-white rounded border border-amber-200 font-mono text-sm text-gray-800 break-all select-all">
+                        az ad sp create --id 876d8a5b-6023-4484-b3ba-73c186e4a72b
+                    </div>
+                </div>
+            </div>
+        </div>
+      )}
+
+      {error && error !== "MISSING_ADMIN_CONSENT" && (
         <div className="bg-white border-l-4 border-amber-500 shadow-sm p-6 rounded-lg mb-6 flex items-start">
             <div className="flex-shrink-0">
                 <svg className="h-6 w-6 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">

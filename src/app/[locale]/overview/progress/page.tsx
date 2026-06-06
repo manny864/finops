@@ -68,6 +68,15 @@ export default function HistoricalProgressPage() {
                     <Loader2 className="w-8 h-8 animate-spin mb-4 text-emerald-500" />
                     Analizando historia de costos...
                 </div>
+            ) : data.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-96 bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm">
+                    <TrendingDown className="w-16 h-16 text-gray-300 dark:text-slate-600 mb-4" />
+                    <h2 className="text-xl font-bold text-gray-500 dark:text-gray-400 mb-2">Sin datos históricos</h2>
+                    <p className="text-sm text-gray-400 dark:text-gray-500 text-center max-w-md">
+                        Aún no se han registrado escaneos de optimización para este Tenant.
+                        Los datos se generarán automáticamente a medida que se ejecuten auditorías de costos.
+                    </p>
+                </div>
             ) : (
                 <>
                     {/* Summary Metric Card */}

@@ -1,30 +1,51 @@
 "use client";
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { useTenant } from './TenantProvider';
 import { useViewMode } from '../context/ViewModeContext';
 import RoleAssignmentBanner from './RoleAssignmentBanner';
 import { toast } from 'sonner';
 import { useActionLogStore } from '@/store/actionLogStore';
+import { useTranslations } from 'next-intl';
+import {
+  useReactTable,
+  getCoreRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  flexRender,
+  ColumnDef,
+  SortingState
+} from '@tanstack/react-table';
 
 export default function ZombieResourcesTable({ forceFilterType }: { forceFilterType?: string }) {
   const { instance, accounts } = useMsal();
   const { selectedTenant } = useTenant();
   const { viewMode } = useViewMode();
   const { addAction } = useActionLogStore();
+  
+  // Translation hook for pagination
+  let t: any = (key: string) => key === 'prev' ? 'Anterior' : 'Siguiente';
+  try {
+    const nextIntl = require('next-intl');
+    if (nextIntl && nextIntl.useTranslations) {
+      t = nextIntl.useTranslations();
+    }
+  } catch (e) {}
+
   const [data, setData] = useState<any[]>([]);
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const [selectedSub, setSelectedSub] = useState<string>("all");
-    const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<string>('all');
   const [filterGroup, setFilterGroup] = useState<string>('all');
   const [filterIssue, setFilterIssue] = useState<string>('all');
-  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>({ key: 'potentialSavings', direction: 'desc' });
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [error, setError] = useState<string | null>(null);
 
   const handleDelete = async (item: any) => {
       if (item.manualDelete) {
-          toast.error('Requisito Manual', { description: `La eliminación de [${item.type}] debe hacerse en el portal.` }); return; // precaución extra y no está enlazada al SDK en esta versión.\n\nPor favor, bórralo manualmente en el portal de Azure.`);
+          toast.error('Requisito Manual', { description: `La eliminación de [${item.type}] debe hacerse en el portal.` }); 
           return;
       }
 
@@ -61,7 +82,6 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
               throw new Error(json.error || "Fallo al eliminar");
           }
           
-          // Remover de la tabla local
           setData(prev => prev.filter(r => r.id !== item.id));
           toast.success('Recurso Eliminado', { description: `${item.resourceName} fue destruido.` });
           addAction({ message: `Se eliminó el recurso zombi: ${item.resourceName} exitosamente.`, status: 'success' });
@@ -70,7 +90,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
           if (err.message && err.message.startsWith("MISSING_CONTRIBUTOR_ROLE")) {
               const clientId = err.message.split("|")[1];
               toast.error('¡Operación Denegada!', { description: 'Tu aplicación FinOps solo tiene rol de Lector.' });
-              addAction({ message: `Fallo de permisos al borrar ${item.resourceName}. Se requiere Rol Contributor.`, status: 'error' }); //\n\nTu aplicación FinOps solo tiene rol de 'Lector'. Para borrar recursos, debes asignar el rol de 'Colaborador' ejecutando:\n\naz role assignment create --assignee "${clientId}" --role "Contributor" --scope "/subscriptions/${item.subscriptionId}"`);
+              addAction({ message: `Fallo de permisos al borrar ${item.resourceName}. Se requiere Rol Contributor.`, status: 'error' }); 
           } else {
               toast.error('Error al borrar', { description: err.message });
               addAction({ message: `Error al borrar ${item.resourceName}: ${err.message}`, status: 'error' });
@@ -79,7 +99,6 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
           setDeletingId(null);
       }
   };
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (accounts.length === 0 || selectedTenant.id === 'default') {
@@ -99,7 +118,6 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
         });
         const headers = { 'Authorization': `Bearer ${tokenResponse.idToken}` };
 
-        // 1. Fetch Subscriptions if not loaded yet
         if (subscriptions.length === 0) {
             const subRes = await fetch(`/api/subscriptions?tenantId=${tenantId}`, { headers });
             if (subRes.ok) {
@@ -108,7 +126,6 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
             }
         }
 
-        // 2. Fetch Zombie Resources (Filtered or Global)
         let apiUrl = `/api/audit/full?tenantId=${tenantId}`;
         if (selectedSub !== "all") {
             apiUrl += `&subscriptionId=${selectedSub}`;
@@ -125,7 +142,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
 
         const audit = json.auditResults || {};
         
-                const resourceConfig: any = {
+        const resourceConfig: any = {
             unattachedDisks: { type: "Disk", armType: "microsoft.compute/disks", issue: "Disco sin asociar", savings: 15.0, issueType: "cost", manualDelete: false },
             unusedIps: { type: "Public IP", armType: "microsoft.network/publicipaddresses", issue: "IP Pública sin asignar", savings: 3.5, issueType: "cost", manualDelete: false },
             staleSnapshots: { type: "Snapshot", armType: "microsoft.compute/snapshots", issue: "Snapshot Antiguo (>90d)", savings: 5.0, issueType: "cost", manualDelete: false },
@@ -188,6 +205,111 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
     fetchResourcesAndSubs();
   }, [accounts, instance, selectedSub, selectedTenant, forceFilterType]);
 
+  const filteredData = useMemo(() => {
+    return data.filter(item => {
+        const matchType = filterType === "all" || item.type === filterType;
+        const matchGroup = filterGroup === "all" || item.resourceGroup === filterGroup;
+        const matchIssue = filterIssue === "all" || item.issueType === filterIssue;
+        return matchType && matchGroup && matchIssue;
+    });
+  }, [data, filterType, filterGroup, filterIssue]);
+
+  const columns = useMemo<ColumnDef<any>[]>(() => {
+    const cols: ColumnDef<any>[] = [
+      {
+        accessorKey: 'resourceName',
+        header: 'Recurso',
+        cell: info => <span className="font-semibold text-gray-800">{info.getValue() as string}</span>,
+      }
+    ];
+
+    if (viewMode === 'engineer') {
+      cols.push({
+        id: 'armDetails',
+        header: 'Resource ID / ARM Type',
+        cell: ({ row }) => {
+            const item = row.original;
+            return (
+                <div className="text-xs font-mono max-w-[150px] truncate" title={item.id}>
+                    <div className="text-gray-500 font-semibold">{item.id?.split('/').pop()}</div>
+                    <div className="text-[10px] text-gray-400 mt-1">{item.armType}</div>
+                </div>
+            );
+        }
+      });
+      cols.push({
+        accessorKey: 'subscriptionId',
+        header: 'Suscripción',
+        cell: info => {
+            const val = info.getValue() as string;
+            return <span className="text-xs font-mono text-gray-500">{val === 'all' ? 'N/A' : val.substring(0,8) + '...'}</span>;
+        }
+      });
+    }
+
+    cols.push({
+      accessorKey: 'type',
+      header: 'Tipo',
+      cell: info => <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs">{info.getValue() as string}</span>
+    });
+
+    cols.push({
+      accessorKey: 'issue',
+      header: 'Problema',
+      cell: ({ row }) => {
+          const item = row.original;
+          return (
+            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${item.issueType === 'governance' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-red-50 text-red-700 border-red-100'}`}>
+                {item.issue}
+            </span>
+          );
+      }
+    });
+
+    cols.push({
+      accessorKey: 'potentialSavings',
+      header: 'Ahorro Est.',
+      cell: info => {
+          const val = info.getValue() as number;
+          return <span className={`font-bold ${val > 0 ? "text-green-600" : "text-gray-400"}`}>{val > 0 ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(val) : "-"}</span>;
+      }
+    });
+
+    cols.push({
+      id: 'actions',
+      header: 'Acciones',
+      cell: ({ row }) => {
+          const item = row.original;
+          return (
+            <div className="text-right">
+                <button 
+                    onClick={() => handleDelete(item)}
+                    disabled={deletingId === item.id || item.issueType === 'governance'}
+                    className={`px-3 py-1 rounded-md text-xs font-semibold shadow-sm transition-colors ${deletingId === item.id ? 'bg-gray-100 text-gray-400 cursor-wait' : item.issueType === 'governance' ? 'bg-gray-50 text-gray-300 cursor-not-allowed' : 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200'}`}
+                >
+                    {deletingId === item.id ? 'Borrando...' : 'Borrar'}
+                </button>
+            </div>
+          );
+      }
+    });
+
+    return cols;
+  }, [viewMode, deletingId]);
+
+  const table = useReactTable({
+    data: filteredData,
+    columns,
+    state: {
+      sorting,
+    },
+    columnResizeMode: 'onChange',
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+  });
+
   if (accounts.length === 0 || selectedTenant.id === 'default') {
     return (
         <div className="bg-white shadow-sm rounded-lg border border-gray-200 p-8 text-center flex flex-col items-center justify-center">
@@ -202,13 +324,12 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
     <div className="bg-white shadow-sm rounded-lg overflow-hidden border border-gray-200">
       <div className="p-4 border-b border-gray-200 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-gray-50 gap-4">
         <div>
-            <h2 className="text-lg font-semibold text-[var(--color-primary)]">
+            <h2 className="text-lg font-semibold text-[#0054A6]">
                 {selectedSub === "all" ? "Auditoría FinOps (Global)" : "Auditoría FinOps (Filtrada)"}
             </h2>
             {error && error !== 'MISSING_RBAC_ROLE' && <span className="mt-2 inline-block text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded border border-amber-200">{error}</span>}
         </div>
         
-        {/* Filtros */}
         <div className="flex flex-wrap items-center gap-4 w-full sm:w-auto">
             <div className="flex items-center space-x-2">
                 <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Suscripción:</label>
@@ -251,70 +372,100 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
       {error === 'MISSING_RBAC_ROLE' ? <RoleAssignmentBanner /> : loading ? (
           <div className="p-8 text-center text-gray-500 font-medium animate-pulse">Escaneando Azure Resource Graph...</div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200 bg-white">
-                <th className="p-4 font-medium">Recurso</th>
-                {viewMode === 'engineer' && <th className="p-4 font-medium text-gray-400">Resource ID / ARM Type</th>}
-                {viewMode === 'engineer' && <th className="p-4 font-medium">Suscripción</th>}
-                <th className="p-4 font-medium">Tipo</th>
-                <th className="p-4 font-medium">Problema</th>
-                <th className="p-4 font-medium text-right cursor-pointer hover:text-[#0054A6] transition-colors" onClick={() => setSortConfig(prev => ({ key: 'potentialSavings', direction: prev?.direction === 'desc' ? 'asc' : 'desc' }))}>
-                    Ahorro Mensual Estimado {sortConfig?.key === 'potentialSavings' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}
-                </th>
-                <th className="p-4 font-medium text-right">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.length > 0 ? data.filter(item => {
-                  const matchType = filterType === "all" || item.type === filterType;
-                  const matchGroup = filterGroup === "all" || item.resourceGroup === filterGroup;
-                  const matchIssue = filterIssue === "all" || item.issueType === filterIssue;
-                  return matchType && matchGroup && matchIssue;
-              }).sort((a, b) => {
-                  if (!sortConfig) return 0;
-                  if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'asc' ? -1 : 1;
-                  if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'asc' ? 1 : -1;
-                  return 0;
-              }).map((item, i) => (
-                <tr key={`${item.id}-${i}`} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                  <td className="p-4 text-sm font-semibold text-gray-800">{item.resourceName}</td>
-                  {viewMode === 'engineer' && (
-                    <td className="p-4 text-xs font-mono text-gray-400 max-w-[150px] truncate" title={item.id}>
-                      <div className="text-gray-300 font-semibold">{item.id?.split('/').pop()}</div>
-                      <div className="text-[10px] text-gray-500 mt-1">{item.armType}</div>
-                    </td>
-                  )}
-                  {viewMode === 'engineer' && <td className="p-4 text-xs font-mono text-gray-500">{item.subscriptionId === 'all' ? 'N/A' : item.subscriptionId.substring(0,8) + '...'}</td>}
-                  <td className="p-4 text-sm text-gray-600">
-                    <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs">{item.type}</span>
-                  </td>
-                  <td className="p-4 text-sm text-gray-600">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${item.issueType === 'governance' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-red-50 text-red-700 border-red-100'}`}>
-                      {item.issue}
+        <div className="flex flex-col">
+            <div className="overflow-x-auto w-full">
+                <table className="w-full text-left border-collapse" style={{ width: table.getCenterTotalSize() }}>
+                    <thead>
+                    {table.getHeaderGroups().map(headerGroup => (
+                        <tr key={headerGroup.id} className="text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200 bg-white">
+                        {headerGroup.headers.map(header => (
+                            <th key={header.id} className="p-4 font-medium relative group" style={{ width: header.getSize() }}>
+                            <div className="flex items-center justify-between">
+                                {header.isPlaceholder ? null : (
+                                <div
+                                    {...{
+                                    className: header.column.getCanSort() ? 'cursor-pointer select-none' : '',
+                                    onClick: header.column.getToggleSortingHandler(),
+                                    }}
+                                >
+                                    {flexRender(header.column.columnDef.header, header.getContext())}
+                                    {{
+                                    asc: ' 🔼',
+                                    desc: ' 🔽',
+                                    }[header.column.getIsSorted() as string] ?? null}
+                                </div>
+                                )}
+                            </div>
+                            <div
+                                onMouseDown={header.getResizeHandler()}
+                                onTouchStart={header.getResizeHandler()}
+                                className={`absolute right-0 top-0 h-full w-2 cursor-col-resize bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity ${header.column.getIsResizing() ? 'opacity-100 bg-indigo-600' : ''}`}
+                            />
+                            </th>
+                        ))}
+                        </tr>
+                    ))}
+                    </thead>
+                    <tbody>
+                    {table.getRowModel().rows.length > 0 ? (
+                        table.getRowModel().rows.map(row => (
+                        <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors text-sm">
+                            {row.getVisibleCells().map(cell => (
+                            <td key={cell.id} className="p-4" style={{ width: cell.column.getSize() }}>
+                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                            </td>
+                            ))}
+                        </tr>
+                        ))
+                    ) : (
+                        <tr>
+                        <td colSpan={columns.length} className="p-8 text-center text-sm text-gray-500">
+                            El entorno está 100% optimizado y bajo políticas de Gobernanza. ¡Excelente trabajo!
+                        </td>
+                        </tr>
+                    )}
+                    </tbody>
+                </table>
+            </div>
+
+            {/* Pagination Controls */}
+            <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-gray-200 sm:px-6">
+                <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-700">
+                        Página <span className="font-medium">{table.getState().pagination.pageIndex + 1}</span> de{' '}
+                        <span className="font-medium">{table.getPageCount() || 1}</span>
                     </span>
-                  </td>
-                  <td className={`p-4 text-sm font-bold text-right ${item.potentialSavings > 0 ? "text-green-600" : "text-gray-400"}`}>{item.potentialSavings > 0 ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(item.potentialSavings) : "-"}</td>
-                  <td className="p-4 text-right">
-                    <button 
-                        onClick={() => handleDelete(item)}
-                        disabled={deletingId === item.id || item.issueType === 'governance'}
-                        className={`px-3 py-1 rounded-md text-xs font-semibold shadow-sm transition-colors ${deletingId === item.id ? 'bg-gray-100 text-gray-400 cursor-wait' : item.issueType === 'governance' ? 'bg-gray-50 text-gray-300 cursor-not-allowed' : 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200'}`}
+                    <select
+                        value={table.getState().pagination.pageSize}
+                        onChange={e => {
+                            table.setPageSize(Number(e.target.value));
+                        }}
+                        className="ml-4 bg-white border border-gray-300 text-gray-700 text-sm rounded-md p-1 focus:ring-[#0054A6] focus:border-[#0054A6]"
                     >
-                        {deletingId === item.id ? 'Borrando...' : 'Borrar'}
+                        {[10, 15, 20, 25, 50, 100].map(pageSize => (
+                            <option key={pageSize} value={pageSize}>
+                                Mostrar {pageSize}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => table.previousPage()}
+                        disabled={!table.getCanPreviousPage()}
+                        className="px-3 py-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        Anterior
                     </button>
-                  </td>
-                </tr>
-              )) : (
-                <tr>
-                  <td colSpan={viewMode === 'engineer' ? 8 : 6} className="p-8 text-center text-sm text-gray-500">
-                    El entorno está 100% optimizado y bajo políticas de Gobernanza. ¡Excelente trabajo!
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                    <button
+                        onClick={() => table.nextPage()}
+                        disabled={!table.getCanNextPage()}
+                        className="px-3 py-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        Siguiente
+                    </button>
+                </div>
+            </div>
         </div>
       )}
     </div>

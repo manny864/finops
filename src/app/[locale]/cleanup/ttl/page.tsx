@@ -127,9 +127,9 @@ export default function TtlCleanupPage() {
 
       {!loading && resources.length > 0 && (
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200 bg-red-50/50 flex items-center">
-                <AlertCircle className="w-5 h-5 text-red-600 mr-2" />
-                <h3 className="text-lg font-bold text-red-800">Entornos de Desarrollo Expirados</h3>
+            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex items-center">
+                <AlertCircle className="w-5 h-5 text-gray-500 mr-2" />
+                <h3 className="text-lg font-bold text-gray-800">Entornos de Desarrollo por Expiración</h3>
             </div>
             <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
@@ -139,6 +139,7 @@ export default function TtlCleanupPage() {
                             <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Tipo</th>
                             <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Grupo de Recursos</th>
                             <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Fecha de Expiración</th>
+                            <th className="px-6 py-4 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Estado</th>
                             <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Acción</th>
                         </tr>
                     </thead>
@@ -162,11 +163,20 @@ export default function TtlCleanupPage() {
                                         <Clock className="w-4 h-4 mr-1.5" />
                                         {r.expirationDate}
                                     </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                                            r.ttlStatus === 'Active' ? 'bg-green-100 text-green-800' : 
+                                            r.ttlStatus === 'Warning' ? 'bg-yellow-100 text-yellow-800' : 
+                                            'bg-red-100 text-red-800'
+                                        }`}>
+                                            {r.ttlStatus || 'Desconocido'}
+                                        </span>
+                                    </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right">
                                         <button
                                             onClick={() => handleDelete(r.id, r.subscriptionId, r.type)}
-                                            disabled={deletingId === r.id}
-                                            className="bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-md text-xs font-bold shadow-sm transition-colors flex items-center justify-end ml-auto"
+                                            disabled={deletingId === r.id || r.ttlStatus === 'Active'}
+                                            className={`${r.ttlStatus === 'Active' ? 'bg-gray-300' : 'bg-red-600 hover:bg-red-700'} disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-md text-xs font-bold shadow-sm transition-colors flex items-center justify-end ml-auto`}
                                         >
                                             {deletingId === r.id ? (
                                                 'Eliminando...'

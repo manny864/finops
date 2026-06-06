@@ -3,18 +3,18 @@
     "dashboard": "Dashboard",
     "advisor": "Azure Advisor",
     "finops_maturity": "Madurez FinOps",
-    "historical_progress": "Progreso Hist\u00f3rico",
+    "historical_progress": "Progreso Histórico",
     "billing": "Consumo Real",
     "rightsizing": "Rightsizing",
-    "network_analytics": "An\u00e1lisis de Red",
+    "network_analytics": "Análisis de Red",
     "vm_control": "Control de VM",
     "visibilidad": "Visibilidad",
     "inteligencia": "Inteligencia Financiera",
     "limpieza": "Limpieza (TTL)",
     "gobernanza": "Gobernanza Automatizada",
-    "admin": "Administraci\u00f3n",
+    "admin": "Administración",
     "ttl_zombies": "TTL y Zombies",
-    "tag_manager": "Gesti\u00f3n de Etiquetas",
+    "tag_manager": "Gestión de Etiquetas",
     "onboarding": "Onboarding de Clientes",
     "workbooks": "Artefactos y Workbooks",
     "powerbi": "Reportes Power BI"
@@ -25,5 +25,25 @@
     "cancel": "Cancelar",
     "analyze": "Analizar",
     "loading": "Cargando..."
+  },
+  "ERR_INSUFFICIENT_PERMISSIONS": "No tiene permisos suficientes (Cost Management Reader) en esta suscripción.",
+  "ERR_COST_API_THROTTLED": "Se ha excedido el límite de solicitudes de la API de Costos. Reintente más tarde.",
+  "ERR_INTERNAL_SERVER": "Error interno al consultar la facturación.",
+  "Maturity": {
+    "VisibilityAndAllocation": "Visibilidad y Asignación",
+    "UsageOptimization": "Optimización de Cargas (Zombis)",
+    "RateOptimization": "Optimización de Tarifas (Reservas)",
+    "ForecastingAndBudgeting": "Presupuestos y Pronósticos",
+    "GovernanceAndAutomation": "Gobernanza y Automatización",
+    "info_phase": "Las fases FinOps (Crawl, Walk, Run) determinan tu nivel de evolución en la práctica en la nube.",
+    "info_VisibilityAndAllocation": "Mide qué tan bien estás asignando etiquetas y visualizando tus costos.",
+    "info_UsageOptimization": "Mide qué tanto estás apagando o eliminando recursos ociosos o sobredimensionados.",
+    "info_RateOptimization": "Mide tu cobertura de instancias reservadas y planes de ahorro.",
+    "info_ForecastingAndBudgeting": "Mide la exactitud de tus presupuestos frente al gasto real.",
+    "info_GovernanceAndAutomation": "Mide cuántas políticas automatizadas tienes activas."
+  },
+  "governance": {
+    "tagInfoTooltip": "La Gobernanza de Etiquetas te permite exigir etiquetas obligatorias (ej. CostCenter, Environment) en todas las suscripciones para mejorar la asignación de costos.",
+    "tagInputTooltip": "Escribe el nombre exacto de la clave de la etiqueta que deseas hacer obligatoria."
   }
 }

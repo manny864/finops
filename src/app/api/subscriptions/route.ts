@@ -53,7 +53,8 @@ export async function GET(request: NextRequest) {
     const subscriptions = (data.value || []).map((sub: any) => ({
         id: sub.subscriptionId,
         displayName: sub.displayName,
-        state: sub.state
+        state: sub.state,
+        tenantId: sub.tenantId
     }));
 
     console.log(`[Subscriptions] OK: ${subscriptions.length} suscripciones encontradas`);
@@ -69,6 +70,14 @@ export async function GET(request: NextRequest) {
       statusCode: errorStatus,
       message: errorMessage,
     });
+
+    // Detectar falta de Admin Consent (Service Principal faltante)
+    if (errorMessage.includes("AADSTS7000229")) {
+      return NextResponse.json({
+        error: "MISSING_ADMIN_CONSENT",
+        details: "Falta el Service Principal en el Tenant destino. Debe proporcionar Admin Consent a la aplicación."
+      }, { status: 403 });
+    }
 
     // Detectar secreto de cliente inválido o expirado (AADSTS7000215)
     if (errorMessage.includes("AADSTS7000215") || errorMessage.includes("invalid_client") || errorMessage.includes("Invalid client secret")) {

@@ -1,6 +1,6 @@
 "use client";
 import { useLocale } from 'next-intl';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { ChangeEvent, useTransition } from 'react';
 import { Globe } from 'lucide-react';
 
@@ -9,14 +9,17 @@ export default function LanguageSwitcher() {
   const locale = useLocale();
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   const onSelectChange = (e: ChangeEvent<HTMLSelectElement>) => {
     const nextLocale = e.target.value;
     startTransition(() => {
       // Basic approach: replace the locale part in the URL.
       // Next.js standard router is used here, but typically next-intl/navigation is preferred.
-      const pathWithoutLocale = pathname.replace(`/${locale}`, '');
-      router.replace(`/${nextLocale}${pathWithoutLocale}`);
+      const pathWithoutLocale = pathname.replace(`/${locale}`, '') || '/';
+      const search = searchParams.toString();
+      const query = search ? `?${search}` : '';
+      router.replace(`/${nextLocale}${pathWithoutLocale}${query}`);
     });
   };
 

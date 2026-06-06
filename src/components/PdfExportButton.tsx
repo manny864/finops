@@ -3,15 +3,17 @@ import React, { useState } from 'react';
 import { FileDown, Loader2 } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { toast } from 'sonner';
 import { useActionLogStore } from '@/store/actionLogStore';
 
 interface PdfExportButtonProps {
     targetId: string;
     tenantName: string;
+    auditData?: any[];
 }
 
-export default function PdfExportButton({ targetId, tenantName }: PdfExportButtonProps) {
+export default function PdfExportButton({ targetId, tenantName, auditData }: PdfExportButtonProps) {
     const [loading, setLoading] = useState(false);
     const { addAction } = useActionLogStore();
 
@@ -58,11 +60,38 @@ export default function PdfExportButton({ targetId, tenantName }: PdfExportButto
             // Insertar captura del dashboard
             pdf.addImage(imgData, 'PNG', 15, 45, pdfWidth, pdfHeight);
             
-            // Descargar
-            const filename = `${tenantName.replace(/\s+/g, '_')}_Executive_Report.pdf`;
-            pdf.save(filename);
+            if (auditData && auditData.length > 0) {
+                pdf.addPage();
+                
+                pdf.setFontSize(14);
+                pdf.setFont("helvetica", "bold");
+                pdf.setTextColor(0, 84, 166);
+                pdf.text('Desglose de Recursos Afectados e Ineficiencias', 15, 20);
+
+                const tableBody = auditData.map(item => [
+                    item.resourceName || item.name || 'N/A',
+                    item.issue || item.issueType || 'Ineficiencia Detectada',
+                    item.potentialSavings ? `$${item.potentialSavings.toFixed(2)}` : '-'
+                ]);
+
+                autoTable(pdf, {
+                    startY: 30,
+                    head: [['Recurso Afectado', 'Motivo', 'Gasto Generado (USD)']],
+                    body: tableBody,
+                    theme: 'striped',
+                    headStyles: { fillColor: [0, 84, 166] },
+                    styles: { fontSize: 9 }
+                });
+            }
             
-            toast.success("Reporte Ejecutivo descargado", { description: filename });
+            // Abrir en nueva ventana (preview)
+            const pdfBlobUrl = pdf.output('bloburl');
+            window.open(pdfBlobUrl, '_blank');
+            
+            // Opcional: Descargar también el archivo
+            // pdf.save(filename);
+            
+            toast.success("Reporte Ejecutivo generado", { description: filename });
             addAction({ message: `Reporte Ejecutivo PDF generado exitosamente.`, status: 'success' });
         } catch (error: any) {
             console.error(error);
