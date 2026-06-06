@@ -94,6 +94,11 @@ export default function InteractiveDashboard({
 
     const isMobile = currentBreakpoint === 'sm' || currentBreakpoint === 'xs' || currentBreakpoint === 'xxs';
 
+    const [reportModalOpen, setReportModalOpen] = useState(false);
+    const [generatingReport, setGeneratingReport] = useState(false);
+    const [aiReportText, setAiReportText] = useState('');
+    const { selectedTenant } = useTenant();
+
     if (!mounted) return null; // Avoid hydration mismatch
 
     const Wrapper = ({ children, title, id }: { children: React.ReactNode, title?: string, id: string }) => (
@@ -111,11 +116,6 @@ export default function InteractiveDashboard({
             </div>
         </div>
     );
-
-    const [reportModalOpen, setReportModalOpen] = useState(false);
-    const [generatingReport, setGeneratingReport] = useState(false);
-    const [aiReportText, setAiReportText] = useState('');
-    const { selectedTenant } = useTenant();
 
     const generateReport = async () => {
         if (!selectedTenant || selectedTenant.id === 'default') {
