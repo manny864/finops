@@ -44,8 +44,14 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
       .then(data => {
         if (data.tenants && data.tenants.length > 0) {
             setTenantsList(data.tenants);
-            // Seleccionar el primer tenant si está cargando
-            setSelectedTenant(prev => prev.id === 'default' ? data.tenants[0] : prev);
+            // Validate that current selection still exists in DB
+            const savedId = selectedTenant.id;
+            const stillExists = data.tenants.find((t: Tenant) => t.id === savedId);
+            if (!stillExists || savedId === 'default') {
+                // Saved tenant no longer in DB (was deleted), reset to first valid
+                setSelectedTenant(data.tenants[0]);
+                localStorage.removeItem('finops_active_tenant');
+            }
         }
       })
       .catch(err => console.error("Fallo al cargar tenants desde MySQL", err));

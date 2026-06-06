@@ -61,6 +61,18 @@ export async function initializeDatabase() {
             )
         `);
 
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS SavingsHistory (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                tenant_id VARCHAR(255) NOT NULL,
+                scan_date DATE NOT NULL,
+                total_wasted_usd DECIMAL(10,2) NOT NULL,
+                potential_savings_usd DECIMAL(10,2) NOT NULL,
+                UNIQUE KEY unique_scan (tenant_id, scan_date),
+                FOREIGN KEY (tenant_id) REFERENCES Tenants(tenant_id) ON DELETE CASCADE
+            )
+        `);
+
         connection.release();
         dbInitialized = true;
         console.log("Database schema validated/initialized successfully.");

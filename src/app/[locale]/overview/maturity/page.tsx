@@ -11,6 +11,7 @@ export default function MaturityPage() {
     const t = useTranslations("Maturity");
     const [loading, setLoading] = useState(false);
     const [scoreData, setScoreData] = useState<any>(null);
+    const [reason, setReason] = useState<string | null>(null);
 
     useEffect(() => {
         if (accounts.length === 0 || selectedTenant.id === 'default') return;
@@ -18,6 +19,7 @@ export default function MaturityPage() {
         const fetchMaturity = async () => {
             setLoading(true);
             setScoreData(null);
+            setReason(null);
             try {
                 const tokenResponse = await instance.acquireTokenSilent({
                     scopes: ["User.Read"],
@@ -29,6 +31,8 @@ export default function MaturityPage() {
                 const json = await res.json();
                 if (json.data) {
                     setScoreData(json.data);
+                } else if (json.reason) {
+                    setReason(json.reason);
                 }
             } catch (e) {
                 console.error(e);
@@ -50,6 +54,33 @@ export default function MaturityPage() {
                 <span className="text-4xl mb-4">🔐</span>
                 <h2 className="text-xl font-bold text-gray-700 dark:text-gray-300">Selecciona un Tenant</h2>
                 <p className="text-sm text-gray-500 mt-2">Debes seleccionar una organización para evaluar su madurez.</p>
+            </div>
+        );
+    }
+
+    // Handle no-data states
+    if (!loading && !scoreData && reason) {
+        const messages: Record<string, { icon: string; title: string; desc: string }> = {
+            NO_SUBSCRIPTIONS: { icon: "📭", title: "Sin suscripciones activas", desc: "Este Tenant no tiene suscripciones de Azure. Crea una suscripción para comenzar a evaluar la madurez FinOps." },
+            MISSING_ADMIN_CONSENT: { icon: "⚠️", title: "Falta Admin Consent", desc: "La aplicación CSCloudSolutions no ha sido consentida en este Tenant. Ejecuta: az ad sp create --id 876d8a5b-6023-4484-b3ba-73c186e4a72b" },
+            NO_CREDENTIAL: { icon: "🔑", title: "Sin credenciales configuradas", desc: "No se encontraron credenciales de Azure para acceder a este Tenant." },
+            AZURE_ERROR: { icon: "☁️", title: "Error de conexión con Azure", desc: "No se pudo conectar con Azure para evaluar la madurez. Intenta de nuevo más tarde." },
+        };
+        const msg = messages[reason] || messages.AZURE_ERROR;
+        return (
+            <div className="max-w-6xl mx-auto animate-in fade-in duration-500">
+                <div className="mb-8 border-b border-gray-200 dark:border-slate-800 pb-4">
+                    <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight flex items-center">
+                        <Target className="w-8 h-8 mr-3 text-indigo-600 dark:text-indigo-400" />
+                        Madurez FinOps
+                    </h1>
+                    <p className="text-gray-500 dark:text-gray-400 mt-2">Alineación con el framework de la FinOps Foundation.</p>
+                </div>
+                <div className="flex flex-col items-center justify-center h-96 bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm">
+                    <span className="text-5xl mb-4">{msg.icon}</span>
+                    <h2 className="text-xl font-bold text-gray-500 dark:text-gray-400 mb-2">{msg.title}</h2>
+                    <p className="text-sm text-gray-400 dark:text-gray-500 text-center max-w-md">{msg.desc}</p>
+                </div>
             </div>
         );
     }

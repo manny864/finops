@@ -26,25 +26,6 @@ export async function GET(request: NextRequest) {
         );
 
         let data = rows as any[];
-        
-        // Mock data fallback for presentation if empty
-        if (data.length === 0) {
-            const mockData = [];
-            let currentWasted = 5400.50;
-            let currentPotential = 2100.00;
-            for(let i=14; i>=0; i--) {
-                const date = new Date();
-                date.setDate(date.getDate() - i);
-                mockData.push({
-                    scan_date: date.toISOString().split('T')[0],
-                    total_wasted_usd: parseFloat(currentWasted.toFixed(2)),
-                    potential_savings_usd: parseFloat(currentPotential.toFixed(2))
-                });
-                currentWasted = currentWasted * 0.95; // Downward trend
-                currentPotential = currentPotential * 0.98;
-            }
-            data = mockData;
-        }
 
         return NextResponse.json({ data });
 
