@@ -1,0 +1,2 @@
+azure-identity==1.17.1
+azure-mgmt-authorization==4.0.0
