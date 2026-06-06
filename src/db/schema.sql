@@ -28,3 +28,8 @@ CREATE TABLE IF NOT EXISTS ActionLogs (
 );
 
 -- Note: Also ran ALTER TABLE Tenants ADD COLUMN webhook_url VARCHAR(255);
+
+CREATE TABLE IF NOT EXISTS GlobalSettings (
+    setting_key VARCHAR(50) PRIMARY KEY,
+    setting_value TEXT NOT NULL
+);

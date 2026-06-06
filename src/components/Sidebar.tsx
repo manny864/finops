@@ -2,6 +2,8 @@
 import React, { useState } from 'react';
 import { Link, usePathname } from '@/i18n/routing';
 import { useTranslations } from 'next-intl';
+import { useMsal } from '@azure/msal-react';
+import { isSuperAdmin } from '@/lib/authGuard';
 import { 
     LayoutDashboard,
     Target,
@@ -21,7 +23,8 @@ import {
     BookOpen,
     Activity,
     DollarSign,
-    CreditCard
+    CreditCard,
+    Cpu
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -31,6 +34,7 @@ interface SidebarProps {
 export default function Sidebar({ sidebarOpen }: SidebarProps) {
     const pathname = usePathname();
     const t = useTranslations('Navigation');
+    const { accounts } = useMsal();
     const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
         visibilidad: true,
         inteligencia: true,
@@ -93,6 +97,14 @@ export default function Sidebar({ sidebarOpen }: SidebarProps) {
             ]
         }
     ];
+
+    if (isSuperAdmin(accounts[0]?.username)) {
+        categories.find(c => c.id === 'admin')?.items.push({
+            href: '/superadmin/ai-config',
+            label: 'Configuración de IA',
+            icon: Cpu
+        } as any);
+    }
 
     return (
         <aside className={`${sidebarOpen ? 'w-64' : 'w-20'} bg-white dark:bg-slate-900 border-r border-gray-200 dark:border-slate-800 transition-all duration-300 flex flex-col shadow-sm h-full`}>
