@@ -20,7 +20,9 @@ import {
     ChevronRight,
     FileText,
     BookOpen,
-    Activity
+    Activity,
+    DollarSign,
+    CreditCard
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -59,7 +61,9 @@ export default function Sidebar({ sidebarOpen }: SidebarProps) {
             items: [
                 { href: '/intelligence/billing', label: t('billing'), icon: PieChart },
                 { href: '/intelligence/rightsizing', label: t('rightsizing'), icon: Zap },
-                { href: '/intelligence/network', label: t('network_analytics'), icon: Activity }
+                { href: '/intelligence/network', label: t('network_analytics'), icon: Activity },
+                { href: '/intelligence/rates', label: t('rate_optimization'), icon: DollarSign },
+                { href: '/intelligence/chargeback', label: t('chargeback'), icon: CreditCard }
             ]
         },
         {

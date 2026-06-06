@@ -17,7 +17,9 @@
     "tag_manager": "Gestión de Etiquetas",
     "onboarding": "Onboarding de Clientes",
     "workbooks": "Artefactos y Workbooks",
-    "powerbi": "Reportes Power BI"
+    "powerbi": "Reportes Power BI",
+    "rate_optimization": "Optimización de Tarifas",
+    "chargeback": "Showback / Chargeback"
   },
   "Common": {
     "save": "Guardar",
