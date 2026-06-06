@@ -153,8 +153,9 @@ export default function NetworkAnalyticsPage() {
                         disabled={loading}
                         className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md shadow-sm text-sm font-semibold transition-colors disabled:opacity-50 flex items-center"
                     >
-                        {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                        {!loading && <Search className="w-4 h-4 mr-2" />}
+                        <span className="flex items-center justify-center w-4 h-4 mr-2">
+                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                        </span>
                         <span>Analizar</span>
                     </button>
                 </div>
