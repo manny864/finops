@@ -128,11 +128,24 @@ def main():
         print("    puede haber cambiado. Considere omitir --principal-id para auto-detectar.")
     else:
         # Auto-detect: query Graph API to get the CURRENT Object ID
-        # We need to figure out the tenant ID from the subscription
-        from azure.mgmt.resource import SubscriptionClient
-        sub_client = SubscriptionClient(credential)
-        sub_info = sub_client.subscriptions.get(subscription_id)
-        tenant_id = sub_info.tenant_id
+        # First, get the tenant ID from the subscription
+        token_mgmt = credential.get_token("https://management.azure.com/.default")
+        sub_res = requests.get(
+            f"https://management.azure.com/subscriptions/{subscription_id}?api-version=2020-01-01",
+            headers={"Authorization": f"Bearer {token_mgmt.token}"}
+        )
+        if sub_res.status_code == 200:
+            tenant_id = sub_res.json().get("tenantId", "")
+        else:
+            # Fallback: ask user or use az account
+            import subprocess
+            result = subprocess.run(["az", "account", "show", "--query", "tenantId", "-o", "tsv"], capture_output=True, text=True)
+            tenant_id = result.stdout.strip()
+        
+        if not tenant_id:
+            print("  ✗ ERROR: No se pudo determinar el Tenant ID. Usa --principal-id manualmente.")
+            sys.exit(1)
+        
         print(f"  Tenant ID: {tenant_id}")
         
         principal_id = resolve_service_principal_object_id(credential, tenant_id, FINOPS_APP_ID)
