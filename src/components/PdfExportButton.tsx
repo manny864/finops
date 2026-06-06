@@ -91,7 +91,7 @@ export default function PdfExportButton({ targetId, tenantName, auditData }: Pdf
             // Opcional: Descargar también el archivo
             // pdf.save(filename);
             
-            toast.success("Reporte Ejecutivo generado", { description: filename });
+            toast.success("Reporte Ejecutivo generado", { description: "El PDF se ha abierto en una nueva pestaña" });
             addAction({ message: `Reporte Ejecutivo PDF generado exitosamente.`, status: 'success' });
         } catch (error: any) {
             console.error(error);

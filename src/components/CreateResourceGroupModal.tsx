@@ -10,19 +10,12 @@ interface CreateResourceGroupModalProps {
     onSuccess?: () => void;
 }
 
-const REGIONS = [
-    { value: 'eastus', label: 'East US' },
-    { value: 'eastus2', label: 'East US 2' },
-    { value: 'centralus', label: 'Central US' },
-    { value: 'westeurope', label: 'West Europe' },
-    { value: 'northeurope', label: 'North Europe' },
-    { value: 'brazilsouth', label: 'Brazil South' },
-    { value: 'southcentralus', label: 'South Central US' }
-];
-
 export default function CreateResourceGroupModal({ isOpen, onClose, tenantId, subscriptionId, onSuccess }: CreateResourceGroupModalProps) {
     const [rgName, setRgName] = useState('');
     const [location, setLocation] = useState('eastus');
+    const [regions, setRegions] = useState<{name: string, displayName: string}[]>([]);
+    const [loadingRegions, setLoadingRegions] = useState(false);
+    
     const [tags, setTags] = useState<{key: string, value: string}[]>([]);
     const [loading, setLoading] = useState(false);
     
@@ -42,7 +35,27 @@ export default function CreateResourceGroupModal({ isOpen, onClose, tenantId, su
                 }
                 setLoadingRgs(false);
             };
+
+            const fetchRegions = async () => {
+                setLoadingRegions(true);
+                try {
+                    const res = await fetch(`/api/locations?tenantId=${tenantId}&subscriptionId=${subscriptionId}`);
+                    const json = await res.json();
+                    if (json.locations && json.locations.length > 0) {
+                        setRegions(json.locations);
+                        // set default location if not in list
+                        if (!json.locations.find((l: any) => l.name === location)) {
+                            setLocation(json.locations[0].name);
+                        }
+                    }
+                } catch (e) {
+                    console.error("Error fetching locations:", e);
+                }
+                setLoadingRegions(false);
+            };
+
             fetchRgs();
+            fetchRegions();
         }
     }, [isOpen, tenantId, subscriptionId]);
 
@@ -144,11 +157,16 @@ export default function CreateResourceGroupModal({ isOpen, onClose, tenantId, su
                             <select 
                                 value={location}
                                 onChange={e => setLocation(e.target.value)}
-                                className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-[#0054A6] focus:border-[#0054A6] bg-white"
+                                disabled={loadingRegions}
+                                className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-[#0054A6] focus:border-[#0054A6] bg-white disabled:bg-gray-100"
                             >
-                                {REGIONS.map(r => (
-                                    <option key={r.value} value={r.value}>{r.label} ({r.value})</option>
-                                ))}
+                                {loadingRegions ? (
+                                    <option>Cargando regiones...</option>
+                                ) : (
+                                    regions.map(r => (
+                                        <option key={r.name} value={r.name}>{r.displayName} ({r.name})</option>
+                                    ))
+                                )}
                             </select>
                         </div>
                         <div>
