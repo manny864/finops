@@ -178,8 +178,9 @@ export default function WorkbooksPage() {
                             disabled={loadingCost || !subIdCost || !rgCost}
                             className="w-full flex justify-center items-center px-4 py-2 bg-[#0054A6] hover:bg-blue-800 text-white rounded-md shadow-sm text-sm font-semibold transition-colors disabled:opacity-50"
                         >
-                            {loadingCost ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CloudUpload className="w-4 h-4 mr-2" />}
-                            {loadingCost ? 'Desplegando...' : 'Desplegar en Azure'}
+                            {loadingCost && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                            {!loadingCost && <CloudUpload className="w-4 h-4 mr-2" />}
+                            <span>{loadingCost ? 'Desplegando...' : 'Desplegar en Azure'}</span>
                         </button>
                     </div>
                 </div>
@@ -232,8 +233,9 @@ export default function WorkbooksPage() {
                             disabled={loadingZombie || !subIdZombie || !rgZombie}
                             className="w-full flex justify-center items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md shadow-sm text-sm font-semibold transition-colors disabled:opacity-50"
                         >
-                            {loadingZombie ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CloudUpload className="w-4 h-4 mr-2" />}
-                            {loadingZombie ? 'Desplegando...' : 'Desplegar en Azure'}
+                            {loadingZombie && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                            {!loadingZombie && <CloudUpload className="w-4 h-4 mr-2" />}
+                            <span>{loadingZombie ? 'Desplegando...' : 'Desplegar en Azure'}</span>
                         </button>
                     </div>
                 </div>
