@@ -24,7 +24,8 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Estructura de token inválida." }, { status: 401 });
         }
 
-        const credential = await getAzureCredential(decoded.tid);
+        const tenantId = request.headers.get("x-tenant-id") || decoded.tid;
+        const credential = await getAzureCredential(tenantId);
         const rawCosts = await getNetworkEgressCosts(credential, subscriptionId);
 
         // Process CostManagement Data
