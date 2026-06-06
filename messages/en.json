@@ -19,7 +19,17 @@
     "workbooks": "Artefactos y Workbooks",
     "powerbi": "Reportes Power BI",
     "rate_optimization": "Rate Optimization",
-    "chargeback": "Showback / Chargeback"
+    "chargeback": "Showback / Chargeback",
+    "cleanup": "Cloud Cleanup",
+    "zombie_resources": "Zombie Resources",
+    "ttl_expirations": "TTL Expirations",
+    "governance": "Governance",
+    "tag_compliance": "Tag Compliance",
+    "power_schedules": "Power Schedules",
+    "client_onboarding": "Client Onboarding",
+    "configuration": "Configuration",
+    "executive_report": "Executive Report",
+    "audit_trail": "Audit Trail"
   },
   "Common": {
     "save": "Save",

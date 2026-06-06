@@ -19,7 +19,17 @@
     "workbooks": "Artefactos y Workbooks",
     "powerbi": "Reportes Power BI",
     "rate_optimization": "Otimização de Taxas",
-    "chargeback": "Showback / Chargeback"
+    "chargeback": "Showback / Chargeback",
+    "cleanup": "Limpeza de Nuvem",
+    "zombie_resources": "Recursos Zumbis",
+    "ttl_expirations": "Expirações TTL",
+    "governance": "Governança",
+    "tag_compliance": "Conformidade de Tags",
+    "power_schedules": "Agendamentos de Energia",
+    "client_onboarding": "Integração de Clientes",
+    "configuration": "Configuração",
+    "executive_report": "Relatório Executivo",
+    "audit_trail": "Trilha de Auditoria"
   },
   "Common": {
     "save": "Salvar",

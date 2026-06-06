@@ -1,8 +1,9 @@
 "use client";
 import React, { useState } from 'react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { Link, usePathname } from '@/i18n/routing';
 import { useTranslations } from 'next-intl';
+import { useMsal } from '@azure/msal-react';
+import { isSuperAdmin } from '@/lib/authGuard';
 import { 
     LayoutDashboard,
     Target,
@@ -22,7 +23,8 @@ import {
     BookOpen,
     Activity,
     DollarSign,
-    CreditCard
+    CreditCard,
+    Cpu
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -32,6 +34,7 @@ interface SidebarProps {
 export default function Sidebar({ sidebarOpen }: SidebarProps) {
     const pathname = usePathname();
     const t = useTranslations('Navigation');
+    const { accounts } = useMsal();
     const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
         visibilidad: true,
         inteligencia: true,
@@ -68,31 +71,40 @@ export default function Sidebar({ sidebarOpen }: SidebarProps) {
         },
         {
             id: 'limpieza',
-            title: 'Limpieza de Nube',
+            title: t('cleanup'),
             items: [
-                { href: '/cleanup/zombies', label: 'Recursos Zombis', icon: Trash2 },
-                { href: '/cleanup/ttl', label: 'Expiraciones TTL', icon: Clock }
+                { href: '/cleanup/zombies', label: t('zombie_resources'), icon: Trash2 },
+                { href: '/cleanup/ttl', label: t('ttl_expirations'), icon: Clock }
             ]
         },
         {
             id: 'gobernanza',
-            title: 'Gobernanza',
+            title: t('governance'),
             items: [
-                { href: '/governance/tags', label: 'Cumplimiento Etiquetas', icon: Tags },
-                { href: '/governance/power', label: 'Horarios de Apagado', icon: Power }
+                { href: '/governance/tags', label: t('tag_compliance'), icon: Tags },
+                { href: '/governance/power', label: t('power_schedules'), icon: Power }
             ]
         },
         {
             id: 'admin',
             title: t('admin'),
             items: [
-                { href: '/admin/onboarding', label: 'Onboarding Clientes', icon: Users },
-                { href: '/admin/config', label: 'Configuración', icon: Settings },
-                { href: '/admin/report', label: 'Reporte Ejecutivo', icon: FileText },
-                { href: '/admin/workbooks', label: t('workbooks'), icon: BookOpen }
+                { href: '/admin/onboarding', label: t('client_onboarding'), icon: Users },
+                { href: '/admin/config', label: t('configuration'), icon: Settings },
+                { href: '/admin/report', label: t('executive_report'), icon: FileText },
+                { href: '/admin/workbooks', label: t('workbooks'), icon: BookOpen },
+                { href: '/admin/audit', label: t('audit_trail'), icon: Activity }
             ]
         }
     ];
+
+    if (isSuperAdmin(accounts[0]?.username)) {
+        categories.find(c => c.id === 'admin')?.items.push({
+            href: '/superadmin/ai-config',
+            label: 'Configuración de IA',
+            icon: Cpu
+        } as any);
+    }
 
     return (
         <aside className={`${sidebarOpen ? 'w-64' : 'w-20'} bg-white dark:bg-slate-900 border-r border-gray-200 dark:border-slate-800 transition-all duration-300 flex flex-col shadow-sm h-full`}>

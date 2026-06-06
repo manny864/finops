@@ -4,10 +4,14 @@ import React, { useState, useEffect } from 'react';
 import { Responsive, WidthProvider, Layout, ResponsiveLayouts as Layouts } from 'react-grid-layout/legacy';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
-import { GripVertical, Leaf, RotateCcw } from 'lucide-react';
+import { GripVertical, Leaf, RotateCcw, Cpu, X, Loader2 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import { useTenant } from '@/components/TenantProvider';
+import { toast } from 'sonner';
 import CostPieChart from '../CostPieChart';
 import BudgetBurnChart from './BudgetBurnChart';
 import ZombieResourcesTable from '../ZombieResourcesTable';
+import CostForecastChart from './CostForecastChart';
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
@@ -16,16 +20,18 @@ const DEFAULT_LAYOUTS: Layouts = {
         { i: 'summary-co2', x: 0, y: 0, w: 3, h: 4 },
         { i: 'summary-savings', x: 3, y: 0, w: 3, h: 4 },
         { i: 'governance', x: 6, y: 0, w: 3, h: 8 },
-        { i: 'cost-pie', x: 0, y: 4, w: 6, h: 10 },
-        { i: 'budget-burn', x: 6, y: 8, w: 6, h: 10 },
-        { i: 'zombie-table', x: 0, y: 14, w: 12, h: 12 }
+        { i: 'cost-pie', x: 0, y: 4, w: 4, h: 10 },
+        { i: 'budget-burn', x: 4, y: 8, w: 4, h: 10 },
+        { i: 'forecast', x: 8, y: 8, w: 4, h: 10 },
+        { i: 'zombie-table', x: 0, y: 18, w: 12, h: 12 }
     ],
     md: [
         { i: 'summary-co2', x: 0, y: 0, w: 5, h: 4 },
         { i: 'summary-savings', x: 5, y: 0, w: 5, h: 4 },
         { i: 'governance', x: 0, y: 4, w: 5, h: 8 },
         { i: 'cost-pie', x: 5, y: 4, w: 5, h: 10 },
-        { i: 'budget-burn', x: 0, y: 12, w: 10, h: 10 },
+        { i: 'budget-burn', x: 0, y: 12, w: 5, h: 10 },
+        { i: 'forecast', x: 5, y: 12, w: 5, h: 10 },
         { i: 'zombie-table', x: 0, y: 22, w: 10, h: 12 }
     ],
     sm: [
@@ -34,7 +40,8 @@ const DEFAULT_LAYOUTS: Layouts = {
         { i: 'governance', x: 0, y: 8, w: 6, h: 8 },
         { i: 'cost-pie', x: 0, y: 16, w: 6, h: 10 },
         { i: 'budget-burn', x: 0, y: 26, w: 6, h: 10 },
-        { i: 'zombie-table', x: 0, y: 36, w: 6, h: 12 }
+        { i: 'forecast', x: 0, y: 36, w: 6, h: 10 },
+        { i: 'zombie-table', x: 0, y: 46, w: 6, h: 12 }
     ]
 };
 
@@ -105,20 +112,99 @@ export default function InteractiveDashboard({
         </div>
     );
 
+    const [reportModalOpen, setReportModalOpen] = useState(false);
+    const [generatingReport, setGeneratingReport] = useState(false);
+    const [aiReportText, setAiReportText] = useState('');
+    const { selectedTenant } = useTenant();
+
+    const generateReport = async () => {
+        if (!selectedTenant || selectedTenant.id === 'default') {
+            toast.error("Seleccione un Tenant válido.");
+            return;
+        }
+        setGeneratingReport(true);
+        setReportModalOpen(true);
+        setAiReportText('');
+        
+        try {
+            const res = await fetch('/api/intelligence/ai-report', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    tenantId: selectedTenant.id,
+                    metricsData: {
+                        totalSavings,
+                        dashboardData,
+                        complianceScore
+                    }
+                })
+            });
+            const json = await res.json();
+            if (res.ok && json.report) {
+                setAiReportText(json.report);
+            } else {
+                setAiReportText("Error al generar el reporte: " + (json.error || "Desconocido"));
+                toast.error("Error al generar reporte");
+            }
+        } catch (e) {
+            setAiReportText("Error de red al generar el reporte.");
+            toast.error("Error de red");
+        }
+        setGeneratingReport(false);
+    };
+
     return (
         <div>
+            {/* AI Report Modal */}
+            {reportModalOpen && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+                        <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-slate-800 bg-indigo-50 dark:bg-indigo-900/20">
+                            <h2 className="text-xl font-bold text-indigo-900 dark:text-indigo-100 flex items-center">
+                                <Cpu className="w-5 h-5 mr-2" /> Reporte Ejecutivo Generado por IA
+                            </h2>
+                            <button onClick={() => setReportModalOpen(false)} className="text-gray-500 hover:text-gray-700">
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
+                        <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
+                            {generatingReport ? (
+                                <div className="flex flex-col items-center justify-center h-64 space-y-4">
+                                    <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+                                    <p className="text-indigo-600 font-medium">Analizando métricas con IA...</p>
+                                </div>
+                            ) : (
+                                <div className="prose dark:prose-invert max-w-none text-sm">
+                                    <ReactMarkdown>{aiReportText}</ReactMarkdown>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="flex justify-between items-center mb-4 border-b border-gray-200 dark:border-gray-800 pb-4 gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Dashboard General</h1>
                     <p className="text-sm text-gray-500 mt-1">Visión global de rendimiento interactiva y personalizable.</p>
                 </div>
-                <button
-                    onClick={restoreDefault}
-                    className="flex items-center text-sm px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors"
-                >
-                    <RotateCcw className="w-4 h-4 mr-2" />
-                    Restaurar Diseño Original
-                </button>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={generateReport}
+                        disabled={generatingReport}
+                        className="flex items-center text-sm px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md shadow-sm transition-colors"
+                    >
+                        <Cpu className="w-4 h-4 mr-2" />
+                        Generar Reporte IA
+                    </button>
+                    <button
+                        onClick={restoreDefault}
+                        className="flex items-center text-sm px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors"
+                    >
+                        <RotateCcw className="w-4 h-4 mr-2" />
+                        Restaurar Diseño
+                    </button>
+                </div>
             </div>
 
             <ResponsiveGridLayout
@@ -193,6 +279,12 @@ export default function InteractiveDashboard({
                 <div key="budget-burn">
                     <Wrapper title="Burn Rate (Presupuesto Vs Real)" id="budget-burn">
                         <BudgetBurnChart />
+                    </Wrapper>
+                </div>
+
+                <div key="forecast">
+                    <Wrapper title="Predicción a Fin de Mes" id="forecast">
+                        <CostForecastChart />
                     </Wrapper>
                 </div>
 
