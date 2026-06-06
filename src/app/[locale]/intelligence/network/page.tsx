@@ -176,12 +176,12 @@ export default function NetworkAnalyticsPage() {
             </div>
 
             {loading ? (
-                <div className="flex flex-col items-center justify-center h-64 text-gray-400">
+                <div key="state-loading" className="flex flex-col items-center justify-center h-64 text-gray-400">
                     <Loader2 className="w-8 h-8 animate-spin mb-4 text-indigo-500" />
                     Obteniendo métricas de ancho de banda...
                 </div>
             ) : hasAnalyzed ? (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div key="state-analyzed" className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     {/* Pie Chart Card */}
                     <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-6 flex flex-col">
                         <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-6 flex items-center">
@@ -255,7 +255,7 @@ export default function NetworkAnalyticsPage() {
                     </div>
                 </div>
             ) : (
-                <div className="flex flex-col items-center justify-center h-64 border-2 border-dashed border-gray-300 dark:border-slate-700 rounded-lg">
+                <div key="state-empty" className="flex flex-col items-center justify-center h-64 border-2 border-dashed border-gray-300 dark:border-slate-700 rounded-lg">
                     <Activity className="w-12 h-12 text-gray-400 mb-4" />
                     <p className="text-gray-500 dark:text-gray-400 text-center max-w-sm">Ingresa el Subscription ID y presiona Analizar para descubrir costos ocultos de red.</p>
                 </div>
