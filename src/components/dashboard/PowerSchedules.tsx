@@ -1,8 +1,15 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import { useMsal } from '@azure/msal-react';
 import { useTenant } from '../TenantProvider';
+import {
+  useReactTable,
+  getCoreRowModel,
+  getPaginationRowModel,
+  flexRender,
+  ColumnDef
+} from '@tanstack/react-table';
 
 export default function PowerSchedules() {
     const { instance, accounts } = useMsal();
@@ -16,13 +23,20 @@ export default function PowerSchedules() {
     const [shutdownTime, setShutdownTime] = useState('');
     const [gmtOffset, setGmtOffset] = useState('-05:00');
     
+    let t: any = (key: string) => key === 'prev' ? 'Anterior' : 'Siguiente';
+    try {
+      const nextIntl = require('next-intl');
+      if (nextIntl && nextIntl.useTranslations) {
+        t = nextIntl.useTranslations();
+      }
+    } catch (e) {}
+
     const handleSetSchedule = () => {
         if (!scheduleVmName || !shutdownTime) return;
         alert(`Horario de apagado configurado para ${scheduleVmName} a las ${shutdownTime} (GMT ${gmtOffset}).\nEsta configuración ha sido enviada al engine.`);
         setScheduleVmName('');
         setShutdownTime('');
     };
-
 
     useEffect(() => {
         if (accounts.length === 0 || selectedTenant.id === 'default') return;
@@ -39,7 +53,6 @@ export default function PowerSchedules() {
                 const json = await res.json();
                 if (json.auditResults && json.auditResults.allVirtualMachines) {
                     setVms(json.auditResults.allVirtualMachines);
-                    // Select all by default
                     setSelectedVmIds(json.auditResults.allVirtualMachines.map((vm: any) => vm.id));
                 } else {
                     setVms([]);
@@ -53,8 +66,8 @@ export default function PowerSchedules() {
         fetchVms();
     }, [accounts, instance, selectedTenant.id]);
 
-    const handleAction = async (action: 'start' | 'stop' | 'restart') => {
-        const targetVms = vms.filter(vm => selectedVmIds.includes(vm.id));
+    const handleAction = async (action: 'start' | 'stop' | 'restart', singleVm?: any) => {
+        const targetVms = singleVm ? [singleVm] : vms.filter(vm => selectedVmIds.includes(vm.id));
         if (targetVms.length === 0) return;
         
         setActionLoading(action);
@@ -103,6 +116,85 @@ export default function PowerSchedules() {
             setSelectedVmIds(vms.map(vm => vm.id));
         }
     };
+
+    const columns = useMemo<ColumnDef<any>[]>(() => [
+        {
+            id: 'select',
+            header: () => (
+                <input 
+                    type="checkbox" 
+                    checked={selectedVmIds.length === vms.length && vms.length > 0}
+                    onChange={toggleAll}
+                    className="rounded text-[#0054A6] focus:ring-[#0054A6]"
+                />
+            ),
+            cell: ({ row }) => (
+                <input 
+                    type="checkbox"
+                    checked={selectedVmIds.includes(row.original.id)}
+                    onChange={() => toggleSelection(row.original.id)}
+                    className="rounded text-[#0054A6] focus:ring-[#0054A6]"
+                />
+            ),
+            size: 50,
+        },
+        {
+            accessorKey: 'name',
+            header: 'Máquina Virtual',
+            cell: info => <span className="text-sm font-semibold text-gray-900">{info.getValue() as string}</span>,
+        },
+        {
+            accessorKey: 'resourceGroup',
+            header: 'Resource Group',
+            cell: info => <span className="text-sm text-gray-500">{info.getValue() as string}</span>,
+        },
+        {
+            id: 'powerState',
+            header: 'Estado',
+            cell: ({ row }) => {
+                const vm = row.original;
+                let stateLabel = 'Sin reportar';
+                let isRunning = false;
+                if (vm.powerState) {
+                    if (vm.powerState === 'PowerState/running') {
+                        stateLabel = 'Encendida';
+                        isRunning = true;
+                    } else if (vm.powerState === 'PowerState/deallocated' || vm.powerState === 'PowerState/stopped') {
+                        stateLabel = 'Apagada';
+                    } else {
+                        stateLabel = vm.powerState.replace('PowerState/', '');
+                    }
+                }
+                return (
+                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${isRunning ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                        {stateLabel}
+                    </span>
+                );
+            }
+        },
+        {
+            id: 'actions',
+            header: 'Acciones',
+            cell: ({ row }) => {
+                const vm = row.original;
+                return (
+                    <div className="flex gap-2 justify-end">
+                        <button onClick={() => handleAction('start', vm)} disabled={actionLoading !== null} className="text-xs bg-green-50 text-green-700 px-2 py-1 border border-green-200 rounded hover:bg-green-100 disabled:opacity-50 transition-colors">Start</button>
+                        <button onClick={() => handleAction('stop', vm)} disabled={actionLoading !== null} className="text-xs bg-amber-50 text-amber-700 px-2 py-1 border border-amber-200 rounded hover:bg-amber-100 disabled:opacity-50 transition-colors">Stop</button>
+                        <button onClick={() => handleAction('restart', vm)} disabled={actionLoading !== null} className="text-xs bg-blue-50 text-blue-700 px-2 py-1 border border-blue-200 rounded hover:bg-blue-100 disabled:opacity-50 transition-colors">Restart</button>
+                    </div>
+                );
+            }
+        }
+    ], [selectedVmIds, vms, actionLoading]);
+
+    const table = useReactTable({
+        data: vms,
+        columns,
+        columnResizeMode: 'onChange',
+        getCoreRowModel: getCoreRowModel(),
+        getPaginationRowModel: getPaginationRowModel(),
+    });
 
     if (accounts.length === 0 || selectedTenant.id === 'default') return null;
 
@@ -221,60 +313,85 @@ export default function PowerSchedules() {
                         </button>
                     </div>
                     
-                    <div className="overflow-y-auto max-h-48 border border-gray-200 rounded-md">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50 sticky top-0">
-                                <tr>
-                                    <th className="px-4 py-2 text-left w-12">
-                                        <input 
-                                            type="checkbox" 
-                                            checked={selectedVmIds.length === vms.length && vms.length > 0}
-                                            onChange={toggleAll}
-                                            className="rounded text-[#0054A6] focus:ring-[#0054A6]"
+                    <div className="border border-gray-200 rounded-md overflow-hidden bg-white">
+                        <div className="overflow-x-auto w-full">
+                            <table className="w-full text-left border-collapse" style={{ width: table.getCenterTotalSize() }}>
+                                <thead className="bg-gray-50">
+                                {table.getHeaderGroups().map(headerGroup => (
+                                    <tr key={headerGroup.id} className="text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
+                                    {headerGroup.headers.map(header => (
+                                        <th key={header.id} className="p-4 font-medium relative group" style={{ width: header.getSize() }}>
+                                        <div className="flex items-center justify-between">
+                                            {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                                        </div>
+                                        <div
+                                            onMouseDown={header.getResizeHandler()}
+                                            onTouchStart={header.getResizeHandler()}
+                                            className={`absolute right-0 top-0 h-full w-2 cursor-col-resize bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity ${header.column.getIsResizing() ? 'opacity-100 bg-indigo-600' : ''}`}
                                         />
-                                    </th>
-                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Máquina Virtual</th>
-                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Resource Group</th>
-                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {vms.map((vm) => {
-                                    let stateLabel = 'Sin reportar';
-                                    let isRunning = false;
-                                    if (vm.powerState) {
-                                        if (vm.powerState === 'PowerState/running') {
-                                            stateLabel = 'Encendida';
-                                            isRunning = true;
-                                        } else if (vm.powerState === 'PowerState/deallocated' || vm.powerState === 'PowerState/stopped') {
-                                            stateLabel = 'Apagada';
-                                        } else {
-                                            stateLabel = vm.powerState.replace('PowerState/', '');
-                                        }
-                                    }
-
-                                    return (
-                                        <tr key={vm.id} className="hover:bg-gray-50 transition-colors">
-                                            <td className="px-4 py-2">
-                                                <input 
-                                                    type="checkbox"
-                                                    checked={selectedVmIds.includes(vm.id)}
-                                                    onChange={() => toggleSelection(vm.id)}
-                                                    className="rounded text-[#0054A6] focus:ring-[#0054A6]"
-                                                />
-                                            </td>
-                                            <td className="px-4 py-2 text-sm text-gray-900">{vm.name}</td>
-                                            <td className="px-4 py-2 text-sm text-gray-500">{vm.resourceGroup}</td>
-                                            <td className="px-4 py-2 text-sm">
-                                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${isRunning ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-                                                    {stateLabel}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
+                                        </th>
+                                    ))}
+                                    </tr>
+                                ))}
+                                </thead>
+                                <tbody>
+                                {table.getRowModel().rows.length > 0 ? (
+                                    table.getRowModel().rows.map(row => (
+                                    <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors text-sm">
+                                        {row.getVisibleCells().map(cell => (
+                                        <td key={cell.id} className="p-4" style={{ width: cell.column.getSize() }}>
+                                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                        </td>
+                                        ))}
+                                    </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                    <td colSpan={columns.length} className="p-8 text-center text-sm text-gray-500">
+                                        No hay datos disponibles
+                                    </td>
+                                    </tr>
+                                )}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-t border-gray-200 sm:px-6">
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm text-gray-700">
+                                    Página <span className="font-medium">{table.getState().pagination.pageIndex + 1}</span> de{' '}
+                                    <span className="font-medium">{table.getPageCount() || 1}</span>
+                                </span>
+                                <select
+                                    value={table.getState().pagination.pageSize}
+                                    onChange={e => {
+                                        table.setPageSize(Number(e.target.value));
+                                    }}
+                                    className="ml-4 bg-white border border-gray-300 text-gray-700 text-sm rounded-md p-1 focus:ring-[#0054A6] focus:border-[#0054A6]"
+                                >
+                                    {[10, 15, 20, 25, 50, 100].map(pageSize => (
+                                        <option key={pageSize} value={pageSize}>
+                                            Mostrar {pageSize}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => table.previousPage()}
+                                    disabled={!table.getCanPreviousPage()}
+                                    className="px-3 py-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {typeof t === 'function' && t('Common.prev') || 'Anterior'}
+                                </button>
+                                <button
+                                    onClick={() => table.nextPage()}
+                                    disabled={!table.getCanNextPage()}
+                                    className="px-3 py-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {typeof t === 'function' && t('Common.next') || 'Siguiente'}
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </>
             )}

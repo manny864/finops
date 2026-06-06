@@ -4,6 +4,7 @@ import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { BookOpen, Box, Loader2, CloudUpload, Plus } from 'lucide-react';
 import { toast } from 'sonner';
+import CreateResourceGroupModal from '@/components/CreateResourceGroupModal';
 
 export default function WorkbooksPage() {
     const { selectedTenant } = useTenant();
@@ -13,15 +14,16 @@ export default function WorkbooksPage() {
     const [rgs, setRgs] = useState<any[]>([]);
     const [loadingSubs, setLoadingSubs] = useState(false);
     const [loadingRgs, setLoadingRgs] = useState(false);
+    
+    const [isRgModalOpen, setIsRgModalOpen] = useState(false);
+    const [targetSubForModal, setTargetSubForModal] = useState('');
 
     const [subIdCost, setSubIdCost] = useState('');
     const [rgCost, setRgCost] = useState('');
-    const [isNewRgCost, setIsNewRgCost] = useState(false);
     const [loadingCost, setLoadingCost] = useState(false);
 
     const [subIdZombie, setSubIdZombie] = useState('');
     const [rgZombie, setRgZombie] = useState('');
-    const [isNewRgZombie, setIsNewRgZombie] = useState(false);
     const [loadingZombie, setLoadingZombie] = useState(false);
 
     useEffect(() => {
@@ -60,19 +62,21 @@ export default function WorkbooksPage() {
     const handleSubChange = (val: string, setter: any, isCost: boolean) => {
         setter(val);
         if (isCost) {
-            setRgCost(''); setIsNewRgCost(false);
+            setRgCost('');
         } else {
-            setRgZombie(''); setIsNewRgZombie(false);
+            setRgZombie('');
         }
         fetchRgs(val);
     };
 
-    const handleDeploy = async (type: string, subscriptionId: string, resourceGroupName: string, createNewRg: boolean, setLoading: (s: boolean) => void) => {
+    const handleDeploy = async (type: string, subscriptionId: string, resourceGroupName: string, setLoading: (s: boolean) => void) => {
         if (!subscriptionId || !resourceGroupName) {
             toast.error("Por favor ingresa Subscription ID y Resource Group.");
             return;
         }
         if (accounts.length === 0) return;
+
+        const workbookType = type === 'cost' ? 'cost-optimization' : 'zombie-resources';
 
         setLoading(true);
         try {
@@ -83,13 +87,12 @@ export default function WorkbooksPage() {
                     'Authorization': `Bearer ${tokenResponse.idToken}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ subscriptionId, resourceGroupName, createNewRg })
+                body: JSON.stringify({ subscriptionId, resourceGroupName, workbookType })
             });
             
             const json = await res.json();
             if (res.ok && json.success) {
                 toast.success(`Artefacto desplegado correctamente en ${resourceGroupName}`);
-                if (createNewRg) fetchRgs(subscriptionId); // refresh
             } else {
                 toast.error(json.error || "Error al desplegar el artefacto");
             }
@@ -143,47 +146,35 @@ export default function WorkbooksPage() {
                                     className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white rounded-md shadow-sm focus:ring-[#0054A6] focus:border-[#0054A6] sm:text-sm"
                                 >
                                     <option value="">Selecciona una suscripción...</option>
-                                    {subscriptions.map((s:any) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                    {subscriptions.map((s:any) => <option key={s.id} value={s.id}>{s.displayName}</option>)}
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Resource Group de Destino</label>
-                                {isNewRgCost ? (
-                                    <div className="flex items-center space-x-2">
-                                        <input 
-                                            type="text" 
-                                            value={rgCost}
-                                            onChange={e => setRgCost(e.target.value)}
-                                            placeholder="ej. rg-finops-management"
-                                            className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white rounded-md shadow-sm sm:text-sm"
-                                        />
-                                        <button onClick={() => setIsNewRgCost(false)} className="text-xs text-[#0054A6]">Cancelar</button>
-                                    </div>
-                                ) : (
-                                    <select 
-                                        value={rgCost}
-                                        onChange={e => {
-                                            if (e.target.value === 'NEW') {
-                                                setIsNewRgCost(true);
-                                                setRgCost('');
-                                            } else {
-                                                setRgCost(e.target.value);
-                                            }
-                                        }}
-                                        disabled={!subIdCost || loadingRgs}
-                                        className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white rounded-md shadow-sm sm:text-sm"
+                                <div className="flex justify-between items-center mb-1">
+                                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">Resource Group de Destino</label>
+                                    <button 
+                                        onClick={() => { setTargetSubForModal(subIdCost); setIsRgModalOpen(true); }}
+                                        disabled={!subIdCost}
+                                        className="text-xs font-semibold text-[#0054A6] hover:underline disabled:opacity-50"
                                     >
-                                        <option value="">{loadingRgs ? 'Cargando...' : 'Selecciona un RG...'}</option>
-                                        {rgs.map((r:any) => <option key={r.name} value={r.name}>{r.name} ({r.location})</option>)}
-                                        <option value="NEW" className="font-bold text-[#0054A6]">+ Crear Nuevo Resource Group</option>
-                                    </select>
-                                )}
+                                        + Crear Nuevo RG
+                                    </button>
+                                </div>
+                                <select 
+                                    value={rgCost}
+                                    onChange={e => setRgCost(e.target.value)}
+                                    disabled={!subIdCost || loadingRgs}
+                                    className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white rounded-md shadow-sm sm:text-sm"
+                                >
+                                    <option value="">{loadingRgs ? 'Cargando...' : 'Selecciona un RG...'}</option>
+                                    {rgs.map((r:any) => <option key={r.name} value={r.name}>{r.name} ({r.location})</option>)}
+                                </select>
                             </div>
                         </div>
                     </div>
                     <div className="px-6 py-4 bg-gray-50 dark:bg-slate-800/50 border-t">
                         <button 
-                            onClick={() => handleDeploy('cost', subIdCost, rgCost, isNewRgCost, setLoadingCost)}
+                            onClick={() => handleDeploy('cost', subIdCost, rgCost, setLoadingCost)}
                             disabled={loadingCost || !subIdCost || !rgCost}
                             className="w-full flex justify-center items-center px-4 py-2 bg-[#0054A6] hover:bg-blue-800 text-white rounded-md shadow-sm text-sm font-semibold transition-colors disabled:opacity-50"
                         >
@@ -209,47 +200,35 @@ export default function WorkbooksPage() {
                                     className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
                                 >
                                     <option value="">Selecciona una suscripción...</option>
-                                    {subscriptions.map((s:any) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                    {subscriptions.map((s:any) => <option key={s.id} value={s.id}>{s.displayName}</option>)}
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Resource Group de Destino</label>
-                                {isNewRgZombie ? (
-                                    <div className="flex items-center space-x-2">
-                                        <input 
-                                            type="text" 
-                                            value={rgZombie}
-                                            onChange={e => setRgZombie(e.target.value)}
-                                            placeholder="ej. rg-finops-management"
-                                            className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white rounded-md shadow-sm sm:text-sm"
-                                        />
-                                        <button onClick={() => setIsNewRgZombie(false)} className="text-xs text-emerald-600">Cancelar</button>
-                                    </div>
-                                ) : (
-                                    <select 
-                                        value={rgZombie}
-                                        onChange={e => {
-                                            if (e.target.value === 'NEW') {
-                                                setIsNewRgZombie(true);
-                                                setRgZombie('');
-                                            } else {
-                                                setRgZombie(e.target.value);
-                                            }
-                                        }}
-                                        disabled={!subIdZombie || loadingRgs}
-                                        className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white rounded-md shadow-sm sm:text-sm"
+                                <div className="flex justify-between items-center mb-1">
+                                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">Resource Group de Destino</label>
+                                    <button 
+                                        onClick={() => { setTargetSubForModal(subIdZombie); setIsRgModalOpen(true); }}
+                                        disabled={!subIdZombie}
+                                        className="text-xs font-semibold text-emerald-600 hover:underline disabled:opacity-50"
                                     >
-                                        <option value="">{loadingRgs ? 'Cargando...' : 'Selecciona un RG...'}</option>
-                                        {rgs.map((r:any) => <option key={r.name} value={r.name}>{r.name} ({r.location})</option>)}
-                                        <option value="NEW" className="font-bold text-emerald-600">+ Crear Nuevo Resource Group</option>
-                                    </select>
-                                )}
+                                        + Crear Nuevo RG
+                                    </button>
+                                </div>
+                                <select 
+                                    value={rgZombie}
+                                    onChange={e => setRgZombie(e.target.value)}
+                                    disabled={!subIdZombie || loadingRgs}
+                                    className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white rounded-md shadow-sm sm:text-sm"
+                                >
+                                    <option value="">{loadingRgs ? 'Cargando...' : 'Selecciona un RG...'}</option>
+                                    {rgs.map((r:any) => <option key={r.name} value={r.name}>{r.name} ({r.location})</option>)}
+                                </select>
                             </div>
                         </div>
                     </div>
                     <div className="px-6 py-4 bg-gray-50 dark:bg-slate-800/50 border-t">
                         <button 
-                            onClick={() => handleDeploy('zombie', subIdZombie, rgZombie, isNewRgZombie, setLoadingZombie)}
+                            onClick={() => handleDeploy('zombie', subIdZombie, rgZombie, setLoadingZombie)}
                             disabled={loadingZombie || !subIdZombie || !rgZombie}
                             className="w-full flex justify-center items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md shadow-sm text-sm font-semibold transition-colors disabled:opacity-50"
                         >
@@ -259,6 +238,16 @@ export default function WorkbooksPage() {
                     </div>
                 </div>
             </div>
+
+            <CreateResourceGroupModal 
+                isOpen={isRgModalOpen}
+                onClose={() => setIsRgModalOpen(false)}
+                tenantId={selectedTenant.id}
+                subscriptionId={targetSubForModal}
+                onSuccess={() => {
+                    fetchRgs(targetSubForModal);
+                }}
+            />
         </div>
     );
 }

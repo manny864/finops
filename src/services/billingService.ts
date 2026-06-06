@@ -14,7 +14,7 @@ export async function getCurrentMonthAmortizedCosts(tenantId: string, subscripti
             granularity: "Daily",
             aggregation: {
                 totalCost: {
-                    name: "AmortizedCost",
+                    name: "PreTaxCost",
                     function: "Sum"
                 }
             },

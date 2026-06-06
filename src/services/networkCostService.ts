@@ -28,15 +28,11 @@ export async function getNetworkEgressCosts(credential: any, subscriptionId: str
                 { type: "Dimension", name: "ResourceGroup" }
             ],
             filter: {
-                and: [
-                    {
-                        dimensions: {
-                            name: "MeterCategory",
-                            operator: "In",
-                            values: ["Networking", "Virtual Network", "Bandwidth"]
-                        }
-                    }
-                ]
+                dimensions: {
+                    name: "MeterCategory",
+                    operator: "In",
+                    values: ["Networking", "Virtual Network", "Bandwidth"]
+                }
             }
         }
     };

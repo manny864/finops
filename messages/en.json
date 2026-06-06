@@ -41,5 +41,9 @@
     "info_RateOptimization": "Measures your reserved instance and savings plan coverage.",
     "info_ForecastingAndBudgeting": "Measures the accuracy of your budgets vs actual spend.",
     "info_GovernanceAndAutomation": "Measures how many automated policies you have active."
+  },
+  "governance": {
+    "tagInfoTooltip": "Tag Governance allows you to enforce mandatory tags (e.g., CostCenter, Environment) across all subscriptions to improve cost allocation accuracy.",
+    "tagInputTooltip": "Type the exact name of the tag key you want to make mandatory."
   }
 }

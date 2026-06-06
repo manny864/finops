@@ -455,14 +455,14 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                         disabled={!table.getCanPreviousPage()}
                         className="px-3 py-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        {t('Previous') || 'Anterior'}
+                        Anterior
                     </button>
                     <button
                         onClick={() => table.nextPage()}
                         disabled={!table.getCanNextPage()}
                         className="px-3 py-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        {t('Next') || 'Siguiente'}
+                        Siguiente
                     </button>
                 </div>
             </div>

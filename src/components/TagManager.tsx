@@ -2,8 +2,11 @@
 import React, { useEffect, useState } from 'react';
 import { useTenant } from './TenantProvider';
 import { useMsal } from '@azure/msal-react';
+import { Info } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 export default function TagManager() {
+    const t = useTranslations();
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const [policies, setPolicies] = useState<any[]>([]);
@@ -45,46 +48,18 @@ export default function TagManager() {
             
             setIsAnalyzing(true);
             try {
-                const tokenResponse = await instance.acquireTokenSilent({
-                    scopes: ["User.Read"],
-                    account: accounts[0]
-                });
-                
-                const res = await fetch(`/api/audit/full?tenantId=${selectedTenant.id}`, {
-                    headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
-                });
+                const res = await fetch(`/api/tags/compliance?tenantId=${selectedTenant.id}`);
                 const json = await res.json();
                 
-                if (json.auditResults) {
-                    const allItems = Object.values(json.auditResults).flat();
-                    const requiredKeys = policies.filter(p => p.required).map(p => p.tag_key.toLowerCase());
+                if (json.total !== undefined) {
+                    const total = json.total;
+                    const nonCompliant = json.nonCompliant || [];
+                    const compliantCount = total - nonCompliant.length;
                     
-                    let compliantCount = 0;
-                    let nonCompliant: any[] = [];
-
-                    allItems.forEach((item: any) => {
-                        const itemTags = item.tags || {};
-                        const itemTagKeys = Object.keys(itemTags).map(k => k.toLowerCase());
-                        
-                        const missingTags = requiredKeys.filter(reqKey => !itemTagKeys.includes(reqKey));
-                        
-                        if (missingTags.length === 0) {
-                            compliantCount++;
-                        } else {
-                            nonCompliant.push({
-                                ...item,
-                                missingTags
-                            });
-                        }
-                    });
-
-                    const total = allItems.length;
                     const score = total === 0 ? 100 : Math.round((compliantCount / total) * 100);
                     
-                    const uniqueNonCompliant = Array.from(new Map(nonCompliant.map(item => [item.id, item])).values());
-                    
                     setComplianceScore(score);
-                    setNonCompliantResources(uniqueNonCompliant);
+                    setNonCompliantResources(nonCompliant);
                 }
             } catch (e) {
                 console.error("Error analyzing compliance", e);
@@ -173,7 +148,16 @@ export default function TagManager() {
                             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
                         </div>
                         <div>
-                            <h3 className="text-xl font-bold text-gray-800">Gobernanza de Etiquetas (Tags)</h3>
+                            <h3 className="text-xl font-bold text-gray-800 flex items-center">
+                                Gobernanza de Etiquetas (Tags)
+                                <div className="relative group ml-2 flex items-center">
+                                    <Info className="w-5 h-5 text-gray-400 hover:text-[#0054A6] cursor-help transition-colors" />
+                                    <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover:block w-64 p-2 bg-gray-900 text-white text-xs rounded shadow-lg z-10 text-center pointer-events-none">
+                                        {t('governance.tagInfoTooltip')}
+                                        <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-gray-900"></div>
+                                    </div>
+                                </div>
+                            </h3>
                             <p className="text-sm text-gray-500">Fuerza el cumplimiento de etiquetas para el tenant: <span className="font-semibold text-gray-700">{selectedTenant.name}</span></p>
                         </div>
                     </div>
@@ -197,7 +181,14 @@ export default function TagManager() {
                     </div>
                 </div>
                 
-                <div className="flex space-x-2 mb-6 bg-gray-50 p-4 rounded-lg border border-gray-100">
+                <div className="flex space-x-2 mb-6 bg-gray-50 p-4 rounded-lg border border-gray-100 items-center">
+                    <div className="relative group mr-1">
+                        <Info className="w-5 h-5 text-gray-400 hover:text-[#0054A6] cursor-help transition-colors" />
+                        <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover:block w-48 p-2 bg-gray-900 text-white text-xs rounded shadow-lg z-10 text-center pointer-events-none">
+                            {t('governance.tagInputTooltip')}
+                            <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-gray-900"></div>
+                        </div>
+                    </div>
                     <input 
                         type="text" 
                         value={newTag} 

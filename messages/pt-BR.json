@@ -41,5 +41,9 @@
     "info_RateOptimization": "Mede sua cobertura de instâncias reservadas e planos de economia.",
     "info_ForecastingAndBudgeting": "Mede a precisão dos seus orçamentos em relação aos gastos reais.",
     "info_GovernanceAndAutomation": "Mede quantas políticas automatizadas você tem ativas."
+  },
+  "governance": {
+    "tagInfoTooltip": "A Governança de Tags permite aplicar tags obrigatórias (ex. CostCenter, Environment) em todas as assinaturas para melhorar a precisão da alocação de custos.",
+    "tagInputTooltip": "Digite o nome exato da chave da tag que você deseja tornar obrigatória."
   }
 }

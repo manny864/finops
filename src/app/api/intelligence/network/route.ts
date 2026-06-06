@@ -44,15 +44,6 @@ export async function GET(request: NextRequest) {
                 subCategory: row[subcatIndex],
                 resourceGroup: row[rgIndex]
             })).filter(item => item.subCategory && item.subCategory.toLowerCase().includes('bandwidth') || item.subCategory?.toLowerCase().includes('egress') || item.cost > 0);
-        } else {
-            // Provide Mock data if empty for demo purposes of the UI
-            processedData = [
-                { cost: 1250.45, subCategory: "Bandwidth - Inter-VNet", resourceGroup: "rg-core-network" },
-                { cost: 890.20, subCategory: "Bandwidth - Internet Egress", resourceGroup: "rg-public-web" },
-                { cost: 450.00, subCategory: "ExpressRoute Egress", resourceGroup: "rg-onprem-hybrid" },
-                { cost: 210.50, subCategory: "Bandwidth - Internet Egress", resourceGroup: "rg-dev-sandbox" },
-                { cost: 110.00, subCategory: "Bandwidth - Cross-Region", resourceGroup: "rg-dr-site" }
-            ];
         }
 
         return NextResponse.json({ data: processedData });
@@ -63,6 +54,10 @@ export async function GET(request: NextRequest) {
         let status = 500;
         
         const msg = (error.message || "").toLowerCase();
+        if (msg.includes("returns null or empty list for id") || error.code === "NotFound") {
+            return NextResponse.json({ data: [] });
+        }
+
         if (error.code === "AuthorizationFailed" || error.code === "ScopeNotFound" || msg.includes("authorization") || msg.includes("linkedinvalidpropertyid") || msg.includes("subscriptionnotfound")) {
             errorCode = "ERR_NETWORK_ACCESS_DENIED";
             status = 403;

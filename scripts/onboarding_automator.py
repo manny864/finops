@@ -24,7 +24,10 @@ CUSTOM_ROLE_ACTIONS = [
     "Microsoft.Network/networkInterfaces/delete",
     "Microsoft.Network/networkSecurityGroups/delete",
     "Microsoft.Network/publicIPAddresses/delete",
-    "Microsoft.Web/serverfarms/delete"
+    "Microsoft.Web/serverfarms/delete",
+    "Microsoft.Resources/deployments/*",
+    "microsoft.insights/workbooks/write",
+    "Microsoft.Resources/subscriptions/resourcegroups/write"
 ]
 
 # App ID de CSCloudSolutions-FinOps-Agent

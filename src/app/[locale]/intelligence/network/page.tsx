@@ -85,7 +85,11 @@ export default function NetworkAnalyticsPage() {
             const json = await res.json();
             if (res.ok && json.data) {
                 setData(json.data);
-                toast.success("Análisis de red completado.");
+                if (json.data.length === 0) {
+                    toast.info("La suscripción actual no tiene datos o costos recientes de tráfico de red para analizar.");
+                } else {
+                    toast.success("Análisis de red completado.");
+                }
             } else {
                 toast.error(json.message || "Error al analizar la red.");
             }

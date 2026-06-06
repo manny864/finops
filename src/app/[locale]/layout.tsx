@@ -18,14 +18,10 @@ const openSans = Open_Sans({
   variable: "--font-opensans",
 });
 
+// Developer Note: If the favicon does not update immediately, please forcefully clear your browser cache or do a hard refresh (Ctrl + F5), as browsers aggressively cache favicons.
 export const metadata: Metadata = {
   title: "CSCloudSolutions FinOps",
-  description: "Plataforma automatizada para optimización de costos en Azure y gobernanza cloud.",
-  icons: {
-    icon: '/favicon.png',
-    shortcut: '/favicon.png',
-    apple: '/favicon.png'
-  }
+  description: "Plataforma automatizada para optimización de costos en Azure y gobernanza cloud."
 };
 
 export default async function RootLayout({

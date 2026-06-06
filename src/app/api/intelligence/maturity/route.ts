@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import { getAzureCredential } from "@/lib/azure";
-import { SubscriptionClient } from "@azure/arm-subscriptions";
+
 import { AdvisorManagementClient } from "@azure/arm-advisor";
 import { ConsumptionManagementClient } from "@azure/arm-consumption";
 
@@ -43,12 +43,12 @@ export async function GET(request: NextRequest) {
     let subscriptionCount = 0;
 
     try {
-      // 1. Check subscriptions exist
-      const subClient = new SubscriptionClient(credential);
-      const subs: any[] = [];
-      for await (const sub of subClient.subscriptions.list()) {
-        subs.push(sub);
-      }
+      const tokenResponse = await credential.getToken("https://management.azure.com/.default");
+      const fetchRes = await fetch("https://management.azure.com/subscriptions?api-version=2020-01-01", {
+          headers: { "Authorization": `Bearer ${tokenResponse.token}` }
+      });
+      const data = await fetchRes.json();
+      const subs: any[] = data.value || [];
       subscriptionCount = subs.length;
       hasSubscriptions = subs.length > 0;
 
@@ -76,6 +76,7 @@ export async function GET(request: NextRequest) {
         } catch { /* Consumption not accessible */ }
       }
     } catch (err: any) {
+      console.error("Maturity API Error:", err);
       const msg = err?.message || '';
       if (msg.includes('AADSTS7000229')) {
         return NextResponse.json({ data: null, reason: "MISSING_ADMIN_CONSENT" });

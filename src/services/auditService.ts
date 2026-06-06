@@ -2,7 +2,7 @@ import { SubscriptionClient } from "@azure/arm-subscriptions";
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { kqlCatalog } from "../lib/kqlCatalog";
 
-async function runInBatches(client: ResourceGraphClient, queries: {key: string, query: string}[], batchSize = 5, subscriptions: string[] = []) {
+async function runInBatches(client: ResourceGraphClient, queries: {key: string, query: string}[], batchSize = 2, subscriptions: string[] = []) {
     const getQuery = (query: string) => ({
         subscriptions,
         query
@@ -13,7 +13,18 @@ async function runInBatches(client: ResourceGraphClient, queries: {key: string, 
         const batch = queries.slice(i, i + batchSize);
         const batchPromises = batch.map(async (q) => {
             try {
-                const res = await client.resources(getQuery(q.query));
+                let res;
+                try {
+                    res = await client.resources(getQuery(q.query));
+                } catch (e: any) {
+                    if (e.statusCode === 429 || (e.code && e.code === 'RateLimiting')) {
+                        console.warn(`[Audit] Rate Limited (429) en ${q.key}. Reintentando en 3s...`);
+                        await new Promise(resolve => setTimeout(resolve, 3000));
+                        res = await client.resources(getQuery(q.query));
+                    } else {
+                        throw e;
+                    }
+                }
                 return { key: q.key, data: res.data };
             } catch (e) {
                 console.warn(`Query ${q.key} failed:`, e);
@@ -24,7 +35,7 @@ async function runInBatches(client: ResourceGraphClient, queries: {key: string, 
         batchResults.forEach(r => results[r.key] = r.data);
         
         if (i + batchSize < queries.length) {
-            await new Promise(resolve => setTimeout(resolve, 800)); // 800ms delay to prevent 429
+            await new Promise(resolve => setTimeout(resolve, 1500)); // 1500ms delay to prevent 429
         }
     }
     return results;

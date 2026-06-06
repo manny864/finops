@@ -41,5 +41,9 @@
     "info_RateOptimization": "Mide tu cobertura de instancias reservadas y planes de ahorro.",
     "info_ForecastingAndBudgeting": "Mide la exactitud de tus presupuestos frente al gasto real.",
     "info_GovernanceAndAutomation": "Mide cuántas políticas automatizadas tienes activas."
+  },
+  "governance": {
+    "tagInfoTooltip": "La Gobernanza de Etiquetas te permite exigir etiquetas obligatorias (ej. CostCenter, Environment) en todas las suscripciones para mejorar la asignación de costos.",
+    "tagInputTooltip": "Escribe el nombre exacto de la clave de la etiqueta que deseas hacer obligatoria."
   }
 }
