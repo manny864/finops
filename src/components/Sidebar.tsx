@@ -1,7 +1,6 @@
 "use client";
 import React, { useState } from 'react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { Link, usePathname } from '@/i18n/routing';
 import { useTranslations } from 'next-intl';
 import { 
     LayoutDashboard,
@@ -68,28 +67,29 @@ export default function Sidebar({ sidebarOpen }: SidebarProps) {
         },
         {
             id: 'limpieza',
-            title: 'Limpieza de Nube',
+            title: t('cleanup'),
             items: [
-                { href: '/cleanup/zombies', label: 'Recursos Zombis', icon: Trash2 },
-                { href: '/cleanup/ttl', label: 'Expiraciones TTL', icon: Clock }
+                { href: '/cleanup/zombies', label: t('zombie_resources'), icon: Trash2 },
+                { href: '/cleanup/ttl', label: t('ttl_expirations'), icon: Clock }
             ]
         },
         {
             id: 'gobernanza',
-            title: 'Gobernanza',
+            title: t('governance'),
             items: [
-                { href: '/governance/tags', label: 'Cumplimiento Etiquetas', icon: Tags },
-                { href: '/governance/power', label: 'Horarios de Apagado', icon: Power }
+                { href: '/governance/tags', label: t('tag_compliance'), icon: Tags },
+                { href: '/governance/power', label: t('power_schedules'), icon: Power }
             ]
         },
         {
             id: 'admin',
             title: t('admin'),
             items: [
-                { href: '/admin/onboarding', label: 'Onboarding Clientes', icon: Users },
-                { href: '/admin/config', label: 'Configuración', icon: Settings },
-                { href: '/admin/report', label: 'Reporte Ejecutivo', icon: FileText },
-                { href: '/admin/workbooks', label: t('workbooks'), icon: BookOpen }
+                { href: '/admin/onboarding', label: t('client_onboarding'), icon: Users },
+                { href: '/admin/config', label: t('configuration'), icon: Settings },
+                { href: '/admin/report', label: t('executive_report'), icon: FileText },
+                { href: '/admin/workbooks', label: t('workbooks'), icon: BookOpen },
+                { href: '/admin/audit', label: t('audit_trail'), icon: Activity }
             ]
         }
     ];

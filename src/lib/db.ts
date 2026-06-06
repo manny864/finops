@@ -23,9 +23,20 @@ export async function initializeDatabase() {
                 tenant_id VARCHAR(255) UNIQUE NOT NULL,
                 company_name VARCHAR(255),
                 status VARCHAR(50) DEFAULT 'active',
+                webhook_url VARCHAR(255),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
+
+        // Check if webhook_url exists for backward compatibility
+        try {
+            await connection.query('ALTER TABLE Tenants ADD COLUMN webhook_url VARCHAR(255);');
+        } catch (e: any) {
+            // Ignore Duplicate column error
+            if (e.code !== 'ER_DUP_FIELDNAME') {
+                console.error("Error adding webhook_url:", e);
+            }
+        }
 
         await connection.query(`
             CREATE TABLE IF NOT EXISTS Users (
@@ -69,6 +80,19 @@ export async function initializeDatabase() {
                 total_wasted_usd DECIMAL(10,2) NOT NULL,
                 potential_savings_usd DECIMAL(10,2) NOT NULL,
                 UNIQUE KEY unique_scan (tenant_id, scan_date),
+                FOREIGN KEY (tenant_id) REFERENCES Tenants(tenant_id) ON DELETE CASCADE
+            )
+        `);
+
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS ActionLogs (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                tenant_id VARCHAR(255) NOT NULL,
+                user_email VARCHAR(255) NOT NULL,
+                action_type VARCHAR(50) NOT NULL,
+                resource_id VARCHAR(255) NOT NULL,
+                status VARCHAR(20) NOT NULL,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (tenant_id) REFERENCES Tenants(tenant_id) ON DELETE CASCADE
             )
         `);

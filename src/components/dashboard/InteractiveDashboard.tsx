@@ -8,6 +8,7 @@ import { GripVertical, Leaf, RotateCcw } from 'lucide-react';
 import CostPieChart from '../CostPieChart';
 import BudgetBurnChart from './BudgetBurnChart';
 import ZombieResourcesTable from '../ZombieResourcesTable';
+import CostForecastChart from './CostForecastChart';
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
@@ -16,16 +17,18 @@ const DEFAULT_LAYOUTS: Layouts = {
         { i: 'summary-co2', x: 0, y: 0, w: 3, h: 4 },
         { i: 'summary-savings', x: 3, y: 0, w: 3, h: 4 },
         { i: 'governance', x: 6, y: 0, w: 3, h: 8 },
-        { i: 'cost-pie', x: 0, y: 4, w: 6, h: 10 },
-        { i: 'budget-burn', x: 6, y: 8, w: 6, h: 10 },
-        { i: 'zombie-table', x: 0, y: 14, w: 12, h: 12 }
+        { i: 'cost-pie', x: 0, y: 4, w: 4, h: 10 },
+        { i: 'budget-burn', x: 4, y: 8, w: 4, h: 10 },
+        { i: 'forecast', x: 8, y: 8, w: 4, h: 10 },
+        { i: 'zombie-table', x: 0, y: 18, w: 12, h: 12 }
     ],
     md: [
         { i: 'summary-co2', x: 0, y: 0, w: 5, h: 4 },
         { i: 'summary-savings', x: 5, y: 0, w: 5, h: 4 },
         { i: 'governance', x: 0, y: 4, w: 5, h: 8 },
         { i: 'cost-pie', x: 5, y: 4, w: 5, h: 10 },
-        { i: 'budget-burn', x: 0, y: 12, w: 10, h: 10 },
+        { i: 'budget-burn', x: 0, y: 12, w: 5, h: 10 },
+        { i: 'forecast', x: 5, y: 12, w: 5, h: 10 },
         { i: 'zombie-table', x: 0, y: 22, w: 10, h: 12 }
     ],
     sm: [
@@ -34,7 +37,8 @@ const DEFAULT_LAYOUTS: Layouts = {
         { i: 'governance', x: 0, y: 8, w: 6, h: 8 },
         { i: 'cost-pie', x: 0, y: 16, w: 6, h: 10 },
         { i: 'budget-burn', x: 0, y: 26, w: 6, h: 10 },
-        { i: 'zombie-table', x: 0, y: 36, w: 6, h: 12 }
+        { i: 'forecast', x: 0, y: 36, w: 6, h: 10 },
+        { i: 'zombie-table', x: 0, y: 46, w: 6, h: 12 }
     ]
 };
 
@@ -193,6 +197,12 @@ export default function InteractiveDashboard({
                 <div key="budget-burn">
                     <Wrapper title="Burn Rate (Presupuesto Vs Real)" id="budget-burn">
                         <BudgetBurnChart />
+                    </Wrapper>
+                </div>
+
+                <div key="forecast">
+                    <Wrapper title="Predicción a Fin de Mes" id="forecast">
+                        <CostForecastChart />
                     </Wrapper>
                 </div>
 

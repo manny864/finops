@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAzureCredential } from "@/lib/azure";
 import { CostManagementClient } from "@azure/arm-costmanagement";
+import { sendWebhookAlert } from "@/lib/notifications";
 
 export async function GET(request: NextRequest) {
     try {
@@ -109,14 +110,25 @@ export async function GET(request: NextRequest) {
                 console.error("Error fetching RG anomaly details:", err);
             }
 
-            return NextResponse.json({
+            const pct = ((day8.cost - avgBaseline) / avgBaseline) * 100;
+            const anomalyData = {
                 isAnomaly: true,
                 anomalyDate: day8.date,
                 baselineAverage: avgBaseline,
                 spikeAmount: day8.cost,
                 affectedResourceGroup: topRg,
-                percentageIncrease: ((day8.cost - avgBaseline) / avgBaseline) * 100
-            });
+                percentageIncrease: pct
+            };
+
+            // Disparar Webhook
+            await sendWebhookAlert(
+                tenantId, 
+                "🚨 Alerta de Anomalía FinOps", 
+                `Pico inusual de costos detectado (${pct.toFixed(1)}%). Gasto alcanzó $${day8.cost.toFixed(2)} vs baseline de $${avgBaseline.toFixed(2)}. Revisa el grupo de recursos: ${topRg}`,
+                "error"
+            );
+
+            return NextResponse.json(anomalyData);
         }
 
         return NextResponse.json({ isAnomaly: false, baselineAverage: avgBaseline, lastDayCost: day8.cost });

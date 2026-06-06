@@ -34,9 +34,9 @@ export async function POST(request: NextRequest) {
         const promises = vms.map(async (vm: any) => {
             try {
                 if (action === 'stop') {
-                    await deallocateVirtualMachine(tenantId, vm.subscriptionId, vm.resourceGroup, vm.resourceName);
+                    await deallocateVirtualMachine(tenantId, email, vm.subscriptionId, vm.resourceGroup, vm.resourceName);
                 } else if (action === 'start') {
-                    await startVirtualMachine(tenantId, vm.subscriptionId, vm.resourceGroup, vm.resourceName);
+                    await startVirtualMachine(tenantId, email, vm.subscriptionId, vm.resourceGroup, vm.resourceName);
                 }
             } catch (err) {
                 console.error(`Fallo al ${action} VM ${vm.resourceName}:`, err);

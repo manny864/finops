@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Cross-tenant deletion denied" }, { status: 403 });
     }
 
-    await deleteResource(tenantId, subscriptionId, resourceGroup, resourceName, resourceType);
+    await deleteResource(tenantId, email, subscriptionId, resourceGroup, resourceName, resourceType);
 
     return NextResponse.json({ success: true });
   } catch (e: any) {

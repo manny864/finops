@@ -63,3 +63,48 @@ export async function getCurrentMonthAmortizedCosts(tenantId: string, subscripti
         totalCost: Number(totalCost.toFixed(2))
     };
 }
+
+export async function getCostForecast(tenantId: string, subscriptionId: string) {
+    const credential = await getAzureCredential(tenantId);
+    const client = new CostManagementClient(credential);
+
+    const scope = `/subscriptions/${subscriptionId}`;
+    
+    // Azure Cost Management forecast API expects a timeframe
+    // Or we can use timePeriod.
+    // We will ask for data from today to the end of the month
+    const today = new Date();
+    const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+    const result = await client.forecast.usage(scope, {
+        type: "Usage",
+        timeframe: "Custom",
+        timePeriod: {
+            from: today,
+            to: endOfMonth
+        },
+        dataset: {
+            granularity: "Daily",
+            aggregation: {
+                totalCost: {
+                    name: "PreTaxCost",
+                    function: "Sum"
+                }
+            }
+        }
+    });
+
+    if (!result.rows) return [];
+
+    const forecastData = result.rows.map(row => {
+        const cost = Number(row[0]) || 0;
+        const dateStr = String(row[1]);
+        const formattedDate = dateStr.length === 8 ? `${dateStr.substring(0,4)}-${dateStr.substring(4,6)}-${dateStr.substring(6,8)}` : dateStr;
+        return {
+            date: formattedDate,
+            forecastCost: Number(cost.toFixed(2))
+        };
+    });
+
+    return forecastData;
+}
