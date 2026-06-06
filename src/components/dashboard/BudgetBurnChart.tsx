@@ -85,7 +85,7 @@ export default function BudgetBurnChart() {
                     Utiliza la API de Presupuestos para configurarlos.
                 </div>
             ) : (
-                <div className="h-64">
+                <div className="h-64 w-full min-w-0" style={{ minHeight: 0 }}>
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={burnData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} />

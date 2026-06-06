@@ -11,6 +11,9 @@ import PowerSchedules from "@/components/dashboard/PowerSchedules";
 import BudgetBurnChart from "@/components/dashboard/BudgetBurnChart";
 import RightsizingBlade from "@/components/dashboard/RightsizingBlade";
 import ExpiredSandboxTable from "@/components/dashboard/ExpiredSandboxTable";
+import ExecutiveSummaryCard from "@/components/dashboard/ExecutiveSummaryCard";
+import { useActionLogStore } from "@/store/actionLogStore";
+import { Leaf } from "lucide-react";
 
 export default function Home() {
   const { activeTab, setActiveTab } = useContext(TabContext);
@@ -22,6 +25,12 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [complianceScore, setComplianceScore] = useState<number | null>(null);
+  const { addAction } = useActionLogStore();
+
+  const calculateCO2Savings = (wastedUsd: number) => {
+      // Proxy: $100 waste removed = 15 kg CO2 saved
+      return ((wastedUsd / 100) * 15).toFixed(1);
+  };
 
   useEffect(() => {
       if (activeTab !== 'dashboard' || accounts.length === 0 || selectedTenant.id === 'default') return;
@@ -85,6 +94,19 @@ export default function Home() {
                       setComplianceScore(Math.round((compliantCount / allItems.length) * 100));
                   }
               }
+
+              // Check for anomalies
+              const anomalyRes = await fetch(`/api/intelligence/anomalies?tenantId=${selectedTenant.id}&subscriptionId=${json.subscriptionId || 'default'}`);
+              if (anomalyRes.ok) {
+                  const anomalyJson = await anomalyRes.json();
+                  if (anomalyJson.isAnomaly) {
+                      addAction({
+                          message: `Pico inusual de costos detectado (${anomalyJson.percentageIncrease.toFixed(1)}%). Revisa el grupo de recursos: ${anomalyJson.affectedResourceGroup}`,
+                          status: 'error'
+                      });
+                  }
+              }
+
           } catch (e) {}
           setLoading(false);
       };
@@ -133,12 +155,23 @@ export default function Home() {
           <p className="text-sm text-gray-500 mt-1">Visión global de rendimiento y eficiencia en la nube.</p>
         </div>
         
-        <div className="bg-green-50 border border-green-200 rounded-xl px-6 py-3 flex flex-col items-end shadow-sm">
-            <span className="text-xs font-bold text-green-700 uppercase tracking-widest mb-1">Ahorro Potencial Total</span>
-            <span className="text-4xl lg:text-5xl font-extrabold text-green-600">
-                {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalSavings)}
-            </span>
-            <span className="text-xs text-green-600 mt-1">/mes proyectado</span>
+        <div className="flex gap-4">
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-6 py-3 flex flex-col items-end shadow-sm">
+                <span className="text-xs font-bold text-emerald-700 uppercase tracking-widest mb-1 flex items-center">
+                    <Leaf className="w-3 h-3 mr-1" /> Impacto Ambiental
+                </span>
+                <span className="text-4xl lg:text-5xl font-extrabold text-emerald-600">
+                    {calculateCO2Savings(totalSavings)}
+                </span>
+                <span className="text-xs text-emerald-600 mt-1">kg CO2 evitados</span>
+            </div>
+            <div className="bg-green-50 border border-green-200 rounded-xl px-6 py-3 flex flex-col items-end shadow-sm">
+                <span className="text-xs font-bold text-green-700 uppercase tracking-widest mb-1">Ahorro Potencial Total</span>
+                <span className="text-4xl lg:text-5xl font-extrabold text-green-600">
+                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalSavings)}
+                </span>
+                <span className="text-xs text-green-600 mt-1">/mes proyectado</span>
+            </div>
         </div>
       </div>
       
