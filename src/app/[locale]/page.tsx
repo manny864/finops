@@ -11,20 +11,19 @@ import PowerSchedules from "@/components/dashboard/PowerSchedules";
 import BudgetBurnChart from "@/components/dashboard/BudgetBurnChart";
 import RightsizingBlade from "@/components/dashboard/RightsizingBlade";
 import ExpiredSandboxTable from "@/components/dashboard/ExpiredSandboxTable";
-import ExecutiveSummaryCard from "@/components/dashboard/ExecutiveSummaryCard";
 import { useActionLogStore } from "@/store/actionLogStore";
-import { Leaf } from "lucide-react";
+import { useDashboardStore } from "@/store/dashboardStore";
+import InteractiveDashboard from "@/components/dashboard/InteractiveDashboard";
 
 export default function Home() {
   const { activeTab, setActiveTab } = useContext(TabContext);
   const { instance, accounts } = useMsal();
   const { selectedTenant } = useTenant();
   
-  const [dashboardData, setDashboardData] = useState<any[]>([]);
+  const { dashboardData, complianceScore, lastFetchedTenantId, anomaliesChecked, setDashboardState, setAnomaliesChecked } = useDashboardStore();
   const totalSavings = dashboardData.reduce((sum, item) => sum + (item.potentialSavings || 0), 0);
   const [loading, setLoading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [complianceScore, setComplianceScore] = useState<number | null>(null);
   const { addAction } = useActionLogStore();
 
   const calculateCO2Savings = (wastedUsd: number) => {
@@ -34,6 +33,7 @@ export default function Home() {
 
   useEffect(() => {
       if (activeTab !== 'dashboard' || accounts.length === 0 || selectedTenant.id === 'default') return;
+      if (lastFetchedTenantId === selectedTenant.id && dashboardData.length > 0) return; // Prevent unnecessary refetches
       
       const fetchData = async () => {
           setLoading(true);
@@ -72,16 +72,13 @@ export default function Home() {
                           potentialSavings: r.estimatedMonthlyCost || (r.diskSizeGB ? r.diskSizeGB * 0.15 : (r.sizeGB ? r.sizeGB * 0.05 : (config as any).savings))
                       })));
                   }
-                  setDashboardData(mappedData);
-
                   // Calculate Compliance Score
                   const polRes = await fetch(`/api/tags?tenantId=${selectedTenant.id}`);
                   const polJson = await polRes.json();
                   const policies = polJson.policies || [];
-                  
-                  if (policies.length === 0) {
-                      setComplianceScore(-1); // -1 means Not Configured
-                  } else {
+
+                  let finalComplianceScore = -1;
+                  if (policies.length > 0) {
                       const allItems = Object.values(json.auditResults).flat();
                       const requiredKeys = policies.filter((p:any) => p.required).map((p:any) => p.tag_key.toLowerCase());
                       let compliantCount = 0;
@@ -91,19 +88,25 @@ export default function Home() {
                           const missingTags = requiredKeys.filter((reqKey:any) => !itemTagKeys.includes(reqKey));
                           if (missingTags.length === 0) compliantCount++;
                       });
-                      setComplianceScore(Math.round((compliantCount / allItems.length) * 100));
+                      finalComplianceScore = Math.round((compliantCount / allItems.length) * 100);
                   }
+
+                  // Guardar en estado global
+                  setDashboardState(selectedTenant.id, mappedData, finalComplianceScore);
               }
 
-              // Check for anomalies
-              const anomalyRes = await fetch(`/api/intelligence/anomalies?tenantId=${selectedTenant.id}&subscriptionId=${json.subscriptionId || 'default'}`);
-              if (anomalyRes.ok) {
-                  const anomalyJson = await anomalyRes.json();
-                  if (anomalyJson.isAnomaly) {
-                      addAction({
-                          message: `Pico inusual de costos detectado (${anomalyJson.percentageIncrease.toFixed(1)}%). Revisa el grupo de recursos: ${anomalyJson.affectedResourceGroup}`,
-                          status: 'error'
-                      });
+              // Check for anomalies solo si no hemos revisado para este tenant
+              if (!anomaliesChecked) {
+                  const anomalyRes = await fetch(`/api/intelligence/anomalies?tenantId=${selectedTenant.id}&subscriptionId=${json.subscriptionId || 'default'}`);
+                  if (anomalyRes.ok) {
+                      const anomalyJson = await anomalyRes.json();
+                      if (anomalyJson.isAnomaly) {
+                          addAction({
+                              message: `Pico inusual de costos detectado (${anomalyJson.percentageIncrease.toFixed(1)}%). Revisa el grupo de recursos: ${anomalyJson.affectedResourceGroup}`,
+                              status: 'error'
+                          });
+                      }
+                      setAnomaliesChecked(true);
                   }
               }
 
@@ -148,86 +151,17 @@ export default function Home() {
   }
 
   return (
-    <div className="flex flex-col gap-8 animate-in fade-in duration-500">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-gray-200 dark:border-gray-800 pb-4 gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard General</h1>
-          <p className="text-sm text-gray-500 mt-1">Visión global de rendimiento y eficiencia en la nube.</p>
-        </div>
-        
-        <div className="flex gap-4">
-            <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-6 py-3 flex flex-col items-end shadow-sm">
-                <span className="text-xs font-bold text-emerald-700 uppercase tracking-widest mb-1 flex items-center">
-                    <Leaf className="w-3 h-3 mr-1" /> Impacto Ambiental
-                </span>
-                <span className="text-4xl lg:text-5xl font-extrabold text-emerald-600">
-                    {calculateCO2Savings(totalSavings)}
-                </span>
-                <span className="text-xs text-emerald-600 mt-1">kg CO2 evitados</span>
-            </div>
-            <div className="bg-green-50 border border-green-200 rounded-xl px-6 py-3 flex flex-col items-end shadow-sm">
-                <span className="text-xs font-bold text-green-700 uppercase tracking-widest mb-1">Ahorro Potencial Total</span>
-                <span className="text-4xl lg:text-5xl font-extrabold text-green-600">
-                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalSavings)}
-                </span>
-                <span className="text-xs text-green-600 mt-1">/mes proyectado</span>
-            </div>
-        </div>
-      </div>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="flex flex-col">
-            <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 flex flex-col">
-                 <h3 className="text-lg font-bold text-gray-800 mb-1">Distribución de Fugas Financieras</h3>
-                 <p className="text-xs text-gray-500 mb-4">Haz clic en un segmento para ver los recursos afectados.</p>
-                 {loading ? (
-                     <div className="flex-1 flex items-center justify-center text-gray-400 animate-pulse">Calculando métricas...</div>
-                 ) : (
-                     <CostPieChart data={dashboardData} onSegmentClick={(cat) => setSelectedCategory(cat)} />
-                 )}
-            </div>
-            
-            
-        </div>
-        <div className="flex flex-col">
-            <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
-             <h3 className="text-lg font-bold text-gray-800 mb-4">Estado de Gobernanza</h3>
-             <div className="h-64 flex flex-col items-center justify-center text-gray-400 bg-gray-50 rounded-lg border border-dashed border-gray-300">
-                 <p className="text-sm font-medium">Score de Seguridad Financiera</p>
-                 <span className={`text-4xl font-bold mt-2 ${complianceScore === -1 ? 'text-gray-400' : 'text-green-500'}`}>
-                     {complianceScore === null ? 'Calculando...' : complianceScore === -1 ? 'No Configurado' : `${complianceScore}%`}
-                 </span>
-                 <p className="text-xs text-gray-400 mt-2 text-center px-8">
-                     {complianceScore === -1 ? 'Añade reglas en Gestión de Etiquetas.' : 'Basado en las reglas de etiquetado activas.'}
-                 </p>
-                 {complianceScore === -1 && (
-                     <button 
-                         onClick={() => setActiveTab('tags')} 
-                         className="mt-4 px-4 py-2 bg-[#0054A6] text-white text-xs font-semibold rounded shadow-sm hover:bg-blue-800 transition-colors"
-                     >
-                         Configurar Políticas
-                     </button>
-                 )}
-             </div>
-        </div>
-        
-        <BudgetBurnChart />
-        </div>
-      </div>
-
-      {selectedCategory && (
-          <div className="animate-in slide-in-from-bottom-4 duration-500 mt-4">
-              <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xl font-bold text-gray-800">
-                      Recursos Afectados: <span className="text-[#0054A6]">{selectedCategory}</span>
-                  </h3>
-                  <button onClick={() => setSelectedCategory(null)} className="text-sm text-gray-500 hover:text-gray-800 transition-colors">
-                      ✕ Limpiar Filtro
-                  </button>
-              </div>
-              <ZombieResourcesTable forceFilterType={selectedCategory} />
-          </div>
-      )}
+    <div className="animate-in fade-in duration-500">
+        <InteractiveDashboard
+            totalSavings={totalSavings}
+            calculateCO2Savings={calculateCO2Savings}
+            loading={loading}
+            dashboardData={dashboardData}
+            selectedCategory={selectedCategory}
+            setSelectedCategory={setSelectedCategory}
+            complianceScore={complianceScore}
+            setActiveTab={setActiveTab}
+        />
     </div>
   );
 }
