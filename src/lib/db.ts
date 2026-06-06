@@ -97,6 +97,13 @@ export async function initializeDatabase() {
             )
         `);
 
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS GlobalSettings (
+                setting_key VARCHAR(50) PRIMARY KEY,
+                setting_value TEXT NOT NULL
+            )
+        `);
+
         connection.release();
         dbInitialized = true;
         console.log("Database schema validated/initialized successfully.");
