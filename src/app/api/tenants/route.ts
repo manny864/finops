@@ -3,7 +3,7 @@ import pool from '@/lib/db';
 
 export async function GET(request: NextRequest) {
     try {
-        const [rows] = await pool.query('SELECT tenant_id as id, company_name as name FROM Tenants ORDER BY created_at ASC');
+        const [rows] = await pool.query('SELECT tenant_id as id, company_name as name, client_id, client_secret FROM Tenants ORDER BY created_at ASC');
         return NextResponse.json({ success: true, tenants: rows });
     } catch (error: any) {
         console.error('API GET /tenants error:', error);
@@ -36,15 +36,15 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
     try {
         const body = await request.json();
-        const { tenantId, name } = body;
+        const { tenantId, name, clientId, clientSecret } = body;
 
         if (!tenantId || !name) {
             return NextResponse.json({ error: 'Faltan datos' }, { status: 400 });
         }
 
         await pool.query(
-            'UPDATE Tenants SET company_name = ? WHERE tenant_id = ?',
-            [name, tenantId]
+            'UPDATE Tenants SET company_name = ?, client_id = ?, client_secret = ? WHERE tenant_id = ?',
+            [name, clientId || null, clientSecret || null, tenantId]
         );
 
         return NextResponse.json({ success: true });
