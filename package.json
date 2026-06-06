@@ -22,6 +22,7 @@
     "@azure/keyvault-secrets": "^4.11.2",
     "@azure/msal-browser": "^5.11.0",
     "@azure/msal-react": "^5.4.2",
+    "@tanstack/react-table": "^8.21.3",
     "cmdk": "^1.1.1",
     "dotenv": "^17.4.2",
     "html-to-image": "^1.11.13",

@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { Activity, AlertTriangle, ArrowDownToLine, Loader2, Search } from 'lucide-react';
@@ -13,10 +13,43 @@ export default function NetworkAnalyticsPage() {
     const [data, setData] = useState<any[]>([]);
     const [subscriptionId, setSubscriptionId] = useState('');
     const [hasAnalyzed, setHasAnalyzed] = useState(false);
+    const [subscriptions, setSubscriptions] = useState<any[]>([]);
+    const [loadingSubs, setLoadingSubs] = useState(false);
+
+    useEffect(() => {
+        if (!selectedTenant || selectedTenant.id === 'default' || accounts.length === 0) return;
+
+        const fetchSubscriptions = async () => {
+            setLoadingSubs(true);
+            try {
+                const tokenResponse = await instance.acquireTokenSilent({
+                    scopes: ["User.Read"],
+                    account: accounts[0]
+                });
+                const res = await fetch(`/api/subscriptions?tenantId=${selectedTenant.id}`, {
+                    headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
+                });
+                const json = await res.json();
+                if (json.subscriptions) {
+                    setSubscriptions(json.subscriptions);
+                    if (json.subscriptions.length > 0) {
+                        setSubscriptionId(json.subscriptions[0].id);
+                    }
+                }
+            } catch (e) {
+                console.error("Error fetching subscriptions:", e);
+                toast.error("Error al cargar las suscripciones del tenant.");
+            }
+            setLoadingSubs(false);
+        };
+        fetchSubscriptions();
+        setHasAnalyzed(false);
+        setData([]);
+    }, [selectedTenant.id, accounts, instance]);
 
     const handleAnalyze = async () => {
         if (!subscriptionId) {
-            toast.error("Por favor ingresa un Subscription ID válido.");
+            toast.error("Por favor selecciona una suscripción.");
             return;
         }
         if (accounts.length === 0 || selectedTenant.id === 'default') {
@@ -32,14 +65,17 @@ export default function NetworkAnalyticsPage() {
                 account: accounts[0]
             });
             const res = await fetch(`/api/intelligence/network?subscriptionId=${subscriptionId}`, {
-                headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
+                headers: { 
+                    'Authorization': `Bearer ${tokenResponse.idToken}`,
+                    'x-tenant-id': selectedTenant.id
+                }
             });
             const json = await res.json();
-            if (json.data) {
+            if (res.ok && json.data) {
                 setData(json.data);
                 toast.success("Análisis de red completado.");
             } else {
-                toast.error(json.error || "Error al analizar la red.");
+                toast.error(json.message || "Error al analizar la red.");
             }
         } catch (e) {
             console.error(e);
@@ -93,13 +129,22 @@ export default function NetworkAnalyticsPage() {
                     <p className="text-gray-500 dark:text-gray-400 mt-2">Identifica y optimiza los costos ocultos de transferencia de datos cruzada y de salida.</p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <input 
-                        type="text" 
+                    <select 
                         value={subscriptionId}
                         onChange={e => setSubscriptionId(e.target.value)}
-                        placeholder="Subscription ID"
+                        disabled={loadingSubs || subscriptions.length === 0}
                         className="w-64 px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                    />
+                    >
+                        {loadingSubs ? (
+                            <option value="">Cargando suscripciones...</option>
+                        ) : subscriptions.length === 0 ? (
+                            <option value="">Sin suscripciones</option>
+                        ) : (
+                            subscriptions.map(sub => (
+                                <option key={sub.id} value={sub.id}>{sub.displayName || sub.id}</option>
+                            ))
+                        )}
+                    </select>
                     <button 
                         onClick={handleAnalyze}
                         disabled={loading}
