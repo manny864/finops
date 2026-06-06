@@ -15,12 +15,14 @@ export default function NetworkAnalyticsPage() {
     const [hasAnalyzed, setHasAnalyzed] = useState(false);
     const [subscriptions, setSubscriptions] = useState<any[]>([]);
     const [loadingSubs, setLoadingSubs] = useState(false);
+    const [missingConsent, setMissingConsent] = useState(false);
 
     useEffect(() => {
         if (!selectedTenant || selectedTenant.id === 'default' || accounts.length === 0) return;
 
         const fetchSubscriptions = async () => {
             setLoadingSubs(true);
+            setMissingConsent(false);
             try {
                 const tokenResponse = await instance.acquireTokenSilent({
                     scopes: ["User.Read"],
@@ -30,6 +32,13 @@ export default function NetworkAnalyticsPage() {
                     headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
                 });
                 const json = await res.json();
+                
+                if (json.error === "MISSING_ADMIN_CONSENT") {
+                    setMissingConsent(true);
+                    setLoadingSubs(false);
+                    return;
+                }
+
                 if (json.subscriptions) {
                     setSubscriptions(json.subscriptions);
                     if (json.subscriptions.length > 0) {

@@ -36,6 +36,12 @@ export default function BillingPage() {
         });
         const subJson = await subRes.json();
         
+        if (subJson.error === "MISSING_ADMIN_CONSENT") {
+            setError("MISSING_ADMIN_CONSENT");
+            setLoading(false);
+            return;
+        }
+
         if (!subJson.subscriptions || subJson.subscriptions.length === 0) {
             setError("No subscriptions found.");
             setLoading(false);
@@ -83,7 +89,26 @@ export default function BillingPage() {
         </div>
       </div>
 
-      {error && (
+      {error === "MISSING_ADMIN_CONSENT" && (
+        <div className="bg-amber-50 border border-amber-200 shadow-sm p-6 rounded-lg mb-6 flex items-start">
+            <div className="flex-shrink-0">
+                <svg className="h-6 w-6 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+            </div>
+            <div className="ml-4 w-full">
+                <h3 className="text-lg font-bold text-gray-900">Falta Admin Consent en el Tenant</h3>
+                <div className="mt-2 text-sm text-gray-600">
+                    <p>La aplicación de CSCloudSolutions no ha sido consentida en este Tenant. Crea el Service Principal en Azure Cloud Shell con el siguiente comando:</p>
+                    <div className="mt-4 p-3 bg-white rounded border border-amber-200 font-mono text-sm text-gray-800 break-all select-all">
+                        az ad sp create --id 876d8a5b-6023-4484-b3ba-73c186e4a72b
+                    </div>
+                </div>
+            </div>
+        </div>
+      )}
+
+      {error && error !== "MISSING_ADMIN_CONSENT" && (
         <div className="bg-white border-l-4 border-amber-500 shadow-sm p-6 rounded-lg mb-6 flex items-start">
             <div className="flex-shrink-0">
                 <svg className="h-6 w-6 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">

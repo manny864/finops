@@ -106,6 +106,15 @@ export async function GET(request: NextRequest) {
     });
   } catch (error: any) {
     console.error("Advisor Error:", error);
+    
+    // Detectar falta de Admin Consent (Service Principal faltante)
+    if (error.message && error.message.includes("AADSTS7000229")) {
+      return NextResponse.json({
+        error: "MISSING_ADMIN_CONSENT",
+        details: "Falta el Service Principal en el Tenant destino. Debe proporcionar Admin Consent a la aplicación."
+      }, { status: 403 });
+    }
+
     return NextResponse.json({ error: "Error en el Motor de Advisor", details: error.message }, { status: 500 });
   }
 }
