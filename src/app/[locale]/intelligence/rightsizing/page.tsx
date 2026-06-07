@@ -1,18 +1,20 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { useTenant } from "@/components/TenantProvider";
+import { useSubscription } from "@/components/SubscriptionProvider";
 import { useViewMode } from "@/context/ViewModeContext";
 import { Zap, AlertTriangle, ArrowRight, CheckCircle } from "lucide-react";
 
 export default function RightsizingPage() {
   const { selectedTenant } = useTenant();
+  const { selectedSubscription } = useSubscription();
   const { viewMode } = useViewMode();
   const [vms, setVms] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!selectedTenant || selectedTenant.id === 'default') return;
+    if (!selectedTenant || selectedTenant.id === 'default' || !selectedSubscription) return;
 
     const fetchRightsizing = async () => {
       setLoading(true);
@@ -21,7 +23,7 @@ export default function RightsizingPage() {
         const res = await fetch('/api/intelligence/rightsizing', {
             headers: {
                 'x-tenant-id': selectedTenant.id,
-                'x-subscription-id': selectedTenant.id
+                'x-subscription-id': selectedSubscription
             }
         });
         const json = await res.json();
@@ -37,7 +39,7 @@ export default function RightsizingPage() {
     };
 
     fetchRightsizing();
-  }, [selectedTenant]);
+  }, [selectedTenant, selectedSubscription]);
 
   const handleDowngrade = (vmName: string) => {
       alert(`Simulando aplicación de Downgrade automático para la VM: ${vmName}`);
@@ -100,6 +102,7 @@ export default function RightsizingPage() {
                     <thead className="bg-gray-50">
                         <tr>
                             <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Nombre de VM</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Suscripción</th>
                             {viewMode === 'engineer' && <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Raw ARM ID</th>}
                             <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">SKU Actual</th>
                             <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Pico Máx. CPU (14 días)</th>
@@ -113,6 +116,9 @@ export default function RightsizingPage() {
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 flex items-center">
                                     <AlertTriangle className="w-4 h-4 text-amber-500 mr-2" />
                                     {vm.name}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
+                                    {vm.subscriptionId}
                                 </td>
                                 {viewMode === 'engineer' && (
                                     <td className="px-6 py-4 whitespace-nowrap text-xs font-mono text-gray-400 max-w-xs truncate" title={vm.id}>

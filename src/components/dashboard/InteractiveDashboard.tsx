@@ -70,6 +70,7 @@ interface InteractiveDashboardProps {
     setSelectedCategory: (cat: string | null) => void;
     complianceScore: number | null;
     setActiveTab: (tab: string) => void;
+    untaggedPercentage?: number;
 }
 
 export default function InteractiveDashboard({
@@ -80,7 +81,8 @@ export default function InteractiveDashboard({
     selectedCategory,
     setSelectedCategory,
     complianceScore,
-    setActiveTab
+    setActiveTab,
+    untaggedPercentage = 0
 }: InteractiveDashboardProps) {
     const [layouts, setLayouts] = useState<Layouts>(DEFAULT_LAYOUTS);
     const [mounted, setMounted] = useState(false);
@@ -180,6 +182,26 @@ export default function InteractiveDashboard({
                             )}
                         </div>
                     </div>
+                </div>
+            )}
+
+            {untaggedPercentage > 5 && (
+                <div className="mb-6 p-4 bg-orange-50 dark:bg-orange-900/20 border-l-4 border-orange-500 rounded-r-md shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in slide-in-from-top-2">
+                    <div className="flex items-start sm:items-center gap-3">
+                        <div className="p-2 bg-orange-100 dark:bg-orange-800/50 rounded-full">
+                            <span className="text-orange-600 dark:text-orange-400 text-xl leading-none">⚠️</span>
+                        </div>
+                        <div>
+                            <h3 className="text-orange-800 dark:text-orange-300 font-bold text-sm">Alerta de Integridad de Datos</h3>
+                            <p className="text-orange-700 dark:text-orange-400 text-xs mt-1">El {untaggedPercentage}% de los recursos auditados no tienen la etiqueta obligatoria "CostCenter".</p>
+                        </div>
+                    </div>
+                    <button 
+                        onClick={() => setActiveTab('tags')}
+                        className="whitespace-nowrap px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold rounded-md shadow-sm transition-colors"
+                    >
+                        Corregir Cobertura
+                    </button>
                 </div>
             )}
 

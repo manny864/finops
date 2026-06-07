@@ -14,12 +14,18 @@ export async function GET(request: NextRequest) {
 
         const argClient = await getResourceGraphClient(tenantId);
 
-        const query = `
-            Resources
-            | where type =~ 'microsoft.compute/virtualmachines'
-            | where subscriptionId =~ '${subscriptionId}'
-            | project id, name, sku = sku.name, location
-        `;
+        const query = subscriptionId === 'All'
+            ? `
+                Resources
+                | where type =~ 'microsoft.compute/virtualmachines'
+                | project id, name, sku = sku.name, location, subscriptionId
+            `
+            : `
+                Resources
+                | where type =~ 'microsoft.compute/virtualmachines'
+                | where subscriptionId =~ '${subscriptionId}'
+                | project id, name, sku = sku.name, location, subscriptionId
+            `;
 
         const response = await argClient.resources({ query });
         const vms = response.data as any[];
@@ -29,12 +35,14 @@ export async function GET(request: NextRequest) {
         }
 
         const rightsizingPromises = vms.map(async (vm) => {
-            const metrics = await getVmUtilization(tenantId, subscriptionId, vm.id);
+            const vmSubId = vm.subscriptionId || subscriptionId;
+            const metrics = await getVmUtilization(tenantId, vmSubId, vm.id);
             const analysis = analyzeVmEfficiency(vm, metrics);
             
             return {
                 id: vm.id,
                 name: vm.name,
+                subscriptionId: vmSubId,
                 currentSku: vm.sku,
                 maxCpu: analysis.maxCpu,
                 avgCpu: analysis.avgCpu,

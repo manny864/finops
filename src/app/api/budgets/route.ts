@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/lib/db";
 import jwt from "jsonwebtoken";
+import { getBudgetConsumption } from "@/services/budgetService";
 
 export async function GET(request: NextRequest) {
     try {
         const url = new URL(request.url);
         const tenantId = url.searchParams.get("tenantId");
+        const subscriptionId = url.searchParams.get("subscriptionId") || "All";
         
         if (!tenantId) {
             return NextResponse.json({ error: "Falta el tenantId." }, { status: 400 });
@@ -28,12 +30,26 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "El token no coincide con el tenant." }, { status: 403 });
         }
 
-        const [rows] = await pool.query(
-            "SELECT * FROM CostCenterBudgets WHERE tenant_id = ?",
+        const [rows]: any = await pool.query(
+            "SELECT * FROM Budgets WHERE tenant_id = ?",
             [tenantId]
         );
 
-        return NextResponse.json({ budgets: rows });
+        // Fetch current consumption for each budget
+        const budgetsWithUtilization = await Promise.all(rows.map(async (b: any) => {
+            const currentSpend = await getBudgetConsumption(tenantId, subscriptionId, b.cost_center_tag_value);
+            const utilization = (currentSpend / parseFloat(b.monthly_limit_usd)) * 100;
+            return {
+                id: b.id,
+                costCenter: b.cost_center_tag_value,
+                monthlyLimit: parseFloat(b.monthly_limit_usd),
+                alertThreshold: parseFloat(b.alert_threshold),
+                currentSpend: currentSpend,
+                utilization: utilization
+            };
+        }));
+
+        return NextResponse.json({ budgets: budgetsWithUtilization });
 
     } catch (e: any) {
         return NextResponse.json({ error: "Error interno", details: e.message }, { status: 500 });
@@ -43,9 +59,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { tenantId, costCenterName, monthlyBudgetUsd } = body;
+        const { tenantId, costCenter, monthlyLimit, alertThreshold = 80.00 } = body;
 
-        if (!tenantId || !costCenterName || monthlyBudgetUsd === undefined) {
+        if (!tenantId || !costCenter || monthlyLimit === undefined) {
             return NextResponse.json({ error: "Parámetros incompletos" }, { status: 400 });
         }
 
@@ -67,10 +83,10 @@ export async function POST(request: NextRequest) {
         }
 
         await pool.query(
-            `INSERT INTO CostCenterBudgets (tenant_id, cost_center_name, monthly_budget_usd) 
-             VALUES (?, ?, ?) 
-             ON DUPLICATE KEY UPDATE monthly_budget_usd = ?`,
-            [tenantId, costCenterName, monthlyBudgetUsd, monthlyBudgetUsd]
+            `INSERT INTO Budgets (tenant_id, cost_center_tag_value, monthly_limit_usd, alert_threshold) 
+             VALUES (?, ?, ?, ?) 
+             ON DUPLICATE KEY UPDATE monthly_limit_usd = ?, alert_threshold = ?`,
+            [tenantId, costCenter, monthlyLimit, alertThreshold, monthlyLimit, alertThreshold]
         );
 
         return NextResponse.json({ success: true, message: "Presupuesto guardado" });

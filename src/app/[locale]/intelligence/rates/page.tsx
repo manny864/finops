@@ -21,6 +21,8 @@ type Recommendation = {
   netSavings: number;
 };
 
+const currencyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
+
 const columnHelper = createColumnHelper<Recommendation>();
 
 const columns = [
@@ -30,19 +32,19 @@ const columns = [
   }),
   columnHelper.accessor('term', {
     header: 'Term',
-    cell: info => <span className="px-2 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded text-xs">{info.getValue()}</span>,
+    cell: info => <span className="px-2 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded text-xs whitespace-nowrap">{info.getValue()}</span>,
   }),
   columnHelper.accessor('costWithNoDiscounts', {
     header: 'Pay-As-You-Go Cost',
-    cell: info => `$${info.getValue().toFixed(2)}`,
+    cell: info => currencyFormatter.format(info.getValue()),
   }),
   columnHelper.accessor('totalCostWithDiscounts', {
     header: 'Cost with Reservation',
-    cell: info => `$${info.getValue().toFixed(2)}`,
+    cell: info => currencyFormatter.format(info.getValue()),
   }),
   columnHelper.accessor('netSavings', {
     header: 'Net Savings',
-    cell: info => <span className="text-emerald-600 dark:text-emerald-400 font-bold">+$${info.getValue().toFixed(2)}</span>,
+    cell: info => <span className="text-emerald-600 dark:text-emerald-400 font-bold">+{currencyFormatter.format(info.getValue())}</span>,
   }),
 ];
 
@@ -125,9 +127,26 @@ export default function RateOptimizationPage() {
                 // Map the Azure SDK response to our Table format
                 const mappedData: Recommendation[] = json.recommendations.map((rec: any) => {
                     const props = rec.properties || {};
+                    
+                    let term = props.term || 'Unknown Term';
+                    if (term === 'P1Y' || term === 'P1Y (1 Year)') term = '1 Year';
+                    else if (term === 'P3Y' || term === 'P3Y (3 Years)') term = '3 Years';
+                    else if (term === 'P5Y') term = '5 Years';
+
+                    let skuName = 'Unknown SKU';
+                    if (Array.isArray(props.skuProperties) && props.skuProperties.length > 0) {
+                        skuName = props.skuProperties[0].name || props.skuProperties[0].skuName;
+                    } else if (props.skuProperties?.name) {
+                        skuName = props.skuProperties.name;
+                    } else if (props.sku?.name) {
+                        skuName = props.sku.name;
+                    } else if (rec.sku?.name) {
+                        skuName = rec.sku.name;
+                    }
+
                     return {
-                        sku: props.skuProperties?.[0]?.name || rec.sku?.name || 'Unknown SKU',
-                        term: props.term || 'Unknown Term',
+                        sku: skuName || 'Unknown SKU',
+                        term: term,
                         costWithNoDiscounts: props.costWithNoDiscounts || 0,
                         totalCostWithDiscounts: props.totalCostWithDiscounts || 0,
                         netSavings: props.netSavings || 0,
@@ -250,7 +269,7 @@ export default function RateOptimizationPage() {
                     <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm col-span-1 md:col-span-3 flex flex-col md:flex-row md:justify-between md:items-center">
                         <div>
                             <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Potencial de Ahorro Neto Total</p>
-                            <h3 className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">+${totalSavings.toFixed(2)} USD</h3>
+                            <h3 className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">+{currencyFormatter.format(totalSavings)}</h3>
                         </div>
                         <div className="mt-4 md:mt-0 text-sm text-gray-600 dark:text-gray-400">
                             Recomendaciones generadas basadas en el uso de {lookBackPeriod.replace('Last', '').replace('Days', '')} días.

@@ -2,17 +2,19 @@
 import React, { useState, useEffect } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { useTenant } from '../TenantProvider';
+import { useSubscription } from '../SubscriptionProvider';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import { TrendingUp, Loader2 } from 'lucide-react';
 
 export default function CostForecastChart() {
     const { instance, accounts } = useMsal();
     const { selectedTenant } = useTenant();
+    const { selectedSubscription } = useSubscription();
     const [data, setData] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        if (accounts.length === 0 || selectedTenant.id === 'default') return;
+        if (accounts.length === 0 || selectedTenant.id === 'default' || !selectedSubscription) return;
         
         const fetchForecast = async () => {
             setLoading(true);
@@ -21,19 +23,7 @@ export default function CostForecastChart() {
                     scopes: ["User.Read"],
                     account: accounts[0]
                 });
-                
-                const subRes = await fetch(`/api/subscriptions?tenantId=${selectedTenant.id}`, {
-                    headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
-                });
-                const subJson = await subRes.json();
-                
-                if (!subJson.subscriptions || subJson.subscriptions.length === 0) {
-                    setLoading(false);
-                    return;
-                }
-                const subId = subJson.subscriptions[0].id;
-                
-                const res = await fetch(`/api/intelligence/forecast?tenantId=${selectedTenant.id}&subscriptionId=${subId}`, {
+                const res = await fetch(`/api/intelligence/forecast?tenantId=${selectedTenant.id}&subscriptionId=${selectedSubscription}`, {
                     headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
                 });
                 const json = await res.json();
@@ -46,7 +36,7 @@ export default function CostForecastChart() {
             setLoading(false);
         };
         fetchForecast();
-    }, [accounts, instance, selectedTenant.id]);
+    }, [accounts, instance, selectedTenant.id, selectedSubscription]);
 
     if (accounts.length === 0 || selectedTenant.id === 'default') return null;
 

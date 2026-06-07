@@ -35,3 +35,14 @@ CREATE TABLE IF NOT EXISTS GlobalSettings (
     setting_key VARCHAR(50) PRIMARY KEY,
     setting_value TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS Budgets (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id VARCHAR(255) NOT NULL,
+    cost_center_tag_value VARCHAR(255) NOT NULL,
+    monthly_limit_usd DECIMAL(12,2) NOT NULL,
+    alert_threshold DECIMAL(5,2) DEFAULT 80.00,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (tenant_id) REFERENCES Tenants(tenant_id) ON DELETE CASCADE,
+    UNIQUE KEY unique_tenant_costcenter (tenant_id, cost_center_tag_value)
+);

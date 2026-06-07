@@ -57,5 +57,12 @@
   "governance": {
     "tagInfoTooltip": "A Governança de Tags permite aplicar tags obrigatórias (ex. CostCenter, Environment) em todas as assinaturas para melhorar a precisão da alocação de custos.",
     "tagInputTooltip": "Digite o nome exato da chave da tag que você deseja tornar obrigatória."
+  },
+  "advisor": {
+    "costTooltip": "Identifica recursos ociosos ou subutilizados e recomenda maneiras de reduzir os gastos.",
+    "securityTooltip": "Ajuda a prevenir, detectar e responder a ameaças aos dados e recursos na nuvem.",
+    "reliabilityTooltip": "Garante que os aplicativos principais permaneçam disponíveis com recomendações de arquitetura tolerantes a falhas.",
+    "operationalExcellenceTooltip": "Melhora a eficiência operacional e o gerenciamento do ambiente com base nas melhores práticas.",
+    "performanceTooltip": "Aumenta a velocidade e a capacidade de resposta dos recursos otimizando as configurações e SKUs."
   }
 }

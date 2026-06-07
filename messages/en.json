@@ -57,5 +57,12 @@
   "governance": {
     "tagInfoTooltip": "Tag Governance allows you to enforce mandatory tags (e.g., CostCenter, Environment) across all subscriptions to improve cost allocation accuracy.",
     "tagInputTooltip": "Type the exact name of the tag key you want to make mandatory."
+  },
+  "advisor": {
+    "costTooltip": "Identifies idle or underutilized resources and recommends ways to reduce spending.",
+    "securityTooltip": "Helps prevent, detect, and respond to threats to cloud data and resources.",
+    "reliabilityTooltip": "Ensures key applications stay available with fault-tolerant architecture recommendations.",
+    "operationalExcellenceTooltip": "Improves operational efficiency and environment management based on best practices.",
+    "performanceTooltip": "Enhances resource speed and responsiveness by optimizing configurations and SKUs."
   }
 }

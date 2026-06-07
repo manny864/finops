@@ -1,13 +1,16 @@
 import { CostManagementClient } from "@azure/arm-costmanagement";
+import { SubscriptionClient } from "@azure/arm-subscriptions";
 import { getAzureCredential } from "../lib/azure";
 
 export async function getCurrentMonthAmortizedCosts(tenantId: string, subscriptionId: string) {
     const credential = await getAzureCredential(tenantId);
     const client = new CostManagementClient(credential);
 
-    const scope = `/subscriptions/${subscriptionId}`;
+    const scope = subscriptionId === 'All' 
+        ? `/providers/Microsoft.Management/managementGroups/${tenantId}` 
+        : `/subscriptions/${subscriptionId}`;
     
-    const result = await client.query.usage(scope, {
+    const queryOptions = {
         type: "Usage",
         timeframe: "MonthToDate",
         dataset: {
@@ -22,27 +25,59 @@ export async function getCurrentMonthAmortizedCosts(tenantId: string, subscripti
                 { type: "Dimension", name: "ServiceName" }
             ]
         }
-    });
+    } as any;
 
-    if (!result.rows) return { costByService: [], dailyTrend: [], totalCost: 0 };
+    let result;
+    let fallbackResults: any[] = [];
+    let isFallback = false;
+
+    try {
+        result = await client.query.usage(scope, queryOptions);
+    } catch (e: any) {
+        if (subscriptionId === 'All' && (e.statusCode === 403 || e.code === 'AuthorizationFailed' || e.message?.includes('AuthorizationFailed'))) {
+            isFallback = true;
+            console.log("Management Group scope failed, falling back to concurrent subscription iteration...");
+            const subClient = new SubscriptionClient(credential);
+            const subPromises: Promise<any>[] = [];
+            for await (const sub of subClient.subscriptions.list()) {
+                if (sub.subscriptionId && sub.state === 'Enabled') {
+                    subPromises.push(client.query.usage(`/subscriptions/${sub.subscriptionId}`, queryOptions).catch(() => null));
+                }
+            }
+            fallbackResults = (await Promise.all(subPromises)).filter(r => r && r.rows);
+        } else {
+            throw e;
+        }
+    }
 
     let totalCost = 0;
     const serviceMap: Record<string, number> = {};
     const dailyMap: Record<string, number> = {};
 
-    result.rows.forEach(row => {
-        const cost = Number(row[0]) || 0;
-        const dateStr = String(row[1]);
-        const service = String(row[2]);
+    const processRows = (rows: any[]) => {
+        rows.forEach(row => {
+            const cost = Number(row[0]) || 0;
+            const dateStr = String(row[1]);
+            const service = String(row[2]);
 
-        totalCost += cost;
+            totalCost += cost;
 
-        if (!serviceMap[service]) serviceMap[service] = 0;
-        serviceMap[service] += cost;
+            if (!serviceMap[service]) serviceMap[service] = 0;
+            serviceMap[service] += cost;
 
-        if (!dailyMap[dateStr]) dailyMap[dateStr] = 0;
-        dailyMap[dateStr] += cost;
-    });
+            if (!dailyMap[dateStr]) dailyMap[dateStr] = 0;
+            dailyMap[dateStr] += cost;
+        });
+    };
+
+    if (isFallback) {
+        fallbackResults.forEach(res => {
+            if (res.rows) processRows(res.rows);
+        });
+    } else {
+        if (!result || !result.rows) return { costByService: [], dailyTrend: [], totalCost: 0 };
+        processRows(result.rows);
+    }
 
     const costByService = Object.keys(serviceMap).map(k => ({
         name: k,
@@ -68,7 +103,9 @@ export async function getCostForecast(tenantId: string, subscriptionId: string) 
     const credential = await getAzureCredential(tenantId);
     const client = new CostManagementClient(credential);
 
-    const scope = `/subscriptions/${subscriptionId}`;
+    const scope = subscriptionId === 'All' 
+        ? `/providers/Microsoft.Management/managementGroups/${tenantId}` 
+        : `/subscriptions/${subscriptionId}`;
     
     // Azure Cost Management forecast API expects a timeframe
     // Or we can use timePeriod.
@@ -76,7 +113,7 @@ export async function getCostForecast(tenantId: string, subscriptionId: string) 
     const today = new Date();
     const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
 
-    const result = await client.forecast.usage(scope, {
+    const forecastOptions = {
         type: "Usage",
         timeframe: "Custom",
         timePeriod: {
@@ -92,17 +129,56 @@ export async function getCostForecast(tenantId: string, subscriptionId: string) 
                 }
             }
         }
-    });
+    } as any;
 
-    if (!result.rows) return [];
+    let result;
+    let fallbackResults: any[] = [];
+    let isFallback = false;
 
-    const forecastData = result.rows.map(row => {
-        const cost = Number(row[0]) || 0;
-        const dateStr = String(row[1]);
+    try {
+        result = await client.forecast.usage(scope, forecastOptions);
+    } catch (e: any) {
+        if (subscriptionId === 'All' && (e.statusCode === 403 || e.code === 'AuthorizationFailed' || e.message?.includes('AuthorizationFailed'))) {
+            isFallback = true;
+            console.log("Management Group scope failed for forecast, falling back to concurrent subscription iteration...");
+            const subClient = new SubscriptionClient(credential);
+            const subPromises: Promise<any>[] = [];
+            for await (const sub of subClient.subscriptions.list()) {
+                if (sub.subscriptionId && sub.state === 'Enabled') {
+                    subPromises.push(client.forecast.usage(`/subscriptions/${sub.subscriptionId}`, forecastOptions).catch(() => null));
+                }
+            }
+            fallbackResults = (await Promise.all(subPromises)).filter(r => r && r.rows);
+        } else {
+            throw e;
+        }
+    }
+
+    const forecastMap: Record<string, number> = {};
+
+    const processForecastRows = (rows: any[]) => {
+        rows.forEach(row => {
+            const cost = Number(row[0]) || 0;
+            const dateStr = String(row[1]);
+            if (!forecastMap[dateStr]) forecastMap[dateStr] = 0;
+            forecastMap[dateStr] += cost;
+        });
+    };
+
+    if (isFallback) {
+        fallbackResults.forEach(res => {
+            if (res.rows) processForecastRows(res.rows);
+        });
+    } else {
+        if (!result || !result.rows) return [];
+        processForecastRows(result.rows);
+    }
+
+    const forecastData = Object.keys(forecastMap).sort().map(dateStr => {
         const formattedDate = dateStr.length === 8 ? `${dateStr.substring(0,4)}-${dateStr.substring(4,6)}-${dateStr.substring(6,8)}` : dateStr;
         return {
             date: formattedDate,
-            forecastCost: Number(cost.toFixed(2))
+            forecastCost: Number(forecastMap[dateStr].toFixed(2))
         };
     });
 
