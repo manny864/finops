@@ -40,6 +40,19 @@ export async function initializeDatabase() {
             }
         }
 
+        // Add client_id and client_secret if they don't exist
+        try {
+            await connection.query('ALTER TABLE Tenants ADD COLUMN client_id VARCHAR(255);');
+        } catch (e: any) {
+            if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding client_id:", e);
+        }
+
+        try {
+            await connection.query('ALTER TABLE Tenants ADD COLUMN client_secret VARCHAR(255);');
+        } catch (e: any) {
+            if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding client_secret:", e);
+        }
+
         await connection.query(`
             CREATE TABLE IF NOT EXISTS Users (
                 id INT AUTO_INCREMENT PRIMARY KEY,
