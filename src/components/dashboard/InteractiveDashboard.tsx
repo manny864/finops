@@ -15,6 +15,22 @@ import CostForecastChart from './CostForecastChart';
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
+const Wrapper = ({ children, title, id, isMobile }: { children: React.ReactNode, title?: string, id: string, isMobile: boolean }) => (
+    <div key={id} className="bg-white border border-gray-200 rounded-lg shadow-sm flex flex-col h-full overflow-hidden">
+        <div className="flex justify-between items-center bg-gray-50 border-b border-gray-200 px-4 py-2 shrink-0">
+            <span className="text-xs font-bold text-gray-700 uppercase tracking-wide">{title || ''}</span>
+            {!isMobile && (
+                <div className="drag-handle cursor-grab active:cursor-grabbing p-1 text-gray-400 hover:text-gray-600 rounded">
+                    <GripVertical className="w-4 h-4" />
+                </div>
+            )}
+        </div>
+        <div className="p-4 flex-1 overflow-auto custom-scrollbar">
+            {children}
+        </div>
+    </div>
+);
+
 const DEFAULT_LAYOUTS: Layouts = {
     lg: [
         { i: 'summary-co2', x: 0, y: 0, w: 3, h: 4 },
@@ -100,22 +116,6 @@ export default function InteractiveDashboard({
     const { selectedTenant } = useTenant();
 
     if (!mounted) return null; // Avoid hydration mismatch
-
-    const Wrapper = ({ children, title, id }: { children: React.ReactNode, title?: string, id: string }) => (
-        <div key={id} className="bg-white border border-gray-200 rounded-lg shadow-sm flex flex-col h-full overflow-hidden">
-            <div className="flex justify-between items-center bg-gray-50 border-b border-gray-200 px-4 py-2 shrink-0">
-                <span className="text-xs font-bold text-gray-700 uppercase tracking-wide">{title || ''}</span>
-                {!isMobile && (
-                    <div className="drag-handle cursor-grab active:cursor-grabbing p-1 text-gray-400 hover:text-gray-600 rounded">
-                        <GripVertical className="w-4 h-4" />
-                    </div>
-                )}
-            </div>
-            <div className="p-4 flex-1 overflow-auto custom-scrollbar">
-                {children}
-            </div>
-        </div>
-    );
 
     const generateReport = async () => {
         if (!selectedTenant || selectedTenant.id === 'default') {
@@ -245,7 +245,7 @@ export default function InteractiveDashboard({
                 </div>
 
                 <div key="governance">
-                    <Wrapper title="Estado de Gobernanza" id="governance">
+                    <Wrapper title="Estado de Gobernanza" id="governance" isMobile={isMobile}>
                         <div className="h-full flex flex-col items-center justify-center text-gray-400 bg-gray-50 rounded-lg border border-dashed border-gray-300 p-4 text-center">
                             <p className="text-sm font-medium">Score de Seguridad Financiera</p>
                             <span className={`text-5xl font-bold mt-4 ${complianceScore === -1 ? 'text-gray-400' : 'text-green-500'}`}>
@@ -267,7 +267,7 @@ export default function InteractiveDashboard({
                 </div>
 
                 <div key="cost-pie">
-                    <Wrapper title="Distribución de Fugas Financieras" id="cost-pie">
+                    <Wrapper title="Distribución de Fugas Financieras" id="cost-pie" isMobile={isMobile}>
                         {loading ? (
                              <div className="h-full flex items-center justify-center text-gray-400 animate-pulse">Calculando métricas...</div>
                          ) : (
@@ -277,19 +277,19 @@ export default function InteractiveDashboard({
                 </div>
 
                 <div key="budget-burn">
-                    <Wrapper title="Burn Rate (Presupuesto Vs Real)" id="budget-burn">
+                    <Wrapper title="Burn Rate (Presupuesto Vs Real)" id="budget-burn" isMobile={isMobile}>
                         <BudgetBurnChart />
                     </Wrapper>
                 </div>
 
                 <div key="forecast">
-                    <Wrapper title="Predicción a Fin de Mes" id="forecast">
+                    <Wrapper title="Predicción a Fin de Mes" id="forecast" isMobile={isMobile}>
                         <CostForecastChart />
                     </Wrapper>
                 </div>
 
                 <div key="zombie-table">
-                    <Wrapper title="Detalle de Recursos Críticos" id="zombie-table">
+                    <Wrapper title="Detalle de Recursos Críticos" id="zombie-table" isMobile={isMobile}>
                         <ZombieResourcesTable forceFilterType={selectedCategory || undefined} />
                     </Wrapper>
                 </div>
