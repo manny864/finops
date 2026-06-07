@@ -23,13 +23,19 @@ $AppName = "CSCloudSolutions-FinOps-Agent"
 $RoleName = "CSCloudSolutions Remediation Role"
 
 Write-Host "Verificando si la App ya existe..." -ForegroundColor Cyan
-$sp = Get-AzADServicePrincipal -DisplayName $AppName -ErrorAction SilentlyContinue
+$spList = Get-AzADServicePrincipal -DisplayName $AppName -ErrorAction SilentlyContinue
 
-if (-not $sp) {
+if (-not $spList) {
     Write-Host "1. Creando la App Registration y el Service Principal..." -ForegroundColor Cyan
     $sp = New-AzADServicePrincipal -DisplayName $AppName
 } else {
     Write-Host "La App ya existe. Reutilizando Service Principal..." -ForegroundColor Yellow
+    # Si hay múltiples con el mismo nombre, tomamos el primero
+    if ($spList.Count -gt 1) {
+        $sp = $spList[0]
+    } else {
+        $sp = $spList
+    }
 }
 
 $ClientId = $sp.AppId
