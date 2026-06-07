@@ -97,7 +97,8 @@ export default function Home() {
 
               // Check for anomalies solo si no hemos revisado para este tenant
               if (!anomaliesChecked) {
-                  const anomalyRes = await fetch(`/api/intelligence/anomalies?tenantId=${selectedTenant.id}&subscriptionId=${json.subscriptionId || 'default'}`);
+                  const subToUse = json.subscriptionId || (mappedData.length > 0 ? mappedData[0].subscriptionId : 'default');
+                  const anomalyRes = await fetch(`/api/intelligence/anomalies?tenantId=${selectedTenant.id}&subscriptionId=${subToUse}`);
                   if (anomalyRes.ok) {
                       const anomalyJson = await anomalyRes.json();
                       if (anomalyJson.isAnomaly) {
