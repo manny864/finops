@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useTenant } from '@/components/TenantProvider';
+import { useSubscription } from '@/components/SubscriptionProvider';
 import { useMsal } from '@azure/msal-react';
 import { CreditCard, AlertTriangle, Loader2, Download, Tag } from 'lucide-react';
 import { toast } from 'sonner';
@@ -10,65 +11,23 @@ const COLORS = ['#0054A6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'
 
 export default function ChargebackPage() {
     const { selectedTenant } = useTenant();
+    const { selectedSubscription, loading: loadingSubs } = useSubscription();
     const { instance, accounts } = useMsal();
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState<{name: string, value: number}[]>([]);
-    const [subscriptionId, setSubscriptionId] = useState('');
-    const [subscriptions, setSubscriptions] = useState<any[]>([]);
-    const [loadingSubs, setLoadingSubs] = useState(false);
-    const [missingConsent, setMissingConsent] = useState(false);
     const [hasAnalyzed, setHasAnalyzed] = useState(false);
 
     const [tagKey, setTagKey] = useState('CostCenter');
     const [customTagKey, setCustomTagKey] = useState('');
     const isCustomTag = tagKey === 'custom';
 
-    useEffect(() => {
-        if (!selectedTenant || selectedTenant.id === 'default' || accounts.length === 0) return;
-
-        const fetchSubscriptions = async () => {
-            setLoadingSubs(true);
-            setMissingConsent(false);
-            try {
-                const tokenResponse = await instance.acquireTokenSilent({
-                    scopes: ["User.Read"],
-                    account: accounts[0]
-                });
-                const res = await fetch(`/api/subscriptions?tenantId=${selectedTenant.id}`, {
-                    headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
-                });
-                const json = await res.json();
-                
-                if (json.error === "MISSING_ADMIN_CONSENT") {
-                    setMissingConsent(true);
-                    setLoadingSubs(false);
-                    return;
-                }
-
-                if (json.subscriptions) {
-                    setSubscriptions(json.subscriptions);
-                    if (json.subscriptions.length > 0) {
-                        setSubscriptionId(json.subscriptions[0].id);
-                    }
-                }
-            } catch (e) {
-                console.error("Error fetching subscriptions:", e);
-                toast.error("Error al cargar las suscripciones del tenant.");
-            } finally {
-                setLoadingSubs(false);
-            }
-        };
-
-        fetchSubscriptions();
-    }, [selectedTenant, instance, accounts]);
-
     const handleAnalyze = async () => {
         if (!selectedTenant || selectedTenant.id === 'default') {
             toast.error("Por favor selecciona un tenant primero.");
             return;
         }
-        if (!subscriptionId) {
-            toast.error("Selecciona una suscripción.");
+        if (!selectedSubscription) {
+            toast.error("Selecciona una suscripción en la barra superior.");
             return;
         }
 
@@ -80,7 +39,7 @@ export default function ChargebackPage() {
 
         setLoading(true);
         try {
-            const url = `/api/intelligence/chargeback?tenantId=${selectedTenant.id}&subscriptionId=${subscriptionId}&tagKey=${encodeURIComponent(activeTagKey)}`;
+            const url = `/api/intelligence/chargeback?tenantId=${selectedTenant.id}&subscriptionId=${selectedSubscription}&tagKey=${encodeURIComponent(activeTagKey)}`;
             const res = await fetch(url);
             const json = await res.json();
 
@@ -153,32 +112,7 @@ export default function ChargebackPage() {
             </div>
 
             <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm">
-                {missingConsent ? (
-                    <div className="p-4 bg-yellow-50 text-yellow-800 rounded-md flex items-center">
-                        <AlertTriangle className="w-5 h-5 mr-3" />
-                        Falta el consentimiento de administrador para listar suscripciones de este Tenant.
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-                        <div className="space-y-2 md:col-span-1">
-                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Suscripción</label>
-                            <select
-                                value={subscriptionId}
-                                onChange={(e) => setSubscriptionId(e.target.value)}
-                                disabled={loadingSubs || subscriptions.length === 0}
-                                className="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-[#0054A6] focus:border-[#0054A6] p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
-                            >
-                                {loadingSubs ? (
-                                    <option>Cargando suscripciones...</option>
-                                ) : subscriptions.length === 0 ? (
-                                    <option>No hay suscripciones</option>
-                                ) : (
-                                    subscriptions.map(sub => (
-                                        <option key={sub.id} value={sub.id}>{sub.name || sub.displayName}</option>
-                                    ))
-                                )}
-                            </select>
-                        </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
 
                         <div className="space-y-2 md:col-span-1">
                             <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Etiqueta a Agrupar (Tag Key)</label>
@@ -215,10 +149,10 @@ export default function ChargebackPage() {
                             </div>
                         )}
 
-                        <div className={`md:col-span-1 ${isCustomTag ? '' : 'md:col-start-4'}`}>
+                        <div className={`md:col-span-1 ${isCustomTag ? '' : 'md:col-start-3'}`}>
                             <button
                                 onClick={handleAnalyze}
-                                disabled={loading || !subscriptionId}
+                                disabled={loading || !selectedSubscription}
                                 className="w-full bg-[#0054A6] text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 transition flex items-center justify-center font-medium disabled:opacity-50 h-[42px]"
                             >
                                 {loading && <Loader2 className="w-5 h-5 animate-spin mr-2" />}
@@ -226,8 +160,7 @@ export default function ChargebackPage() {
                             </button>
                         </div>
                     </div>
-                )}
-            </div>
+                </div>
 
             {data.length > 0 ? (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

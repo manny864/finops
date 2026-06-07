@@ -23,6 +23,7 @@ export default function Home() {
   const { dashboardData, complianceScore, lastFetchedTenantId, anomaliesChecked, setDashboardState, setAnomaliesChecked } = useDashboardStore();
   const totalSavings = dashboardData.reduce((sum, item) => sum + (item.potentialSavings || 0), 0);
   const [loading, setLoading] = useState(false);
+  const [untaggedPercentage, setUntaggedPercentage] = useState<number>(0);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const { addAction } = useActionLogStore();
 
@@ -78,8 +79,22 @@ export default function Home() {
                   const policies = polJson.policies || [];
 
                   let finalComplianceScore = -1;
+                  let untaggedCostCenterPct = 0;
+                  
+                  const allItems = Object.values(json.auditResults).flat();
+                  if (allItems.length > 0) {
+                      let missingCostCenterCount = 0;
+                      allItems.forEach((item: any) => {
+                          const itemTags = item.tags || {};
+                          const itemTagKeys = Object.keys(itemTags).map(k => k.toLowerCase());
+                          if (!itemTagKeys.includes('costcenter')) {
+                              missingCostCenterCount++;
+                          }
+                      });
+                      untaggedCostCenterPct = Math.round((missingCostCenterCount / allItems.length) * 100);
+                  }
+
                   if (policies.length > 0) {
-                      const allItems = Object.values(json.auditResults).flat();
                       const requiredKeys = policies.filter((p:any) => p.required).map((p:any) => p.tag_key.toLowerCase());
                       let compliantCount = 0;
                       allItems.forEach((item: any) => {
@@ -91,13 +106,15 @@ export default function Home() {
                       finalComplianceScore = Math.round((compliantCount / allItems.length) * 100);
                   }
 
+                  setUntaggedPercentage(untaggedCostCenterPct);
                   // Guardar en estado global
                   setDashboardState(selectedTenant.id, mappedData, finalComplianceScore);
               }
 
               // Check for anomalies solo si no hemos revisado para este tenant
               if (!anomaliesChecked) {
-                  const anomalyRes = await fetch(`/api/intelligence/anomalies?tenantId=${selectedTenant.id}&subscriptionId=${json.subscriptionId || 'default'}`);
+                  const subToUse = json.subscriptionId || (mappedData.length > 0 ? mappedData[0].subscriptionId : 'default');
+                  const anomalyRes = await fetch(`/api/intelligence/anomalies?tenantId=${selectedTenant.id}&subscriptionId=${subToUse}`);
                   if (anomalyRes.ok) {
                       const anomalyJson = await anomalyRes.json();
                       if (anomalyJson.isAnomaly) {
@@ -161,6 +178,7 @@ export default function Home() {
             setSelectedCategory={setSelectedCategory}
             complianceScore={complianceScore}
             setActiveTab={setActiveTab}
+            untaggedPercentage={untaggedPercentage}
         />
     </div>
   );

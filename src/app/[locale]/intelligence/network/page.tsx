@@ -3,8 +3,14 @@ import React, { useState, useEffect } from 'react';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { Activity, AlertTriangle, ArrowDownToLine, Loader2, Search } from 'lucide-react';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts';
 import { toast } from 'sonner';
+import {
+  useReactTable,
+  getCoreRowModel,
+  flexRender,
+  createColumnHelper,
+} from '@tanstack/react-table';
 
 export default function NetworkAnalyticsPage() {
     const { selectedTenant } = useTenant();
@@ -134,15 +140,41 @@ export default function NetworkAnalyticsPage() {
         .sort((a: any, b: any) => b.totalCost - a.totalCost)
         .slice(0, 5); // Top 5
 
+    const columnHelper = createColumnHelper<any>();
+    const columns = [
+        columnHelper.accessor('resourceGroup', {
+            header: 'Resource Group',
+            cell: info => <span className="font-semibold text-gray-900 dark:text-white">{info.getValue()}</span>,
+            size: 200,
+        }),
+        columnHelper.accessor('subCategories', {
+            header: 'Tipo de Tráfico',
+            cell: info => <span className="truncate block" title={info.getValue()}>{info.getValue()}</span>,
+            size: 250,
+        }),
+        columnHelper.accessor('totalCost', {
+            header: 'Costo Estimado',
+            cell: info => <span className="font-bold text-indigo-600 dark:text-indigo-400">${info.getValue().toFixed(2)}</span>,
+            size: 150,
+        }),
+    ];
+
+    const table = useReactTable({
+        data: tableData,
+        columns,
+        getCoreRowModel: getCoreRowModel(),
+        columnResizeMode: 'onChange',
+    });
+
     return (
         <div className="max-w-6xl mx-auto animate-in fade-in duration-500">
             <div className="mb-8 border-b border-gray-200 dark:border-slate-800 pb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight flex items-center">
+                    <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight flex items-center">
                         <Activity className="w-8 h-8 mr-3 text-indigo-500" />
                         Análisis de Red y Egress
                     </h1>
-                    <p className="text-gray-500 dark:text-gray-400 mt-2">Identifica y optimiza los costos ocultos de transferencia de datos cruzada y de salida.</p>
+                    <p className="text-sm md:text-base text-gray-500 dark:text-gray-400 mt-2">Identifica y optimiza los costos ocultos de transferencia de datos cruzada y de salida.</p>
                 </div>
                 <div className="flex items-center gap-2">
                     <select 
@@ -218,7 +250,7 @@ export default function NetworkAnalyticsPage() {
                                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                             ))}
                                         </Pie>
-                                        <Tooltip formatter={(value: any) => `$${Number(value).toFixed(2)}`} />
+                                        <RechartsTooltip formatter={(value: any) => `$${Number(value).toFixed(2)}`} />
                                         <Legend verticalAlign="bottom" height={36} />
                                     </PieChart>
                                 </ResponsiveContainer>
@@ -233,31 +265,55 @@ export default function NetworkAnalyticsPage() {
                         <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-6">
                             Top 5 Resource Groups por Egress
                         </h2>
-                        <div className="overflow-x-auto flex-1">
-                            <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-800">
+                        <div className="overflow-x-auto w-full flex-1">
+                            <table className="min-w-full w-full divide-y divide-gray-200 dark:divide-slate-800" style={{ width: table.getCenterTotalSize() }}>
                                 <thead>
-                                    <tr>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Resource Group</th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Tipo de Tráfico</th>
-                                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Costo Estimado</th>
-                                    </tr>
+                                    {table.getHeaderGroups().map(headerGroup => (
+                                        <tr key={headerGroup.id}>
+                                            {headerGroup.headers.map(header => (
+                                                <th 
+                                                    key={header.id} 
+                                                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider relative group"
+                                                    style={{ width: header.getSize() }}
+                                                >
+                                                    {header.isPlaceholder
+                                                        ? null
+                                                        : flexRender(
+                                                            header.column.columnDef.header,
+                                                            header.getContext()
+                                                        )}
+                                                    {header.column.getCanResize() && (
+                                                        <div
+                                                            onMouseDown={header.getResizeHandler()}
+                                                            onTouchStart={header.getResizeHandler()}
+                                                            className={`absolute right-0 top-0 h-full w-1 cursor-col-resize select-none touch-none bg-gray-300 dark:bg-slate-600 opacity-0 group-hover:opacity-100 ${
+                                                                header.column.getIsResizing() ? 'opacity-100 bg-indigo-500' : ''
+                                                            }`}
+                                                        />
+                                                    )}
+                                                </th>
+                                            ))}
+                                        </tr>
+                                    ))}
                                 </thead>
                                 <tbody className="divide-y divide-gray-200 dark:divide-slate-800">
-                                    {tableData.length > 0 ? tableData.map((rg: any, idx) => (
-                                        <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
-                                            <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-white">
-                                                {rg.resourceGroup}
-                                            </td>
-                                            <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 max-w-[200px] truncate" title={rg.subCategories}>
-                                                {rg.subCategories}
-                                            </td>
-                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-right font-bold text-indigo-600 dark:text-indigo-400">
-                                                ${rg.totalCost.toFixed(2)}
-                                            </td>
-                                        </tr>
-                                    )) : (
+                                    {table.getRowModel().rows.length > 0 ? (
+                                        table.getRowModel().rows.map(row => (
+                                            <tr key={row.id} className="hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
+                                                {row.getVisibleCells().map(cell => (
+                                                    <td 
+                                                        key={cell.id} 
+                                                        className={`px-4 py-3 text-sm text-gray-500 dark:text-gray-400 ${cell.column.id === 'totalCost' ? 'text-right' : ''}`}
+                                                        style={{ width: cell.column.getSize() }}
+                                                    >
+                                                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                                    </td>
+                                                ))}
+                                            </tr>
+                                        ))
+                                    ) : (
                                         <tr>
-                                            <td colSpan={3} className="px-4 py-8 text-center text-gray-400">
+                                            <td colSpan={columns.length} className="px-4 py-8 text-center text-gray-400">
                                                 No se encontró tráfico relevante.
                                             </td>
                                         </tr>

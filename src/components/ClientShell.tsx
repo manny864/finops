@@ -2,6 +2,8 @@
 import React, { useState, createContext } from 'react';
 import AuthProvider, { AuthButton } from "./AuthProvider";
 import { TenantProvider, useTenant } from './TenantProvider';
+import { SubscriptionProvider } from './SubscriptionProvider';
+import SubscriptionSelector from './SubscriptionSelector';
 import { ViewModeProvider, useViewMode } from '../context/ViewModeContext';
 import { LayoutTemplate, Code2, Bell } from 'lucide-react';
 import AuthSync from './AuthSync';
@@ -18,9 +20,11 @@ export default function ClientShell({ children }: { children: React.ReactNode })
   return <AuthProvider>
       <AuthSync />
       <TenantProvider>
-        <ViewModeProvider>
-        <ShellContent>{children}</ShellContent>
-      </ViewModeProvider>
+        <SubscriptionProvider>
+          <ViewModeProvider>
+          <ShellContent>{children}</ShellContent>
+        </ViewModeProvider>
+        </SubscriptionProvider>
       </TenantProvider>
     </AuthProvider>;
 }
@@ -171,6 +175,10 @@ function ShellContent({ children }: { children: React.ReactNode }) {
                   <span className="text-sm font-semibold text-gray-700">{selectedTenant.name}</span>
                 </div>
               )}
+            </div>
+            
+            <div className="hidden md:flex items-center border border-gray-200 dark:border-slate-700 rounded-lg px-2 py-1 bg-gray-50 dark:bg-slate-800 relative">
+              <SubscriptionSelector />
             </div>
             
             {/* View Toggle */}

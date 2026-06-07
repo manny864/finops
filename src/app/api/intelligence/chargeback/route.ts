@@ -15,7 +15,9 @@ export async function GET(request: NextRequest) {
 
         const credential = await getAzureCredential(tenantId);
         const client = new CostManagementClient(credential);
-        const scope = `/subscriptions/${subscriptionId}`;
+        const scope = subscriptionId === 'All' 
+            ? `/providers/Microsoft.Management/managementGroups/${tenantId}` 
+            : `/subscriptions/${subscriptionId}`;
 
         const parameters = {
             type: "Usage",
@@ -26,7 +28,7 @@ export async function GET(request: NextRequest) {
                     totalCost: { name: "PreTaxCost", function: "Sum" }
                 },
                 grouping: [
-                    { type: "TagKey", name: tagKey }
+                    { type: "Tag", name: tagKey }
                 ]
             }
         };

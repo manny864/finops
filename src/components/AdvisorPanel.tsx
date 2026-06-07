@@ -2,13 +2,15 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { useTenant } from './TenantProvider';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import RoleAssignmentBanner from './RoleAssignmentBanner';
+import { Info } from 'lucide-react';
 
 export default function AdvisorPanel() {
   const { instance, accounts } = useMsal();
   const { selectedTenant } = useTenant();
   const locale = useLocale();
+  const t = useTranslations('advisor');
   const [data, setData] = useState<any>(null);
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const [scores, setScores] = useState<Record<string, number>>({});
@@ -165,11 +167,11 @@ export default function AdvisorPanel() {
   };
 
   const categories = [
-      { id: "Cost", name: "Costo", color: "text-green-600", bg: "bg-green-50", icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> },
-      { id: "Security", name: "Seguridad", color: "text-red-600", bg: "bg-red-50", icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg> },
-      { id: "HighAvailability", name: "Confiabilidad", color: "text-blue-600", bg: "bg-blue-50", icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg> },
-      { id: "OperationalExcellence", name: "Excelencia operativa", color: "text-purple-600", bg: "bg-purple-50", icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg> },
-      { id: "Performance", name: "Rendimiento", color: "text-orange-600", bg: "bg-orange-50", icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg> }
+      { id: "Cost", name: "Costo", tooltip: t('costTooltip'), color: "text-green-600", bg: "bg-green-50", icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> },
+      { id: "Security", name: "Seguridad", tooltip: t('securityTooltip'), color: "text-red-600", bg: "bg-red-50", icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg> },
+      { id: "HighAvailability", name: "Confiabilidad", tooltip: t('reliabilityTooltip'), color: "text-blue-600", bg: "bg-blue-50", icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg> },
+      { id: "OperationalExcellence", name: "Excelencia operativa", tooltip: t('operationalExcellenceTooltip'), color: "text-purple-600", bg: "bg-purple-50", icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg> },
+      { id: "Performance", name: "Rendimiento", tooltip: t('performanceTooltip'), color: "text-orange-600", bg: "bg-orange-50", icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg> }
   ];
 
   if (accounts.length === 0 || selectedTenant.id === 'default') {
@@ -225,7 +227,16 @@ export default function AdvisorPanel() {
                                 <div className={`p-2 rounded-lg ${cat.bg} ${cat.color} mr-3`}>
                                     {cat.icon}
                                 </div>
-                                <h3 className="font-bold text-gray-700">{cat.name}</h3>
+                                <h3 className="font-bold text-gray-700 flex items-center">
+                                    {cat.name}
+                                    <div className="relative group ml-2 flex items-center">
+                                        <Info className="w-4 h-4 text-gray-400 cursor-help" />
+                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-gray-800 text-xs text-white rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 font-normal">
+                                            {cat.tooltip}
+                                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
+                                        </div>
+                                    </div>
+                                </h3>
                             </div>
                             
                             {count === 0 ? (

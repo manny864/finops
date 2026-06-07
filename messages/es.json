@@ -57,5 +57,12 @@
   "governance": {
     "tagInfoTooltip": "La Gobernanza de Etiquetas te permite exigir etiquetas obligatorias (ej. CostCenter, Environment) en todas las suscripciones para mejorar la asignación de costos.",
     "tagInputTooltip": "Escribe el nombre exacto de la clave de la etiqueta que deseas hacer obligatoria."
+  },
+  "advisor": {
+    "costTooltip": "Identifica recursos inactivos o subutilizados y recomienda formas de reducir los gastos.",
+    "securityTooltip": "Ayuda a prevenir, detectar y responder a amenazas a los datos y recursos en la nube.",
+    "reliabilityTooltip": "Asegura que tus aplicaciones clave estén siempre disponibles mediante recomendaciones de arquitectura tolerante a fallos.",
+    "operationalExcellenceTooltip": "Mejora la eficiencia operativa y el manejo de tu entorno de Azure basándose en mejores prácticas comprobadas.",
+    "performanceTooltip": "Mejora la velocidad y capacidad de respuesta de tus recursos optimizando sus configuraciones y SKUs."
   }
 }

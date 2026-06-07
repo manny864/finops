@@ -13,6 +13,11 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Faltan parámetros: tenantId, subscriptionId" }, { status: 400 });
         }
 
+        if (subscriptionId === 'default') {
+            // Cannot run Cost Management anomalies at 'default' pseudo-scope
+            return NextResponse.json({ isAnomaly: false, message: "No se proporcionó un ID de suscripción válido." });
+        }
+
         const credential = await getAzureCredential(tenantId);
         const client = new CostManagementClient(credential);
         const scope = `/subscriptions/${subscriptionId}`;
