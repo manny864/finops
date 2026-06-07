@@ -23,15 +23,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
   const { viewMode } = useViewMode();
   const { addAction } = useActionLogStore();
   
-  // Translation hook for pagination
-  let t: any = (key: string) => key === 'prev' ? 'Anterior' : 'Siguiente';
-  try {
-    const nextIntl = require('next-intl');
-    if (nextIntl && nextIntl.useTranslations) {
-      t = nextIntl.useTranslations();
-    }
-  } catch (e) {}
-
+  // Removed conditional useTranslations hook which was causing React Error 310
   const [data, setData] = useState<any[]>([]);
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const [selectedSub, setSelectedSub] = useState<string>("all");

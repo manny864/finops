@@ -1,9 +1,11 @@
-
 CREATE TABLE IF NOT EXISTS Tenants (
     id INT AUTO_INCREMENT PRIMARY KEY,
     tenant_id VARCHAR(255) UNIQUE NOT NULL,
     company_name VARCHAR(255),
+    client_id VARCHAR(255),
+    client_secret VARCHAR(255),
     status VARCHAR(50) DEFAULT 'active',
+    webhook_url VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

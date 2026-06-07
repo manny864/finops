@@ -30,20 +30,20 @@ export default function OnboardingPage() {
     fetchTenants();
   }, []);
 
-  const handleNameChange = (id: string, newName: string) => {
-      setTenants(prev => prev.map(t => t.id === id ? { ...t, name: newName } : t));
+  const handleNameChange = (id: string, field: string, value: string) => {
+      setTenants(prev => prev.map(t => t.id === id ? { ...t, [field]: value } : t));
   };
 
-  const saveTenant = async (tenantId: string, newName: string) => {
+  const saveTenant = async (tenantId: string, newName: string, clientId?: string, clientSecret?: string) => {
       setSavingId(tenantId);
       try {
           const res = await fetch('/api/tenants', {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ tenantId, name: newName })
+              body: JSON.stringify({ tenantId, name: newName, clientId, clientSecret })
           });
           if (res.ok) {
-              alert("Nombre del cliente actualizado con éxito. Refresca la página completa (F5) para actualizar el selector superior.");
+              alert("Configuración de cliente guardada con éxito.");
           } else {
               alert("Error al actualizar");
           }
@@ -200,18 +200,34 @@ export default function OnboardingPage() {
                                     <input 
                                         type="text" 
                                         value={t.name}
-                                        onChange={(e) => handleNameChange(t.id, e.target.value)}
-                                        className="border border-gray-300 rounded px-3 py-1.5 text-sm w-full max-w-sm focus:ring-2 focus:ring-[#0054A6] focus:border-[#0054A6] transition-shadow outline-none"
-                                        placeholder="Ej: Contoso Corp"
+                                        onChange={(e) => handleNameChange(t.id, 'name', e.target.value)}
+                                        className="border border-gray-300 rounded px-3 py-1.5 text-sm w-full max-w-sm focus:ring-2 focus:ring-[#0054A6] focus:border-[#0054A6] transition-shadow outline-none mb-2"
+                                        placeholder="Nombre del Cliente"
                                     />
+                                    <div className="flex gap-2">
+                                        <input 
+                                            type="text" 
+                                            value={t.client_id || ''}
+                                            onChange={(e) => handleNameChange(t.id, 'client_id', e.target.value)}
+                                            className="border border-gray-300 rounded px-3 py-1.5 text-xs w-full focus:ring-2 focus:ring-[#0054A6] focus:border-[#0054A6] transition-shadow outline-none"
+                                            placeholder="Client ID"
+                                        />
+                                        <input 
+                                            type="password" 
+                                            value={t.client_secret || ''}
+                                            onChange={(e) => handleNameChange(t.id, 'client_secret', e.target.value)}
+                                            className="border border-gray-300 rounded px-3 py-1.5 text-xs w-full focus:ring-2 focus:ring-[#0054A6] focus:border-[#0054A6] transition-shadow outline-none"
+                                            placeholder="Client Secret"
+                                        />
+                                    </div>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-right">
                                     <button
-                                        onClick={() => saveTenant(t.id, t.name)}
+                                        onClick={() => saveTenant(t.id, t.name, t.client_id, t.client_secret)}
                                         disabled={savingId === t.id}
                                         className="bg-gray-800 hover:bg-black text-white px-4 py-1.5 rounded-md text-xs font-bold shadow-sm transition-colors disabled:opacity-50"
                                     >
-                                        {savingId === t.id ? 'Guardando...' : 'Guardar y Renombrar'}
+                                        {savingId === t.id ? 'Guardando...' : 'Guardar'}
                                     </button>
                                 </td>
                             </tr>

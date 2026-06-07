@@ -22,6 +22,8 @@ export async function initializeDatabase() {
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 tenant_id VARCHAR(255) UNIQUE NOT NULL,
                 company_name VARCHAR(255),
+                client_id VARCHAR(255),
+                client_secret VARCHAR(255),
                 status VARCHAR(50) DEFAULT 'active',
                 webhook_url VARCHAR(255),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -94,6 +96,13 @@ export async function initializeDatabase() {
                 status VARCHAR(20) NOT NULL,
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (tenant_id) REFERENCES Tenants(tenant_id) ON DELETE CASCADE
+            )
+        `);
+
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS GlobalSettings (
+                setting_key VARCHAR(50) PRIMARY KEY,
+                setting_value TEXT NOT NULL
             )
         `);
 
