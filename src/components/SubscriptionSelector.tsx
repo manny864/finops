@@ -16,9 +16,9 @@ export default function SubscriptionSelector() {
                 className="text-sm font-semibold text-gray-700 dark:text-gray-200 bg-transparent dark:bg-slate-800 border-none outline-none focus:ring-0 cursor-pointer p-0 m-0 w-32 md:w-48 truncate"
                 disabled={loading}
             >
-                <option value="All">Todas (Tenant Scope)</option>
+                <option value="All" className="text-black bg-white dark:text-white dark:bg-gray-800">Todas (Tenant Scope)</option>
                 {subscriptions.map(s => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
+                    <option key={s.id} value={s.id} className="text-black bg-white dark:text-white dark:bg-gray-800">{s.name}</option>
                 ))}
             </select>
         </div>
