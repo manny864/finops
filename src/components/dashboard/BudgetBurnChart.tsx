@@ -2,17 +2,20 @@
 import React, { useState, useEffect } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { useTenant } from '../TenantProvider';
+import { useSubscription } from '../SubscriptionProvider';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid } from 'recharts';
 
 export default function BudgetBurnChart() {
     const { instance, accounts } = useMsal();
     const { selectedTenant } = useTenant();
+    const { selectedSubscription, subscriptions } = useSubscription();
     const [burnData, setBurnData] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [missingConsent, setMissingConsent] = useState(false);
 
     useEffect(() => {
         if (accounts.length === 0 || selectedTenant.id === 'default') return;
+        if (subscriptions.length === 0) return;
         
         const fetchBurnData = async () => {
             setLoading(true);
@@ -23,29 +26,29 @@ export default function BudgetBurnChart() {
                     account: accounts[0]
                 });
                 
-                const subRes = await fetch(`/api/subscriptions?tenantId=${selectedTenant.id}`, {
-                    headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
-                });
-                const subJson = await subRes.json();
+                // Si la suscripción global es "All", usamos la primera disponible como respaldo o la lógica que prefieras.
+                // Como BudgetBurnChart requiere una suscripción específica para la API de budgets de cost management:
+                const subId = selectedSubscription !== 'All' ? selectedSubscription : subscriptions[0].id;
                 
-                if (subJson.error === "MISSING_ADMIN_CONSENT") {
-                    setMissingConsent(true);
+                // Si aún no tenemos un ID de suscripción válido, salimos
+                if (!subId) {
                     setLoading(false);
                     return;
                 }
 
-                if (!subJson.subscriptions || subJson.subscriptions.length === 0) {
-                    setLoading(false);
-                    return;
-                }
-                const subId = subJson.subscriptions[0].id;
-                const subTenantId = subJson.subscriptions[0].tenantId || selectedTenant.id;
+                // Averiguar el tenant de la suscripción seleccionada si lo necesitamos, 
+                // en SubscriptionProvider ya tenemos subscriptions[]
+                const subObj = subscriptions.find(s => s.id === subId);
+                const subTenantId = subObj ? (subObj as any).tenantId : selectedTenant.id;
                 
-                const res = await fetch(`/api/budgets/burn?tenantId=${subTenantId}&subscriptionId=${subId}`, {
+                const res = await fetch(`/api/budgets/burn?tenantId=${subTenantId || selectedTenant.id}&subscriptionId=${subId}`, {
                     headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
                 });
                 const json = await res.json();
-                if (json.burnData) {
+                
+                if (json.error === "MISSING_ADMIN_CONSENT") {
+                    setMissingConsent(true);
+                } else if (json.burnData) {
                     setBurnData(json.burnData);
                 }
             } catch (e) {
@@ -54,7 +57,7 @@ export default function BudgetBurnChart() {
             setLoading(false);
         };
         fetchBurnData();
-    }, [accounts, instance, selectedTenant.id]);
+    }, [accounts, instance, selectedTenant.id, selectedSubscription, subscriptions]);
 
     if (accounts.length === 0 || selectedTenant.id === 'default') return null;
 
