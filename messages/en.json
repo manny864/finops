@@ -31,6 +31,22 @@
     "executive_report": "Executive Report",
     "audit_trail": "Audit Trail"
   },
+  "Dashboard": {
+    "title": "General Dashboard",
+    "subtitle": "Global vision of cloud performance and efficiency.",
+    "environmental_impact": "Environmental Impact",
+    "co2_avoided": "kg CO2 avoided",
+    "potential_savings": "Total Potential Savings",
+    "monthly_projected": "/month projected",
+    "governance_state": "Governance State",
+    "financial_security_score": "Financial Security Score",
+    "unconfigured": "Not Configured",
+    "calculating": "Calculating...",
+    "configure_policies": "Configure Policies",
+    "drag_hint": "Drag and drop cards to reorder them",
+    "no_rules": "Add rules in Tag Management.",
+    "based_on_rules": "Based on active tag rules."
+  },
   "Common": {
     "save": "Save",
     "deploy": "Deploy",

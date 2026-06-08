@@ -14,6 +14,12 @@ import ExpiredSandboxTable from "@/components/dashboard/ExpiredSandboxTable";
 import ExecutiveSummaryCard from "@/components/dashboard/ExecutiveSummaryCard";
 import { useActionLogStore } from "@/store/actionLogStore";
 import { Leaf } from "lucide-react";
+import { useTranslations } from 'next-intl';
+import { Responsive, WidthProvider } from 'react-grid-layout/legacy';
+import 'react-grid-layout/css/styles.css';
+import 'react-resizable/css/styles.css';
+
+const ResponsiveGridLayout = WidthProvider(Responsive);
 
 export default function Home() {
   const { activeTab, setActiveTab } = useContext(TabContext);
@@ -113,12 +119,45 @@ export default function Home() {
       fetchData();
   }, [activeTab, selectedTenant, accounts, instance]);
 
+  const t = useTranslations('Dashboard');
+  const tCommon = useTranslations('Common');
+
+  const [layouts, setLayouts] = useState<any>(null);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('finops_dashboard_layout');
+    if (saved) {
+      try {
+        setLayouts(JSON.parse(saved));
+      } catch (e) {}
+    } else {
+      setLayouts({
+        lg: [
+          { i: 'exec', x: 0, y: 0, w: 12, h: 1 },
+          { i: 'pie', x: 0, y: 1, w: 6, h: 4 },
+          { i: 'gov', x: 6, y: 1, w: 6, h: 4 },
+          { i: 'burn', x: 0, y: 5, w: 6, h: 4 },
+          { i: 'power', x: 6, y: 5, w: 6, h: 4 },
+          { i: 'right', x: 0, y: 9, w: 6, h: 4 },
+          { i: 'sandbox', x: 6, y: 9, w: 6, h: 4 }
+        ]
+      });
+    }
+  }, []);
+
+  const onLayoutChange = (layout: any, allLayouts: any) => {
+    setLayouts(allLayouts);
+    localStorage.setItem('finops_dashboard_layout', JSON.stringify(allLayouts));
+  };
+
   if (activeTab === 'audit') {
       return (
-          <div className="animate-in fade-in duration-300">
-              <div className="mb-6">
-                  <h2 className="text-2xl font-bold text-gray-900">Auditoría Completa FinOps</h2>
-                  <p className="text-sm text-gray-500 mt-1">Motor Omni-Scan: Detección y Remediación de 25 tipos de recursos huérfanos.</p>
+          <div className="content animate-in fade-in duration-300">
+              <div className="vhead">
+                  <div className="title">
+                      <h1>Auditoría Completa FinOps</h1>
+                      <p>Motor Omni-Scan: Detección y Remediación de 25 tipos de recursos huérfanos.</p>
+                  </div>
               </div>
               <ZombieResourcesTable />
           </div>
@@ -128,108 +167,139 @@ export default function Home() {
   
   if (activeTab === 'advisor') {
       return (
-          <div className="animate-in fade-in duration-300">
+          <div className="content animate-in fade-in duration-300">
               <AdvisorPanel />
           </div>
       );
   }
   if (activeTab === 'tags') {
-      return <TagManager />;
+      return <div className="content"><TagManager /></div>;
   }
 
   if (activeTab === 'powerbi' || activeTab === 'config') {
       return (
-          <div className="flex flex-col items-center justify-center h-96 bg-white rounded-lg border border-gray-200 shadow-sm animate-in fade-in">
-              <span className="text-6xl mb-4">🚧</span>
-              <h2 className="text-xl font-bold text-gray-700">Módulo en Construcción</h2>
-              <p className="text-sm text-gray-500 mt-2">La sección de {activeTab === 'powerbi' ? 'Reportes Power BI' : 'Configuración'} estará disponible en la próxima fase.</p>
+          <div className="content">
+              <div className="card h-96 flex flex-col items-center justify-center animate-in fade-in">
+                  <span className="text-6xl mb-4">🚧</span>
+                  <h2 className="text-xl font-bold text-[var(--brand-deep)]">Módulo en Construcción</h2>
+                  <p className="text-sm text-gray-500 mt-2">La sección de {activeTab === 'powerbi' ? 'Reportes Power BI' : 'Configuración'} estará disponible en la próxima fase.</p>
+              </div>
           </div>
       );
   }
 
+  if (!layouts) return null; // Avoid hydration mismatch
+
   return (
-    <div className="flex flex-col gap-8 animate-in fade-in duration-500">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-gray-200 dark:border-gray-800 pb-4 gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard General</h1>
-          <p className="text-sm text-gray-500 mt-1">Visión global de rendimiento y eficiencia en la nube.</p>
+    <div className="content animate-in fade-in duration-500">
+      <div className="vhead">
+        <div className="title">
+          <h1>{t('title')}</h1>
+          <p>{t('subtitle')} <span className="text-xs text-brand/60 ml-2">({t('drag_hint')})</span></p>
         </div>
         
         <div className="flex gap-4">
             <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-6 py-3 flex flex-col items-end shadow-sm">
                 <span className="text-xs font-bold text-emerald-700 uppercase tracking-widest mb-1 flex items-center">
-                    <Leaf className="w-3 h-3 mr-1" /> Impacto Ambiental
+                    <Leaf className="w-3 h-3 mr-1" /> {t('environmental_impact')}
                 </span>
                 <span className="text-4xl lg:text-5xl font-extrabold text-emerald-600">
                     {calculateCO2Savings(totalSavings)}
                 </span>
-                <span className="text-xs text-emerald-600 mt-1">kg CO2 evitados</span>
+                <span className="text-xs text-emerald-600 mt-1">{t('co2_avoided')}</span>
             </div>
             <div className="bg-green-50 border border-green-200 rounded-xl px-6 py-3 flex flex-col items-end shadow-sm">
-                <span className="text-xs font-bold text-green-700 uppercase tracking-widest mb-1">Ahorro Potencial Total</span>
+                <span className="text-xs font-bold text-green-700 uppercase tracking-widest mb-1">{t('potential_savings')}</span>
                 <span className="text-4xl lg:text-5xl font-extrabold text-green-600">
                     {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalSavings)}
                 </span>
-                <span className="text-xs text-green-600 mt-1">/mes proyectado</span>
+                <span className="text-xs text-green-600 mt-1">{t('monthly_projected')}</span>
             </div>
         </div>
       </div>
-
-      <ExecutiveSummaryCard title="Ahorro Potencial Capturado" amount={`$${new Intl.NumberFormat('en-US').format(totalSavings * 0.4)}`} trend="+12.4% vs mes anterior" />
       
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="flex flex-col">
-            <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 flex flex-col">
-                 <h3 className="text-lg font-bold text-gray-800 mb-1">Distribución de Fugas Financieras</h3>
+      <ResponsiveGridLayout
+        className="layout"
+        layouts={layouts}
+        breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
+        cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
+        rowHeight={80}
+        onLayoutChange={onLayoutChange}
+        draggableHandle=".drag-handle"
+      >
+        <div key="exec">
+            <div className="drag-handle cursor-move w-full h-full">
+                <ExecutiveSummaryCard title="Ahorro Potencial Capturado" amount={`$${new Intl.NumberFormat('en-US').format(totalSavings * 0.4)}`} trend="+12.4% vs mes anterior" />
+            </div>
+        </div>
+        
+        <div key="pie">
+            <div className="card h-full flex flex-col drag-handle cursor-move overflow-hidden">
+                 <h3 className="text-lg font-bold text-[var(--brand-deep)] mb-1">Distribución de Fugas Financieras</h3>
                  <p className="text-xs text-gray-500 mb-4">Haz clic en un segmento para ver los recursos afectados.</p>
                  {loading ? (
-                     <div className="flex-1 flex items-center justify-center text-gray-400 animate-pulse">Calculando métricas...</div>
+                     <div className="flex-1 flex items-center justify-center text-gray-400 animate-pulse">{t('calculating')}</div>
                  ) : (
                      <CostPieChart data={dashboardData} onSegmentClick={(cat) => setSelectedCategory(cat)} />
                  )}
             </div>
-            
-            
         </div>
-        <div className="flex flex-col gap-6">
-            <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
-             <h3 className="text-lg font-bold text-gray-800 mb-4">Estado de Gobernanza</h3>
-             <div className="h-64 flex flex-col items-center justify-center text-gray-400 bg-gray-50 rounded-lg border border-dashed border-gray-300">
-                 <p className="text-sm font-medium">Score de Seguridad Financiera</p>
+
+        <div key="gov">
+            <div className="card h-full flex flex-col drag-handle cursor-move overflow-hidden">
+             <h3 className="text-lg font-bold text-[var(--brand-deep)] mb-4">{t('governance_state')}</h3>
+             <div className="flex-1 flex flex-col items-center justify-center text-gray-400 bg-[var(--surface-sunken)] rounded-lg border border-dashed border-gray-300">
+                 <p className="text-sm font-medium">{t('financial_security_score')}</p>
                  <span className={`text-4xl font-bold mt-2 ${complianceScore === -1 ? 'text-gray-400' : 'text-green-500'}`}>
-                     {complianceScore === null ? 'Calculando...' : complianceScore === -1 ? 'No Configurado' : `${complianceScore}%`}
+                     {complianceScore === null ? t('calculating') : complianceScore === -1 ? t('unconfigured') : `${complianceScore}%`}
                  </span>
                  <p className="text-xs text-gray-400 mt-2 text-center px-8">
-                     {complianceScore === -1 ? 'Añade reglas en Gestión de Etiquetas.' : 'Basado en las reglas de etiquetado activas.'}
+                     {complianceScore === -1 ? t('no_rules') : t('based_on_rules')}
                  </p>
                  {complianceScore === -1 && (
                      <button 
-                         onClick={() => setActiveTab('tags')} 
-                         className="mt-4 px-4 py-2 bg-[#0054A6] text-white text-xs font-semibold rounded shadow-sm hover:bg-blue-800 transition-colors"
+                         onClick={(e) => { e.stopPropagation(); setActiveTab('tags'); }}
+                         className="mt-4 px-4 py-2 bg-[var(--brand)] text-white text-xs font-semibold rounded shadow-sm hover:opacity-90 transition-colors"
                      >
-                         Configurar Políticas
+                         {t('configure_policies')}
                      </button>
                  )}
              </div>
             </div>
-            <BudgetBurnChart />
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <PowerSchedules />
-          <RightsizingBlade />
-      </div>
+        <div key="burn">
+            <div className="drag-handle cursor-move h-full w-full">
+                <BudgetBurnChart />
+            </div>
+        </div>
 
-      <ExpiredSandboxTable />
+        <div key="power">
+            <div className="drag-handle cursor-move h-full w-full">
+                <PowerSchedules />
+            </div>
+        </div>
+
+        <div key="right">
+            <div className="drag-handle cursor-move h-full w-full">
+                <RightsizingBlade />
+            </div>
+        </div>
+
+        <div key="sandbox">
+            <div className="drag-handle cursor-move h-full w-full overflow-hidden">
+                <ExpiredSandboxTable />
+            </div>
+        </div>
+      </ResponsiveGridLayout>
 
       {selectedCategory && (
-          <div className="animate-in slide-in-from-bottom-4 duration-500 mt-4">
+          <div className="animate-in slide-in-from-bottom-4 duration-500 mt-4 card">
               <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xl font-bold text-gray-800">
-                      Recursos Afectados: <span className="text-[#0054A6]">{selectedCategory}</span>
+                  <h3 className="text-xl font-bold text-[var(--brand-deep)]">
+                      Recursos Afectados: <span className="text-[var(--brand)]">{selectedCategory}</span>
                   </h3>
-                  <button onClick={() => setSelectedCategory(null)} className="text-sm text-gray-500 hover:text-gray-800 transition-colors">
+                  <button onClick={() => setSelectedCategory(null)} className="text-sm text-gray-500 hover:text-[var(--brand-deep)] transition-colors">
                       ✕ Limpiar Filtro
                   </button>
               </div>
