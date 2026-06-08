@@ -39,7 +39,7 @@ export async function getCurrentMonthAmortizedCosts(tenantId: string, subscripti
             console.log("Management Group scope failed, falling back to concurrent subscription iteration...");
             const subClient = new SubscriptionClient(credential);
             const subPromises: Promise<any>[] = [];
-            for await (const sub of subClient.subscriptions.list()) {
+            for await (const sub of subClient.subscription.list()) {
                 if (sub.subscriptionId && sub.state === 'Enabled') {
                     subPromises.push(client.query.usage(`/subscriptions/${sub.subscriptionId}`, queryOptions).catch(() => null));
                 }
@@ -143,7 +143,7 @@ export async function getCostForecast(tenantId: string, subscriptionId: string) 
             console.log("Management Group scope failed for forecast, falling back to concurrent subscription iteration...");
             const subClient = new SubscriptionClient(credential);
             const subPromises: Promise<any>[] = [];
-            for await (const sub of subClient.subscriptions.list()) {
+            for await (const sub of subClient.subscription.list()) {
                 if (sub.subscriptionId && sub.state === 'Enabled') {
                     subPromises.push(client.forecast.usage(`/subscriptions/${sub.subscriptionId}`, forecastOptions).catch(() => null));
                 }
