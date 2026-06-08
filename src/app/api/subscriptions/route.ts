@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
     const data = await res.json();
     const subscriptions = (data.value || []).map((sub: any) => ({
         id: sub.subscriptionId,
-        displayName: sub.displayName,
+        name: sub.displayName,
         state: sub.state,
         tenantId: sub.tenantId
     }));
