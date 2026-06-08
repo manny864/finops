@@ -5,6 +5,7 @@ import { useSubscription } from '@/components/SubscriptionProvider';
 import { useMsal } from '@azure/msal-react';
 import { CreditCard, AlertTriangle, Loader2, Download, Tag } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 const COLORS = ['#0054A6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#64748b'];
@@ -13,6 +14,8 @@ export default function ChargebackPage() {
     const { selectedTenant } = useTenant();
     const { selectedSubscription, loading: loadingSubs } = useSubscription();
     const { instance, accounts } = useMsal();
+    const t = useTranslations('Chargeback');
+    const tc = useTranslations('Common');
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState<{name: string, value: number}[]>([]);
     const [hasAnalyzed, setHasAnalyzed] = useState(false);
@@ -23,17 +26,17 @@ export default function ChargebackPage() {
 
     const handleAnalyze = async () => {
         if (!selectedTenant || selectedTenant.id === 'default') {
-            toast.error("Por favor selecciona un tenant primero.");
+            toast.error(t('select_tenant'));
             return;
         }
         if (!selectedSubscription) {
-            toast.error("Selecciona una suscripción en la barra superior.");
+            toast.error(t('select_sub'));
             return;
         }
 
         const activeTagKey = isCustomTag ? customTagKey : tagKey;
         if (!activeTagKey.trim()) {
-            toast.error("Debes ingresar el nombre de una etiqueta válida.");
+            toast.error(t('enter_tag'));
             return;
         }
 
@@ -44,17 +47,17 @@ export default function ChargebackPage() {
             const json = await res.json();
 
             if (!res.ok) {
-                throw new Error(json.error || json.details || 'Error desconocido');
+                throw new Error(json.error || json.details || t('error_unknown'));
             }
 
             if (json.data) {
-                setData(json.data.sort((a: any, b: any) => b.value - a.value)); // Ordenar por costo descendente
+                setData(json.data.sort((a: any, b: any) => b.value - a.value));
                 setHasAnalyzed(true);
-                toast.success(`Datos de Showback calculados exitosamente.`);
+                toast.success(t('showback_success'));
             }
         } catch (error: any) {
             console.error("Chargeback fetch error:", error);
-            toast.error(error.message || "Error al obtener datos de chargeback.");
+            toast.error(error.message || t('error_fetching'));
         } finally {
             setLoading(false);
         }
@@ -66,10 +69,8 @@ export default function ChargebackPage() {
         const activeTagKey = isCustomTag ? customTagKey : tagKey;
         const csvRows = [];
         
-        // Headers
-        csvRows.push(`${activeTagKey},Costo (USD)`);
+        csvRows.push(`${activeTagKey},Cost (USD)`);
         
-        // Data
         for (const row of data) {
             const escapedName = `"${row.name.replace(/"/g, '""')}"`;
             csvRows.push(`${escapedName},${row.value.toFixed(2)}`);
@@ -94,9 +95,9 @@ export default function ChargebackPage() {
                 <div>
                     <div className="vt">
                         <span className="vico bg-gradient-to-br from-[#0054A6] to-[#00AEEF]">💳</span>
-                        Showback / Chargeback
+                        {t('title')}
                     </div>
-                    <div className="vs">Distribuye y agrupa los costos de la nube por Unidad de Negocio usando Etiquetas (Tags).</div>
+                    <div className="vs">{t('subtitle')}</div>
                 </div>
                 <div className="right">
                     <span className="scopechip">📍 {selectedTenant?.name || "Tenant"}</span>
@@ -106,7 +107,7 @@ export default function ChargebackPage() {
                             className="bg-surface border border-line text-ink-soft rounded-[10px] shadow-sm text-[13px] font-heading font-semibold transition-colors flex items-center hover:text-brand-deep hover:border-brand-bright cursor-pointer px-[11px] py-[7px]"
                         >
                             <Download className="w-4 h-4 mr-2" />
-                            Exportar CSV
+                            {t('export_csv')}
                         </button>
                     )}
                 </div>
@@ -116,7 +117,7 @@ export default function ChargebackPage() {
                 <div className="p-[18px]">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                         <div className="flex flex-col gap-2 md:col-span-1">
-                            <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">Etiqueta a Agrupar (Tag Key)</label>
+                            <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">{t('tag_key_label')}</label>
                             <div className="flex space-x-2">
                                 <div className="relative w-full">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -131,7 +132,7 @@ export default function ChargebackPage() {
                                         <option value="Environment">Environment</option>
                                         <option value="Project">Project</option>
                                         <option value="Owner">Owner</option>
-                                        <option value="custom">-- Otro (Personalizado) --</option>
+                                        <option value="custom">{t('custom_option')}</option>
                                     </select>
                                 </div>
                             </div>
@@ -139,12 +140,12 @@ export default function ChargebackPage() {
 
                         {isCustomTag && (
                             <div className="flex flex-col gap-2 md:col-span-1">
-                                <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">Etiqueta Personalizada</label>
+                                <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">{t('custom_tag_label')}</label>
                                 <input
                                     type="text"
                                     value={customTagKey}
                                     onChange={(e) => setCustomTagKey(e.target.value)}
-                                    placeholder="Ej: Departamento"
+                                    placeholder={t('custom_tag_placeholder')}
                                     className="w-full bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2.5 outline-none"
                                 />
                             </div>
@@ -157,7 +158,7 @@ export default function ChargebackPage() {
                                 className="w-full bg-brand-deep text-white px-4 py-2.5 rounded-[10px] hover:brightness-110 transition flex items-center justify-center font-heading font-bold text-[13px] disabled:opacity-50 h-[42px] cursor-pointer shadow-sm"
                             >
                                 {loading && <Loader2 className="w-5 h-5 animate-spin mr-2" />}
-                                Ejecutar Showback
+                                {t('run_showback')}
                             </button>
                         </div>
                     </div>
@@ -166,9 +167,8 @@ export default function ChargebackPage() {
 
             {data.length > 0 ? (
                 <div className="grid-2">
-                    {/* Gráfico */}
                     <div className="card flex flex-col items-center p-6">
-                        <h3 className="text-[14px] font-bold text-ink mb-6 w-full text-left">Distribución del Gasto por {isCustomTag ? customTagKey : tagKey}</h3>
+                        <h3 className="text-[14px] font-bold text-ink mb-6 w-full text-left">{t('spending_by')} {isCustomTag ? customTagKey : tagKey}</h3>
                         <div className="h-80 w-full">
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
@@ -188,7 +188,7 @@ export default function ChargebackPage() {
                                         ))}
                                     </Pie>
                                     <Tooltip 
-                                        formatter={(value: any) => [`$${Number(value).toFixed(2)} USD`, 'Costo']}
+                                        formatter={(value: any) => [`$${Number(value).toFixed(2)} USD`, 'Cost']}
                                         contentStyle={{ borderRadius: '8px', border: '1px solid var(--line)', boxShadow: 'var(--shadow)' }}
                                     />
                                     <Legend 
@@ -205,10 +205,9 @@ export default function ChargebackPage() {
                         </div>
                     </div>
 
-                    {/* Breakdown */}
                     <div className="card flex flex-col h-full">
                         <div className="card-h">
-                            <h3>Desglose de Costos (Últimos 30 días)</h3>
+                            <h3>{t('cost_breakdown')}</h3>
                         </div>
                         <div className="overflow-y-auto flex-1 max-h-96 p-[18px]">
                             <div className="flex flex-col gap-[14px]">
@@ -224,7 +223,7 @@ export default function ChargebackPage() {
                             </div>
                         </div>
                         <div className="mt-4 p-[18px] border-t border-line flex justify-between items-center bg-surface-2 rounded-b-[14px]">
-                            <span className="font-bold text-ink text-sm">Gasto Total</span>
+                            <span className="font-bold text-ink text-sm">{t('total_spending')}</span>
                             <span className="font-heading font-extrabold text-brand-deep text-lg">${totalCost.toFixed(2)} USD</span>
                         </div>
                     </div>
@@ -233,8 +232,8 @@ export default function ChargebackPage() {
                 !loading && hasAnalyzed && (
                     <div className="empty border border-line rounded-[14px]">
                         <CreditCard className="w-12 h-12 text-grey mx-auto mb-4" />
-                        <h3 className="text-lg font-bold text-ink mb-2">No se encontraron costos</h3>
-                        <p className="text-ink-soft">No hay datos de consumo registrados en los últimos 30 días para esta suscripción.</p>
+                        <h3 className="text-lg font-bold text-ink mb-2">{t('no_costs_title')}</h3>
+                        <p className="text-ink-soft">{t('no_costs_desc')}</p>
                     </div>
                 )
             )}
