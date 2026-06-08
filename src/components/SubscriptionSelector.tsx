@@ -6,14 +6,14 @@ export default function SubscriptionSelector() {
 
     return (
         <div className="flex flex-col px-2">
-            <label htmlFor="sub-select" className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">
+            <label htmlFor="sub-select" className="text-[10px] tracking-[1px] uppercase text-grey font-bold mb-1">
                 Suscripción
             </label>
             <select
                 id="sub-select"
                 value={selectedSubscription}
                 onChange={(e) => setSelectedSubscription(e.target.value)}
-                className="text-sm font-semibold text-gray-700 dark:text-gray-200 bg-transparent dark:bg-slate-800 border-none outline-none focus:ring-0 cursor-pointer p-0 m-0 w-32 md:w-48 truncate"
+                className="border-0 bg-transparent font-heading font-bold text-[13px] text-brand-deep cursor-pointer focus:outline-none p-0 m-0 w-32 md:w-48 truncate"
                 disabled={loading}
             >
                 <option value="All" className="text-black bg-white dark:text-white dark:bg-gray-800">Todas (Tenant Scope)</option>

@@ -50,60 +50,80 @@ function ShellContent({ children }: { children: React.ReactNode }) {
 
   if (!isAuthenticated && inProgress !== "startup" && inProgress !== "handleRedirect") {
       return (
-          <div className="min-h-screen bg-[#FFFFFF] flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative" style={{ fontFamily: 'var(--font-opensans), sans-serif' }}>
+          <div className="min-h-screen bg-gradient-to-br from-nav-bg to-nav-bg2 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative font-sans">
               <div className="absolute top-4 right-4 z-50">
                   <LanguageSwitcher />
               </div>
-              <div className="sm:mx-auto sm:w-full sm:max-w-md text-center animate-in fade-in zoom-in duration-500">
-                  <img 
-                      src="/Logo_Nombre_CSCloudSolutions.avif" 
-                      alt="CSCloudSolutions Logo" 
-                      className="mx-auto h-24 w-auto object-contain drop-shadow-sm"
-                  />
-                  <h2 className="mt-8 text-center text-3xl font-extrabold text-[#0054A6] tracking-tight" style={{ fontFamily: 'var(--font-montserrat), sans-serif' }}>
-                      Cloud FinOps Platform
+              
+              {/* Animated background elements */}
+              <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                  <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-brand-deep/20 blur-[100px]"></div>
+                  <div className="absolute bottom-[10%] right-[-5%] w-[30%] h-[30%] rounded-full bg-brand-bright/10 blur-[80px]"></div>
+              </div>
+
+              <div className="sm:mx-auto sm:w-full sm:max-w-md text-center animate-in fade-in zoom-in duration-500 relative z-10">
+                  <div className="flex items-center justify-center mb-6">
+                      <svg width="48" height="48" viewBox="0 0 48 48"><defs><linearGradient id="cgl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#0054A6"/><stop offset="1" stopColor="#00AEEF"/></linearGradient></defs>
+                          <path d="M14 33h19a8 8 0 0 0 1.2-15.9A11 11 0 0 0 13 17.5 7.5 7.5 0 0 0 14 33Z" fill="url(#cgl)"/>
+                          <path d="M17.5 27.5l3.6-4.2 3.1 2.7 4.6-5.6" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/><circle cx="29.8" cy="20.4" r="1.7" fill="#fff"/></svg>
+                  </div>
+                  <h2 className="mt-2 text-center text-[28px] font-extrabold text-white tracking-tight font-heading">
+                      CS<span className="text-brand-bright">Cloud</span>Solutions
                   </h2>
-                  <p className="mt-3 text-center text-sm text-[#7F7F7F] max-w-sm mx-auto">
-                      Plataforma avanzada de Gobernanza, Auditoría Omni-Scan y Optimización Financiera para sus entornos empresariales en Microsoft Azure.
+                  <p className="mt-2 text-center text-[13px] tracking-[2px] text-[#62809c] uppercase font-semibold">
+                      FinOps Platform
                   </p>
               </div>
 
-              <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-md animate-in fade-in slide-in-from-bottom-8 duration-700 delay-100">
-                  <div className="bg-white py-10 px-4 shadow-2xl shadow-blue-900/5 border border-gray-100 sm:rounded-2xl sm:px-10 relative overflow-hidden">
+              <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-[440px] animate-in fade-in slide-in-from-bottom-8 duration-700 delay-100 relative z-10">
+                  <div className="bg-surface/5 backdrop-blur-xl py-10 px-6 sm:px-10 shadow-2xl shadow-black/50 border border-white/10 sm:rounded-[20px] relative overflow-hidden">
                       {/* Decorative top accent */}
-                      <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-[#0054A6] to-[#00AEEF]"></div>
+                      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-brand-deep to-brand-bright"></div>
                       
                       <div className="mb-8 text-center">
-                          <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-[#00AEEF]/10 mb-5">
-                              <svg className="h-8 w-8 text-[#00AEEF]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                              </svg>
-                          </div>
-                          <h3 className="text-xl font-bold text-[#3C3C3C]" style={{ fontFamily: 'var(--font-montserrat), sans-serif' }}>
+                          <h3 className="text-[18px] font-bold text-white font-heading">
                               Acceso Corporativo
                           </h3>
-                          <p className="text-sm text-[#7F7F7F] mt-2 leading-relaxed">
-                              Por favor identifíquese mediante Microsoft Entra ID para acceder al inventario de su tenant.
+                          <p className="text-[13.5px] text-[#A9BBD0] mt-2 leading-relaxed">
+                              Inicie sesión con Microsoft Entra ID para acceder al inventario de su tenant.
                           </p>
                       </div>
 
-                      <div>
+                      <div className="space-y-4">
                           <button
                               onClick={() => {
                                   instance.loginRedirect({ scopes: ["User.Read", "Directory.Read.All"] })
                                       .catch(e => console.error(e));
                               }}
-                              className="w-full flex items-center justify-center py-3.5 px-4 border border-transparent rounded-lg shadow-md shadow-[#0054A6]/20 text-sm font-bold text-white bg-[#0054A6] hover:bg-[#004080] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0054A6] transition-all transform active:scale-[0.98]"
-                              style={{ fontFamily: 'var(--font-montserrat), sans-serif' }}
+                              className="w-full flex items-center justify-center py-[13px] px-4 border border-transparent rounded-[12px] shadow-[0_6px_16px_rgba(0,84,166,0.4)] text-[14px] font-bold text-white bg-gradient-to-br from-brand-deep to-[#1E88E5] hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-nav-bg focus:ring-brand-deep transition-all transform active:scale-[0.98] font-heading"
                           >
                               <svg className="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 24 24"><path d="M11.4 24H0V12.6h11.4V24zM24 24H12.6V12.6H24V24zM11.4 11.4H0V0h11.4v11.4zm12.6 0H12.6V0H24v11.4z"/></svg>
                               Iniciar sesión con Microsoft
                           </button>
+
+                          <div className="relative py-2">
+                              <div className="absolute inset-0 flex items-center">
+                                  <div className="w-full border-t border-white/10"></div>
+                              </div>
+                              <div className="relative flex justify-center text-sm">
+                                  <span className="px-2 bg-transparent text-[#62809c] text-xs">O explora la plataforma</span>
+                              </div>
+                          </div>
+
+                          <a
+                              href="/finops-demo.html"
+                              target="_blank"
+                              rel="noreferrer"
+                              className="w-full flex items-center justify-center py-[13px] px-4 border border-white/10 rounded-[12px] shadow-sm text-[14px] font-bold text-white bg-white/5 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-nav-bg focus:ring-brand-bright transition-all transform active:scale-[0.98] font-heading group"
+                          >
+                              <span className="text-xl mr-2 group-hover:-translate-y-1 transition-transform">🚀</span>
+                              Ver Demo Interactivo
+                          </a>
                       </div>
                   </div>
                   
-                  <p className="text-center text-xs text-[#7F7F7F] mt-8 tracking-wide">
-                      &copy; {new Date().getFullYear()} CSCloudSolutions. Todos los derechos reservados.
+                  <p className="text-center text-[11px] text-[#566f8c] mt-8 tracking-wide">
+                      &copy; {new Date().getFullYear()} CS Cloud Solutions. Todos los derechos reservados.
                   </p>
               </div>
           </div>
@@ -112,7 +132,7 @@ function ShellContent({ children }: { children: React.ReactNode }) {
 
   return (
     <TabContext.Provider value={{ activeTab, setActiveTab }}>
-    <div className="min-h-screen bg-gray-50 dark:bg-slate-950 flex text-gray-900 dark:text-gray-100">
+    <div className="min-h-screen bg-background flex text-foreground">
       {/* Sidebar */}
       {/* Mobile Overlay */}
       {sidebarOpen && (
@@ -127,7 +147,7 @@ function ShellContent({ children }: { children: React.ReactNode }) {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-16 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 flex items-center justify-between px-6 z-10 shadow-sm">
+        <header className="h-16 bg-surface/85 backdrop-blur-md border-b border-line flex items-center justify-between px-6 z-30 shadow-sm sticky top-0">
           <div className="flex items-center">
             <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 mr-4 text-gray-400 hover:text-[#0054A6] transition-colors focus:outline-none">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
@@ -149,10 +169,10 @@ function ShellContent({ children }: { children: React.ReactNode }) {
                     )}
                 </button>
                 
-                <div className="hidden md:flex items-center border border-gray-200 dark:border-slate-700 rounded-lg px-2 py-1 bg-gray-50 dark:bg-slate-800 relative">
+                <div className="hidden md:flex items-center border border-line-strong rounded-lg px-2 py-1 bg-surface shadow-sm relative">
               {isAdmin ? (
                 <div className="flex flex-col px-2">
-                  <label htmlFor="tenant-select" className="text-[10px] text-[#00AEEF] font-bold uppercase tracking-wider mb-1">
+                  <label htmlFor="tenant-select" className="text-[10px] tracking-[1px] uppercase text-grey font-bold mb-1">
                     Tenant (Admin Propietario)
                   </label>
                   <select
@@ -162,7 +182,7 @@ function ShellContent({ children }: { children: React.ReactNode }) {
                       const found = tenants.find(t => t.id === e.target.value);
                       if (found) setSelectedTenant(found);
                     }}
-                    className="text-sm font-semibold text-gray-700 dark:text-gray-200 bg-transparent dark:bg-slate-800 border-none outline-none focus:ring-0 cursor-pointer p-0 m-0"
+                    className="border-0 bg-transparent font-heading font-bold text-[13px] text-brand-deep cursor-pointer focus:outline-none p-0 m-0"
                   >
                     {tenants.map(t => (
                       <option key={t.id} value={t.id}>{t.name}</option>
@@ -171,18 +191,18 @@ function ShellContent({ children }: { children: React.ReactNode }) {
                 </div>
               ) : (
                 <div className="flex flex-col px-2 cursor-not-allowed">
-                  <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Mi Entorno (Cliente)</span>
-                  <span className="text-sm font-semibold text-gray-700">{selectedTenant.name}</span>
+                  <span className="text-[10px] tracking-[1px] uppercase text-grey font-bold mb-1">Mi Entorno (Cliente)</span>
+                  <span className="font-heading font-bold text-[13px] text-brand-deep">{selectedTenant.name}</span>
                 </div>
               )}
             </div>
             
-            <div className="hidden md:flex items-center border border-gray-200 dark:border-slate-700 rounded-lg px-2 py-1 bg-gray-50 dark:bg-slate-800 relative">
+            <div className="hidden md:flex items-center border border-line-strong rounded-lg px-2 py-1 bg-surface shadow-sm relative">
               <SubscriptionSelector />
             </div>
             
             {/* View Toggle */}
-            <div className="hidden sm:flex items-center bg-gray-100 dark:bg-slate-800 rounded-lg p-1 mr-4 border border-gray-200 dark:border-slate-700">
+            <div className="hidden sm:flex items-center bg-surface-2 rounded-lg p-1 mr-4 border border-line">
                 <button
                     onClick={() => viewMode !== 'executive' && toggleViewMode()}
                     className={`flex items-center px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${viewMode === 'executive' ? 'bg-white shadow-sm text-indigo-700' : 'text-gray-500 hover:text-gray-700'}`}
@@ -204,7 +224,7 @@ function ShellContent({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto bg-gray-50/50 dark:bg-slate-950/50 p-6">
+        <main className="flex-1 overflow-y-auto p-6 relative">
           {children}
         </main>
       </div>
