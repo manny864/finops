@@ -78,31 +78,33 @@ export default function TtlCleanupPage() {
   if (selectedTenant.id === 'default') return null;
 
   return (
-    <div className="max-w-7xl mx-auto animate-in fade-in duration-500">
-      <div className="mb-6 flex justify-between items-end border-b border-gray-200 pb-4">
+    <div className="content animate-in fade-in duration-500">
+      <div className="vhead">
         <div>
-          <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight flex items-center">
-             <Clock className="w-8 h-8 mr-3 text-red-600" />
+          <div className="vt">
+             <span className="vico bg-gradient-to-br from-[#0054A6] to-[#00AEEF]">⏳</span>
              Time-To-Live (TTL) Enforcement
-          </h1>
-          <p className="text-gray-500 mt-2">Detección y eliminación automática de entornos de desarrollo expirados.</p>
+          </div>
+          <div className="vs">Detección y eliminación automática de entornos de desarrollo expirados.</div>
+        </div>
+        <div className="right">
+          <span className="scopechip">📍 {selectedTenant?.name || "Tenant"}</span>
         </div>
       </div>
 
       {error && (
-        <div className="bg-white border-l-4 border-amber-500 shadow-sm p-6 rounded-lg mb-6 flex items-start">
-            <div className="flex-shrink-0">
-                <AlertCircle className="h-6 w-6 text-amber-500" />
+        <div className="card">
+            <div className="card-h">
+                <h3 className="text-danger">⚠️ Permisos Restringidos</h3>
             </div>
-            <div className="ml-4">
-                <h3 className="text-lg font-bold text-gray-900">Permisos de Resource Graph Restringidos</h3>
-                <div className="mt-2 text-sm text-gray-600">
-                    <p>Azure Resource Graph ha bloqueado la lectura de entornos expirados. Esto sucede comúnmente por dos razones:</p>
-                    <ul className="list-disc pl-5 mt-2 space-y-1 text-gray-700">
-                        <li>El Service Principal (Enterprise App) no tiene el rol de <strong>Reader</strong> (Lector) en las suscripciones conectadas.</li>
-                        <li>Las suscripciones configuradas para este Tenant no existen o han sido canceladas.</li>
+            <div className="p-[18px]">
+                <div className="text-sm text-ink-soft">
+                    <p>Azure Resource Graph ha bloqueado la lectura. Razones comunes:</p>
+                    <ul className="list-disc pl-5 mt-2 space-y-1 text-ink">
+                        <li>Falta el rol de <strong>Reader</strong>.</li>
+                        <li>La suscripción no existe.</li>
                     </ul>
-                    <div className="mt-4 p-3 bg-gray-50 rounded border border-gray-200 font-mono text-xs text-red-600 break-all">
+                    <div className="mt-4 p-3 bg-danger-soft rounded border border-line font-mono text-xs text-danger break-all">
                         <strong>Log técnico:</strong> {error}
                     </div>
                 </div>
@@ -111,79 +113,76 @@ export default function TtlCleanupPage() {
       )}
 
       {loading && (
-        <div className="bg-white p-10 rounded-xl shadow-sm border border-gray-200 text-center animate-pulse">
-            <Clock className="w-10 h-10 mx-auto text-red-300 mb-4 animate-bounce" />
-            <p className="text-gray-500 font-medium">Buscando etiquetas ExpireOn o TTL en toda la organización...</p>
+        <div className="empty">
+            <Clock className="w-10 h-10 mx-auto text-brand-deep mb-4 animate-bounce" />
+            <p className="text-ink-soft font-bold">Buscando etiquetas ExpireOn o TTL...</p>
         </div>
       )}
 
       {!loading && !error && resources.length === 0 && (
-        <div className="bg-green-50 border border-green-200 rounded-xl p-8 text-center flex flex-col items-center justify-center">
-            <CheckCircle className="w-16 h-16 text-green-500 mb-4" />
-            <h3 className="text-xl font-bold text-green-800">Excelente.</h3>
-            <p className="text-green-600 mt-2 max-w-lg">Todos los entornos de desarrollo están dentro de su ciclo de vida útil. No hay recursos expirados.</p>
+        <div className="empty">
+            <CheckCircle className="w-16 h-16 mx-auto text-green mb-4" />
+            <h3 className="text-xl font-bold text-green">Excelente.</h3>
+            <p className="text-green mt-2 max-w-lg mx-auto">Todos los entornos de desarrollo están dentro de su ciclo de vida útil. No hay recursos expirados.</p>
         </div>
       )}
 
       {!loading && resources.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex items-center">
-                <AlertCircle className="w-5 h-5 text-gray-500 mr-2" />
-                <h3 className="text-lg font-bold text-gray-800">Entornos de Desarrollo por Expiración</h3>
+        <div className="card">
+            <div className="card-h">
+                <h3>⏳ Entornos de Desarrollo por Expiración</h3>
             </div>
             <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                <table className="tbl">
+                    <thead>
                         <tr>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Nombre del Recurso</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Tipo</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Grupo de Recursos</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Fecha de Expiración</th>
-                            <th className="px-6 py-4 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Estado</th>
-                            <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Acción</th>
+                            <th>Nombre del Recurso</th>
+                            <th>Tipo</th>
+                            <th>Grupo de Recursos</th>
+                            <th>Fecha de Expiración</th>
+                            <th style={{textAlign:'center'}}>Estado</th>
+                            <th className="num">Acción</th>
                         </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody>
                         {resources.map((r, idx) => {
                             const typeName = r.type?.split('/').pop() || r.type;
                             return (
-                                <tr key={`${r.id}-${idx}`} className="hover:bg-red-50/30 transition-colors">
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
-                                        {r.name}
+                                <tr key={`${r.id}-${idx}`}>
+                                    <td>
+                                        <div className="font-bold text-ink">{r.name}</div>
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                                        <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded border border-gray-200 font-mono text-xs">
-                                            {typeName}
-                                        </span>
+                                    <td>
+                                        <span className="tag grey font-mono">{typeName}</span>
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                                        {r.resourceGroup}
+                                    <td className="text-ink-soft">{r.resourceGroup}</td>
+                                    <td>
+                                        <div className="text-danger font-bold flex items-center gap-[6px]">
+                                            <Clock className="w-4 h-4" />
+                                            {r.expirationDate}
+                                        </div>
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-bold flex items-center">
-                                        <Clock className="w-4 h-4 mr-1.5" />
-                                        {r.expirationDate}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                                            r.ttlStatus === 'Active' ? 'bg-green-100 text-green-800' : 
-                                            r.ttlStatus === 'Warning' ? 'bg-yellow-100 text-yellow-800' : 
-                                            'bg-red-100 text-red-800'
+                                    <td style={{textAlign:'center'}}>
+                                        <span className={`tag ${
+                                            r.ttlStatus === 'Active' ? 'green' : 
+                                            r.ttlStatus === 'Warning' ? 'amber' : 
+                                            'red'
                                         }`}>
                                             {r.ttlStatus || 'Desconocido'}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-right">
+                                    <td className="num">
                                         <button
                                             onClick={() => handleDelete(r.id, r.subscriptionId, r.type)}
                                             disabled={deletingId === r.id || r.ttlStatus === 'Active'}
-                                            className={`${r.ttlStatus === 'Active' ? 'bg-gray-300' : 'bg-red-600 hover:bg-red-700'} disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-md text-xs font-bold shadow-sm transition-colors flex items-center justify-end ml-auto`}
+                                            className={`${r.ttlStatus === 'Active' ? 'bg-surface-2 text-grey' : 'bg-danger text-white hover:brightness-110'} px-[11px] py-[7px] rounded-[10px] text-[12px] font-heading font-semibold shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-[6px]`}
                                         >
                                             {deletingId === r.id ? (
                                                 'Eliminando...'
                                             ) : (
                                                 <>
-                                                    <Trash2 className="w-3.5 h-3.5 mr-1.5" />
-                                                    Eliminar Entorno
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                    Eliminar
                                                 </>
                                             )}
                                         </button>

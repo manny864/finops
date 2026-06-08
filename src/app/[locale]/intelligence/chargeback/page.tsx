@@ -89,42 +89,43 @@ export default function ChargebackPage() {
     const totalCost = data.reduce((acc, curr) => acc + curr.value, 0);
 
     return (
-        <div className="p-6 space-y-6">
-            <div className="flex justify-between items-center">
+        <div className="content animate-in fade-in">
+            <div className="vhead">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
-                        <CreditCard className="w-8 h-8 mr-3 text-[#0054A6]" />
+                    <div className="vt">
+                        <span className="vico bg-gradient-to-br from-[#0054A6] to-[#00AEEF]">💳</span>
                         Showback / Chargeback
-                    </h1>
-                    <p className="text-gray-500 dark:text-gray-400 mt-1">
-                        Distribuye y agrupa los costos de la nube por Unidad de Negocio usando Etiquetas (Tags).
-                    </p>
+                    </div>
+                    <div className="vs">Distribuye y agrupa los costos de la nube por Unidad de Negocio usando Etiquetas (Tags).</div>
                 </div>
-                {data.length > 0 && (
-                    <button
-                        onClick={handleExportCSV}
-                        className="flex items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
-                    >
-                        <Download className="w-4 h-4 mr-2" />
-                        Exportar a CSV
-                    </button>
-                )}
+                <div className="right">
+                    <span className="scopechip">📍 {selectedTenant?.name || "Tenant"}</span>
+                    {data.length > 0 && (
+                        <button
+                            onClick={handleExportCSV}
+                            className="bg-surface border border-line text-ink-soft rounded-[10px] shadow-sm text-[13px] font-heading font-semibold transition-colors flex items-center hover:text-brand-deep hover:border-brand-bright cursor-pointer px-[11px] py-[7px]"
+                        >
+                            <Download className="w-4 h-4 mr-2" />
+                            Exportar CSV
+                        </button>
+                    )}
+                </div>
             </div>
 
-            <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm">
+            <div className="card">
+                <div className="p-[18px]">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-
-                        <div className="space-y-2 md:col-span-1">
-                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Etiqueta a Agrupar (Tag Key)</label>
+                        <div className="flex flex-col gap-2 md:col-span-1">
+                            <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">Etiqueta a Agrupar (Tag Key)</label>
                             <div className="flex space-x-2">
                                 <div className="relative w-full">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <Tag className="w-4 h-4 text-gray-400" />
+                                        <Tag className="w-4 h-4 text-grey" />
                                     </div>
                                     <select
                                         value={tagKey}
                                         onChange={(e) => setTagKey(e.target.value)}
-                                        className="w-full pl-10 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-[#0054A6] focus:border-[#0054A6] p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
+                                        className="w-full pl-10 bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2.5 outline-none"
                                     >
                                         <option value="CostCenter">CostCenter</option>
                                         <option value="Environment">Environment</option>
@@ -137,14 +138,14 @@ export default function ChargebackPage() {
                         </div>
 
                         {isCustomTag && (
-                            <div className="space-y-2 md:col-span-1">
-                                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Etiqueta Personalizada</label>
+                            <div className="flex flex-col gap-2 md:col-span-1">
+                                <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">Etiqueta Personalizada</label>
                                 <input
                                     type="text"
                                     value={customTagKey}
                                     onChange={(e) => setCustomTagKey(e.target.value)}
                                     placeholder="Ej: Departamento"
-                                    className="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-[#0054A6] focus:border-[#0054A6] p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
+                                    className="w-full bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2.5 outline-none"
                                 />
                             </div>
                         )}
@@ -153,7 +154,7 @@ export default function ChargebackPage() {
                             <button
                                 onClick={handleAnalyze}
                                 disabled={loading || !selectedSubscription}
-                                className="w-full bg-[#0054A6] text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 transition flex items-center justify-center font-medium disabled:opacity-50 h-[42px]"
+                                className="w-full bg-brand-deep text-white px-4 py-2.5 rounded-[10px] hover:brightness-110 transition flex items-center justify-center font-heading font-bold text-[13px] disabled:opacity-50 h-[42px] cursor-pointer shadow-sm"
                             >
                                 {loading && <Loader2 className="w-5 h-5 animate-spin mr-2" />}
                                 Ejecutar Showback
@@ -161,12 +162,13 @@ export default function ChargebackPage() {
                         </div>
                     </div>
                 </div>
+            </div>
 
             {data.length > 0 ? (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="grid-2">
                     {/* Gráfico */}
-                    <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-6 shadow-sm flex flex-col items-center">
-                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6 w-full text-left">Distribución del Gasto por {isCustomTag ? customTagKey : tagKey}</h3>
+                    <div className="card flex flex-col items-center p-6">
+                        <h3 className="text-[14px] font-bold text-ink mb-6 w-full text-left">Distribución del Gasto por {isCustomTag ? customTagKey : tagKey}</h3>
                         <div className="h-80 w-full">
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
@@ -187,13 +189,13 @@ export default function ChargebackPage() {
                                     </Pie>
                                     <Tooltip 
                                         formatter={(value: any) => [`$${Number(value).toFixed(2)} USD`, 'Costo']}
-                                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                        contentStyle={{ borderRadius: '8px', border: '1px solid var(--line)', boxShadow: 'var(--shadow)' }}
                                     />
                                     <Legend 
                                         verticalAlign="bottom" 
                                         height={36}
                                         formatter={(value, entry: any) => (
-                                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            <span className="text-[12px] font-medium text-ink">
                                                 {value} ({((entry.payload.value / totalCost) * 100).toFixed(1)}%)
                                             </span>
                                         )}
@@ -204,33 +206,35 @@ export default function ChargebackPage() {
                     </div>
 
                     {/* Breakdown */}
-                    <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-6 shadow-sm flex flex-col h-full">
-                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Desglose de Costos (Últimos 30 días)</h3>
-                        <div className="overflow-y-auto flex-1 max-h-96 pr-2">
-                            <div className="space-y-4">
+                    <div className="card flex flex-col h-full">
+                        <div className="card-h">
+                            <h3>Desglose de Costos (Últimos 30 días)</h3>
+                        </div>
+                        <div className="overflow-y-auto flex-1 max-h-96 p-[18px]">
+                            <div className="flex flex-col gap-[14px]">
                                 {data.map((item, index) => (
-                                    <div key={index} className="flex justify-between items-center p-3 rounded-lg border border-gray-100 dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
+                                    <div key={index} className="flex justify-between items-center p-[11px_14px] rounded-[10px] border border-line bg-surface-2">
                                         <div className="flex items-center">
                                             <div className="w-3 h-3 rounded-full mr-3" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
-                                            <span className="font-medium text-gray-900 dark:text-white">{item.name}</span>
+                                            <span className="font-bold text-[13px] text-ink">{item.name}</span>
                                         </div>
-                                        <span className="font-bold text-gray-700 dark:text-gray-300">${item.value.toFixed(2)}</span>
+                                        <span className="font-heading font-extrabold text-[15px] text-ink">${item.value.toFixed(2)}</span>
                                     </div>
                                 ))}
                             </div>
                         </div>
-                        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-slate-800 flex justify-between items-center">
-                            <span className="font-bold text-gray-900 dark:text-white text-lg">Gasto Total</span>
-                            <span className="font-bold text-blue-600 dark:text-blue-400 text-xl">${totalCost.toFixed(2)} USD</span>
+                        <div className="mt-4 p-[18px] border-t border-line flex justify-between items-center bg-surface-2 rounded-b-[14px]">
+                            <span className="font-bold text-ink text-sm">Gasto Total</span>
+                            <span className="font-heading font-extrabold text-brand-deep text-lg">${totalCost.toFixed(2)} USD</span>
                         </div>
                     </div>
                 </div>
             ) : (
                 !loading && hasAnalyzed && (
-                    <div className="bg-white dark:bg-slate-900 p-12 text-center rounded-xl border border-gray-200 dark:border-slate-800">
-                        <CreditCard className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No se encontraron costos</h3>
-                        <p className="text-gray-500 dark:text-gray-400">No hay datos de consumo registrados en los últimos 30 días para esta suscripción.</p>
+                    <div className="empty border border-line rounded-[14px]">
+                        <CreditCard className="w-12 h-12 text-grey mx-auto mb-4" />
+                        <h3 className="text-lg font-bold text-ink mb-2">No se encontraron costos</h3>
+                        <p className="text-ink-soft">No hay datos de consumo registrados en los últimos 30 días para esta suscripción.</p>
                     </div>
                 )
             )}

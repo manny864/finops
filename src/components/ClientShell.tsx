@@ -63,9 +63,7 @@ function ShellContent({ children }: { children: React.ReactNode }) {
 
               <div className="sm:mx-auto sm:w-full sm:max-w-md text-center animate-in fade-in zoom-in duration-500 relative z-10">
                   <div className="flex items-center justify-center mb-6">
-                      <svg width="48" height="48" viewBox="0 0 48 48"><defs><linearGradient id="cgl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#0054A6"/><stop offset="1" stopColor="#00AEEF"/></linearGradient></defs>
-                          <path d="M14 33h19a8 8 0 0 0 1.2-15.9A11 11 0 0 0 13 17.5 7.5 7.5 0 0 0 14 33Z" fill="url(#cgl)"/>
-                          <path d="M17.5 27.5l3.6-4.2 3.1 2.7 4.6-5.6" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/><circle cx="29.8" cy="20.4" r="1.7" fill="#fff"/></svg>
+                      <img src="/logo_29k.png" alt="Logo" className="w-[48px] h-[48px] object-contain" />
                   </div>
                   <h2 className="mt-2 text-center text-[28px] font-extrabold text-white tracking-tight font-heading">
                       CS<span className="text-brand-bright">Cloud</span>Solutions

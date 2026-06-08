@@ -167,24 +167,24 @@ export default function NetworkAnalyticsPage() {
     });
 
     return (
-        <div className="max-w-6xl mx-auto animate-in fade-in duration-500">
-            <div className="mb-8 border-b border-gray-200 dark:border-slate-800 pb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="content animate-in fade-in">
+            <div className="vhead">
                 <div>
-                    <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight flex items-center">
-                        <Activity className="w-8 h-8 mr-3 text-indigo-500" />
+                    <div className="vt">
+                        <span className="vico bg-gradient-to-br from-[#0054A6] to-[#00AEEF]">🌐</span>
                         Análisis de Red y Egress
-                    </h1>
-                    <p className="text-sm md:text-base text-gray-500 dark:text-gray-400 mt-2">Identifica y optimiza los costos ocultos de transferencia de datos cruzada y de salida.</p>
+                    </div>
+                    <div className="vs">Identifica y optimiza los costos ocultos de transferencia de datos cruzada y de salida.</div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="right">
                     <select 
                         value={subscriptionId}
                         onChange={e => setSubscriptionId(e.target.value)}
                         disabled={loadingSubs || subscriptions.length === 0}
-                        className="w-64 px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright p-2 outline-none"
                     >
                         {loadingSubs ? (
-                            <option value="">Cargando suscripciones...</option>
+                            <option value="">Cargando...</option>
                         ) : subscriptions.length === 0 ? (
                             <option value="">Sin suscripciones</option>
                         ) : (
@@ -196,45 +196,36 @@ export default function NetworkAnalyticsPage() {
                     <button 
                         onClick={handleAnalyze}
                         disabled={loading}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md shadow-sm text-sm font-semibold transition-colors disabled:opacity-50 flex items-center"
+                        className="bg-brand-deep text-white px-4 py-2 rounded-[10px] shadow-sm text-[13px] font-heading font-bold transition-colors disabled:opacity-50 flex items-center hover:brightness-110 cursor-pointer"
                     >
-                        <span className="flex items-center justify-center w-4 h-4 mr-2">
-                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                        </span>
-                        <span>Analizar</span>
+                        {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Search className="w-4 h-4 mr-2" />}
+                        Analizar
                     </button>
                 </div>
             </div>
 
-            {/* Recommendation Alert */}
-            <div className="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 p-4 mb-8 rounded-r-md shadow-sm">
-                <div className="flex">
-                    <div className="flex-shrink-0">
-                        <AlertTriangle className="h-5 w-5 text-amber-500" />
-                    </div>
-                    <div className="ml-3">
-                        <p className="text-sm text-amber-700 dark:text-amber-400">
-                            <strong>Recomendación FinOps:</strong> Considera desplegar <em>Azure Private Link</em> o evaluar el enrutamiento de tráfico cruzado (Cross-Region) para reducir significativamente los costos de ancho de banda y salida (Egress).
-                        </p>
-                    </div>
+            <div className="bg-amber-soft border border-amber border-opacity-20 rounded-[14px] p-4 flex items-start text-amber shadow-sm">
+                <AlertTriangle className="w-5 h-5 mr-3 mt-0.5 flex-shrink-0" />
+                <div className="text-[13px]">
+                    <p className="mb-1">
+                        <strong>Recomendación FinOps:</strong> Considera desplegar <em>Azure Private Link</em> o evaluar el enrutamiento de tráfico cruzado (Cross-Region) para reducir significativamente los costos de ancho de banda y salida (Egress).
+                    </p>
                 </div>
             </div>
 
             {loading ? (
-                <div key="state-loading" className="flex flex-col items-center justify-center h-64 text-gray-400">
-                    <Loader2 className="w-8 h-8 animate-spin mb-4 text-indigo-500" />
+                <div key="state-loading" className="empty">
+                    <Loader2 className="w-8 h-8 animate-spin mb-4 text-brand-deep mx-auto" />
                     Obteniendo métricas de ancho de banda...
                 </div>
             ) : hasAnalyzed ? (
-                <div key="state-analyzed" className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* Pie Chart Card */}
-                    <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-6 flex flex-col">
-                        <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-6 flex items-center">
-                            <ArrowDownToLine className="w-5 h-5 mr-2 text-gray-500" />
-                            Distribución de Costos de Red
-                        </h2>
+                <div key="state-analyzed" className="grid-2">
+                    <div className="card flex flex-col">
+                        <div className="card-h">
+                            <h3><ArrowDownToLine className="w-4 h-4 mr-1" /> Distribución de Costos de Red</h3>
+                        </div>
                         {pieData.length > 0 ? (
-                            <div className="flex-1 w-full h-80">
+                            <div className="chart-wrap flex-1 w-full h-80">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <PieChart>
                                         <Pie
@@ -256,25 +247,24 @@ export default function NetworkAnalyticsPage() {
                                 </ResponsiveContainer>
                             </div>
                         ) : (
-                            <div className="flex-1 flex items-center justify-center text-gray-400">Sin datos de red recientes.</div>
+                            <div className="empty">Sin datos de red recientes.</div>
                         )}
                     </div>
 
-                    {/* Top 5 Table Card */}
-                    <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-6 overflow-hidden flex flex-col">
-                        <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-6">
-                            Top 5 Resource Groups por Egress
-                        </h2>
+                    <div className="card flex flex-col overflow-hidden">
+                        <div className="card-h">
+                            <h3>Top 5 Resource Groups por Egress</h3>
+                        </div>
                         <div className="overflow-x-auto w-full flex-1">
-                            <table className="min-w-full w-full divide-y divide-gray-200 dark:divide-slate-800" style={{ width: table.getCenterTotalSize() }}>
+                            <table className="tbl w-full" style={{ width: table.getCenterTotalSize() }}>
                                 <thead>
                                     {table.getHeaderGroups().map(headerGroup => (
                                         <tr key={headerGroup.id}>
                                             {headerGroup.headers.map(header => (
                                                 <th 
                                                     key={header.id} 
-                                                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider relative group"
                                                     style={{ width: header.getSize() }}
+                                                    className="relative group"
                                                 >
                                                     {header.isPlaceholder
                                                         ? null
@@ -286,8 +276,8 @@ export default function NetworkAnalyticsPage() {
                                                         <div
                                                             onMouseDown={header.getResizeHandler()}
                                                             onTouchStart={header.getResizeHandler()}
-                                                            className={`absolute right-0 top-0 h-full w-1 cursor-col-resize select-none touch-none bg-gray-300 dark:bg-slate-600 opacity-0 group-hover:opacity-100 ${
-                                                                header.column.getIsResizing() ? 'opacity-100 bg-indigo-500' : ''
+                                                            className={`absolute right-0 top-0 h-full w-1 cursor-col-resize select-none touch-none bg-line opacity-0 group-hover:opacity-100 ${
+                                                                header.column.getIsResizing() ? 'opacity-100 bg-brand-deep' : ''
                                                             }`}
                                                         />
                                                     )}
@@ -296,14 +286,14 @@ export default function NetworkAnalyticsPage() {
                                         </tr>
                                     ))}
                                 </thead>
-                                <tbody className="divide-y divide-gray-200 dark:divide-slate-800">
+                                <tbody>
                                     {table.getRowModel().rows.length > 0 ? (
                                         table.getRowModel().rows.map(row => (
-                                            <tr key={row.id} className="hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
+                                            <tr key={row.id}>
                                                 {row.getVisibleCells().map(cell => (
                                                     <td 
                                                         key={cell.id} 
-                                                        className={`px-4 py-3 text-sm text-gray-500 dark:text-gray-400 ${cell.column.id === 'totalCost' ? 'text-right' : ''}`}
+                                                        className={cell.column.id === 'totalCost' ? 'num' : ''}
                                                         style={{ width: cell.column.getSize() }}
                                                     >
                                                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -313,7 +303,7 @@ export default function NetworkAnalyticsPage() {
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan={columns.length} className="px-4 py-8 text-center text-gray-400">
+                                            <td colSpan={columns.length} className="empty text-center">
                                                 No se encontró tráfico relevante.
                                             </td>
                                         </tr>
@@ -324,9 +314,9 @@ export default function NetworkAnalyticsPage() {
                     </div>
                 </div>
             ) : (
-                <div key="state-empty" className="flex flex-col items-center justify-center h-64 border-2 border-dashed border-gray-300 dark:border-slate-700 rounded-lg">
-                    <Activity className="w-12 h-12 text-gray-400 mb-4" />
-                    <p className="text-gray-500 dark:text-gray-400 text-center max-w-sm">Ingresa el Subscription ID y presiona Analizar para descubrir costos ocultos de red.</p>
+                <div key="state-empty" className="empty border border-line rounded-[14px]">
+                    <Activity className="w-12 h-12 text-grey mx-auto mb-4" />
+                    <p className="text-ink-soft max-w-sm mx-auto">Selecciona una suscripción y presiona Analizar para descubrir costos ocultos de red.</p>
                 </div>
             )}
         </div>
