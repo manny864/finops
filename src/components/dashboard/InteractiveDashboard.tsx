@@ -20,7 +20,7 @@ export default function InteractiveDashboard({
     const pieData = billingData?.costByService || [];
     const totalCost = billingData?.totalCost || 0;
 
-    const formatYAxis = (tickItem: any) => `$${(tickItem / 1000).toFixed(1)}k`;
+    const formatYAxis = (tickItem: any) => tickItem >= 1000 ? `$${(tickItem / 1000).toFixed(1)}k` : `$${tickItem}`;
 
     const CustomDot = (props: any) => {
         const { cx, cy, index } = props;
@@ -119,8 +119,8 @@ export default function InteractiveDashboard({
                                     </linearGradient>
                                 </defs>
                                 <CartesianGrid vertical={false} stroke="#f1f5f9" />
-                                <XAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} tickMargin={10} />
-                                <YAxis tickFormatter={formatYAxis} tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} domain={[37000, 55000]} />
+                                <XAxis dataKey="date" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} tickMargin={10} />
+                                <YAxis tickFormatter={formatYAxis} tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} domain={['auto', 'auto']} />
                                 <RechartsTooltip 
                                     contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                                     formatter={(value: any) => [`$${value}`, 'Gasto']}
@@ -144,13 +144,13 @@ export default function InteractiveDashboard({
                                 <RechartsPieChart>
                                     <Pie
                                         data={pieData}
-                                        innerRadius={55}
+                                        innerRadius={45}
                                         outerRadius={80}
                                         paddingAngle={2}
-                                        dataKey="value"
+                                        dataKey="cost"
+                                        nameKey="name"
                                         stroke="none"
-                                    >
-                                        {pieData.map((entry, index) => (
+                                    >  {pieData.map((entry, index) => (
                                             <Cell key={`cell-${index}`} fill={['#1e3a8a', '#0ea5e9', '#3b82f6', '#93c5fd', '#38bdf8', '#7dd3fc'][index % 6]} />
                                         ))}
                                     </Pie>
@@ -165,7 +165,7 @@ export default function InteractiveDashboard({
                                 </div>
                             </div>
                         </div>
-                        <div className="w-1/2 pl-2 flex flex-col justify-center gap-3">
+                        <div className="w-1/2 pl-2 flex flex-col gap-2 overflow-y-auto max-h-[240px] custom-scrollbar py-2">
                             {pieData.map((item, i) => (
                                 <div key={i} className="flex items-center text-[10px] font-bold text-slate-600">
                                     <div className="w-2.5 h-2.5 rounded-sm mr-2 shrink-0" style={{ backgroundColor: ['#1e3a8a', '#0ea5e9', '#3b82f6', '#93c5fd', '#38bdf8', '#7dd3fc'][i % 6] }}></div>
