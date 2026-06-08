@@ -6,6 +6,7 @@ import { SubscriptionProvider } from './SubscriptionProvider';
 import SubscriptionSelector from './SubscriptionSelector';
 import { ViewModeProvider, useViewMode } from '../context/ViewModeContext';
 import { LayoutTemplate, Code2, Bell } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import AuthSync from './AuthSync';
 import LanguageSwitcher from './LanguageSwitcher';
 import Sidebar from "./Sidebar";
@@ -38,6 +39,7 @@ function ShellContent({ children }: { children: React.ReactNode }) {
   const { instance, accounts, inProgress } = useMsal();
   const isAuthenticated = useIsAuthenticated();
   const { viewMode, toggleViewMode } = useViewMode();
+  const tc = useTranslations('Common');
 
   const navItems = [
       { id: 'dashboard', label: 'Dashboard', icon: 'M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z' },
@@ -80,10 +82,10 @@ function ShellContent({ children }: { children: React.ReactNode }) {
                       
                       <div className="mb-8 text-center">
                           <h3 className="text-[18px] font-bold text-white font-heading">
-                              Acceso Corporativo
+                              {tc('corporate_access')}
                           </h3>
                           <p className="text-[13.5px] text-[#A9BBD0] mt-2 leading-relaxed">
-                              Inicie sesión con Microsoft Entra ID para acceder al inventario de su tenant.
+                              {tc('corporate_access_desc')}
                           </p>
                       </div>
 
@@ -96,7 +98,7 @@ function ShellContent({ children }: { children: React.ReactNode }) {
                               className="w-full flex items-center justify-center py-[13px] px-4 border border-transparent rounded-[12px] shadow-[0_6px_16px_rgba(0,84,166,0.4)] text-[14px] font-bold text-white bg-gradient-to-br from-brand-deep to-[#1E88E5] hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-nav-bg focus:ring-brand-deep transition-all transform active:scale-[0.98] font-heading"
                           >
                               <svg className="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 24 24"><path d="M11.4 24H0V12.6h11.4V24zM24 24H12.6V12.6H24V24zM11.4 11.4H0V0h11.4v11.4zm12.6 0H12.6V0H24v11.4z"/></svg>
-                              Iniciar sesión con Microsoft
+                              {tc('sign_in_microsoft')}
                           </button>
 
                           <div className="relative py-2">
@@ -104,7 +106,7 @@ function ShellContent({ children }: { children: React.ReactNode }) {
                                   <div className="w-full border-t border-white/10"></div>
                               </div>
                               <div className="relative flex justify-center text-sm">
-                                  <span className="px-2 bg-transparent text-[#62809c] text-xs">O explora la plataforma</span>
+                                  <span className="px-2 bg-transparent text-[#62809c] text-xs">{tc('explore_platform')}</span>
                               </div>
                           </div>
 
@@ -115,13 +117,13 @@ function ShellContent({ children }: { children: React.ReactNode }) {
                               className="w-full flex items-center justify-center py-[13px] px-4 border border-white/10 rounded-[12px] shadow-sm text-[14px] font-bold text-white bg-white/5 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-nav-bg focus:ring-brand-bright transition-all transform active:scale-[0.98] font-heading group"
                           >
                               <span className="text-xl mr-2 group-hover:-translate-y-1 transition-transform">🚀</span>
-                              Ver Demo Interactivo
+                              {tc('view_demo')}
                           </a>
                       </div>
                   </div>
                   
                   <p className="text-center text-[11px] text-[#566f8c] mt-8 tracking-wide">
-                      &copy; {new Date().getFullYear()} CS Cloud Solutions. Todos los derechos reservados.
+                      &copy; {new Date().getFullYear()} CS Cloud Solutions. {tc('all_rights')}
                   </p>
               </div>
           </div>
@@ -150,7 +152,7 @@ function ShellContent({ children }: { children: React.ReactNode }) {
             <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 mr-4 text-gray-400 hover:text-[#0054A6] transition-colors focus:outline-none">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
             </button>
-            <h1 className="text-xl font-bold text-gray-800 dark:text-white hidden sm:block tracking-tight">Cloud FinOps</h1>
+            <h1 className="text-xl font-bold text-ink hidden sm:block tracking-tight">Cloud FinOps</h1>
           </div>
           
           <div className="flex items-center space-x-6">
@@ -171,7 +173,7 @@ function ShellContent({ children }: { children: React.ReactNode }) {
               {isAdmin ? (
                 <div className="flex flex-col px-2">
                   <label htmlFor="tenant-select" className="text-[10px] tracking-[1px] uppercase text-grey font-bold mb-1">
-                    Tenant (Admin Propietario)
+                    {tc('tenant_admin')}
                   </label>
                   <select
                     id="tenant-select"
@@ -189,7 +191,7 @@ function ShellContent({ children }: { children: React.ReactNode }) {
                 </div>
               ) : (
                 <div className="flex flex-col px-2 cursor-not-allowed">
-                  <span className="text-[10px] tracking-[1px] uppercase text-grey font-bold mb-1">Mi Entorno (Cliente)</span>
+                  <span className="text-[10px] tracking-[1px] uppercase text-grey font-bold mb-1">{tc('my_environment')}</span>
                   <span className="font-heading font-bold text-[13px] text-brand-deep">{selectedTenant.name}</span>
                 </div>
               )}
@@ -206,14 +208,14 @@ function ShellContent({ children }: { children: React.ReactNode }) {
                     className={`flex items-center px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${viewMode === 'executive' ? 'bg-white shadow-sm text-indigo-700' : 'text-gray-500 hover:text-gray-700'}`}
                 >
                     <LayoutTemplate className="w-4 h-4 mr-1.5" />
-                    Ejecutivo
+                    {tc('executive')}
                 </button>
                 <button
                     onClick={() => viewMode !== 'engineer' && toggleViewMode()}
                     className={`flex items-center px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${viewMode === 'engineer' ? 'bg-gray-800 shadow-sm text-green-400' : 'text-gray-500 hover:text-gray-700'}`}
                 >
                     <Code2 className="w-4 h-4 mr-1.5" />
-                    Ingeniero
+                    {tc('engineer')}
                 </button>
             </div>
             

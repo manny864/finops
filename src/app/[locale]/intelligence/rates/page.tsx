@@ -4,6 +4,7 @@ import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { DollarSign, AlertTriangle, Loader2, Info } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import {
   useReactTable,
   getCoreRowModel,
@@ -28,11 +29,11 @@ const columnHelper = createColumnHelper<Recommendation>();
 const columns = [
   columnHelper.accessor('sku', {
     header: 'Recommended SKU',
-    cell: info => <span className="font-medium text-gray-900 dark:text-white">{info.getValue()}</span>,
+    cell: info => <span className="font-medium text-ink">{info.getValue()}</span>,
   }),
   columnHelper.accessor('term', {
     header: 'Term',
-    cell: info => <span className="px-2 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded text-xs whitespace-nowrap">{info.getValue()}</span>,
+    cell: info => <span className="tag blue font-mono">{info.getValue()}</span>,
   }),
   columnHelper.accessor('costWithNoDiscounts', {
     header: 'Pay-As-You-Go Cost',
@@ -44,13 +45,15 @@ const columns = [
   }),
   columnHelper.accessor('netSavings', {
     header: 'Net Savings',
-    cell: info => <span className="text-emerald-600 dark:text-emerald-400 font-bold">+{currencyFormatter.format(info.getValue())}</span>,
+    cell: info => <span className="text-green font-bold">+{currencyFormatter.format(info.getValue())}</span>,
   }),
 ];
 
 export default function RateOptimizationPage() {
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
+    const t = useTranslations('Rates');
+    const tc = useTranslations('Common');
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState<Recommendation[]>([]);
     const [subscriptionId, setSubscriptionId] = useState('');
@@ -94,7 +97,7 @@ export default function RateOptimizationPage() {
                 }
             } catch (e) {
                 console.error("Error fetching subscriptions:", e);
-                toast.error("Error al cargar las suscripciones del tenant.");
+                toast.error(t('error_loading_subs'));
             } finally {
                 setLoadingSubs(false);
             }
@@ -105,11 +108,11 @@ export default function RateOptimizationPage() {
 
     const handleAnalyze = async () => {
         if (!selectedTenant || selectedTenant.id === 'default') {
-            toast.error("Por favor selecciona un tenant primero.");
+            toast.error(t('select_tenant'));
             return;
         }
         if (!subscriptionId) {
-            toast.error("Selecciona una suscripción.");
+            toast.error(t('select_sub'));
             return;
         }
 
@@ -120,11 +123,10 @@ export default function RateOptimizationPage() {
             const json = await res.json();
 
             if (!res.ok) {
-                throw new Error(json.error || json.details || 'Error desconocido');
+                throw new Error(json.error || json.details || t('error_unknown'));
             }
 
             if (json.recommendations) {
-                // Map the Azure SDK response to our Table format
                 const mappedData: Recommendation[] = json.recommendations.map((rec: any) => {
                     const props = rec.properties || {};
                     
@@ -154,11 +156,11 @@ export default function RateOptimizationPage() {
                 });
                 setData(mappedData);
                 setHasAnalyzed(true);
-                toast.success(`Análisis completado: ${mappedData.length} recomendaciones encontradas.`);
+                toast.success(t('analysis_complete', { count: mappedData.length }));
             }
         } catch (error: any) {
             console.error("Rates fetch error:", error);
-            toast.error(error.message || "Error al obtener recomendaciones.");
+            toast.error(error.message || t('error_fetching'));
         } finally {
             setLoading(false);
         }
@@ -183,17 +185,17 @@ export default function RateOptimizationPage() {
                 <div>
                     <div className="vt">
                         <span className="vico bg-gradient-to-br from-[#0054A6] to-[#00AEEF]">💸</span>
-                        Optimización de Tarifas (Reservas)
+                        {t('title')}
                     </div>
-                    <div className="vs">Analiza tu consumo histórico para encontrar ahorros a través de Instancias Reservadas o Savings Plans.</div>
+                    <div className="vs">{t('subtitle')}</div>
                 </div>
             </div>
 
-            <div className="bg-[#E6F2FB] border border-[#0054A6] border-opacity-20 rounded-[14px] p-4 flex items-start text-brand-deep shadow-sm">
+            <div className="bg-brand-soft border border-brand-deep border-opacity-20 rounded-[14px] p-4 flex items-start text-brand-deep shadow-sm">
                 <Info className="w-5 h-5 mr-3 mt-0.5 flex-shrink-0" />
                 <div className="text-[13px]">
-                    <p className="font-bold mb-1">¿Qué es una Reserva o Savings Plan?</p>
-                    <p>Las reservas te permiten comprometerte a usar cierta cantidad de cómputo por 1 o 3 años a cambio de un descuento significativo frente al precio de Pago por Uso. Las recomendaciones calculan el ahorro neto en base al uso histórico real.</p>
+                    <p className="font-bold mb-1">{t('info_title')}</p>
+                    <p>{t('info_desc')}</p>
                 </div>
             </div>
 
@@ -202,12 +204,12 @@ export default function RateOptimizationPage() {
                 {missingConsent ? (
                     <div className="p-4 bg-amber-soft text-amber rounded-[10px] flex items-center font-bold text-[13px]">
                         <AlertTriangle className="w-5 h-5 mr-3" />
-                        Falta el consentimiento de administrador para listar suscripciones de este Tenant.
+                        {t('missing_consent')}
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                         <div className="flex flex-col gap-2">
-                            <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">Suscripción</label>
+                            <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">{t('subscription_label')}</label>
                             <select
                                 value={subscriptionId}
                                 onChange={(e) => setSubscriptionId(e.target.value)}
@@ -215,9 +217,9 @@ export default function RateOptimizationPage() {
                                 className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2.5 outline-none"
                             >
                                 {loadingSubs ? (
-                                    <option>Cargando...</option>
+                                    <option>{tc('loading_subs')}</option>
                                 ) : subscriptions.length === 0 ? (
-                                    <option>No hay suscripciones</option>
+                                    <option>{t('no_subs')}</option>
                                 ) : (
                                     subscriptions.map(sub => (
                                         <option key={sub.id} value={sub.id}>{sub.name || sub.displayName}</option>
@@ -227,27 +229,27 @@ export default function RateOptimizationPage() {
                         </div>
                         
                         <div className="flex flex-col gap-2">
-                            <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">Alcance</label>
+                            <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">{t('scope_label')}</label>
                             <select
                                 value={scopeType}
                                 onChange={(e) => setScopeType(e.target.value as 'Single' | 'Shared')}
                                 className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2.5 outline-none"
                             >
-                                <option value="Single">Single (Solo esta sub)</option>
-                                <option value="Shared">Shared (Toda la cuenta)</option>
+                                <option value="Single">{t('scope_single')}</option>
+                                <option value="Shared">{t('scope_shared')}</option>
                             </select>
                         </div>
 
                         <div className="flex flex-col gap-2">
-                            <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">Ventana Histórica</label>
+                            <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">{t('lookback_label')}</label>
                             <select
                                 value={lookBackPeriod}
                                 onChange={(e) => setLookBackPeriod(e.target.value as any)}
                                 className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2.5 outline-none"
                             >
-                                <option value="Last7Days">Últimos 7 Días</option>
-                                <option value="Last30Days">Últimos 30 Días</option>
-                                <option value="Last60Days">Últimos 60 Días</option>
+                                <option value="Last7Days">{t('last_7')}</option>
+                                <option value="Last30Days">{t('last_30')}</option>
+                                <option value="Last60Days">{t('last_60')}</option>
                             </select>
                         </div>
 
@@ -257,7 +259,7 @@ export default function RateOptimizationPage() {
                             className="bg-brand-deep text-white rounded-[10px] hover:brightness-110 transition flex items-center justify-center font-heading font-bold text-[13px] disabled:opacity-50 h-[42px] shadow-sm cursor-pointer"
                         >
                             {loading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <DollarSign className="w-5 h-5 mr-2" />}
-                            Buscar Ahorros
+                            {t('find_savings')}
                         </button>
                     </div>
                 )}
@@ -268,11 +270,11 @@ export default function RateOptimizationPage() {
                 <div className="sumstrip">
                     <div className="s green md:col-span-3 flex flex-col md:flex-row md:justify-between md:items-center">
                         <div>
-                            <div className="l">Potencial de Ahorro Neto Total</div>
+                            <div className="l">{t('total_savings')}</div>
                             <div className="v">+{currencyFormatter.format(totalSavings)}</div>
                         </div>
                         <div className="mt-4 md:mt-0 text-[12px] text-ink-soft">
-                            Recomendaciones basadas en {lookBackPeriod.replace('Last', '').replace('Days', '')} días de uso.
+                            {t('savings_note', { days: lookBackPeriod.replace('Last', '').replace('Days', '') })}
                         </div>
                     </div>
                 </div>
@@ -319,8 +321,8 @@ export default function RateOptimizationPage() {
                 !loading && hasAnalyzed && (
                     <div className="empty border border-line rounded-[14px]">
                         <DollarSign className="w-12 h-12 text-grey mx-auto mb-4" />
-                        <h3 className="text-lg font-bold text-ink mb-2">No hay recomendaciones</h3>
-                        <p className="text-ink-soft">Azure no ha encontrado oportunidades de reserva que resulten en ahorro neto para la configuración seleccionada.</p>
+                        <h3 className="text-lg font-bold text-ink mb-2">{t('no_recs_title')}</h3>
+                        <p className="text-ink-soft">{t('no_recs_desc')}</p>
                     </div>
                 )
             )}

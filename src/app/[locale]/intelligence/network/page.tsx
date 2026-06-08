@@ -5,6 +5,7 @@ import { useMsal } from '@azure/msal-react';
 import { Activity, AlertTriangle, ArrowDownToLine, Loader2, Search } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import {
   useReactTable,
   getCoreRowModel,
@@ -15,6 +16,8 @@ import {
 export default function NetworkAnalyticsPage() {
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
+    const t = useTranslations('Network');
+    const tc = useTranslations('Common');
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState<any[]>([]);
     const [subscriptionId, setSubscriptionId] = useState('');
@@ -53,7 +56,7 @@ export default function NetworkAnalyticsPage() {
                 }
             } catch (e) {
                 console.error("Error fetching subscriptions:", e);
-                toast.error("Error al cargar las suscripciones del tenant.");
+                toast.error(t('error_loading_subs'));
             }
             setLoadingSubs(false);
         };
@@ -64,11 +67,11 @@ export default function NetworkAnalyticsPage() {
 
     const handleAnalyze = async () => {
         if (!subscriptionId) {
-            toast.error("Por favor selecciona una suscripción.");
+            toast.error(t('select_sub'));
             return;
         }
         if (accounts.length === 0 || selectedTenant.id === 'default') {
-            toast.error("Selecciona un Tenant y asegúrate de estar autenticado.");
+            toast.error(t('ensure_auth'));
             return;
         }
 
@@ -92,26 +95,26 @@ export default function NetworkAnalyticsPage() {
             if (res.ok && json.data) {
                 setData(json.data);
                 if (json.data.length === 0) {
-                    toast.info("La suscripción actual no tiene datos o costos recientes de tráfico de red para analizar.");
+                    toast.info(t('no_data_toast'));
                 } else {
-                    toast.success("Análisis de red completado.");
+                    toast.success(t('analysis_complete'));
                 }
             } else {
-                toast.error(json.message || "Error al analizar la red.");
+                toast.error(json.message || t('analysis_error'));
             }
         } catch (e) {
             console.error(e);
-            toast.error("Error inesperado en el análisis de red.");
+            toast.error(t('analysis_error'));
         }
         setLoading(false);
     };
 
     if (selectedTenant.id === 'default') {
         return (
-            <div className="flex flex-col items-center justify-center h-96 bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-slate-800 shadow-sm">
+            <div className="empty border border-line rounded-[14px]">
                 <span className="text-4xl mb-4">🔐</span>
-                <h2 className="text-xl font-bold text-gray-700 dark:text-gray-300">Selecciona un Tenant</h2>
-                <p className="text-sm text-gray-500 mt-2">Debes seleccionar una organización para ver la analítica.</p>
+                <h2 className="text-xl font-bold text-ink">{tc('select_tenant')}</h2>
+                <p className="text-sm text-ink-soft mt-2">{tc('select_tenant_desc')}</p>
             </div>
         );
     }
@@ -144,17 +147,17 @@ export default function NetworkAnalyticsPage() {
     const columns = [
         columnHelper.accessor('resourceGroup', {
             header: 'Resource Group',
-            cell: info => <span className="font-semibold text-gray-900 dark:text-white">{info.getValue()}</span>,
+            cell: info => <span className="font-semibold text-ink">{info.getValue()}</span>,
             size: 200,
         }),
         columnHelper.accessor('subCategories', {
-            header: 'Tipo de Tráfico',
+            header: t('traffic_type'),
             cell: info => <span className="truncate block" title={info.getValue()}>{info.getValue()}</span>,
             size: 250,
         }),
         columnHelper.accessor('totalCost', {
-            header: 'Costo Estimado',
-            cell: info => <span className="font-bold text-indigo-600 dark:text-indigo-400">${info.getValue().toFixed(2)}</span>,
+            header: t('estimated_cost'),
+            cell: info => <span className="font-bold text-brand-deep">${info.getValue().toFixed(2)}</span>,
             size: 150,
         }),
     ];
@@ -172,9 +175,9 @@ export default function NetworkAnalyticsPage() {
                 <div>
                     <div className="vt">
                         <span className="vico bg-gradient-to-br from-[#0054A6] to-[#00AEEF]">🌐</span>
-                        Análisis de Red y Egress
+                        {t('title')}
                     </div>
-                    <div className="vs">Identifica y optimiza los costos ocultos de transferencia de datos cruzada y de salida.</div>
+                    <div className="vs">{t('subtitle')}</div>
                 </div>
                 <div className="right">
                     <select 
@@ -184,9 +187,9 @@ export default function NetworkAnalyticsPage() {
                         className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright p-2 outline-none"
                     >
                         {loadingSubs ? (
-                            <option value="">Cargando...</option>
+                            <option value="">{tc('loading_subs')}</option>
                         ) : subscriptions.length === 0 ? (
-                            <option value="">Sin suscripciones</option>
+                            <option value="">{tc('no_subscriptions')}</option>
                         ) : (
                             subscriptions.map(sub => (
                                 <option key={sub.id} value={sub.id}>{sub.displayName || sub.id}</option>
@@ -199,7 +202,7 @@ export default function NetworkAnalyticsPage() {
                         className="bg-brand-deep text-white px-4 py-2 rounded-[10px] shadow-sm text-[13px] font-heading font-bold transition-colors disabled:opacity-50 flex items-center hover:brightness-110 cursor-pointer"
                     >
                         {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Search className="w-4 h-4 mr-2" />}
-                        Analizar
+                        {tc('analyze')}
                     </button>
                 </div>
             </div>
@@ -208,7 +211,7 @@ export default function NetworkAnalyticsPage() {
                 <AlertTriangle className="w-5 h-5 mr-3 mt-0.5 flex-shrink-0" />
                 <div className="text-[13px]">
                     <p className="mb-1">
-                        <strong>Recomendación FinOps:</strong> Considera desplegar <em>Azure Private Link</em> o evaluar el enrutamiento de tráfico cruzado (Cross-Region) para reducir significativamente los costos de ancho de banda y salida (Egress).
+                        <strong>{t('finops_tip')}</strong> {t('finops_tip_desc')}
                     </p>
                 </div>
             </div>
@@ -216,13 +219,13 @@ export default function NetworkAnalyticsPage() {
             {loading ? (
                 <div key="state-loading" className="empty">
                     <Loader2 className="w-8 h-8 animate-spin mb-4 text-brand-deep mx-auto" />
-                    Obteniendo métricas de ancho de banda...
+                    {t('loading_metrics')}
                 </div>
             ) : hasAnalyzed ? (
                 <div key="state-analyzed" className="grid-2">
                     <div className="card flex flex-col">
                         <div className="card-h">
-                            <h3><ArrowDownToLine className="w-4 h-4 mr-1" /> Distribución de Costos de Red</h3>
+                            <h3><ArrowDownToLine className="w-4 h-4 mr-1" /> {t('cost_distribution')}</h3>
                         </div>
                         {pieData.length > 0 ? (
                             <div className="chart-wrap flex-1 w-full h-80">
@@ -247,13 +250,13 @@ export default function NetworkAnalyticsPage() {
                                 </ResponsiveContainer>
                             </div>
                         ) : (
-                            <div className="empty">Sin datos de red recientes.</div>
+                            <div className="empty">{t('no_data')}</div>
                         )}
                     </div>
 
                     <div className="card flex flex-col overflow-hidden">
                         <div className="card-h">
-                            <h3>Top 5 Resource Groups por Egress</h3>
+                            <h3>{t('top_rg')}</h3>
                         </div>
                         <div className="overflow-x-auto w-full flex-1">
                             <table className="tbl w-full" style={{ width: table.getCenterTotalSize() }}>
@@ -304,7 +307,7 @@ export default function NetworkAnalyticsPage() {
                                     ) : (
                                         <tr>
                                             <td colSpan={columns.length} className="empty text-center">
-                                                No se encontró tráfico relevante.
+                                                {t('no_traffic')}
                                             </td>
                                         </tr>
                                     )}
@@ -316,7 +319,7 @@ export default function NetworkAnalyticsPage() {
             ) : (
                 <div key="state-empty" className="empty border border-line rounded-[14px]">
                     <Activity className="w-12 h-12 text-grey mx-auto mb-4" />
-                    <p className="text-ink-soft max-w-sm mx-auto">Selecciona una suscripción y presiona Analizar para descubrir costos ocultos de red.</p>
+                    <p className="text-ink-soft max-w-sm mx-auto">{t('analyze_cta')}</p>
                 </div>
             )}
         </div>

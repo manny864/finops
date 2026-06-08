@@ -40,6 +40,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-white: #ffffff;
+  --color-black: #000000;
   /* Colores Corporativos CSCloudSolutions */
   --color-primary: var(--brand-deep);
   --color-secondary: var(--brand-bright);
@@ -61,7 +63,10 @@
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
   --color-grey: var(--grey);
+  --color-grey-dark: var(--grey-dark);
   --color-purple: var(--purple);
+  --color-navy: var(--navy);
+  --color-celeste: var(--celeste);
   /* Fuentes */
   --font-sans: var(--font-open-sans);
   --font-heading: var(--font-montserrat);
