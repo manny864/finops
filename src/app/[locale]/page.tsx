@@ -47,6 +47,7 @@ export default function Home() {
                   headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
               });
               const json = await res.json();
+              let mappedData: any[] = [];
               if (json.auditResults) {
                   const resourceConfig: any = {
                       unattachedDisks: { type: "Disk", savings: 15.0, issueType: "cost" },
@@ -63,7 +64,6 @@ export default function Home() {
                       vnetGateways: { type: "VNet Gateway", savings: 130.0, issueType: "cost" },
                       ddos: { type: "DDoS Plan", savings: 2944.0, issueType: "cost" }
                   };
-                  let mappedData: any[] = [];
                   for (const [key, config] of Object.entries(resourceConfig)) {
                       const items = json.auditResults[key] || [];
                       mappedData.push(...items.map((r: any) => ({
