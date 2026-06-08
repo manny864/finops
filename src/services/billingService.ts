@@ -1,5 +1,4 @@
 import { CostManagementClient } from "@azure/arm-costmanagement";
-import { SubscriptionClient } from "@azure/arm-subscriptions";
 import { getAzureCredential } from "../lib/azure";
 
 export async function getCurrentMonthAmortizedCosts(tenantId: string, subscriptionId: string) {
@@ -37,9 +36,15 @@ export async function getCurrentMonthAmortizedCosts(tenantId: string, subscripti
         if (subscriptionId === 'All' && (e.statusCode === 403 || e.code === 'AuthorizationFailed' || e.message?.includes('AuthorizationFailed'))) {
             isFallback = true;
             console.log("Management Group scope failed, falling back to concurrent subscription iteration...");
-            const subClient = new SubscriptionClient(credential);
+            const token = await credential.getToken("https://management.azure.com/.default");
+            const subRes = await fetch("https://management.azure.com/subscriptions?api-version=2020-01-01", {
+                headers: { 'Authorization': `Bearer ${token?.token}` }
+            });
+            const subJson = await subRes.json();
+            const subs = subJson.value || [];
+            
             const subPromises: Promise<any>[] = [];
-            for await (const sub of subClient.subscription.list()) {
+            for (const sub of subs) {
                 if (sub.subscriptionId && sub.state === 'Enabled') {
                     subPromises.push(client.query.usage(`/subscriptions/${sub.subscriptionId}`, queryOptions).catch(() => null));
                 }
@@ -141,9 +146,15 @@ export async function getCostForecast(tenantId: string, subscriptionId: string) 
         if (subscriptionId === 'All' && (e.statusCode === 403 || e.code === 'AuthorizationFailed' || e.message?.includes('AuthorizationFailed'))) {
             isFallback = true;
             console.log("Management Group scope failed for forecast, falling back to concurrent subscription iteration...");
-            const subClient = new SubscriptionClient(credential);
+            const token = await credential.getToken("https://management.azure.com/.default");
+            const subRes = await fetch("https://management.azure.com/subscriptions?api-version=2020-01-01", {
+                headers: { 'Authorization': `Bearer ${token?.token}` }
+            });
+            const subJson = await subRes.json();
+            const subs = subJson.value || [];
+
             const subPromises: Promise<any>[] = [];
-            for await (const sub of subClient.subscription.list()) {
+            for (const sub of subs) {
                 if (sub.subscriptionId && sub.state === 'Enabled') {
                     subPromises.push(client.forecast.usage(`/subscriptions/${sub.subscriptionId}`, forecastOptions).catch(() => null));
                 }
