@@ -3,34 +3,89 @@
 
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #EEF3F9;
+  --foreground: #1B2A41;
+  
+  /* FinOps Demo Colors */
+  --brand-deep: #0054A6;
+  --brand-bright: #00AEEF;
+  --celeste: #90CAF9;
+  --navy: #1E3A8A;
+  --grey: #7F7F7F;
+  --grey-dark: #3C3C3C;
+  --nav-bg: #0C1B30;
+  --nav-bg2: #0A1728;
+  --bg: #EEF3F9;
+  --surface: #FFFFFF;
+  --surface-2: #F6F9FD;
+  --line: #E3EBF3;
+  --line-strong: #CFDDEC;
+  --ink: #1B2A41;
+  --ink-soft: #5A6B82;
+  --green: #1FA971;
+  --green-soft: #E6F7EF;
+  --amber: #E08A1E;
+  --amber-soft: #FCF1DF;
+  --danger: #E0556B;
+  --danger-soft: #FBE9ED;
+  --purple: #7A4FB5;
+  
+  --shadow: 0 1px 2px rgba(16,40,73,.06), 0 8px 24px rgba(16,40,73,.07);
+  --shadow-lg: 0 18px 50px rgba(16,40,73,.18);
+  --r: 14px;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   /* Colores Corporativos CSCloudSolutions */
-  --color-primary: #0054A6;
-  --color-secondary: #00AEEF;
-  --color-neutral-dark: #3C3C3C;
-  --color-neutral-soft: #7F7F7F;
+  --color-primary: var(--brand-deep);
+  --color-secondary: var(--brand-bright);
+  --color-brand-deep: var(--brand-deep);
+  --color-brand-bright: var(--brand-bright);
+  --color-nav-bg: var(--nav-bg);
+  --color-nav-bg2: var(--nav-bg2);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
   /* Fuentes */
   --font-sans: var(--font-open-sans);
   --font-heading: var(--font-montserrat);
 }
 
 .dark {
-  --background: #0f172a;
-  --foreground: #f8fafc;
+  --background: #0C1B30;
+  --foreground: #F6F9FD;
+  --surface: #0A1728;
+  --surface-2: #102442;
+  --line: #1C3149;
+  --line-strong: #2D4A6D;
+  --ink: #EEF3F9;
+  --ink-soft: #A9BBD0;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-open-sans), sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-montserrat), sans-serif;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 9px;
+}
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #1c3149;
 }

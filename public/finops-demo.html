@@ -1,0 +1,573 @@
+<!-- CS Cloud Solutions — FinOps Command Center (Demo interactivo completo) -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CS Cloud Solutions · FinOps Command Center</title>
+<link rel="icon" type="image/png" href="/favicon.png">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Open+Sans:wght@400;500;600;700&display=swap');
+:root{
+  --brand-deep:#0054A6; --brand-bright:#00AEEF; --celeste:#90CAF9; --navy:#1E3A8A;
+  --grey:#7F7F7F; --grey-dark:#3C3C3C;
+  --nav-bg:#0C1B30; --nav-bg2:#0A1728;
+  --bg:#EEF3F9; --surface:#FFFFFF; --surface-2:#F6F9FD;
+  --line:#E3EBF3; --line-strong:#CFDDEC; --ink:#1B2A41; --ink-soft:#5A6B82;
+  --green:#1FA971; --green-soft:#E6F7EF; --amber:#E08A1E; --amber-soft:#FCF1DF;
+  --danger:#E0556B; --danger-soft:#FBE9ED; --purple:#7A4FB5;
+  --shadow:0 1px 2px rgba(16,40,73,.06),0 8px 24px rgba(16,40,73,.07);
+  --shadow-lg:0 18px 50px rgba(16,40,73,.18); --r:14px;
+}
+*{box-sizing:border-box} html,body{margin:0;padding:0}
+body{font-family:'Open Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:'Montserrat',system-ui,sans-serif;margin:0}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+
+/* ===== SHELL ===== */
+.shell{display:grid;grid-template-columns:252px 1fr;min-height:100vh}
+.nav{background:linear-gradient(180deg,var(--nav-bg),var(--nav-bg2));color:#A9BBD0;position:sticky;top:0;align-self:start;height:100vh;overflow:auto;border-right:1px solid #0a1726}
+.nav::-webkit-scrollbar{width:7px}.nav::-webkit-scrollbar-thumb{background:#1c3149;border-radius:9px}
+.brand{display:flex;align-items:center;gap:11px;padding:18px 18px 14px}
+.brand .bt .l1{font-family:'Montserrat';font-weight:800;font-size:15px;color:#fff;letter-spacing:.2px;line-height:1}
+.brand .bt .l1 b{color:var(--brand-bright)}
+.brand .bt .l2{font-size:9.5px;letter-spacing:2px;color:#62809c;text-transform:uppercase;font-weight:600;margin-top:3px}
+.nav-grouplabel{font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:#566f8c;font-weight:700;padding:16px 20px 7px;display:flex;align-items:center;justify-content:space-between}
+.nav-grouplabel span{opacity:.6}
+.nav-item{display:flex;align-items:center;gap:12px;margin:2px 10px;padding:9px 11px;border-radius:10px;cursor:pointer;color:#A9BBD0;font-size:13.5px;font-weight:600;transition:.13s;position:relative}
+.nav-item svg{flex-shrink:0;opacity:.85}
+.nav-item:hover{background:rgba(255,255,255,.055);color:#dce8f5}
+.nav-item.active{background:linear-gradient(135deg,var(--brand-deep),#1E88E5);color:#fff;box-shadow:0 6px 16px rgba(0,84,166,.4)}
+.nav-item.active svg{opacity:1}
+.nav-item .ind{position:absolute;right:11px;font-size:10px;font-weight:700;background:rgba(255,255,255,.18);padding:1px 7px;border-radius:99px}
+.nav-item.active .ind{background:rgba(255,255,255,.25)}
+
+/* ===== TOPBAR ===== */
+.topbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:14px;padding:11px 24px;background:rgba(255,255,255,.85);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.scope-sel{display:flex;align-items:center;gap:9px;background:var(--surface);border:1px solid var(--line-strong);border-radius:10px;padding:6px 9px 6px 12px;box-shadow:var(--shadow)}
+.scope-sel label{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--grey);font-weight:700}
+.scope-sel select,.ai-mini select{border:0;background:transparent;font-family:'Montserrat';font-weight:700;font-size:13px;color:var(--brand-deep);cursor:pointer;outline:none}
+.spacer{flex:1}
+.pill{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:var(--ink-soft);background:var(--surface-2);border:1px solid var(--line);padding:7px 11px;border-radius:999px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 2.4s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 3px var(--green-soft)}50%{box-shadow:0 0 0 7px rgba(31,169,113,.10)}}
+.ai-mini{display:flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--line-strong);border-radius:10px;padding:5px 8px 5px 11px;box-shadow:var(--shadow)}
+.ai-mini label{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--grey);font-weight:700}
+.btn{font-family:'Montserrat';font-weight:600;font-size:13px;border-radius:10px;border:1px solid transparent;padding:9px 14px;cursor:pointer;transition:.16s;display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.btn-primary{background:linear-gradient(135deg,var(--brand-deep),var(--brand-bright));color:#fff;box-shadow:0 6px 16px rgba(0,84,166,.28)}
+.btn-primary:hover{filter:brightness(1.06);transform:translateY(-1px)}
+.btn-ghost{background:var(--surface);color:var(--ink-soft);border-color:var(--line-strong)}
+.btn-ghost:hover{border-color:var(--brand-bright);color:var(--brand-deep)}
+.btn-sm{padding:7px 11px;font-size:12px}
+.btn:active{transform:scale(.98)} .btn:disabled{opacity:.45;cursor:not-allowed}
+.icobtn{position:relative}
+.icobtn .badge-n{position:absolute;top:-5px;right:-5px;background:var(--danger);color:#fff;font-size:9.5px;font-weight:800;min-width:16px;height:16px;border-radius:99px;display:grid;place-items:center;padding:0 3px}
+
+/* ===== CONTENT ===== */
+.content{padding:24px;max-width:1320px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+.vhead{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap}
+.vhead .vt{font-size:23px;font-weight:800;color:var(--ink);letter-spacing:-.4px;display:flex;align-items:center;gap:11px}
+.vhead .vt .vico{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:linear-gradient(135deg,var(--brand-deep),var(--brand-bright));color:#fff}
+.vhead .vs{font-size:13px;color:var(--ink-soft);margin-top:3px}
+.vhead .right{margin-left:auto;display:flex;gap:9px;align-items:center}
+.scopechip{font-size:11px;font-weight:700;letter-spacing:.4px;background:#E6F2FB;color:var(--brand-deep);padding:5px 11px;border-radius:8px}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
+.card-h{display:flex;align-items:center;justify-content:space-between;padding:15px 18px;border-bottom:1px solid var(--line)}
+.card-h h3{font-size:14px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:9px}
+.card-h .sub{font-size:11.5px;color:var(--grey)}
+.tag{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:3px 8px;border-radius:6px}
+.tag.blue{background:#E6F2FB;color:var(--brand-deep)} .tag.green{background:var(--green-soft);color:var(--green)}
+.tag.amber{background:var(--amber-soft);color:var(--amber)} .tag.red{background:var(--danger-soft);color:var(--danger)}
+.tag.grey{background:#EEF1F5;color:var(--grey)} .tag.purple{background:#F0E9FB;color:var(--purple)}
+
+/* KPIs */
+.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:14px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:15px 16px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.kpi::after{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--brand-bright);opacity:0;transition:.3s}
+.kpi:hover::after{opacity:1}
+.kpi .lab{font-size:10px;letter-spacing:.6px;text-transform:uppercase;color:var(--grey);font-weight:700}
+.kpi .val{font-family:'Montserrat';font-weight:800;font-size:24px;color:var(--ink);margin-top:9px;letter-spacing:-.5px}
+.kpi .val.sm{font-size:21px}
+.kpi.accent .val{color:var(--green)}
+.kpi .delta{font-size:11px;font-weight:600;margin-top:5px} .kpi .delta.down{color:var(--green)} .kpi .delta.up{color:var(--danger)}
+
+.grid-2{display:grid;grid-template-columns:1.6fr 1fr;gap:20px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.grid-5{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
+.chart-wrap{padding:16px 18px}
+.legend-row{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px}
+.legend-row .li{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--ink-soft);font-weight:600}
+.legend-row .sw{width:11px;height:11px;border-radius:3px}
+
+/* summary strip */
+.sumstrip{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.sumstrip .s{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;box-shadow:var(--shadow)}
+.sumstrip .s .l{font-size:10.5px;letter-spacing:.6px;text-transform:uppercase;color:var(--grey);font-weight:700}
+.sumstrip .s .v{font-family:'Montserrat';font-weight:800;font-size:22px;margin-top:6px;color:var(--ink)}
+.sumstrip .s.green .v{color:var(--green)} .sumstrip .s.blue .v{color:var(--brand-deep)} .sumstrip .s.amber .v{color:var(--amber)}
+
+/* rec rows */
+.rec{display:grid;grid-template-columns:40px 1fr auto;gap:14px;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line);transition:.18s}
+.rec:last-child{border-bottom:0} .rec:hover{background:var(--surface-2)}
+.rec .ricon{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;font-size:18px}
+.ri-blue{background:#E6F2FB;color:var(--brand-deep)} .ri-amber{background:var(--amber-soft);color:var(--amber)}
+.ri-green{background:var(--green-soft);color:var(--green)} .ri-red{background:var(--danger-soft);color:var(--danger)}
+.rec .rtitle{font-weight:700;font-size:13.5px;color:var(--ink)}
+.rec .rtitle .res{font-weight:600;color:var(--brand-deep);background:#EAF3FB;padding:1px 7px;border-radius:6px;font-size:12px;margin-left:6px}
+.rec .rdesc{font-size:12px;color:var(--ink-soft);margin-top:3px;line-height:1.5} .rec .rdesc b{color:var(--ink)}
+.rec .rright{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:7px}
+.rec .save{font-family:'Montserrat';font-weight:800;font-size:15px;color:var(--green)} .rec .save .pm{font-size:10.5px;color:var(--grey);font-weight:600}
+.rec.applied{background:var(--green-soft)} .rec.applied:hover{background:#DCF3E8}
+.empty{padding:34px;text-align:center;color:var(--grey);font-size:13px}
+
+/* tables */
+table.tbl{width:100%;border-collapse:collapse}
+.tbl th{text-align:left;font-size:10.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--grey);font-weight:700;padding:11px 16px;border-bottom:1px solid var(--line)}
+.tbl td{padding:13px 16px;border-bottom:1px solid var(--line);font-size:13px;color:var(--ink)}
+.tbl tr:last-child td{border-bottom:0} .tbl tr:hover td{background:var(--surface-2)}
+.tbl td.num,.tbl th.num{text-align:right;font-variant-numeric:tabular-nums}
+.tbl .nmain{font-weight:700} .tbl .nsub{font-size:11px;color:var(--grey)}
+.statusdot{display:inline-flex;align-items:center;gap:7px;font-weight:700;font-size:12px}
+.statusdot i{width:8px;height:8px;border-radius:50%}
+
+/* bars */
+.bars{padding:14px 18px 18px;display:flex;flex-direction:column;gap:12px}
+.bar-line{display:grid;grid-template-columns:150px 1fr 80px;align-items:center;gap:12px}
+.bar-line .bl{font-size:12.5px;font-weight:600;color:var(--ink-soft)}
+.bar-track{height:11px;background:var(--surface-2);border-radius:99px;overflow:hidden;border:1px solid var(--line)}
+.bar-fill{height:100%;border-radius:99px;transition:width .8s cubic-bezier(.22,1,.36,1)}
+.bar-line .bv{font-variant-numeric:tabular-nums;font-size:12.5px;font-weight:700;color:var(--ink);text-align:right}
+
+/* gov / gauges */
+.gov{padding:18px;display:grid;grid-template-columns:190px 1fr;gap:22px;align-items:center}
+.gov-list{display:flex;flex-direction:column;gap:11px}
+.gov-item{display:flex;align-items:center;gap:11px;font-size:12.5px;color:var(--ink-soft)} .gov-item b{color:var(--ink)}
+.gov-item .gi{width:26px;height:26px;border-radius:7px;display:grid;place-items:center;flex-shrink:0;font-size:13px}
+
+/* maturity */
+.mat-domains{display:flex;flex-direction:column;gap:14px;padding:4px}
+.mat-d{display:grid;grid-template-columns:160px 1fr 80px;align-items:center;gap:14px}
+.mat-d .mn{font-weight:700;font-size:13px;color:var(--ink)}
+.mat-steps{display:flex;gap:6px}
+.mat-step{flex:1;height:9px;border-radius:99px;background:var(--surface-2);border:1px solid var(--line)}
+.mat-step.on{background:linear-gradient(90deg,var(--brand-deep),var(--brand-bright));border-color:transparent}
+.mat-lvl{font-size:11.5px;font-weight:700;text-align:right}
+.lvl1{color:var(--amber)} .lvl2{color:var(--brand-bright)} .lvl3{color:var(--green)}
+
+/* heatmap */
+.heat{display:grid;grid-template-columns:46px repeat(12,1fr);gap:3px;padding:16px 18px}
+.heat .hc{height:20px;border-radius:4px;background:var(--green-soft)} .heat .hc.off{background:#D7E3F0} .heat .hc.on{background:linear-gradient(135deg,var(--brand-deep),var(--brand-bright))}
+.heat .hlab{font-size:10.5px;color:var(--grey);display:flex;align-items:center;font-weight:600}
+.heat .htime{font-size:9px;color:var(--grey);text-align:center}
+
+/* drawer + modal */
+.scrim{position:fixed;inset:0;background:rgba(16,30,52,.42);backdrop-filter:blur(2px);z-index:60;opacity:0;pointer-events:none;transition:.25s}
+.scrim.show{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;right:0;height:100vh;width:390px;max-width:92vw;background:var(--surface);z-index:70;box-shadow:var(--shadow-lg);transform:translateX(100%);transition:.28s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column}
+.drawer.show{transform:none}
+.drawer .dh{display:flex;align-items:center;justify-content:space-between;padding:18px;border-bottom:1px solid var(--line)}
+.drawer .dh h3{font-size:15px} .drawer .db{overflow:auto;flex:1}
+.xbtn{border:0;background:var(--surface-2);width:32px;height:32px;border-radius:9px;cursor:pointer;font-size:16px;color:var(--ink-soft)}
+.alog{display:flex;gap:11px;padding:12px 18px;border-bottom:1px solid var(--line);align-items:flex-start;animation:slideIn .3s ease}
+@keyframes slideIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.alog .at{font-variant-numeric:tabular-nums;font-size:11px;color:var(--grey);white-space:nowrap;padding-top:1px}
+.alog .ab{font-size:12.5px;color:var(--ink);line-height:1.45} .alog .ab b{color:var(--brand-deep)}
+.alog .badge{font-size:9px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;padding:2px 6px;border-radius:5px;margin-left:6px}
+.badge.b-apply{background:var(--green-soft);color:var(--green)} .badge.b-audit{background:#E6F2FB;color:var(--brand-deep)} .badge.b-ai{background:#F0E9FB;color:var(--purple)}
+
+.modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-46%);width:620px;max-width:94vw;max-height:86vh;background:var(--surface);border-radius:18px;z-index:71;box-shadow:var(--shadow-lg);opacity:0;pointer-events:none;transition:.25s;display:flex;flex-direction:column;overflow:hidden}
+.modal.show{opacity:1;pointer-events:auto;transform:translate(-50%,-50%)}
+.modal .mh{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--line)}
+.modal .mh h3{font-size:16px;display:flex;align-items:center;gap:9px}
+.modal .mb{padding:20px 22px;overflow:auto}
+.ai-out{font-size:13px;line-height:1.65;color:var(--ink);white-space:pre-wrap;min-height:200px}
+.ai-out .mdh{font-family:'Montserrat';font-weight:700;color:var(--brand-deep);display:block;margin:11px 0 3px;font-size:14px}
+.caret{display:inline-block;width:8px;height:15px;background:var(--brand-bright);vertical-align:-2px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.ai-placeholder{color:var(--grey);font-style:italic;text-align:center;padding:40px 10px}
+
+/* toasts */
+.toasts{position:fixed;right:20px;bottom:20px;z-index:80;display:flex;flex-direction:column;gap:10px;max-width:340px}
+.toast{display:flex;gap:11px;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--brand-bright);border-radius:12px;padding:12px 14px;box-shadow:var(--shadow-lg);animation:toastIn .3s ease}
+.toast.teams{border-left-color:#5B5FC7} .toast.slack{border-left-color:#36C5AB}
+.toast .tic{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:13px;flex-shrink:0}
+.tic.teams{background:#5B5FC7}.tic.slack{background:#36C5AB}
+.toast .tt{font-family:'Montserrat';font-weight:700;font-size:12.5px;color:var(--ink)}
+.toast .td{font-size:11.5px;color:var(--ink-soft);margin-top:2px;line-height:1.4}
+@keyframes toastIn{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:none}}
+.fade-out{animation:toastOut .4s forwards}@keyframes toastOut{to{opacity:0;transform:translateX(30px);height:0;margin:0;padding:0}}
+
+@media(max-width:1180px){.kpis{grid-template-columns:repeat(3,1fr)}.grid-2,.grid-5{grid-template-columns:1fr}.grid-5{grid-template-columns:repeat(2,1fr)}.shell{grid-template-columns:64px 1fr}.brand .bt,.nav-grouplabel,.nav-item span.lbl,.nav-item .ind{display:none}.nav-item{justify-content:center}}
+@media(max-width:640px){.kpis,.grid-3,.sumstrip{grid-template-columns:repeat(2,1fr)}.content{padding:16px}}
+</style>
+
+<div class="shell">
+  <!-- ===== NAV ===== -->
+  <nav class="nav">
+    <div class="brand">
+      <img src="/logo_29k.png" alt="Logo" style="width:34px;height:34px;object-fit:contain" />
+      <div class="bt"><div class="l1">CS<b>Cloud</b>Solutions</div><div class="l2">FinOps Platform</div></div>
+    </div>
+    <div id="navlist"></div>
+    <div style="padding:18px 20px;color:#3e5a78;font-size:10.5px;line-height:1.6">Demo interactiva · datos ficticios</div>
+  </nav>
+
+  <!-- ===== MAIN ===== -->
+  <div>
+    <div class="topbar">
+      <div class="scope-sel">
+        <label>Alcance</label>
+        <select id="scopeSel"></select>
+      </div>
+      <span class="pill"><span class="dot"></span> Tenant sincronizado · hace 4 min</span>
+      <div class="spacer"></div>
+      <div class="ai-mini"><label>IA</label><select id="aiProvider"><option>Claude</option><option>Gemini</option><option>OpenAI</option></select></div>
+      <button class="btn btn-ghost btn-sm" id="aiBtn">✨ Resumen IA</button>
+      <button class="btn btn-ghost btn-sm icobtn" id="actBtn">🔔 Actividad<span class="badge-n" id="actN" style="display:none">0</span></button>
+      <button class="btn btn-ghost btn-sm" id="resetBtn">↺</button>
+    </div>
+    <div class="content" id="content"></div>
+  </div>
+</div>
+
+<!-- drawer / modal / toasts -->
+<div class="scrim" id="scrim"></div>
+<div class="drawer" id="drawer"><div class="dh"><h3>📜 Audit Trail</h3><button class="xbtn" id="drawerX">✕</button></div><div class="db" id="auditBody"></div></div>
+<div class="modal" id="modal"><div class="mh"><h3>🤖 AI Report Engine</h3><button class="xbtn" id="modalX">✕</button></div><div class="mb"><div class="ai-out" id="aiOut"></div><div style="margin-top:14px"><button class="btn btn-primary" id="genReport">✨ Generar resumen ejecutivo</button></div></div></div>
+<div class="toasts" id="toasts"></div>
+
+<script>
+"use strict";
+/* ============ DATA ============ */
+const SUBS=[
+  {id:'prod-core',name:'PROD-Core',mg:'mg-prod',spend:18250},
+  {id:'prod-data',name:'PROD-Data',mg:'mg-prod',spend:14900},
+  {id:'qa-staging',name:'QA-Staging',mg:'mg-nonprod',spend:8600},
+  {id:'dev-sandbox',name:'DEV-Sandbox',mg:'mg-nonprod',spend:6450},
+];
+const MGS=[{id:'mg-prod',name:'Producción'},{id:'mg-nonprod',name:'No-Productivo'}];
+const RECS=[
+  {id:'rs1',type:'rightsizing',sub:'prod-core',res:'vm-api-prod-01',title:'Rightsizing de VM',desc:'P95 de CPU en <b>22%</b>. Reducir <b>Standard_D8s_v5 → D4s_v5</b>.',save:420},
+  {id:'rs2',type:'rightsizing',sub:'prod-data',res:'sql-analytics-01',title:'Rightsizing de SKU',desc:'P95 en <b>31%</b>. Reducir <b>E16ds_v5 → E8ds_v5</b>.',save:980},
+  {id:'rs3',type:'rightsizing',sub:'qa-staging',res:'vm-qa-batch-02',title:'Rightsizing de VM',desc:'P95 en <b>9%</b>. Migrar a serie ráfaga <b>B4ms</b>.',save:260},
+  {id:'ri1',type:'reserved',sub:'prod-core',res:'12× VM',title:'Instancia Reservada 3 años',desc:'12 VMs estables 90 días. On-demand → <b>RI 3 años</b>.',save:2100},
+  {id:'ri2',type:'reserved',sub:'prod-data',res:'SQL MI',title:'Savings Plan de cómputo',desc:'Patrón estable. Aplicar <b>Savings Plan 1 año</b>.',save:1450},
+  {id:'nt1',type:'network',sub:'prod-core',res:'nat-gw-01',title:'NAT Gateway ocioso',desc:'NAT Gateway con <b>0 GB</b> procesados en 30 días.',save:180},
+  {id:'nt2',type:'network',sub:'prod-data',res:'egress E.UU.',title:'Egress inter-región',desc:'Tráfico saliente evitable reubicando réplica de lectura.',save:240},
+  {id:'nt3',type:'network',sub:'prod-core',res:'lb-legacy',title:'Load Balancer huérfano',desc:'Load Balancer <b>sin backend pool</b> asociado.',save:65},
+  {id:'nt4',type:'network',sub:'qa-staging',res:'vpn-gw',title:'VPN Gateway sobredim.',desc:'Reducir <b>VpnGw2 → VpnGw1</b> según throughput real.',save:140},
+  {id:'z1',type:'cleanup',sub:'prod-core',res:'3 discos',title:'Discos huérfanos',desc:'3 managed disks sin VM asociada <b>>90 días</b>.',save:145,count:3},
+  {id:'z2',type:'cleanup',sub:'prod-data',res:'5 snapshots',title:'Snapshots obsoletos',desc:'5 snapshots con antigüedad <b>>180 días</b>.',save:90,count:5},
+  {id:'z3',type:'cleanup',sub:'qa-staging',res:'2 IPs',title:'IPs públicas sin uso',desc:'2 IPs públicas reservadas y <b>no asociadas</b>.',save:38,count:2},
+  {id:'z4',type:'cleanup',sub:'dev-sandbox',res:'4 discos',title:'Discos huérfanos',desc:'4 managed disks residuales de entornos borrados.',save:120,count:4},
+  {id:'ps1',type:'power',sub:'qa-staging',res:'6 VMs',title:'Power Schedule QA',desc:'Apagar 6 VMs <b>19:00–07:00</b> + fines de semana.',save:1850},
+  {id:'ps2',type:'power',sub:'dev-sandbox',res:'8 VMs',title:'Power Schedule DEV',desc:'Apagar 8 VMs fuera de horario laboral.',save:1620},
+];
+const TYPE_META={
+  rightsizing:{label:'Rightsizing',icon:'📐',cls:'ri-blue'},
+  reserved:{label:'Optimización de Tarifas',icon:'🏷️',cls:'ri-amber'},
+  network:{label:'Análisis de Red',icon:'🌐',cls:'ri-blue'},
+  cleanup:{label:'Recursos Zombis',icon:'🧹',cls:'ri-blue'},
+  power:{label:'Horarios de Apagado',icon:'🌙',cls:'ri-amber'},
+};
+const SERVICES=[{name:'Cómputo',w:.55,c:'#0054A6'},{name:'Bases de datos',w:.22,c:'#00AEEF'},{name:'Almacenamiento',w:.10,c:'#5B7EB5'},{name:'Red',w:.09,c:'#90CAF9'},{name:'Otros',w:.04,c:'#B9C8DA'}];
+const DEPTS=[{name:'Plataforma',w:.34,c:'#0054A6'},{name:'Datos & Analítica',w:.28,c:'#00AEEF'},{name:'Producto',w:.18,c:'#5B7EB5'},{name:'QA / Testing',w:.12,c:'#90CAF9'},{name:'Sin asignar',w:.08,c:'#C2A33A'}];
+const TTLS=[
+  {name:'demo-cliente-acme',sub:'qa-staging',owner:'jdoe',days:2,cost:320},
+  {name:'load-test-junio',sub:'qa-staging',owner:'aperez',days:-1,cost:540},
+  {name:'poc-migracion-v2',sub:'dev-sandbox',owner:'mlopez',days:9,cost:210},
+  {name:'sandbox-finanzas',sub:'dev-sandbox',owner:'rgomez',days:21,cost:150},
+  {name:'training-azure',sub:'dev-sandbox',owner:'training',days:4,cost:95},
+];
+const ADVISOR=[
+  {k:'Costo',ico:'💰',c:'#0054A6',cnt:15,note:'ahorro mensual'},
+  {k:'Seguridad',ico:'🛡️',c:'#E0556B',cnt:5,note:'hallazgos'},
+  {k:'Confiabilidad',ico:'♻️',c:'#1FA971',cnt:3,note:'recomendaciones'},
+  {k:'Rendimiento',ico:'⚡',c:'#E08A1E',cnt:4,note:'recomendaciones'},
+  {k:'Excelencia op.',ico:'⚙️',c:'#7A4FB5',cnt:6,note:'recomendaciones'},
+];
+const DOMAINS=[{d:'Visibilidad e info.',lvl:3},{d:'Optimización de tasa',lvl:2},{d:'Optimización de uso',lvl:2},{d:'Gobernanza',lvl:2},{d:'Automatización',lvl:1},{d:'Cultura FinOps',lvl:2}];
+const LVLN={1:'Gatear',2:'Caminar',3:'Correr'};
+
+/* nav icons */
+const ICON={
+ advisor:'<path d="M10 2l6 2.5v5c0 3.6-2.5 6.8-6 8-3.5-1.2-6-4.4-6-8v-5L10 2z"/><path d="M7.3 9.8l1.9 1.9L13 8"/>',
+ madurez:'<circle cx="10" cy="10" r="7.2"/><circle cx="10" cy="10" r="3.7"/><circle cx="10" cy="10" r=".7" fill="currentColor" stroke="none"/>',
+ progreso:'<polyline points="3 13 7.5 8.5 11 11 17 5"/><polyline points="13 5 17 5 17 9"/>',
+ consumo:'<circle cx="10" cy="10" r="7"/><path d="M10 10V3a7 7 0 0 1 6 3.6z" fill="currentColor" stroke="none"/>',
+ rightsizing:'<path d="M11 2 4 11h5l-1 7 7-10h-5l1-6z"/>',
+ red:'<polyline points="2 10 6 10 8 4 12 16 14 10 18 10"/>',
+ tarifas:'<circle cx="10" cy="10" r="7.2"/><path d="M10 6v8M12 7.6c-.5-1-3.5-1.2-3.5.5s3.5 1 3.5 2.4-3 1.5-3.5.4"/>',
+ showback:'<path d="M10 3 3 6.5 10 10l7-3.5L10 3z"/><path d="M3 10.3 10 13.8l7-3.5M3 13.6 10 17l7-3.4"/>',
+ zombis:'<path d="M4.5 6h11M8 6V4h4v2M6 6l.9 10.5h6.2L14 6"/>',
+ ttl:'<circle cx="10" cy="10" r="7"/><path d="M10 6v4l3 2"/>',
+ etiquetas:'<path d="M3.2 9.6 9.6 3.2H16V9.6L9.6 16 3.2 9.6z"/><circle cx="12.4" cy="7.6" r="1.1"/>',
+ apagado:'<path d="M10 3v7"/><path d="M6 6a5.5 5.5 0 1 0 8 0"/>',
+};
+const ic=n=>`<svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ICON[n]||''}</svg>`;
+const NAV=[
+ {items:[['advisor','Azure Advisor'],['madurez','Madurez FinOps'],['progreso','Progreso Histórico']]},
+ {title:'Inteligencia Financiera',items:[['consumo','Consumo Real'],['rightsizing','Rightsizing'],['red','Análisis de Red'],['tarifas','Optimización de Tarifas'],['showback','Showback / Chargeback']]},
+ {title:'Limpieza de Nube',items:[['zombis','Recursos Zombis'],['ttl','Expiraciones TTL']]},
+ {title:'Gobernanza',items:[['etiquetas','Cumplimiento Etiquetas'],['apagado','Horarios de Apagado']]},
+];
+
+/* ============ STATE ============ */
+let STATE;
+const fresh=()=>({view:'consumo',selected:'tenant',applied:new Set(),deleted:new Set(),extended:{},compliance:68,tagsInjected:false,audit:[],ai:'Claude',sbMethod:'tag'});
+STATE=fresh();
+
+/* ============ HELPERS ============ */
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const money=n=>'$'+Math.round(n).toLocaleString('en-US');
+const moneyK=n=>'$'+(n/1000).toFixed(1)+'k';
+function subsInScope(){const s=STATE.selected;if(s==='tenant')return SUBS;if(s.startsWith('mg-'))return SUBS.filter(x=>x.mg===s);return SUBS.filter(x=>x.id===s);}
+function recsInScope(){const ids=new Set(subsInScope().map(s=>s.id));return RECS.filter(r=>ids.has(r.sub));}
+function scopeName(){const s=STATE.selected;if(s==='tenant')return'Tenant completo';const mg=MGS.find(m=>m.id===s);if(mg)return mg.name;return SUBS.find(x=>x.id===s).name;}
+function subName(id){return SUBS.find(s=>s.id===id).name;}
+function metrics(){
+  const subs=subsInScope(),recs=recsInScope();
+  const base=subs.reduce((a,s)=>a+s.spend,0);
+  const applied=recs.filter(r=>STATE.applied.has(r.id)).reduce((a,r)=>a+r.save,0);
+  const identified=recs.reduce((a,r)=>a+r.save,0);
+  const zombies=recs.filter(r=>r.type==='cleanup'&&!STATE.applied.has(r.id)).reduce((a,r)=>a+(r.count||0),0);
+  const current=base-applied;
+  return {base,applied,identified,pending:identified-applied,current,zombies,annual:current*12,potential:base-identified};
+}
+function animateNum(el,to,fmt){const from=parseFloat(el.dataset.v||to);el.dataset.v=to;const t0=performance.now();
+  (function tick(t){const k=Math.min(1,(t-t0)/600),e=1-Math.pow(1-k,3);el.textContent=fmt(from+(to-from)*e);if(k<1)requestAnimationFrame(tick);})(performance.now());}
+
+/* ============ CHARTS ============ */
+function svgTrend(m){
+  const W=620,H=210,pad={l:44,r:14,t:14,b:26};
+  const hist=[m.base*1.08,m.base*1.04,m.base*1.07,m.base*1.02,m.base*1.03,m.current];
+  const labels=['Ene','Feb','Mar','Abr','May','Jun'];
+  const maxV=Math.max(...hist,m.base*1.1),minV=Math.min(m.potential*.96,...hist);
+  const x=i=>pad.l+(W-pad.l-pad.r)*(i/(hist.length-1)),y=v=>pad.t+(H-pad.t-pad.b)*(1-(v-minV)/(maxV-minV));
+  const line=hist.map((v,i)=>(i?'L':'M')+x(i).toFixed(1)+' '+y(v).toFixed(1)).join(' ');
+  const area=line+` L${x(hist.length-1)} ${H-pad.b} L${x(0)} ${H-pad.b} Z`;
+  let grid='';for(let i=0;i<=3;i++){const gv=minV+(maxV-minV)*i/3,gy=y(gv);grid+=`<line x1="${pad.l}" y1="${gy}" x2="${W-pad.r}" y2="${gy}" stroke="#E3EBF3"/><text x="${pad.l-8}" y="${gy+4}" text-anchor="end" font-size="10" fill="#9E9E9E">${moneyK(gv)}</text>`;}
+  const xl=labels.map((l,i)=>`<text x="${x(i)}" y="${H-7}" text-anchor="middle" font-size="10" fill="#9E9E9E">${l}</text>`).join('');
+  const yT=y(m.potential),lx=x(hist.length-1),ly=y(m.current);
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" font-family="Open Sans"><defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#00AEEF" stop-opacity=".28"/><stop offset="1" stop-color="#00AEEF" stop-opacity="0"/></linearGradient></defs>
+   ${grid}${xl}<line x1="${pad.l}" y1="${yT}" x2="${W-pad.r}" y2="${yT}" stroke="#7F7F7F" stroke-width="1.4" stroke-dasharray="5 4"/>
+   <text x="${W-pad.r}" y="${yT-6}" text-anchor="end" font-size="10" fill="#7F7F7F" font-weight="600" font-family="Montserrat">Potencial ${moneyK(m.potential)}</text>
+   <path d="${area}" fill="url(#ag)"/><path d="${line}" fill="none" stroke="#00AEEF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+   <circle cx="${lx}" cy="${ly}" r="6" fill="#fff" stroke="${m.applied>0?'#1FA971':'#00AEEF'}" stroke-width="3"/>
+   <text x="${lx-4}" y="${ly-13}" text-anchor="end" font-size="11" font-weight="800" fill="${m.applied>0?'#1FA971':'#0054A6'}" font-family="Montserrat">${moneyK(m.current)}</text></svg>`;
+}
+function svgDonut(data,total,unit){
+  const cols=data.map(d=>d.c||'#0054A6');const R=58,C=2*Math.PI*R;let off=0;
+  const rings=data.map((d,i)=>{const len=C*(d.val/total);const s=`<circle cx="80" cy="80" r="${R}" fill="none" stroke="${cols[i]}" stroke-width="20" stroke-dasharray="${len.toFixed(2)} ${(C-len).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}" transform="rotate(-90 80 80)" style="transition:.7s"/>`;off+=len;return s;}).join('');
+  const leg=data.map((d,i)=>`<div class="li"><span class="sw" style="background:${cols[i]}"></span>${d.name} · ${money(d.val)}</div>`).join('');
+  return `<div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;justify-content:center"><svg viewBox="0 0 160 160" width="150" height="150" font-family="Montserrat">${rings}<text x="80" y="74" text-anchor="middle" font-size="20" font-weight="800" fill="#1B2A41">${moneyK(total)}</text><text x="80" y="93" text-anchor="middle" font-size="10" fill="#9E9E9E" font-family="Open Sans">${unit||'gasto / mes'}</text></svg><div class="legend-row" style="flex-direction:column;gap:9px;margin:0">${leg}</div></div>`;
+}
+
+/* ============ COMMON UI ============ */
+function vhead(view,icon,sub,right){
+  const titles={advisor:'Azure Advisor',madurez:'Madurez FinOps',progreso:'Progreso Histórico',consumo:'Consumo Real',rightsizing:'Rightsizing',red:'Análisis de Red',tarifas:'Optimización de Tarifas',showback:'Showback / Chargeback',zombis:'Recursos Zombis',ttl:'Expiraciones TTL',etiquetas:'Cumplimiento Etiquetas',apagado:'Horarios de Apagado'};
+  return `<div class="vhead"><div><div class="vt"><span class="vico">${ic(icon)}</span>${titles[view]}</div><div class="vs">${sub}</div></div><div class="right"><span class="scopechip">📍 ${scopeName()}</span>${right||''}</div></div>`;
+}
+function recList(type){
+  const recs=recsInScope().filter(r=>r.type===type);const meta=TYPE_META[type];
+  if(!recs.length)return `<div class="empty">No hay recomendaciones de este tipo en el alcance seleccionado.</div>`;
+  return recs.map(r=>{const done=STATE.applied.has(r.id);
+   return `<div class="rec ${done?'applied':''}"><div class="ricon ${meta.cls}">${meta.icon}</div>
+    <div><div class="rtitle">${r.title}<span class="res">${r.res}</span></div>
+    <div class="rdesc">${r.desc} · <b>${subName(r.sub)}</b></div>${done?'<div class="rdesc" style="color:var(--green);font-weight:600">✓ Aplicado · ahorro capturado</div>':''}</div>
+    <div class="rright"><div class="save">${money(r.save)}<span class="pm"> /mes</span></div>
+    ${done?`<button class="btn btn-ghost btn-sm" data-undo="${r.id}">Revertir</button>`:`<button class="btn btn-primary btn-sm" data-apply="${r.id}">Aplicar</button>`}</div></div>`;}).join('');
+}
+function catSummary(type){
+  const recs=recsInScope().filter(r=>r.type===type);
+  const total=recs.reduce((a,r)=>a+r.save,0);
+  const applied=recs.filter(r=>STATE.applied.has(r.id)).reduce((a,r)=>a+r.save,0);
+  const pend=recs.filter(r=>!STATE.applied.has(r.id)).length;
+  return `<div class="sumstrip"><div class="s blue"><div class="l">Recomendaciones pendientes</div><div class="v">${pend}</div></div>
+   <div class="s amber"><div class="l">Ahorro potencial</div><div class="v">${money(total)}<span style="font-size:12px;color:var(--grey);font-weight:600"> /mes</span></div></div>
+   <div class="s green"><div class="l">Ahorro aplicado</div><div class="v">${money(applied)}<span style="font-size:12px;color:var(--grey);font-weight:600"> /mes</span></div></div></div>`;
+}
+
+/* ============ VIEWS ============ */
+const VIEWS={
+ consumo(){const m=metrics();
+  const dd=subsInScope().map((s,i)=>({name:s.name,c:['#0054A6','#00AEEF','#5B7EB5','#90CAF9'][i%4],val:s.spend-RECS.filter(r=>r.sub===s.id&&STATE.applied.has(r.id)).reduce((a,r)=>a+r.save,0)}));
+  const dtot=dd.reduce((a,d)=>a+d.val,0);
+  const top=[...recsInScope()].filter(r=>!STATE.applied.has(r.id)).sort((a,b)=>b.save-a.save).slice(0,4);
+  const KPI=[['💸 Gasto mensual',money(m.current),m.applied>0?`▼ −${money(m.applied)}/mes vs. base`:'',false],
+   ['🎯 Ahorro identificado',money(m.pending),'pendiente de aplicar',false],
+   ['✅ Ahorro aplicado',money(m.applied),(m.identified?Math.round(m.applied/m.identified*100):0)+'% capturado',true],
+   ['📅 Proyección anual',money(m.annual),'',false],['🧟 Recursos zombis',m.zombies,'recursos inactivos',false],['🏷️ Compliance etiquetas',STATE.compliance+'%','',false]];
+  return vhead('consumo','consumo','Gasto real del tenant y oportunidades activas, en vivo.')+
+   `<section class="kpis">${KPI.map(k=>`<div class="kpi ${k[3]?'accent':''}"><div class="lab">${k[0]}</div><div class="val sm">${k[1]}</div><div class="delta ${k[2].includes('▼')?'down':''}">${k[2]}</div></div>`).join('')}</section>
+   <section class="grid-2"><div class="card"><div class="card-h"><h3>📈 Evolución del gasto mensual</h3><span class="sub">${scopeName()} · USD</span></div><div class="chart-wrap">${svgTrend(m)}<div class="legend-row"><div class="li"><span class="sw" style="background:var(--brand-bright)"></span>Gasto real</div><div class="li"><span class="sw" style="background:var(--grey)"></span>Potencial alcanzable</div></div></div></div>
+    <div class="card"><div class="card-h"><h3>🍩 Gasto por suscripción</h3></div><div class="chart-wrap">${svgDonut(dd,dtot)}</div></div></section>
+   <div class="card"><div class="card-h"><h3>⚡ Top oportunidades de ahorro</h3><span class="sub">acción rápida</span></div>${top.length?top.map(r=>{const meta=TYPE_META[r.type];return `<div class="rec"><div class="ricon ${meta.cls}">${meta.icon}</div><div><div class="rtitle">${r.title}<span class="res">${r.res}</span></div><div class="rdesc">${meta.label} · <b>${subName(r.sub)}</b></div></div><div class="rright"><div class="save">${money(r.save)}<span class="pm"> /mes</span></div><button class="btn btn-primary btn-sm" data-apply="${r.id}">Aplicar</button></div></div>`;}).join(''):'<div class="empty">¡Todo optimizado en este alcance! 🎉</div>'}</div>`;
+ },
+ rightsizing(){return vhead('rightsizing','rightsizing','Ajuste de SKUs según uso real (P95) para evitar sobre-aprovisionamiento.')+catSummary('rightsizing')+`<div class="card"><div class="card-h"><h3>📐 Recomendaciones de rightsizing</h3></div>${recList('rightsizing')}</div>`;},
+ tarifas(){const recs=recsInScope().filter(r=>r.type==='reserved');const cov=Math.min(95,42+(recs.filter(r=>STATE.applied.has(r.id)).length*22));
+  const R=46,C=2*Math.PI*R,len=C*cov/100;
+  return vhead('tarifas','tarifas','Instancias Reservadas y Savings Plans vs. gasto bajo demanda.')+catSummary('reserved')+
+   `<section class="grid-2"><div class="card"><div class="card-h"><h3>🏷️ Recomendaciones de compromiso</h3></div>${recList('reserved')}</div>
+    <div class="card"><div class="card-h"><h3>📊 Cobertura de reservas</h3></div><div class="chart-wrap" style="display:grid;place-items:center">
+     <svg viewBox="0 0 120 120" width="160" height="160" font-family="Montserrat"><circle cx="60" cy="60" r="${R}" fill="none" stroke="#E3EBF3" stroke-width="13"/><circle cx="60" cy="60" r="${R}" fill="none" stroke="url(#gg)" stroke-width="13" stroke-linecap="round" stroke-dasharray="${len.toFixed(1)} ${(C-len).toFixed(1)}" transform="rotate(-90 60 60)" style="transition:.8s"/><defs><linearGradient id="gg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0054A6"/><stop offset="1" stop-color="#00AEEF"/></linearGradient></defs><text x="60" y="58" text-anchor="middle" font-weight="800" font-size="26" fill="#1B2A41">${cov}%</text><text x="60" y="76" text-anchor="middle" font-size="10" fill="#9E9E9E" font-family="Open Sans">cobertura</text></svg>
+     <p style="font-size:12.5px;color:var(--ink-soft);text-align:center;margin:14px 4px 0;line-height:1.6">El <b>${100-cov}%</b> del cómputo estable sigue a tarifa <b>on-demand</b>. Aplicá los compromisos sugeridos para maximizar el descuento.</p></div></div></section>`;
+ },
+ red(){const recs=recsInScope().filter(r=>r.type==='network');const eg=[['East US',46],['Brazil South',28],['West Europe',16],['Inter-región',10]];const mx=Math.max(...eg.map(e=>e[1]));
+  return vhead('red','red','Costos de red: egress, gateways ociosos y balanceadores sin uso.')+catSummary('network')+
+   `<section class="grid-2"><div class="card"><div class="card-h"><h3>🌐 Hallazgos de red</h3></div>${recList('network')}</div>
+    <div class="card"><div class="card-h"><h3>📡 Egress por destino</h3><span class="sub">% del tráfico saliente</span></div><div class="bars">${eg.map(e=>`<div class="bar-line"><span class="bl">${e[0]}</span><div class="bar-track"><div class="bar-fill" style="width:${e[1]/mx*100}%;background:linear-gradient(90deg,var(--brand-deep),var(--brand-bright))"></div></div><span class="bv">${e[1]}%</span></div>`).join('')}</div></div></section>`;
+ },
+ zombis(){const recs=recsInScope().filter(r=>r.type==='cleanup');const count=recs.filter(r=>!STATE.applied.has(r.id)).reduce((a,r)=>a+(r.count||0),0);
+  return vhead('zombis','zombis','Recursos inactivos que siguen facturando: discos, IPs y snapshots.')+
+   `<div class="sumstrip"><div class="s red"><div class="l">Recursos zombis activos</div><div class="v" style="color:var(--danger)">${count}</div></div><div class="s amber"><div class="l">Costo recurrente evitable</div><div class="v">${money(recs.filter(r=>!STATE.applied.has(r.id)).reduce((a,r)=>a+r.save,0))}<span style="font-size:12px;color:var(--grey)"> /mes</span></div></div><div class="s green"><div class="l">Ya eliminado</div><div class="v">${money(recs.filter(r=>STATE.applied.has(r.id)).reduce((a,r)=>a+r.save,0))}<span style="font-size:12px;color:var(--grey)"> /mes</span></div></div></div>
+   <div class="card"><div class="card-h"><h3>🧹 Recursos detectados</h3></div>${recList('cleanup')}</div>`;
+ },
+ apagado(){const recs=recsInScope().filter(r=>r.type==='power');
+  const days=['L','M','M','J','V','S','D'];let heat='<div class="hlab"></div>';for(let h=0;h<12;h++)heat+=`<div class="htime">${(h*2).toString().padStart(2,'0')}</div>`;
+  days.forEach((d,di)=>{heat+=`<div class="hlab">${d}</div>`;for(let h=0;h<12;h++){const hour=h*2;const weekend=di>=5;const on=!weekend&&hour>=8&&hour<18;heat+=`<div class="hc ${on?'on':'off'}"></div>`;}});
+  return vhead('apagado','apagado','Programación de encendido/apagado de VMs no productivas.')+catSummary('power')+
+   `<div class="card"><div class="card-h"><h3>🌙 Horarios programados</h3></div>${recList('power')}</div>
+    <div class="card"><div class="card-h"><h3>🗓️ Calendario de operación (QA / DEV)</h3><span class="sub">Azul = encendido · gris = apagado</span></div><div class="heat">${heat}</div></div>`;
+ },
+ showback(){const m=metrics();let ws=DEPTS.map(d=>({...d}));if(STATE.tagsInjected){const sa=ws.find(d=>d.name==='Sin asignar');const give=sa.w-0.01;sa.w=0.01;const others=ws.filter(d=>d.name!=='Sin asignar');others.forEach(o=>o.w+=give*(o.w/others.reduce((a,x)=>a+x.w,0)));}
+  const data=ws.map(d=>({name:d.name,c:d.c,val:m.current*d.w}));const tot=data.reduce((a,d)=>a+d.val,0);
+  return vhead('showback','showback','Asignación de costos por centro de costo mediante etiquetas corporativas.',
+   `<select id="sbMethod" class="btn btn-ghost btn-sm" style="font-family:Montserrat"><option value="tag">Por etiqueta (tag)</option><option value="even">Distribución pareja</option></select>`)+
+   `<section class="grid-2"><div class="card"><div class="card-h"><h3>💼 Gasto por departamento</h3><span class="sub">${scopeName()} · mensual</span></div>
+     <table class="tbl"><thead><tr><th>Departamento</th><th class="num">% del gasto</th><th class="num">Costo mensual</th><th class="num">Anual</th></tr></thead><tbody>
+     ${data.map(d=>`<tr><td><span class="statusdot"><i style="background:${d.c}"></i>${d.name}</span></td><td class="num">${(d.val/tot*100).toFixed(1)}%</td><td class="num nmain">${money(d.val)}</td><td class="num">${money(d.val*12)}</td></tr>`).join('')}
+     </tbody></table></div>
+    <div class="card"><div class="card-h"><h3>🍩 Distribución</h3></div><div class="chart-wrap">${svgDonut(data,tot)}</div></div></section>
+    ${STATE.tagsInjected?'':'<div class="card" style="border-color:var(--amber);background:var(--amber-soft)"><div style="padding:14px 18px;font-size:13px;color:#7a5a0a">⚠️ Hay gasto <b>Sin asignar</b> por recursos sin etiquetas obligatorias. Inyectá las etiquetas faltantes en <b>Cumplimiento de Etiquetas</b> para un showback fiable.</div></div>'}`;
+ },
+ ttl(){const rows=TTLS.filter(t=>subsInScope().some(s=>s.id===t.sub)).filter(t=>!STATE.deleted.has(t.name));
+  const st=t=>{const d=(STATE.extended[t.name]||0)+t.days;if(d<0)return['vencido','var(--danger)',d];if(d<=3)return['por vencer','var(--amber)',d];return['activo','var(--green)',d];};
+  return vhead('ttl','ttl','Ciclo de vida de entornos temporales mediante etiquetas TTL.')+
+   `<div class="sumstrip"><div class="s red"><div class="l">Vencidos</div><div class="v" style="color:var(--danger)">${rows.filter(t=>st(t)[2]<0).length}</div></div><div class="s amber"><div class="l">Por vencer (≤3d)</div><div class="v">${rows.filter(t=>{const d=st(t)[2];return d>=0&&d<=3;}).length}</div></div><div class="s blue"><div class="l">Costo en entornos temporales</div><div class="v">${money(rows.reduce((a,t)=>a+t.cost,0))}<span style="font-size:12px;color:var(--grey)"> /mes</span></div></div></div>
+   <div class="card"><div class="card-h"><h3>⏳ Entornos con TTL</h3><span class="sub">advertencia y borrado progresivo</span></div>
+    <table class="tbl"><thead><tr><th>Entorno</th><th>Suscripción</th><th>Owner</th><th>Estado</th><th class="num">Costo/mes</th><th></th></tr></thead><tbody>
+    ${rows.length?rows.map(t=>{const[lbl,col,d]=st(t);return `<tr><td class="nmain">${t.name}</td><td>${subName(t.sub)}</td><td class="nsub">@${t.owner}</td><td><span class="statusdot" style="color:${col}"><i style="background:${col}"></i>${lbl} · ${d<0?Math.abs(d)+'d atrás':d+'d'}</span></td><td class="num">${money(t.cost)}</td><td class="num"><button class="btn btn-ghost btn-sm" data-extend="${t.name}">+7d</button> <button class="btn btn-primary btn-sm" data-del="${t.name}">Borrar</button></td></tr>`;}).join(''):'<tr><td colspan="6"><div class="empty">No hay entornos temporales en este alcance.</div></td></tr>'}
+    </tbody></table></div>`;
+ },
+ etiquetas(){const pct=STATE.compliance;const R=46,C=2*Math.PI*R,len=C*pct/100;const resCount=Math.round(subsInScope().reduce((a,s)=>a+s.spend,0)/118);const untagged=STATE.tagsInjected?Math.max(2,Math.round(resCount*0.04)):Math.round(resCount*0.34);
+  return vhead('etiquetas','etiquetas','Cumplimiento de la política de etiquetado corporativo (CostCenter, Owner, Environment).')+
+   `<div class="card"><div class="gov"><div style="display:grid;place-items:center"><svg viewBox="0 0 120 120" width="160" height="160" font-family="Montserrat"><circle cx="60" cy="60" r="${R}" fill="none" stroke="#E3EBF3" stroke-width="13"/><circle cx="60" cy="60" r="${R}" fill="none" stroke="url(#gg2)" stroke-width="13" stroke-linecap="round" stroke-dasharray="${len.toFixed(1)} ${(C-len).toFixed(1)}" transform="rotate(-90 60 60)" style="transition:.8s"/><defs><linearGradient id="gg2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0054A6"/><stop offset="1" stop-color="#00AEEF"/></linearGradient></defs><text x="60" y="58" text-anchor="middle" font-weight="800" font-size="26" fill="#1B2A41">${pct}%</text><text x="60" y="76" text-anchor="middle" font-size="10" fill="#9E9E9E" font-family="Open Sans">compliance</text></svg></div>
+    <div class="gov-list"><div class="gov-item"><div class="gi ri-blue">🔍</div><div>Política evaluada sobre <b>${resCount}</b> recursos en alcance.</div></div>
+     <div class="gov-item"><div class="gi ${untagged>10?'ri-amber':'ri-green'}">🏷️</div><div><b>${untagged}</b> recursos sin etiquetas obligatorias.</div></div>
+     <div class="gov-item"><div class="gi ri-green">🔐</div><div>Inyección vía permisos delegados de Azure (Tag Contributor).</div></div>
+     <div style="margin-top:8px;display:flex;gap:10px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" data-audit-tags="1">🔍 Auditar etiquetas</button><button class="btn btn-primary btn-sm" data-inject="1" ${STATE.tagsInjected?'disabled':''}>${STATE.tagsInjected?'✓ Etiquetas inyectadas':'🏷️ Inyectar faltantes'}</button></div></div></div></div>`;
+ },
+ advisor(){const m=metrics();
+  const cards=ADVISOR.map(a=>`<div class="kpi"><div class="lab">${a.ico} ${a.k}</div><div class="val sm" style="color:${a.c}">${a.k==='Costo'?money(m.pending):a.cnt}</div><div class="delta">${a.k==='Costo'?'ahorro/mes potencial':a.cnt+' '+a.note}</div></div>`).join('');
+  const cost=[...recsInScope()].filter(r=>!STATE.applied.has(r.id)).sort((a,b)=>b.save-a.save).slice(0,4);
+  const other=[['Seguridad','ri-red','🛡️','Habilitar MFA para 3 cuentas administrativas sin protección.','prod-core'],['Confiabilidad','ri-green','♻️','Configurar backup en sql-analytics-01 (sin respaldo).','prod-data'],['Rendimiento','ri-amber','⚡','Migrar 2 discos a Premium SSD por latencia elevada.','prod-core']];
+  return vhead('advisor','advisor','Recomendaciones consolidadas de Azure Advisor en los 5 pilares.')+
+   `<section class="grid-5">${cards}</section>
+    <div class="card"><div class="card-h"><h3>💰 Optimización de costos (accionable)</h3></div>${cost.map(r=>{const meta=TYPE_META[r.type];return `<div class="rec"><div class="ricon ${meta.cls}">${meta.icon}</div><div><div class="rtitle">${r.title}<span class="res">${r.res}</span></div><div class="rdesc">${meta.label} · <b>${subName(r.sub)}</b></div></div><div class="rright"><div class="save">${money(r.save)}<span class="pm"> /mes</span></div><button class="btn btn-primary btn-sm" data-apply="${r.id}">Aplicar</button></div></div>`;}).join('')}</div>
+    <div class="card"><div class="card-h"><h3>🛡️ Otros pilares</h3><span class="sub">informativo</span></div>${other.map(o=>`<div class="rec"><div class="ricon ${o[1]}">${o[2]}</div><div><div class="rtitle">${o[0]}</div><div class="rdesc">${o[3]} · <b>${subName(o[4])}</b></div></div><div class="rright"><span class="tag grey">revisar</span></div></div>`).join('')}</div>`;
+ },
+ madurez(){const avg=DOMAINS.reduce((a,d)=>a+d.lvl,0)/DOMAINS.length;const overall=avg<1.7?'Gatear':avg<2.4?'Caminar':'Correr';
+  const N=DOMAINS.length,cx=110,cy=110,Rmax=82;const pt=(i,r)=>{const ang=-Math.PI/2+i*2*Math.PI/N;return[cx+Math.cos(ang)*r,cy+Math.sin(ang)*r];};
+  let rings='';for(let lv=1;lv<=3;lv++){const poly=DOMAINS.map((_,i)=>pt(i,Rmax*lv/3).map(n=>n.toFixed(1)).join(',')).join(' ');rings+=`<polygon points="${poly}" fill="none" stroke="#E3EBF3"/>`;}
+  const axes=DOMAINS.map((_,i)=>{const[x,y]=pt(i,Rmax);return `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="#E3EBF3"/>`;}).join('');
+  const cur=DOMAINS.map((d,i)=>pt(i,Rmax*d.lvl/3).map(n=>n.toFixed(1)).join(',')).join(' ');
+  const labels=DOMAINS.map((d,i)=>{const[x,y]=pt(i,Rmax+16);return `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="middle" font-size="8.5" fill="#5A6B82" font-family="Open Sans">${d.d.split(' ')[0]}</text>`;}).join('');
+  return vhead('madurez','madurez','Modelo de madurez FinOps (Gatear · Caminar · Correr) por capacidad.',
+   `<span class="tag ${overall==='Correr'?'green':overall==='Caminar'?'blue':'amber'}">Nivel global: ${overall}</span>`)+
+   `<section class="grid-2"><div class="card"><div class="card-h"><h3>🎯 Radar de madurez</h3></div><div class="chart-wrap" style="display:grid;place-items:center">
+     <svg viewBox="0 0 220 220" width="260" height="260"><defs><linearGradient id="rg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0054A6" stop-opacity=".5"/><stop offset="1" stop-color="#00AEEF" stop-opacity=".5"/></linearGradient></defs>${rings}${axes}<polygon points="${cur}" fill="url(#rg)" stroke="#0054A6" stroke-width="2"/>${labels}</svg></div></div>
+    <div class="card"><div class="card-h"><h3>📋 Nivel por capacidad</h3></div><div class="mat-domains">${DOMAINS.map(d=>`<div class="mat-d"><span class="mn">${d.d}</span><div class="mat-steps">${[1,2,3].map(s=>`<div class="mat-step ${s<=d.lvl?'on':''}"></div>`).join('')}</div><span class="mat-lvl lvl${d.lvl}">${LVLN[d.lvl]}</span></div>`).join('')}</div></div></section>
+    <div class="card"><div class="card-h"><h3>🚀 Para subir de nivel</h3></div>
+     <div class="rec"><div class="ricon ri-amber">🤖</div><div><div class="rtitle">Automatización <span class="res">Gatear → Caminar</span></div><div class="rdesc">Programar la limpieza de zombis y los apagados con runbooks en vez de acciones manuales.</div></div></div>
+     <div class="rec"><div class="ricon ri-blue">🏷️</div><div><div class="rtitle">Gobernanza <span class="res">Caminar → Correr</span></div><div class="rdesc">Llevar el compliance de etiquetas por encima del 95% para habilitar chargeback automático.</div></div></div></div>`;
+ },
+ progreso(){const m=metrics();const W=620,H=220,pad={l:46,r:14,t:16,b:26};
+  const months=['Jul','Ago','Sep','Oct','Nov','Dic','Ene','Feb','Mar','Abr','May','Jun'];
+  const base=m.base;const series=months.map((_,i)=>base*(1.12-i*0.006));series[11]=m.current;
+  const maxV=Math.max(...series)*1.02,minV=Math.min(...series,m.potential)*.95;
+  const x=i=>pad.l+(W-pad.l-pad.r)*(i/11),y=v=>pad.t+(H-pad.t-pad.b)*(1-(v-minV)/(maxV-minV));
+  const line=series.map((v,i)=>(i?'L':'M')+x(i).toFixed(1)+' '+y(v).toFixed(1)).join(' ');
+  const area=line+` L${x(11)} ${H-pad.b} L${x(0)} ${H-pad.b} Z`;
+  let grid='';for(let i=0;i<=3;i++){const gv=minV+(maxV-minV)*i/3,gy=y(gv);grid+=`<line x1="${pad.l}" y1="${gy}" x2="${W-pad.r}" y2="${gy}" stroke="#E3EBF3"/><text x="${pad.l-8}" y="${gy+4}" text-anchor="end" font-size="10" fill="#9E9E9E">${moneyK(gv)}</text>`;}
+  const xl=months.map((mn,i)=>i%2===0?`<text x="${x(i)}" y="${H-7}" text-anchor="middle" font-size="9.5" fill="#9E9E9E">${mn}</text>`:'').join('');
+  return vhead('progreso','progreso','Evolución histórica del gasto y del ahorro capturado en el tenant.')+
+   `<div class="sumstrip"><div class="s green"><div class="l">Ahorro mensual capturado</div><div class="v">${money(m.applied)}</div></div><div class="s blue"><div class="l">Proyección de ahorro anual</div><div class="v">${money(m.applied*12)}</div></div><div class="s amber"><div class="l">Reducción del gasto</div><div class="v">${m.base?(m.applied/m.base*100).toFixed(1):0}%</div></div></div>
+   <div class="card"><div class="card-h"><h3>📉 Gasto mensual · últimos 12 meses</h3><span class="sub">${scopeName()} · USD</span></div><div class="chart-wrap">
+    <svg viewBox="0 0 ${W} ${H}" width="100%" font-family="Open Sans"><defs><linearGradient id="pg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1FA971" stop-opacity=".26"/><stop offset="1" stop-color="#1FA971" stop-opacity="0"/></linearGradient></defs>${grid}${xl}<path d="${area}" fill="url(#pg)"/><path d="${line}" fill="none" stroke="#1FA971" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${x(11)}" cy="${y(series[11])}" r="6" fill="#fff" stroke="#1FA971" stroke-width="3"/></svg></div></div>
+   <div class="card"><div class="card-h"><h3>🏁 Hitos</h3></div>
+    <div class="rec"><div class="ricon ri-green">✅</div><div><div class="rtitle">Onboarding del tenant</div><div class="rdesc">Conexión vía Entra ID y primera línea base de gasto establecida.</div></div></div>
+    <div class="rec"><div class="ricon ri-blue">📐</div><div><div class="rtitle">Programa de rightsizing</div><div class="rdesc">Revisión continua de SKUs sobre métricas P95.</div></div></div>
+    <div class="rec"><div class="ricon ri-amber">🌙</div><div><div class="rtitle">Apagado automático en no-productivos</div><div class="rdesc">Power schedules activos en QA y DEV.</div></div></div></div>`;
+ },
+};
+
+/* ============ ACTIONS ============ */
+function applyRec(id){const r=RECS.find(x=>x.id===id);if(!r||STATE.applied.has(id))return;STATE.applied.add(id);
+  log('apply',`<b>${r.title}</b> aplicado en ${subName(r.sub)} — ahorro <b>${money(r.save)}/mes</b>.`);
+  notify(Math.random()>.5?'teams':'slack','Optimización aplicada',`${r.title} · ${r.res} · −${money(r.save)}/mes`);rerender();}
+function undoRec(id){const r=RECS.find(x=>x.id===id);if(!r)return;STATE.applied.delete(id);log('audit',`<b>${r.title}</b> revertido en ${subName(r.sub)}.`);rerender();}
+function injectTags(){if(STATE.tagsInjected)return;STATE.tagsInjected=true;STATE.compliance=96;log('apply','Etiquetas obligatorias inyectadas — compliance <b>68% → 96%</b>.');notify('slack','Gobernanza actualizada','Compliance de etiquetado al 96% en '+scopeName()+'.');rerender();}
+function auditTags(){log('audit','Auditoría de etiquetas ejecutada sobre <b>'+scopeName()+'</b>.');notify('teams','Auditoría de etiquetas','Reporte de cumplimiento publicado en #finops.');}
+function ttlExtend(n){STATE.extended[n]=(STATE.extended[n]||0)+7;log('audit',`TTL de <b>${n}</b> extendido +7 días.`);rerender();}
+function ttlDel(n){const t=TTLS.find(x=>x.name===n);STATE.deleted.add(n);log('apply',`Entorno temporal <b>${n}</b> eliminado — ahorro <b>${money(t.cost)}/mes</b>.`);notify('teams','Entorno TTL eliminado',`${n} · −${money(t.cost)}/mes`);rerender();}
+
+/* ============ AUDIT / TOASTS ============ */
+const nowStr=()=>new Date().toTimeString().slice(0,8);
+function log(kind,html){STATE.audit.unshift({t:nowStr(),kind,html});renderAudit();const n=$('#actN');n.textContent=STATE.audit.length;n.style.display='grid';}
+function renderAudit(){const b=$('#auditBody');if(!STATE.audit.length){b.innerHTML='<div class="empty">Sin acciones registradas todavía.</div>';return;}
+  const bd={apply:'b-apply',audit:'b-audit',ai:'b-ai'},bl={apply:'aplicar',audit:'auditar',ai:'IA'};
+  b.innerHTML=STATE.audit.map(a=>`<div class="alog"><span class="at">${a.t}</span><span class="ab">${a.html}<span class="badge ${bd[a.kind]}">${bl[a.kind]}</span></span></div>`).join('');}
+function notify(ch,title,desc){const c=$('#toasts');const el=document.createElement('div');el.className='toast '+ch;
+  el.innerHTML=`<div class="tic ${ch}">${ch==='teams'?'T':'S'}</div><div><div class="tt">${title}</div><div class="td">${desc}<br><span style="color:var(--grey)">→ ${ch==='teams'?'Microsoft Teams':'Slack'} · webhook</span></div></div>`;
+  c.appendChild(el);setTimeout(()=>{el.classList.add('fade-out');setTimeout(()=>el.remove(),420);},4200);}
+
+/* ============ AI REPORT ============ */
+function buildReport(){const m=metrics();const capt=m.identified?Math.round(m.applied/m.identified*100):0;
+  const top=[...recsInScope()].sort((a,b)=>b.save-a.save).slice(0,3);
+  return [['# Resumen ejecutivo — '+scopeName(),`Alcance: ${subsInScope().length} suscripción(es). Gasto mensual actual ${money(m.current)}; proyección anual ${money(m.annual)}.`],
+   ['## Oportunidad de optimización',`Se identificaron ${money(m.identified)}/mes en ahorros (${Math.round(m.identified/m.base*100)}% del gasto base). Capturado: ${capt}% (${money(m.applied)}/mes).`],
+   ['## Acciones de mayor impacto',top.map((r,i)=>`${i+1}. ${r.title} en ${subName(r.sub)}: ${money(r.save)}/mes${STATE.applied.has(r.id)?' (aplicado)':''}.`).join('\n')],
+   ['## Gobernanza',`Compliance de etiquetado en ${STATE.compliance}%. ${STATE.compliance<80?'Conviene inyectar etiquetas faltantes para un showback fiable.':'Nivel adecuado para chargeback por área.'}`],
+   ['## Recomendación',m.pending>0?`Priorizar las recomendaciones pendientes para alcanzar el potencial de ${money(m.potential)}/mes.`:'Todo el alcance fue optimizado. Mantener monitoreo continuo.'],
+   ['',`— Generado por ${STATE.ai} · AI Report Engine (agnóstico)`]];}
+function genReport(){const out=$('#aiOut'),btn=$('#genReport');btn.disabled=true;btn.textContent='⏳ '+STATE.ai+' redactando…';
+  const blocks=buildReport();out.innerHTML='';let bi=0;
+  (function nextBlock(){if(bi>=blocks.length){btn.disabled=false;btn.textContent='✨ Regenerar';log('ai','Resumen ejecutivo generado por <b>'+STATE.ai+'</b> sobre '+scopeName()+'.');notify('teams','Reporte FinOps listo','Resumen generado por '+STATE.ai+'.');return;}
+    const[head,body]=blocks[bi++];if(head){const h=document.createElement('span');h.className='mdh';h.textContent=head.replace(/^#+\s*/,'');out.appendChild(h);}
+    const span=document.createElement('span');out.appendChild(span);const caret=document.createElement('span');caret.className='caret';out.appendChild(caret);
+    let ci=0;(function type(){if(ci<body.length){span.textContent+=body[ci++];out.parentElement.scrollTop=out.parentElement.scrollHeight;setTimeout(type,body[ci-1]==='\n'?2:7);}else{span.textContent+='\n';caret.remove();setTimeout(nextBlock,80);}})();})();}
+
+/* ============ RENDER SHELL ============ */
+function renderNav(){let h='';NAV.forEach(g=>{if(g.title)h+=`<div class="nav-grouplabel">${g.title}<span>▾</span></div>`;
+  g.items.forEach(([id,lbl])=>{h+=`<div class="nav-item ${STATE.view===id?'active':''}" data-nav="${id}">${ic(id)}<span class="lbl">${lbl}</span></div>`;});});$('#navlist').innerHTML=h;}
+function renderScopeSel(){let h=`<option value="tenant"${STATE.selected==='tenant'?' selected':''}>☁ Tenant — Contoso Argentina</option>`;
+  MGS.forEach(mg=>{h+=`<optgroup label="${mg.name}"><option value="${mg.id}"${STATE.selected===mg.id?' selected':''}>▦ ${mg.name} (todo)</option>`;SUBS.filter(s=>s.mg===mg.id).forEach(s=>{h+=`<option value="${s.id}"${STATE.selected===s.id?' selected':''}>　◈ ${s.name}</option>`;});h+='</optgroup>';});
+  $('#scopeSel').innerHTML=h;}
+function rerender(){renderNav();$('#content').innerHTML=VIEWS[STATE.view]();}
+
+/* ============ EVENTS ============ */
+document.addEventListener('click',e=>{
+  const nav=e.target.closest('[data-nav]');if(nav){STATE.view=nav.dataset.nav;rerender();window.scrollTo({top:0,behavior:'smooth'});return;}
+  const ap=e.target.closest('[data-apply]');if(ap){applyRec(ap.dataset.apply);return;}
+  const un=e.target.closest('[data-undo]');if(un){undoRec(un.dataset.undo);return;}
+  const ex=e.target.closest('[data-extend]');if(ex){ttlExtend(ex.dataset.extend);return;}
+  const dl=e.target.closest('[data-del]');if(dl){ttlDel(dl.dataset.del);return;}
+  if(e.target.closest('[data-inject]')){injectTags();return;}
+  if(e.target.closest('[data-audit-tags]')){auditTags();return;}
+});
+document.addEventListener('change',e=>{
+  if(e.target.id==='scopeSel'){STATE.selected=e.target.value;rerender();}
+  if(e.target.id==='aiProvider'){STATE.ai=e.target.value;}
+  if(e.target.id==='sbMethod'){STATE.sbMethod=e.target.value;rerender();}
+});
+function openDrawer(){renderAudit();$('#drawer').classList.add('show');$('#scrim').classList.add('show');}
+function closeAll(){$('#drawer').classList.remove('show');$('#modal').classList.remove('show');$('#scrim').classList.remove('show');}
+function openModal(){$('#modal').classList.add('show');$('#scrim').classList.add('show');if(!$('#aiOut').textContent.trim())$('#aiOut').innerHTML='<div class="ai-placeholder">Generá un resumen ejecutivo del estado actual del alcance seleccionado.</div>';}
+$('#actBtn').onclick=openDrawer;$('#aiBtn').onclick=openModal;
+$('#drawerX').onclick=closeAll;$('#modalX').onclick=closeAll;$('#scrim').onclick=closeAll;
+$('#genReport').onclick=genReport;
+$('#resetBtn').onclick=()=>{const ai=$('#aiProvider').value;STATE=fresh();STATE.ai=ai;$('#aiOut').innerHTML='';$('#actN').style.display='none';renderScopeSel();rerender();renderAudit();log('audit','Demo reiniciada — estado restaurado a valores de base.');};
+
+/* ============ INIT ============ */
+renderNav();renderScopeSel();rerender();renderAudit();
+log('audit','Conexión establecida con tenant <b>Contoso Argentina</b> vía Azure Entra ID (MSAL).');
+</script>

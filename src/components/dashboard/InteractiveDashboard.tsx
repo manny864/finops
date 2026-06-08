@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Responsive, WidthProvider, Layout, ResponsiveLayouts as Layouts } from 'react-grid-layout/legacy';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
-import { GripVertical, Leaf, RotateCcw, Cpu, X, Loader2 } from 'lucide-react';
+import { GripVertical, Leaf, RotateCcw, Cpu, X, Loader2, LayoutDashboard } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { useTenant } from '@/components/TenantProvider';
 import { toast } from 'sonner';
@@ -16,9 +16,9 @@ import CostForecastChart from './CostForecastChart';
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
 const Wrapper = ({ children, title, id, isMobile }: { children: React.ReactNode, title?: string, id: string, isMobile: boolean }) => (
-    <div key={id} className="bg-white border border-gray-200 rounded-lg shadow-sm flex flex-col h-full overflow-hidden">
-        <div className="flex justify-between items-center bg-gray-50 border-b border-gray-200 px-4 py-2 shrink-0">
-            <span className="text-xs font-bold text-gray-700 uppercase tracking-wide">{title || ''}</span>
+    <div key={id} className="bg-surface border border-line rounded-[14px] shadow-[0_1px_2px_rgba(16,40,73,0.06),0_8px_24px_rgba(16,40,73,0.07)] flex flex-col h-full overflow-hidden">
+        <div className="flex justify-between items-center bg-surface border-b border-line px-[18px] py-[15px] shrink-0">
+            <span className="text-[14px] font-bold text-ink flex items-center gap-[9px]">{title || ''}</span>
             {!isMobile && (
                 <div className="drag-handle cursor-grab active:cursor-grabbing p-1 text-gray-400 hover:text-gray-600 rounded">
                     <GripVertical className="w-4 h-4" />
@@ -205,10 +205,15 @@ export default function InteractiveDashboard({
                 </div>
             )}
 
-            <div className="flex justify-between items-center mb-4 border-b border-gray-200 dark:border-gray-800 pb-4 gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Dashboard General</h1>
-                    <p className="text-sm text-gray-500 mt-1">Visión global de rendimiento interactiva y personalizable.</p>
+            <div className="flex justify-between items-center mb-4 border-b border-line pb-4 gap-4">
+                <div className="flex items-end gap-3 flex-wrap">
+                    <div className="text-[23px] font-extrabold text-ink tracking-tight flex items-center gap-[11px]">
+                        <span className="w-9 h-9 rounded-[10px] flex items-center justify-center bg-gradient-to-br from-brand-deep to-brand-bright text-white shadow-sm">
+                            <LayoutDashboard className="w-5 h-5" />
+                        </span>
+                        Dashboard General
+                    </div>
+                    <div className="text-[13px] text-ink-soft mt-1">Visión global de rendimiento interactiva y personalizable.</div>
                 </div>
                 <div className="flex items-center gap-2">
                     <button
@@ -243,12 +248,13 @@ export default function InteractiveDashboard({
                 margin={[16, 16]}
             >
                 <div key="summary-co2">
-                    <div className="h-full bg-emerald-50 border border-emerald-200 rounded-lg p-6 flex flex-col items-center justify-center shadow-sm relative">
-                        {!isMobile && <GripVertical className="drag-handle absolute top-2 right-2 w-5 h-5 text-emerald-300 cursor-grab active:cursor-grabbing hover:text-emerald-500" />}
-                        <span className="text-sm font-bold text-emerald-700 uppercase tracking-widest mb-2 flex items-center">
-                            <Leaf className="w-4 h-4 mr-2" /> Impacto Ambiental
+                    <div className="h-full bg-surface border border-line rounded-[14px] p-[15px_16px] flex flex-col shadow-[0_1px_2px_rgba(16,40,73,0.06),0_8px_24px_rgba(16,40,73,0.07)] relative overflow-hidden group">
+                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-brand-bright opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                        {!isMobile && <GripVertical className="drag-handle absolute top-2 right-2 w-4 h-4 text-line-strong cursor-grab active:cursor-grabbing hover:text-ink-soft" />}
+                        <span className="text-[10px] tracking-[0.6px] uppercase text-grey font-bold flex items-center">
+                            <Leaf className="w-3 h-3 mr-1 text-green" /> Impacto Ambiental
                         </span>
-                        <span className="text-5xl font-extrabold text-emerald-600">
+                        <span className="font-heading font-extrabold text-[24px] text-ink mt-[9px] tracking-tight">
                             {calculateCO2Savings(totalSavings)}
                         </span>
                         <span className="text-xs text-emerald-600 mt-2 font-medium">kg CO2 evitados</span>
@@ -256,10 +262,11 @@ export default function InteractiveDashboard({
                 </div>
 
                 <div key="summary-savings">
-                    <div className="h-full bg-green-50 border border-green-200 rounded-lg p-6 flex flex-col items-center justify-center shadow-sm relative">
-                        {!isMobile && <GripVertical className="drag-handle absolute top-2 right-2 w-5 h-5 text-green-300 cursor-grab active:cursor-grabbing hover:text-green-500" />}
-                        <span className="text-sm font-bold text-green-700 uppercase tracking-widest mb-2">Ahorro Potencial Total</span>
-                        <span className="text-5xl font-extrabold text-green-600">
+                    <div className="h-full bg-surface border border-line rounded-[14px] p-[15px_16px] flex flex-col shadow-[0_1px_2px_rgba(16,40,73,0.06),0_8px_24px_rgba(16,40,73,0.07)] relative overflow-hidden group">
+                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-brand-bright opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                        {!isMobile && <GripVertical className="drag-handle absolute top-2 right-2 w-4 h-4 text-line-strong cursor-grab active:cursor-grabbing hover:text-ink-soft" />}
+                        <span className="text-[10px] tracking-[0.6px] uppercase text-grey font-bold">Ahorro Potencial Total</span>
+                        <span className="font-heading font-extrabold text-[24px] text-green mt-[9px] tracking-tight">
                             {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(totalSavings)}
                         </span>
                         <span className="text-xs text-green-600 mt-2 font-medium">/mes proyectado</span>
