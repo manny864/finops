@@ -35,6 +35,22 @@ const translations = {
       "executive_report": "Executive Report",
       "audit_trail": "Audit Trail"
     },
+    "Dashboard": {
+      "title": "General Dashboard",
+      "subtitle": "Global vision of cloud performance and efficiency.",
+      "environmental_impact": "Environmental Impact",
+      "co2_avoided": "kg CO2 avoided",
+      "potential_savings": "Total Potential Savings",
+      "monthly_projected": "/month projected",
+      "governance_state": "Governance State",
+      "financial_security_score": "Financial Security Score",
+      "unconfigured": "Not Configured",
+      "calculating": "Calculating...",
+      "configure_policies": "Configure Policies",
+      "drag_hint": "Drag and drop cards to reorder them",
+      "no_rules": "Add rules in Tag Management.",
+      "based_on_rules": "Based on active tag rules."
+    },
     "Common": {
       "save": "Save",
       "deploy": "Deploy",
@@ -264,6 +280,22 @@ const translations = {
       "executive_report": "Reporte Ejecutivo",
       "audit_trail": "Registro Auditoría"
     },
+    "Dashboard": {
+      "title": "Dashboard General",
+      "subtitle": "Visión global de rendimiento y eficiencia en la nube.",
+      "environmental_impact": "Impacto Ambiental",
+      "co2_avoided": "kg CO2 evitados",
+      "potential_savings": "Ahorro Potencial Total",
+      "monthly_projected": "/mes proyectado",
+      "governance_state": "Estado de Gobernanza",
+      "financial_security_score": "Score de Seguridad Financiera",
+      "unconfigured": "No Configurado",
+      "calculating": "Calculando...",
+      "configure_policies": "Configurar Políticas",
+      "drag_hint": "Arrastra las tarjetas para reordenarlas a tu gusto",
+      "no_rules": "Añade reglas en Gestión de Etiquetas.",
+      "based_on_rules": "Basado en las reglas de etiquetado activas."
+    },
     "Common": {
       "save": "Guardar",
       "deploy": "Desplegar",
@@ -492,6 +524,22 @@ const translations = {
       "configuration": "Configuração",
       "executive_report": "Relatório Executivo",
       "audit_trail": "Registro de Auditoria"
+    },
+    "Dashboard": {
+      "title": "Dashboard Geral",
+      "subtitle": "Visão global de desempenho e eficiência na nuvem.",
+      "environmental_impact": "Impacto Ambiental",
+      "co2_avoided": "kg CO2 evitados",
+      "potential_savings": "Economia Potencial Total",
+      "monthly_projected": "/mês projetado",
+      "governance_state": "Estado de Governança",
+      "financial_security_score": "Score de Segurança Financeira",
+      "unconfigured": "Não Configurado",
+      "calculating": "Calculando...",
+      "configure_policies": "Configurar Políticas",
+      "drag_hint": "Arraste e solte os cartões para reordená-los",
+      "no_rules": "Adicione regras no Gerenciamento de Tags.",
+      "based_on_rules": "Baseado nas regras de tags ativas."
     },
     "Common": {
       "save": "Salvar",

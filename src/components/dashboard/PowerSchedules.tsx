@@ -199,15 +199,15 @@ export default function PowerSchedules() {
     if (accounts.length === 0 || selectedTenant.id === 'default') return null;
 
     return (
-        <div className="card mt-6">
-            <div className="card-h">
+        <div className="card h-full flex flex-col overflow-hidden">
+            <div className="card-h shrink-0">
                 <div className="flex flex-col">
                     <h3 className="m-0">Control de Máquinas Virtuales</h3>
                     <p className="text-[13px] text-ink-soft m-0 mt-1 font-normal">Controla el encendido y apagado de las VMs de Desarrollo y Pruebas.</p>
                 </div>
             </div>
             
-            <div className="p-[18px]">
+            <div className="p-[18px] flex-1 overflow-y-auto custom-scrollbar">
                 <div className="bg-surface-2 p-[18px] rounded-[10px] border border-line mb-6 flex flex-col md:flex-row items-end gap-4">
                     <div className="w-full md:w-1/3">
                         <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px] block mb-2">Nombre de la Máquina</label>
