@@ -3,7 +3,7 @@ import React, { useState, createContext } from 'react';
 import AuthProvider, { AuthButton } from "./AuthProvider";
 import { TenantProvider, useTenant } from './TenantProvider';
 import { SubscriptionProvider } from './SubscriptionProvider';
-import SubscriptionSelector from './SubscriptionSelector';
+import ScopeSelector from './ScopeSelector';
 import { ViewModeProvider, useViewMode } from '../context/ViewModeContext';
 import { LayoutTemplate, Code2, Bell } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -132,18 +132,15 @@ function ShellContent({ children }: { children: React.ReactNode }) {
 
   return (
     <TabContext.Provider value={{ activeTab, setActiveTab }}>
-    <div className="min-h-screen bg-background flex text-foreground">
-      {/* Sidebar */}
-      {/* Mobile Overlay */}
+    <div className="flex h-screen bg-background text-foreground overflow-hidden relative">
+      {/* Mobile Scrim */}
       {sidebarOpen && (
         <div 
-          className="fixed inset-0 bg-gray-900/50 z-40 md:hidden"
+          className="fixed inset-0 bg-black/50 z-40 md:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
-      <div className={`fixed inset-y-0 left-0 z-50 transform md:relative md:translate-x-0 transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <Sidebar sidebarOpen={sidebarOpen} />
-      </div>
+      <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
@@ -169,36 +166,8 @@ function ShellContent({ children }: { children: React.ReactNode }) {
                     )}
                 </button>
                 
-                <div className="hidden md:flex items-center border border-line-strong rounded-lg px-2 py-1 bg-surface shadow-sm relative">
-              {isAdmin ? (
-                <div className="flex flex-col px-2">
-                  <label htmlFor="tenant-select" className="text-[10px] tracking-[1px] uppercase text-grey font-bold mb-1">
-                    {tc('tenant_admin')}
-                  </label>
-                  <select
-                    id="tenant-select"
-                    value={selectedTenant.id}
-                    onChange={(e) => {
-                      const found = tenants.find(t => t.id === e.target.value);
-                      if (found) setSelectedTenant(found);
-                    }}
-                    className="border-0 bg-transparent font-heading font-bold text-[13px] text-brand-deep cursor-pointer focus:outline-none p-0 m-0"
-                  >
-                    {tenants.map(t => (
-                      <option key={t.id} value={t.id} className="text-ink bg-surface">{t.name}</option>
-                    ))}
-                  </select>
-                </div>
-              ) : (
-                <div className="flex flex-col px-2 cursor-not-allowed">
-                  <span className="text-[10px] tracking-[1px] uppercase text-grey font-bold mb-1">{tc('my_environment')}</span>
-                  <span className="font-heading font-bold text-[13px] text-brand-deep">{selectedTenant.name}</span>
-                </div>
-              )}
-            </div>
-            
-            <div className="hidden md:flex items-center border border-line-strong rounded-lg px-2 py-1 bg-surface shadow-sm relative">
-              <SubscriptionSelector />
+            <div className="hidden sm:flex items-center space-x-4">
+                <ScopeSelector />
             </div>
             
             {/* View Toggle */}

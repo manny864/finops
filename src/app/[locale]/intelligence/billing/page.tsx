@@ -1,203 +1,185 @@
 "use client";
-import React, { useEffect, useState } from "react";
-import { useTenant } from "@/components/TenantProvider";
-import { 
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
-  LineChart, Line, CartesianGrid
-} from 'recharts';
-import { PieChart, DollarSign, Activity } from "lucide-react";
-
+import { useContext, useEffect, useState } from 'react';
+import { TabContext } from '@/components/ClientShell';
 import { useMsal } from '@azure/msal-react';
-import { useTranslations } from 'next-intl';
-import { toast } from 'sonner';
+import { useTenant } from '@/components/TenantProvider';
+import ZombieResourcesTable from "@/components/ZombieResourcesTable";
+import TagManager from "@/components/TagManager";
+import CostPieChart from "@/components/CostPieChart";
+import AdvisorPanel from "@/components/AdvisorPanel";
+import PowerSchedules from "@/components/dashboard/PowerSchedules";
+import BudgetBurnChart from "@/components/dashboard/BudgetBurnChart";
+import RightsizingBlade from "@/components/dashboard/RightsizingBlade";
+import ExpiredSandboxTable from "@/components/dashboard/ExpiredSandboxTable";
+import { useActionLogStore } from "@/store/actionLogStore";
+import { useDashboardStore } from "@/store/dashboardStore";
+import InteractiveDashboard from "@/components/dashboard/InteractiveDashboard";
 
-export default function BillingPage() {
-  const { selectedTenant } = useTenant();
+export default function Home() {
+  const { activeTab, setActiveTab } = useContext(TabContext);
   const { instance, accounts } = useMsal();
-  const t = useTranslations();
-  const tb = useTranslations('Billing');
-  const [data, setData] = useState<{costByService: any[], dailyTrend: any[], totalCost: number} | null>(null);
+  const { selectedTenant } = useTenant();
+  
+  const { dashboardData, complianceScore, lastFetchedTenantId, anomaliesChecked, setDashboardState, setAnomaliesChecked } = useDashboardStore();
+  const totalSavings = dashboardData.reduce((sum, item) => sum + (item.potentialSavings || 0), 0);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [untaggedPercentage, setUntaggedPercentage] = useState<number>(0);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const { addAction } = useActionLogStore();
+
+  const calculateCO2Savings = (wastedUsd: number) => {
+      // Proxy: $100 waste removed = 15 kg CO2 saved
+      return ((wastedUsd / 100) * 15).toFixed(1);
+  };
 
   useEffect(() => {
-    if (!selectedTenant || selectedTenant.id === 'default' || accounts.length === 0) return;
+      if (activeTab !== 'dashboard' || accounts.length === 0 || selectedTenant.id === 'default') return;
+      if (lastFetchedTenantId === selectedTenant.id && dashboardData.length > 0) return; // Prevent unnecessary refetches
+      
+      const fetchData = async () => {
+          setLoading(true);
+          try {
+              const tokenResponse = await instance.acquireTokenSilent({
+                  scopes: ["User.Read"],
+                  account: accounts[0]
+              });
+              const res = await fetch(`/api/audit/full?tenantId=${selectedTenant.id}`, {
+                  headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
+              });
+              const json = await res.json();
+              let mappedData: any[] = [];
+              if (json.auditResults) {
+                  const resourceConfig: any = {
+                      unattachedDisks: { type: "Disk", savings: 15.0, issueType: "cost" },
+                      unusedIps: { type: "Public IP", savings: 3.5, issueType: "cost" },
+                      staleSnapshots: { type: "Snapshot", savings: 5.0, issueType: "cost" },
+                      emptyAppServicePlans: { type: "App Service Plan", savings: 45.0, issueType: "cost" },
+                      elasticPools: { type: "SQL Elastic Pool", savings: 250.0, issueType: "cost" },
+                      loadBalancers: { type: "Load Balancer", savings: 18.0, issueType: "cost" },
+                      frontDoorWaf: { type: "Front Door WAF", savings: 5.0, issueType: "cost" },
+                      trafficManager: { type: "Traffic Manager", savings: 3.0, issueType: "cost" },
+                      appGateways: { type: "App Gateway", savings: 180.0, issueType: "cost" },
+                      natGateways: { type: "NAT Gateway", savings: 32.0, issueType: "cost" },
+                      privateEndpoints: { type: "Private Endpoint", savings: 7.0, issueType: "cost" },
+                      vnetGateways: { type: "VNet Gateway", savings: 130.0, issueType: "cost" },
+                      ddos: { type: "DDoS Plan", savings: 2944.0, issueType: "cost" }
+                  };
+                  for (const [key, config] of Object.entries(resourceConfig)) {
+                      const items = json.auditResults[key] || [];
+                      mappedData.push(...items.map((r: any) => ({
+                          ...r,
+                          type: (config as any).type,
+                          issueType: (config as any).issueType,
+                          potentialSavings: r.estimatedMonthlyCost || (r.diskSizeGB ? r.diskSizeGB * 0.15 : (r.sizeGB ? r.sizeGB * 0.05 : (config as any).savings))
+                      })));
+                  }
+                  // Calculate Compliance Score
+                  const polRes = await fetch(`/api/tags?tenantId=${selectedTenant.id}`);
+                  const polJson = await polRes.json();
+                  const policies = polJson.policies || [];
 
-    const fetchBilling = async () => {
-      setLoading(true);
-      setError("");
-      try {
-        const tokenResponse = await instance.acquireTokenSilent({
-            scopes: ["User.Read"],
-            account: accounts[0]
-        });
-        
-        const subRes = await fetch(`/api/subscriptions?tenantId=${selectedTenant.id}`, {
-            headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
-        });
-        const subJson = await subRes.json();
-        
-        if (subJson.error === "MISSING_ADMIN_CONSENT") {
-            setError("MISSING_ADMIN_CONSENT");
-            setLoading(false);
-            return;
-        }
+                  let finalComplianceScore = -1;
+                  let untaggedCostCenterPct = 0;
+                  
+                  const allItems = Object.values(json.auditResults).flat();
+                  if (allItems.length > 0) {
+                      let missingCostCenterCount = 0;
+                      allItems.forEach((item: any) => {
+                          const itemTags = item.tags || {};
+                          const itemTagKeys = Object.keys(itemTags).map(k => k.toLowerCase());
+                          if (!itemTagKeys.includes('costcenter')) {
+                              missingCostCenterCount++;
+                          }
+                      });
+                      untaggedCostCenterPct = Math.round((missingCostCenterCount / allItems.length) * 100);
+                  }
 
-        if (!subJson.subscriptions || subJson.subscriptions.length === 0) {
-            setError("No subscriptions found.");
-            setLoading(false);
-            return;
-        }
-        
-        const subId = subJson.subscriptions[0].id;
-        const subTenantId = subJson.subscriptions[0].tenantId || selectedTenant.id;
+                  if (policies.length > 0) {
+                      const requiredKeys = policies.filter((p:any) => p.required).map((p:any) => p.tag_key.toLowerCase());
+                      let compliantCount = 0;
+                      allItems.forEach((item: any) => {
+                          const itemTags = item.tags || {};
+                          const itemTagKeys = Object.keys(itemTags).map(k => k.toLowerCase());
+                          const missingTags = requiredKeys.filter((reqKey:any) => !itemTagKeys.includes(reqKey));
+                          if (missingTags.length === 0) compliantCount++;
+                      });
+                      finalComplianceScore = Math.round((compliantCount / allItems.length) * 100);
+                  }
 
-        const res = await fetch('/api/intelligence/billing', {
-            headers: {
-                'x-tenant-id': subTenantId,
-                'x-subscription-id': subId
-            }
-        });
-        const json = await res.json();
-        if (json.success) {
-            setData(json.data);
-        } else {
-            const errCode = json.error || "ERR_INTERNAL_SERVER";
-            setError(errCode);
-            toast.error(t(errCode));
-        }
-      } catch(e) {
-          setError("ERR_INTERNAL_SERVER");
-          toast.error(t("ERR_INTERNAL_SERVER"));
-      }
-      setLoading(false);
-    };
+                  setUntaggedPercentage(untaggedCostCenterPct);
+                  // Guardar en estado global
+                  setDashboardState(selectedTenant.id, mappedData, finalComplianceScore);
+              }
 
-    fetchBilling();
-  }, [selectedTenant, accounts, instance]);
+              // Check for anomalies solo si no hemos revisado para este tenant
+              if (!anomaliesChecked) {
+                  const subToUse = json.subscriptionId || (mappedData.length > 0 ? mappedData[0].subscriptionId : 'default');
+                  const anomalyRes = await fetch(`/api/intelligence/anomalies?tenantId=${selectedTenant.id}&subscriptionId=${subToUse}`);
+                  if (anomalyRes.ok) {
+                      const anomalyJson = await anomalyRes.json();
+                      if (anomalyJson.isAnomaly) {
+                          addAction({
+                              message: `Pico inusual de costos detectado (${anomalyJson.percentageIncrease.toFixed(1)}%). Revisa el grupo de recursos: ${anomalyJson.affectedResourceGroup}`,
+                              status: 'error'
+                          });
+                      }
+                      setAnomaliesChecked(true);
+                  }
+              }
 
-  if (selectedTenant.id === 'default') return null;
+          } catch (e) {}
+          setLoading(false);
+      };
+      fetchData();
+  }, [activeTab, selectedTenant, accounts, instance]);
+
+  if (activeTab === 'audit') {
+      return (
+          <div className="animate-in fade-in duration-300">
+              <div className="mb-6">
+                  <h2 className="text-2xl font-bold text-gray-900">Auditoría Completa FinOps</h2>
+                  <p className="text-sm text-gray-500 mt-1">Motor Omni-Scan: Detección y Remediación de 25 tipos de recursos huérfanos.</p>
+              </div>
+              <ZombieResourcesTable />
+          </div>
+      );
+  }
+
+  
+  if (activeTab === 'advisor') {
+      return (
+          <div className="animate-in fade-in duration-300">
+              <AdvisorPanel />
+          </div>
+      );
+  }
+  if (activeTab === 'tags') {
+      return <TagManager />;
+  }
+
+  if (activeTab === 'powerbi' || activeTab === 'config') {
+      return (
+          <div className="flex flex-col items-center justify-center h-96 bg-white rounded-lg border border-gray-200 shadow-sm animate-in fade-in">
+              <span className="text-6xl mb-4">🚧</span>
+              <h2 className="text-xl font-bold text-gray-700">Módulo en Construcción</h2>
+              <p className="text-sm text-gray-500 mt-2">La sección de {activeTab === 'powerbi' ? 'Reportes Power BI' : 'Configuración'} estará disponible en la próxima fase.</p>
+          </div>
+      );
+  }
 
   return (
-    <div className="content animate-in fade-in duration-500">
-      <div className="vhead">
-        <div>
-          <div className="vt">
-             <span className="vico bg-gradient-to-br from-[#0054A6] to-[#00AEEF]">💰</span>
-             {tb('title')}
-          </div>
-          <div className="vs">{tb('subtitle')}</div>
-        </div>
-      </div>
-
-      {error === "MISSING_ADMIN_CONSENT" && (
-        <div className="card">
-            <div className="card-h">
-                <h3 className="text-amber">⚠️ {tb('missing_consent')}</h3>
-            </div>
-            <div className="p-[18px]">
-                <div className="text-sm text-ink-soft">
-                    <p>{tb('missing_consent_desc')}</p>
-                    <div className="mt-4 p-3 bg-surface-2 rounded border border-line font-mono text-sm text-ink break-all select-all">
-                        az ad sp create --id 876d8a5b-6023-4484-b3ba-73c186e4a72b
-                    </div>
-                </div>
-            </div>
-        </div>
-      )}
-
-      {error && error !== "MISSING_ADMIN_CONSENT" && (
-        <div className="card">
-            <div className="card-h">
-                <h3 className="text-danger">⚠️ {tb('permissions_title')}</h3>
-            </div>
-            <div className="p-[18px]">
-                <div className="text-sm text-ink-soft">
-                    <p>{tb('permissions_desc')}</p>
-                    <ul className="list-disc pl-5 mt-2 space-y-1 text-ink">
-                        <li>{tb('permissions_reason1')}</li>
-                        <li>{tb('permissions_reason2')}</li>
-                    </ul>
-                    <div className="mt-4 p-3 bg-danger-soft rounded border border-line font-mono text-xs text-danger break-all">
-                        <strong>{t('Common.log_label')}</strong> {error}
-                    </div>
-                </div>
-            </div>
-        </div>
-      )}
-
-      {loading && !data && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-pulse">
-            <div className="bg-surface-2 h-32 rounded-xl"></div>
-            <div className="bg-surface-2 h-32 rounded-xl md:col-span-2"></div>
-            <div className="bg-surface-2 h-80 rounded-xl md:col-span-3"></div>
-        </div>
-      )}
-
-      {!loading && data && (
-        <div className="space-y-6">
-            
-            {/* KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="kpi">
-                    <div className="lab">{tb('amortized_cost')}</div>
-                    <div className="val">${data.totalCost.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
-                </div>
-
-                <div className="card md:col-span-2">
-                    <div className="card-h">
-                        <h3><Activity className="w-4 h-4 mr-2 inline" />{tb('daily_trend')}</h3>
-                    </div>
-                    <div className="chart-wrap h-24">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={data.dailyTrend}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--line)" />
-                                <Tooltip 
-                                    formatter={(v: any) => [`$${v} USD`, tb('cost_label')]}
-                                    labelStyle={{ color: 'var(--ink)', fontWeight: 'bold' }}
-                                    contentStyle={{ borderRadius: '8px', border: '1px solid var(--line)', boxShadow: 'var(--shadow)', background: 'var(--surface)' }}
-                                />
-                                <Line type="monotone" dataKey="cost" stroke="#0054A6" strokeWidth={3} dot={{r:3}} activeDot={{r: 6}} />
-                            </LineChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-            </div>
-
-            {/* Bar Chart by Service */}
-            <div className="card">
-                <div className="card-h">
-                    <h3>{tb('cost_breakdown')}</h3>
-                </div>
-                <div className="chart-wrap h-96">
-                    {data.costByService.length > 0 ? (
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={data.costByService} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                                <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="var(--line)" />
-                                <XAxis type="number" tickFormatter={(v) => `$${v}`} />
-                                <YAxis dataKey="name" type="category" width={150} tick={{fontSize: 12, fill: 'var(--ink-soft)'}} />
-                                <Tooltip 
-                                    cursor={{fill: 'var(--surface-2)'}}
-                                    formatter={(v: any) => [`$${v} USD`, tb('cost_label')]}
-                                    contentStyle={{ borderRadius: '8px', border: '1px solid var(--line)', boxShadow: 'var(--shadow)', background: 'var(--surface)' }}
-                                />
-                                <Bar dataKey="cost" radius={[0, 4, 4, 0]}>
-                                    {data.costByService.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={index === 0 ? '#EF4444' : index === 1 ? '#F59E0B' : '#0054A6'} />
-                                    ))}
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
-                    ) : (
-                        <div className="empty">
-                            <p>{tb('no_costs')}</p>
-                        </div>
-                    )}
-                </div>
-            </div>
-
-        </div>
-      )}
+    <div className="animate-in fade-in duration-500">
+        <InteractiveDashboard
+            totalSavings={totalSavings}
+            calculateCO2Savings={calculateCO2Savings}
+            loading={loading}
+            dashboardData={dashboardData}
+            selectedCategory={selectedCategory}
+            setSelectedCategory={setSelectedCategory}
+            complianceScore={complianceScore}
+            setActiveTab={setActiveTab}
+            untaggedPercentage={untaggedPercentage}
+        />
     </div>
   );
 }

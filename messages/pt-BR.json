@@ -57,6 +57,7 @@
     "subscription": "Assinatura",
     "all_tenant_scope": "Todas (Tenant Scope)",
     "tenant_admin": "Tenant (Admin Proprietário)",
+    "scope": "Alcance",
     "my_environment": "Meu Ambiente (Cliente)",
     "ai_config": "Configuração de IA"
   },

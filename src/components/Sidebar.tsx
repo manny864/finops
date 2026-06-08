@@ -29,9 +29,10 @@ import {
 
 interface SidebarProps {
     sidebarOpen: boolean;
+    setSidebarOpen: (open: boolean) => void;
 }
 
-export default function Sidebar({ sidebarOpen }: SidebarProps) {
+export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
     const pathname = usePathname();
     const t = useTranslations('Navigation');
     const { accounts } = useMsal();
@@ -107,7 +108,7 @@ export default function Sidebar({ sidebarOpen }: SidebarProps) {
     }
 
     return (
-        <aside className={`${sidebarOpen ? 'w-[252px]' : 'w-[64px]'} bg-gradient-to-b from-nav-bg to-nav-bg2 text-[#A9BBD0] border-r border-[#0a1726] transition-all duration-300 flex flex-col h-full custom-scrollbar`}>
+        <aside className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 fixed inset-y-0 left-0 z-50 md:relative ${sidebarOpen ? 'w-[252px]' : 'w-[64px]'} bg-gradient-to-b from-nav-bg to-nav-bg2 text-[#A9BBD0] border-r border-[#0a1726] transition-all duration-300 flex flex-col h-full custom-scrollbar`}>
             <div className="flex items-center gap-3 p-[18px_18px_14px] shrink-0">
                 <div className="flex items-center justify-center overflow-hidden w-full">
                     {sidebarOpen ? (
@@ -154,6 +155,11 @@ export default function Sidebar({ sidebarOpen }: SidebarProps) {
                                             key={item.href} 
                                             href={item.href}
                                             title={sidebarOpen ? undefined : item.label}
+                                            onClick={() => {
+                                                if (window.innerWidth <= 768) {
+                                                    setSidebarOpen(false);
+                                                }
+                                            }}
                                             className={`w-full flex items-center px-[11px] py-[9px] rounded-[10px] font-semibold transition-all duration-200 text-[13.5px] mb-1 ${
                                                 isActive 
                                                     ? 'bg-gradient-to-br from-brand-deep to-[#1E88E5] text-white shadow-[0_6px_16px_rgba(0,84,166,0.4)]' 
@@ -161,7 +167,7 @@ export default function Sidebar({ sidebarOpen }: SidebarProps) {
                                             }`}
                                         >
                                             <Icon className={`flex-shrink-0 ${sidebarOpen ? 'w-5 h-5 mr-3' : 'w-6 h-6 mx-auto'}`} />
-                                            {sidebarOpen && <span className="text-sm truncate">{item.label}</span>}
+                                            {sidebarOpen && <span className="text-sm truncate md:block">{item.label}</span>}
                                         </Link>
                                     );
                                 })}
