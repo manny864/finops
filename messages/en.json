@@ -75,7 +75,9 @@
     "tenant_admin": "Tenant (Admin Owner)",
     "scope": "Scope",
     "my_environment": "My Environment (Client)",
-    "ai_config": "AI Configuration"
+    "ai_config": "AI Configuration",
+    "prev": "Previous",
+    "next": "Next"
   },
   "Shell": {
     "cloudFinOps": "Cloud FinOps"

@@ -79,7 +79,9 @@ const translations = {
       "tenant_admin": "Tenant (Admin Owner)",
             "scope": "Scope",
       "my_environment": "My Environment (Client)",
-      "ai_config": "AI Configuration"
+      "ai_config": "AI Configuration",
+      "prev": "Previous",
+      "next": "Next"
     },
     "Shell": {
       "cloudFinOps": "Cloud FinOps"
@@ -324,7 +326,9 @@ const translations = {
       "tenant_admin": "Tenant (Admin Propietario)",
             "scope": "Alcance",
       "my_environment": "Mi Entorno (Cliente)",
-      "ai_config": "Configuración de IA"
+      "ai_config": "Configuración de IA",
+      "prev": "Anterior",
+      "next": "Siguiente"
     },
     "Shell": {
       "cloudFinOps": "Cloud FinOps"
@@ -569,7 +573,9 @@ const translations = {
       "tenant_admin": "Tenant (Admin Proprietário)",
             "scope": "Alcance",
       "my_environment": "Meu Ambiente (Cliente)",
-      "ai_config": "Configuração de IA"
+      "ai_config": "Configuração de IA",
+      "prev": "Anterior",
+      "next": "Seguinte"
     },
     "Shell": {
       "cloudFinOps": "Cloud FinOps"
