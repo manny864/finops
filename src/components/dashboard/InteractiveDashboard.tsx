@@ -1,65 +1,10 @@
 "use client";
-import React, { useState, useEffect } from 'react';
-// @ts-ignore
-import { Responsive, WidthProvider, Layout, ResponsiveLayouts as Layouts } from 'react-grid-layout/legacy';
-import 'react-grid-layout/css/styles.css';
-import 'react-resizable/css/styles.css';
-import { GripVertical, Leaf, RotateCcw, Cpu, X, Loader2, LayoutDashboard } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
-import { useTenant } from '@/components/TenantProvider';
-import { toast } from 'sonner';
-import CostPieChart from '../CostPieChart';
-import BudgetBurnChart from './BudgetBurnChart';
-import ZombieResourcesTable from '../ZombieResourcesTable';
-import CostForecastChart from './CostForecastChart';
-
-const ResponsiveGridLayout = WidthProvider(Responsive);
-
-const Wrapper = ({ children, title, id, isMobile }: { children: React.ReactNode, title?: string, id: string, isMobile: boolean }) => (
-    <div key={id} className="bg-surface border border-line rounded-[14px] shadow-[0_1px_2px_rgba(16,40,73,0.06),0_8px_24px_rgba(16,40,73,0.07)] flex flex-col h-full overflow-hidden">
-        <div className="flex justify-between items-center bg-surface border-b border-line px-[18px] py-[15px] shrink-0">
-            <span className="text-[14px] font-bold text-ink flex items-center gap-[9px]">{title || ''}</span>
-            {!isMobile && (
-                <div className="drag-handle cursor-grab active:cursor-grabbing p-1 text-gray-400 hover:text-gray-600 rounded">
-                    <GripVertical className="w-4 h-4" />
-                </div>
-            )}
-        </div>
-        <div className="p-4 flex-1 overflow-auto custom-scrollbar">
-            {children}
-        </div>
-    </div>
-);
-
-const DEFAULT_LAYOUTS: Layouts = {
-    lg: [
-        { i: 'summary-co2', x: 0, y: 0, w: 3, h: 4 },
-        { i: 'summary-savings', x: 3, y: 0, w: 3, h: 4 },
-        { i: 'governance', x: 6, y: 0, w: 3, h: 8 },
-        { i: 'cost-pie', x: 0, y: 4, w: 4, h: 10 },
-        { i: 'budget-burn', x: 4, y: 8, w: 4, h: 10 },
-        { i: 'forecast', x: 8, y: 8, w: 4, h: 10 },
-        { i: 'zombie-table', x: 0, y: 18, w: 12, h: 12 }
-    ],
-    md: [
-        { i: 'summary-co2', x: 0, y: 0, w: 5, h: 4 },
-        { i: 'summary-savings', x: 5, y: 0, w: 5, h: 4 },
-        { i: 'governance', x: 0, y: 4, w: 5, h: 8 },
-        { i: 'cost-pie', x: 5, y: 4, w: 5, h: 10 },
-        { i: 'budget-burn', x: 0, y: 12, w: 5, h: 10 },
-        { i: 'forecast', x: 5, y: 12, w: 5, h: 10 },
-        { i: 'zombie-table', x: 0, y: 22, w: 10, h: 12 }
-    ],
-    sm: [
-        { i: 'summary-co2', x: 0, y: 0, w: 6, h: 4 },
-        { i: 'summary-savings', x: 0, y: 4, w: 6, h: 4 },
-        { i: 'governance', x: 0, y: 8, w: 6, h: 8 },
-        { i: 'cost-pie', x: 0, y: 16, w: 6, h: 10 },
-        { i: 'budget-burn', x: 0, y: 26, w: 6, h: 10 },
-        { i: 'forecast', x: 0, y: 36, w: 6, h: 10 },
-        { i: 'zombie-table', x: 0, y: 46, w: 6, h: 12 }
-    ]
-};
+import React, { useState } from 'react';
+import { 
+    PieChart, MapPin, DollarSign, TrendingDown, CheckSquare, 
+    Calendar, Skull, Tag, BarChart3, Zap, Moon
+} from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell } from 'recharts';
 
 interface InteractiveDashboardProps {
     totalSavings: number;
@@ -75,255 +20,277 @@ interface InteractiveDashboardProps {
 
 export default function InteractiveDashboard({
     totalSavings,
-    calculateCO2Savings,
     loading,
-    dashboardData,
-    selectedCategory,
-    setSelectedCategory,
     complianceScore,
-    setActiveTab,
-    untaggedPercentage = 0
 }: InteractiveDashboardProps) {
-    const [layouts, setLayouts] = useState<Layouts>(DEFAULT_LAYOUTS);
-    const [mounted, setMounted] = useState(false);
-    const [currentBreakpoint, setCurrentBreakpoint] = useState('lg');
 
-    useEffect(() => {
-        setMounted(true);
-        const saved = localStorage.getItem('finops-dashboard-layout');
-        if (saved) {
-            try {
-                setLayouts(JSON.parse(saved));
-            } catch (e) {
-                console.error("Error parsing saved layout", e);
-            }
+    // Mock data for the charts to match the image
+    const evolutionData = [
+        { name: 'Ene', gasto: 52000 },
+        { name: 'Feb', gasto: 50000 },
+        { name: 'Mar', gasto: 51500 },
+        { name: 'Abr', gasto: 49000 },
+        { name: 'May', gasto: 49500 },
+        { name: 'Jun', gasto: 48200 },
+    ];
+
+    const pieData = [
+        { name: 'PROD-Core', value: 18250, color: '#1e3a8a' },
+        { name: 'PROD-Data', value: 14900, color: '#0ea5e9' },
+        { name: 'QA-Staging', value: 8600, color: '#3b82f6' },
+        { name: 'DEV-Sandbox', value: 6450, color: '#93c5fd' },
+    ];
+
+    const formatYAxis = (tickItem: any) => `$${(tickItem / 1000).toFixed(1)}k`;
+
+    const CustomDot = (props: any) => {
+        const { cx, cy, index } = props;
+        if (index === evolutionData.length - 1) {
+            return <circle cx={cx} cy={cy} r={6} stroke="#0ea5e9" strokeWidth={3} fill="#ffffff" />;
         }
-    }, []);
-
-    const onLayoutChange = (layout: Layout, allLayouts: Layouts) => {
-        setLayouts(allLayouts);
-        localStorage.setItem('finops-dashboard-layout', JSON.stringify(allLayouts));
-    };
-
-    const restoreDefault = () => {
-        setLayouts(DEFAULT_LAYOUTS);
-        localStorage.removeItem('finops-dashboard-layout');
-    };
-
-    const isMobile = currentBreakpoint === 'sm' || currentBreakpoint === 'xs' || currentBreakpoint === 'xxs';
-
-    const [reportModalOpen, setReportModalOpen] = useState(false);
-    const [generatingReport, setGeneratingReport] = useState(false);
-    const [aiReportText, setAiReportText] = useState('');
-    const { selectedTenant } = useTenant();
-
-    if (!mounted) return null; // Avoid hydration mismatch
-
-    const generateReport = async () => {
-        if (!selectedTenant || selectedTenant.id === 'default') {
-            toast.error("Seleccione un Tenant válido.");
-            return;
-        }
-        setGeneratingReport(true);
-        setReportModalOpen(true);
-        setAiReportText('');
-        
-        try {
-            const res = await fetch('/api/intelligence/ai-report', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    tenantId: selectedTenant.id,
-                    metricsData: {
-                        totalSavings,
-                        dashboardData,
-                        complianceScore
-                    }
-                })
-            });
-            const json = await res.json();
-            if (res.ok && json.report) {
-                setAiReportText(json.report);
-            } else {
-                setAiReportText("Error al generar el reporte: " + (json.error || "Desconocido"));
-                toast.error("Error al generar reporte");
-            }
-        } catch (e) {
-            setAiReportText("Error de red al generar el reporte.");
-            toast.error("Error de red");
-        }
-        setGeneratingReport(false);
+        return null;
     };
 
     return (
-        <div>
-            {/* AI Report Modal */}
-            {reportModalOpen && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
-                        <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-slate-800 bg-indigo-50 dark:bg-indigo-900/20">
-                            <h2 className="text-xl font-bold text-indigo-900 dark:text-indigo-100 flex items-center">
-                                <Cpu className="w-5 h-5 mr-2" /> Reporte Ejecutivo Generado por IA
-                            </h2>
-                            <button onClick={() => setReportModalOpen(false)} className="text-gray-500 hover:text-gray-700">
-                                <X className="w-6 h-6" />
-                            </button>
+        <div className="max-w-[1400px] mx-auto animate-in fade-in duration-500 bg-slate-50 p-6 rounded-2xl">
+            {/* Header */}
+            <div className="flex justify-between items-start mb-6">
+                <div>
+                    <div className="flex items-center">
+                        <div className="bg-blue-600 rounded-lg p-2 mr-3 text-white shadow-sm">
+                            <PieChart className="w-6 h-6 fill-white/20" />
                         </div>
-                        <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
-                            {generatingReport ? (
-                                <div className="flex flex-col items-center justify-center h-64 space-y-4">
-                                    <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
-                                    <p className="text-indigo-600 font-medium">Analizando métricas con IA...</p>
-                                </div>
-                            ) : (
-                                <div className="prose dark:prose-invert max-w-none text-sm">
-                                    <ReactMarkdown>{aiReportText}</ReactMarkdown>
-                                </div>
-                            )}
-                        </div>
+                        <h1 className="text-2xl font-bold text-slate-800">Consumo Real</h1>
                     </div>
+                    <p className="text-sm text-slate-500 mt-1 ml-14">Gasto real del tenant y oportunidades activas, en vivo.</p>
                 </div>
-            )}
-
-            {untaggedPercentage > 5 && (
-                <div className="mb-6 p-4 bg-orange-50 dark:bg-orange-900/20 border-l-4 border-orange-500 rounded-r-md shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in slide-in-from-top-2">
-                    <div className="flex items-start sm:items-center gap-3">
-                        <div className="p-2 bg-orange-100 dark:bg-orange-800/50 rounded-full">
-                            <span className="text-orange-600 dark:text-orange-400 text-xl leading-none">⚠️</span>
-                        </div>
-                        <div>
-                            <h3 className="text-orange-800 dark:text-orange-300 font-bold text-sm">Alerta de Integridad de Datos</h3>
-                            <p className="text-orange-700 dark:text-orange-400 text-xs mt-1">El {untaggedPercentage}% de los recursos auditados no tienen la etiqueta obligatoria "CostCenter".</p>
-                        </div>
-                    </div>
-                    <button 
-                        onClick={() => setActiveTab('tags')}
-                        className="whitespace-nowrap px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold rounded-md shadow-sm transition-colors"
-                    >
-                        Corregir Cobertura
-                    </button>
-                </div>
-            )}
-
-            <div className="flex justify-between items-center mb-4 border-b border-line pb-4 gap-4">
-                <div className="flex items-end gap-3 flex-wrap">
-                    <div className="text-[23px] font-extrabold text-ink tracking-tight flex items-center gap-[11px]">
-                        <span className="w-9 h-9 rounded-[10px] flex items-center justify-center bg-gradient-to-br from-brand-deep to-brand-bright text-white shadow-sm">
-                            <LayoutDashboard className="w-5 h-5" />
-                        </span>
-                        Dashboard General
-                    </div>
-                    <div className="text-[13px] text-ink-soft mt-1">Visión global de rendimiento interactiva y personalizable.</div>
-                </div>
-                <div className="flex items-center gap-2">
-                    <button
-                        onClick={generateReport}
-                        disabled={generatingReport}
-                        className="flex items-center text-sm px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md shadow-sm transition-colors"
-                    >
-                        <Cpu className="w-4 h-4 mr-2" />
-                        Generar Reporte IA
-                    </button>
-                    <button
-                        onClick={restoreDefault}
-                        className="flex items-center text-sm px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors"
-                    >
-                        <RotateCcw className="w-4 h-4 mr-2" />
-                        Restaurar Diseño
-                    </button>
+                <div className="bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full text-xs font-semibold flex items-center shadow-sm">
+                    <MapPin className="w-3 h-3 mr-1 text-red-500 fill-red-500" />
+                    Tenant completo
                 </div>
             </div>
 
-            <ResponsiveGridLayout
-                className="layout"
-                layouts={layouts}
-                breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
-                cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
-                rowHeight={40}
-                onLayoutChange={onLayoutChange}
-                onBreakpointChange={setCurrentBreakpoint}
-                isDraggable={!isMobile}
-                isResizable={!isMobile}
-                draggableHandle=".drag-handle"
-                margin={[16, 16]}
-            >
-                <div key="summary-co2">
-                    <div className="h-full bg-surface border border-line rounded-[14px] p-[15px_16px] flex flex-col shadow-[0_1px_2px_rgba(16,40,73,0.06),0_8px_24px_rgba(16,40,73,0.07)] relative overflow-hidden group">
-                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-brand-bright opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                        {!isMobile && <GripVertical className="drag-handle absolute top-2 right-2 w-4 h-4 text-line-strong cursor-grab active:cursor-grabbing hover:text-ink-soft" />}
-                        <span className="text-[10px] tracking-[0.6px] uppercase text-grey font-bold flex items-center">
-                            <Leaf className="w-3 h-3 mr-1 text-green" /> Impacto Ambiental
-                        </span>
-                        <span className="font-heading font-extrabold text-[24px] text-ink mt-[9px] tracking-tight">
-                            {calculateCO2Savings(totalSavings)}
-                        </span>
-                        <span className="text-xs text-emerald-600 mt-2 font-medium">kg CO2 evitados</span>
+            {/* Top Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                    <div className="flex items-center text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                        <DollarSign className="w-3.5 h-3.5 mr-1 text-slate-400" />
+                        Gasto Mensual
                     </div>
+                    <div className="text-2xl font-extrabold text-slate-800">$48,200</div>
                 </div>
-
-                <div key="summary-savings">
-                    <div className="h-full bg-surface border border-line rounded-[14px] p-[15px_16px] flex flex-col shadow-[0_1px_2px_rgba(16,40,73,0.06),0_8px_24px_rgba(16,40,73,0.07)] relative overflow-hidden group">
-                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-brand-bright opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                        {!isMobile && <GripVertical className="drag-handle absolute top-2 right-2 w-4 h-4 text-line-strong cursor-grab active:cursor-grabbing hover:text-ink-soft" />}
-                        <span className="text-[10px] tracking-[0.6px] uppercase text-grey font-bold">Ahorro Potencial Total</span>
-                        <span className="font-heading font-extrabold text-[24px] text-green mt-[9px] tracking-tight">
-                            {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(totalSavings)}
-                        </span>
-                        <span className="text-xs text-green-600 mt-2 font-medium">/mes proyectado</span>
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                    <div className="flex items-center text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                        <TrendingDown className="w-3.5 h-3.5 mr-1 text-red-500" />
+                        Ahorro Identificado
                     </div>
+                    <div className="text-2xl font-extrabold text-slate-800">$9,698</div>
+                    <div className="text-[11px] text-slate-500 font-medium mt-1">pendiente de aplicar</div>
                 </div>
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                    <div className="flex items-center text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                        <CheckSquare className="w-3.5 h-3.5 mr-1 text-emerald-500 fill-emerald-500/20" />
+                        Ahorro Aplicado
+                    </div>
+                    <div className="text-2xl font-extrabold text-emerald-500">$0</div>
+                    <div className="text-[11px] text-slate-500 font-medium mt-1">0% capturado</div>
+                </div>
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                    <div className="flex items-center text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                        <Calendar className="w-3.5 h-3.5 mr-1 text-rose-400" />
+                        Proyección Anual
+                    </div>
+                    <div className="text-2xl font-extrabold text-slate-800">$578,400</div>
+                </div>
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                    <div className="flex items-center text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                        <Skull className="w-3.5 h-3.5 mr-1 text-slate-500" />
+                        Recursos Zombis
+                    </div>
+                    <div className="text-2xl font-extrabold text-slate-800">14</div>
+                    <div className="text-[11px] text-slate-500 font-medium mt-1">recursos inactivos</div>
+                </div>
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                    <div className="flex items-center text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                        <Tag className="w-3.5 h-3.5 mr-1 text-amber-500 fill-amber-500/20" />
+                        Compliance Etiquetas
+                    </div>
+                    <div className="text-2xl font-extrabold text-slate-800">68%</div>
+                </div>
+            </div>
 
-                <div key="governance">
-                    <Wrapper title="Estado de Gobernanza" id="governance" isMobile={isMobile}>
-                        <div className="h-full flex flex-col items-center justify-center text-gray-400 bg-gray-50 rounded-lg border border-dashed border-gray-300 p-4 text-center">
-                            <p className="text-sm font-medium">Score de Seguridad Financiera</p>
-                            <span className={`text-5xl font-bold mt-4 ${complianceScore === -1 ? 'text-gray-400' : 'text-green-500'}`}>
-                                {complianceScore === null ? '...' : complianceScore === -1 ? 'N/A' : `${complianceScore}%`}
-                            </span>
-                            <p className="text-xs text-gray-400 mt-4">
-                                {complianceScore === -1 ? 'Añade reglas en Gestión de Etiquetas.' : 'Basado en políticas activas.'}
-                            </p>
-                            {complianceScore === -1 && (
-                                <button 
-                                    onClick={() => setActiveTab('tags')} 
-                                    className="mt-4 w-full px-4 py-2 bg-[#0054A6] text-white text-xs font-semibold rounded shadow-sm hover:bg-blue-800 transition-colors"
-                                >
-                                    Configurar
-                                </button>
-                            )}
+            {/* Middle Charts */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                {/* Left Chart */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 lg:col-span-2">
+                    <div className="flex justify-between items-center mb-6">
+                        <div className="flex items-center text-sm font-bold text-slate-700">
+                            <BarChart3 className="w-4 h-4 mr-2 text-rose-800" />
+                            Evolución del gasto mensual
                         </div>
-                    </Wrapper>
+                        <div className="text-[11px] font-medium text-slate-400">
+                            Tenant completo · USD
+                        </div>
+                    </div>
+                    <div className="h-64 w-full relative">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={evolutionData} margin={{ top: 10, right: 20, left: -20, bottom: 0 }}>
+                                <defs>
+                                    <linearGradient id="colorBlue" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.15}/>
+                                        <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0}/>
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid vertical={false} stroke="#f1f5f9" />
+                                <XAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} tickMargin={10} />
+                                <YAxis tickFormatter={formatYAxis} tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} domain={[37000, 55000]} />
+                                <RechartsTooltip 
+                                    contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                    formatter={(value: any) => [`$${value}`, 'Gasto']}
+                                />
+                                <Area type="monotone" dataKey="gasto" stroke="#0ea5e9" strokeWidth={3} fillOpacity={1} fill="url(#colorBlue)" activeDot={{ r: 6, strokeWidth: 0 }} dot={<CustomDot />} />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                        {/* Dashed potential line */}
+                        <div className="absolute bottom-[35px] left-[55px] right-[25px] border-t-2 border-dashed border-slate-300"></div>
+                        <div className="absolute bottom-[40px] right-[25px] text-[10px] font-bold text-slate-400 bg-white px-1">Potencial $38.5k</div>
+                    </div>
+                    <div className="flex items-center gap-4 mt-4 text-[11px] font-bold text-slate-500 pl-4">
+                        <div className="flex items-center"><div className="w-3 h-3 rounded-sm bg-sky-500 mr-2"></div> Gasto real</div>
+                        <div className="flex items-center"><div className="w-3 h-3 rounded-sm bg-slate-400 mr-2"></div> Potencial alcanzable</div>
+                    </div>
                 </div>
 
-                <div key="cost-pie">
-                    <Wrapper title="Distribución de Fugas Financieras" id="cost-pie" isMobile={isMobile}>
-                        {loading ? (
-                             <div className="h-full flex items-center justify-center text-gray-400 animate-pulse">Calculando métricas...</div>
-                         ) : (
-                             <CostPieChart data={dashboardData} onSegmentClick={(cat: string | null) => setSelectedCategory(cat)} />
-                         )}
-                    </Wrapper>
+                {/* Right Chart */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <div className="flex items-center text-sm font-bold text-slate-700 mb-6">
+                        <PieChart className="w-4 h-4 mr-2 text-rose-800 fill-rose-800" />
+                        Gasto por suscripción
+                    </div>
+                    <div className="flex items-center justify-center h-64">
+                        <div className="w-1/2 h-full relative flex items-center justify-center">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <RechartsPieChart>
+                                    <Pie
+                                        data={pieData}
+                                        innerRadius={55}
+                                        outerRadius={80}
+                                        paddingAngle={2}
+                                        dataKey="value"
+                                        stroke="none"
+                                    >
+                                        {pieData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={entry.color} />
+                                        ))}
+                                    </Pie>
+                                    <RechartsTooltip formatter={(value: any) => `$${value}`} />
+                                </RechartsPieChart>
+                            </ResponsiveContainer>
+                            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-2">
+                                <span className="text-xl font-extrabold text-slate-800 tracking-tight">$48.2k</span>
+                                <span className="text-[9px] font-bold text-slate-400">gasto / mes</span>
+                            </div>
+                        </div>
+                        <div className="w-1/2 pl-2 flex flex-col justify-center gap-3">
+                            {pieData.map((item, i) => (
+                                <div key={i} className="flex items-center text-[10px] font-bold text-slate-600">
+                                    <div className="w-2.5 h-2.5 rounded-sm mr-2 shrink-0" style={{ backgroundColor: item.color }}></div>
+                                    <span className="truncate">{item.name} <span className="text-slate-400 font-medium">· ${item.value.toLocaleString()}</span></span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
                 </div>
+            </div>
 
-                <div key="budget-burn">
-                    <Wrapper title="Burn Rate (Presupuesto Vs Real)" id="budget-burn" isMobile={isMobile}>
-                        <BudgetBurnChart />
-                    </Wrapper>
+            {/* Bottom List */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-white">
+                    <div className="flex items-center text-sm font-bold text-slate-800">
+                        <Zap className="w-4 h-4 mr-2 text-amber-500 fill-amber-500" />
+                        Top oportunidades de ahorro
+                    </div>
+                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">acción rápida</div>
                 </div>
+                <div className="divide-y divide-gray-50">
+                    <div className="p-4 px-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                        <div className="flex items-center">
+                            <div className="bg-[#FFF4E5] p-2.5 rounded-lg mr-4">
+                                <Tag className="w-5 h-5 text-amber-700 fill-amber-700/20" />
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <h4 className="text-sm font-bold text-slate-800">Instancia Reservada 3 años</h4>
+                                    <span className="bg-blue-50 text-blue-600 text-[10px] font-bold px-2 py-0.5 rounded-full">12× VM</span>
+                                </div>
+                                <p className="text-[11px] text-slate-500 mt-1 font-medium">Optimización de Tarifas · <span className="text-slate-700 font-bold">PROD-Core</span></p>
+                            </div>
+                        </div>
+                        <div className="flex flex-col items-end">
+                            <div className="text-emerald-600 font-extrabold text-sm mb-2">$2,100 <span className="text-[10px] font-medium text-slate-400">/mes</span></div>
+                            <button className="bg-[#0088FF] hover:bg-blue-600 text-white text-[11px] font-bold px-5 py-1.5 rounded-full shadow-sm transition-colors">Aplicar</button>
+                        </div>
+                    </div>
 
-                <div key="forecast">
-                    <Wrapper title="Predicción a Fin de Mes" id="forecast" isMobile={isMobile}>
-                        <CostForecastChart />
-                    </Wrapper>
+                    <div className="p-4 px-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                        <div className="flex items-center">
+                            <div className="bg-[#FFF8E6] p-2.5 rounded-lg mr-4">
+                                <Moon className="w-5 h-5 text-amber-400 fill-amber-400" />
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <h4 className="text-sm font-bold text-slate-800">Power Schedule QA</h4>
+                                    <span className="bg-blue-50 text-blue-600 text-[10px] font-bold px-2 py-0.5 rounded-full">6 VMs</span>
+                                </div>
+                                <p className="text-[11px] text-slate-500 mt-1 font-medium">Horarios de Apagado · <span className="text-slate-700 font-bold">QA-Staging</span></p>
+                            </div>
+                        </div>
+                        <div className="flex flex-col items-end">
+                            <div className="text-emerald-600 font-extrabold text-sm mb-2">$1,850 <span className="text-[10px] font-medium text-slate-400">/mes</span></div>
+                            <button className="bg-[#0088FF] hover:bg-blue-600 text-white text-[11px] font-bold px-5 py-1.5 rounded-full shadow-sm transition-colors">Aplicar</button>
+                        </div>
+                    </div>
+
+                    <div className="p-4 px-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                        <div className="flex items-center">
+                            <div className="bg-[#FFF8E6] p-2.5 rounded-lg mr-4">
+                                <Moon className="w-5 h-5 text-amber-400 fill-amber-400" />
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <h4 className="text-sm font-bold text-slate-800">Power Schedule DEV</h4>
+                                    <span className="bg-blue-50 text-blue-600 text-[10px] font-bold px-2 py-0.5 rounded-full">8 VMs</span>
+                                </div>
+                                <p className="text-[11px] text-slate-500 mt-1 font-medium">Horarios de Apagado · <span className="text-slate-700 font-bold">DEV-Sandbox</span></p>
+                            </div>
+                        </div>
+                        <div className="flex flex-col items-end">
+                            <div className="text-emerald-600 font-extrabold text-sm mb-2">$1,620 <span className="text-[10px] font-medium text-slate-400">/mes</span></div>
+                            <button className="bg-[#0088FF] hover:bg-blue-600 text-white text-[11px] font-bold px-5 py-1.5 rounded-full shadow-sm transition-colors">Aplicar</button>
+                        </div>
+                    </div>
+
+                    <div className="p-4 px-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                        <div className="flex items-center">
+                            <div className="bg-[#FFF4E5] p-2.5 rounded-lg mr-4">
+                                <Tag className="w-5 h-5 text-amber-700 fill-amber-700/20" />
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <h4 className="text-sm font-bold text-slate-800">Savings Plan de cómputo</h4>
+                                    <span className="bg-blue-50 text-blue-600 text-[10px] font-bold px-2 py-0.5 rounded-full">SQL MI</span>
+                                </div>
+                                <p className="text-[11px] text-slate-500 mt-1 font-medium">Optimización de Tarifas · <span className="text-slate-700 font-bold">PROD-Data</span></p>
+                            </div>
+                        </div>
+                        <div className="flex flex-col items-end">
+                            <div className="text-emerald-600 font-extrabold text-sm mb-2">$1,450 <span className="text-[10px] font-medium text-slate-400">/mes</span></div>
+                            <button className="bg-[#0088FF] hover:bg-blue-600 text-white text-[11px] font-bold px-5 py-1.5 rounded-full shadow-sm transition-colors">Aplicar</button>
+                        </div>
+                    </div>
                 </div>
+            </div>
 
-                <div key="zombie-table">
-                    <Wrapper title="Detalle de Recursos Críticos" id="zombie-table" isMobile={isMobile}>
-                        <ZombieResourcesTable forceFilterType={selectedCategory || undefined} />
-                    </Wrapper>
-                </div>
-
-            </ResponsiveGridLayout>
         </div>
     );
 }

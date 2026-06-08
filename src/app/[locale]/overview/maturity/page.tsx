@@ -42,132 +42,224 @@ export default function MaturityPage() {
         fetchMaturity();
     }, [selectedTenant.id, accounts, instance]);
 
-    const getPhaseInfo = (score: number) => {
-        if (score < 40) return { label: 'Crawl', color: 'text-red-500', bg: 'bg-red-100 dark:bg-red-900/30 border-red-200 dark:border-red-800' };
-        if (score <= 75) return { label: 'Walk', color: 'text-amber-500', bg: 'bg-amber-100 dark:bg-amber-900/30 border-amber-200 dark:border-amber-800' };
-        return { label: 'Run', color: 'text-green-500', bg: 'bg-green-100 dark:bg-green-900/30 border-green-200 dark:border-green-800' };
-    };
+  const getLevel = (score: number) => {
+      if (score < 40) return 1;
+      if (score <= 75) return 2;
+      return 3;
+  };
 
-    if (selectedTenant.id === 'default') {
-        return (
-            <div className="flex flex-col items-center justify-center h-96 bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-slate-800 shadow-sm">
-                <span className="text-4xl mb-4">🔐</span>
-                <h2 className="text-xl font-bold text-gray-700 dark:text-gray-300">Selecciona un Tenant</h2>
-                <p className="text-sm text-gray-500 mt-2">Debes seleccionar una organización para evaluar su madurez.</p>
-            </div>
-        );
-    }
+  const getLevelName = (lvl: number) => {
+      if (lvl === 1) return 'Gatear';
+      if (lvl === 2) return 'Caminar';
+      return 'Correr';
+  };
 
-    // Handle no-data states
-    if (!loading && !scoreData && reason) {
-        const messages: Record<string, { icon: string; title: string; desc: string }> = {
-            NO_SUBSCRIPTIONS: { icon: "📭", title: "Sin suscripciones activas", desc: "Este Tenant no tiene suscripciones de Azure. Crea una suscripción para comenzar a evaluar la madurez FinOps." },
-            MISSING_ADMIN_CONSENT: { icon: "⚠️", title: "Falta Admin Consent", desc: "La aplicación CSCloudSolutions no ha sido consentida en este Tenant. Ejecuta: az ad sp create --id 876d8a5b-6023-4484-b3ba-73c186e4a72b" },
-            NO_CREDENTIAL: { icon: "🔑", title: "Sin credenciales configuradas", desc: "No se encontraron credenciales de Azure para acceder a este Tenant." },
-            AZURE_ERROR: { icon: "☁️", title: "Error de conexión con Azure", desc: "No se pudo conectar con Azure para evaluar la madurez. Intenta de nuevo más tarde." },
-        };
-        const msg = messages[reason] || messages.AZURE_ERROR;
-        return (
-            <div className="max-w-6xl mx-auto animate-in fade-in duration-500">
-                <div className="mb-8 border-b border-gray-200 dark:border-slate-800 pb-4">
-                    <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight flex items-center">
-                        <Target className="w-8 h-8 mr-3 text-indigo-600 dark:text-indigo-400" />
-                        Madurez FinOps
-                    </h1>
-                    <p className="text-gray-500 dark:text-gray-400 mt-2">Alineación con el framework de la FinOps Foundation.</p>
-                </div>
-                <div className="flex flex-col items-center justify-center h-96 bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm">
-                    <span className="text-5xl mb-4">{msg.icon}</span>
-                    <h2 className="text-xl font-bold text-gray-500 dark:text-gray-400 mb-2">{msg.title}</h2>
-                    <p className="text-sm text-gray-400 dark:text-gray-500 text-center max-w-md">{msg.desc}</p>
-                </div>
-            </div>
-        );
-    }
+  const getLevelColor = (lvl: number) => {
+      if (lvl === 1) return 'text-amber';
+      if (lvl === 2) return 'text-brand-bright';
+      return 'text-green';
+  };
 
-    const phase = scoreData ? getPhaseInfo((scoreData?.overallScore || 0)) : getPhaseInfo(0);
+  if (selectedTenant.id === 'default') {
+      return (
+          <div className="flex flex-col items-center justify-center h-96 bg-surface rounded-[14px] border border-line shadow-[0_1px_2px_rgba(16,40,73,0.06),0_8px_24px_rgba(16,40,73,0.07)]">
+              <span className="text-4xl mb-4">🔐</span>
+              <h2 className="text-xl font-bold text-ink">Selecciona un Tenant</h2>
+              <p className="text-sm text-ink-soft mt-2">Debes seleccionar una organización para evaluar su madurez.</p>
+          </div>
+      );
+  }
 
-    const pillars = [
-        { key: "VisibilityAndAllocation", icon: Eye, score: scoreData?.pillars?.VisibilityAndAllocation || 0 },
-        { key: "UsageOptimization", icon: AlertTriangle, score: scoreData?.pillars?.UsageOptimization || 0 },
-        { key: "RateOptimization", icon: TrendingUp, score: scoreData?.pillars?.RateOptimization || 0 },
-        { key: "ForecastingAndBudgeting", icon: DollarSign, score: scoreData?.pillars?.ForecastingAndBudgeting || 0 },
-        { key: "GovernanceAndAutomation", icon: Settings, score: scoreData?.pillars?.GovernanceAndAutomation || 0 }
-    ];
+  // Handle no-data states
+  if (!loading && !scoreData && reason) {
+      const messages: Record<string, { icon: string; title: string; desc: string }> = {
+          NO_SUBSCRIPTIONS: { icon: "📭", title: "Sin suscripciones activas", desc: "Este Tenant no tiene suscripciones de Azure. Crea una suscripción para comenzar a evaluar la madurez FinOps." },
+          MISSING_ADMIN_CONSENT: { icon: "⚠️", title: "Falta Admin Consent", desc: "La aplicación CSCloudSolutions no ha sido consentida en este Tenant. Ejecuta: az ad sp create --id 876d8a5b-6023-4484-b3ba-73c186e4a72b" },
+          NO_CREDENTIAL: { icon: "🔑", title: "Sin credenciales configuradas", desc: "No se encontraron credenciales de Azure para acceder a este Tenant." },
+          AZURE_ERROR: { icon: "☁️", title: "Error de conexión con Azure", desc: "No se pudo conectar con Azure para evaluar la madurez. Intenta de nuevo más tarde." },
+      };
+      const msg = messages[reason] || messages.AZURE_ERROR;
+      return (
+          <div className="p-6 max-w-[1320px] mx-auto animate-in fade-in flex flex-col gap-5">
+              <div className="flex items-end gap-[14px] flex-wrap">
+                  <div>
+                      <div className="text-[23px] font-extrabold text-ink tracking-tight flex items-center gap-[11px]">
+                          <span className="w-9 h-9 rounded-[10px] flex items-center justify-center bg-gradient-to-br from-brand-deep to-brand-bright text-white shadow-sm">
+                              <Target className="w-5 h-5" />
+                          </span>
+                          Madurez FinOps
+                      </div>
+                      <div className="text-[13px] text-ink-soft mt-[3px]">Modelo de madurez FinOps (Gatear · Caminar · Correr) por capacidad.</div>
+                  </div>
+              </div>
+              <div className="flex flex-col items-center justify-center h-96 bg-surface rounded-[14px] border border-line shadow-[0_1px_2px_rgba(16,40,73,0.06),0_8px_24px_rgba(16,40,73,0.07)]">
+                  <span className="text-5xl mb-4">{msg.icon}</span>
+                  <h2 className="text-xl font-bold text-ink mb-2">{msg.title}</h2>
+                  <p className="text-sm text-ink-soft text-center max-w-md">{msg.desc}</p>
+              </div>
+          </div>
+      );
+  }
 
-    return (
-        <div className="max-w-6xl mx-auto animate-in fade-in duration-500">
-            <div className="mb-8 border-b border-gray-200 dark:border-slate-800 pb-4">
-                <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight flex items-center">
-                    <Target className="w-8 h-8 mr-3 text-indigo-600 dark:text-indigo-400" />
-                    Madurez FinOps
-                </h1>
-                <p className="text-gray-500 dark:text-gray-400 mt-2">Alineación con el framework de la FinOps Foundation.</p>
-            </div>
-            
-            <div className="relative">
-                {(loading || !scoreData) && (
-                    <div className="absolute inset-0 bg-white/60 dark:bg-slate-900/60 z-50 flex flex-col items-center justify-center rounded-2xl backdrop-blur-sm">
-                        <Loader2 className="w-10 h-10 text-indigo-600 animate-spin mb-4" />
-                        <span className="text-lg font-semibold text-gray-700 dark:text-gray-300">Procesando telemetría...</span>
-                    </div>
-                )}
-                <div className={`grid grid-cols-1 lg:grid-cols-3 gap-8 ${(loading || !scoreData) ? 'opacity-50 pointer-events-none' : ''}`}>
-                {/* Overall Score Gauge Section */}
-                <div className="lg:col-span-1 bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-800 p-8 flex flex-col items-center justify-center relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 dark:bg-indigo-900/20 rounded-bl-full -z-10"></div>
-                    <h2 className="text-lg font-bold text-gray-600 dark:text-gray-400 mb-6 uppercase tracking-wider text-center">Overall Health Score</h2>
-                    
-                    <div className="relative flex items-center justify-center w-48 h-48">
-                        <svg className="absolute inset-0 w-full h-full transform -rotate-90">
-                            <circle cx="96" cy="96" r="80" className="stroke-gray-100 dark:stroke-slate-800" strokeWidth="16" fill="none" />
-                            <circle cx="96" cy="96" r="80" className="stroke-indigo-600 dark:stroke-indigo-400" strokeWidth="16" fill="none" strokeDasharray="502" strokeDashoffset={502 - (502 * (scoreData?.overallScore || 0)) / 100} strokeLinecap="round" />
-                        </svg>
-                        <div className="flex flex-col items-center z-10 justify-center">
-                            <span className="text-6xl font-black text-indigo-600 dark:text-indigo-400">{(scoreData?.overallScore || 0)}</span>
-                            <span className="text-sm font-semibold text-gray-400">/ 100</span>
-                        </div>
-                    </div>
+  // Map backend scores to the 6 domains for the radar
+  const domainData = [
+      { key: "Visibility", name: "Visibilidad e info.", score: scoreData?.pillars?.VisibilityAndAllocation || 0 },
+      { key: "RateOpt", name: "Optimización de tasa", score: scoreData?.pillars?.RateOptimization || 0 },
+      { key: "UsageOpt", name: "Optimización de uso", score: scoreData?.pillars?.UsageOptimization || 0 },
+      { key: "Gov", name: "Gobernanza", score: scoreData?.pillars?.GovernanceAndAutomation || 0 },
+      { key: "Auto", name: "Automatización", score: scoreData?.pillars?.ForecastingAndBudgeting || 0 }, // fallback proxy
+      { key: "Culture", name: "Cultura FinOps", score: scoreData?.overallScore || 0 } // fallback proxy
+  ].map(d => ({ ...d, lvl: getLevel(d.score) }));
 
-                    <div className={`mt-8 px-6 py-2 rounded-full border flex items-center font-bold uppercase tracking-widest relative group ${phase.bg} ${phase.color}`}>
-                        Fase Actual: {phase.label}
-                        <Info className="w-4 h-4 ml-2 cursor-pointer opacity-70 hover:opacity-100" />
-                        {/* Tooltip Phase */}
-                        <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 w-64 bg-gray-900 text-white text-xs rounded py-2 px-3 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
-                            {t('info_phase')}
-                        </div>
-                    </div>
-                </div>
+  const avg = domainData.reduce((a, d) => a + d.lvl, 0) / domainData.length;
+  const overall = avg < 1.7 ? 'Gatear' : avg < 2.4 ? 'Caminar' : 'Correr';
+  const overallPillColor = overall === 'Correr' ? 'bg-green-soft text-green' : overall === 'Caminar' ? 'bg-[#E6F2FB] text-brand-deep' : 'bg-amber-soft text-amber';
 
-                {/* Pillars Breakdown Section */}
-                <div className="lg:col-span-2 flex flex-col gap-4">
-                    <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200">Desglose por Pilares FinOps</h3>
-                    
-                    {pillars.map(pillar => (
-                        <div key={pillar.key} className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-4 transition-all hover:shadow-md">
-                            <div className="flex justify-between items-center mb-3">
-                                <div className="flex items-center">
-                                    <pillar.icon className={`w-5 h-5 mr-3 ${pillar.score < 50 ? 'text-red-500' : 'text-indigo-500'}`} />
-                                    <div className="flex items-center group relative">
-                                        <h4 className="font-bold text-gray-900 dark:text-white cursor-pointer hover:underline">{t(pillar.key)}</h4>
-                                        <Info className="w-4 h-4 ml-2 text-gray-400 cursor-pointer" />
-                                        
-                                        {/* Tooltip Pillar */}
-                                        <div className="absolute bottom-full mb-2 left-0 w-64 bg-gray-900 text-white text-xs rounded py-2 px-3 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
-                                            {t(`info_${pillar.key}`)}
-                                        </div>
-                                    </div>
-                                </div>
-                                <span className="text-xl font-black text-gray-700 dark:text-gray-300">{pillar.score}%</span>
-                            </div>
-                            <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2">
-                                <div className={`h-2 rounded-full ${pillar.score < 50 ? 'bg-red-500' : 'bg-indigo-500'}`} style={{ width: `${pillar.score}%` }}></div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </div>
-    </div>
-    );
+  // Radar SVG Math
+  const N = domainData.length;
+  const cx = 110, cy = 110, Rmax = 82;
+  const pt = (i: number, r: number) => {
+      const ang = -Math.PI / 2 + i * 2 * Math.PI / N;
+      return [cx + Math.cos(ang) * r, cy + Math.sin(ang) * r];
+  };
+
+  const rings = [1, 2, 3].map(lv => {
+      const poly = domainData.map((_, i) => pt(i, Rmax * lv / 3).map(n => n.toFixed(1)).join(',')).join(' ');
+      return <polygon key={lv} points={poly} fill="none" stroke="#E3EBF3" />;
+  });
+
+  const axes = domainData.map((_, i) => {
+      const [x, y] = pt(i, Rmax);
+      return <line key={i} x1={cx} y1={cy} x2={x.toFixed(1)} y2={y.toFixed(1)} stroke="#E3EBF3" />;
+  });
+
+  const cur = domainData.map((d, i) => pt(i, Rmax * d.lvl / 3).map(n => n.toFixed(1)).join(',')).join(' ');
+
+  const labels = domainData.map((d, i) => {
+      const [x, y] = pt(i, Rmax + 16);
+      return <text key={i} x={x.toFixed(1)} y={y.toFixed(1)} textAnchor="middle" fontSize="8.5" fill="#5A6B82" className="font-sans">{d.name.split(' ')[0]}</text>;
+  });
+
+  // Actionable recommendations based on lowest levels
+  const lowestDomains = [...domainData].sort((a, b) => a.lvl - b.lvl).slice(0, 2);
+  const recsMock = {
+      "Auto": { title: "Automatización", action: "Gatear → Caminar", desc: "Programar la limpieza de zombis y los apagados con runbooks en vez de acciones manuales.", icon: "🤖", bg: "bg-amber-soft text-amber" },
+      "Gov": { title: "Gobernanza", action: "Caminar → Correr", desc: "Llevar el compliance de etiquetas por encima del 95% para habilitar chargeback automático.", icon: "🏷️", bg: "bg-[#E6F2FB] text-brand-deep" },
+      "Visibility": { title: "Visibilidad", action: "Gatear → Caminar", desc: "Implementar jerarquía de Management Groups y cost allocation por centro de costos.", icon: "👁️", bg: "bg-amber-soft text-amber" },
+      "RateOpt": { title: "Optimización de tasa", action: "Gatear → Caminar", desc: "Aumentar cobertura de Savings Plans al 80% del compute baseline.", icon: "💸", bg: "bg-[#E6F2FB] text-brand-deep" },
+      "UsageOpt": { title: "Optimización de uso", action: "Caminar → Correr", desc: "Aplicar políticas de rightsizing automático a VMs con CPU < 10%.", icon: "📉", bg: "bg-amber-soft text-amber" },
+      "Culture": { title: "Cultura FinOps", action: "Gatear → Caminar", desc: "Crear un Cloud Center of Excellence (CCoE) interdepartamental.", icon: "👥", bg: "bg-green-soft text-green" },
+  };
+
+  return (
+      <div className="p-6 max-w-[1320px] mx-auto animate-in fade-in flex flex-col gap-5">
+          <div className="flex items-end gap-[14px] flex-wrap relative">
+              {(loading || !scoreData) && (
+                  <div className="absolute inset-0 bg-surface/60 z-50 flex flex-col items-center justify-center rounded-[14px] backdrop-blur-sm">
+                      <Loader2 className="w-10 h-10 text-brand-deep animate-spin mb-4" />
+                      <span className="text-[14px] font-bold text-ink">Procesando telemetría...</span>
+                  </div>
+              )}
+              
+              <div>
+                  <div className="text-[23px] font-extrabold text-ink tracking-tight flex items-center gap-[11px]">
+                      <span className="w-9 h-9 rounded-[10px] flex items-center justify-center bg-gradient-to-br from-brand-deep to-brand-bright text-white shadow-sm">
+                          <Target className="w-5 h-5" />
+                      </span>
+                      Madurez FinOps
+                  </div>
+                  <div className="text-[13px] text-ink-soft mt-[3px]">Modelo de madurez FinOps (Gatear · Caminar · Correr) por capacidad.</div>
+              </div>
+              <div className="ml-auto flex gap-[9px] items-center">
+                  <span className="text-[11px] font-bold tracking-[0.4px] bg-[#E6F2FB] text-brand-deep px-[11px] py-[5px] rounded-lg">
+                      📍 {selectedTenant.name}
+                  </span>
+                  <span className={`text-[10px] font-bold tracking-[0.5px] uppercase px-[8px] py-[3px] rounded-[6px] ${overallPillColor}`}>
+                      Nivel global: {overall}
+                  </span>
+              </div>
+          </div>
+
+          <div className={`flex flex-col gap-5 ${(loading || !scoreData) ? 'opacity-50 pointer-events-none' : ''}`}>
+              <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-[20px]">
+                  {/* Radar Card */}
+                  <div className="bg-surface border border-line rounded-[14px] shadow-[0_1px_2px_rgba(16,40,73,0.06),0_8px_24px_rgba(16,40,73,0.07)]">
+                      <div className="flex items-center justify-between p-[15px_18px] border-b border-line">
+                          <h3 className="text-[14px] font-bold text-ink flex items-center gap-[9px]">
+                              🎯 Radar de madurez
+                          </h3>
+                      </div>
+                      <div className="p-[16px_18px] grid place-items-center">
+                          <svg viewBox="0 0 220 220" width="260" height="260">
+                              <defs>
+                                  <linearGradient id="rg" x1="0" y1="0" x2="1" y2="1">
+                                      <stop offset="0" stopColor="#0054A6" stopOpacity=".5" />
+                                      <stop offset="1" stopColor="#00AEEF" stopOpacity=".5" />
+                                  </linearGradient>
+                              </defs>
+                              {rings}
+                              {axes}
+                              <polygon points={cur} fill="url(#rg)" stroke="#0054A6" strokeWidth="2" className="transition-all duration-1000" />
+                              {labels}
+                          </svg>
+                      </div>
+                  </div>
+
+                  {/* Level per capability Card */}
+                  <div className="bg-surface border border-line rounded-[14px] shadow-[0_1px_2px_rgba(16,40,73,0.06),0_8px_24px_rgba(16,40,73,0.07)]">
+                      <div className="flex items-center justify-between p-[15px_18px] border-b border-line">
+                          <h3 className="text-[14px] font-bold text-ink flex items-center gap-[9px]">
+                              📋 Nivel por capacidad
+                          </h3>
+                      </div>
+                      <div className="flex flex-col gap-[14px] p-[18px]">
+                          {domainData.map(d => (
+                              <div key={d.key} className="grid grid-cols-[160px_1fr_80px] items-center gap-[14px]">
+                                  <span className="font-bold text-[13px] text-ink truncate">{d.name}</span>
+                                  <div className="flex gap-[6px]">
+                                      {[1, 2, 3].map(s => (
+                                          <div key={s} className={`flex-1 h-[9px] rounded-full border ${s <= d.lvl ? 'bg-gradient-to-r from-brand-deep to-brand-bright border-transparent' : 'bg-surface-2 border-line'}`}></div>
+                                      ))}
+                                  </div>
+                                  <span className={`text-[11.5px] font-bold text-right ${getLevelColor(d.lvl)}`}>
+                                      {getLevelName(d.lvl)}
+                                  </span>
+                              </div>
+                          ))}
+                      </div>
+                  </div>
+              </div>
+
+              {/* Actionables */}
+              <div className="bg-surface border border-line rounded-[14px] shadow-[0_1px_2px_rgba(16,40,73,0.06),0_8px_24px_rgba(16,40,73,0.07)]">
+                  <div className="flex items-center justify-between p-[15px_18px] border-b border-line">
+                      <h3 className="text-[14px] font-bold text-ink flex items-center gap-[9px]">
+                          🚀 Para subir de nivel
+                      </h3>
+                  </div>
+                  <div className="flex flex-col">
+                      {lowestDomains.map((domain, idx) => {
+                          const r = recsMock[domain.key as keyof typeof recsMock];
+                          if (!r) return null;
+                          return (
+                              <div key={idx} className="grid grid-cols-[40px_1fr_auto] gap-[14px] items-center p-[14px_18px] border-b border-line hover:bg-surface-2 transition-colors last:border-0">
+                                  <div className={`w-[40px] h-[40px] rounded-[10px] grid place-items-center text-[18px] ${r.bg}`}>
+                                      {r.icon}
+                                  </div>
+                                  <div>
+                                      <div className="font-bold text-[13.5px] text-ink">
+                                          {r.title} <span className="font-semibold text-brand-deep bg-[#EAF3FB] p-[1px_7px] rounded-[6px] text-[12px] ml-[6px]">{r.action}</span>
+                                      </div>
+                                      <div className="text-[12px] text-ink-soft mt-[3px] leading-[1.5]">
+                                          {r.desc}
+                                      </div>
+                                  </div>
+                              </div>
+                          );
+                      })}
+                  </div>
+              </div>
+          </div>
+      </div>
+  );
 }

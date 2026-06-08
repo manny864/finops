@@ -178,45 +178,44 @@ export default function RateOptimizationPage() {
     const totalSavings = data.reduce((acc, curr) => acc + curr.netSavings, 0);
 
     return (
-        <div className="p-6 space-y-6">
-            <div className="flex justify-between items-center">
+        <div className="content animate-in fade-in">
+            <div className="vhead">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
-                        <DollarSign className="w-8 h-8 mr-3 text-emerald-600" />
+                    <div className="vt">
+                        <span className="vico bg-gradient-to-br from-[#0054A6] to-[#00AEEF]">💸</span>
                         Optimización de Tarifas (Reservas)
-                    </h1>
-                    <p className="text-gray-500 dark:text-gray-400 mt-1">
-                        Analiza tu consumo histórico para encontrar ahorros a través de Instancias Reservadas o Savings Plans.
-                    </p>
+                    </div>
+                    <div className="vs">Analiza tu consumo histórico para encontrar ahorros a través de Instancias Reservadas o Savings Plans.</div>
                 </div>
             </div>
 
-            <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4 flex items-start">
-                <Info className="w-5 h-5 text-blue-500 mr-3 mt-0.5 flex-shrink-0" />
-                <div className="text-sm text-blue-800 dark:text-blue-300">
-                    <p className="font-semibold mb-1">¿Qué es una Reserva o Savings Plan?</p>
-                    <p>Las reservas te permiten comprometerte a usar cierta cantidad de cómputo por 1 o 3 años a cambio de un descuento significativo frente al precio de Pago por Uso (Pay-As-You-Go). Las recomendaciones calculan el ahorro neto en base al uso histórico real de los recursos.</p>
+            <div className="bg-[#E6F2FB] border border-[#0054A6] border-opacity-20 rounded-[14px] p-4 flex items-start text-brand-deep shadow-sm">
+                <Info className="w-5 h-5 mr-3 mt-0.5 flex-shrink-0" />
+                <div className="text-[13px]">
+                    <p className="font-bold mb-1">¿Qué es una Reserva o Savings Plan?</p>
+                    <p>Las reservas te permiten comprometerte a usar cierta cantidad de cómputo por 1 o 3 años a cambio de un descuento significativo frente al precio de Pago por Uso. Las recomendaciones calculan el ahorro neto en base al uso histórico real.</p>
                 </div>
             </div>
 
-            <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm">
+            <div className="card">
+                <div className="p-[18px]">
                 {missingConsent ? (
-                    <div className="p-4 bg-yellow-50 text-yellow-800 rounded-md flex items-center">
+                    <div className="p-4 bg-amber-soft text-amber rounded-[10px] flex items-center font-bold text-[13px]">
                         <AlertTriangle className="w-5 h-5 mr-3" />
                         Falta el consentimiento de administrador para listar suscripciones de este Tenant.
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Suscripción</label>
+                        <div className="flex flex-col gap-2">
+                            <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">Suscripción</label>
                             <select
                                 value={subscriptionId}
                                 onChange={(e) => setSubscriptionId(e.target.value)}
                                 disabled={loadingSubs || subscriptions.length === 0}
-                                className="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-[#0054A6] focus:border-[#0054A6] p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
+                                className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2.5 outline-none"
                             >
                                 {loadingSubs ? (
-                                    <option>Cargando suscripciones...</option>
+                                    <option>Cargando...</option>
                                 ) : subscriptions.length === 0 ? (
                                     <option>No hay suscripciones</option>
                                 ) : (
@@ -227,24 +226,24 @@ export default function RateOptimizationPage() {
                             </select>
                         </div>
                         
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Alcance (Scope)</label>
+                        <div className="flex flex-col gap-2">
+                            <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">Alcance</label>
                             <select
                                 value={scopeType}
                                 onChange={(e) => setScopeType(e.target.value as 'Single' | 'Shared')}
-                                className="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-[#0054A6] focus:border-[#0054A6] p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
+                                className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2.5 outline-none"
                             >
-                                <option value="Single">Single (Solo esta suscripción)</option>
-                                <option value="Shared">Shared (Toda la cuenta de facturación)</option>
+                                <option value="Single">Single (Solo esta sub)</option>
+                                <option value="Shared">Shared (Toda la cuenta)</option>
                             </select>
                         </div>
 
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Ventana Histórica (LookBack)</label>
+                        <div className="flex flex-col gap-2">
+                            <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">Ventana Histórica</label>
                             <select
                                 value={lookBackPeriod}
                                 onChange={(e) => setLookBackPeriod(e.target.value as any)}
-                                className="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-[#0054A6] focus:border-[#0054A6] p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
+                                className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2.5 outline-none"
                             >
                                 <option value="Last7Days">Últimos 7 Días</option>
                                 <option value="Last30Days">Últimos 30 Días</option>
@@ -255,40 +254,41 @@ export default function RateOptimizationPage() {
                         <button
                             onClick={handleAnalyze}
                             disabled={loading || !subscriptionId}
-                            className="bg-[#0054A6] text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 transition flex items-center justify-center font-medium disabled:opacity-50 h-[42px]"
+                            className="bg-brand-deep text-white rounded-[10px] hover:brightness-110 transition flex items-center justify-center font-heading font-bold text-[13px] disabled:opacity-50 h-[42px] shadow-sm cursor-pointer"
                         >
                             {loading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <DollarSign className="w-5 h-5 mr-2" />}
                             Buscar Ahorros
                         </button>
                     </div>
                 )}
+                </div>
             </div>
 
             {data.length > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                    <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm col-span-1 md:col-span-3 flex flex-col md:flex-row md:justify-between md:items-center">
+                <div className="sumstrip">
+                    <div className="s green md:col-span-3 flex flex-col md:flex-row md:justify-between md:items-center">
                         <div>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Potencial de Ahorro Neto Total</p>
-                            <h3 className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">+{currencyFormatter.format(totalSavings)}</h3>
+                            <div className="l">Potencial de Ahorro Neto Total</div>
+                            <div className="v">+{currencyFormatter.format(totalSavings)}</div>
                         </div>
-                        <div className="mt-4 md:mt-0 text-sm text-gray-600 dark:text-gray-400">
-                            Recomendaciones generadas basadas en el uso de {lookBackPeriod.replace('Last', '').replace('Days', '')} días.
+                        <div className="mt-4 md:mt-0 text-[12px] text-ink-soft">
+                            Recomendaciones basadas en {lookBackPeriod.replace('Last', '').replace('Days', '')} días de uso.
                         </div>
                     </div>
                 </div>
             )}
 
             {data.length > 0 ? (
-                <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 overflow-hidden shadow-sm">
+                <div className="card">
                     <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-left">
-                            <thead className="bg-gray-50 dark:bg-slate-800/50 text-gray-700 dark:text-gray-300 font-medium border-b border-gray-200 dark:border-slate-700">
+                        <table className="tbl">
+                            <thead>
                                 {table.getHeaderGroups().map(headerGroup => (
                                     <tr key={headerGroup.id}>
                                         {headerGroup.headers.map(header => (
                                             <th 
                                                 key={header.id} 
-                                                className="px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-slate-800"
+                                                className="cursor-pointer hover:bg-surface-2"
                                                 onClick={header.column.getToggleSortingHandler()}
                                             >
                                                 {flexRender(header.column.columnDef.header, header.getContext())}
@@ -301,11 +301,11 @@ export default function RateOptimizationPage() {
                                     </tr>
                                 ))}
                             </thead>
-                            <tbody className="divide-y divide-gray-200 dark:divide-slate-800">
+                            <tbody>
                                 {table.getRowModel().rows.map(row => (
-                                    <tr key={row.id} className="hover:bg-gray-50 dark:hover:bg-slate-800/50">
+                                    <tr key={row.id}>
                                         {row.getVisibleCells().map(cell => (
-                                            <td key={cell.id} className="px-6 py-4 text-gray-600 dark:text-gray-400">
+                                            <td key={cell.id}>
                                                 {flexRender(cell.column.columnDef.cell, cell.getContext())}
                                             </td>
                                         ))}
@@ -317,10 +317,10 @@ export default function RateOptimizationPage() {
                 </div>
             ) : (
                 !loading && hasAnalyzed && (
-                    <div className="bg-white dark:bg-slate-900 p-12 text-center rounded-xl border border-gray-200 dark:border-slate-800">
-                        <DollarSign className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No hay recomendaciones</h3>
-                        <p className="text-gray-500 dark:text-gray-400">Azure no ha encontrado oportunidades de reserva que resulten en ahorro neto para la configuración seleccionada.</p>
+                    <div className="empty border border-line rounded-[14px]">
+                        <DollarSign className="w-12 h-12 text-grey mx-auto mb-4" />
+                        <h3 className="text-lg font-bold text-ink mb-2">No hay recomendaciones</h3>
+                        <p className="text-ink-soft">Azure no ha encontrado oportunidades de reserva que resulten en ahorro neto para la configuración seleccionada.</p>
                     </div>
                 )
             )}

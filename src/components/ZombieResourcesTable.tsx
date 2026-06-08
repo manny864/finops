@@ -313,22 +313,22 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
   }
 
   return (
-    <div className="bg-white shadow-sm rounded-lg overflow-hidden border border-gray-200">
-      <div className="p-4 border-b border-gray-200 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-gray-50 gap-4">
+    <div className="card">
+      <div className="card-h flex-col sm:flex-row items-start sm:items-center gap-4 border-b border-line pb-4 mb-4">
         <div>
-            <h2 className="text-lg font-semibold text-[#0054A6]">
+            <h3 className="text-brand-deep m-0">
                 {selectedSub === "all" ? "Auditoría FinOps (Global)" : "Auditoría FinOps (Filtrada)"}
-            </h2>
-            {error && error !== 'MISSING_RBAC_ROLE' && <span className="mt-2 inline-block text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded border border-amber-200">{error}</span>}
+            </h3>
+            {error && error !== 'MISSING_RBAC_ROLE' && <span className="mt-2 inline-block text-xs text-amber bg-amber-soft px-2 py-1 rounded border border-amber/20">{error}</span>}
         </div>
         
         <div className="flex flex-wrap items-center gap-4 w-full sm:w-auto">
             <div className="flex items-center space-x-2">
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Suscripción:</label>
+                <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">Suscripción:</label>
                 <select 
                     value={selectedSub}
                     onChange={(e) => setSelectedSub(e.target.value)}
-                    className="bg-white border border-gray-300 text-gray-700 text-sm rounded-md focus:ring-[#0054A6] focus:border-[#0054A6] p-2 w-32"
+                    className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2 outline-none w-32"
                 >
                     <option value="all">Todas</option>
                     {subscriptions.map((sub: any) => (
@@ -337,22 +337,22 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                 </select>
             </div>
             <div className="flex items-center space-x-2">
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Tipo:</label>
-                <select value={filterType} onChange={e => setFilterType(e.target.value)} className="bg-white border border-gray-300 text-gray-700 text-sm rounded-md p-2 w-32">
+                <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">Tipo:</label>
+                <select value={filterType} onChange={e => setFilterType(e.target.value)} className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] p-2 outline-none w-32">
                     <option value="all">Todos</option>
                     {Array.from(new Set(data.map(d => d.type))).filter(Boolean).sort().map((t: any) => <option key={t} value={t}>{t}</option>)}
                 </select>
             </div>
             <div className="flex items-center space-x-2">
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Grupo:</label>
-                <select value={filterGroup} onChange={e => setFilterGroup(e.target.value)} className="bg-white border border-gray-300 text-gray-700 text-sm rounded-md p-2 w-32">
+                <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">Grupo:</label>
+                <select value={filterGroup} onChange={e => setFilterGroup(e.target.value)} className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] p-2 outline-none w-32">
                     <option value="all">Todos</option>
                     {Array.from(new Set(data.map(d => d.resourceGroup))).filter(Boolean).sort().map((g: any) => <option key={g} value={g}>{g}</option>)}
                 </select>
             </div>
             <div className="flex items-center space-x-2">
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Severidad:</label>
-                <select value={filterIssue} onChange={e => setFilterIssue(e.target.value)} className="bg-white border border-gray-300 text-gray-700 text-sm rounded-md p-2 w-32">
+                <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">Severidad:</label>
+                <select value={filterIssue} onChange={e => setFilterIssue(e.target.value)} className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] p-2 outline-none w-32">
                     <option value="all">Todas</option>
                     <option value="cost">Costo</option>
                     <option value="governance">Gobernanza</option>
@@ -362,16 +362,16 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
       </div>
       
       {error === 'MISSING_RBAC_ROLE' ? <RoleAssignmentBanner /> : loading ? (
-          <div className="p-8 text-center text-gray-500 font-medium animate-pulse">Escaneando Azure Resource Graph...</div>
+          <div className="empty animate-pulse">Escaneando Azure Resource Graph...</div>
       ) : (
         <div className="flex flex-col">
             <div className="overflow-x-auto w-full">
-                <table className="w-full text-left border-collapse" style={{ width: table.getCenterTotalSize() }}>
+                <table className="tbl w-full" style={{ width: table.getCenterTotalSize() }}>
                     <thead>
                     {table.getHeaderGroups().map(headerGroup => (
-                        <tr key={headerGroup.id} className="text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200 bg-white">
+                        <tr key={headerGroup.id}>
                         {headerGroup.headers.map(header => (
-                            <th key={header.id} className="p-4 font-medium relative group" style={{ width: header.getSize() }}>
+                            <th key={header.id} className="relative group" style={{ width: header.getSize() }}>
                             <div className="flex items-center justify-between">
                                 {header.isPlaceholder ? null : (
                                 <div
@@ -391,7 +391,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                             <div
                                 onMouseDown={header.getResizeHandler()}
                                 onTouchStart={header.getResizeHandler()}
-                                className={`absolute right-0 top-0 h-full w-2 cursor-col-resize bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity ${header.column.getIsResizing() ? 'opacity-100 bg-indigo-600' : ''}`}
+                                className={`absolute right-0 top-0 h-full w-1 cursor-col-resize bg-line opacity-0 group-hover:opacity-100 transition-opacity ${header.column.getIsResizing() ? 'opacity-100 bg-brand-deep' : ''}`}
                             />
                             </th>
                         ))}
@@ -401,9 +401,9 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                     <tbody>
                     {table.getRowModel().rows.length > 0 ? (
                         table.getRowModel().rows.map(row => (
-                        <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors text-sm">
+                        <tr key={row.id}>
                             {row.getVisibleCells().map(cell => (
-                            <td key={cell.id} className="p-4" style={{ width: cell.column.getSize() }}>
+                            <td key={cell.id} style={{ width: cell.column.getSize() }}>
                                 {flexRender(cell.column.columnDef.cell, cell.getContext())}
                             </td>
                             ))}
@@ -411,7 +411,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                         ))
                     ) : (
                         <tr>
-                        <td colSpan={columns.length} className="p-8 text-center text-sm text-gray-500">
+                        <td colSpan={columns.length} className="empty">
                             El entorno está 100% optimizado y bajo políticas de Gobernanza. ¡Excelente trabajo!
                         </td>
                         </tr>
@@ -421,18 +421,18 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
             </div>
 
             {/* Pagination Controls */}
-            <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-gray-200 sm:px-6">
+            <div className="flex items-center justify-between p-[18px] bg-surface border-t border-line sm:px-6">
                 <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-700">
-                        Página <span className="font-medium">{table.getState().pagination.pageIndex + 1}</span> de{' '}
-                        <span className="font-medium">{table.getPageCount() || 1}</span>
+                    <span className="text-[13px] text-ink-soft font-bold">
+                        Página <span className="text-ink">{table.getState().pagination.pageIndex + 1}</span> de{' '}
+                        <span className="text-ink">{table.getPageCount() || 1}</span>
                     </span>
                     <select
                         value={table.getState().pagination.pageSize}
                         onChange={e => {
                             table.setPageSize(Number(e.target.value));
                         }}
-                        className="ml-4 bg-white border border-gray-300 text-gray-700 text-sm rounded-md p-1 focus:ring-[#0054A6] focus:border-[#0054A6]"
+                        className="ml-4 bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] p-2 outline-none"
                     >
                         {[10, 15, 20, 25, 50, 100].map(pageSize => (
                             <option key={pageSize} value={pageSize}>
@@ -445,14 +445,14 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                     <button
                         onClick={() => table.previousPage()}
                         disabled={!table.getCanPreviousPage()}
-                        className="px-3 py-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="bg-surface-2 border border-line text-ink px-[11px] py-[7px] rounded-[10px] font-heading font-semibold text-[12px] hover:border-brand-bright disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
                     >
                         Anterior
                     </button>
                     <button
                         onClick={() => table.nextPage()}
                         disabled={!table.getCanNextPage()}
-                        className="px-3 py-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="bg-surface-2 border border-line text-ink px-[11px] py-[7px] rounded-[10px] font-heading font-semibold text-[12px] hover:border-brand-bright disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
                     >
                         Siguiente
                     </button>

@@ -4,13 +4,14 @@ import { useMsal } from '@azure/msal-react';
 import { useTenant } from './TenantProvider';
 import { useLocale, useTranslations } from 'next-intl';
 import RoleAssignmentBanner from './RoleAssignmentBanner';
-import { Info } from 'lucide-react';
+import { Info, Lightbulb, X } from 'lucide-react';
 
 export default function AdvisorPanel() {
   const { instance, accounts } = useMsal();
   const { selectedTenant } = useTenant();
   const locale = useLocale();
   const t = useTranslations('advisor');
+  const tCommon = useTranslations('Common');
   const [data, setData] = useState<any>(null);
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const [scores, setScores] = useState<Record<string, number>>({});
@@ -167,132 +168,251 @@ export default function AdvisorPanel() {
   };
 
   const categories = [
-      { id: "Cost", name: "Costo", tooltip: t('costTooltip'), color: "text-green-600", bg: "bg-green-50", icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> },
-      { id: "Security", name: "Seguridad", tooltip: t('securityTooltip'), color: "text-red-600", bg: "bg-red-50", icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg> },
-      { id: "HighAvailability", name: "Confiabilidad", tooltip: t('reliabilityTooltip'), color: "text-blue-600", bg: "bg-blue-50", icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg> },
-      { id: "OperationalExcellence", name: "Excelencia operativa", tooltip: t('operationalExcellenceTooltip'), color: "text-purple-600", bg: "bg-purple-50", icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg> },
-      { id: "Performance", name: "Rendimiento", tooltip: t('performanceTooltip'), color: "text-orange-600", bg: "bg-orange-50", icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg> }
+      { id: "Cost", name: t('cost_label'), note: t('cost_note'), tooltip: t('costTooltip'), color: "text-brand-deep", icon: "💰" },
+      { id: "Security", name: t('security_label'), note: t('security_note'), tooltip: t('securityTooltip'), color: "text-danger", icon: "🛡️" },
+      { id: "HighAvailability", name: t('reliability_label'), note: t('reliability_note'), tooltip: t('reliabilityTooltip'), color: "text-green", icon: "♻️" },
+      { id: "Performance", name: t('performance_label'), note: t('performance_note'), tooltip: t('performanceTooltip'), color: "text-amber", icon: "⚡" },
+      { id: "OperationalExcellence", name: t('operational_label'), note: t('operational_note'), tooltip: t('operationalExcellenceTooltip'), color: "text-purple", icon: "⚙️" }
   ];
 
   if (accounts.length === 0 || selectedTenant.id === 'default') {
-      return <div className="p-8 text-center text-gray-500">Inicia sesión con Microsoft Entra ID.</div>;
+      return <div className="p-8 text-center text-ink-soft">{tCommon('loading')}</div>;
   }
 
   return (
-    <div className="bg-white shadow-sm rounded-lg overflow-hidden border border-gray-200 p-6 animate-in fade-in">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 border-b border-gray-100 pb-4">
-            <div className="mb-4 md:mb-0">
-                <h2 className="text-xl font-bold text-gray-800">Azure Advisor</h2>
-                <div className="flex items-center space-x-4 mt-2">
-                    <div className="flex flex-col">
-                        <span className="text-xs text-gray-400 uppercase font-bold tracking-wider">Score Global</span>
-                        <span className="text-lg font-extrabold text-[#0054A6]">{globalMetrics.avgScoreStr}</span>
-                    </div>
-                    <div className="h-8 w-px bg-gray-200"></div>
-                    <div className="flex flex-col">
-                        <span className="text-xs text-gray-400 uppercase font-bold tracking-wider">Total Recomendaciones</span>
-                        <span className="text-lg font-extrabold text-[#0054A6]">{globalMetrics.totalRecs}</span>
-                    </div>
+    <div className="animate-in fade-in flex flex-col gap-5">
+        <div className="flex items-end gap-[14px] flex-wrap">
+            <div>
+                <div className="text-[23px] font-extrabold text-ink tracking-tight flex items-center gap-[11px]">
+                    <span className="w-9 h-9 rounded-[10px] flex items-center justify-center bg-gradient-to-br from-brand-deep to-brand-bright text-white shadow-sm">
+                        <Lightbulb className="w-5 h-5" />
+                    </span>
+                    {t('title')}
                 </div>
+                <div className="text-[13px] text-ink-soft mt-[3px]">{t('subtitle')}</div>
             </div>
             
-            <div className="flex items-center space-x-4">
-                <select
-                    value={selectedSub}
-                    onChange={(e) => { setSelectedSub(e.target.value); setSelectedCategory(null); }}
-                    className="border border-gray-300 text-sm rounded-md shadow-sm p-2 focus:border-[#0054A6] focus:ring-[#0054A6]"
-                >
-                    <option value="all">Todas las Suscripciones</option>
-                    {subscriptions.map(s => (
-                        <option key={s.id} value={s.id}>{s.name || s.id}</option>
-                    ))}
-                </select>
+            <div className="ml-auto flex gap-[9px] items-center flex-wrap">
+                <span className="text-[11px] font-bold tracking-[0.4px] bg-[#E6F2FB] text-brand-deep px-[11px] py-[5px] rounded-lg">
+                    📍 {selectedTenant.name}
+                </span>
+                <div className="flex items-center gap-[9px] bg-surface border border-line-strong rounded-[10px] p-[6px_9px_6px_12px] shadow-[0_1px_2px_rgba(16,40,73,0.06),0_8px_24px_rgba(16,40,73,0.07)]">
+                    <label className="text-[10px] tracking-[1px] uppercase text-grey font-bold">Alcance</label>
+                    <select
+                        value={selectedSub}
+                        onChange={(e) => { setSelectedSub(e.target.value); setSelectedCategory(null); }}
+                        className="border-0 bg-transparent font-heading font-bold text-[13px] text-brand-deep cursor-pointer focus:outline-none p-0 m-0 w-32 md:w-auto truncate"
+                    >
+                        <option value="all">{t('all_subs')}</option>
+                        {subscriptions.map(s => (
+                            <option key={s.id} value={s.id}>{s.name || s.id}</option>
+                        ))}
+                    </select>
+                </div>
 
-                <button onClick={handleCsvExport} className="px-4 py-2 bg-[#0054A6] hover:bg-blue-800 text-white text-sm font-semibold rounded shadow-sm transition-colors flex items-center">
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                    Descargar como CSV
+                <button onClick={handleCsvExport} className="font-heading font-semibold text-[13px] rounded-[10px] border border-line-strong p-[7px_14px] cursor-pointer transition-colors inline-flex items-center gap-[7px] whitespace-nowrap bg-surface text-ink-soft hover:border-brand-bright hover:text-brand-deep active:scale-95">
+                    ⬇️ {t('export_csv')}
                 </button>
             </div>
         </div>
 
-        {error === 'MISSING_RBAC_ROLE' ? <RoleAssignmentBanner /> : error ? <div className="text-red-500">{error}</div> : loading ? <div className="animate-pulse p-8 text-center">Consultando Azure Advisor...</div> : (
+        {error === 'MISSING_RBAC_ROLE' ? <RoleAssignmentBanner /> : error ? <div className="text-danger p-4 bg-danger-soft rounded-lg">{error}</div> : loading ? <div className="animate-pulse p-8 text-center">{tCommon('loading')}</div> : (
             <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-[14px]">
                 {categories.map(cat => {
                     const items = filteredData?.[cat.id] || [];
                     const count = items.length;
+                    let displayVal: string | number = count;
+                    if (cat.id === "Cost") {
+                        const savings = items.reduce((acc: number, r: any) => acc + parseFloat(r.extendedProperties?.savingsAmount || '0'), 0);
+                        if (savings > 0) {
+                            displayVal = new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(savings);
+                        }
+                    }
+
                     return (
-                        <div key={cat.id} className="border border-gray-200 rounded-lg p-5 shadow-sm hover:shadow transition-shadow">
-                            <div className="flex items-center mb-3">
-                                <div className={`p-2 rounded-lg ${cat.bg} ${cat.color} mr-3`}>
-                                    {cat.icon}
-                                </div>
-                                <h3 className="font-bold text-gray-700 flex items-center">
-                                    {cat.name}
-                                    <div className="relative group ml-2 flex items-center">
-                                        <Info className="w-4 h-4 text-gray-400 cursor-help" />
-                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-gray-800 text-xs text-white rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 font-normal">
-                                            {cat.tooltip}
-                                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
-                                        </div>
-                                    </div>
-                                </h3>
-                            </div>
+                        <div key={cat.id} 
+                             onClick={() => setSelectedCategory(selectedCategory === cat.id ? null : cat.id)}
+                             className={`bg-surface border ${selectedCategory === cat.id ? 'border-brand-bright' : 'border-line'} rounded-[14px] p-[15px_16px] shadow-[0_1px_2px_rgba(16,40,73,0.06),0_8px_24px_rgba(16,40,73,0.07)] relative group cursor-pointer transition-all hover:-translate-y-0.5`}
+                        >
+                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-brand-bright rounded-l-[14px] opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                            {selectedCategory === cat.id && <div className="absolute left-0 top-0 bottom-0 w-1 bg-brand-bright rounded-l-[14px] opacity-100"></div>}
                             
-                            {count === 0 ? (
-                                <div className="flex items-center text-sm text-green-700 bg-green-50 p-3 rounded-md border border-green-100">
-                                    <svg className="w-5 h-5 mr-2 text-green-600" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>
-                                    Sigue todas nuestras recomendaciones
+                            <div className="text-[10px] tracking-[0.6px] uppercase text-grey font-bold flex items-center justify-between">
+                                <span>{cat.icon} {cat.name}</span>
+                                <div className="relative group/tooltip ml-2 flex items-center z-10">
+                                    <Info className="w-3 h-3 text-grey cursor-help" />
+                                    <div className="absolute bottom-full right-0 mb-2 w-48 p-2 bg-gray-800 text-xs text-white rounded opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-20 font-normal normal-case tracking-normal">
+                                        {cat.tooltip}
+                                        <div className="absolute top-full right-2 border-4 border-transparent border-t-gray-800"></div>
+                                    </div>
                                 </div>
-                            ) : (
-                                <div className="flex flex-col">
-                                    <div className={`text-3xl font-extrabold mb-2 ${cat.color}`}>{count}</div>
-                                    <a href="#" onClick={(e) => { e.preventDefault(); setSelectedCategory(cat.id); }} className="text-[#0054A6] hover:underline text-sm font-medium">Ver la lista de {cat.name} recomendaciones</a>
-                                </div>
-                            )}
+                            </div>
+                            <div className={`font-heading font-extrabold text-[21px] mt-[9px] tracking-tight ${cat.color}`}>
+                                {displayVal}
+                            </div>
+                            <div className="text-[11px] font-semibold mt-[5px] text-ink-soft">
+                                {displayVal !== count && cat.id === "Cost" ? t('cost_note') : `${count} ${cat.note}`}
+                            </div>
                         </div>
                     );
                 })}
             </div>
             
-            {selectedCategory && (
-                <div className="mt-8 border-t border-gray-200 pt-6 animate-in fade-in slide-in-from-bottom-4">
-                    <div className="flex justify-between items-center mb-4">
-                        <div className="flex items-center">
-                            <div className={`p-2 rounded-lg ${categories.find(c => c.id === selectedCategory)?.bg} ${categories.find(c => c.id === selectedCategory)?.color} mr-3`}>
-                                {categories.find(c => c.id === selectedCategory)?.icon}
-                            </div>
-                            <h3 className="text-lg font-bold text-gray-800">
-                                Recomendaciones de {categories.find(c => c.id === selectedCategory)?.name}
+            {!selectedCategory && (
+                <div className="mt-6 flex flex-col gap-6 animate-in fade-in">
+                    <div className="bg-surface border border-line rounded-[14px] shadow-[0_1px_2px_rgba(16,40,73,0.06),0_8px_24px_rgba(16,40,73,0.07)] overflow-hidden">
+                        <div className="flex items-center justify-between p-[15px_18px] border-b border-line bg-surface">
+                            <h3 className="text-[14px] font-bold text-ink flex items-center gap-[9px]">
+                                💰 {t('table_cost_title')}
                             </h3>
                         </div>
-                        <button onClick={() => setSelectedCategory(null)} className="text-gray-400 hover:text-gray-600">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        <div className="flex flex-col">
+                            {(() => {
+                                const topCostRecs = (filteredData["Cost"] || [])
+                                    .sort((a: any, b: any) => parseFloat(b.extendedProperties?.savingsAmount || '0') - parseFloat(a.extendedProperties?.savingsAmount || '0'))
+                                    .slice(0, 4);
+                                
+                                if (topCostRecs.length === 0) return <div className="p-[34px] text-center text-grey text-[13px]">{t('no_recs')} 🎉</div>;
+                                
+                                return topCostRecs.map((rec: any, idx: number) => {
+                                    const sol = (rec.shortDescription?.solution || '').toLowerCase();
+                                    const isRes = sol.includes('reserved') || sol.includes('savings');
+                                    const isPower = sol.includes('power') || sol.includes('apagado');
+                                    const iconInfo = isRes ? { i: '🏷️', c: 'bg-amber-soft text-amber' } : isPower ? { i: '🌙', c: 'bg-amber-soft text-amber' } : { i: '📐', c: 'bg-[#E6F2FB] text-brand-deep' };
+
+                                    return (
+                                        <div key={idx} className="grid grid-cols-[40px_1fr_auto] gap-[14px] items-center p-[14px_18px] border-b border-line hover:bg-surface-2 transition-colors last:border-b-0">
+                                            <div className={`w-[40px] h-[40px] rounded-[10px] grid place-items-center text-[18px] ${iconInfo.c}`}>
+                                                {iconInfo.i}
+                                            </div>
+                                            <div>
+                                                <div className="font-bold text-[13.5px] text-ink">
+                                                    {rec.shortDescription?.problem || 'Recomendación de Costo'}
+                                                    <span className="font-semibold text-brand-deep bg-[#EAF3FB] p-[1px_7px] rounded-[6px] text-[12px] ml-[6px]">
+                                                        {rec.impactedField || 'Recurso'}
+                                                    </span>
+                                                </div>
+                                                <div className="text-[12px] text-ink-soft mt-[3px] leading-relaxed">
+                                                    {rec.shortDescription?.solution} · <b className="text-ink">{subscriptions.find(s => s.id === rec.subscriptionId)?.name || rec.subscriptionId}</b>
+                                                </div>
+                                            </div>
+                                            <div className="text-right flex flex-col items-end gap-[7px]">
+                                                <div className="font-heading font-extrabold text-[15px] text-green">
+                                                    {new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(parseFloat(rec.extendedProperties?.savingsAmount || '0'))}
+                                                    <span className="text-[10.5px] text-grey font-semibold"> /mes</span>
+                                                </div>
+                                                <button className="font-heading font-semibold text-[13px] rounded-[10px] border border-transparent bg-gradient-to-br from-brand-deep to-brand-bright text-white p-[7px_11px] cursor-pointer hover:brightness-110 active:scale-95 transition-all shadow-sm">
+                                                    {t('btn_apply')}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                });
+                            })()}
+                        </div>
+                    </div>
+
+                    <div className="bg-surface border border-line rounded-[14px] shadow-[0_1px_2px_rgba(16,40,73,0.06),0_8px_24px_rgba(16,40,73,0.07)] overflow-hidden">
+                        <div className="flex items-center justify-between p-[15px_18px] border-b border-line bg-surface">
+                            <h3 className="text-[14px] font-bold text-ink flex items-center gap-[9px]">
+                                🛡️ {t('table_other_title')}
+                            </h3>
+                            <span className="text-[11.5px] text-grey">informativo</span>
+                        </div>
+                        <div className="flex flex-col">
+                            {(() => {
+                                const otherRecs = [];
+                                if (filteredData["Security"]?.[0]) otherRecs.push({ ...filteredData["Security"][0], _cat: t('security_label'), _icon: '🛡️', _bg: 'bg-danger-soft', _color: 'text-danger' });
+                                if (filteredData["HighAvailability"]?.[0]) otherRecs.push({ ...filteredData["HighAvailability"][0], _cat: t('reliability_label'), _icon: '♻️', _bg: 'bg-green-soft', _color: 'text-green' });
+                                if (filteredData["Performance"]?.[0]) otherRecs.push({ ...filteredData["Performance"][0], _cat: t('performance_label'), _icon: '⚡', _bg: 'bg-amber-soft', _color: 'text-amber' });
+
+                                if (otherRecs.length === 0) return <div className="p-[34px] text-center text-grey text-[13px]">{t('no_recs')} 🎉</div>;
+
+                                return otherRecs.map((rec: any, idx: number) => (
+                                    <div key={idx} className="grid grid-cols-[40px_1fr_auto] gap-[14px] items-center p-[14px_18px] border-b border-line hover:bg-surface-2 transition-colors last:border-b-0">
+                                        <div className={`w-[40px] h-[40px] rounded-[10px] grid place-items-center text-[18px] ${rec._bg} ${rec._color}`}>
+                                            {rec._icon}
+                                        </div>
+                                        <div>
+                                            <div className="font-bold text-[13.5px] text-ink">
+                                                {rec._cat}
+                                            </div>
+                                            <div className="text-[12px] text-ink-soft mt-[3px] leading-relaxed">
+                                                {rec.shortDescription?.problem || rec.shortDescription?.solution} · <b className="text-ink">{subscriptions.find(s => s.id === rec.subscriptionId)?.name || rec.subscriptionId}</b>
+                                            </div>
+                                        </div>
+                                        <div className="text-right flex flex-col items-end gap-[7px]">
+                                            <span className="text-[10px] font-bold tracking-[0.5px] uppercase py-[3px] px-[8px] rounded-[6px] bg-[#EEF1F5] text-grey">
+                                                REVISAR
+                                            </span>
+                                        </div>
+                                    </div>
+                                ));
+                            })()}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {selectedCategory && (
+                <div className="bg-surface border border-line rounded-[14px] shadow-[0_1px_2px_rgba(16,40,73,0.06),0_8px_24px_rgba(16,40,73,0.07)] animate-in fade-in slide-in-from-bottom-4 mt-2 overflow-hidden">
+                    <div className="flex items-center justify-between p-[15px_18px] border-b border-line bg-surface">
+                        <h3 className="text-[14px] font-bold text-ink flex items-center gap-[9px]">
+                            {categories.find(c => c.id === selectedCategory)?.icon} {t('recs_of', { category: categories.find(c => c.id === selectedCategory)?.name || '' })}
+                        </h3>
+                        <button onClick={() => setSelectedCategory(null)} className="text-grey hover:text-ink transition-colors bg-surface-2 p-1.5 rounded-md border border-line">
+                            <X className="w-4 h-4" />
                         </button>
                     </div>
                     
-                    <div className="overflow-x-auto bg-white rounded-lg border border-gray-200 shadow-sm">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Recurso Afectado</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Suscripción</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Problema Detectado</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Solución Propuesta</th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {filteredData[selectedCategory]?.map((rec: any, idx: number) => (
-                                    <tr key={idx} className="hover:bg-gray-50 transition-colors">
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{rec.impactedField || 'Desconocido'}</td>
-                                        <td className="px-6 py-4 text-sm text-gray-500 truncate max-w-[150px]">{subscriptions.find(s => s.id === rec.subscriptionId)?.name || rec.subscriptionId}</td>
-                                        <td className="px-6 py-4 text-sm text-gray-500">{rec.shortDescription?.problem || 'N/A'}</td>
-                                        <td className="px-6 py-4 text-sm text-gray-500">{rec.shortDescription?.solution || rec.recommendationType?.name || rec.impact || 'Consulte el Portal de Azure'}</td>
+                    {filteredData[selectedCategory]?.length === 0 ? (
+                        <div className="p-[34px] text-center text-grey text-[13px]">
+                            {t('no_recs')} 🎉
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full border-collapse">
+                                <thead className="bg-surface-2">
+                                    <tr>
+                                        <th className="text-left text-[10.5px] tracking-[0.5px] uppercase text-grey font-bold p-[11px_16px] border-b border-line">{t('col_resource')}</th>
+                                        <th className="text-left text-[10.5px] tracking-[0.5px] uppercase text-grey font-bold p-[11px_16px] border-b border-line">{t('col_sub')}</th>
+                                        <th className="text-left text-[10.5px] tracking-[0.5px] uppercase text-grey font-bold p-[11px_16px] border-b border-line">{t('col_problem')}</th>
+                                        <th className="text-left text-[10.5px] tracking-[0.5px] uppercase text-grey font-bold p-[11px_16px] border-b border-line">{t('col_solution')}</th>
+                                        <th className="p-[11px_16px] border-b border-line"></th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody>
+                                    {filteredData[selectedCategory]?.map((rec: any, idx: number) => (
+                                        <tr key={idx} className="hover:bg-surface-2 transition-colors border-b border-line last:border-0 group">
+                                            <td className="p-[13px_16px] text-[13px] text-ink font-bold">
+                                                {rec.impactedField || 'Desconocido'}
+                                                {parseFloat(rec.extendedProperties?.savingsAmount || '0') > 0 && selectedCategory === 'Cost' && (
+                                                    <span className="font-semibold text-brand-deep bg-[#EAF3FB] p-[1px_7px] rounded-[6px] text-[12px] ml-[6px]">
+                                                        {new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(parseFloat(rec.extendedProperties.savingsAmount))} /mes
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="p-[13px_16px] text-[13px] text-ink truncate max-w-[150px]">
+                                                {subscriptions.find(s => s.id === rec.subscriptionId)?.name || rec.subscriptionId}
+                                            </td>
+                                            <td className="p-[13px_16px] text-[13px] text-ink-soft">
+                                                {rec.shortDescription?.problem || 'N/A'}
+                                            </td>
+                                            <td className="p-[13px_16px] text-[13px] text-ink-soft">
+                                                {rec.shortDescription?.solution || rec.recommendationType?.name || rec.impact || 'Consulte el Portal'}
+                                            </td>
+                                            <td className="p-[13px_16px] text-right">
+                                                <button className="opacity-0 group-hover:opacity-100 font-heading font-semibold text-[12px] rounded-[10px] border border-transparent bg-gradient-to-br from-brand-deep to-brand-bright text-white p-[7px_11px] cursor-pointer hover:brightness-110 active:scale-95 transition-all shadow-sm">
+                                                    {t('btn_apply')}
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
                 </div>
             )}
             </>

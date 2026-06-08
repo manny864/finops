@@ -199,202 +199,208 @@ export default function PowerSchedules() {
     if (accounts.length === 0 || selectedTenant.id === 'default') return null;
 
     return (
-        <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 mt-6">
-            <h3 className="text-lg font-bold text-gray-800 mb-2">Control de Máquinas Virtuales</h3>
-            <p className="text-sm text-gray-500 mb-4">Controla el encendido y apagado de las VMs de Desarrollo y Pruebas.</p>
-            
-            <div className="bg-gray-50 p-4 rounded-md border border-gray-200 mb-6 flex flex-col md:flex-row items-end gap-4">
-                <div className="w-full md:w-1/3">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Nombre de la Máquina</label>
-                    <select
-                        value={scheduleVmName}
-                        onChange={(e) => setScheduleVmName(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                    >
-                        <option value="">-- Seleccionar Máquina --</option>
-                        {vms.map(vm => (
-                            <option key={vm.id} value={vm.name}>{vm.name} ({vm.resourceGroup})</option>
-                        ))}
-                    </select>
-                </div>
-                <div className="w-full md:w-1/4">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Hora de Apagado Automático</label>
-                    <input 
-                        type="time" 
-                        value={shutdownTime}
-                        onChange={(e) => setShutdownTime(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                    />
-                </div>
-                <div className="w-full md:w-1/4">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Zona Horaria (GMT)</label>
-                    <select 
-                        value={gmtOffset}
-                        onChange={(e) => setGmtOffset(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                    >
-                        <option value="-12:00">GMT-12:00</option>
-                        <option value="-11:00">GMT-11:00</option>
-                        <option value="-10:00">GMT-10:00</option>
-                        <option value="-09:00">GMT-09:00</option>
-                        <option value="-08:00">GMT-08:00 (PST)</option>
-                        <option value="-07:00">GMT-07:00 (MST)</option>
-                        <option value="-06:00">GMT-06:00 (CST)</option>
-                        <option value="-05:00">GMT-05:00 (EST/COT)</option>
-                        <option value="-04:00">GMT-04:00 (AST)</option>
-                        <option value="-03:30">GMT-03:30</option>
-                        <option value="-03:00">GMT-03:00 (ART/BRT)</option>
-                        <option value="-02:00">GMT-02:00</option>
-                        <option value="-01:00">GMT-01:00</option>
-                        <option value="+00:00">GMT+00:00 (UTC)</option>
-                        <option value="+01:00">GMT+01:00 (CET)</option>
-                        <option value="+02:00">GMT+02:00</option>
-                        <option value="+03:00">GMT+03:00</option>
-                        <option value="+03:30">GMT+03:30</option>
-                        <option value="+04:00">GMT+04:00</option>
-                        <option value="+04:30">GMT+04:30</option>
-                        <option value="+05:00">GMT+05:00</option>
-                        <option value="+05:30">GMT+05:30</option>
-                        <option value="+05:45">GMT+05:45</option>
-                        <option value="+06:00">GMT+06:00</option>
-                        <option value="+06:30">GMT+06:30</option>
-                        <option value="+07:00">GMT+07:00</option>
-                        <option value="+08:00">GMT+08:00</option>
-                        <option value="+08:45">GMT+08:45</option>
-                        <option value="+09:00">GMT+09:00 (JST)</option>
-                        <option value="+09:30">GMT+09:30</option>
-                        <option value="+10:00">GMT+10:00 (AEST)</option>
-                        <option value="+10:30">GMT+10:30</option>
-                        <option value="+11:00">GMT+11:00</option>
-                        <option value="+12:00">GMT+12:00</option>
-                        <option value="+13:00">GMT+13:00</option>
-                        <option value="+14:00">GMT+14:00</option>
-                    </select>
-                </div>
-                <div className="w-full md:w-auto">
-                    <button 
-                        onClick={handleSetSchedule}
-                        className="w-full bg-[#0054A6] hover:bg-blue-800 text-white px-4 py-2 rounded-md shadow-sm text-sm font-semibold transition-colors disabled:opacity-50"
-                        disabled={!scheduleVmName || !shutdownTime}
-                    >
-                        Establecer
-                    </button>
+        <div className="card mt-6">
+            <div className="card-h">
+                <div className="flex flex-col">
+                    <h3 className="m-0">Control de Máquinas Virtuales</h3>
+                    <p className="text-[13px] text-ink-soft m-0 mt-1 font-normal">Controla el encendido y apagado de las VMs de Desarrollo y Pruebas.</p>
                 </div>
             </div>
-
             
-            {loading ? (
-                <div className="text-sm text-gray-400 animate-pulse">Cargando VMs...</div>
-            ) : vms.length === 0 ? (
-                <div className="text-sm text-gray-500">No se encontraron máquinas virtuales en el tenant.</div>
-            ) : (
-                <>
-                    <div className="flex gap-4 mb-4">
-                        <button 
-                            onClick={() => handleAction('stop')}
-                            disabled={actionLoading !== null || selectedVmIds.length === 0}
-                            className="bg-amber-100 hover:bg-amber-200 text-amber-700 px-4 py-2 rounded font-semibold text-sm transition-colors shadow-sm disabled:opacity-50"
+            <div className="p-[18px]">
+                <div className="bg-surface-2 p-[18px] rounded-[10px] border border-line mb-6 flex flex-col md:flex-row items-end gap-4">
+                    <div className="w-full md:w-1/3">
+                        <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px] block mb-2">Nombre de la Máquina</label>
+                        <select
+                            value={scheduleVmName}
+                            onChange={(e) => setScheduleVmName(e.target.value)}
+                            className="w-full bg-surface border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2 outline-none"
                         >
-                            {actionLoading === 'stop' ? 'Procesando...' : 'Apagar Selección'}
-                        </button>
-                        <button 
-                            onClick={() => handleAction('start')}
-                            disabled={actionLoading !== null || selectedVmIds.length === 0}
-                            className="bg-green-100 hover:bg-green-200 text-green-700 px-4 py-2 rounded font-semibold text-sm transition-colors shadow-sm disabled:opacity-50"
+                            <option value="">-- Seleccionar Máquina --</option>
+                            {vms.map(vm => (
+                                <option key={vm.id} value={vm.name}>{vm.name} ({vm.resourceGroup})</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="w-full md:w-1/4">
+                        <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px] block mb-2">Hora de Apagado</label>
+                        <input 
+                            type="time" 
+                            value={shutdownTime}
+                            onChange={(e) => setShutdownTime(e.target.value)}
+                            className="w-full bg-surface border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2 outline-none"
+                        />
+                    </div>
+                    <div className="w-full md:w-1/4">
+                        <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px] block mb-2">Zona Horaria</label>
+                        <select 
+                            value={gmtOffset}
+                            onChange={(e) => setGmtOffset(e.target.value)}
+                            className="w-full bg-surface border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2 outline-none"
                         >
-                            {actionLoading === 'start' ? 'Procesando...' : 'Encender Selección'}
-                        </button>
+                            <option value="-12:00">GMT-12:00</option>
+                            <option value="-11:00">GMT-11:00</option>
+                            <option value="-10:00">GMT-10:00</option>
+                            <option value="-09:00">GMT-09:00</option>
+                            <option value="-08:00">GMT-08:00 (PST)</option>
+                            <option value="-07:00">GMT-07:00 (MST)</option>
+                            <option value="-06:00">GMT-06:00 (CST)</option>
+                            <option value="-05:00">GMT-05:00 (EST/COT)</option>
+                            <option value="-04:00">GMT-04:00 (AST)</option>
+                            <option value="-03:30">GMT-03:30</option>
+                            <option value="-03:00">GMT-03:00 (ART/BRT)</option>
+                            <option value="-02:00">GMT-02:00</option>
+                            <option value="-01:00">GMT-01:00</option>
+                            <option value="+00:00">GMT+00:00 (UTC)</option>
+                            <option value="+01:00">GMT+01:00 (CET)</option>
+                            <option value="+02:00">GMT+02:00</option>
+                            <option value="+03:00">GMT+03:00</option>
+                            <option value="+03:30">GMT+03:30</option>
+                            <option value="+04:00">GMT+04:00</option>
+                            <option value="+04:30">GMT+04:30</option>
+                            <option value="+05:00">GMT+05:00</option>
+                            <option value="+05:30">GMT+05:30</option>
+                            <option value="+05:45">GMT+05:45</option>
+                            <option value="+06:00">GMT+06:00</option>
+                            <option value="+06:30">GMT+06:30</option>
+                            <option value="+07:00">GMT+07:00</option>
+                            <option value="+08:00">GMT+08:00</option>
+                            <option value="+08:45">GMT+08:45</option>
+                            <option value="+09:00">GMT+09:00 (JST)</option>
+                            <option value="+09:30">GMT+09:30</option>
+                            <option value="+10:00">GMT+10:00 (AEST)</option>
+                            <option value="+10:30">GMT+10:30</option>
+                            <option value="+11:00">GMT+11:00</option>
+                            <option value="+12:00">GMT+12:00</option>
+                            <option value="+13:00">GMT+13:00</option>
+                            <option value="+14:00">GMT+14:00</option>
+                        </select>
+                    </div>
+                    <div className="w-full md:w-auto">
                         <button 
-                            onClick={() => handleAction('restart')}
-                            disabled={actionLoading !== null || selectedVmIds.length === 0}
-                            className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-4 py-2 rounded font-semibold text-sm transition-colors shadow-sm disabled:opacity-50"
+                            onClick={handleSetSchedule}
+                            className="w-full bg-brand-deep text-white px-[11px] py-[7px] rounded-[10px] font-heading font-bold text-[12px] hover:brightness-110 shadow-sm transition-colors cursor-pointer disabled:opacity-50"
+                            disabled={!scheduleVmName || !shutdownTime}
                         >
-                            {actionLoading === 'restart' ? 'Procesando...' : 'Reiniciar Selección'}
+                            Establecer
                         </button>
                     </div>
-                    
-                    <div className="border border-gray-200 rounded-md overflow-hidden bg-white">
-                        <div className="overflow-x-auto w-full">
-                            <table className="w-full text-left border-collapse" style={{ width: table.getCenterTotalSize() }}>
-                                <thead className="bg-gray-50">
-                                {table.getHeaderGroups().map(headerGroup => (
-                                    <tr key={headerGroup.id} className="text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
-                                    {headerGroup.headers.map(header => (
-                                        <th key={header.id} className="p-4 font-medium relative group" style={{ width: header.getSize() }}>
-                                        <div className="flex items-center justify-between">
-                                            {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
-                                        </div>
-                                        <div
-                                            onMouseDown={header.getResizeHandler()}
-                                            onTouchStart={header.getResizeHandler()}
-                                            className={`absolute right-0 top-0 h-full w-2 cursor-col-resize bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity ${header.column.getIsResizing() ? 'opacity-100 bg-indigo-600' : ''}`}
-                                        />
-                                        </th>
-                                    ))}
-                                    </tr>
-                                ))}
-                                </thead>
-                                <tbody>
-                                {table.getRowModel().rows.length > 0 ? (
-                                    table.getRowModel().rows.map(row => (
-                                    <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors text-sm">
-                                        {row.getVisibleCells().map(cell => (
-                                        <td key={cell.id} className="p-4" style={{ width: cell.column.getSize() }}>
-                                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                        </td>
+                </div>
+
+                
+                {loading ? (
+                    <div className="empty animate-pulse">Cargando VMs...</div>
+                ) : vms.length === 0 ? (
+                    <div className="empty">No se encontraron máquinas virtuales en el tenant.</div>
+                ) : (
+                    <>
+                        <div className="flex flex-wrap gap-2 mb-4">
+                            <button 
+                                onClick={() => handleAction('stop')}
+                                disabled={actionLoading !== null || selectedVmIds.length === 0}
+                                className="bg-amber text-white hover:brightness-110 px-[11px] py-[7px] rounded-[10px] font-heading font-semibold text-[12px] shadow-sm disabled:opacity-50 transition-colors cursor-pointer"
+                            >
+                                {actionLoading === 'stop' ? 'Procesando...' : 'Apagar Selección'}
+                            </button>
+                            <button 
+                                onClick={() => handleAction('start')}
+                                disabled={actionLoading !== null || selectedVmIds.length === 0}
+                                className="bg-green text-white hover:brightness-110 px-[11px] py-[7px] rounded-[10px] font-heading font-semibold text-[12px] shadow-sm disabled:opacity-50 transition-colors cursor-pointer"
+                            >
+                                {actionLoading === 'start' ? 'Procesando...' : 'Encender Selección'}
+                            </button>
+                            <button 
+                                onClick={() => handleAction('restart')}
+                                disabled={actionLoading !== null || selectedVmIds.length === 0}
+                                className="bg-brand-bright text-white hover:brightness-110 px-[11px] py-[7px] rounded-[10px] font-heading font-semibold text-[12px] shadow-sm disabled:opacity-50 transition-colors cursor-pointer"
+                            >
+                                {actionLoading === 'restart' ? 'Procesando...' : 'Reiniciar Selección'}
+                            </button>
+                        </div>
+                        
+                        <div className="border border-line rounded-[14px] overflow-hidden bg-surface">
+                            <div className="overflow-x-auto w-full">
+                                <table className="tbl w-full" style={{ width: table.getCenterTotalSize() }}>
+                                    <thead>
+                                    {table.getHeaderGroups().map(headerGroup => (
+                                        <tr key={headerGroup.id}>
+                                        {headerGroup.headers.map(header => (
+                                            <th key={header.id} className="relative group" style={{ width: header.getSize() }}>
+                                            <div className="flex items-center justify-between">
+                                                {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                                            </div>
+                                            <div
+                                                onMouseDown={header.getResizeHandler()}
+                                                onTouchStart={header.getResizeHandler()}
+                                                className={`absolute right-0 top-0 h-full w-1 cursor-col-resize bg-line opacity-0 group-hover:opacity-100 transition-opacity ${header.column.getIsResizing() ? 'opacity-100 bg-brand-deep' : ''}`}
+                                            />
+                                            </th>
                                         ))}
-                                    </tr>
-                                    ))
-                                ) : (
-                                    <tr>
-                                    <td colSpan={columns.length} className="p-8 text-center text-sm text-gray-500">
-                                        No hay datos disponibles
-                                    </td>
-                                    </tr>
-                                )}
-                                </tbody>
-                            </table>
-                        </div>
-                        <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-t border-gray-200 sm:px-6">
-                            <div className="flex items-center gap-2">
-                                <span className="text-sm text-gray-700">
-                                    Página <span className="font-medium">{table.getState().pagination.pageIndex + 1}</span> de{' '}
-                                    <span className="font-medium">{table.getPageCount() || 1}</span>
-                                </span>
-                                <select
-                                    value={table.getState().pagination.pageSize}
-                                    onChange={e => {
-                                        table.setPageSize(Number(e.target.value));
-                                    }}
-                                    className="ml-4 bg-white border border-gray-300 text-gray-700 text-sm rounded-md p-1 focus:ring-[#0054A6] focus:border-[#0054A6]"
-                                >
-                                    {[10, 15, 20, 25, 50, 100].map(pageSize => (
-                                        <option key={pageSize} value={pageSize}>
-                                            Mostrar {pageSize}
-                                        </option>
+                                        </tr>
                                     ))}
-                                </select>
+                                    </thead>
+                                    <tbody>
+                                    {table.getRowModel().rows.length > 0 ? (
+                                        table.getRowModel().rows.map(row => (
+                                        <tr key={row.id}>
+                                            {row.getVisibleCells().map(cell => (
+                                            <td key={cell.id} style={{ width: cell.column.getSize() }}>
+                                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                            </td>
+                                            ))}
+                                        </tr>
+                                        ))
+                                    ) : (
+                                        <tr>
+                                        <td colSpan={columns.length} className="empty">
+                                            No hay datos disponibles
+                                        </td>
+                                        </tr>
+                                    )}
+                                    </tbody>
+                                </table>
                             </div>
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={() => table.previousPage()}
-                                    disabled={!table.getCanPreviousPage()}
-                                    className="px-3 py-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    {typeof t === 'function' && t('Common.prev') || 'Anterior'}
-                                </button>
-                                <button
-                                    onClick={() => table.nextPage()}
-                                    disabled={!table.getCanNextPage()}
-                                    className="px-3 py-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    {typeof t === 'function' && t('Common.next') || 'Siguiente'}
-                                </button>
+                            <div className="flex items-center justify-between p-[18px] bg-surface border-t border-line sm:px-6">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[13px] text-ink-soft font-bold">
+                                        Página <span className="text-ink">{table.getState().pagination.pageIndex + 1}</span> de{' '}
+                                        <span className="text-ink">{table.getPageCount() || 1}</span>
+                                    </span>
+                                    <select
+                                        value={table.getState().pagination.pageSize}
+                                        onChange={e => {
+                                            table.setPageSize(Number(e.target.value));
+                                        }}
+                                        className="ml-4 bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] p-2 outline-none"
+                                    >
+                                        {[10, 15, 20, 25, 50, 100].map(pageSize => (
+                                            <option key={pageSize} value={pageSize}>
+                                                Mostrar {pageSize}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => table.previousPage()}
+                                        disabled={!table.getCanPreviousPage()}
+                                        className="bg-surface-2 border border-line text-ink px-[11px] py-[7px] rounded-[10px] font-heading font-semibold text-[12px] hover:border-brand-bright disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                                    >
+                                        {typeof t === 'function' && t('Common.prev') || 'Anterior'}
+                                    </button>
+                                    <button
+                                        onClick={() => table.nextPage()}
+                                        disabled={!table.getCanNextPage()}
+                                        className="bg-surface-2 border border-line text-ink px-[11px] py-[7px] rounded-[10px] font-heading font-semibold text-[12px] hover:border-brand-bright disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                                    >
+                                        {typeof t === 'function' && t('Common.next') || 'Siguiente'}
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </>
-            )}
+                    </>
+                )}
+            </div>
         </div>
     );
 }
