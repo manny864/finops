@@ -61,6 +61,7 @@ const translations = {
       "subscription": "Subscription",
       "all_tenant_scope": "All (Tenant Scope)",
       "tenant_admin": "Tenant (Admin Owner)",
+            "scope": "Scope",
       "my_environment": "My Environment (Client)",
       "ai_config": "AI Configuration"
     },
@@ -289,6 +290,7 @@ const translations = {
       "subscription": "Suscripción",
       "all_tenant_scope": "Todas (Tenant Scope)",
       "tenant_admin": "Tenant (Admin Propietario)",
+            "scope": "Alcance",
       "my_environment": "Mi Entorno (Cliente)",
       "ai_config": "Configuración de IA"
     },
@@ -517,6 +519,7 @@ const translations = {
       "subscription": "Assinatura",
       "all_tenant_scope": "Todas (Tenant Scope)",
       "tenant_admin": "Tenant (Admin Proprietário)",
+            "scope": "Alcance",
       "my_environment": "Meu Ambiente (Cliente)",
       "ai_config": "Configuração de IA"
     },

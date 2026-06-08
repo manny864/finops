@@ -57,6 +57,7 @@
     "subscription": "Subscription",
     "all_tenant_scope": "All (Tenant Scope)",
     "tenant_admin": "Tenant (Admin Owner)",
+    "scope": "Scope",
     "my_environment": "My Environment (Client)",
     "ai_config": "AI Configuration"
   },

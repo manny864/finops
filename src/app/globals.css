@@ -205,3 +205,18 @@ table.tbl{width:100%;border-collapse:collapse}
 .heat .hc{height:20px;border-radius:4px;background:var(--green-soft)} .heat .hc.off{background:#D7E3F0} .heat .hc.on{background:linear-gradient(135deg,var(--brand-deep),var(--brand-bright))}
 .heat .hlab{font-size:10.5px;color:var(--grey);display:flex;align-items:center;font-weight:600}
 .heat .htime{font-size:9px;color:var(--grey);text-align:center}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 1180px) {
+  .kpis { grid-template-columns: repeat(3, 1fr) }
+  .grid-2, .grid-5 { grid-template-columns: 1fr }
+  .grid-5 { grid-template-columns: repeat(2, 1fr) }
+  .shell { grid-template-columns: 64px 1fr }
+  .brand .bt, .nav-grouplabel, .nav-item span.lbl, .nav-item .ind { display: none }
+  .nav-item { justify-content: center }
+}
+
+@media (max-width: 640px) {
+  .kpis, .grid-3, .sumstrip { grid-template-columns: repeat(2, 1fr) }
+  .content { padding: 16px }
+}
