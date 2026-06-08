@@ -174,6 +174,8 @@ export default function Home() {
             </div>
         </div>
       </div>
+
+      <ExecutiveSummaryCard title="Ahorro Potencial Capturado" amount={`$${new Intl.NumberFormat('en-US').format(totalSavings * 0.4)}`} trend="+12.4% vs mes anterior" />
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="flex flex-col">
@@ -189,7 +191,7 @@ export default function Home() {
             
             
         </div>
-        <div className="flex flex-col">
+        <div className="flex flex-col gap-6">
             <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
              <h3 className="text-lg font-bold text-gray-800 mb-4">Estado de Gobernanza</h3>
              <div className="h-64 flex flex-col items-center justify-center text-gray-400 bg-gray-50 rounded-lg border border-dashed border-gray-300">
@@ -209,11 +211,17 @@ export default function Home() {
                      </button>
                  )}
              </div>
-        </div>
-        
-        <BudgetBurnChart />
+            </div>
+            <BudgetBurnChart />
         </div>
       </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <PowerSchedules />
+          <RightsizingBlade />
+      </div>
+
+      <ExpiredSandboxTable />
 
       {selectedCategory && (
           <div className="animate-in slide-in-from-bottom-4 duration-500 mt-4">
