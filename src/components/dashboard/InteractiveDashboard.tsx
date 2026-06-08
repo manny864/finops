@@ -7,39 +7,18 @@ import {
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell } from 'recharts';
 
 interface InteractiveDashboardProps {
-    totalSavings: number;
-    calculateCO2Savings: (val: number) => string;
     loading: boolean;
-    dashboardData: any[];
-    selectedCategory: string | null;
-    setSelectedCategory: (cat: string | null) => void;
-    complianceScore: number | null;
-    setActiveTab: (tab: string) => void;
-    untaggedPercentage?: number;
+    billingData: {costByService: any[], dailyTrend: any[], totalCost: number} | null;
 }
 
 export default function InteractiveDashboard({
-    totalSavings,
     loading,
-    complianceScore,
+    billingData
 }: InteractiveDashboardProps) {
 
-    // Mock data for the charts to match the image
-    const evolutionData = [
-        { name: 'Ene', gasto: 52000 },
-        { name: 'Feb', gasto: 50000 },
-        { name: 'Mar', gasto: 51500 },
-        { name: 'Abr', gasto: 49000 },
-        { name: 'May', gasto: 49500 },
-        { name: 'Jun', gasto: 48200 },
-    ];
-
-    const pieData = [
-        { name: 'PROD-Core', value: 18250, color: '#1e3a8a' },
-        { name: 'PROD-Data', value: 14900, color: '#0ea5e9' },
-        { name: 'QA-Staging', value: 8600, color: '#3b82f6' },
-        { name: 'DEV-Sandbox', value: 6450, color: '#93c5fd' },
-    ];
+    const evolutionData = billingData?.dailyTrend || [];
+    const pieData = billingData?.costByService || [];
+    const totalCost = billingData?.totalCost || 0;
 
     const formatYAxis = (tickItem: any) => `$${(tickItem / 1000).toFixed(1)}k`;
 
@@ -56,13 +35,15 @@ export default function InteractiveDashboard({
             {/* Header */}
             <div className="flex justify-between items-start mb-6">
                 <div>
-                    <div className="flex items-center">
-                        <div className="bg-blue-600 rounded-lg p-2 mr-3 text-white shadow-sm">
-                            <PieChart className="w-6 h-6 fill-white/20" />
+                    <div className="flex gap-4">
+                    <div className="bg-white px-5 py-3 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
+                        <div className="bg-slate-100 p-2 rounded-lg"><MapPin className="w-5 h-5 text-slate-600" /></div>
+                        <div>
+                            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Tenant sincronizado</div>
+                            <div className="text-sm font-bold text-slate-800">hace 4 min</div>
                         </div>
-                        <h1 className="text-2xl font-bold text-slate-800">Consumo Real</h1>
                     </div>
-                    <p className="text-sm text-slate-500 mt-1 ml-14">Gasto real del tenant y oportunidades activas, en vivo.</p>
+                </div>
                 </div>
                 <div className="bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full text-xs font-semibold flex items-center shadow-sm">
                     <MapPin className="w-3 h-3 mr-1 text-red-500 fill-red-500" />
@@ -77,7 +58,7 @@ export default function InteractiveDashboard({
                         <DollarSign className="w-3.5 h-3.5 mr-1 text-slate-400" />
                         Gasto Mensual
                     </div>
-                    <div className="text-2xl font-extrabold text-slate-800">$48,200</div>
+                    <div className="text-2xl font-extrabold text-slate-800">${totalCost.toLocaleString()}</div>
                 </div>
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
                     <div className="flex items-center text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
@@ -121,22 +102,18 @@ export default function InteractiveDashboard({
 
             {/* Middle Charts */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-                {/* Left Chart */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 lg:col-span-2">
                     <div className="flex justify-between items-center mb-6">
                         <div className="flex items-center text-sm font-bold text-slate-700">
                             <BarChart3 className="w-4 h-4 mr-2 text-rose-800" />
                             Evolución del gasto mensual
                         </div>
-                        <div className="text-[11px] font-medium text-slate-400">
-                            Tenant completo · USD
-                        </div>
                     </div>
                     <div className="h-64 w-full relative">
                         <ResponsiveContainer width="100%" height="100%">
                             <AreaChart data={evolutionData} margin={{ top: 10, right: 20, left: -20, bottom: 0 }}>
                                 <defs>
-                                    <linearGradient id="colorBlue" x1="0" y1="0" x2="0" y2="1">
+                                    <linearGradient id="colorGasto" x1="0" y1="0" x2="0" y2="1">
                                         <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.15}/>
                                         <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0}/>
                                     </linearGradient>
@@ -148,20 +125,14 @@ export default function InteractiveDashboard({
                                     contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                                     formatter={(value: any) => [`$${value}`, 'Gasto']}
                                 />
-                                <Area type="monotone" dataKey="gasto" stroke="#0ea5e9" strokeWidth={3} fillOpacity={1} fill="url(#colorBlue)" activeDot={{ r: 6, strokeWidth: 0 }} dot={<CustomDot />} />
+                                <Area type="monotone" dataKey="cost" stroke="#0ea5e9" strokeWidth={4} fillOpacity={1} fill="url(#colorGasto)" activeDot={{ r: 8, strokeWidth: 0 }} dot={<CustomDot />} />
                             </AreaChart>
                         </ResponsiveContainer>
-                        {/* Dashed potential line */}
                         <div className="absolute bottom-[35px] left-[55px] right-[25px] border-t-2 border-dashed border-slate-300"></div>
                         <div className="absolute bottom-[40px] right-[25px] text-[10px] font-bold text-slate-400 bg-white px-1">Potencial $38.5k</div>
                     </div>
-                    <div className="flex items-center gap-4 mt-4 text-[11px] font-bold text-slate-500 pl-4">
-                        <div className="flex items-center"><div className="w-3 h-3 rounded-sm bg-sky-500 mr-2"></div> Gasto real</div>
-                        <div className="flex items-center"><div className="w-3 h-3 rounded-sm bg-slate-400 mr-2"></div> Potencial alcanzable</div>
-                    </div>
                 </div>
 
-                {/* Right Chart */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
                     <div className="flex items-center text-sm font-bold text-slate-700 mb-6">
                         <PieChart className="w-4 h-4 mr-2 text-rose-800 fill-rose-800" />
@@ -180,22 +151,25 @@ export default function InteractiveDashboard({
                                         stroke="none"
                                     >
                                         {pieData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.color} />
+                                            <Cell key={`cell-${index}`} fill={['#1e3a8a', '#0ea5e9', '#3b82f6', '#93c5fd', '#38bdf8', '#7dd3fc'][index % 6]} />
                                         ))}
                                     </Pie>
-                                    <RechartsTooltip formatter={(value: any) => `$${value}`} />
+                                    <RechartsTooltip formatter={(value: any, name: any) => {
+                                        return [`$${value.toLocaleString()}`, name];
+                                    }} />
                                 </RechartsPieChart>
                             </ResponsiveContainer>
                             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-2">
-                                <span className="text-xl font-extrabold text-slate-800 tracking-tight">$48.2k</span>
-                                <span className="text-[9px] font-bold text-slate-400">gasto / mes</span>
+                                <div className="text-3xl font-black text-slate-800 mt-2 mb-1 tracking-tight">
+                                    ${totalCost.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                </div>
                             </div>
                         </div>
                         <div className="w-1/2 pl-2 flex flex-col justify-center gap-3">
                             {pieData.map((item, i) => (
                                 <div key={i} className="flex items-center text-[10px] font-bold text-slate-600">
-                                    <div className="w-2.5 h-2.5 rounded-sm mr-2 shrink-0" style={{ backgroundColor: item.color }}></div>
-                                    <span className="truncate">{item.name} <span className="text-slate-400 font-medium">· ${item.value.toLocaleString()}</span></span>
+                                    <div className="w-2.5 h-2.5 rounded-sm mr-2 shrink-0" style={{ backgroundColor: ['#1e3a8a', '#0ea5e9', '#3b82f6', '#93c5fd', '#38bdf8', '#7dd3fc'][i % 6] }}></div>
+                                    <span className="truncate">{item.name} <span className="text-slate-400 font-medium">· ${item.cost ? item.cost.toLocaleString() : item.value?.toLocaleString()}</span></span>
                                 </div>
                             ))}
                         </div>
@@ -210,7 +184,6 @@ export default function InteractiveDashboard({
                         <Zap className="w-4 h-4 mr-2 text-amber-500 fill-amber-500" />
                         Top oportunidades de ahorro
                     </div>
-                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">acción rápida</div>
                 </div>
                 <div className="divide-y divide-gray-50">
                     <div className="p-4 px-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
