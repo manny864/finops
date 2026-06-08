@@ -10,6 +10,7 @@
   /* FinOps Demo Colors */
   --brand-deep: #0054A6;
   --brand-bright: #00AEEF;
+  --brand-soft: #E6F2FB;
   --celeste: #90CAF9;
   --navy: #1E3A8A;
   --grey: #7F7F7F;
@@ -44,6 +45,7 @@
   --color-secondary: var(--brand-bright);
   --color-brand-deep: var(--brand-deep);
   --color-brand-bright: var(--brand-bright);
+  --color-brand-soft: var(--brand-soft);
   --color-nav-bg: var(--nav-bg);
   --color-nav-bg2: var(--nav-bg2);
   --color-surface: var(--surface);
@@ -52,6 +54,14 @@
   --color-line-strong: var(--line-strong);
   --color-ink: var(--ink);
   --color-ink-soft: var(--ink-soft);
+  --color-green: var(--green);
+  --color-green-soft: var(--green-soft);
+  --color-amber: var(--amber);
+  --color-amber-soft: var(--amber-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-grey: var(--grey);
+  --color-purple: var(--purple);
   /* Fuentes */
   --font-sans: var(--font-open-sans);
   --font-heading: var(--font-montserrat);

@@ -88,5 +88,25 @@
     "ver_lista": "Ver la lista de recomendaciones de {category}",
     "no_recs": "Sigue todas nuestras recomendaciones",
     "recs_of": "Recomendaciones de {category}"
+  },
+  "Rightsizing": {
+    "title": "Rightsizing Engine",
+    "subtitle": "Detección de máquinas virtuales subutilizadas (Pico CPU < 20% en 14 días).",
+    "permissions_error": "Permisos Restringidos",
+    "permissions_desc": "Azure Resource Graph ha bloqueado la consulta. Razones comunes:",
+    "permissions_reason1": "Falta el rol de Reader.",
+    "permissions_reason2": "La suscripción no existe.",
+    "analyzing": "Analizando telemetría de 14 días para todas las VMs...",
+    "optimized_title": "Infraestructura Optimizada",
+    "optimized_desc": "No se detectaron Máquinas Virtuales subutilizadas.",
+    "recommendations_title": "Recomendaciones de Downgrade",
+    "col_vm_name": "Nombre de VM",
+    "col_subscription": "Suscripción",
+    "col_current_sku": "SKU Actual",
+    "col_peak_cpu": "Pico Máx. CPU (14 días)",
+    "col_recommended_sku": "SKU Recomendado",
+    "col_action": "Acción",
+    "btn_downgrade": "Aplicar Downgrade",
+    "simulating": "Simulando aplicación de Downgrade automático para la VM:"
   }
 }

@@ -4,8 +4,10 @@ import { useTenant } from "@/components/TenantProvider";
 import { useSubscription } from "@/components/SubscriptionProvider";
 import { useViewMode } from "@/context/ViewModeContext";
 import { Zap, AlertTriangle, ArrowRight, CheckCircle } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 export default function RightsizingPage() {
+  const t = useTranslations("Rightsizing");
   const { selectedTenant } = useTenant();
   const { selectedSubscription } = useSubscription();
   const { viewMode } = useViewMode();
@@ -30,10 +32,10 @@ export default function RightsizingPage() {
         if (json.success) {
             setVms(json.data);
         } else {
-            setError(json.error || "Error al obtener recomendaciones");
+            setError(json.error || "Error");
         }
       } catch(e) {
-          setError("Error de red");
+          setError("Error");
       }
       setLoading(false);
     };
@@ -42,7 +44,7 @@ export default function RightsizingPage() {
   }, [selectedTenant, selectedSubscription]);
 
   const handleDowngrade = (vmName: string) => {
-      alert(`Simulando aplicación de Downgrade automático para la VM: ${vmName}`);
+      alert(`${t("simulating")} ${vmName}`);
   };
 
   if (selectedTenant.id === 'default') return null;
@@ -53,9 +55,9 @@ export default function RightsizingPage() {
         <div>
           <div className="vt">
              <span className="vico bg-gradient-to-br from-[#0054A6] to-[#00AEEF]">📐</span>
-             Rightsizing Engine
+             {t("title")}
           </div>
-          <div className="vs">Detección de máquinas virtuales subutilizadas (Pico CPU &lt; 20% en 14 días).</div>
+          <div className="vs">{t("subtitle")}</div>
         </div>
         <div className="right">
           <span className="scopechip">📍 {selectedTenant?.name || "Tenant"}</span>
@@ -65,14 +67,14 @@ export default function RightsizingPage() {
       {error && (
         <div className="card">
             <div className="card-h">
-                <h3 className="text-danger">⚠️ Permisos Restringidos</h3>
+                <h3 className="text-danger">⚠️ {t("permissions_error")}</h3>
             </div>
             <div className="p-[18px]">
                 <div className="text-sm text-ink-soft">
-                    <p>Azure Resource Graph ha bloqueado la consulta. Razones comunes:</p>
+                    <p>{t("permissions_desc")}</p>
                     <ul className="list-disc pl-5 mt-2 space-y-1 text-ink">
-                        <li>Falta el rol de <strong>Reader</strong>.</li>
-                        <li>La suscripción no existe.</li>
+                        <li><strong>{t("permissions_reason1")}</strong></li>
+                        <li>{t("permissions_reason2")}</li>
                     </ul>
                     <div className="mt-4 p-3 bg-danger-soft rounded border border-line font-mono text-xs text-danger break-all">
                         <strong>Log técnico:</strong> {error}
@@ -85,34 +87,34 @@ export default function RightsizingPage() {
       {loading && (
         <div className="empty">
             <Zap className="w-10 h-10 mx-auto text-amber mb-4 animate-bounce" />
-            <p className="text-ink-soft font-bold">Analizando telemetría de 14 días para todas las VMs...</p>
+            <p className="text-ink-soft font-bold">{t("analyzing")}</p>
         </div>
       )}
 
       {!loading && !error && vms.length === 0 && (
         <div className="empty">
             <CheckCircle className="w-16 h-16 mx-auto text-green mb-4" />
-            <h3 className="text-xl font-bold text-green">Infraestructura Optimizada</h3>
-            <p className="text-green mt-2">No se detectaron Máquinas Virtuales subutilizadas.</p>
+            <h3 className="text-xl font-bold text-green">{t("optimized_title")}</h3>
+            <p className="text-green mt-2">{t("optimized_desc")}</p>
         </div>
       )}
 
       {!loading && vms.length > 0 && (
         <div className="card">
             <div className="card-h">
-                <h3>📉 Recomendaciones de Downgrade</h3>
+                <h3>📉 {t("recommendations_title")}</h3>
             </div>
             <div className="overflow-x-auto">
                 <table className="tbl">
                     <thead>
                         <tr>
-                            <th>Nombre de VM</th>
-                            <th>Suscripción</th>
+                            <th>{t("col_vm_name")}</th>
+                            <th>{t("col_subscription")}</th>
                             {viewMode === 'engineer' && <th>Raw ARM ID</th>}
-                            <th>SKU Actual</th>
-                            <th>Pico Máx. CPU (14 días)</th>
-                            <th>SKU Recomendado</th>
-                            <th className="num">Acción</th>
+                            <th>{t("col_current_sku")}</th>
+                            <th>{t("col_peak_cpu")}</th>
+                            <th>{t("col_recommended_sku")}</th>
+                            <th className="num">{t("col_action")}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -150,7 +152,7 @@ export default function RightsizingPage() {
                                         onClick={() => handleDowngrade(vm.name)}
                                         className="font-heading font-semibold text-[12px] rounded-[10px] bg-amber text-white p-[7px_11px] cursor-pointer hover:brightness-110 active:scale-95 transition-all shadow-sm"
                                     >
-                                        Aplicar Downgrade
+                                        {t("btn_downgrade")}
                                     </button>
                                 </td>
                             </tr>

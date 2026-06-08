@@ -88,5 +88,25 @@
     "ver_lista": "View the list of {category} recommendations",
     "no_recs": "Follow all our recommendations",
     "recs_of": "Recommendations for {category}"
+  },
+  "Rightsizing": {
+    "title": "Rightsizing Engine",
+    "subtitle": "Detection of underutilized virtual machines (Peak CPU < 20% in 14 days).",
+    "permissions_error": "Restricted Permissions",
+    "permissions_desc": "Azure Resource Graph blocked the query. Common reasons:",
+    "permissions_reason1": "Missing Reader role.",
+    "permissions_reason2": "Subscription does not exist.",
+    "analyzing": "Analyzing 14-day telemetry for all VMs...",
+    "optimized_title": "Optimized Infrastructure",
+    "optimized_desc": "No underutilized Virtual Machines detected.",
+    "recommendations_title": "Downgrade Recommendations",
+    "col_vm_name": "VM Name",
+    "col_subscription": "Subscription",
+    "col_current_sku": "Current SKU",
+    "col_peak_cpu": "Peak CPU (14 days)",
+    "col_recommended_sku": "Recommended SKU",
+    "col_action": "Action",
+    "btn_downgrade": "Apply Downgrade",
+    "simulating": "Simulating automatic Downgrade for VM:"
   }
 }
