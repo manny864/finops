@@ -183,7 +183,7 @@ function ShellContent({ children }: { children: React.ReactNode }) {
                     className="border-0 bg-transparent font-heading font-bold text-[13px] text-brand-deep cursor-pointer focus:outline-none p-0 m-0"
                   >
                     {tenants.map(t => (
-                      <option key={t.id} value={t.id}>{t.name}</option>
+                      <option key={t.id} value={t.id} className="text-ink bg-surface">{t.name}</option>
                     ))}
                   </select>
                 </div>

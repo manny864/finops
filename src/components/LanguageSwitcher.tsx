@@ -20,12 +20,8 @@ export default function LanguageSwitcher() {
       const search = searchParams.toString();
       const query = search ? `?${search}` : '';
       
-      // Use next-intl router to switch language
-      router.replace(
-          // @ts-ignore
-          `${pathname}${query}`, 
-          { locale: nextLocale }
-      );
+      // Let's use window.location to ensure a hard reload with the new locale if next-intl's router is failing
+      window.location.href = `/${nextLocale}${pathname === '/' ? '' : pathname}${query}`;
     });
   };
 
