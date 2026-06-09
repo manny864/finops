@@ -129,29 +129,41 @@ export default function RateOptimizationPage() {
             if (json.recommendations) {
                 const mappedData: Recommendation[] = json.recommendations.map((rec: any) => {
                     const props = rec.properties || {};
+                    const savings = rec.savings || props.savings || {};
                     
-                    let term = props.term || 'Unknown Term';
+                    let term = props.term || rec.term || 'Unknown Term';
                     if (term === 'P1Y' || term === 'P1Y (1 Year)') term = '1 Year';
                     else if (term === 'P3Y' || term === 'P3Y (3 Years)') term = '3 Years';
                     else if (term === 'P5Y') term = '5 Years';
 
                     let skuName = 'Unknown SKU';
-                    if (Array.isArray(props.skuProperties) && props.skuProperties.length > 0) {
-                        skuName = props.skuProperties[0].name || props.skuProperties[0].skuName;
-                    } else if (props.skuProperties?.name) {
-                        skuName = props.skuProperties.name;
+                    const skuProps = props.skuProperties || rec.skuProperties || [];
+                    if (Array.isArray(skuProps) && skuProps.length > 0) {
+                        skuName = skuProps[0].name || skuProps[0].skuName;
+                    } else if (skuProps?.name) {
+                        skuName = skuProps.name;
                     } else if (props.sku?.name) {
                         skuName = props.sku.name;
                     } else if (rec.sku?.name) {
                         skuName = rec.sku.name;
+                    } else if (typeof rec.sku === 'string') {
+                        skuName = rec.sku;
                     }
+
+                    const extractValue = (...vals: any[]) => {
+                        for (const val of vals) {
+                            if (val && typeof val === 'object' && val.value !== undefined) return Number(val.value);
+                            if (typeof val === 'number') return val;
+                        }
+                        return 0;
+                    };
 
                     return {
                         sku: skuName || 'Unknown SKU',
                         term: term,
-                        costWithNoDiscounts: props.costWithNoDiscounts || 0,
-                        totalCostWithDiscounts: props.totalCostWithDiscounts || 0,
-                        netSavings: props.netSavings || 0,
+                        costWithNoDiscounts: extractValue(props.costWithNoReservedInstances, rec.costWithNoReservedInstances, props.costWithNoDiscounts, savings.costWithNoReservedInstances),
+                        totalCostWithDiscounts: extractValue(props.totalCostWithReservedInstances, rec.totalCostWithReservedInstances, props.totalCostWithDiscounts, savings.totalCostWithReservedInstances),
+                        netSavings: extractValue(props.netSavings, rec.netSavings, savings.netSavings),
                     };
                 });
                 setData(mappedData);
