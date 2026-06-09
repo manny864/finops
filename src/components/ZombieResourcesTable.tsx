@@ -332,7 +332,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                 >
                     <option value="all">Todas</option>
                     {subscriptions.map((sub: any) => (
-                        <option key={sub.id} value={sub.id}>{sub.displayName.substring(0,15)}...</option>
+                        <option key={sub.id} value={sub.id}>{(sub.displayName || sub.id).substring(0,15)}...</option>
                     ))}
                 </select>
             </div>

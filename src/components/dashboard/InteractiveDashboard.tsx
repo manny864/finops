@@ -5,6 +5,7 @@ import {
     Calendar, Skull, Tag, BarChart3, Zap, Moon
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell } from 'recharts';
+import { useTranslations } from 'next-intl';
 
 interface InteractiveDashboardProps {
     loading: boolean;
@@ -15,7 +16,7 @@ export default function InteractiveDashboard({
     loading,
     billingData
 }: InteractiveDashboardProps) {
-
+    const t = useTranslations('Billing');
     const evolutionData = billingData?.dailyTrend || [];
     const pieData = billingData?.costByService || [];
     const totalCost = billingData?.totalCost || 0;
@@ -39,15 +40,15 @@ export default function InteractiveDashboard({
                     <div className="bg-white px-5 py-3 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
                         <div className="bg-slate-100 p-2 rounded-lg"><MapPin className="w-5 h-5 text-slate-600" /></div>
                         <div>
-                            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Tenant sincronizado</div>
-                            <div className="text-sm font-bold text-slate-800">hace 4 min</div>
+                            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('synced_tenant')}</div>
+                            <div className="text-sm font-bold text-slate-800">{t('mins_ago')}</div>
                         </div>
                     </div>
                 </div>
                 </div>
                 <div className="bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full text-xs font-semibold flex items-center shadow-sm">
                     <MapPin className="w-3 h-3 mr-1 text-red-500 fill-red-500" />
-                    Tenant completo
+                    {t('full_tenant')}
                 </div>
             </div>
 
@@ -56,47 +57,51 @@ export default function InteractiveDashboard({
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
                     <div className="flex items-center text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
                         <DollarSign className="w-3.5 h-3.5 mr-1 text-slate-400" />
-                        Gasto Mensual
+                        {t('mtd_spend')}
                     </div>
-                    <div className="text-2xl font-extrabold text-slate-800">${totalCost.toLocaleString()}</div>
+                    <div className="text-2xl font-extrabold text-slate-800">${totalCost.toLocaleString(undefined, {maximumFractionDigits:0})}</div>
                 </div>
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
                     <div className="flex items-center text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
                         <TrendingDown className="w-3.5 h-3.5 mr-1 text-red-500" />
-                        Ahorro Identificado
+                        {t('identified_savings')}
                     </div>
-                    <div className="text-2xl font-extrabold text-slate-800">$9,698</div>
-                    <div className="text-[11px] text-slate-500 font-medium mt-1">pendiente de aplicar</div>
+                    {/* Placeholder for now until connected to full Advisor API */}
+                    <div className="text-2xl font-extrabold text-slate-800">--</div>
+                    <div className="text-[11px] text-slate-500 font-medium mt-1">{t('pending_apply')}</div>
                 </div>
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
                     <div className="flex items-center text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
                         <CheckSquare className="w-3.5 h-3.5 mr-1 text-emerald-500 fill-emerald-500/20" />
-                        Ahorro Aplicado
+                        {t('applied_savings')}
                     </div>
-                    <div className="text-2xl font-extrabold text-emerald-500">$0</div>
-                    <div className="text-[11px] text-slate-500 font-medium mt-1">0% capturado</div>
+                    <div className="text-2xl font-extrabold text-emerald-500">--</div>
+                    <div className="text-[11px] text-slate-500 font-medium mt-1">{t('captured_percent')}</div>
                 </div>
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
                     <div className="flex items-center text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
                         <Calendar className="w-3.5 h-3.5 mr-1 text-rose-400" />
-                        Proyección Anual
+                        {t('annual_projection')}
                     </div>
-                    <div className="text-2xl font-extrabold text-slate-800">$578,400</div>
+                    <div className="text-2xl font-extrabold text-slate-800">
+                        ${((totalCost / Math.max(1, new Date().getDate())) * 365).toLocaleString(undefined, {maximumFractionDigits:0})}
+                    </div>
                 </div>
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
                     <div className="flex items-center text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
                         <Skull className="w-3.5 h-3.5 mr-1 text-slate-500" />
-                        Recursos Zombis
+                        {t('zombie_resources')}
                     </div>
-                    <div className="text-2xl font-extrabold text-slate-800">14</div>
-                    <div className="text-[11px] text-slate-500 font-medium mt-1">recursos inactivos</div>
+                    <div className="text-2xl font-extrabold text-slate-800">--</div>
+                    <div className="text-[11px] text-slate-500 font-medium mt-1">{t('inactive_resources')}</div>
                 </div>
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
                     <div className="flex items-center text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
                         <Tag className="w-3.5 h-3.5 mr-1 text-amber-500 fill-amber-500/20" />
-                        Compliance Etiquetas
+                        {t('tag_compliance')}
                     </div>
-                    <div className="text-2xl font-extrabold text-slate-800">68%</div>
+                    <div className="text-2xl font-extrabold text-slate-800">--</div>
+                    <div className="text-[11px] text-slate-500 font-medium mt-1">{t('untagged_resources')}</div>
                 </div>
             </div>
 
@@ -106,7 +111,7 @@ export default function InteractiveDashboard({
                     <div className="flex justify-between items-center mb-6">
                         <div className="flex items-center text-sm font-bold text-slate-700">
                             <BarChart3 className="w-4 h-4 mr-2 text-rose-800" />
-                            Evolución del gasto mensual
+                            {t('monthly_spend_evolution')}
                         </div>
                     </div>
                     <div className="h-64 w-full relative">
@@ -123,20 +128,20 @@ export default function InteractiveDashboard({
                                 <YAxis tickFormatter={formatYAxis} tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} domain={['auto', 'auto']} />
                                 <RechartsTooltip 
                                     contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                                    formatter={(value: any) => [`$${value}`, 'Gasto']}
+                                    formatter={(value: any) => [`$${value}`, t('spend_label')]}
                                 />
                                 <Area type="monotone" dataKey="cost" stroke="#0ea5e9" strokeWidth={4} fillOpacity={1} fill="url(#colorGasto)" activeDot={{ r: 8, strokeWidth: 0 }} dot={<CustomDot />} />
                             </AreaChart>
                         </ResponsiveContainer>
                         <div className="absolute bottom-[35px] left-[55px] right-[25px] border-t-2 border-dashed border-slate-300"></div>
-                        <div className="absolute bottom-[40px] right-[25px] text-[10px] font-bold text-slate-400 bg-white px-1">Potencial $38.5k</div>
+                        <div className="absolute bottom-[40px] right-[25px] text-[10px] font-bold text-slate-400 bg-white px-1">{t('potential_label')} $38.5k</div>
                     </div>
                 </div>
 
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
                     <div className="flex items-center text-sm font-bold text-slate-700 mb-6">
                         <PieChart className="w-4 h-4 mr-2 text-rose-800 fill-rose-800" />
-                        Gasto por suscripción
+                        {t('spend_by_subscription')}
                     </div>
                     <div className="flex items-center justify-center h-64">
                         <div className="w-1/2 h-full relative flex items-center justify-center">
@@ -182,7 +187,7 @@ export default function InteractiveDashboard({
                 <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-white">
                     <div className="flex items-center text-sm font-bold text-slate-800">
                         <Zap className="w-4 h-4 mr-2 text-amber-500 fill-amber-500" />
-                        Top oportunidades de ahorro
+                        {t('top_saving_opportunities')}
                     </div>
                 </div>
                 <div className="divide-y divide-gray-50">
@@ -201,7 +206,7 @@ export default function InteractiveDashboard({
                         </div>
                         <div className="flex flex-col items-end">
                             <div className="text-emerald-600 font-extrabold text-sm mb-2">$2,100 <span className="text-[10px] font-medium text-slate-400">/mes</span></div>
-                            <button className="bg-[#0088FF] hover:bg-blue-600 text-white text-[11px] font-bold px-5 py-1.5 rounded-full shadow-sm transition-colors">Aplicar</button>
+                            <button className="bg-[#0088FF] hover:bg-blue-600 text-white text-[11px] font-bold px-5 py-1.5 rounded-full shadow-sm transition-colors">{t('btn_apply')}</button>
                         </div>
                     </div>
 
@@ -220,7 +225,7 @@ export default function InteractiveDashboard({
                         </div>
                         <div className="flex flex-col items-end">
                             <div className="text-emerald-600 font-extrabold text-sm mb-2">$1,850 <span className="text-[10px] font-medium text-slate-400">/mes</span></div>
-                            <button className="bg-[#0088FF] hover:bg-blue-600 text-white text-[11px] font-bold px-5 py-1.5 rounded-full shadow-sm transition-colors">Aplicar</button>
+                            <button className="bg-[#0088FF] hover:bg-blue-600 text-white text-[11px] font-bold px-5 py-1.5 rounded-full shadow-sm transition-colors">{t('btn_apply')}</button>
                         </div>
                     </div>
 
@@ -239,7 +244,7 @@ export default function InteractiveDashboard({
                         </div>
                         <div className="flex flex-col items-end">
                             <div className="text-emerald-600 font-extrabold text-sm mb-2">$1,620 <span className="text-[10px] font-medium text-slate-400">/mes</span></div>
-                            <button className="bg-[#0088FF] hover:bg-blue-600 text-white text-[11px] font-bold px-5 py-1.5 rounded-full shadow-sm transition-colors">Aplicar</button>
+                            <button className="bg-[#0088FF] hover:bg-blue-600 text-white text-[11px] font-bold px-5 py-1.5 rounded-full shadow-sm transition-colors">{t('btn_apply')}</button>
                         </div>
                     </div>
 
@@ -258,7 +263,7 @@ export default function InteractiveDashboard({
                         </div>
                         <div className="flex flex-col items-end">
                             <div className="text-emerald-600 font-extrabold text-sm mb-2">$1,450 <span className="text-[10px] font-medium text-slate-400">/mes</span></div>
-                            <button className="bg-[#0088FF] hover:bg-blue-600 text-white text-[11px] font-bold px-5 py-1.5 rounded-full shadow-sm transition-colors">Aplicar</button>
+                            <button className="bg-[#0088FF] hover:bg-blue-600 text-white text-[11px] font-bold px-5 py-1.5 rounded-full shadow-sm transition-colors">{t('btn_apply')}</button>
                         </div>
                     </div>
                 </div>

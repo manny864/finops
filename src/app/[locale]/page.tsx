@@ -150,6 +150,17 @@ export default function Home() {
     localStorage.setItem('finops_dashboard_layout_v2', JSON.stringify(allLayouts));
   };
 
+  const handleBudgetResize = (newH: number) => {
+    setLayouts((prev: any) => {
+      if (!prev || !prev.lg) return prev;
+      const nextLayouts = { ...prev };
+      Object.keys(nextLayouts).forEach(bp => {
+        nextLayouts[bp] = nextLayouts[bp].map((l: any) => l.i === 'burn' ? { ...l, h: newH } : l);
+      });
+      return nextLayouts;
+    });
+  };
+
   if (activeTab === 'audit') {
       return (
           <div className="content animate-in fade-in duration-300">
@@ -229,16 +240,16 @@ export default function Home() {
       >
         <div key="exec">
             <div className="drag-handle cursor-move w-full h-full">
-                <ExecutiveSummaryCard title="Ahorro Potencial Capturado" amount={new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalSavings)} trend="+12.4% vs mes anterior" />
+                <ExecutiveSummaryCard title={t('captured_savings')} amount={new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalSavings)} trend={t('vs_last_month')} />
             </div>
         </div>
         
         <div key="pie">
             <div className="card h-full flex flex-col overflow-hidden">
-                 <div className="card-h drag-handle cursor-move shrink-0">
+                 <div className="card-h drag-handle cursor-move shrink-0 border-b-0 pb-0">
                      <div className="flex flex-col">
-                         <h3 className="m-0">Distribución de Fugas Financieras</h3>
-                         <p className="text-[13px] text-ink-soft m-0 mt-1 font-normal">Haz clic en un segmento para ver los recursos afectados.</p>
+                         <h3 className="m-0 text-[var(--brand-deep)]">{t('financial_leak_distribution')}</h3>
+                         <p className="text-[13px] text-ink-soft m-0 mt-1 font-normal">{t('click_segment_hint')}</p>
                      </div>
                  </div>
                  <div className="p-[18px] flex-1 overflow-hidden flex flex-col">
@@ -253,8 +264,11 @@ export default function Home() {
 
         <div key="gov">
             <div className="card h-full flex flex-col overflow-hidden">
-             <div className="card-h drag-handle cursor-move shrink-0">
-                 <h3 className="m-0">{t('governance_state')}</h3>
+             <div className="card-h drag-handle cursor-move shrink-0 border-b-0 pb-0">
+                 <div className="flex flex-col">
+                     <h3 className="m-0 text-[var(--brand-deep)]">{t('governance_state')}</h3>
+                     <p className="text-[13px] text-ink-soft m-0 mt-1 font-normal">{t('based_on_rules')}</p>
+                 </div>
              </div>
              <div className="p-[18px] flex-1 overflow-hidden flex flex-col">
                  <div className="flex-1 flex flex-col items-center justify-center text-gray-400 bg-[var(--surface-sunken)] rounded-lg border border-dashed border-gray-300">
@@ -280,7 +294,7 @@ export default function Home() {
 
         <div key="burn">
             <div className="drag-handle cursor-move h-full w-full">
-                <BudgetBurnChart />
+                <BudgetBurnChart onHeightChange={handleBudgetResize} />
             </div>
         </div>
 

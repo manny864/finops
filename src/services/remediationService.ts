@@ -62,7 +62,7 @@ export async function deallocateVirtualMachine(tenantId: string, userEmail: stri
     const client = new ComputeManagementClient(credential, subscriptionId);
     const fullResourceId = `/subscriptions/${subscriptionId}/resourceGroups/${resourceGroup}/providers/Microsoft.Compute/virtualMachines/${vmName}`;
     try {
-        const result = await client.virtualMachines.beginDeallocate(resourceGroup, vmName);
+        const result = await client.virtualMachines.beginDeallocateAndWait(resourceGroup, vmName);
         await logAction(tenantId, userEmail, "STOP_VM", fullResourceId, "SUCCESS");
         return result;
     } catch (e) {
@@ -76,7 +76,7 @@ export async function startVirtualMachine(tenantId: string, userEmail: string, s
     const client = new ComputeManagementClient(credential, subscriptionId);
     const fullResourceId = `/subscriptions/${subscriptionId}/resourceGroups/${resourceGroup}/providers/Microsoft.Compute/virtualMachines/${vmName}`;
     try {
-        const result = await client.virtualMachines.beginStart(resourceGroup, vmName);
+        const result = await client.virtualMachines.beginStartAndWait(resourceGroup, vmName);
         await logAction(tenantId, userEmail, "START_VM", fullResourceId, "SUCCESS");
         return result;
     } catch (e) {
@@ -95,6 +95,22 @@ export async function restartVirtualMachine(tenantId: string, userEmail: string,
         return result;
     } catch (e) {
         await logAction(tenantId, userEmail, "RESTART_VM", fullResourceId, "FAILED");
+        throw e;
+    }
+}
+
+export async function downgradeVirtualMachine(tenantId: string, userEmail: string, subscriptionId: string, resourceGroup: string, vmName: string, newSku: string) {
+    const credential = await getAzureCredential(tenantId);
+    const client = new ComputeManagementClient(credential, subscriptionId);
+    const fullResourceId = `/subscriptions/${subscriptionId}/resourceGroups/${resourceGroup}/providers/Microsoft.Compute/virtualMachines/${vmName}`;
+    try {
+        const result = await client.virtualMachines.beginUpdateAndWait(resourceGroup, vmName, {
+            hardwareProfile: { vmSize: newSku }
+        });
+        await logAction(tenantId, userEmail, "DOWNGRADE_VM", fullResourceId, "SUCCESS");
+        return result;
+    } catch (e) {
+        await logAction(tenantId, userEmail, "DOWNGRADE_VM", fullResourceId, "FAILED");
         throw e;
     }
 }

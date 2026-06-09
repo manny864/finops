@@ -11,6 +11,7 @@ import {
   getCoreRowModel,
   flexRender,
   createColumnHelper,
+  getPaginationRowModel
 } from '@tanstack/react-table';
 
 export default function NetworkAnalyticsPage() {
@@ -25,6 +26,7 @@ export default function NetworkAnalyticsPage() {
     const [subscriptions, setSubscriptions] = useState<any[]>([]);
     const [loadingSubs, setLoadingSubs] = useState(false);
     const [missingConsent, setMissingConsent] = useState(false);
+    const [pageSize, setPageSize] = useState(10);
 
     useEffect(() => {
         if (!selectedTenant || selectedTenant.id === 'default' || accounts.length === 0) return;
@@ -140,25 +142,24 @@ export default function NetworkAnalyticsPage() {
 
     const tableData = Object.values(rgDataMap)
         .map((rg: any) => ({ ...rg, subCategories: Array.from(rg.subCategories).join(", ") }))
-        .sort((a: any, b: any) => b.totalCost - a.totalCost)
-        .slice(0, 5); // Top 5
+        .sort((a: any, b: any) => b.totalCost - a.totalCost);
 
     const columnHelper = createColumnHelper<any>();
     const columns = [
         columnHelper.accessor('resourceGroup', {
             header: 'Resource Group',
-            cell: info => <span className="font-semibold text-ink">{info.getValue()}</span>,
+            cell: info => <span className="font-semibold text-ink whitespace-normal break-words" style={{minWidth: '150px'}}>{info.getValue()}</span>,
             size: 200,
         }),
         columnHelper.accessor('subCategories', {
             header: t('traffic_type'),
-            cell: info => <span className="truncate block" title={info.getValue()}>{info.getValue()}</span>,
+            cell: info => <span className="whitespace-normal break-words block text-[13px] text-ink-soft">{info.getValue()}</span>,
             size: 250,
         }),
         columnHelper.accessor('totalCost', {
             header: t('estimated_cost'),
             cell: info => <span className="font-bold text-brand-deep">${info.getValue().toFixed(2)}</span>,
-            size: 150,
+            size: 100,
         }),
     ];
 
@@ -166,8 +167,18 @@ export default function NetworkAnalyticsPage() {
         data: tableData,
         columns,
         getCoreRowModel: getCoreRowModel(),
+        getPaginationRowModel: getPaginationRowModel(),
         columnResizeMode: 'onChange',
+        initialState: {
+            pagination: {
+                pageSize: pageSize,
+            },
+        },
     });
+
+    useEffect(() => {
+        table.setPageSize(pageSize);
+    }, [pageSize, table]);
 
     return (
         <div className="content animate-in fade-in">
@@ -314,6 +325,41 @@ export default function NetworkAnalyticsPage() {
                                 </tbody>
                             </table>
                         </div>
+                        {table.getPageCount() > 1 && (
+                            <div className="flex items-center justify-between p-4 border-t border-line bg-surface">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[12px] text-ink-soft">Filas por página:</span>
+                                    <select
+                                        value={pageSize}
+                                        onChange={e => setPageSize(Number(e.target.value))}
+                                        className="bg-surface-2 border border-line text-ink text-[12px] rounded-[6px] p-1 outline-none"
+                                    >
+                                        {[10, 15, 20].map(size => (
+                                            <option key={size} value={size}>{size}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => table.previousPage()}
+                                        disabled={!table.getCanPreviousPage()}
+                                        className="px-3 py-1 bg-surface-2 border border-line rounded-[6px] text-[12px] font-bold text-ink disabled:opacity-50 cursor-pointer"
+                                    >
+                                        Anterior
+                                    </button>
+                                    <span className="text-[12px] text-ink-soft">
+                                        Página {table.getState().pagination.pageIndex + 1} de {table.getPageCount()}
+                                    </span>
+                                    <button
+                                        onClick={() => table.nextPage()}
+                                        disabled={!table.getCanNextPage()}
+                                        className="px-3 py-1 bg-surface-2 border border-line rounded-[6px] text-[12px] font-bold text-ink disabled:opacity-50 cursor-pointer"
+                                    >
+                                        Siguiente
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             ) : (

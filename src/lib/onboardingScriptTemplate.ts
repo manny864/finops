@@ -74,10 +74,10 @@ foreach ($sub in $Subscriptions) {
             "Microsoft.Network/publicIPAddresses/delete"
         )
 
-        if ($null -ne $roleDef.Permissions) {
+        if ($null -ne $roleDef.Permissions -and $roleDef.Permissions.Count -gt 0) {
             $roleDef.Permissions[0].Actions.Clear()
             foreach ($a in $newActions) { $roleDef.Permissions[0].Actions.Add($a) }
-        } else {
+        } elseif ($null -ne $roleDef.Actions) {
             $roleDef.Actions.Clear()
             foreach ($a in $newActions) { $roleDef.Actions.Add($a) }
         }
