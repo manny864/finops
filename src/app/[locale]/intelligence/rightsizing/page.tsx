@@ -5,9 +5,11 @@ import { useSubscription } from "@/components/SubscriptionProvider";
 import { useViewMode } from "@/context/ViewModeContext";
 import { Zap, AlertTriangle, ArrowRight, CheckCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useMsal } from "@azure/msal-react";
 
 export default function RightsizingPage() {
   const t = useTranslations("Rightsizing");
+  const { instance, accounts } = useMsal();
   const { selectedTenant } = useTenant();
   const { selectedSubscription } = useSubscription();
   const { viewMode } = useViewMode();
@@ -43,8 +45,36 @@ export default function RightsizingPage() {
     fetchRightsizing();
   }, [selectedTenant, selectedSubscription]);
 
-  const handleDowngrade = (vmName: string) => {
-      alert(`${t("simulating")} ${vmName}`);
+  const handleDowngrade = async (vm: any) => {
+      if (!window.confirm(`¿Estás seguro de hacer downgrade de la máquina ${vm.name} al tamaño ${vm.recommendedSku}? Esto podría reiniciar la máquina.`)) return;
+      try {
+          const account = accounts[0];
+          const tokenResponse = await instance.acquireTokenSilent({ scopes: ["User.Read"], account });
+          
+          const res = await fetch('/api/remediation/downgrade', {
+              method: 'POST',
+              headers: {
+                  'Authorization': `Bearer ${tokenResponse.idToken}`,
+                  'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                  tenantId: selectedTenant.id,
+                  subscriptionId: vm.subscriptionId,
+                  resourceGroup: vm.id.split('/')[4],
+                  resourceName: vm.name,
+                  newSku: vm.recommendedSku
+              })
+          });
+          const json = await res.json();
+          if (json.success) {
+              alert(`Downgrade iniciado para ${vm.name}`);
+              setVms(prev => prev.filter(v => v.id !== vm.id));
+          } else {
+              alert(`Error: ${json.error}`);
+          }
+      } catch (e) {
+          alert(`Error al aplicar downgrade: ${e}`);
+      }
   };
 
   if (selectedTenant.id === 'default') return null;
@@ -149,7 +179,7 @@ export default function RightsizingPage() {
                                 </td>
                                 <td className="num">
                                     <button
-                                        onClick={() => handleDowngrade(vm.name)}
+                                        onClick={() => handleDowngrade(vm)}
                                         className="font-heading font-semibold text-[12px] rounded-[10px] bg-amber text-white p-[7px_11px] cursor-pointer hover:brightness-110 active:scale-95 transition-all shadow-sm"
                                     >
                                         {t("btn_downgrade")}

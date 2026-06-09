@@ -18,13 +18,13 @@ export async function GET(request: NextRequest) {
             ? `
                 Resources
                 | where type =~ 'microsoft.compute/virtualmachines'
-                | project id, name, sku = sku.name, location, subscriptionId
+                | project id, name, sku = properties.hardwareProfile.vmSize, location, subscriptionId
             `
             : `
                 Resources
                 | where type =~ 'microsoft.compute/virtualmachines'
                 | where subscriptionId =~ '${subscriptionId}'
-                | project id, name, sku = sku.name, location, subscriptionId
+                | project id, name, sku = properties.hardwareProfile.vmSize, location, subscriptionId
             `;
 
         const response = await argClient.resources({ query });

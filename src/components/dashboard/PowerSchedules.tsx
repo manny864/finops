@@ -207,8 +207,8 @@ export default function PowerSchedules() {
         <div className="card h-full flex flex-col overflow-hidden">
             <div className="card-h shrink-0">
                 <div className="flex flex-col">
-                    <h3 className="m-0">Control de Máquinas Virtuales</h3>
-                    <p className="text-[13px] text-ink-soft m-0 mt-1 font-normal">Controla el encendido y apagado de las VMs de Desarrollo y Pruebas.</p>
+                    <h3 className="m-0">{t('Dashboard.vm_control')}</h3>
+                    <p className="text-[13px] text-ink-soft m-0 mt-1 font-normal">{t('Dashboard.vm_control_desc')}</p>
                 </div>
             </div>
             

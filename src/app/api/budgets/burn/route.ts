@@ -16,7 +16,13 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "No autorizado." }, { status: 401 });
         }
 
-        const burnData = await getNativeBudgets(tenantId, subscriptionId);
+        const subIds = subscriptionId.split(',').map(s => s.trim()).filter(s => s.length > 0);
+        
+        const promises = subIds.map(subId => getNativeBudgets(tenantId, subId));
+        const results = await Promise.all(promises);
+        
+        // Flatten array if there are multiple subscriptions
+        const burnData = results.flat();
 
         return NextResponse.json({ burnData });
 

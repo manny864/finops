@@ -5,7 +5,11 @@ import { useTenant } from '../TenantProvider';
 import { useSubscription } from '../SubscriptionProvider';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid } from 'recharts';
 
-export default function BudgetBurnChart() {
+interface BudgetBurnChartProps {
+    onHeightChange?: (h: number) => void;
+}
+
+export default function BudgetBurnChart({ onHeightChange }: BudgetBurnChartProps) {
     const { instance, accounts } = useMsal();
     const { selectedTenant } = useTenant();
     const { selectedSubscription, subscriptions } = useSubscription();
@@ -26,22 +30,17 @@ export default function BudgetBurnChart() {
                     account: accounts[0]
                 });
                 
-                // Si la suscripción global es "All", usamos la primera disponible como respaldo o la lógica que prefieras.
-                // Como BudgetBurnChart requiere una suscripción específica para la API de budgets de cost management:
-                const subId = selectedSubscription !== 'All' ? selectedSubscription : subscriptions[0].id;
+                // Si la suscripción global es "All", usamos todas las suscripciones
+                const subIds = selectedSubscription !== 'All' 
+                    ? selectedSubscription 
+                    : subscriptions.map(s => s.id).join(',');
                 
-                // Si aún no tenemos un ID de suscripción válido, salimos
-                if (!subId) {
+                if (!subIds) {
                     setLoading(false);
                     return;
                 }
 
-                // Averiguar el tenant de la suscripción seleccionada si lo necesitamos, 
-                // en SubscriptionProvider ya tenemos subscriptions[]
-                const subObj = subscriptions.find(s => s.id === subId);
-                const subTenantId = subObj ? (subObj as any).tenantId : selectedTenant.id;
-                
-                const res = await fetch(`/api/budgets/burn?tenantId=${subTenantId || selectedTenant.id}&subscriptionId=${subId}`, {
+                const res = await fetch(`/api/budgets/burn?tenantId=${selectedTenant.id}&subscriptionId=${subIds}`, {
                     headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
                 });
                 const json = await res.json();
@@ -50,6 +49,15 @@ export default function BudgetBurnChart() {
                     setMissingConsent(true);
                 } else if (json.burnData) {
                     setBurnData(json.burnData);
+                    
+                    // Calcular nueva altura de la tarjeta.
+                    // 1 barra ocupa unos 40px, el header/padding unos 80px.
+                    // Cada 'h' (unidad de grid) son 80px.
+                    if (onHeightChange) {
+                        const requiredPx = 80 + (json.burnData.length * 40);
+                        const requiredH = Math.max(4, Math.ceil(requiredPx / 80));
+                        onHeightChange(requiredH);
+                    }
                 }
             } catch (e) {
                 console.error("Error fetching budget burn data:", e);
@@ -57,7 +65,15 @@ export default function BudgetBurnChart() {
             setLoading(false);
         };
         fetchBurnData();
-    }, [accounts, instance, selectedTenant.id, selectedSubscription, subscriptions]);
+    }, [accounts, instance, selectedTenant.id, selectedSubscription, subscriptions, onHeightChange]);
+
+    let t: any = (key: string) => key;
+    try {
+      const nextIntl = require('next-intl');
+      if (nextIntl && nextIntl.useTranslations) {
+        t = nextIntl.useTranslations();
+      }
+    } catch (e) {}
 
     if (accounts.length === 0 || selectedTenant.id === 'default') return null;
 
@@ -65,12 +81,12 @@ export default function BudgetBurnChart() {
         <div className="card h-full flex flex-col overflow-hidden">
             <div className="card-h shrink-0 border-b-0 pb-0">
                 <div className="flex flex-col">
-                    <h3 className="m-0 text-[var(--brand-deep)]">Presupuesto por Centro de Costos</h3>
-                    <p className="text-[13px] text-ink-soft m-0 mt-1 font-normal">Muestra el límite asignado vs el gasto amortizado actual.</p>
+                    <h3 className="m-0 text-[var(--brand-deep)]">{t('Dashboard.budget_by_cost_center')}</h3>
+                    <p className="text-[13px] text-ink-soft m-0 mt-1 font-normal">{t('Dashboard.budget_desc')}</p>
                 </div>
             </div>
             
-            <div className="p-[18px] flex-1 flex flex-col min-h-0">
+            <div className="p-[18px] flex-1 flex flex-col min-h-0 relative">
                 {missingConsent ? (
                     <div className="bg-amber-50 border-l-4 border-amber-500 p-4 mb-4 rounded">
                         <p className="text-sm text-amber-800">
@@ -93,19 +109,28 @@ export default function BudgetBurnChart() {
                         Utiliza la API de Presupuestos para configurarlos.
                     </div>
                 ) : (
-                    <div className="flex-1 w-full min-w-0" style={{ minHeight: 0 }}>
+                    <div className="flex-1 w-full" style={{ minHeight: `${Math.max(150, burnData.length * 40)}px` }}>
                         <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={burnData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                <XAxis dataKey="costCenter" />
-                                <YAxis tickFormatter={(val: any) => `$${val}`} />
-                                <Tooltip formatter={(val: any) => `$${Number(val).toFixed(2)} USD`} cursor={{fill: 'transparent'}} />
+                            <BarChart layout="vertical" data={burnData} margin={{ top: 10, right: 30, left: 100, bottom: 5 }}>
+                                <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f3f4f6" />
+                                <XAxis type="number" xAxisId={0} hide />
+                                <XAxis type="number" xAxisId={1} hide />
+                                <YAxis type="category" dataKey="costCenter" width={100} tick={{fill: '#6b7280', fontSize: 12}} tickLine={false} axisLine={{stroke: '#e5e7eb'}} />
+                                <Tooltip 
+                                    formatter={(val: any) => `$${Number(val).toFixed(2)} USD`} 
+                                    cursor={{fill: 'transparent'}}
+                                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                />
                                 
-                                <Bar dataKey="budget" name="Presupuesto Asignado" fill="#e5e7eb" radius={[4, 4, 0, 0]} />
-                                <Bar dataKey="actual" name="Gasto Actual" radius={[4, 4, 0, 0]}>
+                                {/* Barra Gruesa de Fondo (Presupuesto) */}
+                                <Bar dataKey="budget" name="Presupuesto Asignado" xAxisId={0} barSize={24} fill="#f3f4f6" radius={[0, 4, 4, 0]} />
+                                
+                                {/* Barra Fina Frontal (Gasto Actual) */}
+                                <Bar dataKey="actual" name="Gasto Actual" xAxisId={1} barSize={12} radius={[0, 4, 4, 0]}>
                                     {burnData.map((entry, index) => {
                                         const ratio = entry.budget > 0 ? entry.actual / entry.budget : 0;
-                                        const color = ratio >= 0.8 ? '#ef4444' : '#10b981';
+                                        // Rojo si excede el 90%, Ámbar si pasa el 75%, Verde si está bien.
+                                        const color = ratio >= 0.9 ? '#ef4444' : ratio >= 0.75 ? '#f59e0b' : '#3b82f6';
                                         return <Cell key={`cell-${index}`} fill={color} />;
                                     })}
                                 </Bar>

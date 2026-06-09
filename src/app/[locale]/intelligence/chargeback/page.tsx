@@ -44,16 +44,21 @@ export default function ChargebackPage() {
         try {
             const url = `/api/intelligence/chargeback?tenantId=${selectedTenant.id}&subscriptionId=${selectedSubscription}&tagKey=${encodeURIComponent(activeTagKey)}`;
             const res = await fetch(url);
-            const json = await res.json();
-
-            if (!res.ok) {
-                throw new Error(json.error || json.details || t('error_unknown'));
-            }
-
-            if (json.data) {
-                setData(json.data.sort((a: any, b: any) => b.value - a.value));
-                setHasAnalyzed(true);
-                toast.success(t('showback_success'));
+            
+            const contentType = res.headers.get("content-type");
+            if (contentType && contentType.indexOf("application/json") !== -1) {
+                const json = await res.json();
+                if (!res.ok) {
+                    throw new Error(json.error || json.details || t('error_unknown'));
+                }
+                if (json.data) {
+                    setData(json.data.sort((a: any, b: any) => b.value - a.value));
+                    setHasAnalyzed(true);
+                    toast.success(t('showback_success'));
+                }
+            } else {
+                const text = await res.text();
+                throw new Error(res.status === 500 ? "Error interno del servidor (500)" : `Error en la respuesta del servidor (${res.status})`);
             }
         } catch (error: any) {
             console.error("Chargeback fetch error:", error);

@@ -302,9 +302,6 @@ export default function AdvisorPanel() {
                                                     {new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(parseFloat(rec.extendedProperties?.savingsAmount || '0'))}
                                                     <span className="text-[10.5px] text-grey font-semibold"> /mes</span>
                                                 </div>
-                                                <button className="font-heading font-semibold text-[13px] rounded-[10px] border border-transparent bg-gradient-to-br from-brand-deep to-brand-bright text-white p-[7px_11px] cursor-pointer hover:brightness-110 active:scale-95 transition-all shadow-sm">
-                                                    {t('btn_apply')}
-                                                </button>
                                             </div>
                                         </div>
                                     );
@@ -403,9 +400,6 @@ export default function AdvisorPanel() {
                                                 {rec.shortDescription?.solution || rec.recommendationType?.name || rec.impact || 'Consulte el Portal'}
                                             </td>
                                             <td className="p-[13px_16px] text-right">
-                                                <button className="opacity-0 group-hover:opacity-100 font-heading font-semibold text-[12px] rounded-[10px] border border-transparent bg-gradient-to-br from-brand-deep to-brand-bright text-white p-[7px_11px] cursor-pointer hover:brightness-110 active:scale-95 transition-all shadow-sm">
-                                                    {t('btn_apply')}
-                                                </button>
                                             </td>
                                         </tr>
                                     ))}

@@ -26,34 +26,34 @@ const currencyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', cu
 
 const columnHelper = createColumnHelper<Recommendation>();
 
-const columns = [
-  columnHelper.accessor('sku', {
-    header: 'Recommended SKU',
-    cell: info => <span className="font-medium text-ink">{info.getValue()}</span>,
-  }),
-  columnHelper.accessor('term', {
-    header: 'Term',
-    cell: info => <span className="tag blue font-mono">{info.getValue()}</span>,
-  }),
-  columnHelper.accessor('costWithNoDiscounts', {
-    header: 'Pay-As-You-Go Cost',
-    cell: info => currencyFormatter.format(info.getValue()),
-  }),
-  columnHelper.accessor('totalCostWithDiscounts', {
-    header: 'Cost with Reservation',
-    cell: info => currencyFormatter.format(info.getValue()),
-  }),
-  columnHelper.accessor('netSavings', {
-    header: 'Net Savings',
-    cell: info => <span className="text-green font-bold">+{currencyFormatter.format(info.getValue())}</span>,
-  }),
-];
-
 export default function RateOptimizationPage() {
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const t = useTranslations('Rates');
     const tc = useTranslations('Common');
+
+    const columns = useMemo(() => [
+      columnHelper.accessor('sku', {
+        header: t('col_recommended_sku') || 'Recommended SKU',
+        cell: info => <span className="font-medium text-ink">{info.getValue()}</span>,
+      }),
+      columnHelper.accessor('term', {
+        header: t('col_term') || 'Term',
+        cell: info => <span className="tag blue font-mono">{info.getValue()}</span>,
+      }),
+      columnHelper.accessor('costWithNoDiscounts', {
+        header: t('col_payg_cost') || 'Pay-As-You-Go Cost',
+        cell: info => currencyFormatter.format(info.getValue()),
+      }),
+      columnHelper.accessor('totalCostWithDiscounts', {
+        header: t('col_reserved_cost') || 'Cost with Reservation',
+        cell: info => currencyFormatter.format(info.getValue()),
+      }),
+      columnHelper.accessor('netSavings', {
+        header: t('col_net_savings') || 'Net Savings',
+        cell: info => <span className="text-green font-bold">+{currencyFormatter.format(info.getValue())}</span>,
+      }),
+    ], [t]);
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState<Recommendation[]>([]);
     const [subscriptionId, setSubscriptionId] = useState('');
