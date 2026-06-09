@@ -82,7 +82,7 @@ export default function PowerSchedules() {
                 resourceName: vm.name
             }));
             
-            await fetch('/api/power', {
+            const res = await fetch('/api/power', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${tokenResponse.idToken}`,
@@ -95,10 +95,15 @@ export default function PowerSchedules() {
                 })
             });
             
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || 'Error en la petición');
+            }
+            
             toast.success(`Comando ${action === 'start' ? 'Encender' : action === 'restart' ? 'Reiniciar' : 'Apagar'} enviado exitosamente a ${targetVms.length} VMs.`);
-        } catch (e) {
+        } catch (e: any) {
             console.error(`Error al ejecutar ${action}:`, e);
-            alert("Error al ejecutar la acción.");
+            alert(`Error al ejecutar la acción: ${e.message}`);
         }
         setActionLoading(null);
     };

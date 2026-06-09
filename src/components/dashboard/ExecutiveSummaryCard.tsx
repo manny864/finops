@@ -2,7 +2,7 @@ import React from 'react';
 
 export default function ExecutiveSummaryCard({ title, amount, trend }: { title: string, amount: string, trend: string }) {
   return (
-    <div className="card h-full p-6 border-l-4 border-[var(--brand)] flex flex-col justify-center" style={{ containerType: 'inline-size', containerName: 'card' }}>
+    <div className="card !m-0 h-full p-6 border-l-4 border-[var(--brand)] flex flex-col justify-center" style={{ containerType: 'inline-size', containerName: 'card' }}>
       <div className="flex flex-col gap-2">
         <h3 className="text-gray-500 font-medium tracking-wide uppercase text-xs">{title}</h3>
         {/* Fluid typography using Container Query Units (cqi) */}

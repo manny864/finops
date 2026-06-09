@@ -50,9 +50,10 @@ foreach ($sub in $Subscriptions) {
     Write-Host "Procesando la suscripción $sub..." -ForegroundColor Cyan
     Set-AzContext -SubscriptionId $sub | Out-Null
     
-    Write-Host "  -> Asignando Roles Incorporados (Reader & Cost Management Reader)..."
+    Write-Host "  -> Asignando Roles Incorporados (Reader, Cost Management Reader & VM Contributor)..."
     New-AzRoleAssignment -ObjectId $spId -RoleDefinitionName "Reader" -Scope "/subscriptions/$sub" -ErrorAction SilentlyContinue
     New-AzRoleAssignment -ObjectId $spId -RoleDefinitionName "Cost Management Reader" -Scope "/subscriptions/$sub" -ErrorAction SilentlyContinue
+    New-AzRoleAssignment -ObjectId $spId -RoleDefinitionName "Virtual Machine Contributor" -Scope "/subscriptions/$sub" -ErrorAction SilentlyContinue
 
     Write-Host "  -> Creando/Asignando Rol Personalizado de Remediación..."
     $customRole = Get-AzRoleDefinition -Name $RoleName -Scope "/subscriptions/$sub" -ErrorAction SilentlyContinue
@@ -62,14 +63,25 @@ foreach ($sub in $Subscriptions) {
         $roleDef.Id = $null
         $roleDef.Name = $RoleName
         $roleDef.Description = "Permite a CSCloudSolutions ejecutar acciones de FinOps"
-        $roleDef.Actions.Clear()
-        $roleDef.Actions.Add("Microsoft.Compute/virtualMachines/deallocate/action")
-        $roleDef.Actions.Add("Microsoft.Compute/virtualMachines/start/action")
-        $roleDef.Actions.Add("Microsoft.Compute/virtualMachines/restart/action")
-        $roleDef.Actions.Add("Microsoft.Resources/tags/write")
-        $roleDef.Actions.Add("Microsoft.Compute/disks/delete")
-        $roleDef.Actions.Add("Microsoft.Network/networkInterfaces/delete")
-        $roleDef.Actions.Add("Microsoft.Network/publicIPAddresses/delete")
+        
+        $newActions = @(
+            "Microsoft.Compute/virtualMachines/deallocate/action",
+            "Microsoft.Compute/virtualMachines/start/action",
+            "Microsoft.Compute/virtualMachines/restart/action",
+            "Microsoft.Resources/tags/write",
+            "Microsoft.Compute/disks/delete",
+            "Microsoft.Network/networkInterfaces/delete",
+            "Microsoft.Network/publicIPAddresses/delete"
+        )
+
+        if ($null -ne $roleDef.Permissions) {
+            $roleDef.Permissions[0].Actions.Clear()
+            foreach ($a in $newActions) { $roleDef.Permissions[0].Actions.Add($a) }
+        } else {
+            $roleDef.Actions.Clear()
+            foreach ($a in $newActions) { $roleDef.Actions.Add($a) }
+        }
+        
         $roleDef.AssignableScopes.Clear()
         $roleDef.AssignableScopes.Add("/subscriptions/$sub")
         $customRole = New-AzRoleDefinition -Role $roleDef

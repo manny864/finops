@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { deallocateVirtualMachine, startVirtualMachine } from "@/services/remediationService";
+import { deallocateVirtualMachine, startVirtualMachine, restartVirtualMachine } from "@/services/remediationService";
 import jwt from "jsonwebtoken";
 
 export async function POST(request: NextRequest) {
@@ -31,20 +31,28 @@ export async function POST(request: NextRequest) {
         }
 
         // Ejecutar las acciones asíncronamente (sin await individual bloqueante)
+        const errors: any[] = [];
         const promises = vms.map(async (vm: any) => {
             try {
                 if (action === 'stop') {
                     await deallocateVirtualMachine(tenantId, email, vm.subscriptionId, vm.resourceGroup, vm.resourceName);
                 } else if (action === 'start') {
                     await startVirtualMachine(tenantId, email, vm.subscriptionId, vm.resourceGroup, vm.resourceName);
+                } else if (action === 'restart') {
+                    await restartVirtualMachine(tenantId, email, vm.subscriptionId, vm.resourceGroup, vm.resourceName);
                 }
-            } catch (err) {
+            } catch (err: any) {
                 console.error(`Fallo al ${action} VM ${vm.resourceName}:`, err);
+                errors.push({ vm: vm.resourceName, error: err.message || err.code || "Unknown error" });
             }
         });
 
         // Esperamos a que los comandos 'begin' se disparen, no esperamos a que termine el apagado físico.
         await Promise.all(promises);
+
+        if (errors.length > 0) {
+            return NextResponse.json({ error: "Fallo de permisos o ejecución", details: errors }, { status: 403 });
+        }
 
         return NextResponse.json({ success: true, message: `Comando ${action} enviado a ${vms.length} VMs.` });
 

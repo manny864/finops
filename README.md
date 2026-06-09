@@ -127,6 +127,7 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
 3. **Role-Based Access Control (RBAC)**:
    - `Reader`
    - `Cost Management Reader`
+   - `Virtual Machine Contributor` (Requerido para control de energía sobre máquinas virtuales)
    - **Custom Remediation Role**: Restringido **EXCLUSIVAMENTE** a las siguientes acciones operacionales:
      - `Microsoft.Compute/virtualMachines/start/action`
      - `Microsoft.Compute/virtualMachines/deallocate/action`
@@ -135,6 +136,15 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
      - `Microsoft.Compute/disks/delete`
      - `Microsoft.Network/networkInterfaces/delete`
      - `Microsoft.Network/publicIPAddresses/delete`
+
+---
+
+## 📈 Recent Major Updates
+
+- **Power Schedules**: Se incorporó el comando `restartVirtualMachine` en el API de `/api/power`. Ahora la interfaz refleja fielmente si una ejecución a Azure falla por permisos, devolviendo códigos `403` a la UI.
+- **Onboarding Automator**: Se ajustó el mecanismo de inserción en Base de Datos de Nuevos Tenants (UPSERT). Ahora utiliza `INSERT IGNORE` para proteger renombramientos manuales de los usuarios (company_name no se reinicia en cada inicio de sesión).
+- **Azure PowerShell v16 Support**: El script de onboarding fue refactorizado para adaptarse a los inminentes cambios rompedores de `Get-AzRoleDefinition`, soportando tanto el root level de `Actions` antiguo como el nuevo array `.Permissions[n].Actions`.
+- **UI Consistency**: Alineación visual y márgenes ajustados bajo un formato estandarizado para los paneles interactivos del Dashboard, aplicando clases (`card-h`).
 
 ---
 
