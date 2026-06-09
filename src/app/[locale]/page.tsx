@@ -125,7 +125,7 @@ export default function Home() {
   const [layouts, setLayouts] = useState<any>(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem('finops_dashboard_layout');
+    const saved = localStorage.getItem('finops_dashboard_layout_v2');
     if (saved) {
       try {
         setLayouts(JSON.parse(saved));
@@ -133,13 +133,13 @@ export default function Home() {
     } else {
       setLayouts({
         lg: [
-          { i: 'exec', x: 0, y: 0, w: 12, h: 1 },
-          { i: 'pie', x: 0, y: 1, w: 6, h: 4 },
-          { i: 'gov', x: 6, y: 1, w: 6, h: 4 },
-          { i: 'burn', x: 0, y: 5, w: 6, h: 4 },
-          { i: 'power', x: 6, y: 5, w: 6, h: 4 },
-          { i: 'right', x: 0, y: 9, w: 6, h: 4 },
-          { i: 'sandbox', x: 6, y: 9, w: 6, h: 4 }
+          { i: 'exec', x: 0, y: 0, w: 12, h: 2 },
+          { i: 'pie', x: 0, y: 2, w: 6, h: 4 },
+          { i: 'gov', x: 6, y: 2, w: 6, h: 4 },
+          { i: 'burn', x: 0, y: 6, w: 6, h: 4 },
+          { i: 'power', x: 6, y: 6, w: 6, h: 4 },
+          { i: 'right', x: 0, y: 10, w: 6, h: 4 },
+          { i: 'sandbox', x: 6, y: 10, w: 6, h: 4 }
         ]
       });
     }
@@ -147,7 +147,7 @@ export default function Home() {
 
   const onLayoutChange = (layout: any, allLayouts: any) => {
     setLayouts(allLayouts);
-    localStorage.setItem('finops_dashboard_layout', JSON.stringify(allLayouts));
+    localStorage.setItem('finops_dashboard_layout_v2', JSON.stringify(allLayouts));
   };
 
   if (activeTab === 'audit') {
@@ -229,41 +229,51 @@ export default function Home() {
       >
         <div key="exec">
             <div className="drag-handle cursor-move w-full h-full">
-                <ExecutiveSummaryCard title="Ahorro Potencial Capturado" amount={`$${new Intl.NumberFormat('en-US').format(totalSavings * 0.4)}`} trend="+12.4% vs mes anterior" />
+                <ExecutiveSummaryCard title="Ahorro Potencial Capturado" amount={new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalSavings)} trend="+12.4% vs mes anterior" />
             </div>
         </div>
         
         <div key="pie">
-            <div className="card h-full flex flex-col drag-handle cursor-move overflow-hidden">
-                 <h3 className="text-lg font-bold text-[var(--brand-deep)] mb-1">Distribución de Fugas Financieras</h3>
-                 <p className="text-xs text-gray-500 mb-4">Haz clic en un segmento para ver los recursos afectados.</p>
-                 {loading ? (
-                     <div className="flex-1 flex items-center justify-center text-gray-400 animate-pulse">{t('calculating')}</div>
-                 ) : (
-                     <CostPieChart data={dashboardData} onSegmentClick={(cat) => setSelectedCategory(cat)} />
-                 )}
+            <div className="card h-full flex flex-col overflow-hidden">
+                 <div className="card-h drag-handle cursor-move shrink-0">
+                     <div className="flex flex-col">
+                         <h3 className="m-0">Distribución de Fugas Financieras</h3>
+                         <p className="text-[13px] text-ink-soft m-0 mt-1 font-normal">Haz clic en un segmento para ver los recursos afectados.</p>
+                     </div>
+                 </div>
+                 <div className="p-[18px] flex-1 overflow-hidden flex flex-col">
+                     {loading ? (
+                         <div className="flex-1 flex items-center justify-center text-gray-400 animate-pulse">{t('calculating')}</div>
+                     ) : (
+                         <CostPieChart data={dashboardData} onSegmentClick={(cat) => setSelectedCategory(cat)} />
+                     )}
+                 </div>
             </div>
         </div>
 
         <div key="gov">
-            <div className="card h-full flex flex-col drag-handle cursor-move overflow-hidden">
-             <h3 className="text-lg font-bold text-[var(--brand-deep)] mb-4">{t('governance_state')}</h3>
-             <div className="flex-1 flex flex-col items-center justify-center text-gray-400 bg-[var(--surface-sunken)] rounded-lg border border-dashed border-gray-300">
-                 <p className="text-sm font-medium">{t('financial_security_score')}</p>
-                 <span className={`text-4xl font-bold mt-2 ${complianceScore === -1 ? 'text-gray-400' : 'text-green-500'}`}>
-                     {complianceScore === null ? t('calculating') : complianceScore === -1 ? t('unconfigured') : `${complianceScore}%`}
-                 </span>
-                 <p className="text-xs text-gray-400 mt-2 text-center px-8">
-                     {complianceScore === -1 ? t('no_rules') : t('based_on_rules')}
-                 </p>
-                 {complianceScore === -1 && (
-                     <button 
-                         onClick={(e) => { e.stopPropagation(); setActiveTab('tags'); }}
-                         className="mt-4 px-4 py-2 bg-[var(--brand)] text-white text-xs font-semibold rounded shadow-sm hover:opacity-90 transition-colors"
-                     >
-                         {t('configure_policies')}
-                     </button>
-                 )}
+            <div className="card h-full flex flex-col overflow-hidden">
+             <div className="card-h drag-handle cursor-move shrink-0">
+                 <h3 className="m-0">{t('governance_state')}</h3>
+             </div>
+             <div className="p-[18px] flex-1 overflow-hidden flex flex-col">
+                 <div className="flex-1 flex flex-col items-center justify-center text-gray-400 bg-[var(--surface-sunken)] rounded-lg border border-dashed border-gray-300">
+                     <p className="text-sm font-medium">{t('financial_security_score')}</p>
+                     <span className={`text-4xl font-bold mt-2 ${complianceScore === -1 ? 'text-gray-400' : 'text-green-500'}`}>
+                         {complianceScore === null ? t('calculating') : complianceScore === -1 ? t('unconfigured') : `${complianceScore}%`}
+                     </span>
+                     <p className="text-xs text-gray-400 mt-2 text-center px-8">
+                         {complianceScore === -1 ? t('no_rules') : t('based_on_rules')}
+                     </p>
+                     {complianceScore === -1 && (
+                         <button 
+                             onClick={(e) => { e.stopPropagation(); setActiveTab('tags'); }}
+                             className="mt-4 px-4 py-2 bg-[var(--brand)] text-white text-xs font-semibold rounded shadow-sm hover:opacity-90 transition-colors"
+                         >
+                             {t('configure_policies')}
+                         </button>
+                     )}
+                 </div>
              </div>
             </div>
         </div>

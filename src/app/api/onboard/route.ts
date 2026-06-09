@@ -33,13 +33,12 @@ export async function POST(request: NextRequest) {
         try {
             await connection.beginTransaction();
 
-            // UPSERT Tenant (Insert or Update)
+            // Insert Tenant (Ignore if already exists to preserve custom names)
             const insertTenantQuery = `
-                INSERT INTO Tenants (tenant_id, company_name) 
+                INSERT IGNORE INTO Tenants (tenant_id, company_name) 
                 VALUES (?, ?) 
-                ON DUPLICATE KEY UPDATE company_name = ?
             `;
-            await connection.query(insertTenantQuery, [tenantId, companyName, companyName]);
+            await connection.query(insertTenantQuery, [tenantId, companyName]);
 
             // UPSERT User
             const insertUserQuery = `
