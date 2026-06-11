@@ -34,23 +34,28 @@ export async function collectAdvisorData(tenantId: string, locale: string) {
         OperationalExcellence: []
     };
     
-    const scoresMap: Record<string, number> = {};
+    const scoresMap: Record<string, Record<string, number>> = {};
 
     for (const sub of subs) {
         const subId = sub.id;
         
         // Extraer Scores REST API
         try {
-            const scoreRes = await fetch(`https://management.azure.com/subscriptions/${subId}/providers/Microsoft.Advisor/advisorScores?api-version=2020-01-01`, {
+            const scoreRes = await fetch(`https://management.azure.com/subscriptions/${subId}/providers/Microsoft.Advisor/advisorScore?api-version=2023-01-01`, {
                 headers: { "Authorization": `Bearer ${tokenResponse.token}`, "Accept-Language": locale }
             });
             if (scoreRes.ok) {
                 const scoreData = await scoreRes.json();
                 if (scoreData && scoreData.value && scoreData.value.length > 0) {
-                    const score = scoreData.value[0].properties?.score;
-                    if (score !== undefined) {
-                        scoresMap[subId] = score;
+                    const subScores: Record<string, number> = {};
+                    for (const item of scoreData.value) {
+                        const name = item.name;
+                        const score = item.properties?.lastRefreshedScore?.score;
+                        if (name && score !== undefined) {
+                            subScores[name] = score;
+                        }
                     }
+                    scoresMap[subId] = subScores;
                 }
             }
         } catch (err) {
