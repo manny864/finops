@@ -7,9 +7,12 @@ import {
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell } from 'recharts';
 import { useTranslations } from 'next-intl';
 
+import { FocusCostEntry } from '@/modules/core/focusMapper';
+import FocusCostPieChart from './FocusCostPieChart';
+
 interface InteractiveDashboardProps {
     loading: boolean;
-    billingData: {costByService: any[], dailyTrend: any[], totalCost: number} | null;
+    billingData: FocusCostEntry[] | null;
 }
 
 export default function InteractiveDashboard({
@@ -17,9 +20,52 @@ export default function InteractiveDashboard({
     billingData
 }: InteractiveDashboardProps) {
     const t = useTranslations('Billing');
-    const evolutionData = billingData?.dailyTrend || [];
-    const pieData = billingData?.costByService || [];
-    const totalCost = billingData?.totalCost || 0;
+    
+    if (loading || billingData === null) {
+        return (
+            <div className="max-w-[1400px] mx-auto p-6 rounded-2xl bg-slate-50 animate-pulse">
+                <div className="h-10 bg-slate-200 rounded w-1/4 mb-6"></div>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+                    {[1,2,3,4,5,6].map(i => <div key={i} className="h-24 bg-slate-200 rounded-xl"></div>)}
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                    <div className="h-72 bg-slate-200 rounded-xl lg:col-span-2"></div>
+                    <div className="h-72 bg-slate-200 rounded-xl"></div>
+                </div>
+            </div>
+        );
+    }
+
+    if (billingData.length === 0) {
+        return (
+            <div className="max-w-[1400px] mx-auto p-12 rounded-2xl bg-slate-50 flex flex-col items-center justify-center border border-dashed border-slate-300">
+                <div className="text-slate-400 mb-2">
+                    <svg className="w-12 h-12 mx-auto opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                </div>
+                <h3 className="text-lg font-bold text-slate-700">Sin datos de facturación</h3>
+                <p className="text-sm text-slate-500 mt-1">No se encontraron registros de costos para la suscripción o periodo seleccionado.</p>
+            </div>
+        );
+    }
+
+    // Aggregate FOCUS data
+    const entries = billingData || [];
+    const totalCost = entries.reduce((sum, e) => sum + e.EffectiveCost, 0);
+
+    const dailyMap: Record<string, number> = {};
+    entries.forEach(e => {
+        if (e.UsageDate) {
+            const d = e.UsageDate;
+            const fmt = d.length === 8 ? `${d.substring(0,4)}-${d.substring(4,6)}-${d.substring(6,8)}` : d;
+            if (!dailyMap[fmt]) dailyMap[fmt] = 0;
+            dailyMap[fmt] += e.EffectiveCost;
+        }
+    });
+
+    const evolutionData = Object.keys(dailyMap).sort().map(date => ({
+        date,
+        cost: Number(dailyMap[date].toFixed(2))
+    }));
 
     const formatYAxis = (tickItem: any) => tickItem >= 1000 ? `$${(tickItem / 1000).toFixed(1)}k` : `$${tickItem}`;
 
@@ -107,7 +153,7 @@ export default function InteractiveDashboard({
 
             {/* Middle Charts */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 lg:col-span-2">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 lg:col-span-2 overflow-hidden">
                     <div className="flex justify-between items-center mb-6">
                         <div className="flex items-center text-sm font-bold text-slate-700">
                             <BarChart3 className="w-4 h-4 mr-2 text-rose-800" />
@@ -138,45 +184,14 @@ export default function InteractiveDashboard({
                     </div>
                 </div>
 
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 overflow-hidden">
                     <div className="flex items-center text-sm font-bold text-slate-700 mb-6">
                         <PieChart className="w-4 h-4 mr-2 text-rose-800 fill-rose-800" />
                         {t('spend_by_subscription')}
                     </div>
                     <div className="flex items-center justify-center h-64">
-                        <div className="w-1/2 h-full relative flex items-center justify-center">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <RechartsPieChart>
-                                    <Pie
-                                        data={pieData}
-                                        innerRadius={45}
-                                        outerRadius={80}
-                                        paddingAngle={2}
-                                        dataKey="cost"
-                                        nameKey="name"
-                                        stroke="none"
-                                    >  {pieData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={['#1e3a8a', '#0ea5e9', '#3b82f6', '#93c5fd', '#38bdf8', '#7dd3fc'][index % 6]} />
-                                        ))}
-                                    </Pie>
-                                    <RechartsTooltip formatter={(value: any, name: any) => {
-                                        return [`$${value.toLocaleString()}`, name];
-                                    }} />
-                                </RechartsPieChart>
-                            </ResponsiveContainer>
-                            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-2">
-                                <div className="text-3xl font-black text-slate-800 mt-2 mb-1 tracking-tight">
-                                    ${totalCost.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-                                </div>
-                            </div>
-                        </div>
-                        <div className="w-1/2 pl-2 flex flex-col gap-2 overflow-y-auto max-h-[240px] custom-scrollbar py-2">
-                            {pieData.map((item, i) => (
-                                <div key={i} className="flex items-center text-[10px] font-bold text-slate-600">
-                                    <div className="w-2.5 h-2.5 rounded-sm mr-2 shrink-0" style={{ backgroundColor: ['#1e3a8a', '#0ea5e9', '#3b82f6', '#93c5fd', '#38bdf8', '#7dd3fc'][i % 6] }}></div>
-                                    <span className="truncate">{item.name} <span className="text-slate-400 font-medium">· ${item.cost ? item.cost.toLocaleString() : item.value?.toLocaleString()}</span></span>
-                                </div>
-                            ))}
+                        <div className="w-full h-full relative flex items-center justify-center">
+                            <FocusCostPieChart data={entries} />
                         </div>
                     </div>
                 </div>

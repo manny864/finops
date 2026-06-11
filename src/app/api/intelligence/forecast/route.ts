@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentMonthAmortizedCosts, getCostForecast } from "@/services/billingService";
+import { getCurrentMonthAmortizedCosts, getCostForecast } from "@/modules/collectors/azure/billingService";
 import jwt from "jsonwebtoken";
 
 export async function GET(request: NextRequest) {
@@ -15,17 +15,26 @@ export async function GET(request: NextRequest) {
         const authHeader = request.headers.get("authorization");
         if (!authHeader) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
-        // First get historical
-        const historical = await getCurrentMonthAmortizedCosts(tenantId, subscriptionId);
+        const metricType = (request.headers.get('x-metric-type') as 'ActualCost' | 'AmortizedCost') || 'ActualCost';
+
+        // First get historical (Focus schema)
+        const historicalEntries = await getCurrentMonthAmortizedCosts(tenantId, subscriptionId, metricType);
         
         // Then get forecast
-        const forecast = await getCostForecast(tenantId, subscriptionId);
+        const forecast = await getCostForecast(tenantId, subscriptionId, metricType);
 
         // Combine into one array
         const combinedMap: Record<string, any> = {};
 
-        historical.dailyTrend.forEach(item => {
-            combinedMap[item.date] = { date: item.date, actualCost: item.cost };
+        historicalEntries.forEach(item => {
+            if (item.UsageDate) {
+                const dateStr = String(item.UsageDate);
+                const formattedDate = dateStr.length === 8 ? `${dateStr.substring(0,4)}-${dateStr.substring(4,6)}-${dateStr.substring(6,8)}` : dateStr;
+                if (!combinedMap[formattedDate]) {
+                    combinedMap[formattedDate] = { date: formattedDate, actualCost: 0 };
+                }
+                combinedMap[formattedDate].actualCost += item.EffectiveCost;
+            }
         });
 
         forecast.forEach(item => {

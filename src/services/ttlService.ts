@@ -1,6 +1,6 @@
 import { getAzureCredential } from "../lib/azure";
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
-import { kqlCatalog } from "../lib/kqlCatalog";
+import { kqlCatalog } from "../modules/core/kqlCatalog";
 
 export async function findExpiredResources(tenantId: string) {
     const credential = await getAzureCredential(tenantId);

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getResourceGraphClient } from '@/lib/azure';
-import { getVmUtilization } from '@/services/metricsService';
-import { analyzeVmEfficiency } from '@/lib/rightsizingEngine';
+import { getVmUtilization } from '@/modules/collectors/azure/metricsService';
+import { analyzeVmEfficiency } from '@/modules/core/rightsizingEngine';
 
 export async function GET(request: NextRequest) {
     try {

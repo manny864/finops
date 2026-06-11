@@ -19,13 +19,14 @@ async function main() {
 
         if (firstRec) {
             console.log("Found recommendation:", firstRec.name);
-            console.log("Term:", firstRec.term, "Region:", firstRec.location, "Sku:", firstRec.sku);
+            console.log("Term:", (firstRec as any).term, "Region:", firstRec.location, "Sku:", firstRec.sku);
             try {
                 const details = await client.reservationRecommendationDetails.get(
                     scope,
-                    firstRec.term as string,
+                    (firstRec as any).term as string,
                     firstRec.location as string,
-                    firstRec.sku as string
+                    firstRec.sku as string,
+                    (firstRec as any).lookBackPeriod as string
                 );
                 console.log("Details keys:", Object.keys(details));
                 console.log("Details:", JSON.stringify(details, null, 2));

@@ -46,6 +46,29 @@ $app = Get-AzADApplication -AppId $sp.AppId
 $secret = New-AzADAppCredential -ObjectId $app.Id -StartDate (Get-Date) -EndDate (Get-Date).AddYears(2)
 $ClientSecret = $secret.SecretText
 
+Write-Host "3. Asignando Permisos de Microsoft Graph (Directory.Read.All y Reports.Read.All)..." -ForegroundColor Cyan
+$GraphSp = Get-AzADServicePrincipal -Filter "appId eq '00000003-0000-0000-c000-000000000000'"
+$DirRole = $GraphSp.AppRole | Where-Object { $_.Value -eq "Directory.Read.All" -and $_.AllowedMemberType -contains "Application" }
+$RepRole = $GraphSp.AppRole | Where-Object { $_.Value -eq "Reports.Read.All" -and $_.AllowedMemberType -contains "Application" }
+
+if ($DirRole -and $RepRole) {
+    $bodyDir = @{ principalId = $sp.Id; resourceId = $GraphSp.Id; appRoleId = $DirRole.Id } | ConvertTo-Json -Depth 5
+    $bodyRep = @{ principalId = $sp.Id; resourceId = $GraphSp.Id; appRoleId = $RepRole.Id } | ConvertTo-Json -Depth 5
+
+    Invoke-AzRestMethod -Method Post -Uri "https://graph.microsoft.com/v1.0/servicePrincipals/$($sp.Id)/appRoleAssignments" -Payload $bodyDir -ErrorAction SilentlyContinue | Out-Null
+    Invoke-AzRestMethod -Method Post -Uri "https://graph.microsoft.com/v1.0/servicePrincipals/$($sp.Id)/appRoleAssignments" -Payload $bodyRep -ErrorAction SilentlyContinue | Out-Null
+    Write-Host "   -> Permisos asignados exitosamente." -ForegroundColor Green
+} else {
+    Write-Host "   -> No se pudieron localizar los roles de MS Graph. Por favor, asigne Directory.Read.All y Reports.Read.All manualmente." -ForegroundColor Yellow
+}
+
+Write-Host "4. Asignando 'Cost Management Reader' a nivel del Management Group raíz (Recomendado para FinOps global)..." -ForegroundColor Cyan
+New-AzRoleAssignment -ObjectId $spId -RoleDefinitionName "Cost Management Reader" -Scope "/providers/Microsoft.Management/managementGroups/$TenantId" -ErrorAction SilentlyContinue
+if (-not $?) {
+    Write-Host "   Aviso: No se pudo asignar el rol en el Management Group (falta de permisos). El sistema usará las suscripciones individuales (Fallback)." -ForegroundColor Yellow
+}
+
+Write-Host "4. Procesando asignaciones por suscripción..." -ForegroundColor Cyan
 foreach ($sub in $Subscriptions) {
     Write-Host "Procesando la suscripción $sub..." -ForegroundColor Cyan
     Set-AzContext -SubscriptionId $sub | Out-Null

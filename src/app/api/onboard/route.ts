@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
-import pool, { initializeDatabase } from "@/lib/db";
+import pool, { initializeDatabase } from "@/modules/storage/db";
 
 export async function POST(request: NextRequest) {
     try {

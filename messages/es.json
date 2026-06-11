@@ -29,7 +29,8 @@
     "client_onboarding": "Onboarding Clientes",
     "configuration": "Configuración",
     "executive_report": "Reporte Ejecutivo",
-    "audit_trail": "Registro Auditoría"
+    "audit_trail": "Registro Auditoría",
+    "licenses": "Licencias M365"
   },
   "Dashboard": {
     "title": "Dashboard General",

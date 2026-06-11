@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { useTenant } from './TenantProvider';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 
 export interface Subscription {
     id: string;
@@ -19,27 +20,26 @@ const SubscriptionContext = createContext<SubscriptionContextType | undefined>(u
 export function SubscriptionProvider({ children }: { children: React.ReactNode }) {
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
+    const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
     
     const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
     const [loading, setLoading] = useState(false);
     
-    const [selectedSubscription, setSelectedSubscription] = useState<string>(() => {
-        if (typeof window !== 'undefined') {
-            return localStorage.getItem(`finops_sub_${selectedTenant?.id}`) || 'All';
-        }
-        return 'All';
-    });
+    const selectedSubscription = searchParams.get('sub') || 'All';
 
     // Reset when tenant changes
     useEffect(() => {
         if (!selectedTenant || selectedTenant.id === 'default') {
             setSubscriptions([]);
-            setSelectedSubscription('All');
+            if (selectedSubscription !== 'All') {
+                const params = new URLSearchParams(searchParams.toString());
+                params.delete('sub');
+                router.replace(`${pathname}?${params.toString()}`);
+            }
             return;
         }
-
-        const saved = localStorage.getItem(`finops_sub_${selectedTenant.id}`);
-        setSelectedSubscription(saved || 'All');
 
         const fetchSubscriptions = async () => {
             if (accounts.length === 0) return;
@@ -75,12 +75,15 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         fetchSubscriptions();
     }, [selectedTenant, accounts, instance]);
 
-    // Sync to localStorage
-    useEffect(() => {
-        if (selectedTenant && selectedTenant.id !== 'default') {
-            localStorage.setItem(`finops_sub_${selectedTenant.id}`, selectedSubscription);
+    const setSelectedSubscription = (id: string) => {
+        const params = new URLSearchParams(searchParams.toString());
+        if (id === 'All') {
+            params.delete('sub');
+        } else {
+            params.set('sub', id);
         }
-    }, [selectedSubscription, selectedTenant]);
+        router.push(`${pathname}?${params.toString()}`);
+    };
 
     return (
         <SubscriptionContext.Provider value={{ selectedSubscription, setSelectedSubscription, subscriptions, loading }}>

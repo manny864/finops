@@ -67,7 +67,9 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/intelligence/rightsizing', label: t('rightsizing'), icon: Zap },
                 { href: '/intelligence/network', label: t('network_analytics'), icon: Activity },
                 { href: '/intelligence/rates', label: t('rate_optimization'), icon: DollarSign },
-                { href: '/intelligence/chargeback', label: t('chargeback'), icon: CreditCard }
+                { href: '/intelligence/chargeback', label: t('chargeback'), icon: CreditCard },
+                { href: '/intelligence/licenses', label: t('licenses'), icon: Users },
+                { href: '/intelligence/upload', label: 'Ingesta CSV', icon: FileText }
             ]
         },
         {

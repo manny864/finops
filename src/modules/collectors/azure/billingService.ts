@@ -1,7 +1,12 @@
 import { CostManagementClient } from "@azure/arm-costmanagement";
-import { getAzureCredential } from "../lib/azure";
+import { getAzureCredential } from '@/lib/azure';
+import { FocusCostEntry, mapAzureToFocus } from '@/modules/core/focusMapper';
 
-export async function getCurrentMonthAmortizedCosts(tenantId: string, subscriptionId: string) {
+export async function getCurrentMonthAmortizedCosts(
+    tenantId: string, 
+    subscriptionId: string,
+    metricType: 'ActualCost' | 'AmortizedCost' = 'ActualCost'
+): Promise<FocusCostEntry[]> {
     const credential = await getAzureCredential(tenantId);
     const client = new CostManagementClient(credential);
 
@@ -10,7 +15,7 @@ export async function getCurrentMonthAmortizedCosts(tenantId: string, subscripti
         : `/subscriptions/${subscriptionId}`;
     
     const queryOptions = {
-        type: "Usage",
+        type: metricType === 'ActualCost' ? 'ActualCost' : 'AmortizedCost',
         timeframe: "MonthToDate",
         dataset: {
             granularity: "Daily",
@@ -21,7 +26,10 @@ export async function getCurrentMonthAmortizedCosts(tenantId: string, subscripti
                 }
             },
             grouping: [
-                { type: "Dimension", name: "ServiceName" }
+                { type: "Dimension", name: "ServiceName" },
+                { type: "Dimension", name: "SubscriptionId" },
+                { type: "Dimension", name: "ChargeType" },
+                { type: "Dimension", name: "PublisherType" }
             ]
         }
     } as any;
@@ -33,7 +41,8 @@ export async function getCurrentMonthAmortizedCosts(tenantId: string, subscripti
     try {
         result = await client.query.usage(scope, queryOptions);
     } catch (e: any) {
-        if (subscriptionId === 'All' && (e.statusCode === 403 || e.code === 'AuthorizationFailed' || e.message?.includes('AuthorizationFailed'))) {
+        const isAuthOrNotFound = e.statusCode === 403 || e.statusCode === 401 || e.code === 'AuthorizationFailed' || e.code === 'RBACAccessDenied' || e.message?.includes('AuthorizationFailed') || e.code === 'ManagementGroupNotFound' || e.message?.includes("was not found or you don't have access") || e.message?.includes('does not have authorization') || e.message?.includes('does not have any valid subscriptions') || e.statusCode === 400;
+        if (subscriptionId === 'All' && isAuthOrNotFound) {
             isFallback = true;
             console.log("Management Group scope failed, falling back to concurrent subscription iteration...");
             const token = await credential.getToken("https://management.azure.com/.default");
@@ -55,56 +64,29 @@ export async function getCurrentMonthAmortizedCosts(tenantId: string, subscripti
         }
     }
 
-    let totalCost = 0;
-    const serviceMap: Record<string, number> = {};
-    const dailyMap: Record<string, number> = {};
+    const focusData: FocusCostEntry[] = [];
 
-    const processRows = (rows: any[]) => {
-        rows.forEach(row => {
-            const cost = Number(row[0]) || 0;
-            const dateStr = String(row[1]);
-            const service = String(row[2]);
-
-            totalCost += cost;
-
-            if (!serviceMap[service]) serviceMap[service] = 0;
-            serviceMap[service] += cost;
-
-            if (!dailyMap[dateStr]) dailyMap[dateStr] = 0;
-            dailyMap[dateStr] += cost;
-        });
+    const processResult = (res: any) => {
+        if (!res || !res.rows || !res.columns) return;
+        for (const row of res.rows) {
+            focusData.push(mapAzureToFocus(row, res.columns));
+        }
     };
 
     if (isFallback) {
-        fallbackResults.forEach(res => {
-            if (res.rows) processRows(res.rows);
-        });
+        fallbackResults.forEach(res => processResult(res));
     } else {
-        if (!result || !result.rows) return { costByService: [], dailyTrend: [], totalCost: 0 };
-        processRows(result.rows);
+        processResult(result);
     }
 
-    const costByService = Object.keys(serviceMap).map(k => ({
-        name: k,
-        cost: Number(serviceMap[k].toFixed(2))
-    })).sort((a, b) => b.cost - a.cost);
-
-    const dailyTrend = Object.keys(dailyMap).sort().map(k => {
-        const formattedDate = k.length === 8 ? `${k.substring(0,4)}-${k.substring(4,6)}-${k.substring(6,8)}` : k;
-        return {
-            date: formattedDate,
-            cost: Number(dailyMap[k].toFixed(2))
-        };
-    });
-
-    return {
-        costByService,
-        dailyTrend,
-        totalCost: Number(totalCost.toFixed(2))
-    };
+    return focusData;
 }
 
-export async function getCostForecast(tenantId: string, subscriptionId: string) {
+export async function getCostForecast(
+    tenantId: string, 
+    subscriptionId: string,
+    metricType: 'ActualCost' | 'AmortizedCost' = 'ActualCost'
+) {
     const credential = await getAzureCredential(tenantId);
     const client = new CostManagementClient(credential);
 
@@ -112,14 +94,11 @@ export async function getCostForecast(tenantId: string, subscriptionId: string) 
         ? `/providers/Microsoft.Management/managementGroups/${tenantId}` 
         : `/subscriptions/${subscriptionId}`;
     
-    // Azure Cost Management forecast API expects a timeframe
-    // Or we can use timePeriod.
-    // We will ask for data from today to the end of the month
     const today = new Date();
     const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
 
     const forecastOptions = {
-        type: "Usage",
+        type: metricType === 'ActualCost' ? 'ActualCost' : 'AmortizedCost',
         timeframe: "Custom",
         timePeriod: {
             from: today,
@@ -143,7 +122,8 @@ export async function getCostForecast(tenantId: string, subscriptionId: string) 
     try {
         result = await client.forecast.usage(scope, forecastOptions);
     } catch (e: any) {
-        if (subscriptionId === 'All' && (e.statusCode === 403 || e.code === 'AuthorizationFailed' || e.message?.includes('AuthorizationFailed'))) {
+        const isAuthOrNotFound = e.statusCode === 403 || e.statusCode === 401 || e.code === 'AuthorizationFailed' || e.code === 'RBACAccessDenied' || e.message?.includes('AuthorizationFailed') || e.code === 'ManagementGroupNotFound' || e.message?.includes("was not found or you don't have access") || e.message?.includes('does not have authorization') || e.message?.includes('does not have any valid subscriptions') || e.statusCode === 400;
+        if (subscriptionId === 'All' && isAuthOrNotFound) {
             isFallback = true;
             console.log("Management Group scope failed for forecast, falling back to concurrent subscription iteration...");
             const token = await credential.getToken("https://management.azure.com/.default");

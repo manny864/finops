@@ -29,7 +29,8 @@
     "client_onboarding": "Onboarding de Clientes",
     "configuration": "Configuração",
     "executive_report": "Relatório Executivo",
-    "audit_trail": "Registro de Auditoria"
+    "audit_trail": "Registro de Auditoria",
+    "licenses": "Otimização de Licenças"
   },
   "Dashboard": {
     "title": "Dashboard Geral",

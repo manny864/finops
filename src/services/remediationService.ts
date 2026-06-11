@@ -2,7 +2,7 @@ import { getAzureCredential } from "@/lib/azure";
 import { ComputeManagementClient } from "@azure/arm-compute";
 import { NetworkManagementClient } from "@azure/arm-network";
 import { WebSiteManagementClient } from "@azure/arm-appservice";
-import pool from "@/lib/db";
+import pool from "@/modules/storage/db";
 
 async function logAction(tenantId: string, userEmail: string, actionType: string, resourceId: string, status: string) {
     try {

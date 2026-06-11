@@ -11,9 +11,12 @@ import AuthSync from './AuthSync';
 import LanguageSwitcher from './LanguageSwitcher';
 import Sidebar from "./Sidebar";
 import ActionCenterDrawer from './ActionCenterDrawer';
+import CostToggle from './dashboard/CostToggle';
 import { useActionLogStore } from '@/store/actionLogStore';
 
 import { useMsal, useIsAuthenticated } from "@azure/msal-react";
+
+import { MetricProvider } from './MetricProvider';
 
 export const TabContext = createContext({ activeTab: 'dashboard', setActiveTab: (t: string) => {} });
 
@@ -22,9 +25,11 @@ export default function ClientShell({ children }: { children: React.ReactNode })
       <AuthSync />
       <TenantProvider>
         <SubscriptionProvider>
-          <ViewModeProvider>
-          <ShellContent>{children}</ShellContent>
-        </ViewModeProvider>
+          <MetricProvider>
+            <ViewModeProvider>
+              <ShellContent>{children}</ShellContent>
+            </ViewModeProvider>
+          </MetricProvider>
         </SubscriptionProvider>
       </TenantProvider>
     </AuthProvider>;
@@ -170,6 +175,11 @@ function ShellContent({ children }: { children: React.ReactNode }) {
                 <ScopeSelector />
             </div>
             
+            {/* Cost Metric Toggle */}
+            <div className="hidden sm:flex items-center mr-2">
+                <CostToggle />
+            </div>
+
             {/* View Toggle */}
             <div className="hidden sm:flex items-center bg-surface-2 rounded-lg p-1 mr-4 border border-line">
                 <button

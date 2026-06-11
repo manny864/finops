@@ -2,7 +2,7 @@ import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { ClientSecretCredential } from "@azure/identity";
 import { ComputeManagementClient } from "@azure/arm-compute";
 import { NetworkManagementClient } from "@azure/arm-network";
-import pool from "./db";
+import pool from '@/modules/storage/db';
 import { RowDataPacket } from "mysql2";
 
 export async function getAzureCredential(tenantId: string) {

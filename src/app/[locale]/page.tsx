@@ -1,5 +1,5 @@
 "use client";
-import { useContext, useEffect, useState } from 'react';
+import { useContext, useEffect, useState, useCallback } from 'react';
 import { TabContext } from '@/components/ClientShell';
 import { useMsal } from '@azure/msal-react';
 import { useTenant } from '@/components/TenantProvider';
@@ -150,16 +150,24 @@ export default function Home() {
     localStorage.setItem('finops_dashboard_layout_v2', JSON.stringify(allLayouts));
   };
 
-  const handleBudgetResize = (newH: number) => {
+  const handleBudgetResize = useCallback((newH: number) => {
     setLayouts((prev: any) => {
       if (!prev || !prev.lg) return prev;
+      let changed = false;
       const nextLayouts = { ...prev };
       Object.keys(nextLayouts).forEach(bp => {
-        nextLayouts[bp] = nextLayouts[bp].map((l: any) => l.i === 'burn' ? { ...l, h: newH } : l);
+        nextLayouts[bp] = nextLayouts[bp].map((l: any) => {
+          if (l.i === 'burn' && l.h !== newH) {
+            changed = true;
+            return { ...l, h: newH };
+          }
+          return l;
+        });
       });
+      if (!changed) return prev;
       return nextLayouts;
     });
-  };
+  }, []);
 
   if (activeTab === 'audit') {
       return (

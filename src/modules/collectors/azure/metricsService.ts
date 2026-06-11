@@ -1,5 +1,5 @@
 import { MonitorClient } from "@azure/arm-monitor";
-import { getAzureCredential } from "../lib/azure";
+import { getAzureCredential } from '@/lib/azure';
 
 export async function getVmUtilization(tenantId: string, subscriptionId: string, resourceId: string) {
     const credential = await getAzureCredential(tenantId);
