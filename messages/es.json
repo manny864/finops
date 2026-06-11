@@ -276,5 +276,10 @@
   "Zombies": {
     "title": "Recursos Zombis",
     "subtitle": "Detecta y limpia recursos ociosos o sin uso que desperdician dinero."
+  },
+  "Copilot": {
+    "welcome_message": "¡Hola! Soy tu asistente de FinOps y estoy aquí para ayudarte. Estoy analizando el módulo <b>{page}</b>; puedes preguntarme cualquier cosa relacionada con los datos que muestra esta página.",
+    "title": "FinOps Copilot",
+    "placeholder": "Pregunta sobre estas métricas..."
   }
 }

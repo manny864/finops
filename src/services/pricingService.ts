@@ -37,3 +37,54 @@ export async function getMonthlyCostEstimate(serviceName: string, skuName: strin
         return 0;
     }
 }
+
+export async function getRetailPricing(region: string, sku: string, serviceName: string = 'Virtual Machines'): Promise<{ payg: number, paygWithLicense: number, res1y: number, res3y: number }> {
+    // If the sku has quotes or spaces, Azure API usually expects exact armSkuName.
+    const filter = `armRegionName eq '${region}' and armSkuName eq '${sku}' and serviceName eq '${serviceName}'`;
+    const url = `https://prices.azure.com/api/retail/prices?$filter=${encodeURIComponent(filter)}`;
+    
+    let payg = 0;
+    let paygWithLicense = 0;
+    let res1y = 0;
+    let res3y = 0;
+
+    try {
+        const res = await fetch(url);
+        const data = await res.json();
+        
+        if (data && data.Items) {
+            for (const item of data.Items) {
+                if (item.meterName.includes("Spot") || item.meterName.includes("Low Priority")) continue;
+
+                // Only VMs have "Windows" product variants for OS licensing included.
+                const isWindows = serviceName === 'Virtual Machines' && item.productName.includes("Windows");
+
+                if (item.type === 'Consumption') {
+                    if (isWindows) {
+                        paygWithLicense = item.retailPrice || 0;
+                    } else {
+                        // Some non-VM resources return multiple consumption tiers or identical prices. Just grab the first non-windows one.
+                        if (!payg) payg = item.retailPrice || 0;
+                    }
+                } else if (item.type === 'Reservation') {
+                    if (isWindows) continue;
+
+                    if (item.reservationTerm === '1 Year') {
+                        res1y = item.retailPrice || 0;
+                    } else if (item.reservationTerm === '3 Years') {
+                        res3y = item.retailPrice || 0;
+                    }
+                }
+            }
+        }
+    } catch (e) {
+        console.error(`Retail Pricing error for ${sku} in ${region}:`, e);
+    }
+
+    // Si no hay precio explícito con licencia (ej. es Linux o no hay diferenciación), asumimos que es el mismo
+    if (!paygWithLicense && payg) {
+        paygWithLicense = payg;
+    }
+
+    return { payg, paygWithLicense, res1y, res3y };
+}

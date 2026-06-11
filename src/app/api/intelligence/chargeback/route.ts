@@ -21,14 +21,14 @@ export async function GET(request: NextRequest) {
 
         const parameters = {
             type: "Usage",
-            timeframe: "TheLastMonth",
+            timeframe: "MonthToDate",
             dataset: {
                 granularity: "None",
                 aggregation: {
                     totalCost: { name: "PreTaxCost", function: "Sum" }
                 },
                 grouping: [
-                    { type: "Tag", name: tagKey }
+                    { type: "TagKey", name: tagKey }
                 ]
             }
         };
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
         try {
             result = await client.query.usage(scope, parameters as any);
         } catch (e: any) {
-            const isAuthOrNotFound = e.statusCode === 403 || e.statusCode === 401 || e.code === 'AuthorizationFailed' || e.code === 'RBACAccessDenied' || e.message?.includes('AuthorizationFailed') || e.code === 'ManagementGroupNotFound' || e.message?.includes("was not found or you don't have access") || e.message?.includes('does not have authorization');
+            const isAuthOrNotFound = e.statusCode === 403 || e.statusCode === 401 || e.code === 'AuthorizationFailed' || e.code === 'RBACAccessDenied' || e.message?.includes('AuthorizationFailed') || e.code === 'ManagementGroupNotFound' || e.message?.includes("was not found or you don't have access") || e.message?.includes('does not have authorization') || e.message?.includes('does not have any valid subscriptions');
             if (subscriptionId === 'All' && isAuthOrNotFound) {
                 isFallback = true;
                 console.log("Management Group scope failed for chargeback, falling back to concurrent subscription iteration...");

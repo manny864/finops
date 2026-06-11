@@ -30,57 +30,96 @@ async function fetchRetailPrice(sku: string, location: string, isReservation: bo
     return 0;
 }
 
-export async function getReservationRecommendations(
-  credential: TokenCredential,
-  subscriptionId: string,
-  scopeType: 'Single' | 'Shared' = 'Single',
-  lookBackPeriod: 'Last7Days' | 'Last30Days' | 'Last60Days' = 'Last30Days'
-) {
-  try {
-    const client = new ConsumptionManagementClient(credential, subscriptionId);
-    const scope = `/subscriptions/${subscriptionId}`;
-    
-    const filter = `properties/scope eq '${scopeType}' and properties/lookBackPeriod eq '${lookBackPeriod}'`;
-    
-    const recommendations = [];
-    for await (const rec of client.reservationRecommendations.list(scope, { filter })) {
-        let anyCost = 0;
-        const anyRec = rec as any;
-        if (anyRec.properties?.costWithNoReservedInstances) anyCost = anyRec.properties.costWithNoReservedInstances;
-        if (anyRec.costWithNoReservedInstances) anyCost = anyRec.costWithNoReservedInstances;
-        if (anyRec.savings?.costWithNoReservedInstances) anyCost = anyRec.savings.costWithNoReservedInstances;
-        
-        // Si Azure omitió los costos (ej. Suscripción Sponsorship) o son cero, enriquecer usando Azure Retail Prices
-        if (!anyCost && anyRec.sku && anyRec.location) {
-            const skuStr = typeof anyRec.sku === 'string' ? anyRec.sku : anyRec.sku.name;
-            const term = (anyRec.properties?.term || anyRec.term || 'P1Y') as string;
-            
-            const hourlyConsumption = await fetchRetailPrice(skuStr, anyRec.location, false);
-            const reservationCost = await fetchRetailPrice(skuStr, anyRec.location, true, term);
-            
-            const hoursInYear = 8760;
-            const years = (term.includes('P3Y') || term.includes('3 Years')) ? 3 : (term.includes('P5Y') ? 5 : 1);
-            
-            // Calculamos el Pay-As-You-Go anualizado según el término sugerido
-            const paygCost = hourlyConsumption * hoursInYear * years;
-            const netSavings = paygCost - reservationCost;
-            
-            if (!anyRec.properties) {
-                anyRec.properties = {};
-            }
-            
-            // Inyectamos las propiedades faltantes para que el UI las mapee
-            anyRec.properties.costWithNoReservedInstances = paygCost;
-            anyRec.properties.totalCostWithReservedInstances = reservationCost;
-            anyRec.properties.netSavings = netSavings > 0 ? netSavings : 0;
-        }
+import { ResourceGraphClient } from "@azure/arm-resourcegraph";
+import { getRetailPricing } from "./pricingService";
 
-        recommendations.push(rec);
+export async function calculateReservationSavings(credential: TokenCredential, subscriptionId: string) {
+    try {
+        const client = new ResourceGraphClient(credential);
+        // Expand the query to include other reservation-capable resources
+        const query = `
+            Resources
+            | where type in~ ('Microsoft.Compute/virtualMachines', 'Microsoft.Web/serverfarms', 'Microsoft.Sql/servers/databases')
+            | where subscriptionId =~ '${subscriptionId}'
+            | project name, type, location, vmSize = tostring(properties.hardwareProfile.vmSize), skuName = tostring(sku.name)
+        `;
+        
+        const result = await client.resources({ query });
+        const resources = result.data as any[];
+        
+        const recommendations = [];
+        
+        // Cache per Service/Location/SKU to avoid calling API multiple times for the same resource type
+        const pricingCache = new Map<string, { payg: number, paygWithLicense: number, res1y: number, res3y: number }>();
+
+        for (const res of resources) {
+            let actualSku = '';
+            let serviceName = '';
+            let resourceType = 'Unknown';
+
+            const typeLower = res.type.toLowerCase();
+            if (typeLower.includes('virtualmachines')) {
+                actualSku = res.vmSize || res.skuName;
+                serviceName = 'Virtual Machines';
+                resourceType = 'Virtual Machine';
+            } else if (typeLower.includes('serverfarms')) {
+                actualSku = res.skuName;
+                serviceName = 'Azure App Service';
+                resourceType = 'App Service Plan';
+            } else if (typeLower.includes('databases')) {
+                actualSku = res.skuName;
+                serviceName = 'SQL Database';
+                resourceType = 'SQL Database';
+            }
+
+            if (!actualSku) {
+                console.warn(`Resource ${res.name} (${res.type}) has no identifiable SKU.`);
+                continue;
+            }
+
+            const cacheKey = `${serviceName}-${res.location}-${actualSku}`;
+            let pricing = pricingCache.get(cacheKey);
+
+            if (!pricing) {
+                pricing = await getRetailPricing(res.location, actualSku, serviceName);
+                pricingCache.set(cacheKey, pricing);
+            }
+
+            // If PAYG is 0, it means the API couldn't find the exact SKU match or it's a free tier. Skip reservations.
+            if (!pricing.payg) continue;
+
+            const monthlyCost = pricing.payg * 730;
+            const monthlyCostLicenseIncluded = pricing.paygWithLicense * 730;
+            const annualCost = monthlyCost * 12;
+            
+            // The Azure Retail Prices API returns the *total upfront cost* for the entire term for Reservations.
+            const annualCost1Y = pricing.res1y; 
+            const annualCost3Y = pricing.res3y / 3; 
+            
+            const savings1Y = pricing.res1y ? annualCost - annualCost1Y : 0;
+            const savings3Y = pricing.res3y ? (annualCost * 3) - pricing.res3y : 0;
+
+            // Only recommend if there's actual reservation pricing available for this SKU
+            if (pricing.res1y > 0 || pricing.res3y > 0) {
+                recommendations.push({
+                    resourceName: res.name,
+                    resourceType,
+                    sku: actualSku,
+                    region: res.location,
+                    monthlyCost,
+                    monthlyCostLicenseIncluded,
+                    annualCost,
+                    annualCost1Y,
+                    annualCost3Y,
+                    savings1Y: savings1Y > 0 ? savings1Y : 0,
+                    savings3Y: savings3Y > 0 ? savings3Y : 0
+                });
+            }
+        }
+        
+        return recommendations;
+    } catch (error: any) {
+        console.error("Error calculating reservation savings via ARG:", error);
+        throw new Error(error.message || "Failed to calculate recommendations");
     }
-    
-    return recommendations;
-  } catch (error: any) {
-    console.error("Error fetching reservation recommendations:", error);
-    throw new Error(error.message || "Failed to fetch recommendations");
-  }
 }

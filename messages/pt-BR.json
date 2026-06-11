@@ -274,7 +274,12 @@
     "subtitle": "Controle o ciclo de vida de recursos temporários com regras de expiração."
   },
   "Zombies": {
-    "title": "Recursos Zumbi",
+    "title": "Recursos Zumbis",
     "subtitle": "Detecte e limpe recursos ociosos ou sem uso que desperdiçam dinheiro."
+  },
+  "Copilot": {
+    "welcome_message": "Olá! Sou seu assistente de FinOps e estou aqui para ajudar. Estou analisando o módulo <b>{page}</b>; você pode me perguntar qualquer coisa relacionada aos dados mostrados nesta página.",
+    "title": "FinOps Copilot",
+    "placeholder": "Pergunte sobre essas métricas..."
   }
 }

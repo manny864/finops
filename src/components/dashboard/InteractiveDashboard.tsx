@@ -13,11 +13,17 @@ import FocusCostPieChart from './FocusCostPieChart';
 interface InteractiveDashboardProps {
     loading: boolean;
     billingData: FocusCostEntry[] | null;
+    advisorData?: any;
+    zombieData?: any;
+    tagsData?: any;
 }
 
 export default function InteractiveDashboard({
     loading,
-    billingData
+    billingData,
+    advisorData,
+    zombieData,
+    tagsData
 }: InteractiveDashboardProps) {
     const t = useTranslations('Billing');
     
@@ -112,8 +118,9 @@ export default function InteractiveDashboard({
                         <TrendingDown className="w-3.5 h-3.5 mr-1 text-red-500" />
                         {t('identified_savings')}
                     </div>
-                    {/* Placeholder for now until connected to full Advisor API */}
-                    <div className="text-2xl font-extrabold text-slate-800">--</div>
+                    <div className="text-2xl font-extrabold text-slate-800">
+                        {advisorData?.totalSavings ? `$${advisorData.totalSavings.toLocaleString()}` : '--'}
+                    </div>
                     <div className="text-[11px] text-slate-500 font-medium mt-1">{t('pending_apply')}</div>
                 </div>
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
@@ -121,7 +128,9 @@ export default function InteractiveDashboard({
                         <CheckSquare className="w-3.5 h-3.5 mr-1 text-emerald-500 fill-emerald-500/20" />
                         {t('applied_savings')}
                     </div>
-                    <div className="text-2xl font-extrabold text-emerald-500">--</div>
+                    <div className="text-2xl font-extrabold text-emerald-500">
+                        {advisorData?.appliedSavings ? `$${advisorData.appliedSavings.toLocaleString()}` : '--'}
+                    </div>
                     <div className="text-[11px] text-slate-500 font-medium mt-1">{t('captured_percent')}</div>
                 </div>
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
@@ -138,7 +147,9 @@ export default function InteractiveDashboard({
                         <Skull className="w-3.5 h-3.5 mr-1 text-slate-500" />
                         {t('zombie_resources')}
                     </div>
-                    <div className="text-2xl font-extrabold text-slate-800">--</div>
+                    <div className="text-2xl font-extrabold text-slate-800">
+                        {zombieData?.count !== undefined ? zombieData.count : '--'}
+                    </div>
                     <div className="text-[11px] text-slate-500 font-medium mt-1">{t('inactive_resources')}</div>
                 </div>
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
@@ -146,7 +157,9 @@ export default function InteractiveDashboard({
                         <Tag className="w-3.5 h-3.5 mr-1 text-amber-500 fill-amber-500/20" />
                         {t('tag_compliance')}
                     </div>
-                    <div className="text-2xl font-extrabold text-slate-800">--</div>
+                    <div className="text-2xl font-extrabold text-slate-800">
+                        {tagsData?.untaggedCount !== undefined ? tagsData.untaggedCount : '--'}
+                    </div>
                     <div className="text-[11px] text-slate-500 font-medium mt-1">{t('untagged_resources')}</div>
                 </div>
             </div>

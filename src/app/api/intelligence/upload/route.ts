@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { mapCsvToFocus, FocusCostEntry } from "@/modules/core/focusMapper";
-import { getAssessment } from "@/modules/core/aiProvider";
+import { getAssessment, normalizeBillingCsv } from "@/modules/core/aiProvider";
+import { FocusCostEntry } from "@/modules/core/focusMapper";
 
 export async function POST(request: NextRequest) {
     try {
@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
         }
 
         const rawData: any[] = body.data;
-        const focusData: FocusCostEntry[] = rawData.map(row => mapCsvToFocus(row));
+        const focusData = await normalizeBillingCsv(rawData);
 
         // Aggregate by ServiceName and ChargeCategory to prevent huge payloads going to Gemini
         const aggregated: Record<string, FocusCostEntry> = {};

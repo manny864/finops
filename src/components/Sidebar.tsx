@@ -24,7 +24,8 @@ import {
     Activity,
     DollarSign,
     CreditCard,
-    Cpu
+    Cpu,
+    Leaf
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -56,7 +57,8 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/', label: t('dashboard'), icon: LayoutDashboard },
                 { href: '/advisor', label: t('advisor'), icon: Lightbulb },
                 { href: '/overview/maturity', label: t('finops_maturity'), icon: Target },
-                { href: '/overview/progress', label: t('historical_progress'), icon: TrendingDown }
+                { href: '/overview/progress', label: t('historical_progress'), icon: TrendingDown },
+                { href: '/overview/sustainability', label: 'Green FinOps', icon: Leaf }
             ]
         },
         {

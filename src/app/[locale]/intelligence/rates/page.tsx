@@ -15,11 +15,17 @@ import {
 } from '@tanstack/react-table';
 
 type Recommendation = {
+  resourceName: string;
+  resourceType: string;
   sku: string;
-  term: string;
-  costWithNoDiscounts: number;
-  totalCostWithDiscounts: number;
-  netSavings: number;
+  region: string;
+  monthlyCost: number;
+  monthlyCostLicenseIncluded: number;
+  annualCost: number;
+  annualCost1Y: number;
+  annualCost3Y: number;
+  savings1Y: number;
+  savings3Y: number;
 };
 
 const currencyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
@@ -33,27 +39,67 @@ export default function RateOptimizationPage() {
     const tc = useTranslations('Common');
 
     const columns = useMemo(() => [
-      columnHelper.accessor('sku', {
-        header: t('col_recommended_sku') || 'Recommended SKU',
+      columnHelper.accessor('resourceName', {
+        header: 'Resource Name',
         cell: info => <span className="font-medium text-ink">{info.getValue()}</span>,
       }),
-      columnHelper.accessor('term', {
-        header: t('col_term') || 'Term',
-        cell: info => <span className="tag blue font-mono">{info.getValue()}</span>,
+      columnHelper.accessor('resourceType', {
+        header: 'Type',
+        cell: info => {
+            const val = info.getValue();
+            let color = 'grey';
+            if (val === 'Virtual Machine') color = 'blue';
+            else if (val === 'App Service Plan') color = 'purple';
+            else if (val === 'SQL Database') color = 'teal';
+            return <span className={`tag ${color}`}>{val}</span>;
+        },
       }),
-      columnHelper.accessor('costWithNoDiscounts', {
-        header: t('col_payg_cost') || 'Pay-As-You-Go Cost',
+      columnHelper.accessor('sku', {
+        header: 'SKU',
+        cell: info => <span className="text-ink-soft">{info.getValue()}</span>,
+      }),
+      columnHelper.accessor('region', {
+        header: 'Region',
+        cell: info => <span className="tag blue">{info.getValue()}</span>,
+      }),
+      columnHelper.accessor('monthlyCostLicenseIncluded', {
+        header: 'Costo Mensual (Licencia Incluida)',
         cell: info => currencyFormatter.format(info.getValue()),
       }),
-      columnHelper.accessor('totalCostWithDiscounts', {
-        header: t('col_reserved_cost') || 'Cost with Reservation',
+      columnHelper.accessor('monthlyCost', {
+        header: () => (
+            <div className="flex items-center gap-1 group relative">
+                Costo Mensual (AHB)
+                <Info className="w-3.5 h-3.5 text-brand-bright" />
+                <div className="absolute top-full mt-2 hidden group-hover:block bg-black text-white text-[10px] px-2 py-1 rounded w-64 whitespace-normal text-center z-50 left-1/2 -translate-x-1/2">
+                    Save up to 50% over standard pay-as-you-go rate by applying Azure Hybrid Benefit.
+                </div>
+            </div>
+        ),
         cell: info => currencyFormatter.format(info.getValue()),
       }),
-      columnHelper.accessor('netSavings', {
-        header: t('col_net_savings') || 'Net Savings',
+      columnHelper.accessor('annualCost', {
+        header: 'Costo Anual (PAYG)',
+        cell: info => currencyFormatter.format(info.getValue()),
+      }),
+      columnHelper.accessor('annualCost1Y', {
+        header: 'Costo Anual (1Y RI)',
+        cell: info => currencyFormatter.format(info.getValue()),
+      }),
+      columnHelper.accessor('annualCost3Y', {
+        header: 'Costo Anual (3Y RI)',
+        cell: info => currencyFormatter.format(info.getValue()),
+      }),
+      columnHelper.accessor('savings1Y', {
+        header: 'Ahorro 1 Año ($)',
+        cell: info => <span className="text-green font-bold">+{currencyFormatter.format(info.getValue())}</span>,
+      }),
+      columnHelper.accessor('savings3Y', {
+        header: 'Ahorro 3 Años ($)',
         cell: info => <span className="text-green font-bold">+{currencyFormatter.format(info.getValue())}</span>,
       }),
     ], [t]);
+
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState<Recommendation[]>([]);
     const [subscriptionId, setSubscriptionId] = useState('');
@@ -61,10 +107,6 @@ export default function RateOptimizationPage() {
     const [loadingSubs, setLoadingSubs] = useState(false);
     const [missingConsent, setMissingConsent] = useState(false);
     const [hasAnalyzed, setHasAnalyzed] = useState(false);
-    
-    // Filters
-    const [scopeType, setScopeType] = useState<'Single' | 'Shared'>('Single');
-    const [lookBackPeriod, setLookBackPeriod] = useState<'Last7Days' | 'Last30Days' | 'Last60Days'>('Last30Days');
     const [sorting, setSorting] = useState<SortingState>([]);
 
     useEffect(() => {
@@ -118,7 +160,7 @@ export default function RateOptimizationPage() {
 
         setLoading(true);
         try {
-            const url = `/api/intelligence/rates?tenantId=${selectedTenant.id}&subscriptionId=${subscriptionId}&scopeType=${scopeType}&lookBackPeriod=${lookBackPeriod}`;
+            const url = `/api/intelligence/rates?tenantId=${selectedTenant.id}&subscriptionId=${subscriptionId}`;
             const res = await fetch(url);
             const json = await res.json();
 
@@ -127,48 +169,9 @@ export default function RateOptimizationPage() {
             }
 
             if (json.recommendations) {
-                const mappedData: Recommendation[] = json.recommendations.map((rec: any) => {
-                    const props = rec.properties || {};
-                    const savings = rec.savings || props.savings || {};
-                    
-                    let term = props.term || rec.term || 'Unknown Term';
-                    if (term === 'P1Y' || term === 'P1Y (1 Year)') term = '1 Year';
-                    else if (term === 'P3Y' || term === 'P3Y (3 Years)') term = '3 Years';
-                    else if (term === 'P5Y') term = '5 Years';
-
-                    let skuName = 'Unknown SKU';
-                    const skuProps = props.skuProperties || rec.skuProperties || [];
-                    if (Array.isArray(skuProps) && skuProps.length > 0) {
-                        skuName = skuProps[0].name || skuProps[0].skuName;
-                    } else if (skuProps?.name) {
-                        skuName = skuProps.name;
-                    } else if (props.sku?.name) {
-                        skuName = props.sku.name;
-                    } else if (rec.sku?.name) {
-                        skuName = rec.sku.name;
-                    } else if (typeof rec.sku === 'string') {
-                        skuName = rec.sku;
-                    }
-
-                    const extractValue = (...vals: any[]) => {
-                        for (const val of vals) {
-                            if (val && typeof val === 'object' && val.value !== undefined) return Number(val.value);
-                            if (typeof val === 'number') return val;
-                        }
-                        return 0;
-                    };
-
-                    return {
-                        sku: skuName || 'Unknown SKU',
-                        term: term,
-                        costWithNoDiscounts: extractValue(props.costWithNoReservedInstances, rec.costWithNoReservedInstances, props.costWithNoDiscounts, savings.costWithNoReservedInstances),
-                        totalCostWithDiscounts: extractValue(props.totalCostWithReservedInstances, rec.totalCostWithReservedInstances, props.totalCostWithDiscounts, savings.totalCostWithReservedInstances),
-                        netSavings: extractValue(props.netSavings, rec.netSavings, savings.netSavings),
-                    };
-                });
-                setData(mappedData);
+                setData(json.recommendations);
                 setHasAnalyzed(true);
-                toast.success(t('analysis_complete', { count: mappedData.length }));
+                toast.success(t('analysis_complete', { count: json.recommendations.length }));
             }
         } catch (error: any) {
             console.error("Rates fetch error:", error);
@@ -189,7 +192,7 @@ export default function RateOptimizationPage() {
         getSortedRowModel: getSortedRowModel(),
     });
 
-    const totalSavings = data.reduce((acc, curr) => acc + curr.netSavings, 0);
+    const totalSavings = data.reduce((acc, curr) => acc + Math.max(curr.savings1Y || 0, curr.savings3Y || 0), 0);
 
     return (
         <div className="content animate-in fade-in">
@@ -219,8 +222,8 @@ export default function RateOptimizationPage() {
                         {t('missing_consent')}
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-                        <div className="flex flex-col gap-2">
+                    <div className="flex flex-col md:flex-row gap-4 items-end">
+                        <div className="flex flex-col gap-2 w-full md:w-auto">
                             <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">{t('subscription_label')}</label>
                             <select
                                 value={subscriptionId}
@@ -240,35 +243,10 @@ export default function RateOptimizationPage() {
                             </select>
                         </div>
                         
-                        <div className="flex flex-col gap-2">
-                            <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">{t('scope_label')}</label>
-                            <select
-                                value={scopeType}
-                                onChange={(e) => setScopeType(e.target.value as 'Single' | 'Shared')}
-                                className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2.5 outline-none"
-                            >
-                                <option value="Single">{t('scope_single')}</option>
-                                <option value="Shared">{t('scope_shared')}</option>
-                            </select>
-                        </div>
-
-                        <div className="flex flex-col gap-2">
-                            <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">{t('lookback_label')}</label>
-                            <select
-                                value={lookBackPeriod}
-                                onChange={(e) => setLookBackPeriod(e.target.value as any)}
-                                className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2.5 outline-none"
-                            >
-                                <option value="Last7Days">{t('last_7')}</option>
-                                <option value="Last30Days">{t('last_30')}</option>
-                                <option value="Last60Days">{t('last_60')}</option>
-                            </select>
-                        </div>
-
                         <button
                             onClick={handleAnalyze}
                             disabled={loading || !subscriptionId}
-                            className="bg-brand-deep text-white rounded-[10px] hover:brightness-110 transition flex items-center justify-center font-heading font-bold text-[13px] disabled:opacity-50 h-[42px] shadow-sm cursor-pointer"
+                            className="bg-brand-deep text-white rounded-[10px] hover:brightness-110 transition flex items-center justify-center font-heading font-bold text-[13px] disabled:opacity-50 h-[42px] px-6 shadow-sm cursor-pointer ml-auto md:ml-0"
                         >
                             {loading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <DollarSign className="w-5 h-5 mr-2" />}
                             {t('find_savings')}
@@ -286,7 +264,7 @@ export default function RateOptimizationPage() {
                             <div className="v">+{currencyFormatter.format(totalSavings)}</div>
                         </div>
                         <div className="mt-4 md:mt-0 text-[12px] text-ink-soft">
-                            {t('savings_note', { days: lookBackPeriod.replace('Last', '').replace('Days', '') })}
+                            {t('savings_note', { days: '30' })}
                         </div>
                     </div>
                 </div>
