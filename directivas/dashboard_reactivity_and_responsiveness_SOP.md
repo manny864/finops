@@ -22,12 +22,15 @@
   - Sincronizar el estado interno del panel `selectedSub` mediante un `useEffect` que observe `selectedSubscription`.
   - Al cambiar el dropdown del panel, propagar el cambio llamando a `setSelectedSubscription`.
 
-### 2. Responsividad de los Gráficos de Fugas (Pie Charts)
+### 2. Responsividad de los Gráficos de Fugas (Pie Charts) y Mapeo de Nombres de Suscripciones
 - **Componentes de Gráficos (`src/components/CostPieChart.tsx` y `src/components/dashboard/FocusCostPieChart.tsx`)**:
   - Reemplazar la restricción de altura mínima estática `min-h-[350px]` por una altura responsiva adaptable `h-full min-h-[220px]`.
   - Utilizar un contenedor relative con `absolute inset-0` para albergar a `<ResponsiveContainer width="100%" height="100%">` de Recharts. Esto asegura que Recharts pueda calcular correctamente sus dimensiones (ancho y alto) evitando el error de renderizado de `width(-1)` y `height(-1)`.
+  - **Evitar recortes verticales (Clipping)**: En contenedores de altura fija (como `h-64` / 256px) con leyenda activa, usar radios moderados (`innerRadius={45}`, `outerRadius={70}`) y una expansión de forma activa de máximo `outerRadius + 6`. Radios mayores (ej. 65/95) causan desbordamiento del SVG resultando en arcos cortados verticalmente (flat top/bottom).
+  - **Mapeo de Nombres descriptivos**: En gráficos de costo por suscripción (`FocusCostPieChart.tsx`), importar y consumir `useSubscription` para mapear los UUIDs de `SubAccountId` a sus respectivos nombres en `subscriptions` (`sub.name`), previniendo mostrar IDs crudos en la leyenda y tooltips.
 - **Módulo de Billing / Dashboard Interactivo (`src/components/dashboard/InteractiveDashboard.tsx`)**:
   - Ajustar el contenedor de la "Distribución de fugas financieras" y de "Spend by Subscription" para que tengan un diseño responsivo real (`h-64 w-full relative` con contenedores absolutos internos) y no causen desbordamiento o fallas de medición en flexbox.
+  - Asegurar la consistencia visual del gráfico de fugas de esta sección usando radios moderados (`innerRadius={45}`, `outerRadius={70}`).
 
 ### 3. Optimización de Consultas Tenant-Wide (Como un todo)
 - **Evitar Errores de Permisos (403/AccessDenied) por Scope Implícito**:
