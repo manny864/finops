@@ -27,6 +27,16 @@ export default function InteractiveDashboard({
 }: InteractiveDashboardProps) {
     const t = useTranslations('Billing');
     
+    // Process backend JSON shapes
+    const computedTotalSavings = (advisorData?.recommendations && Array.isArray(advisorData.recommendations))
+        ? advisorData.recommendations.reduce((acc: number, curr: any) => acc + (curr.savingsAmount || 0), 0) 
+        : 0;
+
+    const computedAppliedSavings = 0; // Placeholder
+
+    const computedUntagged = tagsData?.nonCompliant ? tagsData.nonCompliant.length : undefined;
+    const computedZombies = zombieData?.count !== undefined ? zombieData.count : '--';
+
     if (loading || billingData === null) {
         return (
             <div className="max-w-[1400px] mx-auto p-6 rounded-2xl bg-slate-50 animate-pulse">
@@ -119,7 +129,7 @@ export default function InteractiveDashboard({
                         {t('identified_savings')}
                     </div>
                     <div className="text-2xl font-extrabold text-slate-800">
-                        {advisorData?.totalSavings ? `$${advisorData.totalSavings.toLocaleString()}` : '--'}
+                        {advisorData ? `$${computedTotalSavings.toLocaleString()}` : '--'}
                     </div>
                     <div className="text-[11px] text-slate-500 font-medium mt-1">{t('pending_apply')}</div>
                 </div>
@@ -129,7 +139,7 @@ export default function InteractiveDashboard({
                         {t('applied_savings')}
                     </div>
                     <div className="text-2xl font-extrabold text-emerald-500">
-                        {advisorData?.appliedSavings ? `$${advisorData.appliedSavings.toLocaleString()}` : '--'}
+                        {advisorData ? `$${computedAppliedSavings.toLocaleString()}` : '--'}
                     </div>
                     <div className="text-[11px] text-slate-500 font-medium mt-1">{t('captured_percent')}</div>
                 </div>
@@ -148,7 +158,7 @@ export default function InteractiveDashboard({
                         {t('zombie_resources')}
                     </div>
                     <div className="text-2xl font-extrabold text-slate-800">
-                        {zombieData?.count !== undefined ? zombieData.count : '--'}
+                        {computedZombies}
                     </div>
                     <div className="text-[11px] text-slate-500 font-medium mt-1">{t('inactive_resources')}</div>
                 </div>
@@ -158,7 +168,7 @@ export default function InteractiveDashboard({
                         {t('tag_compliance')}
                     </div>
                     <div className="text-2xl font-extrabold text-slate-800">
-                        {tagsData?.untaggedCount !== undefined ? tagsData.untaggedCount : '--'}
+                        {computedUntagged !== undefined ? computedUntagged : '--'}
                     </div>
                     <div className="text-[11px] text-slate-500 font-medium mt-1">{t('untagged_resources')}</div>
                 </div>

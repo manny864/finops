@@ -49,9 +49,9 @@ export default function BillingPage() {
 
               const [billingRes, advisorRes, zombieRes, tagsRes] = await Promise.allSettled([
                   fetch('/api/intelligence/billing', { headers }),
-                  fetch(`/api/advisor?subscriptionId=${selectedSubscription}`, { headers }),
-                  fetch(`/api/cleanup/zombies?subscriptionId=${selectedSubscription}`, { headers }),
-                  fetch(`/api/tags/compliance?subscriptionId=${selectedSubscription}`, { headers })
+                  fetch(`/api/advisor?tenantId=${selectedTenant.id}`, { headers }),
+                  fetch(`/api/cleanup/zombies?tenantId=${selectedTenant.id}`, { headers }),
+                  fetch(`/api/tags/compliance?tenantId=${selectedTenant.id}`, { headers })
               ]);
 
               if (billingRes.status === 'fulfilled' && billingRes.value.ok) {
