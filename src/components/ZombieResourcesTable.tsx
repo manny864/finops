@@ -205,7 +205,10 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
         const matchType = filterType === "all" || item.type === filterType;
         const matchGroup = filterGroup === "all" || item.resourceGroup === filterGroup;
         const matchIssue = filterIssue === "all" || item.issueType === filterIssue;
-        const matchSearch = !searchQuery || item.resourceName.toLowerCase().includes(searchQuery.toLowerCase());
+        const searchLower = searchQuery.toLowerCase();
+        const matchSearch = !searchQuery || 
+            item.resourceName.toLowerCase().includes(searchLower) || 
+            item.type.toLowerCase().includes(searchLower);
         return matchType && matchGroup && matchIssue && matchSearch;
     });
   }, [data, filterType, filterGroup, filterIssue, searchQuery]);
@@ -372,7 +375,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                 <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">Buscar:</label>
                 <input 
                     type="text" 
-                    placeholder="Nombre del recurso..."
+                    placeholder="Nombre o tipo..."
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
                     className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] p-2 outline-none w-48 focus:border-brand-bright focus:ring-1 focus:ring-brand-bright"
