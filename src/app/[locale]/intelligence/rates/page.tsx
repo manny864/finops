@@ -248,8 +248,8 @@ export default function RateOptimizationPage() {
                             disabled={loading || !subscriptionId}
                             className="bg-brand-deep text-white rounded-[10px] hover:brightness-110 transition flex items-center justify-center font-heading font-bold text-[13px] disabled:opacity-50 h-[42px] px-6 shadow-sm cursor-pointer ml-auto md:ml-0"
                         >
-                            {loading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <DollarSign className="w-5 h-5 mr-2" />}
-                            {t('find_savings')}
+                            <span>{loading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <DollarSign className="w-5 h-5 mr-2" />}</span>
+                            <span>{t('find_savings')}</span>
                         </button>
                     </div>
                 )}
