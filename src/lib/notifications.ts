@@ -1,4 +1,4 @@
-import pool from "@/lib/db";
+import pool from "@/modules/storage/db";
 
 export async function sendWebhookAlert(tenantId: string, title: string, message: string, severity: 'info' | 'warning' | 'error' = 'info') {
     try {

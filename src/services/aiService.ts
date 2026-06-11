@@ -2,7 +2,7 @@ import { generateText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createAnthropic } from '@ai-sdk/anthropic';
-import pool from '@/lib/db';
+import pool from '@/modules/storage/db';
 import { RowDataPacket } from 'mysql2';
 
 export async function getAIConfig() {
@@ -12,8 +12,8 @@ export async function getAIConfig() {
         config[row.setting_key] = row.setting_value;
     }
     return {
-        provider: config['ai_provider'] || 'openai',
-        apiKey: config['ai_api_key'] || ''
+        provider: config['ai_provider'] || process.env.AI_PROVIDER || 'google',
+        apiKey: config['ai_api_key'] || process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY || ''
     };
 }
 

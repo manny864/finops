@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAzureCredential } from "@/lib/azure";
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
-import pool from "@/lib/db";
+import pool from "@/modules/storage/db";
 
 export async function GET(req: NextRequest) {
     try {

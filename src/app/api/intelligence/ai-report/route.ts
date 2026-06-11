@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { generateFinOpsReport } from '@/services/aiService';
-import pool from '@/lib/db';
+import pool from '@/modules/storage/db';
 import { RowDataPacket } from 'mysql2';
 
 export async function POST(req: Request) {

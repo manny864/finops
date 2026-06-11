@@ -29,7 +29,8 @@
     "client_onboarding": "Client Onboarding",
     "configuration": "Configuration",
     "executive_report": "Executive Report",
-    "audit_trail": "Audit Trail"
+    "audit_trail": "Audit Trail",
+    "licenses": "License Optimization"
   },
   "Dashboard": {
     "title": "General Dashboard",

@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentMonthAmortizedCosts } from '@/services/billingService';
+import { getCurrentMonthAmortizedCosts } from '@/modules/collectors/azure/billingService';
 
 export async function GET(request: NextRequest) {
     try {
         const tenantId = request.headers.get('x-tenant-id');
         const subscriptionId = request.headers.get('x-subscription-id');
+        const metricType = (request.headers.get('x-metric-type') as 'ActualCost' | 'AmortizedCost') || 'ActualCost';
 
         if (!tenantId || !subscriptionId) {
             return NextResponse.json({ error: 'Faltan credenciales del entorno' }, { status: 400 });
         }
 
-        const data = await getCurrentMonthAmortizedCosts(tenantId, subscriptionId);
+        const data = await getCurrentMonthAmortizedCosts(tenantId, subscriptionId, metricType);
         return NextResponse.json({ success: true, data });
     } catch (error: any) {
         console.error('Billing API Error:', error);

@@ -46,3 +46,9 @@ CREATE TABLE IF NOT EXISTS Budgets (
     FOREIGN KEY (tenant_id) REFERENCES Tenants(tenant_id) ON DELETE CASCADE,
     UNIQUE KEY unique_tenant_costcenter (tenant_id, cost_center_tag_value)
 );
+
+CREATE TABLE IF NOT EXISTS AiCache (
+    hash_prompt VARCHAR(64) PRIMARY KEY,
+    response_text TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

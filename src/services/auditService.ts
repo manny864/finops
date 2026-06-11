@@ -1,6 +1,6 @@
 import { SubscriptionClient } from "@azure/arm-subscriptions";
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
-import { kqlCatalog } from "../lib/kqlCatalog";
+import { kqlCatalog } from "../modules/core/kqlCatalog";
 
 async function runInBatches(client: ResourceGraphClient, queries: {key: string, query: string}[], batchSize = 2, subscriptions: string[] = []) {
     const getQuery = (query: string) => ({

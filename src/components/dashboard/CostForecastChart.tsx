@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { useTenant } from '../TenantProvider';
 import { useSubscription } from '../SubscriptionProvider';
+import { useMetric } from '../MetricProvider';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import { TrendingUp, Loader2 } from 'lucide-react';
 
@@ -10,6 +11,7 @@ export default function CostForecastChart() {
     const { instance, accounts } = useMsal();
     const { selectedTenant } = useTenant();
     const { selectedSubscription } = useSubscription();
+    const { metricType } = useMetric();
     const [data, setData] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
 
@@ -24,7 +26,10 @@ export default function CostForecastChart() {
                     account: accounts[0]
                 });
                 const res = await fetch(`/api/intelligence/forecast?tenantId=${selectedTenant.id}&subscriptionId=${selectedSubscription}`, {
-                    headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
+                    headers: { 
+                        'Authorization': `Bearer ${tokenResponse.idToken}`,
+                        'x-metric-type': metricType
+                    }
                 });
                 const json = await res.json();
                 if (json.data) {
@@ -36,7 +41,7 @@ export default function CostForecastChart() {
             setLoading(false);
         };
         fetchForecast();
-    }, [accounts, instance, selectedTenant.id, selectedSubscription]);
+    }, [accounts, instance, selectedTenant.id, selectedSubscription, metricType]);
 
     if (accounts.length === 0 || selectedTenant.id === 'default') return null;
 

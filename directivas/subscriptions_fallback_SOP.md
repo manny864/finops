@@ -24,3 +24,7 @@ Garantizar tolerancia a fallos en la capa de identidad (`keyvault.ts`) para ento
 
 ### 3. Logging estructurado en endpoints
 - Todo endpoint API debe loguear paso a paso (credencial, token, fetch) para facilitar diagnóstico en producción donde los stack traces están minificados.
+
+### 4. Error AuthorizationFailed en Management Group Scope (Chargeback/Billing)
+- **Nota:** No hacer consultas directas al scope `/providers/Microsoft.Management/managementGroups/${tenantId}` si no se está 100% seguro de que el Service Principal tiene rol Reader en el Management Group raíz. Causa el error `AuthorizationFailed` (403) ya que muchas veces las apps solo tienen acceso a nivel suscripción.
+- **En su lugar, hacer Z:** Implementar una lógica de "fallback": capturar el error `403` o `AuthorizationFailed`, listar las suscripciones habilitadas iterándolas concurrentemente (con `Promise.all` y `catch(() => null)`) llamando al API de Cost Management por cada suscripción individualmente, y luego fusionar los resultados.
