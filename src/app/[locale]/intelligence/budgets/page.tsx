@@ -5,6 +5,7 @@ import { useSubscription } from '@/components/SubscriptionProvider';
 import { useMsal } from '@azure/msal-react';
 import { toast } from 'sonner';
 import { Target, Loader2, Plus, AlertCircle } from 'lucide-react';
+import CreateBudgetModal from '@/components/CreateBudgetModal';
 
 export default function BudgetsPage() {
     const { selectedTenant } = useTenant();
@@ -16,9 +17,11 @@ export default function BudgetsPage() {
     
     // Modal state
     const [modalOpen, setModalOpen] = useState(false);
+    const [azureModalOpen, setAzureModalOpen] = useState(false);
     const [costCenter, setCostCenter] = useState('');
     const [monthlyLimit, setMonthlyLimit] = useState('');
     const [saving, setSaving] = useState(false);
+    const [refreshKey, setRefreshKey] = useState(0);
 
     useEffect(() => {
         if (!selectedTenant || selectedTenant.id === 'default' || accounts.length === 0) return;
@@ -47,7 +50,7 @@ export default function BudgetsPage() {
             setLoading(false);
         };
         fetchBudgets();
-    }, [selectedTenant.id, selectedSubscription, accounts, instance]);
+    }, [selectedTenant.id, selectedSubscription, accounts, instance, refreshKey]);
 
     const handleSaveBudget = async () => {
         if (!costCenter || !monthlyLimit) {
@@ -115,12 +118,20 @@ export default function BudgetsPage() {
                     </h1>
                     <p className="text-sm text-gray-500 mt-2">Monitorea el consumo mes a mes filtrado por Centro de Costos.</p>
                 </div>
-                <button
-                    onClick={() => setModalOpen(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-sm transition-colors text-sm font-bold"
-                >
-                    <Plus className="w-5 h-5" /> Establecer Presupuesto
-                </button>
+                <div className="flex gap-3">
+                    <button
+                        onClick={() => setModalOpen(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg shadow-sm transition-colors text-sm font-bold"
+                    >
+                        <Plus className="w-5 h-5" /> Presupuesto Local
+                    </button>
+                    <button
+                        onClick={() => setAzureModalOpen(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-sm transition-colors text-sm font-bold"
+                    >
+                        <Plus className="w-5 h-5" /> Crear en Azure
+                    </button>
+                </div>
             </div>
 
             {loading ? (
@@ -133,12 +144,20 @@ export default function BudgetsPage() {
                     <Target className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                     <h3 className="text-lg font-bold text-gray-700">Sin Presupuestos Activos</h3>
                     <p className="text-gray-500 text-sm mt-2 mb-6">No has definido ningún límite de gasto por centro de costo.</p>
-                    <button
-                        onClick={() => setModalOpen(true)}
-                        className="px-4 py-2 border border-indigo-200 text-indigo-600 rounded-lg hover:bg-indigo-50 font-medium"
-                    >
-                        Crear Primer Presupuesto
-                    </button>
+                    <div className="flex justify-center gap-3">
+                        <button
+                            onClick={() => setModalOpen(true)}
+                            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium"
+                        >
+                            Crear Límite Local
+                        </button>
+                        <button
+                            onClick={() => setAzureModalOpen(true)}
+                            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-bold"
+                        >
+                            Crear en Azure
+                        </button>
+                    </div>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -228,6 +247,14 @@ export default function BudgetsPage() {
                     </div>
                 </div>
             )}
+
+            <CreateBudgetModal 
+                isOpen={azureModalOpen}
+                onClose={() => setAzureModalOpen(false)}
+                onSuccess={() => setRefreshKey(prev => prev + 1)}
+                subscriptionId={selectedSubscription}
+                tenantId={selectedTenant.id}
+            />
         </div>
     );
 }
