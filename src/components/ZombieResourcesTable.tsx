@@ -173,7 +173,10 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
             ddos: { type: "DDoS Plan", armType: "microsoft.network/ddosprotectionplans", issue: "Sin Recursos", savings: 2944.0, issueType: "cost", manualDelete: false },
             emptyRgs: { type: "Resource Group", armType: "microsoft.resources/subscriptions/resourcegroups", issue: "RG Vacío", savings: 0.0, issueType: "governance", manualDelete: false },
             apiConnections: { type: "API Connection", armType: "microsoft.web/connections", issue: "Desconectada", savings: 0.0, issueType: "governance", manualDelete: false },
-            expiredCerts: { type: "Certificate", armType: "microsoft.web/certificates", issue: "Expirado", savings: 0.0, issueType: "governance", manualDelete: false }
+            expiredCerts: { type: "Certificate", armType: "microsoft.web/certificates", issue: "Expirado", savings: 0.0, issueType: "governance", manualDelete: false },
+            unattachedPublicIps: { type: "PublicIPAddresses", armType: "microsoft.network/publicipaddresses", issue: "IP Pública sin asignar", savings: 3.5, issueType: "cost", manualDelete: false },
+            unattachedNics: { type: "NetworkInterfaces", armType: "microsoft.network/networkinterfaces", issue: "NIC Huérfano", savings: 0.0, issueType: "cost", manualDelete: false },
+            longStoppedVMs: { type: "DeallocatedVMs", armType: "microsoft.compute/virtualmachines", issue: "VM Apagada con Discos", savings: 30.0, issueType: "cost", manualDelete: false }
         };
 
         let allMappedData: any[] = [];
@@ -181,9 +184,17 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
             const config = configValue as any;
             const items = audit[key] || [];
             const mapped = items.map((r: any) => ({
-                id: r.id,
+                id: r.id || r.resourceId,
                 resourceName: r.name,
-                type: r.type ? (r.type.split("/").pop() || config.type) : config.type,
+                type: r.type ? (
+                    r.type.toLowerCase().includes("serverfarms") ? "ServerFarms" :
+                    r.type.toLowerCase().includes("virtualnetworkgateways") ? "VirtualNetworkGateways" :
+                    r.type.toLowerCase().includes("snapshots") ? "Snapshots" :
+                    r.type.toLowerCase().includes("virtualmachines") ? "DeallocatedVMs" :
+                    r.type.toLowerCase().includes("publicipaddresses") ? "PublicIPAddresses" :
+                    r.type.toLowerCase().includes("networkinterfaces") ? "NetworkInterfaces" :
+                    (r.type.split("/").pop() || config.type)
+                ) : config.type,
                 armType: r.type || config.armType,
                 resourceGroup: r.resourceGroup,
                 issue: config.issue,

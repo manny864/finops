@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getResourceGraphClient, getAzureCredential } from "@/lib/azure";
+import { getResourceGraphClient, getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { runGraphAudits, runMonitorAudits, runM365Audits } from "@/services/auditService";
 import { getMonthlyCostEstimate } from "@/services/pricingService";
@@ -117,6 +117,79 @@ export async function GET(request: NextRequest) {
             res.estimatedMonthlyCost = cost;
             res.resourceId = res.id;
             res.resourceType = res.type || "microsoft.web/serverfarms";
+            res.monthlyCost = cost;
+        }));
+    }
+
+    if (graphResults.unattachedPublicIps && Array.isArray(graphResults.unattachedPublicIps)) {
+        await Promise.all(graphResults.unattachedPublicIps.map(async (ip: any) => {
+            const sku = ip.sku || "Standard";
+            const loc = ip.location || "eastus";
+            const cost = await getMonthlyCostEstimate("Virtual Network", sku, loc);
+            ip.estimatedMonthlyCost = cost;
+            ip.resourceId = ip.id;
+            ip.resourceType = ip.type || "microsoft.network/publicipaddresses";
+            ip.monthlyCost = cost;
+        }));
+    }
+
+    if (graphResults.unattachedNics && Array.isArray(graphResults.unattachedNics)) {
+        await Promise.all(graphResults.unattachedNics.map(async (nic: any) => {
+            nic.estimatedMonthlyCost = 0;
+            nic.resourceId = nic.id;
+            nic.resourceType = nic.type || "microsoft.network/networkinterfaces";
+            nic.monthlyCost = 0;
+        }));
+    }
+
+    if (graphResults.longStoppedVMs && Array.isArray(graphResults.longStoppedVMs)) {
+        let subs: string[] = [];
+        if (subscriptionId && subscriptionId.toLowerCase() !== 'all') {
+            subs = [subscriptionId];
+        } else {
+            subs = await getSubscriptionsForTenant(tenantId, credential);
+        }
+
+        const disksQuery = `
+            Resources
+            | where type =~ 'microsoft.compute/disks'
+            | project id = tolower(id), diskSizeGB = toint(properties.diskSizeGB), sku = sku.name, location
+        `;
+        const disksResponse = await resourceGraphClient.resources({ query: disksQuery, subscriptions: subs });
+        const disksData = disksResponse.data as any[] || [];
+        const disksMap = new Map<string, { sizeGB: number, sku: string, location: string }>();
+        for (const d of disksData) {
+            if (d.id) {
+                disksMap.set(d.id.toLowerCase(), {
+                    sizeGB: d.diskSizeGB || 0,
+                    sku: d.sku || "Standard_LRS",
+                    location: d.location || "eastus"
+                });
+            }
+        }
+
+        await Promise.all(graphResults.longStoppedVMs.map(async (res: any) => {
+            let storageCost = 0;
+            const attachedDiskIds: string[] = [];
+            if (res.osDiskId) attachedDiskIds.push(res.osDiskId.toLowerCase());
+            if (res.dataDisks && Array.isArray(res.dataDisks)) {
+                for (const d of res.dataDisks) {
+                    if (d.managedDisk?.id) {
+                        attachedDiskIds.push(d.managedDisk.id.toLowerCase());
+                    }
+                }
+            }
+            for (const diskId of attachedDiskIds) {
+                const diskInfo = disksMap.get(diskId);
+                if (diskInfo) {
+                    const price = await getMonthlyCostEstimate("Storage", diskInfo.sku, diskInfo.location || res.location || "eastus");
+                    storageCost += price || (diskInfo.sizeGB * 0.15);
+                }
+            }
+            const cost = parseFloat(storageCost.toFixed(2));
+            res.estimatedMonthlyCost = cost;
+            res.resourceId = res.id;
+            res.resourceType = res.type || "microsoft.compute/virtualmachines";
             res.monthlyCost = cost;
         }));
     }
