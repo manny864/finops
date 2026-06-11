@@ -47,11 +47,12 @@ export default function BillingPage() {
                   'x-metric-type': metricType
               };
 
+              const subParam = selectedSubscription === 'all' ? '' : `&subscriptionId=${selectedSubscription}`;
               const [billingRes, advisorRes, zombieRes, tagsRes] = await Promise.allSettled([
                   fetch('/api/intelligence/billing', { headers }),
-                  fetch(`/api/advisor?tenantId=${selectedTenant.id}&subscriptionId=${selectedSubscription}`, { headers }),
-                  fetch(`/api/audit/full?tenantId=${selectedTenant.id}&subscriptionId=${selectedSubscription}`, { headers }),
-                  fetch(`/api/tags/compliance?tenantId=${selectedTenant.id}&subscriptionId=${selectedSubscription}`, { headers })
+                  fetch(`/api/advisor?tenantId=${selectedTenant.id}${subParam}`, { headers }),
+                  fetch(`/api/audit/full?tenantId=${selectedTenant.id}${subParam}`, { headers }),
+                  fetch(`/api/tags/compliance?tenantId=${selectedTenant.id}${subParam}`, { headers })
               ]);
 
               if (billingRes.status === 'fulfilled' && billingRes.value.ok) {
