@@ -14,6 +14,17 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ success: true, data });
     } catch (error: any) {
         console.error("License API error:", error);
-        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+        
+        const errorMessage = error.message || '';
+        if (errorMessage.includes('403')) {
+            return NextResponse.json({ 
+                success: false, 
+                error: 'Permisos insuficientes en Microsoft Graph.',
+                needsConsent: true,
+                details: errorMessage
+            }, { status: 403 });
+        }
+
+        return NextResponse.json({ success: false, error: errorMessage }, { status: 500 });
     }
 }
