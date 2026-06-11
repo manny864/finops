@@ -63,6 +63,37 @@ export async function GET(request: NextRequest) {
             ip.estimatedMonthlyCost = cost;
         }));
     }
+
+    if (graphResults.oldSnapshots && Array.isArray(graphResults.oldSnapshots)) {
+        await Promise.all(graphResults.oldSnapshots.map(async (res: any) => {
+            const size = res.sizeGB || 50;
+            const cost = size * 0.05;
+            res.estimatedMonthlyCost = cost;
+            res.resourceId = res.id;
+            res.resourceType = res.type || "microsoft.compute/snapshots";
+            res.monthlyCost = cost;
+        }));
+    }
+
+    if (graphResults.unusedLoadBalancers && Array.isArray(graphResults.unusedLoadBalancers)) {
+        await Promise.all(graphResults.unusedLoadBalancers.map(async (res: any) => {
+            const cost = 18.0;
+            res.estimatedMonthlyCost = cost;
+            res.resourceId = res.id;
+            res.resourceType = res.type || "microsoft.network/loadbalancers";
+            res.monthlyCost = cost;
+        }));
+    }
+
+    if (graphResults.unusedVNetGateways && Array.isArray(graphResults.unusedVNetGateways)) {
+        await Promise.all(graphResults.unusedVNetGateways.map(async (res: any) => {
+            const cost = 130.0;
+            res.estimatedMonthlyCost = cost;
+            res.resourceId = res.id;
+            res.resourceType = res.type || "microsoft.network/virtualnetworkgateways";
+            res.monthlyCost = cost;
+        }));
+    }
     
     // Ejecutar stubs (para futura expansión)
     // const monitorResults = await runMonitorAudits(credential, subscriptionId);

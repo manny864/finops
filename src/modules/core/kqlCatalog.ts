@@ -38,5 +38,9 @@ export const kqlCatalog: Record<string, string> = {
   stoppedVirtualMachines: `Resources | where type =~ 'microsoft.compute/virtualmachines' | where properties.extended.instanceView.powerState.code in~ ('PowerState/deallocated', 'PowerState/stopped') | project id, name, location, resourceGroup, subscriptionId, powerState = tostring(properties.extended.instanceView.powerState.code)`,
   emptyAse: `Resources | where type =~ 'microsoft.web/hostingenvironments' | project aseId = tolower(id), id, name, location, resourceGroup, subscriptionId | join kind=leftouter (Resources | where type =~ 'microsoft.web/serverfarms' | extend aseId = tolower(properties.hostingEnvironmentProfile.id) | project farmId=id, aseId) on aseId | where isnull(farmId)`,
 
-  expiredTtlResources: `Resources | where isnotempty(tags['ExpireOn']) or isnotempty(tags['TTL']) | project id, name, type, resourceGroup, tags, expirationDate = coalesce(tags['ExpireOn'], tags['TTL']), subscriptionId`
+  expiredTtlResources: `Resources | where isnotempty(tags['ExpireOn']) or isnotempty(tags['TTL']) | project id, name, type, resourceGroup, tags, expirationDate = coalesce(tags['ExpireOn'], tags['TTL']), subscriptionId`,
+
+  oldSnapshots: `Resources | where type =~ 'microsoft.compute/snapshots' | where properties.timeCreated < ago(30d) | project id, name, location, resourceGroup, subscriptionId, sizeGB=properties.diskSizeGB`,
+  unusedLoadBalancers: `Resources | where type =~ 'microsoft.network/loadbalancers' | where isnull(properties.frontendIPConfigurations) or array_length(properties.frontendIPConfigurations) == 0 or isnull(properties.backendAddressPools) or array_length(properties.backendAddressPools) == 0 | project id, name, location, resourceGroup, subscriptionId`,
+  unusedVNetGateways: `Resources | where type =~ 'microsoft.network/virtualnetworkgateways' | where isnull(properties.connections) or array_length(properties.connections) == 0 | project id, name, location, resourceGroup, subscriptionId`
 };
