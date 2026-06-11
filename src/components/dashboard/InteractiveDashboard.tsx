@@ -42,6 +42,44 @@ export default function InteractiveDashboard({
     let computedZombies: number | string = '--';
     let leakageMap: any = {};
 
+    const fallbackSavings: Record<string, number> = {
+        unattachedDisks: 15.0,
+        unusedIps: 3.5,
+        staleSnapshots: 5.0,
+        emptyAppServicePlans: 45.0,
+        elasticPools: 250.0,
+        loadBalancers: 18.0,
+        frontDoorWaf: 5.0,
+        trafficManager: 3.0,
+        appGateways: 180.0,
+        natGateways: 32.0,
+        privateEndpoints: 7.0,
+        vnetGateways: 130.0,
+        ddos: 2944.0,
+        orphanedNics: 0,
+        orphanedNsgs: 0,
+        availabilitySets: 0,
+        routeTables: 0,
+        emptyVnets: 0,
+        emptySubnets: 0,
+        ipGroups: 0,
+        privateDnsZones: 0.25,
+        emptyRgs: 0,
+        apiConnections: 0,
+        expiredCerts: 0,
+        emptySqlServers: 0,
+        stoppedFlexibleServers: 25.0,
+        emptyCosmosDbAccounts: 24.0,
+        emptyEventHubNamespaces: 11.0,
+        emptyServiceBusNamespaces: 10.0,
+        emptyApiManagement: 50.0,
+        unprovisionedExpressRoute: 55.0,
+        unattachedWafPolicies: 5.0,
+        stoppedVirtualMachines: 30.0,
+        emptyAse: 300.0,
+        expiredTtlResources: 10.0
+    };
+
     if (zombieData?.auditResults) {
         computedZombies = Object.values(zombieData.auditResults).reduce((acc: number, arr: any) => acc + (Array.isArray(arr) ? arr.length : 0), 0) as number;
         
@@ -50,8 +88,11 @@ export default function InteractiveDashboard({
             if (Array.isArray(items)) {
                 items.forEach((curr: any) => {
                     const type = curr.type ? curr.type.split("/").pop() : key;
-                    const cost = curr.estimatedMonthlyCost || (curr.diskSizeGB ? curr.diskSizeGB * 0.15 : 0) || 0;
-                    leakageMap[type] = (leakageMap[type] || 0) + cost;
+                    const defaultCost = fallbackSavings[key] || 0;
+                    const cost = curr.estimatedMonthlyCost || (curr.diskSizeGB ? curr.diskSizeGB * 0.15 : (curr.sizeGB ? curr.sizeGB * 0.05 : defaultCost)) || 0;
+                    if (cost > 0) {
+                        leakageMap[type] = (leakageMap[type] || 0) + cost;
+                    }
                 });
             }
         });
@@ -123,7 +164,9 @@ export default function InteractiveDashboard({
     };
 
     const COLORS = ['#0ea5e9', '#10b981', '#f59e0b', '#f43f5e', '#8b5cf6'];
-    const leakagePieData = Object.keys(leakageMap).map(k => ({ name: k, value: leakageMap[k] }));
+    const leakagePieData = Object.keys(leakageMap)
+        .map(k => ({ name: k, value: leakageMap[k] }))
+        .filter(item => item.value > 0);
     return (
         <div className="max-w-[1400px] mx-auto animate-in fade-in duration-500 bg-slate-50 p-6 rounded-2xl">
             {/* Header */}
@@ -217,8 +260,8 @@ export default function InteractiveDashboard({
             </div>
 
             {/* Middle Charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-6">
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 lg:col-span-2 overflow-hidden">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-6">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 md:col-span-2 lg:col-span-2 xl:col-span-2 overflow-hidden">
                     <div className="flex justify-between items-center mb-6">
                         <div className="flex items-center text-sm font-bold text-slate-700">
                             <BarChart3 className="w-4 h-4 mr-2 text-rose-800" />
@@ -249,35 +292,31 @@ export default function InteractiveDashboard({
                     </div>
                 </div>
 
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 overflow-hidden">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 md:col-span-1 lg:col-span-1 xl:col-span-1 overflow-hidden">
                     <div className="flex items-center text-sm font-bold text-slate-700 mb-6">
                         <PieChart className="w-4 h-4 mr-2 text-rose-800 fill-rose-800" />
                         {t('spend_by_subscription')}
                     </div>
                     <div className="h-64 w-full relative flex items-center justify-center">
-                        <div className="w-full h-full absolute inset-0">
-                            <FocusCostPieChart data={entries} />
-                        </div>
+                        <FocusCostPieChart data={entries} />
                     </div>
                 </div>
 
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 overflow-hidden">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 md:col-span-1 lg:col-span-3 xl:col-span-1 overflow-hidden">
                     <div className="flex items-center text-sm font-bold text-slate-700 mb-6">
                         <Skull className="w-4 h-4 mr-2 text-amber-500" />
                         Distribución de fugas financieras
                     </div>
                     <div className="h-64 w-full relative flex items-center justify-center">
                         {leakagePieData.length > 0 ? (
-                            <div className="w-full h-full absolute inset-0">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <RechartsPieChart>
-                                        <Pie data={leakagePieData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
-                                            {leakagePieData.map((e, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                                        </Pie>
-                                        <RechartsTooltip formatter={(v: any) => `$${Number(v).toFixed(2)}`} />
-                                    </RechartsPieChart>
-                                </ResponsiveContainer>
-                            </div>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <RechartsPieChart>
+                                    <Pie data={leakagePieData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                                        {leakagePieData.map((e, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                                    </Pie>
+                                    <RechartsTooltip formatter={(v: any) => `$${Number(v).toFixed(2)}`} />
+                                </RechartsPieChart>
+                            </ResponsiveContainer>
                         ) : (
                             <div className="text-sm text-slate-400">Sin datos de fugas</div>
                         )}
