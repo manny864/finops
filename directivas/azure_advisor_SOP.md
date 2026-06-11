@@ -11,4 +11,4 @@ Implementar el tablero de Azure Advisor replicando las 5 categorías oficiales d
 ## Trampas Conocidas / Restricciones
 - **Multitenancy Bug**: Siempre utilizar `selectedTenant.id` provisto por `useTenant()`.
 - **Suscripciones Vacías**: Si `GET /subscriptions` devuelve cero elementos, retornar `403 MISSING_RBAC_ROLE` en lugar de fallar silenciosamente.
-\n- **Filtrado y Scores**: Las recomendaciones ahora se etiquetan con `subscriptionId`. Se hace fetch a la REST API de Microsoft.Advisor/advisorScores para promediar la puntuación general en el frontend.\n
+\n- **Filtrado y Scores**: Las recomendaciones ahora se etiquetan con `subscriptionId`. Se hace fetch a la REST API de Microsoft.Advisor/advisorScores para promediar la puntuación general en el frontend. El Advisor Score promedio se visualiza en la cabecera del panel usando insignias (badges) de color según su rango (Verde >= 80%, Amarillo >= 50%, Rojo < 50%, Gris N/A).\n

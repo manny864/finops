@@ -101,6 +101,19 @@ export default function AdvisorPanel() {
       return { totalRecs, avgScoreStr };
   }, [filteredData, scores, selectedSub]);
 
+  // Determine Advisor Score Color Code
+  const scoreNum = parseFloat(globalMetrics.avgScoreStr);
+  let scoreBadgeColor = "bg-gray-100 text-gray-700 border-gray-200";
+  if (!isNaN(scoreNum)) {
+      if (scoreNum >= 80) {
+          scoreBadgeColor = "bg-emerald-50 text-emerald-700 border-emerald-200";
+      } else if (scoreNum >= 50) {
+          scoreBadgeColor = "bg-amber-50 text-amber-700 border-amber-200";
+      } else {
+          scoreBadgeColor = "bg-rose-50 text-rose-700 border-rose-200";
+      }
+  }
+
   const handleCsvExport = async () => {
       try {
           const account = accounts[0];
@@ -203,6 +216,9 @@ export default function AdvisorPanel() {
             <div className="ml-auto flex gap-[9px] items-center flex-wrap">
                 <span className="text-[11px] font-bold tracking-[0.4px] bg-[#E6F2FB] text-brand-deep px-[11px] py-[5px] rounded-lg">
                     📍 {selectedTenant.name}
+                </span>
+                <span className={`text-[11px] font-bold tracking-[0.4px] px-[11px] py-[5px] rounded-lg border ${scoreBadgeColor}`}>
+                    🏆 Advisor Score: {globalMetrics.avgScoreStr}
                 </span>
                 <div className="flex items-center gap-[9px] bg-surface border border-line-strong rounded-[10px] p-[6px_9px_6px_12px] shadow-[0_1px_2px_rgba(16,40,73,0.06),0_8px_24px_rgba(16,40,73,0.07)]">
                     <label className="text-[10px] tracking-[1px] uppercase text-grey font-bold">Alcance</label>
