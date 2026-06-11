@@ -31,6 +31,8 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [complianceScore, setComplianceScore] = useState<number | null>(null);
+  const [advisorSavings, setAdvisorSavings] = useState<number>(0);
+  const [zombieCount, setZombieCount] = useState<number>(0);
   const { addAction } = useActionLogStore();
 
   const calculateCO2Savings = (wastedUsd: number) => {
@@ -48,11 +50,35 @@ export default function Home() {
                   scopes: ["User.Read"],
                   account: accounts[0]
               });
-              const res = await fetch(`/api/audit/full?tenantId=${selectedTenant.id}`, {
-                  headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
-              });
-              const json = await res.json();
+              // Fetch audit + advisor in parallel
+              const [auditRes, advisorRes] = await Promise.allSettled([
+                  fetch(`/api/audit/full?tenantId=${selectedTenant.id}`, {
+                      headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
+                  }),
+                  fetch(`/api/advisor?tenantId=${selectedTenant.id}`, {
+                      headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
+                  })
+              ]);
+
+              // Process Advisor data
+              if (advisorRes.status === 'fulfilled' && advisorRes.value.ok) {
+                  try {
+                      const advisorJson = await advisorRes.value.json();
+                      const costRecs = advisorJson?.recommendations?.Cost || [];
+                      const savings = costRecs.reduce((acc: number, curr: any) =>
+                          acc + parseFloat(curr.extendedProperties?.savingsAmount || '0'), 0);
+                      setAdvisorSavings(savings);
+                  } catch (e) { console.warn('Advisor parse error', e); }
+              }
+
+              // Process Audit data
+              const res = auditRes.status === 'fulfilled' ? auditRes.value : null;
+              const json = res && res.ok ? await res.json() : {};
               if (json.auditResults) {
+                  // Count total zombies
+                  const totalZombies = Object.values(json.auditResults).reduce((acc: number, arr: any) => acc + (Array.isArray(arr) ? arr.length : 0), 0) as number;
+                  setZombieCount(totalZombies);
+
                   const resourceConfig: any = {
                       unattachedDisks: { type: "Disk", savings: 15.0, issueType: "cost" },
                       unusedIps: { type: "Public IP", savings: 3.5, issueType: "cost" },
@@ -217,22 +243,36 @@ export default function Home() {
           <p>{t('subtitle')} <span className="text-xs text-brand/60 ml-2">({t('drag_hint')})</span></p>
         </div>
         
-        <div className="flex gap-4">
-            <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-6 py-3 flex flex-col items-end shadow-sm">
-                <span className="text-xs font-bold text-emerald-700 uppercase tracking-widest mb-1 flex items-center">
+        <div className="flex gap-3 flex-wrap">
+            <div className="bg-sky-50 border border-sky-200 rounded-xl px-5 py-3 flex flex-col items-end shadow-sm">
+                <span className="text-[10px] font-bold text-sky-700 uppercase tracking-widest mb-1">Ahorro Advisor</span>
+                <span className="text-3xl lg:text-4xl font-extrabold text-sky-600">
+                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(advisorSavings)}
+                </span>
+                <span className="text-[10px] text-sky-600 mt-1">potencial / mes</span>
+            </div>
+            <div className="bg-green-50 border border-green-200 rounded-xl px-5 py-3 flex flex-col items-end shadow-sm">
+                <span className="text-[10px] font-bold text-green-700 uppercase tracking-widest mb-1">{t('potential_savings')}</span>
+                <span className="text-3xl lg:text-4xl font-extrabold text-green-600">
+                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(totalSavings)}
+                </span>
+                <span className="text-[10px] text-green-600 mt-1">{t('monthly_projected')}</span>
+            </div>
+            <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 flex flex-col items-end shadow-sm">
+                <span className="text-[10px] font-bold text-amber-700 uppercase tracking-widest mb-1">Recursos Zombies</span>
+                <span className="text-3xl lg:text-4xl font-extrabold text-amber-600">
+                    {zombieCount}
+                </span>
+                <span className="text-[10px] text-amber-600 mt-1">detectados</span>
+            </div>
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-5 py-3 flex flex-col items-end shadow-sm">
+                <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest mb-1 flex items-center">
                     <Leaf className="w-3 h-3 mr-1" /> {t('environmental_impact')}
                 </span>
-                <span className="text-4xl lg:text-5xl font-extrabold text-emerald-600">
+                <span className="text-3xl lg:text-4xl font-extrabold text-emerald-600">
                     {calculateCO2Savings(totalSavings)}
                 </span>
-                <span className="text-xs text-emerald-600 mt-1">{t('co2_avoided')}</span>
-            </div>
-            <div className="bg-green-50 border border-green-200 rounded-xl px-6 py-3 flex flex-col items-end shadow-sm">
-                <span className="text-xs font-bold text-green-700 uppercase tracking-widest mb-1">{t('potential_savings')}</span>
-                <span className="text-4xl lg:text-5xl font-extrabold text-green-600">
-                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalSavings)}
-                </span>
-                <span className="text-xs text-green-600 mt-1">{t('monthly_projected')}</span>
+                <span className="text-[10px] text-emerald-600 mt-1">{t('co2_avoided')}</span>
             </div>
         </div>
       </div>
