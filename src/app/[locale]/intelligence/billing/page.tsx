@@ -55,7 +55,7 @@ export default function BillingPage() {
                   'x-metric-type': metricType
               };
 
-              const subParam = selectedSubscription === 'all' ? '' : `&subscriptionId=${selectedSubscription}`;
+              const subParam = (!selectedSubscription || selectedSubscription.toLowerCase() === 'all') ? '' : `&subscriptionId=${selectedSubscription}`;
               console.log('[BillingPage] Fetching APIs with subParam:', subParam);
               
               const [billingRes, advisorRes, zombieRes, tagsRes] = await Promise.allSettled([

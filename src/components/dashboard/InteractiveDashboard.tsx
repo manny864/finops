@@ -28,9 +28,13 @@ export default function InteractiveDashboard({
     const t = useTranslations('Billing');
     
     // Process backend JSON shapes
-    const computedTotalSavings = (advisorData?.recommendations && Array.isArray(advisorData.recommendations))
-        ? advisorData.recommendations.reduce((acc: number, curr: any) => acc + (curr.savingsAmount || 0), 0) 
-        : 0;
+    // advisorData.recommendations is grouped: { Cost: [...], Security: [...], ... }
+    let computedTotalSavings = 0;
+    if (advisorData?.recommendations) {
+        const costRecs = advisorData.recommendations.Cost || [];
+        computedTotalSavings = costRecs.reduce((acc: number, curr: any) => 
+            acc + parseFloat(curr.extendedProperties?.savingsAmount || '0'), 0);
+    }
 
     const computedAppliedSavings = 0; // Placeholder
 
