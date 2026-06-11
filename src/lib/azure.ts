@@ -23,6 +23,26 @@ export async function getAzureCredential(tenantId: string) {
   return new ClientSecretCredential(tenantId, clientId, clientSecret);
 }
 
+export async function getSubscriptionsForTenant(tenantId: string, credential?: ClientSecretCredential): Promise<string[]> {
+  const cred = credential || await getAzureCredential(tenantId);
+  const subs: string[] = [];
+  try {
+    const tokenResponse = await cred.getToken("https://management.azure.com/.default");
+    const fetchRes = await fetch("https://management.azure.com/subscriptions?api-version=2020-01-01", {
+        headers: { "Authorization": `Bearer ${tokenResponse.token}` }
+    });
+    if (fetchRes.ok) {
+        const data = await fetchRes.json();
+        for (const sub of (data.value || [])) {
+            if (sub.subscriptionId) subs.push(sub.subscriptionId);
+        }
+    }
+  } catch (e) {
+    console.error(`[azure] Error fetching subscriptions for tenant ${tenantId}:`, e);
+  }
+  return subs;
+}
+
 export async function getComputeClient(tenantId: string, subscriptionId: string) {
   const credential = await getAzureCredential(tenantId);
   return new ComputeManagementClient(credential, subscriptionId);

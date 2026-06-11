@@ -67,7 +67,10 @@ export default function Home() {
               if (advisorRes.status === 'fulfilled' && advisorRes.value.ok) {
                   try {
                       const advisorJson = await advisorRes.value.json();
-                      const costRecs = advisorJson?.recommendations?.Cost || [];
+                      let costRecs = advisorJson?.recommendations?.Cost || [];
+                      if (selectedSubscription && selectedSubscription.toLowerCase() !== 'all') {
+                          costRecs = costRecs.filter((r: any) => r.subscriptionId === selectedSubscription);
+                      }
                       const savings = costRecs.reduce((acc: number, curr: any) =>
                           acc + parseFloat(curr.extendedProperties?.savingsAmount || '0'), 0);
                       setAdvisorSavings(savings);

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAzureCredential } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { calculateEmissions } from "@/services/carbonService";
 
@@ -15,6 +15,12 @@ export async function GET(request: NextRequest) {
 
         const credential = await getAzureCredential(tenantId);
         const client = new ResourceGraphClient(credential);
+        let subs: string[] | undefined = undefined;
+        if (subscriptionId && subscriptionId.toLowerCase() !== 'all') {
+            subs = [subscriptionId];
+        } else {
+            subs = await getSubscriptionsForTenant(tenantId, credential);
+        }
 
         let subFilter = `| where subscriptionId =~ '${subscriptionId}'`;
         if (subscriptionId === 'All') {
@@ -29,7 +35,7 @@ export async function GET(request: NextRequest) {
             | project name, location
         `;
 
-        const vmResult = await client.resources({ query: vmQuery });
+        const vmResult = await client.resources({ query: vmQuery, subscriptions: subs });
         const vms = vmResult.data as any[];
 
         let totalFootprint = 0;
@@ -47,7 +53,7 @@ export async function GET(request: NextRequest) {
             ${subFilter}
             | project name, location
         `;
-        const diskResult = await client.resources({ query: diskQuery });
+        const diskResult = await client.resources({ query: diskQuery, subscriptions: subs });
         const disks = diskResult.data as any[];
         
         let avoidedEmissions = 0;

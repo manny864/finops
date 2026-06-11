@@ -2,7 +2,7 @@ import { SubscriptionClient } from "@azure/arm-subscriptions";
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { kqlCatalog } from "../modules/core/kqlCatalog";
 
-async function runInBatches(client: ResourceGraphClient, queries: {key: string, query: string}[], batchSize = 2, subscriptions: string[] = []) {
+async function runInBatches(client: ResourceGraphClient, queries: {key: string, query: string}[], batchSize = 2, subscriptions: string[] = [], delayMs = 1500) {
     const getQuery = (query: string) => ({
         subscriptions,
         query
@@ -12,30 +12,32 @@ async function runInBatches(client: ResourceGraphClient, queries: {key: string, 
     for (let i = 0; i < queries.length; i += batchSize) {
         const batch = queries.slice(i, i + batchSize);
         const batchPromises = batch.map(async (q) => {
-            try {
-                let res;
+            let retries = 3;
+            let currentDelay = 3000;
+            while (retries > 0) {
                 try {
-                    res = await client.resources(getQuery(q.query));
+                    const res = await client.resources(getQuery(q.query));
+                    return { key: q.key, data: res.data };
                 } catch (e: any) {
-                    if (e.statusCode === 429 || (e.code && e.code === 'RateLimiting')) {
-                        console.warn(`[Audit] Rate Limited (429) en ${q.key}. Reintentando en 3s...`);
-                        await new Promise(resolve => setTimeout(resolve, 3000));
-                        res = await client.resources(getQuery(q.query));
+                    const isRateLimit = e.statusCode === 429 || (e.code && e.code === 'RateLimiting');
+                    if (isRateLimit && retries > 1) {
+                        console.warn(`[Audit] Rate Limited (429) en ${q.key}. Reintentando en ${currentDelay}ms... (Intentos restantes: ${retries - 1})`);
+                        await new Promise(resolve => setTimeout(resolve, currentDelay));
+                        currentDelay *= 1.5;
+                        retries--;
                     } else {
-                        throw e;
+                        console.warn(`Query ${q.key} failed after retries:`, e.message || e);
+                        return { key: q.key, data: [] };
                     }
                 }
-                return { key: q.key, data: res.data };
-            } catch (e) {
-                console.warn(`Query ${q.key} failed:`, e);
-                return { key: q.key, data: [] };
             }
+            return { key: q.key, data: [] };
         });
         const batchResults = await Promise.all(batchPromises);
         batchResults.forEach(r => results[r.key] = r.data);
         
         if (i + batchSize < queries.length) {
-            await new Promise(resolve => setTimeout(resolve, 1500)); // 1500ms delay to prevent 429
+            await new Promise(resolve => setTimeout(resolve, delayMs));
         }
     }
     return results;
@@ -74,7 +76,7 @@ export async function runGraphAudits(client: ResourceGraphClient, credential: an
         query: kqlCatalog[key]
     }));
 
-    const results = await runInBatches(client, queryList, 5, subs);
+    const results = await runInBatches(client, queryList, 12, subs, 4500);
     return results;
 }
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getResourceGraphClient } from "@/lib/azure";
+import { getResourceGraphClient, getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
 import jwt from "jsonwebtoken";
 
 export async function GET(request: NextRequest) {
@@ -40,8 +40,11 @@ export async function GET(request: NextRequest) {
     const ipsQuery = `Resources | where type =~ 'microsoft.network/publicipaddresses' | where properties.ipConfiguration == '' or isnull(properties.ipConfiguration) | project id, name, location, resourceGroup, subscriptionId`;
 
     const queryOptions: any = {};
-    if (subscriptionId) {
+    if (subscriptionId && subscriptionId.toLowerCase() !== 'all') {
         queryOptions.subscriptions = [subscriptionId];
+    } else {
+        const credential = await getAzureCredential(tenantId);
+        queryOptions.subscriptions = await getSubscriptionsForTenant(tenantId, credential);
     }
 
     let unattachedDisks = [];

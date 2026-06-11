@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getResourceGraphClient } from '@/lib/azure';
+import { getResourceGraphClient, getAzureCredential, getSubscriptionsForTenant } from '@/lib/azure';
 import { getVmUtilization } from '@/modules/collectors/azure/metricsService';
 import { analyzeVmEfficiency } from '@/modules/core/rightsizingEngine';
 
@@ -13,6 +13,13 @@ export async function GET(request: NextRequest) {
         }
 
         const argClient = await getResourceGraphClient(tenantId);
+        let subs: string[] | undefined = undefined;
+        if (subscriptionId && subscriptionId.toLowerCase() !== 'all') {
+            subs = [subscriptionId];
+        } else {
+            const credential = await getAzureCredential(tenantId);
+            subs = await getSubscriptionsForTenant(tenantId, credential);
+        }
 
         const query = subscriptionId === 'All'
             ? `
@@ -27,7 +34,7 @@ export async function GET(request: NextRequest) {
                 | project id, name, sku = properties.hardwareProfile.vmSize, location, subscriptionId
             `;
 
-        const response = await argClient.resources({ query });
+        const response = await argClient.resources({ query, subscriptions: subs });
         const vms = response.data as any[];
 
         if (!vms || vms.length === 0) {
