@@ -94,6 +94,32 @@ export async function GET(request: NextRequest) {
             res.monthlyCost = cost;
         }));
     }
+
+    if (graphResults.emptyAppServicePlans && Array.isArray(graphResults.emptyAppServicePlans)) {
+        await Promise.all(graphResults.emptyAppServicePlans.map(async (res: any) => {
+            const sku = res.sku || "S1";
+            const loc = res.location || "eastus";
+            let cost = await getMonthlyCostEstimate("App Service", sku, loc);
+            if (!cost) {
+                const skuUpper = sku.toUpperCase();
+                if (skuUpper.startsWith("P")) {
+                    cost = 150.0;
+                } else if (skuUpper.startsWith("S")) {
+                    cost = 75.0;
+                } else if (skuUpper.startsWith("B")) {
+                    cost = 55.0;
+                } else if (skuUpper.startsWith("D") || skuUpper.startsWith("F")) {
+                    cost = 0.0;
+                } else {
+                    cost = 45.0;
+                }
+            }
+            res.estimatedMonthlyCost = cost;
+            res.resourceId = res.id;
+            res.resourceType = res.type || "microsoft.web/serverfarms";
+            res.monthlyCost = cost;
+        }));
+    }
     
     // Ejecutar stubs (para futura expansión)
     // const monitorResults = await runMonitorAudits(credential, subscriptionId);
