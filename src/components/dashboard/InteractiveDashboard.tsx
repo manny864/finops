@@ -35,7 +35,32 @@ export default function InteractiveDashboard({
     const computedAppliedSavings = 0; // Placeholder
 
     const computedUntagged = tagsData?.nonCompliant ? tagsData.nonCompliant.length : undefined;
-    const computedZombies = zombieData?.count !== undefined ? zombieData.count : '--';
+    let computedZombies: number | string = '--';
+    let leakageMap: any = {};
+
+    if (zombieData?.auditResults) {
+        computedZombies = Object.values(zombieData.auditResults).reduce((acc: number, arr: any) => acc + (Array.isArray(arr) ? arr.length : 0), 0) as number;
+        
+        Object.keys(zombieData.auditResults).forEach(key => {
+            const items = zombieData.auditResults[key] || [];
+            if (Array.isArray(items)) {
+                items.forEach((curr: any) => {
+                    const type = curr.type ? curr.type.split("/").pop() : key;
+                    const cost = curr.estimatedMonthlyCost || (curr.diskSizeGB ? curr.diskSizeGB * 0.15 : 0) || 0;
+                    leakageMap[type] = (leakageMap[type] || 0) + cost;
+                });
+            }
+        });
+    } else {
+        computedZombies = zombieData?.count !== undefined ? zombieData.count : '--';
+        const leakageItems = Array.isArray(zombieData) ? zombieData : (zombieData?.data || zombieData?.items || []);
+        leakageMap = leakageItems.reduce((acc: any, curr: any) => {
+            const type = curr.resourceType || curr.type || 'Unknown';
+            const cost = curr.monthlyCost || curr.estimatedMonthlyCost || curr.cost || 0;
+            acc[type] = (acc[type] || 0) + cost;
+            return acc;
+        }, {});
+    }
 
     if (loading || billingData === null) {
         return (
@@ -93,6 +118,8 @@ export default function InteractiveDashboard({
         return null;
     };
 
+    const COLORS = ['#0ea5e9', '#10b981', '#f59e0b', '#f43f5e', '#8b5cf6'];
+    const leakagePieData = Object.keys(leakageMap).map(k => ({ name: k, value: leakageMap[k] }));
     return (
         <div className="max-w-[1400px] mx-auto animate-in fade-in duration-500 bg-slate-50 p-6 rounded-2xl">
             {/* Header */}
@@ -115,7 +142,7 @@ export default function InteractiveDashboard({
             </div>
 
             {/* Top Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4 mb-6">
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
                     <div className="flex items-center text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
                         <DollarSign className="w-3.5 h-3.5 mr-1 text-slate-400" />
@@ -126,20 +153,20 @@ export default function InteractiveDashboard({
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
                     <div className="flex items-center text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
                         <TrendingDown className="w-3.5 h-3.5 mr-1 text-red-500" />
-                        {t('identified_savings')}
+                        Ahorro potencial
                     </div>
                     <div className="text-2xl font-extrabold text-slate-800">
-                        {advisorData ? `$${computedTotalSavings.toLocaleString()}` : '--'}
+                        ${computedTotalSavings.toLocaleString(undefined, {maximumFractionDigits:0})}
                     </div>
                     <div className="text-[11px] text-slate-500 font-medium mt-1">{t('pending_apply')}</div>
                 </div>
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
                     <div className="flex items-center text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
                         <CheckSquare className="w-3.5 h-3.5 mr-1 text-emerald-500 fill-emerald-500/20" />
-                        {t('applied_savings')}
+                        Ahorro aplicado
                     </div>
                     <div className="text-2xl font-extrabold text-emerald-500">
-                        {advisorData ? `$${computedAppliedSavings.toLocaleString()}` : '--'}
+                        ${computedAppliedSavings.toLocaleString(undefined, {maximumFractionDigits:0})}
                     </div>
                     <div className="text-[11px] text-slate-500 font-medium mt-1">{t('captured_percent')}</div>
                 </div>
@@ -172,10 +199,21 @@ export default function InteractiveDashboard({
                     </div>
                     <div className="text-[11px] text-slate-500 font-medium mt-1">{t('untagged_resources')}</div>
                 </div>
+                {/* 4. Carbon Footprint Card */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                    <div className="flex items-center text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                        <Zap className="w-3.5 h-3.5 mr-1 text-green-500" />
+                        Impacto ambiental
+                    </div>
+                    <div className="text-2xl font-extrabold text-slate-800">
+                        {(totalCost * 0.35).toLocaleString(undefined, {maximumFractionDigits:1})}
+                    </div>
+                    <div className="text-[11px] text-slate-500 font-medium mt-1">kg CO2e estimado</div>
+                </div>
             </div>
 
             {/* Middle Charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-6">
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 lg:col-span-2 overflow-hidden">
                     <div className="flex justify-between items-center mb-6">
                         <div className="flex items-center text-sm font-bold text-slate-700">
@@ -216,6 +254,27 @@ export default function InteractiveDashboard({
                         <div className="w-full h-full relative flex items-center justify-center">
                             <FocusCostPieChart data={entries} />
                         </div>
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 overflow-hidden">
+                    <div className="flex items-center text-sm font-bold text-slate-700 mb-6">
+                        <Skull className="w-4 h-4 mr-2 text-amber-500" />
+                        Distribución de fugas financieras
+                    </div>
+                    <div className="flex items-center justify-center h-64">
+                        {leakagePieData.length > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <RechartsPieChart>
+                                    <Pie data={leakagePieData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                                        {leakagePieData.map((e, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                                    </Pie>
+                                    <RechartsTooltip formatter={(v: any) => `$${Number(v).toFixed(2)}`} />
+                                </RechartsPieChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div className="text-sm text-slate-400">Sin datos de fugas</div>
+                        )}
                     </div>
                 </div>
             </div>
