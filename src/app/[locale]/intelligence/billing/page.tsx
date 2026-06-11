@@ -29,8 +29,16 @@ export default function BillingPage() {
   }, [billingData, setPageContext]);
 
   useEffect(() => {
-      if (activeTab !== 'dashboard' && activeTab !== 'consumo' && activeTab !== 'billing') return;
-      if (accounts.length === 0 || selectedTenant.id === 'default' || !selectedSubscription) return;
+      console.log('[BillingPage] useEffect triggered', { activeTab, tenantId: selectedTenant.id, selectedSubscription, accountsLen: accounts.length });
+      
+      if (activeTab !== 'dashboard' && activeTab !== 'consumo' && activeTab !== 'billing') {
+          console.log('[BillingPage] SKIPPED: activeTab mismatch', activeTab);
+          return;
+      }
+      if (accounts.length === 0 || selectedTenant.id === 'default' || !selectedSubscription) {
+          console.log('[BillingPage] SKIPPED: precondition failed', { accounts: accounts.length, tenant: selectedTenant.id, sub: selectedSubscription });
+          return;
+      }
       
       const fetchData = async () => {
           setLoading(true);
@@ -48,12 +56,21 @@ export default function BillingPage() {
               };
 
               const subParam = selectedSubscription === 'all' ? '' : `&subscriptionId=${selectedSubscription}`;
+              console.log('[BillingPage] Fetching APIs with subParam:', subParam);
+              
               const [billingRes, advisorRes, zombieRes, tagsRes] = await Promise.allSettled([
                   fetch('/api/intelligence/billing', { headers }),
                   fetch(`/api/advisor?tenantId=${selectedTenant.id}${subParam}`, { headers }),
                   fetch(`/api/audit/full?tenantId=${selectedTenant.id}${subParam}`, { headers }),
                   fetch(`/api/tags/compliance?tenantId=${selectedTenant.id}${subParam}`, { headers })
               ]);
+
+              console.log('[BillingPage] API responses:', {
+                  billing: billingRes.status === 'fulfilled' ? billingRes.value.status : 'rejected',
+                  advisor: advisorRes.status === 'fulfilled' ? advisorRes.value.status : 'rejected',
+                  zombie: zombieRes.status === 'fulfilled' ? zombieRes.value.status : 'rejected',
+                  tags: tagsRes.status === 'fulfilled' ? tagsRes.value.status : 'rejected',
+              });
 
               if (billingRes.status === 'fulfilled' && billingRes.value.ok) {
                   try {
@@ -63,15 +80,33 @@ export default function BillingPage() {
               } else setBillingData([]);
 
               if (advisorRes.status === 'fulfilled' && advisorRes.value.ok) {
-                  try { setAdvisorData(await advisorRes.value.json()); } catch(e) {}
+                  try {
+                      const advisorJson = await advisorRes.value.json();
+                      console.log('[BillingPage] advisorData:', JSON.stringify(advisorJson).substring(0, 500));
+                      setAdvisorData(advisorJson);
+                  } catch(e) { console.error('[BillingPage] advisor parse error', e); }
+              } else {
+                  console.warn('[BillingPage] advisor NOT ok:', advisorRes.status === 'fulfilled' ? advisorRes.value.status : 'rejected');
               }
 
               if (zombieRes.status === 'fulfilled' && zombieRes.value.ok) {
-                  try { setZombieData(await zombieRes.value.json()); } catch(e) {}
+                  try {
+                      const zombieJson = await zombieRes.value.json();
+                      console.log('[BillingPage] zombieData keys:', Object.keys(zombieJson), 'auditResults keys:', Object.keys(zombieJson.auditResults || {}));
+                      setZombieData(zombieJson);
+                  } catch(e) { console.error('[BillingPage] zombie parse error', e); }
+              } else {
+                  console.warn('[BillingPage] zombie NOT ok:', zombieRes.status === 'fulfilled' ? zombieRes.value.status : 'rejected');
               }
 
               if (tagsRes.status === 'fulfilled' && tagsRes.value.ok) {
-                  try { setTagsData(await tagsRes.value.json()); } catch(e) {}
+                  try {
+                      const tagsJson = await tagsRes.value.json();
+                      console.log('[BillingPage] tagsData:', JSON.stringify(tagsJson).substring(0, 300));
+                      setTagsData(tagsJson);
+                  } catch(e) { console.error('[BillingPage] tags parse error', e); }
+              } else {
+                  console.warn('[BillingPage] tags NOT ok:', tagsRes.status === 'fulfilled' ? tagsRes.value.status : 'rejected');
               }
 
           } catch (e) {
