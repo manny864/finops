@@ -7,6 +7,7 @@ import RoleAssignmentBanner from './RoleAssignmentBanner';
 import { toast } from 'sonner';
 import { useActionLogStore } from '@/store/actionLogStore';
 import { useTranslations } from 'next-intl';
+import { useAIContext } from '@/hooks/useAIContext';
 import {
   useReactTable,
   getCoreRowModel,
@@ -22,6 +23,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
   const { selectedTenant } = useTenant();
   const { viewMode } = useViewMode();
   const { addAction } = useActionLogStore();
+  const triggerCopilotWithPrompt = useAIContext(state => state.triggerCopilotWithPrompt);
   
   // Removed conditional useTranslations hook which was causing React Error 310
   const [data, setData] = useState<any[]>([]);
@@ -32,6 +34,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
   const [filterType, setFilterType] = useState<string>('all');
   const [filterGroup, setFilterGroup] = useState<string>('all');
   const [filterIssue, setFilterIssue] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [sorting, setSorting] = useState<SortingState>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -202,9 +205,10 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
         const matchType = filterType === "all" || item.type === filterType;
         const matchGroup = filterGroup === "all" || item.resourceGroup === filterGroup;
         const matchIssue = filterIssue === "all" || item.issueType === filterIssue;
-        return matchType && matchGroup && matchIssue;
+        const matchSearch = !searchQuery || item.resourceName.toLowerCase().includes(searchQuery.toLowerCase());
+        return matchType && matchGroup && matchIssue && matchSearch;
     });
-  }, [data, filterType, filterGroup, filterIssue]);
+  }, [data, filterType, filterGroup, filterIssue, searchQuery]);
 
   const columns = useMemo<ColumnDef<any>[]>(() => {
     const cols: ColumnDef<any>[] = [
@@ -279,7 +283,15 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
       cell: ({ row }) => {
           const item = row.original;
           return (
-            <div className="text-right">
+            <div className="text-right flex items-center justify-end gap-2">
+                {item.issueType === 'governance' && item.issue === "Sin Etiquetas FinOps" && (
+                    <button 
+                        onClick={() => triggerCopilotWithPrompt(`Por favor, analiza el recurso "${item.resourceName}" (Tipo: ${item.type}) en el grupo "${item.resourceGroup}" y sugiéreme la mejor estructura de etiquetas (tags) FinOps para aplicarle basándote en las mejores prácticas de Azure.`)}
+                        className="px-3 py-1 rounded-md text-xs font-semibold shadow-sm transition-colors bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200"
+                    >
+                        Sugerir Etiquetas
+                    </button>
+                )}
                 <button 
                     onClick={() => handleDelete(item)}
                     disabled={deletingId === item.id || item.issueType === 'governance'}
@@ -357,8 +369,18 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                 </select>
             </div>
             <div className="flex items-center space-x-2">
+                <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">Buscar:</label>
+                <input 
+                    type="text" 
+                    placeholder="Nombre del recurso..."
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] p-2 outline-none w-48 focus:border-brand-bright focus:ring-1 focus:ring-brand-bright"
+                />
+            </div>
+            <div className="flex items-center space-x-2">
                 <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">Severidad:</label>
-                <select value={filterIssue} onChange={e => setFilterIssue(e.target.value)} className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] p-2 outline-none w-32">
+                <select value={filterIssue} onChange={e => setFilterIssue(e.target.value)} className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] p-2 outline-none w-32 focus:border-brand-bright focus:ring-1 focus:ring-brand-bright">
                     <option value="all">Todas</option>
                     <option value="cost">Costo</option>
                     <option value="governance">Gobernanza</option>

@@ -5,8 +5,7 @@ import { useAIContext } from '@/hooks/useAIContext';
 import { useTranslations } from 'next-intl';
 
 export default function GlobalCopilot() {
-    const [isOpen, setIsOpen] = useState(false);
-    const { currentPage, currentDataPayload } = useAIContext();
+    const { currentPage, currentDataPayload, isOpen, setIsOpen, injectedPrompt, triggerCopilotWithPrompt } = useAIContext();
     const [messages, setMessages] = useState<{role: 'user'|'ai', content: string}[]>([]);
     const [input, setInput] = useState("");
     const [loading, setLoading] = useState(false);
@@ -17,11 +16,43 @@ export default function GlobalCopilot() {
             setIsOpen(true);
         }, 7000);
         return () => clearTimeout(timer);
-    }, []);
+    }, [setIsOpen]);
+
+    const handleSend = async (overridePrompt?: string) => {
+        const promptText = overridePrompt || input;
+        if (!promptText.trim() || loading) return;
+        setMessages(prev => [...prev, { role: 'user', content: promptText }]);
+        if (!overridePrompt) setInput("");
+        setLoading(true);
+
+        try {
+            const res = await fetch('/api/intelligence/copilot', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    prompt: promptText,
+                    pageContext: currentPage,
+                    dataPayload: currentDataPayload
+                })
+            });
+            const json = await res.json();
+            if (json.reply) {
+                setMessages(prev => [...prev, { role: 'ai', content: json.reply }]);
+            }
+        } catch(e) {}
+        setLoading(false);
+    };
+
+    React.useEffect(() => {
+        if (injectedPrompt) {
+            handleSend(injectedPrompt);
+            triggerCopilotWithPrompt(null);
+        }
+    }, [injectedPrompt, triggerCopilotWithPrompt]);
 
     // Auto-fetch summary when opened and there are no messages
     React.useEffect(() => {
-        if (!isOpen || messages.length > 0 || !currentDataPayload) return;
+        if (!isOpen || messages.length > 0 || !currentDataPayload || injectedPrompt) return;
         
         const fetchInitialSummary = async () => {
             setLoading(true);
@@ -44,32 +75,7 @@ export default function GlobalCopilot() {
         };
         
         fetchInitialSummary();
-    }, [isOpen, currentDataPayload, currentPage, messages.length]);
-
-    const handleSend = async () => {
-        if (!input.trim() || loading) return;
-        const prompt = input;
-        setMessages(prev => [...prev, { role: 'user', content: prompt }]);
-        setInput("");
-        setLoading(true);
-
-        try {
-            const res = await fetch('/api/intelligence/copilot', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    prompt,
-                    pageContext: currentPage,
-                    dataPayload: currentDataPayload
-                })
-            });
-            const json = await res.json();
-            if (json.reply) {
-                setMessages(prev => [...prev, { role: 'ai', content: json.reply }]);
-            }
-        } catch(e) {}
-        setLoading(false);
-    };
+    }, [isOpen, currentDataPayload, currentPage, messages.length, injectedPrompt]);
 
     return (
         <>
@@ -111,7 +117,7 @@ export default function GlobalCopilot() {
                             onChange={e => setInput(e.target.value)}
                             onKeyDown={e => e.key === 'Enter' && handleSend()}
                         />
-                        <button onClick={handleSend} disabled={loading} className="p-2 bg-brand text-white rounded-lg"><Send className="w-4 h-4"/></button>
+                        <button onClick={() => handleSend()} disabled={loading} className="p-2 bg-brand text-white rounded-lg"><Send className="w-4 h-4"/></button>
                     </div>
                 </div>
             )}
