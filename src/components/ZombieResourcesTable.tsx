@@ -202,14 +202,12 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
 
   const filteredData = useMemo(() => {
     return data.filter(item => {
-        const matchType = filterType === "all" || item.type === filterType;
-        const matchGroup = filterGroup === "all" || item.resourceGroup === filterGroup;
+        const matchName = !searchQuery || item.resourceName.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchType = !filterType || filterType === "all" || item.type.toLowerCase().includes(filterType.toLowerCase());
+        const matchGroup = !filterGroup || filterGroup === "all" || item.resourceGroup.toLowerCase().includes(filterGroup.toLowerCase());
         const matchIssue = filterIssue === "all" || item.issueType === filterIssue;
-        const searchLower = searchQuery.toLowerCase();
-        const matchSearch = !searchQuery || 
-            item.resourceName.toLowerCase().includes(searchLower) || 
-            item.type.toLowerCase().includes(searchLower);
-        return matchType && matchGroup && matchIssue && matchSearch;
+        
+        return matchName && matchType && matchGroup && matchIssue;
     });
   }, [data, filterType, filterGroup, filterIssue, searchQuery]);
 
@@ -358,28 +356,42 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                 </select>
             </div>
             <div className="flex items-center space-x-2">
+                <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">Nombre:</label>
+                <input 
+                    type="text" 
+                    placeholder="Filtrar por nombre..."
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] p-2 outline-none w-32 focus:border-brand-bright focus:ring-1 focus:ring-brand-bright"
+                />
+            </div>
+            <div className="flex items-center space-x-2">
                 <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">Tipo:</label>
-                <select value={filterType} onChange={e => setFilterType(e.target.value)} className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] p-2 outline-none w-32">
-                    <option value="all">Todos</option>
-                    {Array.from(new Set(data.map(d => d.type))).filter(Boolean).sort().map((t: any) => <option key={t} value={t}>{t}</option>)}
-                </select>
+                <input 
+                    type="text"
+                    list="type-list"
+                    placeholder="Todos..."
+                    value={filterType === 'all' ? '' : filterType}
+                    onChange={e => setFilterType(e.target.value)}
+                    className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] p-2 outline-none w-32 focus:border-brand-bright focus:ring-1 focus:ring-brand-bright"
+                />
+                <datalist id="type-list">
+                    {Array.from(new Set(data.map(d => d.type))).filter(Boolean).sort().map((t: any) => <option key={t} value={t} />)}
+                </datalist>
             </div>
             <div className="flex items-center space-x-2">
                 <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">Grupo:</label>
-                <select value={filterGroup} onChange={e => setFilterGroup(e.target.value)} className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] p-2 outline-none w-32">
-                    <option value="all">Todos</option>
-                    {Array.from(new Set(data.map(d => d.resourceGroup))).filter(Boolean).sort().map((g: any) => <option key={g} value={g}>{g}</option>)}
-                </select>
-            </div>
-            <div className="flex items-center space-x-2">
-                <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">Buscar:</label>
                 <input 
-                    type="text" 
-                    placeholder="Nombre o tipo..."
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] p-2 outline-none w-48 focus:border-brand-bright focus:ring-1 focus:ring-brand-bright"
+                    type="text"
+                    list="group-list"
+                    placeholder="Todos..."
+                    value={filterGroup === 'all' ? '' : filterGroup}
+                    onChange={e => setFilterGroup(e.target.value)}
+                    className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] p-2 outline-none w-32 focus:border-brand-bright focus:ring-1 focus:ring-brand-bright"
                 />
+                <datalist id="group-list">
+                    {Array.from(new Set(data.map(d => d.resourceGroup))).filter(Boolean).sort().map((g: any) => <option key={g} value={g} />)}
+                </datalist>
             </div>
             <div className="flex items-center space-x-2">
                 <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">Severidad:</label>
