@@ -26,6 +26,9 @@ export async function initializeDatabase() {
                 client_secret VARCHAR(255),
                 status VARCHAR(50) DEFAULT 'active',
                 webhook_url VARCHAR(255),
+                last_sync_at TIMESTAMP NULL,
+                sync_status VARCHAR(50) DEFAULT 'OK',
+                last_error_message TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
@@ -38,6 +41,25 @@ export async function initializeDatabase() {
             if (e.code !== 'ER_DUP_FIELDNAME') {
                 console.error("Error adding webhook_url:", e);
             }
+        }
+
+        // Add last_sync_at, sync_status, and last_error_message if they don't exist
+        try {
+            await connection.query('ALTER TABLE Tenants ADD COLUMN last_sync_at TIMESTAMP NULL;');
+        } catch (e: any) {
+            if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding last_sync_at:", e);
+        }
+
+        try {
+            await connection.query("ALTER TABLE Tenants ADD COLUMN sync_status VARCHAR(50) DEFAULT 'OK';");
+        } catch (e: any) {
+            if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding sync_status:", e);
+        }
+
+        try {
+            await connection.query('ALTER TABLE Tenants ADD COLUMN last_error_message TEXT NULL;');
+        } catch (e: any) {
+            if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding last_error_message:", e);
         }
 
         // Add client_id and client_secret if they don't exist
