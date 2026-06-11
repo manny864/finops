@@ -77,3 +77,20 @@ CREATE TABLE IF NOT EXISTS RecommendationsCache (
     FOREIGN KEY (tenant_id) REFERENCES Tenants(tenant_id) ON DELETE CASCADE,
     UNIQUE KEY unique_tenant_rec_type_date (tenant_id, recommendation_type, snapshot_date)
 );
+
+CREATE TABLE IF NOT EXISTS cost_snapshots (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id VARCHAR(255),
+    sync_date DATE,
+    total_cost_usd DECIMAL(10,2),
+    currency VARCHAR(10),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_tenant_sync_date (tenant_id, sync_date)
+);
+
+CREATE TABLE IF NOT EXISTS tenant_health (
+    tenant_id VARCHAR(255) PRIMARY KEY,
+    last_sync_at TIMESTAMP,
+    sync_status VARCHAR(50),
+    last_error TEXT
+);

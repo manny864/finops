@@ -178,12 +178,51 @@ export async function initializeDatabase() {
             )
         `);
 
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS cost_snapshots (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                tenant_id VARCHAR(255),
+                sync_date DATE,
+                total_cost_usd DECIMAL(10,2),
+                currency VARCHAR(10),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY unique_tenant_sync_date (tenant_id, sync_date)
+            )
+        `);
+
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS tenant_health (
+                tenant_id VARCHAR(255) PRIMARY KEY,
+                last_sync_at TIMESTAMP,
+                sync_status VARCHAR(50),
+                last_error TEXT
+            )
+        `);
+
         connection.release();
         dbInitialized = true;
         console.log("Database schema validated/initialized successfully.");
     } catch (error) {
         console.error("Failed to initialize database schema:", error);
     }
+}
+
+export async function insertCostSnapshot(tenantId: string, date: string, cost: number, currency: string) {
+    await pool.query(
+        `INSERT INTO cost_snapshots (tenant_id, sync_date, total_cost_usd, currency)
+         VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE total_cost_usd = VALUES(total_cost_usd), currency = VALUES(currency)`,
+        [tenantId, date, cost, currency]
+    );
+}
+
+export async function updateTenantHealth(tenantId: string, status: string, errorMsg?: string) {
+    await pool.query(
+        `INSERT INTO tenant_health (tenant_id, last_sync_at, sync_status, last_error)
+         VALUES (?, CURRENT_TIMESTAMP, ?, ?)
+         ON DUPLICATE KEY UPDATE last_sync_at = CURRENT_TIMESTAMP, sync_status = VALUES(sync_status), last_error = VALUES(last_error)`,
+        [tenantId, status, errorMsg || null]
+    );
 }
 
 export default pool;
