@@ -46,18 +46,20 @@ export default function HistoricalProgressPage() {
         );
     }
 
-    let achievedSavings = 0;
-    if (data.length > 1) {
-        const first = data[0].total_wasted_usd;
-        const last = data[data.length - 1].total_wasted_usd;
-        achievedSavings = first - last;
+    let currentScore = 0;
+    let scoreImprovement = 0;
+    let currentImpacted = 0;
+
+    if (data.length > 0) {
+        const last = data[data.length - 1];
+        const first = data[0];
+        currentScore = last.score || 0;
+        currentImpacted = last.impacted_resources || 0;
+        scoreImprovement = currentScore - (first.score || 0);
     }
 
     const formatYAxis = (tickItem: any) => {
-        if (tickItem >= 1000) {
-            return `$${(tickItem / 1000).toFixed(1)}k`;
-        }
-        return `$${tickItem}`;
+        return `${tickItem}`;
     };
 
     const CustomDot = (props: any) => {
@@ -107,23 +109,23 @@ export default function HistoricalProgressPage() {
                     {/* Summary Metric Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                         <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 p-5 flex flex-col justify-center">
-                            <h3 className="text-slate-400 dark:text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">Ahorro Mensual Capturado</h3>
+                            <h3 className="text-slate-400 dark:text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">Puntuación de Costo Actual</h3>
                             <div className="text-3xl font-extrabold text-emerald-500">
-                                ${achievedSavings > 0 ? achievedSavings.toFixed(0) : '0'}
+                                {currentScore.toFixed(1)}%
                             </div>
                         </div>
                         
                         <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 p-5 flex flex-col justify-center">
-                            <h3 className="text-slate-400 dark:text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">Proyección De Ahorro Anual</h3>
-                            <div className="text-3xl font-extrabold text-blue-600">
-                                ${(achievedSavings * 12 > 0) ? (achievedSavings * 12).toFixed(0) : '0'}
+                            <h3 className="text-slate-400 dark:text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">Mejora en Score Histórico</h3>
+                            <div className={`text-3xl font-extrabold ${scoreImprovement >= 0 ? 'text-blue-600' : 'text-rose-500'}`}>
+                                {scoreImprovement >= 0 ? `+${scoreImprovement.toFixed(1)}%` : `${scoreImprovement.toFixed(1)}%`}
                             </div>
                         </div>
                         
                         <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 p-5 flex flex-col justify-center">
-                            <h3 className="text-slate-400 dark:text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">Reducción Del Gasto</h3>
+                            <h3 className="text-slate-400 dark:text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">Recursos Afectados Críticos</h3>
                             <div className="text-3xl font-extrabold text-amber-500">
-                                0.0%
+                                {currentImpacted}
                             </div>
                         </div>
                     </div>
@@ -133,19 +135,23 @@ export default function HistoricalProgressPage() {
                         <div className="flex justify-between items-center mb-6">
                             <div className="flex items-center text-slate-700 dark:text-slate-300 font-semibold text-sm">
                                 <BarChart3 className="w-4 h-4 mr-2 text-slate-400" />
-                                Gasto mensual · últimos 12 meses
+                                Historial de Optimización de Costos (Azure Advisor)
                             </div>
                             <div className="text-xs text-slate-400 font-medium">
-                                Tenant completo · USD
+                                Datos reales de Azure
                             </div>
                         </div>
-                        <div className="h-72 w-full">
+                        <div className="h-72 w-full font-sans relative">
                             <ResponsiveContainer width="100%" height="100%">
                                 <AreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                                     <defs>
-                                        <linearGradient id="colorGasto" x1="0" y1="0" x2="0" y2="1">
+                                        <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
                                             <stop offset="5%" stopColor="#10b981" stopOpacity={0.15}/>
                                             <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                                        </linearGradient>
+                                        <linearGradient id="colorImpacted" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.15}/>
+                                            <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
                                         </linearGradient>
                                     </defs>
                                     <CartesianGrid vertical={false} stroke="#e2e8f0" strokeDasharray="3 3" />
@@ -164,18 +170,32 @@ export default function HistoricalProgressPage() {
                                     />
                                     <Tooltip 
                                         contentStyle={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                                        itemStyle={{ color: '#0f172a', fontWeight: 'bold' }}
-                                        formatter={(value: any) => [`$${Number(value).toFixed(2)}`, 'Gasto']}
+                                        itemStyle={{ fontWeight: 'bold' }}
+                                        formatter={(value: any, name: any) => {
+                                            if (name === "score") return [`${Number(value).toFixed(1)}%`, "Score de Optimización"];
+                                            return [`${value} rec.`, "Recursos Desoptimizados"];
+                                        }}
                                     />
                                     <Area 
                                         type="monotone" 
-                                        dataKey="total_wasted_usd" 
+                                        dataKey="score" 
+                                        name="score"
                                         stroke="#10b981" 
                                         strokeWidth={3}
                                         fillOpacity={1} 
-                                        fill="url(#colorGasto)" 
+                                        fill="url(#colorScore)" 
                                         activeDot={{ r: 6, strokeWidth: 0 }}
                                         dot={<CustomDot />}
+                                    />
+                                    <Area 
+                                        type="monotone" 
+                                        dataKey="impacted_resources" 
+                                        name="impacted_resources"
+                                        stroke="#f59e0b" 
+                                        strokeWidth={3}
+                                        fillOpacity={1} 
+                                        fill="url(#colorImpacted)" 
+                                        activeDot={{ r: 6, strokeWidth: 0 }}
                                     />
                                 </AreaChart>
                             </ResponsiveContainer>

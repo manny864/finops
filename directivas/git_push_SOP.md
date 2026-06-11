@@ -17,3 +17,4 @@ Conectar el repositorio Git local con el remoto de GitHub (`origin`) y sincroniz
 ## Trampas Conocidas / Restricciones
 - Si la consola arroja `remote origin already exists`, se debe remover el viejo con `git remote remove origin` o usar `set-url` antes de configurar el nuevo.
 - El push requiere que la terminal tenga credenciales activas o GitHub CLI autenticado localmente. De lo contrario, fallará pidiendo permisos en la consola.
+- **CRÍTICO**: Queda estrictamente prohibido realizar `git push` de forma automática. Los commits se deben guardar en local, y solo se debe hacer push cuando el usuario lo pida explícitamente en el chat.

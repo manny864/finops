@@ -28,9 +28,21 @@ type Recommendation = {
   savings3Y: number;
 };
 
+type ReservationOpportunity = {
+  skuName: string;
+  resourceType: string;
+  recommendedQuantity: number;
+  totalMonthlyPAYGCost: number;
+  costWith1YReservation: number;
+  netSavings1Y: number;
+  costWith3YReservation: number;
+  netSavings3Y: number;
+};
+
 const currencyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 
 const columnHelper = createColumnHelper<Recommendation>();
+const reservationColumnHelper = createColumnHelper<ReservationOpportunity>();
 
 export default function RateOptimizationPage() {
     const { selectedTenant } = useTenant();
@@ -100,14 +112,50 @@ export default function RateOptimizationPage() {
       }),
     ], [t]);
 
+    const reservationColumns = useMemo(() => [
+      reservationColumnHelper.accessor('skuName', {
+        header: 'Recurso / SKU',
+        cell: info => <span className="font-bold text-ink">{info.getValue()}</span>,
+      }),
+      reservationColumnHelper.accessor('resourceType', {
+        header: 'Tipo',
+        cell: info => {
+            const val = info.getValue();
+            let color = 'grey';
+            if (val === 'VirtualMachines') color = 'blue';
+            else if (val === 'SQLDatabase') color = 'teal';
+            return <span className={`tag ${color}`}>{val}</span>;
+        },
+      }),
+      reservationColumnHelper.accessor('recommendedQuantity', {
+        header: 'Cantidad Recomendada',
+        cell: info => <span className="font-semibold text-ink-soft">{info.getValue()}</span>,
+      }),
+      reservationColumnHelper.accessor('totalMonthlyPAYGCost', {
+        header: 'Costo Actual (PAYG)',
+        cell: info => currencyFormatter.format(info.getValue()),
+      }),
+      reservationColumnHelper.accessor('netSavings1Y', {
+        header: 'Ahorro a 1 Año ($)',
+        cell: info => <span className="text-emerald-600 font-bold">+{currencyFormatter.format(info.getValue())}</span>,
+      }),
+      reservationColumnHelper.accessor('netSavings3Y', {
+        header: 'Ahorro a 3 Años ($)',
+        cell: info => <span className="text-emerald-600 font-bold">+{currencyFormatter.format(info.getValue())}</span>,
+      }),
+    ], []);
+
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState<Recommendation[]>([]);
+    const [reservations, setReservations] = useState<ReservationOpportunity[]>([]);
+    const [activeTab, setActiveTab] = useState<'resources' | 'reservations'>('resources');
     const [subscriptionId, setSubscriptionId] = useState('');
     const [subscriptions, setSubscriptions] = useState<any[]>([]);
     const [loadingSubs, setLoadingSubs] = useState(false);
     const [missingConsent, setMissingConsent] = useState(false);
     const [hasAnalyzed, setHasAnalyzed] = useState(false);
     const [sorting, setSorting] = useState<SortingState>([]);
+    const [resSorting, setResSorting] = useState<SortingState>([]);
 
     useEffect(() => {
         if (!selectedTenant || selectedTenant.id === 'default' || accounts.length === 0) return;
@@ -170,6 +218,7 @@ export default function RateOptimizationPage() {
 
             if (json.recommendations) {
                 setData(json.recommendations);
+                setReservations(json.reservations || []);
                 setHasAnalyzed(true);
                 toast.success(t('analysis_complete', { count: json.recommendations.length }));
             }
@@ -192,7 +241,20 @@ export default function RateOptimizationPage() {
         getSortedRowModel: getSortedRowModel(),
     });
 
-    const totalSavings = data.reduce((acc, curr) => acc + Math.max(curr.savings1Y || 0, curr.savings3Y || 0), 0);
+    const resTable = useReactTable({
+        data: reservations,
+        columns: reservationColumns,
+        state: {
+            sorting: resSorting,
+        },
+        onSortingChange: setResSorting,
+        getCoreRowModel: getCoreRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+    });
+
+    const totalSavings = activeTab === 'resources' 
+        ? data.reduce((acc, curr) => acc + Math.max(curr.savings1Y || 0, curr.savings3Y || 0), 0)
+        : reservations.reduce((acc, curr) => acc + Math.max(curr.netSavings1Y || 0, curr.netSavings3Y || 0), 0);
 
     return (
         <div className="content animate-in fade-in">
@@ -248,15 +310,15 @@ export default function RateOptimizationPage() {
                             disabled={loading || !subscriptionId}
                             className="bg-brand-deep text-white rounded-[10px] hover:brightness-110 transition flex items-center justify-center font-heading font-bold text-[13px] disabled:opacity-50 h-[42px] px-6 shadow-sm cursor-pointer ml-auto md:ml-0"
                         >
-                            {loading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <DollarSign className="w-5 h-5 mr-2" />}
-                            {t('find_savings')}
+                            <span>{loading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <DollarSign className="w-5 h-5 mr-2" />}</span>
+                            <span>{t('find_savings')}</span>
                         </button>
                     </div>
                 )}
                 </div>
             </div>
 
-            {data.length > 0 && (
+            {(data.length > 0 || reservations.length > 0) && (
                 <div className="sumstrip">
                     <div className="s green md:col-span-3 flex flex-col md:flex-row md:justify-between md:items-center">
                         <div>
@@ -270,42 +332,114 @@ export default function RateOptimizationPage() {
                 </div>
             )}
 
-            {data.length > 0 ? (
-                <div className="card">
-                    <div className="overflow-x-auto">
-                        <table className="tbl">
-                            <thead>
-                                {table.getHeaderGroups().map(headerGroup => (
-                                    <tr key={headerGroup.id}>
-                                        {headerGroup.headers.map(header => (
-                                            <th 
-                                                key={header.id} 
-                                                className="cursor-pointer hover:bg-surface-2"
-                                                onClick={header.column.getToggleSortingHandler()}
-                                            >
-                                                {flexRender(header.column.columnDef.header, header.getContext())}
-                                                {{
-                                                    asc: ' ↑',
-                                                    desc: ' ↓',
-                                                }[header.column.getIsSorted() as string] ?? null}
-                                            </th>
-                                        ))}
-                                    </tr>
-                                ))}
-                            </thead>
-                            <tbody>
-                                {table.getRowModel().rows.map(row => (
-                                    <tr key={row.id}>
-                                        {row.getVisibleCells().map(cell => (
-                                            <td key={cell.id}>
-                                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                            </td>
-                                        ))}
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+            {data.length > 0 || reservations.length > 0 ? (
+                <div className="flex flex-col gap-4">
+                    <div className="flex gap-2 bg-slate-100 p-1.5 rounded-xl w-fit self-start shadow-inner">
+                        <button
+                            onClick={() => setActiveTab('resources')}
+                            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${activeTab === 'resources' ? 'bg-white text-brand-deep shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                        >
+                            Recomendaciones por Recurso
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('reservations')}
+                            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${activeTab === 'reservations' ? 'bg-white text-brand-deep shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                        >
+                            Reservas Recomendadas (Smart)
+                        </button>
                     </div>
+
+                    {activeTab === 'resources' ? (
+                        data.length > 0 ? (
+                            <div className="card animate-in fade-in duration-300">
+                                <div className="overflow-x-auto">
+                                    <table className="tbl">
+                                        <thead>
+                                            {table.getHeaderGroups().map(headerGroup => (
+                                                <tr key={headerGroup.id}>
+                                                    {headerGroup.headers.map(header => (
+                                                        <th 
+                                                            key={header.id} 
+                                                            className="cursor-pointer hover:bg-surface-2"
+                                                            onClick={header.column.getToggleSortingHandler()}
+                                                        >
+                                                            {flexRender(header.column.columnDef.header, header.getContext())}
+                                                            {{
+                                                                asc: ' ↑',
+                                                                desc: ' ↓',
+                                                            }[header.column.getIsSorted() as string] ?? null}
+                                                        </th>
+                                                    ))}
+                                                </tr>
+                                            ))}
+                                        </thead>
+                                        <tbody>
+                                            {table.getRowModel().rows.map(row => (
+                                                <tr key={row.id}>
+                                                    {row.getVisibleCells().map(cell => (
+                                                        <td key={cell.id}>
+                                                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                                        </td>
+                                                    ))}
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="empty border border-line rounded-[14px]">
+                                <DollarSign className="w-12 h-12 text-grey mx-auto mb-4" />
+                                <h3 className="text-lg font-bold text-ink mb-2">{t('no_recs_title')}</h3>
+                                <p className="text-ink-soft">{t('no_recs_desc')}</p>
+                            </div>
+                        )
+                    ) : (
+                        reservations.length > 0 ? (
+                            <div className="card animate-in fade-in duration-300">
+                                <div className="overflow-x-auto">
+                                    <table className="tbl">
+                                        <thead>
+                                            {resTable.getHeaderGroups().map(headerGroup => (
+                                                <tr key={headerGroup.id}>
+                                                    {headerGroup.headers.map(header => (
+                                                        <th 
+                                                            key={header.id} 
+                                                            className="cursor-pointer hover:bg-surface-2"
+                                                            onClick={header.column.getToggleSortingHandler()}
+                                                        >
+                                                            {flexRender(header.column.columnDef.header, header.getContext())}
+                                                            {{
+                                                                asc: ' ↑',
+                                                                desc: ' ↓',
+                                                            }[header.column.getIsSorted() as string] ?? null}
+                                                        </th>
+                                                    ))}
+                                                </tr>
+                                            ))}
+                                        </thead>
+                                        <tbody>
+                                            {resTable.getRowModel().rows.map(row => (
+                                                <tr key={row.id}>
+                                                    {row.getVisibleCells().map(cell => (
+                                                        <td key={cell.id}>
+                                                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                                        </td>
+                                                    ))}
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="empty border border-line rounded-[14px]">
+                                <DollarSign className="w-12 h-12 text-grey mx-auto mb-4" />
+                                <h3 className="text-lg font-bold text-ink mb-2">Sin recomendaciones de reservas</h3>
+                                <p className="text-ink-soft">No se encontraron oportunidades de reservas inteligentes basadas en el consumo real del tenant.</p>
+                            </div>
+                        )
+                    )}
                 </div>
             ) : (
                 !loading && hasAnalyzed && (

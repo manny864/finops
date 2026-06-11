@@ -56,7 +56,7 @@ export default function CostPieChart({ data, onSegmentClick }: { data: any[], on
             cx={cx}
             cy={cy}
             innerRadius={innerRadius}
-            outerRadius={outerRadius + 8}
+            outerRadius={outerRadius + 6}
             startAngle={startAngle}
             endAngle={endAngle}
             fill={fill}
@@ -76,8 +76,8 @@ export default function CostPieChart({ data, onSegmentClick }: { data: any[], on
                         data={chartData}
                         cx="50%"
                         cy="50%"
-                        innerRadius={65}
-                        outerRadius={95}
+                        innerRadius={45}
+                        outerRadius={70}
                         paddingAngle={5}
                         dataKey="savings"
                         stroke="none"

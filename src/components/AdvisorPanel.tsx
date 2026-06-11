@@ -15,7 +15,7 @@ export default function AdvisorPanel() {
   const tCommon = useTranslations('Common');
   const [data, setData] = useState<any>(null);
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
-  const [scores, setScores] = useState<Record<string, number>>({});
+  const [scores, setScores] = useState<Record<string, Record<string, number>>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -90,11 +90,15 @@ export default function AdvisorPanel() {
       let avgScoreStr = "N/A";
       if (Object.keys(scores).length > 0) {
           if (selectedSub === "all") {
-              const vals = Object.values(scores);
-              const avg = vals.reduce((a,b) => a+b, 0) / vals.length;
-              avgScoreStr = `${avg.toFixed(1)}%`;
-          } else if (scores[selectedSub] !== undefined) {
-              avgScoreStr = `${scores[selectedSub].toFixed(1)}%`;
+              const advisorScores = Object.values(scores)
+                  .map(s => s.Advisor)
+                  .filter(v => v !== undefined && v !== null);
+              if (advisorScores.length > 0) {
+                  const avg = advisorScores.reduce((a, b) => a + b, 0) / advisorScores.length;
+                  avgScoreStr = `${avg.toFixed(1)}%`;
+              }
+          } else if (scores[selectedSub]?.Advisor !== undefined) {
+              avgScoreStr = `${scores[selectedSub].Advisor.toFixed(1)}%`;
           }
       }
 
@@ -259,6 +263,20 @@ export default function AdvisorPanel() {
                         }
                     }
 
+                    let cardScoreVal: number | null = null;
+                    if (Object.keys(scores).length > 0) {
+                        if (selectedSub === "all") {
+                            const catScores = Object.values(scores)
+                                .map(s => s[cat.id])
+                                .filter(v => v !== undefined && v !== null);
+                            if (catScores.length > 0) {
+                                cardScoreVal = catScores.reduce((a, b) => a + b, 0) / catScores.length;
+                            }
+                        } else if (scores[selectedSub]?.[cat.id] !== undefined) {
+                            cardScoreVal = scores[selectedSub][cat.id];
+                        }
+                    }
+
                     return (
                         <div key={cat.id} 
                              onClick={() => setSelectedCategory(selectedCategory === cat.id ? null : cat.id)}
@@ -269,11 +287,26 @@ export default function AdvisorPanel() {
                             
                             <div className="text-[10px] tracking-[0.6px] uppercase text-grey font-bold flex items-center justify-between">
                                 <span>{cat.icon} {cat.name}</span>
-                                <div className="relative group/tooltip ml-2 flex items-center z-10">
-                                    <Info className="w-3 h-3 text-grey cursor-help" />
-                                    <div className="absolute bottom-full right-0 mb-2 w-48 p-2 bg-gray-800 text-xs text-white rounded opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-20 font-normal normal-case tracking-normal">
-                                        {cat.tooltip}
-                                        <div className="absolute top-full right-2 border-4 border-transparent border-t-gray-800"></div>
+                                <div className="flex items-center gap-1.5">
+                                    {cardScoreVal !== null ? (
+                                        <span className={`text-[10px] font-bold p-[2px_6px] rounded-md border ${
+                                            cardScoreVal >= 80 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                            cardScoreVal >= 50 ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                            'bg-rose-50 text-rose-700 border-rose-200'
+                                        }`}>
+                                            {cardScoreVal.toFixed(0)}%
+                                        </span>
+                                    ) : (
+                                        <span className="text-[10px] font-bold p-[2px_6px] rounded-md border bg-gray-50 text-gray-400 border-gray-150">
+                                            N/A
+                                        </span>
+                                    )}
+                                    <div className="relative group/tooltip flex items-center z-10">
+                                        <Info className="w-3.5 h-3.5 text-grey cursor-help" />
+                                        <div className="absolute bottom-full right-0 mb-2 w-48 p-2 bg-gray-800 text-xs text-white rounded opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-20 font-normal normal-case tracking-normal">
+                                            {cat.tooltip}
+                                            <div className="absolute top-full right-2 border-4 border-transparent border-t-gray-800"></div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
