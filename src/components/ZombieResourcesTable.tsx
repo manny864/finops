@@ -246,6 +246,12 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
     });
 
     cols.push({
+      accessorKey: 'resourceGroup',
+      header: 'Grupo',
+      cell: info => <span className="text-xs text-gray-600 font-medium">{info.getValue() as string || 'N/A'}</span>
+    });
+
+    cols.push({
       accessorKey: 'issue',
       header: 'Problema',
       cell: ({ row }) => {
@@ -332,7 +338,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                 >
                     <option value="all">Todas</option>
                     {subscriptions.map((sub: any) => (
-                        <option key={sub.id} value={sub.id}>{(sub.displayName || sub.id).substring(0,15)}...</option>
+                        <option key={sub.id} value={sub.id}>{(sub.name || sub.id).substring(0,20)}...</option>
                     ))}
                 </select>
             </div>

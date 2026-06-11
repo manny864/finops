@@ -203,7 +203,7 @@ export default function NetworkAnalyticsPage() {
                             <option value="">{tc('no_subscriptions')}</option>
                         ) : (
                             subscriptions.map(sub => (
-                                <option key={sub.id} value={sub.id}>{sub.displayName || sub.id}</option>
+                                <option key={sub.id} value={sub.id}>{sub.name || sub.id}</option>
                             ))
                         )}
                     </select>
