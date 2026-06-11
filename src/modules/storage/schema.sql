@@ -52,3 +52,45 @@ CREATE TABLE IF NOT EXISTS AiCache (
     response_text TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS CostSnapshots (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id VARCHAR(255) NOT NULL,
+    subscription_id VARCHAR(255) DEFAULT 'default',
+    date DATE NOT NULL,
+    resource_group VARCHAR(255) NOT NULL,
+    service_name VARCHAR(255) NOT NULL,
+    cost_usd DECIMAL(12, 4) NOT NULL,
+    currency VARCHAR(10) DEFAULT 'USD',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (tenant_id) REFERENCES Tenants(tenant_id) ON DELETE CASCADE,
+    UNIQUE KEY unique_tenant_date_rg_service_sub (tenant_id, subscription_id, date, resource_group, service_name)
+);
+
+CREATE TABLE IF NOT EXISTS RecommendationsCache (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id VARCHAR(255) NOT NULL,
+    recommendation_type VARCHAR(255) NOT NULL,
+    potential_savings DECIMAL(12, 4) NOT NULL,
+    snapshot_date DATE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (tenant_id) REFERENCES Tenants(tenant_id) ON DELETE CASCADE,
+    UNIQUE KEY unique_tenant_rec_type_date (tenant_id, recommendation_type, snapshot_date)
+);
+
+CREATE TABLE IF NOT EXISTS cost_snapshots (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id VARCHAR(255),
+    sync_date DATE,
+    total_cost_usd DECIMAL(10,2),
+    currency VARCHAR(10),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_tenant_sync_date (tenant_id, sync_date)
+);
+
+CREATE TABLE IF NOT EXISTS tenant_health (
+    tenant_id VARCHAR(255) PRIMARY KEY,
+    last_sync_at TIMESTAMP,
+    sync_status VARCHAR(50),
+    last_error TEXT
+);

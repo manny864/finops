@@ -26,6 +26,9 @@ export async function initializeDatabase() {
                 client_secret VARCHAR(255),
                 status VARCHAR(50) DEFAULT 'active',
                 webhook_url VARCHAR(255),
+                last_sync_at TIMESTAMP NULL,
+                sync_status VARCHAR(50) DEFAULT 'OK',
+                last_error_message TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
@@ -38,6 +41,25 @@ export async function initializeDatabase() {
             if (e.code !== 'ER_DUP_FIELDNAME') {
                 console.error("Error adding webhook_url:", e);
             }
+        }
+
+        // Add last_sync_at, sync_status, and last_error_message if they don't exist
+        try {
+            await connection.query('ALTER TABLE Tenants ADD COLUMN last_sync_at TIMESTAMP NULL;');
+        } catch (e: any) {
+            if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding last_sync_at:", e);
+        }
+
+        try {
+            await connection.query("ALTER TABLE Tenants ADD COLUMN sync_status VARCHAR(50) DEFAULT 'OK';");
+        } catch (e: any) {
+            if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding sync_status:", e);
+        }
+
+        try {
+            await connection.query('ALTER TABLE Tenants ADD COLUMN last_error_message TEXT NULL;');
+        } catch (e: any) {
+            if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding last_error_message:", e);
         }
 
         // Add client_id and client_secret if they don't exist
@@ -127,12 +149,80 @@ export async function initializeDatabase() {
             )
         `);
 
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS CostSnapshots (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                tenant_id VARCHAR(255) NOT NULL,
+                subscription_id VARCHAR(255) DEFAULT 'default',
+                date DATE NOT NULL,
+                resource_group VARCHAR(255) NOT NULL,
+                service_name VARCHAR(255) NOT NULL,
+                cost_usd DECIMAL(12, 4) NOT NULL,
+                currency VARCHAR(10) DEFAULT 'USD',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (tenant_id) REFERENCES Tenants(tenant_id) ON DELETE CASCADE,
+                UNIQUE KEY unique_tenant_date_rg_service_sub (tenant_id, subscription_id, date, resource_group, service_name)
+            )
+        `);
+
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS RecommendationsCache (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                tenant_id VARCHAR(255) NOT NULL,
+                recommendation_type VARCHAR(255) NOT NULL,
+                potential_savings DECIMAL(12, 4) NOT NULL,
+                snapshot_date DATE NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (tenant_id) REFERENCES Tenants(tenant_id) ON DELETE CASCADE,
+                UNIQUE KEY unique_tenant_rec_type_date (tenant_id, recommendation_type, snapshot_date)
+            )
+        `);
+
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS cost_snapshots (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                tenant_id VARCHAR(255),
+                sync_date DATE,
+                total_cost_usd DECIMAL(10,2),
+                currency VARCHAR(10),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY unique_tenant_sync_date (tenant_id, sync_date)
+            )
+        `);
+
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS tenant_health (
+                tenant_id VARCHAR(255) PRIMARY KEY,
+                last_sync_at TIMESTAMP,
+                sync_status VARCHAR(50),
+                last_error TEXT
+            )
+        `);
+
         connection.release();
         dbInitialized = true;
         console.log("Database schema validated/initialized successfully.");
     } catch (error) {
         console.error("Failed to initialize database schema:", error);
     }
+}
+
+export async function insertCostSnapshot(tenantId: string, date: string, cost: number, currency: string) {
+    await pool.query(
+        `INSERT INTO cost_snapshots (tenant_id, sync_date, total_cost_usd, currency)
+         VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE total_cost_usd = VALUES(total_cost_usd), currency = VALUES(currency)`,
+        [tenantId, date, cost, currency]
+    );
+}
+
+export async function updateTenantHealth(tenantId: string, status: string, errorMsg?: string) {
+    await pool.query(
+        `INSERT INTO tenant_health (tenant_id, last_sync_at, sync_status, last_error)
+         VALUES (?, CURRENT_TIMESTAMP, ?, ?)
+         ON DUPLICATE KEY UPDATE last_sync_at = CURRENT_TIMESTAMP, sync_status = VALUES(sync_status), last_error = VALUES(last_error)`,
+        [tenantId, status, errorMsg || null]
+    );
 }
 
 export default pool;
