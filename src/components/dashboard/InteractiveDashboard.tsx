@@ -4,7 +4,7 @@ import {
     PieChart, MapPin, DollarSign, TrendingDown, CheckSquare, 
     Calendar, Skull, Tag, BarChart3, Zap, Moon
 } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell, Legend } from 'recharts';
 import { useTranslations } from 'next-intl';
 
 import { FocusCostEntry } from '@/modules/core/focusMapper';
@@ -80,6 +80,78 @@ export default function InteractiveDashboard({
         expiredTtlResources: 10.0
     };
 
+    const friendlyNames: Record<string, string> = {
+        unattachedDisks: "Disk",
+        unusedIps: "Public IP",
+        staleSnapshots: "Snapshot",
+        emptyAppServicePlans: "App Service Plan",
+        elasticPools: "SQL Elastic Pool",
+        loadBalancers: "Load Balancer",
+        frontDoorWaf: "Front Door WAF",
+        trafficManager: "Traffic Manager",
+        appGateways: "App Gateway",
+        natGateways: "NAT Gateway",
+        privateEndpoints: "Private Endpoint",
+        vnetGateways: "VNet Gateway",
+        ddos: "DDoS Plan",
+        privateDnsZones: "Private DNS",
+        stoppedFlexibleServers: "Flexible Server",
+        emptyCosmosDbAccounts: "Cosmos DB",
+        emptyEventHubNamespaces: "Event Hub",
+        emptyServiceBusNamespaces: "Service Bus",
+        emptyApiManagement: "API Management",
+        unprovisionedExpressRoute: "ExpressRoute",
+        unattachedWafPolicies: "WAF Policy",
+        stoppedVirtualMachines: "VM (Stopped)",
+        emptyAse: "App Service Env",
+        expiredTtlResources: "TTL Expired"
+    };
+
+    const getFriendlyName = (keyOrType: string): string => {
+        if (!keyOrType) return 'Other';
+        if (friendlyNames[keyOrType]) {
+            return friendlyNames[keyOrType];
+        }
+        const lowerKey = keyOrType.toLowerCase();
+        const matchedKey = Object.keys(friendlyNames).find(k => k.toLowerCase() === lowerKey);
+        if (matchedKey) {
+            return friendlyNames[matchedKey];
+        }
+
+        const lastPart = keyOrType.includes('/') ? keyOrType.split('/').pop() : keyOrType;
+        const normalized = lastPart ? lastPart.toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+
+        const azureTypeMappings: Record<string, string> = {
+            disks: "Disk",
+            publicipaddresses: "Public IP",
+            snapshots: "Snapshot",
+            serverfarms: "App Service Plan",
+            elasticpools: "SQL Elastic Pool",
+            loadbalancers: "Load Balancer",
+            frontdoorwebapplicationfirewallpolicies: "Front Door WAF",
+            trafficmanagerprofiles: "Traffic Manager",
+            applicationgateways: "App Gateway",
+            natgateways: "NAT Gateway",
+            privateendpoints: "Private Endpoint",
+            virtualnetworkgateways: "VNet Gateway",
+            ddosprotectionplans: "DDoS Plan",
+            privatednszones: "Private DNS",
+            flexibleservers: "Flexible Server",
+            databaseaccounts: "Cosmos DB",
+            apimanagementservices: "API Management",
+            expressroutecircuits: "ExpressRoute",
+            webapplicationfirewallpolicies: "WAF Policy",
+            virtualmachines: "VM (Stopped)",
+            hostingenvironments: "App Service Env"
+        };
+
+        if (azureTypeMappings[normalized]) {
+            return azureTypeMappings[normalized];
+        }
+
+        return keyOrType.charAt(0).toUpperCase() + keyOrType.slice(1);
+    };
+
     if (zombieData?.auditResults) {
         computedZombies = Object.values(zombieData.auditResults).reduce((acc: number, arr: any) => acc + (Array.isArray(arr) ? arr.length : 0), 0) as number;
         
@@ -87,11 +159,11 @@ export default function InteractiveDashboard({
             const items = zombieData.auditResults[key] || [];
             if (Array.isArray(items)) {
                 items.forEach((curr: any) => {
-                    const type = curr.type ? curr.type.split("/").pop() : key;
                     const defaultCost = fallbackSavings[key] || 0;
                     const cost = curr.estimatedMonthlyCost || (curr.diskSizeGB ? curr.diskSizeGB * 0.15 : (curr.sizeGB ? curr.sizeGB * 0.05 : defaultCost)) || 0;
                     if (cost > 0) {
-                        leakageMap[type] = (leakageMap[type] || 0) + cost;
+                        const friendlyName = getFriendlyName(key);
+                        leakageMap[friendlyName] = (leakageMap[friendlyName] || 0) + cost;
                     }
                 });
             }
@@ -102,7 +174,10 @@ export default function InteractiveDashboard({
         leakageMap = leakageItems.reduce((acc: any, curr: any) => {
             const type = curr.resourceType || curr.type || 'Unknown';
             const cost = curr.monthlyCost || curr.estimatedMonthlyCost || curr.cost || 0;
-            acc[type] = (acc[type] || 0) + cost;
+            const friendlyName = getFriendlyName(type);
+            if (cost > 0) {
+                acc[friendlyName] = (acc[friendlyName] || 0) + cost;
+            }
             return acc;
         }, {});
     }
@@ -163,10 +238,11 @@ export default function InteractiveDashboard({
         return null;
     };
 
-    const COLORS = ['#0ea5e9', '#10b981', '#f59e0b', '#f43f5e', '#8b5cf6'];
+    const COLORS = ['#0054A6', '#F2A900', '#10B981', '#EF4444', '#8B5CF6', '#F43F5E', '#0EA5E9', '#F59E0B'];
     const leakagePieData = Object.keys(leakageMap)
-        .map(k => ({ name: k, value: leakageMap[k] }))
-        .filter(item => item.value > 0);
+        .map(k => ({ name: k, value: Number(leakageMap[k].toFixed(2)) }))
+        .filter(item => item.value > 0)
+        .sort((a, b) => b.value - a.value);
     return (
         <div className="max-w-[1400px] mx-auto animate-in fade-in duration-500 bg-slate-50 p-6 rounded-2xl">
             {/* Header */}
@@ -315,6 +391,7 @@ export default function InteractiveDashboard({
                                         {leakagePieData.map((e, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                                     </Pie>
                                     <RechartsTooltip formatter={(v: any) => `$${Number(v).toFixed(2)}`} />
+                                    <Legend wrapperStyle={{ fontSize: '11px', fontWeight: 600, paddingTop: '5px' }} />
                                 </RechartsPieChart>
                             </ResponsiveContainer>
                         ) : (

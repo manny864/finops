@@ -43,6 +43,9 @@ async function runInBatches(client: ResourceGraphClient, queries: {key: string, 
     return results;
 }
 
+const auditCache: Record<string, { timestamp: number, data: any }> = {};
+const CACHE_TTL_MS = 60 * 1000; // 60 seconds cache
+
 export async function runGraphAudits(client: ResourceGraphClient, credential: any, subscriptionId?: string) {
     let subs: string[] = [];
     if (subscriptionId) {
@@ -71,14 +74,28 @@ export async function runGraphAudits(client: ResourceGraphClient, credential: an
         throw Object.assign(new Error("No hay suscripciones disponibles o no se tienen permisos"), { code: "AccessDenied" });
     }
 
+    const cacheKey = [...subs].sort().join(",");
+    const now = Date.now();
+    if (auditCache[cacheKey] && (now - auditCache[cacheKey].timestamp < CACHE_TTL_MS)) {
+        console.log(`[AuditCache] Returning cached results for subscriptions: ${cacheKey}`);
+        return auditCache[cacheKey].data;
+    }
+
     const queryList = Object.keys(kqlCatalog).map(key => ({
         key,
         query: kqlCatalog[key]
     }));
 
     const results = await runInBatches(client, queryList, 12, subs, 4500);
+    
+    auditCache[cacheKey] = {
+        timestamp: now,
+        data: results
+    };
+    
     return results;
 }
+
 
 export async function runMonitorAudits() {
     return [];
