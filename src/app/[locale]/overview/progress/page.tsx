@@ -141,7 +141,7 @@ export default function HistoricalProgressPage() {
                                 Datos reales de Azure
                             </div>
                         </div>
-                        <div className="h-72 w-full font-sans">
+                        <div className="h-72 w-full font-sans relative">
                             <ResponsiveContainer width="100%" height="100%">
                                 <AreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                                     <defs>
