@@ -2,9 +2,11 @@
 import React, { useState } from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend, Sector } from 'recharts';
 import { FocusCostEntry } from '@/modules/core/focusMapper';
+import { useSubscription } from '../SubscriptionProvider';
 
 export default function FocusCostPieChart({ data, onSegmentClick }: { data: FocusCostEntry[], onSegmentClick?: (category: string | null) => void }) {
     const [activeIndex, setActiveIndex] = useState<number | null>(null);
+    const { subscriptions } = useSubscription();
 
     if (!data || data.length === 0) {
         return (
@@ -23,10 +25,13 @@ export default function FocusCostPieChart({ data, onSegmentClick }: { data: Focu
         return acc;
     }, {});
 
-    const chartData = Object.keys(grouped).map(key => ({
-        name: key,
-        cost: Number(grouped[key].cost.toFixed(2))
-    })).filter(d => d.cost > 0).sort((a,b) => b.cost - a.cost);
+    const chartData = Object.keys(grouped).map(key => {
+        const sub = subscriptions.find(s => s.id.toLowerCase() === key.toLowerCase());
+        return {
+            name: sub ? sub.name : key,
+            cost: Number(grouped[key].cost.toFixed(2))
+        };
+    }).filter(d => d.cost > 0).sort((a,b) => b.cost - a.cost);
 
     const COLORS = ['#0054A6', '#F2A900', '#10B981', '#EF4444', '#8B5CF6', '#F43F5E', '#0EA5E9', '#F59E0B', '#64748B', '#0D9488'];
 
@@ -56,7 +61,7 @@ export default function FocusCostPieChart({ data, onSegmentClick }: { data: Focu
             cx={cx}
             cy={cy}
             innerRadius={innerRadius}
-            outerRadius={outerRadius + 8}
+            outerRadius={outerRadius + 6}
             startAngle={startAngle}
             endAngle={endAngle}
             fill={fill}
@@ -76,8 +81,8 @@ export default function FocusCostPieChart({ data, onSegmentClick }: { data: Focu
                         data={chartData}
                         cx="50%"
                         cy="50%"
-                        innerRadius={65}
-                        outerRadius={95}
+                        innerRadius={45}
+                        outerRadius={70}
                         paddingAngle={5}
                         dataKey="cost"
                         stroke="none"

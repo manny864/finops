@@ -311,7 +311,7 @@ export default function InteractiveDashboard({
                         {leakagePieData.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
                                 <RechartsPieChart>
-                                    <Pie data={leakagePieData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                                    <Pie data={leakagePieData} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={5} dataKey="value">
                                         {leakagePieData.map((e, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                                     </Pie>
                                     <RechartsTooltip formatter={(v: any) => `$${Number(v).toFixed(2)}`} />
