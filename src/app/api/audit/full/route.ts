@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getResourceGraphClient, getAzureCredential } from "@/lib/azure";
+import { getResourceGraphClient, getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { runGraphAudits, runMonitorAudits, runM365Audits } from "@/services/auditService";
 import { getMonthlyCostEstimate } from "@/services/pricingService";
@@ -61,6 +61,136 @@ export async function GET(request: NextRequest) {
             const loc = ip.location || "eastus";
             const cost = await getMonthlyCostEstimate("Virtual Network", sku, loc);
             ip.estimatedMonthlyCost = cost;
+        }));
+    }
+
+    if (graphResults.oldSnapshots && Array.isArray(graphResults.oldSnapshots)) {
+        await Promise.all(graphResults.oldSnapshots.map(async (res: any) => {
+            const size = res.sizeGB || 50;
+            const cost = size * 0.05;
+            res.estimatedMonthlyCost = cost;
+            res.resourceId = res.id;
+            res.resourceType = res.type || "microsoft.compute/snapshots";
+            res.monthlyCost = cost;
+        }));
+    }
+
+    if (graphResults.unusedLoadBalancers && Array.isArray(graphResults.unusedLoadBalancers)) {
+        await Promise.all(graphResults.unusedLoadBalancers.map(async (res: any) => {
+            const cost = 18.0;
+            res.estimatedMonthlyCost = cost;
+            res.resourceId = res.id;
+            res.resourceType = res.type || "microsoft.network/loadbalancers";
+            res.monthlyCost = cost;
+        }));
+    }
+
+    if (graphResults.unusedVNetGateways && Array.isArray(graphResults.unusedVNetGateways)) {
+        await Promise.all(graphResults.unusedVNetGateways.map(async (res: any) => {
+            const cost = 130.0;
+            res.estimatedMonthlyCost = cost;
+            res.resourceId = res.id;
+            res.resourceType = res.type || "microsoft.network/virtualnetworkgateways";
+            res.monthlyCost = cost;
+        }));
+    }
+
+    if (graphResults.emptyAppServicePlans && Array.isArray(graphResults.emptyAppServicePlans)) {
+        await Promise.all(graphResults.emptyAppServicePlans.map(async (res: any) => {
+            const sku = res.sku || "S1";
+            const loc = res.location || "eastus";
+            let cost = await getMonthlyCostEstimate("App Service", sku, loc);
+            if (!cost) {
+                const skuUpper = sku.toUpperCase();
+                if (skuUpper.startsWith("P")) {
+                    cost = 150.0;
+                } else if (skuUpper.startsWith("S")) {
+                    cost = 75.0;
+                } else if (skuUpper.startsWith("B")) {
+                    cost = 55.0;
+                } else if (skuUpper.startsWith("D") || skuUpper.startsWith("F")) {
+                    cost = 0.0;
+                } else {
+                    cost = 45.0;
+                }
+            }
+            res.estimatedMonthlyCost = cost;
+            res.resourceId = res.id;
+            res.resourceType = res.type || "microsoft.web/serverfarms";
+            res.monthlyCost = cost;
+        }));
+    }
+
+    if (graphResults.unattachedPublicIps && Array.isArray(graphResults.unattachedPublicIps)) {
+        await Promise.all(graphResults.unattachedPublicIps.map(async (ip: any) => {
+            const sku = ip.sku || "Standard";
+            const loc = ip.location || "eastus";
+            const cost = await getMonthlyCostEstimate("Virtual Network", sku, loc);
+            ip.estimatedMonthlyCost = cost;
+            ip.resourceId = ip.id;
+            ip.resourceType = ip.type || "microsoft.network/publicipaddresses";
+            ip.monthlyCost = cost;
+        }));
+    }
+
+    if (graphResults.unattachedNics && Array.isArray(graphResults.unattachedNics)) {
+        await Promise.all(graphResults.unattachedNics.map(async (nic: any) => {
+            nic.estimatedMonthlyCost = 0;
+            nic.resourceId = nic.id;
+            nic.resourceType = nic.type || "microsoft.network/networkinterfaces";
+            nic.monthlyCost = 0;
+        }));
+    }
+
+    if (graphResults.longStoppedVMs && Array.isArray(graphResults.longStoppedVMs)) {
+        let subs: string[] = [];
+        if (subscriptionId && subscriptionId.toLowerCase() !== 'all') {
+            subs = [subscriptionId];
+        } else {
+            subs = await getSubscriptionsForTenant(tenantId, credential);
+        }
+
+        const disksQuery = `
+            Resources
+            | where type =~ 'microsoft.compute/disks'
+            | project id = tolower(id), diskSizeGB = toint(properties.diskSizeGB), sku = sku.name, location
+        `;
+        const disksResponse = await resourceGraphClient.resources({ query: disksQuery, subscriptions: subs });
+        const disksData = disksResponse.data as any[] || [];
+        const disksMap = new Map<string, { sizeGB: number, sku: string, location: string }>();
+        for (const d of disksData) {
+            if (d.id) {
+                disksMap.set(d.id.toLowerCase(), {
+                    sizeGB: d.diskSizeGB || 0,
+                    sku: d.sku || "Standard_LRS",
+                    location: d.location || "eastus"
+                });
+            }
+        }
+
+        await Promise.all(graphResults.longStoppedVMs.map(async (res: any) => {
+            let storageCost = 0;
+            const attachedDiskIds: string[] = [];
+            if (res.osDiskId) attachedDiskIds.push(res.osDiskId.toLowerCase());
+            if (res.dataDisks && Array.isArray(res.dataDisks)) {
+                for (const d of res.dataDisks) {
+                    if (d.managedDisk?.id) {
+                        attachedDiskIds.push(d.managedDisk.id.toLowerCase());
+                    }
+                }
+            }
+            for (const diskId of attachedDiskIds) {
+                const diskInfo = disksMap.get(diskId);
+                if (diskInfo) {
+                    const price = await getMonthlyCostEstimate("Storage", diskInfo.sku, diskInfo.location || res.location || "eastus");
+                    storageCost += price || (diskInfo.sizeGB * 0.15);
+                }
+            }
+            const cost = parseFloat(storageCost.toFixed(2));
+            res.estimatedMonthlyCost = cost;
+            res.resourceId = res.id;
+            res.resourceType = res.type || "microsoft.compute/virtualmachines";
+            res.monthlyCost = cost;
         }));
     }
     

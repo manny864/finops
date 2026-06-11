@@ -149,6 +149,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
             unattachedDisks: { type: "Disk", armType: "microsoft.compute/disks", issue: "Disco sin asociar", savings: 15.0, issueType: "cost", manualDelete: false },
             unusedIps: { type: "Public IP", armType: "microsoft.network/publicipaddresses", issue: "IP Pública sin asignar", savings: 3.5, issueType: "cost", manualDelete: false },
             staleSnapshots: { type: "Snapshot", armType: "microsoft.compute/snapshots", issue: "Snapshot Antiguo (>90d)", savings: 5.0, issueType: "cost", manualDelete: false },
+            oldSnapshots: { type: "Snapshot", armType: "microsoft.compute/snapshots", issue: "Snapshot Antiguo (>30d)", savings: 5.0, issueType: "cost", manualDelete: false },
             taggingNonCompliance: { type: "Resource", armType: "unknown", issue: "Sin Etiquetas FinOps", savings: 0.0, issueType: "governance", manualDelete: true },
             orphanedNics: { type: "NIC", armType: "microsoft.network/networkinterfaces", issue: "NIC Huérfano", savings: 0.0, issueType: "cost", manualDelete: false },
             orphanedNsgs: { type: "NSG", armType: "microsoft.network/networksecuritygroups", issue: "NSG sin asociar", savings: 0.0, issueType: "governance", manualDelete: false },
@@ -157,6 +158,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
             elasticPools: { type: "SQL Elastic Pool", armType: "microsoft.sql/servers/elasticpools", issue: "Pool Vacío", savings: 250.0, issueType: "cost", manualDelete: false },
             routeTables: { type: "Route Table", armType: "microsoft.network/routetables", issue: "No asignada", savings: 0.0, issueType: "governance", manualDelete: false },
             loadBalancers: { type: "Load Balancer", armType: "microsoft.network/loadbalancers", issue: "Sin Backend", savings: 18.0, issueType: "cost", manualDelete: false },
+            unusedLoadBalancers: { type: "Load Balancer", armType: "microsoft.network/loadbalancers", issue: "Sin Frontend / Backend Vacío", savings: 18.0, issueType: "cost", manualDelete: false },
             frontDoorWaf: { type: "Front Door WAF", armType: "microsoft.network/frontdoorwebapplicationfirewallpolicies", issue: "Sin Política", savings: 5.0, issueType: "cost", manualDelete: false },
             trafficManager: { type: "Traffic Manager", armType: "microsoft.network/trafficmanagerprofiles", issue: "Sin Endpoints", savings: 3.0, issueType: "cost", manualDelete: false },
             appGateways: { type: "App Gateway", armType: "microsoft.network/applicationgateways", issue: "Sin Backend IPs", savings: 180.0, issueType: "cost", manualDelete: false },
@@ -167,10 +169,14 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
             privateDnsZones: { type: "Private DNS", armType: "microsoft.network/privatednszones", issue: "Sin Enlaces", savings: 0.5, issueType: "governance", manualDelete: false },
             privateEndpoints: { type: "Private Endpoint", armType: "microsoft.network/privateendpoints", issue: "Desconectado", savings: 7.0, issueType: "cost", manualDelete: false },
             vnetGateways: { type: "VNet Gateway", armType: "microsoft.network/virtualnetworkgateways", issue: "Sin Conexiones", savings: 130.0, issueType: "cost", manualDelete: false },
+            unusedVNetGateways: { type: "VNet Gateway", armType: "microsoft.network/virtualnetworkgateways", issue: "Sin Conexiones Activas", savings: 130.0, issueType: "cost", manualDelete: false },
             ddos: { type: "DDoS Plan", armType: "microsoft.network/ddosprotectionplans", issue: "Sin Recursos", savings: 2944.0, issueType: "cost", manualDelete: false },
             emptyRgs: { type: "Resource Group", armType: "microsoft.resources/subscriptions/resourcegroups", issue: "RG Vacío", savings: 0.0, issueType: "governance", manualDelete: false },
             apiConnections: { type: "API Connection", armType: "microsoft.web/connections", issue: "Desconectada", savings: 0.0, issueType: "governance", manualDelete: false },
-            expiredCerts: { type: "Certificate", armType: "microsoft.web/certificates", issue: "Expirado", savings: 0.0, issueType: "governance", manualDelete: false }
+            expiredCerts: { type: "Certificate", armType: "microsoft.web/certificates", issue: "Expirado", savings: 0.0, issueType: "governance", manualDelete: false },
+            unattachedPublicIps: { type: "PublicIPAddresses", armType: "microsoft.network/publicipaddresses", issue: "IP Pública sin asignar", savings: 3.5, issueType: "cost", manualDelete: false },
+            unattachedNics: { type: "NetworkInterfaces", armType: "microsoft.network/networkinterfaces", issue: "NIC Huérfano", savings: 0.0, issueType: "cost", manualDelete: false },
+            longStoppedVMs: { type: "DeallocatedVMs", armType: "microsoft.compute/virtualmachines", issue: "VM Apagada con Discos", savings: 30.0, issueType: "cost", manualDelete: false }
         };
 
         let allMappedData: any[] = [];
@@ -178,9 +184,17 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
             const config = configValue as any;
             const items = audit[key] || [];
             const mapped = items.map((r: any) => ({
-                id: r.id,
+                id: r.id || r.resourceId,
                 resourceName: r.name,
-                type: r.type ? (r.type.split("/").pop() || config.type) : config.type,
+                type: r.type ? (
+                    r.type.toLowerCase().includes("serverfarms") ? "ServerFarms" :
+                    r.type.toLowerCase().includes("virtualnetworkgateways") ? "VirtualNetworkGateways" :
+                    r.type.toLowerCase().includes("snapshots") ? "Snapshots" :
+                    r.type.toLowerCase().includes("virtualmachines") ? "DeallocatedVMs" :
+                    r.type.toLowerCase().includes("publicipaddresses") ? "PublicIPAddresses" :
+                    r.type.toLowerCase().includes("networkinterfaces") ? "NetworkInterfaces" :
+                    (r.type.split("/").pop() || config.type)
+                ) : config.type,
                 armType: r.type || config.armType,
                 resourceGroup: r.resourceGroup,
                 issue: config.issue,

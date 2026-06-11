@@ -55,3 +55,44 @@ export async function getBudgetConsumption(tenantId: string, subscriptionId: str
         return 0;
     }
 }
+
+export async function createSubscriptionBudget(credential: any, subscriptionId: string, budgetDetails: { budgetName: string, amount: number, contactEmails: string[] }) {
+    const client = new ConsumptionManagementClient(credential, subscriptionId);
+    const scope = `/subscriptions/${subscriptionId}`;
+
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const startDate = `${year}-${month}-01T00:00:00Z`;
+
+    const endYear = year + 1;
+    const endDate = `${endYear}-${month}-01T00:00:00Z`;
+
+    const budgetPayload: any = {
+        amount: budgetDetails.amount,
+        category: "Cost",
+        timeGrain: "BillingMonth",
+        timePeriod: {
+            startDate,
+            endDate
+        },
+        notifications: {
+            Actual_80: {
+                enabled: true,
+                operator: "GreaterThan",
+                threshold: 80,
+                contactEmails: budgetDetails.contactEmails,
+                thresholdType: "Actual"
+            },
+            Actual_100: {
+                enabled: true,
+                operator: "GreaterThan",
+                threshold: 100,
+                contactEmails: budgetDetails.contactEmails,
+                thresholdType: "Actual"
+            }
+        }
+    };
+
+    return await client.budgets.createOrUpdate(scope, budgetDetails.budgetName, budgetPayload);
+}

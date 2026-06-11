@@ -77,6 +77,38 @@ export default function RightsizingPage() {
       }
   };
 
+  const handleDeleteStoppedVm = async (vm: any) => {
+      if (!window.confirm(`¿Estás seguro de ELIMINAR la máquina virtual deallocated ${vm.name} permanentemente? Se recomienda realizar un snapshot de sus discos en Azure Portal antes de continuar.`)) return;
+      try {
+          const account = accounts[0];
+          const tokenResponse = await instance.acquireTokenSilent({ scopes: ["User.Read"], account });
+          
+          const res = await fetch('/api/remediation', {
+              method: 'POST',
+              headers: {
+                  'Authorization': `Bearer ${tokenResponse.idToken}`,
+                  'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                  tenantId: selectedTenant.id,
+                  subscriptionId: vm.subscriptionId,
+                  resourceGroup: vm.id.split('/')[4],
+                  resourceName: vm.name,
+                  resourceType: 'microsoft.compute/virtualmachines'
+              })
+          });
+          const json = await res.json();
+          if (json.success) {
+              alert(`Eliminación iniciada para la VM ${vm.name}`);
+              setVms(prev => prev.filter(v => v.id !== vm.id));
+          } else {
+              alert(`Error: ${json.error}`);
+          }
+      } catch (e) {
+          alert(`Error al eliminar la VM: ${e}`);
+      }
+  };
+
   if (selectedTenant.id === 'default') return null;
 
   return (
@@ -152,9 +184,14 @@ export default function RightsizingPage() {
                             <tr key={idx}>
                                 <td>
                                     <div className="flex items-center gap-[7px] font-bold text-ink">
-                                        <AlertTriangle className="w-4 h-4 text-amber" />
+                                        <AlertTriangle className={`w-4 h-4 ${vm.reason === 'Deallocated VM with attached Storage' ? 'text-rose-500' : 'text-amber'}`} />
                                         {vm.name}
                                     </div>
+                                    {vm.reason === 'Deallocated VM with attached Storage' && (
+                                        <span className="text-[10px] text-rose-500 font-bold block ml-[23px]">
+                                            Deallocated VM (Falso Ahorro)
+                                        </span>
+                                    )}
                                 </td>
                                 <td>{subscriptions.find(s => s.id.toLowerCase() === vm.subscriptionId.toLowerCase())?.name || vm.subscriptionId}</td>
                                 {viewMode === 'engineer' && (
@@ -164,26 +201,46 @@ export default function RightsizingPage() {
                                 )}
                                 <td><span className="tag grey font-mono">{vm.currentSku}</span></td>
                                 <td>
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-full bg-surface-2 rounded-full h-2 mr-2 max-w-[4rem] border border-line">
-                                            <div className="bg-amber h-full rounded-full" style={{ width: `${Math.max(vm.maxCpu, 5)}%` }}></div>
+                                    {vm.reason === 'Deallocated VM with attached Storage' ? (
+                                        <span className="text-xs font-semibold text-gray-400">VM Apagada</span>
+                                    ) : (
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-full bg-surface-2 rounded-full h-2 mr-2 max-w-[4rem] border border-line">
+                                                <div className="bg-amber h-full rounded-full" style={{ width: `${Math.max(vm.maxCpu, 5)}%` }}></div>
+                                            </div>
+                                            <span className="font-bold text-amber">{vm.maxCpu.toFixed(1)}%</span>
                                         </div>
-                                        <span className="font-bold text-amber">{vm.maxCpu.toFixed(1)}%</span>
-                                    </div>
+                                    )}
                                 </td>
                                 <td>
-                                    <div className="flex items-center text-green font-bold gap-2">
-                                        <ArrowRight className="w-4 h-4" />
-                                        <span className="tag green font-mono">{vm.recommendedSku}</span>
+                                    <div className="flex flex-col items-start gap-1">
+                                        <div className="flex items-center text-green font-bold gap-2">
+                                            <ArrowRight className="w-4 h-4" />
+                                            <span className={`tag font-mono ${vm.reason === 'Deallocated VM with attached Storage' ? 'bg-rose-50 text-rose-600 border border-rose-200' : 'green'}`}>{vm.recommendedSku}</span>
+                                        </div>
+                                        {vm.hiddenCost > 0 && (
+                                            <span className="text-xs text-rose-500 font-bold ml-6" title="Gasto oculto por almacenamiento adjunto activo">
+                                                Costo Oculto: {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(vm.hiddenCost)}/mes
+                                            </span>
+                                        )}
                                     </div>
                                 </td>
                                 <td className="num">
-                                    <button
-                                        onClick={() => handleDowngrade(vm)}
-                                        className="font-heading font-semibold text-[12px] rounded-[10px] bg-amber text-white p-[7px_11px] cursor-pointer hover:brightness-110 active:scale-95 transition-all shadow-sm"
-                                    >
-                                        {t("btn_downgrade")}
-                                    </button>
+                                    {vm.reason === 'Deallocated VM with attached Storage' ? (
+                                        <button
+                                            onClick={() => handleDeleteStoppedVm(vm)}
+                                            className="font-heading font-semibold text-[12px] rounded-[10px] bg-rose-600 text-white p-[7px_11px] cursor-pointer hover:bg-rose-700 active:scale-95 transition-all shadow-sm"
+                                        >
+                                            Snapshot & Delete
+                                        </button>
+                                    ) : (
+                                        <button
+                                            onClick={() => handleDowngrade(vm)}
+                                            className="font-heading font-semibold text-[12px] rounded-[10px] bg-amber text-white p-[7px_11px] cursor-pointer hover:brightness-110 active:scale-95 transition-all shadow-sm"
+                                        >
+                                            {t("btn_downgrade")}
+                                        </button>
+                                    )}
                                 </td>
                             </tr>
                         ))}
