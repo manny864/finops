@@ -175,3 +175,76 @@ export async function getCostForecast(
 
     return forecastData;
 }
+
+export async function getYesterdaysCost(tenantId: string): Promise<number> {
+    const credential = await getAzureCredential(tenantId);
+    const client = new CostManagementClient(credential);
+
+    // Calculate yesterday's date range
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yyyy = yesterday.getFullYear();
+    const mm = yesterday.getMonth();
+    const dd = yesterday.getDate();
+    const fromDate = new Date(yyyy, mm, dd, 0, 0, 0);
+    const toDate = new Date(yyyy, mm, dd, 23, 59, 59);
+
+    const queryOptions = {
+        type: 'ActualCost',
+        timeframe: "Custom",
+        timePeriod: {
+            from: fromDate,
+            to: toDate
+        },
+        dataset: {
+            granularity: "None",
+            aggregation: {
+                totalCost: {
+                    name: "PreTaxCost",
+                    function: "Sum"
+                }
+            }
+        }
+    } as any;
+
+    try {
+        const scope = `/providers/Microsoft.Management/managementGroups/${tenantId}`;
+        const result = await client.query.usage(scope, queryOptions);
+        if (result && result.rows && result.rows.length > 0) {
+            return Number(result.rows[0][0]) || 0;
+        }
+        return 0;
+    } catch (e: any) {
+        console.warn(`Management Group scope query failed for yesterday's cost of tenant ${tenantId}, falling back to subscriptions:`, e.message);
+        
+        const token = await credential.getToken("https://management.azure.com/.default");
+        if (!token) {
+            throw new Error("No se pudo obtener el token de acceso de Azure.");
+        }
+        
+        const subRes = await fetch("https://management.azure.com/subscriptions?api-version=2020-01-01", {
+            headers: { 'Authorization': `Bearer ${token.token}` }
+        });
+        if (!subRes.ok) {
+            throw new Error(`Failed to fetch subscriptions: HTTP ${subRes.status}`);
+        }
+        const subJson = await subRes.json();
+        const subs = subJson.value || [];
+
+        let totalCost = 0;
+        for (const sub of subs) {
+            if (sub.subscriptionId && sub.state === 'Enabled') {
+                try {
+                    const subScope = `/subscriptions/${sub.subscriptionId}`;
+                    const res = await client.query.usage(subScope, queryOptions);
+                    if (res && res.rows && res.rows.length > 0) {
+                        totalCost += Number(res.rows[0][0]) || 0;
+                    }
+                } catch (subErr: any) {
+                    console.warn(`Failed to query yesterday's cost for subscription ${sub.subscriptionId}:`, subErr.message);
+                }
+            }
+        }
+        return totalCost;
+    }
+}
