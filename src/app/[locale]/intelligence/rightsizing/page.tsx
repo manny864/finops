@@ -11,7 +11,7 @@ export default function RightsizingPage() {
   const t = useTranslations("Rightsizing");
   const { instance, accounts } = useMsal();
   const { selectedTenant } = useTenant();
-  const { selectedSubscription } = useSubscription();
+  const { selectedSubscription, subscriptions } = useSubscription();
   const { viewMode } = useViewMode();
   const [vms, setVms] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -156,7 +156,7 @@ export default function RightsizingPage() {
                                         {vm.name}
                                     </div>
                                 </td>
-                                <td>{vm.subscriptionId}</td>
+                                <td>{subscriptions.find(s => s.id.toLowerCase() === vm.subscriptionId.toLowerCase())?.name || vm.subscriptionId}</td>
                                 {viewMode === 'engineer' && (
                                     <td className="font-mono text-xs max-w-xs truncate" title={vm.id}>
                                         {vm.id}
