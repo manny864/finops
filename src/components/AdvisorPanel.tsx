@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { useTenant } from './TenantProvider';
+import { useSubscription } from './SubscriptionProvider';
 import { useLocale, useTranslations } from 'next-intl';
 import RoleAssignmentBanner from './RoleAssignmentBanner';
 import { Info, Lightbulb, X } from 'lucide-react';
@@ -19,6 +20,13 @@ export default function AdvisorPanel() {
   const [error, setError] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedSub, setSelectedSub] = useState<string>("all");
+  const { selectedSubscription, setSelectedSubscription } = useSubscription();
+
+  useEffect(() => {
+    if (selectedSubscription) {
+      setSelectedSub(selectedSubscription.toLowerCase() === 'all' ? 'all' : selectedSubscription);
+    }
+  }, [selectedSubscription]);
 
   useEffect(() => {
     if (accounts.length === 0 || selectedTenant.id === 'default') {
@@ -200,7 +208,12 @@ export default function AdvisorPanel() {
                     <label className="text-[10px] tracking-[1px] uppercase text-grey font-bold">Alcance</label>
                     <select
                         value={selectedSub}
-                        onChange={(e) => { setSelectedSub(e.target.value); setSelectedCategory(null); }}
+                        onChange={(e) => {
+                            const val = e.target.value;
+                            setSelectedSub(val);
+                            setSelectedCategory(null);
+                            setSelectedSubscription(val === 'all' ? 'All' : val);
+                        }}
                         className="border-0 bg-transparent font-heading font-bold text-[13px] text-brand-deep cursor-pointer focus:outline-none p-0 m-0 w-32 md:w-auto truncate"
                     >
                         <option value="all">{t('all_subs')}</option>

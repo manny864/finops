@@ -254,8 +254,8 @@ export default function InteractiveDashboard({
                         <PieChart className="w-4 h-4 mr-2 text-rose-800 fill-rose-800" />
                         {t('spend_by_subscription')}
                     </div>
-                    <div className="flex items-center justify-center h-64">
-                        <div className="w-full h-full relative flex items-center justify-center">
+                    <div className="h-64 w-full relative flex items-center justify-center">
+                        <div className="w-full h-full absolute inset-0">
                             <FocusCostPieChart data={entries} />
                         </div>
                     </div>
@@ -266,16 +266,18 @@ export default function InteractiveDashboard({
                         <Skull className="w-4 h-4 mr-2 text-amber-500" />
                         Distribución de fugas financieras
                     </div>
-                    <div className="flex items-center justify-center h-64">
+                    <div className="h-64 w-full relative flex items-center justify-center">
                         {leakagePieData.length > 0 ? (
-                            <ResponsiveContainer width="100%" height="100%">
-                                <RechartsPieChart>
-                                    <Pie data={leakagePieData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
-                                        {leakagePieData.map((e, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                                    </Pie>
-                                    <RechartsTooltip formatter={(v: any) => `$${Number(v).toFixed(2)}`} />
-                                </RechartsPieChart>
-                            </ResponsiveContainer>
+                            <div className="w-full h-full absolute inset-0">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <RechartsPieChart>
+                                        <Pie data={leakagePieData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                                            {leakagePieData.map((e, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                                        </Pie>
+                                        <RechartsTooltip formatter={(v: any) => `$${Number(v).toFixed(2)}`} />
+                                    </RechartsPieChart>
+                                </ResponsiveContainer>
+                            </div>
                         ) : (
                             <div className="text-sm text-slate-400">Sin datos de fugas</div>
                         )}

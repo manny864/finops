@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { useTenant } from './TenantProvider';
+import { useSubscription } from './SubscriptionProvider';
 import { useViewMode } from '../context/ViewModeContext';
 import RoleAssignmentBanner from './RoleAssignmentBanner';
 import { toast } from 'sonner';
@@ -24,11 +25,18 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
   const { viewMode } = useViewMode();
   const { addAction } = useActionLogStore();
   const triggerCopilotWithPrompt = useAIContext(state => state.triggerCopilotWithPrompt);
+  const { selectedSubscription, setSelectedSubscription } = useSubscription();
   
   // Removed conditional useTranslations hook which was causing React Error 310
   const [data, setData] = useState<any[]>([]);
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const [selectedSub, setSelectedSub] = useState<string>("all");
+
+  useEffect(() => {
+    if (selectedSubscription) {
+      setSelectedSub(selectedSubscription.toLowerCase() === 'all' ? 'all' : selectedSubscription);
+    }
+  }, [selectedSubscription]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<string>('all');
@@ -346,7 +354,11 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                 <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">Suscripción:</label>
                 <select 
                     value={selectedSub}
-                    onChange={(e) => setSelectedSub(e.target.value)}
+                    onChange={(e) => {
+                        const val = e.target.value;
+                        setSelectedSub(val);
+                        setSelectedSubscription(val === 'all' ? 'All' : val);
+                    }}
                     className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2 outline-none w-32"
                 >
                     <option value="all">Todas</option>

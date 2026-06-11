@@ -3,6 +3,7 @@ import { useContext, useEffect, useState, useCallback } from 'react';
 import { TabContext } from '@/components/ClientShell';
 import { useMsal } from '@azure/msal-react';
 import { useTenant } from '@/components/TenantProvider';
+import { useSubscription } from '@/components/SubscriptionProvider';
 import ZombieResourcesTable from "@/components/ZombieResourcesTable";
 import TagManager from "@/components/TagManager";
 import CostPieChart from "@/components/CostPieChart";
@@ -25,6 +26,7 @@ export default function Home() {
   const { activeTab, setActiveTab } = useContext(TabContext);
   const { instance, accounts } = useMsal();
   const { selectedTenant } = useTenant();
+  const { selectedSubscription } = useSubscription();
   
   const [dashboardData, setDashboardData] = useState<any[]>([]);
   const totalSavings = dashboardData.reduce((sum, item) => sum + (item.potentialSavings || 0), 0);
@@ -50,12 +52,13 @@ export default function Home() {
                   scopes: ["User.Read"],
                   account: accounts[0]
               });
+              const subParam = (!selectedSubscription || selectedSubscription.toLowerCase() === 'all') ? '' : `&subscriptionId=${selectedSubscription}`;
               // Fetch audit + advisor in parallel
               const [auditRes, advisorRes] = await Promise.allSettled([
-                  fetch(`/api/audit/full?tenantId=${selectedTenant.id}`, {
+                  fetch(`/api/audit/full?tenantId=${selectedTenant.id}${subParam}`, {
                       headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
                   }),
-                  fetch(`/api/advisor?tenantId=${selectedTenant.id}`, {
+                  fetch(`/api/advisor?tenantId=${selectedTenant.id}${subParam}`, {
                       headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
                   })
               ]);
@@ -169,7 +172,7 @@ export default function Home() {
           setLoading(false);
       };
       fetchData();
-  }, [activeTab, selectedTenant, accounts, instance]);
+  }, [activeTab, selectedTenant, selectedSubscription, accounts, instance]);
 
   const t = useTranslations('Dashboard');
   const tCommon = useTranslations('Common');

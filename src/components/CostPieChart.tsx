@@ -66,7 +66,7 @@ export default function CostPieChart({ data, onSegmentClick }: { data: any[], on
     };
 
     return (
-        <div className="w-full min-h-[350px] relative overflow-hidden">
+        <div className="w-full h-full min-h-[220px] relative overflow-hidden flex-1 flex flex-col justify-center items-center">
             <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                     <Pie
