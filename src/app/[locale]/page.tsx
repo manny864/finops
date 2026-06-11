@@ -92,10 +92,36 @@ export default function Home() {
                       natGateways: { type: "NAT Gateway", savings: 32.0, issueType: "cost" },
                       privateEndpoints: { type: "Private Endpoint", savings: 7.0, issueType: "cost" },
                       vnetGateways: { type: "VNet Gateway", savings: 130.0, issueType: "cost" },
-                      ddos: { type: "DDoS Plan", savings: 2944.0, issueType: "cost" }
+                      ddos: { type: "DDoS Plan", savings: 2944.0, issueType: "cost" },
+                      orphanedNics: { type: "NIC", savings: 0, issueType: "governance" },
+                      orphanedNsgs: { type: "NSG", savings: 0, issueType: "governance" },
+                      availabilitySets: { type: "Availability Set", savings: 0, issueType: "governance" },
+                      routeTables: { type: "Route Table", savings: 0, issueType: "governance" },
+                      emptyVnets: { type: "VNet", savings: 0, issueType: "governance" },
+                      emptySubnets: { type: "Subnet", savings: 0, issueType: "governance" },
+                      ipGroups: { type: "IP Group", savings: 0, issueType: "governance" },
+                      privateDnsZones: { type: "Private DNS", savings: 0.25, issueType: "cost" },
+                      emptyRgs: { type: "Resource Group", savings: 0, issueType: "governance" },
+                      apiConnections: { type: "API Connection", savings: 0, issueType: "governance" },
+                      expiredCerts: { type: "Certificate", savings: 0, issueType: "governance" },
+                      emptySqlServers: { type: "SQL Server", savings: 0, issueType: "governance" },
+                      stoppedFlexibleServers: { type: "Flexible Server", savings: 25.0, issueType: "cost" },
+                      emptyCosmosDbAccounts: { type: "Cosmos DB", savings: 24.0, issueType: "cost" },
+                      emptyEventHubNamespaces: { type: "Event Hub", savings: 11.0, issueType: "cost" },
+                      emptyServiceBusNamespaces: { type: "Service Bus", savings: 10.0, issueType: "cost" },
+                      emptyApiManagement: { type: "API Management", savings: 50.0, issueType: "cost" },
+                      unprovisionedExpressRoute: { type: "ExpressRoute", savings: 55.0, issueType: "cost" },
+                      unattachedWafPolicies: { type: "WAF Policy", savings: 5.0, issueType: "cost" },
+                      stoppedVirtualMachines: { type: "VM (Stopped)", savings: 30.0, issueType: "cost" },
+                      emptyAse: { type: "App Service Env", savings: 300.0, issueType: "cost" },
+                      taggingNonCompliance: { type: "Tag Issue", savings: 0, issueType: "governance" },
+                      allVirtualMachines: { type: "__skip__", savings: 0, issueType: "governance" },
+                      devVirtualMachines: { type: "__skip__", savings: 0, issueType: "governance" },
+                      expiredTtlResources: { type: "TTL Expired", savings: 10.0, issueType: "cost" }
                   };
                   let mappedData: any[] = [];
                   for (const [key, config] of Object.entries(resourceConfig)) {
+                      if ((config as any).type === '__skip__') continue;
                       const items = json.auditResults[key] || [];
                       mappedData.push(...items.map((r: any) => ({
                           ...r,
