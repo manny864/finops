@@ -32,19 +32,25 @@ export async function getTenantLicensesAndInactiveUsers(tenantId: string): Promi
     // 1. Fetch Subscribed SKUs
     const skuRes = await fetch("https://graph.microsoft.com/v1.0/subscribedSkus", { headers });
     let skus: any[] = [];
-    if (skuRes.ok) {
-        const json = await skuRes.json();
-        skus = json.value || [];
+    if (!skuRes.ok) {
+        const err = await skuRes.text();
+        console.error('GRAPH API HTTP ERROR (subscribedSkus):', skuRes.status, err);
+        throw new Error(`Graph API Error (subscribedSkus): ${skuRes.status} ${err}`);
     } else {
-        const errorData = await skuRes.text();
-        console.error('Graph API Error (subscribedSkus):', skuRes.status, errorData);
+        const json = await skuRes.json();
+        console.log('GRAPH API SUCCESS (subscribedSkus), RAW DATA:', JSON.stringify(json).substring(0, 200));
+        skus = json.value || [];
     }
 
     // 2. Fetch Active User Details (CSV)
     const reportRes = await fetch("https://graph.microsoft.com/v1.0/reports/getOffice365ActiveUserDetail(period='D30')", { headers });
     let inactiveUsers: InactiveUser[] = [];
     
-    if (reportRes.ok) {
+    if (!reportRes.ok) {
+        const err = await reportRes.text();
+        console.error('GRAPH API HTTP ERROR (getOffice365ActiveUserDetail):', reportRes.status, err);
+        throw new Error(`Graph API Error (getOffice365ActiveUserDetail): ${reportRes.status} ${err}`);
+    } else {
         const text = await reportRes.text();
         const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
         
@@ -91,9 +97,6 @@ export async function getTenantLicensesAndInactiveUsers(tenantId: string): Promi
                 }
             }
         }
-    } else {
-        const errorData = await reportRes.text();
-        console.error('Graph API Error (getOffice365ActiveUserDetail):', reportRes.status, errorData);
     }
 
     // 3. Correlate Underutilized SKUs

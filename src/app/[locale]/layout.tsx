@@ -7,6 +7,7 @@ import { getMessages } from 'next-intl/server';
 import { ThemeProvider } from "@/components/ThemeProvider";
 import ClientShell from "@/components/ClientShell";
 import CommandPalette from "@/components/CommandPalette";
+import GlobalCopilot from "@/components/GlobalCopilot";
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -43,6 +44,7 @@ export default async function RootLayout({
             <ClientShell>
               <CommandPalette />
               {children}
+              <GlobalCopilot />
             </ClientShell>
           </ThemeProvider>
         </NextIntlClientProvider>

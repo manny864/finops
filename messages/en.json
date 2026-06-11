@@ -275,6 +275,11 @@
   },
   "Zombies": {
     "title": "Zombie Resources",
-    "subtitle": "Detect and clean up idle or unused resources wasting money."
+    "subtitle": "Detect and clean up idle or unused resources that waste money."
+  },
+  "Copilot": {
+    "welcome_message": "Hi! I'm your FinOps assistant and I'm here to help. I'm currently analyzing the <b>{page}</b> module; you can ask me anything related to the data shown on this page.",
+    "title": "FinOps Copilot",
+    "placeholder": "Ask about these metrics..."
   }
 }

@@ -1,6 +1,7 @@
 import pool from '@/modules/storage/db';
 import crypto from 'crypto';
-import { generateText } from 'ai';
+import { generateText, generateObject } from 'ai';
+import { z } from 'zod';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { RowDataPacket } from 'mysql2';
 import { getAIConfig } from '@/services/aiService';
@@ -122,4 +123,38 @@ Keep it professional, concise, and actionable. Provide concrete numbers where po
     );
 
     return text;
+}
+
+export const focusCostEntrySchema = z.object({
+    ProviderName: z.string().describe("E.g., Azure, AWS, GCP"),
+    SubAccountId: z.string().describe("E.g., Subscription ID or AWS Account ID"),
+    ServiceName: z.string(),
+    ChargeCategory: z.string(),
+    UsageDate: z.string(),
+    BilledCost: z.number(),
+    EffectiveCost: z.number()
+});
+
+export async function normalizeBillingCsv(rawCsvData: any[]): Promise<any[]> {
+    const model = await AIProviderFactory.getGeminiModel();
+    const systemPrompt = `You are a universal multi-cloud FinOps mapper. 
+Identify the cloud provider (AWS, Azure, GCP, etc.) from the raw JSON billing rows.
+Map the diverse column names to the standard FOCUS specification.
+Return an array of the mapped FocusCostEntry objects.`;
+
+    // Take a sample or batch if large, but here we process the passed payload
+    const dataString = JSON.stringify(rawCsvData.slice(0, 50)); 
+
+    const { object } = await aiQueue.add(() =>
+        withExponentialBackoff(() =>
+            generateObject({
+                model,
+                schema: z.array(focusCostEntrySchema),
+                system: systemPrompt,
+                prompt: `Map these billing records to FOCUS format:\n\n${dataString}`
+            })
+        )
+    );
+
+    return object;
 }
