@@ -15,6 +15,33 @@ async function logAction(tenantId: string, userEmail: string, actionType: string
     }
 }
 
+const apiVersionMap: Record<string, string> = {
+    'microsoft.compute/disks': '2023-01-02',
+    'microsoft.compute/snapshots': '2023-01-02',
+    'microsoft.compute/virtualmachines': '2023-03-01',
+    'microsoft.network/publicipaddresses': '2023-05-01',
+    'microsoft.network/networkinterfaces': '2023-05-01',
+    'microsoft.network/networksecuritygroups': '2023-05-01',
+    'microsoft.network/routetables': '2023-05-01',
+    'microsoft.network/loadbalancers': '2023-05-01',
+    'microsoft.network/frontdoorwebapplicationfirewallpolicies': '2022-05-01',
+    'microsoft.network/trafficmanagerprofiles': '2022-04-01',
+    'microsoft.network/applicationgateways': '2023-05-01',
+    'microsoft.network/virtualnetworks': '2023-05-01',
+    'microsoft.network/natgateways': '2023-05-01',
+    'microsoft.network/ipgroups': '2023-05-01',
+    'microsoft.network/privatednszones': '2020-06-01',
+    'microsoft.network/privateendpoints': '2023-05-01',
+    'microsoft.network/virtualnetworkgateways': '2023-05-01',
+    'microsoft.network/ddosprotectionplans': '2023-05-01',
+    'microsoft.web/serverfarms': '2022-09-01',
+    'microsoft.web/connections': '2016-06-01',
+    'microsoft.web/certificates': '2022-09-01',
+    'microsoft.sql/servers/elasticpools': '2021-11-01',
+    'microsoft.compute/availabilitysets': '2023-03-01',
+    'microsoft.resources/subscriptions/resourcegroups': '2021-04-01'
+};
+
 export async function deleteResource(tenantId: string, userEmail: string, subscriptionId: string, resourceGroup: string, resourceName: string, resourceType: string) {
     const credential = await getAzureCredential(tenantId);
     const type = resourceType.toLowerCase();
@@ -47,7 +74,25 @@ export async function deleteResource(tenantId: string, userEmail: string, subscr
             const client = new ComputeManagementClient(credential, subscriptionId);
             result = await client.virtualMachines.beginDeleteAndWait(resourceGroup, resourceName);
         } else {
-            throw new Error(`Tipo de recurso no soportado para borrado automático: ${resourceType}`);
+            // Fallback genérico para cualquier recurso mediante API REST DELETE
+            const apiVersion = apiVersionMap[type] || '2021-04-01';
+            const tokenData = await credential.getToken("https://management.azure.com/.default");
+            const url = `https://management.azure.com${fullResourceId}?api-version=${apiVersion}`;
+            
+            console.log(`[RemediationService] Deleting resource via REST API: ${url}`);
+            const res = await fetch(url, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${tokenData.token}`
+                }
+            });
+            
+            if (!res.ok) {
+                const bodyText = await res.text().catch(() => "No response body");
+                console.error(`[RemediationService] Azure REST API returned ${res.status}: ${bodyText}`);
+                throw new Error(`Azure API error ${res.status}: ${bodyText}`);
+            }
+            result = { success: true };
         }
         await logAction(tenantId, userEmail, "DELETE_RESOURCE", fullResourceId, "SUCCESS");
         return result;
