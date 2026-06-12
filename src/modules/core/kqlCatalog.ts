@@ -48,6 +48,6 @@ export const kqlCatalog: Record<string, string> = {
   unattachedNics: `Resources | where type =~ 'microsoft.network/networkinterfaces' | where isnull(properties.virtualMachine) | project id, name, location, resourceGroup, subscriptionId`,
   missingAhubWindowsVMs: `Resources | where type =~ 'microsoft.compute/virtualmachines' | where properties.storageProfile.osDisk.osType =~ 'Windows' and (isnull(properties.licenseType) or properties.licenseType != 'Windows_Server') | project id, name, location, resourceGroup, subscriptionId, sku = properties.hardwareProfile.vmSize`,
   missingAhubSql: `Resources | where type =~ 'microsoft.sql/servers/databases' and name != 'master' | where isnull(properties.licenseType) or properties.licenseType != 'BasePrice' | project id, name, location, resourceGroup, subscriptionId, sku = sku.name`,
-  completelyUntaggedResources: `Resources | where isnull(tags) or dictionary_size(tags) == 0 | project id, name, type, tags, location, resourceGroup, subscriptionId`,
+  completelyUntaggedResources: `Resources | where isnull(tags) or isempty(tags) | project id, name, type, tags, location, resourceGroup, subscriptionId`,
   missingMandatoryTags: `Resources | where isnull(tags['Environment']) or isnull(tags['CostCenter']) | project id, name, type, tags, location, resourceGroup, subscriptionId`
 };
