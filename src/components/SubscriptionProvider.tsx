@@ -66,8 +66,29 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
                         }
                     }
                 }
-            } catch (e) {
+            } catch (e: any) {
                 console.error("Error fetching subscriptions:", e);
+                const errName = e?.name || (e?.constructor && e?.constructor.name) || "";
+                const errCode = e?.errorCode || e?.code || "";
+                const errMsg = e?.message || e?.errorMessage || "";
+
+                if (
+                    errName === "BrowserAuthError" ||
+                    errName === "InteractionRequiredAuthError" ||
+                    errCode === "block_iframe_reload" ||
+                    errCode === "timed_out" ||
+                    errCode === "interaction_required" ||
+                    errCode === "consent_required" ||
+                    errCode === "login_required" ||
+                    errMsg.includes("block_iframe_reload") ||
+                    errMsg.includes("timed_out")
+                ) {
+                    console.warn("MSAL silent token failure, redirecting to interactive login...", e);
+                    instance.acquireTokenRedirect({
+                        scopes: ["User.Read"],
+                        account: accounts[0]
+                    }).catch(err => console.error("Error initiating redirect login:", err));
+                }
             }
             setLoading(false);
         };

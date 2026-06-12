@@ -152,11 +152,11 @@ export async function initializeDatabase() {
         await connection.query(`
             CREATE TABLE IF NOT EXISTS CostSnapshots (
                 id INT AUTO_INCREMENT PRIMARY KEY,
-                tenant_id VARCHAR(255) NOT NULL,
-                subscription_id VARCHAR(255) DEFAULT 'default',
+                tenant_id VARCHAR(100) NOT NULL,
+                subscription_id VARCHAR(100) DEFAULT 'default',
                 date DATE NOT NULL,
-                resource_group VARCHAR(255) NOT NULL,
-                service_name VARCHAR(255) NOT NULL,
+                resource_group VARCHAR(100) NOT NULL,
+                service_name VARCHAR(100) NOT NULL,
                 cost_usd DECIMAL(12, 4) NOT NULL,
                 currency VARCHAR(10) DEFAULT 'USD',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

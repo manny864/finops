@@ -193,6 +193,16 @@ export async function GET(request: NextRequest) {
             res.monthlyCost = cost;
         }));
     }
+
+    if (graphResults.emptyRgs && Array.isArray(graphResults.emptyRgs)) {
+        graphResults.emptyRgs.forEach((res: any) => {
+            res.estimatedMonthlyCost = 0;
+            res.resourceId = res.id;
+            res.resourceType = res.type || "microsoft.resources/subscriptions/resourcegroups";
+            res.monthlyCost = 0;
+            res.isHygiene = true;
+        });
+    }
     
     // Ejecutar stubs (para futura expansión)
     // const monitorResults = await runMonitorAudits(credential, subscriptionId);

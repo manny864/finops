@@ -4,6 +4,24 @@ import { getVmUtilization } from '@/modules/collectors/azure/metricsService';
 import { analyzeVmEfficiency } from '@/modules/core/rightsizingEngine';
 import { getMonthlyCostEstimate } from '@/services/pricingService';
 
+async function queryResourceGraphWithRetry(client: any, query: string, subscriptions: string[], retries = 3, initialDelay = 3000): Promise<any> {
+    let currentDelay = initialDelay;
+    for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+            return await client.resources({ query, subscriptions });
+        } catch (e: any) {
+            const isRateLimit = e.statusCode === 429 || (e.code && e.code === 'RateLimiting');
+            if (isRateLimit && attempt < retries) {
+                console.warn(`[Rightsizing API] Rate Limited (429). Retrying query in ${currentDelay}ms... (Attempt ${attempt}/${retries})`);
+                await new Promise(resolve => setTimeout(resolve, currentDelay));
+                currentDelay *= 1.5;
+            } else {
+                throw e;
+            }
+        }
+    }
+}
+
 export async function GET(request: NextRequest) {
     try {
         const tenantId = request.headers.get('x-tenant-id');
@@ -22,7 +40,13 @@ export async function GET(request: NextRequest) {
             subs = await getSubscriptionsForTenant(tenantId, credential);
         }
 
-        const query = subscriptionId === 'All'
+        if (!subs || subs.length === 0) {
+            return NextResponse.json({ success: true, data: [] });
+        }
+
+        const isAll = !subscriptionId || subscriptionId.toLowerCase() === 'all';
+
+        const query = isAll
             ? `
                 Resources
                 | where type =~ 'microsoft.compute/virtualmachines'
@@ -35,7 +59,7 @@ export async function GET(request: NextRequest) {
                 | project id, name, sku = properties.hardwareProfile.vmSize, location, subscriptionId
             `;
 
-        const stoppedQuery = subscriptionId === 'All'
+        const stoppedQuery = isAll
             ? `
                 Resources
                 | where type =~ 'microsoft.compute/virtualmachines'
@@ -50,7 +74,7 @@ export async function GET(request: NextRequest) {
                 | project id, name, location, resourceGroup, subscriptionId, sku = properties.hardwareProfile.vmSize, osDiskId = properties.storageProfile.osDisk.managedDisk.id, dataDisks = properties.storageProfile.dataDisks
             `;
 
-        const disksQuery = subscriptionId === 'All'
+        const disksQuery = isAll
             ? `
                 Resources
                 | where type =~ 'microsoft.compute/disks'
@@ -63,11 +87,11 @@ export async function GET(request: NextRequest) {
                 | project id = tolower(id), diskSizeGB = toint(properties.diskSizeGB), sku = sku.name, location
             `;
 
-        const [vmsResponse, stoppedResponse, disksResponse] = await Promise.all([
-            argClient.resources({ query, subscriptions: subs }),
-            argClient.resources({ query: stoppedQuery, subscriptions: subs }),
-            argClient.resources({ query: disksQuery, subscriptions: subs })
-        ]);
+        const vmsResponse = await queryResourceGraphWithRetry(argClient, query, subs);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        const stoppedResponse = await queryResourceGraphWithRetry(argClient, stoppedQuery, subs);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        const disksResponse = await queryResourceGraphWithRetry(argClient, disksQuery, subs);
 
         const vms = vmsResponse.data as any[] || [];
         const stoppedVms = stoppedResponse.data as any[] || [];
