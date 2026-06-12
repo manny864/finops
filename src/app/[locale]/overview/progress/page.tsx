@@ -4,6 +4,7 @@ import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { TrendingUp, Loader2, MapPin, BarChart3, Check, Ruler, Moon, Flag, AlertTriangle } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { useAIContext } from '@/hooks/useAIContext';
 
 export default function HistoricalProgressPage() {
     const { selectedTenant } = useTenant();
@@ -13,6 +14,16 @@ export default function HistoricalProgressPage() {
     const [advisorRecs, setAdvisorRecs] = useState<any[]>([]);
     const [advisorSubs, setAdvisorSubs] = useState<any[]>([]);
     const [advisorLoading, setAdvisorLoading] = useState(false);
+    const setPageContext = useAIContext(state => state.setPageContext);
+
+    useEffect(() => {
+        if (data.length > 0 || advisorRecs.length > 0) {
+            setPageContext('Progreso Histórico', {
+                scoreHistory: data,
+                recursosAfectados: advisorRecs
+            });
+        }
+    }, [data, advisorRecs, setPageContext]);
 
     useEffect(() => {
         if (accounts.length === 0 || selectedTenant.id === 'default') return;
