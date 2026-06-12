@@ -215,7 +215,29 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
         setLoading(false);
       } catch (err: any) {
         console.error("Error obteniendo datos:", err);
-        setError("Fallo de red o credenciales denegadas.");
+        const errName = err?.name || (err?.constructor && err?.constructor.name) || "";
+        const errCode = err?.errorCode || err?.code || "";
+        const errMsg = err?.message || err?.errorMessage || "";
+
+        if (
+            errName === "BrowserAuthError" ||
+            errName === "InteractionRequiredAuthError" ||
+            errCode === "block_iframe_reload" ||
+            errCode === "timed_out" ||
+            errCode === "interaction_required" ||
+            errCode === "consent_required" ||
+            errCode === "login_required" ||
+            errMsg.includes("block_iframe_reload") ||
+            errMsg.includes("timed_out")
+        ) {
+            console.warn("MSAL silent token failure in ZombieResourcesTable, redirecting...", err);
+            instance.acquireTokenRedirect({
+                scopes: ["User.Read"],
+                account: accounts[0]
+            }).catch(e => console.error("Error initiating redirect login in ZombieResourcesTable:", e));
+        } else {
+            setError("Fallo de red o credenciales denegadas.");
+        }
         setLoading(false);
       }
     };
