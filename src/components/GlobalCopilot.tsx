@@ -50,7 +50,12 @@ export default function GlobalCopilot() {
         }
     }, [injectedPrompt, triggerCopilotWithPrompt]);
 
-    // Auto-fetch summary when opened and there are no messages
+    // Reset chat history when page context changes
+    React.useEffect(() => {
+        setMessages([]);
+    }, [currentPage]);
+
+    // Auto-fetch summary and suggestions when opened and there are no messages
     React.useEffect(() => {
         if (!isOpen || messages.length > 0 || !currentDataPayload || injectedPrompt) return;
         
@@ -61,7 +66,7 @@ export default function GlobalCopilot() {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        prompt: `Provide a brief 2-sentence executive summary of the data. Start the response by explicitly stating which module you are analyzing (e.g. "He analizado los datos de la página ${currentPage}").`,
+                        prompt: `He analizado los datos de la página "${currentPage}". Explica brevemente el estado actual reflejado en los datos y proporciona 2 o 3 sugerencias clave o acciones de optimización para esta sección. Responde en español de forma concisa.`,
                         pageContext: currentPage,
                         dataPayload: currentDataPayload
                     })
