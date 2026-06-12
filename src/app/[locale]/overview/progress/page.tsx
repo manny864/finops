@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
-import { TrendingUp, Loader2, MapPin, BarChart3, Check, Ruler, Moon, Flag } from 'lucide-react';
+import { TrendingUp, Loader2, MapPin, BarChart3, Check, Ruler, Moon, Flag, AlertTriangle } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export default function HistoricalProgressPage() {
@@ -10,28 +10,53 @@ export default function HistoricalProgressPage() {
     const { instance, accounts } = useMsal();
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState<any[]>([]);
+    const [advisorRecs, setAdvisorRecs] = useState<any[]>([]);
+    const [advisorSubs, setAdvisorSubs] = useState<any[]>([]);
+    const [advisorLoading, setAdvisorLoading] = useState(false);
 
     useEffect(() => {
         if (accounts.length === 0 || selectedTenant.id === 'default') return;
 
         const fetchData = async () => {
             setLoading(true);
+            setAdvisorLoading(true);
             try {
                 const tokenResponse = await instance.acquireTokenSilent({
                     scopes: ["User.Read"],
                     account: accounts[0]
                 });
-                const res = await fetch(`/api/intelligence/history`, {
+                
+                // Fetch History
+                const res = await fetch(`/api/intelligence/history?tenantId=${selectedTenant.id}`, {
                     headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
                 });
                 const json = await res.json();
                 if (json.data) {
                     setData(json.data);
                 }
+
+                // Fetch Advisor recommendations
+                const advRes = await fetch(`/api/advisor?tenantId=${selectedTenant.id}`, {
+                    headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
+                });
+                if (advRes.ok) {
+                    const advJson = await advRes.json();
+                    setAdvisorSubs(advJson.subscriptions || []);
+                    if (advJson.recommendations) {
+                        const flatRecs: any[] = [];
+                        Object.keys(advJson.recommendations).forEach(cat => {
+                            advJson.recommendations[cat].forEach((r: any) => {
+                                flatRecs.push({ ...r, category: cat });
+                            });
+                        });
+                        setAdvisorRecs(flatRecs);
+                    }
+                }
             } catch (e) {
                 console.error(e);
             }
             setLoading(false);
+            setAdvisorLoading(false);
         };
         fetchData();
     }, [selectedTenant, accounts, instance]);
@@ -202,41 +227,105 @@ export default function HistoricalProgressPage() {
                         </div>
                     </div>
 
-                    {/* Hitos */}
-                    <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 overflow-hidden">
-                        <div className="px-6 py-4 border-b border-gray-100 dark:border-slate-800 flex items-center text-slate-700 dark:text-slate-300 font-bold text-sm bg-white dark:bg-slate-900">
-                            <Flag className="w-4 h-4 mr-2 text-slate-500" />
-                            Hitos
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                        {/* Recursos Afectados */}
+                        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 overflow-hidden">
+                            <div className="px-6 py-4 border-b border-gray-100 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900">
+                                <div className="flex items-center text-slate-700 dark:text-slate-300 font-bold text-sm">
+                                    <AlertTriangle className="w-4 h-4 mr-2 text-amber-500" />
+                                    Recursos Afectados
+                                </div>
+                                <span className="text-[10px] font-bold uppercase py-1 px-2 rounded-md bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                                    Azure Advisor
+                                </span>
+                            </div>
+                            
+                            {advisorLoading ? (
+                                <div className="p-8 text-center text-slate-400 text-sm flex justify-center items-center gap-2">
+                                    <Loader2 className="w-4 h-4 animate-spin text-amber-500" />
+                                    Cargando recomendaciones...
+                                </div>
+                            ) : advisorRecs.length === 0 ? (
+                                <div className="p-8 text-center text-slate-400 text-sm">
+                                    Sin recursos afectados detectados por Advisor 🎉
+                                </div>
+                            ) : (
+                                <div className="divide-y divide-gray-50 dark:divide-slate-800 max-h-96 overflow-y-auto">
+                                    {advisorRecs.slice(0, 10).map((rec, idx) => {
+                                        const savings = parseFloat(rec.extendedProperties?.savingsAmount || '0');
+                                        const subName = advisorSubs.find(s => s.id === rec.subscriptionId)?.name || rec.subscriptionId;
+                                        
+                                        // Colors based on category
+                                        let catBadge = "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300";
+                                        if (rec.category === "Cost") catBadge = "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400";
+                                        else if (rec.category === "Security") catBadge = "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400";
+                                        else if (rec.category === "HighAvailability") catBadge = "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400";
+                                        else if (rec.category === "Performance") catBadge = "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400";
+
+                                        return (
+                                            <div key={idx} className="p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                                <div className="flex justify-between items-start gap-2">
+                                                    <div className="font-bold text-xs text-slate-800 dark:text-slate-200 truncate max-w-[200px]">
+                                                        {rec.impactedField || "Recurso"}
+                                                    </div>
+                                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${catBadge}`}>
+                                                        {rec.category}
+                                                    </span>
+                                                </div>
+                                                <div className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+                                                    {rec.shortDescription?.problem || rec.shortDescription?.solution || "Recomendación de Advisor"}
+                                                </div>
+                                                <div className="flex justify-between items-center mt-2 text-[10px] text-slate-400">
+                                                    <span className="truncate max-w-[150px] font-medium">{subName}</span>
+                                                    {savings > 0 && (
+                                                        <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                                                            -${savings.toFixed(0)}/mes
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
-                        <div className="divide-y divide-gray-50 dark:divide-slate-800">
-                            {/* Hito 1 */}
-                            <div className="p-4 flex items-start hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                <div className="bg-emerald-100 dark:bg-emerald-900/30 p-2 rounded-lg mr-4 mt-1">
-                                    <Check className="w-5 h-5 text-emerald-600 dark:text-emerald-400 stroke-[3]" />
-                                </div>
-                                <div>
-                                    <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">Onboarding del tenant</h4>
-                                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Conexión vía Entra ID y primera línea base de gasto establecida.</p>
-                                </div>
+
+                        {/* Hitos */}
+                        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 overflow-hidden">
+                            <div className="px-6 py-4 border-b border-gray-100 dark:border-slate-800 flex items-center text-slate-700 dark:text-slate-300 font-bold text-sm bg-white dark:bg-slate-900">
+                                <Flag className="w-4 h-4 mr-2 text-slate-500" />
+                                Hitos
                             </div>
-                            {/* Hito 2 */}
-                            <div className="p-4 flex items-start hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                <div className="bg-blue-50 dark:bg-blue-900/30 p-2 rounded-lg mr-4 mt-1 border border-blue-100 dark:border-blue-800/50">
-                                    <Ruler className="w-5 h-5 text-blue-500 dark:text-blue-400" />
+                            <div className="divide-y divide-gray-50 dark:divide-slate-800">
+                                {/* Hito 1 */}
+                                <div className="p-4 flex items-start hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                    <div className="bg-emerald-100 dark:bg-emerald-900/30 p-2 rounded-lg mr-4 mt-1">
+                                        <Check className="w-5 h-5 text-emerald-600 dark:text-emerald-400 stroke-[3]" />
+                                    </div>
+                                    <div>
+                                        <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">Onboarding del tenant</h4>
+                                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Conexión vía Entra ID y primera línea base de gasto establecida.</p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">Programa de rightsizing</h4>
-                                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Revisión continua de SKUs sobre métricas P95.</p>
+                                {/* Hito 2 */}
+                                <div className="p-4 flex items-start hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                    <div className="bg-blue-50 dark:bg-blue-900/30 p-2 rounded-lg mr-4 mt-1 border border-blue-100 dark:border-blue-800/50">
+                                        <Ruler className="w-5 h-5 text-blue-500 dark:text-blue-400" />
+                                    </div>
+                                    <div>
+                                        <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">Programa de rightsizing</h4>
+                                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Revisión continua de SKUs sobre métricas P95.</p>
+                                    </div>
                                 </div>
-                            </div>
-                            {/* Hito 3 */}
-                            <div className="p-4 flex items-start hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                <div className="bg-amber-50 dark:bg-amber-900/30 p-2 rounded-lg mr-4 mt-1 border border-amber-100 dark:border-amber-800/50">
-                                    <Moon className="w-5 h-5 text-amber-500 dark:text-amber-400 fill-amber-500 dark:fill-amber-400" />
-                                </div>
-                                <div>
-                                    <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">Apagado automático en no-productivos</h4>
-                                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Power schedules activos en QA y DEV.</p>
+                                {/* Hito 3 */}
+                                <div className="p-4 flex items-start hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                    <div className="bg-amber-50 dark:bg-amber-900/30 p-2 rounded-lg mr-4 mt-1 border border-amber-100 dark:border-amber-800/50">
+                                        <Moon className="w-5 h-5 text-amber-500 dark:text-amber-400 fill-amber-500 dark:fill-amber-400" />
+                                    </div>
+                                    <div>
+                                        <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">Apagado automático en no-productivos</h4>
+                                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Power schedules activos en QA y DEV.</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>

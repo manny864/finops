@@ -14,12 +14,18 @@ export async function GET(request: NextRequest) {
         const token = authHeader.split(" ")[1];
         const decoded = jwt.decode(token) as any;
 
-        if (!decoded || !decoded.tid) {
+        if (!decoded) {
             return NextResponse.json({ error: "Token inválido" }, { status: 401 });
         }
 
-        const tenantId = decoded.tid;
+        // Prefer explicit tenantId query param, fallback to JWT tid
+        const { searchParams } = new URL(request.url);
+        const tenantId = searchParams.get('tenantId') || decoded.tid;
+        if (!tenantId) {
+            return NextResponse.json({ error: "Missing tenantId" }, { status: 400 });
+        }
         const locale = request.headers.get('accept-language') || 'es';
+        console.log(`[History] Fetching for tenantId: ${tenantId}`);
 
         // 1. Obtener Credenciales y Token de Azure
         const credential = await getAzureCredential(tenantId);
@@ -52,10 +58,16 @@ export async function GET(request: NextRequest) {
                     const scoreData = await scoreRes.json();
                     const costScore = (scoreData.value || []).find((item: any) => item.name === "Cost");
                     if (costScore && costScore.properties?.timeSeries) {
-                        // Buscamos la agregación Weekly o Daily que contenga datos
-                        const timeSeries = costScore.properties.timeSeries.find((ts: any) => ts.scoreHistory && ts.scoreHistory.length > 0);
-                        if (timeSeries) {
-                            for (const point of timeSeries.scoreHistory) {
+                        // Prefer Weekly > Monthly > Daily for better historical spread
+                        const allSeries = costScore.properties.timeSeries as any[];
+                        const weekly = allSeries.find((ts: any) => ts.aggregationLevel === 'Weekly' && ts.scoreHistory?.length > 0);
+                        const monthly = allSeries.find((ts: any) => ts.aggregationLevel === 'Monthly' && ts.scoreHistory?.length > 0);
+                        const daily = allSeries.find((ts: any) => ts.aggregationLevel === 'Daily' && ts.scoreHistory?.length > 0);
+                        const bestSeries = weekly || monthly || daily;
+
+                        if (bestSeries) {
+                            console.log(`[History] Sub ${sub.id}: Using ${bestSeries.aggregationLevel} with ${bestSeries.scoreHistory.length} points`);
+                            for (const point of bestSeries.scoreHistory) {
                                 const dateStr = point.date.split("T")[0];
                                 if (!historyMap[dateStr]) {
                                     historyMap[dateStr] = { date: dateStr, totalScore: 0, count: 0, totalImpacted: 0, totalPotentialIncrease: 0 };
@@ -67,11 +79,15 @@ export async function GET(request: NextRequest) {
                             }
                         }
                     }
+                } else {
+                    console.warn(`[History] Advisor Score returned ${scoreRes.status} for sub ${sub.id}`);
                 }
             } catch (err) {
                 console.warn(`Error reading historical scores for sub ${sub.id}:`, err);
             }
         }
+
+        console.log(`[History] Total date points aggregated: ${Object.keys(historyMap).length}`);
 
         // 4. Consolidar y ordenar cronológicamente
         let aggregatedData = Object.values(historyMap)
@@ -82,27 +98,6 @@ export async function GET(request: NextRequest) {
                 potential_score_increase: parseFloat(item.totalPotentialIncrease.toFixed(1))
             }))
             .sort((a, b) => a.scan_date.localeCompare(b.scan_date));
-
-        // Fallback para demostración si el tenant no posee histórico de score en Azure Advisor
-        if (aggregatedData.length === 0) {
-            const mockData = [];
-            let currentScore = 62.4;
-            let currentImpacted = 18;
-            for (let i = 14; i >= 0; i--) {
-                const date = new Date();
-                date.setDate(date.getDate() - i);
-                mockData.push({
-                    scan_date: date.toISOString().split('T')[0],
-                    score: parseFloat(currentScore.toFixed(1)),
-                    impacted_resources: Math.round(currentImpacted),
-                    potential_score_increase: parseFloat((100 - currentScore).toFixed(1))
-                });
-                currentScore += 1.3;
-                currentScore = Math.min(currentScore, 92.5);
-                currentImpacted = Math.max(1, currentImpacted - 1.1);
-            }
-            aggregatedData = mockData;
-        }
 
         return NextResponse.json({ data: aggregatedData });
 
