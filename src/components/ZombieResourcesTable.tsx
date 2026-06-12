@@ -171,7 +171,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
             vnetGateways: { type: "VNet Gateway", armType: "microsoft.network/virtualnetworkgateways", issue: "Sin Conexiones", savings: 130.0, issueType: "cost", manualDelete: false },
             unusedVNetGateways: { type: "VNet Gateway", armType: "microsoft.network/virtualnetworkgateways", issue: "Sin Conexiones Activas", savings: 130.0, issueType: "cost", manualDelete: false },
             ddos: { type: "DDoS Plan", armType: "microsoft.network/ddosprotectionplans", issue: "Sin Recursos", savings: 2944.0, issueType: "cost", manualDelete: false },
-            emptyRgs: { type: "Resource Group", armType: "microsoft.resources/subscriptions/resourcegroups", issue: "RG Vacío", savings: 0.0, issueType: "governance", manualDelete: false },
+            emptyRgs: { type: "Resource Group", armType: "microsoft.resources/subscriptions/resourcegroups", issue: "RG Vacío", savings: 0.0, issueType: "governance", manualDelete: false, isHygiene: true },
             apiConnections: { type: "API Connection", armType: "microsoft.web/connections", issue: "Desconectada", savings: 0.0, issueType: "governance", manualDelete: false },
             expiredCerts: { type: "Certificate", armType: "microsoft.web/certificates", issue: "Expirado", savings: 0.0, issueType: "governance", manualDelete: false },
             unattachedPublicIps: { type: "PublicIPAddresses", armType: "microsoft.network/publicipaddresses", issue: "IP Pública sin asignar", savings: 3.5, issueType: "cost", manualDelete: false },
@@ -201,7 +201,8 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                 subscriptionId: r.subscriptionId || selectedSub,
                 potentialSavings: r.estimatedMonthlyCost || (r.diskSizeGB ? r.diskSizeGB * 0.15 : (r.sizeGB ? r.sizeGB * 0.05 : config.savings)),
                 issueType: config.issueType,
-                manualDelete: config.manualDelete
+                manualDelete: config.manualDelete,
+                isHygiene: r.isHygiene || config.isHygiene || false
             }));
             allMappedData = [...allMappedData, ...mapped];
         }
@@ -294,8 +295,16 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
     cols.push({
       accessorKey: 'potentialSavings',
       header: 'Ahorro Est.',
-      cell: info => {
-          const val = info.getValue() as number;
+      cell: ({ row }) => {
+          const item = row.original;
+          const val = item.potentialSavings as number;
+          if (item.isHygiene) {
+              return (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-violet-50 text-violet-700 border border-violet-200">
+                      Higiene
+                  </span>
+              );
+          }
           return <span className={`font-bold ${val > 0 ? "text-green-600" : "text-gray-400"}`}>{val > 0 ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(val) : "-"}</span>;
       }
     });

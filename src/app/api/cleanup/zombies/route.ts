@@ -88,7 +88,8 @@ export async function GET(request: NextRequest) {
         "unusedVNetGateways",
         "unusedLoadBalancers",
         "oldSnapshots",
-        "longStoppedVMs"
+        "longStoppedVMs",
+        "emptyRgs"
     ];
 
     let allZombies: any[] = [];
@@ -178,6 +179,10 @@ export async function GET(request: NextRequest) {
                         typeLabel = "microsoft.compute/virtualmachines";
                     }
                     break;
+                case "emptyRgs":
+                    cost = 0;
+                    typeLabel = "microsoft.resources/subscriptions/resourcegroups";
+                    break;
             }
 
             allZombies.push({
@@ -191,7 +196,9 @@ export async function GET(request: NextRequest) {
                 resourceGroup: res.resourceGroup,
                 subscriptionId: res.subscriptionId || subscriptionId || "all",
                 estimatedMonthlyCost: cost,
-                powerState: res.powerState
+                powerState: res.powerState,
+                isHygiene: key === "emptyRgs",
+                reason: key === "emptyRgs" ? "Grupo de recursos vacío" : undefined
             });
         }));
     }));
