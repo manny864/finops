@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
   output: 'standalone',
   distDir: process.env.PORT ? `.next-${process.env.PORT}` : '.next',
   /* config options here */
+  serverExternalPackages: ['mysql2'],
 };
 
 export default withNextIntl(nextConfig);
