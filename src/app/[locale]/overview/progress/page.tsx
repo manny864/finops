@@ -275,21 +275,21 @@ export default function HistoricalProgressPage() {
 
                                         return (
                                             <div key={idx} className="p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                                <div className="flex justify-between items-start gap-2">
-                                                    <div className="font-bold text-xs text-slate-800 dark:text-slate-200 truncate max-w-[200px]">
+                                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                                    <div className="font-bold text-xs text-slate-800 dark:text-slate-200 break-all select-all mr-2">
                                                         {rec.impactedField || "Recurso"}
                                                     </div>
-                                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${catBadge}`}>
+                                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${catBadge}`}>
                                                         {rec.category}
                                                     </span>
                                                 </div>
-                                                <div className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+                                                <div className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
                                                     {rec.shortDescription?.problem || rec.shortDescription?.solution || "Recomendación de Advisor"}
                                                 </div>
-                                                <div className="flex justify-between items-center mt-2 text-[10px] text-slate-400">
-                                                    <span className="truncate max-w-[150px] font-medium">{subName}</span>
+                                                <div className="flex flex-wrap justify-between items-center mt-3 pt-2 border-t border-slate-100 dark:border-slate-800/50 gap-2 text-[10px] text-slate-450 dark:text-slate-400">
+                                                    <span className="font-medium break-all">{subName}</span>
                                                     {savings > 0 && (
-                                                        <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                                                        <span className="font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap bg-emerald-50 dark:bg-emerald-950/30 px-2 py-0.5 rounded">
                                                             -${savings.toFixed(0)}/mes
                                                         </span>
                                                     )}
