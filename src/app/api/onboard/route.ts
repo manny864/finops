@@ -23,6 +23,31 @@ export async function POST(request: NextRequest) {
         const entraOid = decoded.oid;
         const email = decoded.preferred_username || decoded.email || "Unknown";
         
+        // Extraemos plan del body
+        let reqBody: any = {};
+        try {
+            reqBody = await request.json();
+        } catch (e) {
+            // Ignore if no body
+        }
+        const plan = reqBody.plan || 'free';
+        
+        let tier = 'Essential';
+        let subStatus = 'PENDING_PAYMENT';
+        let trialInterval = 0;
+        
+        if (plan === 'pro') {
+            tier = 'Professional';
+            subStatus = 'TRIAL';
+            trialInterval = 14;
+        } else if (plan === 'business') {
+            tier = 'Business';
+            subStatus = 'TRIAL';
+            trialInterval = 14;
+        } else if (plan === 'enterprise') {
+            tier = 'Enterprise';
+        }
+
         let companyName = "Entorno: " + tenantId.substring(0,8);
         if (email.includes('@')) {
             companyName = email.split('@')[1];
@@ -34,11 +59,19 @@ export async function POST(request: NextRequest) {
             await connection.beginTransaction();
 
             // Insert Tenant (Ignore if already exists to preserve custom names)
+            // Asignamos el tier si es nuevo, sino lo mantenemos
+            let trialEndsAtValue = null;
+            if (trialInterval > 0) {
+                const now = new Date();
+                now.setDate(now.getDate() + trialInterval);
+                trialEndsAtValue = now.toISOString().slice(0, 19).replace('T', ' ');
+            }
+
             const insertTenantQuery = `
-                INSERT IGNORE INTO Tenants (tenant_id, company_name) 
-                VALUES (?, ?) 
+                INSERT IGNORE INTO Tenants (tenant_id, company_name, tier, subscription_status, trial_ends_at) 
+                VALUES (?, ?, ?, ?, ?) 
             `;
-            await connection.query(insertTenantQuery, [tenantId, companyName]);
+            await connection.query(insertTenantQuery, [tenantId, companyName, tier, subStatus, trialEndsAtValue]);
 
             // UPSERT User
             const insertUserQuery = `

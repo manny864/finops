@@ -1,8 +1,10 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { Terminal, Copy, Check, Server, ShieldCheck } from "lucide-react";
+import { Terminal, Copy, Check, Server, ShieldCheck, Database } from "lucide-react";
+import { useTenant } from '@/components/TenantProvider';
 
 export default function OnboardingPage() {
+  const { selectedTenant } = useTenant();
   const [tenants, setTenants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -13,6 +15,13 @@ export default function OnboardingPage() {
   const [generatedScript, setGeneratedScript] = useState("");
   const [generating, setGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Set the default form tenant ID when the page loads
+  useEffect(() => {
+      if (selectedTenant && selectedTenant.id !== 'default') {
+          setFormTenantId(selectedTenant.id);
+      }
+  }, [selectedTenant]);
 
   const fetchTenants = async () => {
     setLoading(true);
@@ -93,6 +102,76 @@ export default function OnboardingPage() {
         <p className="text-gray-500 mt-2">Genera scripts Least-Privilege de Azure y gestiona el inventario de Tenants conectados.</p>
       </div>
 
+      {/* Directorio de Entornos */}
+      <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden mb-8">
+          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50/50 flex items-center">
+              <Database className="w-5 h-5 text-gray-500 mr-2" />
+              <h3 className="text-lg font-bold text-gray-800">Directorio de Entornos</h3>
+          </div>
+          <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                      <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tenant ID (Azure)</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre del Cliente / Dominio</th>
+                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                      </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                      {tenants.filter(t => t.id === selectedTenant.id).map((tenant) => (
+                          <tr key={tenant.id} className="hover:bg-gray-50 transition-colors">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-500 font-mono">
+                                  {tenant.id}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                  <div className="flex flex-col space-y-2">
+                                      <input 
+                                          type="text" 
+                                          value={tenant.name} 
+                                          onChange={(e) => handleNameChange(tenant.id, 'name', e.target.value)}
+                                          className="border border-gray-300 rounded px-2 py-1 text-sm focus:ring-indigo-500 focus:border-indigo-500 w-full md:w-64"
+                                      />
+                                      <div className="flex space-x-2">
+                                          <input 
+                                              type="text" 
+                                              placeholder="Client ID"
+                                              value={tenant.client_id || ''} 
+                                              onChange={(e) => handleNameChange(tenant.id, 'client_id', e.target.value)}
+                                              className="border border-gray-300 rounded px-2 py-1 text-sm focus:ring-indigo-500 focus:border-indigo-500 w-32 md:w-48"
+                                          />
+                                          <input 
+                                              type="password" 
+                                              placeholder="Client Secret"
+                                              value={tenant.client_secret || ''} 
+                                              onChange={(e) => handleNameChange(tenant.id, 'client_secret', e.target.value)}
+                                              className="border border-gray-300 rounded px-2 py-1 text-sm focus:ring-indigo-500 focus:border-indigo-500 w-32 md:w-48"
+                                          />
+                                      </div>
+                                  </div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                  <button 
+                                      onClick={() => saveTenant(tenant.id, tenant.name, tenant.client_id, tenant.client_secret)}
+                                      disabled={savingId === tenant.id}
+                                      className="bg-gray-900 text-white px-4 py-2 rounded-md hover:bg-gray-800 transition-colors disabled:opacity-50"
+                                  >
+                                      {savingId === tenant.id ? 'Guardando...' : 'Guardar'}
+                                  </button>
+                              </td>
+                          </tr>
+                      ))}
+                      {tenants.filter(t => t.id === selectedTenant.id).length === 0 && !loading && (
+                          <tr>
+                              <td colSpan={3} className="px-6 py-4 text-center text-sm text-gray-500">
+                                  El entorno no está sincronizado con la base de datos.
+                              </td>
+                          </tr>
+                      )}
+                  </tbody>
+              </table>
+          </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           {/* Generador de Script */}
           <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
@@ -123,6 +202,7 @@ export default function OnboardingPage() {
                               className="border border-gray-300 rounded px-3 py-2 w-full focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                               placeholder="Ej: 12345678-abcd-1234-..."
                           />
+                          <p className="text-xs text-gray-500 mt-1">* Si necesitas agregar más de 1 suscripción, sepáralas por comas (ej: sub-1, sub-2).</p>
                       </div>
                       <button 
                           type="submit" 
@@ -174,76 +254,6 @@ export default function OnboardingPage() {
           </div>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden mt-8">
-        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50/50 flex items-center">
-            <Server className="w-5 h-5 text-gray-500 mr-2" />
-            <h3 className="text-lg font-bold text-gray-800">Directorio de Entornos</h3>
-        </div>
-        
-        {loading ? (
-            <div className="p-10 text-center text-gray-400 animate-pulse">Cargando base de datos...</div>
-        ) : (
-            <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                        <tr>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Tenant ID (Azure)</th>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Nombre del Cliente / Dominio</th>
-                            <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                        {tenants.map((t) => (
-                            <tr key={t.id} className="hover:bg-gray-50 transition-colors">
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-500">{t.id}</td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <input 
-                                        type="text" 
-                                        value={t.name}
-                                        onChange={(e) => handleNameChange(t.id, 'name', e.target.value)}
-                                        className="border border-gray-300 rounded px-3 py-1.5 text-sm w-full max-w-sm focus:ring-2 focus:ring-[#0054A6] focus:border-[#0054A6] transition-shadow outline-none mb-2"
-                                        placeholder="Nombre del Cliente"
-                                    />
-                                    <div className="flex gap-2">
-                                        <input 
-                                            type="text" 
-                                            value={t.client_id || ''}
-                                            onChange={(e) => handleNameChange(t.id, 'client_id', e.target.value)}
-                                            className="border border-gray-300 rounded px-3 py-1.5 text-xs w-full focus:ring-2 focus:ring-[#0054A6] focus:border-[#0054A6] transition-shadow outline-none"
-                                            placeholder="Client ID"
-                                        />
-                                        <input 
-                                            type="password" 
-                                            value={t.client_secret || ''}
-                                            onChange={(e) => handleNameChange(t.id, 'client_secret', e.target.value)}
-                                            className="border border-gray-300 rounded px-3 py-1.5 text-xs w-full focus:ring-2 focus:ring-[#0054A6] focus:border-[#0054A6] transition-shadow outline-none"
-                                            placeholder="Client Secret"
-                                        />
-                                    </div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-right">
-                                    <button
-                                        onClick={() => saveTenant(t.id, t.name, t.client_id, t.client_secret)}
-                                        disabled={savingId === t.id}
-                                        className="bg-gray-800 hover:bg-black text-white px-4 py-1.5 rounded-md text-xs font-bold shadow-sm transition-colors disabled:opacity-50"
-                                    >
-                                        {savingId === t.id ? 'Guardando...' : 'Guardar'}
-                                    </button>
-                                </td>
-                            </tr>
-                        ))}
-                        {tenants.length === 0 && (
-                            <tr>
-                                <td colSpan={3} className="px-6 py-10 text-center text-sm text-gray-500">
-                                    No hay tenants registrados en la base de datos MySQL aún.
-                                </td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
-            </div>
-        )}
-      </div>
     </div>
   );
 }

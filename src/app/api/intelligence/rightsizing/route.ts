@@ -3,6 +3,7 @@ import { getResourceGraphClient, getAzureCredential, getSubscriptionsForTenant }
 import { getVmUtilization } from '@/modules/collectors/azure/metricsService';
 import { analyzeVmEfficiency } from '@/modules/core/rightsizingEngine';
 import { getMonthlyCostEstimate } from '@/services/pricingService';
+import { getMockDataForRoute } from '@/lib/mockData';
 
 async function queryResourceGraphWithRetry(client: any, query: string, subscriptions: string[], retries = 3, initialDelay = 3000): Promise<any> {
     let currentDelay = initialDelay;
@@ -30,6 +31,9 @@ export async function GET(request: NextRequest) {
         if (!tenantId || !subscriptionId) {
             return NextResponse.json({ error: 'Faltan credenciales del entorno' }, { status: 400 });
         }
+
+        const mockData = getMockDataForRoute('rightsizing', tenantId);
+        if (mockData) return NextResponse.json(mockData);
 
         const argClient = await getResourceGraphClient(tenantId);
         let subs: string[] | undefined = undefined;

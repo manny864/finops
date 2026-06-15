@@ -202,7 +202,8 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                 potentialSavings: r.estimatedMonthlyCost || (r.diskSizeGB ? r.diskSizeGB * 0.15 : (r.sizeGB ? r.sizeGB * 0.05 : config.savings)),
                 issueType: config.issueType,
                 manualDelete: config.manualDelete,
-                isHygiene: r.isHygiene || config.isHygiene || false
+                isHygiene: r.isHygiene || config.isHygiene || false,
+                isLocked: r.isLocked || false
             }));
             allMappedData = [...allMappedData, ...mapped];
         }
@@ -256,12 +257,17 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
     });
   }, [data, filterType, filterGroup, filterIssue, searchQuery]);
 
+  const hasLockedItems = useMemo(() => filteredData.some(item => item.isLocked), [filteredData]);
+
   const columns = useMemo<ColumnDef<any>[]>(() => {
     const cols: ColumnDef<any>[] = [
       {
         accessorKey: 'resourceName',
         header: 'Recurso',
-        cell: info => <span className="font-semibold text-gray-800">{info.getValue() as string}</span>,
+        cell: ({ row }) => {
+            const item = row.original;
+            return <span className={`font-semibold text-gray-800 ${item.isLocked ? 'filter blur-sm select-none' : ''}`}>{item.resourceName}</span>;
+        },
       }
     ];
 
@@ -272,7 +278,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
         cell: ({ row }) => {
             const item = row.original;
             return (
-                <div className="text-xs font-mono max-w-[150px] truncate" title={item.id}>
+                <div className={`text-xs font-mono max-w-[150px] truncate ${item.isLocked ? 'filter blur-sm select-none' : ''}`} title={item.id}>
                     <div className="text-gray-500 font-semibold">{item.id?.split('/').pop()}</div>
                     <div className="text-[10px] text-gray-400 mt-1">{item.armType}</div>
                 </div>
@@ -298,7 +304,10 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
     cols.push({
       accessorKey: 'resourceGroup',
       header: 'Grupo',
-      cell: info => <span className="text-xs text-gray-600 font-medium">{info.getValue() as string || 'N/A'}</span>
+      cell: ({ row }) => {
+          const item = row.original;
+          return <span className={`text-xs text-gray-600 font-medium ${item.isLocked ? 'filter blur-sm select-none' : ''}`}>{item.resourceGroup || 'N/A'}</span>;
+      }
     });
 
     cols.push({
@@ -465,7 +474,14 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
           <div className="empty animate-pulse">Escaneando Azure Resource Graph...</div>
       ) : (
         <div className="flex flex-col">
-            <div className="overflow-x-auto w-full">
+            <div className="overflow-x-auto w-full relative">
+                {hasLockedItems && (
+                    <div className="absolute inset-x-0 bottom-0 top-12 z-10 flex flex-col items-center justify-center bg-white/40 backdrop-blur-[1px]">
+                        <a href="/upgrade" className="px-6 py-3 bg-brand-deep text-white font-bold rounded-lg shadow-lg hover:bg-brand-bright transition-all hover:scale-105 inline-flex items-center gap-2">
+                            Upgrade to Professional to unlock exact resource names and start saving
+                        </a>
+                    </div>
+                )}
                 <table className="tbl w-full" style={{ width: table.getCenterTotalSize() }}>
                     <thead>
                     {table.getHeaderGroups().map(headerGroup => (

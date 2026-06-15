@@ -1,10 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/modules/storage/db';
+import { tenants as mockTenants } from '@/lib/tenants';
+import { verifySubscription } from '@/lib/apiSecurity';
 
 export async function GET(request: NextRequest) {
     try {
-        const [rows] = await pool.query('SELECT tenant_id as id, company_name as name, client_id, client_secret FROM Tenants ORDER BY created_at ASC');
-        return NextResponse.json({ success: true, tenants: rows });
+        const [rows] = await pool.query('SELECT tenant_id as id, company_name as name, client_id, client_secret, tier, trial_ends_at, subscription_status FROM Tenants ORDER BY created_at ASC');
+        
+        // Inyectar datos mock para demos de tiers
+        const allTenants = [...(rows as any[])];
+        for (const mock of mockTenants) {
+            if (!allTenants.find(t => t.id === mock.id)) {
+                allTenants.push(mock);
+            }
+        }
+        
+        return NextResponse.json({ success: true, tenants: allTenants });
     } catch (error: any) {
         console.error('API GET /tenants error:', error);
         return NextResponse.json({ error: 'Fallo al leer la base de datos' }, { status: 500 });
@@ -18,6 +29,11 @@ export async function POST(request: NextRequest) {
 
         if (!tenantId) {
             return NextResponse.json({ error: 'Falta tenantId' }, { status: 400 });
+        }
+
+        const isAuthorized = await verifySubscription(tenantId);
+        if (!isAuthorized) {
+            return NextResponse.json({ error: 'Forbidden: Active subscription required' }, { status: 403 });
         }
 
         // INSERT IGNORE ensures we don't duplicate clients that already logged in
@@ -42,6 +58,11 @@ export async function PUT(request: NextRequest) {
             return NextResponse.json({ error: 'Faltan datos' }, { status: 400 });
         }
 
+        const isAuthorized = await verifySubscription(tenantId);
+        if (!isAuthorized) {
+            return NextResponse.json({ error: 'Forbidden: Active subscription required' }, { status: 403 });
+        }
+
         await pool.query(
             'UPDATE Tenants SET company_name = ?, client_id = ?, client_secret = ? WHERE tenant_id = ?',
             [name, clientId || null, clientSecret || null, tenantId]
@@ -51,5 +72,32 @@ export async function PUT(request: NextRequest) {
     } catch (error: any) {
         console.error('API PUT /tenants error:', error);
         return NextResponse.json({ error: 'Fallo al actualizar Tenant' }, { status: 500 });
+    }
+}
+
+export async function DELETE(request: NextRequest) {
+    try {
+        const { searchParams } = new URL(request.url);
+        const tenantId = searchParams.get('tenantId');
+
+        if (!tenantId) {
+            return NextResponse.json({ error: 'Falta tenantId' }, { status: 400 });
+        }
+
+        // TODO: Para integracion real con LemonSqueezy, aqui se haria un fetch a
+        // DELETE https://api.lemonsqueezy.com/v1/subscriptions/{subscriptionId}
+        // Usando process.env.LEMON_SQUEEZY_API_KEY
+        console.log(`[Billing] Finalizando facturacion para tenant: ${tenantId}`);
+
+        // Eliminar usuarios asociados
+        await pool.query('DELETE FROM Users WHERE tenant_id = ?', [tenantId]);
+
+        // Eliminar Tenant
+        await pool.query('DELETE FROM Tenants WHERE tenant_id = ?', [tenantId]);
+
+        return NextResponse.json({ success: true, message: 'Entorno eliminado y facturacion finalizada.' });
+    } catch (error: any) {
+        console.error('API DELETE /tenants error:', error);
+        return NextResponse.json({ error: 'Fallo al eliminar Tenant' }, { status: 500 });
     }
 }

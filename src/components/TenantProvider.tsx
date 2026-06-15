@@ -5,6 +5,9 @@ import { useMsal } from '@azure/msal-react';
 export interface Tenant {
   id: string;
   name: string;
+  tier?: string;
+  subscription_status?: string;
+  trial_ends_at?: string;
 }
 
 interface TenantContextType {
@@ -12,6 +15,7 @@ interface TenantContextType {
   setSelectedTenant: (tenant: Tenant) => void;
   isAdmin: boolean;
   tenants: Tenant[];
+  userRole: string;
 }
 
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
@@ -36,6 +40,7 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
     }
   }, [selectedTenant]);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [userRole, setUserRole] = useState<string>('Reader'); // Default to lowest privilege
 
   // Leer Base de Datos MySQL
   useEffect(() => {
@@ -85,8 +90,47 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
     }
   }, [accounts, tenantsList]);
 
+  const { instance } = useMsal();
+  useEffect(() => {
+      // Fetch the role for the current tenant
+      if (selectedTenant.id !== 'default' && accounts.length > 0) {
+          const fetchRole = async () => {
+              try {
+                  const tokenResponse = await instance.acquireTokenSilent({
+                      scopes: ["User.Read"],
+                      account: accounts[0]
+                  });
+                  const res = await fetch(`/api/admin/config/users?tenantId=${selectedTenant.id}`, {
+                      headers: { Authorization: `Bearer ${tokenResponse.idToken}` }
+                  });
+                  if (res.ok) {
+                      const data = await res.json();
+                      const myUser = data.users?.find((u: any) => u.entra_oid === (accounts[0].idTokenClaims as any)?.oid || u.entra_oid === accounts[0].localAccountId);
+                      if (myUser && myUser.role) {
+                          setUserRole(myUser.role);
+                      } else {
+                          // Si es el admin (owner) y no está en Users (o es SuperAdmin), dale Admin.
+                          if (isAdmin || accounts[0].tenantId === selectedTenant.id) {
+                              setUserRole('Admin');
+                          } else {
+                              setUserRole('Reader');
+                          }
+                      }
+                  } else {
+                      if (isAdmin || accounts[0].tenantId === selectedTenant.id) setUserRole('Admin');
+                      else setUserRole('Reader');
+                  }
+              } catch(e) {
+                  console.error("Error fetching role", e);
+                  if (isAdmin || accounts[0].tenantId === selectedTenant.id) setUserRole('Admin');
+              }
+          };
+          fetchRole();
+      }
+  }, [selectedTenant.id, accounts, instance, isAdmin]);
+
   return (
-    <TenantContext.Provider value={{ selectedTenant, setSelectedTenant, isAdmin, tenants: tenantsList }}>
+    <TenantContext.Provider value={{ selectedTenant, setSelectedTenant, isAdmin, tenants: tenantsList, userRole }}>
       {children}
     </TenantContext.Provider>
   );

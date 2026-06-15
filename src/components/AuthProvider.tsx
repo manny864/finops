@@ -76,11 +76,16 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
                 if (event.eventType === EventType.LOGIN_SUCCESS && event.payload) {
                     const payload = event.payload as AuthenticationResult;
                     const accessToken = payload.idToken; // FIX: Se envía el idToken para que el backend pueda extraer los claims 'tid' y 'oid'
+                    const pendingPlan = sessionStorage.getItem('pendingUpgrade');
                     
                     console.log("Login exitoso. Ejecutando registro/onboarding en BD silente...");
                     fetch('/api/onboard', {
                         method: 'POST',
-                        headers: { 'Authorization': `Bearer ${accessToken}` }
+                        headers: { 
+                            'Authorization': `Bearer ${accessToken}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ plan: pendingPlan })
                     }).then(res => res.json()).then(data => {
                         if (data.success) {
                             console.log("Onboarding en Base de Datos exitoso.");

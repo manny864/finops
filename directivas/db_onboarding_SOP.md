@@ -12,9 +12,12 @@ Implementar la capa de persistencia local (MySQL). Al recibir un token válido a
    - Utilizar transacciones SQL para `UPSERT` en `Tenants` y posteriormente en `Users` para evitar errores de claves foráneas.
 4. UI `AuthProvider.tsx`: Inicializar MSAL, lanzar `loginPopup()`, capturar el `accessToken` y hacer fetch hacia la API de Onboarding.
 
-## Trampas Conocidas / Restricciones
-- **Tokens MSAL**: Al realizar el onboarding hacia nuestra API local, el frontend DEBE enviar el `payload.idToken` como Bearer token, no el `payload.accessToken`. Los Access Tokens emitidos para Graph suelen ser opacos o carecer de los claims de identidad (`tid`, `oid`), lo que provocará el error de 'Token inválido o incompleto'.
-- La lectura de `schema.sql` desde un entorno Serverless de Next.js (`process.cwd()`) puede tener conflictos de rutas absolutas si no se utiliza `path.join()`.
-- MSAL v3 en adelante suele requerir inicialización asíncrona (`await msalInstance.initialize()`), de no tenerlo en cuenta, lanzará un error silencioso en el navegador antes del popup.
-- Siempre utilizar `ON DUPLICATE KEY UPDATE` o la lógica `INSERT IGNORE` en lugar del simple `INSERT` para que un tenant o usuario que inicie sesión dos veces no colapse el motor de base de datos por los campos UNIQUE.
-- **Sintaxis SQL Obsoleta**: En MySQL 8.0.20+, la sintaxis `VALUES(columna)` dentro de un `ON DUPLICATE KEY UPDATE` está deprecada y puede causar un "Error interno del servidor" en entornos de producción modernos. Utiliza siempre la vinculación de parámetros directa: `ON DUPLICATE KEY UPDATE columna = ?` pasando la variable nuevamente en el array de valores.
+## Trampas y Restricciones
+
+1. **MySQL 8 y `caching_sha2_password` (Error de Acceso Denegado)**:
+   - *Problema*: Al ejecutar la base de datos en Docker con MySQL 8.0+, la conexión desde Node.js (host a container) puede fallar con `Access denied for user 'finops_user'@'...'`. Esto ocurre porque Docker levanta MySQL con el plugin `caching_sha2_password` por defecto, el cual requiere configuración estricta de SSL o puede tener conflictos con la IP del gateway de Docker.
+   - *Solución*: Debes conectarte a la base de datos y cambiar el plugin de autenticación del usuario a `mysql_native_password` ejecutando:
+     `ALTER USER 'finops_user'@'%' IDENTIFIED WITH mysql_native_password BY 'finopspassword'; FLUSH PRIVILEGES;`
+   - *Prevención*: En entornos de desarrollo locales con Docker, es preferible añadir `--default-authentication-plugin=mysql_native_password` al `command` de `docker-compose.yml`.
+
+2. **Evitar duplicados (Idempotencia)**: Usamos `INSERT IGNORE` para el Tenant y `ON DUPLICATE KEY UPDATE` para Users. Si un usuario ya existe, simplemente se actualiza su email para mantener el rol de administrador intacto.

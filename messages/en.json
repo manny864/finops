@@ -281,5 +281,62 @@
     "welcome_message": "Hi! I'm your FinOps assistant and I'm here to help. I'm currently analyzing the <b>{page}</b> module; you can ask me anything related to the data shown on this page.",
     "title": "FinOps Copilot",
     "placeholder": "Ask about these metrics..."
+  },
+  "pricing": {
+    "monthly": "Monthly",
+    "annual": "Annual",
+    "save12": "Save 12%",
+    "tryNow": "Try Now",
+    "buyNow": "Buy Now",
+    "contactSales": "Contact Sales",
+    "title": "Simple, Fixed Pricing",
+    "subtitle": "Whether you are a startup or Enterprise, we have simple, fixed-rate plans that do not contribute to your cost problems.",
+    "essential": {
+      "name": "Essential (Starter)",
+      "desc": "For companies just starting to worry about their Azure costs.",
+      "f1": "1 Supported Subscription",
+      "f2": "Interactive Dashboard (Consumption, Savings, CO2)",
+      "f3": "Basic Zombie Resources Detection",
+      "f4": "Instance Analysis (Rightsizing via Advisor)",
+      "f5": "Read Only"
+    },
+    "pro": {
+      "name": "Professional",
+      "badge": "Recommended",
+      "trial": "14-Day Free Trial",
+      "desc": "For mid-sized companies needing to understand trends and report.",
+      "f1": "Everything in Essential",
+      "f2": "Max 5 users",
+      "f3": "Up to 5 Supported Subscriptions",
+      "f4": "BI Module (Preset.io / Superset)",
+      "f5": "AI Copilot (Limited Gemini Queries)",
+      "f6": "Proactive Consumption Alerts"
+    },
+    "business": {
+      "name": "Business",
+      "desc": "Basic automation and multiple environments for growing companies.",
+      "f1": "Everything in Professional",
+      "f2": "Max 20 users",
+      "f3": "Up to 20 Supported Subscriptions",
+      "f4": "Advanced Tag Management",
+      "f5": "Expanded AI Copilot",
+      "f6": "Basic License Auditing"
+    },
+    "enterprise": {
+      "name": "Enterprise",
+      "price": "Custom Pricing",
+      "badge": "Total Control",
+      "desc": "For corporations with complex topologies (Hub & Spoke).",
+      "f1": "Everything in Business",
+      "f2": "Unlimited users",
+      "f3": "Unlimited Subscriptions",
+      "f4": "Action Center (1-Click Remediation)",
+      "f5": "Power Schedules (VM Shutdown)",
+      "f6": "Deep AHUB Auditing",
+      "f7": "Unlimited AI Copilot"
+    }
+  },
+  "auth": {
+    "paymentSuccess": "Payment completed successfully! Please log in to access your plan."
   }
 }

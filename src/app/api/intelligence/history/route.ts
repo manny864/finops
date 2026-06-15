@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAzureCredential } from "@/lib/azure";
 import db from "@/modules/storage/db";
 import jwt from "jsonwebtoken";
+import { getMockDataForRoute } from "@/lib/mockData";
 
 // GET Historical data dynamically from Azure Advisor Score History
 export async function GET(request: NextRequest) {
@@ -26,6 +27,9 @@ export async function GET(request: NextRequest) {
         }
         const locale = request.headers.get('accept-language') || 'es';
         console.log(`[History] Fetching for tenantId: ${tenantId}`);
+
+        const mockData = getMockDataForRoute('history', tenantId);
+        if (mockData) return NextResponse.json(mockData);
 
         // 1. Obtener Credenciales y Token de Azure
         const credential = await getAzureCredential(tenantId);

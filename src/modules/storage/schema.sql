@@ -6,6 +6,9 @@ CREATE TABLE IF NOT EXISTS Tenants (
     client_secret VARCHAR(255),
     status VARCHAR(50) DEFAULT 'active',
     webhook_url VARCHAR(255),
+    tier ENUM('Essential', 'Professional', 'Business', 'Enterprise') DEFAULT 'Essential',
+    trial_ends_at DATETIME NULL,
+    subscription_status ENUM('TRIAL', 'ACTIVE', 'EXPIRED') DEFAULT 'ACTIVE',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
