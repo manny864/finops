@@ -281,5 +281,62 @@
     "welcome_message": "¡Hola! Soy tu asistente de FinOps y estoy aquí para ayudarte. Estoy analizando el módulo <b>{page}</b>; puedes preguntarme cualquier cosa relacionada con los datos que muestra esta página.",
     "title": "FinOps Copilot",
     "placeholder": "Pregunta sobre estas métricas..."
+  },
+  "pricing": {
+    "monthly": "Mensual",
+    "annual": "Anual",
+    "save12": "Ahorra 12%",
+    "tryNow": "Pruébalo Ahora",
+    "buyNow": "Comprar Ahora",
+    "contactSales": "Contactar Ventas",
+    "title": "Precios Simples y Fijos",
+    "subtitle": "Ya seas una startup o Enterprise, tenemos planes simples y fijos que no agravan tus problemas de costos.",
+    "essential": {
+      "name": "Essential (Starter)",
+      "desc": "Para empresas que recién empiezan a preocuparse por sus costos en Azure.",
+      "f1": "1 Suscripción soportada",
+      "f2": "Dashboard interactivo (Consumo, Ahorro, CO2)",
+      "f3": "Detección de Recursos Zombies básica",
+      "f4": "Análisis de instancias (Rightsizing via Advisor)",
+      "f5": "Solo Lectura"
+    },
+    "pro": {
+      "name": "Professional",
+      "badge": "Recomendado",
+      "trial": "Prueba Gratis de 14 Días",
+      "desc": "Para empresas medianas que necesitan entender tendencias y reportar.",
+      "f1": "Todo lo del plan Essential",
+      "f2": "Max 5 usuarios",
+      "f3": "Hasta 5 Suscripciones soportadas",
+      "f4": "Módulo BI (Preset.io / Superset)",
+      "f5": "Copilot IA (Consultas limitadas a Gemini)",
+      "f6": "Alertas Proactivas de consumo"
+    },
+    "business": {
+      "name": "Business",
+      "desc": "Automatización básica y múltiples entornos para empresas en crecimiento.",
+      "f1": "Todo lo del plan Professional",
+      "f2": "Max 20 usuarios",
+      "f3": "Hasta 20 Suscripciones soportadas",
+      "f4": "Gestión Avanzada de Etiquetas (Tags)",
+      "f5": "Copilot IA Expandido",
+      "f6": "Auditoría básica de licencias"
+    },
+    "enterprise": {
+      "name": "Enterprise",
+      "price": "Precio Personalizado",
+      "badge": "Control Total",
+      "desc": "Para corporaciones con topologías complejas (Hub & Spoke).",
+      "f1": "Todo lo del plan Business",
+      "f2": "Usuarios Ilimitados",
+      "f3": "Suscripciones Ilimitadas",
+      "f4": "Action Center (Remediación 1-Click)",
+      "f5": "Power Schedules (Apagado de VMs)",
+      "f6": "Auditoría AHUB profunda",
+      "f7": "Copilot IA Ilimitado"
+    }
+  },
+  "auth": {
+    "paymentSuccess": "¡Pago completado con éxito! Por favor, inicia sesión para acceder a tu plan."
   }
 }

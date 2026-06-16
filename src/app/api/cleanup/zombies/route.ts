@@ -3,6 +3,7 @@ import { getResourceGraphClient, getAzureCredential, getSubscriptionsForTenant }
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { runGraphAudits } from "@/services/auditService";
 import { getMonthlyCostEstimate } from "@/services/pricingService";
+import { tenants } from "@/lib/tenants";
 import jwt from "jsonwebtoken";
 
 async function queryResourceGraphWithRetry(client: any, query: string, subscriptions: string[], retries = 3, initialDelay = 3000): Promise<any> {
@@ -219,6 +220,21 @@ export async function GET(request: NextRequest) {
             });
         }));
     }));
+
+    // Lógica Freemium Teaser
+    const tenantObj = tenants.find(t => t.id === tenantId);
+    const tier = tenantObj?.tier || 'Essential';
+
+    if (tier === 'Essential') {
+        allZombies = allZombies.map(z => ({
+            ...z,
+            name: "**********",
+            resourceId: "**********",
+            id: "**********",
+            resourceGroup: "**********",
+            isLocked: true
+        }));
+    }
 
     return NextResponse.json({ success: true, data: allZombies });
 

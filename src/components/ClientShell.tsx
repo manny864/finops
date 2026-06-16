@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, createContext } from 'react';
+import React, { useState, createContext, useEffect } from 'react';
 import AuthProvider, { AuthButton } from "./AuthProvider";
 import { TenantProvider, useTenant } from './TenantProvider';
 import { SubscriptionProvider } from './SubscriptionProvider';
@@ -12,7 +12,11 @@ import LanguageSwitcher from './LanguageSwitcher';
 import Sidebar from "./Sidebar";
 import ActionCenterDrawer from './ActionCenterDrawer';
 import CostToggle from './dashboard/CostToggle';
+import PricingPage from './PricingPage';
 import { useActionLogStore } from '@/store/actionLogStore';
+import { useRouter, usePathname } from '@/i18n/routing';
+import { useSearchParams } from 'next/navigation';
+import { toast } from 'sonner';
 
 import { useMsal, useIsAuthenticated } from "@azure/msal-react";
 
@@ -37,14 +41,65 @@ export default function ClientShell({ children }: { children: React.ReactNode })
 
 function ShellContent({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-    const [drawerOpen, setDrawerOpen] = useState(false);
-    const { actions } = useActionLogStore();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [showPricing, setShowPricing] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
   const { selectedTenant, setSelectedTenant, isAdmin, tenants } = useTenant();
   const { instance, accounts, inProgress } = useMsal();
   const isAuthenticated = useIsAuthenticated();
   const { viewMode, toggleViewMode } = useViewMode();
+  const t = useTranslations('nav');
   const tc = useTranslations('Common');
+  const tAuth = useTranslations('auth');
+  const actions = useActionLogStore(state => state.actions);
+
+  const router = useRouter();
+  const pathname = usePathname() || '';
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+      const paymentStatus = searchParams?.get('payment');
+      if (paymentStatus === 'success') {
+          toast.success(tAuth('paymentSuccess'), { duration: 5000 });
+          const newUrl = pathname;
+          router.replace(newUrl);
+      }
+  }, [searchParams, tAuth, pathname, router]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      const pendingPlan = sessionStorage.getItem('pendingUpgrade');
+      if (pendingPlan && pendingPlan !== 'free') {
+        sessionStorage.removeItem('pendingUpgrade');
+        // Handle checkout post-login
+        const triggerCheckout = async () => {
+          try {
+             const tokenResponse = await instance.acquireTokenSilent({
+               scopes: ["User.Read"],
+               account: accounts[0]
+             });
+             const res = await fetch('/api/checkout', {
+               method: 'POST',
+               headers: {
+                   'Authorization': `Bearer ${tokenResponse.idToken}`,
+                   'Content-Type': 'application/json'
+               },
+               body: JSON.stringify({ plan: pendingPlan })
+             });
+             const data = await res.json();
+             if (res.ok && data.checkoutUrl) {
+                 window.location.href = data.checkoutUrl;
+             }
+          } catch(e) {
+             console.error("Error trigger auto checkout", e);
+          }
+        };
+        triggerCheckout();
+      } else if (pendingPlan === 'free') {
+        sessionStorage.removeItem('pendingUpgrade');
+      }
+    }
+  }, [isAuthenticated, accounts, instance]);
 
   const navItems = [
       { id: 'dashboard', label: 'Dashboard', icon: 'M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z' },
@@ -55,7 +110,44 @@ function ShellContent({ children }: { children: React.ReactNode }) {
       { id: 'config', label: 'Configuración', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z' },
   ];
 
+  const isTrialExpired = selectedTenant?.subscription_status === 'TRIAL' && 
+      selectedTenant?.trial_ends_at && 
+      new Date(selectedTenant.trial_ends_at) < new Date();
+  
+  const isPendingPayment = selectedTenant?.subscription_status === 'PENDING_PAYMENT' || selectedTenant?.subscription_status === 'EXPIRED';
+
+  useEffect(() => {
+      if (isAuthenticated && (isTrialExpired || isPendingPayment) && pathname !== '/login' && pathname !== '/upgrade') {
+          router.replace('/upgrade');
+      }
+  }, [isAuthenticated, isTrialExpired, isPendingPayment, pathname, router]);
+
+  useEffect(() => {
+      const paymentStatus = searchParams?.get('payment');
+      if (paymentStatus === 'success') {
+          toast.success(tAuth('paymentSuccess'), { duration: 5000 });
+          // Optional: clear the query param so it doesn't show again on refresh
+          const newUrl = pathname;
+          router.replace(newUrl);
+      }
+  }, [searchParams, tAuth, pathname, router]);
+
+
+
+  useEffect(() => {
+      if (!isAuthenticated && inProgress !== "startup" && inProgress !== "handleRedirect") {
+          if (!showPricing && pathname !== '/login') {
+              router.replace('/login');
+          }
+      } else if (isAuthenticated && pathname === '/login') {
+          router.replace('/');
+      }
+  }, [isAuthenticated, inProgress, showPricing, pathname, router]);
+
   if (!isAuthenticated && inProgress !== "startup" && inProgress !== "handleRedirect") {
+      if (showPricing) {
+          return <PricingPage onLoginClick={() => setShowPricing(false)} tenantId={selectedTenant?.tenant_id} />;
+      }
       return (
           <div className="min-h-screen bg-gradient-to-br from-nav-bg to-nav-bg2 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative font-sans">
               <div className="absolute top-4 right-4 z-50">
@@ -206,6 +298,16 @@ function ShellContent({ children }: { children: React.ReactNode }) {
         <main className="flex-1 overflow-y-auto p-6 relative">
           {children}
         </main>
+        
+        {/* Tier Watermark */}
+        <div className="fixed bottom-4 right-6 pointer-events-none z-40 opacity-40 select-none">
+            <div className="flex flex-col items-end">
+                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">SaaS Tier</span>
+                <span className="text-xl font-black text-gray-400/80 tracking-tighter">
+                    {selectedTenant?.tier || 'Free'}
+                </span>
+            </div>
+        </div>
       </div>
     </div>
     </TabContext.Provider>

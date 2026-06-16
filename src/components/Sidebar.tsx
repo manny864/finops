@@ -4,6 +4,7 @@ import { Link, usePathname } from '@/i18n/routing';
 import { useTranslations } from 'next-intl';
 import { useMsal } from '@azure/msal-react';
 import { isSuperAdmin } from '@/lib/authGuard';
+import { useTenant } from '@/components/TenantProvider';
 import { 
     LayoutDashboard,
     Target,
@@ -37,6 +38,9 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
     const pathname = usePathname();
     const t = useTranslations('Navigation');
     const { accounts } = useMsal();
+    const { selectedTenant } = useTenant();
+    const tier = (selectedTenant as any).tier || 'Enterprise'; // Por defecto mostrar todo si no hay tier explícito
+    
     const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
         visibilidad: true,
         inteligencia: true,
@@ -94,6 +98,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             id: 'admin',
             title: t('admin'),
             items: [
+                { href: '/admin/users', label: 'Usuarios y Permisos', icon: Users },
                 { href: '/admin/onboarding', label: t('client_onboarding'), icon: Users },
                 { href: '/admin/config', label: t('configuration'), icon: Settings },
                 { href: '/admin/report', label: t('executive_report'), icon: FileText },
@@ -109,7 +114,50 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             label: 'Configuración de IA',
             icon: Cpu
         } as any);
+        categories.find(c => c.id === 'admin')?.items.push({
+            href: '/admin/payments',
+            label: 'Configuración de Pagos',
+            icon: CreditCard
+        } as any);
     }
+
+    // Filtrar categorías según el Tier
+    const filteredCategories = categories.map(cat => {
+        if (tier === 'Essential') {
+            if (cat.id === 'visibilidad') return cat; // Todo visibilidad
+            if (cat.id === 'limpieza') return { ...cat, items: cat.items.filter(i => i.href.includes('zombies')) }; // Solo zombies
+            if (cat.id === 'admin') return { ...cat, items: cat.items.filter(i => i.href.includes('onboarding') || i.href.includes('users') || i.href.includes('config')) }; // Agregar Onboarding, Users, Config a Essential
+            return null; // Ocultar el resto
+        }
+        if (tier === 'Professional') {
+            if (cat.id === 'gobernanza') return null; // No tienen gobernanza
+            if (cat.id === 'admin') return { ...cat, items: cat.items.filter(i => i.href.includes('report') || i.href.includes('onboarding') || i.href.includes('users') || i.href.includes('config')) }; // Reportes, Onboarding, Users, Config
+            return cat;
+        }
+        if (tier === 'Business') {
+            if (cat.id === 'gobernanza') return { ...cat, items: cat.items.filter(i => i.href.includes('tags')) }; // Solo tags
+            if (cat.id === 'admin') return { ...cat, items: cat.items.filter(i => i.href.includes('report') || i.href.includes('audit') || i.href.includes('onboarding') || i.href.includes('users') || i.href.includes('config')) }; // Todo admin excepto quizas lo de super admin
+            return cat;
+        }
+        return cat; // Enterprise ve todo
+    }).filter(Boolean) as typeof categories;
+
+    // RBAC logic
+    const { userRole } = useTenant();
+    const roleCategories = filteredCategories.map(cat => {
+        if (userRole === 'Reader') {
+            // Readers can only see visibility, and maybe reports
+            if (cat.id === 'limpieza' || cat.id === 'gobernanza') return null;
+            if (cat.id === 'admin') return { ...cat, items: cat.items.filter(i => i.href.includes('report')) };
+            return cat;
+        }
+        if (userRole === 'Colaborador') {
+            // Colaborador can't see users, config, billing
+            if (cat.id === 'admin') return { ...cat, items: cat.items.filter(i => !i.href.includes('users') && !i.href.includes('config')) };
+            return cat;
+        }
+        return cat; // Admin sees what the tier allows
+    }).filter(Boolean) as typeof categories;
 
     return (
         <aside className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 fixed inset-y-0 left-0 z-50 md:relative ${sidebarOpen ? 'w-[252px]' : 'w-[64px]'} bg-gradient-to-b from-nav-bg to-nav-bg2 text-[#A9BBD0] border-r border-[#0a1726] transition-all duration-300 flex flex-col h-full custom-scrollbar`}>
@@ -130,7 +178,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             </div>
             
             <nav className="flex-1 py-4 px-2 space-y-4 overflow-y-auto overflow-x-hidden">
-                {categories.map(category => (
+                {roleCategories.map(category => (
                     <div key={category.id} className="flex flex-col">
                         {sidebarOpen ? (
                             <button 

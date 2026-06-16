@@ -3,7 +3,9 @@ import { getResourceGraphClient, getAzureCredential, getSubscriptionsForTenant }
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { runGraphAudits, runMonitorAudits, runM365Audits } from "@/services/auditService";
 import { getMonthlyCostEstimate } from "@/services/pricingService";
+import { tenants } from "@/lib/tenants";
 import jwt from "jsonwebtoken";
+import { getMockDataForRoute } from "@/lib/mockData";
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,6 +16,9 @@ export async function GET(request: NextRequest) {
     if (!tenantId) {
       return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
     }
+
+    const mockData = getMockDataForRoute('audit_full', tenantId);
+    if (mockData) return NextResponse.json(mockData);
 
     // 1. Validar el Token MSAL (Aislamiento Cero-Trust)
     const authHeader = request.headers.get("authorization");
@@ -208,7 +213,26 @@ export async function GET(request: NextRequest) {
     // const monitorResults = await runMonitorAudits(credential, subscriptionId);
     // const m365Results = await runM365Audits(credential, tenantId);
 
-    // 4. Retornar Estructura Unificada
+    // 4. Lógica Freemium Teaser
+    const tenantObj = tenants.find(t => t.id === tenantId);
+    const tier = tenantObj?.tier || 'Essential';
+
+    if (tier === 'Essential') {
+        for (const key of Object.keys(graphResults)) {
+            if (Array.isArray((graphResults as any)[key])) {
+                (graphResults as any)[key] = (graphResults as any)[key].map((res: any) => ({
+                    ...res,
+                    name: "**********",
+                    id: "**********",
+                    resourceId: "**********",
+                    resourceGroup: "**********",
+                    isLocked: true
+                }));
+            }
+        }
+    }
+
+    // 5. Retornar Estructura Unificada
     return NextResponse.json({ 
         success: true, 
         tenantId, 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { calculateEmissions } from "@/services/carbonService";
+import { getMockDataForRoute } from "@/lib/mockData";
 
 export async function GET(request: NextRequest) {
     try {
@@ -12,6 +13,9 @@ export async function GET(request: NextRequest) {
         if (!tenantId || !subscriptionId) {
             return NextResponse.json({ error: "Faltan parámetros requeridos." }, { status: 400 });
         }
+
+        const mockData = getMockDataForRoute('sustainability', tenantId);
+        if (mockData) return NextResponse.json(mockData);
 
         const credential = await getAzureCredential(tenantId);
         const client = new ResourceGraphClient(credential);

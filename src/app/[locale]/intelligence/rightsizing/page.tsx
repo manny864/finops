@@ -32,7 +32,7 @@ export default function RightsizingPage() {
         });
         const json = await res.json();
         if (json.success) {
-            setVms(json.data);
+            setVms(json.data || []);
         } else {
             setError(json.error || "Error");
         }
@@ -153,7 +153,7 @@ export default function RightsizingPage() {
         </div>
       )}
 
-      {!loading && !error && vms.length === 0 && (
+      {!loading && !error && (!vms || vms.length === 0) && (
         <div className="empty">
             <CheckCircle className="w-16 h-16 mx-auto text-green mb-4" />
             <h3 className="text-xl font-bold text-green">{t("optimized_title")}</h3>
@@ -161,7 +161,7 @@ export default function RightsizingPage() {
         </div>
       )}
 
-      {!loading && vms.length > 0 && (
+      {!loading && vms && vms.length > 0 && (
         <div className="card">
             <div className="card-h">
                 <h3>📉 {t("recommendations_title")}</h3>
@@ -180,7 +180,7 @@ export default function RightsizingPage() {
                         </tr>
                     </thead>
                     <tbody>
-                        {vms.map((vm, idx) => (
+                        {vms?.map((vm, idx) => (
                             <tr key={idx}>
                                 <td>
                                     <div className="flex items-center gap-[7px] font-bold text-ink">
