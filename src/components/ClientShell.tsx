@@ -146,7 +146,7 @@ function ShellContent({ children }: { children: React.ReactNode }) {
 
   if (!isAuthenticated && inProgress !== "startup" && inProgress !== "handleRedirect") {
       if (showPricing) {
-          return <PricingPage onLoginClick={() => setShowPricing(false)} tenantId={selectedTenant?.tenant_id} />;
+          return <PricingPage onLoginClick={() => setShowPricing(false)} tenantId={selectedTenant?.id} />;
       }
       return (
           <div className="min-h-screen bg-gradient-to-br from-nav-bg to-nav-bg2 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative font-sans">

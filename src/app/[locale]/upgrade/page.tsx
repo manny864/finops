@@ -20,7 +20,7 @@ export default function UpgradePage() {
         </button>
         <PricingPage 
             hideLogin={true} 
-            tenantId={selectedTenant?.tenant_id || selectedTenant?.id} 
+            tenantId={selectedTenant?.id} 
         />
     </div>
   );

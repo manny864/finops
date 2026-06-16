@@ -121,6 +121,16 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "No autorizado." }, { status: 401 });
         }
 
+        const token = authHeader.split(" ")[1];
+        const decoded = jwt.decode(token) as any;
+
+        if (!decoded) {
+            return NextResponse.json({ error: "Token inválido." }, { status: 401 });
+        }
+
+        const adminEmail = decoded.preferred_username || decoded.unique_name || decoded.email || "";
+        const isSuperAdmin = adminEmail.toLowerCase().endsWith("@cscloudsolutions.com.ar");
+
         const connection = await pool.getConnection();
         try {
             // Check Tenant tier
