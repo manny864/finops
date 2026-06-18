@@ -42,7 +42,7 @@ export default function ScopeSelector() {
                 value={currentValue}
                 onChange={handleChange}
                 disabled={loading}
-                className="border-0 bg-transparent font-heading font-bold text-[13px] text-brand-deep cursor-pointer outline-none w-[180px] md:w-[280px] truncate"
+                className="border-0 bg-transparent font-heading font-bold text-[13px] text-brand-deep cursor-pointer outline-none w-[180px] md:w-[280px] truncate dark:bg-slate-800 dark:border-slate-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
             >
                 {isAdmin ? (
                     tenants.map(t => (

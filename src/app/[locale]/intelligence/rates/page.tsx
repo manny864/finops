@@ -291,7 +291,7 @@ export default function RateOptimizationPage() {
                                 value={subscriptionId}
                                 onChange={(e) => setSubscriptionId(e.target.value)}
                                 disabled={loadingSubs || subscriptions.length === 0}
-                                className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2.5 outline-none"
+                                className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2.5 outline-none placeholder-ink-soft"
                             >
                                 {loadingSubs ? (
                                     <option>{tc('loading_subs')}</option>

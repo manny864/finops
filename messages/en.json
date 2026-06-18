@@ -30,7 +30,8 @@
     "configuration": "Configuration",
     "executive_report": "Executive Report",
     "audit_trail": "Audit Trail",
-    "licenses": "License Optimization"
+    "licenses": "License Optimization",
+    "budgets": "Tenant Budgets"
   },
   "Dashboard": {
     "title": "General Dashboard",
@@ -334,9 +335,33 @@
       "f5": "Power Schedules (VM Shutdown)",
       "f6": "Deep AHUB Auditing",
       "f7": "Unlimited AI Copilot"
-    }
+    },
+    "enterpriseModal": {
+      "title": "Contact Enterprise Sales",
+      "fullName": "Full Name",
+      "email": "Work Email",
+      "company": "Company Name",
+      "spend": "Monthly Cloud Spend",
+      "requirements": "Additional Requirements",
+      "submit": "Submit Request",
+      "submitting": "Submitting...",
+      "successTitle": "Request Received",
+      "successMessage": "Our enterprise team will contact you shortly.",
+      "invalidEmail": "Please enter a valid corporate email.",
+      "error": "An error occurred. Please try again."
+    },
+    "customPrice": "Custom"
   },
   "auth": {
     "paymentSuccess": "Payment completed successfully! Please log in to access your plan."
+  },
+  "Budgets": {
+    "title": "Tenant Budgets",
+    "subtitle": "Manage and visualize your monthly global limits.",
+    "card_title": "Monthly Budget Status",
+    "assigned_budget": "Assigned Budget",
+    "alert_threshold": "Alert Threshold",
+    "no_budget_configured": "No budget configured for this tenant.",
+    "configure_btn": "Configure Budget"
   }
 }

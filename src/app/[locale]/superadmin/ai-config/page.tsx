@@ -84,7 +84,7 @@ export default function AIConfigPage() {
                     <select
                         value={provider}
                         onChange={(e) => setProvider(e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-white rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-white rounded-lg focus:ring-indigo-500 focus:border-indigo-500 placeholder-gray-500 dark:placeholder-gray-400"
                     >
                         <option value="openai">OpenAI (ChatGPT)</option>
                         <option value="google">Google (Gemini)</option>
@@ -102,7 +102,7 @@ export default function AIConfigPage() {
                         onChange={(e) => setApiKey(e.target.value)}
                         placeholder="sk-..."
                         required
-                        className="w-full px-4 py-2 border border-gray-300 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-white rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-white rounded-lg focus:ring-indigo-500 focus:border-indigo-500 placeholder-gray-500 dark:placeholder-gray-400"
                     />
                     <p className="text-xs text-gray-400 mt-2">Esta llave se almacenará de manera segura en la plataforma.</p>
                 </div>

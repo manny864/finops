@@ -273,7 +273,7 @@ export default function TagManager() {
                                         type="text" 
                                         value={tagValues[tag] || ''} 
                                         onChange={e => setTagValues({...tagValues, [tag]: e.target.value})}
-                                        className="w-full bg-surface border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2 outline-none"
+                                        className="w-full bg-surface border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2 outline-none placeholder-ink-soft"
                                         placeholder={`Valor para ${tag}`}
                                     />
                                 </div>

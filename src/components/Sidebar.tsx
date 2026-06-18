@@ -70,6 +70,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             title: t('inteligencia'),
             items: [
                 { href: '/intelligence/billing', label: t('billing'), icon: PieChart },
+                { href: '/intelligence/budgets', label: t('budgets', { fallback: 'Tenant Budgets' }), icon: DollarSign },
                 { href: '/intelligence/rightsizing', label: t('rightsizing'), icon: Zap },
                 { href: '/intelligence/network', label: t('network_analytics'), icon: Activity },
                 { href: '/intelligence/rates', label: t('rate_optimization'), icon: DollarSign },

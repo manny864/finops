@@ -107,7 +107,7 @@ export default function DeleteTenantModal({ tenantId, tenantName }: DeleteTenant
                             onChange={(e) => setConfirmationName(e.target.value)}
                             placeholder={tenantName}
                             disabled={isDeleting}
-                            className="w-full px-4 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-md focus:ring-red-500 focus:border-red-500 sm:text-sm font-medium"
+                            className="w-full px-4 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-md focus:ring-red-500 focus:border-red-500 sm:text-sm font-medium placeholder-gray-500 dark:placeholder-gray-400"
                         />
                     </div>
                 </div>

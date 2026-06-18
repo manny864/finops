@@ -129,7 +129,7 @@ export default function OnboardingPage() {
                                           type="text" 
                                           value={tenant.name} 
                                           onChange={(e) => handleNameChange(tenant.id, 'name', e.target.value)}
-                                          className="border border-gray-300 rounded px-2 py-1 text-sm focus:ring-indigo-500 focus:border-indigo-500 w-full md:w-64"
+                                          className="border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 rounded px-2 py-1 text-sm focus:ring-indigo-500 focus:border-indigo-500 w-full md:w-64"
                                       />
                                       <div className="flex space-x-2">
                                           <input 
@@ -137,14 +137,14 @@ export default function OnboardingPage() {
                                               placeholder="Client ID"
                                               value={tenant.client_id || ''} 
                                               onChange={(e) => handleNameChange(tenant.id, 'client_id', e.target.value)}
-                                              className="border border-gray-300 rounded px-2 py-1 text-sm focus:ring-indigo-500 focus:border-indigo-500 w-32 md:w-48"
+                                              className="border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 rounded px-2 py-1 text-sm focus:ring-indigo-500 focus:border-indigo-500 w-32 md:w-48"
                                           />
                                           <input 
                                               type="password" 
                                               placeholder="Client Secret"
                                               value={tenant.client_secret || ''} 
                                               onChange={(e) => handleNameChange(tenant.id, 'client_secret', e.target.value)}
-                                              className="border border-gray-300 rounded px-2 py-1 text-sm focus:ring-indigo-500 focus:border-indigo-500 w-32 md:w-48"
+                                              className="border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 rounded px-2 py-1 text-sm focus:ring-indigo-500 focus:border-indigo-500 w-32 md:w-48"
                                           />
                                       </div>
                                   </div>
@@ -188,7 +188,7 @@ export default function OnboardingPage() {
                               required
                               value={formTenantId}
                               onChange={(e) => setFormTenantId(e.target.value)}
-                              className="border border-gray-300 rounded px-3 py-2 w-full focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                              className="border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 rounded px-3 py-2 w-full focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                               placeholder="Ej: d3cad9b1-57bf-4ff0-9064-..."
                           />
                       </div>
@@ -199,7 +199,7 @@ export default function OnboardingPage() {
                               required
                               value={formSubscriptionId}
                               onChange={(e) => setFormSubscriptionId(e.target.value)}
-                              className="border border-gray-300 rounded px-3 py-2 w-full focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                              className="border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 rounded px-3 py-2 w-full focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                               placeholder="Ej: 12345678-abcd-1234-..."
                           />
                           <p className="text-xs text-gray-500 mt-1">* Si necesitas agregar más de 1 suscripción, sepáralas por comas (ej: sub-1, sub-2).</p>

@@ -116,7 +116,7 @@ export default function GlobalCopilot() {
                     <div className="p-3 border-t border-line bg-surface flex gap-2">
                         <input 
                             type="text" 
-                            className="flex-1 bg-surface-2 border border-line rounded-lg px-3 py-2 text-sm outline-none"
+                            className="flex-1 bg-surface-2 border border-line rounded-lg px-3 py-2 text-sm outline-none placeholder-ink-soft"
                             placeholder={t('placeholder')}
                             value={input}
                             onChange={e => setInput(e.target.value)}

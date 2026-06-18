@@ -32,7 +32,7 @@ export default function LanguageSwitcher() {
         defaultValue={locale}
         onChange={onSelectChange}
         disabled={isPending}
-        className="bg-transparent border-none text-gray-700 dark:text-gray-200 focus:ring-0 cursor-pointer outline-none font-medium"
+        className="bg-transparent border-none text-gray-700 dark:text-gray-200 focus:ring-0 cursor-pointer outline-none font-medium dark:bg-slate-800 dark:border-slate-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
       >
         <option value="es">🇪🇸 ES</option>
         <option value="en">🇺🇸 EN</option>

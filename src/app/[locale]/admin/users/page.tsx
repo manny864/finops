@@ -185,7 +185,7 @@ export default function UsersPage() {
                                     value={newEmail}
                                     onChange={e => setNewEmail(e.target.value)}
                                     placeholder="usuario@tu-dominio.com"
-                                    className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md focus:ring-[#0054A6] focus:border-[#0054A6] bg-white dark:bg-slate-800"
+                                    className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md focus:ring-[#0054A6] focus:border-[#0054A6] bg-white dark:bg-slate-800 placeholder-gray-500 dark:placeholder-gray-400"
                                 />
                             </div>
                             <div className="flex-1 w-full">
@@ -196,7 +196,7 @@ export default function UsersPage() {
                                     value={newOid}
                                     onChange={e => setNewOid(e.target.value)}
                                     placeholder="00000000-0000-0000-0000-000000000000"
-                                    className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md focus:ring-[#0054A6] focus:border-[#0054A6] bg-white dark:bg-slate-800"
+                                    className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md focus:ring-[#0054A6] focus:border-[#0054A6] bg-white dark:bg-slate-800 placeholder-gray-500 dark:placeholder-gray-400"
                                 />
                             </div>
                             <div className="w-full md:w-48">
@@ -204,7 +204,7 @@ export default function UsersPage() {
                                 <select 
                                     value={newRole}
                                     onChange={e => setNewRole(e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-800"
+                                    className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-800 placeholder-gray-500 dark:placeholder-gray-400"
                                 >
                                     <option value="Reader">Reader (Lectura)</option>
                                     <option value="Colaborador">Colaborador</option>
@@ -256,7 +256,7 @@ export default function UsersPage() {
                                                     <select 
                                                         value={user.role}
                                                         onChange={(e) => handleRoleChange(user.id, e.target.value)}
-                                                        className="px-2 py-1 border border-gray-300 dark:border-slate-700 rounded bg-white dark:bg-slate-900 text-sm"
+                                                        className="px-2 py-1 border border-gray-300 dark:border-slate-700 rounded bg-white dark:bg-slate-900 text-sm placeholder-gray-500 dark:placeholder-gray-400"
                                                     >
                                                         <option value="Reader">Reader</option>
                                                         <option value="Colaborador">Colaborador</option>

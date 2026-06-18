@@ -106,7 +106,7 @@ export default function CreateBudgetModal({ isOpen, onClose, onSuccess, subscrip
                             placeholder="Ej. IT-Budget"
                             required
                             disabled={loading}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-indigo-500 focus:border-indigo-500"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-indigo-500 focus:border-indigo-500 placeholder-gray-500 dark:placeholder-gray-400"
                         />
                     </div>
                     <div>
@@ -118,7 +118,7 @@ export default function CreateBudgetModal({ isOpen, onClose, onSuccess, subscrip
                             placeholder="Ej. 1500"
                             required
                             disabled={loading}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-indigo-500 focus:border-indigo-500"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-indigo-500 focus:border-indigo-500 placeholder-gray-500 dark:placeholder-gray-400"
                         />
                     </div>
                     <div>
@@ -130,7 +130,7 @@ export default function CreateBudgetModal({ isOpen, onClose, onSuccess, subscrip
                             placeholder="Ej. admin@cscloudsolutions.com"
                             required
                             disabled={loading}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-indigo-500 focus:border-indigo-500"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-indigo-500 focus:border-indigo-500 placeholder-gray-500 dark:placeholder-gray-400"
                         />
                     </div>
                     

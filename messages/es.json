@@ -30,7 +30,8 @@
     "configuration": "Configuración",
     "executive_report": "Reporte Ejecutivo",
     "audit_trail": "Registro Auditoría",
-    "licenses": "Licencias M365"
+    "licenses": "Licencias M365",
+    "budgets": "Presupuestos"
   },
   "Dashboard": {
     "title": "Dashboard General",
@@ -334,9 +335,33 @@
       "f5": "Power Schedules (Apagado de VMs)",
       "f6": "Auditoría AHUB profunda",
       "f7": "Copilot IA Ilimitado"
-    }
+    },
+    "enterpriseModal": {
+      "title": "Contactar a Ventas Enterprise",
+      "fullName": "Nombre Completo",
+      "email": "Email Corporativo",
+      "company": "Nombre de la Empresa",
+      "spend": "Gasto Mensual en Nube",
+      "requirements": "Requisitos Adicionales",
+      "submit": "Enviar Solicitud",
+      "submitting": "Enviando...",
+      "successTitle": "Solicitud Recibida",
+      "successMessage": "Nuestro equipo enterprise se pondrá en contacto a la brevedad.",
+      "invalidEmail": "Por favor ingrese un email corporativo válido.",
+      "error": "Ocurrió un error. Por favor intente nuevamente."
+    },
+    "customPrice": "Personalizado"
   },
   "auth": {
     "paymentSuccess": "¡Pago completado con éxito! Por favor, inicia sesión para acceder a tu plan."
+  },
+  "Budgets": {
+    "title": "Presupuestos del Tenant",
+    "subtitle": "Gestiona y visualiza tus límites globales mensuales.",
+    "card_title": "Estado del Presupuesto Mensual",
+    "assigned_budget": "Presupuesto Asignado",
+    "alert_threshold": "Umbral de Alerta",
+    "no_budget_configured": "No hay presupuesto configurado para este tenant.",
+    "configure_btn": "Configurar Presupuesto"
   }
 }

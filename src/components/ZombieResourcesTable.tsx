@@ -80,7 +80,10 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
           const json = await res.json();
           if (!res.ok) {
               if (json.error === "MISSING_CONTRIBUTOR_ROLE") {
-                  throw new Error(`MISSING_CONTRIBUTOR_ROLE|${json.clientId}`);
+                  toast.error('¡Operación Denegada!', { description: 'Tu aplicación FinOps solo tiene rol de Lector o faltan permisos en la suscripción.' });
+                  addAction({ message: `Fallo de permisos al borrar ${item.resourceName}. Se requiere Rol Contributor.`, status: 'error' }); 
+                  setDeletingId(null);
+                  return;
               }
               throw new Error(json.error || "Fallo al eliminar");
           }
@@ -89,7 +92,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
           toast.success('Recurso Eliminado', { description: `${item.resourceName} fue destruido.` });
           addAction({ message: `Se eliminó el recurso zombi: ${item.resourceName} exitosamente.`, status: 'success' });
       } catch (err: any) {
-          console.error("Error de eliminación:", err);
+          console.warn("Aviso de eliminación:", err.message);
           if (err.message && err.message.startsWith("MISSING_CONTRIBUTOR_ROLE")) {
               const clientId = err.message.split("|")[1];
               toast.error('¡Operación Denegada!', { description: 'Tu aplicación FinOps solo tiene rol de Lector.' });
@@ -413,7 +416,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                         setSelectedSub(val);
                         setSelectedSubscription(val === 'all' ? 'All' : val);
                     }}
-                    className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2 outline-none w-32"
+                    className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2 outline-none w-32 placeholder-ink-soft"
                 >
                     <option value="all">Todas</option>
                     {subscriptions.map((sub: any) => (
@@ -428,7 +431,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                     placeholder="Filtrar por nombre..."
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
-                    className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] p-2 outline-none w-32 focus:border-brand-bright focus:ring-1 focus:ring-brand-bright"
+                    className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] p-2 outline-none w-32 focus:border-brand-bright focus:ring-1 focus:ring-brand-bright placeholder-ink-soft"
                 />
             </div>
             <div className="flex items-center space-x-2">
@@ -439,7 +442,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                     placeholder="Todos..."
                     value={filterType === 'all' ? '' : filterType}
                     onChange={e => setFilterType(e.target.value)}
-                    className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] p-2 outline-none w-32 focus:border-brand-bright focus:ring-1 focus:ring-brand-bright"
+                    className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] p-2 outline-none w-32 focus:border-brand-bright focus:ring-1 focus:ring-brand-bright placeholder-ink-soft"
                 />
                 <datalist id="type-list">
                     {Array.from(new Set(data.map(d => d.type))).filter(Boolean).sort().map((t: any) => <option key={t} value={t} />)}
@@ -453,7 +456,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                     placeholder="Todos..."
                     value={filterGroup === 'all' ? '' : filterGroup}
                     onChange={e => setFilterGroup(e.target.value)}
-                    className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] p-2 outline-none w-32 focus:border-brand-bright focus:ring-1 focus:ring-brand-bright"
+                    className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] p-2 outline-none w-32 focus:border-brand-bright focus:ring-1 focus:ring-brand-bright placeholder-ink-soft"
                 />
                 <datalist id="group-list">
                     {Array.from(new Set(data.map(d => d.resourceGroup))).filter(Boolean).sort().map((g: any) => <option key={g} value={g} />)}
@@ -461,7 +464,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
             </div>
             <div className="flex items-center space-x-2">
                 <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">Severidad:</label>
-                <select value={filterIssue} onChange={e => setFilterIssue(e.target.value)} className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] p-2 outline-none w-32 focus:border-brand-bright focus:ring-1 focus:ring-brand-bright">
+                <select value={filterIssue} onChange={e => setFilterIssue(e.target.value)} className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] p-2 outline-none w-32 focus:border-brand-bright focus:ring-1 focus:ring-brand-bright placeholder-ink-soft">
                     <option value="all">Todas</option>
                     <option value="cost">Costo</option>
                     <option value="governance">Gobernanza</option>
@@ -548,7 +551,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                         onChange={e => {
                             table.setPageSize(Number(e.target.value));
                         }}
-                        className="ml-4 bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] p-2 outline-none"
+                        className="ml-4 bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] p-2 outline-none placeholder-ink-soft"
                     >
                         {[10, 15, 20, 25, 50, 100].map(pageSize => (
                             <option key={pageSize} value={pageSize}>
