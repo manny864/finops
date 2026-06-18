@@ -148,7 +148,7 @@ export default function CreateResourceGroupModal({ isOpen, onClose, tenantId, su
                                 type="text" 
                                 value={rgName} 
                                 onChange={e => setRgName(e.target.value)}
-                                className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-[#0054A6] focus:border-[#0054A6]"
+                                className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-[#0054A6] focus:border-[#0054A6] dark:bg-slate-800 dark:border-slate-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                                 placeholder="Ej. rg-finops-prod-001"
                             />
                         </div>
@@ -158,7 +158,7 @@ export default function CreateResourceGroupModal({ isOpen, onClose, tenantId, su
                                 value={location}
                                 onChange={e => setLocation(e.target.value)}
                                 disabled={loadingRegions}
-                                className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-[#0054A6] focus:border-[#0054A6] bg-white disabled:bg-gray-100"
+                                className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-[#0054A6] focus:border-[#0054A6] bg-white disabled:bg-gray-100 dark:bg-slate-800 dark:border-slate-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                             >
                                 {loadingRegions ? (
                                     <option>Cargando regiones...</option>
@@ -183,14 +183,14 @@ export default function CreateResourceGroupModal({ isOpen, onClose, tenantId, su
                                             placeholder="Key" 
                                             value={t.key} 
                                             onChange={e => updateTag(i, 'key', e.target.value)}
-                                            className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm focus:ring-[#0054A6] focus:border-[#0054A6]"
+                                            className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm focus:ring-[#0054A6] focus:border-[#0054A6] dark:bg-slate-800 dark:border-slate-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                                         />
                                         <input 
                                             type="text" 
                                             placeholder="Value" 
                                             value={t.value} 
                                             onChange={e => updateTag(i, 'value', e.target.value)}
-                                            className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm focus:ring-[#0054A6] focus:border-[#0054A6]"
+                                            className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm focus:ring-[#0054A6] focus:border-[#0054A6] dark:bg-slate-800 dark:border-slate-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                                         />
                                         <button onClick={() => removeTag(i)} className="text-red-500 hover:text-red-700 font-bold px-2">✕</button>
                                     </div>

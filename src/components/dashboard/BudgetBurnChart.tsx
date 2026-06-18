@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from 'next-intl';
 import React, { useState, useEffect } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { useTenant } from '../TenantProvider';
@@ -15,6 +16,10 @@ export default function BudgetBurnChart({ onHeightChange }: BudgetBurnChartProps
     const { selectedSubscription, subscriptions } = useSubscription();
     const [burnData, setBurnData] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
+    const [isMounted, setIsMounted] = useState(false);
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
     const [missingConsent, setMissingConsent] = useState(false);
 
     useEffect(() => {
@@ -67,13 +72,7 @@ export default function BudgetBurnChart({ onHeightChange }: BudgetBurnChartProps
         fetchBurnData();
     }, [accounts, instance, selectedTenant.id, selectedSubscription, subscriptions, onHeightChange]);
 
-    let t: any = (key: string) => key;
-    try {
-      const nextIntl = require('next-intl');
-      if (nextIntl && nextIntl.useTranslations) {
-        t = nextIntl.useTranslations();
-      }
-    } catch (e) {}
+    const t = useTranslations('Dashboard');
 
     if (accounts.length === 0 || selectedTenant.id === 'default') return null;
 
@@ -81,8 +80,8 @@ export default function BudgetBurnChart({ onHeightChange }: BudgetBurnChartProps
         <div className="card h-full flex flex-col overflow-hidden">
             <div className="card-h shrink-0 border-b-0 pb-0">
                 <div className="flex flex-col">
-                    <h3 className="m-0 text-[var(--brand-deep)]">{t('Dashboard.budget_by_cost_center')}</h3>
-                    <p className="text-[13px] text-ink-soft m-0 mt-1 font-normal">{t('Dashboard.budget_desc')}</p>
+                    <h3 className="m-0 text-[var(--brand-deep)]">{t('budget_by_cost_center')}</h3>
+                    <p className="text-[13px] text-ink-soft m-0 mt-1 font-normal">{t('budget_desc')}</p>
                 </div>
             </div>
             
@@ -110,7 +109,8 @@ export default function BudgetBurnChart({ onHeightChange }: BudgetBurnChartProps
                     </div>
                 ) : (
                     <div className="flex-1 w-full" style={{ minHeight: `${Math.max(150, burnData.length * 40)}px` }}>
-                        <ResponsiveContainer width="100%" height="100%">
+                        {!isMounted ? null : (
+                            <ResponsiveContainer width="100%" height="100%">
                             <BarChart layout="vertical" data={burnData} margin={{ top: 10, right: 30, left: 100, bottom: 5 }}>
                                 <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f3f4f6" />
                                 <XAxis type="number" xAxisId={0} hide />
@@ -136,6 +136,7 @@ export default function BudgetBurnChart({ onHeightChange }: BudgetBurnChartProps
                                 </Bar>
                             </BarChart>
                         </ResponsiveContainer>
+                        )}
                     </div>
                 )}
             </div>

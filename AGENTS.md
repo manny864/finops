@@ -1,5 +1,6 @@
-<!-- BEGIN:nextjs-agent-rules -->
-# This is NOT the Next.js you know
+# Contexto Global: SaaS FinOps (CSCloudSolutions)
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
-<!-- END:nextjs-agent-rules -->
+- **Stack:** Next.js (App Router), React, Tailwind CSS, TypeScript, MySQL.
+- **Regla Cero (Precisión):** Absoluta precisión matemática. Los cálculos de costos, amortizaciones y proyecciones NUNCA deben usar floats; usar tipos exactos (DECIMAL en DB, librerías de precisión en JS si es necesario).
+- **Regla UI:** Componentes Server-First. Usar `'use client'` estrictamente solo cuando haya hooks (useState) o interactividad del usuario.
+- **Seguridad:** Todas las mutaciones a la base de datos deben pasar por Server Actions con validación estricta y control de RBAC (Role-Based Access Control) por Tenant.

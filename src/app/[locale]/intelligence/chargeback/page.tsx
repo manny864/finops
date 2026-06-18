@@ -102,7 +102,7 @@ export default function ChargebackPage() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                         <div className="flex flex-col gap-2 md:col-span-1">
                             <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">{t('tag_key_label')}</label>
-                            <select value={tagKey} onChange={(e) => setTagKey(e.target.value)} className="w-full bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] p-2.5 outline-none">
+                            <select value={tagKey} onChange={(e) => setTagKey(e.target.value)} className="w-full bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] p-2.5 outline-none placeholder-ink-soft">
                                 <option value="CostCenter">CostCenter</option>
                                 <option value="Environment">Environment</option>
                                 <option value="custom">{t('custom_option')}</option>
@@ -111,7 +111,7 @@ export default function ChargebackPage() {
                         {isCustomTag && (
                             <div className="flex flex-col gap-2 md:col-span-1">
                                 <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">{t('custom_tag_label')}</label>
-                                <input type="text" value={customTagKey} onChange={(e) => setCustomTagKey(e.target.value)} className="w-full bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] p-2.5 outline-none" />
+                                <input type="text" value={customTagKey} onChange={(e) => setCustomTagKey(e.target.value)} className="w-full bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] p-2.5 outline-none placeholder-ink-soft" />
                             </div>
                         )}
                         <div className={`md:col-span-1 ${isCustomTag ? '' : 'md:col-start-3'}`}>
@@ -128,12 +128,12 @@ export default function ChargebackPage() {
                 <div className="card mb-6 p-6">
                     <h3 className="text-[14px] font-bold text-ink mb-4">Allocation Rules (Asset vs Allocation)</h3>
                     <div className="flex gap-4 mb-4">
-                        <select className="border border-line rounded p-2" value={newRule.sourceResourceId} onChange={e => setNewRule({...newRule, sourceResourceId: e.target.value})}>
+                        <select className="border border-line rounded p-2 placeholder-ink-soft" value={newRule.sourceResourceId} onChange={e => setNewRule({...newRule, sourceResourceId: e.target.value})}>
                             <option value="">Select Shared Resource...</option>
                             {rawCosts.map(c => <option key={c.resourceId} value={c.resourceId}>{c.resourceName}</option>)}
                         </select>
-                        <input type="text" placeholder="Target Cost Center" className="border border-line rounded p-2" value={newRule.targetCostCenter} onChange={e => setNewRule({...newRule, targetCostCenter: e.target.value})} />
-                        <input type="number" placeholder="Percentage (%)" className="border border-line rounded p-2 w-32" value={newRule.percentage} onChange={e => setNewRule({...newRule, percentage: parseFloat(e.target.value)})} />
+                        <input type="text" placeholder="Target Cost Center" className="border border-line rounded p-2 placeholder-ink-soft" value={newRule.targetCostCenter} onChange={e => setNewRule({...newRule, targetCostCenter: e.target.value})} />
+                        <input type="number" placeholder="Percentage (%)" className="border border-line rounded p-2 w-32 placeholder-ink-soft" value={newRule.percentage} onChange={e => setNewRule({...newRule, percentage: parseFloat(e.target.value)})} />
                         <button onClick={handleAddRule} className="bg-brand text-white p-2 rounded"><Plus className="w-5 h-5" /></button>
                     </div>
                     {rules.length > 0 && (

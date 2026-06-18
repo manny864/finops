@@ -73,8 +73,8 @@ export default function AdminPaymentsPage() {
               value={config.LEMON_SQUEEZY_API_KEY} 
               onChange={handleChange}
               placeholder="eyJ0eX..."
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-            />
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none dark:bg-slate-800 dark:border-slate-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+            >
             <p className="text-xs text-gray-500 mt-1">Token de acceso generado en Settings &gt; API.</p>
           </div>
           
@@ -87,8 +87,8 @@ export default function AdminPaymentsPage() {
                 value={config.LEMON_SQUEEZY_STORE_ID} 
                 onChange={handleChange}
                 placeholder="12345"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-              />
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none dark:bg-slate-800 dark:border-slate-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+              >
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Webhook Secret</label>
@@ -97,8 +97,8 @@ export default function AdminPaymentsPage() {
                 name="LEMON_SQUEEZY_WEBHOOK_SECRET"
                 value={config.LEMON_SQUEEZY_WEBHOOK_SECRET} 
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-              />
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none dark:bg-slate-800 dark:border-slate-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+              >
             </div>
           </div>
 
@@ -112,8 +112,8 @@ export default function AdminPaymentsPage() {
                   name="LEMON_SQUEEZY_PRO_VARIANT_ID"
                   value={config.LEMON_SQUEEZY_PRO_VARIANT_ID} 
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                />
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none dark:bg-slate-800 dark:border-slate-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                >
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Enterprise Plan Variant ID</label>
@@ -122,8 +122,8 @@ export default function AdminPaymentsPage() {
                   name="LEMON_SQUEEZY_BUSINESS_VARIANT_ID"
                   value={config.LEMON_SQUEEZY_BUSINESS_VARIANT_ID} 
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                />
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none dark:bg-slate-800 dark:border-slate-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                >
               </div>
             </div>
           </div>

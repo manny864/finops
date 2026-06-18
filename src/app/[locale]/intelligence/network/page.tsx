@@ -195,7 +195,7 @@ export default function NetworkAnalyticsPage() {
                         value={subscriptionId}
                         onChange={e => setSubscriptionId(e.target.value)}
                         disabled={loadingSubs || subscriptions.length === 0}
-                        className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright p-2 outline-none"
+                        className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright p-2 outline-none placeholder-ink-soft"
                     >
                         {loadingSubs ? (
                             <option value="">{tc('loading_subs')}</option>
@@ -332,7 +332,7 @@ export default function NetworkAnalyticsPage() {
                                     <select
                                         value={pageSize}
                                         onChange={e => setPageSize(Number(e.target.value))}
-                                        className="bg-surface-2 border border-line text-ink text-[12px] rounded-[6px] p-1 outline-none"
+                                        className="bg-surface-2 border border-line text-ink text-[12px] rounded-[6px] p-1 outline-none placeholder-ink-soft"
                                     >
                                         {[10, 15, 20].map(size => (
                                             <option key={size} value={size}>{size}</option>

@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { useTranslations } from 'next-intl';
+import { initializePaddle, Paddle } from '@paddle/paddle-js';
+import EnterpriseLeadModal from './EnterpriseLeadModal';
 
 interface PricingPageProps {
   onLoginClick?: () => void;
@@ -11,7 +13,15 @@ interface PricingPageProps {
 export default function PricingPage({ onLoginClick, tenantId, hideLogin }: PricingPageProps) {
   const { instance } = useMsal();
   const [isAnnual, setIsAnnual] = useState(false);
+  const [paddle, setPaddle] = useState<Paddle>();
+  const [isEnterpriseModalOpen, setEnterpriseModalOpen] = useState(false);
   const t = useTranslations('pricing');
+
+  useEffect(() => {
+    const token = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN!;
+    const env = token.startsWith('test_') ? 'sandbox' : 'production';
+    initializePaddle({ environment: env, token }).then(setPaddle);
+  }, []);
 
   const handleSignUp = (plan: string) => {
     sessionStorage.setItem('pendingUpgrade', plan);
@@ -22,23 +32,20 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
     }
   };
 
-  const getCheckoutLink = (plan: string) => {
-    let baseUrl: string | undefined;
+  const getPriceId = (plan: string) => {
     if (plan === 'free') {
-        baseUrl = isAnnual ? process.env.NEXT_PUBLIC_LS_ESSENTIAL_YEARLY : process.env.NEXT_PUBLIC_LS_ESSENTIAL_MONTHLY;
+        return isAnnual ? process.env.NEXT_PUBLIC_PADDLE_ESSENTIAL_YEARLY : process.env.NEXT_PUBLIC_PADDLE_ESSENTIAL_MONTHLY;
     } else if (plan === 'pro') {
-        baseUrl = isAnnual ? process.env.NEXT_PUBLIC_LS_PRO_YEARLY : process.env.NEXT_PUBLIC_LS_PRO_MONTHLY;
+        return isAnnual ? process.env.NEXT_PUBLIC_PADDLE_PRO_YEARLY : process.env.NEXT_PUBLIC_PADDLE_PRO_MONTHLY;
     } else if (plan === 'business') {
-        baseUrl = isAnnual ? process.env.NEXT_PUBLIC_LS_BUSINESS_YEARLY : process.env.NEXT_PUBLIC_LS_BUSINESS_MONTHLY;
+        return isAnnual ? process.env.NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY : process.env.NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY;
     }
-    
-    if (!baseUrl) return "#";
-    
-    if (tenantId) {
-        const separator = baseUrl.includes('?') ? '&' : '?';
-        return `${baseUrl}${separator}checkout[custom][tenant_id]=${tenantId}`;
-    }
-    return baseUrl;
+    return undefined;
+  };
+
+  const openCheckout = (priceId?: string) => {
+    if (!priceId) return;
+    paddle?.Checkout.open({ items: [{ priceId, quantity: 1 }], customData: { tenant_id: tenantId } });
   };
 
   const getPrice = (monthly: number) => {
@@ -101,27 +108,27 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
           </div>
           <div className="mb-6">
             <div className="mt-4 flex items-baseline text-5xl font-extrabold text-gray-900">
-              ${getPrice(9.99)}
+              ${getPrice(19.99)}
               <span className="text-lg font-medium text-gray-500 ml-1">/mes</span>
             </div>
             {isAnnual && (
-              <div className="text-sm text-gray-500 line-through mt-1">$9.99/mes</div>
+              <div className="text-sm text-gray-500 line-through mt-1">$19.99/mes</div>
             )}
           </div>
           
           <div className="flex flex-col space-y-3 mb-6">
             <button 
-              onClick={() => handleSignUp('free')}
+              onClick={() => openCheckout(getPriceId('free'))}
               className="w-full bg-white border-2 border-gray-800 text-gray-800 rounded-lg py-3 px-4 font-bold hover:bg-gray-50 transition-colors shadow-sm"
             >
               {t('tryNow')}
             </button>
-            <a 
-              href={getCheckoutLink('free') || '#'}
+            <button 
+              onClick={() => openCheckout(getPriceId('free'))}
               className="w-full bg-gray-800 text-white rounded-lg py-3 px-4 font-semibold hover:bg-gray-900 transition-colors shadow-md text-center inline-block"
             >
               {t('buyNow')}
-            </a>
+            </button>
           </div>
           
           <p className="text-sm text-gray-500 mb-8 flex-1">
@@ -178,17 +185,17 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
           
           <div className="flex flex-col space-y-3 mb-6">
             <button 
-              onClick={() => handleSignUp('pro')}
+              onClick={() => openCheckout(getPriceId('pro'))}
               className="w-full bg-white border-2 border-brand-deep text-brand-deep rounded-lg py-3 px-4 font-bold hover:bg-gray-50 transition-colors shadow-sm"
             >
               {t('tryNow')}
             </button>
-            <a 
-              href={getCheckoutLink('pro') || '#'}
+            <button 
+              onClick={() => openCheckout(getPriceId('pro'))}
               className="w-full bg-gradient-to-r from-brand-deep to-[#1E88E5] text-white rounded-lg py-3 px-4 font-semibold hover:brightness-110 transition-colors shadow-md text-center inline-block"
             >
               {t('buyNow')}
-            </a>
+            </button>
           </div>
           
           <p className="text-sm text-gray-500 mb-8 flex-1">
@@ -233,27 +240,27 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
           </div>
           <div className="mb-6">
             <div className="flex items-baseline text-5xl font-extrabold text-gray-900">
-              ${getPrice(299)}
+              ${getPrice(299.99)}
               <span className="text-lg font-medium text-gray-500 ml-1">/mes</span>
             </div>
             {isAnnual && (
-              <div className="text-sm text-gray-500 line-through mt-1">$299/mes</div>
+              <div className="text-sm text-gray-500 line-through mt-1">$299.99/mes</div>
             )}
           </div>
           
           <div className="flex flex-col space-y-3 mb-6">
             <button 
-              onClick={() => handleSignUp('business')}
+              onClick={() => openCheckout(getPriceId('business'))}
               className="w-full bg-white border-2 border-gray-800 text-gray-800 rounded-lg py-3 px-4 font-bold hover:bg-gray-50 transition-colors shadow-sm"
             >
               {t('tryNow')}
             </button>
-            <a 
-              href={getCheckoutLink('business') || '#'}
+            <button 
+              onClick={() => openCheckout(getPriceId('business'))}
               className="w-full bg-gray-800 text-white rounded-lg py-3 px-4 font-semibold hover:bg-gray-900 transition-colors shadow-md text-center inline-block"
             >
               {t('buyNow')}
-            </a>
+            </button>
           </div>
           
           <p className="text-sm text-gray-500 mb-8 flex-1">
@@ -298,18 +305,16 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
           </div>
           <div className="mb-6 relative z-10">
             <div className="flex items-baseline text-4xl font-extrabold text-white mt-2 mb-2">
-              {t('enterprise.price')}
+              {t('customPrice')}
             </div>
           </div>
           
-          <a 
-            href="https://cscloudsolutions.com.ar/#contacto"
-            target="_blank"
-            rel="noopener noreferrer"
+          <button 
+            onClick={() => setEnterpriseModalOpen(true)}
             className="w-full bg-white text-gray-900 rounded-lg py-3 px-4 font-bold hover:bg-gray-100 transition-colors mb-6 shadow-sm relative z-10 text-center flex justify-center items-center"
           >
             {t('contactSales')}
-          </a>
+          </button>
           
           <p className="text-sm text-gray-300 mb-8 flex-1 relative z-10">
             {t('enterprise.desc')}
@@ -348,6 +353,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
         </div>
 
       </div>
+      <EnterpriseLeadModal isOpen={isEnterpriseModalOpen} onClose={() => setEnterpriseModalOpen(false)} />
     </div>
   );
 }

@@ -234,7 +234,7 @@ export default function AdvisorPanel() {
                             setSelectedCategory(null);
                             setSelectedSubscription(val === 'all' ? 'All' : val);
                         }}
-                        className="border-0 bg-transparent font-heading font-bold text-[13px] text-brand-deep cursor-pointer focus:outline-none p-0 m-0 w-32 md:w-auto truncate"
+                        className="border-0 bg-transparent font-heading font-bold text-[13px] text-brand-deep cursor-pointer focus:outline-none p-0 m-0 w-32 md:w-auto truncate dark:bg-slate-800 dark:border-slate-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                     >
                         <option value="all">{t('all_subs')}</option>
                         {subscriptions.map(s => (

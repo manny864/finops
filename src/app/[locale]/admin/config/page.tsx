@@ -170,7 +170,7 @@ function WebhookConfig() {
                         value={webhookUrl}
                         onChange={(e) => setWebhookUrl(e.target.value)}
                         placeholder="https://hooks.slack.com/services/..."
-                        className="flex-1 px-4 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-md focus:ring-[#0054A6] focus:border-[#0054A6] sm:text-sm"
+                        className="flex-1 px-4 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-md focus:ring-[#0054A6] focus:border-[#0054A6] sm:text-sm placeholder-gray-500 dark:placeholder-gray-400"
                     />
                     <button
                         onClick={handleSave}
@@ -212,8 +212,8 @@ function TenantDeletionManager() {
                                 disabled
                                 type="text"
                                 value={selectedTenant.name}
-                                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md shadow-sm sm:text-sm bg-gray-100 dark:bg-slate-800 text-gray-600 cursor-not-allowed"
-                            />
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md shadow-sm sm:text-sm bg-gray-100 dark:bg-slate-800 text-gray-600 cursor-not-allowed placeholder-gray-500 dark:placeholder-gray-400"
+                            >
                         </div>
                     ) : (
                         <div className="text-sm text-gray-400">Selecciona un tenant para eliminar.</div>

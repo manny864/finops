@@ -202,6 +202,22 @@ export async function initializeDatabase() {
             )
         `);
 
+        
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS TenantMonthlyBudgets (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                tenant_id VARCHAR(255) NOT NULL,
+                budget_month TINYINT NOT NULL,
+                budget_year SMALLINT NOT NULL,
+                budget_usd DECIMAL(12,2) NOT NULL,
+                alert_threshold DECIMAL(5,2) DEFAULT 80.00,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                FOREIGN KEY (tenant_id) REFERENCES Tenants(tenant_id) ON DELETE CASCADE,
+                UNIQUE KEY unique_tenant_month_year (tenant_id, budget_month, budget_year)
+            )
+        `);
+
         connection.release();
         dbInitialized = true;
         console.log("Database schema validated/initialized successfully.");

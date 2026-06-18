@@ -219,7 +219,7 @@ export default function PowerSchedules() {
                         <select
                             value={scheduleVmName}
                             onChange={(e) => setScheduleVmName(e.target.value)}
-                            className="w-full bg-surface border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2 outline-none"
+                            className="w-full bg-surface border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2 outline-none placeholder-ink-soft"
                         >
                             <option value="">-- Seleccionar Máquina --</option>
                             {vms.map(vm => (
@@ -233,7 +233,7 @@ export default function PowerSchedules() {
                             type="time" 
                             value={shutdownTime}
                             onChange={(e) => setShutdownTime(e.target.value)}
-                            className="w-full bg-surface border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2 outline-none"
+                            className="w-full bg-surface border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2 outline-none placeholder-ink-soft"
                         />
                     </div>
                     <div className="w-full md:w-1/4">
@@ -241,7 +241,7 @@ export default function PowerSchedules() {
                         <select 
                             value={gmtOffset}
                             onChange={(e) => setGmtOffset(e.target.value)}
-                            className="w-full bg-surface border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2 outline-none"
+                            className="w-full bg-surface border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2 outline-none placeholder-ink-soft"
                         >
                             <option value="-12:00">GMT-12:00</option>
                             <option value="-11:00">GMT-11:00</option>
@@ -376,7 +376,7 @@ export default function PowerSchedules() {
                                         onChange={e => {
                                             table.setPageSize(Number(e.target.value));
                                         }}
-                                        className="ml-4 bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] p-2 outline-none"
+                                        className="ml-4 bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] p-2 outline-none placeholder-ink-soft"
                                     >
                                         {[10, 15, 20, 25, 50, 100].map(pageSize => (
                                             <option key={pageSize} value={pageSize}>
