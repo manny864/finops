@@ -18,7 +18,11 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
   const t = useTranslations('pricing');
 
   useEffect(() => {
-    const token = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN!;
+    const token = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN || '';
+    if (!token) {
+      console.warn("Paddle client token is missing. Billing features will not work.");
+      return;
+    }
     const env = token.startsWith('test_') ? 'sandbox' : 'production';
     initializePaddle({ environment: env, token }).then(setPaddle);
   }, []);
