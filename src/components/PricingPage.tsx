@@ -56,7 +56,8 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
       alert("Falta el ID del plan en la configuración. Verifica las variables NEXT_PUBLIC_PADDLE_ en el entorno.");
       return;
     }
-    paddle.Checkout.open({ items: [{ priceId, quantity: 1 }], customData: { tenant_id: tenantId } });
+    const customData = tenantId ? { tenant_id: tenantId } : undefined;
+    paddle.Checkout.open({ items: [{ priceId, quantity: 1 }], customData });
   };
 
   const getPrice = (monthly: number) => {
