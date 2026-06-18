@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { useTranslations } from 'next-intl';
 import { initializePaddle, Paddle } from '@paddle/paddle-js';
@@ -17,6 +17,14 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
   const [isEnterpriseModalOpen, setEnterpriseModalOpen] = useState(false);
   const t = useTranslations('pricing');
 
+  const instanceRef = useRef(instance);
+  const onLoginClickRef = useRef(onLoginClick);
+
+  useEffect(() => {
+    instanceRef.current = instance;
+    onLoginClickRef.current = onLoginClick;
+  }, [instance, onLoginClick]);
+
   useEffect(() => {
     const token = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN || '';
     if (!token) {
@@ -24,7 +32,20 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
       return;
     }
     const env = token.startsWith('test_') ? 'sandbox' : 'production';
-    initializePaddle({ environment: env, token }).then(setPaddle);
+    initializePaddle({ 
+      environment: env, 
+      token,
+      eventCallback: (data) => {
+        if (data.name === 'checkout.completed') {
+          sessionStorage.setItem('pendingUpgrade', 'paid');
+          if (onLoginClickRef.current) {
+            onLoginClickRef.current();
+          } else {
+            instanceRef.current.loginRedirect({ scopes: ["User.Read", "Directory.Read.All"] }).catch(e => console.error(e));
+          }
+        }
+      }
+    }).then(setPaddle);
   }, []);
 
   const handleSignUp = (plan: string) => {
