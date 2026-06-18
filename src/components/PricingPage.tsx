@@ -48,8 +48,15 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
   };
 
   const openCheckout = (priceId?: string) => {
-    if (!priceId) return;
-    paddle?.Checkout.open({ items: [{ priceId, quantity: 1 }], customData: { tenant_id: tenantId } });
+    if (!paddle) {
+      alert("El sistema de pagos no está inicializado. Verifica la configuración de Paddle en el entorno.");
+      return;
+    }
+    if (!priceId) {
+      alert("Falta el ID del plan en la configuración. Verifica las variables NEXT_PUBLIC_PADDLE_ en el entorno.");
+      return;
+    }
+    paddle.Checkout.open({ items: [{ priceId, quantity: 1 }], customData: { tenant_id: tenantId } });
   };
 
   const getPrice = (monthly: number) => {
