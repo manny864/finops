@@ -213,7 +213,7 @@ function TenantDeletionManager() {
                                 type="text"
                                 value={selectedTenant.name}
                                 className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md shadow-sm sm:text-sm bg-gray-100 dark:bg-slate-800 text-gray-600 cursor-not-allowed placeholder-gray-500 dark:placeholder-gray-400"
-                            >
+                            />
                         </div>
                     ) : (
                         <div className="text-sm text-gray-400">Selecciona un tenant para eliminar.</div>
