@@ -1,10 +1,12 @@
 "use client";
+import { isMockTenant } from '@/lib/mockData';
 import React, { useState, useEffect } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { useRouter } from 'next/navigation';
 import { isSuperAdmin } from '@/lib/authGuard';
 import { toast } from 'sonner';
 import { 
+
     Activity, Server, Database, Clock, RefreshCw, CheckCircle, 
     AlertTriangle, ShieldAlert, FileText, Settings, RefreshCw as RefreshIcon
 } from 'lucide-react';
@@ -62,7 +64,7 @@ export default function SuperAdminHealthPage() {
     }, [accounts, router]);
 
     const getAuthHeader = async (): Promise<Record<string, string>> => {
-        if (accounts.length === 0) return {};
+        if ((accounts.length === 0 && !isMockTenant(selectedTenant?.id || ''))) return {};
         const tokenResponse = await instance.acquireTokenSilent({
             scopes: ["User.Read"],
             account: accounts[0]

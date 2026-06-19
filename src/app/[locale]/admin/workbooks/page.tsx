@@ -5,6 +5,8 @@ import { useMsal } from '@azure/msal-react';
 import { BookOpen, Box, Loader2, CloudUpload, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import CreateResourceGroupModal from '@/components/CreateResourceGroupModal';
+import { isMockTenant } from '@/lib/mockData';
+
 
 export default function WorkbooksPage() {
     const { selectedTenant } = useTenant();
@@ -27,7 +29,7 @@ export default function WorkbooksPage() {
     const [loadingZombie, setLoadingZombie] = useState(false);
 
     useEffect(() => {
-        if (accounts.length === 0 || selectedTenant.id === 'default') return;
+        if ((accounts.length === 0 && !isMockTenant(selectedTenant?.id || '')) || selectedTenant.id === 'default') return;
         
         const fetchSubs = async () => {
             setLoadingSubs(true);
@@ -74,7 +76,7 @@ export default function WorkbooksPage() {
             toast.error("Por favor ingresa Subscription ID y Resource Group.");
             return;
         }
-        if (accounts.length === 0) return;
+        if ((accounts.length === 0 && !isMockTenant(selectedTenant?.id || ''))) return;
 
         const workbookType = type === 'cost' ? 'cost-optimization' : 'zombie-resources';
 

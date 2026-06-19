@@ -19,6 +19,9 @@ import { useTranslations } from 'next-intl';
 import { Responsive, WidthProvider } from 'react-grid-layout/legacy';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
+import { isMockTenant } from '@/lib/mockData';
+import FeatureGuard from '@/components/FeatureGuard';
+
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
@@ -43,7 +46,7 @@ export default function Home() {
   };
 
   useEffect(() => {
-      if (activeTab !== 'dashboard' || accounts.length === 0 || selectedTenant.id === 'default') return;
+      if (activeTab !== 'dashboard' || (accounts.length === 0 && !isMockTenant(selectedTenant?.id || '')) || selectedTenant.id === 'default') return;
       
       const fetchData = async () => {
           setLoading(true);
@@ -325,75 +328,79 @@ export default function Home() {
         </div>
         
         <div key="pie">
-            <div className="card h-full flex flex-col overflow-hidden">
-                 <div className="card-h drag-handle cursor-move shrink-0 border-b-0 pb-0">
-                     <div className="flex flex-col">
-                         <h3 className="m-0 text-[var(--brand-deep)]">{t('financial_leak_distribution')}</h3>
-                         <p className="text-[13px] text-ink-soft m-0 mt-1 font-normal">{t('click_segment_hint')}</p>
+            <FeatureGuard requiredTier="Professional" featureName="Análisis de Facturación" className="h-full drag-handle cursor-move w-full">
+                <div className="card h-full flex flex-col overflow-hidden">
+                     <div className="card-h shrink-0 border-b-0 pb-0">
+                         <div className="flex flex-col">
+                             <h3 className="m-0 text-[var(--brand-deep)]">{t('financial_leak_distribution')}</h3>
+                             <p className="text-[13px] text-ink-soft m-0 mt-1 font-normal">{t('click_segment_hint')}</p>
+                         </div>
                      </div>
-                 </div>
-                 <div className="p-[18px] flex-1 overflow-hidden flex flex-col">
-                     {loading ? (
-                         <div className="flex-1 flex items-center justify-center text-gray-400 animate-pulse">{t('calculating')}</div>
-                     ) : (
-                         <CostPieChart data={dashboardData} onSegmentClick={(cat) => setSelectedCategory(cat)} />
-                     )}
-                 </div>
-            </div>
+                     <div className="p-[18px] flex-1 overflow-hidden flex flex-col">
+                         {loading ? (
+                             <div className="flex-1 flex items-center justify-center text-gray-400 animate-pulse">{t('calculating')}</div>
+                         ) : (
+                             <CostPieChart data={dashboardData} onSegmentClick={(cat) => setSelectedCategory(cat)} />
+                         )}
+                     </div>
+                </div>
+            </FeatureGuard>
         </div>
 
         <div key="gov">
-            <div className="card h-full flex flex-col overflow-hidden">
-             <div className="card-h drag-handle cursor-move shrink-0 border-b-0 pb-0">
-                 <div className="flex flex-col">
-                     <h3 className="m-0 text-[var(--brand-deep)]">{t('governance_state')}</h3>
-                     <p className="text-[13px] text-ink-soft m-0 mt-1 font-normal">{t('based_on_rules')}</p>
+            <FeatureGuard requiredTier="Business" featureName="Estado de Gobernanza" className="h-full drag-handle cursor-move w-full">
+                <div className="card h-full flex flex-col overflow-hidden">
+                 <div className="card-h shrink-0 border-b-0 pb-0">
+                     <div className="flex flex-col">
+                         <h3 className="m-0 text-[var(--brand-deep)]">{t('governance_state')}</h3>
+                         <p className="text-[13px] text-ink-soft m-0 mt-1 font-normal">{t('based_on_rules')}</p>
+                     </div>
                  </div>
-             </div>
-             <div className="p-[18px] flex-1 overflow-hidden flex flex-col">
-                 <div className="flex-1 flex flex-col items-center justify-center text-gray-400 bg-[var(--surface-sunken)] rounded-lg border border-dashed border-gray-300">
-                     <p className="text-sm font-medium">{t('financial_security_score')}</p>
-                     <span className={`text-4xl font-bold mt-2 ${complianceScore === -1 ? 'text-gray-400' : 'text-green-500'}`}>
-                         {complianceScore === null ? t('calculating') : complianceScore === -1 ? t('unconfigured') : `${complianceScore}%`}
-                     </span>
-                     <p className="text-xs text-gray-400 mt-2 text-center px-8">
-                         {complianceScore === -1 ? t('no_rules') : t('based_on_rules')}
-                     </p>
-                     {complianceScore === -1 && (
-                         <button 
-                             onClick={(e) => { e.stopPropagation(); setActiveTab('tags'); }}
-                             className="mt-4 px-4 py-2 bg-[var(--brand)] text-white text-xs font-semibold rounded shadow-sm hover:opacity-90 transition-colors"
-                         >
-                             {t('configure_policies')}
-                         </button>
-                     )}
+                 <div className="p-[18px] flex-1 overflow-hidden flex flex-col">
+                     <div className="flex-1 flex flex-col items-center justify-center text-gray-400 bg-[var(--surface-sunken)] rounded-lg border border-dashed border-gray-300">
+                         <p className="text-sm font-medium">{t('financial_security_score')}</p>
+                         <span className={`text-4xl font-bold mt-2 ${complianceScore === -1 ? 'text-gray-400' : 'text-green-500'}`}>
+                             {complianceScore === null ? t('calculating') : complianceScore === -1 ? t('unconfigured') : `${complianceScore}%`}
+                         </span>
+                         <p className="text-xs text-gray-400 mt-2 text-center px-8">
+                             {complianceScore === -1 ? t('no_rules') : t('based_on_rules')}
+                         </p>
+                         {complianceScore === -1 && (
+                             <button 
+                                 onClick={(e) => { e.stopPropagation(); setActiveTab('tags'); }}
+                                 className="mt-4 px-4 py-2 bg-[var(--brand)] text-white text-xs font-semibold rounded shadow-sm hover:opacity-90 transition-colors"
+                             >
+                                 {t('configure_policies')}
+                             </button>
+                         )}
+                     </div>
                  </div>
-             </div>
-            </div>
+                </div>
+            </FeatureGuard>
         </div>
 
         <div key="burn">
-            <div className="drag-handle cursor-move h-full w-full">
+            <FeatureGuard requiredTier="Professional" featureName="Presupuestos" className="drag-handle cursor-move h-full w-full">
                 <BudgetBurnChart onHeightChange={handleBudgetResize} />
-            </div>
+            </FeatureGuard>
         </div>
 
         <div key="power">
-            <div className="drag-handle cursor-move h-full w-full">
+            <FeatureGuard requiredTier="Business" featureName="Power Schedules" className="drag-handle cursor-move h-full w-full">
                 <PowerSchedules />
-            </div>
+            </FeatureGuard>
         </div>
 
         <div key="right">
-            <div className="drag-handle cursor-move h-full w-full">
+            <FeatureGuard requiredTier="Professional" featureName="Rightsizing" className="drag-handle cursor-move h-full w-full">
                 <RightsizingBlade />
-            </div>
+            </FeatureGuard>
         </div>
 
         <div key="sandbox">
-            <div className="drag-handle cursor-move h-full w-full overflow-hidden">
+            <FeatureGuard requiredTier="Professional" featureName="Time-To-Live (TTL)" className="drag-handle cursor-move h-full w-full overflow-hidden">
                 <ExpiredSandboxTable />
-            </div>
+            </FeatureGuard>
         </div>
       </ResponsiveGridLayout>
 

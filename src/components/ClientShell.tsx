@@ -141,7 +141,8 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
 
   useEffect(() => {
       if (!isAuthenticated && inProgress !== "startup" && inProgress !== "handleRedirect") {
-          if (!showPricing && pathname !== '/login') {
+          const isDemo = pathname === '/demo' || pathname.startsWith('/demo/');
+          if (!showPricing && pathname !== '/login' && !isDemo) {
               router.replace('/login');
           }
       } else if (isAuthenticated && pathname === '/login') {
@@ -149,7 +150,12 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
       }
   }, [isAuthenticated, inProgress, showPricing, pathname, router]);
 
+  const isDemoRoute = pathname === '/demo' || pathname.startsWith('/demo/');
+
   if (!isAuthenticated && inProgress !== "startup" && inProgress !== "handleRedirect") {
+      if (isDemoRoute) {
+          return <>{children}</>;
+      }
       if (showPricing) {
           return <PricingPage onLoginClick={() => setShowPricing(false)} tenantId={selectedTenant?.id} />;
       }
@@ -199,6 +205,16 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
                           >
                               <svg className="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 24 24"><path d="M11.4 24H0V12.6h11.4V24zM24 24H12.6V12.6H24V24zM11.4 11.4H0V0h11.4v11.4zm12.6 0H12.6V0H24v11.4z"/></svg>
                               {tc('sign_in_microsoft')}
+                          </button>
+
+                          <button
+                              onClick={() => {
+                                  setShowPricing(true);
+                                  router.replace('/');
+                              }}
+                              className="w-full mt-4 flex items-center justify-center py-3 px-4 rounded-[12px] text-[14px] font-bold text-[#A9BBD0] hover:text-white hover:bg-white/5 transition-all focus:outline-none font-heading"
+                          >
+                              Volver a la página de precios
                           </button>
 
 

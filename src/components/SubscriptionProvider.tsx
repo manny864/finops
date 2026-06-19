@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { useTenant } from './TenantProvider';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import { isMockTenant } from '@/lib/mockData';
 
 export interface Subscription {
     id: string;
@@ -42,9 +43,16 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         }
 
         const fetchSubscriptions = async () => {
-            if (accounts.length === 0) return;
+            if (accounts.length === 0 && !isMockTenant(selectedTenant?.id || '')) return;
             setLoading(true);
             try {
+                // Short-circuit for demo to prevent MSAL crash before monkey-patch
+                if (isMockTenant(selectedTenant?.id || '')) {
+                    setSubscriptions([{ id: 'mock-sub', name: 'Demo Subscription' }]);
+                    setLoading(false);
+                    return;
+                }
+
                 const tokenResponse = await instance.acquireTokenSilent({
                     scopes: ["User.Read"],
                     account: accounts[0]

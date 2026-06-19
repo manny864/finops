@@ -5,6 +5,8 @@ import { useMsal } from '@azure/msal-react';
 import { TrendingUp, Loader2, MapPin, BarChart3, Check, Ruler, Moon, Flag, AlertTriangle } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useAIContext } from '@/hooks/useAIContext';
+import { isMockTenant } from '@/lib/mockData';
+
 
 export default function HistoricalProgressPage() {
     const { selectedTenant } = useTenant();
@@ -26,7 +28,7 @@ export default function HistoricalProgressPage() {
     }, [data, advisorRecs, setPageContext]);
 
     useEffect(() => {
-        if (accounts.length === 0 || selectedTenant.id === 'default') return;
+        if ((accounts.length === 0 && !isMockTenant(selectedTenant?.id || '')) || selectedTenant.id === 'default') return;
 
         const fetchData = async () => {
             setLoading(true);

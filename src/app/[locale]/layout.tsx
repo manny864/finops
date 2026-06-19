@@ -48,7 +48,7 @@ export default async function RootLayout({
   return (
     <html lang={locale} suppressHydrationWarning className={`${montserrat.variable} ${openSans.variable}`}>
       <body className="font-sans antialiased text-gray-900 bg-gray-50">
-        <NextIntlClientProvider messages={messages}>
+        <NextIntlClientProvider messages={messages} locale={locale}>
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
             <Toaster richColors position="bottom-right" theme="system" />
             <ClientShell demoSession={demoSession}>

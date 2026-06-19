@@ -1,6 +1,7 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useMsal } from '@azure/msal-react';
+import { getMockDataForRoute } from '@/lib/mockData';
 
 export interface Tenant {
   id: string;
@@ -23,11 +24,19 @@ interface TenantContextType {
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
 
 export function TenantProvider({ children, demoSession }: { children: React.ReactNode, demoSession?: { isDemo: boolean; tier: string } | null }) {
-  const { accounts } = useMsal();
+  const { instance, accounts } = useMsal();
   const [tenantsList, setTenantsList] = useState<Tenant[]>([{ id: 'default', name: 'Cargando entornos...' }]);
+  const selectedTenantRef = React.useRef<Tenant | null>(null);
   const [selectedTenant, setSelectedTenant] = useState<Tenant>(() => {
     if (demoSession?.isDemo) {
-      return { id: 'demo_tenant', name: 'Demo Workspace', tier: demoSession.tier };
+      let id = 'demo_tenant';
+      let name = 'Demo Workspace';
+      const tier = demoSession.tier?.toLowerCase() || 'essential';
+      if (tier === 'essential') { id = '11111111-2222-3333-4444-555555555555'; name = 'Cliente ACME (Demo Essentials)'; }
+      else if (tier === 'pro' || tier === 'professional') { id = '22222222-3333-4444-5555-666666666666'; name = 'Startup Tech (Demo Pro)'; }
+      else if (tier === 'business') { id = '44444444-5555-6666-7777-888888888888'; name = 'Midmarket Corp (Demo Business)'; }
+      else if (tier === 'enterprise') { id = '33333333-4444-5555-6666-777777777777'; name = 'Corporation XTZ (Demo Enterprise)'; }
+      return { id, name, tier: demoSession.tier };
     }
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('finops_active_tenant');
@@ -40,6 +49,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
 
   // Sync to localStorage
   useEffect(() => {
+    selectedTenantRef.current = selectedTenant;
     if (selectedTenant.id !== 'default') {
       localStorage.setItem('finops_active_tenant', JSON.stringify(selectedTenant));
     }
@@ -49,7 +59,15 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
 
   // Leer Base de Datos MySQL
   useEffect(() => {
-    if (demoSession?.isDemo) return;
+    if (demoSession?.isDemo) {
+        setTenantsList([
+            { id: '11111111-2222-3333-4444-555555555555', name: 'Cliente ACME (Demo Essentials)', tier: 'Essential' },
+            { id: '22222222-3333-4444-5555-666666666666', name: 'Startup Tech (Demo Pro)', tier: 'Professional' },
+            { id: '44444444-5555-6666-7777-888888888888', name: 'Midmarket Corp (Demo Business)', tier: 'Business' },
+            { id: '33333333-4444-5555-6666-777777777777', name: 'Corporation XTZ (Demo Enterprise)', tier: 'Enterprise' }
+        ]);
+        return;
+    }
     fetch('/api/tenants')
       .then(res => res.json())
       .then(data => {
@@ -97,7 +115,27 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
     }
   }, [accounts, tenantsList]);
 
-  const { instance } = useMsal();
+  // GLOBAL MOCK OVERRIDE FOR DEMO SESSIONS
+  useEffect(() => {
+      if (demoSession?.isDemo && typeof window !== 'undefined') {
+          instance.acquireTokenSilent = async () => ({ idToken: 'demo', accessToken: 'demo' } as any);
+          const originalFetch = window.fetch;
+          window.fetch = async (input, init) => {
+              const url = input.toString();
+              const tier = selectedTenantRef.current?.tier?.toLowerCase() || demoSession.tier?.toLowerCase() || 'essential';
+              if (url.includes('/api/intelligence/billing')) return new Response(JSON.stringify(getMockDataForRoute('billing', tier)), {status: 200});
+              if (url.includes('/api/advisor')) return new Response(JSON.stringify(getMockDataForRoute('advisor', tier)), {status: 200});
+              if (url.includes('/api/audit/full')) return new Response(JSON.stringify(getMockDataForRoute('audit_full', tier)), {status: 200});
+              if (url.includes('/api/tags/compliance')) return new Response(JSON.stringify(getMockDataForRoute('tags_compliance', tier)), {status: 200});
+              if (url.includes('/api/intelligence/network')) return new Response(JSON.stringify(getMockDataForRoute('network', tier)), {status: 200});
+              if (url.includes('/api/intelligence/rates')) return new Response(JSON.stringify(getMockDataForRoute('rates', tier)), {status: 200});
+              if (url.includes('/api/subscriptions')) return new Response(JSON.stringify({ subscriptions: [{id: 'mock-sub', name: 'Demo Subscription'}]}), {status: 200});
+              if (url.includes('/api/intelligence/budgets')) return new Response(JSON.stringify(getMockDataForRoute('budgets', tier)), {status: 200});
+              return originalFetch(input, init);
+          };
+      }
+  }, [demoSession, instance]);
+
   useEffect(() => {
       if (demoSession?.isDemo) return;
       // Fetch the role for the current tenant
