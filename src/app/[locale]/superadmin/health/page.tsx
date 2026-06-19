@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { useRouter } from 'next/navigation';
 import { isSuperAdmin } from '@/lib/authGuard';
+import { useTenant } from '@/components/TenantProvider';
 import { toast } from 'sonner';
 import { 
 
@@ -41,6 +42,7 @@ interface DiagnosticsData {
 
 export default function SuperAdminHealthPage() {
     const { accounts, instance } = useMsal();
+    const { selectedTenant } = useTenant();
     const router = useRouter();
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
