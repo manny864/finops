@@ -8,6 +8,7 @@ export interface Tenant {
   tier?: string;
   subscription_status?: string;
   trial_ends_at?: string;
+  requires_rbac_update?: boolean;
 }
 
 interface TenantContextType {
@@ -16,6 +17,7 @@ interface TenantContextType {
   isAdmin: boolean;
   tenants: Tenant[];
   userRole: string;
+  requiresRbacUpdate?: boolean;
 }
 
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
@@ -129,8 +131,10 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
       }
   }, [selectedTenant.id, accounts, instance, isAdmin]);
 
+  const requiresRbacUpdate = selectedTenant?.requires_rbac_update;
+
   return (
-    <TenantContext.Provider value={{ selectedTenant, setSelectedTenant, isAdmin, tenants: tenantsList, userRole }}>
+    <TenantContext.Provider value={{ selectedTenant, setSelectedTenant, isAdmin, tenants: tenantsList, userRole, requiresRbacUpdate }}>
       {children}
     </TenantContext.Provider>
   );

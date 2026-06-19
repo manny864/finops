@@ -87,7 +87,9 @@
     "my_environment": "Mi Entorno (Cliente)",
     "ai_config": "Configuración de IA",
     "prev": "Anterior",
-    "next": "Siguiente"
+    "next": "Siguiente",
+    "rbacUpdateRequired": "Actualiza tus permisos en Azure para desbloquear esta función",
+    "tierRequired": "Desbloquea {feature} con el plan {tier}"
   },
   "Shell": {
     "cloudFinOps": "Cloud FinOps"
@@ -194,8 +196,11 @@
     "spend_label": "Gasto",
     "potential_label": "Potencial",
     "spend_by_subscription": "Gasto por suscripción",
-    "top_saving_opportunities": "Top oportunidades de ahorro",
-    "btn_apply": "Aplicar"
+    "top_saving_opportunities": "Mayores Oportunidades de Ahorro",
+    "btn_apply": "Aplicar Ahora",
+    "potentialSavingsTitle": "Ahorro Potencial",
+    "potentialSavingsDesc": "Fugas y redimensionamiento",
+    "viewDetails": "Ver Detalles de Optimización"
   },
   "Network": {
     "title": "Análisis de Red y Egress",
@@ -294,47 +299,53 @@
     "subtitle": "Ya seas una startup o Enterprise, tenemos planes simples y fijos que no agravan tus problemas de costos.",
     "essential": {
       "name": "Essential (Starter)",
-      "desc": "Para empresas que recién empiezan a preocuparse por sus costos en Azure.",
-      "f1": "1 Suscripción soportada",
-      "f2": "Dashboard interactivo (Consumo, Ahorro, CO2)",
-      "f3": "Detección de Recursos Zombies básica",
-      "f4": "Análisis de instancias (Rightsizing via Advisor)",
-      "f5": "Solo Lectura"
+      "desc": "Para empresas que recién comienzan a preocuparse por sus costos en Azure.",
+      "features": [
+        "Historial de Costos y Facturación",
+        "Visualización de Presupuestos",
+        "Dashboard de Sustentabilidad",
+        "Exportación PDF/CSV",
+        "Health Score de Azure Advisor",
+        "Radar de Ahorro Potencial (Teaser)"
+      ]
     },
     "pro": {
       "name": "Professional",
       "badge": "Recomendado",
-      "trial": "Prueba Gratis de 14 Días",
+      "trial": "Prueba gratuita de 14 días",
       "desc": "Para empresas medianas que necesitan entender tendencias y reportar.",
-      "f1": "Todo lo del plan Essential",
-      "f2": "Max 5 usuarios",
-      "f3": "Hasta 5 Suscripciones soportadas",
-      "f4": "Módulo BI (Preset.io / Superset)",
-      "f5": "Copilot IA (Consultas limitadas a Gemini)",
-      "f6": "Alertas Proactivas de consumo"
+      "features": [
+        "Todo lo de Essential",
+        "Limpieza Activa de Recursos Zombie",
+        "Ejecución de Rightsizing",
+        "Gobernanza de Etiquetas (Tags)"
+      ]
     },
     "business": {
       "name": "Business",
+      "badge": "Más Popular",
       "desc": "Automatización básica y múltiples entornos para empresas en crecimiento.",
-      "f1": "Todo lo del plan Professional",
-      "f2": "Max 20 usuarios",
-      "f3": "Hasta 20 Suscripciones soportadas",
-      "f4": "Gestión Avanzada de Etiquetas (Tags)",
-      "f5": "Copilot IA Expandido",
-      "f6": "Auditoría básica de licencias"
+      "features": [
+        "Todo lo de Professional",
+        "Encendido/Apagado Automático (Schedules)",
+        "FinOps Copilot (IA)",
+        "Detección de Anomalías",
+        "Políticas de Expiración (TTL)",
+        "Distribución de Costos (Chargeback)"
+      ]
     },
     "enterprise": {
       "name": "Enterprise",
-      "price": "Precio Personalizado",
+      "price": "Precio Custom",
       "badge": "Control Total",
       "desc": "Para corporaciones con topologías complejas (Hub & Spoke).",
-      "f1": "Todo lo del plan Business",
-      "f2": "Usuarios Ilimitados",
-      "f3": "Suscripciones Ilimitadas",
-      "f4": "Action Center (Remediación 1-Click)",
-      "f5": "Power Schedules (Apagado de VMs)",
-      "f6": "Auditoría AHUB profunda",
-      "f7": "Copilot IA Ilimitado"
+      "features": [
+        "Todo lo de Business",
+        "Soporte Dedicado (SLA)",
+        "Workbooks Personalizados",
+        "Tarifas Custom (EA)",
+        "Auditorías FinOps Modulares"
+      ]
     },
     "enterpriseModal": {
       "title": "Contactar a Ventas Enterprise",
@@ -363,5 +374,8 @@
     "alert_threshold": "Umbral de Alerta",
     "no_budget_configured": "No hay presupuesto configurado para este tenant.",
     "configure_btn": "Configurar Presupuesto"
+  },
+  "onboarding": {
+    "leastPrivilegeBanner": "Dado que tu plan actual es {tier}, este script ha sido personalizado para solicitar únicamente los permisos RBAC estrictamente necesarios para tus funciones."
   }
 }

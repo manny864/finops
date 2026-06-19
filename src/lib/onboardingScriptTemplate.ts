@@ -1,4 +1,4 @@
-export function generateOnboardingScript(clientTenantId: string, subscriptionIdsStr: string): string {
+export function generateOnboardingScript(clientTenantId: string, subscriptionIdsStr: string, tier: string = 'Essential'): string {
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     
     // Support multiple subscriptions separated by commas
@@ -9,7 +9,58 @@ export function generateOnboardingScript(clientTenantId: string, subscriptionIds
         }
     }
 
+    let baseRoles = ['Reader', 'Cost Management Reader'];
+    let customActions: string[] = [];
+
+    if (tier === 'Professional') {
+        baseRoles.push('Tag Contributor');
+    } else if (tier === 'Business' || tier === 'Enterprise') {
+        baseRoles.push('Tag Contributor');
+        baseRoles.push('Virtual Machine Contributor');
+        baseRoles.push('Desktop Virtualization Power On Off Contributor');
+        
+        customActions = [
+            "Microsoft.Compute/virtualMachines/deallocate/action",
+            "Microsoft.Compute/virtualMachines/start/action",
+            "Microsoft.Compute/virtualMachines/restart/action",
+            "Microsoft.Resources/tags/write",
+            "Microsoft.Compute/disks/delete",
+            "Microsoft.Network/networkInterfaces/delete",
+            "Microsoft.Network/publicIPAddresses/delete"
+        ];
+    }
+
     const subList = subscriptions.map(s => `"${s}"`).join(", ");
+
+    const customRoleScript = customActions.length > 0 ? `
+    Write-Host "  -> Creando/Asignando Rol Personalizado de Remediación..."
+    $customRole = Get-AzRoleDefinition -Name $RoleName -Scope "/subscriptions/$sub" -ErrorAction SilentlyContinue
+    
+    if (-not $customRole) {
+        $roleDef = Get-AzRoleDefinition -Name "Reader"
+        $roleDef.Id = $null
+        $roleDef.Name = $RoleName
+        $roleDef.Description = "Permite a CSCloudSolutions ejecutar acciones de FinOps"
+        
+        $newActions = @(
+            ${customActions.map(a => `"${a}"`).join(',\n            ')}
+        )
+
+        if ($null -ne $roleDef.Permissions -and $roleDef.Permissions.Count -gt 0) {
+            $roleDef.Permissions[0].Actions.Clear()
+            foreach ($a in $newActions) { $roleDef.Permissions[0].Actions.Add($a) }
+        } elseif ($null -ne $roleDef.Actions) {
+            $roleDef.Actions.Clear()
+            foreach ($a in $newActions) { $roleDef.Actions.Add($a) }
+        }
+        
+        $roleDef.AssignableScopes.Clear()
+        $roleDef.AssignableScopes.Add("/subscriptions/$sub")
+        $customRole = New-AzRoleDefinition -Role $roleDef
+    }
+    
+    New-AzRoleAssignment -ObjectId $spId -RoleDefinitionName $RoleName -Scope "/subscriptions/$sub" -ErrorAction SilentlyContinue
+` : '';
 
     return `# ==============================================================================
 # CSCloudSolutions FinOps Agent - Onboarding Script (PowerShell)
@@ -73,44 +124,9 @@ foreach ($sub in $Subscriptions) {
     Write-Host "Procesando la suscripción $sub..." -ForegroundColor Cyan
     Set-AzContext -SubscriptionId $sub | Out-Null
     
-    Write-Host "  -> Asignando Roles Incorporados (Reader, Cost Management Reader & VM Contributor)..."
-    New-AzRoleAssignment -ObjectId $spId -RoleDefinitionName "Reader" -Scope "/subscriptions/$sub" -ErrorAction SilentlyContinue
-    New-AzRoleAssignment -ObjectId $spId -RoleDefinitionName "Cost Management Reader" -Scope "/subscriptions/$sub" -ErrorAction SilentlyContinue
-    New-AzRoleAssignment -ObjectId $spId -RoleDefinitionName "Virtual Machine Contributor" -Scope "/subscriptions/$sub" -ErrorAction SilentlyContinue
-
-    Write-Host "  -> Creando/Asignando Rol Personalizado de Remediación..."
-    $customRole = Get-AzRoleDefinition -Name $RoleName -Scope "/subscriptions/$sub" -ErrorAction SilentlyContinue
-    
-    if (-not $customRole) {
-        $roleDef = Get-AzRoleDefinition -Name "Reader"
-        $roleDef.Id = $null
-        $roleDef.Name = $RoleName
-        $roleDef.Description = "Permite a CSCloudSolutions ejecutar acciones de FinOps"
-        
-        $newActions = @(
-            "Microsoft.Compute/virtualMachines/deallocate/action",
-            "Microsoft.Compute/virtualMachines/start/action",
-            "Microsoft.Compute/virtualMachines/restart/action",
-            "Microsoft.Resources/tags/write",
-            "Microsoft.Compute/disks/delete",
-            "Microsoft.Network/networkInterfaces/delete",
-            "Microsoft.Network/publicIPAddresses/delete"
-        )
-
-        if ($null -ne $roleDef.Permissions -and $roleDef.Permissions.Count -gt 0) {
-            $roleDef.Permissions[0].Actions.Clear()
-            foreach ($a in $newActions) { $roleDef.Permissions[0].Actions.Add($a) }
-        } elseif ($null -ne $roleDef.Actions) {
-            $roleDef.Actions.Clear()
-            foreach ($a in $newActions) { $roleDef.Actions.Add($a) }
-        }
-        
-        $roleDef.AssignableScopes.Clear()
-        $roleDef.AssignableScopes.Add("/subscriptions/$sub")
-        $customRole = New-AzRoleDefinition -Role $roleDef
-    }
-    
-    New-AzRoleAssignment -ObjectId $spId -RoleDefinitionName $RoleName -Scope "/subscriptions/$sub" -ErrorAction SilentlyContinue
+    Write-Host "  -> Asignando Roles Incorporados (${baseRoles.join(', ')})..."
+${baseRoles.map(role => `    New-AzRoleAssignment -ObjectId $spId -RoleDefinitionName "${role}" -Scope "/subscriptions/$sub" -ErrorAction SilentlyContinue`).join('\n')}
+${customRoleScript}
 }
 
 Write-Host "==============================================================================" -ForegroundColor Green

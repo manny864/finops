@@ -87,7 +87,9 @@
     "my_environment": "Meu Ambiente (Cliente)",
     "ai_config": "Configuração de IA",
     "prev": "Anterior",
-    "next": "Seguinte"
+    "next": "Seguinte",
+    "rbacUpdateRequired": "Atualize suas permissões do Azure para desbloquear este recurso",
+    "tierRequired": "Desbloqueie {feature} com o plano {tier}"
   },
   "Shell": {
     "cloudFinOps": "Cloud FinOps"
@@ -194,8 +196,11 @@
     "spend_label": "Gasto",
     "potential_label": "Potencial",
     "spend_by_subscription": "Gasto por Assinatura",
-    "top_saving_opportunities": "Principais Oportunidades de Economia",
-    "btn_apply": "Aplicar"
+    "top_saving_opportunities": "Maiores Oportunidades de Economia",
+    "btn_apply": "Aplicar Agora",
+    "potentialSavingsTitle": "Economia Potencial",
+    "potentialSavingsDesc": "Desperdício e Redimensionamento",
+    "viewDetails": "Ver Detalhes da Otimização"
   },
   "Network": {
     "title": "Análise de Rede e Egress",
@@ -295,46 +300,52 @@
     "essential": {
       "name": "Essential (Starter)",
       "desc": "Para empresas que estão começando a se preocupar com seus custos no Azure.",
-      "f1": "1 Assinatura suportada",
-      "f2": "Dashboard interativo (Consumo, Economia, CO2)",
-      "f3": "Detecção básica de Recursos Zumbis",
-      "f4": "Análise de instâncias (Rightsizing via Advisor)",
-      "f5": "Apenas Leitura"
+      "features": [
+        "Histórico de Custos e Faturamento",
+        "Visualização de Orçamentos",
+        "Dashboard de Sustentabilidade",
+        "Exportação em PDF/CSV",
+        "Health Score do Azure Advisor",
+        "Radar de Economia Potencial (Teaser)"
+      ]
     },
     "pro": {
       "name": "Professional",
       "badge": "Recomendado",
       "trial": "Teste Grátis de 14 Dias",
-      "desc": "Para empresas de médio porte que precisam entender tendências e relatórios.",
-      "f1": "Tudo do plano Essential",
-      "f2": "Máx 5 usuários",
-      "f3": "Até 5 Assinaturas suportadas",
-      "f4": "Módulo BI (Preset.io / Superset)",
-      "f5": "Copilot de IA (Consultas limitadas ao Gemini)",
-      "f6": "Alertas Proativos de consumo"
+      "desc": "Para empresas de médio porte que precisam entender tendências e relatar.",
+      "features": [
+        "Tudo do Essential",
+        "Limpeza Ativa de Recursos Zumbi",
+        "Execução de Rightsizing",
+        "Governança de Tags"
+      ]
     },
     "business": {
       "name": "Business",
+      "badge": "Mais Popular",
       "desc": "Automação básica e múltiplos ambientes para empresas em crescimento.",
-      "f1": "Tudo do plano Professional",
-      "f2": "Máx 20 usuários",
-      "f3": "Até 20 Assinaturas suportadas",
-      "f4": "Gerenciamento Avançado de Tags",
-      "f5": "Copilot de IA Expandido",
-      "f6": "Auditoria básica de licenças"
+      "features": [
+        "Tudo do Professional",
+        "Ligar/Desligar Automático (Schedules)",
+        "FinOps Copilot (IA)",
+        "Detecção de Anomalias",
+        "Políticas de Expiração (TTL)",
+        "Distribuição de Custos (Chargeback)"
+      ]
     },
     "enterprise": {
       "name": "Enterprise",
-      "price": "Preço Personalizado",
+      "price": "Preço Customizado",
       "badge": "Controle Total",
       "desc": "Para corporações com topologias complexas (Hub & Spoke).",
-      "f1": "Tudo do plano Business",
-      "f2": "Usuários Ilimitados",
-      "f3": "Assinaturas Ilimitadas",
-      "f4": "Action Center (Remediação em 1 Clique)",
-      "f5": "Power Schedules (Desligamento de VMs)",
-      "f6": "Auditoria Profunda do AHUB",
-      "f7": "Copilot de IA Ilimitado"
+      "features": [
+        "Tudo do Business",
+        "Suporte Dedicado (SLA)",
+        "Workbooks Personalizados",
+        "Tarifas Custom (EA)",
+        "Auditorias FinOps Modulares"
+      ]
     },
     "enterpriseModal": {
       "title": "Contatar Vendas Enterprise",
@@ -361,7 +372,10 @@
     "card_title": "Status do Orçamento Mensal",
     "assigned_budget": "Orçamento Atribuído",
     "alert_threshold": "Limite de Alerta",
-    "no_budget_configured": "Nenhum orçamento configurado para este locatário.",
+    "no_budget_configured": "Não há orçamento configurado para este tenant.",
     "configure_btn": "Configurar Orçamento"
+  },
+  "onboarding": {
+    "leastPrivilegeBanner": "Como seu plano atual é {tier}, este script foi personalizado para solicitar apenas as permissões RBAC estritamente necessárias para seus recursos."
   }
 }

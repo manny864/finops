@@ -2,8 +2,10 @@
 import React, { useState, useEffect } from "react";
 import { Terminal, Copy, Check, Server, ShieldCheck, Database } from "lucide-react";
 import { useTenant } from '@/components/TenantProvider';
+import { useTranslations } from "next-intl";
 
 export default function OnboardingPage() {
+  const t = useTranslations('onboarding');
   const { selectedTenant } = useTenant();
   const [tenants, setTenants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -91,6 +93,9 @@ export default function OnboardingPage() {
           setTimeout(() => setCopied(false), 3000);
       }
   };
+
+  const currentTenantObj = tenants.find(t => t.id === selectedTenant?.id);
+  const currentTier = currentTenantObj?.tier || 'Essential';
 
   return (
     <div className="max-w-6xl mx-auto p-6 animate-in fade-in duration-500">
@@ -180,6 +185,12 @@ export default function OnboardingPage() {
                   <h3 className="text-lg font-bold text-indigo-900">Generador de Script (PowerShell)</h3>
               </div>
               <div className="p-6">
+                  <div className="mb-4 p-4 bg-blue-50/50 border border-blue-100 rounded-lg flex items-start">
+                      <ShieldCheck className="w-5 h-5 text-blue-600 mr-3 mt-0.5" />
+                      <p className="text-sm text-blue-800">
+                          {t('leastPrivilegeBanner', { tier: currentTier })}
+                      </p>
+                  </div>
                   <form onSubmit={generateScript} className="space-y-4">
                       <div>
                           <label className="block text-sm font-bold text-gray-700 mb-1">ID del Tenant del Cliente</label>
