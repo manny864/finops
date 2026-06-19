@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl';
 import FeatureGuard from './FeatureGuard';
 import { useTenant } from './TenantProvider';
 import { hasAccess } from '@/lib/tierLogic';
+import { getMockDataForRoute } from '@/lib/mockData';
 
 export default function GlobalCopilot() {
     const { selectedTenant } = useTenant();
@@ -34,6 +35,13 @@ export default function GlobalCopilot() {
         setLoading(true);
 
         try {
+            if (selectedTenant.id === 'demo_tenant') {
+                setTimeout(() => {
+                    setMessages(prev => [...prev, { role: 'ai', content: "¡Claro! En este entorno de demostración puedo asistirte con simulaciones de optimización FinOps." }]);
+                    setLoading(false);
+                }, 1000);
+                return;
+            }
             const res = await fetch('/api/intelligence/copilot', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -70,18 +78,25 @@ export default function GlobalCopilot() {
         const fetchInitialSummary = async () => {
             setLoading(true);
             try {
-                const res = await fetch('/api/intelligence/copilot', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        prompt: `He analizado los datos de la página "${currentPage}". Explica brevemente el estado actual reflejado en los datos y proporciona 2 o 3 sugerencias clave o acciones de optimización para esta sección. Responde en español de forma concisa.`,
-                        pageContext: currentPage,
-                        dataPayload: currentDataPayload
-                    })
-                });
-                const json = await res.json();
-                if (json.reply) {
-                    setMessages([{ role: 'ai', content: json.reply }]);
+                if (selectedTenant.id === 'demo_tenant') {
+                    const mock = getMockDataForRoute('copilot_history', 'demo_tenant');
+                    if (mock?.success) {
+                        setMessages((mock.history as {role: 'user'|'ai', content: string}[]) || []);
+                    }
+                } else {
+                    const res = await fetch('/api/intelligence/copilot', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            prompt: `He analizado los datos de la página "${currentPage}". Explica brevemente el estado actual reflejado en los datos y proporciona 2 o 3 sugerencias clave o acciones de optimización para esta sección. Responde en español de forma concisa.`,
+                            pageContext: currentPage,
+                            dataPayload: currentDataPayload
+                        })
+                    });
+                    const json = await res.json();
+                    if (json.reply) {
+                        setMessages([{ role: 'ai', content: json.reply }]);
+                    }
                 }
             } catch(e) {}
             setLoading(false);

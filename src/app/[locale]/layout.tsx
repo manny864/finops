@@ -8,6 +8,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import ClientShell from "@/components/ClientShell";
 import CommandPalette from "@/components/CommandPalette";
 import GlobalCopilot from "@/components/GlobalCopilot";
+import { cookies } from 'next/headers';
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -35,13 +36,22 @@ export default async function RootLayout({
   const { locale } = await params;
   const messages = await getMessages();
 
+  const cookieStore = await cookies();
+  const demoCookie = cookieStore.get('finops_demo_session');
+  let demoSession = null;
+  if (demoCookie) {
+    try {
+      demoSession = JSON.parse(demoCookie.value);
+    } catch(e) {}
+  }
+
   return (
     <html lang={locale} suppressHydrationWarning className={`${montserrat.variable} ${openSans.variable}`}>
       <body className="font-sans antialiased text-gray-900 bg-gray-50">
         <NextIntlClientProvider messages={messages}>
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
             <Toaster richColors position="bottom-right" theme="system" />
-            <ClientShell>
+            <ClientShell demoSession={demoSession}>
               <CommandPalette />
               {children}
               <GlobalCopilot />

@@ -6,6 +6,7 @@ import { useViewMode } from "@/context/ViewModeContext";
 import { Zap, AlertTriangle, ArrowRight, CheckCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useMsal } from "@azure/msal-react";
+import { getMockDataForRoute } from '@/lib/mockData';
 
 export default function RightsizingPage() {
   const t = useTranslations("Rightsizing");
@@ -24,17 +25,24 @@ export default function RightsizingPage() {
       setLoading(true);
       setError("");
       try {
-        const res = await fetch('/api/intelligence/rightsizing', {
-            headers: {
-                'x-tenant-id': selectedTenant.id,
-                'x-subscription-id': selectedSubscription
+        if (selectedTenant.id === 'demo_tenant') {
+            const mock = getMockDataForRoute('rightsizing', 'demo_tenant');
+            if (mock?.success) {
+                setVms((mock.recommendations as any[]) || []);
             }
-        });
-        const json = await res.json();
-        if (json.success) {
-            setVms(json.data || []);
         } else {
-            setError(json.error || "Error");
+            const res = await fetch('/api/intelligence/rightsizing', {
+                headers: {
+                    'x-tenant-id': selectedTenant.id,
+                    'x-subscription-id': selectedSubscription
+                }
+            });
+            const json = await res.json();
+            if (json.success) {
+                setVms(json.data || []);
+            } else {
+                setError(json.error || "Error");
+            }
         }
       } catch(e) {
           setError("Error");

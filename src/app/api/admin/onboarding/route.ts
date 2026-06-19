@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateOnboardingScript } from "@/lib/onboardingScriptTemplate";
-import { query } from "@/modules/storage/db";
+import pool from "@/modules/storage/db";
 
 export async function POST(request: NextRequest) {
     try {
@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
 
         let tier = 'Essential';
         try {
-            const rows = await query("SELECT tier FROM Tenants WHERE tenant_id = ?", [clientTenantId]) as any[];
+            const [rows] = await pool.query("SELECT tier FROM Tenants WHERE tenant_id = ?", [clientTenantId]) as any[];
             if (rows.length > 0 && rows[0].tier) {
                 tier = rows[0].tier;
             }
