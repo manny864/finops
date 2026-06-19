@@ -4,6 +4,8 @@ import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { Target, TrendingUp, AlertTriangle, CheckCircle2, Loader2, Info, Eye, DollarSign, Settings } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { isMockTenant } from '@/lib/mockData';
+
 
 export default function MaturityPage() {
     const { selectedTenant } = useTenant();
@@ -14,7 +16,7 @@ export default function MaturityPage() {
     const [reason, setReason] = useState<string | null>(null);
 
     useEffect(() => {
-        if (accounts.length === 0 || selectedTenant.id === 'default') return;
+        if ((accounts.length === 0 && !isMockTenant(selectedTenant?.id || '')) || selectedTenant.id === 'default') return;
 
         const fetchMaturity = async () => {
             setLoading(true);

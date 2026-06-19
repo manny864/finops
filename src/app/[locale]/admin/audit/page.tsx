@@ -1,10 +1,12 @@
 "use client";
+import { isMockTenant } from '@/lib/mockData';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { toast } from 'sonner';
 import { FileText, Loader2, Download } from 'lucide-react';
 import {
+
   useReactTable,
   getCoreRowModel,
   getPaginationRowModel,
@@ -33,7 +35,7 @@ export default function AuditTrailPage() {
     const [sorting, setSorting] = useState<SortingState>([{ id: 'timestamp', desc: true }]);
 
     useEffect(() => {
-        if (!selectedTenant || selectedTenant.id === 'default' || accounts.length === 0) return;
+        if (!selectedTenant || selectedTenant.id === 'default' || (accounts.length === 0 && !isMockTenant(selectedTenant?.id || ''))) return;
 
         const fetchLogs = async () => {
             setLoading(true);

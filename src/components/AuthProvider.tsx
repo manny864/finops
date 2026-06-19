@@ -2,6 +2,9 @@
 import React, { ReactNode, useEffect, useState } from "react";
 import { PublicClientApplication, EventType, AuthenticationResult } from "@azure/msal-browser";
 import { MsalProvider, useMsal, useIsAuthenticated } from "@azure/msal-react";
+import { useTenant } from "./TenantProvider";
+import { isMockTenant } from "@/lib/mockData";
+import { exitDemoSession } from "@/app/_actions/demoAuth";
 
 const pca = new PublicClientApplication({
     auth: {
@@ -14,6 +17,7 @@ const pca = new PublicClientApplication({
 export function AuthButton() {
     const { instance, accounts, inProgress } = useMsal();
     const isAuthenticated = useIsAuthenticated();
+    const { selectedTenant } = useTenant();
 
     const handleLogin = () => {
         instance.loginRedirect({
@@ -51,6 +55,18 @@ export function AuthButton() {
 
     if (inProgress === "startup" || inProgress === "handleRedirect") {
         return <span className="text-gray-400 text-sm font-medium animate-pulse px-4">Validando sesión...</span>;
+    }
+
+    if (selectedTenant && isMockTenant(selectedTenant.id)) {
+        return (
+            <button 
+                onClick={() => exitDemoSession()}
+                className="flex items-center justify-center space-x-2 bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition-all shadow-md active:scale-95 w-full"
+            >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                <span>Salir de la Demo</span>
+            </button>
+        );
     }
 
     return (

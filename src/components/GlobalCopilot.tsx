@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl';
 import FeatureGuard from './FeatureGuard';
 import { useTenant } from './TenantProvider';
 import { hasAccess } from '@/lib/tierLogic';
-import { getMockDataForRoute } from '@/lib/mockData';
+import { getMockDataForRoute, isMockTenant } from '@/lib/mockData';
 
 export default function GlobalCopilot() {
     const { selectedTenant } = useTenant();
@@ -35,7 +35,7 @@ export default function GlobalCopilot() {
         setLoading(true);
 
         try {
-            if (selectedTenant.id === 'demo_tenant') {
+            if (isMockTenant(selectedTenant.id)) {
                 setTimeout(() => {
                     setMessages(prev => [...prev, { role: 'ai', content: "¡Claro! En este entorno de demostración puedo asistirte con simulaciones de optimización FinOps." }]);
                     setLoading(false);
@@ -78,8 +78,8 @@ export default function GlobalCopilot() {
         const fetchInitialSummary = async () => {
             setLoading(true);
             try {
-                if (selectedTenant.id === 'demo_tenant') {
-                    const mock = getMockDataForRoute('copilot_history', 'demo_tenant');
+                if (isMockTenant(selectedTenant.id)) {
+                    const mock = getMockDataForRoute('copilot_history', selectedTenant.id);
                     if (mock?.success) {
                         setMessages((mock.history as {role: 'user'|'ai', content: string}[]) || []);
                     }

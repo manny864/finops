@@ -7,6 +7,7 @@ import { useSubscription } from '@/components/SubscriptionProvider';
 import { useMetric } from '@/components/MetricProvider';
 import InteractiveDashboard from "@/components/dashboard/InteractiveDashboard";
 import { useAIContext } from '@/hooks/useAIContext';
+import { isMockTenant, getMockDataForRoute } from '@/lib/mockData';
 
 export default function BillingPage() {
   const { activeTab, setActiveTab } = useContext(TabContext);
@@ -35,7 +36,7 @@ export default function BillingPage() {
           console.log('[BillingPage] SKIPPED: activeTab mismatch', activeTab);
           return;
       }
-      if (accounts.length === 0 || selectedTenant.id === 'default' || !selectedSubscription) {
+      if ((accounts.length === 0 && !isMockTenant(selectedTenant.id)) || selectedTenant.id === 'default' || !selectedSubscription) {
           console.log('[BillingPage] SKIPPED: precondition failed', { accounts: accounts.length, tenant: selectedTenant.id, sub: selectedSubscription });
           return;
       }
@@ -43,6 +44,15 @@ export default function BillingPage() {
       const fetchData = async () => {
           setLoading(true);
           try {
+              if (isMockTenant(selectedTenant.id)) {
+                  const bMock = getMockDataForRoute('billing', selectedTenant.id);
+                  setBillingData(bMock?.data || []);
+                  setAdvisorData(getMockDataForRoute('advisor', selectedTenant.id));
+                  setZombieData(getMockDataForRoute('audit_full', selectedTenant.id));
+                  setTagsData(getMockDataForRoute('tags_compliance', selectedTenant.id));
+                  setLoading(false);
+                  return;
+              }
               const tokenResponse = await instance.acquireTokenSilent({
                   scopes: ["User.Read"],
                   account: accounts[0]

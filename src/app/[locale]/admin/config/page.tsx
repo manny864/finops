@@ -7,6 +7,8 @@ import { useMsal } from '@azure/msal-react';
 import { toast } from 'sonner';
 
 import DeleteTenantModal from '@/components/DeleteTenantModal';
+import { isMockTenant } from '@/lib/mockData';
+
 
 export default function ConfigPage() {
   const { theme, setTheme } = useTheme();
@@ -91,7 +93,7 @@ function WebhookConfig() {
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        if (!selectedTenant || selectedTenant.id === 'default' || accounts.length === 0) return;
+        if (!selectedTenant || selectedTenant.id === 'default' || (accounts.length === 0 && !isMockTenant(selectedTenant?.id || ''))) return;
         
         const loadWebhook = async () => {
             setLoading(true);
@@ -119,7 +121,7 @@ function WebhookConfig() {
     }, [selectedTenant.id, accounts, instance]);
 
     const handleSave = async () => {
-        if (!selectedTenant || selectedTenant.id === 'default' || accounts.length === 0) {
+        if (!selectedTenant || selectedTenant.id === 'default' || (accounts.length === 0 && !isMockTenant(selectedTenant?.id || ''))) {
             toast.error("Selecciona un tenant válido primero.");
             return;
         }

@@ -1,4 +1,5 @@
 "use client";
+import { isMockTenant } from '@/lib/mockData';
 import React, { useState, useEffect } from 'react';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
@@ -7,6 +8,7 @@ import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, L
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import {
+
   useReactTable,
   getCoreRowModel,
   flexRender,
@@ -29,7 +31,7 @@ export default function NetworkAnalyticsPage() {
     const [pageSize, setPageSize] = useState(10);
 
     useEffect(() => {
-        if (!selectedTenant || selectedTenant.id === 'default' || accounts.length === 0) return;
+        if (!selectedTenant || selectedTenant.id === 'default' || (accounts.length === 0 && !isMockTenant(selectedTenant?.id || ''))) return;
 
         const fetchSubscriptions = async () => {
             setLoadingSubs(true);
@@ -72,7 +74,7 @@ export default function NetworkAnalyticsPage() {
             toast.error(t('select_sub'));
             return;
         }
-        if (accounts.length === 0 || selectedTenant.id === 'default') {
+        if ((accounts.length === 0 && !isMockTenant(selectedTenant?.id || '')) || selectedTenant.id === 'default') {
             toast.error(t('ensure_auth'));
             return;
         }

@@ -5,6 +5,8 @@ import { useMsal } from '@azure/msal-react';
 import CostPieChart from '@/components/CostPieChart';
 import PdfExportButton from '@/components/PdfExportButton';
 import { FileText, AlertCircle } from 'lucide-react';
+import { isMockTenant } from '@/lib/mockData';
+
 
 export default function ReportGeneratorPage() {
     const { selectedTenant } = useTenant();
@@ -16,7 +18,7 @@ export default function ReportGeneratorPage() {
     const totalSavings = dashboardData.reduce((sum, item) => sum + (item.potentialSavings || 0), 0);
 
     useEffect(() => {
-        if (accounts.length === 0 || selectedTenant.id === 'default') return;
+        if ((accounts.length === 0 && !isMockTenant(selectedTenant?.id || '')) || selectedTenant.id === 'default') return;
         
         const fetchData = async () => {
             setLoading(true);

@@ -16,3 +16,9 @@ export async function setDemoSession(tier: string) {
 
   redirect("/");
 }
+
+export async function exitDemoSession() {
+  const cookieStore = await cookies();
+  cookieStore.delete("finops_demo_session");
+  redirect("/");
+}

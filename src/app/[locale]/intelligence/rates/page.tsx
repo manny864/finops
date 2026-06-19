@@ -1,4 +1,5 @@
 "use client";
+import { isMockTenant } from '@/lib/mockData';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
@@ -6,6 +7,7 @@ import { DollarSign, AlertTriangle, Loader2, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import {
+
   useReactTable,
   getCoreRowModel,
   flexRender,
@@ -158,7 +160,7 @@ export default function RateOptimizationPage() {
     const [resSorting, setResSorting] = useState<SortingState>([]);
 
     useEffect(() => {
-        if (!selectedTenant || selectedTenant.id === 'default' || accounts.length === 0) return;
+        if (!selectedTenant || selectedTenant.id === 'default' || (accounts.length === 0 && !isMockTenant(selectedTenant?.id || ''))) return;
 
         const fetchSubscriptions = async () => {
             setLoadingSubs(true);

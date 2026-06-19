@@ -4,6 +4,8 @@ import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { toast } from 'sonner';
 import { Users, Shield, Plus, Trash2 } from "lucide-react";
+import { isMockTenant } from '@/lib/mockData';
+
 
 export default function UsersPage() {
     const { selectedTenant, userRole } = useTenant();
@@ -19,7 +21,7 @@ export default function UsersPage() {
     const isAdmin = userRole === 'Admin';
 
     const loadUsers = async () => {
-        if (!selectedTenant || selectedTenant.id === 'default' || accounts.length === 0) return;
+        if (!selectedTenant || selectedTenant.id === 'default' || (accounts.length === 0 && !isMockTenant(selectedTenant?.id || ''))) return;
         setLoading(true);
         try {
             const tokenResponse = await instance.acquireTokenSilent({

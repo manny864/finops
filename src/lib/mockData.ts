@@ -8,16 +8,21 @@ export const isMockTenant = (tenantId: string) => {
     ].includes(tenantId);
 };
 
-export const getMockDataForRoute = (route: string, tenantId: string) => {
-    if (!isMockTenant(tenantId)) return null;
+export const getMockDataForRoute = (route: string, tier: string) => {
+    // tier string passed from TenantProvider demo overrides
     
+    let multiplier = 1;
+    if (tier === 'pro') multiplier = 3;
+    if (tier === 'business') multiplier = 10;
+    if (tier === 'enterprise') multiplier = 50;
+
     switch (route) {
         case 'advisor':
             return {
                 success: true,
                 recommendations: { Cost: [], Security: [], HighAvailability: [], Performance: [], OperationalExcellence: [] },
                 subscriptions: [{ id: "mock-sub", name: "Demo Subscription" }],
-                scores: { "mock-sub": { Cost: 82 } }
+                scores: { "mock-sub": { Cost: Math.min(98, 82 + multiplier) } }
             };
         case 'rightsizing':
             return {
@@ -85,27 +90,25 @@ export const getMockDataForRoute = (route: string, tenantId: string) => {
         case 'audit_full':
             return {
                 success: true,
-                tenantId,
+                tenantId: 'mock-tenant',
                 mode: "tenant-wide",
                 auditResults: {
-                    unattachedDisks: [
-                        { id: "mock-disk-1", name: "db-backup-disk-old", resourceGroup: "db-rg", diskSizeGB: 512, location: "eastus", sku: "Premium_LRS", estimatedMonthlyCost: 76.8 },
-                        { id: "mock-disk-2", name: "temp-worker-osdisk", resourceGroup: "batch-rg", diskSizeGB: 128, location: "eastus", sku: "StandardSSD_LRS", estimatedMonthlyCost: 9.6 }
-                    ],
+                    unattachedDisks: Array.from({length: 2 * multiplier}).map((_, i) => (
+                        { id: `mock-disk-${i}`, name: `db-backup-disk-${i}`, resourceGroup: "db-rg", diskSizeGB: 512, location: "eastus", sku: "Premium_LRS", estimatedMonthlyCost: 76.8 }
+                    )),
                     unusedVNetGateways: [],
-                    emptyAppServicePlans: [
-                        { id: "mock-asp", name: "dev-linux-plan", resourceGroup: "dev-rg", estimatedMonthlyCost: 45.0 }
-                    ],
-                    unattachedPublicIps: [
-                        { id: "mock-ip-1", name: "old-ingress-ip", resourceGroup: "network-rg", estimatedMonthlyCost: 3.5 },
-                        { id: "mock-ip-2", name: "vpn-test-ip", resourceGroup: "network-rg", estimatedMonthlyCost: 3.5 }
-                    ],
-                    unattachedNics: [
-                        { id: "mock-nic-1", name: "worker-nic-old", resourceGroup: "batch-rg", estimatedMonthlyCost: 0 }
-                    ],
-                    longStoppedVMs: [
-                        { id: "mock-vm-stopped", name: "legacy-app-server", resourceGroup: "legacy-rg", estimatedMonthlyCost: 35.0 }
-                    ],
+                    emptyAppServicePlans: Array.from({length: multiplier}).map((_, i) => (
+                        { id: `mock-asp-${i}`, name: `dev-linux-plan-${i}`, resourceGroup: "dev-rg", estimatedMonthlyCost: 45.0 }
+                    )),
+                    unattachedPublicIps: Array.from({length: 2 * multiplier}).map((_, i) => (
+                        { id: `mock-ip-${i}`, name: `old-ingress-ip-${i}`, resourceGroup: "network-rg", estimatedMonthlyCost: 3.5 }
+                    )),
+                    unattachedNics: Array.from({length: 3 * multiplier}).map((_, i) => (
+                        { id: `mock-nic-${i}`, name: `worker-nic-${i}`, resourceGroup: "batch-rg", estimatedMonthlyCost: 0 }
+                    )),
+                    longStoppedVMs: Array.from({length: multiplier}).map((_, i) => (
+                        { id: `mock-vm-stopped-${i}`, name: `legacy-app-server-${i}`, resourceGroup: "legacy-rg", estimatedMonthlyCost: 35.0 }
+                    )),
                     allVirtualMachines: [
                         { id: "mock-vm-1", name: "dev-bastion", resourceGroup: "dev-rg", powerState: "PowerState/running", subscriptionId: "mock-sub", location: "eastus", sku: "Standard_B2ms" },
                         { id: "mock-vm-2", name: "prod-db-node", resourceGroup: "prod-rg", powerState: "PowerState/running", subscriptionId: "mock-sub", location: "eastus", sku: "Standard_E8s_v4" },
@@ -212,6 +215,66 @@ export const getMockDataForRoute = (route: string, tenantId: string) => {
                         role: "assistant",
                         content: "¡Listo! He eliminado los 2 discos huérfanos ('db-backup-disk-old' y 'temp-worker-osdisk'). Has ahorrado $86.40 mensuales."
                     }
+                ]
+            };
+        case 'billing':
+            return {
+                success: true,
+                data: Array.from({length: 30}).map((_, i) => ({
+                    date: new Date(Date.now() - (29 - i) * 86400000).toISOString().split('T')[0],
+                    cost: (150 + Math.random() * 50) * multiplier,
+                    service: i % 2 === 0 ? 'Virtual Machines' : 'Storage',
+                    resourceGroup: 'demo-rg'
+                }))
+            };
+        case 'tags_compliance':
+            return {
+                success: true,
+                complianceScore: 85,
+                resources: [
+                    { id: 'res1', name: 'demo-vm', missingTags: ['Environment', 'Owner'] },
+                    { id: 'res2', name: 'demo-db', missingTags: ['CostCenter'] }
+                ]
+            };
+        case 'rates':
+            return {
+                success: true,
+                data: [
+                    { service: 'Virtual Machines', rate: 0.15, unit: '1 Hour' },
+                    { service: 'Storage', rate: 0.05, unit: '1 GB/Month' }
+                ]
+            };
+        case 'network':
+            return {
+                success: true,
+                data: [
+                    { resource: 'vnet-1', traffic: '150GB', cost: 12.50 },
+                    { resource: 'vpn-gw', traffic: '500GB', cost: 45.00 }
+                ]
+            };
+        case 'licenses':
+            return {
+                success: true,
+                data: [
+                    { name: 'Windows Server 2022', count: 15, utilization: '80%' },
+                    { name: 'SQL Server Standard', count: 4, utilization: '100%' }
+                ]
+            };
+        case 'chargeback':
+            return {
+                success: true,
+                data: [
+                    { department: 'Engineering', cost: 4500.00, percentage: 60 },
+                    { department: 'Marketing', cost: 1500.00, percentage: 20 },
+                    { department: 'Sales', cost: 1500.00, percentage: 20 }
+                ]
+            };
+        case 'budgets':
+            return {
+                success: true,
+                data: [
+                    { name: 'Q3 Cloud Budget', limit: 10000 * multiplier, currentSpend: 7500 * multiplier, status: 'On Track' },
+                    { name: 'Marketing Campaign', limit: 2000 * multiplier, currentSpend: 2100 * multiplier, status: 'Exceeded' }
                 ]
             };
         default:

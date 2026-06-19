@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { useMsal } from '@azure/msal-react';
 import { useTenant } from '../TenantProvider';
 import FeatureGuard from '../FeatureGuard';
-import { getMockDataForRoute } from '@/lib/mockData';
+import { getMockDataForRoute, isMockTenant } from '@/lib/mockData';
 import {
   useReactTable,
   getCoreRowModel,
@@ -46,8 +46,8 @@ export default function PowerSchedules() {
             setLoading(true);
             try {
                 let json;
-                if (selectedTenant.id === 'demo_tenant') {
-                    json = getMockDataForRoute('audit_full', 'demo_tenant');
+                if (isMockTenant(selectedTenant.id)) {
+                    json = getMockDataForRoute('audit_full', selectedTenant.id);
                 } else {
                     const tokenResponse = await instance.acquireTokenSilent({
                         scopes: ["User.Read"],

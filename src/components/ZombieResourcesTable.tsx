@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import { useActionLogStore } from '@/store/actionLogStore';
 import { useTranslations } from 'next-intl';
 import { useAIContext } from '@/hooks/useAIContext';
-import { getMockDataForRoute } from '@/lib/mockData';
+import { getMockDataForRoute, isMockTenant } from '@/lib/mockData';
 import {
   useReactTable,
   getCoreRowModel,
@@ -139,7 +139,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
         }
 
         let json;
-        if (tenantId === 'demo_tenant') {
+        if (isMockTenant(tenantId)) {
             json = getMockDataForRoute('audit_full', tenantId);
         } else {
             const res = await fetch(apiUrl, { headers });
