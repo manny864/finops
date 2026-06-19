@@ -9,6 +9,7 @@ import { useTranslations } from 'next-intl';
 
 import { FocusCostEntry } from '@/modules/core/focusMapper';
 import FocusCostPieChart from './FocusCostPieChart';
+import FeatureGuard from '@/components/FeatureGuard';
 
 interface InteractiveDashboardProps {
     loading: boolean;
@@ -182,6 +183,9 @@ export default function InteractiveDashboard({
         }, {});
     }
 
+    const totalZombiesSavings = Object.values(leakageMap).reduce((sum: any, val: any) => sum + val, 0) as number;
+    const totalPotentialSavings = computedTotalSavings + totalZombiesSavings;
+
     if (loading || billingData === null) {
         return (
             <div className="max-w-[1400px] mx-auto p-6 rounded-2xl bg-slate-50 animate-pulse">
@@ -273,15 +277,25 @@ export default function InteractiveDashboard({
                     </div>
                     <div className="text-2xl font-extrabold text-slate-800">${totalCost.toLocaleString(undefined, {maximumFractionDigits:0})}</div>
                 </div>
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                    <div className="flex items-center text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                        <TrendingDown className="w-3.5 h-3.5 mr-1 text-red-500" />
-                        Ahorro potencial
+                <div className="bg-white rounded-xl shadow-sm border-gray-100 p-4 border-[2px] border-amber-200 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-amber-200 to-amber-500 rounded-bl-full opacity-20 group-hover:opacity-30 transition-opacity"></div>
+                    <div className="flex items-center text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 relative z-10">
+                        <TrendingDown className="w-3.5 h-3.5 mr-1 text-amber-500" />
+                        {t('potentialSavingsTitle', { fallback: 'Ahorro potencial' })}
                     </div>
-                    <div className="text-2xl font-extrabold text-slate-800">
-                        ${computedTotalSavings.toLocaleString(undefined, {maximumFractionDigits:0})}
+                    <div className="text-2xl font-extrabold text-slate-800 relative z-10">
+                        ${totalPotentialSavings.toLocaleString(undefined, {maximumFractionDigits:0})}
                     </div>
-                    <div className="text-[11px] text-slate-500 font-medium mt-1">{t('pending_apply')}</div>
+                    <div className="text-[11px] text-slate-500 font-medium mt-1 mb-3 relative z-10">
+                        {t('potentialSavingsDesc', { fallback: 'Fugas y redimensionamiento' })}
+                    </div>
+                    <div className="relative z-10">
+                        <FeatureGuard featureName="Optimization Details" requiredTier="Professional" className="mb-0">
+                            <button className="w-full bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-bold py-1.5 rounded-lg shadow-sm transition-colors">
+                                {t('viewDetails', { fallback: 'Ver Detalles' })}
+                            </button>
+                        </FeatureGuard>
+                    </div>
                 </div>
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
                     <div className="flex items-center text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">

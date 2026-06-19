@@ -87,7 +87,9 @@
     "my_environment": "My Environment (Client)",
     "ai_config": "AI Configuration",
     "prev": "Previous",
-    "next": "Next"
+    "next": "Next",
+    "rbacUpdateRequired": "Update your Azure permissions to unlock this feature",
+    "tierRequired": "Unlock {feature} with the {tier} plan"
   },
   "Shell": {
     "cloudFinOps": "Cloud FinOps"
@@ -195,7 +197,10 @@
     "potential_label": "Potential",
     "spend_by_subscription": "Spend by Subscription",
     "top_saving_opportunities": "Top Saving Opportunities",
-    "btn_apply": "Apply"
+    "btn_apply": "Apply",
+    "potentialSavingsTitle": "Potential Savings",
+    "potentialSavingsDesc": "Waste & Rightsizing",
+    "viewDetails": "View Optimization Details"
   },
   "Network": {
     "title": "Network & Egress Analysis",
@@ -295,46 +300,52 @@
     "essential": {
       "name": "Essential (Starter)",
       "desc": "For companies just starting to worry about their Azure costs.",
-      "f1": "1 Supported Subscription",
-      "f2": "Interactive Dashboard (Consumption, Savings, CO2)",
-      "f3": "Basic Zombie Resources Detection",
-      "f4": "Instance Analysis (Rightsizing via Advisor)",
-      "f5": "Read Only"
+      "features": [
+        "Billing & Cost History",
+        "Budgets View",
+        "Sustainability Dashboard",
+        "PDF/CSV Exports",
+        "Azure Advisor Health Score",
+        "Potential Savings Radar (Teaser)"
+      ]
     },
     "pro": {
       "name": "Professional",
       "badge": "Recommended",
       "trial": "14-Day Free Trial",
       "desc": "For mid-sized companies needing to understand trends and report.",
-      "f1": "Everything in Essential",
-      "f2": "Max 5 users",
-      "f3": "Up to 5 Supported Subscriptions",
-      "f4": "BI Module (Preset.io / Superset)",
-      "f5": "AI Copilot (Limited Gemini Queries)",
-      "f6": "Proactive Consumption Alerts"
+      "features": [
+        "Everything in Essential",
+        "Active Zombie Resources Cleanup",
+        "Rightsizing Execution",
+        "Tag Governance"
+      ]
     },
     "business": {
       "name": "Business",
+      "badge": "Most Popular",
       "desc": "Basic automation and multiple environments for growing companies.",
-      "f1": "Everything in Professional",
-      "f2": "Max 20 users",
-      "f3": "Up to 20 Supported Subscriptions",
-      "f4": "Advanced Tag Management",
-      "f5": "Expanded AI Copilot",
-      "f6": "Basic License Auditing"
+      "features": [
+        "Everything in Professional",
+        "Automatic Power Schedules",
+        "FinOps Copilot (AI)",
+        "Anomaly Detection",
+        "Time-to-Live (TTL) Policies",
+        "Cost Distribution (Chargeback)"
+      ]
     },
     "enterprise": {
       "name": "Enterprise",
       "price": "Custom Pricing",
       "badge": "Total Control",
       "desc": "For corporations with complex topologies (Hub & Spoke).",
-      "f1": "Everything in Business",
-      "f2": "Unlimited users",
-      "f3": "Unlimited Subscriptions",
-      "f4": "Action Center (1-Click Remediation)",
-      "f5": "Power Schedules (VM Shutdown)",
-      "f6": "Deep AHUB Auditing",
-      "f7": "Unlimited AI Copilot"
+      "features": [
+        "Everything in Business",
+        "Dedicated Support (SLA)",
+        "Custom Workbooks",
+        "Custom Rates (EA)",
+        "Modular FinOps Audits"
+      ]
     },
     "enterpriseModal": {
       "title": "Contact Enterprise Sales",
@@ -361,7 +372,10 @@
     "card_title": "Monthly Budget Status",
     "assigned_budget": "Assigned Budget",
     "alert_threshold": "Alert Threshold",
-    "no_budget_configured": "No budget configured for this tenant.",
+    "no_budget_configured": "There is no budget configured for this tenant.",
     "configure_btn": "Configure Budget"
+  },
+  "onboarding": {
+    "leastPrivilegeBanner": "As your current plan is {tier}, this script has been custom-tailored to request only the strictly necessary RBAC permissions for your features."
   }
 }

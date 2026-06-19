@@ -3,8 +3,15 @@ import React, { useState } from 'react';
 import { MessageSquare, X, Send, Loader2 } from 'lucide-react';
 import { useAIContext } from '@/hooks/useAIContext';
 import { useTranslations } from 'next-intl';
+import FeatureGuard from './FeatureGuard';
+import { useTenant } from './TenantProvider';
+import { hasAccess } from '@/lib/tierLogic';
 
 export default function GlobalCopilot() {
+    const { selectedTenant } = useTenant();
+    const currentTier = (selectedTenant as any).tier || 'Essential';
+    const canAccessCopilot = hasAccess(currentTier, 'Professional');
+    
     const { currentPage, currentDataPayload, isOpen, setIsOpen, injectedPrompt, triggerCopilotWithPrompt } = useAIContext();
     const [messages, setMessages] = useState<{role: 'user'|'ai', content: string}[]>([]);
     const [input, setInput] = useState("");
@@ -12,11 +19,12 @@ export default function GlobalCopilot() {
     const t = useTranslations('Copilot');
 
     React.useEffect(() => {
+        if (!canAccessCopilot) return;
         const timer = setTimeout(() => {
             setIsOpen(true);
         }, 7000);
         return () => clearTimeout(timer);
-    }, [setIsOpen]);
+    }, [setIsOpen, canAccessCopilot]);
 
     const handleSend = async (overridePrompt?: string) => {
         const promptText = overridePrompt || input;
@@ -57,7 +65,7 @@ export default function GlobalCopilot() {
 
     // Auto-fetch summary and suggestions when opened and there are no messages
     React.useEffect(() => {
-        if (!isOpen || messages.length > 0 || !currentDataPayload || injectedPrompt) return;
+        if (!isOpen || !canAccessCopilot || messages.length > 0 || !currentDataPayload || injectedPrompt) return;
         
         const fetchInitialSummary = async () => {
             setLoading(true);
@@ -84,14 +92,18 @@ export default function GlobalCopilot() {
 
     return (
         <>
-            <button 
-                onClick={() => setIsOpen(true)}
-                className="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-br from-brand-deep to-[#00AEEF] rounded-full shadow-lg flex items-center justify-center text-white hover:scale-105 transition-transform z-50"
-            >
-                <MessageSquare className="w-6 h-6" />
-            </button>
+            <div className="fixed bottom-6 right-6 z-50">
+                <FeatureGuard requiredTier="Professional" featureName="FinOps Copilot" className="w-14 h-14">
+                    <button 
+                        onClick={() => { if (canAccessCopilot) setIsOpen(true); }}
+                        className="w-full h-full bg-gradient-to-br from-brand-deep to-[#00AEEF] rounded-full shadow-lg flex items-center justify-center text-white hover:scale-105 transition-transform"
+                    >
+                        <MessageSquare className="w-6 h-6" />
+                    </button>
+                </FeatureGuard>
+            </div>
 
-            {isOpen && (
+            {isOpen && canAccessCopilot && (
                 <div className="fixed bottom-24 right-6 w-96 bg-surface border border-line rounded-2xl shadow-2xl z-50 flex flex-col h-[500px] overflow-hidden animate-in slide-in-from-bottom-5">
                     <div className="bg-brand-deep p-4 flex justify-between items-center">
                         <div className="flex items-center gap-2">

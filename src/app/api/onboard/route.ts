@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
         } catch (e) {
             // Ignore if no body
         }
-        const plan = reqBody.plan || 'free';
+        const plan = reqBody.plan || 'Essential';
         
         let tier = 'Essential';
         let subStatus = 'PENDING_PAYMENT';

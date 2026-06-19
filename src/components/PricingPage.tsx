@@ -58,7 +58,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
   };
 
   const getPriceId = (plan: string) => {
-    if (plan === 'free') {
+    if (plan === 'Essential') {
         return isAnnual ? process.env.NEXT_PUBLIC_PADDLE_ESSENTIAL_YEARLY : process.env.NEXT_PUBLIC_PADDLE_ESSENTIAL_MONTHLY;
     } else if (plan === 'pro') {
         return isAnnual ? process.env.NEXT_PUBLIC_PADDLE_PRO_YEARLY : process.env.NEXT_PUBLIC_PADDLE_PRO_MONTHLY;
@@ -93,7 +93,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
         <div className="absolute top-6 right-8">
           <span className="text-sm font-medium text-gray-500 mr-2">Already have an account?</span>
           <button 
-            onClick={() => handleSignUp('free')}
+            onClick={() => handleSignUp('Essential')}
             className="text-brand-deep font-bold hover:underline"
           >
             Log in
@@ -151,13 +151,13 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
           
           <div className="flex flex-col space-y-3 mb-6">
             <button 
-              onClick={() => openCheckout(getPriceId('free'))}
+              onClick={() => openCheckout(getPriceId('Essential'))}
               className="w-full bg-white border-2 border-gray-800 text-gray-800 rounded-lg py-3 px-4 font-bold hover:bg-gray-50 transition-colors shadow-sm"
             >
               {t('tryNow')}
             </button>
             <button 
-              onClick={() => openCheckout(getPriceId('free'))}
+              onClick={() => handleSignUp('Essential')}
               className="w-full bg-gray-800 text-white rounded-lg py-3 px-4 font-semibold hover:bg-gray-900 transition-colors shadow-md text-center inline-block"
             >
               {t('buyNow')}
@@ -169,40 +169,20 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
           </p>
           
           <ul className="space-y-4 text-sm text-gray-600">
-            <li className="flex items-start font-medium text-gray-900">
-              <svg className="w-4 h-4 text-blue-500 mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-              {t('essential.f1')}
-            </li>
-            <li className="flex items-start">
-              <svg className="w-4 h-4 text-blue-500 mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-              {t('essential.f2')}
-            </li>
-            <li className="flex items-start">
-              <svg className="w-4 h-4 text-blue-500 mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-              {t('essential.f3')}
-            </li>
-            <li className="flex items-start">
-              <svg className="w-4 h-4 text-blue-500 mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-              {t('essential.f4')}
-            </li>
-            <li className="flex items-start text-gray-400">
-              <svg className="w-4 h-4 text-gray-300 mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-              {t('essential.f5')}
-            </li>
+            {(t.raw('essential.features') as string[]).map((feature, idx) => (
+              <li key={idx} className="flex items-start font-medium text-gray-900">
+                <svg className="w-5 h-5 text-blue-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+                {feature}
+              </li>
+            ))}
           </ul>
         </div>
 
         {/* Professional */}
-        <div className="bg-white rounded-2xl shadow-xl border-2 border-brand-deep p-8 flex flex-col relative transform md:-translate-y-4">
-          <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-            <span className="bg-brand-deep text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">
-              {t('pro.badge')}
-            </span>
-          </div>
-          
-          <div className="mb-6 flex items-center justify-between mt-2">
-            <h3 className="text-xl font-bold text-brand-deep">{t('pro.name')}</h3>
-            <span className="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded animate-pulse">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 flex flex-col hover:shadow-md transition-shadow">
+          <div className="mb-6 flex items-center justify-between">
+            <h3 className="text-xl font-bold text-gray-900">{t('pro.name')}</h3>
+            <span className="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded">
               {t('pro.trial')}
             </span>
           </div>
@@ -236,40 +216,24 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
           </p>
           
           <ul className="space-y-4 text-sm text-gray-600">
-            <li className="flex items-start font-medium text-gray-900">
-              <svg className="w-4 h-4 text-brand-deep mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-              {t('pro.f1')}
-            </li>
-            <li className="flex items-start font-medium text-gray-900">
-              <svg className="w-4 h-4 text-brand-deep mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-              {t('pro.f2')}
-            </li>
-            <li className="flex items-start font-medium text-gray-900">
-              <svg className="w-4 h-4 text-brand-deep mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-              {t('pro.f3')}
-            </li>
-            <li className="flex items-start">
-              <svg className="w-4 h-4 text-blue-500 mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-              {t('pro.f4')}
-            </li>
-            <li className="flex items-start">
-              <svg className="w-4 h-4 text-blue-500 mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-              {t('pro.f5')}
-            </li>
-            <li className="flex items-start">
-              <svg className="w-4 h-4 text-blue-500 mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-              {t('pro.f6')}
-            </li>
+            {(t.raw('pro.features') as string[]).map((feature, idx) => (
+              <li key={idx} className="flex items-start font-medium text-gray-900">
+                <svg className="w-5 h-5 text-blue-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+                {feature}
+              </li>
+            ))}
           </ul>
         </div>
 
         {/* Business */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 flex flex-col hover:shadow-md transition-shadow">
-          <div className="mb-6 flex items-center justify-between">
-            <h3 className="text-lg font-medium text-gray-900">{t('business.name')}</h3>
-            <span className="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded">
-              {t('pro.trial')}
+        <div className="bg-white rounded-2xl shadow-xl border-2 border-brand-deep p-8 flex flex-col hover:shadow-xl transition-shadow relative transform md:-translate-y-4">
+          <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+            <span className="bg-brand-deep text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide shadow-md">
+              {t('business.badge')}
             </span>
+          </div>
+          <div className="mb-6 flex items-center justify-between mt-2">
+            <h3 className="text-xl font-bold text-brand-deep">{t('business.name')}</h3>
           </div>
           <div className="mb-6">
             <div className="flex items-baseline text-5xl font-extrabold text-gray-900">
@@ -290,7 +254,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
             </button>
             <button 
               onClick={() => openCheckout(getPriceId('business'))}
-              className="w-full bg-gray-800 text-white rounded-lg py-3 px-4 font-semibold hover:bg-gray-900 transition-colors shadow-md text-center inline-block"
+              className="w-full bg-gradient-to-r from-brand-deep to-[#1E88E5] text-white rounded-lg py-3 px-4 font-semibold hover:brightness-110 transition-colors shadow-md text-center inline-block"
             >
               {t('buyNow')}
             </button>
@@ -301,30 +265,12 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
           </p>
           
           <ul className="space-y-4 text-sm text-gray-600">
-            <li className="flex items-start font-medium text-gray-900">
-              <svg className="w-4 h-4 text-blue-500 mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-              {t('business.f1')}
-            </li>
-            <li className="flex items-start font-medium text-gray-900">
-              <svg className="w-4 h-4 text-blue-500 mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-              {t('business.f2')}
-            </li>
-            <li className="flex items-start font-medium text-gray-900">
-              <svg className="w-4 h-4 text-blue-500 mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-              {t('business.f3')}
-            </li>
-            <li className="flex items-start">
-              <svg className="w-4 h-4 text-blue-500 mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-              {t('business.f4')}
-            </li>
-            <li className="flex items-start">
-              <svg className="w-4 h-4 text-blue-500 mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-              {t('business.f5')}
-            </li>
-            <li className="flex items-start">
-              <svg className="w-4 h-4 text-blue-500 mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-              {t('business.f6')}
-            </li>
+            {(t.raw('business.features') as string[]).map((feature, idx) => (
+              <li key={idx} className="flex items-start font-medium text-gray-900">
+                <svg className="w-5 h-5 text-brand-deep mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+                {feature}
+              </li>
+            ))}
           </ul>
         </div>
 
@@ -354,34 +300,12 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
           </p>
           
           <ul className="space-y-4 text-sm text-gray-300 relative z-10">
-            <li className="flex items-start font-medium text-white">
-              <svg className="w-4 h-4 text-brand-bright mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-              {t('enterprise.f1')}
-            </li>
-            <li className="flex items-start font-medium text-white">
-              <svg className="w-4 h-4 text-brand-bright mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-              {t('enterprise.f2')}
-            </li>
-            <li className="flex items-start font-medium text-white">
-              <svg className="w-4 h-4 text-brand-bright mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-              {t('enterprise.f3')}
-            </li>
-            <li className="flex items-start">
-              <svg className="w-4 h-4 text-brand-bright mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-              {t('enterprise.f4')}
-            </li>
-            <li className="flex items-start">
-              <svg className="w-4 h-4 text-brand-bright mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-              {t('enterprise.f5')}
-            </li>
-            <li className="flex items-start">
-              <svg className="w-4 h-4 text-brand-bright mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-              {t('enterprise.f6')}
-            </li>
-            <li className="flex items-start">
-              <svg className="w-4 h-4 text-brand-bright mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-              {t('enterprise.f7')}
-            </li>
+            {(t.raw('enterprise.features') as string[]).map((feature, idx) => (
+              <li key={idx} className="flex items-start font-medium text-white">
+                <svg className="w-5 h-5 text-brand-bright mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+                {feature}
+              </li>
+            ))}
           </ul>
         </div>
 

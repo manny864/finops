@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateOnboardingScript } from "@/lib/onboardingScriptTemplate";
+import { query } from "@/modules/storage/db";
 
 export async function POST(request: NextRequest) {
     try {
@@ -10,9 +11,19 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Faltan parámetros clientTenantId o subscriptionId" }, { status: 400 });
         }
 
+        let tier = 'Essential';
+        try {
+            const rows = await query("SELECT tier FROM Tenants WHERE tenant_id = ?", [clientTenantId]) as any[];
+            if (rows.length > 0 && rows[0].tier) {
+                tier = rows[0].tier;
+            }
+        } catch (e: any) {
+            console.error("Error fetching tier:", e.message);
+        }
+
         let script;
         try {
-            script = generateOnboardingScript(clientTenantId, subscriptionId);
+            script = generateOnboardingScript(clientTenantId, subscriptionId, tier);
         } catch (err: any) {
             return NextResponse.json({ error: err.message }, { status: 400 });
         }

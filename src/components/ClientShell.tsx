@@ -69,7 +69,8 @@ function ShellContent({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (isAuthenticated) {
       const pendingPlan = sessionStorage.getItem('pendingUpgrade');
-      if (pendingPlan && pendingPlan !== 'free') {
+      if (pendingPlan && pendingPlan !== 'Essential') {
+        setHasPendingUpgrade(true);
         sessionStorage.removeItem('pendingUpgrade');
         // Handle checkout post-login
         const triggerCheckout = async () => {
@@ -95,7 +96,8 @@ function ShellContent({ children }: { children: React.ReactNode }) {
           }
         };
         triggerCheckout();
-      } else if (pendingPlan === 'free') {
+      } else if (pendingPlan === 'Essential') {
+        setHasPendingUpgrade(false);
         sessionStorage.removeItem('pendingUpgrade');
       }
     }
@@ -126,7 +128,6 @@ function ShellContent({ children }: { children: React.ReactNode }) {
       const paymentStatus = searchParams?.get('payment');
       if (paymentStatus === 'success') {
           toast.success(tAuth('paymentSuccess'), { duration: 5000 });
-          // Optional: clear the query param so it doesn't show again on refresh
           const newUrl = pathname;
           router.replace(newUrl);
       }
@@ -154,7 +155,6 @@ function ShellContent({ children }: { children: React.ReactNode }) {
                   <LanguageSwitcher />
               </div>
               
-              {/* Animated background elements */}
               <div className="absolute inset-0 overflow-hidden pointer-events-none">
                   <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-brand-deep/20 blur-[100px]"></div>
                   <div className="absolute bottom-[10%] right-[-5%] w-[30%] h-[30%] rounded-full bg-brand-bright/10 blur-[80px]"></div>
@@ -174,7 +174,6 @@ function ShellContent({ children }: { children: React.ReactNode }) {
 
               <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-[440px] animate-in fade-in slide-in-from-bottom-8 duration-700 delay-100 relative z-10">
                   <div className="bg-surface/5 backdrop-blur-xl py-10 px-6 sm:px-10 shadow-2xl shadow-black/50 border border-white/10 sm:rounded-[20px] relative overflow-hidden">
-                      {/* Decorative top accent */}
                       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-brand-deep to-brand-bright"></div>
                       
                       <div className="mb-8 text-center">
@@ -230,7 +229,6 @@ function ShellContent({ children }: { children: React.ReactNode }) {
   return (
     <TabContext.Provider value={{ activeTab, setActiveTab }}>
     <div className="flex h-screen bg-background text-foreground overflow-hidden relative">
-      {/* Mobile Scrim */}
       {sidebarOpen && (
         <div 
           className="fixed inset-0 bg-black/50 z-40 md:hidden"
@@ -239,7 +237,6 @@ function ShellContent({ children }: { children: React.ReactNode }) {
       )}
       <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
-      {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
         <header className="h-16 bg-surface/85 backdrop-blur-md border-b border-line flex items-center justify-between px-6 z-30 shadow-sm sticky top-0">
           <div className="flex items-center">
@@ -250,9 +247,16 @@ function ShellContent({ children }: { children: React.ReactNode }) {
           </div>
           
           <div className="flex items-center space-x-6">
+            <div className="hidden sm:flex items-center space-x-4">
+                <ScopeSelector />
+            </div>
+            
+            <LanguageSwitcher />
+            
+            <div className="flex items-center space-x-2">
                 <button 
                     onClick={() => setDrawerOpen(true)}
-                    className="relative p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors mr-2"
+                    className="relative p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
                 >
                     <Bell className="w-5 h-5" />
                     {actions.length > 0 && (
@@ -262,36 +266,8 @@ function ShellContent({ children }: { children: React.ReactNode }) {
                         </span>
                     )}
                 </button>
-                
-            <div className="hidden sm:flex items-center space-x-4">
-                <ScopeSelector />
+                <AuthButton />
             </div>
-            
-            {/* Cost Metric Toggle */}
-            <div className="hidden sm:flex items-center mr-2">
-                <CostToggle />
-            </div>
-
-            {/* View Toggle */}
-            <div className="hidden sm:flex items-center bg-surface-2 rounded-lg p-1 mr-4 border border-line">
-                <button
-                    onClick={() => viewMode !== 'executive' && toggleViewMode()}
-                    className={`flex items-center px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${viewMode === 'executive' ? 'bg-white shadow-sm text-indigo-700' : 'text-gray-500 hover:text-gray-700'}`}
-                >
-                    <LayoutTemplate className="w-4 h-4 mr-1.5" />
-                    {tc('executive')}
-                </button>
-                <button
-                    onClick={() => viewMode !== 'engineer' && toggleViewMode()}
-                    className={`flex items-center px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${viewMode === 'engineer' ? 'bg-gray-800 shadow-sm text-green-400' : 'text-gray-500 hover:text-gray-700'}`}
-                >
-                    <Code2 className="w-4 h-4 mr-1.5" />
-                    {tc('engineer')}
-                </button>
-            </div>
-            
-            <LanguageSwitcher />
-            <AuthButton />
           </div>
         </header>
 
@@ -299,12 +275,11 @@ function ShellContent({ children }: { children: React.ReactNode }) {
           {children}
         </main>
         
-        {/* Tier Watermark */}
         <div className="fixed bottom-4 right-6 pointer-events-none z-40 opacity-40 select-none">
             <div className="flex flex-col items-end">
                 <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">SaaS Tier</span>
                 <span className="text-xl font-black text-gray-400/80 tracking-tighter">
-                    {selectedTenant?.tier || 'Free'}
+                    {selectedTenant?.tier || 'Essential'}
                 </span>
             </div>
         </div>
