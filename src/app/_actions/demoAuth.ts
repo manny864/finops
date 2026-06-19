@@ -1,0 +1,18 @@
+"use server";
+
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+
+export async function setDemoSession(tier: string) {
+  const cookieStore = await cookies();
+  const sessionData = JSON.stringify({ isDemo: true, tier });
+  
+  cookieStore.set("finops_demo_session", sessionData, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 60 * 60 * 24, // 1 day
+    path: "/",
+  });
+
+  redirect("/");
+}

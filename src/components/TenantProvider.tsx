@@ -22,10 +22,13 @@ interface TenantContextType {
 
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
 
-export function TenantProvider({ children }: { children: React.ReactNode }) {
+export function TenantProvider({ children, demoSession }: { children: React.ReactNode, demoSession?: { isDemo: boolean; tier: string } | null }) {
   const { accounts } = useMsal();
   const [tenantsList, setTenantsList] = useState<Tenant[]>([{ id: 'default', name: 'Cargando entornos...' }]);
   const [selectedTenant, setSelectedTenant] = useState<Tenant>(() => {
+    if (demoSession?.isDemo) {
+      return { id: 'demo_tenant', name: 'Demo Workspace', tier: demoSession.tier };
+    }
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('finops_active_tenant');
       if (saved) {
@@ -41,11 +44,12 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('finops_active_tenant', JSON.stringify(selectedTenant));
     }
   }, [selectedTenant]);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [userRole, setUserRole] = useState<string>('Reader'); // Default to lowest privilege
+  const [isAdmin, setIsAdmin] = useState(!!demoSession?.isDemo);
+  const [userRole, setUserRole] = useState<string>(demoSession?.isDemo ? 'Admin' : 'Reader'); // Default to lowest privilege
 
   // Leer Base de Datos MySQL
   useEffect(() => {
+    if (demoSession?.isDemo) return;
     fetch('/api/tenants')
       .then(res => res.json())
       .then(data => {
@@ -68,6 +72,7 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (demoSession?.isDemo) return;
     if (accounts.length > 0) {
       const username = accounts[0].username || "";
       const userTenant = accounts[0].tenantId;
@@ -94,6 +99,7 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
 
   const { instance } = useMsal();
   useEffect(() => {
+      if (demoSession?.isDemo) return;
       // Fetch the role for the current tenant
       if (selectedTenant.id !== 'default' && accounts.length > 0) {
           const fetchRole = async () => {

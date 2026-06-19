@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { useMsal } from '@azure/msal-react';
 import { useTenant } from '../TenantProvider';
 import FeatureGuard from '../FeatureGuard';
+import { getMockDataForRoute } from '@/lib/mockData';
 import {
   useReactTable,
   getCoreRowModel,
@@ -44,15 +45,21 @@ export default function PowerSchedules() {
         const fetchVms = async () => {
             setLoading(true);
             try {
-                const tokenResponse = await instance.acquireTokenSilent({
-                    scopes: ["User.Read"],
-                    account: accounts[0]
-                });
-                const res = await fetch(`/api/audit/full?tenantId=${selectedTenant.id}`, {
-                    headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
-                });
-                const json = await res.json();
-                if (json.auditResults && json.auditResults.allVirtualMachines) {
+                let json;
+                if (selectedTenant.id === 'demo_tenant') {
+                    json = getMockDataForRoute('audit_full', 'demo_tenant');
+                } else {
+                    const tokenResponse = await instance.acquireTokenSilent({
+                        scopes: ["User.Read"],
+                        account: accounts[0]
+                    });
+                    const res = await fetch(`/api/audit/full?tenantId=${selectedTenant.id}`, {
+                        headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
+                    });
+                    json = await res.json();
+                }
+                
+                if (json?.auditResults && json.auditResults.allVirtualMachines) {
                     setVms(json.auditResults.allVirtualMachines);
                     setSelectedVmIds(json.auditResults.allVirtualMachines.map((vm: any) => vm.id));
                 } else {

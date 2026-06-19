@@ -24,14 +24,14 @@ import { MetricProvider } from './MetricProvider';
 
 export const TabContext = createContext({ activeTab: 'dashboard', setActiveTab: (t: string) => {} });
 
-export default function ClientShell({ children }: { children: React.ReactNode }) {
+export default function ClientShell({ children, demoSession }: { children: React.ReactNode, demoSession?: { isDemo: boolean; tier: string } | null }) {
   return <AuthProvider>
       <AuthSync />
-      <TenantProvider>
+      <TenantProvider demoSession={demoSession}>
         <SubscriptionProvider>
           <MetricProvider>
             <ViewModeProvider>
-              <ShellContent>{children}</ShellContent>
+              <ShellContent demoSession={demoSession}>{children}</ShellContent>
             </ViewModeProvider>
           </MetricProvider>
         </SubscriptionProvider>
@@ -39,14 +39,18 @@ export default function ClientShell({ children }: { children: React.ReactNode })
     </AuthProvider>;
 }
 
-function ShellContent({ children }: { children: React.ReactNode }) {
+function ShellContent({ children, demoSession }: { children: React.ReactNode, demoSession?: { isDemo: boolean; tier: string } | null }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [showPricing, setShowPricing] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [hasPendingUpgrade, setHasPendingUpgrade] = useState(false);
   const { selectedTenant, setSelectedTenant, isAdmin, tenants } = useTenant();
   const { instance, accounts, inProgress } = useMsal();
-  const isAuthenticated = useIsAuthenticated();
+  
+  // If demoSession exists, we treat the user as authenticated for the sake of the shell.
+  const isMsalAuthenticated = useIsAuthenticated();
+  const isAuthenticated = isMsalAuthenticated || !!demoSession?.isDemo;
   const { viewMode, toggleViewMode } = useViewMode();
   const t = useTranslations('nav');
   const tc = useTranslations('Common');
@@ -197,24 +201,7 @@ function ShellContent({ children }: { children: React.ReactNode }) {
                               {tc('sign_in_microsoft')}
                           </button>
 
-                          <div className="relative py-2">
-                              <div className="absolute inset-0 flex items-center">
-                                  <div className="w-full border-t border-white/10"></div>
-                              </div>
-                              <div className="relative flex justify-center text-sm">
-                                  <span className="px-2 bg-transparent text-[#62809c] text-xs">{tc('explore_platform')}</span>
-                              </div>
-                          </div>
 
-                          <a
-                              href="/finops-demo.html"
-                              target="_blank"
-                              rel="noreferrer"
-                              className="w-full flex items-center justify-center py-[13px] px-4 border border-white/10 rounded-[12px] shadow-sm text-[14px] font-bold text-white bg-white/5 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-nav-bg focus:ring-brand-bright transition-all transform active:scale-[0.98] font-heading group"
-                          >
-                              <span className="text-xl mr-2 group-hover:-translate-y-1 transition-transform">🚀</span>
-                              {tc('view_demo')}
-                          </a>
                       </div>
                   </div>
                   

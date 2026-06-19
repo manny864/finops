@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { useTranslations } from 'next-intl';
+import { Link } from '@/i18n/routing';
 import { initializePaddle, Paddle } from '@paddle/paddle-js';
 import EnterpriseLeadModal from './EnterpriseLeadModal';
 
@@ -162,6 +163,9 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
             >
               {t('buyNow')}
             </button>
+            <Link href={{ pathname: '/demo', query: { tier: 'essential' } }} className="block w-full text-center mt-4 text-sm font-medium text-brand-deep hover:text-blue-800 hover:underline transition-colors">
+              {t('tryDemoTier')}
+            </Link>
           </div>
           
           <p className="text-sm text-gray-500 mb-8 flex-1">
@@ -209,6 +213,9 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
             >
               {t('buyNow')}
             </button>
+            <Link href={{ pathname: '/demo', query: { tier: 'pro' } }} className="block w-full text-center mt-4 text-sm font-medium text-brand-deep hover:text-blue-800 hover:underline transition-colors">
+              {t('tryDemoTier')}
+            </Link>
           </div>
           
           <p className="text-sm text-gray-500 mb-8 flex-1">
@@ -258,6 +265,9 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
             >
               {t('buyNow')}
             </button>
+            <Link href={{ pathname: '/demo', query: { tier: 'business' } }} className="block w-full text-center mt-4 text-sm font-medium text-brand-deep hover:text-blue-800 hover:underline transition-colors">
+              {t('tryDemoTier')}
+            </Link>
           </div>
           
           <p className="text-sm text-gray-500 mb-8 flex-1">
@@ -290,10 +300,13 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
           
           <button 
             onClick={() => setEnterpriseModalOpen(true)}
-            className="w-full bg-white text-gray-900 rounded-lg py-3 px-4 font-bold hover:bg-gray-100 transition-colors mb-6 shadow-sm relative z-10 text-center flex justify-center items-center"
+            className="w-full bg-white text-gray-900 rounded-lg py-3 px-4 font-bold hover:bg-gray-100 transition-colors shadow-sm relative z-10 text-center flex justify-center items-center"
           >
             {t('contactSales')}
           </button>
+          <Link href={{ pathname: '/demo', query: { tier: 'enterprise' } }} className="block w-full text-center mt-4 mb-6 text-sm font-medium text-gray-300 hover:text-white hover:underline transition-colors relative z-10">
+            {t('tryDemoTier')}
+          </Link>
           
           <p className="text-sm text-gray-300 mb-8 flex-1 relative z-10">
             {t('enterprise.desc')}

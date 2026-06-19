@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { useActionLogStore } from '@/store/actionLogStore';
 import { useTranslations } from 'next-intl';
 import { useAIContext } from '@/hooks/useAIContext';
+import { getMockDataForRoute } from '@/lib/mockData';
 import {
   useReactTable,
   getCoreRowModel,
@@ -137,16 +138,21 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
             apiUrl += `&subscriptionId=${selectedSub}`;
         }
 
-        const res = await fetch(apiUrl, { headers });
-        const json = await res.json();
-        
-        if (!res.ok || json.error) {
-            setError(json.error === 'MISSING_RBAC_ROLE' ? 'MISSING_RBAC_ROLE' : (json.error || "Error de servidor al consultar recursos."));
-            setLoading(false);
-            return;
+        let json;
+        if (tenantId === 'demo_tenant') {
+            json = getMockDataForRoute('audit_full', tenantId);
+        } else {
+            const res = await fetch(apiUrl, { headers });
+            json = await res.json();
+            
+            if (!res.ok || json.error) {
+                setError(json.error === 'MISSING_RBAC_ROLE' ? 'MISSING_RBAC_ROLE' : (json.error || "Error de servidor al consultar recursos."));
+                setLoading(false);
+                return;
+            }
         }
 
-        const audit = json.auditResults || {};
+        const audit = json?.auditResults || {};
         
         const resourceConfig: any = {
             unattachedDisks: { type: "Disk", armType: "microsoft.compute/disks", issue: "Disco sin asociar", savings: 15.0, issueType: "cost", manualDelete: false },
