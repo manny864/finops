@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { getMockDataForRoute } from '@/lib/mockData';
+import { useRouter, usePathname } from 'next/navigation';
 
 export interface Tenant {
   id: string;
@@ -10,6 +11,7 @@ export interface Tenant {
   subscription_status?: string;
   trial_ends_at?: string;
   requires_rbac_update?: boolean;
+  is_onboarded?: boolean;
 }
 
 interface TenantContextType {
@@ -18,12 +20,15 @@ interface TenantContextType {
   isAdmin: boolean;
   tenants: Tenant[];
   userRole: string;
+  systemRole: string;
   requiresRbacUpdate?: boolean;
 }
 
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
 
 export function TenantProvider({ children, demoSession }: { children: React.ReactNode, demoSession?: { isDemo: boolean; tier: string } | null }) {
+  const router = useRouter();
+  const pathname = usePathname();
   const { instance, accounts } = useMsal();
   const [tenantsList, setTenantsList] = useState<Tenant[]>([{ id: 'default', name: 'Cargando entornos...' }]);
   const selectedTenantRef = React.useRef<Tenant | null>(null);
@@ -56,6 +61,21 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
   }, [selectedTenant]);
   const [isAdmin, setIsAdmin] = useState(!!demoSession?.isDemo);
   const [userRole, setUserRole] = useState<string>(demoSession?.isDemo ? 'Admin' : 'Reader'); // Default to lowest privilege
+  const [systemRole, setSystemRole] = useState<string>('USER');
+
+  // Enforce Onboarding
+  useEffect(() => {
+    if (!demoSession?.isDemo && selectedTenant.id !== 'default' && typeof window !== 'undefined') {
+        if ((selectedTenant.is_onboarded as any) === 0 || selectedTenant.is_onboarded === false) {
+            if (!pathname?.includes('/admin/onboarding')) {
+                // Keep the current locale
+                const localeMatch = pathname?.match(/^\/([a-z]{2}(-[A-Z]{2})?)\//);
+                const locale = localeMatch ? localeMatch[1] : 'en';
+                router.push(`/${locale}/admin/onboarding`);
+            }
+        }
+    }
+  }, [selectedTenant, pathname, router, demoSession]);
 
   // Leer Base de Datos MySQL
   useEffect(() => {
@@ -95,7 +115,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
       const username = accounts[0].username || "";
       const userTenant = accounts[0].tenantId;
       const isAdminUser = username.toLowerCase().endsWith("@cscloudsolutions.com.ar");
-      setIsAdmin(isAdminUser);
+      // Note: We don't setIsAdmin(isAdminUser) here anymore. We wait for system_role.
       
       // Lógica de fallback robusta si no hay nada en localStorage
       if (selectedTenant.id === 'default') {
@@ -151,12 +171,19 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                   });
                   if (res.ok) {
                       const data = await res.json();
+                      if (data.isSuperAdmin) {
+                          setIsAdmin(true);
+                          setSystemRole('SUPERADMIN');
+                      }
                       const myUser = data.users?.find((u: any) => u.entra_oid === (accounts[0].idTokenClaims as any)?.oid || u.entra_oid === accounts[0].localAccountId);
-                      if (myUser && myUser.role) {
-                          setUserRole(myUser.role);
+                      if (myUser) {
+                          if (myUser.role) setUserRole(myUser.role);
+                          if (myUser.system_role && !data.isSuperAdmin) {
+                              setSystemRole(myUser.system_role);
+                          }
                       } else {
                           // Si es el admin (owner) y no está en Users (o es SuperAdmin), dale Admin.
-                          if (isAdmin || accounts[0].tenantId === selectedTenant.id) {
+                          if (data.isSuperAdmin || accounts[0].tenantId === selectedTenant.id) {
                               setUserRole('Admin');
                           } else {
                               setUserRole('Reader');
@@ -178,7 +205,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
   const requiresRbacUpdate = selectedTenant?.requires_rbac_update;
 
   return (
-    <TenantContext.Provider value={{ selectedTenant, setSelectedTenant, isAdmin, tenants: tenantsList, userRole, requiresRbacUpdate }}>
+    <TenantContext.Provider value={{ selectedTenant, setSelectedTenant, isAdmin, tenants: tenantsList, userRole, systemRole, requiresRbacUpdate }}>
       {children}
     </TenantContext.Provider>
   );

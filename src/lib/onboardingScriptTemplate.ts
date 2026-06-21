@@ -97,20 +97,23 @@ $app = Get-AzADApplication -AppId $sp.AppId
 $secret = New-AzADAppCredential -ObjectId $app.Id -StartDate (Get-Date) -EndDate (Get-Date).AddYears(2)
 $ClientSecret = $secret.SecretText
 
-Write-Host "3. Asignando Permisos de Microsoft Graph (Directory.Read.All y Reports.Read.All)..." -ForegroundColor Cyan
+Write-Host "3. Asignando Permisos de Microsoft Graph (Directory.Read.All, Reports.Read.All y User.Read.All)..." -ForegroundColor Cyan
 $GraphSp = Get-AzADServicePrincipal -Filter "appId eq '00000003-0000-0000-c000-000000000000'"
 $DirRole = $GraphSp.AppRole | Where-Object { $_.Value -eq "Directory.Read.All" -and $_.AllowedMemberType -contains "Application" }
 $RepRole = $GraphSp.AppRole | Where-Object { $_.Value -eq "Reports.Read.All" -and $_.AllowedMemberType -contains "Application" }
+$UserRole = $GraphSp.AppRole | Where-Object { $_.Value -eq "User.Read.All" -and $_.AllowedMemberType -contains "Application" }
 
-if ($DirRole -and $RepRole) {
+if ($DirRole -and $RepRole -and $UserRole) {
     $bodyDir = @{ principalId = $sp.Id; resourceId = $GraphSp.Id; appRoleId = $DirRole.Id } | ConvertTo-Json -Depth 5
     $bodyRep = @{ principalId = $sp.Id; resourceId = $GraphSp.Id; appRoleId = $RepRole.Id } | ConvertTo-Json -Depth 5
+    $bodyUser = @{ principalId = $sp.Id; resourceId = $GraphSp.Id; appRoleId = $UserRole.Id } | ConvertTo-Json -Depth 5
 
     Invoke-AzRestMethod -Method Post -Uri "https://graph.microsoft.com/v1.0/servicePrincipals/$($sp.Id)/appRoleAssignments" -Payload $bodyDir -ErrorAction SilentlyContinue | Out-Null
     Invoke-AzRestMethod -Method Post -Uri "https://graph.microsoft.com/v1.0/servicePrincipals/$($sp.Id)/appRoleAssignments" -Payload $bodyRep -ErrorAction SilentlyContinue | Out-Null
-    Write-Host "   -> Permisos asignados exitosamente." -ForegroundColor Green
+    Invoke-AzRestMethod -Method Post -Uri "https://graph.microsoft.com/v1.0/servicePrincipals/$($sp.Id)/appRoleAssignments" -Payload $bodyUser -ErrorAction SilentlyContinue | Out-Null
+    Write-Host "   -> Permisos asignados exitosamente. (Requiere Admin Consent desde el Portal de Azure)" -ForegroundColor Green
 } else {
-    Write-Host "   -> No se pudieron localizar los roles de MS Graph. Por favor, asigne Directory.Read.All y Reports.Read.All manualmente." -ForegroundColor Yellow
+    Write-Host "   -> No se pudieron localizar los roles de MS Graph. Por favor, asigne Directory.Read.All, Reports.Read.All y User.Read.All manualmente." -ForegroundColor Yellow
 }
 
 Write-Host "4. Asignando 'Cost Management Reader' a nivel del Management Group raíz (Recomendado para FinOps global)..." -ForegroundColor Cyan

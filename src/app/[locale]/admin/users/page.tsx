@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { toast } from 'sonner';
-import { Users, Shield, Plus, Trash2 } from "lucide-react";
+import { Users, Shield, Plus, Trash2, RefreshCw, X, CheckSquare } from "lucide-react";
 import { isMockTenant } from '@/lib/mockData';
 
 
@@ -17,6 +17,11 @@ export default function UsersPage() {
     const [newEmail, setNewEmail] = useState('');
     const [newRole, setNewRole] = useState('Reader');
     const [newOid, setNewOid] = useState('');
+    const [entraUsers, setEntraUsers] = useState<any[]>([]);
+    const [syncingEntra, setSyncingEntra] = useState(false);
+    const [showEntraModal, setShowEntraModal] = useState(false);
+    const [selectedEntraUsers, setSelectedEntraUsers] = useState<{ [id: string]: { selected: boolean, role: string, user: any } }>({});
+    const [provisioning, setProvisioning] = useState(false);
 
     const isAdmin = userRole === 'Admin';
 
@@ -118,6 +123,83 @@ export default function UsersPage() {
         setInviting(false);
     };
 
+    const handleSyncEntra = async () => {
+        setSyncingEntra(true);
+        setShowEntraModal(true);
+        try {
+            const tokenResponse = await instance.acquireTokenSilent({
+                scopes: ["User.Read"],
+                account: accounts[0]
+            });
+            const res = await fetch(`/api/admin/config/users/entra-sync`, {
+                headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
+            });
+            const json = await res.json();
+            if (res.ok && json.users) {
+                setEntraUsers(json.users);
+                const initialSelected: any = {};
+                json.users.forEach((u: any) => {
+                    initialSelected[u.id] = { selected: false, role: 'Reader', user: u };
+                });
+                setSelectedEntraUsers(initialSelected);
+            } else {
+                toast.error(json.error || "Error al sincronizar con Entra ID");
+            }
+        } catch(e) {
+            console.error("Error syncing Entra:", e);
+            toast.error("Error de conexión al sincronizar.");
+        }
+        setSyncingEntra(false);
+    };
+
+    const handleBulkProvision = async () => {
+        const usersToProvision = Object.values(selectedEntraUsers)
+            .filter(item => item.selected)
+            .map(item => ({
+                entraOid: item.user.id,
+                email: item.user.mail || item.user.userPrincipalName,
+                displayName: item.user.displayName,
+                role: item.role
+            }));
+
+        if (usersToProvision.length === 0) {
+            toast.error("Selecciona al menos un usuario para provisionar.");
+            return;
+        }
+
+        setProvisioning(true);
+        try {
+            const tokenResponse = await instance.acquireTokenSilent({
+                scopes: ["User.Read"],
+                account: accounts[0]
+            });
+            const res = await fetch('/api/admin/config/users', {
+                method: 'POST',
+                headers: { 
+                    'Authorization': `Bearer ${tokenResponse.idToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    tenantId: selectedTenant.id,
+                    users: usersToProvision
+                })
+            });
+            const json = await res.json();
+
+            if (res.ok) {
+                toast.success(json.message || "Usuarios provisionados.");
+                setShowEntraModal(false);
+                loadUsers();
+            } else {
+                toast.error(json.error || "Error al provisionar usuarios.");
+            }
+        } catch (e) {
+            console.error("Error bulk provisioning:", e);
+            toast.error("Error de conexión.");
+        }
+        setProvisioning(false);
+    };
+
     const handleRoleChange = async (userId: number, newRoleValue: string) => {
         try {
             const tokenResponse = await instance.acquireTokenSilent({
@@ -173,9 +255,18 @@ export default function UsersPage() {
 
             {isAdmin && (
                 <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden mb-8">
-                    <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50 flex items-center gap-2">
-                        <Plus className="w-5 h-5 text-gray-500" />
-                        <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">Agregar Usuario</h3>
+                    <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <Plus className="w-5 h-5 text-gray-500" />
+                            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">Agregar Usuario Manualmente</h3>
+                        </div>
+                        <button 
+                            onClick={handleSyncEntra}
+                            className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-md text-sm font-medium transition-colors"
+                        >
+                            <RefreshCw className={`w-4 h-4 ${syncingEntra ? 'animate-spin' : ''}`} />
+                            Sincronizar desde Entra ID
+                        </button>
                     </div>
                     <div className="p-6">
                         <form onSubmit={handleInvite} className="flex flex-col md:flex-row gap-4 items-end">
@@ -242,6 +333,7 @@ export default function UsersPage() {
                             <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
                                 <thead className="bg-gray-50 dark:bg-slate-900">
                                     <tr>
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
                                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
                                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entra ID</th>
                                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rol</th>
@@ -251,7 +343,8 @@ export default function UsersPage() {
                                 <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-slate-700">
                                     {users.map((user) => (
                                         <tr key={user.id}>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">{user.email}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">{user.display_name || '-'}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{user.email}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 font-mono text-xs">{user.entra_oid}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                                 {isAdmin ? (
@@ -286,6 +379,85 @@ export default function UsersPage() {
                     )}
                 </div>
             </div>
+
+            {/* Entra ID Modal */}
+            {showEntraModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+                    <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+                        <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-800 flex justify-between items-center">
+                            <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                <Users className="w-5 h-5" /> Importar desde Microsoft Entra ID
+                            </h3>
+                            <button onClick={() => setShowEntraModal(false)} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
+                        <div className="p-6 flex-1 overflow-y-auto">
+                            {syncingEntra ? (
+                                <div className="flex justify-center items-center h-32">
+                                    <RefreshCw className="w-8 h-8 text-[#0054A6] animate-spin" />
+                                </div>
+                            ) : entraUsers.length === 0 ? (
+                                <div className="text-center text-gray-500 py-8">No se encontraron usuarios o hubo un error de conexión con Microsoft Graph. Asegúrate de haber otorgado el Admin Consent en el Portal de Azure.</div>
+                            ) : (
+                                <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
+                                    <thead className="bg-gray-50 dark:bg-slate-800">
+                                        <tr>
+                                            <th className="px-4 py-3 text-left">Seleccionar</th>
+                                            <th className="px-4 py-3 text-left">Nombre</th>
+                                            <th className="px-4 py-3 text-left">Email</th>
+                                            <th className="px-4 py-3 text-left">Rol a asignar</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-200 dark:divide-slate-700">
+                                        {entraUsers.map((u: any) => {
+                                            const state = selectedEntraUsers[u.id];
+                                            if (!state) return null;
+                                            return (
+                                                <tr key={u.id} className="hover:bg-gray-50 dark:hover:bg-slate-800/50">
+                                                    <td className="px-4 py-3">
+                                                        <input 
+                                                            type="checkbox" 
+                                                            checked={state.selected}
+                                                            onChange={(e) => setSelectedEntraUsers({...selectedEntraUsers, [u.id]: { ...state, selected: e.target.checked }})}
+                                                            className="w-4 h-4 text-[#0054A6] rounded border-gray-300 focus:ring-[#0054A6]"
+                                                        />
+                                                    </td>
+                                                    <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">{u.displayName}</td>
+                                                    <td className="px-4 py-3 text-sm text-gray-500">{u.mail || u.userPrincipalName}</td>
+                                                    <td className="px-4 py-3">
+                                                        <select 
+                                                            value={state.role}
+                                                            onChange={(e) => setSelectedEntraUsers({...selectedEntraUsers, [u.id]: { ...state, role: e.target.value }})}
+                                                            disabled={!state.selected}
+                                                            className="text-sm border border-gray-300 dark:border-slate-700 rounded bg-white dark:bg-slate-900 disabled:opacity-50 px-2 py-1"
+                                                        >
+                                                            <option value="Reader">Reader</option>
+                                                            <option value="Colaborador">Colaborador</option>
+                                                            <option value="Admin">Admin</option>
+                                                        </select>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+                        <div className="px-6 py-4 border-t border-gray-200 dark:border-slate-800 flex justify-end gap-3 bg-gray-50 dark:bg-slate-900/50">
+                            <button onClick={() => setShowEntraModal(false)} className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 font-medium">Cancelar</button>
+                            <button 
+                                onClick={handleBulkProvision}
+                                disabled={provisioning || Object.values(selectedEntraUsers).filter(i => i.selected).length === 0}
+                                className="px-6 py-2 bg-[#0054A6] hover:bg-[#004080] text-white rounded-md font-medium disabled:opacity-50 flex items-center gap-2"
+                            >
+                                {provisioning && <RefreshCw className="w-4 h-4 animate-spin" />}
+                                Provisionar Seleccionados
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

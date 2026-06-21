@@ -32,11 +32,18 @@ export async function GET(request: NextRequest) {
 
         const connection = await pool.getConnection();
         try {
+            const [saRows] = await connection.execute<any>(
+                `SELECT system_role FROM Users WHERE LOWER(email) = LOWER(?) AND system_role = 'SUPERADMIN' LIMIT 1`,
+                [email]
+            );
+            const isSuperAdminDb = isSuperAdmin && saRows.length > 0;
+            console.log(`[Admin Config Users] email: ${email}, isSuperAdmin: ${isSuperAdmin}, saRows.length: ${saRows.length}, isSuperAdminDb: ${isSuperAdminDb}`);
+
             const [rows] = await connection.execute(
-                `SELECT id, email, role, entra_oid FROM Users WHERE tenant_id = ?`,
+                `SELECT id, email, display_name, role, entra_oid, system_role FROM Users WHERE tenant_id = ?`,
                 [tenantId]
             );
-            return NextResponse.json({ success: true, users: rows });
+            return NextResponse.json({ success: true, users: rows, isSuperAdmin: isSuperAdminDb });
         } finally {
             connection.release();
         }
@@ -107,12 +114,15 @@ export async function DELETE(request: NextRequest) {
     }
 }
 
-export async function POST(request: NextRequest) {
+    export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { tenantId, entraOid, email } = body;
+        const { tenantId, users, entraOid, email, role, displayName } = body;
 
-        if (!tenantId || !entraOid || !email) {
+        // Soporte retrocompatible (un solo usuario) o múltiples usuarios (users array)
+        const usersToProcess = users || [{ entraOid, email, displayName, role: role || 'Reader' }];
+
+        if (!tenantId || usersToProcess.length === 0 || !usersToProcess[0].entraOid) {
             return NextResponse.json({ error: "Faltan parámetros obligatorios." }, { status: 400 });
         }
 
@@ -128,8 +138,8 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Token inválido." }, { status: 401 });
         }
 
-        const adminEmail = decoded.preferred_username || decoded.unique_name || decoded.email || "";
-        const isSuperAdmin = adminEmail.toLowerCase().endsWith("@cscloudsolutions.com.ar");
+        const currentAdminEmail = decoded.preferred_username || decoded.unique_name || decoded.email || "";
+        const isSuperAdmin = currentAdminEmail.toLowerCase().endsWith("@cscloudsolutions.com.ar");
 
         const connection = await pool.getConnection();
         try {
@@ -148,35 +158,35 @@ export async function POST(request: NextRequest) {
                 `SELECT COUNT(*) as count FROM Users WHERE tenant_id = ?`,
                 [tenantId]
             );
-            const count = userRows[0].count;
+            let count = userRows[0].count;
 
-            if (tier === 'Essential' && count >= 1) {
-                return NextResponse.json({ error: "Límite de usuarios alcanzado para el plan Essential (Máx 1)." }, { status: 403 });
+            const adminDomain = currentAdminEmail.split('@')[1]?.toLowerCase();
+
+            for (const user of usersToProcess) {
+                if (tier === 'Essential' && count >= 1) {
+                    return NextResponse.json({ error: "Límite de usuarios alcanzado para el plan Essential (Máx 1)." }, { status: 403 });
+                }
+                if (tier === 'Professional' && count >= 5) {
+                    return NextResponse.json({ error: "Límite de usuarios alcanzado para el plan Professional (Máx 5)." }, { status: 403 });
+                }
+                if (tier === 'Business' && count >= 20) {
+                    return NextResponse.json({ error: "Límite de usuarios alcanzado para el plan Business (Máx 20)." }, { status: 403 });
+                }
+
+                const newEmailDomain = user.email.split('@')[1]?.toLowerCase();
+                if (adminDomain && newEmailDomain && adminDomain !== newEmailDomain && !isSuperAdmin) {
+                     return NextResponse.json({ error: `El usuario ${user.email} debe pertenecer al dominio registrado (${adminDomain}).` }, { status: 403 });
+                }
+
+                await connection.execute(
+                    `INSERT INTO Users (entra_oid, tenant_id, email, display_name, role) VALUES (?, ?, ?, ?, ?) 
+                     ON DUPLICATE KEY UPDATE email = VALUES(email), display_name = VALUES(display_name), role = VALUES(role)`,
+                    [user.entraOid, tenantId, user.email, user.displayName || null, user.role || 'Reader']
+                );
+                count++;
             }
-            if (tier === 'Professional' && count >= 5) {
-                return NextResponse.json({ error: "Límite de usuarios alcanzado para el plan Professional (Máx 5)." }, { status: 403 });
-            }
-            if (tier === 'Business' && count >= 20) {
-                return NextResponse.json({ error: "Límite de usuarios alcanzado para el plan Business (Máx 20)." }, { status: 403 });
-            }
 
-            // Validar dominio
-            const adminEmail = decoded.preferred_username || decoded.unique_name || decoded.email || "";
-            const adminDomain = adminEmail.split('@')[1]?.toLowerCase();
-            const newEmailDomain = email.split('@')[1]?.toLowerCase();
-
-            if (adminDomain && newEmailDomain && adminDomain !== newEmailDomain && !isSuperAdmin) {
-                 return NextResponse.json({ error: `El usuario debe pertenecer al dominio registrado (${adminDomain}).` }, { status: 403 });
-            }
-
-            // Enforce limit passes, insert user
-            const newRole = body.role || 'Reader';
-            await connection.execute(
-                `INSERT INTO Users (entra_oid, tenant_id, email, role) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE email = ?, role = ?`,
-                [entraOid, tenantId, email, newRole, email, newRole]
-            );
-
-            return NextResponse.json({ success: true, message: "Usuario agregado exitosamente." });
+            return NextResponse.json({ success: true, message: "Usuarios agregados/actualizados exitosamente." });
         } finally {
             connection.release();
         }

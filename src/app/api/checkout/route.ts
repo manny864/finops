@@ -20,73 +20,23 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { plan } = body;
 
-    // TODO: Usar el SDK de Lemon Squeezy o Fetch a la API
-    // Para simplificar, hacemos un request a la API REST directamente.
+    // TODO: Implement Paddle Checkout integration
+    // With Paddle Billing, checkouts are usually opened client-side via paddle.Checkout.open()
+    // or by creating a transaction on the server and returning the checkout URL.
     
     const config = getPaymentConfig();
-    const LEMON_SQUEEZY_API_KEY = config.LEMON_SQUEEZY_API_KEY || process.env.LEMON_SQUEEZY_API_KEY;
-    const STORE_ID = config.LEMON_SQUEEZY_STORE_ID || process.env.LEMON_SQUEEZY_STORE_ID;
-    
-    let variantId = config.LEMON_SQUEEZY_PRO_VARIANT_ID || process.env.LEMON_SQUEEZY_PRO_VARIANT_ID;
-    if (plan === 'business') variantId = config.LEMON_SQUEEZY_BUSINESS_VARIANT_ID || process.env.LEMON_SQUEEZY_BUSINESS_VARIANT_ID;
+    let priceId = config.PADDLE_PRO_PRICE_ID || process.env.PADDLE_PRO_PRICE_ID;
+    if (plan === 'business') priceId = config.PADDLE_ENTERPRISE_PRICE_ID || process.env.PADDLE_ENTERPRISE_PRICE_ID;
 
-    if (!LEMON_SQUEEZY_API_KEY || !STORE_ID || !variantId) {
-       // Mock Mode for development if env variables are not set
-       console.warn("[Lemon Squeezy] Missing API keys. Returning mock checkout URL.");
-       return NextResponse.json({ 
-           success: true, 
-           checkoutUrl: `https://mock.lemonsqueezy.com/checkout?tenantId=${tenantId}&plan=${plan}` 
-       });
-    }
-
-    const res = await fetch('https://api.lemonsqueezy.com/v1/checkouts', {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/vnd.api+json',
-        'Content-Type': 'application/vnd.api+json',
-        'Authorization': `Bearer ${LEMON_SQUEEZY_API_KEY}`
-      },
-      body: JSON.stringify({
-        data: {
-          type: "checkouts",
-          attributes: {
-            checkout_data: {
-              custom: {
-                tenant_id: tenantId
-              }
-            }
-          },
-          relationships: {
-            store: {
-              data: {
-                type: "stores",
-                id: STORE_ID.toString()
-              }
-            },
-            variant: {
-              data: {
-                type: "variants",
-                id: variantId.toString()
-              }
-            }
-          }
-        }
-      })
+    // For now, return a mock URL or return an error indicating Paddle migration is pending for new checkouts
+    console.warn("[Checkout] Paddle checkout endpoint not fully implemented. Returning mock checkout URL.");
+    return NextResponse.json({ 
+        success: true, 
+        checkoutUrl: `https://mock.paddle.com/checkout?tenantId=${tenantId}&plan=${plan}` 
     });
 
-    const responseData = await res.json();
-
-    if (!res.ok) {
-        console.error("Error creating checkout:", responseData);
-        return NextResponse.json({ error: "No se pudo crear la sesión de pago." }, { status: 500 });
-    }
-
-    const checkoutUrl = responseData.data?.attributes?.url;
-
-    return NextResponse.json({ success: true, checkoutUrl });
-
   } catch (error: any) {
-    console.error("[Checkout API Error]", error);
-    return NextResponse.json({ error: "Fallo en la API de Checkout" }, { status: 500 });
+    console.error("Checkout error:", error);
+    return NextResponse.json({ error: "Fallo interno del servidor" }, { status: 500 });
   }
 }

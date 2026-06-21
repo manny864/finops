@@ -1,4 +1,29 @@
 {
+  "SuperAdminUsers": {
+    "title": "Internal Staff Management",
+    "subtitle": "Manage CSCloudSolutions admins and grant God Mode.",
+    "email": "Email",
+    "tenant": "Tenant (Azure ID)",
+    "systemRole": "System Role",
+    "actions": "Actions",
+    "promoteBtn": "Promote to Admin",
+    "promoteSuccess": "User successfully promoted to SuperAdmin.",
+    "promoteError": "Failed to promote user.",
+    "accessDenied": "Access denied. God Mode required."
+  },
+  "SuperAdminTenants": {
+    "title": "Provision Enterprise Tenant",
+    "subtitle": "Manually create a new Enterprise B2B tenant.",
+    "formTitle": "Tenant Details",
+    "companyName": "Company Name",
+    "azureTenantId": "Azure Tenant ID / Domain",
+    "adminEmail": "Primary Admin Email",
+    "submit": "Provision Tenant",
+    "loading": "Provisioning...",
+    "authError": "Authentication Error",
+    "successMessage": "Enterprise tenant successfully provisioned!",
+    "errorMessage": "Failed to provision tenant."
+  },
   "Navigation": {
     "dashboard": "Dashboard",
     "advisor": "Azure Advisor",
@@ -166,6 +191,9 @@
     "simulating": "Simulating automatic Downgrade for VM:"
   },
   "Billing": {
+    "changePaymentMethod": "Change Payment Method",
+    "cancelSubscription": "Cancel Subscription",
+    "confirmCancel": "Are you sure you want to cancel your subscription? This action will take effect immediately.",
     "title": "Consumption & Billing",
     "subtitle": "Amortized costs visibility for the current month.",
     "missing_consent": "Missing Admin Consent in Tenant",
@@ -378,5 +406,17 @@
   },
   "onboarding": {
     "leastPrivilegeBanner": "As your current plan is {tier}, this script has been custom-tailored to request only the strictly necessary RBAC permissions for your features."
+  },
+  "Admin": {
+    "Users": {
+      "syncEntraId": "Sync from Entra ID",
+      "provisionUsers": "Provision Selected Users",
+      "saasRole": "SaaS Role",
+      "importTitle": "Import from Microsoft Entra ID",
+      "select": "Select",
+      "name": "Name",
+      "email": "Email",
+      "roleToAssign": "Role to assign"
+    }
   }
 }

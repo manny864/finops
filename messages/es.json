@@ -1,4 +1,29 @@
 {
+  "SuperAdminUsers": {
+    "title": "Gestión de Staff Interno",
+    "subtitle": "Gestiona administradores de CSCloudSolutions y otorga God Mode.",
+    "email": "Correo",
+    "tenant": "Tenant (Azure ID)",
+    "systemRole": "Rol del Sistema",
+    "actions": "Acciones",
+    "promoteBtn": "Promover a Admin",
+    "promoteSuccess": "Usuario promovido exitosamente a SuperAdmin.",
+    "promoteError": "Error al promover al usuario.",
+    "accessDenied": "Acceso denegado. Se requiere God Mode."
+  },
+  "SuperAdminTenants": {
+    "title": "Aprovisionar Tenant Enterprise",
+    "subtitle": "Crear manualmente un nuevo inquilino B2B Enterprise.",
+    "formTitle": "Detalles del Inquilino",
+    "companyName": "Nombre de la Empresa",
+    "azureTenantId": "Azure Tenant ID / Dominio",
+    "adminEmail": "Email del Admin Principal",
+    "submit": "Aprovisionar Inquilino",
+    "loading": "Aprovisionando...",
+    "authError": "Error de Autenticación",
+    "successMessage": "¡Inquilino Enterprise aprovisionado exitosamente!",
+    "errorMessage": "Error al aprovisionar el inquilino."
+  },
   "Navigation": {
     "dashboard": "Dashboard",
     "advisor": "Azure Advisor",
@@ -166,6 +191,9 @@
     "simulating": "Simulando aplicación de Downgrade automático para la VM:"
   },
   "Billing": {
+    "changePaymentMethod": "Cambiar Método de Pago",
+    "cancelSubscription": "Cancelar Suscripción",
+    "confirmCancel": "¿Estás seguro de que deseas cancelar tu suscripción? Esta acción tendrá efecto inmediato.",
     "title": "Consumo y Facturación",
     "subtitle": "Visibilidad de costos amortizados en el mes en curso.",
     "missing_consent": "Falta Admin Consent en el Tenant",
@@ -378,5 +406,17 @@
   },
   "onboarding": {
     "leastPrivilegeBanner": "Dado que tu plan actual es {tier}, este script ha sido personalizado para solicitar únicamente los permisos RBAC estrictamente necesarios para tus funciones."
+  },
+  "Admin": {
+    "Users": {
+      "syncEntraId": "Sincronizar desde Entra ID",
+      "provisionUsers": "Provisionar Seleccionados",
+      "saasRole": "Rol SaaS",
+      "importTitle": "Importar desde Microsoft Entra ID",
+      "select": "Seleccionar",
+      "name": "Nombre",
+      "email": "Email",
+      "roleToAssign": "Rol a asignar"
+    }
   }
 }

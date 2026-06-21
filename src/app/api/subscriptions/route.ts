@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { SubscriptionClient } from "@azure/arm-subscriptions";
 import { getAzureCredential } from "@/lib/azure";
 import jwt from "jsonwebtoken";
+import pool from "@/modules/storage/db";
 
 export async function GET(request: NextRequest) {
   try {
@@ -58,6 +59,16 @@ export async function GET(request: NextRequest) {
     }));
 
     console.log(`[Subscriptions] OK: ${subscriptions.length} suscripciones encontradas`);
+
+    try {
+        const [updateRes] = await pool.query(`UPDATE Tenants SET is_onboarded = 1 WHERE tenant_id = ?`, [tenantId]) as any[];
+        if (updateRes && updateRes.affectedRows > 0) {
+            console.log(`[Subscriptions] Tenant ${tenantId} marcado como onboarded.`);
+        }
+    } catch (e: any) {
+        console.error(`[Subscriptions] Error actualizando is_onboarded:`, e.message);
+    }
+
     return NextResponse.json({ subscriptions });
   } catch (error: any) {
     const errorMessage = error?.message || String(error) || "Error desconocido";
