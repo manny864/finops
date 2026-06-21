@@ -82,14 +82,15 @@ graph TD
 src/
 ├── app/
 │   ├── [locale]/                 # Rutas de UI Internacionalizadas (App Router)
-│   │   ├── admin/                # Configuración, Onboarding, Workbooks
-│   │   ├── advisor/              # Integración de Azure Advisor
-│   │   ├── cleanup/              # TTL Enforcement & Zombies
-│   │   ├── governance/           # Power Schedules (VMs) y Gestión de Etiquetas
-│   │   ├── intelligence/         # Facturación (Billing), Redes, Rightsizing, Licencias, Upload
-│   │   └── overview/             # Maturity Scoring, Progreso Histórico
-│   │   ├── layout.tsx            # Root Layout (Inyecta Providers y next-intl)
-│   │   └── page.tsx              # Dashboard Principal
+│       ├── admin/                # Configuración, Onboarding, Workbooks
+│       ├── advisor/              # Integración de Azure Advisor
+│       ├── cleanup/              # TTL Enforcement & Zombies
+│       ├── governance/           # Power Schedules (VMs) y Gestión de Etiquetas
+│       ├── intelligence/         # Facturación (Billing), Redes, Rightsizing, Licencias, Upload
+│       ├── overview/             # Maturity Scoring, Progreso Histórico
+│       ├── superadmin/           # Configuración de AI, Salud, Gestión de Tenants, Gestión de Staff (God Mode)
+│       ├── layout.tsx            # Root Layout (Inyecta Providers y next-intl)
+│       └── page.tsx              # Dashboard Principal
 │   └── api/                      # Backend API Routes
 │       ├── admin/
 │       ├── advisor/
@@ -103,6 +104,7 @@ src/
 │       ├── recommendations/
 │       ├── remediation/
 │       ├── subscriptions/
+│       ├── superadmin/
 │       ├── tags/
 │       └── tenants/
 ├── components/                   # Componentes React Reusables
@@ -142,6 +144,9 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
 
 ## 📈 Recent Major Updates
 
+- **Defense in Depth God Mode**: Se implementó una lógica estricta de doble factor para SuperAdmins, requiriendo dominio corporativo (`@cscloudsolutions.com.ar`) y el rol explícito `SUPERADMIN` en Base de Datos. Incluye una interfaz UI dedicada en `/superadmin/users` para promover Staff.
+- **Mandatory Onboarding Flow**: Redirección forzada implementada en `TenantProvider` para asegurar que todo nuevo locatário ejecute obligatoriamente el script de RBAC, validándose de forma automática en la consulta de `/api/subscriptions`.
+- **Enterprise Provisioning via SuperAdmin**: Nuevo módulo para provisionar Tenants B2B Enterprise manualmente mediante la UI de God Mode sin intervención de base de datos directa.
 - **Módulo de License Optimization**: Se implementó una solución nativa mediante Microsoft Graph API para extraer suscripciones (`subscribedSkus`) e inactividad (`getOffice365ActiveUserDetail`). Incluye gestión avanzada de errores, mapeo de permisos de forma automática en el Onboarding, y recomendaciones visuales de revocación de licencias para usuarios inactivos.
 - **Ingesta FOCUS (CSV Upload)**: Creación de interfaz dedicada e endpoint `/api/intelligence/upload` para ingestar y homologar CSVs crudos de nubes externas o cargos directos hacia la especificación FOCUS.
 - **Estado Global de Suscripciones Basado en URL**: Migración del `SubscriptionContext` para usar variables de ruta y búsqueda profunda (deep-linking), garantizando consistencia universal de los selectores de suscripción en todos los componentes y reduciendo dependencias redundantes.

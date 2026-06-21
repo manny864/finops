@@ -4,19 +4,17 @@ import path from 'path';
 const configPath = path.join(process.cwd(), 'config', 'payment.json');
 
 export interface PaymentConfig {
-  LEMON_SQUEEZY_API_KEY: string;
-  LEMON_SQUEEZY_STORE_ID: string;
-  LEMON_SQUEEZY_PRO_VARIANT_ID: string;
-  LEMON_SQUEEZY_BUSINESS_VARIANT_ID: string;
-  LEMON_SQUEEZY_WEBHOOK_SECRET: string;
+  PADDLE_API_KEY: string;
+  PADDLE_WEBHOOK_SECRET: string;
+  PADDLE_PRO_PRICE_ID: string;
+  PADDLE_ENTERPRISE_PRICE_ID: string;
 }
 
 const defaultConfig: PaymentConfig = {
-  LEMON_SQUEEZY_API_KEY: "",
-  LEMON_SQUEEZY_STORE_ID: "",
-  LEMON_SQUEEZY_PRO_VARIANT_ID: "",
-  LEMON_SQUEEZY_BUSINESS_VARIANT_ID: "",
-  LEMON_SQUEEZY_WEBHOOK_SECRET: ""
+  PADDLE_API_KEY: "",
+  PADDLE_WEBHOOK_SECRET: "",
+  PADDLE_PRO_PRICE_ID: "",
+  PADDLE_ENTERPRISE_PRICE_ID: ""
 };
 
 export function getPaymentConfig(): PaymentConfig {

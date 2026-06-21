@@ -4,11 +4,10 @@ import { toast } from 'sonner';
 
 export default function AdminPaymentsPage() {
   const [config, setConfig] = useState({
-    LEMON_SQUEEZY_API_KEY: '',
-    LEMON_SQUEEZY_STORE_ID: '',
-    LEMON_SQUEEZY_PRO_VARIANT_ID: '',
-    LEMON_SQUEEZY_BUSINESS_VARIANT_ID: '',
-    LEMON_SQUEEZY_WEBHOOK_SECRET: ''
+    PADDLE_API_KEY: '',
+    PADDLE_WEBHOOK_SECRET: '',
+    PADDLE_PRO_PRICE_ID: '',
+    PADDLE_ENTERPRISE_PRICE_ID: ''
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -56,8 +55,8 @@ export default function AdminPaymentsPage() {
   return (
     <div className="max-w-4xl mx-auto p-6">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 font-heading">Lemon Squeezy Configuration</h1>
-        <p className="text-gray-500 mt-1">Configura las credenciales y IDs de los planes para la plataforma de pagos.</p>
+        <h1 className="text-2xl font-bold text-gray-900 font-heading">Paddle Billing Configuration</h1>
+        <p className="text-gray-500 mt-1">Configura las credenciales y IDs de los planes para la plataforma de pagos (Paddle).</p>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -66,62 +65,51 @@ export default function AdminPaymentsPage() {
         </div>
         <form onSubmit={handleSave} className="p-6 space-y-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">API Key</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Paddle API Key</label>
             <input 
               type="password" 
-              name="LEMON_SQUEEZY_API_KEY"
-              value={config.LEMON_SQUEEZY_API_KEY} 
+              name="PADDLE_API_KEY"
+              value={config.PADDLE_API_KEY || ''} 
               onChange={handleChange}
-              placeholder="eyJ0eX..."
+              placeholder="1234567890abcdef..."
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none dark:bg-slate-800 dark:border-slate-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
             />
-            <p className="text-xs text-gray-500 mt-1">Token de acceso generado en Settings &gt; API.</p>
+            <p className="text-xs text-gray-500 mt-1">Token de acceso generado en Paddle Dashboard &gt; Developer Tools.</p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Store ID</label>
-              <input 
-                type="text" 
-                name="LEMON_SQUEEZY_STORE_ID"
-                value={config.LEMON_SQUEEZY_STORE_ID} 
-                onChange={handleChange}
-                placeholder="12345"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none dark:bg-slate-800 dark:border-slate-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Webhook Secret</label>
-              <input 
-                type="password" 
-                name="LEMON_SQUEEZY_WEBHOOK_SECRET"
-                value={config.LEMON_SQUEEZY_WEBHOOK_SECRET} 
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none dark:bg-slate-800 dark:border-slate-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-              />
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Paddle Webhook Secret</label>
+            <input 
+              type="password" 
+              name="PADDLE_WEBHOOK_SECRET"
+              value={config.PADDLE_WEBHOOK_SECRET || ''} 
+              onChange={handleChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none dark:bg-slate-800 dark:border-slate-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+            />
           </div>
 
           <div className="border-t border-gray-200 pt-6 mt-6">
-            <h3 className="text-md font-semibold text-gray-800 mb-4">Variant IDs (Planes)</h3>
+            <h3 className="text-md font-semibold text-gray-800 mb-4">Price IDs (Planes)</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Professional Plan Variant ID</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Professional Plan Price ID</label>
                 <input 
                   type="text" 
-                  name="LEMON_SQUEEZY_PRO_VARIANT_ID"
-                  value={config.LEMON_SQUEEZY_PRO_VARIANT_ID} 
+                  name="PADDLE_PRO_PRICE_ID"
+                  value={config.PADDLE_PRO_PRICE_ID || ''} 
                   onChange={handleChange}
+                  placeholder="pri_01h..."
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none dark:bg-slate-800 dark:border-slate-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Enterprise Plan Variant ID</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Enterprise Plan Price ID</label>
                 <input 
                   type="text" 
-                  name="LEMON_SQUEEZY_BUSINESS_VARIANT_ID"
-                  value={config.LEMON_SQUEEZY_BUSINESS_VARIANT_ID} 
+                  name="PADDLE_ENTERPRISE_PRICE_ID"
+                  value={config.PADDLE_ENTERPRISE_PRICE_ID || ''} 
                   onChange={handleChange}
+                  placeholder="pri_02h..."
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none dark:bg-slate-800 dark:border-slate-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                 />
               </div>

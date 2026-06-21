@@ -9,16 +9,19 @@ CREATE TABLE IF NOT EXISTS Tenants (
     tier ENUM('Essential', 'Professional', 'Business', 'Enterprise') DEFAULT 'Essential',
     trial_ends_at DATETIME NULL,
     subscription_status ENUM('TRIAL', 'ACTIVE', 'EXPIRED') DEFAULT 'ACTIVE',
+    is_onboarded BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-
 CREATE TABLE IF NOT EXISTS Users (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    entra_oid VARCHAR(255) UNIQUE NOT NULL,
+    entra_oid VARCHAR(255) NOT NULL,
     tenant_id VARCHAR(255) NOT NULL,
     email VARCHAR(255),
+    display_name VARCHAR(255),
     role VARCHAR(50) DEFAULT 'admin',
-    FOREIGN KEY (tenant_id) REFERENCES Tenants(tenant_id) ON DELETE CASCADE
+    system_role VARCHAR(50) DEFAULT 'USER',
+    FOREIGN KEY (tenant_id) REFERENCES Tenants(tenant_id) ON DELETE CASCADE,
+    UNIQUE KEY unique_user_tenant (entra_oid, tenant_id)
 );
 \nCREATE TABLE IF NOT EXISTS SavingsHistory (\n    id INT AUTO_INCREMENT PRIMARY KEY,\n    tenant_id VARCHAR(255) NOT NULL,\n    scan_date DATE NOT NULL,\n    total_wasted_usd DECIMAL(10,2) NOT NULL,\n    potential_savings_usd DECIMAL(10,2) NOT NULL\n);\n
 CREATE TABLE IF NOT EXISTS ActionLogs (

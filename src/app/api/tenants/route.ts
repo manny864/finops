@@ -5,13 +5,16 @@ import { verifySubscription } from '@/lib/apiSecurity';
 
 export async function GET(request: NextRequest) {
     try {
-        const [rows] = await pool.query('SELECT tenant_id as id, company_name as name, client_id, client_secret, tier, trial_ends_at, subscription_status FROM Tenants ORDER BY created_at ASC');
+        const [rows] = await pool.query('SELECT tenant_id as id, company_name as name, client_id, client_secret, tier, trial_ends_at, subscription_status, is_onboarded FROM Tenants ORDER BY created_at ASC');
         
-        // Inyectar datos mock para demos de tiers
+        // Inyectar datos mock para demos de tiers o forzar tiers de Admins
         const allTenants = [...(rows as any[])];
         for (const mock of mockTenants) {
-            if (!allTenants.find(t => t.id === mock.id)) {
+            const existing = allTenants.find(t => t.id === mock.id);
+            if (!existing) {
                 allTenants.push(mock);
+            } else if (mock.tier) {
+                existing.tier = mock.tier;
             }
         }
         
@@ -84,9 +87,9 @@ export async function DELETE(request: NextRequest) {
             return NextResponse.json({ error: 'Falta tenantId' }, { status: 400 });
         }
 
-        // TODO: Para integracion real con LemonSqueezy, aqui se haria un fetch a
-        // DELETE https://api.lemonsqueezy.com/v1/subscriptions/{subscriptionId}
-        // Usando process.env.LEMON_SQUEEZY_API_KEY
+        // TODO: Para integracion real con Paddle, aqui se haria un fetch a
+        // POST https://api.paddle.com/subscriptions/{subscriptionId}/cancel
+        // Usando process.env.PADDLE_API_KEY
         console.log(`[Billing] Finalizando facturacion para tenant: ${tenantId}`);
 
         // Eliminar usuarios asociados

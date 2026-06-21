@@ -1,4 +1,29 @@
 {
+  "SuperAdminUsers": {
+    "title": "Gestão de Equipe Interna",
+    "subtitle": "Gerencie administradores da CS Cloud Solutions e conceda God Mode.",
+    "email": "E-mail",
+    "tenant": "Locatário (Azure ID)",
+    "systemRole": "Papel do Sistema",
+    "actions": "Ações",
+    "promoteBtn": "Promover a Admin",
+    "promoteSuccess": "Usuário promovido com sucesso a SuperAdmin.",
+    "promoteError": "Falha ao promover o usuário.",
+    "accessDenied": "Acesso negado. God Mode necessário."
+  },
+  "SuperAdminTenants": {
+    "title": "Provisionar Tenant Enterprise",
+    "subtitle": "Criar manualmente um novo locatário B2B Enterprise.",
+    "formTitle": "Detalhes do Locatário",
+    "companyName": "Nome da Empresa",
+    "azureTenantId": "Azure Tenant ID / Domínio",
+    "adminEmail": "Email do Admin Principal",
+    "submit": "Provisionar Locatário",
+    "loading": "Provisionando...",
+    "authError": "Erro de Autenticação",
+    "successMessage": "Locatário Enterprise provisionado com sucesso!",
+    "errorMessage": "Falha ao provisionar o locatário."
+  },
   "Navigation": {
     "dashboard": "Dashboard",
     "advisor": "Azure Advisor",
@@ -166,6 +191,9 @@
     "simulating": "Simulando aplicação de Downgrade automático para a VM:"
   },
   "Billing": {
+    "changePaymentMethod": "Alterar Método de Pagamento",
+    "cancelSubscription": "Cancelar Assinatura",
+    "confirmCancel": "Tem certeza de que deseja cancelar sua assinatura? Esta ação entrará em vigor imediatamente.",
     "title": "Consumo e Faturamento",
     "subtitle": "Visibilidade de custos amortizados no mês atual.",
     "missing_consent": "Falta Admin Consent no Tenant",
@@ -378,5 +406,17 @@
   },
   "onboarding": {
     "leastPrivilegeBanner": "Como seu plano atual é {tier}, este script foi personalizado para solicitar apenas as permissões RBAC estritamente necessárias para seus recursos."
+  },
+  "Admin": {
+    "Users": {
+      "syncEntraId": "Sincronizar do Entra ID",
+      "provisionUsers": "Provisionar Selecionados",
+      "saasRole": "Função SaaS",
+      "importTitle": "Importar do Microsoft Entra ID",
+      "select": "Selecionar",
+      "name": "Nome",
+      "email": "Email",
+      "roleToAssign": "Função a atribuir"
+    }
   }
 }

@@ -8,13 +8,19 @@ export const isMockTenant = (tenantId: string) => {
     ].includes(tenantId);
 };
 
-export const getMockDataForRoute = (route: string, tier: string) => {
-    // tier string passed from TenantProvider demo overrides
+export const getMockDataForRoute = (route: string, arg2: string) => {
+    // Arg2 can be either a tenantId (from backend) or a tier string (from frontend mock override)
+    const isTenantId = arg2 && arg2.length > 20; // tenantIds are GUIDs
+    if (isTenantId && !isMockTenant(arg2)) {
+        return null; // Return real data if it's not a mock tenant
+    }
+    
+    const tier = (isTenantId ? 'essential' : arg2) || 'essential';
     
     let multiplier = 1;
-    if (tier === 'pro') multiplier = 3;
-    if (tier === 'business') multiplier = 10;
-    if (tier === 'enterprise') multiplier = 50;
+    if (tier.toLowerCase() === 'pro') multiplier = 3;
+    if (tier.toLowerCase() === 'business') multiplier = 10;
+    if (tier.toLowerCase() === 'enterprise') multiplier = 50;
 
     switch (route) {
         case 'advisor':
