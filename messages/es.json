@@ -1,7 +1,7 @@
 {
   "SuperAdminUsers": {
     "title": "Gestión de Staff Interno",
-    "subtitle": "Gestiona administradores de CS Cloud Solutions y otorga God Mode.",
+    "subtitle": "Gestiona administradores de CSCloudSolutions y otorga God Mode.",
     "email": "Correo",
     "tenant": "Tenant (Azure ID)",
     "systemRole": "Rol del Sistema",
