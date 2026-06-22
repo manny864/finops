@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS Users (
     tenant_id VARCHAR(255) NOT NULL,
     email VARCHAR(255),
     display_name VARCHAR(255),
-    role VARCHAR(50) DEFAULT 'admin',
+    role VARCHAR(50) DEFAULT 'Admin',
     system_role VARCHAR(50) DEFAULT 'USER',
     FOREIGN KEY (tenant_id) REFERENCES Tenants(tenant_id) ON DELETE CASCADE,
     UNIQUE KEY unique_user_tenant (entra_oid, tenant_id)
