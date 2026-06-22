@@ -8,7 +8,7 @@ import { isMockTenant } from '@/lib/mockData';
 
 
 export default function UsersPage() {
-    const { selectedTenant, userRole } = useTenant();
+    const { selectedTenant, userRole, systemRole } = useTenant();
     const { instance, accounts } = useMsal();
     const [users, setUsers] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
@@ -23,7 +23,9 @@ export default function UsersPage() {
     const [selectedEntraUsers, setSelectedEntraUsers] = useState<{ [id: string]: { selected: boolean, role: string, user: any } }>({});
     const [provisioning, setProvisioning] = useState(false);
 
-    const isAdmin = userRole === 'Admin';
+    const isAdmin = userRole === 'Admin' || systemRole === 'SUPERADMIN';
+    const isSuperAdmin = systemRole === 'SUPERADMIN';
+    const isMasterTenant = selectedTenant.id === '8b41364f-581a-4e43-b7cb-13138dac5517';
 
     const loadUsers = async () => {
         if (!selectedTenant || selectedTenant.id === 'default' || (accounts.length === 0 && !isMockTenant(selectedTenant?.id || ''))) return;
@@ -306,6 +308,9 @@ export default function UsersPage() {
                                     <option value="Reader">Reader (Lectura)</option>
                                     <option value="Colaborador">Colaborador</option>
                                     <option value="Admin">Admin</option>
+                                    {isSuperAdmin && isMasterTenant && (
+                                        <option value="SuperAdmin">🛡️ SuperAdmin (Global)</option>
+                                    )}
                                 </select>
                             </div>
                             <button 
@@ -352,15 +357,25 @@ export default function UsersPage() {
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 font-mono text-xs">{user.entra_oid}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                                 {isAdmin ? (
-                                                    <select 
-                                                        value={user.role}
-                                                        onChange={(e) => handleRoleChange(user.id, e.target.value)}
-                                                        className="px-2 py-1 border border-gray-300 dark:border-slate-700 rounded bg-white dark:bg-slate-900 text-sm placeholder-gray-500 dark:placeholder-gray-400"
-                                                    >
-                                                        <option value="Reader">Reader</option>
+                                                    <div className="flex items-center gap-2">
+                                                        <select 
+                                                            value={user.system_role === 'SUPERADMIN' ? 'SuperAdmin' : user.role}
+                                                            onChange={(e) => handleRoleChange(user.id, e.target.value)}
+                                                            className="px-2 py-1 border border-gray-300 dark:border-slate-700 rounded bg-white dark:bg-slate-900 text-sm placeholder-gray-500 dark:placeholder-gray-400"
+                                                        >
+                                                    <option value="Reader">Reader</option>
                                                         <option value="Colaborador">Colaborador</option>
                                                         <option value="Admin">Admin</option>
+                                                        {isSuperAdmin && isMasterTenant && (
+                                                            <option value="SuperAdmin">🛡️ SuperAdmin</option>
+                                                        )}
                                                     </select>
+                                                        {user.system_role === 'SUPERADMIN' && (
+                                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+                                                                🛡️ SUPERADMIN
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 ) : (
                                                     <span className="capitalize">{user.role}</span>
                                                 )}
@@ -439,6 +454,9 @@ export default function UsersPage() {
                                                             <option value="Reader">Reader</option>
                                                             <option value="Colaborador">Colaborador</option>
                                                             <option value="Admin">Admin</option>
+                                                            {isSuperAdmin && isMasterTenant && (
+                                                                <option value="SuperAdmin">🛡️ SuperAdmin</option>
+                                                            )}
                                                         </select>
                                                     </td>
                                                 </tr>
