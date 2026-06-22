@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, createContext, useEffect } from 'react';
-import AuthProvider, { AuthButton } from "./AuthProvider";
+import AuthProvider, { AuthButton, useAuthLoading } from "./AuthProvider";
 import { TenantProvider, useTenant } from './TenantProvider';
 import { SubscriptionProvider } from './SubscriptionProvider';
 import ScopeSelector from './ScopeSelector';
@@ -47,6 +47,7 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
   const [hasPendingUpgrade, setHasPendingUpgrade] = useState(false);
   const { selectedTenant, setSelectedTenant, isAdmin, tenants } = useTenant();
   const { instance, accounts, inProgress } = useMsal();
+  const { isInitializing } = useAuthLoading();
   
   // If demoSession exists, we treat the user as authenticated for the sake of the shell.
   const isMsalAuthenticated = useIsAuthenticated();
@@ -140,7 +141,7 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
 
 
   useEffect(() => {
-      if (!isAuthenticated && inProgress !== "startup" && inProgress !== "handleRedirect") {
+      if (!isInitializing && !isAuthenticated && inProgress !== "startup" && inProgress !== "handleRedirect") {
           const isDemo = pathname === '/demo' || pathname.startsWith('/demo/');
           if (!showPricing && pathname !== '/login' && !isDemo) {
               router.replace('/login');
@@ -152,7 +153,19 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
 
   const isDemoRoute = pathname === '/demo' || pathname.startsWith('/demo/');
 
-  if (!isAuthenticated && inProgress !== "startup" && inProgress !== "handleRedirect") {
+  if (isInitializing || inProgress === "startup" || inProgress === "handleRedirect") {
+      return (
+          <div className="min-h-screen bg-gradient-to-br from-nav-bg to-nav-bg2 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative font-sans items-center">
+              <div className="flex flex-col items-center animate-pulse">
+                  <img src="/logo_29k.png" alt="Logo" className="w-16 h-16 object-contain mb-4" />
+                  <div className="w-8 h-8 border-4 border-[#0054A6] border-t-transparent rounded-full animate-spin"></div>
+                  <p className="mt-4 text-sm font-semibold text-[#62809c] tracking-widest uppercase">Cargando...</p>
+              </div>
+          </div>
+      );
+  }
+
+  if (!isAuthenticated) {
       if (isDemoRoute) {
           return <>{children}</>;
       }

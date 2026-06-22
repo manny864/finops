@@ -1,5 +1,5 @@
 "use client";
-import React, { ReactNode, useEffect, useState } from "react";
+import React, { ReactNode, useEffect, useState, createContext, useContext } from "react";
 import { PublicClientApplication, EventType, AuthenticationResult } from "@azure/msal-browser";
 import { MsalProvider, useMsal, useIsAuthenticated } from "@azure/msal-react";
 import { useTenant } from "./TenantProvider";
@@ -13,6 +13,9 @@ const pca = new PublicClientApplication({
         redirectUri: typeof window !== "undefined" ? window.location.origin : "/",
     }
 });
+
+export const AuthLoadingContext = createContext({ isInitializing: true });
+export const useAuthLoading = () => useContext(AuthLoadingContext);
 
 export function AuthButton() {
     const { instance, accounts, inProgress } = useMsal();
@@ -118,12 +121,18 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     }, []);
 
     if (!msalInitialized) {
-        return <>{children}</>;
+        return (
+            <AuthLoadingContext.Provider value={{ isInitializing: true }}>
+                {children}
+            </AuthLoadingContext.Provider>
+        );
     }
 
     return (
-        <MsalProvider instance={pca}>
-            {children}
-        </MsalProvider>
+        <AuthLoadingContext.Provider value={{ isInitializing: false }}>
+            <MsalProvider instance={pca}>
+                {children}
+            </MsalProvider>
+        </AuthLoadingContext.Provider>
     );
 }

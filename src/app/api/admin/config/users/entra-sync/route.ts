@@ -18,19 +18,21 @@ export async function GET(request: NextRequest) {
 
     const tenantId = decoded.tid;
 
-    // Fetch tenant's Azure credentials from DB
+    // Step A: DB Check
     const [tenantRows]: any = await pool.query(
       "SELECT client_id, client_secret FROM Tenants WHERE tenant_id = ?",
       [tenantId]
     );
 
-    if (!tenantRows || tenantRows.length === 0 || !tenantRows[0].client_id) {
-      return NextResponse.json({ error: "Tenant credentials no encontradas." }, { status: 404 });
+    if (!tenantRows || tenantRows.length === 0 || !tenantRows[0].client_id || !tenantRows[0].client_secret) {
+      const err: any = new Error('Missing Azure credentials in database');
+      err.status = 400;
+      throw err;
     }
 
     const { client_id, client_secret } = tenantRows[0];
 
-    // Request Access Token from Microsoft Graph
+    // Step B: Token Fetch
     const tokenUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
     const tokenParams = new URLSearchParams({
       client_id: client_id,
@@ -51,16 +53,15 @@ export async function GET(request: NextRequest) {
 
     if (!tokenRes.ok || !tokenData.access_token) {
         console.error("Error getting Graph access token:", tokenData);
-        // Fallback for development if Admin Consent hasn't been granted
-        return NextResponse.json({ 
-            error: "Fallo al obtener token de Microsoft Graph. ¿Se ha otorgado el Admin Consent?",
-            details: tokenData
-        }, { status: 403 });
+        const err: any = new Error(tokenData.error_description || tokenData.error || 'Fallo al obtener token de Microsoft Graph');
+        err.status = 401;
+        err.details = tokenData;
+        throw err;
     }
 
     const accessToken = tokenData.access_token;
 
-    // Fetch Users from Microsoft Graph
+    // Step C: Graph API Fetch
     const graphUrl = "https://graph.microsoft.com/v1.0/users?$select=id,displayName,mail,userPrincipalName";
     const graphRes = await fetch(graphUrl, {
       headers: {
@@ -72,7 +73,11 @@ export async function GET(request: NextRequest) {
     if (!graphRes.ok) {
         const graphError = await graphRes.json();
         console.error("Error fetching users from Graph:", graphError);
-        return NextResponse.json({ error: "No se pudo leer los usuarios de Microsoft Entra ID." }, { status: 500 });
+        const errMessage = graphError.error?.message || "No se pudo leer los usuarios de Microsoft Entra ID.";
+        const err: any = new Error(errMessage);
+        err.status = graphRes.status;
+        err.details = graphError;
+        throw err;
     }
 
     const graphData = await graphRes.json();
@@ -80,7 +85,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: true, users: graphData.value });
 
   } catch (error: any) {
-    console.error("[Entra ID Sync Error]", error);
-    return NextResponse.json({ error: "Error interno del servidor." }, { status: 500 });
+    console.error("[Entra ID Sync Error]", error.stack || error);
+    return NextResponse.json({ 
+        error: error.message || "Error interno al sincronizar Entra ID",
+        details: error.details || null
+    }, { status: error.status || 500 });
   }
 }
