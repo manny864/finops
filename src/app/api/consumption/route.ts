@@ -25,9 +25,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Estructura de token inválida." }, { status: 401 });
     }
 
-    if (decoded.tid !== tenantId) {
+    const email = (decoded as any).preferred_username || (decoded as any).unique_name || (decoded as any).email || "";
+    const isSuperAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") && decoded.tid === "8b41364f-581a-4e43-b7cb-13138dac5517";
+
+    if (decoded.tid !== tenantId && !isSuperAdmin) {
       return NextResponse.json(
-        { error: `Acceso denegado. El token (tid: ${decoded.tid}) no coincide con el tenant solicitado.` },
+        { error: `Acceso denegado. El token no coincide con el tenant solicitado.` },
         { status: 403 }
       );
     }
