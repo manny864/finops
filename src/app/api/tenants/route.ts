@@ -11,17 +11,18 @@ export async function GET(request: NextRequest) {
         const authHeader = request.headers.get("authorization");
         let email = "";
         let isSuperAdmin = false;
+        let decodedToken: any = null;
 
         if (authHeader && authHeader.startsWith("Bearer ")) {
             const token = authHeader.split(" ")[1];
-            const decoded = jwt.decode(token) as any;
-            if (decoded) {
-                email = decoded.unique_name || decoded.preferred_username || decoded.email || "";
+            decodedToken = jwt.decode(token) as any;
+            if (decodedToken) {
+                email = decodedToken.unique_name || decodedToken.preferred_username || decodedToken.email || "";
             }
         }
 
         if (email) {
-            const isCorpDomain = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") && decoded.tid === "8b41364f-581a-4e43-b7cb-13138dac5517";
+            const isCorpDomain = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") && decodedToken?.tid === "8b41364f-581a-4e43-b7cb-13138dac5517";
             if (isCorpDomain) {
                 isSuperAdmin = true;
             }
