@@ -1,3 +1,8 @@
+# STRICT DATABASE MIGRATION PROTOCOL
+Whenever a task requires modifying the database structure (adding/removing tables, columns, indexes, or constraints), you MUST explicitly inform the user about the impact of this change.
+You MUST implement the changes in the local schema files (src/modules/storage/schema.sql and src/modules/storage/db.ts) using safe ALTER TABLE methods.
+Crucially, at the end of your response, you MUST output a separate, raw SQL code block labeled --- PRODUCTION DB MIGRATION SCRIPT ---. This block must contain the exact, safe SQL commands (e.g., ALTER TABLE...) that the user needs to manually copy and execute in their production MySQL database.
+
 # Directiva: Agente DBA - Módulo de Presupuestos Mensuales por Tenant
 
 ## Objetivo
