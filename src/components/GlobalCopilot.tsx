@@ -48,7 +48,8 @@ export default function GlobalCopilot() {
                 body: JSON.stringify({
                     prompt: promptText,
                     pageContext: currentPage,
-                    dataPayload: currentDataPayload
+                    dataPayload: currentDataPayload,
+                    tenantId: selectedTenant.id
                 })
             });
             const json = await res.json();
@@ -90,7 +91,8 @@ export default function GlobalCopilot() {
                         body: JSON.stringify({
                             prompt: `He analizado los datos de la página "${currentPage}". Explica brevemente el estado actual reflejado en los datos y proporciona 2 o 3 sugerencias clave o acciones de optimización para esta sección. Responde en español de forma concisa.`,
                             pageContext: currentPage,
-                            dataPayload: currentDataPayload
+                            dataPayload: currentDataPayload,
+                            tenantId: selectedTenant.id
                         })
                     });
                     const json = await res.json();
