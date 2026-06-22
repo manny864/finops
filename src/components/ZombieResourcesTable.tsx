@@ -47,6 +47,10 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
   const [sorting, setSorting] = useState<SortingState>([]);
   const [error, setError] = useState<string | null>(null);
 
+  const [taggingItem, setTaggingItem] = useState<any | null>(null);
+  const [tagValues, setTagValues] = useState({ CostCenter: '', Environment: '', Owner: '' });
+  const [isTagging, setIsTagging] = useState(false);
+
   const handleDelete = async (item: any) => {
       if (item.manualDelete) {
           toast.error('Requisito Manual', { description: `La eliminación de [${item.type}] debe hacerse en el portal.` }); 
@@ -104,6 +108,45 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
           }
       } finally {
           setDeletingId(null);
+      }
+  };
+
+  const handleTagSubmit = async () => {
+      if (!taggingItem) return;
+      setIsTagging(true);
+      try {
+          const account = accounts[0];
+          const tokenResponse = await instance.acquireTokenSilent({
+              scopes: ["User.Read"],
+              account: account
+          });
+
+          const res = await fetch('/api/tags/apply', {
+              method: 'POST',
+              headers: {
+                  'Authorization': `Bearer ${tokenResponse.idToken}`,
+                  'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                  tenantId: selectedTenant.id,
+                  resourceId: taggingItem.id,
+                  tags: tagValues
+              })
+          });
+
+          const json = await res.json();
+          if (!res.ok) throw new Error(json.details || json.error || "Fallo al aplicar etiquetas");
+
+          toast.success("Etiquetas aplicadas exitosamente.");
+          addAction({ message: `Etiquetas FinOps aplicadas a ${taggingItem.resourceName}`, status: 'success' });
+          setData(prev => prev.filter(r => r.id !== taggingItem.id));
+          setTaggingItem(null);
+      } catch (err: any) {
+          console.error("Error tagging:", err);
+          toast.error("Error al aplicar etiquetas", { description: err.message });
+          addAction({ message: `Error etiquetando ${taggingItem.resourceName}: ${err.message}`, status: 'error' });
+      } finally {
+          setIsTagging(false);
       }
   };
 
@@ -357,12 +400,23 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
           return (
             <div className="text-right flex items-center justify-end gap-2">
                 {item.issueType === 'governance' && item.issue === "Sin Etiquetas FinOps" && (
-                    <button 
-                        onClick={() => triggerCopilotWithPrompt(`Por favor, analiza el recurso "${item.resourceName}" (Tipo: ${item.type}) en el grupo "${item.resourceGroup}" y sugiéreme la mejor estructura de etiquetas (tags) FinOps para aplicarle basándote en las mejores prácticas de Azure.`)}
-                        className="px-3 py-1 rounded-md text-xs font-semibold shadow-sm transition-colors bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200"
-                    >
-                        Sugerir Etiquetas
-                    </button>
+                    <>
+                        <button 
+                            onClick={() => {
+                                setTaggingItem(item);
+                                setTagValues({ CostCenter: '', Environment: '', Owner: '' });
+                            }}
+                            className="px-3 py-1 rounded-md text-xs font-semibold shadow-sm transition-colors bg-[#0054A6] text-white hover:bg-[#00AEEF]"
+                        >
+                            Fijar Etiquetas
+                        </button>
+                        <button 
+                            onClick={() => triggerCopilotWithPrompt(`Por favor, analiza el recurso "${item.resourceName}" (Tipo: ${item.type}) en el grupo "${item.resourceGroup}" y sugiéreme la mejor estructura de etiquetas (tags) FinOps para aplicarle basándote en las mejores prácticas de Azure.`)}
+                            className="px-3 py-1 rounded-md text-xs font-semibold shadow-sm transition-colors bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200"
+                        >
+                            Sugerir
+                        </button>
+                    </>
                 )}
                 <button 
                     onClick={() => handleDelete(item)}
@@ -580,6 +634,69 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                         className="bg-surface-2 border border-line text-ink px-[11px] py-[7px] rounded-[10px] font-heading font-semibold text-[12px] hover:border-brand-bright disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
                     >
                         Siguiente
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
+
+      {taggingItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <div className="bg-white rounded-xl shadow-2xl p-6 w-[450px] animate-in zoom-in-95">
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Fijar Etiquetas FinOps</h3>
+                <p className="text-sm text-gray-500 mb-4">
+                    Estás a punto de etiquetar el recurso <span className="font-mono font-semibold text-gray-700">{taggingItem.resourceName}</span>. 
+                    Las políticas FinOps de la organización requieren 3 etiquetas fundamentales: <b>CostCenter</b> (quién paga), <b>Environment</b> (producción/dev) y <b>Owner</b> (responsable técnico).
+                </p>
+                <div className="space-y-4 mb-6">
+                    <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">CostCenter</label>
+                        <input 
+                            type="text" 
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-[#0054A6] focus:ring-1 focus:ring-[#0054A6]" 
+                            placeholder="Ej: Marketing, IT, HR..." 
+                            value={tagValues.CostCenter}
+                            onChange={e => setTagValues({...tagValues, CostCenter: e.target.value})}
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">Environment</label>
+                        <select 
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-[#0054A6] focus:ring-1 focus:ring-[#0054A6]"
+                            value={tagValues.Environment}
+                            onChange={e => setTagValues({...tagValues, Environment: e.target.value})}
+                        >
+                            <option value="">Selecciona un entorno...</option>
+                            <option value="Production">Production</option>
+                            <option value="Staging">Staging</option>
+                            <option value="Development">Development</option>
+                            <option value="Testing">Testing</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">Owner</label>
+                        <input 
+                            type="text" 
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-[#0054A6] focus:ring-1 focus:ring-[#0054A6]" 
+                            placeholder="Ej: juan.perez@empresa.com" 
+                            value={tagValues.Owner}
+                            onChange={e => setTagValues({...tagValues, Owner: e.target.value})}
+                        />
+                    </div>
+                </div>
+                <div className="flex justify-end gap-3">
+                    <button 
+                        onClick={() => setTaggingItem(null)} 
+                        className="px-4 py-2 text-sm font-semibold text-gray-600 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                    >
+                        Cancelar
+                    </button>
+                    <button 
+                        onClick={handleTagSubmit} 
+                        disabled={isTagging || !tagValues.CostCenter || !tagValues.Environment || !tagValues.Owner}
+                        className="px-4 py-2 text-sm font-semibold text-white bg-[#0054A6] hover:bg-[#00AEEF] rounded-md transition-colors disabled:opacity-50 flex items-center"
+                    >
+                        {isTagging ? 'Aplicando...' : 'Aplicar Etiquetas'}
                     </button>
                 </div>
             </div>
