@@ -19,7 +19,14 @@ export async function POST(request: NextRequest) {
 
     const token = authHeader.split(" ")[1];
     const decoded = jwt.decode(token) as { tid?: string } | null;
-    if (!decoded || decoded.tid !== tenantId) {
+    if (!decoded) {
+      return NextResponse.json({ error: "Estructura de token inválida." }, { status: 401 });
+    }
+
+    const email = (decoded as any).preferred_username || (decoded as any).unique_name || (decoded as any).email || "";
+    const isSuperAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") && decoded.tid === "8b41364f-581a-4e43-b7cb-13138dac5517";
+
+    if (decoded.tid !== tenantId && !isSuperAdmin) {
       return NextResponse.json({ error: "Acceso denegado. Tenant ID inválido." }, { status: 403 });
     }
 
