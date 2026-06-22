@@ -66,11 +66,6 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Falta tenantId' }, { status: 400 });
         }
 
-        const isAuthorized = await verifySubscription(tenantId);
-        if (!isAuthorized) {
-            return NextResponse.json({ error: 'Forbidden: Active subscription required' }, { status: 403 });
-        }
-
         // INSERT IGNORE ensures we don't duplicate clients that already logged in
         await pool.query(
             'INSERT IGNORE INTO Tenants (tenant_id, company_name) VALUES (?, ?)',
@@ -93,14 +88,9 @@ export async function PUT(request: NextRequest) {
             return NextResponse.json({ error: 'Faltan datos' }, { status: 400 });
         }
 
-        const isAuthorized = await verifySubscription(tenantId);
-        if (!isAuthorized) {
-            return NextResponse.json({ error: 'Forbidden: Active subscription required' }, { status: 403 });
-        }
-
         await pool.query(
-            'UPDATE Tenants SET company_name = ?, client_id = ?, client_secret = ? WHERE tenant_id = ?',
-            [name, clientId || null, clientSecret || null, tenantId]
+            'INSERT INTO Tenants (tenant_id, company_name, client_id, client_secret) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE company_name = VALUES(company_name), client_id = VALUES(client_id), client_secret = VALUES(client_secret)',
+            [tenantId, name, clientId || null, clientSecret || null]
         );
 
         return NextResponse.json({ success: true });
