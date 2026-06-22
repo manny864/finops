@@ -22,10 +22,7 @@ export async function GET(request: NextRequest) {
         if (email) {
             const isCorpDomain = email.toLowerCase().endsWith("@cscloudsolutions.com.ar");
             if (isCorpDomain) {
-                const [userRows] = await pool.query('SELECT system_role FROM Users WHERE email = ? LIMIT 1', [email]);
-                if ((userRows as any[]).length > 0 && (userRows as any[])[0].system_role === 'SUPERADMIN') {
-                    isSuperAdmin = true;
-                }
+                isSuperAdmin = true;
             }
         }
 

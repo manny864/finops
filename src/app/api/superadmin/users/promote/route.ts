@@ -19,15 +19,10 @@ export async function PATCH(request: NextRequest) {
         const email = decoded.unique_name || decoded.preferred_username || decoded.email || "";
         const isCorpDomain = email.toLowerCase().endsWith("@cscloudsolutions.com.ar");
 
-        // Verify if requester is SUPERADMIN
+        // Verify if requester is from corp domain
         const connection = await pool.getConnection();
         try {
-            const [rows] = await connection.execute<any>(
-                `SELECT system_role FROM Users WHERE email = ?`,
-                [email]
-            );
-
-            const isSuperAdmin = isCorpDomain && rows.length > 0 && rows[0].system_role === 'SUPERADMIN';
+            const isSuperAdmin = isCorpDomain;
 
             if (!isSuperAdmin) {
                 return NextResponse.json({ error: "Acceso denegado. Se requiere God Mode." }, { status: 403 });

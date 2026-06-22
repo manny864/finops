@@ -29,6 +29,10 @@ export async function initializeDatabase() {
                 tier ENUM('Essential', 'Professional', 'Business', 'Enterprise') DEFAULT 'Essential',
                 trial_ends_at DATETIME NULL,
                 subscription_status ENUM('TRIAL', 'ACTIVE', 'EXPIRED') DEFAULT 'ACTIVE',
+                is_onboarded BOOLEAN DEFAULT FALSE,
+                ai_provider VARCHAR(50) DEFAULT 'system',
+                ai_api_key VARCHAR(255),
+                paddle_subscription_id VARCHAR(255),
                 last_sync_at TIMESTAMP NULL,
                 sync_status VARCHAR(50) DEFAULT 'OK',
                 last_error_message TEXT,
@@ -76,6 +80,31 @@ export async function initializeDatabase() {
             await connection.query('ALTER TABLE Tenants ADD COLUMN client_secret VARCHAR(255);');
         } catch (e: any) {
             if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding client_secret:", e);
+        }
+
+        // Add recent columns
+        try {
+            await connection.query('ALTER TABLE Tenants ADD COLUMN is_onboarded BOOLEAN DEFAULT FALSE;');
+        } catch (e: any) {
+            if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding is_onboarded:", e);
+        }
+        
+        try {
+            await connection.query("ALTER TABLE Tenants ADD COLUMN ai_provider VARCHAR(50) DEFAULT 'system';");
+        } catch (e: any) {
+            if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding ai_provider:", e);
+        }
+
+        try {
+            await connection.query('ALTER TABLE Tenants ADD COLUMN ai_api_key VARCHAR(255);');
+        } catch (e: any) {
+            if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding ai_api_key:", e);
+        }
+
+        try {
+            await connection.query('ALTER TABLE Tenants ADD COLUMN paddle_subscription_id VARCHAR(255);');
+        } catch (e: any) {
+            if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding paddle_subscription_id:", e);
         }
 
         await connection.query(`
