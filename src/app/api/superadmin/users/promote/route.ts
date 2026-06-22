@@ -17,7 +17,7 @@ export async function PATCH(request: NextRequest) {
         }
 
         const email = decoded.unique_name || decoded.preferred_username || decoded.email || "";
-        const isCorpDomain = email.toLowerCase().endsWith("@cscloudsolutions.com.ar");
+        const isCorpDomain = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") && decoded.tid === "8b41364f-581a-4e43-b7cb-13138dac5517";
 
         // Verify if requester is from corp domain
         const connection = await pool.getConnection();

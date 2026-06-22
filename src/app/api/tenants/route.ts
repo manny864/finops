@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
-import pool from '@/modules/storage/db';
+import { NextRequest, NextResponse } from "next/server";
+import pool, { initializeDatabase } from "@/modules/storage/db";
 import { tenants as mockTenants } from '@/lib/tenants';
 import { verifySubscription } from '@/lib/apiSecurity';
 
@@ -7,6 +7,7 @@ import jwt from "jsonwebtoken";
 
 export async function GET(request: NextRequest) {
     try {
+        await initializeDatabase();
         const authHeader = request.headers.get("authorization");
         let email = "";
         let isSuperAdmin = false;
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
         }
 
         if (email) {
-            const isCorpDomain = email.toLowerCase().endsWith("@cscloudsolutions.com.ar");
+            const isCorpDomain = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") && decoded.tid === "8b41364f-581a-4e43-b7cb-13138dac5517";
             if (isCorpDomain) {
                 isSuperAdmin = true;
             }

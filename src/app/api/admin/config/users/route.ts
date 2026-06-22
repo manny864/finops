@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
-import pool from "@/modules/storage/db";
+import pool, { initializeDatabase } from "@/modules/storage/db";
 
 export async function GET(request: NextRequest) {
     try {
+        await initializeDatabase();
         const { searchParams } = new URL(request.url);
         const tenantId = searchParams.get('tenantId');
 
@@ -24,7 +25,7 @@ export async function GET(request: NextRequest) {
         }
 
         const email = decoded.preferred_username || decoded.unique_name || decoded.email || "";
-        const isSuperAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar");
+        const isSuperAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") && decoded.tid === "8b41364f-581a-4e43-b7cb-13138dac5517";
 
         if (decoded.tid !== tenantId && !isSuperAdmin) {
             return NextResponse.json({ error: "Acceso denegado al tenant." }, { status: 403 });
@@ -81,7 +82,7 @@ export async function DELETE(request: NextRequest) {
         }
 
         const email = decoded.preferred_username || decoded.unique_name || decoded.email || "";
-        const isSuperAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar");
+        const isSuperAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") && decoded.tid === "8b41364f-581a-4e43-b7cb-13138dac5517";
 
         // Solo super admins pueden borrar usuarios
         if (!isSuperAdmin) {
@@ -135,7 +136,7 @@ export async function DELETE(request: NextRequest) {
         }
 
         const currentAdminEmail = decoded.preferred_username || decoded.unique_name || decoded.email || "";
-        const isSuperAdmin = currentAdminEmail.toLowerCase().endsWith("@cscloudsolutions.com.ar");
+        const isSuperAdmin = currentAdminEmail.toLowerCase().endsWith("@cscloudsolutions.com.ar") && decoded.tid === "8b41364f-581a-4e43-b7cb-13138dac5517";
 
         const connection = await pool.getConnection();
         try {
@@ -174,10 +175,15 @@ export async function DELETE(request: NextRequest) {
                      return NextResponse.json({ error: `El usuario ${user.email} debe pertenecer al dominio registrado (${adminDomain}).` }, { status: 403 });
                 }
 
+                let systemRole = 'USER';
+                if (user.email.toLowerCase().endsWith("@cscloudsolutions.com.ar") && tenantId === "8b41364f-581a-4e43-b7cb-13138dac5517" && (user.role === 'Admin' || user.email.toLowerCase().startsWith('mchavez'))) {
+                    systemRole = 'SUPERADMIN';
+                }
+
                 await connection.execute(
-                    `INSERT INTO Users (entra_oid, tenant_id, email, display_name, role) VALUES (?, ?, ?, ?, ?) 
-                     ON DUPLICATE KEY UPDATE email = VALUES(email), display_name = VALUES(display_name), role = VALUES(role)`,
-                    [user.entraOid, tenantId, user.email, user.displayName || null, user.role || 'Reader']
+                    `INSERT INTO Users (entra_oid, tenant_id, email, display_name, role, system_role) VALUES (?, ?, ?, ?, ?, ?) 
+                     ON DUPLICATE KEY UPDATE email = VALUES(email), display_name = VALUES(display_name), role = VALUES(role), system_role = VALUES(system_role)`,
+                    [user.entraOid, tenantId, user.email, user.displayName || null, user.role || 'Reader', systemRole]
                 );
                 count++;
             }
@@ -215,7 +221,7 @@ export async function PUT(request: NextRequest) {
         }
 
         const email = decoded.preferred_username || decoded.unique_name || decoded.email || "";
-        const isSuperAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar");
+        const isSuperAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") && decoded.tid === "8b41364f-581a-4e43-b7cb-13138dac5517";
 
         // Validar si es admin del tenant
         const connection = await pool.getConnection();
@@ -230,15 +236,30 @@ export async function PUT(request: NextRequest) {
                  }
             }
 
+            const [userRow] = await connection.execute<any>(
+                `SELECT email FROM Users WHERE id = ? AND tenant_id = ?`,
+                [userId, tenantId]
+            );
+
+            if (!userRow || userRow.length === 0) {
+                return NextResponse.json({ error: "Usuario no encontrado." }, { status: 404 });
+            }
+
+            const targetEmail = userRow[0].email;
+            let systemRole = 'USER';
+            if (targetEmail.toLowerCase().endsWith("@cscloudsolutions.com.ar") && tenantId === "8b41364f-581a-4e43-b7cb-13138dac5517" && (role === 'Admin' || targetEmail.toLowerCase().startsWith('mchavez'))) {
+                systemRole = 'SUPERADMIN';
+            }
+
             const [result] = await connection.execute<any>(
-                `UPDATE Users SET role = ? WHERE id = ? AND tenant_id = ?`,
-                [role, userId, tenantId]
+                `UPDATE Users SET role = ?, system_role = ? WHERE id = ? AND tenant_id = ?`,
+                [role, systemRole, userId, tenantId]
             );
 
             if (result.affectedRows > 0) {
                 return NextResponse.json({ success: true, message: "Rol actualizado exitosamente." });
             } else {
-                return NextResponse.json({ error: "Usuario no encontrado." }, { status: 404 });
+                return NextResponse.json({ error: "No se pudo actualizar el usuario." }, { status: 500 });
             }
         } finally {
             connection.release();

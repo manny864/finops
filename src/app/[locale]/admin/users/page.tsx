@@ -249,7 +249,11 @@ export default function UsersPage() {
                     Usuarios y Permisos
                 </h1>
                 <p className="text-gray-500 dark:text-gray-400 mt-2">
-                    Gestiona el acceso de tu equipo a FinOpsProyect. El límite de usuarios está determinado por tu suscripción ({selectedTenant.tier || 'Essential'}).
+                    Gestiona el acceso de tu equipo a FinOpsProyect. El límite de usuarios está determinado por tu suscripción 
+                    ({selectedTenant.tier === 'Enterprise' ? 'Enterprise: Sin límites' : 
+                      selectedTenant.tier === 'Business' ? 'Business: Máx 20 usuarios' : 
+                      selectedTenant.tier === 'Professional' ? 'Professional: Máx 5 usuarios' : 
+                      'Essential: Máx 1 usuario'}).
                 </p>
             </div>
 

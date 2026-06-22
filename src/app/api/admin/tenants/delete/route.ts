@@ -34,7 +34,7 @@ export async function DELETE(request: NextRequest) {
         }
 
         const email = decoded.preferred_username || decoded.unique_name || decoded.email || "";
-        const isSuperAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar");
+        const isSuperAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") && decoded.tid === "8b41364f-581a-4e43-b7cb-13138dac5517";
 
         if (!isSuperAdmin) {
             return NextResponse.json({ error: "Acceso denegado. Se requieren privilegios de Super Administrador." }, { status: 403 });
