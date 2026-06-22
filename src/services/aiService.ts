@@ -2,6 +2,7 @@ import { generateText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createAnthropic } from '@ai-sdk/anthropic';
+import { createAzure } from '@ai-sdk/azure';
 import pool from '@/modules/storage/db';
 import { RowDataPacket } from 'mysql2';
 
@@ -46,6 +47,14 @@ export async function generateFinOpsReport(tenantId: string, metricsData: any) {
         case 'anthropic':
             const anthropic = createAnthropic({ apiKey: config.apiKey });
             model = anthropic('claude-3-opus-20240229');
+            break;
+        case 'azure_openai':
+            const azure = createAzure({ apiKey: config.apiKey, resourceName: process.env.AZURE_OPENAI_RESOURCE_NAME });
+            model = azure('gpt-4o');
+            break;
+        case 'deepseek':
+            const deepseek = createOpenAI({ apiKey: config.apiKey, baseURL: 'https://api.deepseek.com/v1' });
+            model = deepseek('deepseek-chat');
             break;
         case 'openai':
         default:
