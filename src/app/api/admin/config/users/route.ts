@@ -32,12 +32,8 @@ export async function GET(request: NextRequest) {
 
         const connection = await pool.getConnection();
         try {
-            const [saRows] = await connection.execute<any>(
-                `SELECT system_role FROM Users WHERE LOWER(email) = LOWER(?) AND system_role = 'SUPERADMIN' LIMIT 1`,
-                [email]
-            );
-            const isSuperAdminDb = isSuperAdmin && saRows.length > 0;
-            console.log(`[Admin Config Users] email: ${email}, isSuperAdmin: ${isSuperAdmin}, saRows.length: ${saRows.length}, isSuperAdminDb: ${isSuperAdminDb}`);
+            const isSuperAdminDb = isSuperAdmin;
+            console.log(`[Admin Config Users] email: ${email}, isSuperAdmin: ${isSuperAdminDb}`);
 
             const [rows] = await connection.execute(
                 `SELECT id, email, display_name, role, entra_oid, system_role FROM Users WHERE tenant_id = ?`,
