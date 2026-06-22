@@ -26,7 +26,14 @@ CREATE TABLE IF NOT EXISTS Users (
     FOREIGN KEY (tenant_id) REFERENCES Tenants(tenant_id) ON DELETE CASCADE,
     UNIQUE KEY unique_user_tenant (entra_oid, tenant_id)
 );
-\nCREATE TABLE IF NOT EXISTS SavingsHistory (\n    id INT AUTO_INCREMENT PRIMARY KEY,\n    tenant_id VARCHAR(255) NOT NULL,\n    scan_date DATE NOT NULL,\n    total_wasted_usd DECIMAL(10,2) NOT NULL,\n    potential_savings_usd DECIMAL(10,2) NOT NULL\n);\n
+CREATE TABLE IF NOT EXISTS SavingsHistory (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id VARCHAR(255) NOT NULL,
+    scan_date DATE NOT NULL,
+    total_wasted_usd DECIMAL(10,2) NOT NULL,
+    potential_savings_usd DECIMAL(10,2) NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS ActionLogs (
     id INT AUTO_INCREMENT PRIMARY KEY,
     tenant_id VARCHAR(255) NOT NULL,

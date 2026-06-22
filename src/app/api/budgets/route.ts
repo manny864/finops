@@ -29,8 +29,6 @@ export async function GET(request: NextRequest) {
         // QA Security Patch: IDOR Prevention
         if (!isAdmin) {
             tenantId = decoded.tid; // Forzar uso del tenant verificado
-        } else if (decoded.tid !== tenantId && !isAdmin) {
-            return NextResponse.json({ error: "El token no coincide con el tenant." }, { status: 403 });
         }
 
         const [rows]: any = await pool.query(
@@ -88,8 +86,6 @@ export async function POST(request: NextRequest) {
         // QA Security Patch: IDOR Prevention
         if (!isAdmin) {
             tenantId = decoded.tid; // Forzar uso del tenant verificado
-        } else if (decoded.tid !== tenantId && !isAdmin) {
-            return NextResponse.json({ error: "El token no coincide con el tenant." }, { status: 403 });
         }
 
         await pool.query(
