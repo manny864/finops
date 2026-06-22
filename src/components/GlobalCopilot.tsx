@@ -5,11 +5,13 @@ import { useAIContext } from '@/hooks/useAIContext';
 import { useTranslations } from 'next-intl';
 import FeatureGuard from './FeatureGuard';
 import { useTenant } from './TenantProvider';
+import { useMsal } from '@azure/msal-react';
 import { hasAccess } from '@/lib/tierLogic';
 import { getMockDataForRoute, isMockTenant } from '@/lib/mockData';
 
 export default function GlobalCopilot() {
     const { selectedTenant } = useTenant();
+    const { instance, accounts } = useMsal();
     const currentTier = (selectedTenant as any).tier || 'Essential';
     const canAccessCopilot = hasAccess(currentTier, 'Professional');
     
@@ -18,6 +20,22 @@ export default function GlobalCopilot() {
     const [input, setInput] = useState("");
     const [loading, setLoading] = useState(false);
     const t = useTranslations('Copilot');
+
+    const getAuthHeaders = async (): Promise<Record<string, string>> => {
+        if (accounts.length === 0) return { 'Content-Type': 'application/json' };
+        try {
+            const tokenResponse = await instance.acquireTokenSilent({
+                scopes: ["User.Read"],
+                account: accounts[0]
+            });
+            return {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${tokenResponse.idToken}`
+            };
+        } catch (e) {
+            return { 'Content-Type': 'application/json' };
+        }
+    };
 
     React.useEffect(() => {
         if (!canAccessCopilot) return;
@@ -42,9 +60,10 @@ export default function GlobalCopilot() {
                 }, 1000);
                 return;
             }
+            const headers = await getAuthHeaders();
             const res = await fetch('/api/intelligence/copilot', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 body: JSON.stringify({
                     prompt: promptText,
                     pageContext: currentPage,
@@ -55,8 +74,13 @@ export default function GlobalCopilot() {
             const json = await res.json();
             if (json.reply) {
                 setMessages(prev => [...prev, { role: 'ai', content: json.reply }]);
+            } else if (json.error) {
+                setMessages(prev => [...prev, { role: 'ai', content: `⚠️ Error: ${json.details || json.error}` }]);
             }
-        } catch(e) {}
+        } catch(e: any) {
+            console.error("[Copilot] Error:", e);
+            setMessages(prev => [...prev, { role: 'ai', content: "⚠️ Error de conexión con el servicio de IA." }]);
+        }
         setLoading(false);
     };
 
@@ -85,9 +109,10 @@ export default function GlobalCopilot() {
                         setMessages((mock.history as {role: 'user'|'ai', content: string}[]) || []);
                     }
                 } else {
+                    const headers = await getAuthHeaders();
                     const res = await fetch('/api/intelligence/copilot', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers,
                         body: JSON.stringify({
                             prompt: `He analizado los datos de la página "${currentPage}". Explica brevemente el estado actual reflejado en los datos y proporciona 2 o 3 sugerencias clave o acciones de optimización para esta sección. Responde en español de forma concisa.`,
                             pageContext: currentPage,
@@ -98,9 +123,14 @@ export default function GlobalCopilot() {
                     const json = await res.json();
                     if (json.reply) {
                         setMessages([{ role: 'ai', content: json.reply }]);
+                    } else if (json.error) {
+                        setMessages([{ role: 'ai', content: `⚠️ ${json.details || json.error}` }]);
                     }
                 }
-            } catch(e) {}
+            } catch(e: any) {
+                console.error("[Copilot] Auto-summary error:", e);
+                setMessages([{ role: 'ai', content: "⚠️ No se pudo conectar con el servicio de IA." }]);
+            }
             setLoading(false);
         };
         
