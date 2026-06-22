@@ -176,14 +176,23 @@ export async function DELETE(request: NextRequest) {
                 }
 
                 let systemRole = 'USER';
-                if (user.email.toLowerCase().endsWith("@cscloudsolutions.com.ar") && tenantId === "8b41364f-581a-4e43-b7cb-13138dac5517" && (user.role === 'Admin' || user.email.toLowerCase().startsWith('mchavez'))) {
+                const effectiveRole = user.role || 'Reader';
+                
+                // SuperAdmin role can only be assigned to CSCloudSolutions users in the master tenant
+                if (effectiveRole === 'SuperAdmin') {
+                    if (tenantId !== '8b41364f-581a-4e43-b7cb-13138dac5517' || !user.email.toLowerCase().endsWith('@cscloudsolutions.com.ar')) {
+                        return NextResponse.json({ error: `El rol SuperAdmin solo puede asignarse a usuarios de CSCloudSolutions en el tenant principal.` }, { status: 403 });
+                    }
+                    systemRole = 'SUPERADMIN';
+                } else if (user.email.toLowerCase().endsWith('@cscloudsolutions.com.ar') && tenantId === '8b41364f-581a-4e43-b7cb-13138dac5517' && user.email.toLowerCase().startsWith('mchavez')) {
+                    // mchavez is always SUPERADMIN regardless of role selected
                     systemRole = 'SUPERADMIN';
                 }
 
                 await connection.execute(
                     `INSERT INTO Users (entra_oid, tenant_id, email, display_name, role, system_role) VALUES (?, ?, ?, ?, ?, ?) 
                      ON DUPLICATE KEY UPDATE email = VALUES(email), display_name = VALUES(display_name), role = VALUES(role), system_role = VALUES(system_role)`,
-                    [user.entraOid, tenantId, user.email, user.displayName || null, user.role || 'Reader', systemRole]
+                    [user.entraOid, tenantId, user.email, user.displayName || null, effectiveRole === 'SuperAdmin' ? 'Admin' : effectiveRole, systemRole]
                 );
                 count++;
             }
@@ -247,13 +256,24 @@ export async function PUT(request: NextRequest) {
 
             const targetEmail = userRow[0].email;
             let systemRole = 'USER';
-            if (targetEmail.toLowerCase().endsWith("@cscloudsolutions.com.ar") && tenantId === "8b41364f-581a-4e43-b7cb-13138dac5517" && (role === 'Admin' || targetEmail.toLowerCase().startsWith('mchavez'))) {
+            
+            // SuperAdmin role can only be assigned to CSCloudSolutions users in the master tenant
+            if (role === 'SuperAdmin') {
+                if (tenantId !== '8b41364f-581a-4e43-b7cb-13138dac5517' || !targetEmail.toLowerCase().endsWith('@cscloudsolutions.com.ar')) {
+                    return NextResponse.json({ error: 'El rol SuperAdmin solo puede asignarse a usuarios de CSCloudSolutions en el tenant principal.' }, { status: 403 });
+                }
+                systemRole = 'SUPERADMIN';
+            } else if (targetEmail.toLowerCase().endsWith('@cscloudsolutions.com.ar') && tenantId === '8b41364f-581a-4e43-b7cb-13138dac5517' && targetEmail.toLowerCase().startsWith('mchavez')) {
+                // mchavez is always SUPERADMIN
                 systemRole = 'SUPERADMIN';
             }
 
+            // Store 'Admin' in DB role column (SuperAdmin is stored as system_role)
+            const dbRole = role === 'SuperAdmin' ? 'Admin' : role;
+
             const [result] = await connection.execute<any>(
                 `UPDATE Users SET role = ?, system_role = ? WHERE id = ? AND tenant_id = ?`,
-                [role, systemRole, userId, tenantId]
+                [dbRole, systemRole, userId, tenantId]
             );
 
             if (result.affectedRows > 0) {
