@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
         }
 
         if (email) {
-            const isCorpDomain = email.toLowerCase().endsWith("@cscloudsolutions.com.ar");
+            const isCorpDomain = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") && decoded.tid === "8b41364f-581a-4e43-b7cb-13138dac5517";
             if (isCorpDomain) {
                 isSuperAdmin = true;
             }

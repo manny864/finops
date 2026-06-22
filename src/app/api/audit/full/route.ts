@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     }
 
     const email = decoded.preferred_username || decoded.unique_name || decoded.email || "";
-    const isAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar");
+    const isAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") && decoded.tid === "8b41364f-581a-4e43-b7cb-13138dac5517";
 
     if (decoded.tid !== tenantId && !isAdmin) {
       return NextResponse.json(
