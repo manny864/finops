@@ -81,13 +81,41 @@ export async function initializeDatabase() {
         await connection.query(`
             CREATE TABLE IF NOT EXISTS Users (
                 id INT AUTO_INCREMENT PRIMARY KEY,
-                entra_oid VARCHAR(255) UNIQUE NOT NULL,
+                entra_oid VARCHAR(255) NOT NULL,
                 tenant_id VARCHAR(255) NOT NULL,
                 email VARCHAR(255),
+                display_name VARCHAR(255),
                 role VARCHAR(50) DEFAULT 'admin',
-                FOREIGN KEY (tenant_id) REFERENCES Tenants(tenant_id) ON DELETE CASCADE
+                system_role VARCHAR(50) DEFAULT 'USER',
+                FOREIGN KEY (tenant_id) REFERENCES Tenants(tenant_id) ON DELETE CASCADE,
+                UNIQUE KEY unique_user_tenant (entra_oid, tenant_id)
             )
         `);
+
+        // Safe migrations for Users table
+        try {
+            await connection.query('ALTER TABLE Users ADD COLUMN display_name VARCHAR(255);');
+        } catch (e: any) {
+            if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding display_name:", e);
+        }
+
+        try {
+            await connection.query("ALTER TABLE Users ADD COLUMN system_role VARCHAR(50) DEFAULT 'USER';");
+        } catch (e: any) {
+            if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding system_role:", e);
+        }
+
+        try {
+            await connection.query('ALTER TABLE Users DROP INDEX entra_oid;');
+        } catch (e: any) {
+            // Ignore if index doesn't exist (e.g. ER_CANT_DROP_FIELD_OR_KEY)
+        }
+
+        try {
+            await connection.query('ALTER TABLE Users ADD UNIQUE KEY unique_user_tenant (entra_oid, tenant_id);');
+        } catch (e: any) {
+            if (e.code !== 'ER_DUP_KEYNAME') console.error("Error adding unique_user_tenant:", e);
+        }
 
         await connection.query(`
             CREATE TABLE IF NOT EXISTS TaggingPolicies (
