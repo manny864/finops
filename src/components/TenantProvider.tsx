@@ -193,19 +193,28 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                           }
                       } else {
                           // Si es el admin (owner) y no está en Users (o es SuperAdmin), dale Admin.
-                          if (data.isSuperAdmin || accounts[0].tenantId === selectedTenant.id) {
+                          if (data.isSuperAdmin || accounts[0].tenantId === selectedTenant.id || process.env.NODE_ENV === 'development') {
+                              console.warn("[TenantProvider] Fallback: assigning Admin role (Owner, SuperAdmin, or Dev mode)");
                               setUserRole('Admin');
                           } else {
+                              console.warn("[TenantProvider] Fallback: assigning Reader role");
                               setUserRole('Reader');
                           }
                       }
                   } else {
-                      if (isAdmin || accounts[0].tenantId === selectedTenant.id) setUserRole('Admin');
+                      console.error("[TenantProvider] API Error fetching role. Status:", res.status);
+                      if (isAdmin || accounts[0].tenantId === selectedTenant.id || process.env.NODE_ENV === 'development') {
+                          console.warn("[TenantProvider] Fallback on API Error: assigning Admin role");
+                          setUserRole('Admin');
+                      }
                       else setUserRole('Reader');
                   }
               } catch(e) {
-                  console.error("Error fetching role", e);
-                  if (isAdmin || accounts[0].tenantId === selectedTenant.id) setUserRole('Admin');
+                  console.error("[TenantProvider] Error fetching role exception:", e);
+                  if (isAdmin || accounts[0].tenantId === selectedTenant.id || process.env.NODE_ENV === 'development') {
+                      console.warn("[TenantProvider] Fallback on Exception: assigning Admin role");
+                      setUserRole('Admin');
+                  }
               }
           };
           fetchRole();
