@@ -3,6 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { useTenant } from '@/components/TenantProvider';
 import { useTranslations } from 'next-intl';
 import { Loader2, DollarSign, Bell } from 'lucide-react';
+import { useSubscription } from '@/components/SubscriptionProvider';
+import { useMsal } from '@azure/msal-react';
 
 const currencyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 
@@ -13,8 +15,11 @@ export default function BudgetCard() {
     const [loading, setLoading] = useState(false);
     const [budgetData, setBudgetData] = useState<any>(null);
 
+    const { selectedSubscription, subscriptions } = useSubscription();
+    const { instance, accounts } = useMsal();
+
     useEffect(() => {
-        if (!selectedTenant || selectedTenant.id === 'default') {
+        if (!selectedTenant || selectedTenant.id === 'default' || accounts.length === 0 || subscriptions.length === 0) {
             setBudgetData(null);
             return;
         }
@@ -22,34 +27,55 @@ export default function BudgetCard() {
         let isMounted = true;
         setLoading(true);
 
-        // Mockeo temporal de la API
-        const fetchMockData = async () => {
-            // Simulamos retraso de red
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            
-            if (isMounted) {
-                // TODO: Conectar a API real /api/intelligence/budgets
-                // Simulamos que el tenant tiene un presupuesto o no de manera aleatoria
-                const hasBudget = Math.random() > 0.3;
-                
-                if (hasBudget) {
-                    setBudgetData({
-                        budget_usd: 5000.00,
-                        alert_threshold: 80.00
-                    });
-                } else {
-                    setBudgetData(null);
+        const fetchData = async () => {
+            try {
+                const tokenResponse = await instance.acquireTokenSilent({
+                    scopes: ["User.Read"],
+                    account: accounts[0]
+                });
+
+                const subIds = selectedSubscription !== 'All' 
+                    ? selectedSubscription 
+                    : subscriptions.map(s => s.id).join(',');
+
+                if (!subIds) {
+                    if (isMounted) setLoading(false);
+                    return;
                 }
-                setLoading(false);
+
+                const res = await fetch(`/api/budgets/burn?tenantId=${selectedTenant.id}&subscriptionId=${subIds}`, {
+                    headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
+                });
+                const json = await res.json();
+
+                if (isMounted) {
+                    if (json.burnData && json.burnData.length > 0) {
+                        const totalBudget = json.burnData.reduce((acc: number, curr: any) => acc + (curr.budget || 0), 0);
+                        const totalActual = json.burnData.reduce((acc: number, curr: any) => acc + (curr.actual || 0), 0);
+                        
+                        setBudgetData({
+                            budget_usd: totalBudget,
+                            actual_spend: totalActual,
+                            alert_threshold: 80.00 // Default threshold
+                        });
+                    } else {
+                        setBudgetData(null);
+                    }
+                }
+            } catch (e) {
+                console.error("Error fetching native budgets for BudgetCard:", e);
+                if (isMounted) setBudgetData(null);
+            } finally {
+                if (isMounted) setLoading(false);
             }
         };
 
-        fetchMockData();
+        fetchData();
 
         return () => {
             isMounted = false;
         };
-    }, [selectedTenant]);
+    }, [selectedTenant, selectedSubscription, subscriptions, accounts, instance]);
 
     if (!selectedTenant || selectedTenant.id === 'default') {
         return null;
@@ -95,15 +121,15 @@ export default function BudgetCard() {
                     {/* Progress Bar (Mocked Spend) */}
                     <div className="mt-4">
                         <div className="flex justify-between text-xs mb-1">
-                            <span className="font-semibold text-gray-600">Consumo Simulado</span>
+                            <span className="font-semibold text-gray-600">Consumo Actual</span>
                             <span className="font-bold text-gray-800">
-                                {budgetData.budget_usd > 0 ? ((2500 / budgetData.budget_usd) * 100).toFixed(1) : 0}%
+                                {budgetData.budget_usd > 0 ? ((budgetData.actual_spend / budgetData.budget_usd) * 100).toFixed(1) : 0}%
                             </span>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2.5">
                             <div 
-                                className={`h-2.5 rounded-full ${budgetData.budget_usd > 0 && (2500 / budgetData.budget_usd) * 100 >= budgetData.alert_threshold ? 'bg-red-500' : 'bg-brand-deep'}`}
-                                style={{ width: `${budgetData.budget_usd > 0 ? Math.min((2500 / budgetData.budget_usd) * 100, 100) : 0}%` }}
+                                className={`h-2.5 rounded-full ${budgetData.budget_usd > 0 && (budgetData.actual_spend / budgetData.budget_usd) * 100 >= budgetData.alert_threshold ? 'bg-red-500' : 'bg-brand-deep'}`}
+                                style={{ width: `${budgetData.budget_usd > 0 ? Math.min((budgetData.actual_spend / budgetData.budget_usd) * 100, 100) : 0}%` }}
                             ></div>
                         </div>
                     </div>
