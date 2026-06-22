@@ -10,4 +10,4 @@
 ### 2. Protocolo Estricto de Migración de Base de Datos
 **Regla:** Todos los agentes (Frontend, Backend, DBA) que modifiquen esquemas de base de datos deben seguir rigurosamente el protocolo "STRICT DATABASE MIGRATION PROTOCOL".
 - **Referencia:** Ver `directivas/agent_dba_SOP.md` para los detalles.
-- **Acción Obligatoria:** Siempre se debe incluir el script `--- PRODUCTION DB MIGRATION SCRIPT ---` al final de la respuesta si se modifican estructuras (tablas, columnas, índices, restricciones). Las migraciones locales deben ser siempre seguras (`ALTER TABLE` con `try/catch`).
+- **Acción Obligatoria:** Siempre se debe incluir el script `-- PRODUCTION DB MIGRATION SCRIPT ---` al final de la respuesta si se modifican estructuras (tablas, columnas, índices, restricciones). Las migraciones locales deben ser siempre seguras (`ALTER TABLE` con `try/catch`).

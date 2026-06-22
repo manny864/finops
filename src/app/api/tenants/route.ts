@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
-import pool from '@/modules/storage/db';
+import { NextRequest, NextResponse } from "next/server";
+import pool, { initializeDatabase } from "@/modules/storage/db";
 import { tenants as mockTenants } from '@/lib/tenants';
 import { verifySubscription } from '@/lib/apiSecurity';
 
@@ -7,6 +7,7 @@ import jwt from "jsonwebtoken";
 
 export async function GET(request: NextRequest) {
     try {
+        await initializeDatabase();
         const authHeader = request.headers.get("authorization");
         let email = "";
         let isSuperAdmin = false;

@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
-import pool from "@/modules/storage/db";
+import pool, { initializeDatabase } from "@/modules/storage/db";
 
 export async function GET(request: NextRequest) {
     try {
+        await initializeDatabase();
         const { searchParams } = new URL(request.url);
         const tenantId = searchParams.get('tenantId');
 
