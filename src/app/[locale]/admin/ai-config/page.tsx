@@ -89,6 +89,9 @@ export default function AiConfigPage() {
                             <option value="system">Sistema (Compartido - Con límites de cuota)</option>
                             <option value="openai">OpenAI (Trae tu propia API Key)</option>
                             <option value="azure_openai">Azure OpenAI (Privado y Seguro)</option>
+                            <option value="anthropic">Anthropic (Claude 3.5 Sonnet / Opus)</option>
+                            <option value="google">Google (Gemini 1.5 Pro)</option>
+                            <option value="deepseek">DeepSeek (DeepSeek Chat)</option>
                         </select>
                         <p className="text-xs text-gray-500 mt-2">
                             Recomendamos usar tu propia llave para garantizar que tus datos no sean utilizados para entrenamiento de modelos públicos y para obtener respuestas más rápidas sin throttling.
