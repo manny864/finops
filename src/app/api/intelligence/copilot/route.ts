@@ -6,7 +6,7 @@ export async function POST(request: NextRequest) {
     try {
         const { prompt, pageContext, dataPayload, tenantId } = await request.json();
 
-        const model = await AIProviderFactory.getGeminiModel();
+        const model = await AIProviderFactory.getGeminiModel(tenantId);
         
         let dataString = "";
         try {

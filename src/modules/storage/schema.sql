@@ -10,6 +10,9 @@ CREATE TABLE IF NOT EXISTS Tenants (
     trial_ends_at DATETIME NULL,
     subscription_status ENUM('TRIAL', 'ACTIVE', 'EXPIRED') DEFAULT 'ACTIVE',
     is_onboarded BOOLEAN DEFAULT FALSE,
+    ai_provider VARCHAR(50) DEFAULT 'system',
+    ai_api_key VARCHAR(255),
+    paddle_subscription_id VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 CREATE TABLE IF NOT EXISTS Users (

@@ -77,7 +77,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
     }
   }, [selectedTenant, pathname, router, demoSession]);
 
-  // Leer Base de Datos MySQL
+  // Leer Base de Datos MySQL de forma segura con token
   useEffect(() => {
     if (demoSession?.isDemo) {
         setTenantsList([
@@ -88,26 +88,36 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
         ]);
         return;
     }
-    fetch('/api/tenants')
-      .then(res => res.json())
-      .then(data => {
-        if (data.tenants && data.tenants.length > 0) {
-            setTenantsList(data.tenants);
-            // Validate that current selection still exists in DB
-            const savedId = selectedTenant.id;
-            const stillExists = data.tenants.find((t: Tenant) => t.id === savedId);
-            if (!stillExists || savedId === 'default') {
-                // Saved tenant no longer in DB (was deleted), reset to first valid
-                setSelectedTenant(data.tenants[0]);
-                localStorage.removeItem('finops_active_tenant');
-            } else if (stillExists && stillExists.name !== selectedTenant.name) {
-                // Keep the selected tenant in sync with the DB name
-                setSelectedTenant(stillExists);
+    
+    if (accounts.length > 0) {
+        instance.acquireTokenSilent({
+            scopes: ["User.Read"],
+            account: accounts[0]
+        }).then(tokenResponse => {
+            return fetch('/api/tenants', {
+                headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
+            });
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.tenants && data.tenants.length > 0) {
+                setTenantsList(data.tenants);
+                // Validate that current selection still exists in DB
+                const savedId = selectedTenant.id;
+                const stillExists = data.tenants.find((t: Tenant) => t.id === savedId);
+                if (!stillExists || savedId === 'default') {
+                    // Saved tenant no longer in DB (was deleted), reset to first valid
+                    setSelectedTenant(data.tenants[0]);
+                    localStorage.removeItem('finops_active_tenant');
+                } else if (stillExists && stillExists.name !== selectedTenant.name) {
+                    // Keep the selected tenant in sync with the DB name
+                    setSelectedTenant(stillExists);
+                }
             }
-        }
-      })
-      .catch(err => console.error("Fallo al cargar tenants desde MySQL", err));
-  }, []);
+        })
+        .catch(err => console.error("Fallo al cargar tenants desde MySQL", err));
+    }
+  }, [accounts, instance]);
 
   useEffect(() => {
     if (demoSession?.isDemo) return;
