@@ -63,12 +63,18 @@ async function withExponentialBackoff<T>(fn: () => Promise<T>, maxRetries = 3): 
 }
 
 export class AIProviderFactory {
-    static async getGeminiModel() {
-        const config = await getAIConfig();
+    static async getGeminiModel(tenantId?: string) {
+        const config = await getAIConfig(tenantId);
         if (!config.apiKey) {
             throw new Error("AI API Key not configured.");
         }
         
+        if (config.provider === 'openai' || config.provider === 'azure_openai') {
+            const { createOpenAI } = await import('@ai-sdk/openai');
+            const openai = createOpenAI({ apiKey: config.apiKey });
+            return openai('gpt-4o');
+        }
+
         // Route to Gemini 2.5 Flash as requested
         const google = createGoogleGenerativeAI({ apiKey: config.apiKey });
         return google('gemini-2.5-flash');

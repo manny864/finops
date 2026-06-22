@@ -104,19 +104,15 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/admin/users', label: 'Usuarios y Permisos', icon: Users },
                 { href: '/admin/onboarding', label: t('client_onboarding'), icon: Users },
                 { href: '/admin/config', label: t('configuration'), icon: Settings },
+                { href: '/admin/ai-config', label: 'Configuración de IA', icon: Cpu },
                 { href: '/admin/report', label: t('executive_report'), icon: FileText },
-                { href: '/admin/workbooks', label: t('workbooks'), icon: BookOpen, requiredTier: 'Professional' },
-                { href: '/admin/audit', label: t('audit_trail'), icon: Activity, requiredTier: 'Business' }
+                { href: '/admin/workbooks', label: t('workbooks'), icon: BookOpen },
+                { href: '/admin/audit', label: t('audit_trail'), icon: Activity }
             ]
         }
     ];
 
     if (isSuperAdmin(accounts[0]?.username)) {
-        categories.find(c => c.id === 'admin')?.items.push({
-            href: '/superadmin/ai-config',
-            label: 'Configuración de IA',
-            icon: Cpu
-        } as any);
         categories.find(c => c.id === 'admin')?.items.push({
             href: '/admin/payments',
             label: 'Configuración de Pagos',

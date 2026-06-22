@@ -1,132 +1,145 @@
 "use client";
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useTenant } from '@/components/TenantProvider';
+import { useMsal } from '@azure/msal-react';
+import { CreditCard, ExternalLink, ShieldCheck, AlertCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-export default function AdminPaymentsPage() {
-  const [config, setConfig] = useState({
-    PADDLE_API_KEY: '',
-    PADDLE_WEBHOOK_SECRET: '',
-    PADDLE_PRO_PRICE_ID: '',
-    PADDLE_ENTERPRISE_PRICE_ID: ''
-  });
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+export default function PaymentsPage() {
+    const { selectedTenant, userRole } = useTenant();
+    const { instance, accounts } = useMsal();
+    
+    const [loading, setLoading] = useState(true);
+    const [data, setData] = useState<any>(null);
 
-  useEffect(() => {
-    fetch('/api/admin/payments')
-      .then(res => res.json())
-      .then(data => {
-        if (data.success && data.config) {
-          setConfig(data.config);
-        }
-      })
-      .catch(err => toast.error("Error cargando configuración"))
-      .finally(() => setLoading(false));
-  }, []);
+    useEffect(() => {
+        if (!selectedTenant || selectedTenant.id === 'default' || accounts.length === 0) return;
+        
+        const loadBilling = async () => {
+            setLoading(true);
+            try {
+                const tokenResponse = await instance.acquireTokenSilent({
+                    scopes: ["User.Read"],
+                    account: accounts[0]
+                });
+                
+                const res = await fetch(`/api/billing/portal?tenantId=${selectedTenant.id}`, {
+                    headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
+                });
+                const json = await res.json();
+                
+                if (res.ok) {
+                    setData(json);
+                } else {
+                    setData({ error: json.error || "Error al cargar la información de pagos." });
+                }
+            } catch (e) {
+                console.error("Error loading billing:", e);
+                setData({ error: "Error de conexión." });
+            }
+            setLoading(false);
+        };
+        loadBilling();
+    }, [selectedTenant.id, accounts, instance]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setConfig({ ...config, [e.target.name]: e.target.value });
-  };
-
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      const res = await fetch('/api/admin/payments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config)
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        toast.success("Configuración de Pagos guardada.");
-      } else {
-        toast.error("Error guardando", { description: data.error });
-      }
-    } catch (err) {
-      toast.error("Error de conexión");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (loading) return <div className="p-8 text-center text-gray-500">Cargando configuración...</div>;
-
-  return (
-    <div className="max-w-4xl mx-auto p-6">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 font-heading">Paddle Billing Configuration</h1>
-        <p className="text-gray-500 mt-1">Configura las credenciales y IDs de los planes para la plataforma de pagos (Paddle).</p>
-      </div>
-
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="p-6 border-b border-gray-200 bg-gray-50">
-          <h2 className="text-lg font-semibold text-gray-800">Credenciales de API</h2>
-        </div>
-        <form onSubmit={handleSave} className="p-6 space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Paddle API Key</label>
-            <input 
-              type="password" 
-              name="PADDLE_API_KEY"
-              value={config.PADDLE_API_KEY || ''} 
-              onChange={handleChange}
-              placeholder="1234567890abcdef..."
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none dark:bg-slate-800 dark:border-slate-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-            />
-            <p className="text-xs text-gray-500 mt-1">Token de acceso generado en Paddle Dashboard &gt; Developer Tools.</p>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Paddle Webhook Secret</label>
-            <input 
-              type="password" 
-              name="PADDLE_WEBHOOK_SECRET"
-              value={config.PADDLE_WEBHOOK_SECRET || ''} 
-              onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none dark:bg-slate-800 dark:border-slate-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-            />
-          </div>
-
-          <div className="border-t border-gray-200 pt-6 mt-6">
-            <h3 className="text-md font-semibold text-gray-800 mb-4">Price IDs (Planes)</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Professional Plan Price ID</label>
-                <input 
-                  type="text" 
-                  name="PADDLE_PRO_PRICE_ID"
-                  value={config.PADDLE_PRO_PRICE_ID || ''} 
-                  onChange={handleChange}
-                  placeholder="pri_01h..."
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none dark:bg-slate-800 dark:border-slate-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Enterprise Plan Price ID</label>
-                <input 
-                  type="text" 
-                  name="PADDLE_ENTERPRISE_PRICE_ID"
-                  value={config.PADDLE_ENTERPRISE_PRICE_ID || ''} 
-                  onChange={handleChange}
-                  placeholder="pri_02h..."
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none dark:bg-slate-800 dark:border-slate-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                />
-              </div>
+    if (userRole !== 'Admin') {
+        return (
+            <div className="flex flex-col items-center justify-center h-96">
+                <ShieldCheck className="w-12 h-12 text-gray-400 mb-4" />
+                <h2 className="text-xl font-bold text-gray-700 dark:text-gray-300">Acceso Denegado</h2>
+                <p className="text-sm text-gray-500 mt-2">Solo los administradores pueden gestionar la suscripción.</p>
             </div>
-          </div>
+        );
+    }
 
-          <div className="flex justify-end pt-4">
-            <button 
-              type="submit" 
-              disabled={saving}
-              className={`px-6 py-2 rounded-lg font-medium text-white ${saving ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'} transition-colors`}
-            >
-              {saving ? 'Guardando...' : 'Guardar Configuración'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
+    if (selectedTenant.id === 'default') {
+        return (
+            <div className="flex flex-col items-center justify-center h-96">
+                <CreditCard className="w-12 h-12 text-gray-400 mb-4" />
+                <h2 className="text-xl font-bold text-gray-700 dark:text-gray-300">Selecciona un entorno</h2>
+                <p className="text-sm text-gray-500 mt-2">Por favor selecciona un Tenant en el menú superior para ver su facturación.</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="p-6 max-w-4xl mx-auto animate-in fade-in duration-500">
+            <div className="mb-8 border-b border-gray-200 dark:border-gray-800 pb-4">
+                <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight flex items-center">
+                    <CreditCard className="w-8 h-8 mr-3 text-[#0054A6] dark:text-[#00AEEF]" />
+                    Suscripción y Pagos
+                </h1>
+                <p className="text-gray-500 dark:text-gray-400 mt-2">
+                    Gestiona el plan actual de {selectedTenant.name}, actualiza tus métodos de pago o cancela la suscripción.
+                </p>
+            </div>
+
+            {loading ? (
+                <div className="flex justify-center items-center h-32">
+                    <Loader2 className="w-8 h-8 animate-spin text-[#0054A6]" />
+                </div>
+            ) : data?.error ? (
+                <div className="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 rounded-xl p-6 flex items-start">
+                    <AlertCircle className="w-6 h-6 text-red-500 mt-0.5 mr-3 flex-shrink-0" />
+                    <div>
+                        <h3 className="text-lg font-bold text-red-800 dark:text-red-400">Atención</h3>
+                        <p className="text-sm text-red-600 dark:text-red-300 mt-1">{data.error}</p>
+                    </div>
+                </div>
+            ) : data?.isEnterprise ? (
+                <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm p-8 text-center">
+                    <ShieldCheck className="w-12 h-12 text-[#0054A6] mx-auto mb-4" />
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white">Plan Enterprise Activo</h3>
+                    <p className="text-gray-500 dark:text-gray-400 mt-2 max-w-md mx-auto">
+                        Tu cuenta está gestionada mediante facturación corporativa manual (Invoicing). Contacta a tu ejecutivo de cuenta para realizar cambios en tu suscripción.
+                    </p>
+                </div>
+            ) : (
+                <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden mb-8">
+                    <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50 flex justify-between items-center">
+                        <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">Estado de la Suscripción</h3>
+                        <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${data.status === 'active' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'}`}>
+                            {data.status === 'active' ? 'Activa' : data.status || 'Desconocido'}
+                        </span>
+                    </div>
+                    <div className="p-6">
+                        <div className="mb-8">
+                            <h4 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Plan Actual</h4>
+                            <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{data.tier || 'Essential'}</p>
+                        </div>
+
+                        {data.managementUrls ? (
+                            <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t border-gray-100 dark:border-slate-800">
+                                {data.managementUrls.update_payment_method && (
+                                    <a 
+                                        href={data.managementUrls.update_payment_method} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="flex-1 flex justify-center items-center px-4 py-2.5 bg-[#0054A6] text-white rounded-md shadow-sm text-sm font-semibold hover:bg-[#004080] transition-colors"
+                                    >
+                                        <CreditCard className="w-4 h-4 mr-2" />
+                                        Actualizar Método de Pago
+                                        <ExternalLink className="w-3.5 h-3.5 ml-2 opacity-70" />
+                                    </a>
+                                )}
+                                {data.managementUrls.cancel && (
+                                    <a 
+                                        href={data.managementUrls.cancel} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="flex-1 flex justify-center items-center px-4 py-2.5 bg-white dark:bg-slate-800 border border-red-200 dark:border-red-900/30 text-red-600 dark:text-red-400 rounded-md shadow-sm text-sm font-semibold hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
+                                    >
+                                        Cancelar Suscripción
+                                        <ExternalLink className="w-3.5 h-3.5 ml-2 opacity-70" />
+                                    </a>
+                                )}
+                            </div>
+                        ) : (
+                            <p className="text-sm text-gray-500">Los enlaces de gestión no están disponibles en este momento.</p>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 }

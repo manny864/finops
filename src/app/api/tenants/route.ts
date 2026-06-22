@@ -3,9 +3,44 @@ import pool from '@/modules/storage/db';
 import { tenants as mockTenants } from '@/lib/tenants';
 import { verifySubscription } from '@/lib/apiSecurity';
 
+import jwt from "jsonwebtoken";
+
 export async function GET(request: NextRequest) {
     try {
-        const [rows] = await pool.query('SELECT tenant_id as id, company_name as name, client_id, client_secret, tier, trial_ends_at, subscription_status, is_onboarded FROM Tenants ORDER BY created_at ASC');
+        const authHeader = request.headers.get("authorization");
+        let email = "";
+        let isSuperAdmin = false;
+
+        if (authHeader && authHeader.startsWith("Bearer ")) {
+            const token = authHeader.split(" ")[1];
+            const decoded = jwt.decode(token) as any;
+            if (decoded) {
+                email = decoded.unique_name || decoded.preferred_username || decoded.email || "";
+            }
+        }
+
+        if (email) {
+            const isCorpDomain = email.toLowerCase().endsWith("@cscloudsolutions.com.ar");
+            if (isCorpDomain) {
+                const [userRows] = await pool.query('SELECT system_role FROM Users WHERE email = ? LIMIT 1', [email]);
+                if ((userRows as any[]).length > 0 && (userRows as any[])[0].system_role === 'SUPERADMIN') {
+                    isSuperAdmin = true;
+                }
+            }
+        }
+
+        let query = 'SELECT tenant_id as id, company_name as name, client_id, client_secret, tier, trial_ends_at, subscription_status, is_onboarded FROM Tenants ORDER BY created_at ASC';
+        let queryParams: any[] = [];
+
+        if (!isSuperAdmin && email) {
+            query = `SELECT t.tenant_id as id, t.company_name as name, t.client_id, t.client_secret, t.tier, t.trial_ends_at, t.subscription_status, t.is_onboarded 
+                     FROM Tenants t 
+                     JOIN Users u ON t.tenant_id = u.tenant_id 
+                     WHERE u.email = ? ORDER BY t.created_at ASC`;
+            queryParams = [email];
+        }
+
+        const [rows] = await pool.query(query, queryParams);
         
         // Inyectar datos mock para demos de tiers o forzar tiers de Admins
         const allTenants = [...(rows as any[])];
