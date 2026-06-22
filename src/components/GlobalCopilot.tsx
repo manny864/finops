@@ -8,6 +8,7 @@ import { useTenant } from './TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { hasAccess } from '@/lib/tierLogic';
 import { getMockDataForRoute, isMockTenant } from '@/lib/mockData';
+import ReactMarkdown from 'react-markdown';
 
 export default function GlobalCopilot() {
     const { selectedTenant } = useTenant();
@@ -166,7 +167,33 @@ export default function GlobalCopilot() {
                         </div>
                         {messages.map((m, i) => (
                             <div key={i} className={`p-3 rounded-lg text-sm max-w-[85%] ${m.role === 'user' ? 'bg-brand text-white ml-auto' : 'bg-surface-2 text-ink mr-auto'}`}>
-                                {m.content}
+                                {m.role === 'user' ? (
+                                    m.content
+                                ) : (
+                                    <div className="markdown-body text-[13px] leading-relaxed">
+                                        <ReactMarkdown
+                                            components={{
+                                                p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
+                                                ul: ({node, ...props}) => <ul className="list-disc ml-5 mb-2 space-y-1" {...props} />,
+                                                ol: ({node, ...props}) => <ol className="list-decimal ml-5 mb-2 space-y-1" {...props} />,
+                                                li: ({node, ...props}) => <li className="pl-1" {...props} />,
+                                                h3: ({node, ...props}) => <h3 className="font-bold text-[15px] mt-3 mb-1" {...props} />,
+                                                h4: ({node, ...props}) => <h4 className="font-semibold text-[14px] mt-2 mb-1" {...props} />,
+                                                strong: ({node, ...props}) => <strong className="font-bold" {...props} />,
+                                                code: ({node, ...props}) => {
+                                                    const isInline = !props.className;
+                                                    return isInline ? (
+                                                        <code className="bg-black/5 dark:bg-white/10 px-1 py-0.5 rounded text-[13px] font-mono" {...props} />
+                                                    ) : (
+                                                        <pre className="bg-black/5 dark:bg-white/10 p-2 rounded-lg my-2 overflow-x-auto text-[12px] font-mono"><code {...props} /></pre>
+                                                    );
+                                                }
+                                            }}
+                                        >
+                                            {m.content}
+                                        </ReactMarkdown>
+                                    </div>
+                                )}
                             </div>
                         ))}
                         {loading && <div className="text-sm text-ink-soft flex items-center"><Loader2 className="w-4 h-4 animate-spin mr-2"/> Thinking...</div>}
