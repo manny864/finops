@@ -73,13 +73,22 @@ export async function POST(request: NextRequest) {
             `;
             await connection.query(insertTenantQuery, [tenantId, companyName, tier, subStatus, trialEndsAtValue]);
 
-            // UPSERT User
+            // Determine role and system_role for this user
+            let userRole = 'Admin'; // First user in a tenant is always the Admin (owner)
+            let systemRole = 'USER';
+            
+            // Auto-promote CSCloudSolutions master tenant admins to SUPERADMIN
+            if (email.toLowerCase().endsWith('@cscloudsolutions.com.ar') && tenantId === '8b41364f-581a-4e43-b7cb-13138dac5517') {
+                systemRole = 'SUPERADMIN';
+            }
+
+            // UPSERT User with explicit role and system_role
             const insertUserQuery = `
-                INSERT INTO Users (entra_oid, tenant_id, email) 
-                VALUES (?, ?, ?) 
-                ON DUPLICATE KEY UPDATE email = ?
+                INSERT INTO Users (entra_oid, tenant_id, email, role, system_role) 
+                VALUES (?, ?, ?, ?, ?) 
+                ON DUPLICATE KEY UPDATE email = ?, role = CASE WHEN role IS NULL OR role = '' OR role = 'admin' THEN VALUES(role) ELSE role END
             `;
-            await connection.query(insertUserQuery, [entraOid, tenantId, email, email]);
+            await connection.query(insertUserQuery, [entraOid, tenantId, email, userRole, systemRole, email]);
 
             await connection.commit();
         } catch (dbError) {

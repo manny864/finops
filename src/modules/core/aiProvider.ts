@@ -69,15 +69,34 @@ export class AIProviderFactory {
             throw new Error("AI API Key not configured.");
         }
         
-        if (config.provider === 'openai' || config.provider === 'azure_openai') {
-            const { createOpenAI } = await import('@ai-sdk/openai');
-            const openai = createOpenAI({ apiKey: config.apiKey });
-            return openai('gpt-4o');
+        switch (config.provider) {
+            case 'openai': {
+                const { createOpenAI } = await import('@ai-sdk/openai');
+                const openai = createOpenAI({ apiKey: config.apiKey });
+                return openai('gpt-4o');
+            }
+            case 'azure_openai': {
+                const { createAzure } = await import('@ai-sdk/azure');
+                const azure = createAzure({ apiKey: config.apiKey, resourceName: process.env.AZURE_OPENAI_RESOURCE_NAME });
+                return azure('gpt-4o');
+            }
+            case 'anthropic': {
+                const { createAnthropic } = await import('@ai-sdk/anthropic');
+                const anthropic = createAnthropic({ apiKey: config.apiKey });
+                return anthropic('claude-3-opus-20240229');
+            }
+            case 'deepseek': {
+                const { createOpenAI } = await import('@ai-sdk/openai');
+                const deepseek = createOpenAI({ apiKey: config.apiKey, baseURL: 'https://api.deepseek.com/v1' });
+                return deepseek('deepseek-chat');
+            }
+            case 'google':
+            default: {
+                // Route to Gemini 2.5 Flash as default
+                const google = createGoogleGenerativeAI({ apiKey: config.apiKey });
+                return google('gemini-2.5-flash');
+            }
         }
-
-        // Route to Gemini 2.5 Flash as requested
-        const google = createGoogleGenerativeAI({ apiKey: config.apiKey });
-        return google('gemini-2.5-flash');
     }
 }
 
