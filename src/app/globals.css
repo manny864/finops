@@ -220,3 +220,14 @@ table.tbl{width:100%;border-collapse:collapse}
   .kpis, .grid-3, .sumstrip { grid-template-columns: repeat(2, 1fr) }
   .content { padding: 16px }
 }
+
+/* Ensure option elements are readable across browsers */
+option {
+  color: var(--color-ink) !important;
+  background-color: var(--color-surface) !important;
+}
+
+.dark option {
+  color: var(--color-white) !important;
+  background-color: var(--color-surface) !important;
+}
