@@ -79,17 +79,12 @@ export default function LicensesPage() {
         <div className="p-8 max-w-[1400px] mx-auto animate-in fade-in duration-500">
             <h1 className="text-2xl font-black text-slate-800 dark:text-white mb-2 flex items-center">
                 Licencias
-                <span title="El identificador Windows_Store es la categoría que utiliza Azure para facturar suscripciones de software. No se refiere a la tienda de aplicaciones de Windows, sino que incluye licencias corporativas (M365, Copilot, Entra ID) y herramientas de terceros compradas en el Azure Commercial Marketplace.">
-                    <Info 
-                        className="w-5 h-5 ml-2 text-slate-400" 
-                    />
-                </span>
             </h1>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">Optimice sus costos de licenciamiento Microsoft 365 y aproveche Azure Hybrid Benefit (AHUB).</p>
             
             <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                    <p className="text-sm font-bold text-slate-500 mb-2">Total Licencias (M365)</p>
+                    <p className="text-sm font-bold text-slate-500 mb-2">Total Licencias</p>
                     <p className="text-3xl font-black text-slate-800">{loading ? '-' : (graphError ? 'N/A' : total)}</p>
                 </div>
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
@@ -210,7 +205,7 @@ export default function LicensesPage() {
 
                 {!graphError && (
                     <>
-                        <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Métricas por SKU (Office 365)</h2>
+                        <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Métricas por SKU</h2>
                         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-8">
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left border-collapse">
@@ -233,7 +228,16 @@ export default function LicensesPage() {
                                         )}
                                         {!loading && licenses.map(l => (
                                             <tr key={l.id} className="hover:bg-slate-50 transition-colors">
-                                                <td className="p-4 font-bold text-slate-700 text-sm">{l.skuPartNumber}</td>
+                                                <td className="p-4 font-bold text-slate-700 text-sm">
+                                                    <div className="flex items-center gap-1.5">
+                                                        {l.skuPartNumber}
+                                                        {l.skuPartNumber === 'Windows_Store' && (
+                                                            <span title="El identificador Windows_Store es la categoría que utiliza Azure para facturar suscripciones de software. No se refiere a la tienda de aplicaciones de Windows, sino que incluye licencias corporativas (M365, Copilot, Entra ID) y herramientas de terceros compradas en el Azure Commercial Marketplace.">
+                                                                <Info className="w-4 h-4 text-slate-400 cursor-help shrink-0" />
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </td>
                                                 <td className="p-4 text-slate-600 text-sm">{l.total}</td>
                                                 <td className="p-4 text-slate-600 text-sm">{l.consumed}</td>
                                                 <td className="p-4 text-emerald-600 font-semibold text-sm">{l.available}</td>

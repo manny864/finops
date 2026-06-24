@@ -57,7 +57,7 @@ export async function getBudgetConsumption(tenantId: string, subscriptionId: str
     }
 }
 
-export async function createSubscriptionBudget(credential: any, subscriptionId: string, budgetDetails: { budgetName: string, amount: number, contactEmails: string[] }) {
+export async function createSubscriptionBudget(credential: any, subscriptionId: string, budgetDetails: { budgetName: string, amount: number, contactEmails: string[], alertThreshold?: number }) {
     const client = new ConsumptionManagementClient(credential, subscriptionId);
     const scope = `/subscriptions/${subscriptionId}`;
 
@@ -68,6 +68,8 @@ export async function createSubscriptionBudget(credential: any, subscriptionId: 
 
     const endYear = year + 1;
     const endDate = `${endYear}-${month}-01T00:00:00Z`;
+    
+    const customThreshold = budgetDetails.alertThreshold || 80;
 
     const budgetPayload: any = {
         amount: budgetDetails.amount,
@@ -78,10 +80,10 @@ export async function createSubscriptionBudget(credential: any, subscriptionId: 
             endDate
         },
         notifications: {
-            Actual_80: {
+            [`Actual_${customThreshold}`]: {
                 enabled: true,
                 operator: "GreaterThan",
-                threshold: 80,
+                threshold: customThreshold,
                 contactEmails: budgetDetails.contactEmails,
                 thresholdType: "Actual"
             },

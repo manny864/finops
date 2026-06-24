@@ -11,23 +11,33 @@ export async function sendWebhookAlert(tenantId: string, title: string, message:
 
         const webhookUrl = tenants[0].webhook_url;
 
-        let color = "#36a64f"; // default green
-        if (severity === 'warning') color = "#ffae42";
-        if (severity === 'error') color = "#ff0000";
+        const isPowerAutomate = webhookUrl.includes("powerautomate") || webhookUrl.includes("powerplatform");
+        let payload: any;
 
-        // Simple Slack-compatible format that also works for MS Teams standard Incoming Webhooks
-        const payload = {
-            attachments: [
-                {
-                    fallback: `${title}: ${message}`,
-                    color: color,
-                    title: title,
-                    text: message,
-                    footer: "FinOps SaaS Platform",
-                    ts: Math.floor(Date.now() / 1000)
-                }
-            ]
-        };
+        if (isPowerAutomate) {
+            payload = {
+                contentType: "html",
+                content: `🚨 <b>${title}</b><br/>${message}`
+            };
+        } else {
+            let color = "#36a64f"; // default green
+            if (severity === 'warning') color = "#ffae42";
+            if (severity === 'error') color = "#ff0000";
+
+            // Simple Slack-compatible format that also works for MS Teams standard Incoming Webhooks
+            payload = {
+                attachments: [
+                    {
+                        fallback: `${title}: ${message}`,
+                        color: color,
+                        title: title,
+                        text: message,
+                        footer: "FinOps SaaS Platform",
+                        ts: Math.floor(Date.now() / 1000)
+                    }
+                ]
+            };
+        }
 
         const response = await fetch(webhookUrl, {
             method: 'POST',
