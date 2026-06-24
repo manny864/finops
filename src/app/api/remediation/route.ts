@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     const { tenantId, subscriptionId, resourceGroup, resourceName, resourceType } = body;
 
     // SuperAdmin bypass
-    const email = decoded.preferred_username || decoded.unique_name || decoded.email || "";
+    const email = decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "";
     const isAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") && decoded.tid === "8b41364f-581a-4e43-b7cb-13138dac5517";
 
     if (decoded.tid !== tenantId && !isAdmin) {

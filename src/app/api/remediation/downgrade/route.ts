@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { tenantId, subscriptionId, resourceGroup, resourceName, newSku } = body;
 
-    const email = decoded.preferred_username || decoded.unique_name || decoded.email || "";
+    const email = decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "";
 
     await downgradeVirtualMachine(tenantId, email, subscriptionId, resourceGroup, resourceName, newSku);
 

@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
         const { prompt, pageContext, dataPayload, tenantId } = await request.json();
 
         // SuperAdmin check for cross-tenant access
-        const email = decoded.preferred_username || decoded.unique_name || decoded.email || "";
+        const email = decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "";
         const isSuperAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") && decoded.tid === "8b41364f-581a-4e43-b7cb-13138dac5517";
 
         if (tenantId && decoded.tid !== tenantId && !isSuperAdmin) {

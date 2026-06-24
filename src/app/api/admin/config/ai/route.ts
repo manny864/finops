@@ -12,7 +12,7 @@ export async function PATCH(request: NextRequest) {
         const decoded = jwt.decode(token) as any;
         if (!decoded) return NextResponse.json({ error: "Token inválido" }, { status: 401 });
 
-        const email = decoded.unique_name || decoded.preferred_username || decoded.email || "";
+        const email = decoded.unique_name || decoded.preferred_username || decoded.upn || decoded.email || "";
 
         const body = await request.json();
         const { tenantId, aiProvider, aiApiKey } = body;
