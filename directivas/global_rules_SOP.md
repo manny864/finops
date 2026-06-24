@@ -11,3 +11,7 @@
 **Regla:** Todos los agentes (Frontend, Backend, DBA) que modifiquen esquemas de base de datos deben seguir rigurosamente el protocolo "STRICT DATABASE MIGRATION PROTOCOL".
 - **Referencia:** Ver `directivas/agent_dba_SOP.md` para los detalles.
 - **Acción Obligatoria:** Siempre se debe incluir el script `-- PRODUCTION DB MIGRATION SCRIPT ---` al final de la respuesta si se modifican estructuras (tablas, columnas, índices, restricciones). Las migraciones locales deben ser siempre seguras (`ALTER TABLE` con `try/catch`).
+
+### 3. Documentación Obligatoria Post-Fix
+**Regla:** Queda terminantemente prohibido dar por terminada la corrección de un bug o la implementación de una característica sin actualizar la documentación del proyecto.
+- **Acción Obligatoria:** Después de cada fix o despliegue exitoso a staging/producción, SE DEBEN actualizar el `README.md` (sección Recent Major Updates) y el `MANUAL_DE_USUARIO.md` (si la corrección o característica afecta el flujo de usuario o los requisitos del sistema).
