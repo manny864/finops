@@ -30,7 +30,8 @@ import {
     Cpu,
     Leaf,
     Building2,
-    Box
+    Box,
+    Server
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -81,6 +82,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/intelligence/chargeback', label: t('chargeback'), icon: CreditCard, requiredTier: 'Business' },
                 { href: '/intelligence/licenses', label: t('licenses'), icon: Users, requiredTier: 'Professional' },
                 { href: '/intelligence/zero-cost', label: 'Costo Cero', icon: Box },
+                { href: '/intelligence/aks', label: 'Control AKS', icon: Server, requiredTier: 'Business' },
                 { href: '/intelligence/upload', label: 'Ingesta CSV', icon: FileText }
             ]
         },

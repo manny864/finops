@@ -334,6 +334,42 @@ export const getMockDataForRoute = (route: string, arg2: string) => {
                     { id: "/subscriptions/demo/resourceGroups/rg-security/providers/Microsoft.Network/networkSecurityGroups/nsg-db-internal", name: "nsg-db-internal", type: "microsoft.network/networksecuritygroups", resourceGroup: "rg-security", Motivo: "Servicio de Gestión / Arquitectura (Sin costo base)", skuName: "N/A" }
                 ]
             };
+        case 'aks':
+            return {
+                success: true,
+                data: [
+                    {
+                        id: "/subscriptions/demo/resourceGroups/rg-k8s-prod/providers/Microsoft.ContainerService/managedClusters/aks-prod-01",
+                        name: "aks-prod-01",
+                        resourceGroup: "rg-k8s-prod",
+                        nodeResourceGroup: "MC_rg-k8s-prod_aks-prod-01_eastus",
+                        location: "eastus",
+                        subscriptionId: "demo",
+                        totalCost: 15430.50,
+                        hasCostData: true
+                    },
+                    {
+                        id: "/subscriptions/demo/resourceGroups/rg-k8s-dev/providers/Microsoft.ContainerService/managedClusters/aks-dev-02",
+                        name: "aks-dev-02",
+                        resourceGroup: "rg-k8s-dev",
+                        nodeResourceGroup: "MC_rg-k8s-dev_aks-dev-02_eastus",
+                        location: "eastus",
+                        subscriptionId: "demo",
+                        totalCost: 3250.75,
+                        hasCostData: true
+                    },
+                    {
+                        id: "/subscriptions/demo/resourceGroups/rg-k8s-test/providers/Microsoft.ContainerService/managedClusters/aks-test-01",
+                        name: "aks-test-01",
+                        resourceGroup: "rg-k8s-test",
+                        nodeResourceGroup: "MC_rg-k8s-test_aks-test-01_westus",
+                        location: "westus",
+                        subscriptionId: "demo",
+                        totalCost: 480.00,
+                        hasCostData: true
+                    }
+                ]
+            };
         default:
             return { success: true, message: "Mock data not defined for this route" };
     }
