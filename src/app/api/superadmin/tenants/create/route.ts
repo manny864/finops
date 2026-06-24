@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
         }
 
         const email = decoded.unique_name || decoded.preferred_username || "";
-        const isSuperAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") && decoded.tid === "8b41364f-581a-4e43-b7cb-13138dac5517";
+        const isSuperAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") ;
 
         if (!isSuperAdmin) {
             return NextResponse.json({ error: "Acceso denegado. Se requiere rol SuperAdmin." }, { status: 403 });

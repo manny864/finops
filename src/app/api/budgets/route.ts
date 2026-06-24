@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
         }
 
         const email = decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "";
-        const isAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") && decoded.tid === "8b41364f-581a-4e43-b7cb-13138dac5517";
+        const isAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") ;
 
         // QA Security Patch: IDOR Prevention
         if (!isAdmin) {
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
         }
 
         const email = decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "";
-        const isAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") && decoded.tid === "8b41364f-581a-4e43-b7cb-13138dac5517";
+        const isAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") ;
 
         // QA Security Patch: IDOR Prevention
         if (!isAdmin) {

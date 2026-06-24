@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
         if (!decoded) return NextResponse.json({ error: "Token inválido" }, { status: 401 });
 
         const email = decoded.unique_name || decoded.preferred_username || decoded.upn || decoded.email || "";
-        const isCorpDomain = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") && decoded.tid === "8b41364f-581a-4e43-b7cb-13138dac5517";
+        const isCorpDomain = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") ;
 
         const connection = await pool.getConnection();
         try {
