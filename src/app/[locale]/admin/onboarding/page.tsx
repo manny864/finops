@@ -94,6 +94,13 @@ export default function OnboardingPage() {
       }
   };
 
+  const isSuperAdmin = systemRole === 'SUPERADMIN';
+  const [adminFilterId, setAdminFilterId] = useState<string>("all");
+
+  const displayedTenants = isSuperAdmin 
+      ? (adminFilterId === "all" ? tenants : tenants.filter(t => t.id === adminFilterId))
+      : tenants.filter(t => t.id === selectedTenant.id);
+
   const currentTenantObj = tenants.find(t => t.id === selectedTenant?.id);
   const currentTier = currentTenantObj?.tier || 'Essential';
 
@@ -109,9 +116,26 @@ export default function OnboardingPage() {
 
       {/* Directorio de Entornos */}
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden mb-8">
-          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50/50 flex items-center">
-              <Database className="w-5 h-5 text-gray-500 mr-2" />
-              <h3 className="text-lg font-bold text-gray-800">Directorio de Entornos</h3>
+          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center">
+                  <Database className="w-5 h-5 text-gray-500 mr-2" />
+                  <h3 className="text-lg font-bold text-gray-800">Directorio de Entornos</h3>
+              </div>
+              {isSuperAdmin && (
+                  <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-700">Filtrar Tenant:</span>
+                      <select 
+                          value={adminFilterId}
+                          onChange={(e) => setAdminFilterId(e.target.value)}
+                          className="border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-md px-3 py-1.5 text-sm focus:ring-indigo-500 focus:border-indigo-500"
+                      >
+                          <option value="all">Todos los entornos</option>
+                          {tenants.map(t => (
+                              <option key={t.id} value={t.id}>{t.name || 'Sin Nombre'} ({t.id.substring(0,8)}...)</option>
+                          ))}
+                      </select>
+                  </div>
+              )}
           </div>
           <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
@@ -123,7 +147,7 @@ export default function OnboardingPage() {
                       </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                      {tenants.filter(t => t.id === selectedTenant.id).map((tenant) => (
+                      {displayedTenants.map((tenant) => (
                           <tr key={tenant.id} className="hover:bg-gray-50 transition-colors">
                               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-500 font-mono">
                                   {tenant.id}
@@ -165,7 +189,7 @@ export default function OnboardingPage() {
                               </td>
                           </tr>
                       ))}
-                      {tenants.filter(t => t.id === selectedTenant.id).length === 0 && !loading && (
+                      {displayedTenants.length === 0 && !loading && (
                           <tr>
                               <td colSpan={3} className="px-6 py-4 text-center text-sm text-gray-500">
                                   El entorno no está sincronizado con la base de datos.
