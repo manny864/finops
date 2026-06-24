@@ -333,6 +333,7 @@
         "Historial de Costos y Facturación",
         "Visualización de Presupuestos",
         "Dashboard de Sustentabilidad",
+        "Inventario de Costo Cero",
         "Exportación PDF/CSV",
         "Health Score de Azure Advisor",
         "Radar de Ahorro Potencial (Teaser)"
@@ -360,6 +361,7 @@
         "FinOps Copilot (IA)",
         "Detección de Anomalías",
         "Políticas de Expiración (TTL)",
+        "Control AKS (Kubernetes)",
         "Distribución de Costos (Chargeback)"
       ]
     },
