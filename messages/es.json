@@ -349,7 +349,8 @@
         "Limpieza Activa de Recursos Zombie",
         "Ejecución de Rightsizing",
         "Gobernanza de Etiquetas (Tags)",
-        "Descuentos por Compromiso (Reservas)"
+        "Descuentos por Compromiso (Reservas)",
+        "Flujo de Aprobación de Remediaciones"
       ]
     },
     "business": {
