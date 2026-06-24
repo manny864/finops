@@ -392,6 +392,19 @@ export const getMockDataForRoute = (route: string, arg2: string) => {
                 success: true,
                 data: ueData
             };
+        case 'commitments':
+            return {
+                success: true,
+                data: {
+                    utilization: 82.5, // 82.5% de uso
+                    coverage: 45.0, // 45% de cobertura total de computo
+                    recommendations: [
+                        { type: 'VirtualMachines', sku: 'Standard_D4s_v3', recommendedQuantity: 12, monthlySavings: 1240.50, term: 'P3Y' },
+                        { type: 'VirtualMachines', sku: 'Standard_E8s_v4', recommendedQuantity: 4, monthlySavings: 890.00, term: 'P1Y' },
+                        { type: 'AppService', sku: 'PremiumV3', recommendedQuantity: 2, monthlySavings: 310.25, term: 'P3Y' }
+                    ]
+                }
+            };
         default:
             return { success: true, message: "Mock data not defined for this route" };
     }
