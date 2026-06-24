@@ -102,7 +102,8 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             title: t('governance'),
             items: [
                 { href: '/governance/tags', label: t('tag_compliance'), icon: Tags, requiredTier: 'Business' },
-                { href: '/governance/power', label: t('power_schedules'), icon: Power, requiredTier: 'Business' }
+                { href: '/governance/power', label: t('power_schedules'), icon: Power, requiredTier: 'Business' },
+                { href: '/remediation/approvals', label: 'Aprobaciones', icon: CheckCircle, requiredTier: 'Professional' }
             ]
         },
         {

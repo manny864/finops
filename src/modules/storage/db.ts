@@ -281,6 +281,23 @@ export async function initializeDatabase() {
             )
         `);
 
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS RemediationRequests (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                tenant_id VARCHAR(255) NOT NULL,
+                resource_id VARCHAR(1024) NOT NULL,
+                resource_name VARCHAR(255) NOT NULL,
+                action_type VARCHAR(100) NOT NULL,
+                estimated_savings DECIMAL(12,2) DEFAULT 0.00,
+                status ENUM('Pending', 'Approved', 'Rejected') DEFAULT 'Pending',
+                requested_by VARCHAR(255) NOT NULL,
+                requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                resolved_at TIMESTAMP NULL,
+                resolved_by VARCHAR(255) NULL,
+                FOREIGN KEY (tenant_id) REFERENCES Tenants(tenant_id) ON DELETE CASCADE
+            )
+        `);
+
         connection.release();
         dbInitialized = true;
         console.log("Database schema validated/initialized successfully.");
