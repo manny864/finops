@@ -24,6 +24,15 @@ La plataforma mapea automáticamente tu perfil corporativo hacia uno de los sigu
 
 ---
 
+## 3. Onboarding de Nuevos Clientes (Flujo SuperAdmin)
+
+Para que un nuevo Tenant de Azure pueda operar dentro de la plataforma (si no ha pasado por un registro automático), un **SuperAdmin** debe completar el siguiente flujo:
+
+1. **Registrar Tenant Manual:** Dirígete a la sección `Gestión de Tenants` (`/admin/tenants`). Aquí debes ingresar el Entra ID del Tenant, el nombre comercial de la empresa y asignar un Tier inicial. **Nota:** Si tu cuenta de Microsoft Entra oculta tu correo en la propiedad `upn`, la plataforma ya está parcheada para reconocer tu identidad y otorgarte acceso de SuperAdmin.
+2. **Generar Credenciales:** Una vez creado en la base de datos, ve a `Onboarding de Clientes` (`/admin/onboarding`). Solo ahora aparecerán las casillas de **Client ID** y **Client Secret** junto al nombre del entorno, permitiéndote pegar las credenciales del Service Principal generadas por el script de PowerShell.
+
+---
+
 ## 3. Navegación Principal
 
 El sistema está dividido en cinco (5) pilares estratégicos en el menú lateral izquierdo:
