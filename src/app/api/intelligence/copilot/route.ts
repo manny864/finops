@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { streamText } from "ai";
+import { generateText } from "ai";
 import { AIProviderFactory } from "@/modules/core/aiProvider";
 import jwt from "jsonwebtoken";
 
@@ -38,14 +38,14 @@ Analyze the provided payload and answer the user's query concisely and accuratel
 Responde completamente en ${locale === 'es' ? 'Español' : locale === 'pt-BR' ? 'Portugués (Brasil)' : 'Inglés'}.
 Context payload: ${dataString}`;
 
-        const result = await streamText({
+        const { text } = await generateText({
             model,
             system: systemPrompt,
             prompt: prompt,
             temperature: 0.1
         });
 
-        return result.toDataStreamResponse();
+        return NextResponse.json({ reply: text });
     } catch (error: any) {
         console.error("[Copilot] Error:", error.message);
         return NextResponse.json({ error: "Copilot failed to respond.", details: error.message }, { status: 500 });

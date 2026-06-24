@@ -121,10 +121,11 @@ export default function WorkbooksPage() {
                 <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight flex items-center">
                     <BookOpen className="w-8 h-8 mr-3 text-[#0054A6]" />
                     Artefactos y Workbooks
-                    <Info 
-                        className="w-5 h-5 ml-3 text-gray-400 cursor-help" 
-                        title="Required Roles: Contributor, Cost Management Contributor" 
-                    />
+                    <span title="Required Roles: Contributor, Cost Management Contributor">
+                        <Info 
+                            className="w-5 h-5 ml-3 text-gray-400 cursor-help" 
+                        />
+                    </span>
                 </h1>
                 <p className="text-gray-500 dark:text-gray-400 mt-2">Inyecta tableros de control y reportes directamente en el entorno de Azure del cliente.</p>
             </div>

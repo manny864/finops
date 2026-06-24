@@ -79,10 +79,11 @@ export default function LicensesPage() {
         <div className="p-8 max-w-[1400px] mx-auto animate-in fade-in duration-500">
             <h1 className="text-2xl font-black text-slate-800 dark:text-white mb-2 flex items-center">
                 Licencias
-                <Info 
-                    className="w-5 h-5 ml-2 text-slate-400" 
-                    title="El identificador Windows_Store es la categoría que utiliza Azure para facturar suscripciones de software. No se refiere a la tienda de aplicaciones de Windows, sino que incluye licencias corporativas (M365, Copilot, Entra ID) y herramientas de terceros compradas en el Azure Commercial Marketplace." 
-                />
+                <span title="El identificador Windows_Store es la categoría que utiliza Azure para facturar suscripciones de software. No se refiere a la tienda de aplicaciones de Windows, sino que incluye licencias corporativas (M365, Copilot, Entra ID) y herramientas de terceros compradas en el Azure Commercial Marketplace.">
+                    <Info 
+                        className="w-5 h-5 ml-2 text-slate-400" 
+                    />
+                </span>
             </h1>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">Optimice sus costos de licenciamiento Microsoft 365 y aproveche Azure Hybrid Benefit (AHUB).</p>
             

@@ -154,7 +154,7 @@ export default function BudgetCard() {
                     return (
                         <div key={sub.id} className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-lg shadow-sm p-5 flex flex-col justify-between">
                             <div>
-                                <h4 className="font-bold text-gray-900 dark:text-white truncate" title={sub.displayName || sub.name}>{sub.displayName || sub.name}</h4>
+                                <h4 className="font-bold text-gray-900 dark:text-white truncate" title={sub.name}>{sub.name}</h4>
                                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 mb-4">{sub.id}</p>
                                 
                                 <div className="flex justify-between items-end mb-2">
