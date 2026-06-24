@@ -3,6 +3,7 @@ import { getAzureCredential } from "@/lib/azure";
 import db from "@/modules/storage/db";
 import jwt from "jsonwebtoken";
 import { getMockDataForRoute } from "@/lib/mockData";
+import { getWithCache } from "@/lib/cache";
 
 // GET Historical data dynamically from Azure Advisor Score History
 export async function GET(request: NextRequest) {
@@ -31,77 +32,81 @@ export async function GET(request: NextRequest) {
         const mockData = getMockDataForRoute('history', tenantId);
         if (mockData) return NextResponse.json(mockData);
 
-        // 1. Obtener Credenciales y Token de Azure
-        const credential = await getAzureCredential(tenantId);
-        const tokenResponse = await credential.getToken("https://management.azure.com/.default");
+        const cacheKey = `intelligence:history:${tenantId}`;
 
-        // 2. Obtener Suscripciones del Tenant
-        const fetchRes = await fetch("https://management.azure.com/subscriptions?api-version=2020-01-01", {
-            headers: { "Authorization": `Bearer ${tokenResponse.token}`, "Accept-Language": locale }
-        });
-        
-        let subs: any[] = [];
-        if (fetchRes.ok) {
-            const data = await fetchRes.json();
-            for (const sub of data.value) {
-                if (sub.subscriptionId && sub.state === 'Enabled') {
-                    subs.push({ id: sub.subscriptionId, name: sub.displayName });
+        const aggregatedData = await getWithCache(cacheKey, async () => {
+            // 1. Obtener Credenciales y Token de Azure
+            const credential = await getAzureCredential(tenantId);
+            const tokenResponse = await credential.getToken("https://management.azure.com/.default");
+
+            // 2. Obtener Suscripciones del Tenant
+            const fetchRes = await fetch("https://management.azure.com/subscriptions?api-version=2020-01-01", {
+                headers: { "Authorization": `Bearer ${tokenResponse.token}`, "Accept-Language": locale }
+            });
+            
+            let subs: any[] = [];
+            if (fetchRes.ok) {
+                const data = await fetchRes.json();
+                for (const sub of data.value) {
+                    if (sub.subscriptionId && sub.state === 'Enabled') {
+                        subs.push({ id: sub.subscriptionId, name: sub.displayName });
+                    }
                 }
             }
-        }
 
-        // 3. Consultar Historial de Score de Costo de cada Suscripción
-        const historyMap: Record<string, { date: string, totalScore: number, count: number, totalImpacted: number, totalPotentialIncrease: number }> = {};
+            // 3. Consultar Historial de Score de Costo de cada Suscripción
+            const historyMap: Record<string, { date: string, totalScore: number, count: number, totalImpacted: number, totalPotentialIncrease: number }> = {};
 
-        for (const sub of subs) {
-            try {
-                const scoreRes = await fetch(`https://management.azure.com/subscriptions/${sub.id}/providers/Microsoft.Advisor/advisorScore?api-version=2023-01-01`, {
-                    headers: { "Authorization": `Bearer ${tokenResponse.token}`, "Accept-Language": locale }
-                });
-                if (scoreRes.ok) {
-                    const scoreData = await scoreRes.json();
-                    const costScore = (scoreData.value || []).find((item: any) => item.name === "Cost");
-                    if (costScore && costScore.properties?.timeSeries) {
-                        // Prefer Weekly > Monthly > Daily for better historical spread
-                        const allSeries = costScore.properties.timeSeries as any[];
-                        const weekly = allSeries.find((ts: any) => ts.aggregationLevel === 'Weekly' && ts.scoreHistory?.length > 0);
-                        const monthly = allSeries.find((ts: any) => ts.aggregationLevel === 'Monthly' && ts.scoreHistory?.length > 0);
-                        const daily = allSeries.find((ts: any) => ts.aggregationLevel === 'Daily' && ts.scoreHistory?.length > 0);
-                        const bestSeries = weekly || monthly || daily;
+            for (const sub of subs) {
+                try {
+                    const scoreRes = await fetch(`https://management.azure.com/subscriptions/${sub.id}/providers/Microsoft.Advisor/advisorScore?api-version=2023-01-01`, {
+                        headers: { "Authorization": `Bearer ${tokenResponse.token}`, "Accept-Language": locale }
+                    });
+                    if (scoreRes.ok) {
+                        const scoreData = await scoreRes.json();
+                        const costScore = (scoreData.value || []).find((item: any) => item.name === "Cost");
+                        if (costScore && costScore.properties?.timeSeries) {
+                            // Prefer Weekly > Monthly > Daily for better historical spread
+                            const allSeries = costScore.properties.timeSeries as any[];
+                            const weekly = allSeries.find((ts: any) => ts.aggregationLevel === 'Weekly' && ts.scoreHistory?.length > 0);
+                            const monthly = allSeries.find((ts: any) => ts.aggregationLevel === 'Monthly' && ts.scoreHistory?.length > 0);
+                            const daily = allSeries.find((ts: any) => ts.aggregationLevel === 'Daily' && ts.scoreHistory?.length > 0);
+                            const bestSeries = weekly || monthly || daily;
 
-                        if (bestSeries) {
-                            console.log(`[History] Sub ${sub.id}: Using ${bestSeries.aggregationLevel} with ${bestSeries.scoreHistory.length} points`);
-                            for (const point of bestSeries.scoreHistory) {
-                                const dateStr = point.date.split("T")[0];
-                                if (!historyMap[dateStr]) {
-                                    historyMap[dateStr] = { date: dateStr, totalScore: 0, count: 0, totalImpacted: 0, totalPotentialIncrease: 0 };
+                            if (bestSeries) {
+                                console.log(`[History] Sub ${sub.id}: Using ${bestSeries.aggregationLevel} with ${bestSeries.scoreHistory.length} points`);
+                                for (const point of bestSeries.scoreHistory) {
+                                    const dateStr = point.date.split("T")[0];
+                                    if (!historyMap[dateStr]) {
+                                        historyMap[dateStr] = { date: dateStr, totalScore: 0, count: 0, totalImpacted: 0, totalPotentialIncrease: 0 };
+                                    }
+                                    historyMap[dateStr].totalScore += point.score;
+                                    historyMap[dateStr].count += 1;
+                                    historyMap[dateStr].totalImpacted += point.impactedResourceCount || 0;
+                                    historyMap[dateStr].totalPotentialIncrease += point.potentialScoreIncrease || 0;
                                 }
-                                historyMap[dateStr].totalScore += point.score;
-                                historyMap[dateStr].count += 1;
-                                historyMap[dateStr].totalImpacted += point.impactedResourceCount || 0;
-                                historyMap[dateStr].totalPotentialIncrease += point.potentialScoreIncrease || 0;
                             }
                         }
+                    } else {
+                        console.warn(`[History] Advisor Score returned ${scoreRes.status} for sub ${sub.id}`);
                     }
-                } else {
-                    console.warn(`[History] Advisor Score returned ${scoreRes.status} for sub ${sub.id}`);
+                } catch (err) {
+                    console.warn(`Error reading historical scores for sub ${sub.id}:`, err);
                 }
-            } catch (err) {
-                console.warn(`Error reading historical scores for sub ${sub.id}:`, err);
             }
-        }
 
-        console.log(`[History] Total date points aggregated: ${Object.keys(historyMap).length}`);
+            console.log(`[History] Total date points aggregated: ${Object.keys(historyMap).length}`);
 
-        // 4. Consolidar y ordenar cronológicamente
-        let aggregatedData = Object.values(historyMap)
-            .map(item => ({
-                scan_date: item.date,
-                score: parseFloat((item.totalScore / item.count).toFixed(1)),
-                impacted_resources: item.totalImpacted,
-                potential_score_increase: parseFloat(item.totalPotentialIncrease.toFixed(1))
-            }))
-            .sort((a, b) => a.scan_date.localeCompare(b.scan_date));
+            // 4. Consolidar y ordenar cronológicamente
+            return Object.values(historyMap)
+                .map(item => ({
+                    scan_date: item.date,
+                    score: parseFloat((item.totalScore / item.count).toFixed(1)),
+                    impacted_resources: item.totalImpacted,
+                    potential_score_increase: parseFloat(item.totalPotentialIncrease.toFixed(1))
+                }))
+                .sort((a, b) => a.scan_date.localeCompare(b.scan_date));
+        }, 3600); // Guardar en caché por 1 hora
 
         return NextResponse.json({ data: aggregatedData });
 

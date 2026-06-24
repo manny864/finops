@@ -15,8 +15,15 @@ services:
       - "traefik.docker.network=proxy_network"
     networks:
       - proxy_network
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:alpine
+    restart: always
+    networks:
+      - proxy_network
 
 networks:
   proxy_network:
     external: true
-
