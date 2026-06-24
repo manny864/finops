@@ -156,7 +156,7 @@ export default function AdvisorPanel() {
                       rows.push({
                           Origen: "Azure Advisor",
                           Categoria: cat,
-                          Recurso: rec.impactedField || rec.id,
+                          Recurso: rec.impactedField === 'Microsoft.Subscriptions/subscriptions' ? (subscriptions.find(s => s.id === rec.subscriptionId)?.name || rec.subscriptionId) : (rec.impactedField || rec.id),
                           Suscripcion: rec.subscriptionId || "N/A",
                           Detalle: rec.shortDescription?.problem || "Recomendación de Azure",
                           AhorroPotencial: rec.extendedProperties?.savingsAmount || 0
@@ -352,7 +352,7 @@ export default function AdvisorPanel() {
                                                 <div className="font-bold text-[13.5px] text-ink">
                                                     {rec.shortDescription?.problem || 'Recomendación de Costo'}
                                                     <span className="font-semibold text-brand-deep bg-[#EAF3FB] p-[1px_7px] rounded-[6px] text-[12px] ml-[6px]">
-                                                        {rec.impactedField || 'Recurso'}
+                                                        {rec.impactedField === 'Microsoft.Subscriptions/subscriptions' ? (subscriptions.find(s => s.id === rec.subscriptionId)?.name || rec.subscriptionId) : (rec.impactedField || 'Recurso')}
                                                     </span>
                                                 </div>
                                                 <div className="text-[12px] text-ink-soft mt-[3px] leading-relaxed">
@@ -445,7 +445,7 @@ export default function AdvisorPanel() {
                                     {filteredData[selectedCategory]?.map((rec: any, idx: number) => (
                                         <tr key={idx} className="hover:bg-surface-2 transition-colors border-b border-line last:border-0 group">
                                             <td className="p-[13px_16px] text-[13px] text-ink font-bold">
-                                                {rec.impactedField || 'Desconocido'}
+                                                {rec.impactedField === 'Microsoft.Subscriptions/subscriptions' ? (subscriptions.find(s => s.id === rec.subscriptionId)?.name || rec.subscriptionId) : (rec.impactedField || 'Desconocido')}
                                                 {parseFloat(rec.extendedProperties?.savingsAmount || '0') > 0 && selectedCategory === 'Cost' && (
                                                     <span className="font-semibold text-brand-deep bg-[#EAF3FB] p-[1px_7px] rounded-[6px] text-[12px] ml-[6px]">
                                                         {new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(parseFloat(rec.extendedProperties.savingsAmount))} /mes

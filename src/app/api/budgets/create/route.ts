@@ -6,7 +6,7 @@ import jwt from "jsonwebtoken";
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { subscriptionId, budgetName, amount, contactEmail, tenantId: bodyTenantId } = body;
+        const { subscriptionId, budgetName, amount, contactEmail, alertThreshold, tenantId: bodyTenantId } = body;
 
         if (!subscriptionId || !budgetName || amount === undefined || !contactEmail) {
             return NextResponse.json({ error: "Faltan parámetros requeridos." }, { status: 400 });
@@ -36,7 +36,8 @@ export async function POST(request: NextRequest) {
         const result = await createSubscriptionBudget(credential, subscriptionId, {
             budgetName,
             amount: parseFloat(amount),
-            contactEmails: [contactEmail]
+            contactEmails: [contactEmail],
+            alertThreshold: alertThreshold ? parseFloat(alertThreshold) : undefined
         });
 
         return NextResponse.json({ success: true, data: result }, { status: 201 });

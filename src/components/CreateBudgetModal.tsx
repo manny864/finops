@@ -17,6 +17,7 @@ export default function CreateBudgetModal({ isOpen, onClose, onSuccess, subscrip
     const [budgetName, setBudgetName] = useState('');
     const [amount, setAmount] = useState('');
     const [contactEmail, setContactEmail] = useState('');
+    const [alertThreshold, setAlertThreshold] = useState('80');
     const [loading, setLoading] = useState(false);
 
     if (!isOpen) return null;
@@ -48,6 +49,7 @@ export default function CreateBudgetModal({ isOpen, onClose, onSuccess, subscrip
                     budgetName,
                     amount: parseFloat(amount),
                     contactEmail,
+                    alertThreshold: parseFloat(alertThreshold),
                     tenantId
                 })
             });
@@ -65,7 +67,7 @@ export default function CreateBudgetModal({ isOpen, onClose, onSuccess, subscrip
                         tenantId,
                         costCenter: budgetName,
                         monthlyLimit: parseFloat(amount),
-                        alertThreshold: 80.0
+                        alertThreshold: parseFloat(alertThreshold)
                     })
                 });
 
@@ -128,6 +130,20 @@ export default function CreateBudgetModal({ isOpen, onClose, onSuccess, subscrip
                             value={contactEmail}
                             onChange={(e) => setContactEmail(e.target.value)}
                             placeholder="Ej. admin@cscloudsolutions.com"
+                            required
+                            disabled={loading}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-indigo-500 focus:border-indigo-500 placeholder-gray-500 dark:placeholder-gray-400"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Umbral de Alerta (%)</label>
+                        <input 
+                            type="number" 
+                            value={alertThreshold}
+                            onChange={(e) => setAlertThreshold(e.target.value)}
+                            placeholder="Ej. 80"
+                            min="1"
+                            max="1000"
                             required
                             disabled={loading}
                             className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-indigo-500 focus:border-indigo-500 placeholder-gray-500 dark:placeholder-gray-400"

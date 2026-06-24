@@ -25,7 +25,7 @@ export async function initializeDatabase() {
                 client_id VARCHAR(255),
                 client_secret VARCHAR(255),
                 status VARCHAR(50) DEFAULT 'active',
-                webhook_url VARCHAR(255),
+                webhook_url VARCHAR(1024),
                 tier ENUM('Essential', 'Professional', 'Business', 'Enterprise') DEFAULT 'Essential',
                 trial_ends_at DATETIME NULL,
                 subscription_status ENUM('TRIAL', 'ACTIVE', 'EXPIRED') DEFAULT 'ACTIVE',
@@ -40,12 +40,18 @@ export async function initializeDatabase() {
             )
         `);
 
-        // Check if webhook_url exists for backward compatibility
+        // Check if webhook_url exists for backward compatibility or modify it
         try {
-            await connection.query('ALTER TABLE Tenants ADD COLUMN webhook_url VARCHAR(255);');
+            await connection.query('ALTER TABLE Tenants ADD COLUMN webhook_url VARCHAR(1024);');
         } catch (e: any) {
-            // Ignore Duplicate column error
-            if (e.code !== 'ER_DUP_FIELDNAME') {
+            // Ignore Duplicate column error, but modify if it already exists to ensure it's VARCHAR(1024)
+            if (e.code === 'ER_DUP_FIELDNAME') {
+                try {
+                    await connection.query('ALTER TABLE Tenants MODIFY COLUMN webhook_url VARCHAR(1024);');
+                } catch (modifyError) {
+                    console.error("Error modifying webhook_url to VARCHAR(1024):", modifyError);
+                }
+            } else {
                 console.error("Error adding webhook_url:", e);
             }
         }
