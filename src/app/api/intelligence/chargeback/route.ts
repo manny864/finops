@@ -23,15 +23,18 @@ export async function GET(request: NextRequest) {
                 ? `/providers/Microsoft.Management/managementGroups/${tenantId}` 
                 : `/subscriptions/${subscriptionId}`;
 
+            // Advanced Payload: Daily Granularity, ResourceGroup, ChargeType, and TagKey
             const parameters = {
                 type: "Usage",
                 timeframe: "MonthToDate",
                 dataset: {
-                    granularity: "None",
+                    granularity: "Daily",
                     aggregation: {
                         totalCost: { name: "PreTaxCost", function: "Sum" }
                     },
                     grouping: [
+                        { type: "Dimension", name: "ResourceGroup" },
+                        { type: "Dimension", name: "ChargeType" },
                         { type: "TagKey", name: tagKey }
                     ]
                 }
@@ -42,9 +45,13 @@ export async function GET(request: NextRequest) {
             let isFallback = false;
 
             try {
+                // [KNOWN LIMITATION]: Al agrupar por "ResourceGroup" y "ChargeType" en Azure de forma nativa,
+                // ciertas suscripciones (como Enterprise Agreement directas o CSP) pueden devolver errores HTTP 400
+                // si la API nativa no soporta ciertas dimensiones cruzadas con etiquetas en este scope.
+                // Si eso sucede o si falla por RBAC, caerá en el bloque catch inferior y usará el fallback iterativo.
                 result = await client.query.usage(scope, parameters as any);
             } catch (e: any) {
-                const isAuthOrNotFound = e.statusCode === 403 || e.statusCode === 401 || e.code === 'AuthorizationFailed' || e.code === 'RBACAccessDenied' || e.message?.includes('AuthorizationFailed') || e.code === 'ManagementGroupNotFound' || e.message?.includes("was not found or you don't have access") || e.message?.includes('does not have authorization') || e.message?.includes('does not have any valid subscriptions');
+                const isAuthOrNotFound = e.statusCode === 403 || e.statusCode === 401 || e.statusCode === 400 || e.code === 'AuthorizationFailed' || e.code === 'RBACAccessDenied' || e.message?.includes('AuthorizationFailed') || e.code === 'ManagementGroupNotFound' || e.message?.includes("was not found or you don't have access") || e.message?.includes('does not have authorization') || e.message?.includes('does not have any valid subscriptions');
                 if (subscriptionId === 'All' && isAuthOrNotFound) {
                     isFallback = true;
                     console.log("Management Group scope failed for chargeback, falling back to concurrent subscription iteration...");
@@ -68,10 +75,14 @@ export async function GET(request: NextRequest) {
             }
 
             const chargebackMap: Record<string, number> = {};
+            const detailedCosts: any[] = [];
 
             const processRows = (res: any) => {
                 if (res.rows && res.columns) {
                     const costIndex = res.columns.findIndex((c: any) => c.name === 'PreTaxCost');
+                    const dateIndex = res.columns.findIndex((c: any) => c.name === 'UsageDate');
+                    const rgIndex = res.columns.findIndex((c: any) => c.name === 'ResourceGroup');
+                    const chargeTypeIndex = res.columns.findIndex((c: any) => c.name === 'ChargeType');
                     const tagIndex = res.columns.findIndex((c: any) => c.name === tagKey || c.name === 'TagKey');
 
                     if (costIndex !== -1 && tagIndex !== -1) {
@@ -84,6 +95,15 @@ export async function GET(request: NextRequest) {
                             
                             if (!chargebackMap[tagValue]) chargebackMap[tagValue] = 0;
                             chargebackMap[tagValue] += cost;
+
+                            // Store detailed raw data for frontend
+                            detailedCosts.push({
+                                cost: cost,
+                                date: dateIndex !== -1 ? row[dateIndex] : null,
+                                resourceGroup: rgIndex !== -1 ? row[rgIndex] : 'Desconocido',
+                                chargeType: chargeTypeIndex !== -1 ? row[chargeTypeIndex] : 'Desconocido',
+                                costCenter: tagValue
+                            });
                         }
                     }
                 }
@@ -95,13 +115,15 @@ export async function GET(request: NextRequest) {
                 if (result) processRows(result);
             }
 
-            return Object.keys(chargebackMap).map(k => ({
+            const aggregated = Object.keys(chargebackMap).map(k => ({
                 name: k,
                 value: Number(chargebackMap[k].toFixed(2))
             }));
+
+            return { aggregated, detailedCosts };
         }, 3600); // Guardar en caché por 1 hora
 
-        return NextResponse.json({ data: chargebackData });
+        return NextResponse.json({ data: chargebackData.aggregated, detailed: chargebackData.detailedCosts });
 
     } catch (error: any) {
         console.error("Chargeback Fetch Error:", error);

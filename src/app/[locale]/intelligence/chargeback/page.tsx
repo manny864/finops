@@ -44,14 +44,35 @@ export default function ChargebackPage() {
             const json = await res.json();
             if (json.data) {
                 setData(json.data.sort((a: any, b: any) => b.value - a.value));
-                // Mocking raw costs for the engine demonstration
-                const mockRawCosts = json.data.map((d: any) => ({
-                    resourceId: `res-${d.name}`,
-                    resourceName: `Shared ${d.name} Cluster`,
-                    costCenter: d.name,
-                    amount: d.value
-                }));
-                setRawCosts(mockRawCosts);
+                
+                // Usar datos multidimensionales reales de Azure si están disponibles
+                if (json.detailed && json.detailed.length > 0) {
+                    const groupedMap: Record<string, any> = {};
+                    json.detailed.forEach((d: any) => {
+                        // Agrupar por Grupo de Recursos, Tipo de Cargo y Etiqueta
+                        const key = `${d.resourceGroup}|${d.chargeType}|${d.costCenter}`;
+                        if (!groupedMap[key]) {
+                            groupedMap[key] = {
+                                resourceId: key,
+                                resourceName: `RG: ${d.resourceGroup} (${d.chargeType})`,
+                                costCenter: d.costCenter,
+                                amount: 0
+                            };
+                        }
+                        groupedMap[key].amount += d.cost;
+                    });
+                    setRawCosts(Object.values(groupedMap));
+                } else {
+                    // Fallback a mock (por si la caché vieja sigue activa en Redis)
+                    const mockRawCosts = json.data.map((d: any) => ({
+                        resourceId: `res-${d.name}`,
+                        resourceName: `Shared ${d.name} Cluster`,
+                        costCenter: d.name,
+                        amount: d.value
+                    }));
+                    setRawCosts(mockRawCosts);
+                }
+                
                 setHasAnalyzed(true);
                 toast.success(t('showback_success'));
             }
