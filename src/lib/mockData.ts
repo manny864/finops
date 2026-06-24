@@ -392,6 +392,49 @@ export const getMockDataForRoute = (route: string, arg2: string) => {
                 success: true,
                 data: ueData
             };
+        case 'scorecard':
+            return {
+                success: true,
+                data: [
+                    {
+                        team: "Data Engineering",
+                        score: 95,
+                        totalCost: 18500,
+                        penalties: [
+                            { reason: "Recursos sin etiquetar (3%)", impact: -3, costImpact: 450 },
+                            { reason: "Baja cobertura de RI en Worker Nodes", impact: -2, costImpact: 800 }
+                        ]
+                    },
+                    {
+                        team: "Frontend Web",
+                        score: 82,
+                        totalCost: 4200,
+                        penalties: [
+                            { reason: "App Service Plans Vacíos (Zombies)", impact: -10, costImpact: 150 },
+                            { reason: "Baja cobertura de Savings Plans", impact: -8, costImpact: 320 }
+                        ]
+                    },
+                    {
+                        team: "Mobile App",
+                        score: 75,
+                        totalCost: 8900,
+                        penalties: [
+                            { reason: "Discos Huérfanos P30", impact: -15, costImpact: 580 },
+                            { reason: "VMs de Dev sin apagado automático", impact: -10, costImpact: 400 }
+                        ]
+                    },
+                    {
+                        team: "Legacy Backend",
+                        score: 45, // < 60 -> Alerta
+                        totalCost: 34000,
+                        penalties: [
+                            { reason: "100% Instancias On-Demand (Sin Reservas)", impact: -30, costImpact: 8500 },
+                            { reason: "Alta densidad de Discos Zombies", impact: -15, costImpact: 1200 },
+                            { reason: "Falta etiqueta 'CostCenter' en 80% de RGs", impact: -10, costImpact: 0 }
+                        ]
+                    }
+                ]
+            };
         case 'commitments':
             return {
                 success: true,
