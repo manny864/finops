@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 
 export default function OnboardingPage() {
   const t = useTranslations('onboarding');
-  const { selectedTenant } = useTenant();
+  const { selectedTenant, systemRole } = useTenant();
   const [tenants, setTenants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
