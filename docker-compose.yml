@@ -17,6 +17,7 @@ services:
       - "traefik.http.routers.finops.entrypoints=websecure"
       - "traefik.http.routers.finops.tls.certresolver=myresolver"
       - "traefik.http.services.finops.loadbalancer.server.port=3000"
+      - "traefik.docker.network=proxy_network"
     networks:
       - proxy_network
 
