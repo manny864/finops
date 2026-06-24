@@ -5,7 +5,8 @@ import {
     Calendar, Skull, Tag, BarChart3, Zap, Moon
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell, Legend } from 'recharts';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
+import { useRouter } from 'next/navigation';
 
 import { FocusCostEntry } from '@/modules/core/focusMapper';
 import FocusCostPieChart from './FocusCostPieChart';
@@ -27,6 +28,8 @@ export default function InteractiveDashboard({
     tagsData
 }: InteractiveDashboardProps) {
     const t = useTranslations('Billing');
+    const locale = useLocale();
+    const router = useRouter();
     
     // Process backend JSON shapes
     // advisorData.recommendations is grouped: { Cost: [...], Security: [...], ... }
@@ -39,7 +42,7 @@ export default function InteractiveDashboard({
 
     const computedAppliedSavings = 0; // Placeholder
 
-    const computedUntagged = tagsData?.nonCompliant ? tagsData.nonCompliant.length : undefined;
+    const computedUntagged = tagsData?.data?.allResources ? tagsData.data.allResources.filter((r: any) => !r.isCompliant).length : undefined;
     let computedZombies: number | string = '--';
     let leakageMap: any = {};
 
@@ -291,7 +294,7 @@ export default function InteractiveDashboard({
                     </div>
                     <div className="relative z-10">
                         <FeatureGuard featureName="Optimization Details" requiredTier="Professional" className="mb-0">
-                            <button className="w-full bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-bold py-1.5 rounded-lg shadow-sm transition-colors">
+                            <button onClick={() => router.push(`/${locale}/advisor`)} className="w-full bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-bold py-1.5 rounded-lg shadow-sm transition-colors">
                                 {t('viewDetails', { fallback: 'Ver Detalles' })}
                             </button>
                         </FeatureGuard>
@@ -399,15 +402,31 @@ export default function InteractiveDashboard({
                     </div>
                     <div className="h-64 w-full relative flex items-center justify-center">
                         {leakagePieData.length > 0 ? (
-                            <ResponsiveContainer width="100%" height="100%">
-                                <RechartsPieChart>
-                                    <Pie data={leakagePieData} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={5} dataKey="value">
-                                        {leakagePieData.map((e, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                                    </Pie>
-                                    <RechartsTooltip formatter={(v: any) => `$${Number(v).toFixed(2)}`} />
-                                    <Legend wrapperStyle={{ fontSize: '11px', fontWeight: 600, paddingTop: '5px' }} />
-                                </RechartsPieChart>
-                            </ResponsiveContainer>
+                            <div className="flex flex-col h-full w-full">
+                                <div className="h-40 w-full shrink-0">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <RechartsPieChart>
+                                            <Pie data={leakagePieData} cx="50%" cy="50%" innerRadius={40} outerRadius={65} paddingAngle={5} dataKey="value">
+                                                {leakagePieData.map((e, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                                            </Pie>
+                                            <RechartsTooltip formatter={(v: any) => `$${Number(v).toFixed(2)}`} />
+                                        </RechartsPieChart>
+                                    </ResponsiveContainer>
+                                </div>
+                                <div className="flex-1 overflow-y-auto mt-2 px-2 custom-scrollbar">
+                                    <div className="flex flex-col gap-1.5">
+                                        {leakagePieData.map((item, i) => (
+                                            <div key={i} className="flex justify-between items-center text-[11px] bg-slate-50 p-1.5 rounded">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-2.5 h-2.5 rounded-full shadow-sm" style={{ backgroundColor: COLORS[i % COLORS.length] }}></div>
+                                                    <span className="text-slate-600 font-bold truncate max-w-[120px]">{item.name}</span>
+                                                </div>
+                                                <span className="font-extrabold text-slate-800">${item.value.toFixed(2)}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
                         ) : (
                             <div className="text-sm text-slate-400">Sin datos de fugas</div>
                         )}
@@ -438,8 +457,7 @@ export default function InteractiveDashboard({
                             </div>
                         </div>
                         <div className="flex flex-col items-end">
-                            <div className="text-emerald-600 font-extrabold text-sm mb-2">$2,100 <span className="text-[10px] font-medium text-slate-400">/mes</span></div>
-                            <button className="bg-[#0088FF] hover:bg-blue-600 text-white text-[11px] font-bold px-5 py-1.5 rounded-full shadow-sm transition-colors">{t('btn_apply')}</button>
+                            <div className="text-emerald-600 font-extrabold text-sm">$2,100 <span className="text-[10px] font-medium text-slate-400">/mes</span></div>
                         </div>
                     </div>
 
@@ -457,8 +475,7 @@ export default function InteractiveDashboard({
                             </div>
                         </div>
                         <div className="flex flex-col items-end">
-                            <div className="text-emerald-600 font-extrabold text-sm mb-2">$1,850 <span className="text-[10px] font-medium text-slate-400">/mes</span></div>
-                            <button className="bg-[#0088FF] hover:bg-blue-600 text-white text-[11px] font-bold px-5 py-1.5 rounded-full shadow-sm transition-colors">{t('btn_apply')}</button>
+                            <div className="text-emerald-600 font-extrabold text-sm">$1,850 <span className="text-[10px] font-medium text-slate-400">/mes</span></div>
                         </div>
                     </div>
 
@@ -476,8 +493,7 @@ export default function InteractiveDashboard({
                             </div>
                         </div>
                         <div className="flex flex-col items-end">
-                            <div className="text-emerald-600 font-extrabold text-sm mb-2">$1,620 <span className="text-[10px] font-medium text-slate-400">/mes</span></div>
-                            <button className="bg-[#0088FF] hover:bg-blue-600 text-white text-[11px] font-bold px-5 py-1.5 rounded-full shadow-sm transition-colors">{t('btn_apply')}</button>
+                            <div className="text-emerald-600 font-extrabold text-sm">$1,620 <span className="text-[10px] font-medium text-slate-400">/mes</span></div>
                         </div>
                     </div>
 
@@ -495,8 +511,7 @@ export default function InteractiveDashboard({
                             </div>
                         </div>
                         <div className="flex flex-col items-end">
-                            <div className="text-emerald-600 font-extrabold text-sm mb-2">$1,450 <span className="text-[10px] font-medium text-slate-400">/mes</span></div>
-                            <button className="bg-[#0088FF] hover:bg-blue-600 text-white text-[11px] font-bold px-5 py-1.5 rounded-full shadow-sm transition-colors">{t('btn_apply')}</button>
+                            <div className="text-emerald-600 font-extrabold text-sm">$1,450 <span className="text-[10px] font-medium text-slate-400">/mes</span></div>
                         </div>
                     </div>
                 </div>

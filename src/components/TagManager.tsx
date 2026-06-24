@@ -13,7 +13,7 @@ export default function TagManager() {
     const { instance, accounts } = useMsal();
     
     const [isAnalyzing, setIsAnalyzing] = useState(false);
-    const [nonCompliantResources, setNonCompliantResources] = useState<any[]>([]);
+    const [resources, setResources] = useState<any[]>([]);
     const [editingResource, setEditingResource] = useState<any>(null);
     const [tagValues, setTagValues] = useState<Record<string, string>>({});
     const [isApplying, setIsApplying] = useState(false);
@@ -22,7 +22,7 @@ export default function TagManager() {
     const analyzeCompliance = useCallback(async () => {
         if (accounts.length === 0 || selectedTenant.id === 'default') {
             setComplianceScore(null);
-            setNonCompliantResources([]);
+            setResources([]);
             return;
         }
         
@@ -33,10 +33,10 @@ export default function TagManager() {
             
             if (json.success && json.data) {
                 setComplianceScore(json.data.complianceScore);
-                setNonCompliantResources(json.data.violatingResources || []);
+                setResources(json.data.allResources || []);
             } else {
                 setComplianceScore(0);
-                setNonCompliantResources([]);
+                setResources([]);
             }
         } catch (e) {
             console.error("Error analyzing compliance", e);
@@ -105,7 +105,7 @@ export default function TagManager() {
                             <span className="text-[12px] font-bold text-brand-deep animate-pulse mt-1">Analizando...</span>
                         ) : (
                             <span className="text-[12px] font-bold text-ink mt-1">
-                                {nonCompliantResources.length} infracciones
+                                {resources.filter(r => !r.isCompliant).length} infracciones
                             </span>
                         )}
                     </div>
@@ -158,41 +158,35 @@ export default function TagManager() {
             <div className="card p-[18px] mb-6">
                 <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-1.5">
                     <ShieldAlert className="w-4 h-4 text-brand-deep" />
-                    Políticas de Etiquetado Activas (Flexera Cardinality)
+                    Políticas de Etiquetado Globales Activas
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-[11px]">
-                    <div className="flex items-center space-x-3 bg-surface px-4 py-3 rounded-[10px] border border-line shadow-sm">
-                        <span className="bg-rose-100 text-rose-800 text-[9px] font-bold px-2 py-0.5 rounded tracking-wider">CRÍTICO</span>
-                        <span className="text-[13px] font-bold text-slate-700">Completamente sin etiquetas</span>
-                    </div>
-                    <div className="flex items-center space-x-3 bg-surface px-4 py-3 rounded-[10px] border border-line shadow-sm">
-                        <span className="bg-amber-100 text-amber-800 text-[9px] font-bold px-2 py-0.5 rounded tracking-wider">REQUERIDO</span>
-                        <span className="text-[13px] font-mono font-bold text-slate-700">Environment</span>
-                    </div>
-                    <div className="flex items-center space-x-3 bg-surface px-4 py-3 rounded-[10px] border border-line shadow-sm">
-                        <span className="bg-amber-100 text-amber-800 text-[9px] font-bold px-2 py-0.5 rounded tracking-wider">REQUERIDO</span>
-                        <span className="text-[13px] font-mono font-bold text-slate-700">CostCenter</span>
-                    </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-[11px]">
+                    {['Environment', 'Role', 'CostCenter', 'Department'].map((tag) => (
+                        <div key={tag} className="flex items-center space-x-3 bg-surface px-4 py-3 rounded-[10px] border border-line shadow-sm">
+                            <span className="bg-amber-100 text-amber-800 text-[9px] font-bold px-2 py-0.5 rounded tracking-wider">REQUERIDO</span>
+                            <span className="text-[13px] font-mono font-bold text-slate-700">{tag}</span>
+                        </div>
+                    ))}
                 </div>
             </div>
 
             {/* Listado de Infracciones */}
             <div className="card overflow-hidden">
                 <div className="card-h flex justify-between items-center">
-                    <h3 className="m-0">Recursos No Conformes (Infracciones de Etiquetas)</h3>
+                    <h3 className="m-0">Auditoría de Etiquetas de Recursos</h3>
                     {isAnalyzing && <span className="text-[11px] font-bold text-brand-deep animate-pulse">Escaneando infraestructura...</span>}
                 </div>
                 
-                {!isAnalyzing && nonCompliantResources.length === 0 ? (
-                    <div className="empty flex flex-col items-center">
-                        <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-emerald-100 text-emerald-600">
-                            <CheckCircle2 className="w-8 h-8" />
+                {!isAnalyzing && resources.length === 0 ? (
+                    <div className="empty flex flex-col items-center py-12">
+                        <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-slate-100 text-slate-400">
+                            <Info className="w-8 h-8" />
                         </div>
                         <h4 className="text-[16px] font-heading font-bold text-ink">
-                            ¡Infraestructura Impecable!
+                            No se encontraron etiquetas asignadas en los recursos actuales
                         </h4>
                         <p className="text-[13px] text-ink-soft mt-1">
-                            Todos los recursos cumplen con las políticas de etiquetado requeridas.
+                            Asegúrate de tener recursos provisionados en Azure para poder auditar sus etiquetas.
                         </p>
                     </div>
                 ) : (
@@ -204,13 +198,13 @@ export default function TagManager() {
                                     <th>Tipo</th>
                                     <th>Suscripción</th>
                                     <th>Grupo de Recursos</th>
-                                    <th>Motivo del Incumplimiento</th>
+                                    <th>Estado de Cumplimiento</th>
                                     <th>Etiquetas Faltantes</th>
                                     <th className="num">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {nonCompliantResources.map((item, i) => {
+                                {resources.map((item, i) => {
                                     const sub = subscriptions.find(s => s.id === item.subscriptionId);
                                     const subName = sub ? sub.name : item.subscriptionId;
                                     return (
@@ -225,28 +219,46 @@ export default function TagManager() {
                                             </td>
                                             <td className="text-slate-600 text-[13px]">{subName}</td>
                                             <td className="text-slate-600 text-[13px]">{item.resourceGroup}</td>
-                                            <td className="text-slate-600 text-[13px] font-medium">{item.reason}</td>
+                                            <td>
+                                                {item.isCompliant ? (
+                                                    <div className="inline-flex items-center space-x-1 bg-emerald-100 text-emerald-800 text-[11px] font-bold px-2 py-1 rounded-full">
+                                                        <CheckCircle2 className="w-3.5 h-3.5" />
+                                                        <span>100% Compliant</span>
+                                                    </div>
+                                                ) : (
+                                                    <div className="inline-flex items-center space-x-1 bg-rose-100 text-rose-800 text-[11px] font-bold px-2 py-1 rounded-full">
+                                                        <ShieldAlert className="w-3.5 h-3.5" />
+                                                        <span>No Conforme</span>
+                                                    </div>
+                                                )}
+                                            </td>
                                             <td>
                                                 <div className="flex flex-wrap gap-[7px]">
-                                                    {item.missingTags.map((tag: string, idx: number) => (
-                                                        <span key={idx} className="tag red">
-                                                            {tag}
-                                                        </span>
-                                                    ))}
+                                                    {item.isCompliant ? (
+                                                        <span className="text-slate-400 text-xs italic">Ninguna</span>
+                                                    ) : (
+                                                        item.missingTags.map((tag: string, idx: number) => (
+                                                            <span key={idx} className="tag red">
+                                                                {tag}
+                                                            </span>
+                                                        ))
+                                                    )}
                                                 </div>
                                             </td>
                                             <td className="num">
-                                                <button 
-                                                    onClick={() => {
-                                                        setEditingResource(item);
-                                                        const initVals: Record<string,string> = {};
-                                                        item.missingTags.forEach((t: string) => initVals[t] = "");
-                                                        setTagValues(initVals);
-                                                    }}
-                                                    className="bg-brand-soft text-brand-deep border border-brand-bright/20 hover:border-brand-bright hover:bg-brand-deep hover:text-white px-[11px] py-[7px] rounded-[10px] text-[12px] font-heading font-semibold transition-colors cursor-pointer"
-                                                >
-                                                    Editar Etiquetas
-                                                </button>
+                                                {!item.isCompliant && (
+                                                    <button 
+                                                        onClick={() => {
+                                                            setEditingResource(item);
+                                                            const initVals: Record<string,string> = {};
+                                                            item.missingTags.forEach((t: string) => initVals[t] = "");
+                                                            setTagValues(initVals);
+                                                        }}
+                                                        className="bg-brand-soft text-brand-deep border border-brand-bright/20 hover:border-brand-bright hover:bg-brand-deep hover:text-white px-[11px] py-[7px] rounded-[10px] text-[12px] font-heading font-semibold transition-colors cursor-pointer"
+                                                    >
+                                                        Editar Etiquetas
+                                                    </button>
+                                                )}
                                             </td>
                                         </tr>
                                     );

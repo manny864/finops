@@ -418,5 +418,15 @@
       "email": "Email",
       "roleToAssign": "Rol a asignar"
     }
+  },
+  "Sustainability": {
+    "greenFinops": "Green FinOps (Sostenibilidad)",
+    "subtitle": "Monitorea tu huella de carbono y emisiones evitadas",
+    "totalCarbonFootprint": "Huella de Carbono Total",
+    "avoidedEmissions": "Emisiones Evitadas",
+    "avgPowerEfficiency": "Eficiencia Energética Prom.",
+    "highGrade": "Grado Alto",
+    "sustainableCloudComputing": "Computación en la Nube Sostenible",
+    "sustainabilityDesc": "El factor de intensidad de carbono se asigna automáticamente según tus regiones activas en Azure. Mover cargas de trabajo a regiones como northeurope o francecentral puede reducir significativamente tu huella."
   }
 }

@@ -71,41 +71,55 @@ export default function FocusCostPieChart({ data, onSegmentClick }: { data: Focu
     };
 
     return (
-        <div className="w-full h-full min-h-[220px] relative overflow-hidden flex-1 flex flex-col justify-center items-center">
-            <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                    <Pie
-                        // @ts-ignore
-                        activeIndex={activeIndex !== null ? activeIndex : undefined}
-                        activeShape={renderActiveShape}
-                        data={chartData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={45}
-                        outerRadius={70}
-                        paddingAngle={5}
-                        dataKey="cost"
-                        stroke="none"
-                        onClick={handleClick}
-                        className="cursor-pointer focus:outline-none"
-                    >
-                        {chartData.map((entry, index) => (
-                            <Cell 
-                                key={`cell-${index}`} 
-                                fill={COLORS[index % COLORS.length]} 
-                                opacity={activeIndex === null || activeIndex === index ? 1 : 0.3}
-                            />
-                        ))}
-                    </Pie>
-                    <Tooltip 
-                        formatter={(value: any, name: any) => {
-                            return [`$${value} USD`, name];
-                        }}
-                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                    />
-                    <Legend wrapperStyle={{ fontSize: '12px', fontWeight: 600, paddingTop: '10px' }} />
-                </PieChart>
-            </ResponsiveContainer>
+        <div className="flex flex-col h-full w-full">
+            <div className="h-40 w-full shrink-0">
+                <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                        <Pie
+                            // @ts-ignore
+                            activeIndex={activeIndex !== null ? activeIndex : undefined}
+                            activeShape={renderActiveShape}
+                            data={chartData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={40}
+                            outerRadius={65}
+                            paddingAngle={5}
+                            dataKey="cost"
+                            stroke="none"
+                            onClick={handleClick}
+                            className="cursor-pointer focus:outline-none"
+                        >
+                            {chartData.map((entry, index) => (
+                                <Cell 
+                                    key={`cell-${index}`} 
+                                    fill={COLORS[index % COLORS.length]} 
+                                    opacity={activeIndex === null || activeIndex === index ? 1 : 0.3}
+                                />
+                            ))}
+                        </Pie>
+                        <Tooltip 
+                            formatter={(value: any, name: any) => {
+                                return [`$${value} USD`, name];
+                            }}
+                            contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                        />
+                    </PieChart>
+                </ResponsiveContainer>
+            </div>
+            <div className="flex-1 overflow-y-auto mt-2 px-2 custom-scrollbar">
+                <div className="flex flex-col gap-1.5">
+                    {chartData.map((item, i) => (
+                        <div key={i} className="flex justify-between items-center text-[11px] bg-slate-50 p-1.5 rounded">
+                            <div className="flex items-center gap-2">
+                                <div className="w-2.5 h-2.5 rounded-full shadow-sm" style={{ backgroundColor: COLORS[i % COLORS.length] }}></div>
+                                <span className="text-slate-600 font-bold truncate max-w-[120px]" title={item.name}>{item.name}</span>
+                            </div>
+                            <span className="font-extrabold text-slate-800">${item.cost.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
         </div>
     );
 }

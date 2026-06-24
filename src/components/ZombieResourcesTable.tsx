@@ -318,7 +318,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
         header: 'Recurso',
         cell: ({ row }) => {
             const item = row.original;
-            return <span className={`font-semibold text-gray-800 ${item.isLocked ? 'filter blur-sm select-none' : ''}`}>{item.resourceName}</span>;
+            return <span className={`font-semibold text-gray-800 dark:text-gray-200 ${item.isLocked ? 'filter blur-sm select-none' : ''}`}>{item.resourceName}</span>;
         },
       }
     ];
@@ -350,7 +350,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
     cols.push({
       accessorKey: 'type',
       header: 'Tipo',
-      cell: info => <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs">{info.getValue() as string}</span>
+      cell: info => <span className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-2 py-1 rounded text-xs">{info.getValue() as string}</span>
     });
 
     cols.push({
@@ -358,7 +358,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
       header: 'Grupo',
       cell: ({ row }) => {
           const item = row.original;
-          return <span className={`text-xs text-gray-600 font-medium ${item.isLocked ? 'filter blur-sm select-none' : ''}`}>{item.resourceGroup || 'N/A'}</span>;
+          return <span className={`text-xs text-gray-600 dark:text-gray-400 font-medium ${item.isLocked ? 'filter blur-sm select-none' : ''}`}>{item.resourceGroup || 'N/A'}</span>;
       }
     });
 
@@ -460,7 +460,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
     <div className="card">
       <div className="card-h flex-col sm:flex-row items-start sm:items-center gap-4 border-b border-line pb-4 mb-4">
         <div>
-            <h3 className="text-brand-deep m-0">
+            <h3 className="text-brand-deep dark:text-white m-0">
                 {selectedSub === "all" ? "Auditoría FinOps (Global)" : "Auditoría FinOps (Filtrada)"}
             </h3>
             {error && error !== 'MISSING_RBAC_ROLE' && <span className="mt-2 inline-block text-xs text-amber bg-amber-soft px-2 py-1 rounded border border-amber/20">{error}</span>}
@@ -468,7 +468,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
         
         <div className="flex flex-wrap items-center gap-4 w-full sm:w-auto">
             <div className="flex items-center space-x-2">
-                <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">Suscripción:</label>
+                <label className="text-[11px] font-bold text-grey dark:text-gray-300 uppercase tracking-[0.5px]">Suscripción:</label>
                 <select 
                     value={selectedSub}
                     onChange={(e) => {
@@ -485,7 +485,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                 </select>
             </div>
             <div className="flex items-center space-x-2">
-                <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">Nombre:</label>
+                <label className="text-[11px] font-bold text-grey dark:text-gray-300 uppercase tracking-[0.5px]">Nombre:</label>
                 <input 
                     type="text" 
                     placeholder="Filtrar por nombre..."
@@ -495,7 +495,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                 />
             </div>
             <div className="flex items-center space-x-2">
-                <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">Tipo:</label>
+                <label className="text-[11px] font-bold text-grey dark:text-gray-300 uppercase tracking-[0.5px]">Tipo:</label>
                 <input 
                     type="text"
                     list="type-list"
@@ -509,7 +509,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                 </datalist>
             </div>
             <div className="flex items-center space-x-2">
-                <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">Grupo:</label>
+                <label className="text-[11px] font-bold text-grey dark:text-gray-300 uppercase tracking-[0.5px]">Grupo:</label>
                 <input 
                     type="text"
                     list="group-list"
@@ -523,7 +523,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                 </datalist>
             </div>
             <div className="flex items-center space-x-2">
-                <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">Severidad:</label>
+                <label className="text-[11px] font-bold text-grey dark:text-gray-300 uppercase tracking-[0.5px]">Severidad:</label>
                 <select value={filterIssue} onChange={e => setFilterIssue(e.target.value)} className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] p-2 outline-none w-32 focus:border-brand-bright focus:ring-1 focus:ring-brand-bright placeholder-ink-soft">
                     <option value="all">Todas</option>
                     <option value="cost">Costo</option>

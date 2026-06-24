@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import { collectAdvisorData } from "@/modules/collectors/azure/advisorCollector";
-import { getMockDataForRoute } from "@/lib/mockData";
+
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 
 export async function GET(request: NextRequest) {
@@ -10,10 +10,7 @@ export async function GET(request: NextRequest) {
     const locale = request.headers.get('accept-language') || 'es';
     if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
 
-    const mockData = getMockDataForRoute('advisor', tenantId);
-    if (mockData) {
-      return NextResponse.json(mockData);
-    }
+
 
     const authHeader = request.headers.get("authorization");
     if (!authHeader || !authHeader.startsWith("Bearer ")) {

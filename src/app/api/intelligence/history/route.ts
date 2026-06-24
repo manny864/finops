@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAzureCredential } from "@/lib/azure";
 import db from "@/modules/storage/db";
 import jwt from "jsonwebtoken";
-import { getMockDataForRoute } from "@/lib/mockData";
+
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 
 // GET Historical data dynamically from Azure Advisor Score History
@@ -29,8 +29,7 @@ export async function GET(request: NextRequest) {
         const locale = request.headers.get('accept-language') || 'es';
         console.log(`[History] Fetching for tenantId: ${tenantId}`);
 
-        const mockData = getMockDataForRoute('history', tenantId);
-        if (mockData) return NextResponse.json(mockData);
+
 
         const cacheKey = `intelligence:history:${tenantId}`;
 

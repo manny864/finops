@@ -117,13 +117,25 @@ export default function BudgetBurnChart({ onHeightChange }: BudgetBurnChartProps
                                 <XAxis type="number" xAxisId={1} hide />
                                 <YAxis type="category" dataKey="costCenter" width={100} tick={{fill: '#6b7280', fontSize: 12}} tickLine={false} axisLine={{stroke: '#e5e7eb'}} />
                                 <Tooltip 
-                                    formatter={(val: any) => `$${Number(val).toFixed(2)} USD`} 
+                                    content={({ active, payload }) => {
+                                        if (active && payload && payload.length) {
+                                            const data = payload[0].payload;
+                                            return (
+                                                <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-100">
+                                                    <p className="font-bold text-sm text-gray-800 mb-1">{data.costCenter}</p>
+                                                    <p className="text-xs text-gray-600">
+                                                        Gasto: <span className="font-bold text-blue-600">${data.actual.toFixed(2)}</span> / Presupuesto: <span className="font-bold text-teal-600">${data.budget.toFixed(2)}</span>
+                                                    </p>
+                                                </div>
+                                            );
+                                        }
+                                        return null;
+                                    }}
                                     cursor={{fill: 'transparent'}}
-                                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                                 />
                                 
                                 {/* Barra Gruesa de Fondo (Presupuesto) */}
-                                <Bar dataKey="budget" name="Presupuesto Asignado" xAxisId={0} barSize={24} fill="#f3f4f6" radius={[0, 4, 4, 0]} />
+                                <Bar dataKey="budget" name="Presupuesto Asignado" xAxisId={0} barSize={24} fill="#0d9488" radius={[0, 4, 4, 0]} />
                                 
                                 {/* Barra Fina Frontal (Gasto Actual) */}
                                 <Bar dataKey="actual" name="Gasto Actual" xAxisId={1} barSize={12} radius={[0, 4, 4, 0]}>

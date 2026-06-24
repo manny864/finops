@@ -274,7 +274,7 @@ export default function Home() {
     <div className="content animate-in fade-in duration-500">
       <div className="vhead">
         <div className="title">
-          <h1>{t('title')}</h1>
+          <h1 className="text-gray-900 dark:text-white">{t('title')}</h1>
           <p>{t('subtitle')} <span className="text-xs text-brand/60 ml-2">({t('drag_hint')})</span></p>
         </div>
         
@@ -368,7 +368,7 @@ export default function Home() {
                          {complianceScore === -1 && (
                              <button 
                                  onClick={(e) => { e.stopPropagation(); setActiveTab('tags'); }}
-                                 className="mt-4 px-4 py-2 bg-[var(--brand)] text-white text-xs font-semibold rounded shadow-sm hover:opacity-90 transition-colors"
+                                 className="mt-4 px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 text-xs font-semibold rounded shadow-sm transition-colors"
                              >
                                  {t('configure_policies')}
                              </button>

@@ -11,6 +11,7 @@ export async function getNativeBudgets(tenantId: string, subscriptionId: string)
     try {
         for await (const budget of client.budgets.list(scope)) {
             budgetsData.push({
+                subscriptionId: subscriptionId,
                 costCenter: budget.name,
                 budget: budget.amount || 0,
                 actual: budget.currentSpend ? budget.currentSpend.amount : 0
