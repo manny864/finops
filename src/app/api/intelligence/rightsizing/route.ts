@@ -4,6 +4,7 @@ import { getVmUtilization } from '@/modules/collectors/azure/metricsService';
 import { analyzeVmEfficiency } from '@/modules/core/rightsizingEngine';
 import { getMonthlyCostEstimate } from '@/services/pricingService';
 import { getMockDataForRoute } from '@/lib/mockData';
+import { getWithStaleWhileRevalidate } from '@/lib/cache';
 
 async function queryResourceGraphWithRetry(client: any, query: string, subscriptions: string[], retries = 3, initialDelay = 3000): Promise<any> {
     let currentDelay = initialDelay;
@@ -35,7 +36,9 @@ export async function GET(request: NextRequest) {
         const mockData = getMockDataForRoute('rightsizing', tenantId);
         if (mockData) return NextResponse.json(mockData);
 
-        const argClient = await getResourceGraphClient(tenantId);
+        const cacheKey = `rightsizing:${tenantId}:${subscriptionId || 'all'}`;
+        const underutilizedVms = await getWithStaleWhileRevalidate(cacheKey, async () => {
+            const argClient = await getResourceGraphClient(tenantId);
         let subs: string[] | undefined = undefined;
         if (subscriptionId && subscriptionId.toLowerCase() !== 'all') {
             subs = [subscriptionId];
@@ -175,7 +178,8 @@ export async function GET(request: NextRequest) {
         const stoppedResults = await Promise.all(stoppedPromises);
         
         const results = [...activeResults, ...stoppedResults];
-        const underutilizedVms = results.filter(r => r.isUnderutilized);
+            return results.filter(r => r.isUnderutilized);
+        }, 3600);
 
         return NextResponse.json({ success: true, data: underutilizedVms });
     } catch (error: any) {

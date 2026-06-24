@@ -3,7 +3,7 @@ import { getAzureCredential } from "@/lib/azure";
 import db from "@/modules/storage/db";
 import jwt from "jsonwebtoken";
 import { getMockDataForRoute } from "@/lib/mockData";
-import { getWithCache } from "@/lib/cache";
+import { getWithStaleWhileRevalidate } from "@/lib/cache";
 
 // GET Historical data dynamically from Azure Advisor Score History
 export async function GET(request: NextRequest) {
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
 
         const cacheKey = `intelligence:history:${tenantId}`;
 
-        const aggregatedData = await getWithCache(cacheKey, async () => {
+        const aggregatedData = await getWithStaleWhileRevalidate(cacheKey, async () => {
             // 1. Obtener Credenciales y Token de Azure
             const credential = await getAzureCredential(tenantId);
             const tokenResponse = await credential.getToken("https://management.azure.com/.default");

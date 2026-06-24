@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAzureCredential } from "@/lib/azure";
 import jwt from "jsonwebtoken";
+import { getWithStaleWhileRevalidate } from "@/lib/cache";
 
 export async function GET(request: NextRequest) {
   try {
@@ -37,7 +38,12 @@ export async function GET(request: NextRequest) {
 
     await getAzureCredential(tenantId);
     
-    return NextResponse.json({ success: true, tenantId, subscriptionId, costSummary: { amortizedCost: 0, currency: "USD", note: "Falta implementar CostManagementClient." } });
+    const cacheKey = `consumption:${tenantId}:${subscriptionId}`;
+    const data = await getWithStaleWhileRevalidate(cacheKey, async () => {
+        return { success: true, tenantId, subscriptionId, costSummary: { amortizedCost: 0, currency: "USD", note: "Falta implementar CostManagementClient." } };
+    }, 3600);
+    
+    return NextResponse.json(data);
 
   } catch (error: any) {
     return NextResponse.json({ error: "Error interno", details: error.message }, { status: 500 });

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import { collectAdvisorData } from "@/modules/collectors/azure/advisorCollector";
 import { getMockDataForRoute } from "@/lib/mockData";
+import { getWithStaleWhileRevalidate } from "@/lib/cache";
 
 export async function GET(request: NextRequest) {
   try {
@@ -32,7 +33,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: `Acceso denegado. El token no coincide con el tenant.` }, { status: 403 });
     }
 
-    const data = await collectAdvisorData(tenantId, locale);
+    const cacheKey = `advisor:${tenantId}:${locale}`;
+    const data = await getWithStaleWhileRevalidate(cacheKey, async () => {
+        return await collectAdvisorData(tenantId, locale);
+    }, 3600);
 
     return NextResponse.json({ 
         success: true, 

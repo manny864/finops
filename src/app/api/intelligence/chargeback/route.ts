@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAzureCredential } from "@/lib/azure";
 import { CostManagementClient } from "@azure/arm-costmanagement";
-import { getWithCache } from "@/lib/cache";
+import { getWithStaleWhileRevalidate } from "@/lib/cache";
 
 export async function GET(request: NextRequest) {
     try {
@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
 
         const cacheKey = `intelligence:chargeback:${tenantId}:${subscriptionId}:${tagKey}`;
 
-        const chargebackData = await getWithCache(cacheKey, async () => {
+        const chargebackData = await getWithStaleWhileRevalidate(cacheKey, async () => {
             const credential = await getAzureCredential(tenantId);
             const client = new CostManagementClient(credential);
             const scope = subscriptionId === 'All' 
