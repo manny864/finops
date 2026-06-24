@@ -15,7 +15,17 @@ services:
       - "traefik.docker.network=proxy_network"
     networks:
       - proxy_network
+      - finops_internal
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:alpine
+    restart: always
+    networks:
+      - finops_internal
 
 networks:
   proxy_network:
     external: true
+  finops_internal:
