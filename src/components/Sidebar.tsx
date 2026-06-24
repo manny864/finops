@@ -33,7 +33,8 @@ import {
     Box,
     Server,
     ShieldCheck,
-    Trophy
+    Trophy,
+    CheckCircle
 } from 'lucide-react';
 
 interface SidebarProps {

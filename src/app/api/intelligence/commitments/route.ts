@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
 
             try {
                 // Para obtener recomendaciones a través de Cost Management (esto puede fallar por falta de permisos en EA)
-                const recs = await costClient.generateReservationRecommendationDetails.default(scope, "Shared", "VirtualMachines", "Last30Days");
+                const recs = await (costClient as any).generateReservationRecommendationDetails.default(scope, "Shared", "VirtualMachines", "Last30Days");
                 if (recs && recs.value) {
                     recommendations = recs.value.slice(0, 10).map((r: any) => ({
                         type: r.type || 'VirtualMachines',

@@ -8,7 +8,7 @@ export const isMockTenant = (tenantId: string) => {
     ].includes(tenantId);
 };
 
-export const getMockDataForRoute = (route: string, arg2: string) => {
+export const getMockDataForRoute = (route: string, arg2: string): any => {
     // Arg2 can be either a tenantId (from backend) or a tier string (from frontend mock override)
     const isTenantId = arg2 && arg2.length > 20; // tenantIds are GUIDs
     if (isTenantId && !isMockTenant(arg2)) {
