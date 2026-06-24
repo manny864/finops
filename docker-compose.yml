@@ -6,25 +6,13 @@ services:
     restart: always
     env_file:
       - .env
-    environment:
-      - REDIS_HOST=redis
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
-    depends_on:
-      - redis
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.finops.rule=Host(`portal.cscloudsolutions.com.ar`)"
       - "traefik.http.routers.finops.entrypoints=websecure"
       - "traefik.http.routers.finops.tls.certresolver=myresolver"
       - "traefik.http.services.finops.loadbalancer.server.port=3000"
-    networks:
-      - proxy_network
-
-  redis:
-    image: redis:7-alpine
-    restart: always
-    # Automatically uses REDIS_PASSWORD from .env if available
-    command: /bin/sh -c 'if [ -n "$$REDIS_PASSWORD" ]; then redis-server --requirepass "$$REDIS_PASSWORD"; else redis-server; fi'
+      - "traefik.docker.network=proxy_network"
     networks:
       - proxy_network
 
