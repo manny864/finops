@@ -333,6 +333,7 @@
         "Billing & Cost History",
         "Budgets View",
         "Sustainability Dashboard",
+        "Zero-Cost Inventory",
         "PDF/CSV Exports",
         "Azure Advisor Health Score",
         "Potential Savings Radar (Teaser)"
@@ -360,6 +361,7 @@
         "FinOps Copilot (AI)",
         "Anomaly Detection",
         "Time-to-Live (TTL) Policies",
+        "AKS Control (Kubernetes)",
         "Cost Distribution (Chargeback)"
       ]
     },
