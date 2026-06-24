@@ -28,7 +28,8 @@ import {
     DollarSign,
     CreditCard,
     Cpu,
-    Leaf
+    Leaf,
+    Building2
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -117,6 +118,11 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             href: '/admin/payments',
             label: 'Configuración de Pagos',
             icon: CreditCard
+        } as any);
+        categories.find(c => c.id === 'admin')?.items.push({
+            href: '/admin/tenants',
+            label: 'Gestión de Tenants',
+            icon: Building2
         } as any);
     }
 

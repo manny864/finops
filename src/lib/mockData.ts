@@ -283,6 +283,46 @@ export const getMockDataForRoute = (route: string, arg2: string) => {
                     { name: 'Marketing Campaign', limit: 2000 * multiplier, currentSpend: 2100 * multiplier, status: 'Exceeded' }
                 ]
             };
+        case 'budgets_burn':
+            return {
+                success: true,
+                burnData: [
+                    { costCenter: 'IT & Ops', budget: 15000 * multiplier, actual: 12000 * multiplier },
+                    { costCenter: 'Marketing', budget: 5000 * multiplier, actual: 4800 * multiplier },
+                    { costCenter: 'R&D', budget: 8000 * multiplier, actual: 9500 * multiplier },
+                    { costCenter: 'HR', budget: 2000 * multiplier, actual: 1200 * multiplier }
+                ]
+            };
+        case 'tags':
+            return {
+                success: true,
+                policies: [
+                    { tag_key: 'CostCenter', required: true },
+                    { tag_key: 'Environment', required: true },
+                    { tag_key: 'Owner', required: true }
+                ]
+            };
+        case 'maturity':
+            return {
+                success: true,
+                score: Math.min(100, 40 + (multiplier * 10)),
+                breakdown: {
+                    visibility: Math.min(100, 50 + (multiplier * 8)),
+                    optimization: Math.min(100, 40 + (multiplier * 10)),
+                    governance: Math.min(100, 30 + (multiplier * 12)),
+                    automation: Math.min(100, 20 + (multiplier * 15))
+                }
+            };
+        case 'users':
+            return {
+                success: true,
+                isSuperAdmin: true,
+                users: [
+                    { id: 1, email: "admin@empresa-demo.com", display_name: "Director IT", role: "Admin", entra_oid: "demo-oid-1", system_role: "USER" },
+                    { id: 2, email: "devops@empresa-demo.com", display_name: "Ingeniero DevOps", role: "Colaborador", entra_oid: "demo-oid-2", system_role: "USER" },
+                    { id: 3, email: "finanzas@empresa-demo.com", display_name: "Auditor Financiero", role: "Reader", entra_oid: "demo-oid-3", system_role: "USER" }
+                ]
+            };
         default:
             return { success: true, message: "Mock data not defined for this route" };
     }

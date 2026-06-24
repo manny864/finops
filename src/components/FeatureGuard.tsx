@@ -17,12 +17,12 @@ export default function FeatureGuard({ children, requiredTier, featureName, clas
     const t = useTranslations('Common');
     const currentTier = (selectedTenant as any).tier || 'Essential';
 
-    if (systemRole === 'SUPERADMIN') {
-        return <>{children}</>;
-    }
-
-    if (hasAccess(currentTier, requiredTier)) {
-        return <>{children}</>;
+    if (systemRole === 'SUPERADMIN' || hasAccess(currentTier, requiredTier)) {
+        return (
+            <div className={`h-full w-full ${className || ''}`}>
+                {children}
+            </div>
+        );
     }
 
     return (
