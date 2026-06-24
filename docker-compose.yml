@@ -8,9 +8,9 @@ services:
       - .env
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.finops.rule=Host(`portal.cscloudsolutions.com.ar`)"
+      - "traefik.http.routers.finops.rule=Host(`finops.cscloudsolutions.com.ar`)"
       - "traefik.http.routers.finops.entrypoints=websecure"
-      - "traefik.http.routers.finops.tls.certresolver=myresolver"
+      - "traefik.http.routers.finops.tls.certresolver=mytlschallenge"
       - "traefik.http.services.finops.loadbalancer.server.port=3000"
       - "traefik.docker.network=proxy_network"
     networks:
