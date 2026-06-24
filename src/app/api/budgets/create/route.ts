@@ -6,7 +6,7 @@ import jwt from "jsonwebtoken";
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { subscriptionId, budgetName, amount, contactEmail, alertThreshold, tenantId: bodyTenantId } = body;
+        const { subscriptionId, budgetName, amount, contactEmail, alertThreshold, tenantId: bodyTenantId, timeGrain } = body;
 
         if (!subscriptionId || !budgetName || amount === undefined || !contactEmail) {
             return NextResponse.json({ error: "Faltan parámetros requeridos." }, { status: 400 });
@@ -37,13 +37,23 @@ export async function POST(request: NextRequest) {
             budgetName,
             amount: parseFloat(amount),
             contactEmails: [contactEmail],
-            alertThreshold: alertThreshold ? parseFloat(alertThreshold) : undefined
+            alertThreshold: alertThreshold ? parseFloat(alertThreshold) : undefined,
+            timeGrain: timeGrain || 'BillingMonth'
         });
 
         return NextResponse.json({ success: true, data: result }, { status: 201 });
 
     } catch (e: any) {
         console.error("Error creating budget in route:", e);
+        
+        // Manejar falta de permisos de escritura (RBAC)
+        if (e.code === 'RBACAccessDenied' || (e.details?.error?.code === 'RBACAccessDenied')) {
+            return NextResponse.json({ 
+                error: "Permisos insuficientes", 
+                details: "La aplicación no tiene permisos para crear presupuestos. Debes asignar el rol 'Cost Management Contributor' a la aplicación en la suscripción de Azure." 
+            }, { status: 403 });
+        }
+
         return NextResponse.json({ error: "Fallo al crear el presupuesto en Azure", details: e.message }, { status: 500 });
     }
 }
