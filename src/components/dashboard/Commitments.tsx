@@ -102,7 +102,7 @@ export default function Commitments() {
                                 <ShieldCheck className="w-5 h-5 text-green-500" />
                                 Utilización de Reservas
                             </h3>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">Target >80%. Porcentaje de la reserva pagada que realmente estás usando.</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Target &gt;80%. Porcentaje de la reserva pagada que realmente estás usando.</p>
                         </div>
                     </div>
                     
@@ -123,7 +123,7 @@ export default function Commitments() {
                                     <Cell fill={utilizationColor} />
                                     <Cell fill="#E5E7EB" className="dark:fill-slate-700" />
                                 </Pie>
-                                <Tooltip formatter={(value: number) => `${value.toFixed(1)}%`} />
+                                <Tooltip formatter={(value: any) => `${Number(value).toFixed(1)}%`} />
                             </PieChart>
                         </ResponsiveContainer>
                         <div className="absolute inset-0 flex items-center justify-center flex-col">
@@ -168,7 +168,7 @@ export default function Commitments() {
                                     <Cell fill={coverageColor} />
                                     <Cell fill="#E5E7EB" className="dark:fill-slate-700" />
                                 </Pie>
-                                <Tooltip formatter={(value: number) => `${value.toFixed(1)}%`} />
+                                <Tooltip formatter={(value: any) => `${Number(value).toFixed(1)}%`} />
                             </PieChart>
                         </ResponsiveContainer>
                         <div className="absolute inset-0 flex items-center justify-center flex-col">

@@ -188,7 +188,7 @@ export default function UnitEconomics() {
                                 cursor={{ fill: 'rgba(0,0,0,0.05)' }}
                                 contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
                                 labelStyle={{ color: '#374151', fontWeight: 'bold', marginBottom: '8px' }}
-                                formatter={(value: number, name: string) => {
+                                formatter={(value: any, name: any) => {
                                     if (name === "Costo Nube ($)") return [`$${value.toFixed(2)}`, name];
                                     if (name === "Costo por Usuario (Centavos)") return [`${value}¢`, name];
                                     return [value, name];
