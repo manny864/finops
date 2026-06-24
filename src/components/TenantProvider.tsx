@@ -109,8 +109,8 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                     // Saved tenant no longer in DB (was deleted), reset to first valid
                     setSelectedTenant(data.tenants[0]);
                     localStorage.removeItem('finops_active_tenant');
-                } else if (stillExists && stillExists.name !== selectedTenant.name) {
-                    // Keep the selected tenant in sync with the DB name
+                } else if (stillExists && (stillExists.name !== selectedTenant.name || stillExists.tier !== selectedTenant.tier || stillExists.subscription_status !== selectedTenant.subscription_status)) {
+                    // Keep the selected tenant in sync with the DB
                     setSelectedTenant(stillExists);
                 }
             }
