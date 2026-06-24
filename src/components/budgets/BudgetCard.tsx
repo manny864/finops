@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { Loader2, DollarSign, Bell } from 'lucide-react';
 import { useSubscription } from '@/components/SubscriptionProvider';
 import { useMsal } from '@azure/msal-react';
+import CreateBudgetModal from '@/components/CreateBudgetModal';
 
 const currencyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 
@@ -15,6 +16,9 @@ export default function BudgetCard() {
     const [loading, setLoading] = useState(false);
     const [budgetData, setBudgetData] = useState<any>(null);
     const [budgetsBySub, setBudgetsBySub] = useState<Record<string, { budget: number, actual: number }>>({});
+    
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [activeSubscriptionForModal, setActiveSubscriptionForModal] = useState<string>('');
 
     const { selectedSubscription, subscriptions } = useSubscription();
     const { instance, accounts } = useMsal();
@@ -135,7 +139,13 @@ export default function BudgetCard() {
                 ) : (
                     <div className="mt-6 text-sm text-gray-400 h-32 flex flex-col items-center justify-center text-center border-2 border-dashed border-gray-100 dark:border-slate-800 rounded-lg">
                         <p className="mb-3">{t('no_budget_configured')}</p>
-                        <button className="px-4 py-2 bg-brand-deep text-white rounded-md text-xs font-bold hover:bg-brand-bright transition-colors">
+                        <button 
+                            onClick={() => {
+                                setActiveSubscriptionForModal(subscriptions[0]?.id || '');
+                                setIsModalOpen(true);
+                            }}
+                            className="px-4 py-2 bg-brand-deep text-white rounded-md text-xs font-bold hover:bg-brand-bright transition-colors"
+                        >
                             {t('configure_btn')}
                         </button>
                     </div>
@@ -176,13 +186,28 @@ export default function BudgetCard() {
                                 </div>
                             </div>
                             
-                            <button className="w-full py-2 bg-gray-50 dark:bg-slate-800 hover:bg-gray-100 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-700 rounded-md text-xs font-bold text-brand-deep transition-colors">
-                                Editar Presupuesto
+                            <button 
+                                onClick={() => {
+                                    setActiveSubscriptionForModal(sub.id);
+                                    setIsModalOpen(true);
+                                }}
+                                className="w-full py-2 bg-gray-50 dark:bg-slate-800 hover:bg-gray-100 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-700 rounded-md text-xs font-bold text-brand-deep transition-colors"
+                            >
+                                Configurar / Editar Presupuesto
                             </button>
                         </div>
                     );
                 })}
             </div>
+            <CreateBudgetModal 
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                onSuccess={() => {
+                    window.location.reload();
+                }}
+                subscriptionId={activeSubscriptionForModal}
+                tenantId={selectedTenant.id}
+            />
         </div>
     );
 }

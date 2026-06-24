@@ -189,6 +189,37 @@ export default function InteractiveDashboard({
     const totalZombiesSavings = Object.values(leakageMap).reduce((sum: any, val: any) => sum + val, 0) as number;
     const totalPotentialSavings = computedTotalSavings + totalZombiesSavings;
 
+    const opportunities: { title: string, category: string, savings: number, type: 'advisor' | 'zombie' }[] = [];
+
+    if (advisorData?.recommendations?.Cost) {
+        advisorData.recommendations.Cost.forEach((rec: any) => {
+            const savings = parseFloat(rec.extendedProperties?.savingsAmount || '0');
+            if (savings > 0) {
+                opportunities.push({
+                    title: rec.shortDescription?.solution || rec.shortDescription?.problem || t('cost_optimization', { fallback: 'Optimización de Costos' }),
+                    category: "Azure Advisor",
+                    savings: savings,
+                    type: 'advisor'
+                });
+            }
+        });
+    }
+
+    Object.keys(leakageMap).forEach(key => {
+        const savings = leakageMap[key];
+        if (savings > 0) {
+            opportunities.push({
+                title: `${t('leak', { fallback: 'Fuga' })}: ${key}`,
+                category: t('inactive_resources_cat', { fallback: 'Recursos Inactivos' }),
+                savings: savings,
+                type: 'zombie'
+            });
+        }
+    });
+
+    opportunities.sort((a, b) => b.savings - a.savings);
+    const topOpportunities = opportunities.slice(0, 4);
+
     if (loading || billingData === null) {
         return (
             <div className="max-w-[1400px] mx-auto p-6 rounded-2xl bg-slate-50 animate-pulse">
@@ -443,77 +474,32 @@ export default function InteractiveDashboard({
                     </div>
                 </div>
                 <div className="divide-y divide-gray-50">
-                    <div className="p-4 px-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
-                        <div className="flex items-center">
-                            <div className="bg-[#FFF4E5] p-2.5 rounded-lg mr-4">
-                                <Tag className="w-5 h-5 text-amber-700 fill-amber-700/20" />
-                            </div>
-                            <div>
-                                <div className="flex items-center gap-2">
-                                    <h4 className="text-sm font-bold text-slate-800">Instancia Reservada 3 años</h4>
-                                    <span className="bg-blue-50 text-blue-600 text-[10px] font-bold px-2 py-0.5 rounded-full">12× VM</span>
+                    {topOpportunities.length === 0 ? (
+                        <div className="p-8 text-center text-slate-400 text-sm font-medium">
+                            No se encontraron oportunidades de ahorro destacadas en este momento.
+                        </div>
+                    ) : topOpportunities.map((opp, idx) => (
+                        <div key={idx} className="p-4 px-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                            <div className="flex items-center">
+                                <div className={`p-2.5 rounded-lg mr-4 ${opp.type === 'advisor' ? 'bg-[#FFF4E5]' : 'bg-[#FFF8E6]'}`}>
+                                    {opp.type === 'advisor' ? (
+                                        <Tag className="w-5 h-5 text-amber-700 fill-amber-700/20" />
+                                    ) : (
+                                        <Skull className="w-5 h-5 text-amber-500" />
+                                    )}
                                 </div>
-                                <p className="text-[11px] text-slate-500 mt-1 font-medium">Optimización de Tarifas · <span className="text-slate-700 font-bold">PROD-Core</span></p>
-                            </div>
-                        </div>
-                        <div className="flex flex-col items-end">
-                            <div className="text-emerald-600 font-extrabold text-sm">$2,100 <span className="text-[10px] font-medium text-slate-400">/mes</span></div>
-                        </div>
-                    </div>
-
-                    <div className="p-4 px-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
-                        <div className="flex items-center">
-                            <div className="bg-[#FFF8E6] p-2.5 rounded-lg mr-4">
-                                <Moon className="w-5 h-5 text-amber-400 fill-amber-400" />
-                            </div>
-                            <div>
-                                <div className="flex items-center gap-2">
-                                    <h4 className="text-sm font-bold text-slate-800">Power Schedule QA</h4>
-                                    <span className="bg-blue-50 text-blue-600 text-[10px] font-bold px-2 py-0.5 rounded-full">6 VMs</span>
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <h4 className="text-sm font-bold text-slate-800" title={opp.title}>{opp.title}</h4>
+                                    </div>
+                                    <p className="text-[11px] text-slate-500 mt-1 font-medium">{opp.category}</p>
                                 </div>
-                                <p className="text-[11px] text-slate-500 mt-1 font-medium">Horarios de Apagado · <span className="text-slate-700 font-bold">QA-Staging</span></p>
+                            </div>
+                            <div className="flex flex-col items-end shrink-0">
+                                <div className="text-emerald-600 font-extrabold text-sm">${opp.savings.toLocaleString('en-US', {minimumFractionDigits: 0, maximumFractionDigits: 0})} <span className="text-[10px] font-medium text-slate-400">/mes</span></div>
                             </div>
                         </div>
-                        <div className="flex flex-col items-end">
-                            <div className="text-emerald-600 font-extrabold text-sm">$1,850 <span className="text-[10px] font-medium text-slate-400">/mes</span></div>
-                        </div>
-                    </div>
-
-                    <div className="p-4 px-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
-                        <div className="flex items-center">
-                            <div className="bg-[#FFF8E6] p-2.5 rounded-lg mr-4">
-                                <Moon className="w-5 h-5 text-amber-400 fill-amber-400" />
-                            </div>
-                            <div>
-                                <div className="flex items-center gap-2">
-                                    <h4 className="text-sm font-bold text-slate-800">Power Schedule DEV</h4>
-                                    <span className="bg-blue-50 text-blue-600 text-[10px] font-bold px-2 py-0.5 rounded-full">8 VMs</span>
-                                </div>
-                                <p className="text-[11px] text-slate-500 mt-1 font-medium">Horarios de Apagado · <span className="text-slate-700 font-bold">DEV-Sandbox</span></p>
-                            </div>
-                        </div>
-                        <div className="flex flex-col items-end">
-                            <div className="text-emerald-600 font-extrabold text-sm">$1,620 <span className="text-[10px] font-medium text-slate-400">/mes</span></div>
-                        </div>
-                    </div>
-
-                    <div className="p-4 px-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
-                        <div className="flex items-center">
-                            <div className="bg-[#FFF4E5] p-2.5 rounded-lg mr-4">
-                                <Tag className="w-5 h-5 text-amber-700 fill-amber-700/20" />
-                            </div>
-                            <div>
-                                <div className="flex items-center gap-2">
-                                    <h4 className="text-sm font-bold text-slate-800">Savings Plan de cómputo</h4>
-                                    <span className="bg-blue-50 text-blue-600 text-[10px] font-bold px-2 py-0.5 rounded-full">SQL MI</span>
-                                </div>
-                                <p className="text-[11px] text-slate-500 mt-1 font-medium">Optimización de Tarifas · <span className="text-slate-700 font-bold">PROD-Data</span></p>
-                            </div>
-                        </div>
-                        <div className="flex flex-col items-end">
-                            <div className="text-emerald-600 font-extrabold text-sm">$1,450 <span className="text-[10px] font-medium text-slate-400">/mes</span></div>
-                        </div>
-                    </div>
+                    ))}
                 </div>
             </div>
 
