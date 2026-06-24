@@ -3,6 +3,7 @@ import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { getAzureCredential } from "@/lib/azure";
 import jwt from "jsonwebtoken";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
+import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 
 export async function GET(request: NextRequest) {
     try {
@@ -25,6 +26,10 @@ export async function GET(request: NextRequest) {
 
         if (decoded.tid !== tenantId && !isAdmin) {
             return NextResponse.json({ error: `Acceso denegado. El token no coincide con el tenant.` }, { status: 403 });
+        }
+
+        if (isMockTenant(tenantId)) {
+            return NextResponse.json(getMockDataForRoute('zero_cost', tenantId));
         }
 
         const cacheKey = `zerocost:${tenantId}`;
@@ -54,55 +59,7 @@ export async function GET(request: NextRequest) {
                 }
             });
 
-            let finalData = result.data || [];
-            
-            // Inyectar Mocks si no hay datos reales (para propósitos de demostración/prueba)
-            if (finalData.length === 0) {
-                finalData = [
-                    {
-                        id: "/subscriptions/demo/resourceGroups/rg-webapp/providers/Microsoft.Web/serverfarms/asp-frontend-free",
-                        name: "asp-frontend-free",
-                        type: "microsoft.web/serverfarms",
-                        resourceGroup: "rg-webapp",
-                        Motivo: "Capa Gratuita (Free SKU)",
-                        skuName: "F1"
-                    },
-                    {
-                        id: "/subscriptions/demo/resourceGroups/rg-backend/providers/Microsoft.Web/serverfarms/asp-backend-dev",
-                        name: "asp-backend-dev",
-                        type: "microsoft.web/serverfarms",
-                        resourceGroup: "rg-backend",
-                        Motivo: "Capa Gratuita (Free SKU)",
-                        skuName: "Free"
-                    },
-                    {
-                        id: "/subscriptions/demo/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-core-hub",
-                        name: "vnet-core-hub",
-                        type: "microsoft.network/virtualnetworks",
-                        resourceGroup: "rg-network",
-                        Motivo: "Servicio de Gestión / Arquitectura (Sin costo base)",
-                        skuName: "N/A"
-                    },
-                    {
-                        id: "/subscriptions/demo/resourceGroups/rg-security/providers/Microsoft.Network/networkSecurityGroups/nsg-web-inbound",
-                        name: "nsg-web-inbound",
-                        type: "microsoft.network/networksecuritygroups",
-                        resourceGroup: "rg-security",
-                        Motivo: "Servicio de Gestión / Arquitectura (Sin costo base)",
-                        skuName: "N/A"
-                    },
-                    {
-                        id: "/subscriptions/demo/resourceGroups/rg-security/providers/Microsoft.Network/networkSecurityGroups/nsg-db-internal",
-                        name: "nsg-db-internal",
-                        type: "microsoft.network/networksecuritygroups",
-                        resourceGroup: "rg-security",
-                        Motivo: "Servicio de Gestión / Arquitectura (Sin costo base)",
-                        skuName: "N/A"
-                    }
-                ];
-            }
-
-            return finalData;
+            return result.data || [];
         }, 43200); // 12 hours TTL
 
         return NextResponse.json({ success: true, data });
