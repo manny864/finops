@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import CreateResourceGroupModal from '@/components/CreateResourceGroupModal';
 import { isMockTenant } from '@/lib/mockData';
 import FeatureGuard from '@/components/FeatureGuard';
-
+import { Info } from 'lucide-react';
 
 export default function WorkbooksPage() {
     const { selectedTenant } = useTenant();
@@ -121,6 +121,11 @@ export default function WorkbooksPage() {
                 <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight flex items-center">
                     <BookOpen className="w-8 h-8 mr-3 text-[#0054A6]" />
                     Artefactos y Workbooks
+                    <span title="Required Roles: Contributor, Cost Management Contributor">
+                        <Info 
+                            className="w-5 h-5 ml-3 text-gray-400 cursor-help" 
+                        />
+                    </span>
                 </h1>
                 <p className="text-gray-500 dark:text-gray-400 mt-2">Inyecta tableros de control y reportes directamente en el entorno de Azure del cliente.</p>
             </div>
@@ -149,8 +154,8 @@ export default function WorkbooksPage() {
                                         onChange={e => handleSubChange(e.target.value, setSubIdCost, true)}
                                         className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white rounded-md shadow-sm focus:ring-[#0054A6] focus:border-[#0054A6] sm:text-sm placeholder-gray-500 dark:placeholder-gray-400"
                                     >
-                                        <option value="">Selecciona una suscripción...</option>
-                                        {subscriptions.map((s:any) => <option key={s.id} value={s.id}>{s.displayName}</option>)}
+                                        <option value="" className="text-gray-900 dark:text-gray-100 bg-white dark:bg-slate-800">Selecciona una suscripción...</option>
+                                        {subscriptions.map((s:any) => <option key={s.id} value={s.id} className="text-gray-900 dark:text-gray-100 bg-white dark:bg-slate-800">{s.displayName}</option>)}
                                     </select>
                                 </div>
                                 <div>
@@ -170,8 +175,8 @@ export default function WorkbooksPage() {
                                         disabled={!subIdCost || loadingRgs}
                                         className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white rounded-md shadow-sm sm:text-sm placeholder-gray-500 dark:placeholder-gray-400"
                                     >
-                                        <option value="">{loadingRgs ? 'Cargando...' : 'Selecciona un RG...'}</option>
-                                        {rgs.map((r:any) => <option key={r.name} value={r.name}>{r.name} ({r.location})</option>)}
+                                        <option value="" className="text-gray-900 dark:text-gray-100 bg-white dark:bg-slate-800">{loadingRgs ? 'Cargando...' : 'Selecciona un RG...'}</option>
+                                        {rgs.map((r:any) => <option key={r.name} value={r.name} className="text-gray-900 dark:text-gray-100 bg-white dark:bg-slate-800">{r.name} ({r.location})</option>)}
                                     </select>
                                 </div>
                             </div>
@@ -204,8 +209,8 @@ export default function WorkbooksPage() {
                                         onChange={e => handleSubChange(e.target.value, setSubIdZombie, false)}
                                         className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm placeholder-gray-500 dark:placeholder-gray-400"
                                     >
-                                        <option value="">Selecciona una suscripción...</option>
-                                        {subscriptions.map((s:any) => <option key={s.id} value={s.id}>{s.displayName}</option>)}
+                                        <option value="" className="text-gray-900 dark:text-gray-100 bg-white dark:bg-slate-800">Selecciona una suscripción...</option>
+                                        {subscriptions.map((s:any) => <option key={s.id} value={s.id} className="text-gray-900 dark:text-gray-100 bg-white dark:bg-slate-800">{s.displayName}</option>)}
                                     </select>
                                 </div>
                                 <div>
@@ -225,8 +230,8 @@ export default function WorkbooksPage() {
                                         disabled={!subIdZombie || loadingRgs}
                                         className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white rounded-md shadow-sm sm:text-sm placeholder-gray-500 dark:placeholder-gray-400"
                                     >
-                                        <option value="">{loadingRgs ? 'Cargando...' : 'Selecciona un RG...'}</option>
-                                        {rgs.map((r:any) => <option key={r.name} value={r.name}>{r.name} ({r.location})</option>)}
+                                        <option value="" className="text-gray-900 dark:text-gray-100 bg-white dark:bg-slate-800">{loadingRgs ? 'Cargando...' : 'Selecciona un RG...'}</option>
+                                        {rgs.map((r:any) => <option key={r.name} value={r.name} className="text-gray-900 dark:text-gray-100 bg-white dark:bg-slate-800">{r.name} ({r.location})</option>)}
                                     </select>
                                 </div>
                             </div>

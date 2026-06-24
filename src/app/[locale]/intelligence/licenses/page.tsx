@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useTenant } from '@/components/TenantProvider';
 import { useSubscription } from '@/components/SubscriptionProvider';
 import { useTranslations } from 'next-intl';
+import { Info } from 'lucide-react';
 
 export default function LicensesPage() {
     const { selectedTenant } = useTenant();
@@ -62,7 +63,7 @@ export default function LicensesPage() {
     if (errorData) {
         return (
             <div className="p-8 max-w-[1400px] mx-auto animate-in fade-in duration-500">
-                <h1 className="text-2xl font-black text-slate-800 mb-6">License Optimization</h1>
+                <h1 className="text-2xl font-black text-slate-800 dark:text-white mb-6">License Optimization</h1>
                 <div className="bg-rose-50 border border-rose-200 rounded-2xl p-8 text-center">
                     <div className="w-16 h-16 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4">
                         <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
@@ -76,12 +77,14 @@ export default function LicensesPage() {
 
     return (
         <div className="p-8 max-w-[1400px] mx-auto animate-in fade-in duration-500">
-            <h1 className="text-2xl font-black text-slate-800 mb-2">Optimización de Licencias</h1>
-            <p className="text-sm text-slate-500 mb-6">Optimice sus costos de licenciamiento Microsoft 365 y aproveche Azure Hybrid Benefit (AHUB).</p>
+            <h1 className="text-2xl font-black text-slate-800 dark:text-white mb-2 flex items-center">
+                Licencias
+            </h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">Optimice sus costos de licenciamiento Microsoft 365 y aproveche Azure Hybrid Benefit (AHUB).</p>
             
             <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                    <p className="text-sm font-bold text-slate-500 mb-2">Total Licencias (M365)</p>
+                    <p className="text-sm font-bold text-slate-500 mb-2">Total Licencias</p>
                     <p className="text-3xl font-black text-slate-800">{loading ? '-' : (graphError ? 'N/A' : total)}</p>
                 </div>
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
@@ -111,7 +114,7 @@ export default function LicensesPage() {
             {/* SECCIÓN AZURE HYBRID BENEFIT */}
             <div className="mb-8">
                 <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                    <h2 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
                         <svg className="w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                         </svg>
@@ -202,7 +205,7 @@ export default function LicensesPage() {
 
                 {!graphError && (
                     <>
-                        <h2 className="text-xl font-bold text-slate-800 mb-4">Métricas por SKU (Office 365)</h2>
+                        <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Métricas por SKU</h2>
                         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-8">
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left border-collapse">
@@ -225,7 +228,16 @@ export default function LicensesPage() {
                                         )}
                                         {!loading && licenses.map(l => (
                                             <tr key={l.id} className="hover:bg-slate-50 transition-colors">
-                                                <td className="p-4 font-bold text-slate-700 text-sm">{l.skuPartNumber}</td>
+                                                <td className="p-4 font-bold text-slate-700 text-sm">
+                                                    <div className="flex items-center gap-1.5">
+                                                        {l.skuPartNumber}
+                                                        {l.skuPartNumber === 'Windows_Store' && (
+                                                            <span title="El identificador Windows_Store es la categoría que utiliza Azure para facturar suscripciones de software. No se refiere a la tienda de aplicaciones de Windows, sino que incluye licencias corporativas (M365, Copilot, Entra ID) y herramientas de terceros compradas en el Azure Commercial Marketplace.">
+                                                                <Info className="w-4 h-4 text-slate-400 cursor-help shrink-0" />
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </td>
                                                 <td className="p-4 text-slate-600 text-sm">{l.total}</td>
                                                 <td className="p-4 text-slate-600 text-sm">{l.consumed}</td>
                                                 <td className="p-4 text-emerald-600 font-semibold text-sm">{l.available}</td>
@@ -238,7 +250,7 @@ export default function LicensesPage() {
                             </div>
                         </div>
 
-                        <h2 className="text-xl font-bold text-slate-800 mb-4">Usuarios Inactivos (Recomendación de Revocación)</h2>
+                        <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Usuarios Inactivos (Recomendación de Revocación)</h2>
                         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left border-collapse">

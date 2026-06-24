@@ -22,10 +22,7 @@ export default function GlobalCopilot() {
     const [loading, setLoading] = useState(false);
     const t = useTranslations('Copilot');
 
-    // Security Guard: Prevent rendering if not logged in or no tenant selected
-    if (accounts.length === 0 || !selectedTenant || selectedTenant.id === 'default') {
-        return null;
-    }
+    // Security Guard moved to bottom to prevent React Hook rules violation
 
     const getAuthHeaders = async (): Promise<Record<string, string>> => {
         if (accounts.length === 0) return { 'Content-Type': 'application/json' };
@@ -142,6 +139,10 @@ export default function GlobalCopilot() {
         
         fetchInitialSummary();
     }, [isOpen, currentDataPayload, currentPage, messages.length, injectedPrompt]);
+
+    if (accounts.length === 0 || !selectedTenant || selectedTenant.id === 'default') {
+        return null;
+    }
 
     return (
         <>

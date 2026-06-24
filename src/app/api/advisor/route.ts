@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import { collectAdvisorData } from "@/modules/collectors/azure/advisorCollector";
-import { getMockDataForRoute } from "@/lib/mockData";
+
+import { getWithStaleWhileRevalidate } from "@/lib/cache";
 
 export async function GET(request: NextRequest) {
   try {
@@ -9,10 +10,7 @@ export async function GET(request: NextRequest) {
     const locale = request.headers.get('accept-language') || 'es';
     if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
 
-    const mockData = getMockDataForRoute('advisor', tenantId);
-    if (mockData) {
-      return NextResponse.json(mockData);
-    }
+
 
     const authHeader = request.headers.get("authorization");
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -25,14 +23,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Estructura de token inválida." }, { status: 401 });
     }
 
-    const email = decoded.preferred_username || decoded.unique_name || decoded.email || "";
-    const isAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") && decoded.tid === "8b41364f-581a-4e43-b7cb-13138dac5517";
+    const email = decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "";
+    const isAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") ;
 
     if (decoded.tid !== tenantId && !isAdmin) {
       return NextResponse.json({ error: `Acceso denegado. El token no coincide con el tenant.` }, { status: 403 });
     }
 
-    const data = await collectAdvisorData(tenantId, locale);
+    const cacheKey = `advisor:${tenantId}:${locale}`;
+    const data = await getWithStaleWhileRevalidate(cacheKey, async () => {
+        return await collectAdvisorData(tenantId, locale);
+    }, 3600);
 
     return NextResponse.json({ 
         success: true, 

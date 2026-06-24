@@ -16,12 +16,12 @@ export default function LanguageSwitcher() {
   const onSelectChange = (e: ChangeEvent<HTMLSelectElement>) => {
     const nextLocale = e.target.value;
     startTransition(() => {
-      // Create search params string if any exist
+      // Preserve search params
       const search = searchParams.toString();
       const query = search ? `?${search}` : '';
       
-      // Let's use window.location to ensure a hard reload with the new locale if next-intl's router is failing
-      window.location.href = `/${nextLocale}${pathname === '/' ? '' : pathname}${query}`;
+      // Use next-intl's router for 100% SPA navigation
+      router.replace(`${pathname}${query}` as any, { locale: nextLocale });
     });
   };
 

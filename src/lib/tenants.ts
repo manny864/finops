@@ -9,16 +9,6 @@ export interface Tenant {
 
 export const tenants: Tenant[] = [
   {
-    id: "54d7cf18-0baa-4da7-8242-fbf59a92aaac",
-    name: "CSCloudSolutions Global (Admin)",
-    tier: 'Enterprise'
-  },
-  {
-    id: "8b41364f-581a-4e43-b7cb-13138dac5517",
-    name: "CSCloudSolutions Global (Admin 2)",
-    tier: 'Enterprise'
-  },
-  {
     id: "11111111-2222-3333-4444-555555555555",
     name: "Cliente Acme (Demo Free)",
     tier: 'Essential'

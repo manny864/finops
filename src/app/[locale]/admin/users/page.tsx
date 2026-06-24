@@ -275,8 +275,8 @@ export default function UsersPage() {
                         </button>
                     </div>
                     <div className="p-6">
-                        <form onSubmit={handleInvite} className="flex flex-col md:flex-row gap-4 items-end">
-                            <div className="flex-1 w-full">
+                        <form onSubmit={handleInvite} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4 items-end">
+                            <div className="lg:col-span-4 w-full">
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email del Usuario (debe ser del dominio de la empresa)</label>
                                 <input 
                                     type="email" 
@@ -287,7 +287,7 @@ export default function UsersPage() {
                                     className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md focus:ring-[#0054A6] focus:border-[#0054A6] bg-white dark:bg-slate-800 placeholder-gray-500 dark:placeholder-gray-400"
                                 />
                             </div>
-                            <div className="flex-1 w-full">
+                            <div className="lg:col-span-4 w-full">
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Entra ID (OID) del usuario</label>
                                 <input 
                                     type="text" 
@@ -298,7 +298,7 @@ export default function UsersPage() {
                                     className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md focus:ring-[#0054A6] focus:border-[#0054A6] bg-white dark:bg-slate-800 placeholder-gray-500 dark:placeholder-gray-400"
                                 />
                             </div>
-                            <div className="w-full md:w-48">
+                            <div className="lg:col-span-2 w-full">
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Rol</label>
                                 <select 
                                     value={newRole}
@@ -313,13 +313,15 @@ export default function UsersPage() {
                                     )}
                                 </select>
                             </div>
-                            <button 
-                                type="submit"
-                                disabled={inviting}
-                                className="w-full md:w-auto px-6 py-2 bg-[#0054A6] text-white rounded-md font-semibold hover:bg-[#004080] disabled:opacity-50"
-                            >
-                                {inviting ? 'Guardando...' : 'Agregar'}
-                            </button>
+                            <div className="lg:col-span-2 w-full">
+                                <button 
+                                    type="submit"
+                                    disabled={inviting}
+                                    className="w-full px-6 py-2 bg-[#0054A6] text-white rounded-md font-semibold hover:bg-[#004080] disabled:opacity-50"
+                                >
+                                    {inviting ? 'Guardando...' : 'Agregar'}
+                                </button>
+                            </div>
                         </form>
                     </div>
                 </div>

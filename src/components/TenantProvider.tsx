@@ -109,8 +109,8 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                     // Saved tenant no longer in DB (was deleted), reset to first valid
                     setSelectedTenant(data.tenants[0]);
                     localStorage.removeItem('finops_active_tenant');
-                } else if (stillExists && stillExists.name !== selectedTenant.name) {
-                    // Keep the selected tenant in sync with the DB name
+                } else if (stillExists && (stillExists.name !== selectedTenant.name || stillExists.tier !== selectedTenant.tier || stillExists.subscription_status !== selectedTenant.subscription_status)) {
+                    // Keep the selected tenant in sync with the DB
                     setSelectedTenant(stillExists);
                 }
             }
@@ -124,7 +124,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
     if (accounts.length > 0) {
       const username = accounts[0].username || "";
       const userTenant = accounts[0].tenantId;
-      const isAdminUser = username.toLowerCase().endsWith("@cscloudsolutions.com.ar") && userTenant === "8b41364f-581a-4e43-b7cb-13138dac5517";
+      const isAdminUser = username.toLowerCase().endsWith("@cscloudsolutions.com.ar") ;
       // Note: We don't setIsAdmin(isAdminUser) here anymore. We wait for system_role.
       
       // Lógica de fallback robusta si no hay nada en localStorage

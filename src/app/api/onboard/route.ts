@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
 
         const tenantId = decoded.tid;
         const entraOid = decoded.oid;
-        const email = decoded.preferred_username || decoded.email || "Unknown";
+        const email = decoded.preferred_username || decoded.upn || decoded.email || "Unknown";
         
         // Extraemos plan del body
         let reqBody: any = {};

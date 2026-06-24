@@ -53,13 +53,21 @@ export default function BudgetBurnChart({ onHeightChange }: BudgetBurnChartProps
                 if (json.error === "MISSING_ADMIN_CONSENT") {
                     setMissingConsent(true);
                 } else if (json.burnData) {
-                    setBurnData(json.burnData);
+                    const enrichedData = json.burnData.map((item: any) => {
+                        const sub = subscriptions.find((s: any) => s.id === item.subscriptionId);
+                        const subName = sub ? sub.name : item.subscriptionId;
+                        return {
+                            ...item,
+                            costCenter: `Budget - ${subName}`
+                        };
+                    });
+                    setBurnData(enrichedData);
                     
                     // Calcular nueva altura de la tarjeta.
                     // 1 barra ocupa unos 40px, el header/padding unos 80px.
                     // Cada 'h' (unidad de grid) son 80px.
                     if (onHeightChange) {
-                        const requiredPx = 80 + (json.burnData.length * 40);
+                        const requiredPx = 80 + (enrichedData.length * 40);
                         const requiredH = Math.max(4, Math.ceil(requiredPx / 80));
                         onHeightChange(requiredH);
                     }
@@ -111,19 +119,31 @@ export default function BudgetBurnChart({ onHeightChange }: BudgetBurnChartProps
                     <div className="flex-1 w-full" style={{ minHeight: `${Math.max(150, burnData.length * 40)}px` }}>
                         {!isMounted ? null : (
                             <ResponsiveContainer width="100%" height="100%">
-                            <BarChart layout="vertical" data={burnData} margin={{ top: 10, right: 30, left: 100, bottom: 5 }}>
+                            <BarChart layout="vertical" data={burnData} margin={{ top: 10, right: 30, left: 10, bottom: 5 }}>
                                 <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f3f4f6" />
                                 <XAxis type="number" xAxisId={0} hide />
                                 <XAxis type="number" xAxisId={1} hide />
-                                <YAxis type="category" dataKey="costCenter" width={100} tick={{fill: '#6b7280', fontSize: 12}} tickLine={false} axisLine={{stroke: '#e5e7eb'}} />
+                                <YAxis type="category" dataKey="costCenter" width={220} tick={{fill: '#6b7280', fontSize: 11}} tickLine={false} axisLine={{stroke: '#e5e7eb'}} />
                                 <Tooltip 
-                                    formatter={(val: any) => `$${Number(val).toFixed(2)} USD`} 
+                                    content={({ active, payload }) => {
+                                        if (active && payload && payload.length) {
+                                            const data = payload[0].payload;
+                                            return (
+                                                <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-100">
+                                                    <p className="font-bold text-sm text-gray-800 mb-1">{data.costCenter}</p>
+                                                    <p className="text-xs text-gray-600">
+                                                        Gasto: <span className="font-bold text-blue-600">${data.actual.toFixed(2)}</span> / Presupuesto: <span className="font-bold text-teal-600">${data.budget.toFixed(2)}</span>
+                                                    </p>
+                                                </div>
+                                            );
+                                        }
+                                        return null;
+                                    }}
                                     cursor={{fill: 'transparent'}}
-                                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                                 />
                                 
                                 {/* Barra Gruesa de Fondo (Presupuesto) */}
-                                <Bar dataKey="budget" name="Presupuesto Asignado" xAxisId={0} barSize={24} fill="#f3f4f6" radius={[0, 4, 4, 0]} />
+                                <Bar dataKey="budget" name="Presupuesto Asignado" xAxisId={0} barSize={24} fill="#0d9488" radius={[0, 4, 4, 0]} />
                                 
                                 {/* Barra Fina Frontal (Gasto Actual) */}
                                 <Bar dataKey="actual" name="Gasto Actual" xAxisId={1} barSize={12} radius={[0, 4, 4, 0]}>

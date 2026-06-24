@@ -154,12 +154,12 @@ export default function PowerSchedules() {
         {
             accessorKey: 'name',
             header: 'Máquina Virtual',
-            cell: info => <span className="text-sm font-semibold text-gray-900">{info.getValue() as string}</span>,
+            cell: info => <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{info.getValue() as string}</span>,
         },
         {
             accessorKey: 'resourceGroup',
             header: 'Resource Group',
-            cell: info => <span className="text-sm text-gray-500">{info.getValue() as string}</span>,
+            cell: info => <span className="text-sm text-gray-500 dark:text-gray-400">{info.getValue() as string}</span>,
         },
         {
             id: 'powerState',

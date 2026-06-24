@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
         const decoded = jwt.decode(token) as any;
         if (!decoded) return NextResponse.json({ error: "Token inválido" }, { status: 401 });
 
-        const email = decoded.unique_name || decoded.preferred_username || decoded.email || "";
+        const email = decoded.unique_name || decoded.preferred_username || decoded.upn || decoded.email || "";
 
         const { searchParams } = new URL(request.url);
         const tenantId = searchParams.get('tenantId');
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
         // Verify the user is an admin of this tenant
         const [userRows] = await pool.query('SELECT role, system_role FROM Users WHERE email = ? AND tenant_id = ? LIMIT 1', [email, tenantId]);
         const user = (userRows as any[])[0];
-        const isSuperAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") && decoded.tid === "8b41364f-581a-4e43-b7cb-13138dac5517" && user?.system_role === "SUPERADMIN";
+        const isSuperAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar")  && user?.system_role === "SUPERADMIN";
 
         if (!user || (user.role !== 'Admin' && !isSuperAdmin)) {
             return NextResponse.json({ error: 'Solo los administradores pueden acceder al portal de facturación.' }, { status: 403 });

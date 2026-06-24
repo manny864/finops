@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { findExpiredResources } from "@/services/ttlService";
 import jwt from "jsonwebtoken";
-import { getMockDataForRoute } from "@/lib/mockData";
+
 
 export async function GET(request: NextRequest) {
     try {
@@ -12,8 +12,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Falta el tenantId." }, { status: 400 });
         }
 
-        const mockData = getMockDataForRoute('ttl', tenantId);
-        if (mockData) return NextResponse.json(mockData);
+
 
         const authHeader = request.headers.get("authorization");
         if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -26,8 +25,8 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Token inválido." }, { status: 401 });
         }
         
-        const email = decoded.preferred_username || decoded.unique_name || decoded.email || "";
-        const isAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") && decoded.tid === "8b41364f-581a-4e43-b7cb-13138dac5517";
+        const email = decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "";
+        const isAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") ;
 
         if (decoded.tid !== tenantId && !isAdmin) {
             return NextResponse.json({ error: "El token no coincide con el tenant." }, { status: 403 });

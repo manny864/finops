@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
-import { kqlCatalog } from "@/modules/core/kqlCatalog";
+import { getWithStaleWhileRevalidate } from "@/lib/cache";
+import { GLOBAL_MANDATORY_TAGS } from "@/lib/tagConfig";
 
-const MANDATORY_TAGS = ['Environment', 'CostCenter'];
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 3000;
 
@@ -30,44 +30,43 @@ export async function GET(req: NextRequest) {
         const subscriptionId = searchParams.get('subscriptionId');
         if (!tenantId) return NextResponse.json({ error: "Missing tenantId" }, { status: 400 });
 
-        const credential = await getAzureCredential(tenantId);
-        const client = new ResourceGraphClient(credential);
+        const cacheKey = `tags_compliance_${tenantId}_${subscriptionId || 'all'}`;
 
-        let subs: string[] = [];
-        if (subscriptionId && subscriptionId.toLowerCase() !== 'all') {
-            subs = [subscriptionId];
-        } else {
-            subs = await getSubscriptionsForTenant(tenantId, credential);
-        }
+        const fetcher = async () => {
+            const credential = await getAzureCredential(tenantId);
+            const client = new ResourceGraphClient(credential);
 
-        if (subs.length === 0) {
-            return NextResponse.json({
-                success: true,
-                data: {
+            let subs: string[] = [];
+            if (subscriptionId && subscriptionId.toLowerCase() !== 'all') {
+                subs = [subscriptionId];
+            } else {
+                subs = await getSubscriptionsForTenant(tenantId, credential);
+            }
+
+            if (subs.length === 0) {
+                return {
                     complianceScore: 100,
-                    violatingResources: []
-                }
-            });
-        }
+                    allResources: []
+                };
+            }
 
-        // Execute queries SEQUENTIALLY with retry to avoid 429 throttling
-        const untaggedResponse = await queryWithRetry(client, kqlCatalog.completelyUntaggedResources, subs, 'untagged');
-        const missingTagsResponse = await queryWithRetry(client, kqlCatalog.missingMandatoryTags, subs, 'missingTags');
-        const totalRes = await queryWithRetry(client, "Resources | summarize count()", subs, 'totalCount');
+            // Fetch ALL resources to evaluate them globally
+            const query = `Resources | project id, name, type, resourceGroup, subscriptionId, location, tags`;
+            const allResResponse = await queryWithRetry(client, query, subs, 'allResources');
+            const allResourcesRaw = (allResResponse?.data || []) as any[];
 
-        const untagged = (untaggedResponse?.data || []) as any[];
-        const missing = (missingTagsResponse?.data || []) as any[];
-        const totalResources = totalRes?.data?.[0]?.count_ || 0;
+            const processedResources = allResourcesRaw.map(r => {
+                const itemTags = r.tags || {};
+                
+                const missingTags = GLOBAL_MANDATORY_TAGS.filter(tag => {
+                    const tagKeyLower = tag.toLowerCase();
+                    const foundKey = Object.keys(itemTags).find(k => k.toLowerCase() === tagKeyLower);
+                    return !foundKey || !itemTags[foundKey];
+                });
 
-        const violatingResources: any[] = [];
-        const seenIds = new Set<string>();
+                const isCompliant = missingTags.length === 0;
 
-        // 1. Process completely untagged resources
-        for (const r of untagged) {
-            const idLower = r.id.toLowerCase();
-            if (!seenIds.has(idLower)) {
-                seenIds.add(idLower);
-                violatingResources.push({
+                return {
                     resourceId: r.id,
                     id: r.id,
                     name: r.name,
@@ -75,51 +74,27 @@ export async function GET(req: NextRequest) {
                     resourceGroup: r.resourceGroup,
                     subscriptionId: r.subscriptionId,
                     location: r.location,
-                    reason: "Completamente sin etiquetas",
-                    missingTags: [...MANDATORY_TAGS]
-                });
-            }
-        }
+                    reason: isCompliant ? "Cumple con las políticas" : `Faltan etiquetas obligatorias: ${missingTags.join(', ')}`,
+                    missingTags,
+                    isCompliant
+                };
+            });
 
-        // 2. Process resources missing mandatory tags
-        for (const r of missing) {
-            const idLower = r.id.toLowerCase();
-            if (!seenIds.has(idLower)) {
-                seenIds.add(idLower);
-                const itemTags = r.tags || {};
+            const totalResources = processedResources.length;
+            const compliantCount = processedResources.filter(r => r.isCompliant).length;
+            const complianceScore = totalResources === 0 ? 100 : Math.max(0, Math.round((compliantCount / totalResources) * 100));
 
-                const missingTags = MANDATORY_TAGS.filter(tag => {
-                    const tagKeyLower = tag.toLowerCase();
-                    const foundKey = Object.keys(itemTags).find(k => k.toLowerCase() === tagKeyLower);
-                    return !foundKey || !itemTags[foundKey];
-                });
+            return {
+                complianceScore,
+                allResources: processedResources
+            };
+        };
 
-                if (missingTags.length > 0) {
-                    violatingResources.push({
-                        resourceId: r.id,
-                        id: r.id,
-                        name: r.name,
-                        type: r.type,
-                        resourceGroup: r.resourceGroup,
-                        subscriptionId: r.subscriptionId,
-                        location: r.location,
-                        reason: `Faltan etiquetas obligatorias: ${missingTags.join(', ')}`,
-                        missingTags
-                    });
-                }
-            }
-        }
-
-        // Compute compliance score
-        const compliantCount = totalResources - violatingResources.length;
-        const complianceScore = totalResources === 0 ? 100 : Math.max(0, Math.round((compliantCount / totalResources) * 100));
+        const data = await getWithStaleWhileRevalidate(cacheKey, fetcher, 3600);
 
         return NextResponse.json({
             success: true,
-            data: {
-                complianceScore,
-                violatingResources
-            }
+            data
         });
 
     } catch (e: any) {
@@ -127,4 +102,3 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ success: false, error: e.message || 'Error del servidor' }, { status: 500 });
     }
 }
-

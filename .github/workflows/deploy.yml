@@ -17,4 +17,6 @@ jobs:
             cd ~/cscloud/finops
             git fetch origin main
             git reset --hard origin/main
+            # Detenemos la app vieja para liberar memoria RAM antes de compilar la nueva
+            docker compose stop finops-app
             docker compose up -d --build

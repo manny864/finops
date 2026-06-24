@@ -28,7 +28,7 @@ export default function RightsizingPage() {
         if (selectedTenant.id === 'demo_tenant') {
             const mock = getMockDataForRoute('rightsizing', 'demo_tenant');
             if (mock?.success) {
-                setVms((mock.recommendations as any[]) || []);
+                setVms((mock.data as any[]) || []);
             }
         } else {
             const res = await fetch('/api/intelligence/rightsizing', {

@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 
 export default function OnboardingPage() {
   const t = useTranslations('onboarding');
-  const { selectedTenant } = useTenant();
+  const { selectedTenant, systemRole } = useTenant();
   const [tenants, setTenants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -94,36 +94,60 @@ export default function OnboardingPage() {
       }
   };
 
+  const isSuperAdmin = systemRole === 'SUPERADMIN';
+  const [adminFilterId, setAdminFilterId] = useState<string>("all");
+
+  const displayedTenants = isSuperAdmin 
+      ? (adminFilterId === "all" ? tenants : tenants.filter(t => t.id === adminFilterId))
+      : tenants.filter(t => t.id === selectedTenant.id);
+
   const currentTenantObj = tenants.find(t => t.id === selectedTenant?.id);
   const currentTier = currentTenantObj?.tier || 'Essential';
 
   return (
     <div className="max-w-6xl mx-auto p-6 animate-in fade-in duration-500">
-      <div className="mb-8 border-b border-gray-200 pb-4">
-        <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight flex items-center">
-            <ShieldCheck className="w-8 h-8 mr-3 text-indigo-600" />
+      <div className="mb-8 border-b border-gray-200 dark:border-slate-800 pb-4">
+        <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight flex items-center">
+            <ShieldCheck className="w-8 h-8 mr-3 text-indigo-600 dark:text-indigo-400" />
             Onboarding de Clientes
         </h1>
-        <p className="text-gray-500 mt-2">Genera scripts Least-Privilege de Azure y gestiona el inventario de Tenants conectados.</p>
+        <p className="text-gray-500 dark:text-gray-400 mt-2">Genera scripts Least-Privilege de Azure y gestiona el inventario de Tenants conectados.</p>
       </div>
 
       {/* Directorio de Entornos */}
-      <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden mb-8">
-          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50/50 flex items-center">
-              <Database className="w-5 h-5 text-gray-500 mr-2" />
-              <h3 className="text-lg font-bold text-gray-800">Directorio de Entornos</h3>
+      <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden mb-8">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center">
+                  <Database className="w-5 h-5 text-gray-500 dark:text-gray-400 mr-2" />
+                  <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">Directorio de Entornos</h3>
+              </div>
+              {isSuperAdmin && (
+                  <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Filtrar Tenant:</span>
+                      <select 
+                          value={adminFilterId}
+                          onChange={(e) => setAdminFilterId(e.target.value)}
+                          className="border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-md px-3 py-1.5 text-sm focus:ring-indigo-500 focus:border-indigo-500"
+                      >
+                          <option value="all" className="bg-white dark:bg-slate-800 text-gray-900 dark:text-white">Todos los entornos</option>
+                          {tenants.map(t => (
+                              <option key={t.id} value={t.id} className="bg-white dark:bg-slate-800 text-gray-900 dark:text-white">{t.name || 'Sin Nombre'} ({t.id.substring(0,8)}...)</option>
+                          ))}
+                      </select>
+                  </div>
+              )}
           </div>
           <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
+                  <thead className="bg-gray-50 dark:bg-slate-800">
                       <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tenant ID (Azure)</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre del Cliente / Dominio</th>
-                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Tenant ID (Azure)</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nombre del Cliente / Dominio</th>
+                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Acciones</th>
                       </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                      {tenants.filter(t => t.id === selectedTenant.id).map((tenant) => (
+                  <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-slate-700">
+                      {displayedTenants.map((tenant) => (
                           <tr key={tenant.id} className="hover:bg-gray-50 transition-colors">
                               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-500 font-mono">
                                   {tenant.id}
@@ -165,7 +189,7 @@ export default function OnboardingPage() {
                               </td>
                           </tr>
                       ))}
-                      {tenants.filter(t => t.id === selectedTenant.id).length === 0 && !loading && (
+                      {displayedTenants.length === 0 && !loading && (
                           <tr>
                               <td colSpan={3} className="px-6 py-4 text-center text-sm text-gray-500">
                                   El entorno no está sincronizado con la base de datos.

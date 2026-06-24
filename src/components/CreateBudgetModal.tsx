@@ -17,6 +17,8 @@ export default function CreateBudgetModal({ isOpen, onClose, onSuccess, subscrip
     const [budgetName, setBudgetName] = useState('');
     const [amount, setAmount] = useState('');
     const [contactEmail, setContactEmail] = useState('');
+    const [alertThreshold, setAlertThreshold] = useState('80');
+    const [timeGrain, setTimeGrain] = useState('BillingMonth');
     const [loading, setLoading] = useState(false);
 
     if (!isOpen) return null;
@@ -48,7 +50,9 @@ export default function CreateBudgetModal({ isOpen, onClose, onSuccess, subscrip
                     budgetName,
                     amount: parseFloat(amount),
                     contactEmail,
-                    tenantId
+                    alertThreshold: parseFloat(alertThreshold),
+                    tenantId,
+                    timeGrain
                 })
             });
 
@@ -65,7 +69,7 @@ export default function CreateBudgetModal({ isOpen, onClose, onSuccess, subscrip
                         tenantId,
                         costCenter: budgetName,
                         monthlyLimit: parseFloat(amount),
-                        alertThreshold: 80.0
+                        alertThreshold: parseFloat(alertThreshold)
                     })
                 });
 
@@ -76,7 +80,7 @@ export default function CreateBudgetModal({ isOpen, onClose, onSuccess, subscrip
                 setAmount('');
                 setContactEmail('');
             } else {
-                toast.error(json.error || "Fallo al crear el presupuesto.");
+                toast.error(json.details || json.error || "Fallo al crear el presupuesto.");
             }
         } catch (e: any) {
             console.error("Error creating Azure budget:", e);
@@ -132,6 +136,34 @@ export default function CreateBudgetModal({ isOpen, onClose, onSuccess, subscrip
                             disabled={loading}
                             className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-indigo-500 focus:border-indigo-500 placeholder-gray-500 dark:placeholder-gray-400"
                         />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Umbral de Alerta (%)</label>
+                        <input 
+                            type="number" 
+                            value={alertThreshold}
+                            onChange={(e) => setAlertThreshold(e.target.value)}
+                            placeholder="Ej. 80"
+                            min="1"
+                            max="1000"
+                            required
+                            disabled={loading}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-indigo-500 focus:border-indigo-500 placeholder-gray-500 dark:placeholder-gray-400"
+                        />
+                    </div>
+                    
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Frecuencia</label>
+                        <select 
+                            value={timeGrain}
+                            onChange={(e) => setTimeGrain(e.target.value)}
+                            disabled={loading}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-indigo-500 focus:border-indigo-500"
+                        >
+                            <option value="BillingMonth">Mensual (Facturación)</option>
+                            <option value="BillingQuarter">Trimestral (Facturación)</option>
+                            <option value="BillingAnnual">Anual (Facturación)</option>
+                        </select>
                     </div>
                     
                     <div className="px-6 py-4 bg-gray-50 dark:bg-slate-800/50 -mx-6 -mb-6 flex justify-end gap-3 mt-6">

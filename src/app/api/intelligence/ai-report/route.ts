@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generateFinOpsReport } from '@/services/aiService';
+import { getAssessment } from '@/modules/core/aiProvider';
 import pool from '@/modules/storage/db';
 import { RowDataPacket } from 'mysql2';
 import jwt from 'jsonwebtoken';
@@ -24,8 +24,8 @@ export async function POST(request: NextRequest) {
         }
 
         // SuperAdmin check for cross-tenant access
-        const email = decoded.preferred_username || decoded.unique_name || decoded.email || "";
-        const isSuperAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") && decoded.tid === "8b41364f-581a-4e43-b7cb-13138dac5517";
+        const email = decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "";
+        const isSuperAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") ;
 
         if (decoded.tid !== tenantId && !isSuperAdmin) {
             return NextResponse.json({ error: "Acceso denegado al tenant." }, { status: 403 });
@@ -37,7 +37,27 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
         }
 
-        const report = await generateFinOpsReport(tenantId, metricsData);
+        // Consultaremos recomendaciones de ahorro
+        const [recommendations] = await pool.query<RowDataPacket[]>(
+            'SELECT recommendation_type, potential_savings, snapshot_date FROM RecommendationsCache WHERE tenant_id = ? ORDER BY snapshot_date DESC LIMIT 50', 
+            [tenantId]
+        );
+
+        // Consultaremos el presupuesto de este mes
+        const currentMonth = new Date().getMonth() + 1;
+        const currentYear = new Date().getFullYear();
+        const [budgets] = await pool.query<RowDataPacket[]>(
+            'SELECT budget_usd, alert_threshold FROM TenantMonthlyBudgets WHERE tenant_id = ? AND budget_month = ? AND budget_year = ?', 
+            [tenantId, currentMonth, currentYear]
+        );
+
+        const enrichedMetrics = {
+            ...metricsData,
+            activeRecommendations: recommendations,
+            currentBudget: budgets.length > 0 ? budgets[0] : null
+        };
+
+        const report = await getAssessment(enrichedMetrics);
 
         return NextResponse.json({ report });
     } catch (error: any) {

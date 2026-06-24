@@ -418,5 +418,15 @@
       "email": "Email",
       "roleToAssign": "Role to assign"
     }
+  },
+  "Sustainability": {
+    "greenFinops": "Green FinOps (Sustainability)",
+    "subtitle": "Track your cloud carbon footprint and avoided emissions",
+    "totalCarbonFootprint": "Total Carbon Footprint",
+    "avoidedEmissions": "Avoided Emissions",
+    "avgPowerEfficiency": "Avg Power Efficiency",
+    "highGrade": "High Grade",
+    "sustainableCloudComputing": "Sustainable Cloud Computing",
+    "sustainabilityDesc": "Your carbon intensity factor is automatically mapped to your active Azure regions. Moving workloads to regions like northeurope or francecentral can significantly reduce your footprint."
   }
 }

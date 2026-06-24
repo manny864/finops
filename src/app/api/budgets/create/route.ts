@@ -6,7 +6,7 @@ import jwt from "jsonwebtoken";
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { subscriptionId, budgetName, amount, contactEmail, tenantId: bodyTenantId } = body;
+        const { subscriptionId, budgetName, amount, contactEmail, alertThreshold, tenantId: bodyTenantId, timeGrain } = body;
 
         if (!subscriptionId || !budgetName || amount === undefined || !contactEmail) {
             return NextResponse.json({ error: "Faltan parámetros requeridos." }, { status: 400 });
@@ -24,8 +24,8 @@ export async function POST(request: NextRequest) {
 
         const tenantId = bodyTenantId || decoded.tid;
 
-        const email = decoded.preferred_username || decoded.unique_name || decoded.email || "";
-        const isAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") && decoded.tid === "8b41364f-581a-4e43-b7cb-13138dac5517";
+        const email = decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "";
+        const isAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") ;
 
         if (decoded.tid !== tenantId && !isAdmin) {
             return NextResponse.json({ error: "El token no coincide con el tenant." }, { status: 403 });
@@ -36,13 +36,24 @@ export async function POST(request: NextRequest) {
         const result = await createSubscriptionBudget(credential, subscriptionId, {
             budgetName,
             amount: parseFloat(amount),
-            contactEmails: [contactEmail]
+            contactEmails: [contactEmail],
+            alertThreshold: alertThreshold ? parseFloat(alertThreshold) : undefined,
+            timeGrain: timeGrain || 'BillingMonth'
         });
 
         return NextResponse.json({ success: true, data: result }, { status: 201 });
 
     } catch (e: any) {
         console.error("Error creating budget in route:", e);
+        
+        // Manejar falta de permisos de escritura (RBAC)
+        if (e.code === 'RBACAccessDenied' || (e.details?.error?.code === 'RBACAccessDenied')) {
+            return NextResponse.json({ 
+                error: "Permisos insuficientes", 
+                details: "La aplicación no tiene permisos para crear presupuestos. Debes asignar el rol 'Cost Management Contributor' a la aplicación en la suscripción de Azure." 
+            }, { status: 403 });
+        }
+
         return NextResponse.json({ error: "Fallo al crear el presupuesto en Azure", details: e.message }, { status: 500 });
     }
 }

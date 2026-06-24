@@ -47,8 +47,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Estructura de token inválida." }, { status: 401 });
     }
 
-    const email = decoded.preferred_username || decoded.unique_name || decoded.email || "";
-    const isAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") && decoded.tid === "8b41364f-581a-4e43-b7cb-13138dac5517";
+    const email = decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "";
+    const isAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") ;
 
     if (decoded.tid !== tenantId && !isAdmin) {
       return NextResponse.json(
@@ -221,20 +221,8 @@ export async function GET(request: NextRequest) {
         }));
     }));
 
-    // Lógica Freemium Teaser
-    const tenantObj = tenants.find(t => t.id === tenantId);
-    const tier = tenantObj?.tier || 'Essential';
-
-    if (tier === 'Essential') {
-        allZombies = allZombies.map(z => ({
-            ...z,
-            name: "**********",
-            resourceId: "**********",
-            id: "**********",
-            resourceGroup: "**********",
-            isLocked: true
-        }));
-    }
+    // Lógica Freemium Teaser (Removido el enmascaramiento por solicitud)
+    // El nombre real ahora se enviará como texto plano.
 
     return NextResponse.json({ success: true, data: allZombies });
 

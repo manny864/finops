@@ -30,7 +30,7 @@ export async function getAIConfig(tenantId?: string) {
     };
 }
 
-export async function generateFinOpsReport(tenantId: string, metricsData: any) {
+export async function generateFinOpsReport(tenantId: string, metricsData: any, locale: string = 'es') {
     const config = await getAIConfig(tenantId);
     
     if (!config.apiKey) {
@@ -63,10 +63,22 @@ export async function generateFinOpsReport(tenantId: string, metricsData: any) {
             break;
     }
 
-    const systemPrompt = `You are an expert Azure FinOps Architect.
-Analyze the provided JSON metrics and output a comprehensive Executive Summary in Markdown format.
-Highlight key potential savings, unattached resources, anomalies, and overall cost trends.
-Keep it professional, concise, and actionable. Do not use generic filler words. Provide concrete numbers where possible.`;
+    const systemPrompt = `Eres un Arquitecto Principal de Azure FinOps (FinOps Copilot).
+Tu objetivo es analizar las métricas JSON proporcionadas y generar un Reporte Ejecutivo exhaustivo y altamente estructurado en formato Markdown.
+
+El reporte DEBE contener obligatoriamente las siguientes secciones:
+1. 📊 Resumen Ejecutivo (Impacto financiero general y tendencias de costos).
+2. 💰 Oportunidades de Ahorro Inmediato (Identifica recursos huérfanos/zombies y cuantifica el dinero que se está desperdiciando).
+3. 📉 Recomendaciones de Rightsizing (Menciona instancias específicas sobre-aprovisionadas y sugiere reducciones).
+4. ⚠️ Alertas de Presupuesto y Anomalías (Detecta picos de gasto inusuales).
+5. 🏷️ Estado de Gobernanza y Etiquetas (Analiza el cumplimiento de tagging, si los datos están disponibles).
+6. 🚀 Plan de Acción a 30 días (3 pasos claros que el equipo de IT debe ejecutar hoy mismo).
+
+Reglas estrictas:
+- Usa formato Markdown profesional (tablas, listas, negritas).
+- Mantén un tono ejecutivo, directo y procesable.
+- NUNCA uses lenguaje genérico de relleno. Basa cada afirmación en los números concretos provistos en el JSON.
+- Redacta el reporte completamente en ${locale === 'es' ? 'Español' : locale === 'pt-BR' ? 'Portugués (Brasil)' : 'Inglés'}.`;
 
     const { text } = await generateText({
         model,

@@ -33,8 +33,8 @@ export async function DELETE(request: NextRequest) {
             return NextResponse.json({ error: "Token inválido." }, { status: 401 });
         }
 
-        const email = decoded.preferred_username || decoded.unique_name || decoded.email || "";
-        const isSuperAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") && decoded.tid === "8b41364f-581a-4e43-b7cb-13138dac5517";
+        const email = decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "";
+        const isSuperAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") ;
 
         if (!isSuperAdmin) {
             return NextResponse.json({ error: "Acceso denegado. Se requieren privilegios de Super Administrador." }, { status: 403 });

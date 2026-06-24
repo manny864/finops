@@ -11,8 +11,8 @@ export async function GET(request: NextRequest) {
         const decoded = jwt.decode(token) as any;
         if (!decoded) return NextResponse.json({ error: "Token inválido" }, { status: 401 });
 
-        const email = decoded.unique_name || decoded.preferred_username || decoded.email || "";
-        const isCorpDomain = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") && decoded.tid === "8b41364f-581a-4e43-b7cb-13138dac5517";
+        const email = decoded.unique_name || decoded.preferred_username || decoded.upn || decoded.email || "";
+        const isCorpDomain = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") ;
 
         const connection = await pool.getConnection();
         try {

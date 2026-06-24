@@ -279,7 +279,14 @@ export default function HistoricalProgressPage() {
                                             <div key={idx} className="p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                                 <div className="flex flex-wrap items-center justify-between gap-2">
                                                     <div className="font-bold text-xs text-slate-800 dark:text-slate-200 break-all select-all mr-2">
-                                                        {rec.impactedField || "Recurso"}
+                                                        {(() => {
+                                                            const rawId = rec.resourceMetadata?.resourceId ? rec.resourceMetadata.resourceId.split('/').pop() : null;
+                                                            const field = rec.impactedField;
+                                                            if (field === 'Microsoft.Subscriptions/subscriptions' || rawId === rec.subscriptionId) {
+                                                                return subName;
+                                                            }
+                                                            return rawId || field || "Recurso";
+                                                        })()}
                                                     </div>
                                                     <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${catBadge}`}>
                                                         {rec.category}
