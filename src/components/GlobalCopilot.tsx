@@ -22,6 +22,11 @@ export default function GlobalCopilot() {
     const [loading, setLoading] = useState(false);
     const t = useTranslations('Copilot');
 
+    // Security Guard: Prevent rendering if not logged in or no tenant selected
+    if (accounts.length === 0 || !selectedTenant || selectedTenant.id === 'default') {
+        return null;
+    }
+
     const getAuthHeaders = async (): Promise<Record<string, string>> => {
         if (accounts.length === 0) return { 'Content-Type': 'application/json' };
         try {
@@ -115,7 +120,7 @@ export default function GlobalCopilot() {
                         method: 'POST',
                         headers,
                         body: JSON.stringify({
-                            prompt: `He analizado los datos de la página "${currentPage}". Explica brevemente el estado actual reflejado en los datos y proporciona 2 o 3 sugerencias clave o acciones de optimización para esta sección. Responde en español de forma concisa.`,
+                            prompt: `Actúa como FinOps Copilot. El usuario acaba de abrir el chat en la página "${currentPage}". Redacta un saludo inicial amigable y breve (máximo 3 líneas) indicándole que ves que está en la sección de "${currentPage}". A continuación, y basándote en los datos proporcionados, dale 1 o 2 sugerencias rápidas de optimización o análisis. Responde en español y formatea tu respuesta en Markdown si es necesario.`,
                             pageContext: currentPage,
                             dataPayload: currentDataPayload,
                             tenantId: selectedTenant.id
@@ -162,9 +167,11 @@ export default function GlobalCopilot() {
                     </div>
                     
                     <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                        <div className="bg-surface-2 p-3 rounded-lg text-sm text-ink max-w-[85%]">
-                            {t.rich('welcome_message', { page: currentPage, b: (chunks) => <b>{chunks}</b> })}
-                        </div>
+                        {messages.length === 0 && !loading && (
+                            <div className="bg-surface-2 p-3 rounded-lg text-sm text-ink max-w-[85%] text-gray-500 italic">
+                                Preparando contexto...
+                            </div>
+                        )}
                         {messages.map((m, i) => (
                             <div key={i} className={`p-3 rounded-lg text-sm max-w-[85%] ${m.role === 'user' ? 'bg-brand text-white ml-auto' : 'bg-surface-2 text-ink mr-auto'}`}>
                                 {m.role === 'user' ? (
