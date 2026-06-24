@@ -30,7 +30,7 @@ export async function getAIConfig(tenantId?: string) {
     };
 }
 
-export async function generateFinOpsReport(tenantId: string, metricsData: any) {
+export async function generateFinOpsReport(tenantId: string, metricsData: any, locale: string = 'es') {
     const config = await getAIConfig(tenantId);
     
     if (!config.apiKey) {
@@ -78,7 +78,7 @@ Reglas estrictas:
 - Usa formato Markdown profesional (tablas, listas, negritas).
 - Mantén un tono ejecutivo, directo y procesable.
 - NUNCA uses lenguaje genérico de relleno. Basa cada afirmación en los números concretos provistos en el JSON.
-- Redacta el reporte completamente en Español.`;
+- Redacta el reporte completamente en ${locale === 'es' ? 'Español' : locale === 'pt-BR' ? 'Portugués (Brasil)' : 'Inglés'}.`;
 
     const { text } = await generateText({
         model,

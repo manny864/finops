@@ -221,20 +221,8 @@ export async function GET(request: NextRequest) {
         }));
     }));
 
-    // Lógica Freemium Teaser
-    const tenantObj = tenants.find(t => t.id === tenantId);
-    const tier = tenantObj?.tier || 'Essential';
-
-    if (tier === 'Essential') {
-        allZombies = allZombies.map(z => ({
-            ...z,
-            name: "**********",
-            resourceId: "**********",
-            id: "**********",
-            resourceGroup: "**********",
-            isLocked: true
-        }));
-    }
+    // Lógica Freemium Teaser (Removido el enmascaramiento por solicitud)
+    // El nombre real ahora se enviará como texto plano.
 
     return NextResponse.json({ success: true, data: allZombies });
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAzureCredential } from "@/lib/azure";
 import { getNetworkEgressCosts } from "@/services/networkCostService";
 import jwt from "jsonwebtoken";
+import { getWithStaleWhileRevalidate } from "@/lib/cache";
 
 export async function GET(request: NextRequest) {
     try {
@@ -25,26 +26,31 @@ export async function GET(request: NextRequest) {
         }
 
         const tenantId = request.headers.get("x-tenant-id") || decoded.tid;
-        const credential = await getAzureCredential(tenantId);
-        const rawCosts = await getNetworkEgressCosts(credential, subscriptionId);
-
-        // Process CostManagement Data
-        const rows = rawCosts.rows || [];
-        const columns = rawCosts.columns || [];
         
-        let processedData: any[] = [];
-        
-        if (rows.length > 0) {
-            const costIndex = columns.findIndex(c => c.name === "PreTaxCost");
-            const subcatIndex = columns.findIndex(c => c.name === "MeterSubCategory");
-            const rgIndex = columns.findIndex(c => c.name === "ResourceGroup");
+        const cacheKey = `network:${tenantId}:${subscriptionId}`;
+        const processedData = await getWithStaleWhileRevalidate(cacheKey, async () => {
+            const credential = await getAzureCredential(tenantId);
+            const rawCosts = await getNetworkEgressCosts(credential, subscriptionId);
 
-            processedData = rows.map(row => ({
-                cost: row[costIndex],
-                subCategory: row[subcatIndex],
-                resourceGroup: row[rgIndex]
-            })).filter(item => item.subCategory && item.subCategory.toLowerCase().includes('bandwidth') || item.subCategory?.toLowerCase().includes('egress') || item.cost > 0);
-        }
+            // Process CostManagement Data
+            const rows = rawCosts.rows || [];
+            const columns = rawCosts.columns || [];
+            
+            let data: any[] = [];
+            
+            if (rows.length > 0) {
+                const costIndex = columns.findIndex(c => c.name === "PreTaxCost");
+                const subcatIndex = columns.findIndex(c => c.name === "MeterSubCategory");
+                const rgIndex = columns.findIndex(c => c.name === "ResourceGroup");
+
+                data = rows.map(row => ({
+                    cost: row[costIndex],
+                    subCategory: row[subcatIndex],
+                    resourceGroup: row[rgIndex]
+                })).filter(item => item.subCategory && item.subCategory.toLowerCase().includes('bandwidth') || item.subCategory?.toLowerCase().includes('egress') || item.cost > 0);
+            }
+            return data;
+        }, 3600);
 
         return NextResponse.json({ data: processedData });
 

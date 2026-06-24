@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { findExpiredResources } from "@/services/ttlService";
 import jwt from "jsonwebtoken";
-import { getMockDataForRoute } from "@/lib/mockData";
+
 
 export async function GET(request: NextRequest) {
     try {
@@ -12,8 +12,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Falta el tenantId." }, { status: 400 });
         }
 
-        const mockData = getMockDataForRoute('ttl', tenantId);
-        if (mockData) return NextResponse.json(mockData);
+
 
         const authHeader = request.headers.get("authorization");
         if (!authHeader || !authHeader.startsWith("Bearer ")) {

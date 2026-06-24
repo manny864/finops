@@ -418,5 +418,15 @@
       "email": "Email",
       "roleToAssign": "Função a atribuir"
     }
+  },
+  "Sustainability": {
+    "greenFinops": "Green FinOps (Sustentabilidade)",
+    "subtitle": "Monitore sua pegada de carbono e emissões evitadas",
+    "totalCarbonFootprint": "Pegada de Carbono Total",
+    "avoidedEmissions": "Emissões Evitadas",
+    "avgPowerEfficiency": "Eficiência Energética Média",
+    "highGrade": "Alto Nível",
+    "sustainableCloudComputing": "Computação em Nuvem Sustentável",
+    "sustainabilityDesc": "O fator de intensidade de carbono é mapeado automaticamente para suas regiões ativas no Azure. Mover cargas de trabalho para regiões como northeurope ou francecentral pode reduzir significativamente sua pegada."
   }
 }

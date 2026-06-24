@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { setDemoSession } from "@/app/_actions/demoAuth";
+import DemoLeadModal from "@/components/DemoLeadModal";
 
 function DemoForm() {
   const searchParams = useSearchParams();
@@ -66,8 +67,32 @@ function DemoForm() {
 }
 
 export default function DemoPage() {
+  const [showLeadModal, setShowLeadModal] = useState<boolean>(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    const hasCompleted = localStorage.getItem('hasCompletedDemoLead');
+    if (!hasCompleted) {
+      setShowLeadModal(true);
+      document.body.style.overflow = 'hidden';
+    }
+    
+    return () => {
+        document.body.style.overflow = 'unset';
+    };
+  }, []);
+
+  const handleLeadSuccess = () => {
+    localStorage.setItem('hasCompletedDemoLead', 'true');
+    setShowLeadModal(false);
+    document.body.style.overflow = 'unset';
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-nav-bg to-nav-bg2 flex items-center justify-center font-sans relative overflow-hidden">
+        {mounted && showLeadModal && <DemoLeadModal onSuccess={handleLeadSuccess} />}
+        
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
             <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-brand-deep/20 blur-[100px]"></div>
             <div className="absolute bottom-[10%] right-[-5%] w-[30%] h-[30%] rounded-full bg-brand-bright/10 blur-[80px]"></div>

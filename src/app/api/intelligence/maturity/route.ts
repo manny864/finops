@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import { getAzureCredential } from "@/lib/azure";
-import { getWithCache } from "@/lib/cache";
+import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { AdvisorManagementClient } from "@azure/arm-advisor";
 import { ConsumptionManagementClient } from "@azure/arm-consumption";
 
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     }
 
     const cacheKey = `intelligence:maturity:${tenantId}`;
-    const resultData = await getWithCache(cacheKey, async () => {
+    const resultData = await getWithStaleWhileRevalidate(cacheKey, async () => {
       // Attempt to get Azure credential for real data
       let credential;
       try {

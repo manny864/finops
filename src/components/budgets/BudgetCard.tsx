@@ -14,6 +14,7 @@ export default function BudgetCard() {
     
     const [loading, setLoading] = useState(false);
     const [budgetData, setBudgetData] = useState<any>(null);
+    const [budgetsBySub, setBudgetsBySub] = useState<Record<string, { budget: number, actual: number }>>({});
 
     const { selectedSubscription, subscriptions } = useSubscription();
     const { instance, accounts } = useMsal();
@@ -53,13 +54,22 @@ export default function BudgetCard() {
                         const totalBudget = json.burnData.reduce((acc: number, curr: any) => acc + (curr.budget || 0), 0);
                         const totalActual = json.burnData.reduce((acc: number, curr: any) => acc + (curr.actual || 0), 0);
                         
+                        const subGrouped: Record<string, { budget: number, actual: number }> = {};
+                        json.burnData.forEach((item: any) => {
+                            if (!subGrouped[item.subscriptionId]) subGrouped[item.subscriptionId] = { budget: 0, actual: 0 };
+                            subGrouped[item.subscriptionId].budget += (item.budget || 0);
+                            subGrouped[item.subscriptionId].actual += (item.actual || 0);
+                        });
+
                         setBudgetData({
                             budget_usd: totalBudget,
                             actual_spend: totalActual,
                             alert_threshold: 80.00 // Default threshold
                         });
+                        setBudgetsBySub(subGrouped);
                     } else {
                         setBudgetData(null);
+                        setBudgetsBySub({});
                     }
                 }
             } catch (e) {
@@ -82,67 +92,97 @@ export default function BudgetCard() {
     }
 
     return (
-        <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 mt-6 max-w-lg">
-            <h3 className="text-lg font-bold text-gray-800 mb-2">{t('card_title')}</h3>
-            
-            {loading ? (
-                // Skeleton Loader
-                <div className="animate-pulse flex flex-col gap-4 mt-6">
-                    <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                    <div className="h-8 bg-gray-200 rounded w-1/2 mt-2"></div>
-                    <div className="h-4 bg-gray-200 rounded w-5/6"></div>
-                </div>
-            ) : budgetData ? (
-                <div className="mt-6 flex flex-col gap-4">
-                    <div className="flex items-center gap-3">
-                        <div className="p-3 bg-brand-soft rounded-full text-brand-deep">
-                            <DollarSign className="w-6 h-6" />
+        <div className="w-full">
+            {/* Global Tenant Budget Summary */}
+            <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-lg shadow-sm p-6 mb-6">
+                <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-2">Presupuesto Consolidado del Tenant</h3>
+                
+                {loading ? (
+                    <div className="animate-pulse flex flex-col gap-4 mt-6">
+                        <div className="h-4 bg-gray-200 dark:bg-slate-700 rounded w-3/4"></div>
+                        <div className="h-8 bg-gray-200 dark:bg-slate-700 rounded w-1/2 mt-2"></div>
+                        <div className="h-4 bg-gray-200 dark:bg-slate-700 rounded w-5/6"></div>
+                    </div>
+                ) : budgetData && budgetData.budget_usd > 0 ? (
+                    <div className="mt-6 flex flex-col gap-4">
+                        <div className="flex items-center gap-3">
+                            <div className="p-3 bg-brand-soft rounded-full text-brand-deep">
+                                <DollarSign className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">{t('assigned_budget')}</p>
+                                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                                    {currencyFormatter.format(budgetData.budget_usd)}
+                                </p>
+                            </div>
                         </div>
-                        <div>
-                            <p className="text-sm text-gray-500 font-medium">{t('assigned_budget')}</p>
-                            <p className="text-2xl font-bold text-gray-900">
-                                {currencyFormatter.format(budgetData.budget_usd)}
-                            </p>
+                        
+                        <div className="mt-4">
+                            <div className="flex justify-between text-xs mb-1">
+                                <span className="font-semibold text-gray-600 dark:text-gray-300">Consumo Total Actual</span>
+                                <span className="font-bold text-gray-800 dark:text-white">
+                                    {((budgetData.actual_spend / budgetData.budget_usd) * 100).toFixed(1)}%
+                                </span>
+                            </div>
+                            <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2.5">
+                                <div 
+                                    className={`h-2.5 rounded-full ${budgetData.budget_usd > 0 && (budgetData.actual_spend / budgetData.budget_usd) * 100 >= budgetData.alert_threshold ? 'bg-red-500' : 'bg-brand-deep'}`}
+                                    style={{ width: `${Math.min((budgetData.actual_spend / budgetData.budget_usd) * 100, 100)}%` }}
+                                ></div>
+                            </div>
                         </div>
                     </div>
-                    
-                    <div className="flex items-center gap-3 mt-2">
-                        <div className="p-3 bg-amber-50 rounded-full text-amber-500">
-                            <Bell className="w-6 h-6" />
-                        </div>
-                        <div>
-                            <p className="text-sm text-gray-500 font-medium">{t('alert_threshold')}</p>
-                            <p className="text-lg font-bold text-gray-900">
-                                {budgetData.alert_threshold}%
-                            </p>
-                        </div>
+                ) : (
+                    <div className="mt-6 text-sm text-gray-400 h-32 flex flex-col items-center justify-center text-center border-2 border-dashed border-gray-100 dark:border-slate-800 rounded-lg">
+                        <p className="mb-3">{t('no_budget_configured')}</p>
+                        <button className="px-4 py-2 bg-brand-deep text-white rounded-md text-xs font-bold hover:bg-brand-bright transition-colors">
+                            {t('configure_btn')}
+                        </button>
                     </div>
-                    
-                    {/* Progress Bar (Mocked Spend) */}
-                    <div className="mt-4">
-                        <div className="flex justify-between text-xs mb-1">
-                            <span className="font-semibold text-gray-600">Consumo Actual</span>
-                            <span className="font-bold text-gray-800">
-                                {budgetData.budget_usd > 0 ? ((budgetData.actual_spend / budgetData.budget_usd) * 100).toFixed(1) : 0}%
-                            </span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2.5">
-                            <div 
-                                className={`h-2.5 rounded-full ${budgetData.budget_usd > 0 && (budgetData.actual_spend / budgetData.budget_usd) * 100 >= budgetData.alert_threshold ? 'bg-red-500' : 'bg-brand-deep'}`}
-                                style={{ width: `${budgetData.budget_usd > 0 ? Math.min((budgetData.actual_spend / budgetData.budget_usd) * 100, 100) : 0}%` }}
-                            ></div>
-                        </div>
-                    </div>
+                )}
+            </div>
 
-                </div>
-            ) : (
-                <div className="mt-6 text-sm text-gray-400 h-32 flex flex-col items-center justify-center text-center border-2 border-dashed border-gray-100 rounded-lg">
-                    <p className="mb-3">{t('no_budget_configured')}</p>
-                    <button className="px-4 py-2 bg-brand-deep text-white rounded-md text-xs font-bold hover:bg-brand-bright transition-colors">
-                        {t('configure_btn')}
-                    </button>
-                </div>
-            )}
+            {/* Subscriptions Grid */}
+            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4">Desglose por Suscripción</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {subscriptions.map(sub => {
+                    const subData = budgetsBySub[sub.id] || { budget: 0, actual: 0 };
+                    const realBudget = subData.budget;
+                    const realSpend = subData.actual;
+                    const spendPercentage = realBudget > 0 ? (realSpend / realBudget) * 100 : 0;
+                    
+                    return (
+                        <div key={sub.id} className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-lg shadow-sm p-5 flex flex-col justify-between">
+                            <div>
+                                <h4 className="font-bold text-gray-900 dark:text-white truncate" title={sub.displayName || sub.name}>{sub.displayName || sub.name}</h4>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 mb-4">{sub.id}</p>
+                                
+                                <div className="flex justify-between items-end mb-2">
+                                    <div>
+                                        <p className="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500">Asignado</p>
+                                        <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{currencyFormatter.format(realBudget)}</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500">Consumido</p>
+                                        <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{currencyFormatter.format(realSpend)}</p>
+                                    </div>
+                                </div>
+
+                                <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-1.5 mb-4">
+                                    <div 
+                                        className={`h-1.5 rounded-full ${spendPercentage >= 90 ? 'bg-red-500' : spendPercentage >= 75 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                                        style={{ width: `${Math.min(spendPercentage, 100)}%` }}
+                                    ></div>
+                                </div>
+                            </div>
+                            
+                            <button className="w-full py-2 bg-gray-50 dark:bg-slate-800 hover:bg-gray-100 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-700 rounded-md text-xs font-bold text-brand-deep transition-colors">
+                                Editar Presupuesto
+                            </button>
+                        </div>
+                    );
+                })}
+            </div>
         </div>
     );
 }

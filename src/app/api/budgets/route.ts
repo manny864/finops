@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import jwt from "jsonwebtoken";
 import { getBudgetConsumption } from "@/services/budgetService";
+import { getWithStaleWhileRevalidate } from "@/lib/cache";
 
 export async function GET(request: NextRequest) {
     try {
@@ -36,23 +37,26 @@ export async function GET(request: NextRequest) {
             [tenantId]
         );
 
-        // Fetch current consumption for each budget
-        const budgetsWithUtilization = await Promise.all(rows.map(async (b: any) => {
-            const currentSpend = await getBudgetConsumption(tenantId!, subscriptionId, b.cost_center_tag_value);
-            const limit = parseFloat(b.monthly_limit_usd);
-            
-            // QA Patch: Zero-division prevention
-            const utilization = limit > 0 ? (currentSpend / limit) * 100 : 0;
-            
-            return {
-                id: b.id,
-                costCenter: b.cost_center_tag_value,
-                monthlyLimit: limit,
-                alertThreshold: parseFloat(b.alert_threshold),
-                currentSpend: currentSpend,
-                utilization: utilization
-            };
-        }));
+        // Fetch current consumption for each budget (using SWR cache)
+        const cacheKey = `budgets:${tenantId}:${subscriptionId}`;
+        const budgetsWithUtilization = await getWithStaleWhileRevalidate(cacheKey, async () => {
+            return await Promise.all(rows.map(async (b: any) => {
+                const currentSpend = await getBudgetConsumption(tenantId!, subscriptionId, b.cost_center_tag_value);
+                const limit = parseFloat(b.monthly_limit_usd);
+                
+                // QA Patch: Zero-division prevention
+                const utilization = limit > 0 ? (currentSpend / limit) * 100 : 0;
+                
+                return {
+                    id: b.id,
+                    costCenter: b.cost_center_tag_value,
+                    monthlyLimit: limit,
+                    alertThreshold: parseFloat(b.alert_threshold),
+                    currentSpend: currentSpend,
+                    utilization: utilization
+                };
+            }));
+        }, 3600);
 
         return NextResponse.json({ budgets: budgetsWithUtilization });
 

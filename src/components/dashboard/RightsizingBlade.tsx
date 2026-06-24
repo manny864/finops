@@ -2,43 +2,51 @@
 import React, { useState, useEffect } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { useTenant } from '../TenantProvider';
+import useSWR from 'swr';
 
 export default function RightsizingBlade() {
     const { instance, accounts } = useMsal();
     const { selectedTenant } = useTenant();
-    const [recommendations, setRecommendations] = useState<any[]>([]);
-    const [loading, setLoading] = useState(false);
+    const [token, setToken] = useState<string | null>(null);
 
+    // Fetch MSAL token silently once
     useEffect(() => {
-        if (accounts.length === 0 || selectedTenant.id === 'default') return;
-        
-        const fetchRightsizing = async () => {
-            setLoading(true);
-            try {
-                const tokenResponse = await instance.acquireTokenSilent({
-                    scopes: ["User.Read"],
-                    account: accounts[0]
-                });
-                
-                // Usando el motor de inteligencia (la misma formula que en la página principal)
-                const res = await fetch(`/api/intelligence/rightsizing`, {
-                    headers: { 
-                        'Authorization': `Bearer ${tokenResponse.idToken}`,
-                        'x-tenant-id': selectedTenant.id,
-                        'x-subscription-id': 'All'
-                    }
-                });
-                const json = await res.json();
-                if (json.success && json.data) {
-                    setRecommendations(json.data);
-                }
-            } catch (e) {
-                console.error("Error fetching rightsizing data:", e);
+        if (accounts.length > 0) {
+            instance.acquireTokenSilent({
+                scopes: ["User.Read"],
+                account: accounts[0]
+            }).then(res => {
+                setToken(res.idToken);
+            }).catch(e => {
+                console.error("Error acquiring token silently:", e);
+            });
+        }
+    }, [accounts, instance]);
+
+    // SWR fetcher
+    const fetcher = async (url: string) => {
+        const res = await fetch(url, {
+            headers: { 
+                'Authorization': `Bearer ${token}`,
+                'x-tenant-id': selectedTenant.id,
+                'x-subscription-id': 'All'
             }
-            setLoading(false);
-        };
-        fetchRightsizing();
-    }, [accounts, instance, selectedTenant.id]);
+        });
+        return res.json();
+    };
+
+    // SWR Hook
+    const { data: json, isValidating } = useSWR(
+        token && selectedTenant.id !== 'default' ? `/api/intelligence/rightsizing` : null,
+        fetcher,
+        { 
+            refreshInterval: 15000, // Background polling to catch backend resolution
+            revalidateOnFocus: true 
+        }
+    );
+
+    const recommendations: any[] = json?.success && json?.data ? json.data : [];
+    const isFirstLoading = !json && isValidating;
 
     let t: any = (key: string) => key;
     try {
@@ -60,7 +68,7 @@ export default function RightsizingBlade() {
             </div>
             
             <div className="p-[18px] flex-1 overflow-y-auto custom-scrollbar">
-                {loading ? (
+                {isFirstLoading ? (
                     <div className="h-40 flex items-center justify-center">
                         <div className="text-sm text-gray-400 animate-pulse">{t('analyzing') || 'Analizando métricas históricas de Azure Monitor...'}</div>
                     </div>
