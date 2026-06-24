@@ -31,7 +31,8 @@ import {
     Leaf,
     Building2,
     Box,
-    Server
+    Server,
+    ShieldCheck
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -81,6 +82,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/intelligence/rates', label: t('rate_optimization'), icon: DollarSign, requiredTier: 'Business' },
                 { href: '/intelligence/chargeback', label: t('chargeback'), icon: CreditCard, requiredTier: 'Business' },
                 { href: '/intelligence/licenses', label: t('licenses'), icon: Users, requiredTier: 'Professional' },
+                { href: '/intelligence/commitments', label: 'Reservas (RIs)', icon: ShieldCheck, requiredTier: 'Professional' },
                 { href: '/intelligence/zero-cost', label: 'Costo Cero', icon: Box },
                 { href: '/intelligence/aks', label: 'Control AKS', icon: Server, requiredTier: 'Business' },
                 { href: '/intelligence/unit-economics', label: 'Unit Economics', icon: Activity, requiredTier: 'Business' },
