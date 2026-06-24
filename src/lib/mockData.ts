@@ -370,6 +370,28 @@ export const getMockDataForRoute = (route: string, arg2: string) => {
                     }
                 ]
             };
+        case 'unit_economics':
+            // Generar 30 días de datos deterministas
+            const ueData = [];
+            for (let i = 29; i >= 0; i--) {
+                const date = new Date(Date.now() - i * 86400000);
+                const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                // El tráfico baja en fines de semana
+                const dau = isWeekend ? 35000 + Math.floor(Math.random() * 5000) : 55000 + Math.floor(Math.random() * 8000);
+                // El costo baja menos que el tráfico por costos fijos (esto empeora la economía unitaria el finde)
+                const cost = isWeekend ? (450 + Math.random() * 50) * multiplier : (850 + Math.random() * 100) * multiplier;
+                
+                ueData.push({
+                    date: date.toISOString().split('T')[0],
+                    cost: cost,
+                    dau: dau,
+                    costPerUser: cost / dau // En dólares por usuario
+                });
+            }
+            return {
+                success: true,
+                data: ueData
+            };
         default:
             return { success: true, message: "Mock data not defined for this route" };
     }
