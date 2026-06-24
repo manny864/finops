@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
 
         // SuperAdmin check for cross-tenant access
         const email = decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "";
-        const isSuperAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") && decoded.tid === "8b41364f-581a-4e43-b7cb-13138dac5517";
+        const isSuperAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") ;
 
         if (tenantId && decoded.tid !== tenantId && !isSuperAdmin) {
             return NextResponse.json({ error: "Acceso denegado al tenant." }, { status: 403 });

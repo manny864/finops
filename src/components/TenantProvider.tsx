@@ -124,7 +124,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
     if (accounts.length > 0) {
       const username = accounts[0].username || "";
       const userTenant = accounts[0].tenantId;
-      const isAdminUser = username.toLowerCase().endsWith("@cscloudsolutions.com.ar") && userTenant === "8b41364f-581a-4e43-b7cb-13138dac5517";
+      const isAdminUser = username.toLowerCase().endsWith("@cscloudsolutions.com.ar") ;
       // Note: We don't setIsAdmin(isAdminUser) here anymore. We wait for system_role.
       
       // Lógica de fallback robusta si no hay nada en localStorage

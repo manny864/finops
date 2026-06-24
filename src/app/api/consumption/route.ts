@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     }
 
     const email = (decoded as any).preferred_username || (decoded as any).unique_name || (decoded as any).email || "";
-    const isSuperAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") && decoded.tid === "8b41364f-581a-4e43-b7cb-13138dac5517";
+    const isSuperAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") ;
 
     if (decoded.tid !== tenantId && !isSuperAdmin) {
       return NextResponse.json(
