@@ -1,4 +1,4 @@
 node_modules
 .next
 .git
-.env*
+# Se remueve .env* para que Next.js pueda leer las variables NEXT_PUBLIC_ durante el build
