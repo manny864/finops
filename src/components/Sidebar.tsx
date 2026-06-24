@@ -83,6 +83,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/intelligence/licenses', label: t('licenses'), icon: Users, requiredTier: 'Professional' },
                 { href: '/intelligence/zero-cost', label: 'Costo Cero', icon: Box },
                 { href: '/intelligence/aks', label: 'Control AKS', icon: Server, requiredTier: 'Business' },
+                { href: '/intelligence/unit-economics', label: 'Unit Economics', icon: Activity, requiredTier: 'Business' },
                 { href: '/intelligence/upload', label: 'Ingesta CSV', icon: FileText }
             ]
         },
