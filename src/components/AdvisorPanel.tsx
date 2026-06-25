@@ -23,7 +23,7 @@ export default function AdvisorPanel() {
   const [selectedSub, setSelectedSub] = useState<string>("all");
   const { selectedSubscription, setSelectedSubscription } = useSubscription();
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const isPro = hasAccess(selectedTenant.tier, 'Professional');
+  const isPro = hasAccess(selectedTenant.tier || 'Essential', 'Professional');
 
   useEffect(() => {
     if (selectedSubscription) {
