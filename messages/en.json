@@ -353,7 +353,9 @@
         "Commitment Discounts (Reservations)",
         "Remediation Approval Workflow",
         "Hybrid Benefit Scanner (AHB)",
-        "Predictive Anomaly Engine (Z-Score)"
+        "Predictive Anomaly Engine (Z-Score)",
+        "Action Center (Quick Fixes)",
+        "Smart Shutdown (VMs)"
       ]
     },
     "business": {
@@ -384,7 +386,8 @@
         "Shared Cost Allocation Engine",
         "FinOps Policies as Code",
         "Partner CSP Billing Engine",
-        "FinOps Gamification Scorecard"
+        "FinOps Gamification Scorecard",
+        "Power BI Data Export (FOCUS)"
       ]
     },
     "enterpriseModal": {
