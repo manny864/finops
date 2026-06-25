@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 
 import DeleteTenantModal from '@/components/DeleteTenantModal';
 import { isMockTenant } from '@/lib/mockData';
+import { hasAccessToTier } from '@/lib/tierLogic';
 
 
 export default function ConfigPage() {
@@ -73,8 +74,12 @@ export default function ConfigPage() {
         <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50">
             <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">Integraciones</h3>
         </div>
-        <div className="p-6">
+        <div className="p-6 flex flex-col gap-8">
             <WebhookConfig />
+            
+            <div className="border-t border-gray-200 dark:border-slate-800 pt-6">
+                <PowerBIExportConfig />
+            </div>
         </div>
       </div>
 
@@ -233,5 +238,51 @@ function TenantDeletionManager() {
             </div>
         </div>
       </div>
+    );
+}
+
+function PowerBIExportConfig() {
+    const { selectedTenant } = useTenant();
+    const isEnterprise = hasAccessToTier(selectedTenant.tier, 'Enterprise');
+
+    if (selectedTenant.id === 'default') return null;
+
+    // Simulate getting the client secret or generating a fallback token
+    // En produccion real, esto deberia consultarse a la API segura.
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    const fakeToken = btoa(selectedTenant.id); 
+    const exportUrl = `${baseUrl}/api/intelligence/export/powerbi?tenantId=${selectedTenant.id}&token=${fakeToken}`;
+
+    const handleCopy = () => {
+        navigator.clipboard.writeText(exportUrl);
+        toast.success("URL copiada al portapapeles");
+    };
+
+    return (
+        <div className="flex flex-col">
+            <h4 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                Conector Power BI / Fabric 
+                {!isEnterprise && <span className="bg-amber-100 text-amber-800 text-[10px] uppercase font-bold px-2 py-0.5 rounded">Requiere Enterprise</span>}
+            </h4>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 mb-4">
+                Usa esta URL como <b>Origen de Datos Web</b> en Microsoft Power BI para ingerir la facturación con el esquema FOCUS 1.0.
+            </p>
+
+            <div className="flex items-center gap-4">
+                <input 
+                    type="text" 
+                    readOnly
+                    value={isEnterprise ? exportUrl : '********************************'}
+                    className="flex-1 px-4 py-2 border border-gray-300 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50 text-gray-500 rounded-md sm:text-sm font-mono"
+                />
+                <button
+                    onClick={handleCopy}
+                    disabled={!isEnterprise}
+                    className="px-4 py-2 bg-[#0054A6] text-white rounded-md shadow-sm text-sm font-semibold hover:bg-[#004080] disabled:opacity-50 transition-colors"
+                >
+                    Copiar URL
+                </button>
+            </div>
+        </div>
     );
 }
