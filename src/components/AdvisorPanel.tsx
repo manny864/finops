@@ -5,7 +5,8 @@ import { useTenant } from './TenantProvider';
 import { useSubscription } from './SubscriptionProvider';
 import { useLocale, useTranslations } from 'next-intl';
 import RoleAssignmentBanner from './RoleAssignmentBanner';
-import { Info, Lightbulb, X } from 'lucide-react';
+import { Info, Lightbulb, X, Play } from 'lucide-react';
+import { hasAccessToTier } from '@/lib/tierLogic';
 
 export default function AdvisorPanel() {
   const { instance, accounts } = useMsal();
@@ -21,6 +22,8 @@ export default function AdvisorPanel() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedSub, setSelectedSub] = useState<string>("all");
   const { selectedSubscription, setSelectedSubscription } = useSubscription();
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const isPro = hasAccessToTier(selectedTenant.tier, 'Professional');
 
   useEffect(() => {
     if (selectedSubscription) {
@@ -189,6 +192,67 @@ export default function AdvisorPanel() {
       } catch (err) {
           console.error("Error exporting CSV:", err);
           alert("Error al exportar CSV.");
+      }
+  };
+
+  const handleApplyFix = async (rec: any) => {
+      if (!isPro) {
+          alert("Action Center: Esta funcionalidad (Quick Fix) requiere el plan Professional o Enterprise. Por favor, actualiza tu plan.");
+          return;
+      }
+      
+      const resourceId = rec.impactedField;
+      if (!resourceId || !resourceId.startsWith('/subscriptions/')) {
+          alert("El recurso no es aplicable para auto-remediación desde la consola central.");
+          return;
+      }
+      
+      const parts = resourceId.split('/');
+      if (parts.length < 9) {
+          alert("Formato de recurso no soportado para auto-remediación.");
+          return;
+      }
+      
+      const subscriptionId = parts[2];
+      const resourceGroup = parts[4];
+      const resourceType = `${parts[6]}/${parts[7]}`;
+      const resourceName = parts[8];
+
+      const solution = (rec.shortDescription?.solution || '').toLowerCase();
+      if (!solution.includes('delete') && !solution.includes('remove') && !solution.includes('eliminar')) {
+          alert("Este tipo de recomendación no soporta auto-remediación de eliminación todavía. Deberá hacerlo desde el portal de Azure.");
+          return;
+      }
+
+      if (!confirm(`¿Estás seguro de que deseas ejecutar este Quick Fix y ELIMINAR permanentemente el recurso ${resourceName}? Esta acción no se puede deshacer.`)) return;
+
+      setActionLoading(rec.id || resourceId);
+      try {
+          const tokenResponse = await instance.acquireTokenSilent({
+              scopes: ["User.Read"],
+              account: accounts[0]
+          });
+          
+          const res = await fetch(`/api/advisor`, {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${tokenResponse.idToken}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                  tenantId: selectedTenant.id,
+                  action: 'delete',
+                  subscriptionId,
+                  resourceGroup,
+                  resourceType,
+                  resourceName
+              })
+          });
+          
+          const json = await res.json();
+          if (!res.ok) throw new Error(json.error || json.details || 'Error al ejecutar remediación');
+          alert("✅ Remediación ejecutada exitosamente. Los cambios pueden tardar unos minutos en reflejarse en Azure.");
+      } catch(e: any) {
+          alert("Error al ejecutar la remediación: " + e.message);
+      } finally {
+          setActionLoading(null);
       }
   };
 
@@ -364,6 +428,11 @@ export default function AdvisorPanel() {
                                                     {new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(parseFloat(rec.extendedProperties?.savingsAmount || '0'))}
                                                     <span className="text-[10.5px] text-grey font-semibold"> /mes</span>
                                                 </div>
+                                                {((rec.shortDescription?.solution || '').toLowerCase().includes('delete') || (rec.shortDescription?.solution || '').toLowerCase().includes('remove')) && (
+                                                    <button onClick={() => handleApplyFix(rec)} disabled={actionLoading === (rec.id || rec.impactedField)} className="bg-brand-deep text-white hover:brightness-110 px-[11px] py-[4px] rounded-[6px] font-heading font-semibold text-[11px] shadow-sm transition-colors flex items-center gap-1 disabled:opacity-50">
+                                                        {actionLoading === (rec.id || rec.impactedField) ? 'Aplicando...' : <><Play className="w-3 h-3" /> Apply Fix</>}
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
                                     );
@@ -462,6 +531,11 @@ export default function AdvisorPanel() {
                                                 {rec.shortDescription?.solution || rec.recommendationType?.name || rec.impact || 'Consulte el Portal'}
                                             </td>
                                             <td className="p-[13px_16px] text-right">
+                                                {((rec.shortDescription?.solution || '').toLowerCase().includes('delete') || (rec.shortDescription?.solution || '').toLowerCase().includes('remove')) && (
+                                                    <button onClick={() => handleApplyFix(rec)} disabled={actionLoading === (rec.id || rec.impactedField)} className="bg-brand-deep text-white hover:brightness-110 px-[11px] py-[4px] rounded-[6px] font-heading font-semibold text-[11px] shadow-sm transition-colors flex items-center gap-1 disabled:opacity-50 ml-auto">
+                                                        {actionLoading === (rec.id || rec.impactedField) ? 'Aplicando...' : <><Play className="w-3 h-3" /> Apply Fix</>}
+                                                    </button>
+                                                )}
                                             </td>
                                         </tr>
                                     ))}

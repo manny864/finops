@@ -3,6 +3,37 @@ import jwt from "jsonwebtoken";
 import { collectAdvisorData } from "@/modules/collectors/azure/advisorCollector";
 
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
+import { deleteResource } from "@/services/remediationService";
+
+export async function POST(request: NextRequest) {
+    try {
+        const body = await request.json();
+        const { tenantId, action, resourceGroup, resourceName, resourceType, subscriptionId } = body;
+
+        const authHeader = request.headers.get("authorization");
+        if (!authHeader) return NextResponse.json({ error: "Falta token Bearer de autenticación." }, { status: 401 });
+        
+        const token = authHeader.split(" ")[1];
+        const decoded = jwt.decode(token) as any;
+        const email = decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "";
+        const isAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar");
+
+        if (decoded.tid !== tenantId && !isAdmin) {
+            return NextResponse.json({ error: "El token no coincide con el tenant." }, { status: 403 });
+        }
+
+        if (action === 'delete') {
+            await deleteResource(tenantId, email, subscriptionId, resourceGroup, resourceName, resourceType);
+            return NextResponse.json({ success: true, message: "Recurso eliminado" });
+        }
+        
+        return NextResponse.json({ error: "Acción no soportada por el orquestador." }, { status: 400 });
+    } catch (error: any) {
+        console.error("Action Center Error:", error);
+        return NextResponse.json({ error: "Error interno", details: error.message }, { status: 500 });
+    }
+}
+
 
 export async function GET(request: NextRequest) {
   try {
