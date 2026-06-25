@@ -90,6 +90,71 @@ export default function ConfigPage() {
   );
 }
 
+function ITSMConfig() {
+    const { selectedTenant } = useTenant();
+    const isPro = hasAccess(selectedTenant.tier || 'Essential', 'Professional');
+    const [itsmType, setItsmType] = useState('jira');
+
+    if (selectedTenant.id === 'default') return null;
+
+    return (
+        <div className="flex flex-col">
+            <h4 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                Integración ITSM (Ticketing)
+                {!isPro && <span className="bg-amber-100 text-amber-800 text-[10px] uppercase font-bold px-2 py-0.5 rounded">Requiere Pro</span>}
+            </h4>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 mb-4">
+                Conecta tu tablero de Jira o Azure DevOps para crear tickets de remediación automáticamente desde el Action Center.
+            </p>
+
+            <div className="flex flex-col gap-4 max-w-md">
+                <div className="flex flex-col gap-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase">Sistema Destino</label>
+                    <select 
+                        value={itsmType}
+                        onChange={e => setItsmType(e.target.value)}
+                        disabled={!isPro}
+                        className="p-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-md text-sm outline-none focus:border-[#0054A6]"
+                    >
+                        <option value="jira">Jira Software</option>
+                        <option value="ado">Azure DevOps</option>
+                    </select>
+                </div>
+                
+                {itsmType === 'jira' ? (
+                    <div className="flex flex-col gap-2">
+                        <label className="text-xs font-bold text-gray-500 uppercase">Jira Base URL</label>
+                        <input 
+                            type="text" 
+                            disabled={!isPro}
+                            placeholder="https://tu-empresa.atlassian.net"
+                            className="p-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-md text-sm outline-none focus:border-[#0054A6]"
+                        />
+                    </div>
+                ) : (
+                    <div className="flex flex-col gap-2">
+                        <label className="text-xs font-bold text-gray-500 uppercase">ADO Organization</label>
+                        <input 
+                            type="text" 
+                            disabled={!isPro}
+                            placeholder="my-org"
+                            className="p-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-md text-sm outline-none focus:border-[#0054A6]"
+                        />
+                    </div>
+                )}
+                
+                <button
+                    disabled={!isPro}
+                    onClick={() => toast.success("Configuración ITSM guardada")}
+                    className="mt-2 w-fit px-4 py-2 bg-[#0054A6] text-white rounded-md shadow-sm text-sm font-semibold hover:bg-[#004080] disabled:opacity-50 transition-colors"
+                >
+                    Guardar Credenciales
+                </button>
+            </div>
+        </div>
+    );
+}
+
 function WebhookConfig() {
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
@@ -243,7 +308,7 @@ function TenantDeletionManager() {
 
 function PowerBIExportConfig() {
     const { selectedTenant } = useTenant();
-    const isEnterprise = hasAccess(selectedTenant.tier, 'Enterprise');
+    const isEnterprise = hasAccess(selectedTenant.tier || 'Essential', 'Enterprise');
 
     if (selectedTenant.id === 'default') return null;
 
