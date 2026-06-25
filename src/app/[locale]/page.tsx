@@ -37,6 +37,8 @@ export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [complianceScore, setComplianceScore] = useState<number | null>(null);
   const [advisorSavings, setAdvisorSavings] = useState<number>(0);
+  const [actualCost, setActualCost] = useState<number>(0);
+  const [projectedCost, setProjectedCost] = useState<number>(0);
   const [zombieCount, setZombieCount] = useState<number>(0);
   const { addAction } = useActionLogStore();
 
@@ -56,12 +58,15 @@ export default function Home() {
                   account: accounts[0]
               });
               const subParam = (!selectedSubscription || selectedSubscription.toLowerCase() === 'all') ? '' : `&subscriptionId=${selectedSubscription}`;
-              // Fetch audit + advisor in parallel
-              const [auditRes, advisorRes] = await Promise.allSettled([
+              // Fetch audit + advisor + forecast in parallel
+              const [auditRes, advisorRes, forecastRes] = await Promise.allSettled([
                   fetch(`/api/audit/full?tenantId=${selectedTenant.id}${subParam}`, {
                       headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
                   }),
                   fetch(`/api/advisor?tenantId=${selectedTenant.id}${subParam}`, {
+                      headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
+                  }),
+                  fetch(`/api/intelligence/forecast?tenantId=${selectedTenant.id}${subParam}`, {
                       headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
                   })
               ]);
@@ -78,6 +83,23 @@ export default function Home() {
                           acc + parseFloat(curr.extendedProperties?.savingsAmount || '0'), 0);
                       setAdvisorSavings(savings);
                   } catch (e) { console.warn('Advisor parse error', e); }
+              }
+
+              // Process Forecast data
+              if (forecastRes.status === 'fulfilled' && forecastRes.value.ok) {
+                  try {
+                      const fJson = await forecastRes.value.json();
+                      const combinedData = fJson.data || [];
+                      let currentSpend = 0;
+                      let forecastSum = 0;
+                      combinedData.forEach((item: any) => {
+                          if (item.actualCost) currentSpend += item.actualCost;
+                          if (item.forecastCost) forecastSum += item.forecastCost;
+                      });
+                      
+                      setActualCost(currentSpend);
+                      setProjectedCost(currentSpend + forecastSum);
+                  } catch (e) { console.warn('Forecast parse error', e); }
               }
 
               // Process Audit data
@@ -280,11 +302,18 @@ export default function Home() {
         
         <div className="flex gap-3 flex-wrap">
             <div className="bg-sky-50 border border-sky-200 rounded-xl px-5 py-3 flex flex-col items-end shadow-sm">
-                <span className="text-[10px] font-bold text-sky-700 uppercase tracking-widest mb-1">Ahorro Advisor</span>
+                <span className="text-[10px] font-bold text-sky-700 uppercase tracking-widest mb-1">Costo Actual</span>
                 <span className="text-3xl lg:text-4xl font-extrabold text-sky-600">
-                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(advisorSavings)}
+                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(actualCost)}
                 </span>
-                <span className="text-[10px] text-sky-600 mt-1">potencial / mes</span>
+                <span className="text-[10px] text-sky-600 mt-1">acumulado del mes</span>
+            </div>
+            <div className="bg-purple-50 border border-purple-200 rounded-xl px-5 py-3 flex flex-col items-end shadow-sm">
+                <span className="text-[10px] font-bold text-purple-700 uppercase tracking-widest mb-1">Costo Proyectado</span>
+                <span className="text-3xl lg:text-4xl font-extrabold text-purple-600">
+                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(projectedCost)}
+                </span>
+                <span className="text-[10px] text-purple-600 mt-1">al cierre de mes</span>
             </div>
             <div className="bg-green-50 border border-green-200 rounded-xl px-5 py-3 flex flex-col items-end shadow-sm">
                 <span className="text-[10px] font-bold text-green-700 uppercase tracking-widest mb-1">{t('potential_savings')}</span>

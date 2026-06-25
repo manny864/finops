@@ -167,7 +167,7 @@ export default function MaturityPage() {
                           <span className="text-sm font-bold text-brand-deep">Paso {wizardStep + 1} de {questions.length}</span>
                       </div>
                       <div className="w-full bg-surface-2 rounded-full h-2">
-                          <div className="bg-gradient-to-r from-brand-deep to-brand-bright h-2 rounded-full transition-all duration-300" style={{ width: \`\${((wizardStep) / questions.length) * 100}%\` }}></div>
+                          <div className="bg-gradient-to-r from-brand-deep to-brand-bright h-2 rounded-full transition-all duration-300" style={{ width: `${((wizardStep) / questions.length) * 100}%` }}></div>
                       </div>
                   </div>
                   <h3 className="text-2xl font-semibold text-ink text-center mb-10">{questions[wizardStep].text}</h3>
