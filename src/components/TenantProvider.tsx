@@ -165,6 +165,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               if (url.includes('/api/intelligence/budgets')) return new Response(JSON.stringify(getMockDataForRoute('budgets', tier)), {status: 200});
               if (url.includes('/api/budgets/burn')) return new Response(JSON.stringify(getMockDataForRoute('budgets_burn', tier)), {status: 200});
               if (url.includes('/api/intelligence/history')) return new Response(JSON.stringify(getMockDataForRoute('history', tier)), {status: 200});
+              if (url.includes('/api/intelligence/forecast')) return new Response(JSON.stringify(getMockDataForRoute('forecast', tier)), {status: 200});
               if (url.includes('/api/intelligence/maturity')) return new Response(JSON.stringify(getMockDataForRoute('maturity', tier)), {status: 200});
               if (url.includes('/api/cleanup/zombies')) return new Response(JSON.stringify(getMockDataForRoute('audit_full', tier)), {status: 200});
               if (url.includes('/api/cleanup/ttl')) return new Response(JSON.stringify(getMockDataForRoute('ttl', tier)), {status: 200});

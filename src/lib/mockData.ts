@@ -324,6 +324,21 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
                 ]
             };
         }
+        case 'forecast':
+            return {
+                data: [
+                    { date: "2026-06-01", actualCost: 350 * multiplier },
+                    { date: "2026-06-02", actualCost: 380 * multiplier },
+                    { date: "2026-06-03", actualCost: 390 * multiplier },
+                    { date: "2026-06-04", actualCost: 310 * multiplier },
+                    { date: "2026-06-05", actualCost: 340 * multiplier },
+                    { date: "2026-06-06", forecastCost: 360 * multiplier },
+                    { date: "2026-06-07", forecastCost: 360 * multiplier },
+                    { date: "2026-06-08", forecastCost: 360 * multiplier },
+                    { date: "2026-06-09", forecastCost: 360 * multiplier },
+                    { date: "2026-06-10", forecastCost: 360 * multiplier },
+                ]
+            };
         case 'maturity':
             return {
                 success: true,

@@ -187,12 +187,18 @@ export default function GlobalCopilot() {
 
             {isOpen && canAccessCopilot && (
                 <div 
-                    className={`fixed w-96 bg-surface border border-line rounded-2xl shadow-2xl z-50 flex flex-col h-[500px] overflow-hidden ${position.x === 0 && position.y === 0 ? 'bottom-24 right-6 animate-in slide-in-from-bottom-5' : ''}`}
-                    style={position.x !== 0 || position.y !== 0 ? {
-                        top: '50%',
-                        left: '50%',
-                        transform: `translate(calc(-50% + ${position.x}px), calc(-50% + ${position.y}px))`
-                    } : undefined}
+                    className={`fixed bg-surface border border-line rounded-2xl shadow-2xl z-50 flex flex-col resize overflow-hidden ${position.x === 0 && position.y === 0 ? 'bottom-24 right-6 animate-in slide-in-from-bottom-5' : ''}`}
+                    style={{
+                        ...(position.x !== 0 || position.y !== 0 ? {
+                            top: '50%',
+                            left: '50%',
+                            transform: `translate(calc(-50% + ${position.x}px), calc(-50% + ${position.y}px))`
+                        } : {}),
+                        width: '384px',
+                        height: '500px',
+                        minWidth: '320px',
+                        minHeight: '400px'
+                    }}
                 >
                     <div 
                         className="bg-brand-deep p-4 flex justify-between items-center cursor-move select-none"

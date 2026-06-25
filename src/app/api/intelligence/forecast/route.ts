@@ -29,10 +29,10 @@ export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
         const tenantId = searchParams.get('tenantId');
-        const subscriptionId = searchParams.get('subscriptionId');
+        const subscriptionId = searchParams.get('subscriptionId') || 'All';
 
-        if (!tenantId || !subscriptionId) {
-            return NextResponse.json({ error: "Faltan parámetros: tenantId, subscriptionId" }, { status: 400 });
+        if (!tenantId) {
+            return NextResponse.json({ error: "Faltan parámetros: tenantId" }, { status: 400 });
         }
 
         const authHeader = request.headers.get("authorization");
