@@ -435,6 +435,19 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
                     }
                 ]
             };
+        case 'hybrid-benefit':
+            return {
+                success: true,
+                data: {
+                    totalPotentialSavings: 2840.50,
+                    eligibleResources: [
+                        { id: 'vm-prod-sql-01', name: 'sql-prod-db-win', type: 'Virtual Machine', currentCost: 650.00, ahbCost: 320.00, savings: 330.00 },
+                        { id: 'vm-dev-win-02', name: 'iis-web-dev', type: 'Virtual Machine', currentCost: 280.00, ahbCost: 140.00, savings: 140.00 },
+                        { id: 'sql-mi-corp', name: 'corp-analytics-mi', type: 'SQL Managed Instance', currentCost: 4500.00, ahbCost: 2300.00, savings: 2200.00 },
+                        { id: 'vm-test-win', name: 'win-jumpbox-01', type: 'Virtual Machine', currentCost: 341.00, ahbCost: 170.50, savings: 170.50 }
+                    ]
+                }
+            };
         case 'commitments':
             return {
                 success: true,
