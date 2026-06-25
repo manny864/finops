@@ -3,6 +3,8 @@ import jwt from "jsonwebtoken";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { hasAccess } from "@/lib/tierLogic";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
+import { getResourceGraphClient } from "@/lib/azure";
+import { getRetailPricing } from "@/services/pricingService";
 
 export async function GET(request: NextRequest) {
     try {
@@ -41,12 +43,64 @@ export async function GET(request: NextRequest) {
         // Real Data fetching using Cache and Azure Resource Graph (ARG)
         const cacheKey = `hybrid-benefit:${tenantId}`;
         const data = await getWithStaleWhileRevalidate(cacheKey, async () => {
-            // Aquí iría el cliente de Azure Resource Graph
-            // ARG Query: "Resources | where type =~ 'microsoft.compute/virtualmachines' | where properties.licenseType != 'Windows_Server'"
-            // Retorna vacío por defecto si el SDK no está autenticado.
+            const client = await getResourceGraphClient(tenantId);
+            
+            // VMs: Windows OS sin AHB habilitado (licenseType no es 'Windows_Server')
+            // SQL DBs: Sin AHB habilitado (licenseType no es 'BasePrice')
+            const query = `
+                Resources
+                | where (
+                    type =~ 'microsoft.compute/virtualmachines' 
+                    and properties.storageProfile.osDisk.osType =~ 'Windows' 
+                    and (isnull(properties.licenseType) or properties.licenseType != 'Windows_Server')
+                  ) or (
+                    type =~ 'microsoft.sql/servers/databases' 
+                    and name != 'master' 
+                    and properties.licenseType != 'BasePrice'
+                  )
+                | project id, name, type, location, skuName = tostring(coalesce(properties.hardwareProfile.vmSize, sku.name))
+            `;
+            
+            const response = await client.resources({ query });
+            const resources = response.data as any[];
+
+            const eligibleResources = [];
+            let totalPotentialSavings = 0;
+
+            for (const res of resources) {
+                let serviceName = '';
+                let typeLabel = '';
+                if (res.type.toLowerCase() === 'microsoft.compute/virtualmachines') {
+                    serviceName = 'Virtual Machines';
+                    typeLabel = 'Windows VM';
+                } else {
+                    serviceName = 'SQL Database';
+                    typeLabel = 'SQL Database';
+                }
+
+                // Obtener precios
+                const pricing = await getRetailPricing(res.location, res.skuName, serviceName);
+                
+                const monthlyCostCurrent = (pricing.paygWithLicense || pricing.payg) * 730;
+                const monthlyCostAHB = pricing.payg * 730;
+                const savings = monthlyCostCurrent - monthlyCostAHB;
+
+                if (savings > 0) {
+                    eligibleResources.push({
+                        id: res.id,
+                        name: res.name,
+                        type: typeLabel,
+                        currentCost: monthlyCostCurrent,
+                        ahbCost: monthlyCostAHB,
+                        savings: savings
+                    });
+                    totalPotentialSavings += savings;
+                }
+            }
+
             return {
-                totalPotentialSavings: 0,
-                eligibleResources: []
+                totalPotentialSavings,
+                eligibleResources
             };
         }, 86400); // 24 hours TTL
 
