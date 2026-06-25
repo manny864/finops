@@ -5,6 +5,7 @@ import { useMsal } from '@azure/msal-react';
 import { useTenant } from '../TenantProvider';
 import FeatureGuard from '../FeatureGuard';
 import { getMockDataForRoute, isMockTenant } from '@/lib/mockData';
+import { hasAccessToTier } from '@/lib/tierLogic';
 import {
   useReactTable,
   getCoreRowModel,
@@ -24,6 +25,9 @@ export default function PowerSchedules() {
     const [scheduleVmName, setScheduleVmName] = useState('');
     const [shutdownTime, setShutdownTime] = useState('');
     const [gmtOffset, setGmtOffset] = useState('-05:00');
+    const [smartShutdownEnabled, setSmartShutdownEnabled] = useState(false);
+    const [maxCpuPercentage, setMaxCpuPercentage] = useState(10);
+    const [idleDurationMinutes, setIdleDurationMinutes] = useState(60);
     
     let t: any = (key: string) => key === 'prev' ? 'Anterior' : 'Siguiente';
     try {
@@ -99,7 +103,14 @@ export default function PowerSchedules() {
                 body: JSON.stringify({
                     tenantId: selectedTenant.id,
                     action,
-                    vms: payload
+                    vms: payload,
+                    ...(action === 'stop' ? { 
+                        thresholdOptions: {
+                            enabled: smartShutdownEnabled,
+                            maxCpuPercentage,
+                            idleDurationMinutes
+                        }
+                    } : {})
                 })
             });
             
@@ -211,8 +222,10 @@ export default function PowerSchedules() {
 
     if (accounts.length === 0 || selectedTenant.id === 'default') return null;
 
+    const isPro = hasAccessToTier(selectedTenant.tier, 'Professional');
+
     return (
-        <FeatureGuard requiredTier="Professional" featureName="VM Control" className="h-full">
+        <FeatureGuard requiredTier="Essential" featureName="VM Control" className="h-full">
             <div className="card h-full flex flex-col overflow-hidden">
                 <div className="card-h shrink-0">
                     <div className="flex flex-col">
@@ -299,6 +312,47 @@ export default function PowerSchedules() {
                                 Establecer
                             </button>
                         </div>
+                    </div>
+
+                    <div className="bg-surface-2 p-[18px] rounded-[10px] border border-line mb-6 flex flex-col items-start gap-4">
+                        <div className="flex items-center justify-between w-full">
+                            <div>
+                                <h4 className="text-[13px] font-bold text-ink mb-1">Smart Shutdown (Threshold-based)</h4>
+                                <p className="text-[12px] text-ink-soft m-0">Evita apagar máquinas si están bajo uso activo.</p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                {!isPro && (
+                                    <span className="text-[11px] font-bold bg-amber-100 text-amber-800 px-2 py-1 rounded">Requires Pro Tier</span>
+                                )}
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" className="sr-only peer" checked={smartShutdownEnabled} onChange={(e) => setSmartShutdownEnabled(e.target.checked)} disabled={!isPro} />
+                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-bright"></div>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        {smartShutdownEnabled && (
+                            <div className="flex flex-col md:flex-row gap-4 w-full mt-2">
+                                <div className="w-full md:w-1/2">
+                                    <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px] block mb-2">Máximo uso de CPU (%)</label>
+                                    <input 
+                                        type="number" 
+                                        value={maxCpuPercentage}
+                                        onChange={(e) => setMaxCpuPercentage(Number(e.target.value))}
+                                        className="w-full bg-surface border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2 outline-none"
+                                    />
+                                </div>
+                                <div className="w-full md:w-1/2">
+                                    <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px] block mb-2">Ventana de tiempo (Minutos)</label>
+                                    <input 
+                                        type="number" 
+                                        value={idleDurationMinutes}
+                                        onChange={(e) => setIdleDurationMinutes(Number(e.target.value))}
+                                        className="w-full bg-surface border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2 outline-none"
+                                    />
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     
