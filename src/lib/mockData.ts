@@ -302,6 +302,16 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
                     { tag_key: 'Owner', required: true }
                 ]
             };
+        case 'governance-policies': {
+            return {
+                success: true,
+                policies: [
+                    { id: "require-tags", name: "Requerir Etiquetas Core (CostCenter, Environment)", description: "Bloquea la creación de recursos que no incluyan las etiquetas financieras obligatorias.", active: true, severity: "High" },
+                    { id: "restrict-skus", name: "Restricción de Tamaños VM (Bloquear Series N/M/G)", description: "Previene el despliegue de familias de máquinas virtuales GPU o Memory-Optimized extremadamente costosas sin aprobación previa.", active: false, severity: "Medium" },
+                    { id: "allowed-locations", name: "Regiones Permitidas", description: "Fuerza que todos los recursos se desplieguen únicamente en East US y Brazil South para reducir latencia y costos de transferencia egress.", active: true, severity: "Low" }
+                ]
+            };
+        }
         case 'maturity':
             return {
                 success: true,

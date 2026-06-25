@@ -302,6 +302,36 @@ export async function initializeDatabase() {
             )
         `);
 
+        // Create Anomalies table for Z-Score ML Engine (Pro Module)
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS Anomalies (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                tenant_id VARCHAR(255) NOT NULL,
+                subscription_id VARCHAR(255) NOT NULL,
+                date DATE NOT NULL,
+                amount DECIMAL(12,2) NOT NULL,
+                expected_amount DECIMAL(12,2) NOT NULL,
+                z_score DECIMAL(5,2) NOT NULL,
+                status ENUM('New', 'Investigating', 'Resolved', 'False Positive') DEFAULT 'New',
+                detected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (tenant_id) REFERENCES Tenants(tenant_id) ON DELETE CASCADE
+            )
+        `);
+
+        // Create AcademyProgress table for FinOps Academy (Starter Module)
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS AcademyProgress (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                tenant_id VARCHAR(255) NOT NULL,
+                module_id VARCHAR(100) NOT NULL,
+                completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE,
+                FOREIGN KEY (tenant_id) REFERENCES Tenants(tenant_id) ON DELETE CASCADE,
+                UNIQUE KEY unique_user_module (user_id, module_id)
+            )
+        `);
+
         connection.release();
         dbInitialized = true;
         console.log("Database schema validated/initialized successfully.");

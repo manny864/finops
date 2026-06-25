@@ -68,6 +68,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             title: t('visibilidad'),
             items: [
                 { href: '/', label: t('dashboard'), icon: LayoutDashboard },
+                { href: '/academy', label: 'Academia FinOps', icon: BookOpen },
                 { href: '/advisor', label: t('advisor'), icon: Lightbulb },
                 { href: '/overview/maturity', label: t('finops_maturity'), icon: Target },
                 { href: '/overview/progress', label: t('historical_progress'), icon: TrendingDown },
@@ -91,6 +92,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/intelligence/unit-economics', label: 'Unit Economics', icon: Activity, requiredTier: 'Business' },
                 { href: '/intelligence/allocation', label: 'Prorrateo (Allocation)', icon: PieChart, requiredTier: 'Enterprise' },
                 { href: '/intelligence/scorecard', label: 'Scorecard (Fama)', icon: Trophy, requiredTier: 'Enterprise' },
+                { href: '/intelligence/anomalies', label: 'Detección Anomalías', icon: ShieldAlert, requiredTier: 'Professional' },
                 { href: '/intelligence/upload', label: 'Ingesta CSV', icon: FileText }
             ]
         },

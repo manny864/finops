@@ -336,7 +336,8 @@
         "Zero-Cost Inventory",
         "PDF/CSV Exports",
         "Azure Advisor Health Score",
-        "Potential Savings Radar (Teaser)"
+        "Potential Savings Radar (Teaser)",
+        "FinOps Onboarding Academy"
       ]
     },
     "pro": {
@@ -351,7 +352,8 @@
         "Tag Governance",
         "Commitment Discounts (Reservations)",
         "Remediation Approval Workflow",
-        "Hybrid Benefit Scanner (AHB)"
+        "Hybrid Benefit Scanner (AHB)",
+        "Predictive Anomaly Engine (Z-Score)"
       ]
     },
     "business": {

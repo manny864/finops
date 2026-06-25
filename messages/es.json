@@ -334,9 +334,10 @@
         "Visualización de Presupuestos",
         "Dashboard de Sustentabilidad",
         "Inventario de Costo Cero",
-        "Exportación PDF/CSV",
-        "Health Score de Azure Advisor",
-        "Radar de Ahorro Potencial (Teaser)"
+        "Exportaciones PDF/CSV",
+        "Puntaje de Salud de Azure Advisor",
+        "Radar de Ahorros Potenciales (Teaser)",
+        "Academia de Onboarding FinOps"
       ]
     },
     "pro": {
@@ -351,7 +352,8 @@
         "Gobernanza de Etiquetas",
         "Descuentos por Compromiso (RIs)",
         "Flujo de Aprobación de Remediación",
-        "Escáner de Beneficio Híbrido (AHB)"
+        "Escáner de Beneficio Híbrido (AHB)",
+        "Motor Predictivo de Anomalías (Z-Score)"
       ]
     },
     "business": {
