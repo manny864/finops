@@ -82,6 +82,18 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
                 ],
                 subscriptions: ["mock-sub"]
             };
+        case 'rates':
+            return {
+                recommendations: [
+                    { resourceName: 'app-prod-vm-01', resourceType: 'Virtual Machine', sku: 'Standard_D8s_v3', region: 'eastus', monthlyCost: 150, monthlyCostLicenseIncluded: 300, annualCost: 3600, annualCost1Y: 2160, annualCost3Y: 1512, savings1Y: 1440, savings3Y: 2088 },
+                    { resourceName: 'db-stage-vm-02', resourceType: 'Virtual Machine', sku: 'Standard_E8s_v4', region: 'eastus', monthlyCost: 200, monthlyCostLicenseIncluded: 420, annualCost: 5040, annualCost1Y: 3024, annualCost3Y: 2116, savings1Y: 2016, savings3Y: 2924 },
+                    { resourceName: 'sqldb-main', resourceType: 'SQL Database', sku: 'vCore_Gen5_8', region: 'westus', monthlyCost: 400, monthlyCostLicenseIncluded: 850, annualCost: 10200, annualCost1Y: 6120, annualCost3Y: 4284, savings1Y: 4080, savings3Y: 5916 }
+                ],
+                reservations: [
+                    { skuName: 'Standard_D8s_v3', resourceType: 'VirtualMachines', recommendedQuantity: 4, totalMonthlyPAYGCost: 1200, costWith1YReservation: 720, netSavings1Y: 480, costWith3YReservation: 504, netSavings3Y: 696 },
+                    { skuName: 'vCore_Gen5_8', resourceType: 'SQLDatabase', recommendedQuantity: 2, totalMonthlyPAYGCost: 1700, costWith1YReservation: 1020, netSavings1Y: 680, costWith3YReservation: 714, netSavings3Y: 986 }
+                ]
+            };
         case 'ttl':
             return {
                 success: true,
