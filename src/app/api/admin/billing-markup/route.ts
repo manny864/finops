@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { hasAccess } from "@/lib/tierLogic";
-import { getConnection } from "@/modules/storage/db";
+import pool from "@/modules/storage/db";
 
 export async function GET(request: NextRequest) {
     try {
@@ -19,8 +19,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(getMockDataForRoute('billing-markup', tenantId));
         }
 
-        const connection = await getConnection();
-        const [rows]: any = await connection.query('SELECT markup_percentage FROM Tenants WHERE tenant_id = ?', [tenantId]);
+        const [rows]: any = await pool.query('SELECT markup_percentage FROM Tenants WHERE tenant_id = ?', [tenantId]);
 
         if (!rows || rows.length === 0) {
             return NextResponse.json({ error: "Tenant no encontrado." }, { status: 404 });
@@ -45,8 +44,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ success: true, message: "Margen actualizado exitosamente (Mock)" });
         }
 
-        const connection = await getConnection();
-        await connection.query('UPDATE Tenants SET markup_percentage = ? WHERE tenant_id = ?', [markupPercentage, tenantId]);
+        await pool.query('UPDATE Tenants SET markup_percentage = ? WHERE tenant_id = ?', [markupPercentage, tenantId]);
 
         return NextResponse.json({ success: true, message: "Margen de ganancia actualizado en el Tenant." });
     } catch (error: any) {

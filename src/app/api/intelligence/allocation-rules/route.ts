@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { hasAccess } from "@/lib/tierLogic";
-import { getConnection } from "@/modules/storage/db";
+import pool from "@/modules/storage/db";
 import { randomUUID } from "crypto";
 
 export async function GET(request: NextRequest) {
@@ -20,8 +20,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(getMockDataForRoute('allocation-rules', tenantId));
         }
 
-        const connection = await getConnection();
-        const [rows] = await connection.query(
+        const [rows] = await pool.query(
             'SELECT * FROM AllocationRules WHERE tenantId = ? ORDER BY resourceName ASC',
             [tenantId]
         );
@@ -47,7 +46,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ success: true, message: "Reglas guardadas (Mock)" });
         }
 
-        const connection = await getConnection();
+        const connection = await pool.getConnection();
         
         // We will process them within a transaction
         await connection.query('START TRANSACTION');
@@ -73,9 +72,11 @@ export async function POST(request: NextRequest) {
             }
 
             await connection.query('COMMIT');
+            connection.release();
             return NextResponse.json({ success: true, message: "Reglas guardadas correctamente" });
         } catch (txnErr) {
             await connection.query('ROLLBACK');
+            connection.release();
             throw txnErr;
         }
 
