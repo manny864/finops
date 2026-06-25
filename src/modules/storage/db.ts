@@ -64,9 +64,7 @@ export async function initializeDatabase() {
             if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding last_sync_at:", e);
         }
 
-        try {
-            if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding last_error_message:", e);
-        }
+
 
         // Add client_id and client_secret if they don't exist
         try {
