@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { toast } from 'sonner';
 import { Loader2, X } from 'lucide-react';
+import KillSwitchConfig from '@/components/budgets/KillSwitchConfig';
 
 interface CreateBudgetModalProps {
     isOpen: boolean;
@@ -165,6 +166,8 @@ export default function CreateBudgetModal({ isOpen, onClose, onSuccess, subscrip
                             <option value="BillingAnnual">Anual (Facturación)</option>
                         </select>
                     </div>
+
+                    <KillSwitchConfig subscriptionId={subscriptionId} />
                     
                     <div className="px-6 py-4 bg-gray-50 dark:bg-slate-800/50 -mx-6 -mb-6 flex justify-end gap-3 mt-6">
                         <button 
