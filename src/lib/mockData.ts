@@ -314,16 +314,7 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
                     { tag_key: 'Owner', required: true }
                 ]
             };
-        case 'governance-policies': {
-            return {
-                success: true,
-                policies: [
-                    { id: "require-tags", name: "Requerir Etiquetas Core (CostCenter, Environment)", description: "Bloquea la creación de recursos que no incluyan las etiquetas financieras obligatorias.", active: true, severity: "High" },
-                    { id: "restrict-skus", name: "Restricción de Tamaños VM (Bloquear Series N/M/G)", description: "Previene el despliegue de familias de máquinas virtuales GPU o Memory-Optimized extremadamente costosas sin aprobación previa.", active: false, severity: "Medium" },
-                    { id: "allowed-locations", name: "Regiones Permitidas", description: "Fuerza que todos los recursos se desplieguen únicamente en East US y Brazil South para reducir latencia y costos de transferencia egress.", active: true, severity: "Low" }
-                ]
-            };
-        }
+
         case 'forecast':
             return {
                 data: [
@@ -498,10 +489,21 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
         case 'governance-policies':
             return {
                 success: true,
+                managementGroups: [
+                    { id: 'mg-root', name: 'Tenant Root Group' },
+                    { id: 'mg-landingzones', name: 'Landing Zones' },
+                    { id: 'mg-sandbox', name: 'Sandbox Environments' },
+                    { id: 'mg-corp', name: 'Corporate Systems' }
+                ],
                 data: [
-                    { id: 'pol-tag', name: 'Requiere Etiqueta "CostCenter"', description: 'Evita la creación de cualquier recurso en Azure si no incluye la etiqueta CostCenter.', status: 'Active' },
-                    { id: 'pol-sku', name: 'Restringir Familias de VMs (GPU/Memoria)', description: 'Bloquea el aprovisionamiento de series M, NC, G, NV (Alta densidad de costo).', status: 'Inactive' },
-                    { id: 'pol-loc', name: 'Restricción de Regiones Geográficas', description: 'Obliga a que todos los despliegues ocurran exclusivamente en East US y West Europe.', status: 'Active' }
+                    { id: 'pol-tag', name: 'Requiere Etiqueta "CostCenter"', description: 'Evita la creación de cualquier recurso en Azure si no incluye la etiqueta CostCenter.', status: 'Active', targetMg: 'mg-root' },
+                    { id: 'pol-sku', name: 'Restringir Familias de VMs (GPU/Memoria)', description: 'Bloquea el aprovisionamiento de series M, NC, G, NV (Alta densidad de costo).', status: 'Inactive', targetMg: null },
+                    { id: 'pol-loc', name: 'Restricción de Regiones Geográficas', description: 'Obliga a que todos los despliegues ocurran exclusivamente en East US y West Europe.', status: 'Active', targetMg: 'mg-landingzones' },
+                    { id: 'pol-lrs', name: 'Forzar LRS en Entornos No Productivos', description: 'Evita la creación de Storage Accounts con redundancia geográfica (GRS) en entornos de Dev/Test para recortar costos a la mitad.', status: 'Inactive', targetMg: null },
+                    { id: 'pol-ttl', name: 'Requerir Etiqueta de Expiración (TTL)', description: 'Obliga a que todos los recursos en Sandbox contengan la etiqueta ExpireOn para su eliminación automática.', status: 'Inactive', targetMg: null },
+                    { id: 'pol-log', name: 'Límite de Retención en Log Analytics', description: 'Previene la configuración de Workspaces con retención superior a 30 días, evitando acumulación de logs basura.', status: 'Inactive', targetMg: null },
+                    { id: 'pol-pip', name: 'Prevención de IPs Públicas Huérfanas', description: 'Prohíbe asignar direcciones IP públicas directamente a interfaces de red de Máquinas Virtuales.', status: 'Inactive', targetMg: null },
+                    { id: 'pol-asp', name: 'Restricción de App Service Plans (Premium)', description: 'Bloquea el aprovisionamiento de las capas de precios Premium V3 (Pv3) de App Service sin una excepción explícita.', status: 'Inactive', targetMg: null }
                 ]
             };
         case 'billing-markup':

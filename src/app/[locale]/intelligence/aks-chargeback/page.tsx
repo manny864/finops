@@ -70,6 +70,20 @@ export default function AksChargebackPage() {
 
     if (!data) return <div className="p-6 text-center text-red-500">Error al cargar datos.</div>;
 
+    if (data.empty) {
+        return (
+            <div className="p-6">
+                <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-8 text-center max-w-2xl mx-auto shadow-sm">
+                    <Layers className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">No se detectaron recursos AKS</h2>
+                    <p className="text-gray-600 dark:text-gray-400 mb-6">
+                        No hemos encontrado ningún clúster de Azure Kubernetes Service (AKS) aprovisionado en las suscripciones vinculadas a este Tenant.
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
     const COLORS = ['#0054A6', '#10B981', '#F59E0B', '#6366F1', '#EC4899', '#94A3B8'];
 
     const pieData = data.chargebackData.map((ns: any) => ({

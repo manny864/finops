@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
+import { isMockTenant } from "@/lib/mockData";
 
 // Simulated Retail API wrapper for What-If scenario
 const fetchSimulatedPrices = async (scenarioData: any) => {
@@ -48,25 +49,31 @@ export async function POST(request: NextRequest) {
         }
 
         // Feature Gate Verification
-        const [tenants]: any = await pool.query('SELECT * FROM Tenants WHERE id = ?', [tenantId]);
-        if (!tenants || tenants.length === 0) {
-            return NextResponse.json({ error: "Tenant no encontrado." }, { status: 404 });
+        let normalizedTier = 'Enterprise'; // Default for mock tenants
+        if (!isMockTenant(tenantId)) {
+            const [tenants]: any = await pool.query('SELECT * FROM Tenants WHERE tenant_id = ?', [tenantId]);
+            if (!tenants || tenants.length === 0) {
+                return NextResponse.json({ error: "Tenant no encontrado." }, { status: 404 });
+            }
+            
+            const tier = tenants[0].tier;
+            normalizedTier = tier.toLowerCase() === 'enterprise' ? 'Enterprise' : tier;
         }
-        
-        const tier = tenants[0].tier;
-        const normalizedTier = tier.toLowerCase() === 'enterprise' ? 'Enterprise' : tier;
+
         if (normalizedTier !== 'Enterprise') {
             return NextResponse.json({ error: "Feature bloqueada. Requiere plan Enterprise." }, { status: 403 });
         }
 
         const simulation = await fetchSimulatedPrices(scenario);
 
-        // Log simulation run
-        await pool.query(
-            `INSERT INTO ActionLogs (tenant_id, action_type, resource_id, resource_type, status, details, user_email) 
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [tenantId, 'WhatIfSimulation', 'Tenant', 'Simulation', 'Success', JSON.stringify({ scenario, simulation }), 'system@simulator']
-        );
+        if (!isMockTenant(tenantId)) {
+            // Log simulation run only for real tenants
+            await pool.query(
+                `INSERT INTO ActionLogs (tenant_id, user_email, action_type, resource_id, status) 
+                 VALUES (?, ?, ?, ?, ?)`,
+                [tenantId, 'system@simulator', 'WhatIfSimulation', 'Tenant', 'Success']
+            );
+        }
 
         return NextResponse.json({ 
             success: true, 

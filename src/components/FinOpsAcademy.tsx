@@ -115,6 +115,12 @@ export default function FinOpsAcademy() {
                         <div className="flex flex-col items-center animate-in zoom-in">
                             <Trophy className="w-10 h-10 text-yellow-500 mb-1 drop-shadow-md" />
                             <span className="text-xs font-bold text-yellow-600 uppercase tracking-widest">FinOps Certified</span>
+                            <button 
+                                onClick={() => window.location.href = '/'}
+                                className="mt-2 px-3 py-1.5 bg-brand-deep text-white text-xs font-bold rounded hover:bg-brand-bright shadow-sm transition-colors"
+                            >
+                                Ingresar al SaaS
+                            </button>
                         </div>
                     )}
                 </div>

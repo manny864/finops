@@ -143,6 +143,12 @@ export async function POST(request: NextRequest) {
             [userId, tenantId, moduleId]
         );
 
+        // Verify if all modules are completed to mark tenant as onboarded
+        const [progressRows]: any = await pool.query('SELECT module_id FROM AcademyProgress WHERE user_id = ? AND tenant_id = ?', [userId, tenantId]);
+        if (progressRows && progressRows.length >= ACADEMY_CONTENT.length) {
+            await pool.query('UPDATE Tenants SET is_onboarded = 1 WHERE tenant_id = ?', [tenantId]);
+        }
+
         return NextResponse.json({ success: true, message: "Módulo completado" });
     } catch (error: any) {
         return NextResponse.json({ error: error.message || "Error interno" }, { status: 500 });

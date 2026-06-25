@@ -189,27 +189,15 @@ export default function GlobalCopilot() {
                         setMessages((mock.history as {role: 'user'|'ai', content: string}[]) || []);
                     }
                 } else {
-                    const headers = await getAuthHeaders();
-                    const res = await fetch('/api/intelligence/copilot', {
-                        method: 'POST',
-                        headers,
-                        body: JSON.stringify({
-                            prompt: `Actúa como FinOps Copilot. El usuario acaba de abrir el chat en la página "${currentPage}". Redacta un saludo inicial amigable y breve (máximo 3 líneas) indicándole que ves que está en la sección de "${currentPage}". A continuación, y basándote en los datos proporcionados, dale 1 o 2 sugerencias rápidas de optimización o análisis. Responde en español y formatea tu respuesta en Markdown si es necesario.`,
-                            pageContext: currentPage,
-                            dataPayload: currentDataPayload,
-                            tenantId: selectedTenant.id
-                        })
-                    });
-                    const json = await res.json();
-                    if (json.reply) {
-                        setMessages([{ role: 'ai', content: json.reply }]);
-                    } else if (json.error) {
-                        setMessages([{ role: 'ai', content: `⚠️ ${json.details || json.error}` }]);
-                    }
+                    // Optimización: Saludo inicial instantáneo sin llamar a la IA
+                    setMessages([{ 
+                        role: 'ai', 
+                        content: `¡Hola! Soy tu FinOps Copilot ⚡.\n\nYa he cargado en memoria todo el contexto y los datos de **${currentPage}**.\n\n¿Qué te gustaría analizar? Puedes pedirme que resuma esta información, identifique anomalías o busque oportunidades de ahorro.` 
+                    }]);
                 }
             } catch(e: any) {
                 console.error("[Copilot] Auto-summary error:", e);
-                setMessages([{ role: 'ai', content: "⚠️ No se pudo conectar con el servicio de IA." }]);
+                setMessages([{ role: 'ai', content: "⚠️ No se pudo preparar el contexto." }]);
             }
             setLoading(false);
         };

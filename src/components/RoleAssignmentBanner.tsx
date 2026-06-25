@@ -1,12 +1,22 @@
 'use client';
 import React, { useState } from 'react';
+import { useTenant } from '@/components/TenantProvider';
+import { hasAccess } from '@/lib/tierLogic';
 
 export default function RoleAssignmentBanner() {
     const [copied, setCopied] = useState(false);
+    const { selectedTenant } = useTenant();
     const clientId = process.env.NEXT_PUBLIC_CLIENT_ID || "876d8a5b-6023-4484-b3ba-73c186e4a72b";
     
-    // Script automatizado que resuelve el Object ID a traves del Client ID y usa la sub actual.
-    const cliCommand = `az role assignment create --assignee "${clientId}" --role "Reader" --scope "/subscriptions/$(az account show --query id -o tsv)"`;
+    const tier = (selectedTenant as any)?.tier || 'Essential';
+    const isEnterprise = hasAccess(tier, 'Enterprise');
+    const tenantId = selectedTenant?.id || '';
+
+    // Si es Enterprise, damos Reader y Resource Policy Contributor a nivel Tenant Root Group
+    // Si no, solo Reader a nivel Suscripción actual.
+    const cliCommand = isEnterprise && tenantId && tenantId !== 'default'
+        ? `az role assignment create --assignee "${clientId}" --role "Reader" --scope "/providers/Microsoft.Management/managementGroups/${tenantId}"\naz role assignment create --assignee "${clientId}" --role "Resource Policy Contributor" --scope "/providers/Microsoft.Management/managementGroups/${tenantId}"`
+        : `az role assignment create --assignee "${clientId}" --role "Reader" --scope "/subscriptions/$(az account show --query id -o tsv)"`;
 
     const handleCopy = () => {
         navigator.clipboard.writeText(cliCommand);
@@ -25,7 +35,12 @@ export default function RoleAssignmentBanner() {
                 <div className="ml-4 w-full">
                     <h3 className="text-lg font-bold text-blue-900">Permiso de Lectura Requerido</h3>
                     <div className="mt-2 text-sm text-blue-800">
-                        <p>Tu cuenta ha sido vinculada exitosamente, pero nuestra plataforma requiere permisos de Lector en tu Suscripción de Azure para detectar los recursos zombis y optimizar tus costos.</p>
+                        <p>Tu cuenta ha sido vinculada exitosamente, pero nuestra plataforma requiere permisos en tu entorno para operar de forma automatizada.</p>
+                        {isEnterprise ? (
+                            <p className="mt-2 text-xs opacity-90">Al estar en el plan <b>Enterprise</b>, el script asignará el rol de <b>Lector (Reader)</b> para auditoría y el rol de <b>Resource Policy Contributor</b> para inyección dinámica de Políticas as Code a nivel de Tenant Root Group (múltiples suscripciones).</p>
+                        ) : (
+                            <p className="mt-2 text-xs opacity-90">El script asignará el rol de <b>Lector (Reader)</b> en tu Suscripción actual para poder detectar recursos zombis y extraer métricas de costo.</p>
+                        )}
                         <p className="mt-3 font-semibold">Ejecuta este comando seguro en tu consola de Azure para habilitarlo:</p>
                     </div>
                     

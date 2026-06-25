@@ -5,11 +5,14 @@ import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { Loader2, Activity, AlertTriangle, TrendingUp, CheckCircle } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceArea, ReferenceLine } from 'recharts';
+import { hasAccess } from '@/lib/tierLogic';
+import PremiumBanner from '@/components/PremiumBanner';
 
 export default function AnomalyDashboard() {
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const tier = (selectedTenant as any)?.tier || 'Essential';
+    const isPro = hasAccess(tier, 'Professional');
 
     const fetcher = async (url: string) => {
         const account = accounts[0];
@@ -32,7 +35,7 @@ export default function AnomalyDashboard() {
     };
 
     const { data, error, isLoading } = useSWR(
-        (selectedTenant && selectedTenant.id !== 'default' && accounts.length > 0) 
+        (isPro && selectedTenant && selectedTenant.id !== 'default' && accounts.length > 0) 
             ? `/api/intelligence/anomalies?tenantId=${selectedTenant.id}&tier=${tier}` 
             : null,
         fetcher,
@@ -40,6 +43,17 @@ export default function AnomalyDashboard() {
     );
 
     if (!selectedTenant || selectedTenant.id === 'default') return null;
+
+    if (!isPro) {
+        return (
+            <PremiumBanner 
+                title="Detección de Anomalías (ML Z-Score)" 
+                description="Caza picos de gasto inusuales mediante Machine Learning (Z-Score) antes de que impacten tu presupuesto mensual." 
+                requiredTier="Professional" 
+                icon="zap"
+            />
+        );
+    }
 
     if (isLoading) {
         return (

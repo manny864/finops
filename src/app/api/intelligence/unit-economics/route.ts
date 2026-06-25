@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CostManagementClient } from "@azure/arm-costmanagement";
-import { getAzureCredential } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
 import jwt from "jsonwebtoken";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
@@ -37,44 +37,52 @@ export async function GET(request: NextRequest) {
             const credential = await getAzureCredential(tenantId);
             const costClient = new CostManagementClient(credential);
             
-            // Limitamos a consultar el Management Group
-            const scope = `/providers/Microsoft.Management/managementGroups/${tenantId}`;
-            
+            const subs = await getSubscriptionsForTenant(tenantId, credential);
+            if (!subs || subs.length === 0) {
+                return [];
+            }
+
             const endDate = new Date();
             const startDate = new Date();
             startDate.setDate(startDate.getDate() - 29); // Last 30 days including today
 
-            // 1. Obtener Costos Diarios (Azure Cost Management)
-            const costRes = await costClient.query.usage(scope, {
-                type: "ActualCost",
-                timeframe: "Custom",
-                timePeriod: {
-                    from: startDate,
-                    to: endDate
-                },
-                dataset: {
-                    granularity: "Daily",
-                    aggregation: {
-                        totalCost: { name: "PreTaxCost", function: "Sum" }
-                    }
-                }
-            });
-
-            // Parsear filas devueltas por Cost Management
             const dailyCosts = new Map<string, number>();
-            if (costRes.rows) {
-                costRes.rows.forEach(row => {
-                    const cost = parseFloat(row[0] as string);
-                    const usageDate = String(row[1]); // formato YYYYMMDD o YYYY-MM-DDT...
-                    // Estandarizar fecha a YYYY-MM-DD
-                    let formattedDate = usageDate;
-                    if (usageDate.length === 8) {
-                        formattedDate = `${usageDate.substring(0,4)}-${usageDate.substring(4,6)}-${usageDate.substring(6,8)}`;
-                    } else if (usageDate.includes('T')) {
-                        formattedDate = usageDate.split('T')[0];
+
+            // 1. Obtener Costos Diarios iterando por cada subscripción válida
+            for (const subId of subs) {
+                const scope = `subscriptions/${subId}`;
+                try {
+                    const costRes = await costClient.query.usage(scope, {
+                        type: "ActualCost",
+                        timeframe: "Custom",
+                        timePeriod: {
+                            from: startDate,
+                            to: endDate
+                        },
+                        dataset: {
+                            granularity: "Daily",
+                            aggregation: {
+                                totalCost: { name: "PreTaxCost", function: "Sum" }
+                            }
+                        }
+                    });
+
+                    if (costRes.rows) {
+                        costRes.rows.forEach(row => {
+                            const cost = parseFloat(row[0] as string);
+                            const usageDate = String(row[1]); // formato YYYYMMDD o YYYY-MM-DDT...
+                            let formattedDate = usageDate;
+                            if (usageDate.length === 8) {
+                                formattedDate = `${usageDate.substring(0,4)}-${usageDate.substring(4,6)}-${usageDate.substring(6,8)}`;
+                            } else if (usageDate.includes('T')) {
+                                formattedDate = usageDate.split('T')[0];
+                            }
+                            dailyCosts.set(formattedDate, (dailyCosts.get(formattedDate) || 0) + cost);
+                        });
                     }
-                    dailyCosts.set(formattedDate, cost);
-                });
+                } catch (subErr) {
+                    console.error(`Error al consultar Cost Management para ${scope}:`, subErr);
+                }
             }
 
             // 2. Mock de DAUs (En producción esto vendría de Datadog, Google Analytics, DB, etc.)

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAksChargebackCost } from "@/modules/collectors/azure/aksCostService";
+import { isMockTenant } from "@/lib/mockData";
 import pool from "@/modules/storage/db";
+import { getResourceGraphClient } from "@/lib/azure";
 
 export async function GET(request: NextRequest) {
     try {
@@ -12,18 +14,48 @@ export async function GET(request: NextRequest) {
         }
 
         // Feature Gate Verification
-        const [tenants]: any = await pool.query('SELECT * FROM Tenants WHERE tenant_id = ?', [tenantId]);
-        if (!tenants || tenants.length === 0) {
-            return NextResponse.json({ error: "Tenant no encontrado." }, { status: 404 });
+        let normalizedTier = 'Enterprise'; // Default for mock tenants
+        if (!isMockTenant(tenantId)) {
+            const [tenants]: any = await pool.query('SELECT * FROM Tenants WHERE tenant_id = ?', [tenantId]);
+            if (!tenants || tenants.length === 0) {
+                return NextResponse.json({ error: "Tenant no encontrado." }, { status: 404 });
+            }
+            
+            const tier = tenants[0].tier;
+            normalizedTier = tier.toLowerCase() === 'enterprise' ? 'Enterprise' : tier;
         }
-        
-        const tier = tenants[0].tier;
-        const normalizedTier = tier.toLowerCase() === 'enterprise' ? 'Enterprise' : tier;
+
         if (normalizedTier !== 'Enterprise') {
             return NextResponse.json({ error: "Feature bloqueada. Requiere plan Enterprise." }, { status: 403 });
         }
 
-        const data = await getAksChargebackCost(tenantId, "mock-sub", "aks-prod-cluster");
+        let targetSubscriptionId = "mock-sub";
+        let targetClusterName = "demo-aks-cluster";
+        let targetNodeResourceGroup = "MC_demo";
+
+        if (!isMockTenant(tenantId)) {
+            const client = await getResourceGraphClient(tenantId);
+            const query = `
+                Resources
+                | where type =~ 'microsoft.containerservice/managedclusters'
+                | project name, subscriptionId, resourceGroup, nodeResourceGroup = tostring(properties.nodeResourceGroup)
+                | limit 1
+            `;
+            const resARG = await client.resources({ query });
+            const clusters = resARG.data as any[];
+
+            if (!clusters || clusters.length === 0) {
+                return NextResponse.json({ success: true, empty: true, message: "No se encontraron clústeres de AKS en el tenant." });
+            }
+
+            const cluster = clusters[0];
+            targetSubscriptionId = cluster.subscriptionId;
+            targetClusterName = cluster.name;
+            targetNodeResourceGroup = cluster.nodeResourceGroup;
+        }
+
+        const data = await getAksChargebackCost(tenantId, targetSubscriptionId, targetClusterName, targetNodeResourceGroup);
+        
         return NextResponse.json(data);
     } catch (error: any) {
         console.error("AKS Chargeback API Error:", error);

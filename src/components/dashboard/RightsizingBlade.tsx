@@ -45,7 +45,7 @@ export default function RightsizingBlade() {
         }
     );
 
-    const recommendations: any[] = json?.success && json?.data ? json.data : [];
+    const recommendations: any[] = Array.isArray(json?.data) ? json.data : (Array.isArray(json) ? json : []);
     const isFirstLoading = !json && isValidating;
 
     let t: any = (key: string) => key;

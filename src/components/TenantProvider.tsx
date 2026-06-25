@@ -2,7 +2,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { getMockDataForRoute } from '@/lib/mockData';
-import { useRouter, usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { isMockTenant } from '@/lib/mockData';
 
 export interface Tenant {
   id: string;
@@ -65,15 +66,18 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
   const [systemRole, setSystemRole] = useState<string>('USER');
   const [userScope, setUserScope] = useState<any>(null);
 
-  // Enforce Onboarding
+  // Enforce Academy completion
   useEffect(() => {
-    if (!demoSession?.isDemo && selectedTenant.id !== 'default' && typeof window !== 'undefined') {
+    if (selectedTenant.id !== 'default' && typeof window !== 'undefined') {
+        // Skip redirect for demo/mock tenants
+        if (isMockTenant(selectedTenant.id) || demoSession?.isDemo) return;
+
         if ((selectedTenant.is_onboarded as any) === 0 || selectedTenant.is_onboarded === false) {
-            if (!pathname?.includes('/admin/onboarding')) {
+            if (!pathname?.includes('/academy')) {
                 // Keep the current locale
                 const localeMatch = pathname?.match(/^\/([a-z]{2}(-[A-Z]{2})?)\//);
                 const locale = localeMatch ? localeMatch[1] : 'en';
-                router.push(`/${locale}/admin/onboarding`);
+                router.push(`/${locale}/academy`);
             }
         }
     }
