@@ -128,7 +128,7 @@ export default function AksChargebackPage() {
                                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                     ))}
                                 </Pie>
-                                <RechartsTooltip formatter={(value: number) => formatter.format(value)} />
+                                <RechartsTooltip formatter={(value: any) => formatter.format(value)} />
                                 <Legend />
                             </PieChart>
                         </ResponsiveContainer>
