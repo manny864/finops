@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 export default function SimulatorPage() {
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
-    const isEnterprise = hasAccess(selectedTenant.tier, 'Enterprise');
+    const isEnterprise = hasAccess(selectedTenant.tier || 'Essential', 'Enterprise');
     
     const [networkIncrease, setNetworkIncrease] = useState(0);
     const [computeScale, setComputeScale] = useState(100);

@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 
 export default function AksChargebackPage() {
     const { selectedTenant } = useTenant();
-    const isEnterprise = hasAccess(selectedTenant.tier, 'Enterprise');
+    const isEnterprise = hasAccess(selectedTenant.tier || 'Essential', 'Enterprise');
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState<any>(null);
 
