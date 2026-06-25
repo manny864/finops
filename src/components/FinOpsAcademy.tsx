@@ -5,7 +5,7 @@ import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { Loader2, BookOpen, CheckCircle, GraduationCap, PlayCircle, Trophy, Terminal } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { getOnboardingScript } from '@/lib/onboardingScriptTemplate';
+import { generateOnboardingScript } from '@/lib/onboardingScriptTemplate';
 
 export default function FinOpsAcademy() {
     const { selectedTenant } = useTenant();
@@ -122,7 +122,7 @@ export default function FinOpsAcademy() {
                 <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2.5 mb-1 overflow-hidden">
                     <div 
                         className="bg-brand-deep dark:bg-brand-bright h-2.5 rounded-full transition-all duration-1000 ease-out" 
-                        style={{ width: \`\${progressPercentage}%\` }}
+                        style={{ width: `${progressPercentage}%` }}
                     ></div>
                 </div>
             </div>
@@ -133,11 +133,11 @@ export default function FinOpsAcademy() {
                     const isFirstModuleCompleted = mod.id === 'module-1' && mod.isCompleted;
 
                     return (
-                        <div key={mod.id} className={\`bg-white dark:bg-slate-900 rounded-xl border \${mod.isCompleted ? 'border-green-200 dark:border-green-900/50' : 'border-gray-200 dark:border-slate-800'} overflow-hidden shadow-sm transition-all\`}>
-                            <div className={\`p-6 \${mod.isCompleted ? 'bg-green-50/30 dark:bg-green-900/10' : ''}\`}>
+                        <div key={mod.id} className={`bg-white dark:bg-slate-900 rounded-xl border ${mod.isCompleted ? 'border-green-200 dark:border-green-900/50' : 'border-gray-200 dark:border-slate-800'} overflow-hidden shadow-sm transition-all`}>
+                            <div className={`p-6 ${mod.isCompleted ? 'bg-green-50/30 dark:bg-green-900/10' : ''}`}>
                                 <div className="flex items-start justify-between">
                                     <div className="flex gap-4">
-                                        <div className={\`p-3 rounded-xl \${mod.isCompleted ? 'bg-green-100 dark:bg-green-900/50 text-green-600' : 'bg-blue-50 dark:bg-blue-900/30 text-brand-deep'}\`}>
+                                        <div className={`p-3 rounded-xl ${mod.isCompleted ? 'bg-green-100 dark:bg-green-900/50 text-green-600' : 'bg-blue-50 dark:bg-blue-900/30 text-brand-deep'}`}>
                                             {mod.isCompleted ? <CheckCircle className="w-6 h-6" /> : <BookOpen className="w-6 h-6" />}
                                         </div>
                                         <div>
@@ -177,7 +177,7 @@ export default function FinOpsAcademy() {
                                             Ya que entiendes la importancia de la visibilidad, ejecuta tu script de Onboarding seguro (Read-Only) en Azure Cloud Shell para empezar a jalar datos reales.
                                         </p>
                                         <pre className="bg-gray-900 p-4 rounded-lg overflow-x-auto text-xs font-mono text-green-400 shadow-inner">
-                                            {getOnboardingScript(selectedTenant.id, 'tu-app-id-aqui')}
+                                            {generateOnboardingScript(selectedTenant.id, 'tu-app-id-aqui')}
                                         </pre>
                                     </div>
                                 )}
