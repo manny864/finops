@@ -467,6 +467,11 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
                     { id: 'pol-loc', name: 'Restricción de Regiones Geográficas', description: 'Obliga a que todos los despliegues ocurran exclusivamente en East US y West Europe.', status: 'Active' }
                 ]
             };
+        case 'billing-markup':
+            return {
+                success: true,
+                markupPercentage: 15.00
+            };
         case 'commitments':
             return {
                 success: true,

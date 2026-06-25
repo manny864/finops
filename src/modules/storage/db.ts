@@ -36,6 +36,7 @@ export async function initializeDatabase() {
                 last_sync_at TIMESTAMP NULL,
                 sync_status VARCHAR(50) DEFAULT 'OK',
                 last_error_message TEXT,
+                markup_percentage DECIMAL(5,2) DEFAULT 0.00,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
@@ -64,14 +65,6 @@ export async function initializeDatabase() {
         }
 
         try {
-            await connection.query("ALTER TABLE Tenants ADD COLUMN sync_status VARCHAR(50) DEFAULT 'OK';");
-        } catch (e: any) {
-            if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding sync_status:", e);
-        }
-
-        try {
-            await connection.query('ALTER TABLE Tenants ADD COLUMN last_error_message TEXT NULL;');
-        } catch (e: any) {
             if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding last_error_message:", e);
         }
 
