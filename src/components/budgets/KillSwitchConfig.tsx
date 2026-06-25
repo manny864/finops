@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 
 export default function KillSwitchConfig({ subscriptionId, resourceGroups = [] }: { subscriptionId: string, resourceGroups?: string[] }) {
     const { selectedTenant } = useTenant();
-    const isPro = hasAccess(selectedTenant.tier, 'Professional');
+    const isPro = hasAccess(selectedTenant.tier || 'Essential', 'Professional');
     const [enabled, setEnabled] = useState(false);
     const [selectedRg, setSelectedRg] = useState('');
     const [loading, setLoading] = useState(false);
