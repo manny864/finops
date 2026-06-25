@@ -298,6 +298,19 @@ export async function initializeDatabase() {
             )
         `);
 
+        // Create AllocationRules table for Shared Cost Distribution (Enterprise Module)
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS AllocationRules (
+                id VARCHAR(36) PRIMARY KEY,
+                tenantId VARCHAR(36) NOT NULL,
+                resourceName VARCHAR(255) NOT NULL,
+                targetCostCenter VARCHAR(255) NOT NULL,
+                allocationPercentage DECIMAL(5, 2) NOT NULL,
+                createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_tenant (tenantId)
+            )
+        `);
+
         connection.release();
         dbInitialized = true;
         console.log("Database schema validated/initialized successfully.");

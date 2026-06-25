@@ -88,6 +88,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/intelligence/zero-cost', label: 'Costo Cero', icon: Box },
                 { href: '/intelligence/aks', label: 'Control AKS', icon: Server, requiredTier: 'Business' },
                 { href: '/intelligence/unit-economics', label: 'Unit Economics', icon: Activity, requiredTier: 'Business' },
+                { href: '/intelligence/allocation', label: 'Prorrateo (Allocation)', icon: PieChart, requiredTier: 'Enterprise' },
                 { href: '/intelligence/scorecard', label: 'Scorecard (Fama)', icon: Trophy, requiredTier: 'Enterprise' },
                 { href: '/intelligence/upload', label: 'Ingesta CSV', icon: FileText }
             ]

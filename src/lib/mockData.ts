@@ -448,6 +448,16 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
                     ]
                 }
             };
+        case 'allocation-rules':
+            return {
+                success: true,
+                data: [
+                    { id: 'rule-1', resourceName: 'ExpressRoute-Corp', targetCostCenter: 'Marketing', allocationPercentage: 35.0 },
+                    { id: 'rule-2', resourceName: 'ExpressRoute-Corp', targetCostCenter: 'Engineering', allocationPercentage: 65.0 },
+                    { id: 'rule-3', resourceName: 'AKS-Shared-Cluster', targetCostCenter: 'MobileApp', allocationPercentage: 80.0 },
+                    { id: 'rule-4', resourceName: 'AKS-Shared-Cluster', targetCostCenter: 'WebPortal', allocationPercentage: 20.0 }
+                ]
+            };
         case 'commitments':
             return {
                 success: true,
