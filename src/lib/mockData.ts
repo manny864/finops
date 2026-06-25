@@ -302,6 +302,16 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
                     { tag_key: 'Owner', required: true }
                 ]
             };
+        case 'governance-policies': {
+            return {
+                success: true,
+                policies: [
+                    { id: "require-tags", name: "Requerir Etiquetas Core (CostCenter, Environment)", description: "Bloquea la creación de recursos que no incluyan las etiquetas financieras obligatorias.", active: true, severity: "High" },
+                    { id: "restrict-skus", name: "Restricción de Tamaños VM (Bloquear Series N/M/G)", description: "Previene el despliegue de familias de máquinas virtuales GPU o Memory-Optimized extremadamente costosas sin aprobación previa.", active: false, severity: "Medium" },
+                    { id: "allowed-locations", name: "Regiones Permitidas", description: "Fuerza que todos los recursos se desplieguen únicamente en East US y Brazil South para reducir latencia y costos de transferencia egress.", active: true, severity: "Low" }
+                ]
+            };
+        }
         case 'maturity':
             return {
                 success: true,
@@ -434,6 +444,43 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
                         ]
                     }
                 ]
+            };
+        case 'hybrid-benefit':
+            return {
+                success: true,
+                data: {
+                    totalPotentialSavings: 2840.50,
+                    eligibleResources: [
+                        { id: 'vm-prod-sql-01', name: 'sql-prod-db-win', type: 'Virtual Machine', currentCost: 650.00, ahbCost: 320.00, savings: 330.00 },
+                        { id: 'vm-dev-win-02', name: 'iis-web-dev', type: 'Virtual Machine', currentCost: 280.00, ahbCost: 140.00, savings: 140.00 },
+                        { id: 'sql-mi-corp', name: 'corp-analytics-mi', type: 'SQL Managed Instance', currentCost: 4500.00, ahbCost: 2300.00, savings: 2200.00 },
+                        { id: 'vm-test-win', name: 'win-jumpbox-01', type: 'Virtual Machine', currentCost: 341.00, ahbCost: 170.50, savings: 170.50 }
+                    ]
+                }
+            };
+        case 'allocation-rules':
+            return {
+                success: true,
+                data: [
+                    { id: 'rule-1', resourceName: 'ExpressRoute-Corp', targetCostCenter: 'Marketing', allocationPercentage: 35.0 },
+                    { id: 'rule-2', resourceName: 'ExpressRoute-Corp', targetCostCenter: 'Engineering', allocationPercentage: 65.0 },
+                    { id: 'rule-3', resourceName: 'AKS-Shared-Cluster', targetCostCenter: 'MobileApp', allocationPercentage: 80.0 },
+                    { id: 'rule-4', resourceName: 'AKS-Shared-Cluster', targetCostCenter: 'WebPortal', allocationPercentage: 20.0 }
+                ]
+            };
+        case 'governance-policies':
+            return {
+                success: true,
+                data: [
+                    { id: 'pol-tag', name: 'Requiere Etiqueta "CostCenter"', description: 'Evita la creación de cualquier recurso en Azure si no incluye la etiqueta CostCenter.', status: 'Active' },
+                    { id: 'pol-sku', name: 'Restringir Familias de VMs (GPU/Memoria)', description: 'Bloquea el aprovisionamiento de series M, NC, G, NV (Alta densidad de costo).', status: 'Inactive' },
+                    { id: 'pol-loc', name: 'Restricción de Regiones Geográficas', description: 'Obliga a que todos los despliegues ocurran exclusivamente en East US y West Europe.', status: 'Active' }
+                ]
+            };
+        case 'billing-markup':
+            return {
+                success: true,
+                markupPercentage: 15.00
             };
         case 'commitments':
             return {

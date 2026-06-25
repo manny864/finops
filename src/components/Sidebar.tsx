@@ -34,7 +34,8 @@ import {
     Server,
     ShieldCheck,
     Trophy,
-    CheckCircle
+    CheckCircle,
+    ShieldAlert
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -67,6 +68,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             title: t('visibilidad'),
             items: [
                 { href: '/', label: t('dashboard'), icon: LayoutDashboard },
+                { href: '/academy', label: 'Academia FinOps', icon: BookOpen },
                 { href: '/advisor', label: t('advisor'), icon: Lightbulb },
                 { href: '/overview/maturity', label: t('finops_maturity'), icon: Target },
                 { href: '/overview/progress', label: t('historical_progress'), icon: TrendingDown },
@@ -82,13 +84,15 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/intelligence/rightsizing', label: t('rightsizing'), icon: Zap, requiredTier: 'Professional' },
                 { href: '/intelligence/network', label: t('network_analytics'), icon: Activity, requiredTier: 'Professional' },
                 { href: '/intelligence/rates', label: t('rate_optimization'), icon: DollarSign, requiredTier: 'Business' },
-                { href: '/intelligence/chargeback', label: t('chargeback'), icon: CreditCard, requiredTier: 'Business' },
                 { href: '/intelligence/licenses', label: t('licenses'), icon: Users, requiredTier: 'Professional' },
+                { href: '/intelligence/hybrid-benefit', label: 'Hybrid Benefit (AHB)', icon: Cpu, requiredTier: 'Professional' },
                 { href: '/intelligence/commitments', label: 'Reservas (RIs)', icon: ShieldCheck, requiredTier: 'Professional' },
                 { href: '/intelligence/zero-cost', label: 'Costo Cero', icon: Box },
                 { href: '/intelligence/aks', label: 'Control AKS', icon: Server, requiredTier: 'Business' },
                 { href: '/intelligence/unit-economics', label: 'Unit Economics', icon: Activity, requiredTier: 'Business' },
+                { href: '/intelligence/allocation', label: 'Prorrateo (Allocation)', icon: PieChart, requiredTier: 'Enterprise' },
                 { href: '/intelligence/scorecard', label: 'Scorecard (Fama)', icon: Trophy, requiredTier: 'Enterprise' },
+                { href: '/intelligence/anomalies', label: 'Detección Anomalías', icon: ShieldAlert, requiredTier: 'Professional' },
                 { href: '/intelligence/upload', label: 'Ingesta CSV', icon: FileText }
             ]
         },
@@ -106,6 +110,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             items: [
                 { href: '/governance/tags', label: t('tag_compliance'), icon: Tags, requiredTier: 'Business' },
                 { href: '/governance/power', label: t('power_schedules'), icon: Power, requiredTier: 'Business' },
+                { href: '/governance/policies', label: 'Políticas (Auto-Block)', icon: ShieldAlert, requiredTier: 'Enterprise' },
                 { href: '/remediation/approvals', label: 'Aprobaciones', icon: CheckCircle, requiredTier: 'Professional' }
             ]
         },
@@ -116,6 +121,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/admin/users', label: 'Usuarios y Permisos', icon: Users },
                 { href: '/admin/onboarding', label: t('client_onboarding'), icon: Users },
                 { href: '/admin/config', label: t('configuration'), icon: Settings },
+                { href: '/admin/markup', label: 'Partner Markup (CSP)', icon: DollarSign, requiredTier: 'Enterprise' },
                 { href: '/admin/ai-config', label: 'Configuración de IA', icon: Cpu },
                 { href: '/admin/report', label: t('executive_report'), icon: FileText },
                 { href: '/admin/workbooks', label: t('workbooks'), icon: BookOpen },

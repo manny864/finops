@@ -36,6 +36,7 @@ export async function initializeDatabase() {
                 last_sync_at TIMESTAMP NULL,
                 sync_status VARCHAR(50) DEFAULT 'OK',
                 last_error_message TEXT,
+                markup_percentage DECIMAL(5,2) DEFAULT 0.00,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
@@ -63,17 +64,7 @@ export async function initializeDatabase() {
             if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding last_sync_at:", e);
         }
 
-        try {
-            await connection.query("ALTER TABLE Tenants ADD COLUMN sync_status VARCHAR(50) DEFAULT 'OK';");
-        } catch (e: any) {
-            if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding sync_status:", e);
-        }
 
-        try {
-            await connection.query('ALTER TABLE Tenants ADD COLUMN last_error_message TEXT NULL;');
-        } catch (e: any) {
-            if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding last_error_message:", e);
-        }
 
         // Add client_id and client_secret if they don't exist
         try {
@@ -295,6 +286,49 @@ export async function initializeDatabase() {
                 resolved_at TIMESTAMP NULL,
                 resolved_by VARCHAR(255) NULL,
                 FOREIGN KEY (tenant_id) REFERENCES Tenants(tenant_id) ON DELETE CASCADE
+            )
+        `);
+
+        // Create AllocationRules table for Shared Cost Distribution (Enterprise Module)
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS AllocationRules (
+                id VARCHAR(36) PRIMARY KEY,
+                tenantId VARCHAR(36) NOT NULL,
+                resourceName VARCHAR(255) NOT NULL,
+                targetCostCenter VARCHAR(255) NOT NULL,
+                allocationPercentage DECIMAL(5, 2) NOT NULL,
+                createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_tenant (tenantId)
+            )
+        `);
+
+        // Create Anomalies table for Z-Score ML Engine (Pro Module)
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS Anomalies (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                tenant_id VARCHAR(255) NOT NULL,
+                subscription_id VARCHAR(255) NOT NULL,
+                date DATE NOT NULL,
+                amount DECIMAL(12,2) NOT NULL,
+                expected_amount DECIMAL(12,2) NOT NULL,
+                z_score DECIMAL(5,2) NOT NULL,
+                status ENUM('New', 'Investigating', 'Resolved', 'False Positive') DEFAULT 'New',
+                detected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (tenant_id) REFERENCES Tenants(tenant_id) ON DELETE CASCADE
+            )
+        `);
+
+        // Create AcademyProgress table for FinOps Academy (Starter Module)
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS AcademyProgress (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                tenant_id VARCHAR(255) NOT NULL,
+                module_id VARCHAR(100) NOT NULL,
+                completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE,
+                FOREIGN KEY (tenant_id) REFERENCES Tenants(tenant_id) ON DELETE CASCADE,
+                UNIQUE KEY unique_user_module (user_id, module_id)
             )
         `);
 

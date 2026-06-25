@@ -334,9 +334,10 @@
         "Visualización de Presupuestos",
         "Dashboard de Sustentabilidad",
         "Inventario de Costo Cero",
-        "Exportación PDF/CSV",
-        "Health Score de Azure Advisor",
-        "Radar de Ahorro Potencial (Teaser)"
+        "Exportaciones PDF/CSV",
+        "Puntaje de Salud de Azure Advisor",
+        "Radar de Ahorros Potenciales (Teaser)",
+        "Academia de Onboarding FinOps"
       ]
     },
     "pro": {
@@ -348,9 +349,11 @@
         "Todo lo de Essential",
         "Limpieza Activa de Recursos Zombie",
         "Ejecución de Rightsizing",
-        "Gobernanza de Etiquetas (Tags)",
-        "Descuentos por Compromiso (Reservas)",
-        "Flujo de Aprobación de Remediaciones"
+        "Gobernanza de Etiquetas",
+        "Descuentos por Compromiso (RIs)",
+        "Flujo de Aprobación de Remediación",
+        "Escáner de Beneficio Híbrido (AHB)",
+        "Motor Predictivo de Anomalías (Z-Score)"
       ]
     },
     "business": {
@@ -378,6 +381,9 @@
         "Workbooks Personalizados",
         "Tarifas Custom (EA)",
         "Auditorías FinOps Modulares",
+        "Prorrateo de Costos Compartidos",
+        "Políticas Preventivas as Code",
+        "Motor de Billing para Partners (CSP)",
         "Gamificación y Scorecard"
       ]
     },
