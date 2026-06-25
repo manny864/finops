@@ -1,6 +1,6 @@
 import { getAzureCredential } from "@/lib/azure";
 import { ComputeManagementClient } from "@azure/arm-compute";
-import { query } from "@/modules/storage/db";
+import pool from "@/modules/storage/db";
 
 export const getAksChargebackCost = async (tenantId: string, subscriptionId: string, clusterName: string) => {
     // 1. In a real system, we would query the Cost Management API for the MC_* resource group to get total node cost
@@ -34,7 +34,7 @@ export const getAksChargebackCost = async (tenantId: string, subscriptionId: str
     });
 
     // Log the data pull for audit
-    await query(
+    await pool.query(
         `INSERT INTO ActionLogs (tenant_id, action_type, resource_id, resource_type, status, details, user_email) 
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [tenantId, 'AksChargebackReport', clusterName, 'AKSCluster', 'Success', JSON.stringify({ clusterName, totalClusterCost }), 'system@aks-cost']

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { query } from "@/modules/storage/db";
+import pool from "@/modules/storage/db";
 
 // Simulated Retail API wrapper for What-If scenario
 const fetchSimulatedPrices = async (scenarioData: any) => {
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Feature Gate Verification
-        const tenants: any[] = await query('SELECT * FROM Tenants WHERE id = ?', [tenantId]);
+        const [tenants]: any = await pool.query('SELECT * FROM Tenants WHERE id = ?', [tenantId]);
         if (!tenants || tenants.length === 0) {
             return NextResponse.json({ error: "Tenant no encontrado." }, { status: 404 });
         }
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
         const simulation = await fetchSimulatedPrices(scenario);
 
         // Log simulation run
-        await query(
+        await pool.query(
             `INSERT INTO ActionLogs (tenant_id, action_type, resource_id, resource_type, status, details, user_email) 
              VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [tenantId, 'WhatIfSimulation', 'Tenant', 'Simulation', 'Success', JSON.stringify({ scenario, simulation }), 'system@simulator']

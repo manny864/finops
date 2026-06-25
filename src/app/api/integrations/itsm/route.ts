@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { query } from "@/modules/storage/db";
+import pool from "@/modules/storage/db";
 
 export async function POST(request: NextRequest) {
     try {
@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Fetch tenant settings to get Jira/ADO credentials (Mock logic for safety)
-        const tenants: any[] = await query('SELECT * FROM Tenants WHERE id = ?', [tenantId]);
+        const [tenants]: any = await pool.query('SELECT * FROM Tenants WHERE id = ?', [tenantId]);
         if (!tenants || tenants.length === 0) {
             return NextResponse.json({ error: "Tenant no encontrado." }, { status: 404 });
         }
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Log action
-        await query(
+        await pool.query(
             `INSERT INTO ActionLogs (tenant_id, action_type, resource_id, resource_type, status, details, user_email) 
              VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [tenantId, 'CreateTicket', resourceId, 'ITSM', 'Success', JSON.stringify({ targetSystem, ticketUrl, estimatedSavings }), 'system@itsm']
