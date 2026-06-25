@@ -35,7 +35,8 @@ import {
     ShieldCheck,
     Trophy,
     CheckCircle,
-    ShieldAlert
+    ShieldAlert,
+    Layers
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -89,10 +90,12 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/intelligence/commitments', label: 'Reservas (RIs)', icon: ShieldCheck, requiredTier: 'Professional' },
                 { href: '/intelligence/zero-cost', label: 'Costo Cero', icon: Box },
                 { href: '/intelligence/aks', label: 'Control AKS', icon: Server, requiredTier: 'Business' },
+                { href: '/intelligence/aks-chargeback', label: 'AKS Chargeback', icon: Layers, requiredTier: 'Enterprise' },
                 { href: '/intelligence/unit-economics', label: 'Unit Economics', icon: Activity, requiredTier: 'Business' },
                 { href: '/intelligence/allocation', label: 'Prorrateo (Allocation)', icon: PieChart, requiredTier: 'Enterprise' },
                 { href: '/intelligence/scorecard', label: 'Scorecard (Fama)', icon: Trophy, requiredTier: 'Enterprise' },
                 { href: '/intelligence/anomalies', label: 'Detección Anomalías', icon: ShieldAlert, requiredTier: 'Professional' },
+                { href: '/intelligence/simulator', label: 'Simulador (What-If)', icon: Activity, requiredTier: 'Enterprise' },
                 { href: '/intelligence/upload', label: 'Ingesta CSV', icon: FileText }
             ]
         },
