@@ -14,6 +14,7 @@ export default function CostForecastChart() {
     const { metricType } = useMetric();
     const [data, setData] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
+    const [breachInfo, setBreachInfo] = useState<{ isBreachPredicted: boolean, breachDate: string | null } | null>(null);
 
     useEffect(() => {
         if (accounts.length === 0 || selectedTenant.id === 'default' || !selectedSubscription) return;
@@ -35,6 +36,25 @@ export default function CostForecastChart() {
                 if (json.data) {
                     setData(json.data);
                 }
+
+                // Call new POST API to get predictive breach warning
+                try {
+                    const postRes = await fetch('/api/intelligence/forecast', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ tenantId: selectedTenant.id, monthlyBudget: 8000 })
+                    });
+                    const postJson = await postRes.json();
+                    if (postJson.success) {
+                        setBreachInfo({
+                            isBreachPredicted: postJson.isBreachPredicted,
+                            breachDate: postJson.breachDate
+                        });
+                    }
+                } catch(e) {
+                    console.error("Predictive breach API failed", e);
+                }
+
             } catch (e) {
                 console.error("Error fetching forecast:", e);
             }
@@ -52,6 +72,13 @@ export default function CostForecastChart() {
                 Proyección de Costos
             </h3>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Muestra el gasto actual acumulado y proyecta el cierre a fin de mes.</p>
+            
+            {breachInfo?.isBreachPredicted && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-800 rounded-lg text-sm font-semibold flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4" />
+                    ¡Atención! Se proyecta un exceso de presupuesto para el {breachInfo.breachDate}.
+                </div>
+            )}
             
             {loading ? (
                 <div className="flex-1 flex items-center justify-center">

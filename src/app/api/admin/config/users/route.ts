@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
             console.log(`[Admin Config Users] email: ${email}, isSuperAdmin: ${isSuperAdminDb}`);
 
             const [rows] = await connection.execute(
-                `SELECT id, email, display_name, role, entra_oid, system_role FROM Users WHERE tenant_id = ?`,
+                `SELECT id, email, display_name, role, entra_oid, system_role, scope FROM Users WHERE tenant_id = ?`,
                 [tenantId]
             );
             return NextResponse.json({ success: true, users: rows, isSuperAdmin: isSuperAdminDb });

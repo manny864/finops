@@ -14,6 +14,57 @@ export default function MaturityPage() {
     const [loading, setLoading] = useState(false);
     const [scoreData, setScoreData] = useState<any>(null);
     const [reason, setReason] = useState<string | null>(null);
+    const [showWizard, setShowWizard] = useState(false);
+    const [wizardStep, setWizardStep] = useState(0);
+    const [answers, setAnswers] = useState<any[]>([]);
+
+    const questions = [
+        { id: 'q1', text: '¿Se asigna el 100% de los costos compartidos a los equipos responsables?', domain: 'VisibilityAndAllocation' },
+        { id: 'q2', text: '¿Existen políticas de rightsizing automático aplicadas a sus recursos?', domain: 'UsageOptimization' },
+        { id: 'q3', text: '¿Utiliza planes de ahorro (Savings Plans) o instancias reservadas?', domain: 'RateOptimization' },
+        { id: 'q4', text: '¿Tiene configurados presupuestos con alertas predictivas?', domain: 'ForecastingAndBudgeting' },
+        { id: 'q5', text: '¿Se exige el cumplimiento de etiquetas (tags) en todos los grupos de recursos?', domain: 'GovernanceAndAutomation' }
+    ];
+
+    const handleAnswer = (score: number) => {
+        const newAnswers = [...answers, { questionId: questions[wizardStep].id, score }];
+        setAnswers(newAnswers);
+        
+        if (wizardStep < questions.length - 1) {
+            setWizardStep(wizardStep + 1);
+        } else {
+            submitAssessment(newAnswers);
+        }
+    };
+
+    const submitAssessment = async (finalAnswers: any[]) => {
+        setLoading(true);
+        setShowWizard(false);
+        try {
+            const res = await fetch('/api/intelligence/maturity', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tenantId: selectedTenant.id, assessmentData: finalAnswers })
+            });
+            const data = await res.json();
+            if (data.success) {
+                // Mock mapping the answer to the existing domain structure for the radar chart
+                setScoreData({
+                    overallScore: data.score,
+                    pillars: {
+                        VisibilityAndAllocation: finalAnswers[0]?.score * 10 || 0,
+                        UsageOptimization: finalAnswers[1]?.score * 10 || 0,
+                        RateOptimization: finalAnswers[2]?.score * 10 || 0,
+                        ForecastingAndBudgeting: finalAnswers[3]?.score * 10 || 0,
+                        GovernanceAndAutomation: finalAnswers[4]?.score * 10 || 0
+                    }
+                });
+            }
+        } catch (e) {
+            console.error("Error saving assessment", e);
+        }
+        setLoading(false);
+    };
 
     useEffect(() => {
         if ((accounts.length === 0 && !isMockTenant(selectedTenant?.id || '')) || selectedTenant.id === 'default') return;
@@ -73,7 +124,7 @@ export default function MaturityPage() {
   }
 
   // Handle no-data states
-  if (!loading && !scoreData && reason) {
+  if (!loading && !scoreData && reason && !showWizard) {
       const messages: Record<string, { icon: string; title: string; desc: string }> = {
           NO_SUBSCRIPTIONS: { icon: "📭", title: "Sin suscripciones activas", desc: "Este Tenant no tiene suscripciones de Azure. Crea una suscripción para comenzar a evaluar la madurez FinOps." },
           MISSING_ADMIN_CONSENT: { icon: "⚠️", title: "Falta Admin Consent", desc: "La aplicación CSCloudSolutions no ha sido consentida en este Tenant. Ejecuta: az ad sp create --id 876d8a5b-6023-4484-b3ba-73c186e4a72b" },
@@ -97,7 +148,34 @@ export default function MaturityPage() {
               <div className="flex flex-col items-center justify-center h-96 bg-surface rounded-[14px] border border-line shadow-[0_1px_2px_rgba(16,40,73,0.06),0_8px_24px_rgba(16,40,73,0.07)]">
                   <span className="text-5xl mb-4">{msg.icon}</span>
                   <h2 className="text-xl font-bold text-ink mb-2">{msg.title}</h2>
-                  <p className="text-sm text-ink-soft text-center max-w-md">{msg.desc}</p>
+                  <p className="text-sm text-ink-soft text-center max-w-md mb-6">{msg.desc}</p>
+                  <button onClick={() => setShowWizard(true)} className="px-6 py-2 bg-brand-deep text-white rounded-lg font-bold hover:bg-brand-bright transition-colors shadow-sm">
+                      Tomar Evaluación Manual
+                  </button>
+              </div>
+          </div>
+      );
+  }
+
+  if (showWizard) {
+      return (
+          <div className="p-6 max-w-[1320px] mx-auto animate-in fade-in flex flex-col items-center justify-center min-h-[60vh]">
+              <div className="bg-surface border border-line rounded-[14px] p-8 w-full max-w-2xl shadow-xl">
+                  <div className="mb-8">
+                      <div className="flex justify-between items-center mb-2">
+                          <h2 className="text-xl font-bold text-ink">Evaluación FinOps</h2>
+                          <span className="text-sm font-bold text-brand-deep">Paso {wizardStep + 1} de {questions.length}</span>
+                      </div>
+                      <div className="w-full bg-surface-2 rounded-full h-2">
+                          <div className="bg-gradient-to-r from-brand-deep to-brand-bright h-2 rounded-full transition-all duration-300" style={{ width: \`\${((wizardStep) / questions.length) * 100}%\` }}></div>
+                      </div>
+                  </div>
+                  <h3 className="text-2xl font-semibold text-ink text-center mb-10">{questions[wizardStep].text}</h3>
+                  <div className="flex flex-col gap-4">
+                      <button onClick={() => handleAnswer(10)} className="w-full py-3 px-4 bg-[#EAF3FB] hover:bg-[#D5E8F8] text-brand-deep border border-[#B3D4F0] rounded-lg font-bold transition-colors">Sí, completamente implementado (10 pts)</button>
+                      <button onClick={() => handleAnswer(5)} className="w-full py-3 px-4 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg font-bold transition-colors">Parcialmente / En progreso (5 pts)</button>
+                      <button onClick={() => handleAnswer(0)} className="w-full py-3 px-4 bg-red-50 hover:bg-red-100 text-red-800 border border-red-200 rounded-lg font-bold transition-colors">No, no lo hacemos (0 pts)</button>
+                  </div>
               </div>
           </div>
       );
@@ -173,6 +251,9 @@ export default function MaturityPage() {
                   <div className="text-[13px] text-ink-soft mt-[3px]">Modelo de madurez FinOps (Gatear · Caminar · Correr) por capacidad.</div>
               </div>
               <div className="ml-auto flex gap-[9px] items-center">
+                  <button onClick={() => setShowWizard(true)} className="text-[12px] font-bold tracking-[0.4px] bg-white border border-brand text-brand hover:bg-brand-soft px-[12px] py-[6px] rounded-lg transition-colors mr-2">
+                      Retomar Evaluación
+                  </button>
                   <span className="text-[11px] font-bold tracking-[0.4px] bg-[#E6F2FB] text-brand-deep px-[11px] py-[5px] rounded-lg">
                       📍 {selectedTenant.name}
                   </span>

@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { MessageSquare, X, Send, Loader2 } from 'lucide-react';
 import { useAIContext } from '@/hooks/useAIContext';
 import { useTranslations } from 'next-intl';
@@ -21,6 +21,34 @@ export default function GlobalCopilot() {
     const [input, setInput] = useState("");
     const [loading, setLoading] = useState(false);
     const t = useTranslations('Copilot');
+    
+    // Drag state
+    const [position, setPosition] = useState({ x: 0, y: 0 });
+    const [isDragging, setIsDragging] = useState(false);
+    const dragStart = useRef({ x: 0, y: 0 });
+
+    const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+        setIsDragging(true);
+        dragStart.current = {
+            x: e.clientX - position.x,
+            y: e.clientY - position.y
+        };
+        e.currentTarget.setPointerCapture(e.pointerId);
+    };
+
+    const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+        if (isDragging) {
+            setPosition({
+                x: e.clientX - dragStart.current.x,
+                y: e.clientY - dragStart.current.y
+            });
+        }
+    };
+
+    const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+        setIsDragging(false);
+        e.currentTarget.releasePointerCapture(e.pointerId);
+    };
 
     // Security Guard moved to bottom to prevent React Hook rules violation
 
@@ -158,13 +186,32 @@ export default function GlobalCopilot() {
             </div>
 
             {isOpen && canAccessCopilot && (
-                <div className="fixed bottom-24 right-6 w-96 bg-surface border border-line rounded-2xl shadow-2xl z-50 flex flex-col h-[500px] overflow-hidden animate-in slide-in-from-bottom-5">
-                    <div className="bg-brand-deep p-4 flex justify-between items-center">
+                <div 
+                    className={`fixed w-96 bg-surface border border-line rounded-2xl shadow-2xl z-50 flex flex-col h-[500px] overflow-hidden ${position.x === 0 && position.y === 0 ? 'bottom-24 right-6 animate-in slide-in-from-bottom-5' : ''}`}
+                    style={position.x !== 0 || position.y !== 0 ? {
+                        top: '50%',
+                        left: '50%',
+                        transform: `translate(calc(-50% + ${position.x}px), calc(-50% + ${position.y}px))`
+                    } : undefined}
+                >
+                    <div 
+                        className="bg-brand-deep p-4 flex justify-between items-center cursor-move select-none"
+                        onPointerDown={handlePointerDown}
+                        onPointerMove={handlePointerMove}
+                        onPointerUp={handlePointerUp}
+                        onPointerCancel={handlePointerUp}
+                    >
                         <div className="flex items-center gap-2">
                             <MessageSquare className="w-5 h-5 text-white" />
                             <h3 className="text-white font-bold">{t('title')}</h3>
                         </div>
-                        <button onClick={() => setIsOpen(false)} className="text-white/70 hover:text-white"><X className="w-5 h-5"/></button>
+                        <button 
+                            onPointerDown={(e) => e.stopPropagation()} 
+                            onClick={() => setIsOpen(false)} 
+                            className="text-white/70 hover:text-white"
+                        >
+                            <X className="w-5 h-5"/>
+                        </button>
                     </div>
                     
                     <div className="flex-1 overflow-y-auto p-4 space-y-4">

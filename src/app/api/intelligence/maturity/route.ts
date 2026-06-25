@@ -4,6 +4,7 @@ import { getAzureCredential } from "@/lib/azure";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { AdvisorManagementClient } from "@azure/arm-advisor";
 import { ConsumptionManagementClient } from "@azure/arm-consumption";
+import pool from "@/modules/storage/db";
 
 export async function GET(request: NextRequest) {
   try {
@@ -127,4 +128,52 @@ export async function GET(request: NextRequest) {
     console.error("Maturity API Error:", error);
     return NextResponse.json({ error: "Fallo en la validación de madurez." }, { status: 500 });
   }
+}
+
+export async function POST(request: NextRequest) {
+    try {
+        const body = await request.json();
+        const { tenantId, assessmentData } = body;
+
+        if (!tenantId || !assessmentData) {
+            return NextResponse.json({ error: "Faltan parámetros requeridos: tenantId y assessmentData" }, { status: 400 });
+        }
+
+        let totalScore = 0;
+        let maxScore = 0;
+        
+        if (Array.isArray(assessmentData)) {
+            assessmentData.forEach((item: any) => {
+                totalScore += (item.score || 0);
+                maxScore += 10;
+            });
+        }
+
+        const finalScore = maxScore > 0 ? Math.round((totalScore / maxScore) * 100) : 0;
+        
+        let level = 'Crawl';
+        if (finalScore >= 34 && finalScore <= 66) level = 'Walk';
+        if (finalScore >= 67) level = 'Run';
+
+        await pool.query(
+            `INSERT INTO MaturityAssessments (tenant_id, score, level, assessment_data) VALUES (?, ?, ?, ?)`,
+            [tenantId, finalScore, level, JSON.stringify(assessmentData)]
+        );
+
+        await pool.query(
+            `INSERT INTO ActionLogs (tenant_id, action_type, resource_id, resource_type, status, details, user_email) 
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [tenantId, 'MaturityAssessmentCompleted', 'Tenant', 'Assessment', 'Success', JSON.stringify({ finalScore, level }), 'system@maturity']
+        );
+
+        return NextResponse.json({ 
+            success: true, 
+            score: finalScore,
+            level
+        });
+
+    } catch (error: any) {
+        console.error("Maturity Assessment API Error:", error);
+        return NextResponse.json({ error: "Fallo al guardar la evaluación.", details: error.message }, { status: 500 });
+    }
 }

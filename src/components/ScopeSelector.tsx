@@ -7,7 +7,7 @@ import { useTranslations } from 'next-intl';
 
 export default function ScopeSelector() {
     const { selectedSubscription, setSelectedSubscription, subscriptions, loading } = useSubscription();
-    const { selectedTenant, setSelectedTenant, tenants, isAdmin } = useTenant();
+    const { selectedTenant, setSelectedTenant, tenants, isAdmin, userScope } = useTenant();
     const tc = useTranslations('Common');
 
     if (!selectedTenant || selectedTenant.id === 'default') {
@@ -68,6 +68,11 @@ export default function ScopeSelector() {
                     </optgroup>
                 )}
             </select>
+            {userScope && (
+                <div className="ml-2 px-2 py-0.5 bg-brand-soft text-brand-deep text-[10px] font-bold rounded flex items-center gap-1">
+                    👥 Team Scope: {userScope.resourceGroup || userScope.tags?.Team || 'Restringido'}
+                </div>
+            )}
         </div>
     );
 }

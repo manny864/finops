@@ -143,6 +143,12 @@ export async function initializeDatabase() {
             if (e.code !== 'ER_DUP_KEYNAME') console.error("Error adding unique_user_tenant:", e);
         }
 
+        try {
+            await connection.query('ALTER TABLE Users ADD COLUMN scope JSON;');
+        } catch (e: any) {
+            if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding scope:", e);
+        }
+
         await connection.query(`
             CREATE TABLE IF NOT EXISTS TaggingPolicies (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -350,6 +356,19 @@ export async function initializeDatabase() {
                 FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE,
                 FOREIGN KEY (tenant_id) REFERENCES Tenants(tenant_id) ON DELETE CASCADE,
                 UNIQUE KEY unique_user_module (user_id, module_id)
+            )
+        `);
+
+        // Maturity Assessments for FinOps Crawl/Walk/Run
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS MaturityAssessments (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                tenant_id VARCHAR(255) NOT NULL,
+                score INT NOT NULL,
+                level ENUM('Crawl', 'Walk', 'Run') NOT NULL,
+                assessment_data JSON NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (tenant_id) REFERENCES Tenants(tenant_id) ON DELETE CASCADE
             )
         `);
 

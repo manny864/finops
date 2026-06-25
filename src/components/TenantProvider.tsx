@@ -21,6 +21,7 @@ interface TenantContextType {
   tenants: Tenant[];
   userRole: string;
   systemRole: string;
+  userScope?: any;
   requiresRbacUpdate?: boolean;
 }
 
@@ -62,6 +63,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
   const [isAdmin, setIsAdmin] = useState(!!demoSession?.isDemo);
   const [userRole, setUserRole] = useState<string>(demoSession?.isDemo ? 'Admin' : 'Reader'); // Default to lowest privilege
   const [systemRole, setSystemRole] = useState<string>('USER');
+  const [userScope, setUserScope] = useState<any>(null);
 
   // Enforce Onboarding
   useEffect(() => {
@@ -200,6 +202,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                       const myUser = data.users?.find((u: any) => u.entra_oid === (accounts[0].idTokenClaims as any)?.oid || u.entra_oid === accounts[0].localAccountId);
                       if (myUser) {
                           if (myUser.role) setUserRole(myUser.role);
+                          if (myUser.scope) setUserScope(myUser.scope);
                           if (myUser.system_role && !data.isSuperAdmin) {
                               setSystemRole(myUser.system_role);
                           }
@@ -236,7 +239,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
   const requiresRbacUpdate = selectedTenant?.requires_rbac_update;
 
   return (
-    <TenantContext.Provider value={{ selectedTenant, setSelectedTenant, isAdmin, tenants: tenantsList, userRole, systemRole, requiresRbacUpdate }}>
+    <TenantContext.Provider value={{ selectedTenant, setSelectedTenant, isAdmin, tenants: tenantsList, userRole, systemRole, userScope, requiresRbacUpdate }}>
       {children}
     </TenantContext.Provider>
   );
