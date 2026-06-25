@@ -24,8 +24,11 @@ export default function GlobalCopilot() {
     
     // Drag state
     const [position, setPosition] = useState({ x: 0, y: 0 });
+    const [size, setSize] = useState({ width: 384, height: 500 });
     const [isDragging, setIsDragging] = useState(false);
+    const [isResizing, setIsResizing] = useState(false);
     const dragStart = useRef({ x: 0, y: 0 });
+    const resizeStart = useRef({ x: 0, y: 0, width: 0, height: 0, posX: 0, posY: 0 });
 
     const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
         setIsDragging(true);
@@ -48,6 +51,52 @@ export default function GlobalCopilot() {
     const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
         setIsDragging(false);
         e.currentTarget.releasePointerCapture(e.pointerId);
+    };
+
+    const handleResizeDown = (e: React.PointerEvent<HTMLDivElement>) => {
+        e.stopPropagation();
+        setIsResizing(true);
+        resizeStart.current = {
+            x: e.clientX,
+            y: e.clientY,
+            width: size.width,
+            height: size.height,
+            posX: position.x,
+            posY: position.y
+        };
+        e.currentTarget.setPointerCapture(e.pointerId);
+    };
+
+    const handleResizeMove = (e: React.PointerEvent<HTMLDivElement>) => {
+        if (isResizing) {
+            e.stopPropagation();
+            const dx = e.clientX - resizeStart.current.x;
+            const dy = e.clientY - resizeStart.current.y;
+            const newWidth = Math.max(320, resizeStart.current.width + dx);
+            const newHeight = Math.max(400, resizeStart.current.height + dy);
+            
+            const actualDx = newWidth - resizeStart.current.width;
+            const actualDy = newHeight - resizeStart.current.height;
+            
+            setSize({ width: newWidth, height: newHeight });
+            
+            // Si la ventana ya fue movida (centrada con offset), ajustamos el offset
+            // para que la esquina superior izquierda se quede quieta durante el redimensionado.
+            if (position.x !== 0 || position.y !== 0) {
+                setPosition({
+                    x: resizeStart.current.posX + actualDx / 2,
+                    y: resizeStart.current.posY + actualDy / 2
+                });
+            }
+        }
+    };
+
+    const handleResizeUp = (e: React.PointerEvent<HTMLDivElement>) => {
+        if (isResizing) {
+            e.stopPropagation();
+            setIsResizing(false);
+            e.currentTarget.releasePointerCapture(e.pointerId);
+        }
     };
 
     // Security Guard moved to bottom to prevent React Hook rules violation
@@ -187,17 +236,15 @@ export default function GlobalCopilot() {
 
             {isOpen && canAccessCopilot && (
                 <div 
-                    className={`fixed bg-surface border border-line rounded-2xl shadow-2xl z-50 flex flex-col resize overflow-hidden ${position.x === 0 && position.y === 0 ? 'bottom-24 right-6 animate-in slide-in-from-bottom-5' : ''}`}
+                    className={`fixed bg-surface border border-line rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden ${position.x === 0 && position.y === 0 ? 'bottom-24 right-6 animate-in slide-in-from-bottom-5' : ''}`}
                     style={{
                         ...(position.x !== 0 || position.y !== 0 ? {
                             top: '50%',
                             left: '50%',
                             transform: `translate(calc(-50% + ${position.x}px), calc(-50% + ${position.y}px))`
                         } : {}),
-                        width: '384px',
-                        height: '500px',
-                        minWidth: '320px',
-                        minHeight: '400px'
+                        width: `${size.width}px`,
+                        height: `${size.height}px`
                     }}
                 >
                     <div 
@@ -260,7 +307,7 @@ export default function GlobalCopilot() {
                         {loading && <div className="text-sm text-ink-soft flex items-center"><Loader2 className="w-4 h-4 animate-spin mr-2"/> Thinking...</div>}
                     </div>
 
-                    <div className="p-3 border-t border-line bg-surface flex gap-2">
+                    <div className="p-3 border-t border-line bg-surface flex gap-2 relative">
                         <input 
                             type="text" 
                             className="flex-1 bg-surface-2 border border-line rounded-lg px-3 py-2 text-sm outline-none placeholder-ink-soft"
@@ -270,6 +317,17 @@ export default function GlobalCopilot() {
                             onKeyDown={e => e.key === 'Enter' && handleSend()}
                         />
                         <button onClick={() => handleSend()} disabled={loading} className="p-2 bg-brand text-white rounded-lg"><Send className="w-4 h-4"/></button>
+                        
+                        {/* Custom Resize Handle */}
+                        <div 
+                            className="absolute bottom-0 right-0 w-6 h-6 cursor-se-resize flex items-end justify-end p-1 opacity-50 hover:opacity-100 touch-none"
+                            onPointerDown={handleResizeDown}
+                            onPointerMove={handleResizeMove}
+                            onPointerUp={handleResizeUp}
+                            onPointerCancel={handleResizeUp}
+                        >
+                            <div className="w-2 h-2 border-r-2 border-b-2 border-brand-deep rounded-br-sm" />
+                        </div>
                     </div>
                 </div>
             )}
