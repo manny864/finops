@@ -179,8 +179,8 @@ export default function FinOpsAcademy() {
                                         <pre className="bg-gray-900 p-4 rounded-lg overflow-x-auto text-xs font-mono text-green-400 shadow-inner">
                                             {(() => {
                                                 const isValidUUID = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
-                                                const safeTenantId = isValidUUID(selectedTenant.id) ? selectedTenant.id : '00000000-0000-0000-0000-000000000000';
-                                                const placeholderSub = '11111111-1111-1111-1111-111111111111';
+                                                const safeTenantId = isValidUUID(selectedTenant.id) ? selectedTenant.id : '00000000-0000-4000-8000-000000000000';
+                                                const placeholderSub = '00000000-0000-4000-8000-000000000000';
                                                 return generateOnboardingScript(safeTenantId, placeholderSub);
                                             })()}
                                         </pre>
