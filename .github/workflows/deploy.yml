@@ -14,7 +14,9 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
+            set -e
             cd ~/cscloud/finops
+            git remote set-url origin https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
             git fetch origin main
             git reset --hard origin/main
             # Detenemos la app vieja para liberar memoria RAM antes de compilar la nueva
