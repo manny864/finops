@@ -222,7 +222,7 @@ export default function PowerSchedules() {
 
     if (accounts.length === 0 || selectedTenant.id === 'default') return null;
 
-    const isPro = hasAccess(selectedTenant.tier, 'Professional');
+    const isPro = hasAccess(selectedTenant.tier || 'Essential', 'Professional');
 
     return (
         <FeatureGuard requiredTier="Essential" featureName="VM Control" className="h-full">
