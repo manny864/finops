@@ -235,6 +235,27 @@ export async function initializeDatabase() {
             )
         `);
 
+        // FOCUS Standard Schema Migration for CostSnapshots
+        const focusColumns = [
+            "ADD COLUMN ChargePeriodStart DATETIME",
+            "ADD COLUMN ChargePeriodEnd DATETIME",
+            "ADD COLUMN ProviderName VARCHAR(100) DEFAULT 'Azure'",
+            "ADD COLUMN PublisherName VARCHAR(100)",
+            "ADD COLUMN SubAccountId VARCHAR(100)",
+            "ADD COLUMN BilledCost DECIMAL(12,4)",
+            "ADD COLUMN EffectiveCost DECIMAL(12,4)",
+            "ADD COLUMN CommitmentDiscountId VARCHAR(255)",
+            "ADD COLUMN Tags JSON"
+        ];
+        
+        for (const col of focusColumns) {
+            try {
+                await connection.query(`ALTER TABLE CostSnapshots ${col};`);
+            } catch (e: any) {
+                if (e.code !== 'ER_DUP_FIELDNAME') console.error(`Error adding FOCUS column ${col}:`, e);
+            }
+        }
+
         await connection.query(`
             CREATE TABLE IF NOT EXISTS cost_snapshots (
                 id INT AUTO_INCREMENT PRIMARY KEY,

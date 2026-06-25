@@ -22,7 +22,8 @@ export async function GET(request: NextRequest) {
         try {
             if (subscriptionId.toLowerCase() === 'all') {
                 const [data] = await pool.query(
-                    `SELECT date, resource_group, service_name, cost_usd, subscription_id
+                    `SELECT date, resource_group, service_name, cost_usd, subscription_id, 
+                            ChargePeriodStart, ChargePeriodEnd, ProviderName, PublisherName, SubAccountId, BilledCost, EffectiveCost, CommitmentDiscountId, Tags
                      FROM CostSnapshots
                      WHERE tenant_id = ?
                      ORDER BY date ASC`,
@@ -31,7 +32,8 @@ export async function GET(request: NextRequest) {
                 rows = data as any[];
             } else {
                 const [data] = await pool.query(
-                    `SELECT date, resource_group, service_name, cost_usd, subscription_id
+                    `SELECT date, resource_group, service_name, cost_usd, subscription_id,
+                            ChargePeriodStart, ChargePeriodEnd, ProviderName, PublisherName, SubAccountId, BilledCost, EffectiveCost, CommitmentDiscountId, Tags
                      FROM CostSnapshots
                      WHERE tenant_id = ? AND subscription_id = ?
                      ORDER BY date ASC`,
@@ -69,13 +71,18 @@ export async function GET(request: NextRequest) {
             }
 
             return {
-                BilledCost: Number(row.cost_usd),
-                EffectiveCost: Number(row.cost_usd),
+                BilledCost: row.BilledCost !== null ? Number(row.BilledCost) : Number(row.cost_usd),
+                EffectiveCost: row.EffectiveCost !== null ? Number(row.EffectiveCost) : Number(row.cost_usd),
                 ChargeCategory: 'Usage',
-                ProviderName: 'Azure',
-                SubAccountId: row.subscription_id,
+                ProviderName: row.ProviderName || 'Azure',
+                SubAccountId: row.SubAccountId || row.subscription_id,
                 ServiceName: row.service_name,
-                UsageDate: dateStr
+                UsageDate: dateStr,
+                ChargePeriodStart: row.ChargePeriodStart ? new Date(row.ChargePeriodStart).toISOString() : dateStr,
+                ChargePeriodEnd: row.ChargePeriodEnd ? new Date(row.ChargePeriodEnd).toISOString() : dateStr,
+                PublisherName: row.PublisherName || 'Microsoft',
+                CommitmentDiscountId: row.CommitmentDiscountId || 'None',
+                Tags: row.Tags || '{}'
             };
         });
 
