@@ -182,10 +182,8 @@ export default function RateOptimizationPage() {
                 }
 
                 if (json.subscriptions) {
-                    setSubscriptions(json.subscriptions);
-                    if (json.subscriptions.length > 0) {
-                        setSubscriptionId(json.subscriptions[0].id);
-                    }
+                    setSubscriptions([{ id: 'All', name: 'Todas las Suscripciones (Tenant-wide)' }, ...json.subscriptions]);
+                    setSubscriptionId('All');
                 }
             } catch (e) {
                 console.error("Error fetching subscriptions:", e);
@@ -197,6 +195,13 @@ export default function RateOptimizationPage() {
 
         fetchSubscriptions();
     }, [selectedTenant, instance, accounts]);
+
+    // Auto-trigger analysis when subscriptionId is set to 'All' or any other and hasn't analyzed
+    useEffect(() => {
+        if (subscriptionId && !hasAnalyzed && !loading) {
+            handleAnalyze();
+        }
+    }, [subscriptionId, hasAnalyzed]);
 
     const handleAnalyze = async () => {
         if (!selectedTenant || selectedTenant.id === 'default') {

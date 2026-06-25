@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
 
             let reservations: any[] = [];
             try {
-                reservations = await getReservationRecommendations(credential, subscriptionId);
+                reservations = await getReservationRecommendations(credential, subscriptionId, tenantId);
             } catch (error: any) {
                 console.error("[Rates API] Error en recomendador de reservas (atrapado de forma segura):", error);
             }

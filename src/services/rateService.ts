@@ -40,7 +40,7 @@ export async function calculateReservationSavings(credential: TokenCredential, s
         const query = `
             Resources
             | where type in~ ('Microsoft.Compute/virtualMachines', 'Microsoft.Web/serverfarms', 'Microsoft.Sql/servers/databases')
-            | where subscriptionId =~ '${subscriptionId}'
+            ${subscriptionId && subscriptionId !== 'All' ? `| where subscriptionId =~ '${subscriptionId}'` : ''}
             | project name, type, location, vmSize = tostring(properties.hardwareProfile.vmSize), skuName = tostring(sku.name)
         `;
         

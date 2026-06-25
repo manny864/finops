@@ -11,7 +11,9 @@ export interface ReservationOpportunity {
     netSavings3Y: number;
 }
 
-export async function getReservationRecommendations(credential: TokenCredential, subscriptionId: string): Promise<ReservationOpportunity[]> {
+import { getSubscriptionsForTenant } from "@/lib/azure";
+
+export async function getReservationRecommendations(credential: TokenCredential, subscriptionId: string, tenantId?: string): Promise<ReservationOpportunity[]> {
     try {
         console.log(`[ReservationService] Fetching reservation recommendations for subscription: ${subscriptionId}`);
         
@@ -21,28 +23,35 @@ export async function getReservationRecommendations(credential: TokenCredential,
             throw new Error("No se pudo obtener el token de acceso de Azure Management");
         }
 
-        const url = `https://management.azure.com/subscriptions/${subscriptionId}/providers/Microsoft.CostManagement/generateReservationRecommendation?api-version=2023-03-01`;
+        const subscriptions = subscriptionId === 'All' && tenantId ? await getSubscriptionsForTenant(tenantId) : [subscriptionId];
         
-        const res = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${tokenData.token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({}) // Cuerpo vacío requerido para llamadas generadoras POST en ARM
-        });
+        const mapped: ReservationOpportunity[] = [];
+        
+        // Loop subscriptions and fetch reservations
+        for (const sub of subscriptions) {
+            const url = `https://management.azure.com/subscriptions/${sub}/providers/Microsoft.CostManagement/generateReservationRecommendation?api-version=2023-03-01`;
+            
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${tokenData.token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({}) // Cuerpo vacío requerido para llamadas generadoras POST en ARM
+            });
 
-        if (!res.ok) {
-            const errorText = await res.text().catch(() => "No response body");
-            console.error(`[ReservationService] Azure REST API returned status ${res.status}: ${errorText}`);
-            throw new Error(`Azure API error ${res.status}: ${errorText}`);
-        }
+            if (!res.ok) {
+                const errorText = await res.text().catch(() => "No response body");
+                console.error(`[ReservationService] Azure REST API returned status ${res.status} for sub ${sub}: ${errorText}`);
+                continue; // Skip failing subscriptions instead of failing the whole tenant
+            }
 
-        const json = await res.json();
-        console.log(`[ReservationService] Successful response received. Mapping data...`);
+            const json = await res.json();
+            console.log(`[ReservationService] Successful response received for sub ${sub}.`);
 
-        const value = json.value || [];
-        const mapped: ReservationOpportunity[] = value.map((item: any) => {
+            const value = json.value || [];
+            
+            value.forEach((item: any) => {
             const props = item.properties || {};
             
             // Extraer y normalizar propiedades
@@ -61,7 +70,7 @@ export async function getReservationRecommendations(credential: TokenCredential,
             const costWith3YReservation = Number(props.costWith3YReservation || props.costWith3YearReservation || props.totalCostWith3YearReservation || (totalMonthlyPAYGCost * 0.5)); // fallback teórico 50% ahorro
             const netSavings3Y = Number(props.netSavings3Y || props.netSavingsFor3Years || props.netSavings || (totalMonthlyPAYGCost - costWith3YReservation));
 
-            return {
+            mapped.push({
                 skuName,
                 resourceType,
                 recommendedQuantity,
@@ -70,10 +79,27 @@ export async function getReservationRecommendations(credential: TokenCredential,
                 netSavings1Y: netSavings1Y > 0 ? netSavings1Y : 0,
                 costWith3YReservation,
                 netSavings3Y: netSavings3Y > 0 ? netSavings3Y : 0
-            };
+            });
         });
+        }
 
-        return mapped;
+        // Group by skuName + resourceType to aggregate cross-subscription recommendations
+        const grouped = mapped.reduce((acc: any, curr) => {
+            const key = `${curr.skuName}-${curr.resourceType}`;
+            if (!acc[key]) {
+                acc[key] = { ...curr };
+            } else {
+                acc[key].recommendedQuantity += curr.recommendedQuantity;
+                acc[key].totalMonthlyPAYGCost += curr.totalMonthlyPAYGCost;
+                acc[key].costWith1YReservation += curr.costWith1YReservation;
+                acc[key].netSavings1Y += curr.netSavings1Y;
+                acc[key].costWith3YReservation += curr.costWith3YReservation;
+                acc[key].netSavings3Y += curr.netSavings3Y;
+            }
+            return acc;
+        }, {});
+
+        return Object.values(grouped);
     } catch (error: any) {
         console.error(`[ReservationService] Error querying Azure CostManagement generateReservationRecommendation:`, error);
         throw error;
