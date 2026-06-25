@@ -7,6 +7,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import RoleAssignmentBanner from './RoleAssignmentBanner';
 import { Info, Lightbulb, X, Play } from 'lucide-react';
 import { hasAccess } from '@/lib/tierLogic';
+import { toast } from 'sonner';
 
 export default function AdvisorPanel() {
   const { instance, accounts } = useMsal();
