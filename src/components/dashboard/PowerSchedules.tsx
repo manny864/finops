@@ -5,7 +5,7 @@ import { useMsal } from '@azure/msal-react';
 import { useTenant } from '../TenantProvider';
 import FeatureGuard from '../FeatureGuard';
 import { getMockDataForRoute, isMockTenant } from '@/lib/mockData';
-import { hasAccessToTier } from '@/lib/tierLogic';
+import { hasAccess } from '@/lib/tierLogic';
 import {
   useReactTable,
   getCoreRowModel,
@@ -222,7 +222,7 @@ export default function PowerSchedules() {
 
     if (accounts.length === 0 || selectedTenant.id === 'default') return null;
 
-    const isPro = hasAccessToTier(selectedTenant.tier, 'Professional');
+    const isPro = hasAccess(selectedTenant.tier, 'Professional');
 
     return (
         <FeatureGuard requiredTier="Essential" featureName="VM Control" className="h-full">

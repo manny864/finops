@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 
 import DeleteTenantModal from '@/components/DeleteTenantModal';
 import { isMockTenant } from '@/lib/mockData';
-import { hasAccessToTier } from '@/lib/tierLogic';
+import { hasAccess } from '@/lib/tierLogic';
 
 
 export default function ConfigPage() {
@@ -243,7 +243,7 @@ function TenantDeletionManager() {
 
 function PowerBIExportConfig() {
     const { selectedTenant } = useTenant();
-    const isEnterprise = hasAccessToTier(selectedTenant.tier, 'Enterprise');
+    const isEnterprise = hasAccess(selectedTenant.tier, 'Enterprise');
 
     if (selectedTenant.id === 'default') return null;
 

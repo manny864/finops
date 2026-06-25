@@ -6,7 +6,7 @@ import { useSubscription } from './SubscriptionProvider';
 import { useLocale, useTranslations } from 'next-intl';
 import RoleAssignmentBanner from './RoleAssignmentBanner';
 import { Info, Lightbulb, X, Play } from 'lucide-react';
-import { hasAccessToTier } from '@/lib/tierLogic';
+import { hasAccess } from '@/lib/tierLogic';
 
 export default function AdvisorPanel() {
   const { instance, accounts } = useMsal();
@@ -23,7 +23,7 @@ export default function AdvisorPanel() {
   const [selectedSub, setSelectedSub] = useState<string>("all");
   const { selectedSubscription, setSelectedSubscription } = useSubscription();
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const isPro = hasAccessToTier(selectedTenant.tier, 'Professional');
+  const isPro = hasAccess(selectedTenant.tier, 'Professional');
 
   useEffect(() => {
     if (selectedSubscription) {
