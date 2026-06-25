@@ -34,7 +34,8 @@ import {
     Server,
     ShieldCheck,
     Trophy,
-    CheckCircle
+    CheckCircle,
+    ShieldAlert
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -107,6 +108,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             items: [
                 { href: '/governance/tags', label: t('tag_compliance'), icon: Tags, requiredTier: 'Business' },
                 { href: '/governance/power', label: t('power_schedules'), icon: Power, requiredTier: 'Business' },
+                { href: '/governance/policies', label: 'Políticas (Auto-Block)', icon: ShieldAlert, requiredTier: 'Enterprise' },
                 { href: '/remediation/approvals', label: 'Aprobaciones', icon: CheckCircle, requiredTier: 'Professional' }
             ]
         },

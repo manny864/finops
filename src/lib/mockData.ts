@@ -458,6 +458,15 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
                     { id: 'rule-4', resourceName: 'AKS-Shared-Cluster', targetCostCenter: 'WebPortal', allocationPercentage: 20.0 }
                 ]
             };
+        case 'governance-policies':
+            return {
+                success: true,
+                data: [
+                    { id: 'pol-tag', name: 'Requiere Etiqueta "CostCenter"', description: 'Evita la creación de cualquier recurso en Azure si no incluye la etiqueta CostCenter.', status: 'Active' },
+                    { id: 'pol-sku', name: 'Restringir Familias de VMs (GPU/Memoria)', description: 'Bloquea el aprovisionamiento de series M, NC, G, NV (Alta densidad de costo).', status: 'Inactive' },
+                    { id: 'pol-loc', name: 'Restricción de Regiones Geográficas', description: 'Obliga a que todos los despliegues ocurran exclusivamente en East US y West Europe.', status: 'Active' }
+                ]
+            };
         case 'commitments':
             return {
                 success: true,
