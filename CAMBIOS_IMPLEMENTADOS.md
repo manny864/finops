@@ -1,6 +1,34 @@
 # Cambios Implementados (Bitácora Operativa)
 
 Este archivo centraliza **todos los cambios realizados y futuros** del proyecto.
+## 2026-06-29 — Dashboard lento / cards inconsistentes (root-cause + fix)
+
+### 🐢 Síntoma
+- En tenants reales, las tarjetas superiores del dashboard (costo actual, proyectado, ahorros, anomalías) cargaban a veces sí y a veces vacías.
+- Lentitud generalizada al recargar.
+
+### 🔍 Causa raíz
+1. **`/api/dashboard/summary` lanzaba 500 si `/api/intelligence/forecast` fallaba** (el fix previo de anti cache-poisoning era demasiado estricto): cualquier flaqueza transitoria de Azure SDK tiraba abajo TODO el dashboard.
+2. **Sub-fetches sin timeout**: si `audit/full` tardaba 30s, el endpoint completo se quedaba colgado.
+3. **TTL corto** (300s hard / 150s soft): expiraba antes que SWR pudiera servir versión válida.
+4. **Forecast era la única fuente de `actualCost`**: si la API de forecast no respondía, las cards quedaban en `$0`.
+
+### 🛠 Fix (`src/app/api/dashboard/summary/route.ts`)
+- **Cache versionada `v4`** con TTL más generoso: **hard 900s (15m)** / **soft 300s (5m)**. SWR ahora puede servir stale durante 10 minutos mientras revalida en background.
+- **`timedFetch(url, ms)`** con `AbortController`: audit (18s), forecast (12s). Ninguna sub-llamada bloquea más allá de su límite.
+- **`Promise.all` con `.catch`** sobre cada sub-fetch: una falla NO mata al dashboard. Se retorna `degraded: true` + `degradedReason` y la UI puede pintar lo que tiene.
+- **`fetchActualCostMTD(tenantId, subscriptionId)`**: nueva fuente primaria para `actualCost`, leyendo directo de `CostSnapshots` (mismo mes). DB local, <50 ms.
+- **Proyección lineal de fallback**: si forecast no responde pero hay MTD, `projectedCost = MTD * (diasMes / diaActual)`. El usuario siempre ve un número razonable.
+- **Sin más throws en el fetcher de SWR**: el cache se escribe SIEMPRE que el handler termine, evitando el ciclo "500 → cache vacío → 500 otra vez".
+
+### 📊 Efecto esperado
+- Primera carga fría: ≤18s (timeout duro de audit).
+- Cargas calientes (los 5-15 min siguientes): <50 ms (servido desde Redis).
+- Cards superiores: siempre con valores (MTD directo de DB).
+- Anomalías transitorias de Azure: dashboard sigue funcional con banner `degraded`.
+
+---
+
 ## 2026-06-29 — Partner Billing CSP, Alertas con budget, selectores legibles
 
 ### 💲 Partner Billing Engine (CSP) — mensaje informativo cuando no hay CSP

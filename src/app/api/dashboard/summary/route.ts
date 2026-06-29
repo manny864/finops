@@ -77,6 +77,28 @@ function mapAuditData(auditResults: AuditResults) {
   return { mappedData, zombieCount };
 }
 
+async function fetchActualCostMTD(tenantId: string, subscriptionId: string): Promise<number> {
+  try {
+    const params: any[] = [tenantId];
+    let where = 'WHERE tenant_id = ?';
+    if (subscriptionId && subscriptionId.toLowerCase() !== 'all') {
+      where += ' AND subscription_id = ?';
+      params.push(subscriptionId);
+    }
+    const [rows]: any = await pool.query(
+      `SELECT COALESCE(SUM(COALESCE(EffectiveCost, BilledCost, cost_usd, 0)), 0) AS total
+       FROM CostSnapshots
+       ${where}
+         AND date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')`,
+      params
+    );
+    return Number(rows?.[0]?.total || 0);
+  } catch (e: any) {
+    console.warn('[Summary] MTD cost DB read failed:', e?.message);
+    return 0;
+  }
+}
+
 async function fetchHistogramFromDb(tenantId: string, subscriptionId: string): Promise<{ date: string; cost: number }[]> {
   try {
     const params: any[] = [tenantId];
@@ -168,7 +190,7 @@ export async function GET(request: NextRequest) {
 
     await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
 
-    const cacheKey = `dashboard:summary:v3:${tenantId}:${subscriptionId.toLowerCase()}`;
+    const cacheKey = `dashboard:summary:v4:${tenantId}:${subscriptionId.toLowerCase()}`;
     const data = await getWithStaleWhileRevalidate(
       cacheKey,
       async () => {
@@ -178,39 +200,54 @@ export async function GET(request: NextRequest) {
           : "";
         const headers = { Authorization: authHeader };
 
-        const [auditRes, forecastRes] = await Promise.all([
-          fetch(`${origin}/api/audit/full?tenantId=${encodeURIComponent(tenantId)}${subParam}`, { headers, cache: "no-store" }),
-          fetch(`${origin}/api/intelligence/forecast?tenantId=${encodeURIComponent(tenantId)}&subscriptionId=${encodeURIComponent(subscriptionId)}`, { headers, cache: "no-store" }),
+        // Helper: fetch with a hard timeout so un sub-endpoint lento no detiene
+        // toda la respuesta del dashboard. AbortController evita request colgados.
+        const timedFetch = async (url: string, ms: number) => {
+          const ctrl = new AbortController();
+          const t = setTimeout(() => ctrl.abort(), ms);
+          try {
+            return await fetch(url, { headers, cache: "no-store", signal: ctrl.signal });
+          } finally {
+            clearTimeout(t);
+          }
+        };
+
+        // Disparamos audit, forecast y MTD cost en paralelo. NINGUNO bloquea al resto:
+        // si audit falla o tarda, el dashboard sigue mostrando costos (de DB) y viceversa.
+        const [auditSettled, forecastSettled, mtdActual] = await Promise.all([
+          timedFetch(
+            `${origin}/api/audit/full?tenantId=${encodeURIComponent(tenantId)}${subParam}`,
+            18000
+          ).then(r => r.ok ? r.json() : Promise.reject(new Error(`audit ${r.status}`)))
+           .catch(e => ({ __failed: true, error: String(e?.message || e) })),
+          timedFetch(
+            `${origin}/api/intelligence/forecast?tenantId=${encodeURIComponent(tenantId)}&subscriptionId=${encodeURIComponent(subscriptionId)}`,
+            12000
+          ).then(r => r.ok ? r.json() : Promise.reject(new Error(`forecast ${r.status}`)))
+           .catch(e => ({ __failed: true, error: String(e?.message || e) })),
+          fetchActualCostMTD(tenantId, subscriptionId),
         ]);
 
-        // No envenenar cache: si audit (fuente de costos/savings) falla, abortamos
-        // para que el siguiente request reintente. SWR seguirá sirviendo la versión
-        // previa válida si existe.
-        if (!auditRes.ok) {
-          throw new Error(`audit sub-fetch failed: ${auditRes.status}`);
-        }
-        const auditJson = await auditRes.json();
+        const auditFailed = (auditSettled as any).__failed === true;
+        const forecastFailed = (forecastSettled as any).__failed === true;
 
-        // Forecast es secundario; si falla no abortamos pero tampoco cacheamos
-        // resultado degradado (marcamos para skip-cache vía throw post-build si vacío
-        // por error transitorio).
-        let forecastJson: any = {};
-        let forecastFailed = false;
-        if (forecastRes.ok) {
-          forecastJson = await forecastRes.json();
-        } else {
-          forecastFailed = true;
-          console.warn(`[Summary] forecast sub-fetch failed: ${forecastRes.status}`);
-        }
+        const auditJson = auditFailed ? { auditResults: {} } : auditSettled;
+        const forecastJson = forecastFailed ? {} : forecastSettled;
+
+        if (auditFailed) console.warn('[Summary] audit failed (degraded):', (auditSettled as any).error);
+        if (forecastFailed) console.warn('[Summary] forecast failed (degraded):', (forecastSettled as any).error);
 
         const auditResults = (auditJson.auditResults || {}) as AuditResults;
         const { mappedData, zombieCount } = mapAuditData(auditResults);
         const totalSavings = mappedData.reduce((sum, item) => sum + Number(item.potentialSavings || 0), 0);
         const environmentalImpact = Number(((totalSavings / 100) * 15).toFixed(1));
 
-        const combinedData = Array.isArray(forecastJson.data) ? forecastJson.data : [];
+        // actualCost: fuente primaria CostSnapshots (DB rápido, no falla por Azure timeout).
+        // Si forecast trajo data, sumamos sus rows actualCost (que pueden incluir hoy);
+        // si no, usamos el MTD desde DB.
         let actualCost = 0;
         let forecastSum = 0;
+        const combinedData = Array.isArray((forecastJson as any).data) ? (forecastJson as any).data : [];
         combinedData.forEach((itemRaw: unknown) => {
           const item = itemRaw as Record<string, unknown>;
           const current = Number(item.actualCost || 0);
@@ -218,10 +255,26 @@ export async function GET(request: NextRequest) {
           if (Number.isFinite(current)) actualCost += current;
           if (Number.isFinite(forecast)) forecastSum += forecast;
         });
-        const projectedCost = actualCost + forecastSum;
+        if (actualCost === 0) actualCost = mtdActual;
+
+        // projectedCost: si tenemos forecast, actualCost + forecastSum.
+        // Si no, proyección lineal: MTD * (díasMes / díaActual).
+        let projectedCost: number;
+        if (forecastSum > 0 || actualCost > 0) {
+          if (forecastSum > 0) {
+            projectedCost = actualCost + forecastSum;
+          } else {
+            const today = new Date();
+            const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+            const currentDay = Math.max(today.getDate(), 1);
+            projectedCost = actualCost * (daysInMonth / currentDay);
+          }
+        } else {
+          projectedCost = 0;
+        }
 
         // Histograma: pull directo de CostSnapshots (FOCUS) últimos 365 días.
-        // Si está vacío, fallback a live Azure Cost Management (MTD).
+        // Si está vacío, fallback live (best-effort, sin throw).
         let histogram = await fetchHistogramFromDb(tenantId, subscriptionId);
         if (histogram.length === 0) {
           try {
@@ -230,11 +283,6 @@ export async function GET(request: NextRequest) {
           } catch (e: any) {
             console.warn('[Summary] live billing fallback failed:', e?.message);
           }
-        }
-
-        // Si forecast falló, throw para evitar cachear summary degradado
-        if (forecastFailed) {
-          throw new Error('forecast failed; skip cache write');
         }
 
         return {
@@ -246,9 +294,14 @@ export async function GET(request: NextRequest) {
           histogram,
           dashboardData: mappedData,
           auditResults,
+          degraded: auditFailed || forecastFailed,
+          degradedReason: auditFailed && forecastFailed
+            ? 'audit+forecast'
+            : auditFailed ? 'audit' : forecastFailed ? 'forecast' : null,
         };
       },
-      300
+      900,  // hard TTL: 15 min
+      300   // soft TTL: 5 min (revalida en background a partir de aquí)
     );
 
     return NextResponse.json({ success: true, ...data, fromCache: true });
