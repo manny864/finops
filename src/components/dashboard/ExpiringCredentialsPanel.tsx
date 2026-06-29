@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { Loader2, KeyRound, Info } from 'lucide-react';
+import Pagination, { usePagination } from '@/components/Pagination';
 
 function MockBanner({ tMock }: { tMock: (k: string) => string }) {
     return (
@@ -52,12 +53,15 @@ export default function ExpiringCredentialsPanel() {
         { revalidateOnFocus: false }
     );
 
+    const items: any[] = data?.items || [];
+    const counts = data?.counts || { critical: 0, high: 0, medium: 0 };
+
+    // Hooks ANTES de cualquier return (Rules of Hooks).
+    const { paged, ...paginationProps } = usePagination(items, 10);
+
     if (!selectedTenant || selectedTenant.id === 'default') return null;
     if (isLoading) return <div className="flex items-center justify-center py-16"><Loader2 className="w-7 h-7 animate-spin text-brand-deep mr-3" /><span className="text-gray-500">Cargando...</span></div>;
     if (error) return <div className="bg-red-50 dark:bg-red-900/20 text-red-600 p-4 rounded-lg"><b>Error:</b> {error.message}</div>;
-
-    const items: any[] = data?.items || [];
-    const counts = data?.counts || { critical: 0, high: 0, medium: 0 };
 
     return (
         <div className="space-y-4">
@@ -90,10 +94,10 @@ export default function ExpiringCredentialsPanel() {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-slate-800/50">
-                        {items.map((it, i) => {
+                        {paged.map((it, i) => {
                             const sev = it.severity || severityFromDays(it.daysTillExpiry);
                             return (
-                                <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/20">
+                                <tr key={`${it.appId}-${it.credentialId}-${i}`} className="hover:bg-slate-50 dark:hover:bg-slate-800/20">
                                     <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-200">
                                         <div className="flex items-center gap-2">
                                             <KeyRound className="w-3.5 h-3.5 text-amber-500 shrink-0" />
@@ -121,6 +125,8 @@ export default function ExpiringCredentialsPanel() {
                     </tbody>
                 </table>
             </div>
+
+            <Pagination {...paginationProps} />
         </div>
     );
 }
