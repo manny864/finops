@@ -4,6 +4,8 @@ import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { CreditCard, ExternalLink, ShieldCheck, AlertCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { getFreshIdToken } from '@/lib/msalToken';
+import MockBanner from '@/components/MockBanner';
 
 export default function PaymentsPage() {
     const { selectedTenant, userRole } = useTenant();
@@ -18,10 +20,7 @@ export default function PaymentsPage() {
         const loadBilling = async () => {
             setLoading(true);
             try {
-                const tokenResponse = await instance.acquireTokenSilent({
-                    scopes: ["User.Read"],
-                    account: accounts[0]
-                });
+                const tokenResponse = { idToken: await getFreshIdToken(instance, accounts[0]) };
                 
                 const res = await fetch(`/api/billing/portal?tenantId=${selectedTenant.id}`, {
                     headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
@@ -64,6 +63,7 @@ export default function PaymentsPage() {
 
     return (
         <div className="p-6 max-w-4xl mx-auto animate-in fade-in duration-500">
+            <MockBanner />
             <div className="mb-8 border-b border-gray-200 dark:border-gray-800 pb-4">
                 <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight flex items-center">
                     <CreditCard className="w-8 h-8 mr-3 text-[#0054A6] dark:text-[#00AEEF]" />

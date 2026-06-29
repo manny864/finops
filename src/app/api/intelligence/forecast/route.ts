@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentMonthAmortizedCosts, getCostForecast } from "@/modules/collectors/azure/billingService";
-import jwt from "jsonwebtoken";
 import pool from "@/modules/storage/db";
+import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
 
 // Simple linear regression to predict end of month cost
 function predictCost(dailyCosts: { day: number, cost: number }[], daysInMonth: number) {
@@ -35,8 +35,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Faltan parámetros: tenantId" }, { status: 400 });
         }
 
-        const authHeader = request.headers.get("authorization");
-        if (!authHeader) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+        await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
 
         const metricType = (request.headers.get('x-metric-type') as 'ActualCost' | 'AmortizedCost') || 'ActualCost';
 
@@ -71,9 +70,12 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({ data: combinedData });
 
-    } catch (e: any) {
+    } catch (e: unknown) {
+        if (e instanceof AuthError) {
+            return NextResponse.json({ error: e.message }, { status: e.status });
+        }
         console.error("Error fetching forecast:", e);
-        return NextResponse.json({ error: e.message }, { status: 500 });
+        return NextResponse.json({ error: "Error fetching forecast" }, { status: 500 });
     }
 }
 
@@ -86,13 +88,18 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Faltan parámetros requeridos: tenantId" }, { status: 400 });
         }
 
+        await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
+
         // Validate Tier
-        const [tenants]: any = await pool.query('SELECT tier FROM Tenants WHERE id = ?', [tenantId]);
-        if (!tenants || tenants.length === 0) {
+        const [tenants] = await pool.query('SELECT tier FROM Tenants WHERE tenant_id = ?', [tenantId]);
+        if (!Array.isArray(tenants) || tenants.length === 0) {
             return NextResponse.json({ error: "Tenant no encontrado." }, { status: 404 });
         }
 
-        const tier = tenants[0].tier;
+        const tier = (tenants[0] as { tier?: string }).tier;
+        if (!tier) {
+            return NextResponse.json({ error: "Tier inválido para tenant." }, { status: 400 });
+        }
         const normalizedTier = tier.toLowerCase();
         if (normalizedTier === 'starter' || normalizedTier === 'essential') {
              return NextResponse.json({ error: "Feature bloqueada. Requiere plan Pro o superior." }, { status: 403 });
@@ -106,8 +113,8 @@ export async function POST(request: NextRequest) {
         const dailyCosts = [];
         let accumulated = 0;
         for (let i = 1; i <= currentDay; i++) {
-            // Random daily spend between 300 and 400
-            const dailySpend = 300 + Math.random() * 100;
+            // Deterministic baseline for fallback forecasting when no historical series is available
+            const dailySpend = 300 + (i % 7) * 12;
             accumulated += dailySpend;
             dailyCosts.push({ day: i, cost: accumulated, dailySpend });
         }
@@ -144,8 +151,11 @@ export async function POST(request: NextRequest) {
             budgetLimit: budget
         });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
+        if (error instanceof AuthError) {
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        }
         console.error("Forecast API Error:", error);
-        return NextResponse.json({ error: "Fallo al generar forecasting predictivo.", details: error.message }, { status: 500 });
+        return NextResponse.json({ error: "Fallo al generar forecasting predictivo." }, { status: 500 });
     }
 }

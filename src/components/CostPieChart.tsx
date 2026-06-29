@@ -1,9 +1,13 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend, Sector } from 'recharts';
 
 export default function CostPieChart({ data, onSegmentClick }: { data: any[], onSegmentClick?: (category: string | null) => void }) {
     const [activeIndex, setActiveIndex] = useState<number | null>(null);
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     if (!data || data.length === 0) {
         return (
@@ -66,9 +70,12 @@ export default function CostPieChart({ data, onSegmentClick }: { data: any[], on
     };
 
     return (
-        <div className="w-full h-full min-h-[220px] relative overflow-hidden flex-1 flex flex-col items-center">
+        <div className="w-full h-full min-h-[220px] min-w-0 relative overflow-hidden flex-1 flex flex-col items-center">
             <div className="h-40 w-full shrink-0">
-                <ResponsiveContainer width="100%" height="100%">
+                {!mounted ? (
+                    <div className="h-full w-full" />
+                ) : (
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={140}>
                     <PieChart>
                         <Pie
                             // @ts-ignore
@@ -102,6 +109,7 @@ export default function CostPieChart({ data, onSegmentClick }: { data: any[], on
                         />
                     </PieChart>
                 </ResponsiveContainer>
+                )}
             </div>
             
             <div className="flex-1 w-full overflow-y-auto mt-2 px-2 custom-scrollbar">

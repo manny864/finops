@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import jwt from "jsonwebtoken";
 import { teardownTenant } from "@/services/tenantTeardownService";
+import { AuthError, requireSuperAdmin } from "@/lib/requestAuth";
 
 export async function DELETE(request: NextRequest) {
     try {
@@ -21,33 +21,19 @@ export async function DELETE(request: NextRequest) {
             return NextResponse.json({ error: "El parámetro tenantId es obligatorio." }, { status: 400 });
         }
 
-        const authHeader = request.headers.get("authorization");
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            return NextResponse.json({ error: "No autorizado." }, { status: 401 });
-        }
-
-        const token = authHeader.split(" ")[1];
-        const decoded = jwt.decode(token) as any;
-
-        if (!decoded) {
-            return NextResponse.json({ error: "Token inválido." }, { status: 401 });
-        }
-
-        const email = decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "";
-        const isSuperAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") ;
-
-        if (!isSuperAdmin) {
-            return NextResponse.json({ error: "Acceso denegado. Se requieren privilegios de Super Administrador." }, { status: 403 });
-        }
+        await requireSuperAdmin(request);
 
         // Execute teardown
         await teardownTenant(tenantId);
 
         return NextResponse.json({ success: true, message: `Tenant ${tenantId} eliminado exitosamente.` });
 
-    } catch (e: any) {
+    } catch (e: unknown) {
+        if (e instanceof AuthError) {
+            return NextResponse.json({ error: e.message }, { status: e.status });
+        }
         console.error("Error en la ruta de eliminación de tenant:", e);
-        return NextResponse.json({ error: "Error interno del servidor", details: e.message }, { status: 500 });
+        return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
     }
 }
 

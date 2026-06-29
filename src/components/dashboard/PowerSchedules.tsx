@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import { useMsal } from '@azure/msal-react';
 import { useTenant } from '../TenantProvider';
+import { useSubscription } from '../SubscriptionProvider';
 import FeatureGuard from '../FeatureGuard';
 import { getMockDataForRoute, isMockTenant } from '@/lib/mockData';
 import { hasAccess } from '@/lib/tierLogic';
@@ -17,11 +18,13 @@ import {
 export default function PowerSchedules() {
     const { instance, accounts } = useMsal();
     const { selectedTenant } = useTenant();
+    const { selectedSubscription } = useSubscription();
     const [vms, setVms] = useState<any[]>([]);
     const [selectedVmIds, setSelectedVmIds] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
 
     const [actionLoading, setActionLoading] = useState<string | null>(null);
+    const [refetchTick, setRefetchTick] = useState(0);
     const [scheduleVmName, setScheduleVmName] = useState('');
     const [shutdownTime, setShutdownTime] = useState('');
     const [gmtOffset, setGmtOffset] = useState('-05:00');
@@ -57,9 +60,15 @@ export default function PowerSchedules() {
                         scopes: ["User.Read"],
                         account: accounts[0]
                     });
-                    const res = await fetch(`/api/audit/full?tenantId=${selectedTenant.id}`, {
+                    const subParam = selectedSubscription && selectedSubscription.toLowerCase() !== 'all'
+                        ? `&subscriptionId=${selectedSubscription}`
+                        : '';
+                    const res = await fetch(`/api/power?tenantId=${selectedTenant.id}${subParam}`, {
                         headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
                     });
+                    if (!res.ok) {
+                        throw new Error(`Power VM fetch failed: ${res.status}`);
+                    }
                     json = await res.json();
                 }
                 
@@ -76,7 +85,7 @@ export default function PowerSchedules() {
             setLoading(false);
         };
         fetchVms();
-    }, [accounts, instance, selectedTenant.id]);
+    }, [accounts, instance, selectedTenant.id, selectedSubscription, refetchTick]);
 
     const handleAction = async (action: 'start' | 'stop' | 'restart', singleVm?: any) => {
         const targetVms = singleVm ? [singleVm] : vms.filter(vm => selectedVmIds.includes(vm.id));
@@ -116,10 +125,27 @@ export default function PowerSchedules() {
             
             const data = await res.json();
             if (!res.ok) {
+                // Si el backend devolvió errores parciales (per-VM), los mostramos
+                // explícitamente para que el usuario sepa qué falló (permisos,
+                // CPU threshold, etc.) en vez de un mensaje genérico.
+                const details = Array.isArray(data?.details) ? data.details : [];
+                if (details.length > 0) {
+                    const msgs = details.map((d: any) => `• ${d.vm}: ${d.error}`).join('\n');
+                    throw new Error(`${data.error || 'Errores en la ejecución'}:\n${msgs}`);
+                }
                 throw new Error(data.error || 'Error en la petición');
             }
-            
-            toast.success(`Comando ${action === 'start' ? 'Encender' : action === 'restart' ? 'Reiniciar' : 'Apagar'} enviado exitosamente a ${targetVms.length} VMs.`);
+
+            const labelAction = action === 'start' ? 'Encender' : action === 'restart' ? 'Reiniciar' : 'Apagar';
+            if (data?.mock || data?.simulated) {
+                toast(`[SIMULACIÓN DEMO] ${labelAction}: ${data.message || `acción simulada sobre ${targetVms.length} VM(s). En un tenant real esto enviaría el comando a Azure.`}`, { icon: '🧪', duration: 6000 });
+            } else {
+                toast.success(`${labelAction}: comando aceptado por Azure para ${targetVms.length} VM(s). Refrescando estado…`);
+                // Esperar ~5s y refrescar para mostrar el powerState actualizado.
+                // beginDeallocateAndWait ya esperó la transición, pero el cache
+                // de ARG puede tardar unos segundos en reflejarla.
+                setTimeout(() => setRefetchTick(t => t + 1), 5000);
+            }
         } catch (e: any) {
             console.error(`Error al ejecutar ${action}:`, e);
             alert(`Error al ejecutar la acción: ${e.message}`);

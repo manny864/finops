@@ -1,5 +1,6 @@
 import pool from './db';
 import { RowDataPacket } from 'mysql2/promise';
+import { toMoneyNumber } from '@/lib/money';
 
 export interface TenantBudget {
     id?: number;
@@ -47,7 +48,7 @@ export async function getTenantBudgetByPeriod(
         tenant_id: row.tenant_id,
         budget_month: row.budget_month,
         budget_year: row.budget_year,
-        budget_usd: parseFloat(row.budget_usd),
-        alert_threshold: parseFloat(row.alert_threshold)
+        budget_usd: toMoneyNumber(row.budget_usd),
+        alert_threshold: toMoneyNumber(row.alert_threshold)
     };
 }

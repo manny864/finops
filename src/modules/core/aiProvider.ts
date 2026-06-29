@@ -6,6 +6,27 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { RowDataPacket } from 'mysql2';
 import { getAIConfig } from '@/services/aiService';
 
+// In-memory cache for AI config (provider + apiKey) por tenant.
+// Reduce el round-trip a MySQL en cada request del Copilot.
+type CachedConfig = { config: Awaited<ReturnType<typeof getAIConfig>>; expires: number };
+const _configCache = new Map<string, CachedConfig>();
+const CONFIG_TTL_MS = 5 * 60 * 1000;
+
+async function getCachedAIConfig(tenantId?: string) {
+    const key = tenantId || '__global__';
+    const now = Date.now();
+    const cached = _configCache.get(key);
+    if (cached && cached.expires > now) return cached.config;
+    const config = await getAIConfig(tenantId);
+    _configCache.set(key, { config, expires: now + CONFIG_TTL_MS });
+    return config;
+}
+
+export function invalidateAIConfigCache(tenantId?: string) {
+    if (tenantId) _configCache.delete(tenantId);
+    else _configCache.clear();
+}
+
 class RequestQueue {
     private queue: (() => Promise<void>)[] = [];
     private isProcessing = false;
@@ -64,7 +85,7 @@ async function withExponentialBackoff<T>(fn: () => Promise<T>, maxRetries = 3): 
 
 export class AIProviderFactory {
     static async getGeminiModel(tenantId?: string) {
-        const config = await getAIConfig(tenantId);
+        const config = await getCachedAIConfig(tenantId);
         if (!config.apiKey) {
             throw new Error("AI API Key not configured.");
         }
@@ -92,9 +113,12 @@ export class AIProviderFactory {
             }
             case 'google':
             default: {
-                // Route to Gemini 2.5 Flash as default
+                // Alias `gemini-flash-latest` apunta siempre a la última Flash estable
+                // disponible en el Free Tier. Google rota este alias con preaviso de 2
+                // semanas, así que el Copilot siempre usa el modelo gratis más reciente
+                // sin requerir cambios de código.
                 const google = createGoogleGenerativeAI({ apiKey: config.apiKey });
-                return google('gemini-2.5-flash');
+                return google('gemini-flash-latest');
             }
         }
     }

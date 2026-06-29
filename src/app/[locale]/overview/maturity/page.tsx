@@ -1,10 +1,12 @@
 "use client";
+import MockBanner from '@/components/MockBanner';
 import React, { useEffect, useState } from 'react';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { Target, TrendingUp, AlertTriangle, CheckCircle2, Loader2, Info, Eye, DollarSign, Settings } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { isMockTenant } from '@/lib/mockData';
+import { isMockTenant, getMockDataForRoute } from '@/lib/mockData';
+import { getFreshIdToken } from '@/lib/msalToken';
 
 
 export default function MaturityPage() {
@@ -73,11 +75,30 @@ export default function MaturityPage() {
             setLoading(true);
             setScoreData(null);
             setReason(null);
+
+            // Tenants DEMO: se construye la respuesta desde el dataset mock
+            // mapeando al shape que espera el radar (pillars + overallScore).
+            if (isMockTenant(selectedTenant.id)) {
+                const tier = ((selectedTenant as any).tier || 'essential').toString().toLowerCase();
+                const mock = getMockDataForRoute('maturity', tier);
+                if (mock?.success) {
+                    setScoreData({
+                        overallScore: mock.score,
+                        pillars: {
+                            VisibilityAndAllocation: mock.breakdown?.visibility ?? mock.score,
+                            UsageOptimization: mock.breakdown?.optimization ?? mock.score,
+                            RateOptimization: mock.breakdown?.optimization ?? mock.score,
+                            ForecastingAndBudgeting: mock.breakdown?.automation ?? mock.score,
+                            GovernanceAndAutomation: mock.breakdown?.governance ?? mock.score,
+                        }
+                    });
+                }
+                setLoading(false);
+                return;
+            }
+
             try {
-                const tokenResponse = await instance.acquireTokenSilent({
-                    scopes: ["User.Read"],
-                    account: accounts[0]
-                });
+                const tokenResponse = { idToken: await getFreshIdToken(instance, accounts[0]) };
                 const res = await fetch(`/api/intelligence/maturity?tenantId=${selectedTenant.id}`, {
                     headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
                 });
@@ -233,6 +254,7 @@ export default function MaturityPage() {
 
   return (
       <div className="p-6 max-w-[1320px] mx-auto animate-in fade-in flex flex-col gap-5">
+          <MockBanner />
           <div className="flex items-end gap-[14px] flex-wrap relative">
               {(loading || !scoreData) && (
                   <div className="absolute inset-0 bg-surface/60 z-50 flex flex-col items-center justify-center rounded-[14px] backdrop-blur-sm">

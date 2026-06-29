@@ -1,9 +1,11 @@
 import React from 'react';
+import MockBanner from '@/components/MockBanner';
 import AksIntelligence from '@/components/dashboard/AksIntelligence';
 
 export default function AksPage() {
     return (
         <div className="content animate-in fade-in">
+            <MockBanner />
             <div className="vhead">
                 <div>
                     <div className="vt">

@@ -5,6 +5,7 @@ import { useMsal } from '@azure/msal-react';
 import { toast } from 'sonner';
 import { Users, Shield, Plus, Trash2, RefreshCw, X, CheckSquare } from "lucide-react";
 import { isMockTenant } from '@/lib/mockData';
+import { getFreshIdToken } from '@/lib/msalToken';
 
 
 export default function UsersPage() {
@@ -31,10 +32,7 @@ export default function UsersPage() {
         if (!selectedTenant || selectedTenant.id === 'default' || (accounts.length === 0 && !isMockTenant(selectedTenant?.id || ''))) return;
         setLoading(true);
         try {
-            const tokenResponse = await instance.acquireTokenSilent({
-                scopes: ["User.Read"],
-                account: accounts[0]
-            });
+            const tokenResponse = { idToken: await getFreshIdToken(instance, accounts[0]) };
             
             const res = await fetch(`/api/admin/config/users?tenantId=${selectedTenant.id}`, {
                 headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
@@ -57,10 +55,7 @@ export default function UsersPage() {
         if (!confirm(`¿Estás seguro que deseas revocar el acceso local de ${email}?`)) return;
 
         try {
-            const tokenResponse = await instance.acquireTokenSilent({
-                scopes: ["User.Read"],
-                account: accounts[0]
-            });
+            const tokenResponse = { idToken: await getFreshIdToken(instance, accounts[0]) };
             
             const res = await fetch(`/api/admin/config/users?tenantId=${selectedTenant.id}&userId=${userId}`, {
                 method: 'DELETE',
@@ -89,10 +84,7 @@ export default function UsersPage() {
 
         setInviting(true);
         try {
-            const tokenResponse = await instance.acquireTokenSilent({
-                scopes: ["User.Read"],
-                account: accounts[0]
-            });
+            const tokenResponse = { idToken: await getFreshIdToken(instance, accounts[0]) };
             
             const res = await fetch('/api/admin/config/users', {
                 method: 'POST',
@@ -129,10 +121,7 @@ export default function UsersPage() {
         setSyncingEntra(true);
         setShowEntraModal(true);
         try {
-            const tokenResponse = await instance.acquireTokenSilent({
-                scopes: ["User.Read"],
-                account: accounts[0]
-            });
+            const tokenResponse = { idToken: await getFreshIdToken(instance, accounts[0]) };
             const res = await fetch(`/api/admin/config/users/entra-sync`, {
                 headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
             });
@@ -171,10 +160,7 @@ export default function UsersPage() {
 
         setProvisioning(true);
         try {
-            const tokenResponse = await instance.acquireTokenSilent({
-                scopes: ["User.Read"],
-                account: accounts[0]
-            });
+            const tokenResponse = { idToken: await getFreshIdToken(instance, accounts[0]) };
             const res = await fetch('/api/admin/config/users', {
                 method: 'POST',
                 headers: { 
@@ -204,10 +190,7 @@ export default function UsersPage() {
 
     const handleRoleChange = async (userId: number, newRoleValue: string) => {
         try {
-            const tokenResponse = await instance.acquireTokenSilent({
-                scopes: ["User.Read"],
-                account: accounts[0]
-            });
+            const tokenResponse = { idToken: await getFreshIdToken(instance, accounts[0]) };
             
             const res = await fetch('/api/admin/config/users', {
                 method: 'PUT',

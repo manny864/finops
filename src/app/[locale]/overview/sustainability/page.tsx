@@ -4,6 +4,7 @@ import { useTenant } from '@/components/TenantProvider';
 import { useSubscription } from '@/components/SubscriptionProvider';
 import { Leaf, Wind, Zap, Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import MockBanner from '@/components/MockBanner';
 
 export default function SustainabilityPage() {
     const { selectedTenant } = useTenant();
@@ -44,6 +45,7 @@ export default function SustainabilityPage() {
                     <div className="vs">{t('subtitle')}</div>
                 </div>
             </div>
+            <MockBanner />
 
             <div className="grid-3 mb-6">
                 <div className="card">

@@ -52,6 +52,7 @@ export async function GET(request: NextRequest) {
                     const loc = res.location || "eastus";
                     const price = await getMonthlyCostEstimate("Virtual Machines", sku, loc);
                     const monthlyCost = price || 150.0;
+                    // AHUB Windows Server ~ahorra 40% del compute Windows respecto a PAYG.
                     return {
                         resourceId: res.id,
                         name: res.name,
@@ -63,19 +64,45 @@ export async function GET(request: NextRequest) {
                     };
                 }));
 
-                const sqlResults = await Promise.all(sqls.map(async (res) => {
-                    const sku = res.sku || "GP_Gen5_2";
-                    const loc = res.location || "eastus";
+                // --- SQL: deduplicar por elastic pool / servidor ---
+                // AHUB en Azure SQL se factura a nivel pool (no por base individual). Si N bases
+                // comparten un pool, el ahorro AHUB es UNO solo correspondiente al pool, no N.
+                // Para bases standalone (vCore Single DB), cada una sí cuenta individualmente.
+                const sqlGroups = new Map<string, any[]>();
+                for (const db of sqls) {
+                    // Clave de agrupación: si tiene elasticPool, usar pool; si no, base standalone (clave única)
+                    const groupKey = db.elasticPoolId && db.elasticPoolId.trim().length > 0
+                        ? `pool::${db.elasticPoolId.toLowerCase()}`
+                        : `db::${db.id.toLowerCase()}`;
+                    if (!sqlGroups.has(groupKey)) sqlGroups.set(groupKey, []);
+                    sqlGroups.get(groupKey)!.push(db);
+                }
+
+                const sqlResults = await Promise.all(Array.from(sqlGroups.entries()).map(async ([groupKey, dbs]) => {
+                    const representative = dbs[0];
+                    const isPool = groupKey.startsWith('pool::');
+                    const sku = representative.sku || "GP_Gen5_2";
+                    const loc = representative.location || "eastus";
                     const price = await getMonthlyCostEstimate("SQL Database", sku, loc);
-                    const monthlyCost = price || 200.0;
+                    // Si el pricing API no respondió, usamos un estimado conservador por vCore
+                    // (capacity ~ vCores en vCore tiers). Default mínimo razonable.
+                    const fallbackPerVCore = 70; // USD/mes por vCore (vCore GP P3 aprox sin AHUB)
+                    const vCores = Number(representative.capacity) || 2;
+                    const monthlyCost = price || (fallbackPerVCore * vCores);
+                    // AHUB Azure SQL ahorra ~30% sobre vCore License-Included (no 40% del costo total).
+                    const ahubSavings = parseFloat((monthlyCost * 0.30).toFixed(2));
                     return {
-                        resourceId: res.id,
-                        name: res.name,
+                        resourceId: isPool ? representative.elasticPoolId : representative.id,
+                        name: isPool ? `Elastic Pool (${dbs.length} DBs)` : representative.name,
                         type: 'microsoft.sql/servers/databases',
-                        potentialLicenseSavings: parseFloat((monthlyCost * 0.4).toFixed(2)),
-                        subscriptionId: res.subscriptionId,
-                        resourceGroup: res.resourceGroup,
-                        location: res.location
+                        potentialLicenseSavings: ahubSavings,
+                        subscriptionId: representative.subscriptionId,
+                        resourceGroup: representative.resourceGroup,
+                        location: representative.location,
+                        scope: isPool ? 'elasticPool' : 'singleDatabase',
+                        databaseCount: dbs.length,
+                        tier: representative.tier,
+                        vCores
                     };
                 }));
 

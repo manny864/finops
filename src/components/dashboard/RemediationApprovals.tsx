@@ -5,6 +5,7 @@ import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { Loader2, CheckCircle, XCircle, Clock, Server, Trash2, ArrowDownCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import Pagination, { usePagination } from '@/components/Pagination';
 
 export default function RemediationApprovals() {
     const { selectedTenant } = useTenant();
@@ -36,6 +37,11 @@ export default function RemediationApprovals() {
             : null,
         fetcher
     );
+
+    const requests = data?.data || [];
+    const pendingRequests = requests.filter((r: any) => r.status === 'Pending');
+    const resolvedRequests = requests.filter((r: any) => r.status !== 'Pending');
+    const { paged: pagedResolved, ...resolvedPaginationProps } = usePagination(resolvedRequests, 10);
 
     const handleAction = async (id: number, action: 'Approved' | 'Rejected') => {
         // Optimistic UI Update
@@ -91,10 +97,6 @@ export default function RemediationApprovals() {
             </div>
         );
     }
-
-    const requests = data?.data || [];
-    const pendingRequests = requests.filter((r: any) => r.status === 'Pending');
-    const resolvedRequests = requests.filter((r: any) => r.status !== 'Pending');
 
     return (
         <div className="w-full space-y-8">
@@ -192,7 +194,7 @@ export default function RemediationApprovals() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200 dark:divide-slate-700">
-                                {resolvedRequests.map((req: any) => (
+                                {pagedResolved.map((req: any) => (
                                     <tr key={req.id}>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">{req.resource_name}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{req.action_type}</td>
@@ -208,6 +210,7 @@ export default function RemediationApprovals() {
                             </tbody>
                         </table>
                     </div>
+                    {resolvedRequests.length > 0 && <Pagination {...resolvedPaginationProps} />}
                 </div>
             )}
         </div>

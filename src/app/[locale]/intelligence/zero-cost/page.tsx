@@ -1,5 +1,6 @@
 import React from 'react';
 import { getTranslations } from 'next-intl/server';
+import MockBanner from '@/components/MockBanner';
 import ZeroCostInventory from '@/components/dashboard/ZeroCostInventory';
 
 export default async function ZeroCostPage() {
@@ -7,6 +8,7 @@ export default async function ZeroCostPage() {
 
     return (
         <div className="content animate-in fade-in">
+            <MockBanner />
             <div className="vhead">
                 <div>
                     <div className="vt">

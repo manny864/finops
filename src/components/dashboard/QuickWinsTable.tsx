@@ -1,4 +1,5 @@
 import React from 'react';
+import Pagination, { usePagination } from '@/components/Pagination';
 
 // Expected Data Interface
 export interface QuickWin {
@@ -10,6 +11,8 @@ export interface QuickWin {
 }
 
 export default function QuickWinsTable({ wins }: { wins: QuickWin[] }) {
+  const { paged, ...paginationProps } = usePagination(wins, 10);
+  
   return (
     <div className="bg-white shadow-sm rounded-lg overflow-hidden border border-gray-200">
       <div className="p-4 border-b border-gray-200">
@@ -27,7 +30,7 @@ export default function QuickWinsTable({ wins }: { wins: QuickWin[] }) {
             </tr>
           </thead>
           <tbody>
-            {wins?.length ? wins.map((win) => (
+            {paged?.length ? paged.map((win) => (
               <tr 
                 key={win.id} 
                 className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
@@ -51,6 +54,7 @@ export default function QuickWinsTable({ wins }: { wins: QuickWin[] }) {
           </tbody>
         </table>
       </div>
+      <Pagination {...paginationProps} />
     </div>
   );
 }

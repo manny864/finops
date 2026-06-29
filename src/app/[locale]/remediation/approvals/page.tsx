@@ -1,5 +1,6 @@
 import React from 'react';
 import RemediationApprovals from '@/components/dashboard/RemediationApprovals';
+import MockBanner from '@/components/MockBanner';
 
 export default function ApprovalsPage() {
     return (
@@ -15,6 +16,7 @@ export default function ApprovalsPage() {
             </div>
 
             <div className="mt-6">
+                <MockBanner />
                 <RemediationApprovals />
             </div>
         </div>

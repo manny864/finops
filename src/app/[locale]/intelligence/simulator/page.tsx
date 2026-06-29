@@ -1,4 +1,5 @@
 "use client";
+import MockBanner from '@/components/MockBanner';
 import React, { useState, useEffect } from 'react';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
@@ -7,6 +8,7 @@ import { Calculator, Play, Network, HardDrive, Cpu, ShieldCheck } from 'lucide-r
 import RoleAssignmentBanner from '@/components/RoleAssignmentBanner';
 import { hasAccess } from '@/lib/tierLogic';
 import { toast } from 'sonner';
+import { getFreshIdToken } from '@/lib/msalToken';
 
 export default function SimulatorPage() {
     const { selectedTenant } = useTenant();
@@ -26,10 +28,7 @@ export default function SimulatorPage() {
         setLoading(true);
         try {
             const account = accounts[0];
-            const tokenResponse = await instance.acquireTokenSilent({
-                scopes: ["User.Read"],
-                account: account
-            });
+            const tokenResponse = { idToken: await getFreshIdToken(instance, account) };
 
             const res = await fetch('/api/intelligence/simulator', {
                 method: 'POST',
@@ -101,6 +100,7 @@ export default function SimulatorPage() {
 
     return (
         <div className="p-6 max-w-6xl mx-auto animate-in fade-in duration-500">
+            <MockBanner />
             <div className="mb-8">
                 <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white flex items-center gap-3">
                     <Calculator className="w-8 h-8 text-indigo-500" />

@@ -4,7 +4,7 @@ import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { runGraphAudits, runMonitorAudits, runM365Audits } from "@/services/auditService";
 import { getMonthlyCostEstimate } from "@/services/pricingService";
 import { tenants } from "@/lib/tenants";
-import jwt from "jsonwebtoken";
+import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
 
 
 export async function GET(request: NextRequest) {
@@ -17,30 +17,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
     }
 
-
-
-    // 1. Validar el Token MSAL (Aislamiento Cero-Trust)
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Falta token Bearer de autenticación." }, { status: 401 });
-    }
-
-    const token = authHeader.split(" ")[1];
-    const decoded = jwt.decode(token) as any;
-
-    if (!decoded || !decoded.tid) {
-      return NextResponse.json({ error: "Estructura de token inválida." }, { status: 401 });
-    }
-
-    const email = decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "";
-    const isAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") ;
-
-    if (decoded.tid !== tenantId && !isAdmin) {
-      return NextResponse.json(
-        { error: `Acceso denegado. El token no coincide con el tenant.` },
-        { status: 403 }
-      );
-    }
+    await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
 
     // 2. Obtener Cliente Autenticado
     const credential = await getAzureCredential(tenantId);
@@ -227,13 +204,31 @@ export async function GET(request: NextRequest) {
         }
     });
 
-  } catch (error: any) {
-    const errorMessage = error?.message || String(error) || "Error desconocido";
-    const errorCode = error?.code || error?.name || "";
-    const errorStatus = error?.statusCode || error?.status || 0;
+  } catch (error: unknown) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+
+    const maybeMessage = error instanceof Error ? error.message : String(error);
+    if (maybeMessage.includes("Tenant no registrado en la base de datos") || maybeMessage.includes("Faltan credenciales (Client ID o Secret)")) {
+      return NextResponse.json({
+        success: true,
+        tenantId: request.nextUrl.searchParams.get('tenantId') || null,
+        mode: "tenant-wide",
+        auditResults: {},
+        message: "Tenant sin onboarding técnico completo (credenciales Azure pendientes)."
+      });
+    }
+
+    const errorObj = (typeof error === "object" && error !== null)
+      ? (error as { message?: string; code?: string; name?: string; statusCode?: number; status?: number })
+      : {};
+    const errorMessage = errorObj.message || String(error) || "Error desconocido";
+    const errorCode = errorObj.code || errorObj.name || "";
+    const errorStatus = errorObj.statusCode || errorObj.status || 0;
 
     console.error(`[Audit] ERROR capturado:`, {
-      name: error?.name,
+      name: errorObj.name,
       code: errorCode,
       statusCode: errorStatus,
       message: errorMessage,
@@ -258,6 +253,19 @@ export async function GET(request: NextRequest) {
     // Intercepción RBAC Inteligente (Fase 6)
     if (errorCode === "AccessDenied" || errorStatus === 403 || errorMessage.includes("AccessDenied") || errorMessage.includes("AuthorizationFailed")) {
       return NextResponse.json({ error: "MISSING_RBAC_ROLE", details: "La aplicación no tiene permisos de Lector en la suscripción." }, { status: 403 });
+    }
+
+    if (
+      errorMessage.includes("No hay suscripciones disponibles o no se tienen permisos") ||
+      errorMessage.includes("Failed to fetch subscriptions")
+    ) {
+      return NextResponse.json({
+        success: true,
+        tenantId: request.nextUrl.searchParams.get('tenantId') || null,
+        mode: "tenant-wide",
+        auditResults: {},
+        message: "No se pudieron obtener suscripciones para auditoría en este momento."
+      });
     }
     
     return NextResponse.json({ error: "Error en el Motor de Auditoría", details: errorMessage }, { status: 500 });

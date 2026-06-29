@@ -1,5 +1,6 @@
 "use client";
 
+import MockBanner from '@/components/MockBanner';
 import React, { useState, useRef } from 'react';
 import Papa from 'papaparse';
 import { UploadCloud, FileText, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
@@ -105,6 +106,7 @@ export default function CSVUploadPage() {
 
     return (
         <div className="p-6 max-w-5xl mx-auto animate-in fade-in duration-500">
+            <MockBanner />
             <div className="mb-8">
                 <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight flex items-center">
                     <UploadCloud className="w-8 h-8 mr-3 text-[#0054A6] dark:text-[#00AEEF]" />

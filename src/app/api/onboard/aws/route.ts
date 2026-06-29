@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import jwt from "jsonwebtoken";
 import pool from "@/modules/storage/db";
+import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
 
 export async function POST(request: NextRequest) {
     try {
@@ -11,25 +11,18 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Faltan parámetros requeridos: tenantId, y (roleArn o s3BucketUri)" }, { status: 400 });
         }
 
-        const authHeader = request.headers.get("authorization");
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            return NextResponse.json({ error: "No autorizado." }, { status: 401 });
-        }
-
-        const token = authHeader.split(" ")[1];
-        const decoded = jwt.decode(token) as any;
-
-        if (!decoded) {
-            return NextResponse.json({ error: "Token inválido." }, { status: 401 });
-        }
+        const identity = await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
 
         // Validate Enterprise Tier
-        const [tenants]: any = await pool.query('SELECT tier FROM Tenants WHERE id = ?', [tenantId]);
-        if (!tenants || tenants.length === 0) {
+        const [tenants] = await pool.query('SELECT tier FROM Tenants WHERE tenant_id = ?', [tenantId]);
+        if (!Array.isArray(tenants) || tenants.length === 0) {
             return NextResponse.json({ error: "Tenant no encontrado." }, { status: 404 });
         }
 
-        const tier = tenants[0].tier;
+        const tier = (tenants[0] as { tier?: string }).tier;
+        if (!tier) {
+            return NextResponse.json({ error: "Tier inválido para tenant." }, { status: 400 });
+        }
         const normalizedTier = tier.toLowerCase();
         if (normalizedTier !== 'enterprise') {
              return NextResponse.json({ error: "La ingesta Multi-Cloud está reservada para el plan Enterprise." }, { status: 403 });
@@ -46,7 +39,7 @@ export async function POST(request: NextRequest) {
         await pool.query(
             `INSERT INTO ActionLogs (tenant_id, action_type, resource_id, status, user_email) 
              VALUES (?, ?, ?, ?, ?)`,
-            [tenantId, 'AWS_Onboarding', 'MultiCloud', 'Success', decoded.preferred_username || decoded.email || 'unknown']
+            [tenantId, 'AWS_Onboarding', 'MultiCloud', 'Success', identity.email || 'unknown']
         );
 
         return NextResponse.json({ 
@@ -54,8 +47,11 @@ export async function POST(request: NextRequest) {
             message: "Configuración de AWS guardada. Los reportes CUR se ingerirán periódicamente."
         });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
+        if (error instanceof AuthError) {
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        }
         console.error("AWS Onboarding API Error:", error);
-        return NextResponse.json({ error: "Fallo al guardar la configuración AWS.", details: error.message }, { status: 500 });
+        return NextResponse.json({ error: "Fallo al guardar la configuración AWS." }, { status: 500 });
     }
 }

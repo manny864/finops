@@ -11,7 +11,10 @@ export async function verifyTenantCredentials(tenantId: string): Promise<{ succe
         return { success: false, error: 'Tenant no encontrado en la base de datos.' };
     }
 
-    const { client_id: clientId, client_secret: clientSecret } = rows[0];
+    const clean = (v: any) => (typeof v === 'string' ? v.trim().replace(/^["']+|["']+$/g, '') : v);
+    const clientId = clean(rows[0].client_id);
+    const clientSecret = clean(rows[0].client_secret);
+    const cleanTid = clean(tenantId);
 
     if (!clientId || !clientSecret) {
         const errorMsg = 'Credenciales de Azure (Client ID y Client Secret) no configuradas.';
@@ -24,7 +27,7 @@ export async function verifyTenantCredentials(tenantId: string): Promise<{ succe
 
     try {
         // 2. Request token from login.microsoftonline.com
-        const tokenUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
+        const tokenUrl = `https://login.microsoftonline.com/${cleanTid}/oauth2/v2.0/token`;
         const body = new URLSearchParams({
             grant_type: 'client_credentials',
             client_id: clientId,

@@ -1,17 +1,24 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { useTenant } from "@/components/TenantProvider";
+import { useMsal } from "@azure/msal-react";
+import { fetchWithAuthRetry } from "@/lib/msalToken";
 import { toast } from 'sonner';
 import { useActionLogStore } from '@/store/actionLogStore';
 import { Clock, CheckCircle, Trash2, AlertCircle } from "lucide-react";
+import MockBanner from '@/components/MockBanner';
+import Pagination, { usePagination } from '@/components/Pagination';
 
 export default function TtlCleanupPage() {
   const { selectedTenant } = useTenant();
+  const { instance, accounts } = useMsal();
   const [resources, setResources] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const { addAction } = useActionLogStore();
+
+  const { page, setPage, pageSize, setPageSize, total, totalPages, paged: pagedResources } = usePagination(resources);
 
   useEffect(() => {
     if (!selectedTenant || selectedTenant.id === 'default') return;
@@ -20,14 +27,20 @@ export default function TtlCleanupPage() {
       setLoading(true);
       setError("");
       try {
-        const res = await fetch('/api/cleanup/ttl', {
+        const account = accounts[0];
+        if (!account) {
+          setError("Sesión no inicializada. Recargue la página.");
+          setLoading(false);
+          return;
+        }
+        const res = await fetchWithAuthRetry(instance, account, '/api/cleanup/ttl', {
             headers: {
                 'x-tenant-id': selectedTenant.id
             }
         });
         const json = await res.json();
         if (json.success) {
-            setResources(json.data);
+            setResources(Array.isArray(json.data) ? json.data : []);
         } else {
             setError(json.error || "Error al obtener recursos expirados");
         }
@@ -45,7 +58,13 @@ export default function TtlCleanupPage() {
       
       setDeletingId(resourceId);
       try {
-          const res = await fetch('/api/remediation', {
+          const account = accounts[0];
+          if (!account) {
+              toast.error('Sesión no inicializada');
+              setDeletingId(null);
+              return;
+          }
+          const res = await fetchWithAuthRetry(instance, account, '/api/remediation', {
               method: 'POST',
               headers: {
                   'Content-Type': 'application/json',
@@ -91,6 +110,7 @@ export default function TtlCleanupPage() {
           <span className="scopechip">📍 {selectedTenant?.name || "Tenant"}</span>
         </div>
       </div>
+      <MockBanner />
 
       {error && (
         <div className="card">
@@ -145,7 +165,7 @@ export default function TtlCleanupPage() {
                         </tr>
                     </thead>
                     <tbody>
-                        {resources.map((r, idx) => {
+                        {pagedResources.map((r, idx) => {
                             const typeName = r.type?.split('/').pop() || r.type;
                             return (
                                 <tr key={`${r.id}-${idx}`}>
@@ -193,6 +213,7 @@ export default function TtlCleanupPage() {
                     </tbody>
                 </table>
             </div>
+            <Pagination page={page} setPage={setPage} pageSize={pageSize} setPageSize={setPageSize} total={total} totalPages={totalPages} />
         </div>
       )}
     </div>

@@ -1,6 +1,16 @@
 import { redis } from './redis';
 
 /**
+ * Envelope que envuelve cada entrada del cache con su timestamp para poder
+ * implementar SWR con soft/hard TTL sin pegarle al backend en cada hit.
+ */
+type Envelope<T> = { __sw: true; t: number; data: T };
+
+function isEnvelope<T>(x: any): x is Envelope<T> {
+  return x !== null && typeof x === 'object' && x.__sw === true && typeof x.t === 'number';
+}
+
+/**
  * Obtiene datos del caché o ejecuta una función para traerlos y guardarlos si no existen.
  * @param key Clave única para el caché
  * @param fetcher Función que obtiene los datos si no están en caché
@@ -36,45 +46,83 @@ export async function getWithCache<T>(
   return freshData;
 }
 
+// In-flight de revalidaciones para deduplicar refreshes concurrentes: si N
+// requests llegan mientras se está revalidando, todos comparten la misma
+// promesa de background y nadie dispara un fetch redundante.
+const _inFlight = new Map<string, Promise<unknown>>();
+
 /**
- * Patrón Stale-While-Revalidate (SWR): 
- * Devuelve caché inmediatamente (latencia <10ms) y revalida en background sin bloquear.
- * Ideal para SaaS con dashboards pesados en Node.js.
+ * Patrón Stale-While-Revalidate (SWR) con soft + hard TTL.
+ *
+ *  - 0 .. softTtl       → devuelve cache, NO revalida (valores estables).
+ *  - softTtl .. ttl     → devuelve cache + dispara revalidación en background
+ *                          (deduplicada por key).
+ *  - > ttl              → cache expira en Redis; próximo hit es bloqueante.
+ *
+ * Esto evita que cada refresh del usuario pegue al origen, manteniendo
+ * latencia <10ms y valores consistentes entre refreshes cercanos.
+ *
  * @param key Clave única para el caché
  * @param fetcher Función que obtiene los datos nuevos
- * @param ttl Tiempo de vida del caché en segundos
+ * @param ttl Tiempo total de vida del cache en segundos (default 1h)
+ * @param softTtl Edad a partir de la cual se revalida en background (default 50% de ttl)
  */
 export async function getWithStaleWhileRevalidate<T>(
   key: string,
   fetcher: () => Promise<T>,
-  ttl: number = 3600
+  ttl: number = 3600,
+  softTtl?: number
 ): Promise<T> {
+  const soft = typeof softTtl === 'number' ? softTtl : Math.floor(ttl / 2);
+
+  const revalidate = async () => {
+    if (_inFlight.has(key)) return;
+    const p = (async () => {
+      try {
+        const freshData = await fetcher();
+        const envelope: Envelope<T> = { __sw: true, t: Date.now(), data: freshData };
+        await redis.set(key, JSON.stringify(envelope), 'EX', ttl);
+      } catch (bgError) {
+        console.error(`[SWR] Revalidación fallida en background para key ${key}:`, bgError);
+      } finally {
+        _inFlight.delete(key);
+      }
+    })();
+    _inFlight.set(key, p);
+  };
+
   try {
-    // 1. Intentar buscar en Redis
     const cachedData = await redis.get(key);
-    
     if (cachedData) {
-      // SWR: Data existe. Disparar fetch de background desconectado
-      (async () => {
-        try {
-          const freshData = await fetcher();
-          await redis.set(key, JSON.stringify(freshData), 'EX', ttl);
-        } catch (bgError) {
-          console.error(`[SWR] Revalidación fallida en background para key ${key}:`, bgError);
+      const parsed = JSON.parse(cachedData);
+
+      if (isEnvelope<T>(parsed)) {
+        const ageS = (Date.now() - parsed.t) / 1000;
+        if (ageS < soft) {
+          // Cache fresco: NO se revalida. Refreshes consecutivos ven el
+          // MISMO valor hasta que el cache sea más viejo que softTtl.
+          return parsed.data;
         }
-      })();
-      
-      // Retornar cache instantáneamente
-      return JSON.parse(cachedData) as T;
+        // Cache stale pero todavía dentro del ttl duro: devolvemos cache y
+        // disparamos revalidación en background (deduplicada por key).
+        void revalidate();
+        return parsed.data;
+      }
+
+      // Entrada legacy sin envelope (versión anterior del cache): la usamos
+      // pero forzamos una revalidación que reemplazará el formato.
+      void revalidate();
+      return parsed as T;
     }
   } catch (error) {
     console.error('Error leyendo de Redis en SWR:', error);
   }
 
-  // Si no hay caché (Cache Miss), esperar sincrónicamente
+  // Cache miss: fetch sincrónico y guardar.
   const freshData = await fetcher();
   try {
-    await redis.set(key, JSON.stringify(freshData), 'EX', ttl);
+    const envelope: Envelope<T> = { __sw: true, t: Date.now(), data: freshData };
+    await redis.set(key, JSON.stringify(envelope), 'EX', ttl);
   } catch (error) {
     console.error('Error escribiendo en Redis en SWR:', error);
   }

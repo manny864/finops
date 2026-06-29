@@ -4,11 +4,13 @@ import useSWR from 'swr';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { Loader2, Server, Database, TrendingDown, Info, Cpu } from 'lucide-react';
+import Pagination, { usePagination } from '@/components/Pagination';
 
 export default function HybridBenefitCard() {
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const tier = (selectedTenant as any)?.tier || 'Essential';
+    const [showAll, setShowAll] = useState(false);
 
     const fetcher = async (url: string) => {
         const account = accounts[0];
@@ -38,6 +40,9 @@ export default function HybridBenefitCard() {
         { revalidateOnFocus: false }
     );
 
+    const payload = data?.data;
+    const { page, setPage, pageSize, setPageSize, total, totalPages, paged: pagedEligibleResources } = usePagination(payload?.eligibleResources);
+
     if (!selectedTenant || selectedTenant.id === 'default') {
         return null;
     }
@@ -59,7 +64,6 @@ export default function HybridBenefitCard() {
         );
     }
 
-    const payload = data?.data;
     if (!payload || payload.eligibleResources.length === 0) {
         return (
             <div className="text-center py-10 bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800">
@@ -103,7 +107,7 @@ export default function HybridBenefitCard() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 dark:divide-slate-800 text-gray-700 dark:text-gray-300">
-                            {payload.eligibleResources.map((res: any) => (
+                            {pagedEligibleResources.map((res: any) => (
                                 <tr key={res.id} className="hover:bg-gray-50 dark:hover:bg-slate-800/30 transition-colors">
                                     <td className="p-4 font-medium">{res.name}</td>
                                     <td className="p-4">
@@ -120,6 +124,7 @@ export default function HybridBenefitCard() {
                         </tbody>
                     </table>
                 </div>
+                <Pagination page={page} setPage={setPage} pageSize={pageSize} setPageSize={setPageSize} total={total} totalPages={totalPages} />
             </div>
             
             <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg flex items-start gap-3 border border-blue-100 dark:border-blue-900/50">

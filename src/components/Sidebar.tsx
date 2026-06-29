@@ -36,7 +36,13 @@ import {
     Trophy,
     CheckCircle,
     ShieldAlert,
-    Layers
+    Layers,
+    HardDrive,
+    BellRing,
+    Sparkles,
+    Briefcase,
+    KeyRound,
+    Bot
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -96,6 +102,11 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/intelligence/scorecard', label: 'Scorecard (Fama)', icon: Trophy, requiredTier: 'Enterprise' },
                 { href: '/intelligence/anomalies', label: 'Detección Anomalías', icon: ShieldAlert, requiredTier: 'Professional' },
                 { href: '/intelligence/simulator', label: 'Simulador (What-If)', icon: Activity, requiredTier: 'Enterprise' },
+                { href: '/intelligence/storage-efficiency', label: t('storage_efficiency', { fallback: 'Eficiencia de Storage' }), icon: HardDrive, requiredTier: 'Business' },
+                { href: '/intelligence/compute-efficiency', label: t('compute_efficiency', { fallback: 'Eficiencia de Cómputo' }), icon: Cpu, requiredTier: 'Professional' },
+                { href: '/intelligence/alerts', label: t('alerts_self_service', { fallback: 'Alertas (Self-Service)' }), icon: BellRing, requiredTier: 'Professional' },
+                { href: '/intelligence/ai-analytics', label: t('ai_analytics', { fallback: 'AI Cost Analytics' }), icon: Sparkles, requiredTier: 'Enterprise' },
+                { href: '/intelligence/macc', label: t('macc', { fallback: 'MACC Tracking' }), icon: Briefcase, requiredTier: 'Enterprise' },
                 { href: '/intelligence/upload', label: 'Ingesta CSV', icon: FileText }
             ]
         },
@@ -114,6 +125,8 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/governance/tags', label: t('tag_compliance'), icon: Tags, requiredTier: 'Business' },
                 { href: '/governance/power', label: t('power_schedules'), icon: Power, requiredTier: 'Business' },
                 { href: '/governance/policies', label: 'Políticas (Auto-Block)', icon: ShieldAlert, requiredTier: 'Enterprise' },
+                { href: '/governance/ha', label: t('ha_recommendations', { fallback: 'Alta Disponibilidad' }), icon: ShieldCheck, requiredTier: 'Business' },
+                { href: '/governance/credentials', label: t('expiring_credentials', { fallback: 'Credenciales por Expirar' }), icon: KeyRound, requiredTier: 'Business' },
                 { href: '/remediation/approvals', label: 'Aprobaciones', icon: CheckCircle, requiredTier: 'Professional' }
             ]
         },
@@ -128,6 +141,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/admin/ai-config', label: 'Configuración de IA', icon: Cpu },
                 { href: '/admin/report', label: t('executive_report'), icon: FileText },
                 { href: '/admin/workbooks', label: t('workbooks'), icon: BookOpen },
+                { href: '/admin/copilot-m365', label: t('copilot_m365', { fallback: 'Copilot M365' }), icon: Bot, requiredTier: 'Enterprise' },
                 { href: '/admin/audit', label: t('audit_trail'), icon: Activity }
             ]
         }

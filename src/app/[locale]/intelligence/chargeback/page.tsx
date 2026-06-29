@@ -1,4 +1,5 @@
 "use client";
+import MockBanner from '@/components/MockBanner';
 import React, { useState, useEffect } from 'react';
 import { useTenant } from '@/components/TenantProvider';
 import { useSubscription } from '@/components/SubscriptionProvider';
@@ -8,6 +9,7 @@ import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { calculateChargeback, CostEntry, AllocationRule } from '@/services/allocationService';
+import Pagination, { usePagination } from '@/components/Pagination';
 
 const COLORS = ['#0054A6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#64748b'];
 
@@ -30,6 +32,8 @@ export default function ChargebackPage() {
     const [rules, setRules] = useState<AllocationRule[]>([]);
     const [newRule, setNewRule] = useState({ sourceResourceId: '', targetCostCenter: '', percentage: 0 });
     const [reallocatedData, setReallocatedData] = useState<any[]>([]);
+
+    const { page: rulesPage, setPage: setRulesPage, pageSize: rulesPageSize, setPageSize: setRulesPageSize, total: rulesTotal, totalPages: rulesTotalPages, paged: pagedRules } = usePagination(rules);
 
     const handleAnalyze = async () => {
         if (!selectedTenant || selectedTenant.id === 'default') return toast.error(t('select_tenant'));
@@ -108,6 +112,7 @@ export default function ChargebackPage() {
 
     return (
         <div className="content animate-in fade-in">
+            <MockBanner />
             <div className="vhead">
                 <div>
                     <div className="vt"><span className="vico bg-gradient-to-br from-[#0054A6] to-[#00AEEF]">💳</span>{t('title')}</div>
@@ -159,13 +164,16 @@ export default function ChargebackPage() {
                     </div>
                     {rules.length > 0 && (
                         <div className="flex flex-col gap-2">
-                            {rules.map((r, i) => (
+                            {pagedRules.map((r, i) => (
                                 <div key={i} className="flex justify-between p-2 bg-surface-2 rounded text-[13px] font-medium text-ink">
                                     <span>Split {r.percentage}% of {rawCosts.find(c => c.resourceId === r.sourceResourceId)?.resourceName} to {r.targetCostCenter}</span>
                                     <button onClick={() => setRules(rules.filter((_, idx) => idx !== i))}><Trash2 className="w-4 h-4 text-red-500" /></button>
                                 </div>
                             ))}
                         </div>
+                    )}
+                    {rules.length > 0 && (
+                        <Pagination page={rulesPage} setPage={setRulesPage} pageSize={rulesPageSize} setPageSize={setRulesPageSize} total={rulesTotal} totalPages={rulesTotalPages} />
                     )}
                 </div>
             )}

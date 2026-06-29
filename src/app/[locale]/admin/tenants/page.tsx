@@ -4,6 +4,7 @@ import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { toast } from 'sonner';
 import { Building2, Plus, ShieldAlert } from "lucide-react";
+import { getFreshIdToken } from '@/lib/msalToken';
 
 export default function SuperAdminTenantsPage() {
     const { systemRole } = useTenant();
@@ -23,10 +24,7 @@ export default function SuperAdminTenantsPage() {
         if (!isSuperAdmin || accounts.length === 0) return;
         setLoading(true);
         try {
-            const tokenResponse = await instance.acquireTokenSilent({
-                scopes: ["User.Read"],
-                account: accounts[0]
-            });
+            const tokenResponse = { idToken: await getFreshIdToken(instance, accounts[0]) };
             
             const res = await fetch(`/api/tenants`, {
                 headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
@@ -54,10 +52,7 @@ export default function SuperAdminTenantsPage() {
 
         setCreating(true);
         try {
-            const tokenResponse = await instance.acquireTokenSilent({
-                scopes: ["User.Read"],
-                account: accounts[0]
-            });
+            const tokenResponse = { idToken: await getFreshIdToken(instance, accounts[0]) };
             
             const res = await fetch('/api/admin/tenants', {
                 method: 'POST',
@@ -91,10 +86,7 @@ export default function SuperAdminTenantsPage() {
 
     const handleTierChange = async (tenantId: string, newTierValue: string) => {
         try {
-            const tokenResponse = await instance.acquireTokenSilent({
-                scopes: ["User.Read"],
-                account: accounts[0]
-            });
+            const tokenResponse = { idToken: await getFreshIdToken(instance, accounts[0]) };
             
             const res = await fetch('/api/admin/tenants', {
                 method: 'PATCH',

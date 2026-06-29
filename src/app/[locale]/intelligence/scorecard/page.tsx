@@ -1,9 +1,11 @@
 import React from 'react';
+import MockBanner from '@/components/MockBanner';
 import FinOpsScorecard from '@/components/dashboard/FinOpsScorecard';
 
 export default function ScorecardPage() {
     return (
         <div className="content animate-in fade-in">
+            <MockBanner />
             <div className="vhead">
                 <div>
                     <div className="vt">

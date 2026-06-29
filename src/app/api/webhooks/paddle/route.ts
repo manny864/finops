@@ -7,33 +7,43 @@ export async function POST(request: NextRequest) {
     const secret = process.env.PADDLE_WEBHOOK_SECRET;
     
     if (!secret) {
-        console.warn("[Webhooks] PADDLE_WEBHOOK_SECRET is not set. Webhooks will not be verified securely.");
+        console.error("[Webhooks] PADDLE_WEBHOOK_SECRET is not set.");
+        return NextResponse.json({ error: "Webhook secret is not configured" }, { status: 500 });
     }
 
     const rawBody = await request.text();
     const signatureHeader = request.headers.get("paddle-signature") || "";
 
-    if (secret) {
-        // paddle-signature format: ts=1671552777;h1=1a2b3c...
-        const parts = signatureHeader.split(';');
-        const tsPart = parts.find(p => p.startsWith('ts='));
-        const h1Part = parts.find(p => p.startsWith('h1='));
+    // paddle-signature format: ts=1671552777;h1=1a2b3c...
+    const parts = signatureHeader.split(';');
+    const tsPart = parts.find(p => p.startsWith('ts='));
+    const h1Part = parts.find(p => p.startsWith('h1='));
 
-        if (!tsPart || !h1Part) {
-            return NextResponse.json({ error: "Invalid signature format" }, { status: 401 });
-        }
+    if (!tsPart || !h1Part) {
+        return NextResponse.json({ error: "Invalid signature format" }, { status: 401 });
+    }
 
-        const ts = tsPart.split('=')[1];
-        const h1 = h1Part.split('=')[1];
+    const ts = tsPart.split('=')[1];
+    const h1 = h1Part.split('=')[1];
+    const timestamp = Number(ts);
+    if (!Number.isFinite(timestamp)) {
+        return NextResponse.json({ error: "Invalid signature timestamp" }, { status: 401 });
+    }
 
-        const payloadToSign = `${ts}:${rawBody}`;
-        const hmac = crypto.createHmac("sha256", secret);
-        const digest = hmac.update(payloadToSign).digest("hex");
+    const now = Math.floor(Date.now() / 1000);
+    const fiveMinutes = 5 * 60;
+    if (Math.abs(now - timestamp) > fiveMinutes) {
+        return NextResponse.json({ error: "Stale webhook signature timestamp" }, { status: 401 });
+    }
 
-        if (digest !== h1) {
-            console.error("[Webhooks] Firma inválida para Paddle.");
-            return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
-        }
+    const payloadToSign = `${ts}:${rawBody}`;
+    const hmac = crypto.createHmac("sha256", secret);
+    const digestHex = hmac.update(payloadToSign).digest("hex");
+    const received = Buffer.from(h1, "hex");
+    const expected = Buffer.from(digestHex, "hex");
+    if (received.length !== expected.length || !crypto.timingSafeEqual(received, expected)) {
+        console.error("[Webhooks] Firma inválida para Paddle.");
+        return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
     }
 
     const payload = JSON.parse(rawBody);

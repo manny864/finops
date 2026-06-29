@@ -1,5 +1,5 @@
 "use client";
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { useContext, useEffect, useState } from 'react';
 import { TabContext } from '@/components/ClientShell';
@@ -10,6 +10,8 @@ import { useMetric } from '@/components/MetricProvider';
 import InteractiveDashboard from "@/components/dashboard/InteractiveDashboard";
 import { useAIContext } from '@/hooks/useAIContext';
 import { isMockTenant, getMockDataForRoute } from '@/lib/mockData';
+import { getFreshIdToken, fetchWithAuthRetry } from '@/lib/msalToken';
+import MockBanner from '@/components/MockBanner';
 
 export default function BillingPage() {
   const { activeTab, setActiveTab } = useContext(TabContext);
@@ -17,6 +19,7 @@ export default function BillingPage() {
   const { selectedTenant } = useTenant();
   const { selectedSubscription } = useSubscription();
   const { metricType } = useMetric();
+  const locale = useLocale();
   
   const [loading, setLoading] = useState(false);
   const [billingData, setBillingData] = useState<any[] | null>(null);
@@ -57,13 +60,11 @@ export default function BillingPage() {
                   setLoading(false);
                   return;
               }
-              const tokenResponse = await instance.acquireTokenSilent({
-                  scopes: ["User.Read"],
-                  account: accounts[0]
-              });
-              
+              const idToken = await getFreshIdToken(instance, accounts[0], ['User.Read']);
+
               const headers = {
-                  'Authorization': `Bearer ${tokenResponse.idToken}`,
+                  'Authorization': `Bearer ${idToken}`,
+                  'Accept-Language': locale,
                   'x-tenant-id': selectedTenant.id,
                   'x-subscription-id': selectedSubscription,
                   'x-metric-type': metricType
@@ -73,10 +74,10 @@ export default function BillingPage() {
               console.log('[BillingPage] Fetching APIs with subParam:', subParam);
               
               const [billingRes, advisorRes, zombieRes, tagsRes] = await Promise.allSettled([
-                  fetch('/api/intelligence/billing', { headers }),
-                  fetch(`/api/advisor?tenantId=${selectedTenant.id}${subParam}`, { headers }),
-                  fetch(`/api/audit/full?tenantId=${selectedTenant.id}${subParam}`, { headers }),
-                  fetch(`/api/tags/compliance?tenantId=${selectedTenant.id}${subParam}`, { headers })
+                  fetchWithAuthRetry(instance, accounts[0], '/api/intelligence/billing', { headers }),
+                  fetchWithAuthRetry(instance, accounts[0], `/api/advisor?tenantId=${selectedTenant.id}${subParam}&locale=${encodeURIComponent(locale)}`, { headers }),
+                  fetchWithAuthRetry(instance, accounts[0], `/api/audit/full?tenantId=${selectedTenant.id}${subParam}`, { headers }),
+                  fetchWithAuthRetry(instance, accounts[0], `/api/tags/compliance?tenantId=${selectedTenant.id}${subParam}`, { headers })
               ]);
 
               console.log('[BillingPage] API responses:', {
@@ -89,9 +90,23 @@ export default function BillingPage() {
               if (billingRes.status === 'fulfilled' && billingRes.value.ok) {
                   try {
                       const j = await billingRes.value.json();
-                      setBillingData(j.success ? j.data : []);
+                      if (j.success === false) {
+                          console.warn('[BillingPage] Billing API returned success=false:', j);
+                          toast.error(
+                              `${j.message || 'No se pudieron obtener datos de facturación'}${j.hint ? `\n💡 ${j.hint}` : ''}`,
+                              { duration: 10000 }
+                          );
+                          setBillingData([]);
+                      } else {
+                          setBillingData(j.data || []);
+                      }
                   } catch(e) { setBillingData([]); }
-              } else setBillingData([]);
+              } else {
+                  const status = billingRes.status === 'fulfilled' ? billingRes.value.status : 'rejected';
+                  console.error('[BillingPage] Billing fetch failed:', status);
+                  toast.error(`Error al consultar facturación (HTTP ${status})`);
+                  setBillingData([]);
+              }
 
               if (advisorRes.status === 'fulfilled' && advisorRes.value.ok) {
                   try {
@@ -130,10 +145,11 @@ export default function BillingPage() {
           setLoading(false);
       };
       fetchData();
-  }, [selectedTenant, selectedSubscription, accounts, instance, metricType]);
+  }, [selectedTenant, selectedSubscription, accounts, instance, metricType, locale]);
 
   return (
     <div className="animate-in fade-in duration-500">
+        <MockBanner />
         <InteractiveDashboard
             loading={loading}
             billingData={billingData}

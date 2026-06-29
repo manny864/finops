@@ -4,6 +4,7 @@ import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { Cpu, Save, Lock } from 'lucide-react';
 import { toast } from 'sonner';
+import { getFreshIdToken } from '@/lib/msalToken';
 
 export default function AiConfigPage() {
     const { selectedTenant, userRole, systemRole } = useTenant();
@@ -21,10 +22,7 @@ export default function AiConfigPage() {
 
         setSaving(true);
         try {
-            const tokenResponse = await instance.acquireTokenSilent({
-                scopes: ["User.Read"],
-                account: accounts[0]
-            });
+            const tokenResponse = { idToken: await getFreshIdToken(instance, accounts[0]) };
             
             const res = await fetch('/api/admin/config/ai', {
                 method: 'PATCH',
@@ -90,7 +88,7 @@ export default function AiConfigPage() {
                             <option value="openai">OpenAI (Trae tu propia API Key)</option>
                             <option value="azure_openai">Azure OpenAI (Privado y Seguro)</option>
                             <option value="anthropic">Anthropic (Claude 3.5 Sonnet / Opus)</option>
-                            <option value="google">Google (Gemini 1.5 Pro)</option>
+                            <option value="google">Google (Gemini Flash · última versión gratis)</option>
                             <option value="deepseek">DeepSeek (DeepSeek Chat)</option>
                         </select>
                         <p className="text-xs text-gray-500 mt-2">

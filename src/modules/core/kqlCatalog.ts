@@ -47,7 +47,13 @@ export const kqlCatalog: Record<string, string> = {
   unattachedPublicIps: `Resources | where type =~ 'microsoft.network/publicipaddresses' | where properties.ipConfiguration == '' or isnull(properties.ipConfiguration) | where properties.timeCreated < ago(14d) | project id, name, location, resourceGroup, subscriptionId, sku=sku.name`,
   unattachedNics: `Resources | where type =~ 'microsoft.network/networkinterfaces' | where isnull(properties.virtualMachine) | project id, name, location, resourceGroup, subscriptionId`,
   missingAhubWindowsVMs: `Resources | where type =~ 'microsoft.compute/virtualmachines' | where properties.storageProfile.osDisk.osType =~ 'Windows' and (isnull(properties.licenseType) or properties.licenseType != 'Windows_Server') | project id, name, location, resourceGroup, subscriptionId, sku = properties.hardwareProfile.vmSize`,
-  missingAhubSql: `Resources | where type =~ 'microsoft.sql/servers/databases' and name != 'master' | where isnull(properties.licenseType) or properties.licenseType != 'BasePrice' | project id, name, location, resourceGroup, subscriptionId, sku = sku.name`,
+  missingAhubSql: `Resources | where type =~ 'microsoft.sql/servers/databases' and name !~ 'master'
+    | where sku.tier in~ ('GeneralPurpose', 'BusinessCritical', 'Hyperscale')
+    | where sku.name !startswith 'GP_S_'
+    | where isnull(properties.licenseType) or properties.licenseType != 'BasePrice'
+    | extend serverId = tostring(split(id, '/databases/')[0])
+    | extend elasticPoolId = tostring(properties.elasticPoolId)
+    | project id, name, location, resourceGroup, subscriptionId, sku = sku.name, tier = sku.tier, capacity = sku.capacity, serverId, elasticPoolId`,
   completelyUntaggedResources: `Resources | where isnull(tags) or isempty(tags) | project id, name, type, tags, location, resourceGroup, subscriptionId`,
   missingMandatoryTags: `Resources | where isnull(tags['Environment']) or isnull(tags['CostCenter']) | project id, name, type, tags, location, resourceGroup, subscriptionId`
 };

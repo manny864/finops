@@ -117,7 +117,9 @@ export default function AksIntelligence() {
                                     <th className="px-5 py-4 font-semibold">Clúster AKS</th>
                                     <th className="px-5 py-4 font-semibold">Grupo de Recursos Principal</th>
                                     <th className="px-5 py-4 font-semibold">Grupo de Infraestructura (Nodos)</th>
-                                    <th className="px-5 py-4 font-semibold text-right">Costo MTD</th>
+                                    <th className="px-5 py-4 font-semibold text-right">Nodos (MTD)</th>
+                                    <th className="px-5 py-4 font-semibold text-right">Control Plane</th>
+                                    <th className="px-5 py-4 font-semibold text-right">Costo Total MTD</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 dark:divide-slate-800/50">
@@ -131,8 +133,14 @@ export default function AksIntelligence() {
                                         <td className="px-5 py-4 text-slate-600 dark:text-slate-300 font-mono text-xs">
                                             {cluster.nodeResourceGroup || <span className="text-gray-400 italic">Desconocido</span>}
                                         </td>
+                                        <td className="px-5 py-4 text-right text-slate-700 dark:text-slate-300 tabular-nums">
+                                            {currencyFormatter.format(cluster.nodeRgCost || 0)}
+                                        </td>
+                                        <td className="px-5 py-4 text-right text-slate-700 dark:text-slate-300 tabular-nums">
+                                            {currencyFormatter.format(cluster.controlPlaneCost || 0)}
+                                        </td>
                                         <td className="px-5 py-4 text-right">
-                                            <span className="font-bold text-slate-800 dark:text-slate-200 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 px-2.5 py-1 rounded-md">
+                                            <span className="font-bold text-slate-800 dark:text-slate-200 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 px-2.5 py-1 rounded-md tabular-nums">
                                                 {currencyFormatter.format(cluster.totalCost)}
                                             </span>
                                         </td>

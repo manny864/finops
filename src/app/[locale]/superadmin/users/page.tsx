@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { useMsal } from '@azure/msal-react';
 import { ShieldAlert, Shield, CheckCircle } from 'lucide-react';
 import { useTenant } from '@/components/TenantProvider';
+import { getFreshIdToken } from '@/lib/msalToken';
 
 export default function SuperAdminUsersPage() {
     const t = useTranslations('SuperAdminUsers');
@@ -17,10 +18,7 @@ export default function SuperAdminUsersPage() {
     const fetchUsers = async () => {
         setLoading(true);
         try {
-            const tokenResponse = await instance.acquireTokenSilent({
-                scopes: ["User.Read"],
-                account: accounts[0]
-            });
+            const tokenResponse = { idToken: await getFreshIdToken(instance, accounts[0]) };
             const res = await fetch('/api/superadmin/users', {
                 headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
             });
@@ -43,10 +41,7 @@ export default function SuperAdminUsersPage() {
     const handlePromote = async (userId: number) => {
         setPromotingId(userId);
         try {
-            const tokenResponse = await instance.acquireTokenSilent({
-                scopes: ["User.Read"],
-                account: accounts[0]
-            });
+            const tokenResponse = { idToken: await getFreshIdToken(instance, accounts[0]) };
             const res = await fetch('/api/superadmin/users/promote', {
                 method: 'PATCH',
                 headers: {

@@ -1,41 +1,53 @@
+// Tamaños canónicos por familia/generación (ordenados de menor a mayor).
+// Solo proponemos downgrade dentro de la MISMA familia + features + generación
+// para evitar el error: "changing from resource disk to non-resource disk VM
+// size and vice-versa is not allowed" (ver https://aka.ms/AAah4sj).
+const SAME_FAMILY_DOWNGRADE_SIZES = [2, 4, 8, 16, 32, 48, 64, 96];
+
+/**
+ * Devuelve un SKU del mismo familia/generación pero con menor número de vCPUs.
+ * Si no encuentra uno seguro, devuelve el SKU original (sin sugerir cambio).
+ *
+ * Reglas:
+ *  - Mantiene prefijo (Standard_), familia (D/E/F/B/A...), features (s, d, a, m...),
+ *    sufijo de generación (v2/v3/v4/v5) y promo (_Promo).
+ *  - Solo cambia el número (size).
+ *
+ * Ejemplos:
+ *   Standard_D8s_v3   -> Standard_D4s_v3
+ *   Standard_D2s_v3   -> Standard_D2s_v3 (ya en mínimo seguro: no se sugiere)
+ *   Standard_E16ds_v5 -> Standard_E8ds_v5
+ *   Standard_B4ms     -> Standard_B2ms
+ *   Standard_DC8as_v5 -> Standard_DC4as_v5
+ */
 function getDowngradeSku(currentSku: string): string {
-    if (!currentSku) return "Standard_B2s";
-    
-    // Normalizar a una clave estándar si existe
-    const skuMapping: Record<string, string> = {
-        "standard_d16s_v3": "Standard_D8s_v3",
-        "standard_d8s_v3": "Standard_D4s_v3",
-        "standard_d4s_v3": "Standard_D2s_v3",
-        "standard_d2s_v3": "Standard_B2s",
-        "standard_d4ds_v4": "Standard_D2ds_v4",
-        "standard_d2ds_v4": "Standard_B2s",
-        "standard_b4ms": "Standard_B2ms",
-        "standard_b2ms": "Standard_B2s",
-        "standard_e8s_v3": "Standard_E4s_v3",
-        "standard_f8s_v2": "Standard_F4s_v2"
-    };
-    
-    const key = currentSku.toLowerCase();
-    if (skuMapping[key]) {
-        return skuMapping[key];
-    }
-    
-    // Buscar un número en el SKU para reducirlo a la mitad
-    const match = currentSku.match(/(\d+)/);
-    if (match) {
-        const num = parseInt(match[1], 10);
-        if (num > 2) {
-            const halved = Math.floor(num / 2);
-            return currentSku.replace(String(num), String(halved));
-        }
-    }
-    
-    return "Standard_B2s"; // Fallback mínimo seguro
+    if (!currentSku) return "";
+
+    // Captura: prefix Standard_, familia (letras), número, features (letras opcionales),
+    // sufijo opcional (_v3, _v4, _v5, _Promo, etc.)
+    // Ej: Standard_D8s_v3 → prefix="Standard_", family="D", size="8", features="s", suffix="_v3"
+    //     Standard_DC4as_v5 → family="DC", size="4", features="as", suffix="_v5"
+    //     Standard_B2ms → family="B", size="2", features="ms", suffix=""
+    const re = /^(Standard_)([A-Za-z]+?)(\d+)([a-z]*)(_v\d+)?(_Promo)?$/i;
+    const m = currentSku.match(re);
+    if (!m) return currentSku; // Formato no reconocido: no proponer cambio.
+
+    const [, prefix, family, sizeStr, features, version, promo] = m;
+    const currentSize = parseInt(sizeStr, 10);
+    if (!Number.isFinite(currentSize)) return currentSku;
+
+    // Buscar el tamaño inmediatamente inferior dentro de la lista canónica.
+    const smaller = SAME_FAMILY_DOWNGRADE_SIZES
+        .filter(s => s < currentSize)
+        .pop();
+    if (!smaller) return currentSku; // Ya está en el mínimo: no sugerir.
+
+    return `${prefix}${family}${smaller}${features}${version ?? ''}${promo ?? ''}`;
 }
 
 export function analyzeVmEfficiency(vm: any, metrics: { maxCpu: number, p95Cpu: number, avgCpu: number, p95Mem: number }) {
     let isUnderutilized = false;
-    let recommendedSku = vm.sku || "Standard_B2s";
+    let recommendedSku = vm.sku || "";
     let status = "Optimized";
 
     // Idle threshold: P95 CPU < 10%

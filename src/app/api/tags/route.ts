@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
+import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
 
 export async function GET(req: NextRequest) {
     try {
@@ -7,10 +8,15 @@ export async function GET(req: NextRequest) {
         const tenantId = searchParams.get('tenantId');
         if (!tenantId) return NextResponse.json({ error: "Missing tenantId" }, { status: 400 });
 
+        await requireTenantAccess(req, tenantId, { allowSuperAdmin: true });
+
         const [rows] = await pool.query("SELECT * FROM TaggingPolicies WHERE tenant_id = ?", [tenantId]);
         return NextResponse.json({ policies: rows });
-    } catch (e: any) {
-        return NextResponse.json({ error: e.message }, { status: 500 });
+    } catch (e: unknown) {
+        if (e instanceof AuthError) {
+            return NextResponse.json({ error: e.message }, { status: e.status });
+        }
+        return NextResponse.json({ error: "Error interno" }, { status: 500 });
     }
 }
 
@@ -21,13 +27,18 @@ export async function POST(req: NextRequest) {
         
         if (!tenantId || !tagKey) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
 
+        await requireTenantAccess(req, tenantId, { allowSuperAdmin: true });
+
         await pool.query(
             "INSERT INTO TaggingPolicies (tenant_id, tag_key, required) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE required = VALUES(required)",
             [tenantId, tagKey, required]
         );
         return NextResponse.json({ success: true });
-    } catch (e: any) {
-        return NextResponse.json({ error: e.message }, { status: 500 });
+    } catch (e: unknown) {
+        if (e instanceof AuthError) {
+            return NextResponse.json({ error: e.message }, { status: e.status });
+        }
+        return NextResponse.json({ error: "Error interno" }, { status: 500 });
     }
 }
 
@@ -36,10 +47,27 @@ export async function DELETE(req: NextRequest) {
         const body = await req.json();
         const { id } = body;
         if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
-        
-        await pool.query("DELETE FROM TaggingPolicies WHERE id = ?", [id]);
+
+        const [rows] = await pool.query(
+            "SELECT tenant_id FROM TaggingPolicies WHERE id = ? LIMIT 1",
+            [id]
+        );
+        if (!Array.isArray(rows) || rows.length === 0) {
+            return NextResponse.json({ error: "Policy not found" }, { status: 404 });
+        }
+
+        const tenantId = (rows[0] as { tenant_id?: string }).tenant_id;
+        if (!tenantId) {
+            return NextResponse.json({ error: "Policy tenant inválido" }, { status: 400 });
+        }
+
+        await requireTenantAccess(req, tenantId, { allowSuperAdmin: true });
+        await pool.query("DELETE FROM TaggingPolicies WHERE id = ? AND tenant_id = ?", [id, tenantId]);
         return NextResponse.json({ success: true });
-    } catch (e: any) {
-        return NextResponse.json({ error: e.message }, { status: 500 });
+    } catch (e: unknown) {
+        if (e instanceof AuthError) {
+            return NextResponse.json({ error: e.message }, { status: e.status });
+        }
+        return NextResponse.json({ error: "Error interno" }, { status: 500 });
     }
 }

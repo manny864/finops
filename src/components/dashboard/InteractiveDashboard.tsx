@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation';
 import { FocusCostEntry } from '@/modules/core/focusMapper';
 import FocusCostPieChart from './FocusCostPieChart';
 import FeatureGuard from '@/components/FeatureGuard';
+import { translateAdvisorText } from '@/lib/advisorI18n';
 
 interface InteractiveDashboardProps {
     loading: boolean;
@@ -195,8 +196,13 @@ export default function InteractiveDashboard({
         advisorData.recommendations.Cost.forEach((rec: any) => {
             const savings = parseFloat(rec.extendedProperties?.savingsAmount || '0');
             if (savings > 0) {
+                const rawTitle = rec.shortDescription?.solution || rec.shortDescription?.problem || '';
+                const translated = translateAdvisorText(rawTitle, locale, 'solution')
+                    || translateAdvisorText(rec.shortDescription?.problem, locale, 'problem')
+                    || rawTitle
+                    || t('cost_optimization', { fallback: 'Optimización de Costos' });
                 opportunities.push({
-                    title: rec.shortDescription?.solution || rec.shortDescription?.problem || t('cost_optimization', { fallback: 'Optimización de Costos' }),
+                    title: translated,
                     category: "Azure Advisor",
                     savings: savings,
                     type: 'advisor'

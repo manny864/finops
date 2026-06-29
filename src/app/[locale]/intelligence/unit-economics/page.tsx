@@ -1,9 +1,11 @@
 import React from 'react';
+import MockBanner from '@/components/MockBanner';
 import UnitEconomics from '@/components/dashboard/UnitEconomics';
 
 export default function UnitEconomicsPage() {
     return (
         <div className="content animate-in fade-in">
+            <MockBanner />
             <div className="vhead">
                 <div>
                     <div className="vt">

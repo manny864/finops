@@ -7,6 +7,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import RoleAssignmentBanner from './RoleAssignmentBanner';
 import { Info, Lightbulb, X, Play } from 'lucide-react';
 import { hasAccess } from '@/lib/tierLogic';
+import { translateAdvisorText } from '@/lib/advisorI18n';
 import { toast } from 'sonner';
 
 export default function AdvisorPanel() {
@@ -47,7 +48,7 @@ export default function AdvisorPanel() {
             account: account
         });
         
-        const res = await fetch(`/api/advisor?tenantId=${selectedTenant.id}`, {
+        const res = await fetch(`/api/advisor?tenantId=${selectedTenant.id}&locale=${encodeURIComponent(locale)}`, {
             headers: { 'Authorization': `Bearer ${tokenResponse.idToken}`, 'Accept-Language': locale }
         });
         
@@ -70,7 +71,7 @@ export default function AdvisorPanel() {
       }
     };
     fetchAdvisor();
-  }, [accounts, instance, selectedTenant]);
+  }, [accounts, instance, selectedTenant, locale]);
 
   const filteredData = useMemo(() => {
       if (!data) return {};
@@ -162,7 +163,7 @@ export default function AdvisorPanel() {
                           Categoria: cat,
                           Recurso: rec.impactedField === 'Microsoft.Subscriptions/subscriptions' ? (subscriptions.find(s => s.id === rec.subscriptionId)?.name || rec.subscriptionId) : (rec.impactedField || rec.id),
                           Suscripcion: rec.subscriptionId || "N/A",
-                          Detalle: rec.shortDescription?.problem || "Recomendación de Azure",
+                          Detalle: translateAdvisorText(rec.shortDescription?.problem, locale, 'problem') || "Recomendación de Azure",
                           AhorroPotencial: rec.extendedProperties?.savingsAmount || 0
                       });
                   });
@@ -211,7 +212,7 @@ export default function AdvisorPanel() {
               resourceId: rec.impactedField,
               resourceName: subscriptions.find(s => s.id === rec.subscriptionId)?.name || rec.subscriptionId,
               issueTitle: `[FinOps] Optimize Resource: ${rec.impactedField}`,
-              issueBody: rec.shortDescription?.solution,
+              issueBody: translateAdvisorText(rec.shortDescription?.solution, locale, 'solution'),
               estimatedSavings: savings
           };
 
@@ -459,13 +460,13 @@ export default function AdvisorPanel() {
                                             </div>
                                             <div>
                                                 <div className="font-bold text-[13.5px] text-ink">
-                                                    {rec.shortDescription?.problem || 'Recomendación de Costo'}
+                                                    {translateAdvisorText(rec.shortDescription?.problem, locale, 'problem') || 'Recomendación de Costo'}
                                                     <span className="font-semibold text-brand-deep bg-[#EAF3FB] p-[1px_7px] rounded-[6px] text-[12px] ml-[6px]">
                                                         {rec.impactedField === 'Microsoft.Subscriptions/subscriptions' ? (subscriptions.find(s => s.id === rec.subscriptionId)?.name || rec.subscriptionId) : (rec.impactedField || 'Recurso')}
                                                     </span>
                                                 </div>
                                                 <div className="text-[12px] text-ink-soft mt-[3px] leading-relaxed">
-                                                    {rec.shortDescription?.solution} · <b className="text-ink">{subscriptions.find(s => s.id === rec.subscriptionId)?.name || rec.subscriptionId}</b>
+                                                    {translateAdvisorText(rec.shortDescription?.solution, locale, 'solution')} · <b className="text-ink">{subscriptions.find(s => s.id === rec.subscriptionId)?.name || rec.subscriptionId}</b>
                                                 </div>
                                             </div>
                                             <div className="text-right flex flex-col items-end gap-[7px]">
@@ -529,7 +530,7 @@ export default function AdvisorPanel() {
                                                 {rec._cat}
                                             </div>
                                             <div className="text-[12px] text-ink-soft mt-[3px] leading-relaxed">
-                                                {rec.shortDescription?.problem || rec.shortDescription?.solution} · <b className="text-ink">{subscriptions.find(s => s.id === rec.subscriptionId)?.name || rec.subscriptionId}</b>
+                                                {translateAdvisorText(rec.shortDescription?.problem, locale, 'problem') || translateAdvisorText(rec.shortDescription?.solution, locale, 'solution')} · <b className="text-ink">{subscriptions.find(s => s.id === rec.subscriptionId)?.name || rec.subscriptionId}</b>
                                             </div>
                                         </div>
                                         <div className="text-right flex flex-col items-end gap-[7px]">
@@ -587,10 +588,10 @@ export default function AdvisorPanel() {
                                                 {subscriptions.find(s => s.id === rec.subscriptionId)?.name || rec.subscriptionId}
                                             </td>
                                             <td className="p-[13px_16px] text-[13px] text-ink-soft">
-                                                {rec.shortDescription?.problem || 'N/A'}
+                                                {translateAdvisorText(rec.shortDescription?.problem, locale, 'problem') || 'N/A'}
                                             </td>
                                             <td className="p-[13px_16px] text-[13px] text-ink-soft">
-                                                {rec.shortDescription?.solution || rec.recommendationType?.name || rec.impact || 'Consulte el Portal'}
+                                                {translateAdvisorText(rec.shortDescription?.solution, locale, 'solution') || rec.recommendationType?.name || rec.impact || 'Consulte el Portal'}
                                             </td>
                                             <td className="p-[13px_16px] text-right">
                                                 {((rec.shortDescription?.solution || '').toLowerCase().includes('delete') || (rec.shortDescription?.solution || '').toLowerCase().includes('remove')) && (

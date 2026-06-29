@@ -1,9 +1,11 @@
 "use client";
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import useSWR from 'swr';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
-import { Loader2, Box, Info } from 'lucide-react';
+import { Loader2, Box, Info, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+
+const PAGE_SIZES = [10, 25, 50, 100] as const;
 
 export default function ZeroCostInventory() {
     const { selectedTenant } = useTenant();
@@ -19,30 +21,76 @@ export default function ZeroCostInventory() {
         });
 
         const res = await fetch(url, {
-            headers: {
-                'Authorization': `Bearer ${tokenResponse.idToken}`
-            }
+            headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
         });
 
         if (!res.ok) {
             const json = await res.json();
             throw new Error(json.details || json.error || "Error al cargar inventario");
         }
-
         return res.json();
     };
 
     const { data, error, isLoading } = useSWR(
-        (selectedTenant && selectedTenant.id !== 'default' && accounts.length > 0) 
-            ? `/api/intelligence/zero-cost?tenantId=${selectedTenant.id}` 
+        (selectedTenant && selectedTenant.id !== 'default' && accounts.length > 0)
+            ? `/api/intelligence/zero-cost?tenantId=${selectedTenant.id}`
             : null,
         fetcher,
         { revalidateOnFocus: false }
     );
 
-    if (!selectedTenant || selectedTenant.id === 'default') {
-        return null;
-    }
+    const resources: any[] = data?.data || [];
+
+    // Filtros
+    const [search, setSearch] = useState('');
+    const [motivoFilter, setMotivoFilter] = useState<string>('all');
+    const [typeFilter, setTypeFilter] = useState<string>('all');
+    const [rgFilter, setRgFilter] = useState<string>('all');
+    const [pageSize, setPageSize] = useState<number>(25);
+    const [page, setPage] = useState<number>(1);
+
+    const types = useMemo(() => {
+        const set = new Set<string>();
+        resources.forEach(r => r.type && set.add(String(r.type).split('/').pop()!));
+        return Array.from(set).sort();
+    }, [resources]);
+
+    const resourceGroups = useMemo(() => {
+        const set = new Set<string>();
+        resources.forEach(r => r.resourceGroup && set.add(String(r.resourceGroup)));
+        return Array.from(set).sort();
+    }, [resources]);
+
+    const motivos = useMemo(() => {
+        const set = new Set<string>();
+        resources.forEach(r => r.Motivo && set.add(String(r.Motivo)));
+        return Array.from(set).sort();
+    }, [resources]);
+
+    const filtered = useMemo(() => {
+        const s = search.trim().toLowerCase();
+        return resources.filter(r => {
+            if (motivoFilter !== 'all' && r.Motivo !== motivoFilter) return false;
+            if (typeFilter !== 'all' && String(r.type).split('/').pop() !== typeFilter) return false;
+            if (rgFilter !== 'all' && r.resourceGroup !== rgFilter) return false;
+            if (s) {
+                const hay = [r.name, r.type, r.resourceGroup, r.skuName, r.location]
+                    .filter(Boolean).map(String).join(' ').toLowerCase();
+                if (!hay.includes(s)) return false;
+            }
+            return true;
+        });
+    }, [resources, search, motivoFilter, typeFilter, rgFilter]);
+
+    React.useEffect(() => { setPage(1); }, [search, motivoFilter, typeFilter, rgFilter, pageSize]);
+
+    const total = filtered.length;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const safePage = Math.min(page, totalPages);
+    const start = (safePage - 1) * pageSize;
+    const pageItems = filtered.slice(start, start + pageSize);
+
+    if (!selectedTenant || selectedTenant.id === 'default') return null;
 
     if (isLoading) {
         return (
@@ -62,87 +110,138 @@ export default function ZeroCostInventory() {
         );
     }
 
-    const resources: any[] = data?.data || [];
-
-    // Grouping
-    const freeSkus = resources.filter(r => r.Motivo === "Capa Gratuita (Free SKU)");
-    const archServices = resources.filter(r => r.Motivo === "Servicio de Gestión / Arquitectura (Sin costo base)");
-
     return (
-        <div className="w-full space-y-8">
+        <div className="w-full space-y-6">
             <div className="bg-blue-50 dark:bg-blue-900/20 p-4 flex gap-3 rounded-xl border border-blue-100 dark:border-blue-900/50 text-blue-800 dark:text-blue-300">
                 <Info className="w-5 h-5 shrink-0 mt-0.5" />
                 <div className="text-sm">
                     <p className="font-bold mb-1">Inventario de Costo Cero (Zero-Cost FinOps)</p>
-                    <p>Estos recursos corren actualmente en tu infraestructura sin generar cargos en tu facturación, ya sea porque pertenecen a una capa gratuita promocional o porque son servicios de red/arquitectura que no tienen un costo base inherente. Mantener visibilidad de ellos es crucial para una gestión completa.</p>
+                    <p>Recursos sin cargos en tu facturación, por capa gratuita o por ser servicios de red/arquitectura sin costo base. Mantener visibilidad es clave para gestión completa.</p>
                 </div>
             </div>
 
-            {resources.length === 0 ? (
-                <div className="text-center py-10 bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800">
-                    <p className="text-slate-500 dark:text-slate-400">No se han detectado recursos de costo cero en las suscripciones conectadas.</p>
+            {/* Toolbar: búsqueda + filtros + page size */}
+            <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-4 grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+                <div className="md:col-span-4 relative">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                        type="text"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Buscar nombre, RG, tipo, SKU..."
+                        className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    />
                 </div>
-            ) : (
-                <>
-                    <section>
-                        <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2">
-                            <span className="p-1.5 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-md">
-                                <Box className="w-4 h-4" />
-                            </span>
-                            Capa Gratuita (Free SKU)
-                            <span className="ml-2 text-xs font-bold px-2 py-0.5 bg-gray-100 dark:bg-slate-800 text-gray-500 rounded-full">{freeSkus.length}</span>
-                        </h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {freeSkus.map((r, i) => (
-                                <div key={i} className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-lg p-4 shadow-sm hover:shadow transition-shadow">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200 truncate pr-2" title={r.name}>{r.name}</h3>
-                                        <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 rounded-full whitespace-nowrap">
-                                            {r.skuName}
-                                        </span>
-                                    </div>
-                                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-1 truncate" title={r.type}>{r.type.split('/').pop()}</p>
-                                    <p className="text-xs text-slate-400 dark:text-slate-500 font-mono truncate" title={r.resourceGroup}>RG: {r.resourceGroup}</p>
-                                </div>
-                            ))}
-                            {freeSkus.length === 0 && <p className="text-sm text-slate-500 col-span-full">No hay recursos en capa gratuita.</p>}
-                        </div>
-                    </section>
+                <div className="md:col-span-2">
+                    <select value={motivoFilter} onChange={(e) => setMotivoFilter(e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+                        <option value="all">Todos los motivos</option>
+                        {motivos.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                </div>
+                <div className="md:col-span-2">
+                    <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+                        <option value="all">Todos los tipos</option>
+                        {types.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                </div>
+                <div className="md:col-span-2">
+                    <select value={rgFilter} onChange={(e) => setRgFilter(e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+                        <option value="all">Todos los Resource Groups</option>
+                        {resourceGroups.map(rg => <option key={rg} value={rg}>{rg}</option>)}
+                    </select>
+                </div>
+                <div className="md:col-span-2">
+                    <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+                        {PAGE_SIZES.map(n => <option key={n} value={n}>{n} por página</option>)}
+                    </select>
+                </div>
+            </div>
 
-                    <section>
-                        <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2">
-                            <span className="p-1.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-md">
-                                <Box className="w-4 h-4" />
-                            </span>
-                            Servicios de Arquitectura / Sin costo base
-                            <span className="ml-2 text-xs font-bold px-2 py-0.5 bg-gray-100 dark:bg-slate-800 text-gray-500 rounded-full">{archServices.length}</span>
-                        </h2>
-                        <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-lg overflow-hidden shadow-sm">
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left text-sm">
-                                    <thead className="bg-gray-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 text-xs">
-                                        <tr>
-                                            <th className="px-4 py-3 font-semibold">Recurso</th>
-                                            <th className="px-4 py-3 font-semibold">Tipo</th>
-                                            <th className="px-4 py-3 font-semibold">Resource Group</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-100 dark:divide-slate-800/50">
-                                        {archServices.map((r, i) => (
-                                            <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors">
-                                                <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-200">{r.name}</td>
-                                                <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs">{r.type.split('/').pop()}</td>
-                                                <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs">{r.resourceGroup}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                                {archServices.length === 0 && <p className="text-sm text-slate-500 p-4">No hay servicios de arquitectura sin costo base.</p>}
-                            </div>
+            {/* Tabla unificada */}
+            <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm">
+                <div className="px-4 py-3 border-b border-gray-100 dark:border-slate-800 flex items-center justify-between">
+                    <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                        <Box className="w-4 h-4 text-emerald-500" />
+                        Recursos de Costo Cero
+                        <span className="text-xs font-medium px-2 py-0.5 bg-gray-100 dark:bg-slate-800 text-gray-500 rounded-full">
+                            {total.toLocaleString()} de {resources.length.toLocaleString()}
+                        </span>
+                    </h2>
+                </div>
+
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                        <thead className="bg-gray-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 text-xs">
+                            <tr>
+                                <th className="px-4 py-3 font-semibold">Recurso</th>
+                                <th className="px-4 py-3 font-semibold">Tipo</th>
+                                <th className="px-4 py-3 font-semibold">Resource Group</th>
+                                <th className="px-4 py-3 font-semibold">SKU</th>
+                                <th className="px-4 py-3 font-semibold">Motivo</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 dark:divide-slate-800/50">
+                            {pageItems.map((r, i) => {
+                                const isFree = r.Motivo === "Capa Gratuita (Free SKU)";
+                                return (
+                                    <tr key={`${r.id || r.name}-${i}`} className="hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors">
+                                        <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-200 max-w-[260px] truncate" title={r.name}>{r.name}</td>
+                                        <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs">{String(r.type || '').split('/').pop()}</td>
+                                        <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs font-mono">{r.resourceGroup}</td>
+                                        <td className="px-4 py-3 text-xs">
+                                            <span className={`px-2 py-0.5 rounded-full font-bold ${isFree ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400' : 'bg-gray-100 dark:bg-slate-800 text-gray-500'}`}>
+                                                {r.skuName || 'N/A'}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-3 text-xs">
+                                            <span className={`px-2 py-0.5 rounded ${isFree ? 'bg-emerald-50/60 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400' : 'bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400'}`}>
+                                                {r.Motivo}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                            {pageItems.length === 0 && (
+                                <tr>
+                                    <td colSpan={5} className="px-4 py-10 text-center text-sm text-slate-500">
+                                        {resources.length === 0 ? 'No se han detectado recursos de costo cero.' : 'No hay recursos que coincidan con los filtros.'}
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* Paginación */}
+                {total > 0 && (
+                    <div className="px-4 py-3 border-t border-gray-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                        <div>
+                            Mostrando <b>{start + 1}</b>–<b>{Math.min(start + pageSize, total)}</b> de <b>{total}</b>
                         </div>
-                    </section>
-                </>
-            )}
+                        <div className="flex items-center gap-1">
+                            <button
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                disabled={safePage <= 1}
+                                className="p-1.5 rounded border border-gray-200 dark:border-slate-700 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-slate-800"
+                                aria-label="Anterior"
+                            >
+                                <ChevronLeft className="w-4 h-4" />
+                            </button>
+                            <span className="px-2">
+                                Página <b>{safePage}</b> / {totalPages}
+                            </span>
+                            <button
+                                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                disabled={safePage >= totalPages}
+                                className="p-1.5 rounded border border-gray-200 dark:border-slate-700 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-slate-800"
+                                aria-label="Siguiente"
+                            >
+                                <ChevronRight className="w-4 h-4" />
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

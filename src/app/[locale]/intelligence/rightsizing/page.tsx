@@ -7,6 +7,9 @@ import { Zap, AlertTriangle, ArrowRight, CheckCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useMsal } from "@azure/msal-react";
 import { getMockDataForRoute } from '@/lib/mockData';
+import { getFreshIdToken } from '@/lib/msalToken';
+import MockBanner from '@/components/MockBanner';
+import Pagination, { usePagination } from '@/components/Pagination';
 
 export default function RightsizingPage() {
   const t = useTranslations("Rightsizing");
@@ -17,6 +20,7 @@ export default function RightsizingPage() {
   const [vms, setVms] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const { page, setPage, pageSize, setPageSize, total, totalPages, paged: pagedVms } = usePagination(vms);
 
   useEffect(() => {
     if (!selectedTenant || selectedTenant.id === 'default' || !selectedSubscription) return;
@@ -57,7 +61,7 @@ export default function RightsizingPage() {
       if (!window.confirm(`¿Estás seguro de hacer downgrade de la máquina ${vm.name} al tamaño ${vm.recommendedSku}? Esto podría reiniciar la máquina.`)) return;
       try {
           const account = accounts[0];
-          const tokenResponse = await instance.acquireTokenSilent({ scopes: ["User.Read"], account });
+          const tokenResponse = { idToken: await getFreshIdToken(instance, account) };
           
           const res = await fetch('/api/remediation/downgrade', {
               method: 'POST',
@@ -89,7 +93,7 @@ export default function RightsizingPage() {
       if (!window.confirm(`¿Estás seguro de ELIMINAR la máquina virtual deallocated ${vm.name} permanentemente? Se recomienda realizar un snapshot de sus discos en Azure Portal antes de continuar.`)) return;
       try {
           const account = accounts[0];
-          const tokenResponse = await instance.acquireTokenSilent({ scopes: ["User.Read"], account });
+          const tokenResponse = { idToken: await getFreshIdToken(instance, account) };
           
           const res = await fetch('/api/remediation', {
               method: 'POST',
@@ -133,6 +137,7 @@ export default function RightsizingPage() {
           <span className="scopechip">📍 {selectedTenant?.name || "Tenant"}</span>
         </div>
       </div>
+      <MockBanner />
 
       {error && (
         <div className="card">
@@ -188,7 +193,7 @@ export default function RightsizingPage() {
                         </tr>
                     </thead>
                     <tbody>
-                        {vms?.map((vm, idx) => (
+                        {pagedVms?.map((vm, idx) => (
                             <tr key={idx}>
                                 <td>
                                     <div className="flex items-center gap-[7px] font-bold text-ink">
@@ -201,7 +206,7 @@ export default function RightsizingPage() {
                                         </span>
                                     )}
                                 </td>
-                                <td>{subscriptions.find(s => s.id.toLowerCase() === vm.subscriptionId.toLowerCase())?.name || vm.subscriptionId}</td>
+                                <td>{vm.subscriptionId ? (subscriptions.find(s => s.id?.toLowerCase() === vm.subscriptionId.toLowerCase())?.name || vm.subscriptionId) : '—'}</td>
                                 {viewMode === 'engineer' && (
                                     <td className="font-mono text-xs max-w-xs truncate" title={vm.id}>
                                         {vm.id}
@@ -255,6 +260,7 @@ export default function RightsizingPage() {
                     </tbody>
                 </table>
             </div>
+            <Pagination page={page} setPage={setPage} pageSize={pageSize} setPageSize={setPageSize} total={total} totalPages={totalPages} />
         </div>
       )}
     </div>
