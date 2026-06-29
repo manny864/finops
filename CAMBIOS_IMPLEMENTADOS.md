@@ -1,6 +1,39 @@
 # Cambios Implementados (Bitácora Operativa)
 
 Este archivo centraliza **todos los cambios realizados y futuros** del proyecto.
+## 2026-06-29 — Sistema de migraciones explícitas versionadas
+
+### ¿Por qué?
+La inicialización del schema dependía 100% de `ALTER TABLE` envueltos en `try/catch` dentro de `initializeDatabase()`. Funciona pero:
+- No hay registro de qué se aplicó ni cuándo.
+- Imposible auditar diferencias entre ambientes.
+- Reordenar/modificar es riesgoso (silencioso).
+
+### 🆕 Infraestructura
+- **`migrations/`** — directorio con archivos `.sql` versionados (`YYYYMMDD-NNN-descripcion.sql`).
+- **`migrations/README.md`** — convención de nombres, reglas (idempotencia, no editar aplicadas, no float para costos).
+- **`migrations/20260629-001-alertrules-budget-id.sql`** — primera migración explícita: garantiza `AlertRules.budget_id` y su índice `idx_alert_budget` en todos los ambientes (cierra el bug de mock leak por columna ausente).
+- **`src/modules/storage/migrations.ts`** — runner idempotente:
+  - Crea tabla `SchemaMigrations (file_name UNIQUE, checksum SHA256, applied_at, duration_ms)`.
+  - Lee `/migrations/*.sql`, salta los ya aplicados.
+  - Splittea en statements, ignora `ER_DUP_FIELDNAME`/`ER_DUP_KEYNAME`/`ER_TABLE_EXISTS_ERROR`/`ER_DUP_ENTRY`/`ER_CANT_DROP_FIELD_OR_KEY` (errores de re-ejecución segura).
+  - Detecta checksums mutados (warning, no aborta).
+  - Aborta en el primer error real.
+- **Auto-ejecución**: `initializeDatabase()` ahora importa y llama `runMigrations()` después de los CREATE TABLE legacy. Cero acción manual en runtime normal.
+
+### 🆕 Endpoints admin (super-admin only)
+- **`POST /api/admin/migrations/run`** — fuerza re-ejecución (idempotente).
+- **`GET /api/admin/migrations/status`** — lista aplicadas + pendientes.
+
+### 🆕 CLI
+- **`scripts/migrate.ts`** — `npx tsx scripts/migrate.ts` para correr migraciones desde local/CI. Exit 1 si alguna falla.
+
+### Verificación
+- `npx tsc --noEmit` → 0 errors.
+- Al primer hit del backend tras el deploy, `runMigrations()` aplica la migración pendiente y registra la fila en `SchemaMigrations`. El `budget_id` queda garantizado en todos los ambientes.
+
+---
+
 ## 2026-06-29 — Sweep crítico: NUNCA mock leak en tenants reales
 
 ### 🚨 Bug global

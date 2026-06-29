@@ -744,6 +744,15 @@ export async function initializeDatabase() {
         }
 
         connection.release();
+
+        // Aplicar migraciones explícitas versionadas (idempotente).
+        try {
+            const { runMigrations } = await import('./migrations');
+            await runMigrations();
+        } catch (migrationsErr) {
+            console.error("Migrations runner failed:", migrationsErr);
+        }
+
         dbInitialized = true;
         console.log("Database schema validated/initialized successfully.");
     } catch (error) {
