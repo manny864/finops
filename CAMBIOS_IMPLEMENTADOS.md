@@ -1,6 +1,40 @@
 # Cambios Implementados (Bitácora Operativa)
 
 Este archivo centraliza **todos los cambios realizados y futuros** del proyecto.
+## 2026-06-29 — Sweep crítico: NUNCA mock leak en tenants reales
+
+### 🚨 Bug global
+Múltiples endpoints tenían el anti-patrón:
+```ts
+try { /* query DB real */ } catch { return NextResponse.json(MOCK_PAYLOAD); }
+```
+Esto causaba que en cualquier error transitorio (columna recién migrada, índice ausente, conexión flaky), el tenant real recibiera **datos mock con `mock:true` o incluso `mock:false`**, mostrando reglas de alerta de ejemplo, recomendaciones de rightsizing falsas, MACC ficticios, etc.
+
+### 🛠 Endpoints saneados (catch → empty real payload, NO mock)
+| Endpoint | Antes | Ahora |
+|---|---|---|
+| `/api/budgets/alerts` (GET+POST) | catch → MOCK_RULES (4 reglas demo) | `rules: []` + error explícito; POST devuelve 500 con error |
+| `/api/budgets/alerts/[id]` (DELETE) | catch → `{success:true, mock:true}` (mentira) | `{success:false, error}` con 500 |
+| `/api/intelligence/compute-cost-per-core` | catch → MOCK_PAYLOAD (cores/SKUs falsos) | ceros y arrays vacíos |
+| `/api/intelligence/ai-analytics` | catch → MOCK_PAYLOAD (modelos GPT falsos) | summary en 0, arrays vacíos |
+| `/api/intelligence/macc` | catch → commitment de $5M falso | `commitments: []` |
+| `/api/intelligence/storage-efficiency` | catch → MOCK_PAYLOAD + mock:true | arrays vacíos, summary 0 |
+| `/api/rightsizing/appservice` | catch → 3 planes falsos | `items: []` |
+| `/api/rightsizing/vmss` | catch → MOCK_RESPONSE | `items: []` |
+| `/api/rightsizing/storage` | catch → MOCK_RESPONSE | `items: []` |
+| `/api/rightsizing/sqldb` | catch → MOCK_RESPONSE | `items: []` |
+| `/api/onboard/lighthouse` (GET+POST) | catch → MOCK_GET_RESPONSE / mock id | `delegations: []` / 500 con error real |
+| `/api/cleanup/zombies/networking` | siempre devolvía MOCK | mocks sólo si `isMockTenant`; real → `items: []` + warning de ARG pendiente |
+| `/api/governance/ha` (outer catch) | catch → MOCK_RESPONSE | empty `items:[]` + error |
+| `/api/admin/report/invoicing` | catch → MOCK_PAYLOAD CSV/JSON | 500 con error real, sin generar archivo falso |
+| `/api/budgets/alerts` (auth) | jwt.decode | `requireTenantAccess` (RS256 + JWKS) |
+
+### Verificación
+- `npx tsc --noEmit` → 0 errors.
+- Todos los frontends siguen funcionando: el contrato del response (mismas keys, tipos) se preservó, sólo cambiaron valores demo por ceros/arrays vacíos cuando el flujo es real.
+
+---
+
 ## 2026-06-29 — Credenciales por Expirar (live Graph) + hook order bug
 
 ### 🐛 Bug 1: `AlertRulesManager` — Rendered more hooks than during the previous render

@@ -183,18 +183,14 @@ export async function GET(request: NextRequest) {
             }
 
             return NextResponse.json(payload);
-        } catch (dbErr) {
-            console.error("Invoicing DB error — returning mock:", dbErr);
-            if (format === "csv") {
-                const csv = serializeCSV(MOCK_PAYLOAD.lines, period);
-                return new NextResponse(csv, {
-                    headers: {
-                        "Content-Type": "text/csv",
-                        "Content-Disposition": `attachment; filename="invoicing-${period}.csv"`,
-                    },
-                });
-            }
-            return NextResponse.json({ ...MOCK_PAYLOAD, period });
+        } catch (dbErr: any) {
+            console.error("Invoicing DB error for real tenant:", tenantId, dbErr?.message);
+            return NextResponse.json({
+                success: false, mock: false,
+                period,
+                lines: [], summary: { totalCustomers: 0, totalNetCost: 0, totalGrossPrice: 0, totalMargin: 0 },
+                error: `No se pudo generar la facturación: ${dbErr?.message || "error"}`,
+            }, { status: 500 });
         }
     } catch (error: any) {
         console.error("Invoicing API Error:", error);

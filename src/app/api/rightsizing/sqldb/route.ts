@@ -38,10 +38,12 @@ export async function GET(request: NextRequest) {
             const items = rows || [];
             const totalSavings = items.reduce((sum: number, r: any) => sum + Number(r.estimated_savings || 0), 0);
             return NextResponse.json({ success: true, mock: false, items, totalSavings });
-        } catch {
-            return NextResponse.json(MOCK_RESPONSE);
+        } catch (dbErr: any) {
+            console.error("[rightsizing/sqldb] DB error for real tenant:", tenantId, dbErr?.message);
+            return NextResponse.json({ success: false, mock: false, items: [], totalSavings: 0, error: `Sin datos: ${dbErr?.message || "error"}` });
         }
-    } catch {
-        return NextResponse.json(MOCK_RESPONSE);
+    } catch (err: any) {
+        console.error("[rightsizing/sqldb] handler error:", err?.message);
+        return NextResponse.json({ success: false, mock: false, items: [], totalSavings: 0, error: err?.message || "Error interno" }, { status: 500 });
     }
 }

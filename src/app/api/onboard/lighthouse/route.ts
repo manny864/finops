@@ -76,11 +76,13 @@ export async function GET(request: NextRequest) {
                 [tenantId]
             );
             return NextResponse.json({ success: true, mock: false, delegations: rows || [] });
-        } catch {
-            return NextResponse.json(MOCK_GET_RESPONSE);
+        } catch (dbErr: any) {
+            console.error("[lighthouse] GET DB error for real tenant:", tenantId, dbErr?.message);
+            return NextResponse.json({ success: false, mock: false, delegations: [], error: `Sin datos: ${dbErr?.message || "error"}` });
         }
-    } catch {
-        return NextResponse.json(MOCK_GET_RESPONSE);
+    } catch (err: any) {
+        console.error("[lighthouse] GET handler error:", err?.message);
+        return NextResponse.json({ success: false, mock: false, delegations: [], error: err?.message || "Error interno" }, { status: 500 });
     }
 }
 
@@ -111,8 +113,9 @@ export async function POST(request: NextRequest) {
                 [tenantId, managedTenantId, managedSubscriptionId, rolesJson, 'pending', tenantId]
             );
             return NextResponse.json({ success: true, mock: false, id: result.insertId, status: 'pending', armTemplate });
-        } catch {
-            return NextResponse.json({ success: true, mock: true, id: 99, status: 'pending', armTemplate });
+        } catch (dbErr: any) {
+            console.error("[lighthouse] POST DB error for real tenant:", tenantId, dbErr?.message);
+            return NextResponse.json({ success: false, mock: false, error: `No se pudo persistir la delegación: ${dbErr?.message || "error"}`, armTemplate }, { status: 500 });
         }
     } catch (error: any) {
         return NextResponse.json({ error: "Error al procesar la solicitud.", details: error.message }, { status: 500 });

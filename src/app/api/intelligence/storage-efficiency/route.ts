@@ -190,11 +190,15 @@ export async function GET(request: NextRequest) {
                 diagnostics: { rowsFound: rows.length, requestedDays: days, effectiveDays, widened }
             });
         } catch (dbErr: any) {
-            console.error("[storage-efficiency] DB error:", dbErr);
+            console.error("[storage-efficiency] DB error for real tenant:", tenantId, dbErr?.message);
             return NextResponse.json({
-                ...MOCK_PAYLOAD,
-                mock: true,
-                fallbackReason: "DB error: " + (dbErr?.message || "unknown")
+                success: false, mock: false,
+                topAccounts: [], byTier: [], summary: {
+                    totalAccounts: 0, totalGb: 0, totalCost: 0,
+                    movableGb: 0, potentialSavings: 0,
+                    fromTier: "hot", toTier: "cool",
+                },
+                error: `Sin datos disponibles: ${dbErr?.message || "error"}`,
             });
         }
     } catch (err: any) {

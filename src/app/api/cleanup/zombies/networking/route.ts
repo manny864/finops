@@ -53,9 +53,17 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Acceso denegado al tenant." }, { status: 403 });
         }
 
-        // Real implementation is stubbed — ARG query would go here.
-        // Returning mock payload with mock:true for all tenants until ARG integration is scoped.
-        return NextResponse.json(MOCK_PAYLOAD);
+        if (isMockTenant(tenantId)) {
+            return NextResponse.json(MOCK_PAYLOAD);
+        }
+
+        // ARG integration pending para tenants reales. NO devolver mocks; lista vacía
+        // con flag explícito así el frontend muestra estado "sin datos".
+        return NextResponse.json({
+            success: true, mock: false,
+            items: [], totalMonthlyWaste: 0,
+            warning: "Detección en vivo de zombies de red pendiente de implementación. Usá el módulo principal de Audit para resultados consolidados.",
+        });
     } catch (err: any) {
         return NextResponse.json({ error: err.message || "Error interno" }, { status: 500 });
     }
