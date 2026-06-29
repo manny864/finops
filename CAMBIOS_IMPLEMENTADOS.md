@@ -1,6 +1,42 @@
 # Cambios Implementados (Bitácora Operativa)
 
 Este archivo centraliza **todos los cambios realizados y futuros** del proyecto.
+## 2026-06-29 — Partner Billing CSP, Alertas con budget, selectores legibles
+
+### 💲 Partner Billing Engine (CSP) — mensaje informativo cuando no hay CSP
+- **Síntoma**: la página mostraba `Error: Fallo al obtener margen (markup)` en tenants reales sin Partner Center conectado, incluso en tenants con CSP activo (mensaje genérico ocultaba la causa).
+- **Causa**: el GET retornaba 500 ante cualquier excepción y el frontend pintaba un panel rojo.
+- **Fix backend** (`src/app/api/admin/billing-markup/route.ts`):
+  - Nueva heurística `detectCspConnection(tenantId)` que verifica `CostSnapshots.billing_profile_id IS NOT NULL` (campo poblado por sync FOCUS de Partner Center).
+  - Respuesta siempre **200** si el tenant existe y es Enterprise, con `cspDetected: boolean` y `message` informativo cuando es `false`.
+  - Errores reales devuelven 500 con `details` (mensaje real, antes oculto).
+- **Fix frontend** (`src/components/dashboard/PartnerMarkup.tsx`):
+  - Panel ambar informativo cuando `cspDetected === false` (en lugar de error rojo).
+  - Mantiene panel rojo solo para errores reales.
+
+### 🔔 Alertas Self-Service — definir Budget destino
+- **Síntoma**: las reglas tipo `budget` no decían a qué presupuesto se vinculaban.
+- **Schema** (`src/modules/storage/db.ts`):
+  - Nueva columna `AlertRules.budget_id INT NULL` con migration `ALTER TABLE` idempotente.
+- **API** (`src/app/api/budgets/alerts/route.ts`):
+  - GET ahora hace `LEFT JOIN Budgets` y devuelve `budgetId` + `budgetName` en cada regla.
+  - POST valida que `ruleType === "budget"` requiera `budgetId` (400 si falta).
+- **UI** (`src/components/dashboard/AlertRulesManager.tsx`):
+  - Carga paralela de `/api/budgets` vía SWR.
+  - Selector "Budget asociado *" aparece sólo cuando `ruleType === "budget"`.
+  - Si no hay budgets configurados: aviso con CTA a Inteligencia → Budgets.
+  - Cada fila de la tabla muestra `Budget: <name>` bajo el nombre de la regla cuando aplica.
+
+### 🎨 Workbooks/Artefactos — selectores blanco sobre blanco
+- **Síntoma**: en macOS Chrome/Safari, los `<select>` de suscripción y RG en `/admin/workbooks` mostraban texto blanco sobre fondo blanco (ilegible) cuando el `<select>` se rendereaba con widget nativo del OS.
+- **Causa**: utilidades Tailwind `dark:text-white` ganaban especificidad sobre el rule global, y `color-scheme: light dark` dejaba al browser elegir contra el OS, no contra el theme de la app.
+- **Fix global** (`src/app/globals.css`):
+  - `select` ahora fuerza `color-scheme: light` con `background-color: #ffffff !important` y `color: #0f172a !important`.
+  - `.dark select` fuerza `color-scheme: dark` con `#1e293b / #f1f5f9 !important`.
+  - Aplica a TODAS las páginas con `<select>` (no solo Workbooks).
+
+---
+
 ## 2026-06-29 — Auditoría: mock leaks en tenants reales, JWT signature, RBAC
 
 Auditoría de cierre tras la sesión previa. Tres ejes: (1) datos mock filtrándose a tenants reales, (2) brechas de seguridad, (3) actualizaciones/warnings.

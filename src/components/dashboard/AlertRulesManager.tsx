@@ -18,7 +18,11 @@ type Rule = {
     enabled: boolean;
     lastTriggeredAt: string | null;
     triggerCount: number;
+    budgetId?: number | null;
+    budgetName?: string | null;
 };
+
+type Budget = { id: number; costCenter: string; monthlyLimit: number };
 
 const RULE_TYPES = ["budget", "anomaly", "forecast", "threshold"] as const;
 const CHANNELS = ["email", "webhook", "teams", "slack", "servicenow"] as const;
@@ -54,6 +58,7 @@ export default function AlertRulesManager() {
         thresholdUnit: "percent",
         channel: "email" as typeof CHANNELS[number],
         channelTarget: "",
+        budgetId: "" as string,
     });
 
     const getToken = async () => {
@@ -79,6 +84,19 @@ export default function AlertRulesManager() {
 
     const { data, error, isLoading } = useSWR(apiUrl, fetcher, { revalidateOnFocus: false });
 
+    // Carga de budgets disponibles para reglas tipo "budget".
+    const budgetsUrl = selectedTenant && selectedTenant.id !== "default"
+        ? `/api/budgets?tenantId=${selectedTenant.id}`
+        : null;
+    const { data: budgetsData } = useSWR(budgetsUrl, fetcher, { revalidateOnFocus: false });
+    const budgets: Budget[] = Array.isArray(budgetsData?.data)
+        ? budgetsData.data
+        : Array.isArray(budgetsData?.budgets)
+            ? budgetsData.budgets
+            : Array.isArray(budgetsData)
+                ? budgetsData
+                : [];
+
     const rules: Rule[] = data?.rules || [];
 
     const handleDelete = async (id: string) => {
@@ -99,6 +117,9 @@ export default function AlertRulesManager() {
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedTenant) return;
+        if (form.ruleType === "budget" && !form.budgetId) {
+            return; // el browser ya bloqueará por required
+        }
         setSaving(true);
         try {
             const token = await getToken();
@@ -115,10 +136,11 @@ export default function AlertRulesManager() {
                     thresholdUnit: form.thresholdUnit,
                     channel: form.channel,
                     channelTarget: form.channelTarget,
+                    budgetId: form.ruleType === "budget" && form.budgetId ? Number(form.budgetId) : null,
                 }),
             });
             setShowModal(false);
-            setForm({ ruleName: "", ruleType: "budget", thresholdValue: "", thresholdUnit: "percent", channel: "email", channelTarget: "" });
+            setForm({ ruleName: "", ruleType: "budget", thresholdValue: "", thresholdUnit: "percent", channel: "email", channelTarget: "", budgetId: "" });
             globalMutate(apiUrl);
         } finally {
             setSaving(false);
@@ -201,8 +223,13 @@ export default function AlertRulesManager() {
                             <tbody className="divide-y divide-gray-100 dark:divide-slate-800/50">
                                 {paged.map((rule) => (
                                     <tr key={rule.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors">
-                                        <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-200 max-w-[200px] truncate" title={rule.ruleName}>
+                                        <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-200 max-w-[220px] truncate" title={rule.ruleName}>
                                             {rule.ruleName}
+                                            {rule.ruleType === "budget" && rule.budgetName && (
+                                                <div className="text-[11px] text-indigo-600 dark:text-indigo-400 font-normal truncate">
+                                                    Budget: {rule.budgetName}
+                                                </div>
+                                            )}
                                         </td>
                                         <td className="px-4 py-3">
                                             <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${TYPE_BADGE[rule.ruleType] || "bg-gray-100 text-gray-600"}`}>
@@ -279,7 +306,7 @@ export default function AlertRulesManager() {
                                     <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">{t("type")}</label>
                                     <select
                                         value={form.ruleType}
-                                        onChange={(e) => setForm((f) => ({ ...f, ruleType: e.target.value as typeof RULE_TYPES[number] }))}
+                                        onChange={(e) => setForm((f) => ({ ...f, ruleType: e.target.value as typeof RULE_TYPES[number], budgetId: "" }))}
                                         className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800"
                                     >
                                         {RULE_TYPES.map((rt) => (
@@ -310,6 +337,35 @@ export default function AlertRulesManager() {
                                     </div>
                                 </div>
                             </div>
+                            {form.ruleType === "budget" && (
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                                        Budget asociado <span className="text-red-500">*</span>
+                                    </label>
+                                    {budgets.length === 0 ? (
+                                        <div className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-lg p-3">
+                                            No hay budgets configurados todavía. Crea un budget en <strong>Inteligencia → Budgets</strong> antes de armar una alerta de tipo Presupuesto.
+                                        </div>
+                                    ) : (
+                                        <select
+                                            required
+                                            value={form.budgetId}
+                                            onChange={(e) => setForm((f) => ({ ...f, budgetId: e.target.value }))}
+                                            className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                                        >
+                                            <option value="">Selecciona un budget…</option>
+                                            {budgets.map((b) => (
+                                                <option key={b.id} value={b.id}>
+                                                    {b.costCenter} — límite ${Number(b.monthlyLimit).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}/mes
+                                                </option>
+                                            ))}
+                                        </select>
+                                    )}
+                                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                                        La alerta se disparará cuando el consumo del budget seleccionado cruce el umbral configurado.
+                                    </p>
+                                </div>
+                            )}
                             <div>
                                 <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">{t("channel")}</label>
                                 <select

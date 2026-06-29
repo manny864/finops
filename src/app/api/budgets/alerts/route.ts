@@ -88,13 +88,15 @@ export async function GET(request: NextRequest) {
 
         try {
             const [rows]: any = await pool.query(
-                `SELECT id, rule_name AS ruleName, rule_type AS ruleType,
-                        threshold_value AS thresholdValue, threshold_unit AS thresholdUnit,
-                        channel, channel_target AS channelTarget, enabled,
-                        last_triggered_at AS lastTriggeredAt, trigger_count AS triggerCount
-                 FROM AlertRules
-                 WHERE tenant_id = ?
-                 ORDER BY created_at DESC`,
+                `SELECT ar.id, ar.rule_name AS ruleName, ar.rule_type AS ruleType,
+                        ar.threshold_value AS thresholdValue, ar.threshold_unit AS thresholdUnit,
+                        ar.channel, ar.channel_target AS channelTarget, ar.enabled,
+                        ar.last_triggered_at AS lastTriggeredAt, ar.trigger_count AS triggerCount,
+                        ar.budget_id AS budgetId, b.cost_center_tag_value AS budgetName
+                 FROM AlertRules ar
+                 LEFT JOIN Budgets b ON b.id = ar.budget_id
+                 WHERE ar.tenant_id = ?
+                 ORDER BY ar.created_at DESC`,
                 [tenantId]
             );
             return NextResponse.json({ success: true, mock: false, rules: rows });
@@ -118,10 +120,15 @@ export async function POST(request: NextRequest) {
         if (authErr) return authErr;
 
         const body = await request.json();
-        const { ruleName, ruleType, thresholdValue, thresholdUnit, comparisonOperator, channel, channelTarget, scopeSubscriptionId } = body;
+        const { ruleName, ruleType, thresholdValue, thresholdUnit, comparisonOperator, channel, channelTarget, scopeSubscriptionId, budgetId } = body;
 
         if (!ruleName || !ruleType || thresholdValue == null || !channel || !channelTarget) {
             return NextResponse.json({ error: "Faltan campos obligatorios." }, { status: 400 });
+        }
+
+        // Reglas tipo "budget" deben apuntar a un Budget específico.
+        if (ruleType === "budget" && !budgetId) {
+            return NextResponse.json({ error: "Para reglas de tipo Presupuesto debe seleccionarse un Budget." }, { status: 400 });
         }
 
         if (isMockTenant(tenantId)) {
@@ -132,14 +139,15 @@ export async function POST(request: NextRequest) {
         try {
             const [result]: any = await pool.query(
                 `INSERT INTO AlertRules
-                    (tenant_id, rule_name, rule_type, scope_subscription_id, threshold_value, threshold_unit,
+                    (tenant_id, rule_name, rule_type, scope_subscription_id, budget_id, threshold_value, threshold_unit,
                      comparison_operator, channel, channel_target, enabled, trigger_count, created_by)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?)`,
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?)`,
                 [
                     tenantId,
                     ruleName,
                     ruleType,
                     scopeSubscriptionId || null,
+                    ruleType === "budget" ? Number(budgetId) : null,
                     thresholdValue,
                     thresholdUnit || "percent",
                     comparisonOperator || "gt",

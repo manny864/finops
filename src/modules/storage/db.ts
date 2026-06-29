@@ -654,6 +654,7 @@ export async function initializeDatabase() {
                 rule_name VARCHAR(255) NOT NULL,
                 rule_type ENUM('budget','anomaly','forecast','threshold') NOT NULL,
                 scope_subscription_id VARCHAR(100),
+                budget_id INT NULL,
                 threshold_value DECIMAL(14,4),
                 threshold_unit VARCHAR(20) DEFAULT 'USD',
                 comparison_operator ENUM('gt','gte','lt','lte','eq') DEFAULT 'gt',
@@ -669,6 +670,12 @@ export async function initializeDatabase() {
                 INDEX idx_alert_tenant (tenant_id, enabled)
             )
         `);
+        // backfill column for existing installs
+        try {
+            await connection.query('ALTER TABLE AlertRules ADD COLUMN budget_id INT NULL');
+        } catch (e: any) {
+            if (e.code !== 'ER_DUP_FIELDNAME') console.error('Error adding AlertRules.budget_id:', e);
+        }
 
         // ===== IT-16: AAD Expiring Credentials =====
         await connection.query(`

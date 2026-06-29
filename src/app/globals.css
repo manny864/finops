@@ -102,16 +102,22 @@ h1, h2, h3, h4, h5, h6 {
  * Forcing color-scheme and explicit option colors makes the popup readable.
  */
 select {
-  color-scheme: light dark;
+  color-scheme: light;
+  background-color: #ffffff !important;
+  color: #0f172a !important;
 }
 select option {
-  background-color: #ffffff;
-  color: #0f172a;
+  background-color: #ffffff !important;
+  color: #0f172a !important;
 }
-.dark select,
+.dark select {
+  color-scheme: dark;
+  background-color: #1e293b !important;
+  color: #f1f5f9 !important;
+}
 .dark select option {
-  background-color: #1e293b;
-  color: #f1f5f9;
+  background-color: #1e293b !important;
+  color: #f1f5f9 !important;
 }
 
 .custom-scrollbar::-webkit-scrollbar {

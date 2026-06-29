@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import useSWR from 'swr';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
-import { Loader2, DollarSign, Percent, Save } from 'lucide-react';
+import { Loader2, DollarSign, Percent, Save, Info } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function PartnerMarkup() {
@@ -89,6 +89,30 @@ export default function PartnerMarkup() {
         return (
             <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg border border-red-100 dark:border-red-900/50">
                 <p className="text-sm font-bold">Error: {error.message}</p>
+            </div>
+        );
+    }
+
+    // CSP no detectado: panel informativo (NO error). El módulo sigue accesible
+    // pero advierte que sin contexto Partner Center el margen no se proyecta sobre
+    // costos facturados reales del CSP.
+    const cspDetected = data?.cspDetected !== false;
+    if (!cspDetected) {
+        return (
+            <div className="max-w-2xl">
+                <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-xl p-5 flex gap-3">
+                    <Info className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                    <div className="text-sm text-amber-900 dark:text-amber-200 space-y-2">
+                        <p className="font-bold">Tenant sin conexión CSP detectada</p>
+                        <p>
+                            {data?.message ||
+                                "El motor de Partner Billing requiere snapshots con contexto Partner Center (billing_profile_id en CostSnapshots). Asegúrate de tener una suscripción Microsoft Customer Agreement / Partner Center activa y de ejecutar el sync de costos al menos una vez."}
+                        </p>
+                        <p className="text-xs text-amber-700 dark:text-amber-300 mt-2">
+                            Puedes igualmente configurar un margen base, pero no se reflejará en facturas hasta que llegue el contexto CSP.
+                        </p>
+                    </div>
+                </div>
             </div>
         );
     }
