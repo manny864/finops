@@ -224,7 +224,10 @@ export default function RateOptimizationPage() {
         setLoading(true);
         try {
             const url = `/api/intelligence/rates?tenantId=${selectedTenant.id}&subscriptionId=${subscriptionId}`;
-            const res = await fetch(url);
+            const idToken = accounts[0] ? await getFreshIdToken(instance, accounts[0], ['User.Read']) : null;
+            const res = await fetch(url, {
+                headers: idToken ? { Authorization: `Bearer ${idToken}` } : {},
+            });
             const json = await res.json();
 
             if (!res.ok) {

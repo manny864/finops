@@ -25,6 +25,7 @@ import { isMockTenant } from '@/lib/mockData';
 import FeatureGuard from '@/components/FeatureGuard';
 import { getFreshIdToken } from '@/lib/msalToken';
 import MockBanner from '@/components/MockBanner';
+import MyPinnedWidgets from '@/components/dashboard/MyPinnedWidgets';
 import {
   BarChart,
   Bar,
@@ -282,6 +283,7 @@ export default function Home() {
   return (
     <div className="content animate-in fade-in duration-500">
       <MockBanner />
+      <MyPinnedWidgets />
       <div className="vhead">
         <div className="title">
           <h1 className="text-gray-900 dark:text-white">{t('title')}</h1>

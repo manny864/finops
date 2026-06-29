@@ -420,7 +420,10 @@
       "invalidEmail": "Por favor, insira um email corporativo válido.",
       "error": "Ocorreu um erro. Por favor, tente novamente."
     },
-    "customPrice": "Personalizado"
+    "customPrice": "Personalizado",
+    "seeMore": "Ver mais",
+    "closeModal": "Fechar",
+    "allFeatures": "Todos os recursos de"
   },
   "auth": {
     "paymentSuccess": "Pagamento concluído com sucesso! Por favor, faça login para acessar seu plano."

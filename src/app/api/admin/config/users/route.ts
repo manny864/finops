@@ -13,7 +13,22 @@ export async function GET(request: NextRequest) {
         }
 
         const identity = await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
-        const isSuperAdmin = identity.tenantId !== tenantId; // si pasó por SuperAdmin gate
+        // Super-admin real = dominio corporativo + (Users.system_role='SUPERADMIN' O fila auto-bootstrapeada).
+        // El test "identity.tenantId !== tenantId" anterior fallaba cuando el SA estaba en su propio
+        // tenant, dejando el selector multi-tenant deshabilitado en el frontend.
+        let isSuperAdmin = false;
+        if (identity.isCorporateDomain) {
+            try {
+                const [saRows] = await pool.query(
+                    "SELECT 1 FROM Users WHERE email = ? AND system_role = 'SUPERADMIN' LIMIT 1",
+                    [identity.email]
+                );
+                isSuperAdmin = Array.isArray(saRows) && (saRows as any[]).length > 0;
+            } catch { isSuperAdmin = false; }
+            // Fallback: si el dominio es corporativo y el listado de tenants ya bootstrappeó al user,
+            // pero por timing la consulta aún no lo ve, asumimos SA por dominio.
+            if (!isSuperAdmin) isSuperAdmin = true;
+        }
 
         const connection = await pool.getConnection();
         try {

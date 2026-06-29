@@ -5,6 +5,7 @@ import { useMsal } from '@azure/msal-react';
 import { getFreshIdToken } from '@/lib/msalToken';
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Server, Loader2 } from 'lucide-react';
+import PinButton from '@/components/dashboard/PinButton';
 
 const COLORS = ['#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899', '#f97316', '#10b981', '#f59e0b', '#ef4444', '#64748b', '#84cc16'];
 
@@ -59,9 +60,12 @@ export default function AksChargebackCard() {
     return (
         <div className="card h-full flex flex-col overflow-hidden">
             <div className="card-h shrink-0 border-b-0 pb-0">
-                <div className="flex items-center gap-2">
-                    <Server className="w-5 h-5 text-cyan-500" />
-                    <h3 className="m-0 text-[var(--brand-deep)]">AKS Chargeback</h3>
+                <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                        <Server className="w-5 h-5 text-cyan-500" />
+                        <h3 className="m-0 text-[var(--brand-deep)]">AKS Chargeback</h3>
+                    </div>
+                    <PinButton widgetKey="intelligence.aks-chargeback" compact />
                 </div>
                 <p className="text-[13px] text-ink-soft m-0 mt-1 font-normal">
                     {total > 0 ? `${fmt(total)} / mes — top namespaces` : 'Sin datos de chargeback'}

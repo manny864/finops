@@ -6,6 +6,7 @@ import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { Loader2, ShieldAlert, Info } from 'lucide-react';
 import Pagination, { usePagination } from '@/components/Pagination';
+import PinButton from '@/components/dashboard/PinButton';
 
 function MockBanner({ tMock }: { tMock: (k: string) => string }) {
     return (
@@ -57,6 +58,10 @@ export default function HARecommendationsPanel() {
     return (
         <div className="space-y-4">
             {data?.mock && <MockBanner tMock={tMock} />}
+
+            <div className="flex items-center justify-end">
+                <PinButton widgetKey="governance.ha-breakdown" />
+            </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {(['critical', 'high', 'medium', 'low'] as const).map(sev => (

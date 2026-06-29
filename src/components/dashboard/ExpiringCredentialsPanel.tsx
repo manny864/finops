@@ -6,6 +6,7 @@ import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { Loader2, KeyRound, Info } from 'lucide-react';
 import Pagination, { usePagination } from '@/components/Pagination';
+import PinButton from '@/components/dashboard/PinButton';
 
 function MockBanner({ tMock }: { tMock: (k: string) => string }) {
     return (
@@ -66,6 +67,10 @@ export default function ExpiringCredentialsPanel() {
     return (
         <div className="space-y-4">
             {data?.mock && <MockBanner tMock={tMock} />}
+
+            <div className="flex items-center justify-end">
+                <PinButton widgetKey="governance.expiring-credentials" />
+            </div>
 
             <div className="grid grid-cols-3 gap-3">
                 <div className={`rounded-xl p-4 border ${SEV_STYLES.critical} border-red-200 dark:border-red-900/50`}>

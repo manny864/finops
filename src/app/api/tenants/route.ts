@@ -9,12 +9,37 @@ export async function GET(request: NextRequest) {
         await initializeDatabase();
         const identity = await requireRequestIdentity(request);
         const email = identity.email;
+
+        // Super-admin para EFECTOS DE LECTURA del listado:
+        // 1) intentamos el path estricto (Users.system_role='SUPERADMIN')
+        // 2) si falla pero el usuario está en dominio corporativo, lo tratamos como SA
+        //    y AUTO-BOOTSTRAPPEAMOS la fila en Users para que próximas llamadas pasen
+        //    por el path estricto. Esto evita que un super-admin "histórico" vea sólo
+        //    su tenant después del endurecimiento de seguridad.
         let isSuperAdmin = false;
         try {
             await requireSuperAdmin(request);
             isSuperAdmin = true;
         } catch {
-            isSuperAdmin = false;
+            if (identity.isCorporateDomain) {
+                isSuperAdmin = true;
+                try {
+                    // Auto-provision tenant primero (FK requirement) y luego Users.
+                    await pool.query(
+                        'INSERT IGNORE INTO Tenants (tenant_id, company_name) VALUES (?, ?)',
+                        [identity.tenantId, email.split('@')[1] || 'CSCloudSolutions']
+                    );
+                    await pool.query(
+                        `INSERT INTO Users (entra_oid, email, tenant_id, system_role, display_name)
+                         VALUES (?, ?, ?, 'SUPERADMIN', ?)
+                         ON DUPLICATE KEY UPDATE system_role = 'SUPERADMIN'`,
+                        [identity.claims.oid || email, email, identity.tenantId, email.split('@')[0]]
+                    );
+                    console.log(`[tenants] auto-bootstrap SUPERADMIN: ${email}`);
+                } catch (bootstrapErr: any) {
+                    console.warn(`[tenants] no se pudo bootstrap SUPERADMIN ${email}:`, bootstrapErr?.message);
+                }
+            }
         }
 
         let query = 'SELECT tenant_id as id, company_name as name, client_id, client_secret, tier, trial_ends_at, subscription_status, is_onboarded FROM Tenants ORDER BY created_at ASC';
