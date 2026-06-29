@@ -151,9 +151,14 @@ export async function GET(request: NextRequest) {
                 commitments,
                 aggregates: { totalCommitment, totalConsumed, totalRemaining, overallProgress, overallStatus },
             });
-        } catch (dbErr) {
-            console.error("MACC DB error — returning mock:", dbErr);
-            return NextResponse.json(MOCK_PAYLOAD);
+        } catch (dbErr: any) {
+            console.error("MACC DB error for real tenant:", tenantId, dbErr?.message);
+            return NextResponse.json({
+                success: false, mock: false,
+                commitments: [],
+                aggregates: { totalCommitment: 0, totalConsumed: 0, totalRemaining: 0, overallProgress: 0, overallStatus: "onTrack" },
+                error: `Sin datos disponibles: ${dbErr?.message || "error"}`,
+            });
         }
     } catch (error: any) {
         console.error("MACC API Error:", error);

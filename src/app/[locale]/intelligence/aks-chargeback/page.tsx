@@ -8,6 +8,7 @@ import { Server, Layers, Cpu, Info } from 'lucide-react';
 import { hasAccess } from '@/lib/tierLogic';
 import { toast } from 'sonner';
 import Pagination, { usePagination } from '@/components/Pagination';
+import PinButton from '@/components/dashboard/PinButton';
 
 export default function AksChargebackPage() {
     const { selectedTenant } = useTenant();
@@ -127,6 +128,7 @@ export default function AksChargebackPage() {
                     <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white flex items-center gap-3">
                         <Layers className="w-8 h-8 text-indigo-500" />
                         Distribución de Costos AKS
+                        <PinButton widgetKey="intelligence.aks-chargeback" />
                     </h1>
                     <p className="text-gray-500 dark:text-gray-400 mt-2 flex items-center gap-2">
                         <Server className="w-4 h-4" /> <b>Clúster:</b> {data.clusterName}

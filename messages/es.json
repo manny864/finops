@@ -434,7 +434,10 @@
       "invalidEmail": "Por favor ingrese un email corporativo válido.",
       "error": "Ocurrió un error. Por favor intente nuevamente."
     },
-    "customPrice": "Personalizado"
+    "customPrice": "Personalizado",
+    "seeMore": "Ver más",
+    "closeModal": "Cerrar",
+    "allFeatures": "Todas las funciones de"
   },
   "auth": {
     "paymentSuccess": "¡Pago completado con éxito! Por favor, inicia sesión para acceder a tu plan."

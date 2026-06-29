@@ -105,26 +105,71 @@ export async function POST(request: NextRequest) {
              return NextResponse.json({ error: "Feature bloqueada. Requiere plan Pro o superior." }, { status: 403 });
         }
 
-        // Mock daily accumulated cost data up to today
+        // Real historical series from CostSnapshots (FOCUS) for the current month.
         const today = new Date();
-        const currentDay = Math.min(today.getDate(), 15); // force max 15 to show forecast properly
         const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-        
-        const dailyCosts = [];
+        const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+        const monthStartStr = monthStart.toISOString().split('T')[0];
+
+        const [costRows] = await pool.query(
+            `SELECT DATE(ChargePeriodStart) AS day_date, SUM(EffectiveCost) AS daily
+             FROM CostSnapshots
+             WHERE tenant_id = ? AND ChargePeriodStart >= ?
+             GROUP BY DATE(ChargePeriodStart)
+             ORDER BY day_date ASC`,
+            [tenantId, monthStartStr]
+        );
+
+        const dailyByDay = new Map<number, number>();
+        (Array.isArray(costRows) ? costRows as any[] : []).forEach(r => {
+            const d = r.day_date instanceof Date ? r.day_date : new Date(r.day_date);
+            dailyByDay.set(d.getDate(), Number(r.daily) || 0);
+        });
+
+        if (dailyByDay.size === 0) {
+            return NextResponse.json({
+                success: true,
+                empty: true,
+                message: "Sin datos históricos del mes actual para proyectar. Ejecute el sync de costos.",
+                chartData: [],
+                projectedEndOfMonthCost: 0,
+                isBreachPredicted: false,
+                breachDate: null,
+                budgetLimit: monthlyBudget || null
+            });
+        }
+
+        const currentDay = today.getDate();
+        const dailyCosts: { day: number; cost: number; dailySpend: number }[] = [];
         let accumulated = 0;
         for (let i = 1; i <= currentDay; i++) {
-            // Deterministic baseline for fallback forecasting when no historical series is available
-            const dailySpend = 300 + (i % 7) * 12;
+            const dailySpend = dailyByDay.get(i) ?? 0;
             accumulated += dailySpend;
-            dailyCosts.push({ day: i, cost: accumulated, dailySpend });
+            if (dailySpend > 0 || dailyCosts.length > 0) {
+                dailyCosts.push({ day: i, cost: accumulated, dailySpend });
+            }
+        }
+
+        if (dailyCosts.length < 2) {
+            return NextResponse.json({
+                success: true,
+                empty: true,
+                message: "Se requieren al menos 2 días con costo para proyectar.",
+                chartData: [],
+                projectedEndOfMonthCost: accumulated,
+                isBreachPredicted: false,
+                breachDate: null,
+                budgetLimit: monthlyBudget || null
+            });
         }
 
         const prediction = predictCost(dailyCosts, daysInMonth);
 
         let breachDate = null;
-        const budget = monthlyBudget || 8000;
+        // Si no se provee presupuesto explícito, no inventamos uno (8000 era arbitrario).
+        const budget = (typeof monthlyBudget === 'number' && monthlyBudget > 0) ? monthlyBudget : null;
 
-        if (prediction && prediction.projectedCost > budget && prediction.slope > 0) {
+        if (prediction && budget != null && prediction.projectedCost > budget && prediction.slope > 0) {
             // Find when Y = Budget -> X = (Budget - Intercept) / Slope
             const breachDay = Math.round((budget - prediction.intercept) / prediction.slope);
             if (breachDay <= daysInMonth && breachDay > currentDay) {
@@ -133,10 +178,12 @@ export async function POST(request: NextRequest) {
         }
 
         const chartData = [];
+        const accumByDay = new Map<number, number>();
+        dailyCosts.forEach(p => accumByDay.set(p.day, p.cost));
         for (let i = 1; i <= daysInMonth; i++) {
             chartData.push({
                 day: i,
-                actualSpend: i <= currentDay ? dailyCosts[i-1].cost : null,
+                actualSpend: i <= currentDay ? (accumByDay.get(i) ?? null) : null,
                 forecastedSpend: prediction ? (prediction.slope * i + prediction.intercept) : null,
                 budgetLimit: budget
             });

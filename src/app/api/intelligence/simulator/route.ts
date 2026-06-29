@@ -3,11 +3,16 @@ import pool from "@/modules/storage/db";
 import { isMockTenant } from "@/lib/mockData";
 
 // Simulated Retail API wrapper for What-If scenario
-const fetchSimulatedPrices = async (scenarioData: any) => {
-    // In a real implementation, this would call Azure Retail Prices API
-    // https://prices.azure.com/api/retail/prices
-    
-    let baseCost = scenarioData.baseCost || 10000;
+const fetchSimulatedPrices = async (scenarioData: any, tenantBaseCost: number | null) => {
+    // Real implementations would call Azure Retail Prices API. Aquí calculamos a partir del
+    // gasto histórico REAL del tenant (consultado por el caller). Si tenantBaseCost es null,
+    // requerimos baseCost explícito en el payload — no inventamos un default.
+    const baseCost = (typeof scenarioData.baseCost === 'number' && scenarioData.baseCost > 0)
+        ? scenarioData.baseCost
+        : tenantBaseCost;
+    if (baseCost == null || baseCost <= 0) {
+        throw new Error("baseCost requerido: no hay gasto histórico para este tenant. Provea scenario.baseCost o ejecute el sync de costos.");
+    }
     
     // Calculate network egress factor
     const networkIncrease = scenarioData.networkIncrease || 0; // percentage
@@ -64,7 +69,25 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Feature bloqueada. Requiere plan Enterprise." }, { status: 403 });
         }
 
-        const simulation = await fetchSimulatedPrices(scenario);
+        // Resolver baseCost a partir del gasto real del último mes para tenants reales.
+        let tenantBaseCost: number | null = null;
+        if (!isMockTenant(tenantId)) {
+            try {
+                const [costRows]: any = await pool.query(
+                    `SELECT SUM(EffectiveCost) AS total
+                     FROM CostSnapshots
+                     WHERE tenant_id = ? AND ChargePeriodStart >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)`,
+                    [tenantId]
+                );
+                if (Array.isArray(costRows) && costRows[0] && costRows[0].total != null) {
+                    tenantBaseCost = Number(costRows[0].total);
+                }
+            } catch {
+                tenantBaseCost = null;
+            }
+        }
+
+        const simulation = await fetchSimulatedPrices(scenario, tenantBaseCost);
 
         if (!isMockTenant(tenantId)) {
             // Log simulation run only for real tenants

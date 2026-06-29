@@ -95,7 +95,12 @@ export async function GET(request: NextRequest) {
 
         // 3) Empty real result — return a no-issues success (not mock)
         return NextResponse.json({ success: true, mock: false, source: 'arg', items: [], counts: { critical: 0, high: 0, medium: 0, low: 0 } });
-    } catch {
-        return NextResponse.json(MOCK_RESPONSE);
+    } catch (err: any) {
+        console.error("[governance/ha] handler error:", err?.message);
+        return NextResponse.json({
+            success: false, mock: false,
+            items: [], counts: { critical: 0, high: 0, medium: 0, low: 0 },
+            error: err?.message || "Error interno",
+        }, { status: 200 });
     }
 }

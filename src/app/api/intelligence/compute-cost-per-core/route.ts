@@ -124,8 +124,15 @@ export async function GET(request: NextRequest) {
                 trend,
                 benchmark: 42.50,
             });
-        } catch {
-            return NextResponse.json(MOCK_PAYLOAD);
+        } catch (dbErr: any) {
+            console.error("[compute-cost-per-core] DB error for real tenant:", tenantId, dbErr?.message);
+            return NextResponse.json({
+                success: false, mock: false,
+                totalCores: 0, totalCost: 0, effectiveCost: 0,
+                costPerCore: 0, costPerCoreNoCommitments: 0, savingsFromCommitments: 0,
+                byRegion: [], bySku: [], trend: [], benchmark: 0,
+                error: `Sin datos disponibles: ${dbErr?.message || "error"}`,
+            });
         }
     } catch (err: any) {
         return NextResponse.json({ error: err.message || "Error interno" }, { status: 500 });

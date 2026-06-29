@@ -3,7 +3,7 @@ import { deallocateVirtualMachine, startVirtualMachine, restartVirtualMachine } 
 import { getAzureCredential } from "@/lib/azure";
 import { MonitorClient } from "@azure/arm-monitor";
 import { getResourceGraphClient, getSubscriptionsForTenant } from "@/lib/azure";
-import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
+import { AuthError, requireTenantAccess, requireTenantRole } from "@/lib/requestAuth";
 
 type VmRow = {
     id: string;
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Parámetros inválidos" }, { status: 400 });
         }
 
-        const identity = await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
+        const identity = await requireTenantRole(request, tenantId, ['Admin', 'Operator']);
         const email = identity.email || "unknown@tenant.local";
 
         // Ejecutar las acciones asíncronamente (sin await individual bloqueante)

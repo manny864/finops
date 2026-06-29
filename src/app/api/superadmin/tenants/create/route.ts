@@ -1,27 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import jwt from "jsonwebtoken";
 import pool from "@/modules/storage/db";
+import { AuthError, requireSuperAdmin } from "@/lib/requestAuth";
 
 export async function POST(request: NextRequest) {
     try {
-        const authHeader = request.headers.get("authorization");
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            return NextResponse.json({ error: "Falta token Bearer de autenticación." }, { status: 401 });
-        }
-
-        const token = authHeader.split(" ")[1];
-        const decoded = jwt.decode(token) as any;
-
-        if (!decoded) {
-            return NextResponse.json({ error: "Token inválido." }, { status: 401 });
-        }
-
-        const email = decoded.unique_name || decoded.preferred_username || "";
-        const isSuperAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") ;
-
-        if (!isSuperAdmin) {
-            return NextResponse.json({ error: "Acceso denegado. Se requiere rol SuperAdmin." }, { status: 403 });
-        }
+        await requireSuperAdmin(request);
 
         const body = await request.json();
         const { tenantName, domain, adminEmail } = body;
@@ -40,6 +23,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: true, tenantId });
 
     } catch (error: any) {
+        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
         console.error("[SuperAdmin Create Tenant Error]", error);
         return NextResponse.json({ error: "Error interno del servidor." }, { status: 500 });
     }

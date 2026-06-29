@@ -85,24 +85,43 @@ export async function GET(request: NextRequest) {
                 }
             }
 
-            // 2. Mock de DAUs (En producción esto vendría de Datadog, Google Analytics, DB, etc.)
+            // 2. DAU real desde tabla BusinessMetrics (cada tenant inyecta su métrica vía API externa).
+            //    Si no hay fuente registrada, NO inventamos datos: devolvemos dau=null para tenants reales.
+            let dauByDate = new Map<string, number>();
+            try {
+                const pool = (await import('@/modules/storage/db')).default;
+                const [rows] = await pool.query(
+                    `SELECT metric_date, dau FROM BusinessMetrics
+                     WHERE tenant_id = ? AND metric_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)`,
+                    [tenantId]
+                );
+                if (Array.isArray(rows)) {
+                    (rows as any[]).forEach(r => {
+                        const d = r.metric_date instanceof Date
+                            ? r.metric_date.toISOString().split('T')[0]
+                            : String(r.metric_date).split('T')[0];
+                        if (r.dau != null) dauByDate.set(d, Number(r.dau));
+                    });
+                }
+            } catch {
+                // Tabla puede no existir aún; degradamos a dau=null en lugar de fabricar.
+                dauByDate = new Map();
+            }
+
             const finalData = [];
             for (let i = 29; i >= 0; i--) {
                 const date = new Date();
                 date.setDate(date.getDate() - i);
                 const dateStr = date.toISOString().split('T')[0];
-                
-                const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+
                 const cost = dailyCosts.get(dateStr) || 0;
-                
-                // Métrica de Negocio (Usuarios Activos Diarios - DAU) simulada
-                const dau = isWeekend ? 35000 + Math.floor(Math.random() * 5000) : 55000 + Math.floor(Math.random() * 8000);
-                
+                const dau = dauByDate.has(dateStr) ? dauByDate.get(dateStr)! : null;
+
                 finalData.push({
                     date: dateStr,
                     cost: cost,
                     dau: dau,
-                    costPerUser: cost > 0 ? (cost / dau) : 0
+                    costPerUser: (dau && dau > 0 && cost > 0) ? (cost / dau) : null
                 });
             }
 

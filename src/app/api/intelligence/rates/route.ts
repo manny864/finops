@@ -3,6 +3,7 @@ import { getAzureCredential } from "@/lib/azure";
 import { calculateReservationSavings } from "@/services/rateService";
 import { getReservationRecommendations } from "@/services/reservationService";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
+import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
 
 export async function GET(request: NextRequest) {
     try {
@@ -14,10 +15,35 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Faltan parámetros requeridos: tenantId, subscriptionId" }, { status: 400 });
         }
 
+        await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
+
         const cacheKey = `rates:${tenantId}:${subscriptionId}`;
         const data = await getWithStaleWhileRevalidate(cacheKey, async () => {
-            const credential = await getAzureCredential(tenantId);
-            const recommendations = await calculateReservationSavings(credential, subscriptionId);
+            let credential;
+            try {
+                credential = await getAzureCredential(tenantId);
+            } catch (credErr: any) {
+                const msg = credErr?.message || "";
+                throw new Error(
+                    /credenciales|credentials|client_id|client_secret/i.test(msg)
+                        ? "El tenant no tiene credenciales de Service Principal configuradas. Ingresá clientId/clientSecret en Admin → Configuración."
+                        : `No se pudieron obtener credenciales de Azure: ${msg}`
+                );
+            }
+
+            let recommendations: any[] = [];
+            try {
+                recommendations = await calculateReservationSavings(credential, subscriptionId);
+            } catch (err: any) {
+                const msg = err?.message || "";
+                if (/AuthorizationFailed|Forbidden|403/i.test(msg)) {
+                    throw new Error("El Service Principal no tiene permisos de Reader sobre Resource Graph. Asigná el rol 'Reader' a nivel de suscripción.");
+                }
+                if (/timeout|ETIMEDOUT|ECONNRESET/i.test(msg)) {
+                    throw new Error("Azure Resource Graph tardó demasiado en responder. Reintentá en unos segundos.");
+                }
+                throw new Error(`Resource Graph falló: ${msg}`);
+            }
 
             let reservations: any[] = [];
             try {
@@ -31,7 +57,13 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json(data);
     } catch (error: any) {
+        if (error instanceof AuthError) {
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        }
         console.error("Rates Fetch Error:", error);
-        return NextResponse.json({ error: "Fallo al obtener recomendaciones de tarifas.", details: error.message }, { status: 500 });
+        return NextResponse.json(
+            { error: error?.message || "Fallo al obtener recomendaciones de tarifas.", details: error?.message },
+            { status: 500 }
+        );
     }
 }

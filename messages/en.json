@@ -434,7 +434,10 @@
       "invalidEmail": "Please enter a valid corporate email.",
       "error": "An error occurred. Please try again."
     },
-    "customPrice": "Custom"
+    "customPrice": "Custom",
+    "seeMore": "See more",
+    "closeModal": "Close",
+    "allFeatures": "All features of"
   },
   "auth": {
     "paymentSuccess": "Payment completed successfully! Please log in to access your plan."

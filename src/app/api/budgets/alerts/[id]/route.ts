@@ -47,8 +47,9 @@ export async function DELETE(
                 [id, tenantId]
             );
             return NextResponse.json({ success: true, mock: false });
-        } catch {
-            return NextResponse.json({ success: true, mock: true });
+        } catch (dbErr: any) {
+            console.error("[AlertRules] DELETE failed for real tenant:", tenantId, dbErr?.message);
+            return NextResponse.json({ success: false, error: `No se pudo eliminar: ${dbErr?.message || "error"}` }, { status: 500 });
         }
     } catch (err: any) {
         return NextResponse.json({ error: err.message || "Error interno" }, { status: 500 });

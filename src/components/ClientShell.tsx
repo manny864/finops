@@ -13,6 +13,7 @@ import Sidebar from "./Sidebar";
 import RouteTierGate from './RouteTierGate';
 import ActionCenterDrawer from './ActionCenterDrawer';
 import CostToggle from './dashboard/CostToggle';
+import GlobalPagePinButton from './dashboard/GlobalPagePinButton';
 import PricingPage from './PricingPage';
 import { useActionLogStore } from '@/store/actionLogStore';
 import { useRouter, usePathname } from '@/i18n/routing';
@@ -292,6 +293,8 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
           <RouteTierGate>{children}</RouteTierGate>
         </main>
         
+        <GlobalPagePinButton />
+
         <div className="fixed bottom-4 right-6 pointer-events-none z-40 opacity-40 select-none">
             <div className="flex flex-col items-end">
                 <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">SaaS Tier</span>

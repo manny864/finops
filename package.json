@@ -3,12 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3000",
+    "dev:clean": "lsof -ti:3000 | xargs kill -9 2>/dev/null; next dev -p 3000",
     "dev:3003": "PORT=3003 next dev -p 3003",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -p 3000",
     "lint": "eslint",
-    "db:delete-admin": "node scripts/delete-admin-user.js"
+    "db:delete-admin": "node scripts/delete-admin-user.js",
+    "migrate": "tsx scripts/migrate.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.81",

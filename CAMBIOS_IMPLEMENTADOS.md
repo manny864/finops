@@ -1,6 +1,200 @@
 # Cambios Implementados (Bitácora Operativa)
 
 Este archivo centraliza **todos los cambios realizados y futuros** del proyecto.
+## 2026-06-29 — Sistema de migraciones explícitas versionadas
+
+### ¿Por qué?
+La inicialización del schema dependía 100% de `ALTER TABLE` envueltos en `try/catch` dentro de `initializeDatabase()`. Funciona pero:
+- No hay registro de qué se aplicó ni cuándo.
+- Imposible auditar diferencias entre ambientes.
+- Reordenar/modificar es riesgoso (silencioso).
+
+### 🆕 Infraestructura
+- **`migrations/`** — directorio con archivos `.sql` versionados (`YYYYMMDD-NNN-descripcion.sql`).
+- **`migrations/README.md`** — convención de nombres, reglas (idempotencia, no editar aplicadas, no float para costos).
+- **`migrations/20260629-001-alertrules-budget-id.sql`** — primera migración explícita: garantiza `AlertRules.budget_id` y su índice `idx_alert_budget` en todos los ambientes (cierra el bug de mock leak por columna ausente).
+- **`src/modules/storage/migrations.ts`** — runner idempotente:
+  - Crea tabla `SchemaMigrations (file_name UNIQUE, checksum SHA256, applied_at, duration_ms)`.
+  - Lee `/migrations/*.sql`, salta los ya aplicados.
+  - Splittea en statements, ignora `ER_DUP_FIELDNAME`/`ER_DUP_KEYNAME`/`ER_TABLE_EXISTS_ERROR`/`ER_DUP_ENTRY`/`ER_CANT_DROP_FIELD_OR_KEY` (errores de re-ejecución segura).
+  - Detecta checksums mutados (warning, no aborta).
+  - Aborta en el primer error real.
+- **Auto-ejecución**: `initializeDatabase()` ahora importa y llama `runMigrations()` después de los CREATE TABLE legacy. Cero acción manual en runtime normal.
+
+### 🆕 Endpoints admin (super-admin only)
+- **`POST /api/admin/migrations/run`** — fuerza re-ejecución (idempotente).
+- **`GET /api/admin/migrations/status`** — lista aplicadas + pendientes.
+
+### 🆕 CLI
+- **`scripts/migrate.ts`** — `npx tsx scripts/migrate.ts` para correr migraciones desde local/CI. Exit 1 si alguna falla.
+
+### Verificación
+- `npx tsc --noEmit` → 0 errors.
+- Al primer hit del backend tras el deploy, `runMigrations()` aplica la migración pendiente y registra la fila en `SchemaMigrations`. El `budget_id` queda garantizado en todos los ambientes.
+
+---
+
+## 2026-06-29 — Sweep crítico: NUNCA mock leak en tenants reales
+
+### 🚨 Bug global
+Múltiples endpoints tenían el anti-patrón:
+```ts
+try { /* query DB real */ } catch { return NextResponse.json(MOCK_PAYLOAD); }
+```
+Esto causaba que en cualquier error transitorio (columna recién migrada, índice ausente, conexión flaky), el tenant real recibiera **datos mock con `mock:true` o incluso `mock:false`**, mostrando reglas de alerta de ejemplo, recomendaciones de rightsizing falsas, MACC ficticios, etc.
+
+### 🛠 Endpoints saneados (catch → empty real payload, NO mock)
+| Endpoint | Antes | Ahora |
+|---|---|---|
+| `/api/budgets/alerts` (GET+POST) | catch → MOCK_RULES (4 reglas demo) | `rules: []` + error explícito; POST devuelve 500 con error |
+| `/api/budgets/alerts/[id]` (DELETE) | catch → `{success:true, mock:true}` (mentira) | `{success:false, error}` con 500 |
+| `/api/intelligence/compute-cost-per-core` | catch → MOCK_PAYLOAD (cores/SKUs falsos) | ceros y arrays vacíos |
+| `/api/intelligence/ai-analytics` | catch → MOCK_PAYLOAD (modelos GPT falsos) | summary en 0, arrays vacíos |
+| `/api/intelligence/macc` | catch → commitment de $5M falso | `commitments: []` |
+| `/api/intelligence/storage-efficiency` | catch → MOCK_PAYLOAD + mock:true | arrays vacíos, summary 0 |
+| `/api/rightsizing/appservice` | catch → 3 planes falsos | `items: []` |
+| `/api/rightsizing/vmss` | catch → MOCK_RESPONSE | `items: []` |
+| `/api/rightsizing/storage` | catch → MOCK_RESPONSE | `items: []` |
+| `/api/rightsizing/sqldb` | catch → MOCK_RESPONSE | `items: []` |
+| `/api/onboard/lighthouse` (GET+POST) | catch → MOCK_GET_RESPONSE / mock id | `delegations: []` / 500 con error real |
+| `/api/cleanup/zombies/networking` | siempre devolvía MOCK | mocks sólo si `isMockTenant`; real → `items: []` + warning de ARG pendiente |
+| `/api/governance/ha` (outer catch) | catch → MOCK_RESPONSE | empty `items:[]` + error |
+| `/api/admin/report/invoicing` | catch → MOCK_PAYLOAD CSV/JSON | 500 con error real, sin generar archivo falso |
+| `/api/budgets/alerts` (auth) | jwt.decode | `requireTenantAccess` (RS256 + JWKS) |
+
+### Verificación
+- `npx tsc --noEmit` → 0 errors.
+- Todos los frontends siguen funcionando: el contrato del response (mismas keys, tipos) se preservó, sólo cambiaron valores demo por ceros/arrays vacíos cuando el flujo es real.
+
+---
+
+## 2026-06-29 — Credenciales por Expirar (live Graph) + hook order bug
+
+### 🐛 Bug 1: `AlertRulesManager` — Rendered more hooks than during the previous render
+- `usePagination(...)` se llamaba en línea 170, **después** de tres `return` early (`!selectedTenant`, `isLoading`, `error`). En el primer render, esos returns disparaban y el hook nunca se llamaba; en el segundo render se llamaba → React aborta.
+- **Fix**: movido `usePagination(rules, 10)` al tope del componente, inmediatamente después de calcular `rules`, antes de cualquier return condicional. Cumple Rules of Hooks.
+
+### 🐛 Bug 2: Credenciales por Expirar (Entra ID) vacío en mock y en producción
+- **Causa real**: el endpoint `/api/governance/expiring-credentials` sólo leía la tabla `ExpiringCredentials` (snapshot estático). En producción nadie llenaba la tabla → siempre vacía. En mock las fechas estaban hardcodeadas a julio/agosto/septiembre 2026.
+- **Fix `src/app/api/governance/expiring-credentials/route.ts`** (reescrito completo):
+  - **Live Microsoft Graph query**: token client_credentials con `client_id/client_secret` del tenant, GET paginado `/applications?$select=appId,displayName,passwordCredentials,keyCredentials`. Extrae secretos y certificados con `endDateTime <= now + daysAhead`. Devuelve datos AUTORITATIVOS en tiempo real.
+  - **Mock con fechas relativas**: 2/12/28/65 días desde hoy (no más fechas hardcoded que envejecen). Severity calculada automáticamente (≤7 crítico, ≤30 alto, ≤60 medio, resto bajo).
+  - **Snapshot DB best-effort**: cada llamada live persiste resultados en `ExpiringCredentials` para fallback offline. Si Graph falla, devuelve último snapshot con warning.
+  - **Auth fix**: reemplazado `jwt.decode` por `requireTenantAccess(request, tenantId, { allowSuperAdmin: true })` (valida firma RS256 contra JWKS de Entra). Cierra brecha de cross-tenant con token forjado.
+  - **Mensaje sin SP**: si el tenant no tiene `client_id/client_secret`, devuelve `code: NO_SP_CREDS` con instrucción de completar onboarding (en vez de 500 silencioso).
+
+### Verificación
+- `npx tsc --noEmit` → 0 errors.
+- Para validar live: crear un nuevo secret en cualquier App Registration del tenant con expiración ≤ daysAhead (default 90), recargar `/governance` y debe aparecer en máximo 1 request (sin cache intermedio).
+
+---
+
+## 2026-06-29 — Dashboard lento / cards inconsistentes (root-cause + fix)
+
+### 🐢 Síntoma
+- En tenants reales, las tarjetas superiores del dashboard (costo actual, proyectado, ahorros, anomalías) cargaban a veces sí y a veces vacías.
+- Lentitud generalizada al recargar.
+
+### 🔍 Causa raíz
+1. **`/api/dashboard/summary` lanzaba 500 si `/api/intelligence/forecast` fallaba** (el fix previo de anti cache-poisoning era demasiado estricto): cualquier flaqueza transitoria de Azure SDK tiraba abajo TODO el dashboard.
+2. **Sub-fetches sin timeout**: si `audit/full` tardaba 30s, el endpoint completo se quedaba colgado.
+3. **TTL corto** (300s hard / 150s soft): expiraba antes que SWR pudiera servir versión válida.
+4. **Forecast era la única fuente de `actualCost`**: si la API de forecast no respondía, las cards quedaban en `$0`.
+
+### 🛠 Fix (`src/app/api/dashboard/summary/route.ts`)
+- **Cache versionada `v4`** con TTL más generoso: **hard 900s (15m)** / **soft 300s (5m)**. SWR ahora puede servir stale durante 10 minutos mientras revalida en background.
+- **`timedFetch(url, ms)`** con `AbortController`: audit (18s), forecast (12s). Ninguna sub-llamada bloquea más allá de su límite.
+- **`Promise.all` con `.catch`** sobre cada sub-fetch: una falla NO mata al dashboard. Se retorna `degraded: true` + `degradedReason` y la UI puede pintar lo que tiene.
+- **`fetchActualCostMTD(tenantId, subscriptionId)`**: nueva fuente primaria para `actualCost`, leyendo directo de `CostSnapshots` (mismo mes). DB local, <50 ms.
+- **Proyección lineal de fallback**: si forecast no responde pero hay MTD, `projectedCost = MTD * (diasMes / diaActual)`. El usuario siempre ve un número razonable.
+- **Sin más throws en el fetcher de SWR**: el cache se escribe SIEMPRE que el handler termine, evitando el ciclo "500 → cache vacío → 500 otra vez".
+
+### 📊 Efecto esperado
+- Primera carga fría: ≤18s (timeout duro de audit).
+- Cargas calientes (los 5-15 min siguientes): <50 ms (servido desde Redis).
+- Cards superiores: siempre con valores (MTD directo de DB).
+- Anomalías transitorias de Azure: dashboard sigue funcional con banner `degraded`.
+
+---
+
+## 2026-06-29 — Partner Billing CSP, Alertas con budget, selectores legibles
+
+### 💲 Partner Billing Engine (CSP) — mensaje informativo cuando no hay CSP
+- **Síntoma**: la página mostraba `Error: Fallo al obtener margen (markup)` en tenants reales sin Partner Center conectado, incluso en tenants con CSP activo (mensaje genérico ocultaba la causa).
+- **Causa**: el GET retornaba 500 ante cualquier excepción y el frontend pintaba un panel rojo.
+- **Fix backend** (`src/app/api/admin/billing-markup/route.ts`):
+  - Nueva heurística `detectCspConnection(tenantId)` que verifica `CostSnapshots.billing_profile_id IS NOT NULL` (campo poblado por sync FOCUS de Partner Center).
+  - Respuesta siempre **200** si el tenant existe y es Enterprise, con `cspDetected: boolean` y `message` informativo cuando es `false`.
+  - Errores reales devuelven 500 con `details` (mensaje real, antes oculto).
+- **Fix frontend** (`src/components/dashboard/PartnerMarkup.tsx`):
+  - Panel ambar informativo cuando `cspDetected === false` (en lugar de error rojo).
+  - Mantiene panel rojo solo para errores reales.
+
+### 🔔 Alertas Self-Service — definir Budget destino
+- **Síntoma**: las reglas tipo `budget` no decían a qué presupuesto se vinculaban.
+- **Schema** (`src/modules/storage/db.ts`):
+  - Nueva columna `AlertRules.budget_id INT NULL` con migration `ALTER TABLE` idempotente.
+- **API** (`src/app/api/budgets/alerts/route.ts`):
+  - GET ahora hace `LEFT JOIN Budgets` y devuelve `budgetId` + `budgetName` en cada regla.
+  - POST valida que `ruleType === "budget"` requiera `budgetId` (400 si falta).
+- **UI** (`src/components/dashboard/AlertRulesManager.tsx`):
+  - Carga paralela de `/api/budgets` vía SWR.
+  - Selector "Budget asociado *" aparece sólo cuando `ruleType === "budget"`.
+  - Si no hay budgets configurados: aviso con CTA a Inteligencia → Budgets.
+  - Cada fila de la tabla muestra `Budget: <name>` bajo el nombre de la regla cuando aplica.
+
+### 🎨 Workbooks/Artefactos — selectores blanco sobre blanco
+- **Síntoma**: en macOS Chrome/Safari, los `<select>` de suscripción y RG en `/admin/workbooks` mostraban texto blanco sobre fondo blanco (ilegible) cuando el `<select>` se rendereaba con widget nativo del OS.
+- **Causa**: utilidades Tailwind `dark:text-white` ganaban especificidad sobre el rule global, y `color-scheme: light dark` dejaba al browser elegir contra el OS, no contra el theme de la app.
+- **Fix global** (`src/app/globals.css`):
+  - `select` ahora fuerza `color-scheme: light` con `background-color: #ffffff !important` y `color: #0f172a !important`.
+  - `.dark select` fuerza `color-scheme: dark` con `#1e293b / #f1f5f9 !important`.
+  - Aplica a TODAS las páginas con `<select>` (no solo Workbooks).
+
+---
+
+## 2026-06-29 — Auditoría: mock leaks en tenants reales, JWT signature, RBAC
+
+Auditoría de cierre tras la sesión previa. Tres ejes: (1) datos mock filtrándose a tenants reales, (2) brechas de seguridad, (3) actualizaciones/warnings.
+
+### 🧪 Mock/hardcoded → tenants REALES (TODOS corregidos)
+- **Síntoma**: rutas `/api/intelligence/*` y `/api/copilot-m365/*` retornaban números fabricados también a tenants reales (no sólo DEMO).
+- **Causa**: defaults inventados (`Math.random()`, `300 + (i%7)*12`, `baseCost ?? 10000`), placeholders `"demo-aks-cluster"`, `delta` aleatorio en reindex.
+- **Fixes**:
+  - `unit-economics`: DAU se lee de tabla `BusinessMetrics`; si no hay fuente, devuelve `dau:null`/`costPerUser:null` (sin Math.random).
+  - `copilot-m365/config` reindex: ya no incrementa `indexed_records` con random; sólo actualiza `last_index_at` y deja que el conector real lo refleje en el próximo poll.
+  - `intelligence/forecast` POST: histórico real desde `CostSnapshots` (mes actual); si <2 días con costo retorna `empty:true`. Sin budget explícito, no se inventa `8000`.
+  - `intelligence/aks-chargeback`: defaults `"mock-sub"/"demo-aks-cluster"/"MC_demo"` → cadenas vacías (ya hay fallback `empty:true`).
+  - `intelligence/simulator`: `baseCost` se deriva del gasto real (CostSnapshots últimos 30d); si no hay, exige `scenario.baseCost`. Se elimina el default `10000`.
+
+### 🔐 Seguridad — vulnerabilidades CRITICAL/HIGH corregidas
+- **CRITICAL — `/api/admin/payments` sin auth**: GET filtraba `PADDLE_API_KEY`/`PADDLE_WEBHOOK_SECRET` y POST permitía sobrescribir los secretos de forma anónima → robo de webhook signing key. Fix: `requireSuperAdmin`, redact en GET, allowlist de campos en POST.
+- **HIGH — `/api/admin/config/webhook` sin auth real**: aceptaba cualquier `Authorization` y permitía sobrescribir `webhook_url` de cualquier tenant (SSRF / exfiltración). Fix: `requireTenantAccess` + validador `isSafeWebhookUrl` (sólo HTTPS pública; bloquea RFC1918, loopback, link-local, metadata Azure 169.254.169.254).
+- **HIGH — `/api/remediation/workflow` GET cross-tenant**: query `?tenantId=` ignoraba el tenant del token. Fix: `requireTenantAccess(...,{allowSuperAdmin:true})` en GET/POST/PATCH. Quitado `authenticateRequest` con `jwt.decode`.
+- **CRITICAL (parcial) — `jwt.decode` sin verificar firma**: ~60 rutas usaban `jwt.decode` y derivaban SuperAdmin sólo del email (forjable). Reemplazado en las rutas más explotables:
+  - `/api/superadmin/tenants/create`, `/api/superadmin/users/promote`
+  - `/api/admin/tenants` (POST/PATCH tier escalation)
+  - `/api/admin/config/users` (GET/POST/PUT/DELETE — gestión de usuarios y elevación de roles)
+  - `/api/admin/payments`, `/api/admin/config/webhook`, `/api/remediation/workflow`
+  - Todas ahora pasan por `requireRequestIdentity` / `requireTenantAccess` / `requireSuperAdmin` (`src/lib/requestAuth.ts`) que valida RS256 contra JWKS de Entra, `iss`, `aud`, `exp`, `nbf`.
+  - **Pendiente**: ~55 rutas restantes siguen con `jwt.decode` (rutas de lectura: billing, advisor, budgets, intelligence/*, governance/*, cleanup/*, etc.). Riesgo residual: lectura cross-tenant si token está forjado. Mitigado parcialmente porque las queries SQL filtran por `tenantId` y la mayoría requiere que coincida con `decoded.tid`. Acción en sprint siguiente: sweep automatizado.
+- **HIGH — `/api/power` POST sin RBAC**: cualquier miembro autenticado del tenant podía apagar VMs. Fix: nuevo helper `requireTenantRole(request, tenantId, ['Admin','Operator'])` en `requestAuth.ts`. SuperAdmin corp pasa sin chequear role.
+
+### 📦 Actualizaciones & warnings
+- **npm audit**: `0 vulnerabilities` ✅
+- **tsc --noEmit**: `0 errors` ✅
+- **Pendientes accionables** (no bloqueantes):
+  - Major bumps disponibles: `@ai-sdk/*` 3→4, `ai` 6→7, `@azure/arm-appservice` 18→19, `@types/node` 20→26, `typescript` 5→6, `eslint` 9→10. Requieren revisión de breaking changes.
+  - ESLint sin archivo de config (`.eslintrc*` o `eslint.config.js`). Recomendación: `eslint.config.js` con preset Next 16.
+  - 308 `console.error/warn` en `src/` (logger estructurado en próxima iteración).
+  - 2 `@ts-ignore` (FocusCostPieChart, CostPieChart) y 1 `eslint-disable react-hooks/exhaustive-deps` (admin/report).
+  - 2 TODOs de integración real con Paddle Checkout (`/api/tenants`, `/api/checkout`).
+
+### 🆕 Helper nuevo
+- `src/lib/requestAuth.ts`: añadido `requireTenantRole(request, tenantId, allowedRoles)` que combina tenant gate + lookup en tabla `Users.role`.
+
+---
+
 ## 2026-06-29 — Estabilidad del dashboard, Reporte Ejecutivo IA, Copilot M365 datos reales
 
 Sesión amplia de bugfixes y features sobre dashboard, copilot, reportes y horario de apagado.

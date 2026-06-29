@@ -173,9 +173,14 @@ export async function GET(request: NextRequest) {
                 byTeam: Array.from(teamMap.values()).sort((a, b) => b.cost - a.cost),
                 trend: Array.from(trendMap.values()).sort((a, b) => a.date.localeCompare(b.date)),
             });
-        } catch (dbErr) {
-            console.error("AI Analytics DB error — returning mock:", dbErr);
-            return NextResponse.json(MOCK_PAYLOAD);
+        } catch (dbErr: any) {
+            console.error("AI Analytics DB error for real tenant:", tenantId, dbErr?.message);
+            return NextResponse.json({
+                success: false, mock: false,
+                summary: { totalCost: 0, totalInputTokens: 0, totalOutputTokens: 0, costPer1kTokens: 0, activeModels: 0, activeApplications: 0 },
+                byModel: [], byApplication: [], byTeam: [], trend: [],
+                error: `Sin datos disponibles: ${dbErr?.message || "error"}`,
+            });
         }
     } catch (error: any) {
         console.error("AI Analytics API Error:", error);

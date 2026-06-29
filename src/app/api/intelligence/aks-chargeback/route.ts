@@ -45,9 +45,11 @@ export async function GET(request: NextRequest) {
         }
 
         // --- Cluster selection ---
-        let targetSubscriptionId = "mock-sub";
-        let targetClusterName = "demo-aks-cluster";
-        let targetNodeResourceGroup = "MC_demo";
+        // Para tenants mock, getMockDataForRoute responde por una rama previa; aquí
+        // sólo entran tenants reales. Si no hay clusters, salimos con empty:true.
+        let targetSubscriptionId = "";
+        let targetClusterName = "";
+        let targetNodeResourceGroup = "";
         let availableClusters: Array<{ name: string; subscriptionId: string; resourceGroup: string; nodeResourceGroup: string }> = [];
 
         if (!isMockTenant(tenantId)) {

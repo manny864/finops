@@ -5,6 +5,7 @@ import { useMsal } from '@azure/msal-react';
 import { getFreshIdToken } from '@/lib/msalToken';
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts';
 import { ShieldAlert, Loader2 } from 'lucide-react';
+import PinButton from '@/components/dashboard/PinButton';
 
 const COLORS = ['#ef4444', '#f97316', '#f59e0b', '#3b82f6', '#06b6d4', '#10b981', '#8b5cf6', '#ec4899', '#64748b', '#84cc16'];
 
@@ -65,9 +66,12 @@ export default function HABreakdownCard() {
     return (
         <div className="card h-full flex flex-col overflow-hidden">
             <div className="card-h shrink-0 border-b-0 pb-0">
-                <div className="flex items-center gap-2">
-                    <ShieldAlert className="w-5 h-5 text-amber-500" />
-                    <h3 className="m-0 text-[var(--brand-deep)]">Alta Disponibilidad</h3>
+                <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                        <ShieldAlert className="w-5 h-5 text-amber-500" />
+                        <h3 className="m-0 text-[var(--brand-deep)]">Alta Disponibilidad</h3>
+                    </div>
+                    <PinButton widgetKey="governance.ha-breakdown" compact />
                 </div>
                 <p className="text-[13px] text-ink-soft m-0 mt-1 font-normal">
                     {total > 0 ? `${total} recursos con riesgos detectados` : 'Sin recursos en riesgo'}
