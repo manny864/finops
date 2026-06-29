@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool, { initializeDatabase } from '@/modules/storage/db';
 import { getCurrentMonthAmortizedCosts } from '@/modules/collectors/azure/billingService';
+import { getWithStaleWhileRevalidate } from '@/lib/cache';
 
 export async function GET(request: NextRequest) {
     try {
         const tenantId = request.headers.get('x-tenant-id');
         const subscriptionId = request.headers.get('x-subscription-id');
+        const metricTypeHeader = (request.headers.get('x-metric-type') || 'ActualCost') as 'ActualCost' | 'AmortizedCost';
+        const metricType: 'ActualCost' | 'AmortizedCost' = metricTypeHeader === 'AmortizedCost' ? 'AmortizedCost' : 'ActualCost';
 
         if (!tenantId || !subscriptionId) {
             return NextResponse.json(
@@ -47,10 +50,18 @@ export async function GET(request: NextRequest) {
         }
 
         // 2. If cache is empty, fallback to live Azure Cost Management query
+        //    (wrapped en Redis SWR para evitar pegarle a Azure en cada refresh).
         if (rows.length === 0) {
-            console.log('[Billing] No cached data, querying Azure Cost Management live...');
+            console.log('[Billing] No cached data, querying Azure Cost Management live (Redis SWR)...');
             try {
-                const focusData = await getCurrentMonthAmortizedCosts(tenantId, subscriptionId);
+                const cacheKey = `billing:live:${tenantId}:${subscriptionId}:${metricType}`;
+                // ttl=30min, softTtl=10min → 10m de cache duro + 20m de stale-while-revalidate
+                const focusData = await getWithStaleWhileRevalidate(
+                    cacheKey,
+                    () => getCurrentMonthAmortizedCosts(tenantId, subscriptionId, metricType),
+                    1800,
+                    600
+                );
                 return NextResponse.json({ success: true, data: focusData });
             } catch (azureErr: any) {
                 console.error('[Billing] Azure Cost Management query failed:', azureErr.message);

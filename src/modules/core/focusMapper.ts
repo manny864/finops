@@ -1,3 +1,5 @@
+import { toMoneyNumber } from "@/lib/money";
+
 export interface FocusCostEntry {
     BilledCost: number;
     EffectiveCost: number;
@@ -35,7 +37,7 @@ export function mapAzureToFocus(row: any[], columns: any[]): FocusCostEntry {
     const usageDate = dateIndex !== -1 && row[dateIndex] ? String(row[dateIndex]) : undefined;
 
 
-    const cost = costIndex !== -1 ? Number(row[costIndex]) || 0 : 0;
+    const cost = costIndex !== -1 ? toMoneyNumber(row[costIndex]) : 0;
 
     return {
         BilledCost: cost,
@@ -61,7 +63,7 @@ export function mapCsvToFocus(row: Record<string, any>): FocusCostEntry {
     }
 
     const costString = normalizedRow['costinbillingcurrency'] || normalizedRow['cost'] || normalizedRow['pretaxcost'] || normalizedRow['amortizedcost'] || normalizedRow['actualcost'] || 0;
-    const cost = parseFloat(String(costString).replace(/,/g, '')) || 0;
+    const cost = toMoneyNumber(costString);
 
     return {
         BilledCost: cost,

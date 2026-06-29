@@ -1,0 +1,299 @@
+import crypto from "crypto";
+import { NextRequest } from "next/server";
+import pool from "@/modules/storage/db";
+
+type JwtHeader = {
+  alg?: string;
+  kid?: string;
+  typ?: string;
+};
+
+export type AuthClaims = {
+  tid: string;
+  oid?: string;
+  aud?: string;
+  iss?: string;
+  exp?: number;
+  nbf?: number;
+  iat?: number;
+  preferred_username?: string;
+  unique_name?: string;
+  upn?: string;
+  email?: string;
+  [key: string]: unknown;
+};
+
+type OpenIdConfiguration = {
+  issuer: string;
+  jwks_uri: string;
+};
+
+type JsonWebKey = {
+  kty: string;
+  kid: string;
+  use?: string;
+  n?: string;
+  e?: string;
+  x5c?: string[];
+  [key: string]: unknown;
+};
+
+type JwksResponse = {
+  keys: JsonWebKey[];
+};
+
+type CacheEntry<T> = {
+  value: T;
+  expiresAt: number;
+};
+
+const openIdCache = new Map<string, CacheEntry<OpenIdConfiguration>>();
+const jwksCache = new Map<string, CacheEntry<JwksResponse>>();
+const CACHE_TTL_MS = 15 * 60 * 1000;
+const CLOCK_SKEW_SECONDS = 120;
+
+export class AuthError extends Error {
+  status: number;
+
+  constructor(message: string, status = 401) {
+    super(message);
+    this.name = "AuthError";
+    this.status = status;
+  }
+}
+
+function getBearerToken(request: NextRequest): string {
+  const authHeader = request.headers.get("authorization");
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    throw new AuthError("No autorizado.", 401);
+  }
+
+  const token = authHeader.slice("Bearer ".length).trim();
+  if (!token) {
+    throw new AuthError("No autorizado.", 401);
+  }
+
+  return token;
+}
+
+function base64UrlDecode(input: string): Buffer {
+  const base64 = input.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=");
+  return Buffer.from(padded, "base64");
+}
+
+function parseJson<T>(buf: Buffer, field: string): T {
+  try {
+    return JSON.parse(buf.toString("utf8")) as T;
+  } catch {
+    throw new AuthError(`Token inválido (${field}).`, 401);
+  }
+}
+
+async function cachedFetchJson<T>(url: string): Promise<T> {
+  const response = await fetch(url, { cache: "no-store" });
+  if (!response.ok) {
+    throw new AuthError("No se pudo validar el token con Entra ID.", 401);
+  }
+  return (await response.json()) as T;
+}
+
+async function getOpenIdConfiguration(tenantId: string): Promise<OpenIdConfiguration> {
+  const cached = openIdCache.get(tenantId);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value;
+  }
+
+  const openIdUrl = `https://login.microsoftonline.com/${tenantId}/v2.0/.well-known/openid-configuration`;
+  const value = await cachedFetchJson<OpenIdConfiguration>(openIdUrl);
+  openIdCache.set(tenantId, { value, expiresAt: Date.now() + CACHE_TTL_MS });
+  return value;
+}
+
+async function getJwks(tenantId: string): Promise<JwksResponse> {
+  const cached = jwksCache.get(tenantId);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value;
+  }
+
+  const openId = await getOpenIdConfiguration(tenantId);
+  const value = await cachedFetchJson<JwksResponse>(openId.jwks_uri);
+  jwksCache.set(tenantId, { value, expiresAt: Date.now() + CACHE_TTL_MS });
+  return value;
+}
+
+function getAudienceAllowList(): string[] {
+  const ids = [
+    process.env.AZURE_CLIENT_ID,
+    process.env.AZURE_AD_CLIENT_ID,
+    process.env.NEXT_PUBLIC_AZURE_CLIENT_ID,
+    process.env.NEXT_PUBLIC_CLIENT_ID,
+  ].filter((value): value is string => typeof value === "string" && value.trim().length > 0);
+
+  if (ids.length === 0) return [];
+
+  const audience = new Set<string>();
+  for (const id of ids) {
+    audience.add(id);
+    audience.add(`api://${id}`);
+  }
+  return [...audience];
+}
+
+function isAllowedIssuer(issuer: string | undefined, tenantId: string): boolean {
+  if (!issuer) return false;
+  const normalizedTid = tenantId.toLowerCase();
+  const allowed = new Set([
+    `https://login.microsoftonline.com/${normalizedTid}/v2.0`,
+    `https://login.microsoftonline.com/${normalizedTid}/`,
+    `https://sts.windows.net/${normalizedTid}/`,
+  ]);
+  return allowed.has(issuer.toLowerCase());
+}
+
+function validateStandardClaims(claims: AuthClaims): void {
+  const now = Math.floor(Date.now() / 1000);
+  if (claims.nbf && claims.nbf > now + CLOCK_SKEW_SECONDS) {
+    throw new AuthError("Token aún no válido.", 401);
+  }
+  if (claims.exp && claims.exp < now - CLOCK_SKEW_SECONDS) {
+    throw new AuthError("Token expirado.", 401);
+  }
+}
+
+function validateAudience(claims: AuthClaims): void {
+  const allowList = getAudienceAllowList();
+  if (allowList.length === 0) return;
+
+  const aud = typeof claims.aud === "string" ? claims.aud : "";
+  if (!allowList.includes(aud)) {
+    throw new AuthError("Audiencia de token inválida.", 401);
+  }
+}
+
+function resolveEmail(claims: AuthClaims): string {
+  const candidates = [
+    claims.preferred_username,
+    claims.unique_name,
+    claims.upn,
+    claims.email,
+  ];
+
+  const found = candidates.find((value) => typeof value === "string" && value.trim().length > 0);
+  return (found || "").toLowerCase();
+}
+
+export async function validateRequestToken(request: NextRequest): Promise<AuthClaims> {
+  const token = getBearerToken(request);
+  const parts = token.split(".");
+  if (parts.length !== 3) {
+    throw new AuthError("Token inválido.", 401);
+  }
+
+  const [encodedHeader, encodedPayload, encodedSignature] = parts;
+  const header = parseJson<JwtHeader>(base64UrlDecode(encodedHeader), "header");
+  const claims = parseJson<AuthClaims>(base64UrlDecode(encodedPayload), "payload");
+
+  if (header.alg !== "RS256" || !header.kid) {
+    throw new AuthError("Algoritmo de token inválido.", 401);
+  }
+
+  if (!claims.tid) {
+    throw new AuthError("Token sin tenant.", 401);
+  }
+
+  validateStandardClaims(claims);
+  validateAudience(claims);
+
+  if (!isAllowedIssuer(typeof claims.iss === "string" ? claims.iss : undefined, claims.tid)) {
+    throw new AuthError("Issuer de token inválido.", 401);
+  }
+
+  const jwks = await getJwks(claims.tid);
+  const key = jwks.keys.find((item) => item.kid === header.kid && item.kty === "RSA");
+  if (!key) {
+    throw new AuthError("No se encontró clave pública para validar token.", 401);
+  }
+
+  const verifierInput = Buffer.from(`${encodedHeader}.${encodedPayload}`, "utf8");
+  const signature = base64UrlDecode(encodedSignature);
+  const publicKey = crypto.createPublicKey({ key, format: "jwk" });
+  const isValid = crypto.verify("RSA-SHA256", verifierInput, publicKey, signature);
+
+  if (!isValid) {
+    throw new AuthError("Firma de token inválida.", 401);
+  }
+
+  return claims;
+}
+
+export type RequestIdentity = {
+  claims: AuthClaims;
+  tenantId: string;
+  email: string;
+  isCorporateDomain: boolean;
+};
+
+export async function requireRequestIdentity(request: NextRequest): Promise<RequestIdentity> {
+  const claims = await validateRequestToken(request);
+  const email = resolveEmail(claims);
+  const isCorporateDomain = email.endsWith("@cscloudsolutions.com.ar");
+
+  return {
+    claims,
+    tenantId: claims.tid,
+    email,
+    isCorporateDomain,
+  };
+}
+
+async function hasSystemRole(email: string, role: string): Promise<boolean> {
+  if (!email) return false;
+  const [rows] = await pool.query(
+    "SELECT 1 FROM Users WHERE email = ? AND system_role = ? LIMIT 1",
+    [email, role]
+  );
+  return Array.isArray(rows) && rows.length > 0;
+}
+
+export async function requireSuperAdmin(request: NextRequest): Promise<RequestIdentity> {
+  const identity = await requireRequestIdentity(request);
+  if (!identity.isCorporateDomain) {
+    throw new AuthError("Acceso denegado. Se requieren privilegios de Super Administrador.", 403);
+  }
+
+  const superAdmin = await hasSystemRole(identity.email, "SUPERADMIN");
+  if (!superAdmin) {
+    throw new AuthError("Acceso denegado. Se requieren privilegios de Super Administrador.", 403);
+  }
+
+  return identity;
+}
+
+export async function requireTenantAccess(
+  request: NextRequest,
+  tenantId: string,
+  options?: { allowSuperAdmin?: boolean }
+): Promise<RequestIdentity> {
+  const identity = await requireRequestIdentity(request);
+  const allowSuperAdmin = options?.allowSuperAdmin ?? true;
+
+  if (identity.tenantId === tenantId) {
+    return identity;
+  }
+
+  if (!allowSuperAdmin) {
+    throw new AuthError("Acceso denegado al tenant.", 403);
+  }
+
+  if (!identity.isCorporateDomain) {
+    throw new AuthError("Acceso denegado al tenant.", 403);
+  }
+
+  const superAdmin = await hasSystemRole(identity.email, "SUPERADMIN");
+  if (!superAdmin) {
+    throw new AuthError("Acceso denegado al tenant.", 403);
+  }
+
+  return identity;
+}

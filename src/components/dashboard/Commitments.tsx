@@ -1,9 +1,9 @@
 "use client";
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import useSWR from 'swr';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
-import { Loader2, TrendingUp, ShieldCheck, AlertCircle } from 'lucide-react';
+import { Loader2, TrendingUp, ShieldCheck, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   ResponsiveContainer,
   PieChart,
@@ -15,6 +15,8 @@ import {
 export default function Commitments() {
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
 
     const fetcher = async (url: string) => {
         const account = accounts[0];
@@ -76,11 +78,19 @@ export default function Commitments() {
 
     if (!metrics) return null;
 
-    const utilizationColor = metrics.utilization >= 80 ? '#10B981' : (metrics.utilization >= 70 ? '#F59E0B' : '#EF4444');
-    const utilizationData = [
-        { name: 'Utilizado', value: metrics.utilization },
-        { name: 'Desperdicio', value: 100 - metrics.utilization }
-    ];
+    const hasReservations: boolean = Boolean(metrics.hasReservations);
+    const utilizationKnown: boolean = typeof metrics.utilization === 'number' && metrics.utilization >= 0;
+    const utilizationValue: number = utilizationKnown ? Number(metrics.utilization) : 0;
+
+    const utilizationColor = !utilizationKnown
+        ? '#9CA3AF'
+        : utilizationValue >= 80 ? '#10B981' : (utilizationValue >= 70 ? '#F59E0B' : '#EF4444');
+    const utilizationData = utilizationKnown
+        ? [
+            { name: 'Utilizado', value: utilizationValue },
+            { name: 'Desperdicio', value: 100 - utilizationValue }
+          ]
+        : [{ name: 'Sin datos', value: 100 }];
 
     const coverageColor = metrics.coverage >= 60 ? '#3B82F6' : '#6366F1';
     const coverageData = [
@@ -128,15 +138,23 @@ export default function Commitments() {
                         </ResponsiveContainer>
                         <div className="absolute inset-0 flex items-center justify-center flex-col">
                             <span className="text-3xl font-black text-gray-900 dark:text-white" style={{ color: utilizationColor }}>
-                                {metrics.utilization.toFixed(1)}%
+                                {utilizationKnown ? `${utilizationValue.toFixed(1)}%` : 'N/D'}
                             </span>
                         </div>
                     </div>
-                    {metrics.utilization < 70 && (
+                    {!hasReservations ? (
+                        <div className="mt-2 w-full flex items-center gap-2 bg-gray-50 dark:bg-slate-800 text-gray-600 dark:text-gray-400 p-2 rounded text-sm">
+                            <AlertCircle className="w-4 h-4" /> Sin reservas activas en este tenant.
+                        </div>
+                    ) : !utilizationKnown ? (
+                        <div className="mt-2 w-full flex items-center gap-2 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 p-2 rounded text-sm">
+                            <AlertCircle className="w-4 h-4" /> Utilización no disponible: requiere permiso Billing Reader (EA/MCA).
+                        </div>
+                    ) : utilizationValue < 70 ? (
                         <div className="mt-2 w-full flex items-center gap-2 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 p-2 rounded text-sm font-medium">
                             <AlertCircle className="w-4 h-4" /> Alerta: Estás perdiendo dinero en reservas ociosas.
                         </div>
-                    )}
+                    ) : null}
                 </div>
 
                 {/* Cobertura */}
@@ -191,6 +209,7 @@ export default function Commitments() {
                         No hay recomendaciones de compra disponibles actualmente.
                     </div>
                 ) : (
+                    <>
                     <div className="overflow-x-auto">
                         <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
                             <thead className="bg-gray-50 dark:bg-slate-800/50">
@@ -203,7 +222,7 @@ export default function Commitments() {
                                 </tr>
                             </thead>
                             <tbody className="bg-white dark:bg-slate-900 divide-y divide-gray-200 dark:divide-slate-800">
-                                {metrics.recommendations.map((rec: any, idx: number) => (
+                                {metrics.recommendations.slice((page - 1) * pageSize, page * pageSize).map((rec: any, idx: number) => (
                                     <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{rec.type}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{rec.sku}</td>
@@ -215,6 +234,48 @@ export default function Commitments() {
                             </tbody>
                         </table>
                     </div>
+                    {(() => {
+                        const total = metrics.recommendations.length;
+                        const totalPages = Math.max(1, Math.ceil(total / pageSize));
+                        const safePage = Math.min(page, totalPages);
+                        const from = total === 0 ? 0 : (safePage - 1) * pageSize + 1;
+                        const to = Math.min(safePage * pageSize, total);
+                        return (
+                            <div className="flex items-center justify-between mt-4 px-1 text-sm">
+                                <div className="flex items-center gap-3 text-gray-500 dark:text-gray-400">
+                                    <span>Mostrando <strong className="text-gray-900 dark:text-white">{from}-{to}</strong> de <strong className="text-gray-900 dark:text-white">{total}</strong></span>
+                                    <select
+                                        value={pageSize}
+                                        onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
+                                        className="border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg px-2 py-1 text-xs font-semibold cursor-pointer"
+                                    >
+                                        <option value={5}>5 / pág</option>
+                                        <option value={10}>10 / pág</option>
+                                        <option value={20}>20 / pág</option>
+                                        <option value={50}>50 / pág</option>
+                                    </select>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                                        disabled={safePage <= 1}
+                                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 font-semibold text-xs disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                                    >
+                                        <ChevronLeft className="w-3.5 h-3.5" /> Anterior
+                                    </button>
+                                    <span className="text-gray-700 dark:text-gray-300 font-bold px-2">Página {safePage} de {totalPages}</span>
+                                    <button
+                                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                        disabled={safePage >= totalPages}
+                                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 font-semibold text-xs disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                                    >
+                                        Siguiente <ChevronRight className="w-3.5 h-3.5" />
+                                    </button>
+                                </div>
+                            </div>
+                        );
+                    })()}
+                    </>
                 )}
             </div>
         </div>

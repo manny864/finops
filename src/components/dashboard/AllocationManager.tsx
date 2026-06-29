@@ -5,6 +5,7 @@ import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { Loader2, Save, Plus, Trash2, PieChart } from 'lucide-react';
 import toast from 'react-hot-toast';
+import Pagination, { usePagination } from '@/components/Pagination';
 
 export default function AllocationManager() {
     const { selectedTenant } = useTenant();
@@ -13,6 +14,7 @@ export default function AllocationManager() {
 
     const [rulesByResource, setRulesByResource] = useState<Record<string, any[]>>({});
     const [isSaving, setIsSaving] = useState(false);
+    const [paginationState, setPaginationState] = useState<Record<string, { page: number; pageSize: number }>>({});
 
     const fetcher = async (url: string) => {
         const account = accounts[0];
@@ -202,6 +204,15 @@ export default function AllocationManager() {
                     {Object.keys(rulesByResource).map(resName => {
                         const totalPct = rulesByResource[resName].reduce((acc, r) => acc + r.allocationPercentage, 0);
                         const isBalanced = Math.abs(totalPct - 100) < 0.01;
+                        
+                        if (!paginationState[resName]) {
+                            setPaginationState(prev => ({ ...prev, [resName]: { page: 1, pageSize: 10 } }));
+                        }
+                        
+                        const { page, pageSize } = paginationState[resName] || { page: 1, pageSize: 10 };
+                        const start = (page - 1) * pageSize;
+                        const paged = rulesByResource[resName].slice(start, start + pageSize);
+                        const totalPages = Math.max(1, Math.ceil(rulesByResource[resName].length / pageSize));
 
                         return (
                             <div key={resName} className={`bg-white dark:bg-slate-900 rounded-xl border ${isBalanced ? 'border-gray-200 dark:border-slate-800' : 'border-red-300 dark:border-red-800'} overflow-hidden shadow-sm`}>
@@ -219,12 +230,12 @@ export default function AllocationManager() {
                                 </div>
                                 
                                 <div className="p-4 space-y-3">
-                                    {rulesByResource[resName].map((rule, idx) => (
+                                    {paged.map((rule, idx) => (
                                         <div key={idx} className="flex gap-2 items-center">
                                             <input 
                                                 type="text" 
                                                 value={rule.targetCostCenter}
-                                                onChange={(e) => updateAllocation(resName, idx, 'targetCostCenter', e.target.value)}
+                                                onChange={(e) => updateAllocation(resName, start + idx, 'targetCostCenter', e.target.value)}
                                                 className="flex-1 rounded border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm p-2 focus:ring-brand-deep focus:border-brand-deep"
                                                 placeholder="Centro de Costos"
                                             />
@@ -232,13 +243,13 @@ export default function AllocationManager() {
                                                 <input 
                                                     type="number" 
                                                     value={rule.allocationPercentage}
-                                                    onChange={(e) => updateAllocation(resName, idx, 'allocationPercentage', Number(e.target.value))}
+                                                    onChange={(e) => updateAllocation(resName, start + idx, 'allocationPercentage', Number(e.target.value))}
                                                     className="w-full rounded border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm p-2 pr-6 focus:ring-brand-deep focus:border-brand-deep"
                                                 />
                                                 <span className="absolute right-2 top-2 text-gray-400 text-sm">%</span>
                                             </div>
                                             <button 
-                                                onClick={() => removeAllocation(resName, idx)}
+                                                onClick={() => removeAllocation(resName, start + idx)}
                                                 className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                                             >
                                                 <Trash2 className="w-4 h-4" />
@@ -253,6 +264,33 @@ export default function AllocationManager() {
                                         <Plus className="w-3 h-3" /> Añadir Porcentaje
                                     </button>
                                 </div>
+                                
+                                {rulesByResource[resName].length > pageSize && (
+                                    <div className="px-4 py-3 border-t border-gray-100 dark:border-slate-800">
+                                        <div className="flex items-center justify-between gap-2 text-xs">
+                                            <span className="text-gray-500 dark:text-gray-400">
+                                                Mostrando <strong>{start + 1}</strong>-<strong>{Math.min(start + pageSize, rulesByResource[resName].length)}</strong> de <strong>{rulesByResource[resName].length}</strong>
+                                            </span>
+                                            <div className="flex gap-1">
+                                                <button
+                                                    onClick={() => setPaginationState(prev => ({ ...prev, [resName]: { ...prev[resName], page: Math.max(1, page - 1) } }))}
+                                                    disabled={page <= 1}
+                                                    className="px-2 py-1 rounded border border-gray-200 dark:border-slate-700 text-gray-700 dark:text-gray-300 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-slate-800"
+                                                >
+                                                    ←
+                                                </button>
+                                                <span className="px-2 py-1 text-gray-700 dark:text-gray-300 font-bold">{page}/{totalPages}</span>
+                                                <button
+                                                    onClick={() => setPaginationState(prev => ({ ...prev, [resName]: { ...prev[resName], page: Math.min(totalPages, page + 1) } }))}
+                                                    disabled={page >= totalPages}
+                                                    className="px-2 py-1 rounded border border-gray-200 dark:border-slate-700 text-gray-700 dark:text-gray-300 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-slate-800"
+                                                >
+                                                    →
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         );
                     })}

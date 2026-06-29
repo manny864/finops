@@ -2,30 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import pool, { initializeDatabase } from "@/modules/storage/db";
 import { tenants as mockTenants } from '@/lib/tenants';
 import { verifySubscription } from '@/lib/apiSecurity';
-
-import jwt from "jsonwebtoken";
+import { AuthError, requireRequestIdentity, requireSuperAdmin } from "@/lib/requestAuth";
 
 export async function GET(request: NextRequest) {
     try {
         await initializeDatabase();
-        const authHeader = request.headers.get("authorization");
-        let email = "";
+        const identity = await requireRequestIdentity(request);
+        const email = identity.email;
         let isSuperAdmin = false;
-        let decodedToken: any = null;
-
-        if (authHeader && authHeader.startsWith("Bearer ")) {
-            const token = authHeader.split(" ")[1];
-            decodedToken = jwt.decode(token) as any;
-            if (decodedToken) {
-                email = decodedToken.unique_name || decodedToken.preferred_username || decodedToken.email || "";
-            }
-        }
-
-        if (email) {
-            const isCorpDomain = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") ;
-            if (isCorpDomain) {
-                isSuperAdmin = true;
-            }
+        try {
+            await requireSuperAdmin(request);
+            isSuperAdmin = true;
+        } catch {
+            isSuperAdmin = false;
         }
 
         let query = 'SELECT tenant_id as id, company_name as name, client_id, client_secret, tier, trial_ends_at, subscription_status, is_onboarded FROM Tenants ORDER BY created_at ASC';
@@ -40,9 +29,31 @@ export async function GET(request: NextRequest) {
         }
 
         const [rows] = await pool.query(query, queryParams);
+        let tenantRows = rows as Array<{ id: string; name: string; tier?: string; subscription_status?: string; is_onboarded?: boolean }>;
+
+        // Auto-provisión: si el tenant del usuario autenticado no aparece en el resultado,
+        // crearlo con INSERT IGNORE para que la UI pueda mostrar los inputs de credenciales.
+        // Se ejecuta SIEMPRE (también para Super Admins) porque un SA puede no tener fila para su tenant.
+        if (identity.tenantId) {
+            const alreadyPresent = tenantRows.some(t => t.id === identity.tenantId);
+            if (!alreadyPresent) {
+                const fallbackName = identity.email?.split('@')[1] || 'Organización sin nombre';
+                await pool.query(
+                    'INSERT IGNORE INTO Tenants (tenant_id, company_name) VALUES (?, ?)',
+                    [identity.tenantId, fallbackName]
+                );
+                const [newRows] = await pool.query(
+                    `SELECT tenant_id as id, company_name as name, client_id, client_secret, tier, trial_ends_at, subscription_status, is_onboarded
+                     FROM Tenants WHERE tenant_id = ? LIMIT 1`,
+                    [identity.tenantId]
+                );
+                const created = newRows as Array<{ id: string; name: string; client_id?: string; client_secret?: string; tier?: string; subscription_status?: string; is_onboarded?: boolean }>;
+                if (created.length > 0) tenantRows = [...tenantRows, ...created];
+            }
+        }
         
         // Inyectar datos mock para demos de tiers o forzar tiers de Admins
-        const allTenants = [...(rows as any[])];
+        const allTenants = [...tenantRows];
         for (const mock of mockTenants) {
             const existing = allTenants.find(t => t.id === mock.id);
             if (!existing) {
@@ -53,7 +64,11 @@ export async function GET(request: NextRequest) {
         }
         
         return NextResponse.json({ success: true, tenants: allTenants });
-    } catch (error: any) {
+    } catch (error: unknown) {
+        if (error instanceof AuthError) {
+            console.warn('[GET /api/tenants] AuthError:', error.message);
+            return NextResponse.json({ error: error.message, authReason: error.message }, { status: error.status });
+        }
         console.error('API GET /tenants error:', error);
         return NextResponse.json({ error: 'Fallo al leer la base de datos' }, { status: 500 });
     }
@@ -84,10 +99,24 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
     try {
         const body = await request.json();
-        const { tenantId, name, clientId, clientSecret } = body;
+        let { tenantId, name, clientId, clientSecret } = body;
 
         if (!tenantId || !name) {
             return NextResponse.json({ error: 'Faltan datos' }, { status: 400 });
+        }
+
+        // Sanitización: remover whitespace y comillas accidentales (común al pegar JSON del onboarding)
+        const clean = (v: any) => (typeof v === 'string' ? v.trim().replace(/^["']+|["']+$/g, '') : v);
+        tenantId = clean(tenantId);
+        clientId = clean(clientId);
+        clientSecret = clean(clientSecret);
+
+        const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        if (!uuidRe.test(tenantId)) {
+            return NextResponse.json({ error: 'tenantId no es un UUID válido' }, { status: 400 });
+        }
+        if (clientId && !uuidRe.test(clientId)) {
+            return NextResponse.json({ error: 'clientId no es un UUID válido (verificar comillas/espacios al pegar)' }, { status: 400 });
         }
 
         await pool.query(

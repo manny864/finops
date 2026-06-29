@@ -56,7 +56,15 @@
     "executive_report": "Executive Report",
     "audit_trail": "Audit Trail",
     "licenses": "License Optimization",
-    "budgets": "Tenant Budgets"
+    "budgets": "Tenant Budgets",
+    "storage_efficiency": "Storage Efficiency",
+    "compute_efficiency": "Compute Efficiency",
+    "alerts_self_service": "Alerts (Self-Service)",
+    "ai_analytics": "AI Cost Analytics",
+    "macc": "MACC Tracking",
+    "ha_recommendations": "High Availability",
+    "expiring_credentials": "Expiring Credentials",
+    "copilot_m365": "Copilot M365"
   },
   "Dashboard": {
     "title": "General Dashboard",
@@ -228,7 +236,10 @@
     "btn_apply": "Apply",
     "potentialSavingsTitle": "Potential Savings",
     "potentialSavingsDesc": "Waste & Rightsizing",
-    "viewDetails": "View Optimization Details"
+    "viewDetails": "View Optimization Details",
+    "cost_optimization": "Cost Optimization",
+    "inactive_resources_cat": "Inactive Resources",
+    "leak": "Leak"
   },
   "Network": {
     "title": "Network & Egress Analysis",
@@ -314,7 +325,8 @@
   "Copilot": {
     "welcome_message": "Hi! I'm your FinOps assistant and I'm here to help. I'm currently analyzing the <b>{page}</b> module; you can ask me anything related to the data shown on this page.",
     "title": "FinOps Copilot",
-    "placeholder": "Ask about these metrics..."
+    "placeholder": "Ask about these metrics...",
+    "tooltip": "FinOps Copilot — AI assistant: analyzes the current page, finds savings and answers your questions."
   },
   "pricing": {
     "monthly": "Monthly",
@@ -337,7 +349,9 @@
         "PDF/CSV Exports",
         "Azure Advisor Health Score",
         "Potential Savings Radar (Teaser)",
-        "FinOps Onboarding Academy"
+        "FinOps Onboarding Academy",
+        "Open Data Sets (Services/Regions/Resources)",
+        "Data Freshness Monitoring (Pipeline Health)"
       ]
     },
     "pro": {
@@ -355,7 +369,15 @@
         "Hybrid Benefit Scanner (AHB)",
         "Predictive Anomaly Engine (Z-Score)",
         "Action Center (Quick Fixes)",
-        "Smart Shutdown (VMs)"
+        "Smart Shutdown (VMs)",
+        "Cost Optimization Index (COIN)",
+        "Recommendation Suppression (Snooze)",
+        "Commitment Eligibility Recommender (RI/SP)",
+        "Compute Efficiency ($/core)",
+        "Self-Service Alerts",
+        "Networking Zombies (AppGW/LB)",
+        "VMSS Rightsizing",
+        "App Service + SQL + Storage Rightsizing"
       ]
     },
     "business": {
@@ -369,7 +391,10 @@
         "Anomaly Detection",
         "Time-to-Live (TTL) Policies",
         "AKS Control (Kubernetes)",
-        "Cost Distribution (Chargeback)"
+        "Cost Distribution (Chargeback)",
+        "Storage Efficiency (Hot/Cool/Archive + $/GB)",
+        "VM High Availability",
+        "Expiring Credentials (Entra ID)"
       ]
     },
     "enterprise": {
@@ -387,7 +412,12 @@
         "FinOps Policies as Code",
         "Partner CSP Billing Engine",
         "FinOps Gamification Scorecard",
-        "Power BI Data Export (FOCUS)"
+        "Power BI Data Export (FOCUS)",
+        "Azure OpenAI Cost Analytics",
+        "MACC Tracking & Burn-Rate",
+        "Power BI Invoicing (CSP)",
+        "Azure Lighthouse Onboarding",
+        "M365 Copilot Connector + Studio Agent"
       ]
     },
     "enterpriseModal": {
@@ -442,5 +472,171 @@
     "highGrade": "High Grade",
     "sustainableCloudComputing": "Sustainable Cloud Computing",
     "sustainabilityDesc": "Your carbon intensity factor is automatically mapped to your active Azure regions. Moving workloads to regions like northeurope or francecentral can significantly reduce your footprint."
+  },
+  "StorageEfficiency": {
+    "title": "Storage Efficiency",
+    "subtitle": "Storage tier distribution and cost per GB",
+    "distribution": "Tier Distribution",
+    "costPerGb": "Cost per GB/month",
+    "totalGb": "Total GB",
+    "hot": "Hot",
+    "cool": "Cool",
+    "cold": "Cold",
+    "archive": "Archive",
+    "recommendation": "Recommendation",
+    "potentialSavings": "Potential Savings",
+    "description": "Move infrequently-accessed blobs to Cool or Archive to reduce cost."
+  },
+  "ComputeEfficiency": {
+    "title": "Compute Efficiency",
+    "subtitle": "Cost per vCore and SKU efficiency",
+    "costPerCore": "Cost per Core/month",
+    "totalCores": "Total vCores",
+    "effective": "Effective Cost",
+    "byRegion": "By Region",
+    "bySku": "By SKU",
+    "trend": "Monthly Trend",
+    "benchmark": "Market Benchmark"
+  },
+  "AlertsSelfService": {
+    "title": "Alerts (Self-Service)",
+    "subtitle": "Configure budget, anomaly and forecast alert rules",
+    "newRule": "New Rule",
+    "ruleName": "Rule Name",
+    "type": "Type",
+    "threshold": "Threshold",
+    "channel": "Channel",
+    "enabled": "Enabled",
+    "lastTriggered": "Last Triggered",
+    "triggerCount": "Trigger Count",
+    "types": {
+      "budget": "Budget",
+      "anomaly": "Anomaly",
+      "forecast": "Forecast",
+      "threshold": "Threshold"
+    },
+    "channels": {
+      "email": "Email",
+      "webhook": "Webhook",
+      "teams": "Microsoft Teams",
+      "slack": "Slack",
+      "servicenow": "ServiceNow"
+    },
+    "save": "Save",
+    "delete": "Delete",
+    "noRules": "No alert rules configured yet.",
+    "empty": "Create your first self-service alert."
+  },
+  "AIAnalytics": {
+    "title": "Azure OpenAI Cost Analytics",
+    "subtitle": "Azure OpenAI cost breakdown by application, model, and tokens",
+    "byModel": "Cost by Model",
+    "byApplication": "Cost by Application",
+    "byTeam": "Cost by Team",
+    "tokensTrend": "Token Trend",
+    "costPer1k": "Cost per 1K Tokens",
+    "inputTokens": "Input Tokens",
+    "outputTokens": "Output Tokens",
+    "model": "Model",
+    "application": "Application",
+    "team": "Team",
+    "environment": "Environment",
+    "noData": "No Azure OpenAI resources detected."
+  },
+  "MACC": {
+    "title": "MACC — Microsoft Azure Consumption Commitment",
+    "subtitle": "Track MACC commitment and consumption projection",
+    "commitment": "Total Commitment",
+    "consumed": "Consumed",
+    "remaining": "Remaining",
+    "burnRate": "Monthly Burn Rate",
+    "projectedEnd": "Projected End",
+    "daysRemaining": "Days Remaining",
+    "onTrack": "On track",
+    "atRisk": "At risk of under-consumption",
+    "overConsumption": "Risk of over-consumption",
+    "noMacc": "No active MACC commitment detected for this tenant.",
+    "progress": "Consumption Progress",
+    "currency": "Currency"
+  },
+  "HA": {
+    "title": "High Availability Recommendations",
+    "subtitle": "Detect VMs and resources without redundancy or backup",
+    "resource": "Resource",
+    "issue": "Issue",
+    "severity": "Severity",
+    "severities": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "critical": "Critical"
+    },
+    "issueTypes": {
+      "no_zone": "No Availability Zone",
+      "no_availability_set": "No Availability Set",
+      "no_backup": "No Backup configured",
+      "single_replica": "Single replica",
+      "no_geo_redundancy": "No geo-redundancy",
+      "basic_sku": "Basic SKU (no SLA)",
+      "low_capacity": "Insufficient capacity"
+    },
+    "remediate": "Remediate",
+    "noIssues": "No high availability issues detected."
+  },
+  "Credentials": {
+    "title": "Expiring Credentials (Entra ID)",
+    "subtitle": "Service Principals and Applications with secrets or certificates close to expiry",
+    "app": "Application",
+    "type": "Type",
+    "types": {
+      "password": "Secret",
+      "certificate": "Certificate"
+    },
+    "expiresAt": "Expires",
+    "daysLeft": "Days Left",
+    "severityCritical": "< 7 days",
+    "severityHigh": "< 30 days",
+    "severityMedium": "< 90 days",
+    "noExpiring": "No credentials expiring soon.",
+    "noted": "Notification sent"
+  },
+  "CopilotM365": {
+    "title": "Copilot M365 — FinOps Integration",
+    "subtitle": "Connect your FinOps data to Microsoft 365 Copilot and Copilot Studio",
+    "status": "Status",
+    "statuses": {
+      "not_configured": "Not configured",
+      "provisioning": "Provisioning",
+      "ready": "Ready",
+      "error": "Error"
+    },
+    "connectorTitle": "Graph Connector (M365 Search)",
+    "connectorDesc": "Index CostSnapshots, budgets and anomalies in Microsoft Search so your team can ask in Teams/Outlook.",
+    "studioTitle": "Copilot Studio Agent",
+    "studioDesc": "Conversational agent with FinOps knowledge base that calls our APIs to answer natural-language questions.",
+    "indexedRecords": "Indexed Records",
+    "lastIndex": "Last Index",
+    "provision": "Provision",
+    "reindex": "Re-index",
+    "revoke": "Revoke",
+    "requirements": "Requires Microsoft 365 Copilot license and ExternalConnection.ReadWrite.OwnedBy permission."
+  },
+  "Lighthouse": {
+    "title": "Onboarding via Azure Lighthouse",
+    "subtitle": "For MSP partners managing multiple tenants without direct credentials",
+    "deployTemplate": "Deploy Template",
+    "managedTenant": "Managed Tenant",
+    "status": "Status",
+    "statuses": {
+      "pending": "Pending",
+      "active": "Active",
+      "revoked": "Revoked"
+    },
+    "roles": "Delegated roles",
+    "noDelegations": "No active delegations yet."
+  },
+  "Mock": {
+    "badge": "SAMPLE DATA",
+    "description": "You're viewing simulated data. Connect your Azure subscription to see real data."
   }
 }

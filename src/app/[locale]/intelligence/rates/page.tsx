@@ -1,4 +1,5 @@
 "use client";
+import MockBanner from '@/components/MockBanner';
 import { isMockTenant } from '@/lib/mockData';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTenant } from '@/components/TenantProvider';
@@ -6,6 +7,8 @@ import { useMsal } from '@azure/msal-react';
 import { DollarSign, AlertTriangle, Loader2, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
+import { getFreshIdToken } from '@/lib/msalToken';
+import Pagination, { usePagination } from '@/components/Pagination';
 import {
 
   useReactTable,
@@ -159,41 +162,46 @@ export default function RateOptimizationPage() {
     const [sorting, setSorting] = useState<SortingState>([]);
     const [resSorting, setResSorting] = useState<SortingState>([]);
 
+    const { page, setPage, pageSize, setPageSize, total, totalPages, paged: pagedData } = usePagination(data);
+    const { page: resPage, setPage: setResPage, pageSize: resPageSize, setPageSize: setResPageSize, total: resTotal, totalPages: resTotalPages, paged: pagedReservations } = usePagination(reservations);
+
     useEffect(() => {
-        if (!selectedTenant || selectedTenant.id === 'default' || (accounts.length === 0 && !isMockTenant(selectedTenant?.id || ''))) return;
+       if (activeTab === 'resources') setPage(1);
+       else setResPage(1);
+    }, [activeTab, setPage, setResPage]);
 
-        const fetchSubscriptions = async () => {
-            setLoadingSubs(true);
-            setMissingConsent(false);
-            try {
-                const tokenResponse = await instance.acquireTokenSilent({
-                    scopes: ["User.Read"],
-                    account: accounts[0]
-                });
-                const res = await fetch(`/api/subscriptions?tenantId=${selectedTenant.id}`, {
-                    headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
-                });
-                const json = await res.json();
+    useEffect(() => {
+       if (!selectedTenant || selectedTenant.id === 'default' || (accounts.length === 0 && !isMockTenant(selectedTenant?.id || ''))) return;
+
+       const fetchSubscriptions = async () => {
+           setLoadingSubs(true);
+           setMissingConsent(false);
+           try {
+               const tokenResponse = { idToken: await getFreshIdToken(instance, accounts[0]) };
+               const res = await fetch(`/api/subscriptions?tenantId=${selectedTenant.id}`, {
+                   headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
+               });
+               const json = await res.json();
                 
-                if (json.error === "MISSING_ADMIN_CONSENT") {
-                    setMissingConsent(true);
-                    setLoadingSubs(false);
-                    return;
-                }
+               if (json.error === "MISSING_ADMIN_CONSENT") {
+                   setMissingConsent(true);
+                   setLoadingSubs(false);
+                   return;
+               }
 
-                if (json.subscriptions) {
-                    setSubscriptions([{ id: 'All', name: 'Todas las Suscripciones (Tenant-wide)' }, ...json.subscriptions]);
-                    setSubscriptionId('All');
-                }
-            } catch (e) {
-                console.error("Error fetching subscriptions:", e);
-                toast.error(t('error_loading_subs'));
-            } finally {
-                setLoadingSubs(false);
-            }
-        };
+               if (json.subscriptions) {
+                   setSubscriptions([{ id: 'All', name: 'Todas las Suscripciones (Tenant-wide)' }, ...json.subscriptions]);
+                   setSubscriptionId('All');
+               }
+           } catch (e) {
+               console.error("Error fetching subscriptions:", e);
+               toast.error(t('error_loading_subs'));
+           } finally {
+               setLoadingSubs(false);
+           }
+       };
 
-        fetchSubscriptions();
+       fetchSubscriptions();
     }, [selectedTenant, instance, accounts]);
 
     // Auto-trigger analysis when subscriptionId is set to 'All' or any other and hasn't analyzed
@@ -238,7 +246,7 @@ export default function RateOptimizationPage() {
     };
 
     const table = useReactTable({
-        data,
+        data: pagedData,
         columns,
         state: {
             sorting,
@@ -249,7 +257,7 @@ export default function RateOptimizationPage() {
     });
 
     const resTable = useReactTable({
-        data: reservations,
+        data: pagedReservations,
         columns: reservationColumns,
         state: {
             sorting: resSorting,
@@ -265,6 +273,7 @@ export default function RateOptimizationPage() {
 
     return (
         <div className="content animate-in fade-in">
+            <MockBanner />
             <div className="vhead">
                 <div>
                     <div className="vt">
@@ -393,7 +402,8 @@ export default function RateOptimizationPage() {
                                         </tbody>
                                     </table>
                                 </div>
-                            </div>
+                               <Pagination page={page} setPage={setPage} pageSize={pageSize} setPageSize={setPageSize} total={total} totalPages={totalPages} />
+                           </div>
                         ) : (
                             <div className="empty border border-line rounded-[14px]">
                                 <DollarSign className="w-12 h-12 text-grey mx-auto mb-4" />
@@ -438,7 +448,8 @@ export default function RateOptimizationPage() {
                                         </tbody>
                                     </table>
                                 </div>
-                            </div>
+                               <Pagination page={resPage} setPage={setResPage} pageSize={resPageSize} setPageSize={setResPageSize} total={resTotal} totalPages={resTotalPages} />
+                           </div>
                         ) : (
                             <div className="empty border border-line rounded-[14px]">
                                 <DollarSign className="w-12 h-12 text-grey mx-auto mb-4" />

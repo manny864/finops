@@ -13,6 +13,8 @@ import BudgetBurnChart from "@/components/dashboard/BudgetBurnChart";
 import RightsizingBlade from "@/components/dashboard/RightsizingBlade";
 import ExpiredSandboxTable from "@/components/dashboard/ExpiredSandboxTable";
 import ExecutiveSummaryCard from "@/components/dashboard/ExecutiveSummaryCard";
+import HABreakdownCard from "@/components/dashboard/HABreakdownCard";
+import AksChargebackCard from "@/components/dashboard/AksChargebackCard";
 import { useActionLogStore } from "@/store/actionLogStore";
 import { Leaf } from "lucide-react";
 import { useTranslations } from 'next-intl';
@@ -21,6 +23,17 @@ import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import { isMockTenant } from '@/lib/mockData';
 import FeatureGuard from '@/components/FeatureGuard';
+import { getFreshIdToken } from '@/lib/msalToken';
+import MockBanner from '@/components/MockBanner';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  ResponsiveContainer,
+} from 'recharts';
 
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
@@ -40,6 +53,10 @@ export default function Home() {
   const [actualCost, setActualCost] = useState<number>(0);
   const [projectedCost, setProjectedCost] = useState<number>(0);
   const [zombieCount, setZombieCount] = useState<number>(0);
+  const [histogramMonths, setHistogramMonths] = useState<number>(1);
+  const [billingHistogram, setBillingHistogram] = useState<Array<{ date: string; cost: number }>>([]);
+  const [billingLoading, setBillingLoading] = useState(false);
+  const [chartsMounted, setChartsMounted] = useState(false);
   const { addAction } = useActionLogStore();
 
   const calculateCO2Savings = (wastedUsd: number) => {
@@ -53,125 +70,41 @@ export default function Home() {
       const fetchData = async () => {
           setLoading(true);
           try {
-              const tokenResponse = await instance.acquireTokenSilent({
-                  scopes: ["User.Read"],
-                  account: accounts[0]
+              const tokenResponse = { idToken: await getFreshIdToken(instance, accounts[0]) };
+              const summarySubscription = selectedSubscription && selectedSubscription.toLowerCase() !== 'all'
+                  ? selectedSubscription
+                  : 'All';
+              setBillingLoading(true);
+              const summaryRes = await fetch(`/api/dashboard/summary?tenantId=${selectedTenant.id}&subscriptionId=${summarySubscription}`, {
+                  headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
               });
-              const subParam = (!selectedSubscription || selectedSubscription.toLowerCase() === 'all') ? '' : `&subscriptionId=${selectedSubscription}`;
-              // Fetch audit + advisor + forecast in parallel
-              const [auditRes, advisorRes, forecastRes] = await Promise.allSettled([
-                  fetch(`/api/audit/full?tenantId=${selectedTenant.id}${subParam}`, {
-                      headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
-                  }),
-                  fetch(`/api/advisor?tenantId=${selectedTenant.id}${subParam}`, {
-                      headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
-                  }),
-                  fetch(`/api/intelligence/forecast?tenantId=${selectedTenant.id}${subParam}`, {
-                      headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
-                  })
-              ]);
+              const summaryJson = summaryRes.ok ? await summaryRes.json() : {};
+              setBillingLoading(false);
 
-              // Process Advisor data
-              if (advisorRes.status === 'fulfilled' && advisorRes.value.ok) {
-                  try {
-                      const advisorJson = await advisorRes.value.json();
-                      let costRecs = advisorJson?.recommendations?.Cost || [];
-                      if (selectedSubscription && selectedSubscription.toLowerCase() !== 'all') {
-                          costRecs = costRecs.filter((r: any) => r.subscriptionId === selectedSubscription);
-                      }
-                      const savings = costRecs.reduce((acc: number, curr: any) =>
-                          acc + parseFloat(curr.extendedProperties?.savingsAmount || '0'), 0);
-                      setAdvisorSavings(savings);
-                  } catch (e) { console.warn('Advisor parse error', e); }
+              if (summaryJson.dashboardData) {
+                  setDashboardData(summaryJson.dashboardData);
+              } else {
+                  setDashboardData([]);
               }
+              setActualCost(Number(summaryJson.actualCost || 0));
+              setProjectedCost(Number(summaryJson.projectedCost || 0));
+              setZombieCount(Number(summaryJson.zombieCount || 0));
+              setBillingHistogram(Array.isArray(summaryJson.histogram) ? summaryJson.histogram : []);
+              setAdvisorSavings(Number(summaryJson.totalSavings || 0));
 
-              // Process Forecast data
-              if (forecastRes.status === 'fulfilled' && forecastRes.value.ok) {
-                  try {
-                      const fJson = await forecastRes.value.json();
-                      const combinedData = fJson.data || [];
-                      let currentSpend = 0;
-                      let forecastSum = 0;
-                      combinedData.forEach((item: any) => {
-                          if (item.actualCost) currentSpend += item.actualCost;
-                          if (item.forecastCost) forecastSum += item.forecastCost;
-                      });
-                      
-                      setActualCost(currentSpend);
-                      setProjectedCost(currentSpend + forecastSum);
-                  } catch (e) { console.warn('Forecast parse error', e); }
-              }
-
-              // Process Audit data
-              const res = auditRes.status === 'fulfilled' ? auditRes.value : null;
-              const json = res && res.ok ? await res.json() : {};
-              if (json.auditResults) {
-                  // Count total zombies
-                  const totalZombies = Object.values(json.auditResults).reduce((acc: number, arr: any) => acc + (Array.isArray(arr) ? arr.length : 0), 0) as number;
-                  setZombieCount(totalZombies);
-
-                  const resourceConfig: any = {
-                      unattachedDisks: { type: "Disk", savings: 15.0, issueType: "cost" },
-                      unusedIps: { type: "Public IP", savings: 3.5, issueType: "cost" },
-                      staleSnapshots: { type: "Snapshot", savings: 5.0, issueType: "cost" },
-                      emptyAppServicePlans: { type: "App Service Plan", savings: 45.0, issueType: "cost" },
-                      elasticPools: { type: "SQL Elastic Pool", savings: 250.0, issueType: "cost" },
-                      loadBalancers: { type: "Load Balancer", savings: 18.0, issueType: "cost" },
-                      frontDoorWaf: { type: "Front Door WAF", savings: 5.0, issueType: "cost" },
-                      trafficManager: { type: "Traffic Manager", savings: 3.0, issueType: "cost" },
-                      appGateways: { type: "App Gateway", savings: 180.0, issueType: "cost" },
-                      natGateways: { type: "NAT Gateway", savings: 32.0, issueType: "cost" },
-                      privateEndpoints: { type: "Private Endpoint", savings: 7.0, issueType: "cost" },
-                      vnetGateways: { type: "VNet Gateway", savings: 130.0, issueType: "cost" },
-                      ddos: { type: "DDoS Plan", savings: 2944.0, issueType: "cost" },
-                      orphanedNics: { type: "NIC", savings: 0, issueType: "governance" },
-                      orphanedNsgs: { type: "NSG", savings: 0, issueType: "governance" },
-                      availabilitySets: { type: "Availability Set", savings: 0, issueType: "governance" },
-                      routeTables: { type: "Route Table", savings: 0, issueType: "governance" },
-                      emptyVnets: { type: "VNet", savings: 0, issueType: "governance" },
-                      emptySubnets: { type: "Subnet", savings: 0, issueType: "governance" },
-                      ipGroups: { type: "IP Group", savings: 0, issueType: "governance" },
-                      privateDnsZones: { type: "Private DNS", savings: 0.25, issueType: "cost" },
-                      emptyRgs: { type: "Resource Group", savings: 0, issueType: "governance" },
-                      apiConnections: { type: "API Connection", savings: 0, issueType: "governance" },
-                      expiredCerts: { type: "Certificate", savings: 0, issueType: "governance" },
-                      emptySqlServers: { type: "SQL Server", savings: 0, issueType: "governance" },
-                      stoppedFlexibleServers: { type: "Flexible Server", savings: 25.0, issueType: "cost" },
-                      emptyCosmosDbAccounts: { type: "Cosmos DB", savings: 24.0, issueType: "cost" },
-                      emptyEventHubNamespaces: { type: "Event Hub", savings: 11.0, issueType: "cost" },
-                      emptyServiceBusNamespaces: { type: "Service Bus", savings: 10.0, issueType: "cost" },
-                      emptyApiManagement: { type: "API Management", savings: 50.0, issueType: "cost" },
-                      unprovisionedExpressRoute: { type: "ExpressRoute", savings: 55.0, issueType: "cost" },
-                      unattachedWafPolicies: { type: "WAF Policy", savings: 5.0, issueType: "cost" },
-                      stoppedVirtualMachines: { type: "VM (Stopped)", savings: 30.0, issueType: "cost" },
-                      emptyAse: { type: "App Service Env", savings: 300.0, issueType: "cost" },
-                      taggingNonCompliance: { type: "Tag Issue", savings: 0, issueType: "governance" },
-                      allVirtualMachines: { type: "__skip__", savings: 0, issueType: "governance" },
-                      devVirtualMachines: { type: "__skip__", savings: 0, issueType: "governance" },
-                      expiredTtlResources: { type: "TTL Expired", savings: 10.0, issueType: "cost" }
-                  };
-                  let mappedData: any[] = [];
-                  for (const [key, config] of Object.entries(resourceConfig)) {
-                      if ((config as any).type === '__skip__') continue;
-                      const items = json.auditResults[key] || [];
-                      mappedData.push(...items.map((r: any) => ({
-                          ...r,
-                          type: (config as any).type,
-                          issueType: (config as any).issueType,
-                          potentialSavings: r.estimatedMonthlyCost || (r.diskSizeGB ? r.diskSizeGB * 0.15 : (r.sizeGB ? r.sizeGB * 0.05 : (config as any).savings))
-                      })));
-                  }
-                  setDashboardData(mappedData);
+              if (summaryJson.auditResults) {
 
                   // Calculate Compliance Score
-                  const polRes = await fetch(`/api/tags?tenantId=${selectedTenant.id}`);
+                  const polRes = await fetch(`/api/tags?tenantId=${selectedTenant.id}`, {
+                      headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
+                  });
                   const polJson = await polRes.json();
                   const policies = polJson.policies || [];
                   
                   if (policies.length === 0) {
                       setComplianceScore(-1); // -1 means Not Configured
                   } else {
-                      const allItems = Object.values(json.auditResults).flat();
+                      const allItems = Object.values(summaryJson.auditResults).flat();
                       const requiredKeys = policies.filter((p:any) => p.required).map((p:any) => p.tag_key.toLowerCase());
                       let compliantCount = 0;
                       allItems.forEach((item: any) => {
@@ -180,12 +113,17 @@ export default function Home() {
                           const missingTags = requiredKeys.filter((reqKey:any) => !itemTagKeys.includes(reqKey));
                           if (missingTags.length === 0) compliantCount++;
                       });
-                      setComplianceScore(Math.round((compliantCount / allItems.length) * 100));
+                      setComplianceScore(allItems.length > 0 ? Math.round((compliantCount / allItems.length) * 100) : 100);
                   }
               }
 
               // Check for anomalies
-              const anomalyRes = await fetch(`/api/intelligence/anomalies?tenantId=${selectedTenant.id}&subscriptionId=${json.subscriptionId || 'default'}`);
+              const anomalySubscription = selectedSubscription && selectedSubscription.toLowerCase() !== 'all'
+                  ? selectedSubscription
+                  : 'All';
+              const anomalyRes = await fetch(`/api/intelligence/anomalies?tenantId=${selectedTenant.id}&subscriptionId=${anomalySubscription}`, {
+                  headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
+              });
               if (anomalyRes.ok) {
                   const anomalyJson = await anomalyRes.json();
                   if (anomalyJson.isAnomaly) {
@@ -197,21 +135,68 @@ export default function Home() {
               }
 
           } catch (e) {}
+          setBillingLoading(false);
           setLoading(false);
       };
       fetchData();
   }, [activeTab, selectedTenant, selectedSubscription, accounts, instance]);
 
+  const filteredHistogramData = (() => {
+      if (billingHistogram.length === 0) return [];
+      const latest = new Date(`${billingHistogram[billingHistogram.length - 1].date}T00:00:00`);
+      if (Number.isNaN(latest.getTime())) return billingHistogram;
+      const start = new Date(latest);
+      start.setMonth(start.getMonth() - histogramMonths + 1);
+      start.setDate(1);
+      return billingHistogram.filter(point => {
+          const d = new Date(`${point.date}T00:00:00`);
+          return !Number.isNaN(d.getTime()) && d >= start && d <= latest;
+      });
+  })();
+
+  const formatHistogramDate = (value: unknown) => {
+      const raw = String(value || '').trim();
+      if (!raw) return '--/--';
+      const compact = raw.match(/^(\d{4})(\d{2})(\d{2})$/);
+      if (compact) {
+          return `${compact[3]}/${compact[2]}`;
+      }
+      const dashed = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (dashed) {
+          return `${dashed[3]}/${dashed[2]}`;
+      }
+      const parsed = new Date(raw);
+      if (!Number.isNaN(parsed.getTime())) {
+          const d = String(parsed.getUTCDate()).padStart(2, '0');
+          const m = String(parsed.getUTCMonth() + 1).padStart(2, '0');
+          return `${d}/${m}`;
+      }
+      return '--/--';
+  };
+
   const t = useTranslations('Dashboard');
   const tCommon = useTranslations('Common');
 
   const [layouts, setLayouts] = useState<any>(null);
+  useEffect(() => {
+    setChartsMounted(true);
+  }, []);
 
   useEffect(() => {
     const saved = localStorage.getItem('finops_dashboard_layout_v2');
     if (saved) {
       try {
-        setLayouts(JSON.parse(saved));
+        const parsed = JSON.parse(saved);
+        // Migración: agregar widgets nuevos si el layout guardado no los incluye
+        const newKeys: Record<string, any> = {
+          ha: { i: 'ha', x: 0, y: 14, w: 6, h: 4 },
+          aks: { i: 'aks', x: 6, y: 14, w: 6, h: 4 },
+        };
+        Object.keys(parsed).forEach((bp: string) => {
+          const existing = new Set((parsed[bp] || []).map((l: any) => l.i));
+          Object.keys(newKeys).forEach(k => { if (!existing.has(k)) parsed[bp].push(newKeys[k]); });
+        });
+        setLayouts(parsed);
       } catch (e) {}
     } else {
       setLayouts({
@@ -222,7 +207,9 @@ export default function Home() {
           { i: 'burn', x: 0, y: 6, w: 6, h: 4 },
           { i: 'power', x: 6, y: 6, w: 6, h: 4 },
           { i: 'right', x: 0, y: 10, w: 6, h: 4 },
-          { i: 'sandbox', x: 6, y: 10, w: 6, h: 4 }
+          { i: 'sandbox', x: 6, y: 10, w: 6, h: 4 },
+          { i: 'ha', x: 0, y: 14, w: 6, h: 4 },
+          { i: 'aks', x: 6, y: 14, w: 6, h: 4 }
         ]
       });
     }
@@ -294,42 +281,43 @@ export default function Home() {
 
   return (
     <div className="content animate-in fade-in duration-500">
+      <MockBanner />
       <div className="vhead">
         <div className="title">
           <h1 className="text-gray-900 dark:text-white">{t('title')}</h1>
           <p>{t('subtitle')} <span className="text-xs text-brand/60 ml-2">({t('drag_hint')})</span></p>
         </div>
         
-        <div className="flex gap-3 flex-wrap">
-            <div className="bg-sky-50 border border-sky-200 rounded-xl px-5 py-3 flex flex-col items-end shadow-sm">
+        <div className="w-full grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
+            <div className="bg-sky-50 border border-sky-200 rounded-xl px-5 py-3 flex flex-col items-start sm:items-end shadow-sm w-full min-w-0">
                 <span className="text-[10px] font-bold text-sky-700 uppercase tracking-widest mb-1">Costo Actual</span>
                 <span className="text-3xl lg:text-4xl font-extrabold text-sky-600">
                     {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(actualCost)}
                 </span>
                 <span className="text-[10px] text-sky-600 mt-1">acumulado del mes</span>
             </div>
-            <div className="bg-purple-50 border border-purple-200 rounded-xl px-5 py-3 flex flex-col items-end shadow-sm">
+            <div className="bg-purple-50 border border-purple-200 rounded-xl px-5 py-3 flex flex-col items-start sm:items-end shadow-sm w-full min-w-0">
                 <span className="text-[10px] font-bold text-purple-700 uppercase tracking-widest mb-1">Costo Proyectado</span>
                 <span className="text-3xl lg:text-4xl font-extrabold text-purple-600">
                     {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(projectedCost)}
                 </span>
                 <span className="text-[10px] text-purple-600 mt-1">al cierre de mes</span>
             </div>
-            <div className="bg-green-50 border border-green-200 rounded-xl px-5 py-3 flex flex-col items-end shadow-sm">
+            <div className="bg-green-50 border border-green-200 rounded-xl px-5 py-3 flex flex-col items-start sm:items-end shadow-sm w-full min-w-0">
                 <span className="text-[10px] font-bold text-green-700 uppercase tracking-widest mb-1">{t('potential_savings')}</span>
                 <span className="text-3xl lg:text-4xl font-extrabold text-green-600">
                     {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(totalSavings)}
                 </span>
                 <span className="text-[10px] text-green-600 mt-1">{t('monthly_projected')}</span>
             </div>
-            <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 flex flex-col items-end shadow-sm">
+            <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 flex flex-col items-start sm:items-end shadow-sm w-full min-w-0">
                 <span className="text-[10px] font-bold text-amber-700 uppercase tracking-widest mb-1">Recursos Zombies</span>
                 <span className="text-3xl lg:text-4xl font-extrabold text-amber-600">
                     {zombieCount}
                 </span>
                 <span className="text-[10px] text-amber-600 mt-1">detectados</span>
             </div>
-            <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-5 py-3 flex flex-col items-end shadow-sm">
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-5 py-3 flex flex-col items-start sm:items-end shadow-sm w-full min-w-0">
                 <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest mb-1 flex items-center">
                     <Leaf className="w-3 h-3 mr-1" /> {t('environmental_impact')}
                 </span>
@@ -339,6 +327,56 @@ export default function Home() {
                 <span className="text-[10px] text-emerald-600 mt-1">{t('co2_avoided')}</span>
             </div>
         </div>
+      </div>
+
+      <div className="card mb-4">
+          <div className="card-h flex items-center justify-between gap-3">
+              <div>
+                  <h3 className="m-0 text-[var(--brand-deep)]">Histograma de costos</h3>
+                  <p className="text-[13px] text-ink-soft m-0 mt-1 font-normal">Distribución diaria del gasto (último mes por defecto, hasta 12 meses).</p>
+              </div>
+              <select
+                  value={histogramMonths}
+                  onChange={(e) => setHistogramMonths(Number(e.target.value))}
+                  className="border rounded-md px-2 py-1 text-sm bg-white dark:bg-slate-900"
+              >
+                  <option value={1}>Último mes</option>
+                  <option value={3}>Últimos 3 meses</option>
+                  <option value={6}>Últimos 6 meses</option>
+                  <option value={9}>Últimos 9 meses</option>
+                  <option value={12}>Último año</option>
+              </select>
+          </div>
+          <div className="p-[18px] h-[320px] min-w-0">
+              {billingLoading ? (
+                  <div className="h-full flex items-center justify-center text-gray-400 animate-pulse">Cargando histograma...</div>
+              ) : filteredHistogramData.length === 0 ? (
+                  <div className="h-full flex items-center justify-center text-gray-400 text-sm">Sin datos de costos para el período seleccionado.</div>
+              ) : !chartsMounted ? (
+                  <div className="h-full flex items-center justify-center text-gray-300 text-sm">Inicializando gráfico...</div>
+              ) : (
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={260}>
+                      <BarChart data={filteredHistogramData} margin={{ top: 10, right: 12, left: 0, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                          <XAxis
+                              dataKey="date"
+                              tickFormatter={formatHistogramDate}
+                              minTickGap={18}
+                              tick={{ fontSize: 12 }}
+                          />
+                          <YAxis
+                              tickFormatter={(v: number) => `$${Math.round(v)}`}
+                              tick={{ fontSize: 12 }}
+                          />
+                          <RechartsTooltip
+                              formatter={(value: any) => [new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(value || 0)), 'Costo']}
+                              labelFormatter={(label: any) => `Fecha: ${formatHistogramDate(label)}`}
+                          />
+                          <Bar dataKey="cost" fill="#0ea5e9" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                  </ResponsiveContainer>
+              )}
+          </div>
       </div>
       
       <ResponsiveGridLayout
@@ -429,6 +467,18 @@ export default function Home() {
         <div key="sandbox">
             <FeatureGuard requiredTier="Professional" featureName="Time-To-Live (TTL)" className="drag-handle cursor-move h-full w-full overflow-hidden">
                 <ExpiredSandboxTable />
+            </FeatureGuard>
+        </div>
+
+        <div key="ha">
+            <FeatureGuard requiredTier="Business" featureName="Alta Disponibilidad" className="drag-handle cursor-move h-full w-full overflow-hidden">
+                <HABreakdownCard />
+            </FeatureGuard>
+        </div>
+
+        <div key="aks">
+            <FeatureGuard requiredTier="Enterprise" featureName="AKS Chargeback" className="drag-handle cursor-move h-full w-full overflow-hidden">
+                <AksChargebackCard />
             </FeatureGuard>
         </div>
       </ResponsiveGridLayout>

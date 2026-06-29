@@ -1,10 +1,12 @@
 "use client";
+import MockBanner from '@/components/MockBanner';
 import { isMockTenant } from '@/lib/mockData';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { toast } from 'sonner';
 import { FileText, Loader2, Download } from 'lucide-react';
+import { getFreshIdToken } from '@/lib/msalToken';
 import {
 
   useReactTable,
@@ -40,10 +42,7 @@ export default function AuditTrailPage() {
         const fetchLogs = async () => {
             setLoading(true);
             try {
-                const tokenResponse = await instance.acquireTokenSilent({
-                    scopes: ["User.Read"],
-                    account: accounts[0]
-                });
+                const tokenResponse = { idToken: await getFreshIdToken(instance, accounts[0]) };
 
                 const res = await fetch(`/api/admin/audit?tenantId=${selectedTenant.id}`, {
                     headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
@@ -149,6 +148,7 @@ export default function AuditTrailPage() {
 
     return (
         <div className="max-w-7xl mx-auto animate-in fade-in duration-500 p-6 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200">
+            <MockBanner />
             <div className="flex justify-between items-center mb-6">
                 <div>
                     <h1 className="text-2xl font-bold flex items-center gap-2">

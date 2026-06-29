@@ -4,6 +4,8 @@ import { useTenant } from '@/components/TenantProvider';
 import { useSubscription } from '@/components/SubscriptionProvider';
 import { useTranslations } from 'next-intl';
 import { Info } from 'lucide-react';
+import MockBanner from '@/components/MockBanner';
+import Pagination, { usePagination } from '@/components/Pagination';
 
 export default function LicensesPage() {
     const { selectedTenant } = useTenant();
@@ -15,6 +17,10 @@ export default function LicensesPage() {
     const [loading, setLoading] = useState(true);
     const [errorData, setErrorData] = useState<{message: string, needsConsent?: boolean} | null>(null);
     const [graphError, setGraphError] = useState<{message: string, needsConsent?: boolean} | null>(null);
+
+    const { page: ahubPage, setPage: setAhubPage, pageSize: ahubPageSize, setPageSize: setAhubPageSize, total: ahubTotal, totalPages: ahubTotalPages, paged: pagedMissingAhub } = usePagination(missingAhub);
+    const { page: licPage, setPage: setLicPage, pageSize: licPageSize, setPageSize: setLicPageSize, total: licTotal, totalPages: licTotalPages, paged: pagedLicenses } = usePagination(licenses);
+    const { page: inactPage, setPage: setInactPage, pageSize: inactPageSize, setPageSize: setInactPageSize, total: inactTotal, totalPages: inactTotalPages, paged: pagedInactiveUsers } = usePagination(inactiveUsers);
 
     useEffect(() => {
         if (!selectedTenant || selectedTenant.id === 'default') return;
@@ -77,6 +83,7 @@ export default function LicensesPage() {
 
     return (
         <div className="p-8 max-w-[1400px] mx-auto animate-in fade-in duration-500">
+            <MockBanner />
             <h1 className="text-2xl font-black text-slate-800 dark:text-white mb-2 flex items-center">
                 Licencias
             </h1>
@@ -147,23 +154,36 @@ export default function LicensesPage() {
                                 {!loading && missingAhub.length === 0 && (
                                     <tr><td colSpan={6} className="p-8 text-center text-slate-500 text-sm">Todos sus recursos de Windows Server y SQL utilizan Azure Hybrid Benefit. ¡Excelente!</td></tr>
                                 )}
-                                {!loading && missingAhub.map((item, i) => {
+                                {!loading && pagedMissingAhub.map((item, i) => {
                                     const sub = subscriptions.find(s => s.id === item.subscriptionId);
                                     const subName = sub ? sub.name : item.subscriptionId;
+                                    const isSqlPool = item.scope === 'elasticPool';
                                     return (
                                         <tr key={i} className="hover:bg-indigo-50/20 transition-colors">
-                                            <td className="p-4 font-bold text-slate-700 text-sm">{item.name}</td>
+                                            <td className="p-4 font-bold text-slate-700 dark:text-slate-200 text-sm">
+                                                {item.name}
+                                                {isSqlPool && (
+                                                    <div className="text-[10px] font-normal text-slate-500 dark:text-slate-400 mt-0.5">
+                                                        Ahorro a nivel pool (no por base individual)
+                                                    </div>
+                                                )}
+                                                {!isSqlPool && item.type === 'microsoft.sql/servers/databases' && item.tier && (
+                                                    <div className="text-[10px] font-normal text-slate-500 dark:text-slate-400 mt-0.5">
+                                                        {item.tier} · {item.vCores} vCore{item.vCores > 1 ? 's' : ''}
+                                                    </div>
+                                                )}
+                                            </td>
                                             <td className="p-4">
                                                 <span className={`tag ${item.type === 'microsoft.compute/virtualmachines' ? 'blue' : 'teal'}`}>
-                                                    {item.type === 'microsoft.compute/virtualmachines' ? 'Virtual Machine' : 'SQL Database'}
+                                                    {item.type === 'microsoft.compute/virtualmachines' ? 'Virtual Machine' : (isSqlPool ? 'SQL Elastic Pool' : 'SQL Database')}
                                                 </span>
                                             </td>
-                                            <td className="p-4 text-slate-600 text-sm">{subName}</td>
-                                            <td className="p-4 text-slate-600 text-sm">{item.resourceGroup}</td>
-                                            <td className="p-4 text-slate-600 text-sm">
+                                            <td className="p-4 text-slate-600 dark:text-slate-300 text-sm">{subName}</td>
+                                            <td className="p-4 text-slate-600 dark:text-slate-300 text-sm">{item.resourceGroup}</td>
+                                            <td className="p-4 text-slate-600 dark:text-slate-300 text-sm">
                                                 <span className="tag grey">{item.location}</span>
                                             </td>
-                                            <td className="p-4 text-emerald-600 font-bold text-sm">
+                                            <td className="p-4 text-emerald-600 dark:text-emerald-400 font-bold text-sm">
                                                 ${item.potentialLicenseSavings.toFixed(2)}
                                             </td>
                                         </tr>
@@ -172,6 +192,7 @@ export default function LicensesPage() {
                             </tbody>
                         </table>
                     </div>
+                    <Pagination page={ahubPage} setPage={setAhubPage} pageSize={ahubPageSize} setPageSize={setAhubPageSize} total={ahubTotal} totalPages={ahubTotalPages} />
                 </div>
             </div>
 
@@ -226,14 +247,31 @@ export default function LicensesPage() {
                                         {!loading && licenses.length === 0 && (
                                             <tr><td colSpan={6} className="p-8 text-center text-slate-500 text-sm">No se encontraron licencias.</td></tr>
                                         )}
-                                        {!loading && licenses.map(l => (
-                                            <tr key={l.id} className="hover:bg-slate-50 transition-colors">
+                                        {!loading && pagedLicenses.map(l => (
+                                            <tr key={l.id} className={`hover:bg-slate-50 transition-colors ${l.isSystemSku ? 'opacity-70' : ''}`}>
                                                 <td className="p-4 font-bold text-slate-700 text-sm">
-                                                    <div className="flex items-center gap-1.5">
+                                                    <div className="flex items-center gap-1.5 flex-wrap">
                                                         {l.skuPartNumber}
+                                                        {l.isSystemSku && (
+                                                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300 ring-1 ring-slate-200 dark:ring-slate-600">
+                                                                Sistema · sin costo
+                                                            </span>
+                                                        )}
                                                         {l.skuPartNumber === 'Windows_Store' && (
-                                                            <span title="El identificador Windows_Store es la categoría que utiliza Azure para facturar suscripciones de software. No se refiere a la tienda de aplicaciones de Windows, sino que incluye licencias corporativas (M365, Copilot, Entra ID) y herramientas de terceros compradas en el Azure Commercial Marketplace.">
-                                                                <Info className="w-4 h-4 text-slate-400 cursor-help shrink-0" />
+                                                            <span className="relative inline-block group">
+                                                                <Info className="w-4 h-4 text-indigo-500 cursor-help shrink-0" />
+                                                                <span
+                                                                    role="tooltip"
+                                                                    className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 hidden w-72 -translate-x-1/2 rounded-lg bg-slate-900 px-3 py-2 text-[11px] font-normal leading-snug text-white shadow-xl ring-1 ring-slate-700 group-hover:block dark:bg-slate-800"
+                                                                >
+                                                                    <strong className="block mb-1 text-indigo-300">¿Qué es Windows_Store?</strong>
+                                                                    Es la categoría que Microsoft usa internamente para facturar suscripciones de software a través del <em>Azure Commercial Marketplace</em>.
+                                                                    <br /><br />
+                                                                    <strong>No</strong> tiene relación con la tienda de aplicaciones de Windows. Incluye licencias corporativas (M365, Copilot, Entra ID Premium, Defender) y herramientas de terceros compradas en el Marketplace.
+                                                                    <br /><br />
+                                                                    <strong className="text-emerald-300">Es gratuito:</strong> Microsoft lo agrega automáticamente a todos los tenants. No genera costo ni ahorro real.
+                                                                    <span className="absolute -top-1 left-1/2 -ml-1 h-2 w-2 rotate-45 bg-slate-900 dark:bg-slate-800"></span>
+                                                                </span>
                                                             </span>
                                                         )}
                                                     </div>
@@ -241,13 +279,14 @@ export default function LicensesPage() {
                                                 <td className="p-4 text-slate-600 text-sm">{l.total}</td>
                                                 <td className="p-4 text-slate-600 text-sm">{l.consumed}</td>
                                                 <td className="p-4 text-emerald-600 font-semibold text-sm">{l.available}</td>
-                                                <td className="p-4 text-rose-600 font-semibold text-sm">{l.underutilized}</td>
-                                                <td className="p-4 text-rose-600 font-bold text-sm">${l.wastedCost.toFixed(2)}</td>
+                                                <td className={`p-4 font-semibold text-sm ${l.isSystemSku ? 'text-slate-400' : 'text-rose-600'}`}>{l.underutilized}</td>
+                                                <td className={`p-4 font-bold text-sm ${l.isSystemSku ? 'text-slate-400' : 'text-rose-600'}`}>${l.wastedCost.toFixed(2)}</td>
                                             </tr>
                                         ))}
                                     </tbody>
                                 </table>
                             </div>
+                            <Pagination page={licPage} setPage={setLicPage} pageSize={licPageSize} setPageSize={setLicPageSize} total={licTotal} totalPages={licTotalPages} />
                         </div>
 
                         <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Usuarios Inactivos (Recomendación de Revocación)</h2>
@@ -269,7 +308,7 @@ export default function LicensesPage() {
                                         {!loading && inactiveUsers.length === 0 && (
                                             <tr><td colSpan={4} className="p-8 text-center text-slate-500 text-sm">No se encontraron usuarios inactivos. ¡Excelente optimización!</td></tr>
                                         )}
-                                        {!loading && inactiveUsers.map((u, i) => (
+                                        {!loading && pagedInactiveUsers.map((u, i) => (
                                             <tr key={i} className="hover:bg-slate-50 transition-colors">
                                                 <td className="p-4 font-bold text-slate-700 text-sm">{u.userPrincipalName}</td>
                                                 <td className="p-4 text-slate-600 text-sm">{u.assignedProducts}</td>
@@ -280,6 +319,7 @@ export default function LicensesPage() {
                                     </tbody>
                                 </table>
                             </div>
+                            <Pagination page={inactPage} setPage={setInactPage} pageSize={inactPageSize} setPageSize={setInactPageSize} total={inactTotal} totalPages={inactTotalPages} />
                         </div>
                     </>
                 )}

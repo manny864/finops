@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { isSuperAdmin } from '@/lib/authGuard';
 import { useTenant } from '@/components/TenantProvider';
 import { toast } from 'sonner';
+import { getFreshIdToken } from '@/lib/msalToken';
 import { 
 
     Activity, Server, Database, Clock, RefreshCw, CheckCircle, 
@@ -67,10 +68,7 @@ export default function SuperAdminHealthPage() {
 
     const getAuthHeader = async (): Promise<Record<string, string>> => {
         if ((accounts.length === 0 && !isMockTenant(selectedTenant?.id || ''))) return {};
-        const tokenResponse = await instance.acquireTokenSilent({
-            scopes: ["User.Read"],
-            account: accounts[0]
-        });
+        const tokenResponse = { idToken: await getFreshIdToken(instance, accounts[0]) };
         return { 'Authorization': `Bearer ${tokenResponse.idToken}` };
     };
 

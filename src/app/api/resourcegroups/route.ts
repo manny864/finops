@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ResourceManagementClient } from "@azure/arm-resources";
 import { getAzureCredential } from "@/lib/azure";
-import jwt from "jsonwebtoken";
+import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
 
 export async function GET(request: NextRequest) {
     try {
@@ -12,6 +12,8 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Falta tenantId o subscriptionId" }, { status: 400 });
         }
 
+        await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
+
         const credential = await getAzureCredential(tenantId);
         const client = new ResourceManagementClient(credential, subscriptionId);
 
@@ -21,7 +23,10 @@ export async function GET(request: NextRequest) {
         }
 
         return NextResponse.json({ success: true, resourceGroups: rgs });
-    } catch (error: any) {
+    } catch (error: unknown) {
+        if (error instanceof AuthError) {
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        }
         console.error("ResourceGroups API Error:", error);
         return NextResponse.json({ error: "Fallo al obtener Resource Groups" }, { status: 500 });
     }
@@ -36,6 +41,8 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Faltan parámetros requeridos (tenantId, subscriptionId, rgName, location)" }, { status: 400 });
         }
 
+        await requireTenantAccess(req, tenantId, { allowSuperAdmin: true });
+
         const creds = await getAzureCredential(tenantId);
         const client = new ResourceManagementClient(creds, subscriptionId);
 
@@ -45,8 +52,11 @@ export async function POST(req: NextRequest) {
         });
 
         return NextResponse.json({ success: true, resourceGroup: result });
-    } catch (e: any) {
+    } catch (e: unknown) {
+        if (e instanceof AuthError) {
+            return NextResponse.json({ error: e.message }, { status: e.status });
+        }
         console.error("Error creating resource group:", e);
-        return NextResponse.json({ error: e.message || "Error al crear Resource Group" }, { status: 500 });
+        return NextResponse.json({ error: "Error al crear Resource Group" }, { status: 500 });
     }
 }

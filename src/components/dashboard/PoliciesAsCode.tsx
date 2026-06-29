@@ -199,7 +199,32 @@ export default function PoliciesAsCode() {
     const managementGroups = data?.managementGroups || [];
     const subscriptions = data?.subscriptions || [];
     const activePolicies = data?.data || [];
-    
+
+    // Resolves a raw scope value (MG id, subscription UUID, ARM path, etc.) to a friendly display name.
+    const resolveScopeName = (scope: any): string => {
+        if (!scope) return 'Sin asignar';
+        const raw = String(scope);
+        const mg = managementGroups.find((m: any) => m.id === raw || m.name === raw);
+        if (mg) return mg.name;
+        const sub = subscriptions.find((s: any) => s.id === raw);
+        if (sub) return sub.name;
+        const mgPath = raw.match(/\/managementGroups\/([^\/]+)/i);
+        if (mgPath) {
+            const mgById = managementGroups.find((m: any) => m.id === mgPath[1] || m.name === mgPath[1]);
+            return mgById?.name || mgPath[1];
+        }
+        const subPath = raw.match(/\/subscriptions\/([0-9a-f-]{36})/i);
+        if (subPath) {
+            const subById = subscriptions.find((s: any) => s.id === subPath[1]);
+            return subById?.name || `Suscripción ${subPath[1].slice(0, 8)}`;
+        }
+        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw)) {
+            return `Suscripción ${raw.slice(0, 8)}`;
+        }
+        if (raw === 'TenantRootGroup') return 'Tenant Root Group';
+        return raw;
+    };
+
     // Tab filtering logic
     const uniqueScopes = Array.from(new Set(activePolicies.map((p: any) => p.targetMg))) as string[];
     const filteredPolicies = activeTab === 'all' 
@@ -438,35 +463,45 @@ export default function PoliciesAsCode() {
 
             {/* Políticas Aplicadas - Paginación */}
             <div>
-                <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-4">
-                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">Políticas Activas en el Entorno</h3>
+                <div className="flex flex-col md:flex-row md:items-start justify-between mb-0 gap-4">
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white pt-2">Políticas Activas en el Entorno</h3>
                     
-                    {uniqueScopes.length > 0 && (
-                        <div className="flex bg-gray-100 dark:bg-slate-800 p-1 rounded-lg overflow-x-auto no-scrollbar">
-                            <button
-                                onClick={() => { setActiveTab('all'); setPage(1); }}
-                                className={`px-4 py-1.5 text-sm font-medium rounded-md whitespace-nowrap transition-colors ${activeTab === 'all' ? 'bg-white dark:bg-slate-700 text-brand-deep shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
-                            >
-                                Todos
-                            </button>
-                            {uniqueScopes.map(scope => {
-                                // Match against Management Groups OR Subscriptions
-                                const mgName = managementGroups.find((m: any) => m.id === scope)?.name 
-                                    || subscriptions.find((s: any) => s.id === scope)?.name 
-                                    || scope;
-                                return (
-                                    <button
-                                        key={scope}
-                                        onClick={() => { setActiveTab(scope); setPage(1); }}
-                                        className={`px-4 py-1.5 text-sm font-medium rounded-md whitespace-nowrap transition-colors ${activeTab === scope ? 'bg-white dark:bg-slate-700 text-brand-deep shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
-                                    >
-                                        {mgName}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    )}
+                    {uniqueScopes.length > 0 && (() => {
+                        const tabs: { key: string; label: string }[] = [{ key: 'all', label: 'Todos' }];
+                        const seen = new Set<string>();
+                        uniqueScopes.forEach(scope => {
+                            const label = resolveScopeName(scope);
+                            const dedupKey = label.toLowerCase();
+                            if (seen.has(dedupKey)) return;
+                            seen.add(dedupKey);
+                            tabs.push({ key: scope, label });
+                        });
+                        return (
+                            <div className="flex items-end gap-1 overflow-x-auto no-scrollbar border-b border-gray-200 dark:border-slate-700 -mb-px">
+                                {tabs.map(({ key, label }) => {
+                                    const isActive = activeTab === key;
+                                    return (
+                                        <button
+                                            key={key}
+                                            onClick={() => { setActiveTab(key); setPage(1); }}
+                                            className={`relative px-4 py-2 text-sm font-medium whitespace-nowrap rounded-t-lg border border-b-0 transition-colors ${
+                                                isActive
+                                                    ? 'bg-white dark:bg-slate-900 text-brand-deep border-gray-200 dark:border-slate-700 shadow-[0_-1px_0_0_rgba(0,0,0,0.02)]'
+                                                    : 'bg-gray-50 dark:bg-slate-800/60 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 border-transparent hover:border-gray-200 dark:hover:border-slate-700'
+                                            }`}
+                                        >
+                                            {label}
+                                            {isActive && (
+                                                <span className="absolute left-0 right-0 -bottom-px h-px bg-white dark:bg-slate-900" />
+                                            )}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        );
+                    })()}
                 </div>
+                <div className="mt-4">
 
                 {filteredPolicies.length === 0 ? (
                     <div className="text-center py-12 bg-gray-50 dark:bg-slate-900/50 rounded-xl border border-dashed border-gray-300 dark:border-slate-700">
@@ -483,9 +518,7 @@ export default function PoliciesAsCode() {
                                             <h4 className="font-bold text-gray-900 dark:text-white flex items-center gap-2 text-md">
                                                 {policy.name}
                                                 <span className="text-[10px] font-bold px-2 py-0.5 bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400 rounded-full flex items-center gap-1 uppercase tracking-wider">
-                                                    Scope: {managementGroups.find((m: any) => m.id === policy.targetMg)?.name 
-                                                        || subscriptions.find((s: any) => s.id === policy.targetMg)?.name 
-                                                        || policy.targetMg}
+                                                    Scope: {resolveScopeName(policy.targetMg)}
                                                 </span>
                                             </h4>
                                             <p className="text-gray-500 dark:text-gray-400 text-sm mt-1.5 line-clamp-2">
@@ -534,6 +567,7 @@ export default function PoliciesAsCode() {
                         )}
                     </>
                 )}
+                </div>
             </div>
         </div>
     );

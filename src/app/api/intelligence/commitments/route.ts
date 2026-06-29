@@ -42,8 +42,9 @@ export async function GET(request: NextRequest) {
             // Lo intentamos al nivel de Management Group o Subscription. Si falla, manejamos el error devolviendo arrays vacíos.
             const scope = `/providers/Microsoft.Management/managementGroups/${tenantId}`;
             
-            let utilization = 0;
+            let utilization: number | null = null;
             let coverage = 0;
+            let hasReservations = false;
             let recommendations: any[] = [];
 
             try {
@@ -94,23 +95,59 @@ export async function GET(request: NextRequest) {
                 const totalCompute = onDemandCost + reservationCost;
                 if (totalCompute > 0) {
                     coverage = (reservationCost / totalCompute) * 100;
-                    // Para la utilización real (qué porcentaje de la reserva comprada se usa) 
-                    // la API de Cost Management requiere la tabla ReservationSummaries.
-                    // Para esta fase, la inferimos parcialmente del beneficio o dejamos un fallback genérico.
-                    utilization = coverage > 0 ? 80 + (Math.random() * 15) : 0; // Fallback algorítmico temporal
+                    hasReservations = reservationCost > 0;
                 }
-                
+
             } catch (e: any) {
                 console.warn("Fallo al obtener cobertura de reservas:", e.message);
             }
 
+            // Utilización REAL de reservas vía Consumption API (ReservationsSummaries).
+            // Solo se intenta si efectivamente hay cobertura de reservas, y requiere
+            // permisos de Billing (EA/MCA). Si falla, devolvemos null (UI mostrará "no disponible").
+            if (hasReservations) {
+                try {
+                    const { ConsumptionManagementClient } = await import("@azure/arm-consumption");
+                    const consumption = new ConsumptionManagementClient(credential, tenantId);
+                    let totalReserved = 0;
+                    let totalUsed = 0;
+                    const ordersSeen = new Set<string>();
+
+                    // Iteramos summaries del mes actual a través de los reservation orders disponibles.
+                    // La API requiere reservationOrderId, así que primero listamos las recomendaciones existentes
+                    // que ya hayan generado órdenes. Si no podemos enumerarlas, dejamos utilization=null.
+                    try {
+                        const recIter = consumption.reservationRecommendations.list(scope);
+                        for await (const rec of recIter) {
+                            const orderId = (rec as any)?.properties?.reservationOrderId || (rec as any)?.reservationOrderId;
+                            if (orderId && !ordersSeen.has(orderId)) {
+                                ordersSeen.add(orderId);
+                                try {
+                                    const summaryIter = consumption.reservationsSummaries.listByReservationOrder(orderId, "monthly");
+                                    for await (const s of summaryIter) {
+                                        totalReserved += Number(s.reservedHours || 0);
+                                        totalUsed += Number(s.usedHours || 0);
+                                    }
+                                } catch { /* sin permisos sobre esta orden */ }
+                            }
+                        }
+                    } catch { /* sin permisos para listar recomendaciones */ }
+
+                    if (totalReserved > 0) {
+                        utilization = (totalUsed / totalReserved) * 100;
+                    }
+                } catch (e: any) {
+                    console.warn("No se pudo calcular utilización real de reservas:", e?.message);
+                }
+            }
+
             return {
-                utilization,
+                utilization,            // number | null
                 coverage,
+                hasReservations,
                 recommendations
             };
-
-        }, 43200); // 12 hours TTL
+        }, 43200);
 
         return NextResponse.json({ success: true, data });
 

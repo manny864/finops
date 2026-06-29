@@ -47,19 +47,31 @@ export async function GET(request: NextRequest) {
                     sku.tier =~ "Free" or sku.name =~ "F1" or sku.name =~ "Free", "Capa Gratuita (Free SKU)",
                     "Servicio de Gestión / Arquitectura (Sin costo base)"
                 )
-                | project id, name, type, resourceGroup, Motivo = MotivoGratuidad, skuName = coalesce(tostring(sku.name), "N/A")
+                | project id, name, type, resourceGroup, subscriptionId, location,
+                          Motivo = MotivoGratuidad,
+                          skuName = coalesce(tostring(sku.name), "N/A")
             `;
 
-            // Query at Tenant scope, but limit to Subscriptions user has access to
-            // Note: Since ARG requires subscriptions explicitly or it queries all authorized, we can just omit subscriptions to query all authorized subs in tenant
-            const result = await client.resources({
-                query,
-                options: {
-                    resultFormat: "objectArray"
-                }
-            });
+            // Paginación completa vía skipToken — ARG limita a 1000 filas por página.
+            const all: any[] = [];
+            let skipToken: string | undefined;
+            let pages = 0;
+            do {
+                const res: any = await client.resources({
+                    query,
+                    options: {
+                        resultFormat: "objectArray",
+                        top: 1000,
+                        ...(skipToken ? { skipToken } : {})
+                    }
+                });
+                if (res.data && Array.isArray(res.data)) all.push(...res.data);
+                skipToken = res.skipToken || res.$skipToken;
+                pages++;
+                if (pages > 50) break; // safety: hasta 50k items
+            } while (skipToken);
 
-            return result.data || [];
+            return all;
         }, 43200); // 12 hours TTL
 
         return NextResponse.json({ success: true, data });

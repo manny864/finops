@@ -1,13 +1,22 @@
 import { getAzureCredential } from "@/lib/azure";
 import { AdvisorManagementClient } from "@azure/arm-advisor";
 
+function normalizeAdvisorLocale(locale: string): string {
+    const normalized = (locale || "es").toLowerCase();
+    if (normalized.startsWith("es")) return "es-ES";
+    if (normalized.startsWith("pt")) return "pt-BR";
+    if (normalized.startsWith("en")) return "en-US";
+    return "en-US";
+}
+
 export async function collectAdvisorData(tenantId: string, locale: string) {
     const credential = await getAzureCredential(tenantId);
+    const advisorLocale = normalizeAdvisorLocale(locale);
     
     // Obtener suscripciones
     const tokenResponse = await credential.getToken("https://management.azure.com/.default");
     const fetchRes = await fetch("https://management.azure.com/subscriptions?api-version=2020-01-01", {
-        headers: { "Authorization": `Bearer ${tokenResponse.token}`, "Accept-Language": locale }
+        headers: { "Authorization": `Bearer ${tokenResponse.token}`, "Accept-Language": advisorLocale }
     });
     
     let subs: any[] = [];
@@ -42,7 +51,7 @@ export async function collectAdvisorData(tenantId: string, locale: string) {
         // Extraer Scores REST API
         try {
             const scoreRes = await fetch(`https://management.azure.com/subscriptions/${subId}/providers/Microsoft.Advisor/advisorScore?api-version=2023-01-01`, {
-                headers: { "Authorization": `Bearer ${tokenResponse.token}`, "Accept-Language": locale }
+                headers: { "Authorization": `Bearer ${tokenResponse.token}`, "Accept-Language": advisorLocale }
             });
             if (scoreRes.ok) {
                 const scoreData = await scoreRes.json();
@@ -65,7 +74,7 @@ export async function collectAdvisorData(tenantId: string, locale: string) {
         // Extraer Recomendaciones
         try {
             const advisorClient = new AdvisorManagementClient(credential, subId);
-            const recs = advisorClient.recommendations.list({ requestOptions: { customHeaders: { 'Accept-Language': locale } } });
+            const recs = advisorClient.recommendations.list({ requestOptions: { customHeaders: { 'Accept-Language': advisorLocale } } });
             for await (const r of recs) {
                 const cat = r.category;
                 const recWithSub = { ...r, subscriptionId: subId };

@@ -10,6 +10,7 @@ import { useTranslations } from 'next-intl';
 import AuthSync from './AuthSync';
 import LanguageSwitcher from './LanguageSwitcher';
 import Sidebar from "./Sidebar";
+import RouteTierGate from './RouteTierGate';
 import ActionCenterDrawer from './ActionCenterDrawer';
 import CostToggle from './dashboard/CostToggle';
 import PricingPage from './PricingPage';
@@ -288,7 +289,7 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
         </header>
 
         <main className="flex-1 overflow-y-auto p-6 relative">
-          {children}
+          <RouteTierGate>{children}</RouteTierGate>
         </main>
         
         <div className="fixed bottom-4 right-6 pointer-events-none z-40 opacity-40 select-none">

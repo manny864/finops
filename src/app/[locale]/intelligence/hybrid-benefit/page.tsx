@@ -1,9 +1,11 @@
 import React from 'react';
 import HybridBenefitCard from '@/components/dashboard/HybridBenefitCard';
+import MockBanner from '@/components/MockBanner';
 
 export default function HybridBenefitPage() {
     return (
         <div className="content animate-in fade-in">
+            <MockBanner />
             <div className="vhead">
                 <div>
                     <div className="vt">

@@ -26,72 +26,134 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
         case 'advisor':
             return {
                 success: true,
-                recommendations: { Cost: [], Security: [], HighAvailability: [], Performance: [], OperationalExcellence: [] },
+                recommendations: {
+                    Cost: [
+                        {
+                            id: "mock-cost-1",
+                            category: "Cost",
+                            subscriptionId: "mock-sub",
+                            impactedField: "Microsoft.Compute/virtualMachines",
+                            resourceMetadata: { resourceId: "/subscriptions/mock-sub/resourceGroups/prod-rg/providers/Microsoft.Compute/virtualMachines/app-prod-vm-01" },
+                            shortDescription: {
+                                problem: "Right-size or shutdown underutilized virtual machines",
+                                solution: "Resize Standard_D8s_v3 to Standard_D4s_v3 to reduce monthly spend."
+                            },
+                            extendedProperties: { savingsAmount: String(Math.round(215.5 * multiplier)) }
+                        },
+                        {
+                            id: "mock-cost-2",
+                            category: "Cost",
+                            subscriptionId: "mock-sub",
+                            impactedField: "Microsoft.Compute/disks",
+                            resourceMetadata: { resourceId: "/subscriptions/mock-sub/resourceGroups/storage-rg/providers/Microsoft.Compute/disks/orphan-disk-01" },
+                            shortDescription: {
+                                problem: "Delete unattached managed disks",
+                                solution: "Delete 3 unattached disks to stop incurring storage costs."
+                            },
+                            extendedProperties: { savingsAmount: String(Math.round(86.4 * multiplier)) }
+                        },
+                        {
+                            id: "mock-cost-3",
+                            category: "Cost",
+                            subscriptionId: "mock-sub",
+                            impactedField: "Microsoft.Network/virtualNetworkGateways",
+                            resourceMetadata: { resourceId: "/subscriptions/mock-sub/resourceGroups/net-rg/providers/Microsoft.Network/virtualNetworkGateways/idle-gw-01" },
+                            shortDescription: {
+                                problem: "Repurpose or delete idle virtual network gateways",
+                                solution: "Delete idle VNet gateway to avoid unnecessary charges."
+                            },
+                            extendedProperties: { savingsAmount: String(Math.round(132.0 * multiplier)) }
+                        }
+                    ],
+                    Security: [
+                        {
+                            id: "mock-sec-1",
+                            category: "Security",
+                            subscriptionId: "mock-sub",
+                            impactedField: "Microsoft.Subscriptions/subscriptions",
+                            resourceMetadata: { resourceId: "/subscriptions/mock-sub" },
+                            shortDescription: {
+                                problem: "Enable multi-factor authentication for privileged accounts",
+                                solution: "Configure MFA via Conditional Access for all admin roles."
+                            },
+                            extendedProperties: {}
+                        }
+                    ],
+                    HighAvailability: [
+                        {
+                            id: "mock-ha-1",
+                            category: "HighAvailability",
+                            subscriptionId: "mock-sub",
+                            impactedField: "Microsoft.Storage/storageAccounts",
+                            resourceMetadata: { resourceId: "/subscriptions/mock-sub/resourceGroups/storage-rg/providers/Microsoft.Storage/storageAccounts/prodstorage01" },
+                            shortDescription: {
+                                problem: "Enable soft delete to protect your data",
+                                solution: "Enable Blob soft delete with 14-day retention."
+                            },
+                            extendedProperties: {}
+                        }
+                    ],
+                    Performance: [
+                        {
+                            id: "mock-perf-1",
+                            category: "Performance",
+                            subscriptionId: "mock-sub",
+                            impactedField: "Microsoft.Compute/disks",
+                            resourceMetadata: { resourceId: "/subscriptions/mock-sub/resourceGroups/db-rg/providers/Microsoft.Compute/disks/db-data-disk-01" },
+                            shortDescription: {
+                                problem: "Upgrade to Premium SSD disks to improve performance",
+                                solution: "Migrate Standard HDD to Premium SSD on workloads with high IOPS."
+                            },
+                            extendedProperties: {}
+                        }
+                    ],
+                    OperationalExcellence: []
+                },
                 subscriptions: [{ id: "mock-sub", name: "Demo Subscription" }],
                 scores: { "mock-sub": { Cost: Math.min(98, 82 + multiplier) } }
             };
         case 'rightsizing':
             return {
                 success: true,
+                mock: true,
                 data: [
-                    {
-                        id: "mock-rec-1",
-                        name: "app-prod-vm-01",
-                        type: "Virtual Machine",
-                        resourceId: "/subscriptions/mock-sub/resourceGroups/prod-rg/providers/Microsoft.Compute/virtualMachines/app-prod-vm-01",
-                        currentSku: "Standard_D8s_v3",
-                        targetSku: "Standard_D4s_v3",
-                        savings: 215.50
-                    },
-                    {
-                        id: "mock-rec-2",
-                        name: "db-stage-vm-02",
-                        type: "Virtual Machine",
-                        resourceId: "/subscriptions/mock-sub/resourceGroups/stage-rg/providers/Microsoft.Compute/virtualMachines/db-stage-vm-02",
-                        currentSku: "Standard_E8s_v4",
-                        targetSku: "Standard_E2s_v4",
-                        savings: 380.00
-                    },
-                    {
-                        id: "mock-rec-3",
-                        name: "worker-batch-10",
-                        type: "Virtual Machine",
-                        resourceId: "/subscriptions/mock-sub/resourceGroups/batch-rg/providers/Microsoft.Compute/virtualMachines/worker-batch-10",
-                        currentSku: "Standard_F16s_v2",
-                        targetSku: "Standard_F8s_v2",
-                        savings: 412.20
-                    },
-                    {
-                        id: "mock-rec-4",
-                        name: "cache-node-01",
-                        type: "Virtual Machine",
-                        resourceId: "/subscriptions/mock-sub/resourceGroups/core-rg/providers/Microsoft.Compute/virtualMachines/cache-node-01",
-                        currentSku: "Standard_D4ds_v5",
-                        targetSku: "Standard_D2ds_v5",
-                        savings: 105.80
-                    },
-                    {
-                        id: "mock-rec-5",
-                        name: "dev-bastion-vm",
-                        type: "Virtual Machine",
-                        resourceId: "/subscriptions/mock-sub/resourceGroups/dev-rg/providers/Microsoft.Compute/virtualMachines/dev-bastion-vm",
-                        currentSku: "Standard_B4ms",
-                        targetSku: "Standard_B2ms",
-                        savings: 42.10
-                    }
+                    { id: "/subscriptions/mock-sub/resourceGroups/prod-rg/providers/Microsoft.Compute/virtualMachines/app-prod-vm-01", name: "app-prod-vm-01", subscriptionId: "mock-sub", currentSku: "Standard_D8s_v3", recommendedSku: "Standard_D4s_v3", savings: 215.50, maxCpu: 8.2, hiddenCost: 0, reason: "Low CPU utilization" },
+                    { id: "/subscriptions/mock-sub/resourceGroups/stage-rg/providers/Microsoft.Compute/virtualMachines/db-stage-vm-02", name: "db-stage-vm-02", subscriptionId: "mock-sub", currentSku: "Standard_E8s_v4", recommendedSku: "Standard_E2s_v4", savings: 380.00, maxCpu: 4.1, hiddenCost: 0, reason: "Low CPU utilization" },
+                    { id: "/subscriptions/mock-sub/resourceGroups/batch-rg/providers/Microsoft.Compute/virtualMachines/worker-batch-10", name: "worker-batch-10", subscriptionId: "mock-sub", currentSku: "Standard_F16s_v2", recommendedSku: "Standard_F8s_v2", savings: 412.20, maxCpu: 18.5, hiddenCost: 0, reason: "Low CPU utilization" },
+                    { id: "/subscriptions/mock-sub/resourceGroups/core-rg/providers/Microsoft.Compute/virtualMachines/cache-node-01", name: "cache-node-01", subscriptionId: "mock-sub", currentSku: "Standard_D4ds_v5", recommendedSku: "Standard_D2ds_v5", savings: 105.80, maxCpu: 12.0, hiddenCost: 0, reason: "Low CPU utilization" },
+                    { id: "/subscriptions/mock-sub/resourceGroups/dev-rg/providers/Microsoft.Compute/virtualMachines/dev-bastion-vm", name: "dev-bastion-vm", subscriptionId: "mock-sub", currentSku: "Standard_B4ms", recommendedSku: "Standard_B2ms", savings: 42.10, maxCpu: 2.5, hiddenCost: 0, reason: "Low CPU utilization" },
+                    { id: "/subscriptions/mock-sub/resourceGroups/legacy-rg/providers/Microsoft.Compute/virtualMachines/old-deallocated-vm", name: "old-deallocated-vm", subscriptionId: "mock-sub", currentSku: "Standard_D2s_v3", recommendedSku: "DELETE", savings: 0, maxCpu: 0, hiddenCost: 38.50, reason: "Deallocated VM with attached Storage" }
                 ],
-                subscriptions: ["mock-sub"]
+                subscriptions: [{ id: "mock-sub", name: "Demo Subscription" }]
             };
         case 'rates':
             return {
+                mock: true,
                 recommendations: [
-                    { resourceName: 'app-prod-vm-01', resourceType: 'Virtual Machine', sku: 'Standard_D8s_v3', region: 'eastus', monthlyCost: 150, monthlyCostLicenseIncluded: 300, annualCost: 3600, annualCost1Y: 2160, annualCost3Y: 1512, savings1Y: 1440, savings3Y: 2088 },
-                    { resourceName: 'db-stage-vm-02', resourceType: 'Virtual Machine', sku: 'Standard_E8s_v4', region: 'eastus', monthlyCost: 200, monthlyCostLicenseIncluded: 420, annualCost: 5040, annualCost1Y: 3024, annualCost3Y: 2116, savings1Y: 2016, savings3Y: 2924 },
-                    { resourceName: 'sqldb-main', resourceType: 'SQL Database', sku: 'vCore_Gen5_8', region: 'westus', monthlyCost: 400, monthlyCostLicenseIncluded: 850, annualCost: 10200, annualCost1Y: 6120, annualCost3Y: 4284, savings1Y: 4080, savings3Y: 5916 }
+                    { resourceName: 'app-prod-vm-01', resourceType: 'Virtual Machine', sku: 'Standard_D8s_v3', region: 'eastus', monthlyCost: 280 * multiplier, monthlyCostLicenseIncluded: 560 * multiplier, annualCost: 3360 * multiplier, annualCost1Y: 2016 * multiplier, annualCost3Y: 1411 * multiplier, savings1Y: 1344 * multiplier, savings3Y: 1949 * multiplier },
+                    { resourceName: 'app-prod-vm-02', resourceType: 'Virtual Machine', sku: 'Standard_D8s_v3', region: 'eastus', monthlyCost: 280 * multiplier, monthlyCostLicenseIncluded: 560 * multiplier, annualCost: 3360 * multiplier, annualCost1Y: 2016 * multiplier, annualCost3Y: 1411 * multiplier, savings1Y: 1344 * multiplier, savings3Y: 1949 * multiplier },
+                    { resourceName: 'db-stage-vm-02', resourceType: 'Virtual Machine', sku: 'Standard_E8s_v4', region: 'eastus', monthlyCost: 420 * multiplier, monthlyCostLicenseIncluded: 840 * multiplier, annualCost: 5040 * multiplier, annualCost1Y: 3024 * multiplier, annualCost3Y: 2116 * multiplier, savings1Y: 2016 * multiplier, savings3Y: 2924 * multiplier },
+                    { resourceName: 'web-frontend-vmss', resourceType: 'VM Scale Set', sku: 'Standard_F4s_v2', region: 'westus2', monthlyCost: 195 * multiplier, monthlyCostLicenseIncluded: 390 * multiplier, annualCost: 2340 * multiplier, annualCost1Y: 1404 * multiplier, annualCost3Y: 982 * multiplier, savings1Y: 936 * multiplier, savings3Y: 1358 * multiplier },
+                    { resourceName: 'analytics-dw-vm', resourceType: 'Virtual Machine', sku: 'Standard_E16s_v5', region: 'eastus2', monthlyCost: 920 * multiplier, monthlyCostLicenseIncluded: 1840 * multiplier, annualCost: 11040 * multiplier, annualCost1Y: 6624 * multiplier, annualCost3Y: 4636 * multiplier, savings1Y: 4416 * multiplier, savings3Y: 6404 * multiplier },
+                    { resourceName: 'sqldb-main', resourceType: 'SQL Database', sku: 'vCore_Gen5_8', region: 'westus', monthlyCost: 850 * multiplier, monthlyCostLicenseIncluded: 1700 * multiplier, annualCost: 10200 * multiplier, annualCost1Y: 6120 * multiplier, annualCost3Y: 4284 * multiplier, savings1Y: 4080 * multiplier, savings3Y: 5916 * multiplier },
+                    { resourceName: 'sqldb-reports', resourceType: 'SQL Database', sku: 'vCore_Gen5_4', region: 'westus', monthlyCost: 425 * multiplier, monthlyCostLicenseIncluded: 850 * multiplier, annualCost: 5100 * multiplier, annualCost1Y: 3060 * multiplier, annualCost3Y: 2142 * multiplier, savings1Y: 2040 * multiplier, savings3Y: 2958 * multiplier },
+                    { resourceName: 'cosmos-prod-account', resourceType: 'Cosmos DB', sku: 'RU_10000', region: 'eastus', monthlyCost: 584 * multiplier, monthlyCostLicenseIncluded: 584 * multiplier, annualCost: 7008 * multiplier, annualCost1Y: 4205 * multiplier, annualCost3Y: 2943 * multiplier, savings1Y: 2803 * multiplier, savings3Y: 4065 * multiplier },
+                    { resourceName: 'aks-prod-cluster', resourceType: 'AKS Node Pool', sku: 'Standard_D4s_v5', region: 'eastus', monthlyCost: 175 * multiplier, monthlyCostLicenseIncluded: 350 * multiplier, annualCost: 2100 * multiplier, annualCost1Y: 1260 * multiplier, annualCost3Y: 882 * multiplier, savings1Y: 840 * multiplier, savings3Y: 1218 * multiplier },
+                    { resourceName: 'redis-cache-prod', resourceType: 'Redis Cache', sku: 'Premium_P2', region: 'eastus', monthlyCost: 410 * multiplier, monthlyCostLicenseIncluded: 410 * multiplier, annualCost: 4920 * multiplier, annualCost1Y: 2952 * multiplier, annualCost3Y: 2066 * multiplier, savings1Y: 1968 * multiplier, savings3Y: 2854 * multiplier },
+                    { resourceName: 'synapse-pool-dw', resourceType: 'Synapse Dedicated Pool', sku: 'DW500c', region: 'eastus2', monthlyCost: 5760 * multiplier, monthlyCostLicenseIncluded: 5760 * multiplier, annualCost: 69120 * multiplier, annualCost1Y: 41472 * multiplier, annualCost3Y: 29030 * multiplier, savings1Y: 27648 * multiplier, savings3Y: 40090 * multiplier },
+                    { resourceName: 'storage-backups-sa', resourceType: 'Storage Account', sku: 'GRS_Hot', region: 'eastus', monthlyCost: 145 * multiplier, monthlyCostLicenseIncluded: 145 * multiplier, annualCost: 1740 * multiplier, annualCost1Y: 1044 * multiplier, annualCost3Y: 731 * multiplier, savings1Y: 696 * multiplier, savings3Y: 1009 * multiplier }
                 ],
                 reservations: [
-                    { skuName: 'Standard_D8s_v3', resourceType: 'VirtualMachines', recommendedQuantity: 4, totalMonthlyPAYGCost: 1200, costWith1YReservation: 720, netSavings1Y: 480, costWith3YReservation: 504, netSavings3Y: 696 },
-                    { skuName: 'vCore_Gen5_8', resourceType: 'SQLDatabase', recommendedQuantity: 2, totalMonthlyPAYGCost: 1700, costWith1YReservation: 1020, netSavings1Y: 680, costWith3YReservation: 714, netSavings3Y: 986 }
+                    { skuName: 'Standard_D8s_v3', resourceType: 'VirtualMachines', recommendedQuantity: 4 * multiplier, totalMonthlyPAYGCost: 1120 * multiplier, costWith1YReservation: 672 * multiplier, netSavings1Y: 448 * multiplier, costWith3YReservation: 470 * multiplier, netSavings3Y: 650 * multiplier },
+                    { skuName: 'Standard_E8s_v4', resourceType: 'VirtualMachines', recommendedQuantity: 2 * multiplier, totalMonthlyPAYGCost: 840 * multiplier, costWith1YReservation: 504 * multiplier, netSavings1Y: 336 * multiplier, costWith3YReservation: 353 * multiplier, netSavings3Y: 487 * multiplier },
+                    { skuName: 'Standard_F4s_v2', resourceType: 'VirtualMachines', recommendedQuantity: 3 * multiplier, totalMonthlyPAYGCost: 585 * multiplier, costWith1YReservation: 351 * multiplier, netSavings1Y: 234 * multiplier, costWith3YReservation: 246 * multiplier, netSavings3Y: 339 * multiplier },
+                    { skuName: 'Standard_E16s_v5', resourceType: 'VirtualMachines', recommendedQuantity: 1 * multiplier, totalMonthlyPAYGCost: 920 * multiplier, costWith1YReservation: 552 * multiplier, netSavings1Y: 368 * multiplier, costWith3YReservation: 386 * multiplier, netSavings3Y: 534 * multiplier },
+                    { skuName: 'vCore_Gen5_8', resourceType: 'SQLDatabase', recommendedQuantity: 2 * multiplier, totalMonthlyPAYGCost: 1700 * multiplier, costWith1YReservation: 1020 * multiplier, netSavings1Y: 680 * multiplier, costWith3YReservation: 714 * multiplier, netSavings3Y: 986 * multiplier },
+                    { skuName: 'vCore_Gen5_4', resourceType: 'SQLDatabase', recommendedQuantity: 3 * multiplier, totalMonthlyPAYGCost: 1275 * multiplier, costWith1YReservation: 765 * multiplier, netSavings1Y: 510 * multiplier, costWith3YReservation: 536 * multiplier, netSavings3Y: 739 * multiplier },
+                    { skuName: 'RU_10000', resourceType: 'CosmosDB', recommendedQuantity: 1 * multiplier, totalMonthlyPAYGCost: 584 * multiplier, costWith1YReservation: 350 * multiplier, netSavings1Y: 234 * multiplier, costWith3YReservation: 245 * multiplier, netSavings3Y: 339 * multiplier },
+                    { skuName: 'Premium_P2', resourceType: 'RedisCache', recommendedQuantity: 2 * multiplier, totalMonthlyPAYGCost: 820 * multiplier, costWith1YReservation: 492 * multiplier, netSavings1Y: 328 * multiplier, costWith3YReservation: 344 * multiplier, netSavings3Y: 476 * multiplier },
+                    { skuName: 'DW500c', resourceType: 'SynapseAnalytics', recommendedQuantity: 1 * multiplier, totalMonthlyPAYGCost: 5760 * multiplier, costWith1YReservation: 3456 * multiplier, netSavings1Y: 2304 * multiplier, costWith3YReservation: 2419 * multiplier, netSavings3Y: 3341 * multiplier },
+                    { skuName: 'Standard_D4s_v5', resourceType: 'VirtualMachines', recommendedQuantity: 6 * multiplier, totalMonthlyPAYGCost: 1050 * multiplier, costWith1YReservation: 630 * multiplier, netSavings1Y: 420 * multiplier, costWith3YReservation: 441 * multiplier, netSavings3Y: 609 * multiplier }
                 ]
             };
         case 'ttl':
@@ -138,13 +200,30 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
                 }
             };
         case 'history':
+            // Genera 12 puntos semanales terminando hoy, con score creciente
+            // según el tier (multiplier). Refleja "evolución de optimización"
+            // y evita fechas obsoletas en demos.
             return {
-                data: [
-                    { scan_date: "2023-10-01", score: 85.5, impacted_resources: 12, potential_score_increase: 5.0 },
-                    { scan_date: "2023-10-08", score: 88.0, impacted_resources: 10, potential_score_increase: 3.5 },
-                    { scan_date: "2023-10-15", score: 92.5, impacted_resources: 5, potential_score_increase: 1.0 },
-                    { scan_date: "2023-10-22", score: 94.0, impacted_resources: 3, potential_score_increase: 0.5 }
-                ]
+                data: (() => {
+                    const points = 12;
+                    const baseScore = Math.max(40, 70 - multiplier * 2); // arranca más bajo en tiers altos para mostrar mejora
+                    const finalScore = Math.min(97, 80 + multiplier);
+                    const baseImpacted = Math.max(3, 25 - multiplier);
+                    const finalImpacted = Math.max(1, Math.floor(baseImpacted / 3));
+                    return Array.from({ length: points }).map((_, i) => {
+                        const t = i / (points - 1);
+                        const date = new Date(Date.now() - (points - 1 - i) * 7 * 86400000);
+                        const score = baseScore + (finalScore - baseScore) * t;
+                        const impacted = Math.round(baseImpacted + (finalImpacted - baseImpacted) * t);
+                        const potential = Math.max(0, 8 - i * 0.7);
+                        return {
+                            scan_date: date.toISOString().split('T')[0],
+                            score: parseFloat(score.toFixed(1)),
+                            impacted_resources: impacted,
+                            potential_score_increase: parseFloat(potential.toFixed(1))
+                        };
+                    });
+                })()
             };
         case 'sustainability':
             return {
@@ -183,32 +262,54 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
                     }
                 ]
             };
-        case 'anomalies':
+        case 'anomalies': {
+            const baseMean = 520 * multiplier;
+            const std = 78 * multiplier;
+            const today = new Date();
+            const dailyCosts: Array<{date: string, amount: number}> = [];
+            // Deterministic pseudo-random so chart is stable across renders
+            const rand = (i: number) => {
+                const x = Math.sin(i * 12.9898) * 43758.5453;
+                return x - Math.floor(x);
+            };
+            const spikeDays = new Set([7, 22, 41, 55, 58]);
+            for (let i = 59; i >= 0; i--) {
+                const d = new Date(today);
+                d.setDate(today.getDate() - i);
+                const idx = 59 - i;
+                const noise = (rand(idx) - 0.5) * std * 1.4;
+                let amount = baseMean + noise + Math.sin(idx / 7) * std * 0.4;
+                if (spikeDays.has(idx)) {
+                    amount = baseMean + std * (4 + rand(idx + 100) * 2);
+                }
+                dailyCosts.push({ date: d.toISOString().slice(0, 10), amount: Math.max(50, Math.round(amount * 100) / 100) });
+            }
+            const upperBound = baseMean + 3 * std;
+            const spikes = dailyCosts.filter(d => d.amount > upperBound);
+            const services = ['Virtual Machines', 'Storage', 'SQL Database', 'App Service', 'Cosmos DB'];
+            const subs = ['sub-prod-eastus', 'sub-prod-westus', 'sub-staging', 'sub-data-analytics', 'sub-dev'];
+            const anomalies = spikes.map((s, i) => ({
+                id: `anom-${i + 1}`,
+                date: s.date,
+                status: i === 0 ? 'Activa' : (i === 1 ? 'Investigando' : 'Resuelta'),
+                service: services[i % services.length],
+                subscription_id: subs[i % subs.length],
+                amount: s.amount,
+                expected_amount: baseMean,
+                z_score: (s.amount - baseMean) / std,
+                metric: ['Bandwidth', 'Compute Hours', 'DTU', 'RU/s', 'GB-month'][i % 5],
+                severity: s.amount > baseMean + 5 * std ? 'Critical' : 'High',
+                description: `Pico inusual detectado en ${services[i % services.length]} — desviación de +$${(s.amount - baseMean).toFixed(0)} vs media móvil.`
+            }));
             return {
                 success: true,
-                anomalies: [
-                    {
-                        id: "anom-1",
-                        date: new Date().toISOString(),
-                        service: "Storage",
-                        metric: "Bandwidth",
-                        expectedCost: 150.00,
-                        actualCost: 950.00,
-                        severity: "High",
-                        description: "Spike repentino en costos de transferencia de salida en Storage Account 'prodassets'."
-                    },
-                    {
-                        id: "anom-2",
-                        date: new Date(Date.now() - 86400000).toISOString(),
-                        service: "Virtual Machines",
-                        metric: "Compute Hours",
-                        expectedCost: 400.00,
-                        actualCost: 520.00,
-                        severity: "Medium",
-                        description: "Aumento inusual en horas de cómputo en el grupo de recursos 'data-processing'."
-                    }
-                ]
+                mock: true,
+                mean: baseMean,
+                stdDev: std,
+                dailyCosts,
+                anomalies
             };
+        }
         case 'copilot_history':
             return {
                 success: true,
@@ -238,12 +339,25 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
         case 'billing':
             return {
                 success: true,
-                data: Array.from({length: 30}).map((_, i) => ({
-                    date: new Date(Date.now() - (29 - i) * 86400000).toISOString().split('T')[0],
-                    cost: (150 + Math.random() * 50) * multiplier,
-                    service: i % 2 === 0 ? 'Virtual Machines' : 'Storage',
-                    resourceGroup: 'demo-rg'
-                }))
+                mock: true,
+                data: Array.from({length: 30}).map((_, i) => {
+                    const services = ['Virtual Machines', 'Storage', 'SQL Database', 'App Service', 'Networking', 'AKS', 'Functions'];
+                    const svc = services[i % services.length];
+                    const cost = (150 + Math.random() * 50) * multiplier;
+                    return {
+                        date: new Date(Date.now() - (29 - i) * 86400000).toISOString().split('T')[0],
+                        cost,
+                        BilledCost: cost,
+                        EffectiveCost: cost * 0.92,
+                        service: svc,
+                        ServiceName: svc,
+                        ServiceFamily: svc,
+                        resourceGroup: ['rg-prod', 'rg-dev', 'rg-data', 'rg-net'][i % 4],
+                        ResourceGroup: ['rg-prod', 'rg-dev', 'rg-data', 'rg-net'][i % 4],
+                        ResourceId: `/subscriptions/demo/resourceGroups/rg/providers/Microsoft.Compute/${svc}/r${i}`,
+                        tags: { Environment: i % 2 ? 'prod' : 'dev', Owner: 'demo@company.com' }
+                    };
+                })
             };
         case 'tags_compliance':
             return {
@@ -265,18 +379,64 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
         case 'network':
             return {
                 success: true,
+                mock: true,
                 data: [
-                    { resource: 'vnet-1', traffic: '150GB', cost: 12.50 },
-                    { resource: 'vpn-gw', traffic: '500GB', cost: 45.00 }
+                    { resource: 'pip-prod-lb-01', subCategory: 'Public IP (Standard)', cost: 4.20 * multiplier, resourceGroup: 'rg-prod-front', region: 'eastus' },
+                    { resource: 'pip-staging-app-02', subCategory: 'Public IP (Standard)', cost: 4.20 * multiplier, resourceGroup: 'rg-staging', region: 'eastus' },
+                    { resource: 'lb-prod-frontend', subCategory: 'Load Balancer', cost: 18.50 * multiplier, resourceGroup: 'rg-prod-front', region: 'eastus' },
+                    { resource: 'lb-api-internal', subCategory: 'Load Balancer', cost: 22.10 * multiplier, resourceGroup: 'rg-api', region: 'eastus' },
+                    { resource: 'agw-waf-corp', subCategory: 'Application Gateway (WAF v2)', cost: 248.40 * multiplier, resourceGroup: 'rg-prod-front', region: 'eastus' },
+                    { resource: 'vpn-gw-corp-vpn', subCategory: 'VPN Gateway (VpnGw2)', cost: 365.00 * multiplier, resourceGroup: 'rg-net-hub', region: 'eastus' },
+                    { resource: 'er-circuit-onprem', subCategory: 'ExpressRoute Circuit (1 Gbps)', cost: 950.00 * multiplier, resourceGroup: 'rg-net-hub', region: 'eastus' },
+                    { resource: 'nat-gw-prod', subCategory: 'NAT Gateway', cost: 65.80 * multiplier, resourceGroup: 'rg-prod-front', region: 'eastus' },
+                    { resource: 'fd-cdn-public', subCategory: 'Azure Front Door (Premium)', cost: 184.20 * multiplier, resourceGroup: 'rg-edge', region: 'global' },
+                    { resource: 'fd-bandwidth-out', subCategory: 'Front Door Data Transfer Out', cost: 312.40 * multiplier, resourceGroup: 'rg-edge', region: 'global' },
+                    { resource: 'pe-storage-sa01', subCategory: 'Private Endpoint', cost: 7.30 * multiplier, resourceGroup: 'rg-data', region: 'eastus' },
+                    { resource: 'pe-sql-db01', subCategory: 'Private Endpoint', cost: 7.30 * multiplier, resourceGroup: 'rg-data', region: 'eastus' },
+                    { resource: 'ddos-plan-corp', subCategory: 'DDoS Protection Standard', cost: 2944.00 * multiplier, resourceGroup: 'rg-net-hub', region: 'global' },
+                    { resource: 'tm-failover-app', subCategory: 'Traffic Manager Profile', cost: 5.50 * multiplier, resourceGroup: 'rg-edge', region: 'global' },
+                    { resource: 'egress-internet-eastus', subCategory: 'Data Transfer Out (Internet)', cost: 487.60 * multiplier, resourceGroup: 'rg-prod-front', region: 'eastus' },
+                    { resource: 'egress-cross-region', subCategory: 'Inter-region Data Transfer', cost: 156.20 * multiplier, resourceGroup: 'rg-data', region: 'eastus' },
+                    { resource: 'peering-vnet-hub-spoke1', subCategory: 'VNet Peering', cost: 32.10 * multiplier, resourceGroup: 'rg-net-hub', region: 'eastus' },
+                    { resource: 'peering-vnet-hub-spoke2', subCategory: 'VNet Peering', cost: 28.50 * multiplier, resourceGroup: 'rg-net-hub', region: 'eastus' },
+                    { resource: 'bastion-host-mgmt', subCategory: 'Azure Bastion', cost: 138.70 * multiplier, resourceGroup: 'rg-mgmt', region: 'eastus' },
+                    { resource: 'firewall-hub-azfw', subCategory: 'Azure Firewall (Standard)', cost: 912.30 * multiplier, resourceGroup: 'rg-net-hub', region: 'eastus' }
                 ]
             };
         case 'licenses':
             return {
                 success: true,
-                data: [
-                    { name: 'Windows Server 2022', count: 15, utilization: '80%' },
-                    { name: 'SQL Server Standard', count: 4, utilization: '100%' }
-                ]
+                mock: true,
+                data: {
+                    licenses: [
+                        { id: 'sku-1', skuPartNumber: 'ENTERPRISEPACK', isSystemSku: false, total: 50 * multiplier, consumed: 42 * multiplier, available: 8 * multiplier, underutilized: 12 * multiplier, wastedCost: 432.00 * multiplier },
+                        { id: 'sku-2', skuPartNumber: 'SPE_E5', isSystemSku: false, total: 25 * multiplier, consumed: 18 * multiplier, available: 7 * multiplier, underutilized: 6 * multiplier, wastedCost: 342.00 * multiplier },
+                        { id: 'sku-3', skuPartNumber: 'EMS', isSystemSku: false, total: 30 * multiplier, consumed: 28 * multiplier, available: 2 * multiplier, underutilized: 4 * multiplier, wastedCost: 35.60 * multiplier },
+                        { id: 'sku-4', skuPartNumber: 'POWER_BI_PRO', isSystemSku: false, total: 20 * multiplier, consumed: 11 * multiplier, available: 9 * multiplier, underutilized: 7 * multiplier, wastedCost: 70.00 * multiplier },
+                        { id: 'sku-5', skuPartNumber: 'PROJECT_PROFESSIONAL', isSystemSku: false, total: 8 * multiplier, consumed: 5 * multiplier, available: 3 * multiplier, underutilized: 2 * multiplier, wastedCost: 60.00 * multiplier },
+                        { id: 'sku-6', skuPartNumber: 'VISIOCLIENT', isSystemSku: false, total: 6 * multiplier, consumed: 3 * multiplier, available: 3 * multiplier, underutilized: 3 * multiplier, wastedCost: 45.00 * multiplier },
+                        { id: 'sku-7', skuPartNumber: 'DEFENDER_ENDPOINT_P2', isSystemSku: false, total: 60 * multiplier, consumed: 55 * multiplier, available: 5 * multiplier, underutilized: 8 * multiplier, wastedCost: 44.00 * multiplier },
+                        { id: 'sku-8', skuPartNumber: 'INTUNE_A', isSystemSku: false, total: 40 * multiplier, consumed: 33 * multiplier, available: 7 * multiplier, underutilized: 5 * multiplier, wastedCost: 30.00 * multiplier },
+                        { id: 'sku-9', skuPartNumber: 'Windows_Store', isSystemSku: true, total: 1000000, consumed: 0, available: 1000000, underutilized: 0, wastedCost: 0 }
+                    ],
+                    inactiveUsers: [
+                        { userPrincipalName: 'jperez@demo.local', assignedProducts: 'ENTERPRISEPACK', lastActivityDate: '2025-02-14', daysInactive: 134 },
+                        { userPrincipalName: 'mlopez@demo.local', assignedProducts: 'SPE_E5, POWER_BI_PRO', lastActivityDate: '2024-11-03', daysInactive: 237 },
+                        { userPrincipalName: 'rgarcia@demo.local', assignedProducts: 'ENTERPRISEPACK', lastActivityDate: '2024-08-22', daysInactive: 310 },
+                        { userPrincipalName: 'aramirez@demo.local', assignedProducts: 'PROJECT_PROFESSIONAL, VISIOCLIENT', lastActivityDate: null, daysInactive: 950 },
+                        { userPrincipalName: 'consultor1@demo.local', assignedProducts: 'ENTERPRISEPACK', lastActivityDate: '2024-05-10', daysInactive: 414 },
+                        { userPrincipalName: 'externo@demo.local', assignedProducts: 'EMS, INTUNE_A', lastActivityDate: '2025-01-08', daysInactive: 171 },
+                        { userPrincipalName: 'soporte_old@demo.local', assignedProducts: 'SPE_E5', lastActivityDate: '2023-12-15', daysInactive: 561 }
+                    ],
+                    missingAhub: [
+                        { name: 'app-prod-vm-01', type: 'microsoft.compute/virtualmachines', resourceGroup: 'rg-prod-front', location: 'eastus', subscriptionId: 'mock-sub', potentialLicenseSavings: 145.00 * multiplier },
+                        { name: 'app-prod-vm-02', type: 'microsoft.compute/virtualmachines', resourceGroup: 'rg-prod-front', location: 'eastus', subscriptionId: 'mock-sub', potentialLicenseSavings: 145.00 * multiplier },
+                        { name: 'web-iis-srv-01', type: 'microsoft.compute/virtualmachines', resourceGroup: 'rg-web', location: 'westus2', subscriptionId: 'mock-sub', potentialLicenseSavings: 87.20 * multiplier },
+                        { name: 'sqldb-reports', type: 'microsoft.sql/servers/databases', resourceGroup: 'rg-data', location: 'eastus', subscriptionId: 'mock-sub', tier: 'GeneralPurpose', vCores: 4, potentialLicenseSavings: 220.50 * multiplier },
+                        { name: 'sqldb-main', type: 'microsoft.sql/servers/databases', resourceGroup: 'rg-data', location: 'eastus', subscriptionId: 'mock-sub', tier: 'BusinessCritical', vCores: 8, potentialLicenseSavings: 441.00 * multiplier },
+                        { name: 'sqlpool-shared', type: 'microsoft.sql/servers/databases', resourceGroup: 'rg-data', location: 'eastus', subscriptionId: 'mock-sub', scope: 'elasticPool', tier: 'GeneralPurpose', vCores: 8, potentialLicenseSavings: 320.40 * multiplier }
+                    ]
+                }
             };
         case 'chargeback':
             return {
@@ -523,6 +683,63 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
                         { type: 'AppService', sku: 'PremiumV3', recommendedQuantity: 2, monthlySavings: 310.25, term: 'P3Y' }
                     ]
                 }
+            };
+        case 'dashboard_summary': {
+            const tierMult = (arg2 || '').toLowerCase() === 'enterprise' ? 5
+                : (arg2 || '').toLowerCase() === 'business' ? 2.5
+                : (arg2 || '').toLowerCase().startsWith('pro') ? 1.5 : 1;
+            const base = 12500 * tierMult;
+            const proj = base * 1.18;
+            const sav = base * 0.22;
+            return {
+                success: true,
+                mock: true,
+                actualCost: Math.round(base),
+                projectedCost: Math.round(proj),
+                zombieCount: Math.round(48 * tierMult),
+                totalSavings: Math.round(sav),
+                environmentalImpact: Number(((sav / 100) * 15).toFixed(1)),
+                histogram: Array.from({ length: 7 }).map((_, i) => ({
+                    name: ['Compute', 'Storage', 'Network', 'Database', 'AI/ML', 'Monitor', 'Otros'][i],
+                    value: Math.round((base / 7) * (0.6 + Math.random()))
+                })),
+                dashboardData: [
+                    { type: 'Disk', name: 'orphan-disk-01', issueType: 'cost', potentialSavings: 78, sizeGB: 512 },
+                    { type: 'Public IP', name: 'pip-legacy', issueType: 'cost', potentialSavings: 4.2 },
+                    { type: 'NAT Gateway', name: 'nat-old-east', issueType: 'cost', potentialSavings: 32 },
+                    { type: 'App Service Plan', name: 'asp-dev-empty', issueType: 'cost', potentialSavings: 45 },
+                    { type: 'NIC', name: 'nic-zombie-04', issueType: 'governance', potentialSavings: 0 }
+                ],
+                auditResults: getMockDataForRoute('audit_full', arg2)?.auditResults || {}
+            };
+        }
+        case 'approvals':
+            return {
+                success: true,
+                mock: true,
+                data: [
+                    { id: 1, resource_id: '/subscriptions/demo/resourceGroups/rg-prod/providers/Microsoft.Compute/disks/orphan-disk-01', resource_name: 'orphan-disk-01 (Premium SSD 512GB)', action_type: 'DELETE_RESOURCE', estimated_savings: 78.40, status: 'Pending', requested_by: 'advisor-bot@demo.local', requested_at: new Date(Date.now() - 1000*60*60*3).toISOString(), resolved_at: null, resolved_by: null },
+                    { id: 2, resource_id: '/subscriptions/demo/resourceGroups/rg-dev/providers/Microsoft.Compute/virtualMachines/vm-dev-04', resource_name: 'vm-dev-04 (Standard_D8s_v5 → D4s_v5)', action_type: 'RIGHTSIZE_VM', estimated_savings: 142.10, status: 'Pending', requested_by: 'rightsizing-engine@demo.local', requested_at: new Date(Date.now() - 1000*60*60*9).toISOString(), resolved_at: null, resolved_by: null },
+                    { id: 3, resource_id: '/subscriptions/demo/resourceGroups/rg-net/providers/Microsoft.Network/publicIPAddresses/pip-legacy', resource_name: 'pip-legacy (Public IP huérfana)', action_type: 'DELETE_RESOURCE', estimated_savings: 4.20, status: 'Approved', requested_by: 'zombie-scanner@demo.local', requested_at: new Date(Date.now() - 1000*60*60*48).toISOString(), resolved_at: new Date(Date.now() - 1000*60*60*47).toISOString(), resolved_by: 'admin@demo.local' },
+                    { id: 4, resource_id: '/subscriptions/demo/resourceGroups/rg-data/providers/Microsoft.Storage/storageAccounts/saoldlogs', resource_name: 'saoldlogs (Hot → Cool tier)', action_type: 'CHANGE_TIER', estimated_savings: 65.00, status: 'Approved', requested_by: 'storage-efficiency@demo.local', requested_at: new Date(Date.now() - 1000*60*60*72).toISOString(), resolved_at: new Date(Date.now() - 1000*60*60*70).toISOString(), resolved_by: 'admin@demo.local' },
+                    { id: 5, resource_id: '/subscriptions/demo/resourceGroups/rg-test/providers/Microsoft.Compute/virtualMachines/vm-stress-test', resource_name: 'vm-stress-test (Power Off por inactividad)', action_type: 'POWER_OFF', estimated_savings: 28.60, status: 'Rejected', requested_by: 'smart-shutdown@demo.local', requested_at: new Date(Date.now() - 1000*60*60*96).toISOString(), resolved_at: new Date(Date.now() - 1000*60*60*95).toISOString(), resolved_by: 'admin@demo.local' }
+                ]
+            };
+        case 'payments':
+            return {
+                mock: true,
+                tier: 'Enterprise',
+                status: 'active',
+                renewsAt: new Date(Date.now() + 1000*60*60*24*22).toISOString(),
+                monthlyAmount: 1499.00,
+                currency: 'USD',
+                paymentMethod: { brand: 'Visa', last4: '4242', exp: '12/28' },
+                portalUrl: 'https://billing.stripe.com/p/login/test_demo',
+                invoices: [
+                    { id: 'INV-2026-05', date: '2026-05-01', amount: 1499.00, status: 'paid', pdfUrl: '#' },
+                    { id: 'INV-2026-04', date: '2026-04-01', amount: 1499.00, status: 'paid', pdfUrl: '#' },
+                    { id: 'INV-2026-03', date: '2026-03-01', amount: 1499.00, status: 'paid', pdfUrl: '#' }
+                ]
             };
         default:
             return { success: true, message: "Mock data not defined for this route" };

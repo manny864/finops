@@ -5,6 +5,7 @@ import { Monitor, Moon, Sun, Settings } from "lucide-react";
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { toast } from 'sonner';
+import { getFreshIdToken } from '@/lib/msalToken';
 
 import DeleteTenantModal from '@/components/DeleteTenantModal';
 import { isMockTenant } from '@/lib/mockData';
@@ -172,10 +173,7 @@ function WebhookConfig() {
         const loadWebhook = async () => {
             setLoading(true);
             try {
-                const tokenResponse = await instance.acquireTokenSilent({
-                    scopes: ["User.Read"],
-                    account: accounts[0]
-                });
+                const tokenResponse = { idToken: await getFreshIdToken(instance, accounts[0]) };
                 
                 const res = await fetch(`/api/admin/config/webhook?tenantId=${selectedTenant.id}`, {
                     headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
@@ -202,10 +200,7 @@ function WebhookConfig() {
 
         setSaving(true);
         try {
-            const tokenResponse = await instance.acquireTokenSilent({
-                scopes: ["User.Read"],
-                account: accounts[0]
-            });
+            const tokenResponse = { idToken: await getFreshIdToken(instance, accounts[0]) };
             
             const res = await fetch('/api/admin/config/webhook', {
                 method: 'POST',

@@ -1,5 +1,6 @@
 import React from 'react';
 import PoliciesAsCode from '@/components/dashboard/PoliciesAsCode';
+import MockBanner from '@/components/MockBanner';
 
 export default function PoliciesPage() {
     return (
@@ -15,6 +16,7 @@ export default function PoliciesPage() {
             </div>
 
             <div className="mt-6">
+                <MockBanner />
                 <PoliciesAsCode />
             </div>
         </div>

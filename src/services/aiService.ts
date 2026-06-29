@@ -42,7 +42,9 @@ export async function generateFinOpsReport(tenantId: string, metricsData: any, l
     switch (config.provider) {
         case 'google':
             const google = createGoogleGenerativeAI({ apiKey: config.apiKey });
-            model = google('gemini-1.5-pro-latest');
+            // Reporte ejecutivo: usa el alias `gemini-pro-latest` para acceder al
+            // modelo Pro más reciente disponible (free tier cuando aplica).
+            model = google('gemini-pro-latest');
             break;
         case 'anthropic':
             const anthropic = createAnthropic({ apiKey: config.apiKey });

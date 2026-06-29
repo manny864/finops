@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import pool, { insertCostSnapshot, updateTenantHealth } from "@/modules/storage/db";
-import { getYesterdaysCost } from "@/modules/collectors/azure/billingService";
+import pool, { insertCostSnapshot, insertCostSnapshotRow, updateTenantHealth } from "@/modules/storage/db";
+import { getYesterdaysCost, getYesterdaysDetailedCosts } from "@/modules/collectors/azure/billingService";
 
 export async function GET(request: NextRequest) {
     return runSync(request);
@@ -33,6 +33,7 @@ async function runSync(request: NextRequest) {
         );
 
         let tenantCount = 0;
+        let detailRowsTotal = 0;
 
         // 4. Sequential Loop (for...of) to avoid rate limits
         for (const tenant of tenants) {
@@ -41,26 +42,36 @@ async function runSync(request: NextRequest) {
                     throw new Error("Azure client credentials are not configured for this tenant.");
                 }
 
-                // Call Billing/Consumption module
+                // a) Aggregate total (legacy table cost_snapshots used by dashboard)
                 const totalCost = await getYesterdaysCost(tenant.id);
-
-                // Cache the cost snapshot
                 await insertCostSnapshot(tenant.id, yesterdayStr, totalCost, 'USD');
 
-                // Update tenant health status to OK
-                await updateTenantHealth(tenant.id, 'OK');
+                // b) Detailed FOCUS rows (CostSnapshots — powers storage-efficiency,
+                //    billing, chargeback, ai-analytics, etc.)
+                try {
+                    const detailedRows = await getYesterdaysDetailedCosts(tenant.id);
+                    for (const row of detailedRows) {
+                        await insertCostSnapshotRow(tenant.id, yesterdayStr, row);
+                    }
+                    detailRowsTotal += detailedRows.length;
+                    console.log(`[cron-sync] tenant=${tenant.id} detailed rows inserted=${detailedRows.length}`);
+                } catch (detailErr: any) {
+                    console.error(`[cron-sync] detailed fetch failed for tenant ${tenant.id}:`, detailErr.message);
+                }
 
+                // c) Health OK
+                await updateTenantHealth(tenant.id, 'OK');
                 tenantCount++;
             } catch (err: any) {
                 console.error(`Cron sync error for tenant ${tenant.id}:`, err.message);
-                // Update tenant health status to ERROR
                 await updateTenantHealth(tenant.id, 'ERROR', err.message);
             }
         }
 
         return NextResponse.json({
             status: 'Sync completed',
-            processed: tenantCount
+            processed: tenantCount,
+            detailedRows: detailRowsTotal
         });
 
     } catch (e: any) {

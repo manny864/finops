@@ -1,9 +1,11 @@
 import React from 'react';
 import Commitments from '@/components/dashboard/Commitments';
+import MockBanner from '@/components/MockBanner';
 
 export default function CommitmentsPage() {
     return (
         <div className="content animate-in fade-in">
+            <MockBanner />
             <div className="vhead">
                 <div>
                     <div className="vt">

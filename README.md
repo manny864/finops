@@ -127,22 +127,109 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
 
 1. **User Identity**: El acceso de usuarios es manejado vía MSAL (`@azure/msal-react`). Los tokens JWT emitidos validan la identidad de la sesión en todos los llamados a la API en `src/app/api`.
 2. **Service Principal (Platform Agent)**: Los Tenants hacen Onboarding ejecutando un script de PowerShell que crea un **Service Principal Least-Privilege**.
-3. **Role-Based Access Control (RBAC)**:
-   - `Reader`
-   - `Cost Management Reader`
-   - `Virtual Machine Contributor` (Requerido para control de energía sobre máquinas virtuales)
-   - **Custom Remediation Role**: Restringido **EXCLUSIVAMENTE** a las siguientes acciones operacionales:
+3. **Role-Based Access Control (RBAC)** — Roles asignados por tier:
+
+   **Todos los tiers (Essential):**
+   - `Reader` — Resource Graph, Advisor, listado de recursos.
+   - `Cost Management Reader` — API de Consumo Real (`/api/intelligence/billing`).
+   - `Monitoring Reader` — Métricas para rightsizing.
+   - `Billing Reader` — Visibilidad de facturación a nivel suscripción.
+
+   **Professional (Essential +):**
+   - `Tag Contributor` — Auto-tagging.
+
+   **Business (Pro +):**
+   - **Custom Remediation Role** con permisos **mínimos** de power management:
      - `Microsoft.Compute/virtualMachines/start/action`
      - `Microsoft.Compute/virtualMachines/deallocate/action`
      - `Microsoft.Compute/virtualMachines/restart/action`
      - `Microsoft.Resources/tags/write`
+
+   **Enterprise (Business +):**
+   - **Custom Remediation Role** **expandido** para limpieza de huérfanos:
+     - Todas las de Business +
      - `Microsoft.Compute/disks/delete`
+     - `Microsoft.Compute/snapshots/delete`
      - `Microsoft.Network/networkInterfaces/delete`
      - `Microsoft.Network/publicIPAddresses/delete`
+     - `Microsoft.Network/networkSecurityGroups/delete`
+
+   > ⚠️ **NOTA importante**: El script de onboarding **NO** asigna `Virtual Machine Contributor` ni `Desktop Virtualization Power On Off Contributor` porque otorgan permisos excesivos (incluyendo borrar VMs). Se usa exclusivamente el Custom Role con acciones explícitas.
+
+   > ⚠️ **Suscripciones EA/MCA**: Para suscripciones bajo Enterprise Agreement o Microsoft Customer Agreement, el `Billing Admin` debe asignar adicionalmente `Enrollment Reader` o `Billing Account Reader` al SP en el scope de billing account (no es posible desde el script).
+
+   **Diagnóstico:** El endpoint `GET /api/admin/check-sp-roles` verifica automáticamente que el SP tenga todos los roles requeridos en cada suscripción y reporta los faltantes con instrucciones de remediación.
+
+### 🔍 Diagnostic Endpoints
+
+| Endpoint | Método | Para qué |
+|---|---|---|
+| `/api/admin/check-sp-roles?tenantId=...` | GET | Verifica que el Service Principal del tenant tenga **todos los roles requeridos** según su tier, en **cada suscripción** que ve. Devuelve estado por sub (`OK`/`PARTIAL`/`NO_ROLES`/`ERROR`), lista de roles asignados, lista de roles faltantes, y un `globalHint` accionable. Acepta opcionalmente `&subscriptionIds=id1,id2` para filtrar. |
+
+**Ejemplo de respuesta exitosa:**
+```json
+{
+  "success": true,
+  "summary": {
+    "tenantId": "8b41364f-...",
+    "tier": "Essential",
+    "spObjectId": "abc-...",
+    "requiredRoles": ["Reader", "Cost Management Reader", "Monitoring Reader", "Billing Reader"],
+    "totalSubscriptions": 3,
+    "okCount": 1,
+    "partialCount": 2,
+    "noRolesCount": 0,
+    "errorCount": 0
+  },
+  "subscriptions": [
+    {
+      "subscriptionId": "...",
+      "assignedRoles": ["Reader", "Cost Management Reader", "Monitoring Reader", "Billing Reader"],
+      "missingRoles": [],
+      "status": "OK"
+    },
+    {
+      "subscriptionId": "...",
+      "assignedRoles": ["Reader"],
+      "missingRoles": ["Cost Management Reader", "Monitoring Reader", "Billing Reader"],
+      "status": "PARTIAL"
+    }
+  ],
+  "globalHint": "⚠️ 2 suscripción(es) con roles incompletos. Roles faltantes: Cost Management Reader, Monitoring Reader, Billing Reader. ..."
+}
+```
 
 ---
 
 ## 📈 Recent Major Updates
+
+### 2026-06-28 — FinOps Toolkit Gap Closure (P2/P3/P4)
+Implementación de 15 features inspirados en `microsoft/finops-toolkit`, con datos mock para Tenants demo, i18n completo (es/en/pt-BR), `FeatureGuard` por tier y `RouteTierGate` automático. Mapa completo:
+
+| ID | Feature | Tier | URL | Endpoint |
+|----|---------|------|-----|----------|
+| IT-10 | Storage Efficiency (Hot/Cool/Archive savings) | Business | `/intelligence/storage-efficiency` | `/api/intelligence/storage-efficiency` |
+| IT-11 | Compute Cost per Core | Professional | `/intelligence/compute-efficiency` | `/api/intelligence/compute-cost-per-core` |
+| IT-14 | Alertas self-service (presupuesto/anomalía) | Professional | `/intelligence/alerts` | `/api/budgets/alerts` |
+| IT-15 | Networking Zombies (LBs/NSGs/PIPs huérfanos) | Professional | `/cleanup/zombies/networking` | `/api/cleanup/zombies/networking` |
+| IT-01 | AI Analytics (consumo OpenAI / tokens / $/1k) | Enterprise | `/intelligence/ai-analytics` | `/api/intelligence/ai-analytics` |
+| IT-04 | MACC Tracker (consumo de compromiso) | Enterprise | `/intelligence/macc` | `/api/intelligence/macc` |
+| IT-02 | Invoicing Report (export PBI/CSV) | Enterprise | `/admin/report` | `/api/admin/report/invoicing` |
+| IT-07 | Rightsizing VMSS | Professional | `/intelligence/rightsizing/vmss` | `/api/rightsizing/vmss` |
+| IT-03a | Rightsizing App Service | Professional | `/intelligence/rightsizing/appservice` | `/api/rightsizing/appservice` |
+| IT-03b | Rightsizing SQL DB | Professional | `/intelligence/rightsizing/sqldb` | `/api/rightsizing/sqldb` |
+| IT-03c | Rightsizing Storage tier | Professional | `/intelligence/rightsizing/storage` | `/api/rightsizing/storage` |
+| IT-12 | VM HA Recommendations (Zone/Set) | Business | `/governance/ha` | `/api/governance/ha` |
+| IT-16 | Credenciales AAD por expirar | Business | `/governance/credentials` | `/api/governance/expiring-credentials` |
+| IT-18 | Azure Lighthouse onboarding (ARM stub) | Enterprise | `/admin/onboarding/lighthouse` | `/api/onboard/lighthouse` |
+| IT-17 | M365 Copilot integration & RAG | Enterprise | `/admin/copilot-m365` | `/api/copilot-m365/{config,ask}` |
+
+**Cambios estructurales asociados:**
+- `db.ts`: +11 tablas (`AICostSnapshots`, `MACCCommitments`, `AppServiceRecommendations`, `SqlDbRecommendations`, `StorageRecommendations`, `VmssRecommendations`, `HARecommendations`, `AlertRules`, `ExpiringCredentials`, `TenantDelegations`, `M365CopilotConfig`) + 3 columnas en `CostSnapshots` (`billing_profile_id`, `invoice_section_id`, `customer_id`) para soporte EA/MCA.
+- `Sidebar.tsx`: 8 entries nuevos en Inteligencia / Gobernanza / Admin con iconos lucide dedicados.
+- `routeTiers.ts`: 9 rutas registradas, todas auto-protegidas por `RouteTierGate`.
+- `messages/{es,en,pt-BR}.json`: 10 namespaces nuevos (`StorageEfficiency`, `ComputeEfficiency`, `AlertsSelfService`, `AIAnalytics`, `MACC`, `HA`, `Credentials`, `CopilotM365`, `Lighthouse`, `Mock`) + features por tier extendidos en `pricing.{essential,pro,business,enterprise}`.
+- Patrón **mock-first**: cada endpoint detecta `isMockTenant()` y devuelve datos sintéticos; los componentes muestran banner ámbar (`Mock` namespace) cuando `data.mock === true`.
 
 - **Predictive Anomaly Engine (Tier Professional)**: Sistema inteligente impulsado por Machine Learning básico (Z-Score & SMA de 60 días) que detecta picos de costos anormales. Alerta de forma asíncrona mediante un webhook a Slack/Teams con deep-links para una investigación inmediata de causa raíz.
 - **Action Center & Quick Fixes (Tier Professional)**: Capacidad de auto-remediación con un solo clic desde Azure Advisor. Permite eliminar recursos huérfanos (como Discos no adjuntos o IPs públicas) directamente desde el dashboard sin navegar al portal de Azure.
@@ -179,6 +266,7 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
 - **UI Consistency**: Alineación visual y márgenes ajustados bajo un formato estandarizado para los paneles interactivos del Dashboard, aplicando clases (`card-h`).
 - **Traefik Networking & Certs Fix**: Se corrigió el archivo `docker-compose.yml` para conectarse explícitamente a una red de Traefik preexistente en producción (`finops.cscloudsolutions.com.ar`) y se eliminó el servicio de Redis integrado localmente para reutilizar la instancia de Redis global del VPS, previniendo errores 404 por duplicación de contenedores en la capa de balanceo de carga.
 - **Entra ID UPN Identity Claim Support**: Se aplicó una refactorización global en los más de 30 endpoints de la API (`src/app/api`) para soportar la lectura de correos electrónicos bajo la directiva `decoded.upn` (User Principal Name) provenientes de tokens de Microsoft Entra ID. Esto previene que usuarios legítimos pierdan su estatus de SuperAdmin si su token oculta su email nativo.
+- **Advisor por Idioma Activo del Usuario**: El módulo de Azure Advisor ahora consume recomendaciones en el idioma seleccionado en la UI (ES/EN/PT-BR), propagando locale explícito al backend y normalizándolo para Azure APIs.
 
 ---
 
@@ -202,3 +290,18 @@ Cualquier cambio de estructura de UI o adición de páginas debe registrarse en 
 2. **Ejecución**: El código debe ser generado y validado contra las reglas establecidas de Arquitectura y TypeScript (`npm run dev`, `npx tsc --noEmit`).
 3. **Registro de Fallos**: Si un llamado a la API de Azure falla, la restricción debe plasmarse en el SOP para que el "Observer" de la plataforma mantenga una memoria viva del error.
 4. **Documentación Automática**: Actualizar SIEMPRE el `README.md` (este documento) como fuente central y unificada de la verdad del ecosistema.
+5. **Registro de Cambios Obligatorio**: Toda modificación aplicada (y las futuras) debe registrarse en `CAMBIOS_IMPLEMENTADOS.md` con fecha, alcance y archivos afectados.
+
+---
+
+## 🧾 Registro de cambios operativo
+
+Desde ahora, el historial técnico incremental del proyecto se mantiene en:
+
+- `CAMBIOS_IMPLEMENTADOS.md`
+
+Regla activa: ante cualquier cambio de código, también se debe actualizar:
+
+1. `README.md`
+2. `MANUAL_DE_USUARIO.md`
+3. `CAMBIOS_IMPLEMENTADOS.md`

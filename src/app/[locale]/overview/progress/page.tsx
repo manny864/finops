@@ -1,16 +1,20 @@
 "use client";
+import MockBanner from '@/components/MockBanner';
 import React, { useEffect, useState } from 'react';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
+import { useLocale } from 'next-intl';
 import { TrendingUp, Loader2, MapPin, BarChart3, Check, Ruler, Moon, Flag, AlertTriangle } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useAIContext } from '@/hooks/useAIContext';
-import { isMockTenant } from '@/lib/mockData';
+import { isMockTenant, getMockDataForRoute } from '@/lib/mockData';
+import { getFreshIdToken } from '@/lib/msalToken';
 
 
 export default function HistoricalProgressPage() {
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
+    const locale = useLocale();
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState<any[]>([]);
     const [advisorRecs, setAdvisorRecs] = useState<any[]>([]);
@@ -33,11 +37,30 @@ export default function HistoricalProgressPage() {
         const fetchData = async () => {
             setLoading(true);
             setAdvisorLoading(true);
+
+            if (isMockTenant(selectedTenant.id)) {
+                const tier = ((selectedTenant as any).tier || 'essential').toString().toLowerCase();
+                const histMock = getMockDataForRoute('history', tier);
+                if (histMock?.data) setData(histMock.data);
+
+                const advMock = getMockDataForRoute('advisor', tier);
+                if (advMock) {
+                    setAdvisorSubs(advMock.subscriptions || []);
+                    const flat: any[] = [];
+                    Object.keys(advMock.recommendations || {}).forEach(cat => {
+                        (advMock.recommendations[cat] || []).forEach((r: any) => {
+                            flat.push({ ...r, category: cat });
+                        });
+                    });
+                    setAdvisorRecs(flat);
+                }
+                setLoading(false);
+                setAdvisorLoading(false);
+                return;
+            }
+
             try {
-                const tokenResponse = await instance.acquireTokenSilent({
-                    scopes: ["User.Read"],
-                    account: accounts[0]
-                });
+                const tokenResponse = { idToken: await getFreshIdToken(instance, accounts[0]) };
                 
                 // Fetch History
                 const res = await fetch(`/api/intelligence/history?tenantId=${selectedTenant.id}`, {
@@ -49,8 +72,8 @@ export default function HistoricalProgressPage() {
                 }
 
                 // Fetch Advisor recommendations
-                const advRes = await fetch(`/api/advisor?tenantId=${selectedTenant.id}`, {
-                    headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
+                const advRes = await fetch(`/api/advisor?tenantId=${selectedTenant.id}&locale=${encodeURIComponent(locale)}`, {
+                    headers: { 'Authorization': `Bearer ${tokenResponse.idToken}`, 'Accept-Language': locale }
                 });
                 if (advRes.ok) {
                     const advJson = await advRes.json();
@@ -72,7 +95,9 @@ export default function HistoricalProgressPage() {
             setAdvisorLoading(false);
         };
         fetchData();
-    }, [selectedTenant, accounts, instance]);
+    }, [selectedTenant, accounts, instance, locale]);
+
+    const isDemo = isMockTenant(selectedTenant.id);
 
     if (selectedTenant.id === 'default') {
         return (
@@ -112,6 +137,7 @@ export default function HistoricalProgressPage() {
 
     return (
         <div className="max-w-6xl mx-auto animate-in fade-in duration-500">
+            <MockBanner />
             {/* Header */}
             <div className="flex justify-between items-start mb-6">
                 <div>
@@ -175,8 +201,8 @@ export default function HistoricalProgressPage() {
                                 <BarChart3 className="w-4 h-4 mr-2 text-slate-400" />
                                 Historial de Optimización de Costos (Azure Advisor)
                             </div>
-                            <div className="text-xs text-slate-400 font-medium">
-                                Datos reales de Azure
+                            <div className={`text-xs font-medium ${isDemo ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400'}`}>
+                                {isDemo ? 'Datos de demostración' : 'Datos reales de Azure'}
                             </div>
                         </div>
                         <div className="h-72 w-full font-sans relative">

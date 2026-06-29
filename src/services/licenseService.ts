@@ -110,14 +110,32 @@ export async function getTenantLicensesAndInactiveUsers(tenantId: string): Promi
         });
     });
 
+    // SKUs gratuitos / del sistema que Microsoft agrega automáticamente a todos los tenants.
+    // No tienen costo real → su "wastedCost" debe ser $0 y NO computan ahorros potenciales.
+    // Referencia: https://learn.microsoft.com/en-us/entra/identity/users/licensing-service-plan-reference
+    const FREE_SYSTEM_SKUS = new Set([
+        'WINDOWS_STORE',           // Auto-asignado a todos los tenants
+        'FLOW_FREE',               // Power Automate Free
+        'POWER_BI_STANDARD',       // Power BI Free
+        'TEAMS_EXPLORATORY',       // Teams trial gratuito
+        'MCO_TEAMS_IW',            // Microsoft Teams Free
+        'STREAM',                  // Stream gratuito (legacy)
+        'POWERAPPS_VIRAL',         // PowerApps trial
+        'MEE_FACULTY',             // Minecraft Education (educacional)
+        'MEE_STUDENT',
+        'AAD_BASIC',               // Entra ID Basic gratis
+        'CCIBOTS_PRIVPREV_VIRAL',  // Preview features
+    ]);
+
     const licenses = skus.map((sku: any) => {
         const total = sku.prepaidUnits?.enabled || 0;
         const consumed = sku.consumedUnits || 0;
         const available = total - consumed;
-        
-        // Exact count from real M365 usage report
-        const underutilized = skuWasteCount[sku.skuPartNumber] || 0; 
-        const wastedCost = underutilized * 20; // Simulated $20 cost
+        const isSystemSku = FREE_SYSTEM_SKUS.has((sku.skuPartNumber || '').toUpperCase());
+
+        // Los SKUs del sistema no generan costo desperdiciado (son gratis).
+        const underutilized = isSystemSku ? 0 : (skuWasteCount[sku.skuPartNumber] || 0);
+        const wastedCost = isSystemSku ? 0 : underutilized * 20; // $20/mes estimado por licencia M365
 
         return {
             id: sku.id,
@@ -126,7 +144,8 @@ export async function getTenantLicensesAndInactiveUsers(tenantId: string): Promi
             consumed,
             available,
             underutilized,
-            wastedCost
+            wastedCost,
+            isSystemSku
         };
     });
 

@@ -1,4 +1,5 @@
 "use client";
+import MockBanner from '@/components/MockBanner';
 import React, { useState, useEffect } from 'react';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
@@ -8,6 +9,7 @@ import CreateResourceGroupModal from '@/components/CreateResourceGroupModal';
 import { isMockTenant } from '@/lib/mockData';
 import FeatureGuard from '@/components/FeatureGuard';
 import { Info } from 'lucide-react';
+import { getFreshIdToken } from '@/lib/msalToken';
 
 export default function WorkbooksPage() {
     const { selectedTenant } = useTenant();
@@ -35,7 +37,7 @@ export default function WorkbooksPage() {
         const fetchSubs = async () => {
             setLoadingSubs(true);
             try {
-                const tokenResponse = await instance.acquireTokenSilent({ scopes: ["User.Read"], account: accounts[0] });
+                const tokenResponse = { idToken: await getFreshIdToken(instance, accounts[0]) };
                 const res = await fetch(`/api/subscriptions?tenantId=${selectedTenant.id}`, {
                     headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
                 });
@@ -52,7 +54,7 @@ export default function WorkbooksPage() {
         if (!subId) return;
         setLoadingRgs(true);
         try {
-            const tokenResponse = await instance.acquireTokenSilent({ scopes: ["User.Read"], account: accounts[0] });
+            const tokenResponse = { idToken: await getFreshIdToken(instance, accounts[0]) };
             const res = await fetch(`/api/resourcegroups?tenantId=${selectedTenant.id}&subscriptionId=${subId}`, {
                 headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
             });
@@ -83,7 +85,7 @@ export default function WorkbooksPage() {
 
         setLoading(true);
         try {
-            const tokenResponse = await instance.acquireTokenSilent({ scopes: ["User.Read"], account: accounts[0] });
+            const tokenResponse = { idToken: await getFreshIdToken(instance, accounts[0]) };
             const res = await fetch(`/api/admin/workbooks`, {
                 method: 'POST',
                 headers: { 
@@ -117,11 +119,12 @@ export default function WorkbooksPage() {
 
     return (
         <div className="max-w-6xl mx-auto animate-in fade-in duration-500">
+            <MockBanner />
             <div className="mb-8 border-b border-gray-200 dark:border-slate-800 pb-4">
                 <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight flex items-center">
                     <BookOpen className="w-8 h-8 mr-3 text-[#0054A6]" />
                     Artefactos y Workbooks
-                    <span title="Required Roles: Contributor, Cost Management Contributor">
+                    <span title="Required Roles (Enterprise): Monitoring Contributor (workbooks/write) + Custom Role con Microsoft.Resources/subscriptions/resourceGroups/write (para crear RGs desde la UI). El onboarding script Enterprise los asigna automáticamente.">
                         <Info 
                             className="w-5 h-5 ml-3 text-gray-400 cursor-help" 
                         />

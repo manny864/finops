@@ -1,9 +1,11 @@
 import React from 'react';
+import MockBanner from '@/components/MockBanner';
 import AllocationManager from '@/components/dashboard/AllocationManager';
 
 export default function AllocationPage() {
     return (
         <div className="content animate-in fade-in">
+            <MockBanner />
             <div className="vhead">
                 <div>
                     <div className="vt">

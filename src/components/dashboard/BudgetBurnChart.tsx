@@ -116,9 +116,9 @@ export default function BudgetBurnChart({ onHeightChange }: BudgetBurnChartProps
                         Utiliza la API de Presupuestos para configurarlos.
                     </div>
                 ) : (
-                    <div className="flex-1 w-full" style={{ minHeight: `${Math.max(150, burnData.length * 40)}px` }}>
+                    <div className="flex-1 w-full min-w-0" style={{ minHeight: `${Math.max(150, burnData.length * 40)}px` }}>
                         {!isMounted ? null : (
-                            <ResponsiveContainer width="100%" height="100%">
+                            <ResponsiveContainer width="100%" height={Math.max(150, burnData.length * 40)} minWidth={0}>
                             <BarChart layout="vertical" data={burnData} margin={{ top: 10, right: 30, left: 10, bottom: 5 }}>
                                 <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f3f4f6" />
                                 <XAxis type="number" xAxisId={0} hide />

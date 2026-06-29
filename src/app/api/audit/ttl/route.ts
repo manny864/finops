@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { findExpiredResources } from "@/services/ttlService";
-import jwt from "jsonwebtoken";
+import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
 
 
 export async function GET(request: NextRequest) {
@@ -14,29 +14,33 @@ export async function GET(request: NextRequest) {
 
 
 
-        const authHeader = request.headers.get("authorization");
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            return NextResponse.json({ error: "No autorizado." }, { status: 401 });
-        }
-        
-        const token = authHeader.split(" ")[1];
-        const decoded = jwt.decode(token) as any;
-        if (!decoded || !decoded.tid) {
-            return NextResponse.json({ error: "Token inválido." }, { status: 401 });
-        }
-        
-        const email = decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "";
-        const isAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") ;
-
-        if (decoded.tid !== tenantId && !isAdmin) {
-            return NextResponse.json({ error: "El token no coincide con el tenant." }, { status: 403 });
-        }
+        await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
 
         const expiredResources = await findExpiredResources(tenantId);
         
         return NextResponse.json({ expiredResources });
 
-    } catch (e: any) {
-        return NextResponse.json({ error: "Error interno", details: e.message }, { status: 500 });
+    } catch (e: unknown) {
+        if (e instanceof AuthError) {
+            return NextResponse.json({ error: e.message }, { status: e.status });
+        }
+        const message = e instanceof Error ? e.message : String(e);
+        const lowered = message.toLowerCase();
+        const isRecoverable =
+            lowered.includes("tenant no registrado en la base de datos") ||
+            lowered.includes("faltan credenciales") ||
+            lowered.includes("authorization") ||
+            lowered.includes("accessdenied") ||
+            lowered.includes("no hay suscripciones");
+
+        if (isRecoverable) {
+            return NextResponse.json({
+                expiredResources: [],
+                degraded: true,
+                message: "No se pudieron evaluar recursos TTL por credenciales/permisos del tenant."
+            });
+        }
+
+        return NextResponse.json({ error: "Error interno" }, { status: 500 });
     }
 }

@@ -94,6 +94,26 @@ h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-montserrat), sans-serif;
 }
 
+/* ===== Native <select>/<option> readability fix =====
+ * Browsers (especially Chrome/Safari on macOS) render <option> elements
+ * with OS-level colors and largely ignore Tailwind classes applied to them.
+ * This causes invisible white-on-white text in the open dropdown when the
+ * OS uses light theme but the page is in dark theme (or vice versa).
+ * Forcing color-scheme and explicit option colors makes the popup readable.
+ */
+select {
+  color-scheme: light dark;
+}
+select option {
+  background-color: #ffffff;
+  color: #0f172a;
+}
+.dark select,
+.dark select option {
+  background-color: #1e293b;
+  color: #f1f5f9;
+}
+
 .custom-scrollbar::-webkit-scrollbar {
   width: 7px;
   height: 7px;
@@ -222,3 +242,17 @@ table.tbl{width:100%;border-collapse:collapse}
 }
 
 
+
+/* ===== Copilot attention animations ===== */
+@keyframes copilot-ping {
+  0% { transform: scale(1); opacity: 0.55; }
+  70% { transform: scale(1.6); opacity: 0; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+@keyframes copilot-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.08); opacity: 0.25; }
+}
+/* Ping cada ~4s para no resultar molesto pero suficientemente notorio */
+.animate-copilot-ping { animation: copilot-ping 4s cubic-bezier(0,0,0.2,1) infinite; }
+.animate-copilot-pulse { animation: copilot-pulse 2.4s ease-in-out infinite; }

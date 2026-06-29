@@ -16,14 +16,16 @@ export async function getAzureCredential(tenantId: string) {
     throw new Error(`Tenant no registrado en la base de datos: ${tenantId}`);
   }
 
-  const clientId = rows[0].client_id || process.env.AZURE_CLIENT_ID;
-  const clientSecret = rows[0].client_secret || process.env.AZURE_CLIENT_SECRET;
+  const clean = (v: any) => (typeof v === 'string' ? v.trim().replace(/^["']+|["']+$/g, '') : v);
+  const cleanTid = clean(tenantId);
+  const clientId = clean(rows[0].client_id) || clean(process.env.AZURE_CLIENT_ID);
+  const clientSecret = clean(rows[0].client_secret) || clean(process.env.AZURE_CLIENT_SECRET);
 
   if (!clientId || !clientSecret) {
     throw new Error(`Faltan credenciales (Client ID o Secret) para el tenant ${tenantId}. Verifique el Onboarding.`);
   }
 
-  return new ClientSecretCredential(tenantId, clientId, clientSecret);
+  return new ClientSecretCredential(cleanTid, clientId, clientSecret);
 }
 
 export async function getSubscriptionsForTenant(tenantId: string, credential?: ClientSecretCredential): Promise<string[]> {

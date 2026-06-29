@@ -1,4 +1,5 @@
 "use client";
+import MockBanner from '@/components/MockBanner';
 import { isMockTenant } from '@/lib/mockData';
 import React, { useState, useEffect } from 'react';
 import { useTenant } from '@/components/TenantProvider';
@@ -7,6 +8,7 @@ import { Activity, AlertTriangle, ArrowDownToLine, Loader2, Search } from 'lucid
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
+import { getFreshIdToken } from '@/lib/msalToken';
 import {
 
   useReactTable,
@@ -37,10 +39,7 @@ export default function NetworkAnalyticsPage() {
             setLoadingSubs(true);
             setMissingConsent(false);
             try {
-                const tokenResponse = await instance.acquireTokenSilent({
-                    scopes: ["User.Read"],
-                    account: accounts[0]
-                });
+                const tokenResponse = { idToken: await getFreshIdToken(instance, accounts[0]) };
                 const res = await fetch(`/api/subscriptions?tenantId=${selectedTenant.id}`, {
                     headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
                 });
@@ -82,10 +81,7 @@ export default function NetworkAnalyticsPage() {
         setLoading(true);
         setHasAnalyzed(true);
         try {
-            const tokenResponse = await instance.acquireTokenSilent({
-                scopes: ["User.Read"],
-                account: accounts[0]
-            });
+            const tokenResponse = { idToken: await getFreshIdToken(instance, accounts[0]) };
             const targetSubscription = subscriptions.find(s => s.id === subscriptionId);
             const targetTenantId = targetSubscription?.tenantId || selectedTenant.id;
             
@@ -184,6 +180,7 @@ export default function NetworkAnalyticsPage() {
 
     return (
         <div className="content animate-in fade-in">
+            <MockBanner />
             <div className="vhead">
                 <div>
                     <div className="vt">
@@ -236,20 +233,20 @@ export default function NetworkAnalyticsPage() {
                 </div>
             ) : hasAnalyzed ? (
                 <div key="state-analyzed" className="grid-2">
-                    <div className="card flex flex-col">
+                    <div className="card flex flex-col min-w-0">
                         <div className="card-h">
                             <h3><ArrowDownToLine className="w-4 h-4 mr-1" /> {t('cost_distribution')}</h3>
                         </div>
                         {pieData.length > 0 ? (
-                            <div className="chart-wrap flex-1 w-full h-80">
+                            <div className="chart-wrap flex-1 w-full min-w-0 min-h-[260px] h-72 md:h-80">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <PieChart>
                                         <Pie
                                             data={pieData}
                                             cx="50%"
                                             cy="50%"
-                                            innerRadius={80}
-                                            outerRadius={110}
+                                            innerRadius="40%"
+                                            outerRadius="65%"
                                             paddingAngle={5}
                                             dataKey="value"
                                         >
@@ -258,7 +255,7 @@ export default function NetworkAnalyticsPage() {
                                             ))}
                                         </Pie>
                                         <RechartsTooltip formatter={(value: any) => `$${Number(value).toFixed(2)}`} />
-                                        <Legend verticalAlign="bottom" height={36} />
+                                        <Legend verticalAlign="bottom" height={36} wrapperStyle={{ fontSize: '11px' }} />
                                     </PieChart>
                                 </ResponsiveContainer>
                             </div>
@@ -267,7 +264,7 @@ export default function NetworkAnalyticsPage() {
                         )}
                     </div>
 
-                    <div className="card flex flex-col overflow-hidden">
+                    <div className="card flex flex-col overflow-hidden min-w-0">
                         <div className="card-h">
                             <h3>{t('top_rg')}</h3>
                         </div>

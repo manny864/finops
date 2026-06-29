@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isMockTenant } from "@/lib/mockData";
-import { hasAccess } from "@/lib/tierLogic";
 import pool from "@/modules/storage/db";
 import { sendWebhookAlert } from "@/lib/notifications";
+import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
 
 export async function GET(request: NextRequest) {
     try {
@@ -13,11 +13,6 @@ export async function GET(request: NextRequest) {
 
         if (!tenantId) {
             return NextResponse.json({ error: "Tenant ID requerido" }, { status: 400 });
-        }
-
-        // Feature Gating: Requires Pro or higher
-        if (!hasAccess(tier, 'Professional')) {
-            return NextResponse.json({ error: "El motor de Detección de Anomalías requiere Tier Pro o superior." }, { status: 403 });
         }
 
         // Mock Logic: Generate 60 days of data and inject an anomaly on the last day
@@ -72,6 +67,27 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ success: true, dailyCosts, anomalies, mean, stdDev });
         }
 
+        await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
+
+        const [tierRows] = await pool.query(
+            "SELECT tier FROM Tenants WHERE tenant_id = ? LIMIT 1",
+            [tenantId]
+        );
+        if (!Array.isArray(tierRows) || tierRows.length === 0) {
+            return NextResponse.json({ error: "Tenant no encontrado." }, { status: 404 });
+        }
+
+        const resolvedTier = String((tierRows[0] as { tier?: string }).tier || tier || "Essential");
+        const isProfessionalOrHigher = ["professional", "business", "enterprise"].includes(resolvedTier.toLowerCase());
+        if (!isProfessionalOrHigher) {
+            return NextResponse.json({
+                success: true,
+                dailyCosts: [],
+                anomalies: [],
+                message: "La detección de anomalías requiere Tier Professional o superior."
+            });
+        }
+
         // For real tenants, we would fetch from Cost Management and save to DB
         // But for this environment, we return an empty state
         return NextResponse.json({ 
@@ -81,8 +97,11 @@ export async function GET(request: NextRequest) {
             message: "Conecte su cuenta de Azure para iniciar el aprendizaje automático."
         });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
+        if (error instanceof AuthError) {
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        }
         console.error("Anomaly Detection API Error:", error);
-        return NextResponse.json({ error: error.message || "Error interno del servidor" }, { status: 500 });
+        return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
     }
 }

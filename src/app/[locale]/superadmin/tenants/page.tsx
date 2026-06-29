@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { useMsal } from '@azure/msal-react';
+import { getFreshIdToken } from '@/lib/msalToken';
 
 export default function SuperAdminTenantsPage() {
     const t = useTranslations('SuperAdminTenants');
@@ -27,10 +28,7 @@ export default function SuperAdminTenantsPage() {
 
         setLoading(true);
         try {
-            const tokenResponse = await instance.acquireTokenSilent({
-                scopes: ["User.Read"],
-                account: accounts[0]
-            });
+            const tokenResponse = { idToken: await getFreshIdToken(instance, accounts[0]) };
 
             const res = await fetch('/api/superadmin/tenants/create', {
                 method: 'POST',

@@ -1,10 +1,12 @@
 import React from 'react';
+import MockBanner from '@/components/MockBanner';
 import AnomalyDashboard from '@/components/dashboard/AnomalyDashboard';
 import { ShieldAlert } from 'lucide-react';
 
 export default function AnomaliesPage() {
     return (
         <div className="content animate-in fade-in">
+            <MockBanner />
             <div className="vhead mb-6">
                 <div>
                     <div className="vt flex items-center gap-2">

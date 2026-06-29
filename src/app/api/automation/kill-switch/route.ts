@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { getAzureCredential } from "@/lib/azure";
 import { ComputeManagementClient } from "@azure/arm-compute";
+import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
 
 export async function POST(request: NextRequest) {
     try {
@@ -12,13 +13,18 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Faltan parámetros requeridos: tenantId, subscriptionId, resourceGroupName" }, { status: 400 });
         }
 
+        await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
+
         // Feature Gate Verification
-        const [tenants]: any = await pool.query('SELECT * FROM Tenants WHERE id = ?', [tenantId]);
-        if (!tenants || tenants.length === 0) {
+        const [tenants] = await pool.query('SELECT tier FROM Tenants WHERE tenant_id = ?', [tenantId]);
+        if (!Array.isArray(tenants) || tenants.length === 0) {
             return NextResponse.json({ error: "Tenant no encontrado." }, { status: 404 });
         }
         
-        const tier = tenants[0].tier;
+        const tier = (tenants[0] as { tier?: string }).tier;
+        if (!tier) {
+            return NextResponse.json({ error: "Tier inválido para tenant." }, { status: 400 });
+        }
         const normalizedTier = tier.toLowerCase() === 'pro' ? 'Professional' : tier;
         if (normalizedTier !== 'Professional' && normalizedTier !== 'Business' && normalizedTier !== 'Enterprise') {
             return NextResponse.json({ error: "Feature bloqueada. Requiere plan Professional o superior." }, { status: 403 });
@@ -66,8 +72,11 @@ export async function POST(request: NextRequest) {
             actions
         });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
+        if (error instanceof AuthError) {
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        }
         console.error("Kill Switch Automation Error:", error);
-        return NextResponse.json({ error: "Fallo al ejecutar Kill Switch.", details: error.message }, { status: 500 });
+        return NextResponse.json({ error: "Fallo al ejecutar Kill Switch." }, { status: 500 });
     }
 }

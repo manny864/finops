@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
 
         // Fetch real Management Groups and Policy Assignments from Azure with Redis caching
         try {
-            const cacheKey = `governance-policies:${tenantId}`;
+            const cacheKey = `governance-policies:v2:${tenantId}`;
             const realData = await getWithCache(cacheKey, async () => {
                 const credential = await getAzureCredential(tenantId);
                 const token = await credential.getToken("https://management.azure.com/.default");
@@ -50,20 +50,36 @@ export async function GET(request: NextRequest) {
                     });
                 }
 
-                // 3. Fetch Policy Assignments via Azure Resource Graph (cross-scope)
+                // 3. Fetch Policy Assignments via Azure Resource Graph (cross-scope) joined with policy definitions to resolve displayName
                 let assignments = [];
                 const argRes = await fetch('https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2021-03-01', {
                     method: 'POST',
                     headers: { ...headers, 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        query: "policyresources | where type == 'microsoft.authorization/policyassignments'"
+                        query: `
+                            policyresources
+                            | where type == 'microsoft.authorization/policyassignments'
+                            | extend defId = tolower(tostring(properties.policyDefinitionId))
+                            | join kind=leftouter (
+                                policyresources
+                                | where type in~ ('microsoft.authorization/policydefinitions','microsoft.authorization/policysetdefinitions')
+                                | project defId = tolower(id), defDisplayName = tostring(properties.displayName), defDescription = tostring(properties.description)
+                            ) on defId
+                            | project id, name, properties, defDisplayName, defDescription, defId
+                        `.trim()
                     })
                 });
 
                 if (argRes.ok) {
                     const argData = await argRes.json();
                     assignments = argData.data?.map((a: any) => {
-                        let name = a.properties?.displayName || a.name;
+                        const isGuid = (s: any) => typeof s === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+                        // Prefer assignment displayName, then linked definition displayName, then last segment of defId, then 'Política sin nombre'
+                        const defIdLast = (a.defId || '').split('/').filter(Boolean).pop() || '';
+                        const fallbackFromDef = !isGuid(defIdLast) && defIdLast ? defIdLast.replace(/[-_]/g, ' ') : '';
+                        let name = a.properties?.displayName || a.defDisplayName || fallbackFromDef || 'Política sin nombre';
+                        // Si name sigue siendo el GUID de la asignación, formatea legible
+                        if (isGuid(name)) name = a.defDisplayName || fallbackFromDef || `Política ${String(name).slice(0,8)}`;
                         // Regex to find and replace subscription ID with name
                         name = name.replace(/subscription:?\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i, (match: string, p1: string) => {
                             return `Suscripción: ${subMap[p1.toLowerCase()] || p1}`;
@@ -79,7 +95,7 @@ export async function GET(request: NextRequest) {
                         return {
                             id: a.id,
                             name: name,
-                            description: a.properties?.description || 'Política de Gobernanza',
+                            description: a.properties?.description || a.defDescription || 'Política de Gobernanza',
                             status: a.properties?.enforcementMode === 'DoNotEnforce' ? 'Inactive' : 'Active',
                             targetMg: targetMg
                         };
@@ -168,7 +184,7 @@ export async function POST(request: NextRequest) {
             
             // Invalidate cache
             if (redis) {
-                await redis.del(`governance-policies:${tenantId}`);
+                await redis.del(`governance-policies:v2:${tenantId}`);
             }
             
             return NextResponse.json({ success: true, message: `Política asignada exitosamente en el entorno.` });
@@ -188,7 +204,7 @@ export async function POST(request: NextRequest) {
             }
             
             if (redis) {
-                await redis.del(`governance-policies:${tenantId}`);
+                await redis.del(`governance-policies:v2:${tenantId}`);
             }
             
             return NextResponse.json({ success: true, message: `Asignación de política removida en el entorno.` });
