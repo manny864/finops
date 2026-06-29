@@ -297,3 +297,35 @@ export async function requireTenantAccess(
 
   return identity;
 }
+
+/**
+ * Requiere que el caller pertenezca al tenant Y tenga uno de los roles indicados
+ * en la tabla Users (columna `role`). SuperAdmins (dominio corp + system_role=SUPERADMIN)
+ * pasan sin chequear el role.
+ */
+export async function requireTenantRole(
+  request: NextRequest,
+  tenantId: string,
+  allowedRoles: string[]
+): Promise<RequestIdentity> {
+  const identity = await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
+
+  if (identity.isCorporateDomain) {
+    const superAdmin = await hasSystemRole(identity.email, "SUPERADMIN");
+    if (superAdmin) return identity;
+  }
+
+  if (!identity.claims.oid && !identity.email) {
+    throw new AuthError("Acceso denegado: identidad incompleta.", 403);
+  }
+
+  const [rows] = await pool.query(
+    `SELECT role FROM Users WHERE tenant_id = ? AND (entra_oid = ? OR email = ?) LIMIT 1`,
+    [tenantId, identity.claims.oid || "", identity.email || ""]
+  );
+  const row = Array.isArray(rows) && rows.length > 0 ? (rows[0] as { role?: string }) : null;
+  if (!row || !row.role || !allowedRoles.includes(row.role)) {
+    throw new AuthError(`Acceso denegado: requiere rol ${allowedRoles.join("/")}.`, 403);
+  }
+  return identity;
+}

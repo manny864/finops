@@ -148,14 +148,21 @@ export async function POST(request: NextRequest) {
         }
 
         if (action === "reindex") {
-            const delta = Math.floor(Math.random() * 500) + 100;
+            // Real tenants: marcamos el reindex como solicitado (last_index_at = now). El conteo
+            // de indexed_records DEBE provenir de Microsoft Graph / Copilot Studio en el próximo
+            // poll del cron, no de un delta inventado. Si no hay integración Graph todavía,
+            // mantenemos el contador previo.
             await pool.query(
                 `UPDATE M365CopilotConfig
-                 SET connector_status = 'ready', last_index_at = ?, indexed_records = indexed_records + ?
+                 SET connector_status = 'ready', last_index_at = ?
                  WHERE tenant_id = ?`,
-                [now, delta, tenantId]
+                [now, tenantId]
             );
-            return NextResponse.json({ success: true, action, delta });
+            return NextResponse.json({
+                success: true,
+                action,
+                note: "Reindex solicitado. El conteo real se actualizará en el próximo poll del conector."
+            });
         }
 
         // revoke

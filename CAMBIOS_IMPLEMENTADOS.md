@@ -1,6 +1,48 @@
 # Cambios Implementados (Bitácora Operativa)
 
 Este archivo centraliza **todos los cambios realizados y futuros** del proyecto.
+## 2026-06-29 — Auditoría: mock leaks en tenants reales, JWT signature, RBAC
+
+Auditoría de cierre tras la sesión previa. Tres ejes: (1) datos mock filtrándose a tenants reales, (2) brechas de seguridad, (3) actualizaciones/warnings.
+
+### 🧪 Mock/hardcoded → tenants REALES (TODOS corregidos)
+- **Síntoma**: rutas `/api/intelligence/*` y `/api/copilot-m365/*` retornaban números fabricados también a tenants reales (no sólo DEMO).
+- **Causa**: defaults inventados (`Math.random()`, `300 + (i%7)*12`, `baseCost ?? 10000`), placeholders `"demo-aks-cluster"`, `delta` aleatorio en reindex.
+- **Fixes**:
+  - `unit-economics`: DAU se lee de tabla `BusinessMetrics`; si no hay fuente, devuelve `dau:null`/`costPerUser:null` (sin Math.random).
+  - `copilot-m365/config` reindex: ya no incrementa `indexed_records` con random; sólo actualiza `last_index_at` y deja que el conector real lo refleje en el próximo poll.
+  - `intelligence/forecast` POST: histórico real desde `CostSnapshots` (mes actual); si <2 días con costo retorna `empty:true`. Sin budget explícito, no se inventa `8000`.
+  - `intelligence/aks-chargeback`: defaults `"mock-sub"/"demo-aks-cluster"/"MC_demo"` → cadenas vacías (ya hay fallback `empty:true`).
+  - `intelligence/simulator`: `baseCost` se deriva del gasto real (CostSnapshots últimos 30d); si no hay, exige `scenario.baseCost`. Se elimina el default `10000`.
+
+### 🔐 Seguridad — vulnerabilidades CRITICAL/HIGH corregidas
+- **CRITICAL — `/api/admin/payments` sin auth**: GET filtraba `PADDLE_API_KEY`/`PADDLE_WEBHOOK_SECRET` y POST permitía sobrescribir los secretos de forma anónima → robo de webhook signing key. Fix: `requireSuperAdmin`, redact en GET, allowlist de campos en POST.
+- **HIGH — `/api/admin/config/webhook` sin auth real**: aceptaba cualquier `Authorization` y permitía sobrescribir `webhook_url` de cualquier tenant (SSRF / exfiltración). Fix: `requireTenantAccess` + validador `isSafeWebhookUrl` (sólo HTTPS pública; bloquea RFC1918, loopback, link-local, metadata Azure 169.254.169.254).
+- **HIGH — `/api/remediation/workflow` GET cross-tenant**: query `?tenantId=` ignoraba el tenant del token. Fix: `requireTenantAccess(...,{allowSuperAdmin:true})` en GET/POST/PATCH. Quitado `authenticateRequest` con `jwt.decode`.
+- **CRITICAL (parcial) — `jwt.decode` sin verificar firma**: ~60 rutas usaban `jwt.decode` y derivaban SuperAdmin sólo del email (forjable). Reemplazado en las rutas más explotables:
+  - `/api/superadmin/tenants/create`, `/api/superadmin/users/promote`
+  - `/api/admin/tenants` (POST/PATCH tier escalation)
+  - `/api/admin/config/users` (GET/POST/PUT/DELETE — gestión de usuarios y elevación de roles)
+  - `/api/admin/payments`, `/api/admin/config/webhook`, `/api/remediation/workflow`
+  - Todas ahora pasan por `requireRequestIdentity` / `requireTenantAccess` / `requireSuperAdmin` (`src/lib/requestAuth.ts`) que valida RS256 contra JWKS de Entra, `iss`, `aud`, `exp`, `nbf`.
+  - **Pendiente**: ~55 rutas restantes siguen con `jwt.decode` (rutas de lectura: billing, advisor, budgets, intelligence/*, governance/*, cleanup/*, etc.). Riesgo residual: lectura cross-tenant si token está forjado. Mitigado parcialmente porque las queries SQL filtran por `tenantId` y la mayoría requiere que coincida con `decoded.tid`. Acción en sprint siguiente: sweep automatizado.
+- **HIGH — `/api/power` POST sin RBAC**: cualquier miembro autenticado del tenant podía apagar VMs. Fix: nuevo helper `requireTenantRole(request, tenantId, ['Admin','Operator'])` en `requestAuth.ts`. SuperAdmin corp pasa sin chequear role.
+
+### 📦 Actualizaciones & warnings
+- **npm audit**: `0 vulnerabilities` ✅
+- **tsc --noEmit**: `0 errors` ✅
+- **Pendientes accionables** (no bloqueantes):
+  - Major bumps disponibles: `@ai-sdk/*` 3→4, `ai` 6→7, `@azure/arm-appservice` 18→19, `@types/node` 20→26, `typescript` 5→6, `eslint` 9→10. Requieren revisión de breaking changes.
+  - ESLint sin archivo de config (`.eslintrc*` o `eslint.config.js`). Recomendación: `eslint.config.js` con preset Next 16.
+  - 308 `console.error/warn` en `src/` (logger estructurado en próxima iteración).
+  - 2 `@ts-ignore` (FocusCostPieChart, CostPieChart) y 1 `eslint-disable react-hooks/exhaustive-deps` (admin/report).
+  - 2 TODOs de integración real con Paddle Checkout (`/api/tenants`, `/api/checkout`).
+
+### 🆕 Helper nuevo
+- `src/lib/requestAuth.ts`: añadido `requireTenantRole(request, tenantId, allowedRoles)` que combina tenant gate + lookup en tabla `Users.role`.
+
+---
+
 ## 2026-06-29 — Estabilidad del dashboard, Reporte Ejecutivo IA, Copilot M365 datos reales
 
 Sesión amplia de bugfixes y features sobre dashboard, copilot, reportes y horario de apagado.
