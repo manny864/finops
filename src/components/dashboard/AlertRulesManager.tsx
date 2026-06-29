@@ -99,6 +99,10 @@ export default function AlertRulesManager() {
 
     const rules: Rule[] = data?.rules || [];
 
+    // Hook de paginación: DEBE llamarse incondicionalmente (Rules of Hooks),
+    // antes de cualquier return temprano.
+    const { paged, ...paginationProps } = usePagination(rules, 10);
+
     const handleDelete = async (id: string) => {
         if (!selectedTenant) return;
         setDeleting(id);
@@ -166,8 +170,6 @@ export default function AlertRulesManager() {
             </div>
         );
     }
-
-    const { paged, ...paginationProps } = usePagination(rules, 10);
 
     return (
         <div className="w-full space-y-6">

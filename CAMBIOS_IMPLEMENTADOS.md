@@ -1,6 +1,27 @@
 # Cambios Implementados (Bitácora Operativa)
 
 Este archivo centraliza **todos los cambios realizados y futuros** del proyecto.
+## 2026-06-29 — Credenciales por Expirar (live Graph) + hook order bug
+
+### 🐛 Bug 1: `AlertRulesManager` — Rendered more hooks than during the previous render
+- `usePagination(...)` se llamaba en línea 170, **después** de tres `return` early (`!selectedTenant`, `isLoading`, `error`). En el primer render, esos returns disparaban y el hook nunca se llamaba; en el segundo render se llamaba → React aborta.
+- **Fix**: movido `usePagination(rules, 10)` al tope del componente, inmediatamente después de calcular `rules`, antes de cualquier return condicional. Cumple Rules of Hooks.
+
+### 🐛 Bug 2: Credenciales por Expirar (Entra ID) vacío en mock y en producción
+- **Causa real**: el endpoint `/api/governance/expiring-credentials` sólo leía la tabla `ExpiringCredentials` (snapshot estático). En producción nadie llenaba la tabla → siempre vacía. En mock las fechas estaban hardcodeadas a julio/agosto/septiembre 2026.
+- **Fix `src/app/api/governance/expiring-credentials/route.ts`** (reescrito completo):
+  - **Live Microsoft Graph query**: token client_credentials con `client_id/client_secret` del tenant, GET paginado `/applications?$select=appId,displayName,passwordCredentials,keyCredentials`. Extrae secretos y certificados con `endDateTime <= now + daysAhead`. Devuelve datos AUTORITATIVOS en tiempo real.
+  - **Mock con fechas relativas**: 2/12/28/65 días desde hoy (no más fechas hardcoded que envejecen). Severity calculada automáticamente (≤7 crítico, ≤30 alto, ≤60 medio, resto bajo).
+  - **Snapshot DB best-effort**: cada llamada live persiste resultados en `ExpiringCredentials` para fallback offline. Si Graph falla, devuelve último snapshot con warning.
+  - **Auth fix**: reemplazado `jwt.decode` por `requireTenantAccess(request, tenantId, { allowSuperAdmin: true })` (valida firma RS256 contra JWKS de Entra). Cierra brecha de cross-tenant con token forjado.
+  - **Mensaje sin SP**: si el tenant no tiene `client_id/client_secret`, devuelve `code: NO_SP_CREDS` con instrucción de completar onboarding (en vez de 500 silencioso).
+
+### Verificación
+- `npx tsc --noEmit` → 0 errors.
+- Para validar live: crear un nuevo secret en cualquier App Registration del tenant con expiración ≤ daysAhead (default 90), recargar `/governance` y debe aparecer en máximo 1 request (sin cache intermedio).
+
+---
+
 ## 2026-06-29 — Dashboard lento / cards inconsistentes (root-cause + fix)
 
 ### 🐢 Síntoma
