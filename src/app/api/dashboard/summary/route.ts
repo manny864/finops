@@ -179,12 +179,14 @@ export async function GET(request: NextRequest) {
     const tenantId = searchParams.get("tenantId");
     const subscriptionId = searchParams.get("subscriptionId") || "All";
     const authHeader = request.headers.get("authorization");
+    const cronAuth = request.headers.get("x-cron-auth");
 
     if (!tenantId) {
       return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
     }
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    // Auth: o Bearer token de usuario, o X-Cron-Auth interno.
+    if (!cronAuth && (!authHeader || !authHeader.startsWith("Bearer "))) {
       return NextResponse.json({ error: "No autorizado." }, { status: 401 });
     }
 
@@ -198,7 +200,11 @@ export async function GET(request: NextRequest) {
         const subParam = subscriptionId && subscriptionId.toLowerCase() !== "all"
           ? `&subscriptionId=${encodeURIComponent(subscriptionId)}`
           : "";
-        const headers = { Authorization: authHeader };
+        const headers: Record<string, string> = {};
+        if (authHeader) headers["Authorization"] = authHeader;
+        // Forwardear X-Cron-Auth si vino, para que el pre-warm vía cron
+        // pueda llamar audit/forecast sin necesidad de un token de usuario.
+        if (cronAuth) headers["X-Cron-Auth"] = cronAuth;
 
         // Helper: fetch with a hard timeout so un sub-endpoint lento no detiene
         // toda la respuesta del dashboard. AbortController evita request colgados.
