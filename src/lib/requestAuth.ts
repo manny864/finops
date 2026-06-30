@@ -247,6 +247,40 @@ export async function requireRequestIdentity(request: NextRequest): Promise<Requ
   };
 }
 
+/**
+ * Internal-cron bypass: cuando una request trae el header `X-Cron-Auth`
+ * con un valor que coincide exactamente con `CRON_SECRET`, se retorna una
+ * identidad sintética del tenant solicitado. Útil para que pre-warmers
+ * y jobs internos rellenen cachés sin pasar por OAuth.
+ *
+ * Requisitos de seguridad:
+ *  - `CRON_SECRET` debe tener >= 16 caracteres (fail-closed si no).
+ *  - Comparación timing-safe.
+ *  - Solo concede acceso al tenantId indicado en el query/body — NO es superadmin global.
+ */
+function tryCronAuth(request: NextRequest, tenantId: string): RequestIdentity | null {
+  const provided = request.headers.get("x-cron-auth");
+  if (!provided) return null;
+
+  const secret = process.env.CRON_SECRET;
+  if (!secret || secret.length < 16) return null;
+
+  // Comparación constante en longitud para evitar timing attacks.
+  if (provided.length !== secret.length) return null;
+  let mismatch = 0;
+  for (let i = 0; i < provided.length; i++) {
+    mismatch |= provided.charCodeAt(i) ^ secret.charCodeAt(i);
+  }
+  if (mismatch !== 0) return null;
+
+  return {
+    claims: { tid: tenantId, preferred_username: "cron@system", email: "cron@system" } as AuthClaims,
+    tenantId,
+    email: "cron@system",
+    isCorporateDomain: true,
+  };
+}
+
 async function hasSystemRole(email: string, role: string): Promise<boolean> {
   if (!email) return false;
   const [rows] = await pool.query(
@@ -275,6 +309,11 @@ export async function requireTenantAccess(
   tenantId: string,
   options?: { allowSuperAdmin?: boolean }
 ): Promise<RequestIdentity> {
+  // Bypass interno-cron: si llega el header X-Cron-Auth válido, retornamos
+  // identidad sintética del tenant. NO degrada la seguridad para callers humanos.
+  const cronIdentity = tryCronAuth(request, tenantId);
+  if (cronIdentity) return cronIdentity;
+
   const identity = await requireRequestIdentity(request);
   const allowSuperAdmin = options?.allowSuperAdmin ?? true;
 
