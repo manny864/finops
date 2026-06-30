@@ -154,8 +154,14 @@ log "KV URL: ${KV_URL:-$KV_URL_DEFAULT}"
 
 # Smoke test conectividad KV (debe responder, aunque sea 401)
 log "Probando conectividad TLS al Key Vault..."
-HTTP_CODE=$(app_exec sh -c "curl -sk -o /dev/null -w '%{http_code}' --max-time 10 ${KV_URL:-$KV_URL_DEFAULT}" || echo "000")
-HTTP_CODE=$(echo "$HTTP_CODE" | tr -d '\r')
+HTTP_CODE=$(app_exec node -e "
+const https = require('https');
+const url = new URL(process.argv[1]);
+const req = https.request({ hostname: url.hostname, port: 443, path: '/', method: 'GET', timeout: 10000 }, (r) => { console.log(r.statusCode); process.exit(0); });
+req.on('error', () => { console.log('000'); process.exit(0); });
+req.on('timeout', () => { console.log('000'); req.destroy(); process.exit(0); });
+req.end();
+" "${KV_URL:-$KV_URL_DEFAULT}" 2>/dev/null | tr -d '\r' | tail -1)
 case "$HTTP_CODE" in
   401|400|404) ok "KV responde HTTP $HTTP_CODE (firewall permite acceso)" ;;
   403)         die "KV responde 403 Forbidden — la IP del VPS NO está en el firewall del Key Vault. Agrega \$(curl -s ifconfig.me) en Azure Portal → Networking → Firewall." ;;
@@ -246,7 +252,13 @@ if should_run 5; then
   sleep 12
 
   log "Health check..."
-  HEALTH=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 http://localhost:3000/api/health || echo "000")
+  HEALTH=$(app_exec node -e "
+const http = require('http');
+const req = http.request({ hostname: '127.0.0.1', port: 3000, path: '/api/health', method: 'GET', timeout: 10000 }, (r) => { console.log(r.statusCode); process.exit(0); });
+req.on('error', () => { console.log('000'); process.exit(0); });
+req.on('timeout', () => { console.log('000'); req.destroy(); process.exit(0); });
+req.end();
+" 2>/dev/null | tr -d '\r' | tail -1)
   if [[ "$HEALTH" == "200" ]]; then
     ok "App responde HTTP 200"
   else
