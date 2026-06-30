@@ -18,7 +18,7 @@
  *   npx tsx scripts/migrate-tenants-to-keyvault.ts [--dry-run]
  */
 
-/* eslint-disable no-console */
+/* eslint-disable no-console, @typescript-eslint/no-require-imports */
 // Carga env ANTES de cualquier import de la app (los `import` estáticos se
 // hoistean al inicio del módulo en ESM, así que usamos dynamic imports para
 // que la pool de DB se cree con DB_HOST/DB_PORT ya seteados).
@@ -31,12 +31,13 @@ const envFile = process.env.NODE_ENV === "production"
   : ".env.development";
 const envPath = path.resolve(process.cwd(), envFile);
 try {
-  const { config: dotenvConfig } = await import("dotenv");
+  // require() en lugar de top-level await import() para compat CJS (tsx en prod)
+  const dotenv = require("dotenv") as typeof import("dotenv");
   if (fs.existsSync(envPath)) {
-    dotenvConfig({ path: envPath });
+    dotenv.config({ path: envPath });
     console.log(`[env] loaded ${envFile}`);
   } else {
-    dotenvConfig();
+    dotenv.config();
   }
 } catch {
   console.log(`[env] dotenv not installed (production runtime) — relying on injected env vars`);
