@@ -65,6 +65,7 @@ export default function Home() {
   const [billingLoading, setBillingLoading] = useState(false);
   const [summaryFailed, setSummaryFailed] = useState(false);
   const [summaryDegraded, setSummaryDegraded] = useState<string | null>(null);
+  const [auditNoPerms, setAuditNoPerms] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
   const [chartsMounted, setChartsMounted] = useState(false);
   const { addAction } = useActionLogStore();
@@ -142,6 +143,7 @@ export default function Home() {
               }
 
               setSummaryDegraded(summaryJson.degraded ? (summaryJson.degradedReason || 'unknown') : null);
+              setAuditNoPerms(!!summaryJson.auditNoPermissions);
               if (summaryJson.dashboardData) {
                   setDashboardData(summaryJson.dashboardData);
               } else {
@@ -196,6 +198,7 @@ export default function Home() {
       };
       setSummaryFailed(false);
       setSummaryDegraded(null);
+      setAuditNoPerms(false);
       fetchData();
   }, [activeTab, selectedTenant, selectedSubscription, accounts, instance, retryKey]);
 
@@ -353,15 +356,24 @@ export default function Home() {
           </button>
         </div>
       )}
-      {summaryDegraded && !loading && !summaryFailed && (
+      {(summaryDegraded || auditNoPerms) && !loading && !summaryFailed && (
         <div className="mb-3 flex items-center gap-3 rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800 dark:border-yellow-700/40 dark:bg-yellow-900/20 dark:text-yellow-200">
-          <span className="text-lg">🔶</span>
+          <span className="text-lg">{auditNoPerms && !summaryDegraded ? '⚙️' : '🔶'}</span>
           <span className="flex-1">
-            <strong>Modo degradado</strong> — {summaryDegraded === 'audit+forecast' ? 'Auditoría Azure y Forecast fallaron' : summaryDegraded === 'audit' ? 'Auditoría Azure no disponible' : summaryDegraded === 'forecast' ? 'Forecast de costos no disponible' : 'Algunos datos de Azure no están disponibles'}.
-            {' '}Los valores mostrados son parciales o de caché. Verifica permisos del Service Principal en Azure.
+            {auditNoPerms && !summaryDegraded ? (
+              <>
+                <strong>Auditoría no configurada</strong> — El Service Principal aún no tiene permisos de Lector en Azure.
+                {' '}Los costos se muestran desde el historial sincronizado. <a href="#" onClick={e => { e.preventDefault(); setActiveTab('config'); }} className="underline">Completar onboarding →</a>
+              </>
+            ) : (
+              <>
+                <strong>Modo degradado</strong> — {summaryDegraded === 'audit+forecast' ? 'Auditoría Azure y Forecast fallaron' : summaryDegraded === 'audit' ? 'Auditoría Azure no disponible' : summaryDegraded === 'forecast' ? 'Forecast de costos no disponible' : 'Algunos datos de Azure no están disponibles'}.
+                {' '}Los valores mostrados son parciales o de caché. Verifica permisos del Service Principal en Azure.
+              </>
+            )}
           </span>
           <button
-            onClick={() => { setSummaryDegraded(null); setRetryKey(k => k + 1); }}
+            onClick={() => { setSummaryDegraded(null); setAuditNoPerms(false); setRetryKey(k => k + 1); }}
             className="shrink-0 rounded-md border border-yellow-300 bg-white px-3 py-1 text-xs font-semibold text-yellow-700 hover:bg-yellow-50 dark:bg-yellow-900/30"
           >
             Reintentar
