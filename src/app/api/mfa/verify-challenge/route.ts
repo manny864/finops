@@ -3,6 +3,10 @@ import { requireRequestIdentity, AuthError } from '@/lib/requestAuth';
 import pool from '@/modules/storage/db';
 import { verifyToken } from '@/lib/mfa';
 import { decryptSecret, verifyRecoveryCode } from '@/lib/mfaCrypto';
+import rateLimiter from '@/lib/rateLimiter';
+
+/** Maximum TOTP/recovery attempts per challenge before it is locked out. */
+const MAX_ATTEMPTS = 5;
 
 interface VerifyChallengeBody {
   challenge_id: string;
@@ -31,7 +35,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get challenge
+    // Rate limit: max MAX_ATTEMPTS per challenge_id per 60s window.
+    // Secondary limit: max 10 attempts per email per minute across all challenges.
+    const rlChallenge = rateLimiter.checkByKey(`mfa:cid:${challenge_id}`, MAX_ATTEMPTS, 300_000); // 5 min window
+    const rlEmail = rateLimiter.checkByKey(`mfa:email:${tenantId}:${email}`, 10, 60_000);
+
+    if (!rlChallenge.allowed || !rlEmail.allowed) {
+      return NextResponse.json(
+        { error: { code: 'rate_limited', message: 'Too many attempts. Please wait and try again.' } },
+        { status: 429 }
+      );
+    }
+
+    // Get challenge — bind by challenge_id + caller email + tenant to prevent IDOR.
     const [challengeRows] = await pool.query(
       `SELECT * FROM MfaChallenges WHERE id = ? AND user_email = ? AND tenant_id = ?`,
       [challenge_id, email, tenantId]
@@ -46,7 +62,7 @@ export async function POST(request: NextRequest) {
 
     const challenge = challengeRows[0] as any;
 
-    // Check if consumed
+    // Check if consumed (success) or locked out (too many failures).
     if (challenge.consumed_at) {
       return NextResponse.json(
         { error: { code: 'challenge_already_used', message: 'Challenge already used' } },
@@ -54,7 +70,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if expired
+    // attempt_count may not exist yet on older rows — default to 0.
+    const attempts = challenge.attempt_count ?? 0;
+    if (attempts >= MAX_ATTEMPTS) {
+      return NextResponse.json(
+        { error: { code: 'challenge_locked', message: 'Challenge locked after too many failed attempts' } },
+        { status: 429 }
+      );
+    }
+
+    // Check if expired.
     if (new Date(challenge.expires_at) < new Date()) {
       return NextResponse.json(
         { error: { code: 'challenge_expired', message: 'Challenge expired' } },
@@ -62,7 +87,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get user MFA data
+    // Get user MFA data.
     const [userRows] = await pool.query(
       `SELECT mfa_secret_encrypted, mfa_recovery_codes_hash FROM Users 
        WHERE email = ? AND tenant_id = ?`,
@@ -79,7 +104,7 @@ export async function POST(request: NextRequest) {
     const user = userRows[0] as any;
     let verified = false;
 
-    // Try TOTP token
+    // Try TOTP token.
     if (token) {
       if (user.mfa_secret_encrypted) {
         try {
@@ -92,7 +117,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Try recovery code
+    // Try recovery code.
     if (!verified && recovery_code) {
       if (user.mfa_recovery_codes_hash) {
         try {
@@ -100,7 +125,7 @@ export async function POST(request: NextRequest) {
           const result = await verifyRecoveryCode(recovery_code, hashes);
           if (result.valid) {
             verified = true;
-            // Update remaining recovery codes
+            // Consume the used recovery code immediately.
             await pool.query(
               `UPDATE Users SET mfa_recovery_codes_hash = ? WHERE email = ? AND tenant_id = ?`,
               [JSON.stringify(result.remaining), email, tenantId]
@@ -113,19 +138,25 @@ export async function POST(request: NextRequest) {
     }
 
     if (!verified) {
+      // Always increment attempt_count on failure (consume-on-fail).
+      // This prevents brute-forcing by reusing the same challenge_id.
+      await pool.query(
+        `UPDATE MfaChallenges SET attempt_count = COALESCE(attempt_count, 0) + 1 WHERE id = ?`,
+        [challenge_id]
+      );
       return NextResponse.json(
         { error: { code: 'invalid_credentials', message: 'Invalid token or recovery code' } },
         { status: 400 }
       );
     }
 
-    // Mark challenge as consumed
+    // Mark challenge as consumed (success).
     await pool.query(
       `UPDATE MfaChallenges SET consumed_at = NOW() WHERE id = ?`,
       [challenge_id]
     );
 
-    // Update mfa_last_used_at
+    // Update mfa_last_used_at.
     await pool.query(
       `UPDATE Users SET mfa_last_used_at = NOW() WHERE email = ? AND tenant_id = ?`,
       [email, tenantId]
