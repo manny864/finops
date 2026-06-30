@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
         const subscriptionId = searchParams.get('subscriptionId');
         if (!tenantId) return NextResponse.json({ error: "Missing tenantId" }, { status: 400 });
 
-        const cacheKey = `tags_compliance_${tenantId}_${subscriptionId || 'all'}`;
+        const cacheKey = `tags_compliance_v2_${tenantId}_${subscriptionId || 'all'}`;
 
         const fetcher = async () => {
             const credential = await getAzureCredential(tenantId);
@@ -46,7 +46,9 @@ export async function GET(req: NextRequest) {
             if (subs.length === 0) {
                 return {
                     complianceScore: 100,
-                    allResources: []
+                    allResources: [],
+                    rgComplianceScore: 100,
+                    resourceGroups: [],
                 };
             }
 
@@ -84,9 +86,43 @@ export async function GET(req: NextRequest) {
             const compliantCount = processedResources.filter(r => r.isCompliant).length;
             const complianceScore = totalResources === 0 ? 100 : Math.max(0, Math.round((compliantCount / totalResources) * 100));
 
+            // Fetch resource groups separately (they live in ResourceContainers, not Resources)
+            const rgQuery = `ResourceContainers
+                | where type =~ 'microsoft.resources/subscriptions/resourcegroups'
+                | project id, name, type, subscriptionId, location, tags`;
+            const rgResponse = await queryWithRetry(client, rgQuery, subs, 'resourceGroups');
+            const rgRaw = (rgResponse?.data || []) as any[];
+
+            const processedRGs = rgRaw.map(r => {
+                const itemTags = r.tags || {};
+                const missingTags = GLOBAL_MANDATORY_TAGS.filter(tag => {
+                    const tagKeyLower = tag.toLowerCase();
+                    const foundKey = Object.keys(itemTags).find(k => k.toLowerCase() === tagKeyLower);
+                    return !foundKey || !itemTags[foundKey];
+                });
+                const isCompliant = missingTags.length === 0;
+                return {
+                    resourceId: r.id,
+                    id: r.id,
+                    name: r.name,
+                    type: r.type,
+                    subscriptionId: r.subscriptionId,
+                    location: r.location,
+                    reason: isCompliant ? "Cumple con las políticas" : `Faltan etiquetas obligatorias: ${missingTags.join(', ')}`,
+                    missingTags,
+                    isCompliant,
+                };
+            });
+
+            const totalRGs = processedRGs.length;
+            const compliantRGs = processedRGs.filter(r => r.isCompliant).length;
+            const rgComplianceScore = totalRGs === 0 ? 100 : Math.max(0, Math.round((compliantRGs / totalRGs) * 100));
+
             return {
                 complianceScore,
-                allResources: processedResources
+                allResources: processedResources,
+                rgComplianceScore,
+                resourceGroups: processedRGs,
             };
         };
 

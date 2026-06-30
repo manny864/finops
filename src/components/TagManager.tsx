@@ -14,15 +14,20 @@ export default function TagManager() {
     
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [resources, setResources] = useState<any[]>([]);
+    const [resourceGroups, setResourceGroups] = useState<any[]>([]);
     const [editingResource, setEditingResource] = useState<any>(null);
+    const [editingScope, setEditingScope] = useState<'resource' | 'rg'>('resource');
     const [tagValues, setTagValues] = useState<Record<string, string>>({});
     const [isApplying, setIsApplying] = useState(false);
     const [complianceScore, setComplianceScore] = useState<number | null>(null);
+    const [rgComplianceScore, setRgComplianceScore] = useState<number | null>(null);
 
     const analyzeCompliance = useCallback(async () => {
         if (accounts.length === 0 || selectedTenant.id === 'default') {
             setComplianceScore(null);
             setResources([]);
+            setRgComplianceScore(null);
+            setResourceGroups([]);
             return;
         }
         
@@ -34,9 +39,13 @@ export default function TagManager() {
             if (json.success && json.data) {
                 setComplianceScore(json.data.complianceScore);
                 setResources(json.data.allResources || []);
+                setRgComplianceScore(json.data.rgComplianceScore ?? null);
+                setResourceGroups(json.data.resourceGroups || []);
             } else {
                 setComplianceScore(0);
                 setResources([]);
+                setRgComplianceScore(0);
+                setResourceGroups([]);
             }
         } catch (e) {
             console.error("Error analyzing compliance", e);
@@ -100,7 +109,7 @@ export default function TagManager() {
                 </div>
                 <div className="right flex gap-4 bg-surface-2 px-4 py-2 rounded-xl border border-line items-center">
                     <div className="flex flex-col items-end justify-center">
-                        <span className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">Compliance Score</span>
+                        <span className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">Recursos</span>
                         {isAnalyzing ? (
                             <span className="text-[12px] font-bold text-brand-deep animate-pulse mt-1">Analizando...</span>
                         ) : (
@@ -148,6 +157,61 @@ export default function TagManager() {
                                 complianceScore >= 70 ? 'text-amber-500' : 'text-rose-600'
                             }`}>
                                 {complianceScore === null ? '-' : `${complianceScore}%`}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="w-px h-12 bg-line mx-1" />
+
+                    <div className="flex flex-col items-end justify-center">
+                        <span className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">Grupos de Recursos</span>
+                        {isAnalyzing ? (
+                            <span className="text-[12px] font-bold text-brand-deep animate-pulse mt-1">Analizando...</span>
+                        ) : (
+                            <span className="text-[12px] font-bold text-ink mt-1">
+                                {resourceGroups.filter(r => !r.isCompliant).length} infracciones
+                            </span>
+                        )}
+                    </div>
+
+                    <div className="relative flex items-center justify-center">
+                        <svg className="w-16 h-16 transform -rotate-90">
+                            <circle
+                                cx="32"
+                                cy="32"
+                                r="24"
+                                stroke="#f1f5f9"
+                                strokeWidth="5"
+                                fill="transparent"
+                            />
+                            <circle
+                                cx="32"
+                                cy="32"
+                                r="24"
+                                stroke={
+                                    rgComplianceScore === null ? '#cbd5e1' :
+                                    rgComplianceScore >= 90 ? '#10b981' :
+                                    rgComplianceScore >= 70 ? '#f59e0b' : '#ef4444'
+                                }
+                                strokeWidth="5"
+                                fill="transparent"
+                                strokeDasharray={150.8}
+                                strokeDashoffset={
+                                    rgComplianceScore === null
+                                        ? 150.8
+                                        : 150.8 - (rgComplianceScore / 100) * 150.8
+                                }
+                                strokeLinecap="round"
+                                className="transition-all duration-1000 ease-in-out"
+                            />
+                        </svg>
+                        <div className="absolute text-center">
+                            <span className={`text-[12px] font-black ${
+                                rgComplianceScore === null ? 'text-slate-400' :
+                                rgComplianceScore >= 90 ? 'text-emerald-600' :
+                                rgComplianceScore >= 70 ? 'text-amber-500' : 'text-rose-600'
+                            }`}>
+                                {rgComplianceScore === null ? '-' : `${rgComplianceScore}%`}
                             </span>
                         </div>
                     </div>
@@ -250,6 +314,101 @@ export default function TagManager() {
                                                     <button 
                                                         onClick={() => {
                                                             setEditingResource(item);
+                                                            setEditingScope('resource');
+                                                            const initVals: Record<string,string> = {};
+                                                            item.missingTags.forEach((t: string) => initVals[t] = "");
+                                                            setTagValues(initVals);
+                                                        }}
+                                                        className="bg-brand-soft text-brand-deep border border-brand-bright/20 hover:border-brand-bright hover:bg-brand-deep hover:text-white px-[11px] py-[7px] rounded-[10px] text-[12px] font-heading font-semibold transition-colors cursor-pointer"
+                                                    >
+                                                        Editar Etiquetas
+                                                    </button>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
+
+            {/* Auditoría de Grupos de Recursos */}
+            <div className="card overflow-hidden mt-6">
+                <div className="card-h flex justify-between items-center">
+                    <h3 className="m-0">Auditoría de Etiquetas de Grupos de Recursos</h3>
+                    {isAnalyzing && <span className="text-[11px] font-bold text-brand-deep animate-pulse">Escaneando grupos...</span>}
+                </div>
+
+                {!isAnalyzing && resourceGroups.length === 0 ? (
+                    <div className="empty flex flex-col items-center py-12">
+                        <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-slate-100 text-slate-400">
+                            <Info className="w-8 h-8" />
+                        </div>
+                        <h4 className="text-[16px] font-heading font-bold text-ink">
+                            No se encontraron grupos de recursos
+                        </h4>
+                        <p className="text-[13px] text-ink-soft mt-1">
+                            Asegúrate de tener Resource Groups provisionados en las suscripciones seleccionadas.
+                        </p>
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="tbl">
+                            <thead>
+                                <tr>
+                                    <th>Grupo de Recursos</th>
+                                    <th>Suscripción</th>
+                                    <th>Región</th>
+                                    <th>Estado de Cumplimiento</th>
+                                    <th>Etiquetas Faltantes</th>
+                                    <th className="num">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {resourceGroups.map((item, i) => {
+                                    const sub = subscriptions.find(s => s.id === item.subscriptionId);
+                                    const subName = sub ? sub.name : item.subscriptionId;
+                                    return (
+                                        <tr key={`rg-${i}`}>
+                                            <td>
+                                                <div className="font-bold text-ink text-[13px]">{item.name || 'Unknown'}</div>
+                                            </td>
+                                            <td className="text-slate-600 text-[13px]">{subName}</td>
+                                            <td className="text-slate-600 text-[13px]">{item.location || '-'}</td>
+                                            <td>
+                                                {item.isCompliant ? (
+                                                    <div className="inline-flex items-center space-x-1 bg-emerald-100 text-emerald-800 text-[11px] font-bold px-2 py-1 rounded-full">
+                                                        <CheckCircle2 className="w-3.5 h-3.5" />
+                                                        <span>100% Compliant</span>
+                                                    </div>
+                                                ) : (
+                                                    <div className="inline-flex items-center space-x-1 bg-rose-100 text-rose-800 text-[11px] font-bold px-2 py-1 rounded-full">
+                                                        <ShieldAlert className="w-3.5 h-3.5" />
+                                                        <span>No Conforme</span>
+                                                    </div>
+                                                )}
+                                            </td>
+                                            <td>
+                                                <div className="flex flex-wrap gap-[7px]">
+                                                    {item.isCompliant ? (
+                                                        <span className="text-slate-400 text-xs italic">Ninguna</span>
+                                                    ) : (
+                                                        item.missingTags.map((tag: string, idx: number) => (
+                                                            <span key={idx} className="tag red">
+                                                                {tag}
+                                                            </span>
+                                                        ))
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="num">
+                                                {!item.isCompliant && (
+                                                    <button
+                                                        onClick={() => {
+                                                            setEditingResource(item);
+                                                            setEditingScope('rg');
                                                             const initVals: Record<string,string> = {};
                                                             item.missingTags.forEach((t: string) => initVals[t] = "");
                                                             setTagValues(initVals);
@@ -274,7 +433,9 @@ export default function TagManager() {
                 <div className="fixed inset-0 bg-ink/50 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in">
                     <div className="card w-full max-w-lg overflow-hidden shadow-xl">
                         <div className="card-h border-b border-line bg-surface-2">
-                            <h3 className="text-[16px] font-heading font-bold text-ink m-0">Aplicar Etiquetas Requeridas</h3>
+                            <h3 className="text-[16px] font-heading font-bold text-ink m-0">
+                                Aplicar Etiquetas Requeridas {editingScope === 'rg' ? '— Grupo de Recursos' : '— Recurso'}
+                            </h3>
                             <p className="text-[13px] text-ink-soft m-0 mt-1 truncate">{editingResource.name}</p>
                         </div>
                         <div className="p-6 space-y-4">
