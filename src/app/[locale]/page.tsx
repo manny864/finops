@@ -3,6 +3,7 @@ import { useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { TabContext } from '@/components/ClientShell';
 import { useMsal } from '@azure/msal-react';
+import { InteractionRequiredAuthError } from '@azure/msal-browser';
 import { useTenant } from '@/components/TenantProvider';
 import { useSubscription } from '@/components/SubscriptionProvider';
 import ZombieResourcesTable from "@/components/ZombieResourcesTable";
@@ -62,6 +63,8 @@ export default function Home() {
   const [histogramMonths, setHistogramMonths] = useState<number>(1);
   const [billingHistogram, setBillingHistogram] = useState<Array<{ date: string; cost: number }>>([]);
   const [billingLoading, setBillingLoading] = useState(false);
+  const [summaryFailed, setSummaryFailed] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
   const [chartsMounted, setChartsMounted] = useState(false);
   const { addAction } = useActionLogStore();
 
@@ -113,8 +116,15 @@ export default function Home() {
               // Disparamos los 3 endpoints en PARALELO. Antes era serie:
               //   summary (18s) → tags → anomalies. Ahora el wall-clock es max(3) en lugar de sum(3).
               const summaryP = fetch(`/api/dashboard/summary?tenantId=${selectedTenant.id}&subscriptionId=${summarySubscription}`, { headers })
-                  .then(r => r.ok ? r.json() : {})
-                  .catch(() => ({}));
+                  .then(async r => {
+                      if (!r.ok) {
+                          console.warn('[Dashboard] summary returned', r.status, await r.text().catch(() => ''));
+                          setSummaryFailed(true);
+                          return {};
+                      }
+                      return r.json();
+                  })
+                  .catch(e => { console.error('[Dashboard] summary fetch error:', e); setSummaryFailed(true); return {}; });
               const tagsP = fetch(`/api/tags?tenantId=${selectedTenant.id}`, { headers })
                   .then(r => r.ok ? r.json() : { policies: [] })
                   .catch(() => ({ policies: [] }));
@@ -166,12 +176,20 @@ export default function Home() {
                       status: 'error'
                   });
               }
-          } catch (e) {}
+          } catch (e: any) {
+              console.error('[Dashboard] fetchData failed:', e?.message || e);
+              setSummaryFailed(true);
+              if (e instanceof InteractionRequiredAuthError) {
+                  // Token expired / revoked — redirect to interactive login
+                  instance.loginRedirect({ scopes: ['User.Read'] }).catch(() => {});
+              }
+          }
           setBillingLoading(false);
           setLoading(false);
       };
+      setSummaryFailed(false);
       fetchData();
-  }, [activeTab, selectedTenant, selectedSubscription, accounts, instance]);
+  }, [activeTab, selectedTenant, selectedSubscription, accounts, instance, retryKey]);
 
   const filteredHistogramData = (() => {
       if (billingHistogram.length === 0) return [];
@@ -315,6 +333,18 @@ export default function Home() {
     <div className="content animate-in fade-in duration-500">
       <MockBanner />
       <MyPinnedWidgets />
+      {summaryFailed && !loading && (
+        <div className="mb-3 flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-700/40 dark:bg-amber-900/20 dark:text-amber-200">
+          <span className="text-lg">⚠️</span>
+          <span className="flex-1">No se pudieron cargar los datos del dashboard. Verifica tu sesión o la conectividad con Azure.</span>
+          <button
+            onClick={() => { setSummaryFailed(false); setRetryKey(k => k + 1); }}
+            className="shrink-0 rounded-md border border-amber-300 bg-white px-3 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-50 dark:bg-amber-900/30 dark:text-amber-200 dark:border-amber-600"
+          >
+            Reintentar
+          </button>
+        </div>
+      )}
       <div className="vhead">
         <div className="title">
           <h1 className="text-gray-900 dark:text-white">{t('title')}</h1>
@@ -325,28 +355,28 @@ export default function Home() {
             <div className="bg-sky-50 border border-sky-200 rounded-xl px-5 py-3 flex flex-col items-start sm:items-end shadow-sm w-full min-w-0">
                 <span className="text-[10px] font-bold text-sky-700 uppercase tracking-widest mb-1">Costo Actual</span>
                 <span className="text-3xl lg:text-4xl font-extrabold text-sky-600">
-                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(actualCost)}
+                    {loading ? <span className="animate-pulse">…</span> : summaryFailed ? <span className="text-xl text-sky-400">—</span> : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(actualCost)}
                 </span>
                 <span className="text-[10px] text-sky-600 mt-1">acumulado del mes</span>
             </div>
             <div className="bg-purple-50 border border-purple-200 rounded-xl px-5 py-3 flex flex-col items-start sm:items-end shadow-sm w-full min-w-0">
                 <span className="text-[10px] font-bold text-purple-700 uppercase tracking-widest mb-1">Costo Proyectado</span>
                 <span className="text-3xl lg:text-4xl font-extrabold text-purple-600">
-                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(projectedCost)}
+                    {loading ? <span className="animate-pulse">…</span> : summaryFailed ? <span className="text-xl text-purple-400">—</span> : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(projectedCost)}
                 </span>
                 <span className="text-[10px] text-purple-600 mt-1">al cierre de mes</span>
             </div>
             <div className="bg-green-50 border border-green-200 rounded-xl px-5 py-3 flex flex-col items-start sm:items-end shadow-sm w-full min-w-0">
                 <span className="text-[10px] font-bold text-green-700 uppercase tracking-widest mb-1">{t('potential_savings')}</span>
                 <span className="text-3xl lg:text-4xl font-extrabold text-green-600">
-                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(totalSavings)}
+                    {loading ? <span className="animate-pulse">…</span> : summaryFailed ? <span className="text-xl text-green-400">—</span> : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(totalSavings)}
                 </span>
                 <span className="text-[10px] text-green-600 mt-1">{t('monthly_projected')}</span>
             </div>
             <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 flex flex-col items-start sm:items-end shadow-sm w-full min-w-0">
                 <span className="text-[10px] font-bold text-amber-700 uppercase tracking-widest mb-1">Recursos Zombies</span>
                 <span className="text-3xl lg:text-4xl font-extrabold text-amber-600">
-                    {zombieCount}
+                    {loading ? <span className="animate-pulse">…</span> : summaryFailed ? <span className="text-xl text-amber-400">—</span> : zombieCount}
                 </span>
                 <span className="text-[10px] text-amber-600 mt-1">detectados</span>
             </div>
@@ -355,7 +385,7 @@ export default function Home() {
                     <Leaf className="w-3 h-3 mr-1" /> {t('environmental_impact')}
                 </span>
                 <span className="text-3xl lg:text-4xl font-extrabold text-emerald-600">
-                    {calculateCO2Savings(totalSavings)}
+                    {loading ? <span className="animate-pulse">…</span> : summaryFailed ? <span className="text-xl text-emerald-400">—</span> : calculateCO2Savings(totalSavings)}
                 </span>
                 <span className="text-[10px] text-emerald-600 mt-1">{t('co2_avoided')}</span>
             </div>
