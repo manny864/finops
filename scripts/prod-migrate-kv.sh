@@ -215,9 +215,14 @@ fi
 # =============================================================================
 if should_run 3; then
   header "FASE 3 — Dry-run del script de migración"
+  log "Instalando deps ad-hoc en container (Next standalone no las incluye)..."
+  app_exec_root() {
+    docker compose exec -T -u 0 "$APP_SERVICE" "$@"
+  }
+  app_exec_root sh -c "cd /app && npm install --silent --no-save --no-audit --no-fund @azure/keyvault-secrets @azure/identity dotenv mysql2 lru-cache 2>&1 | tail -3"
   log "Ejecutando dry-run (NO escribe en KV)..."
   set +e
-  app_exec npx tsx scripts/migrate-tenants-to-keyvault.ts --dry-run \
+  app_exec_root npx tsx scripts/migrate-tenants-to-keyvault.ts --dry-run \
     2>&1 | tee -a "$LOG_FILE"
   RC=${PIPESTATUS[0]}
   set -e
@@ -235,7 +240,8 @@ if should_run 4; then
   confirm "ÚLTIMA confirmación: ¿ejecutar migración LIVE?" || die "Abortado por usuario."
   log "Ejecutando migración..."
   set +e
-  app_exec npx tsx scripts/migrate-tenants-to-keyvault.ts \
+  docker compose exec -T -u 0 "$APP_SERVICE" \
+    npx tsx scripts/migrate-tenants-to-keyvault.ts \
     2>&1 | tee -a "$LOG_FILE"
   RC=${PIPESTATUS[0]}
   set -e
