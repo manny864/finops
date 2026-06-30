@@ -64,6 +64,7 @@ export default function Home() {
   const [billingHistogram, setBillingHistogram] = useState<Array<{ date: string; cost: number }>>([]);
   const [billingLoading, setBillingLoading] = useState(false);
   const [summaryFailed, setSummaryFailed] = useState(false);
+  const [summaryDegraded, setSummaryDegraded] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
   const [chartsMounted, setChartsMounted] = useState(false);
   const { addAction } = useActionLogStore();
@@ -135,6 +136,12 @@ export default function Home() {
               // Renderizamos summary cuanto antes (los costos/histograma no esperan a tags/anomalies).
               const summaryJson: any = await summaryP;
 
+              // Log full response for diagnostics (dev-friendly)
+              if (summaryJson.degraded) {
+                  console.warn('[Dashboard] summary degraded:', summaryJson.degradedReason, '| actualCost:', summaryJson.actualCost, '| degraded:', summaryJson.degraded);
+              }
+
+              setSummaryDegraded(summaryJson.degraded ? (summaryJson.degradedReason || 'unknown') : null);
               if (summaryJson.dashboardData) {
                   setDashboardData(summaryJson.dashboardData);
               } else {
@@ -188,6 +195,7 @@ export default function Home() {
           setLoading(false);
       };
       setSummaryFailed(false);
+      setSummaryDegraded(null);
       fetchData();
   }, [activeTab, selectedTenant, selectedSubscription, accounts, instance, retryKey]);
 
@@ -338,8 +346,23 @@ export default function Home() {
           <span className="text-lg">⚠️</span>
           <span className="flex-1">No se pudieron cargar los datos del dashboard. Verifica tu sesión o la conectividad con Azure.</span>
           <button
-            onClick={() => { setSummaryFailed(false); setRetryKey(k => k + 1); }}
+            onClick={() => { setSummaryFailed(false); setSummaryDegraded(null); setRetryKey(k => k + 1); }}
             className="shrink-0 rounded-md border border-amber-300 bg-white px-3 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-50 dark:bg-amber-900/30 dark:text-amber-200 dark:border-amber-600"
+          >
+            Reintentar
+          </button>
+        </div>
+      )}
+      {summaryDegraded && !loading && !summaryFailed && (
+        <div className="mb-3 flex items-center gap-3 rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800 dark:border-yellow-700/40 dark:bg-yellow-900/20 dark:text-yellow-200">
+          <span className="text-lg">🔶</span>
+          <span className="flex-1">
+            <strong>Modo degradado</strong> — {summaryDegraded === 'audit+forecast' ? 'Auditoría Azure y Forecast fallaron' : summaryDegraded === 'audit' ? 'Auditoría Azure no disponible' : summaryDegraded === 'forecast' ? 'Forecast de costos no disponible' : 'Algunos datos de Azure no están disponibles'}.
+            {' '}Los valores mostrados son parciales o de caché. Verifica permisos del Service Principal en Azure.
+          </span>
+          <button
+            onClick={() => { setSummaryDegraded(null); setRetryKey(k => k + 1); }}
+            className="shrink-0 rounded-md border border-yellow-300 bg-white px-3 py-1 text-xs font-semibold text-yellow-700 hover:bg-yellow-50 dark:bg-yellow-900/30"
           >
             Reintentar
           </button>
