@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
+import { getFreshIdToken } from "@/lib/msalToken";
 import Decimal from "decimal.js";
 
 const SYMBOLS: Record<string, string> = {
@@ -26,7 +27,7 @@ const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined
 
 export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     const { selectedTenant } = useTenant();
-    const { accounts } = useMsal();
+    const { accounts, instance } = useMsal();
     const [currency, setCurrencyState] = useState("USD");
     const [rate, setRate] = useState(1);
     const [supported, setSupported] = useState<string[]>(["USD"]);
@@ -50,7 +51,10 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
         (async () => {
             setLoading(true);
             try {
-                const r = await fetch(`/api/fx/preference?tenantId=${selectedTenant.id}`);
+                const token = await getFreshIdToken(instance, accounts[0]).catch(() => "");
+                const r = await fetch(`/api/fx/preference?tenantId=${selectedTenant.id}`, {
+                    headers: token ? { Authorization: `Bearer ${token}` } : {},
+                });
                 const j = await r.json();
                 if (!cancelled && j.success) {
                     setCurrencyState(j.currency);
@@ -61,21 +65,25 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
             finally { if (!cancelled) setLoading(false); }
         })();
         return () => { cancelled = true; };
-    }, [selectedTenant?.id, accounts.length, loadRates]);
+    }, [selectedTenant?.id, accounts.length, loadRates, instance]);
 
     const setCurrency = useCallback(async (c: string) => {
         setCurrencyState(c);
         await loadRates(c);
-        if (selectedTenant?.id && selectedTenant.id !== "default") {
+        if (selectedTenant?.id && selectedTenant.id !== "default" && accounts.length > 0) {
             try {
+                const token = await getFreshIdToken(instance, accounts[0]).catch(() => "");
                 await fetch(`/api/fx/preference`, {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: {
+                        "Content-Type": "application/json",
+                        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                    },
                     body: JSON.stringify({ tenantId: selectedTenant.id, currency: c }),
                 });
             } catch { /* persist falla silenciosa, queda en sesión */ }
         }
-    }, [selectedTenant?.id, loadRates]);
+    }, [selectedTenant?.id, accounts, loadRates, instance]);
 
     const convert = useCallback((amountUSD: number | string) => {
         return new Decimal(amountUSD).mul(rate).toNumber();

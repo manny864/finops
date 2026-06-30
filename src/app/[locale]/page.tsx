@@ -77,11 +77,9 @@ export default function Home() {
     
     const checkOnboarding = async () => {
       try {
+        const token = await getFreshIdToken(instance, accounts[0]).catch(() => '');
         const response = await fetch('/api/onboarding/progress', {
-          headers: { 'Authorization': `Bearer ${await (instance.acquireTokenSilent({
-            scopes: ['api://FinOpsApp/access_as_user'],
-            account: accounts[0],
-          } as any).then((r:any) => r.accessToken)).catch(() => '')}` }
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {},
         });
         if (response.ok) {
           const data = await response.json();
