@@ -192,7 +192,7 @@ export async function GET(request: NextRequest) {
 
     await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
 
-    const cacheKey = `dashboard:summary:v4:${tenantId}:${subscriptionId.toLowerCase()}`;
+    const cacheKey = `dashboard:summary:v5:${tenantId}:${subscriptionId.toLowerCase()}`;
     const data = await getWithStaleWhileRevalidate(
       cacheKey,
       async () => {
@@ -224,7 +224,22 @@ export async function GET(request: NextRequest) {
           timedFetch(
             `${origin}/api/audit/full?tenantId=${encodeURIComponent(tenantId)}${subParam}`,
             18000
-          ).then(r => r.ok ? r.json() : Promise.reject(new Error(`audit ${r.status}`)))
+          ).then(async r => {
+            if (r.ok) return r.json();
+            // 403 con MISSING_RBAC_ROLE / MISSING_ADMIN_CONSENT = SP sin permisos.
+            // No es un fallo de infraestructura: el tenant aún no completó onboarding
+            // técnico. Tratamos como auditoría vacía (no degraded) en lugar de failure.
+            if (r.status === 403) {
+              try {
+                const body = await r.json().catch(() => ({}));
+                if (body.error === 'MISSING_RBAC_ROLE' || body.error === 'MISSING_ADMIN_CONSENT') {
+                  console.warn('[Summary] audit returned 403 (SP sin permisos) — tratado como vacío');
+                  return { auditResults: {}, __noPermissions: true };
+                }
+              } catch { /* ignore */ }
+            }
+            return Promise.reject(new Error(`audit ${r.status}`));
+          })
            .catch(e => ({ __failed: true, error: String(e?.message || e) })),
           timedFetch(
             `${origin}/api/intelligence/forecast?tenantId=${encodeURIComponent(tenantId)}&subscriptionId=${encodeURIComponent(subscriptionId)}`,
@@ -236,8 +251,11 @@ export async function GET(request: NextRequest) {
 
         const auditFailed = (auditSettled as any).__failed === true;
         const forecastFailed = (forecastSettled as any).__failed === true;
+        // Audit without permissions = empty results, not a failure
+        const auditNoPerms = (auditSettled as any).__noPermissions === true;
 
-        const auditJson = auditFailed ? { auditResults: {} } : auditSettled;
+        const auditJson = (auditFailed || auditNoPerms) ? { auditResults: {} } : auditSettled;
+        // If forecast returned { data: [], azureUnavailable: true } it's a 200 (not failed)
         const forecastJson = forecastFailed ? {} : forecastSettled;
 
         if (auditFailed) console.warn('[Summary] audit failed (degraded):', (auditSettled as any).error);
@@ -248,9 +266,8 @@ export async function GET(request: NextRequest) {
         const totalSavings = mappedData.reduce((sum, item) => sum + Number(item.potentialSavings || 0), 0);
         const environmentalImpact = Number(((totalSavings / 100) * 15).toFixed(1));
 
-        // actualCost: fuente primaria CostSnapshots (DB rápido, no falla por Azure timeout).
-        // Si forecast trajo data, sumamos sus rows actualCost (que pueden incluir hoy);
-        // si no, usamos el MTD desde DB.
+        // actualCost: fuente primaria — forecast data (que incluye live Azure MTD)
+        // Si forecast vino vacío/falló, fallback a CostSnapshots DB (MTD).
         let actualCost = 0;
         let forecastSum = 0;
         const combinedData = Array.isArray((forecastJson as any).data) ? (forecastJson as any).data : [];
@@ -282,12 +299,38 @@ export async function GET(request: NextRequest) {
         // Histograma: pull directo de CostSnapshots (FOCUS) últimos 365 días.
         // Si está vacío, fallback live (best-effort, sin throw).
         let histogram = await fetchHistogramFromDb(tenantId, subscriptionId);
+        let liveData: Awaited<ReturnType<typeof getCurrentMonthAmortizedCosts>> | null = null;
         if (histogram.length === 0) {
           try {
-            const live = await getCurrentMonthAmortizedCosts(tenantId, subscriptionId, 'ActualCost');
-            histogram = buildHistogramRows(live || []);
+            liveData = await getCurrentMonthAmortizedCosts(tenantId, subscriptionId, 'ActualCost');
+            histogram = buildHistogramRows(liveData || []);
           } catch (e: any) {
             console.warn('[Summary] live billing fallback failed:', e?.message);
+          }
+        }
+
+        // Si actualCost sigue en 0 (DB vacía y forecast sin datos) pero hay datos live,
+        // usar el live para mostrar costo real del mes actual en lugar de $0.
+        if (actualCost === 0 && liveData && liveData.length > 0) {
+          const currYM = new Date().toISOString().slice(0, 7); // YYYY-MM
+          let liveActual = 0;
+          for (const entry of liveData) {
+            const rawDate = String(
+              (entry as any).ChargePeriodStart ?? (entry as any).UsageDate ?? ''
+            ).slice(0, 7);
+            if (rawDate === currYM) {
+              liveActual += Number((entry as any).EffectiveCost ?? (entry as any).BilledCost ?? 0);
+            }
+          }
+          if (liveActual > 0) {
+            console.log(`[Summary] actualCost computed from live Azure data: ${liveActual.toFixed(2)}`);
+            actualCost = liveActual;
+            if (projectedCost === 0) {
+              const today = new Date();
+              const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+              const currentDay = Math.max(today.getDate(), 1);
+              projectedCost = actualCost * (daysInMonth / currentDay);
+            }
           }
         }
 
@@ -304,6 +347,8 @@ export async function GET(request: NextRequest) {
           degradedReason: auditFailed && forecastFailed
             ? 'audit+forecast'
             : auditFailed ? 'audit' : forecastFailed ? 'forecast' : null,
+          // Inform UI when SP has no Azure permissions (tenant not yet fully onboarded)
+          auditNoPermissions: auditNoPerms,
         };
       },
       900,  // hard TTL: 15 min
