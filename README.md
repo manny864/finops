@@ -281,6 +281,28 @@ Cualquier cambio de estructura de UI o adición de páginas debe registrarse en 
 
 ---
 
+## ⏰ Cron Jobs
+
+Endpoints internos protegidos por `Authorization: Bearer ${CRON_SECRET}`. Se invocan desde el crontab del VPS (o cualquier scheduler externo). Todos son idempotentes.
+
+| Endpoint                              | Frecuencia recomendada | Propósito                                                                                       |
+| ------------------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------- |
+| `GET /api/cron/sync`                  | Diaria 06:00 UTC       | Snapshot diario de costos por tenant (CostManagement / CUR).                                    |
+| `GET /api/cron/prewarm-dashboard`     | Cada 10 min            | Pre-calienta el cache SWR del Dashboard General (`/api/dashboard/summary`) por tenant activo.  |
+
+**Ejemplo crontab VPS:**
+```cron
+# Snapshot diario de costos
+0 6 * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://app.cscloudsolutions.com.ar/api/cron/sync >> /var/log/finops-cron.log 2>&1
+
+# Pre-warm dashboard cada 10 min (cache hard-TTL = 15 min)
+*/10 * * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://app.cscloudsolutions.com.ar/api/cron/prewarm-dashboard >> /var/log/finops-cron.log 2>&1
+```
+
+**Auth interna**: `prewarm-dashboard` propaga `X-Cron-Auth` a las llamadas internas (`summary` → `audit/full` / `intelligence/forecast`) gracias al bypass en `requireTenantAccess`. Comparación timing-safe; nunca concede superadmin global, solo acceso al `tenantId` de la query.
+
+---
+
 ## 📜 Development Protocol
 
 **CRITICAL RULE: From this point forward, every time a new feature is added, an API route is modified, or a component is created, this README.md file MUST be updated to reflect the change. The Project Structure tree and the Mermaid Infrastructure diagram must be regenerated if the architecture changes.**
