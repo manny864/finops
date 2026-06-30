@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool, { initializeDatabase } from "@/modules/storage/db";
-import { requireTenantAccess } from "@/lib/requestAuth";
+import { requireRequestIdentity, AuthError } from "@/lib/requestAuth";
 
 export async function POST(request: NextRequest) {
     try {
         await initializeDatabase();
 
-        const identity = await requireTenantAccess(request, "");
+        const identity = await requireRequestIdentity(request);
         const tenantId = identity.tenantId;
         const email = identity.email;
 

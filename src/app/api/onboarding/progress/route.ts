@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool, { initializeDatabase } from "@/modules/storage/db";
-import { requireTenantAccess } from "@/lib/requestAuth";
+import { requireRequestIdentity, AuthError } from "@/lib/requestAuth";
 
 export async function GET(request: NextRequest) {
     try {
         await initializeDatabase();
 
-        const identity = await requireTenantAccess(request, "");
+        const identity = await requireRequestIdentity(request);
         const tenantId = identity.tenantId;
 
         const connection = await pool.getConnection();
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
         }
     } catch (error: any) {
         console.error("[Onboarding Progress API] Error:", error);
-        if (error.name === "AuthError") {
+        if (error instanceof AuthError) {
             return NextResponse.json({ error: error.message }, { status: error.status });
         }
         return NextResponse.json(
@@ -72,7 +72,7 @@ export async function PUT(request: NextRequest) {
     try {
         await initializeDatabase();
 
-        const identity = await requireTenantAccess(request, "");
+        const identity = await requireRequestIdentity(request);
         const tenantId = identity.tenantId;
 
         const body = await request.json();
@@ -129,7 +129,7 @@ export async function PUT(request: NextRequest) {
         }
     } catch (error: any) {
         console.error("[Onboarding Progress PUT API] Error:", error);
-        if (error.name === "AuthError") {
+        if (error instanceof AuthError) {
             return NextResponse.json({ error: error.message }, { status: error.status });
         }
         return NextResponse.json(
