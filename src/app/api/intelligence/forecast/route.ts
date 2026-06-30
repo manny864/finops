@@ -35,23 +35,34 @@ export async function GET(request: NextRequest) {
 
         const metricType = (request.headers.get('x-metric-type') as 'ActualCost' | 'AmortizedCost') || 'ActualCost';
 
-        // Get historical data
-        const historicalEntries = await getCurrentMonthAmortizedCosts(tenantId, subscriptionId, metricType);
-        
-        // Get forecast
+        // Get historical data — resilient: no credentials or Azure failure returns []
+        let historicalEntries: Awaited<ReturnType<typeof getCurrentMonthAmortizedCosts>> = [];
+        try {
+            historicalEntries = await getCurrentMonthAmortizedCosts(tenantId, subscriptionId, metricType);
+        } catch (azureErr: any) {
+            console.warn('[Forecast] getCurrentMonthAmortizedCosts failed (Azure unavailable):', azureErr?.message);
+        }
+
+        // Get forecast — getCostForecast is already resilient (returns [] instead of throwing)
         const forecastData = await getCostForecast(tenantId, subscriptionId, metricType);
+
+        // If both are empty, return gracefully so dashboard/summary does NOT mark forecast as failed
+        if (historicalEntries.length === 0 && forecastData.length === 0) {
+            return NextResponse.json({ data: [], azureUnavailable: true });
+        }
 
         // Combine into one array
         const combinedMap: Record<string, any> = {};
 
         historicalEntries.forEach(item => {
-            if (item.UsageDate) {
-                const dateStr = String(item.UsageDate);
-                const formattedDate = dateStr.length === 8 ? `${dateStr.substring(0,4)}-${dateStr.substring(4,6)}-${dateStr.substring(6,8)}` : dateStr;
+            const usageDate = item.UsageDate || item.ChargePeriodStart;
+            if (usageDate) {
+                const dateStr = String(usageDate);
+                const formattedDate = dateStr.length === 8 ? `${dateStr.substring(0,4)}-${dateStr.substring(4,6)}-${dateStr.substring(6,8)}` : dateStr.slice(0, 10);
                 if (!combinedMap[formattedDate]) {
                     combinedMap[formattedDate] = { date: formattedDate, actualCost: 0 };
                 }
-                combinedMap[formattedDate].actualCost += item.EffectiveCost;
+                combinedMap[formattedDate].actualCost += Number(item.EffectiveCost || item.BilledCost || 0);
             }
         });
 
