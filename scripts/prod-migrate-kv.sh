@@ -179,7 +179,7 @@ confirm "Pre-flight OK. ¿Continuar con FASE 1 (backup)?" || die "Abortado por u
 if should_run 1 && [[ "$NO_BACKUP" -eq 0 ]]; then
   header "FASE 1 — Backup de tabla 'tenants'"
   log "Volcando a $BACKUP_FILE ..."
-  if mysql_dump tenants > "$BACKUP_FILE" 2>>"$LOG_FILE"; then
+  if mysql_dump Tenants > "$BACKUP_FILE" 2>>"$LOG_FILE"; then
     SIZE=$(stat -c '%s' "$BACKUP_FILE" 2>/dev/null || stat -f '%z' "$BACKUP_FILE")
     if [[ "$SIZE" -lt 500 ]]; then
       die "Backup demasiado pequeño ($SIZE bytes). Revisa $LOG_FILE."
@@ -197,13 +197,13 @@ fi
 # =============================================================================
 if should_run 2; then
   header "FASE 2 — SQL migration (client_secret nullable)"
-  CURRENT_NULL=$(mysql_exec -BN -e "SELECT IS_NULLABLE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='$DB_NAME' AND TABLE_NAME='tenants' AND COLUMN_NAME='client_secret';" 2>/dev/null | tr -d '\r')
+  CURRENT_NULL=$(mysql_exec -BN -e "SELECT IS_NULLABLE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='$DB_NAME' AND TABLE_NAME='Tenants' AND COLUMN_NAME='client_secret';" 2>/dev/null | tr -d '\r')
   if [[ "$CURRENT_NULL" == "YES" ]]; then
     ok "Columna client_secret ya es NULLable — skip"
   else
     log "Aplicando migrations/20260630-tenants-secret-nullable.sql ..."
     mysql_exec < migrations/20260630-tenants-secret-nullable.sql 2>>"$LOG_FILE"
-    AFTER=$(mysql_exec -BN -e "SELECT IS_NULLABLE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='$DB_NAME' AND TABLE_NAME='tenants' AND COLUMN_NAME='client_secret';" | tr -d '\r')
+    AFTER=$(mysql_exec -BN -e "SELECT IS_NULLABLE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='$DB_NAME' AND TABLE_NAME='Tenants' AND COLUMN_NAME='client_secret';" | tr -d '\r')
     [[ "$AFTER" == "YES" ]] || die "La columna sigue NOT NULL tras migration. Revisa $LOG_FILE."
     ok "client_secret ahora NULLable"
   fi
