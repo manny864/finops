@@ -22,18 +22,24 @@
 // Carga env ANTES de cualquier import de la app (los `import` estáticos se
 // hoistean al inicio del módulo en ESM, así que usamos dynamic imports para
 // que la pool de DB se cree con DB_HOST/DB_PORT ya seteados).
-import { config as dotenvConfig } from "dotenv";
+// En producción/Docker las env vars ya están inyectadas por el runtime,
+// por eso dotenv es opcional (puede no estar instalado en prod).
 import path from "path";
 import fs from "fs";
 const envFile = process.env.NODE_ENV === "production"
   ? ".env.production"
   : ".env.development";
 const envPath = path.resolve(process.cwd(), envFile);
-if (fs.existsSync(envPath)) {
-  dotenvConfig({ path: envPath });
-  console.log(`[env] loaded ${envFile}`);
-} else {
-  dotenvConfig();
+try {
+  const { config: dotenvConfig } = await import("dotenv");
+  if (fs.existsSync(envPath)) {
+    dotenvConfig({ path: envPath });
+    console.log(`[env] loaded ${envFile}`);
+  } else {
+    dotenvConfig();
+  }
+} catch {
+  console.log(`[env] dotenv not installed (production runtime) — relying on injected env vars`);
 }
 
 interface TenantRow {
