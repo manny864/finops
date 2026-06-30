@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAzureCredential } from "@/lib/azure";
+import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 
 export async function GET(request: NextRequest) {
     try {
@@ -10,6 +11,8 @@ export async function GET(request: NextRequest) {
         if (!tenantId || !subscriptionId) {
             return NextResponse.json({ error: "Faltan parámetros requeridos: tenantId, subscriptionId" }, { status: 400 });
         }
+
+        await requireTenantRole(request, tenantId, ['Admin', 'Owner', 'Reader', 'Colaborador']);
 
         const credential = await getAzureCredential(tenantId);
         const tokenResponse = await credential.getToken("https://management.azure.com/.default");
@@ -50,6 +53,7 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({ locations });
     } catch (error: any) {
+        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
         console.error("Locations Fetch Error:", error);
         return NextResponse.json({ error: "Fallo al obtener locations." }, { status: 500 });
     }
