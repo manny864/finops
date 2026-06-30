@@ -1,6 +1,7 @@
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
+import noUnauthTenantId from "./eslint-rules/no-unauth-tenant-id.mjs";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -21,6 +22,15 @@ const eslintConfig = defineConfig([
     "vitest.setup.ts",
     "vitest.config.ts",
   ]),
+  {
+    // Security: disallow trusting x-tenant-id header / ?tenantId= param without JWT auth guard.
+    // See docs/security/audit-2026-06-30.md#c-01-c-02 for context.
+    plugins: { local: { rules: { "no-unauth-tenant-id": noUnauthTenantId } } },
+    files: ["src/app/api/**/*.ts"],
+    rules: {
+      "local/no-unauth-tenant-id": "error",
+    },
+  },
   {
     // Pre-existing tech debt (1000+ instances). Downgraded to warnings so CI
     // doesn't block; can be fixed incrementally.
