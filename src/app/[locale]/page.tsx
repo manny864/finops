@@ -103,17 +103,29 @@ export default function Home() {
       
       const fetchData = async () => {
           setLoading(true);
+          setBillingLoading(true);
           try {
               const tokenResponse = { idToken: await getFreshIdToken(instance, accounts[0]) };
               const summarySubscription = selectedSubscription && selectedSubscription.toLowerCase() !== 'all'
                   ? selectedSubscription
                   : 'All';
-              setBillingLoading(true);
-              const summaryRes = await fetch(`/api/dashboard/summary?tenantId=${selectedTenant.id}&subscriptionId=${summarySubscription}`, {
-                  headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
-              });
-              const summaryJson = summaryRes.ok ? await summaryRes.json() : {};
-              setBillingLoading(false);
+              const anomalySubscription = summarySubscription;
+              const headers = { 'Authorization': `Bearer ${tokenResponse.idToken}` };
+
+              // Disparamos los 3 endpoints en PARALELO. Antes era serie:
+              //   summary (18s) → tags → anomalies. Ahora el wall-clock es max(3) en lugar de sum(3).
+              const summaryP = fetch(`/api/dashboard/summary?tenantId=${selectedTenant.id}&subscriptionId=${summarySubscription}`, { headers })
+                  .then(r => r.ok ? r.json() : {})
+                  .catch(() => ({}));
+              const tagsP = fetch(`/api/tags?tenantId=${selectedTenant.id}`, { headers })
+                  .then(r => r.ok ? r.json() : { policies: [] })
+                  .catch(() => ({ policies: [] }));
+              const anomaliesP = fetch(`/api/intelligence/anomalies?tenantId=${selectedTenant.id}&subscriptionId=${anomalySubscription}`, { headers })
+                  .then(r => r.ok ? r.json() : null)
+                  .catch(() => null);
+
+              // Renderizamos summary cuanto antes (los costos/histograma no esperan a tags/anomalies).
+              const summaryJson: any = await summaryP;
 
               if (summaryJson.dashboardData) {
                   setDashboardData(summaryJson.dashboardData);
@@ -125,16 +137,14 @@ export default function Home() {
               setZombieCount(Number(summaryJson.zombieCount || 0));
               setBillingHistogram(Array.isArray(summaryJson.histogram) ? summaryJson.histogram : []);
               setAdvisorSavings(Number(summaryJson.totalSavings || 0));
+              setBillingLoading(false);
+              setLoading(false);
 
+              // Tags + anomalies se procesan en background sin bloquear la UI principal.
               if (summaryJson.auditResults) {
-
-                  // Calculate Compliance Score
-                  const polRes = await fetch(`/api/tags?tenantId=${selectedTenant.id}`, {
-                      headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
-                  });
-                  const polJson = await polRes.json();
+                  const polJson: any = await tagsP;
                   const policies = polJson.policies || [];
-                  
+
                   if (policies.length === 0) {
                       setComplianceScore(-1); // -1 means Not Configured
                   } else {
@@ -151,23 +161,13 @@ export default function Home() {
                   }
               }
 
-              // Check for anomalies
-              const anomalySubscription = selectedSubscription && selectedSubscription.toLowerCase() !== 'all'
-                  ? selectedSubscription
-                  : 'All';
-              const anomalyRes = await fetch(`/api/intelligence/anomalies?tenantId=${selectedTenant.id}&subscriptionId=${anomalySubscription}`, {
-                  headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
-              });
-              if (anomalyRes.ok) {
-                  const anomalyJson = await anomalyRes.json();
-                  if (anomalyJson.isAnomaly) {
-                      addAction({
-                          message: `Pico inusual de costos detectado (${anomalyJson.percentageIncrease.toFixed(1)}%). Revisa el grupo de recursos: ${anomalyJson.affectedResourceGroup}`,
-                          status: 'error'
-                      });
-                  }
+              const anomalyJson: any = await anomaliesP;
+              if (anomalyJson?.isAnomaly) {
+                  addAction({
+                      message: `Pico inusual de costos detectado (${anomalyJson.percentageIncrease.toFixed(1)}%). Revisa el grupo de recursos: ${anomalyJson.affectedResourceGroup}`,
+                      status: 'error'
+                  });
               }
-
           } catch (e) {}
           setBillingLoading(false);
           setLoading(false);
