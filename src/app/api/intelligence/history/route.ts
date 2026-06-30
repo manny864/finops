@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
                 headers: { "Authorization": `Bearer ${tokenResponse.token}`, "Accept-Language": locale }
             });
             
-            let subs: any[] = [];
+            const subs: any[] = [];
             if (fetchRes.ok) {
                 const data = await fetchRes.json();
                 for (const sub of data.value) {

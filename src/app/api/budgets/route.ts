@@ -7,7 +7,7 @@ import { getWithStaleWhileRevalidate } from "@/lib/cache";
 export async function GET(request: NextRequest) {
     try {
         const url = new URL(request.url);
-        let tenantId = url.searchParams.get("tenantId");
+        const tenantId = url.searchParams.get("tenantId");
         const subscriptionId = url.searchParams.get("subscriptionId") || "All";
         
         if (!tenantId) {

@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     const secret = decryptSecret(encrypted.ciphertext, encrypted.iv, encrypted.authTag);
 
     // Verify token
-    const valid = verifyToken(secret, token);
+    const valid = await verifyToken(secret, token);
     if (!valid) {
       return NextResponse.json(
         { error: { code: 'invalid_token', message: 'Invalid token' } },

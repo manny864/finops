@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
 
                 // 2. Fetch Subscriptions to map names
                 const subRes = await fetch('https://management.azure.com/subscriptions?api-version=2020-01-01', { headers });
-                let subMap: Record<string, string> = {};
+                const subMap: Record<string, string> = {};
                 if (subRes.ok) {
                     const subData = await subRes.json();
                     subData.value?.forEach((sub: any) => {

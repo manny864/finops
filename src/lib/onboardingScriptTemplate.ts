@@ -19,7 +19,7 @@ export function generateOnboardingScript(clientTenantId: string, subscriptionIds
         'Billing Reader',          // visibilidad de facturación a nivel sub (MCA-friendly)
     ];
 
-    let baseRoles = [...essentialRoles];
+    const baseRoles = [...essentialRoles];
     let customActions: string[] = [];
 
     if (tier === 'Professional') {

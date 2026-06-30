@@ -144,16 +144,16 @@ describe('TOTP', () => {
     expect(secret).toMatch(/^[A-Z2-7]+$/);
   });
 
-  it('should handle invalid token gracefully', () => {
+  it('should handle invalid token gracefully', async () => {
     const testSecret = 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
-    
-    const result1 = verifyToken(testSecret, '');
+
+    const result1 = await verifyToken(testSecret, '');
     expect(result1).toBe(false);
 
-    const result2 = verifyToken(testSecret, 'abc');
+    const result2 = await verifyToken(testSecret, 'abc');
     expect(result2).toBe(false);
 
-    const result3 = verifyToken(testSecret, '0000000');
+    const result3 = await verifyToken(testSecret, '0000000');
     expect(result3).toBe(false);
   });
 });

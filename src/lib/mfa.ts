@@ -28,24 +28,22 @@ export async function generateSecret(email: string): Promise<{
 }
 
 /**
- * Verifies a TOTP token
- * Allows ±30s drift (window: 1)
- * Token must be exactly 6 digits
+ * Verifies a TOTP token (otplib v13 async API).
+ * Allows ±30s drift (tolerance: 1 step).
+ * Token must be exactly 6 digits.
  */
-export function verifyToken(secret: string, token: string): boolean {
+export async function verifyToken(secret: string, token: string): Promise<boolean> {
   try {
-    // Validate token format first
     if (!token || typeof token !== 'string' || token.length !== 6 || !/^\d+$/.test(token)) {
       return false;
     }
 
-    const result = otplibVerify({
+    const result = await otplibVerify({
       secret,
-      encoding: 'base32',
       token,
-      window: 1, // Allow ±30s drift
+      epochTolerance: 30, // ±30s drift
     });
-    return result !== false;
+    return result?.valid === true;
   } catch {
     return false;
   }

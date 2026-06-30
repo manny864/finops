@@ -48,3 +48,4 @@ mysql_data/
 *.sql
 # pero los archivos de migración explícitos SÍ deben commitearse
 !migrations/*.sql
+.tmp/

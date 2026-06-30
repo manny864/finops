@@ -4,7 +4,7 @@ import { requireTenantRole } from "@/lib/requestAuth";
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { searchParams } = new URL(request.url);
@@ -14,7 +14,7 @@ export async function DELETE(
       return NextResponse.json({ success: false, error: "Missing tenantId" }, { status: 400 });
     }
 
-    const keyId = parseInt(params.id, 10);
+    const keyId = parseInt((await params).id, 10);
     if (!keyId) {
       return NextResponse.json({ success: false, error: "Invalid key ID" }, { status: 400 });
     }
@@ -56,7 +56,7 @@ export async function DELETE(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { searchParams } = new URL(request.url);
@@ -66,7 +66,7 @@ export async function PUT(
       return NextResponse.json({ success: false, error: "Missing tenantId" }, { status: 400 });
     }
 
-    const keyId = parseInt(params.id, 10);
+    const keyId = parseInt((await params).id, 10);
     if (!keyId) {
       return NextResponse.json({ success: false, error: "Invalid key ID" }, { status: 400 });
     }

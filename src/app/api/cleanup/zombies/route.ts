@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
         "emptyRgs"
     ];
 
-    let allZombies: any[] = [];
+    const allZombies: any[] = [];
 
     // Process targets concurrently
     await Promise.all(targets.map(async (key) => {

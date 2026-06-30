@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
         try {
           const encrypted = JSON.parse(user.mfa_secret_encrypted);
           const secret = decryptSecret(encrypted.ciphertext, encrypted.iv, encrypted.authTag);
-          verified = verifyToken(secret, token);
+          verified = await verifyToken(secret, token);
         } catch (e) {
           console.error('Error verifying TOTP token:', e);
         }

@@ -4,7 +4,7 @@ import { requireSuperAdmin, AuthError } from "@/lib/requestAuth";
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   try {
     await initializeDatabase();
@@ -19,7 +19,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const incidentId = parseInt(params.id, 10);
+    const incidentId = parseInt((await params).id, 10);
     if (isNaN(incidentId)) {
       return NextResponse.json({ error: "Invalid incident ID" }, { status: 400 });
     }
