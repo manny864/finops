@@ -1,0 +1,1 @@
+# Tag-Based Budgets SOP\n\n- **Servicio**: `budgetService.ts` invoca `CostManagementClient.query.usage` filtrando por el tag `CostCenter`.\n- **API**: `/api/budgets/burn` orquesta la unión entre los límites de DB (MySQL) y el consumo reportado (Azure API).\n

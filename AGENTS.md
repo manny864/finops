@@ -11,6 +11,8 @@
 
 Toda modificación, creación o feature nuevo en este repositorio debe respetar las siguientes reglas. El agente NO debe desviarse de ellas sin confirmación explícita del usuario.
 
+> **Ver también:** `directivas/` contiene SOPs específicos por feature/módulo con contexto técnico, gotchas conocidos y protocolos de implementación. No borrar sin revisión.
+
 ### 1. Principio de menor privilegio (RBAC)
 - En cada modificación o nuevo endpoint/server action, evaluar el **nivel de acceso mínimo necesario** (rol Azure, rol Tenant, scope OAuth) y usar siempre el de **menor permiso suficiente**.
 - Si el rol necesario **no existe**, analizar a qué **tier** corresponde la feature (Essential / Professional / Business / Enterprise) y agregar el nuevo rol al script/config del tier correspondiente (`src/lib/tierLogic.ts`, `src/lib/tagConfig.ts`, mocks, etc.).

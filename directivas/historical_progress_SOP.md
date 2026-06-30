@@ -1,0 +1,1 @@
+# Progreso Histórico de Ahorros SOP\n\n## Objetivo\nRegistrar y visualizar el progreso histórico del ahorro (costos desperdiciados vs ahorro potencial).\n\n## Restricciones/Casos Borde\n- Endpoint POST para ingestar los datos y GET para consultarlos.\n- Uso de tabla `SavingsHistory` en MySQL para persistencia por Tenant.\n- Recharts para el gráfico.\n

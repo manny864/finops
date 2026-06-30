@@ -1,0 +1,1 @@
+# Tenant Management SOP\n\n- **Nomenclatura Legible**: Dado que Azure AD no siempre provee el dominio correcto mediante tokens de invitado, los SuperAdmins ahora renuevan explícitamente el nombre del tenant desde el módulo `/admin/onboarding`.\n- **API REST**: `PUT /api/tenants` actualiza `company_name` en la BD MySQL.\n
