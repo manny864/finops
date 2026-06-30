@@ -45,7 +45,7 @@ async function runPrewarm(request: NextRequest) {
       'SELECT tenant_id AS id, company_name AS name FROM Tenants WHERE status = "active"'
     );
 
-    const origin = request.nextUrl.origin;
+    const origin = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
     const headers: Record<string, string> = { "X-Cron-Auth": cronSecret };
 
     type Result = { tenantId: string; name?: string; ok: boolean; ms: number; error?: string };
@@ -68,8 +68,10 @@ async function runPrewarm(request: NextRequest) {
         }
       } catch (e: any) {
         const ms = Date.now() - start;
-        results.push({ tenantId: t.id, name: t.name, ok: false, ms, error: e?.message || String(e) });
-        console.error(`[cron-prewarm] tenant=${t.id} threw:`, e?.message);
+        const cause = e?.cause?.code || e?.cause?.message || "";
+        const msg = `${e?.message || String(e)}${cause ? ` (${cause})` : ""}`;
+        results.push({ tenantId: t.id, name: t.name, ok: false, ms, error: msg });
+        console.error(`[cron-prewarm] tenant=${t.id} threw:`, msg);
       }
     }
 
