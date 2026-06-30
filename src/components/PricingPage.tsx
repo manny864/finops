@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { useTranslations } from 'next-intl';
-import { Link } from '@/i18n/routing';
+import { useRouter } from '@/i18n/routing';
 import { initializePaddle, Paddle } from '@paddle/paddle-js';
 import EnterpriseLeadModal from './EnterpriseLeadModal';
 
@@ -13,11 +13,17 @@ interface PricingPageProps {
 
 export default function PricingPage({ onLoginClick, tenantId, hideLogin }: PricingPageProps) {
   const { instance } = useMsal();
+  const router = useRouter();
   const [isAnnual, setIsAnnual] = useState(false);
   const [paddle, setPaddle] = useState<Paddle>();
   const [isEnterpriseModalOpen, setEnterpriseModalOpen] = useState(false);
   const [detailTier, setDetailTier] = useState<null | 'essential' | 'pro' | 'business' | 'enterprise'>(null);
   const t = useTranslations('pricing');
+
+  const goToDemo = (tier: 'essential' | 'pro' | 'business' | 'enterprise') => {
+    // Lead-capture modal and demo session are handled inside /demo
+    router.push({ pathname: '/demo', query: { tier } });
+  };
 
   const instanceRef = useRef(instance);
   const onLoginClickRef = useRef(onLoginClick);
@@ -153,7 +159,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
           
           <div className="flex flex-col space-y-3 mb-6">
             <button 
-              onClick={() => openCheckout(getPriceId('Essential'))}
+              onClick={() => goToDemo('essential')}
               className="w-full bg-white border-2 border-gray-800 text-gray-800 rounded-lg py-3 px-4 font-bold hover:bg-gray-50 transition-colors shadow-sm"
             >
               {t('tryNow')}
@@ -164,9 +170,6 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
             >
               {t('buyNow')}
             </button>
-            <Link href={{ pathname: '/demo', query: { tier: 'essential' } }} className="block w-full text-center mt-4 text-sm font-medium text-brand-deep hover:text-blue-800 hover:underline transition-colors">
-              {t('tryDemoTier')}
-            </Link>
           </div>
           
           <p className="text-sm text-gray-500 mb-8 text-justify">
@@ -209,7 +212,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
           
           <div className="flex flex-col space-y-3 mb-6">
             <button 
-              onClick={() => openCheckout(getPriceId('pro'))}
+              onClick={() => goToDemo('pro')}
               className="w-full bg-white border-2 border-brand-deep text-brand-deep rounded-lg py-3 px-4 font-bold hover:bg-gray-50 transition-colors shadow-sm"
             >
               {t('tryNow')}
@@ -220,9 +223,6 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
             >
               {t('buyNow')}
             </button>
-            <Link href={{ pathname: '/demo', query: { tier: 'pro' } }} className="block w-full text-center mt-4 text-sm font-medium text-brand-deep hover:text-blue-800 hover:underline transition-colors">
-              {t('tryDemoTier')}
-            </Link>
           </div>
           
           <p className="text-sm text-gray-500 mb-8 text-justify">
@@ -267,7 +267,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
           
           <div className="flex flex-col space-y-3 mb-6">
             <button 
-              onClick={() => openCheckout(getPriceId('business'))}
+              onClick={() => goToDemo('business')}
               className="w-full bg-white border-2 border-gray-800 text-gray-800 rounded-lg py-3 px-4 font-bold hover:bg-gray-50 transition-colors shadow-sm"
             >
               {t('tryNow')}
@@ -278,9 +278,6 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
             >
               {t('buyNow')}
             </button>
-            <Link href={{ pathname: '/demo', query: { tier: 'business' } }} className="block w-full text-center mt-4 text-sm font-medium text-brand-deep hover:text-blue-800 hover:underline transition-colors">
-              {t('tryDemoTier')}
-            </Link>
           </div>
           
           <p className="text-sm text-gray-500 mb-8 text-justify">
@@ -323,9 +320,12 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
           >
             {t('contactSales')}
           </button>
-          <Link href={{ pathname: '/demo', query: { tier: 'enterprise' } }} className="block w-full text-center mt-4 mb-6 text-sm font-medium text-gray-300 hover:text-white hover:underline transition-colors relative z-10">
-            {t('tryDemoTier')}
-          </Link>
+          <button
+            onClick={() => goToDemo('enterprise')}
+            className="w-full mt-3 mb-6 bg-transparent border border-white/30 text-white rounded-lg py-3 px-4 font-bold hover:bg-white/10 transition-colors relative z-10 text-center"
+          >
+            {t('tryNow')}
+          </button>
           
           <p className="text-sm text-gray-300 mb-8 relative z-10 text-justify">
             {t('enterprise.desc')}

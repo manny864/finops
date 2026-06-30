@@ -1,0 +1,475 @@
+"use client";
+import React, { useCallback, useEffect, useState } from "react";
+import { useTenant } from "@/components/TenantProvider";
+import { useMsal } from "@azure/msal-react";
+import { getFreshIdToken } from "@/lib/msalToken";
+import { CreditCard, AlertCircle, ChevronDown, Loader2, Trash2, ExternalLink } from "lucide-react";
+import { toast } from "sonner";
+
+interface BillingInfo {
+  tier: string;
+  status: string;
+  trialEndsAt: string | null;
+  paddleSubscriptionId: string | null;
+  marketplaceSource?: string;
+  marketplaceSubscriptionId?: string;
+  marketplacePlanId?: string;
+}
+
+interface Invoice {
+  id: number;
+  transactionId: string;
+  amount: number;
+  currency: string;
+  status: string;
+  billedAt: string;
+}
+
+const TIER_FEATURES = {
+  Essential: ["Hasta 5 suscripciones Azure", "Análisis básico de costos", "Reportes mensuales"],
+  Professional: [
+    "Hasta 50 suscripciones Azure",
+    "Análisis avanzado de costos",
+    "Reportes diarios",
+    "Recomendaciones de optimización",
+  ],
+  Business: [
+    "Suscripciones ilimitadas",
+    "Análisis de costos en tiempo real",
+    "Reportes personalizados",
+    "Soporte prioritario",
+    "API de integración",
+  ],
+};
+
+export default function BillingPage() {
+  const { selectedTenant } = useTenant();
+  const { instance, accounts } = useMsal();
+  const [billingInfo, setBillingInfo] = useState<BillingInfo | null>(null);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [updatingSubscription, setUpdatingSubscription] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [selectedNewTier, setSelectedNewTier] = useState<string | null>(null);
+  const [selectedBilling, setSelectedBilling] = useState<"monthly" | "yearly">("monthly");
+  const [prorationType, setProrationType] = useState<"prorated_immediately" | "prorated_next_billing_period">(
+    "prorated_immediately"
+  );
+  const [showCancelModal, setShowCancelModal] = useState(false);
+
+  const authHeaders = useCallback(async (): Promise<Record<string, string>> => {
+    if (!accounts || accounts.length === 0) return {};
+    const token = await getFreshIdToken(instance, accounts[0]);
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }, [instance, accounts]);
+
+  const loadBillingInfo = useCallback(async () => {
+    if (!selectedTenant?.id || selectedTenant.id === "default") {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    try {
+      const headers = await authHeaders();
+      const res = await fetch(`/api/billing?tenantId=${selectedTenant.id}`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setBillingInfo(data);
+      }
+    } catch (error: any) {
+      console.error("Error loading billing info:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedTenant?.id, authHeaders]);
+
+  const loadInvoices = useCallback(async () => {
+    if (!selectedTenant?.id) return;
+    try {
+      const headers = await authHeaders();
+      const res = await fetch(`/api/billing/invoices?tenantId=${selectedTenant.id}&limit=20`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setInvoices(data.invoices || []);
+      }
+    } catch (error: any) {
+      console.error("Error loading invoices:", error);
+    }
+  }, [selectedTenant?.id, authHeaders]);
+
+  useEffect(() => {
+    loadBillingInfo();
+    loadInvoices();
+  }, [loadBillingInfo, loadInvoices]);
+
+  const handleUpdatePaymentMethod = async () => {
+    if (!selectedTenant?.id) return;
+    try {
+      const headers = await authHeaders();
+      const res = await fetch(`/api/billing?tenantId=${selectedTenant.id}`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.url) {
+          window.open(data.url, "_blank");
+          toast.success("Abriendo portal de pago de Paddle");
+        }
+      } else {
+        toast.error("No se pudo obtener URL de pago");
+      }
+    } catch (error: any) {
+      toast.error("Error al actualizar método de pago");
+    }
+  };
+
+  const handleUpgradeSubscription = async () => {
+    if (!selectedTenant?.id || !selectedNewTier) return;
+    setUpdatingSubscription(true);
+    try {
+      const headers = await authHeaders();
+      const res = await fetch(`/api/billing/subscription?tenantId=${selectedTenant.id}`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({
+          newTier: selectedNewTier,
+          billing: selectedBilling,
+          prorationBillingMode: prorationType,
+        }),
+      });
+      if (res.ok) {
+        toast.success("Suscripción actualizada correctamente");
+        setShowUpgradeModal(false);
+        await loadBillingInfo();
+      } else {
+        const error = await res.json();
+        toast.error(error.error || "Error al actualizar suscripción");
+      }
+    } catch (error: any) {
+      toast.error("Error al procesar upgrade");
+    } finally {
+      setUpdatingSubscription(false);
+    }
+  };
+
+  const handleCancelSubscription = async () => {
+    if (!selectedTenant?.id) return;
+    setUpdatingSubscription(true);
+    try {
+      const headers = await authHeaders();
+      const res = await fetch(`/api/billing/subscription?tenantId=${selectedTenant.id}`, {
+        method: "DELETE",
+        headers,
+        body: JSON.stringify({ effective: "immediately" }),
+      });
+      if (res.ok) {
+        toast.success("Suscripción cancelada");
+        setShowCancelModal(false);
+        await loadBillingInfo();
+      } else {
+        const error = await res.json();
+        toast.error(error.error || "Error al cancelar");
+      }
+    } catch (error: any) {
+      toast.error("Error al cancelar suscripción");
+    } finally {
+      setUpdatingSubscription(false);
+    }
+  };
+
+  if (!selectedTenant || selectedTenant.id === "default") {
+    return (
+      <div className="p-6 text-center">
+        <AlertCircle className="mx-auto mb-3 h-8 w-8 text-yellow-500" />
+        <p>Selecciona un tenant para ver su información de facturación</p>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-12">
+        <Loader2 className="h-8 w-8 animate-spin text-brand-deep" />
+      </div>
+    );
+  }
+
+  const statusColors = {
+    TRIAL: "text-blue-600 bg-blue-50 dark:bg-blue-900/20",
+    ACTIVE: "text-green-600 bg-green-50 dark:bg-green-900/20",
+    PAST_DUE: "text-red-600 bg-red-50 dark:bg-red-900/20",
+    CANCELED: "text-gray-600 bg-gray-50 dark:bg-gray-900/20",
+  };
+
+  return (
+    <div className="space-y-6 p-6">
+      <div className="flex items-center gap-3">
+        <CreditCard className="h-6 w-6 text-brand-deep" />
+        <h1 className="text-3xl font-bold">Facturación</h1>
+      </div>
+
+      {/* Current Plan Card */}
+      <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+        <h2 className="mb-4 text-xl font-semibold">Plan Actual</h2>
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          <div>
+            <p className="text-sm text-gray-500">Tier</p>
+            <p className="text-2xl font-bold">{billingInfo?.tier || "N/A"}</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-500">Estado</p>
+            <p className={`inline-block rounded-full px-3 py-1 text-sm font-medium ${statusColors[billingInfo?.status as keyof typeof statusColors] || "text-gray-600"}`}>
+              {billingInfo?.status || "N/A"}
+            </p>
+          </div>
+          {billingInfo?.status === "TRIAL" && billingInfo.trialEndsAt && (
+            <div>
+              <p className="text-sm text-gray-500">Trial termina</p>
+              <p className="font-semibold">{new Date(billingInfo.trialEndsAt).toLocaleDateString()}</p>
+            </div>
+          )}
+        </div>
+
+        {billingInfo?.tier && (
+          <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+            <h3 className="mb-3 font-semibold">Características incluidas:</h3>
+            <ul className="grid grid-cols-1 gap-2 md:grid-cols-2">
+              {TIER_FEATURES[billingInfo.tier as keyof typeof TIER_FEATURES]?.map((feature, i) => (
+                <li key={i} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                  <div className="h-2 w-2 rounded-full bg-green-500" />
+                  {feature}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      {/* Marketplace Status Card */}
+      {billingInfo?.marketplaceSource && billingInfo.marketplaceSource !== 'direct' && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-6 shadow-sm dark:border-blue-700 dark:bg-blue-900">
+          <div className="flex items-start gap-3">
+            <div className="mt-1">
+              <svg className="h-6 w-6 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <h2 className="mb-2 text-lg font-semibold text-blue-900 dark:text-blue-100">
+                {billingInfo.marketplaceSource === 'azure_marketplace' 
+                  ? '🔷 Suscripción via Azure Marketplace' 
+                  : '🟠 Suscripción via AWS Marketplace'}
+              </h2>
+              <p className="mb-4 text-sm text-blue-800 dark:text-blue-200">
+                Tu suscripción está gestionada a través de{' '}
+                {billingInfo.marketplaceSource === 'azure_marketplace' ? 'Azure' : 'AWS'}{' '}
+                Marketplace. Los cambios de plan deben realizarse en el portal del marketplace.
+              </p>
+              <div className="mb-4 space-y-1 text-sm">
+                <p className="text-blue-800 dark:text-blue-200">
+                  <span className="font-medium">ID de Suscripción:</span> {billingInfo.marketplaceSubscriptionId}
+                </p>
+                <p className="text-blue-800 dark:text-blue-200">
+                  <span className="font-medium">Plan:</span> {billingInfo.marketplacePlanId}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {billingInfo.marketplaceSource === 'azure_marketplace' && (
+                  <a
+                    href="https://portal.azure.com/#view/Microsoft_Azure_SubscriptionManagement/SubscriptionsBlade"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Ir a Azure Portal
+                  </a>
+                )}
+                {billingInfo.marketplaceSource === 'aws_marketplace' && (
+                  <a
+                    href="https://console.aws.amazon.com/billing/home?#/subscriptions"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700 dark:bg-orange-700 dark:hover:bg-orange-600"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Ir a AWS Console
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Change Plan Card */}
+      {!billingInfo?.marketplaceSource || billingInfo.marketplaceSource === 'direct' ? (
+        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-xl font-semibold">Cambiar Plan</h2>
+            {billingInfo?.tier !== "Business" && (
+              <button
+                onClick={() => setShowUpgradeModal(true)}
+                className="rounded-lg bg-brand-deep px-4 py-2 text-sm font-semibold text-white hover:bg-blue-900 disabled:opacity-50"
+                disabled={updatingSubscription}
+            >
+              {updatingSubscription ? <Loader2 className="inline h-4 w-4 animate-spin" /> : "Actualizar"}
+            </button>
+          )}
+        </div>
+
+        {showUpgradeModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+            <div className="w-96 rounded-lg bg-white p-6 shadow-lg dark:bg-gray-800">
+              <h3 className="mb-4 text-lg font-semibold">Selecciona nuevo plan</h3>
+
+              <div className="mb-4 space-y-2">
+                <label className="flex items-center gap-2">
+                  <input type="radio" value="Essential" checked={selectedNewTier === "Essential"} onChange={(e) => setSelectedNewTier(e.target.value)} />
+                  <span>Essential</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input type="radio" value="Professional" checked={selectedNewTier === "Professional"} onChange={(e) => setSelectedNewTier(e.target.value)} />
+                  <span>Professional</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input type="radio" value="Business" checked={selectedNewTier === "Business"} onChange={(e) => setSelectedNewTier(e.target.value)} />
+                  <span>Business</span>
+                </label>
+              </div>
+
+              <div className="mb-4 space-y-2">
+                <p className="text-sm font-medium">Frecuencia de facturación:</p>
+                <label className="flex items-center gap-2">
+                  <input type="radio" value="monthly" checked={selectedBilling === "monthly"} onChange={(e) => setSelectedBilling(e.target.value as any)} />
+                  <span>Mensual</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input type="radio" value="yearly" checked={selectedBilling === "yearly"} onChange={(e) => setSelectedBilling(e.target.value as any)} />
+                  <span>Anual</span>
+                </label>
+              </div>
+
+              <div className="mb-4 space-y-2">
+                <p className="text-sm font-medium">Modo de prorrateo:</p>
+                <select
+                  value={prorationType}
+                  onChange={(e) => setProrationType(e.target.value as any)}
+                  className="w-full rounded border border-gray-300 px-3 py-2 dark:border-gray-600 dark:bg-gray-700"
+                >
+                  <option value="prorated_immediately">Inmediato</option>
+                  <option value="prorated_next_billing_period">Siguiente ciclo</option>
+                  <option value="do_not_bill">Sin cobro</option>
+                </select>
+              </div>
+
+              <div className="flex gap-2">
+                <button onClick={() => setShowUpgradeModal(false)} className="flex-1 rounded border border-gray-300 px-4 py-2 font-semibold dark:border-gray-600">
+                  Cancelar
+                </button>
+                <button onClick={handleUpgradeSubscription} disabled={!selectedNewTier || updatingSubscription} className="flex-1 rounded bg-brand-deep px-4 py-2 font-semibold text-white disabled:opacity-50">
+                  {updatingSubscription ? <Loader2 className="inline h-4 w-4 animate-spin" /> : "Confirmar"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+      ) : null}
+
+      {/* Payment Method Card */}
+      <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold">Método de Pago</h2>
+          <button
+            onClick={handleUpdatePaymentMethod}
+            className="rounded-lg bg-gray-600 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-700 disabled:opacity-50"
+            disabled={updatingSubscription || !billingInfo?.paddleSubscriptionId}
+          >
+            Actualizar
+            <ExternalLink className="ml-2 inline h-4 w-4" />
+          </button>
+        </div>
+        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Accede al portal de pago de Paddle para actualizar tu método de pago</p>
+      </div>
+
+      {/* Cancel Subscription Card */}
+      <div className="rounded-lg border border-red-200 bg-red-50 p-6 dark:border-red-900 dark:bg-red-900/20">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-semibold text-red-900 dark:text-red-300">Cancelar Suscripción</h2>
+            <p className="mt-1 text-sm text-red-800 dark:text-red-400">Esta acción no se puede deshacer</p>
+          </div>
+          {billingInfo?.status !== "CANCELED" && (
+            <button
+              onClick={() => setShowCancelModal(true)}
+              className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+              disabled={updatingSubscription}
+            >
+              <Trash2 className="inline mr-2 h-4 w-4" />
+              Cancelar
+            </button>
+          )}
+        </div>
+
+        {showCancelModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+            <div className="w-96 rounded-lg bg-white p-6 shadow-lg dark:bg-gray-800">
+              <h3 className="mb-4 text-lg font-semibold text-red-900 dark:text-red-300">¿Cancelar suscripción?</h3>
+              <p className="mb-6 text-gray-700 dark:text-gray-300">Se perderán todos los beneficios del plan. Esta acción es irreversible.</p>
+              <div className="flex gap-2">
+                <button onClick={() => setShowCancelModal(false)} className="flex-1 rounded border border-gray-300 px-4 py-2 font-semibold dark:border-gray-600">
+                  No, cancelar
+                </button>
+                <button onClick={handleCancelSubscription} disabled={updatingSubscription} className="flex-1 rounded bg-red-600 px-4 py-2 font-semibold text-white disabled:opacity-50">
+                  {updatingSubscription ? <Loader2 className="inline h-4 w-4 animate-spin" /> : "Sí, cancelar suscripción"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Invoice History */}
+      <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+        <h2 className="mb-4 text-xl font-semibold">Historial de Facturas</h2>
+        {invoices.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-200 dark:border-gray-700">
+                  <th className="px-4 py-3 text-left font-semibold">Fecha</th>
+                  <th className="px-4 py-3 text-left font-semibold">Monto</th>
+                  <th className="px-4 py-3 text-left font-semibold">Estado</th>
+                  <th className="px-4 py-3 text-left font-semibold">Transacción</th>
+                </tr>
+              </thead>
+              <tbody>
+                {invoices.map((invoice) => (
+                  <tr key={invoice.id} className="border-b border-gray-100 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700">
+                    <td className="px-4 py-3">{new Date(invoice.billedAt).toLocaleDateString()}</td>
+                    <td className="px-4 py-3 font-semibold">
+                      {invoice.currency} {invoice.amount?.toFixed(2)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-block rounded-full px-2 py-1 text-xs font-medium ${
+                          invoice.status === "completed"
+                            ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+                            : "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
+                        }`}
+                      >
+                        {invoice.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs">{invoice.transactionId?.slice(-8)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-gray-600 dark:text-gray-400">No hay facturas disponibles</p>
+        )}
+      </div>
+    </div>
+  );
+}

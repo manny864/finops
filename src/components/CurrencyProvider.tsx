@@ -1,0 +1,135 @@
+"use client";
+import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { useTenant } from "@/components/TenantProvider";
+import { useMsal } from "@azure/msal-react";
+import Decimal from "decimal.js";
+
+const SYMBOLS: Record<string, string> = {
+    USD: "$", EUR: "€", GBP: "£", ARS: "AR$", BRL: "R$", MXN: "MX$",
+    CLP: "CLP$", COP: "COL$", PEN: "S/", CAD: "CA$", AUD: "AU$",
+    JPY: "¥", CHF: "CHF", CNY: "¥", INR: "₹",
+};
+
+const NO_DECIMALS = new Set(["JPY", "CLP", "COP", "ARS"]);
+
+interface CurrencyContextType {
+    currency: string;
+    setCurrency: (c: string) => Promise<void>;
+    rate: number;
+    supported: string[];
+    loading: boolean;
+    convert: (amountUSD: number | string) => number;
+    format: (amountUSD: number | string, opts?: { compact?: boolean }) => string;
+}
+
+const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined);
+
+export function CurrencyProvider({ children }: { children: React.ReactNode }) {
+    const { selectedTenant } = useTenant();
+    const { accounts } = useMsal();
+    const [currency, setCurrencyState] = useState("USD");
+    const [rate, setRate] = useState(1);
+    const [supported, setSupported] = useState<string[]>(["USD"]);
+    const [loading, setLoading] = useState(false);
+
+    const loadRates = useCallback(async (target: string) => {
+        try {
+            const r = await fetch(`/api/fx/rates`);
+            const j = await r.json();
+            if (j.success) {
+                setSupported(Object.keys(j.rates));
+                const v = j.rates[target];
+                if (v && v !== "?") setRate(Number(v));
+            }
+        } catch { /* keep defaults */ }
+    }, []);
+
+    useEffect(() => {
+        if (!selectedTenant?.id || selectedTenant.id === "default" || accounts.length === 0) return;
+        let cancelled = false;
+        (async () => {
+            setLoading(true);
+            try {
+                const r = await fetch(`/api/fx/preference?tenantId=${selectedTenant.id}`);
+                const j = await r.json();
+                if (!cancelled && j.success) {
+                    setCurrencyState(j.currency);
+                    setSupported(j.supported || ["USD"]);
+                    await loadRates(j.currency);
+                }
+            } catch { /* fallback USD */ }
+            finally { if (!cancelled) setLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, [selectedTenant?.id, accounts.length, loadRates]);
+
+    const setCurrency = useCallback(async (c: string) => {
+        setCurrencyState(c);
+        await loadRates(c);
+        if (selectedTenant?.id && selectedTenant.id !== "default") {
+            try {
+                await fetch(`/api/fx/preference`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ tenantId: selectedTenant.id, currency: c }),
+                });
+            } catch { /* persist falla silenciosa, queda en sesión */ }
+        }
+    }, [selectedTenant?.id, loadRates]);
+
+    const convert = useCallback((amountUSD: number | string) => {
+        return new Decimal(amountUSD).mul(rate).toNumber();
+    }, [rate]);
+
+    const format = useCallback((amountUSD: number | string, opts?: { compact?: boolean }) => {
+        const value = new Decimal(amountUSD).mul(rate);
+        const fractionDigits = NO_DECIMALS.has(currency) ? 0 : 2;
+        const num = Number(value.toFixed(fractionDigits));
+        try {
+            const f = new Intl.NumberFormat("en-US", {
+                minimumFractionDigits: fractionDigits,
+                maximumFractionDigits: fractionDigits,
+                notation: opts?.compact ? "compact" : "standard",
+            }).format(num);
+            return `${SYMBOLS[currency] || currency}${f}`;
+        } catch {
+            return `${SYMBOLS[currency] || currency}${num.toFixed(fractionDigits)}`;
+        }
+    }, [currency, rate]);
+
+    return (
+        <CurrencyContext.Provider value={{ currency, setCurrency, rate, supported, loading, convert, format }}>
+            {children}
+        </CurrencyContext.Provider>
+    );
+}
+
+export function useCurrency() {
+    const ctx = useContext(CurrencyContext);
+    if (!ctx) {
+        // Fallback no-op para componentes fuera del provider (tests, prerender)
+        return {
+            currency: "USD", setCurrency: async () => {}, rate: 1, supported: ["USD"],
+            loading: false, convert: (n: number | string) => Number(n),
+            format: (n: number | string) => `$${Number(n).toFixed(2)}`,
+        } as CurrencyContextType;
+    }
+    return ctx;
+}
+
+export function CurrencySelector({ className }: { className?: string }) {
+    const { currency, setCurrency, supported, loading } = useCurrency();
+    return (
+        <select
+            value={currency}
+            disabled={loading}
+            onChange={(e) => setCurrency(e.target.value)}
+            className={className || "border rounded px-2 py-1 text-sm dark:bg-gray-900"}
+            title="Divisa de visualización"
+        >
+            {supported.map(c => (
+                <option key={c} value={c}>{c}</option>
+            ))}
+        </select>
+    );
+}

@@ -44,7 +44,7 @@ export async function getTenantLicensesAndInactiveUsers(tenantId: string): Promi
 
     // 2. Fetch Active User Details (CSV)
     const reportRes = await fetch("https://graph.microsoft.com/v1.0/reports/getOffice365ActiveUserDetail(period='D30')", { headers });
-    let inactiveUsers: InactiveUser[] = [];
+    const inactiveUsers: InactiveUser[] = [];
     
     if (!reportRes.ok) {
         const err = await reportRes.text();

@@ -19,7 +19,7 @@ export async function collectAdvisorData(tenantId: string, locale: string) {
         headers: { "Authorization": `Bearer ${tokenResponse.token}`, "Accept-Language": advisorLocale }
     });
     
-    let subs: any[] = [];
+    const subs: any[] = [];
     if (fetchRes.ok) {
         const data = await fetchRes.json();
         for (const sub of data.value) {

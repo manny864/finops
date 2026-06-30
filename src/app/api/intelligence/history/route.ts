@@ -1,31 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAzureCredential } from "@/lib/azure";
 import db from "@/modules/storage/db";
-import jwt from "jsonwebtoken";
+import { requireRequestIdentity, requireTenantAccess, AuthError } from "@/lib/requestAuth";
 
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 
 // GET Historical data dynamically from Azure Advisor Score History
 export async function GET(request: NextRequest) {
     try {
-        const authHeader = request.headers.get("authorization");
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            return NextResponse.json({ error: "Falta token de autenticación" }, { status: 401 });
-        }
-
-        const token = authHeader.split(" ")[1];
-        const decoded = jwt.decode(token) as any;
-
-        if (!decoded) {
-            return NextResponse.json({ error: "Token inválido" }, { status: 401 });
-        }
-
-        // Prefer explicit tenantId query param, fallback to JWT tid
+        const identity = await requireRequestIdentity(request);
         const { searchParams } = new URL(request.url);
-        const tenantId = searchParams.get('tenantId') || decoded.tid;
-        if (!tenantId) {
-            return NextResponse.json({ error: "Missing tenantId" }, { status: 400 });
-        }
+        const tenantId = searchParams.get('tenantId') ?? identity.tenantId;
+        await requireTenantAccess(request, tenantId);
         const locale = request.headers.get('accept-language') || 'es';
         console.log(`[History] Fetching for tenantId: ${tenantId}`);
 
@@ -43,7 +29,7 @@ export async function GET(request: NextRequest) {
                 headers: { "Authorization": `Bearer ${tokenResponse.token}`, "Accept-Language": locale }
             });
             
-            let subs: any[] = [];
+            const subs: any[] = [];
             if (fetchRes.ok) {
                 const data = await fetchRes.json();
                 for (const sub of data.value) {
@@ -109,28 +95,18 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({ data: aggregatedData });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
+        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
         console.error("History API Error:", error);
-        return NextResponse.json({ error: "Fallo al obtener el historial", details: error.message }, { status: 500 });
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }
 
 // POST new record (Triggered by automated scanner)
 export async function POST(request: NextRequest) {
     try {
-        const authHeader = request.headers.get("authorization");
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            return NextResponse.json({ error: "Falta token de autenticación" }, { status: 401 });
-        }
-
-        const token = authHeader.split(" ")[1];
-        const decoded = jwt.decode(token) as any;
-
-        if (!decoded || !decoded.tid) {
-            return NextResponse.json({ error: "Token inválido" }, { status: 401 });
-        }
-
-        const tenantId = decoded.tid;
+        const identity = await requireRequestIdentity(request);
+        const tenantId = identity.tenantId;
         const body = await request.json();
         
         if (body.total_wasted_usd === undefined || body.potential_savings_usd === undefined) {
@@ -147,8 +123,9 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ success: true, message: "Registro guardado exitosamente." });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
+        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
         console.error("History POST API Error:", error);
-        return NextResponse.json({ error: "Fallo al guardar el registro histórico", details: error.message }, { status: 500 });
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }

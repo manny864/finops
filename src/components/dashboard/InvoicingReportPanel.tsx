@@ -4,7 +4,8 @@ import useSWR from "swr";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { useTranslations } from "next-intl";
-import { Loader2, AlertTriangle, Download, FileText, DollarSign, TrendingUp, Percent } from "lucide-react";
+import { Loader2, AlertTriangle, Download, FileText, DollarSign, TrendingUp, Percent, Mail } from "lucide-react";
+import { toast } from "sonner";
 import { getFreshIdToken } from "@/lib/msalToken";
 
 function KpiCard({ label, value, sub, icon, accent = "blue" }: { label: string; value: string; sub?: string; icon: React.ReactNode; accent?: string }) {
@@ -40,6 +41,8 @@ export default function InvoicingReportPanel() {
 
     const periodOptions = getPeriodOptions();
     const [period, setPeriod] = useState(periodOptions[0].value);
+    const [downloadingPdf, setDownloadingPdf] = useState<string | null>(null);
+    const [sendingEmail, setSendingEmail] = useState<string | null>(null);
 
     const fetcher = async (url: string) => {
         const account = accounts[0];
@@ -60,9 +63,102 @@ export default function InvoicingReportPanel() {
 
     const { data, error, isLoading } = useSWR(apiUrl, fetcher, { revalidateOnFocus: false });
 
-    const handleDownloadAll = () => {
+    const handleDownloadCsv = () => {
         if (!selectedTenant || !accounts[0]) return;
         window.open(`/api/admin/report/invoicing?tenantId=${selectedTenant.id}&period=${period}&format=csv`, "_blank");
+    };
+
+    const handleDownloadJson = () => {
+        if (!selectedTenant || !accounts[0]) return;
+        window.open(`/api/admin/report/invoicing?tenantId=${selectedTenant.id}&period=${period}&format=json`, "_blank");
+    };
+
+    const handleDownloadZip = async () => {
+        try {
+            if (!selectedTenant || !accounts[0]) return;
+            setDownloadingPdf("zip");
+            const account = accounts[0];
+            const token = await getFreshIdToken(instance, account);
+            const res = await fetch(
+                `/api/admin/report/invoicing?tenantId=${selectedTenant.id}&period=${period}&format=pdf`,
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            if (!res.ok) throw new Error("Failed to download PDF ZIP");
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `showback-${period}.zip`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+            toast.success("ZIP downloaded successfully");
+        } catch (err: any) {
+            toast.error(err.message || "Failed to download ZIP");
+        } finally {
+            setDownloadingPdf(null);
+        }
+    };
+
+    const handleDownloadPdf = async (customerId: string) => {
+        try {
+            if (!selectedTenant || !accounts[0]) return;
+            setDownloadingPdf(customerId);
+            const account = accounts[0];
+            const token = await getFreshIdToken(instance, account);
+            const res = await fetch(
+                `/api/admin/report/invoicing?tenantId=${selectedTenant.id}&period=${period}&format=pdf&customerId=${customerId}`,
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            if (!res.ok) throw new Error("Failed to download PDF");
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `showback-${customerId}-${period}.pdf`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+            toast.success("PDF downloaded successfully");
+        } catch (err: any) {
+            toast.error(err.message || "Failed to download PDF");
+        } finally {
+            setDownloadingPdf(null);
+        }
+    };
+
+    const handleEmailPdf = async (customerId: string) => {
+        try {
+            setSendingEmail(customerId);
+            const account = accounts[0];
+            if (!account) throw new Error("No authenticated account");
+            const token = await getFreshIdToken(instance, account);
+            const recipientEmail = prompt("Enter recipient email address:");
+            if (!recipientEmail) return;
+
+            const res = await fetch("/api/admin/report/invoicing/email", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    tenantId: selectedTenant?.id,
+                    period,
+                    customerId,
+                    recipientEmail,
+                }),
+            });
+
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.error || "Failed to send email");
+            }
+
+            toast.success("Email sent successfully");
+        } catch (err: any) {
+            toast.error(err.message || "Failed to send email");
+        } finally {
+            setSendingEmail(null);
+        }
     };
 
     if (!selectedTenant || selectedTenant.id === "default") return null;
@@ -119,12 +215,28 @@ export default function InvoicingReportPanel() {
                         Markup aplicado: <strong>{markupPercent}%</strong>
                     </div>
                 )}
-                <button
-                    onClick={handleDownloadAll}
-                    className="ml-auto flex items-center gap-2 px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-                >
-                    <Download className="w-4 h-4" /> Descargar CSV completo
-                </button>
+                <div className="ml-auto flex flex-wrap items-center gap-2">
+                    <button
+                        onClick={handleDownloadZip}
+                        disabled={downloadingPdf !== null}
+                        className="flex items-center gap-2 px-3 py-1.5 text-sm bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg transition-colors"
+                    >
+                        {downloadingPdf === "zip" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                        Download All (ZIP)
+                    </button>
+                    <button
+                        onClick={handleDownloadCsv}
+                        className="flex items-center gap-2 px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                    >
+                        <Download className="w-4 h-4" /> Descargar CSV
+                    </button>
+                    <button
+                        onClick={handleDownloadJson}
+                        className="flex items-center gap-2 px-3 py-1.5 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
+                    >
+                        <Download className="w-4 h-4" /> JSON
+                    </button>
+                </div>
             </div>
 
             {/* KPI cards */}
@@ -150,7 +262,7 @@ export default function InvoicingReportPanel() {
                                 <th className="px-4 py-3 text-left font-semibold">Customer ID</th>
                                 <th className="px-4 py-3 text-right font-semibold">Costo Original</th>
                                 <th className="px-4 py-3 text-right font-semibold">Costo Ajustado</th>
-                                <th className="px-4 py-3 text-center font-semibold">CSV</th>
+                                <th className="px-4 py-3 text-center font-semibold">Acciones</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
@@ -161,13 +273,26 @@ export default function InvoicingReportPanel() {
                                     <td className="px-4 py-3 text-right font-mono text-slate-700 dark:text-slate-300">${c.originalCost.toLocaleString()}</td>
                                     <td className="px-4 py-3 text-right font-mono font-semibold text-emerald-700 dark:text-emerald-400">${c.adjustedCost.toLocaleString()}</td>
                                     <td className="px-4 py-3 text-center">
-                                        <a
-                                            href={`/api/admin/report/invoicing?tenantId=${selectedTenant?.id}&period=${period}&format=csv`}
-                                            download
-                                            className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
-                                        >
-                                            <Download className="w-3 h-3" /> CSV
-                                        </a>
+                                        <div className="flex items-center justify-center gap-2">
+                                            <button
+                                                onClick={() => handleDownloadPdf(c.customerId)}
+                                                disabled={downloadingPdf !== null}
+                                                className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50"
+                                                title="Download PDF"
+                                            >
+                                                {downloadingPdf === c.customerId ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+                                                PDF
+                                            </button>
+                                            <button
+                                                onClick={() => handleEmailPdf(c.customerId)}
+                                                disabled={sendingEmail !== null}
+                                                className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 hover:underline disabled:opacity-50"
+                                                title="Email PDF"
+                                            >
+                                                {sendingEmail === c.customerId ? <Loader2 className="w-3 h-3 animate-spin" /> : <Mail className="w-3 h-3" />}
+                                                Email
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}

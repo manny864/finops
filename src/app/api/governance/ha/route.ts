@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import jwt from "jsonwebtoken";
+import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
 import pool from "@/modules/storage/db";
 import { evaluateHALive } from "@/services/haService";
@@ -49,13 +49,12 @@ export async function GET(request: NextRequest) {
         const tenantId = searchParams.get('tenantId');
         if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
 
-        const authHeader = request.headers.get("authorization");
-        if (!authHeader?.startsWith("Bearer ")) return NextResponse.json({ error: "Falta token Bearer." }, { status: 401 });
-        const decoded = jwt.decode(authHeader.split(" ")[1]) as any;
-        if (!decoded?.tid) return NextResponse.json({ error: "Token inválido." }, { status: 401 });
-        const email = (decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "").toLowerCase();
-        const isSuperAdmin = email.endsWith("@cscloudsolutions.com.ar");
-        if (decoded.tid !== tenantId && !isSuperAdmin) return NextResponse.json({ error: "Acceso denegado al tenant." }, { status: 403 });
+        try {
+            await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
+        } catch (e) {
+            if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
+            throw e;
+        }
 
         if (isMockTenant(tenantId)) return NextResponse.json(MOCK_RESPONSE);
 
@@ -95,12 +94,12 @@ export async function GET(request: NextRequest) {
 
         // 3) Empty real result — return a no-issues success (not mock)
         return NextResponse.json({ success: true, mock: false, source: 'arg', items: [], counts: { critical: 0, high: 0, medium: 0, low: 0 } });
-    } catch (err: any) {
-        console.error("[governance/ha] handler error:", err?.message);
+    } catch (err: unknown) {
+        console.error("[governance/ha] handler error:", err instanceof Error ? err.message : err);
         return NextResponse.json({
             success: false, mock: false,
             items: [], counts: { critical: 0, high: 0, medium: 0, low: 0 },
-            error: err?.message || "Error interno",
+            error: "Internal server error",
         }, { status: 200 });
     }
 }

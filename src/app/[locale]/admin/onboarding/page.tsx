@@ -265,7 +265,7 @@ export default function OnboardingPage() {
                                           <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-1">Client Secret</label>
                                           <input
                                               type="password"
-                                              placeholder="Client Secret"
+                                              placeholder={tenant.has_client_secret ? "•••• (ya configurado, dejar en blanco para mantener)" : "Client Secret"}
                                               value={tenant.client_secret || ''}
                                               onChange={(e) => handleNameChange(tenant.id, 'client_secret', e.target.value)}
                                               className="border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 rounded px-2 py-1.5 text-sm font-mono focus:ring-indigo-500 focus:border-indigo-500 w-full"

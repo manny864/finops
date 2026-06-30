@@ -3,6 +3,7 @@ import pool, { initializeDatabase } from "@/modules/storage/db";
 import { tenants as mockTenants } from '@/lib/tenants';
 import { verifySubscription } from '@/lib/apiSecurity';
 import { AuthError, requireRequestIdentity, requireSuperAdmin } from "@/lib/requestAuth";
+import { setTenantCredentials } from "@/lib/secrets/tenantCredentials";
 
 export async function GET(request: NextRequest) {
     try {
@@ -42,13 +43,21 @@ export async function GET(request: NextRequest) {
             }
         }
 
-        let query = 'SELECT tenant_id as id, company_name as name, client_id, client_secret, tier, trial_ends_at, subscription_status, is_onboarded FROM Tenants ORDER BY created_at ASC';
+        // SECURITY: never return client_secret over the wire. Expose only a boolean
+        // indicating whether credentials are configured so the UI can render
+        // the right call-to-action ("complete onboarding" vs "ready").
+        let query = `SELECT tenant_id as id, company_name as name, client_id,
+                            (client_secret IS NOT NULL AND client_secret <> '') as has_client_secret,
+                            tier, trial_ends_at, subscription_status, is_onboarded
+                     FROM Tenants ORDER BY created_at ASC`;
         let queryParams: any[] = [];
 
         if (!isSuperAdmin && email) {
-            query = `SELECT t.tenant_id as id, t.company_name as name, t.client_id, t.client_secret, t.tier, t.trial_ends_at, t.subscription_status, t.is_onboarded 
-                     FROM Tenants t 
-                     JOIN Users u ON t.tenant_id = u.tenant_id 
+            query = `SELECT t.tenant_id as id, t.company_name as name, t.client_id,
+                            (t.client_secret IS NOT NULL AND t.client_secret <> '') as has_client_secret,
+                            t.tier, t.trial_ends_at, t.subscription_status, t.is_onboarded
+                     FROM Tenants t
+                     JOIN Users u ON t.tenant_id = u.tenant_id
                      WHERE u.email = ? ORDER BY t.created_at ASC`;
             queryParams = [email];
         }
@@ -68,11 +77,13 @@ export async function GET(request: NextRequest) {
                     [identity.tenantId, fallbackName]
                 );
                 const [newRows] = await pool.query(
-                    `SELECT tenant_id as id, company_name as name, client_id, client_secret, tier, trial_ends_at, subscription_status, is_onboarded
+                    `SELECT tenant_id as id, company_name as name, client_id,
+                            (client_secret IS NOT NULL AND client_secret <> '') as has_client_secret,
+                            tier, trial_ends_at, subscription_status, is_onboarded
                      FROM Tenants WHERE tenant_id = ? LIMIT 1`,
                     [identity.tenantId]
                 );
-                const created = newRows as Array<{ id: string; name: string; client_id?: string; client_secret?: string; tier?: string; subscription_status?: string; is_onboarded?: boolean }>;
+                const created = newRows as Array<{ id: string; name: string; client_id?: string; has_client_secret?: boolean; tier?: string; subscription_status?: string; is_onboarded?: boolean }>;
                 if (created.length > 0) tenantRows = [...tenantRows, ...created];
             }
         }
@@ -144,10 +155,20 @@ export async function PUT(request: NextRequest) {
             return NextResponse.json({ error: 'clientId no es un UUID válido (verificar comillas/espacios al pegar)' }, { status: 400 });
         }
 
-        await pool.query(
-            'INSERT INTO Tenants (tenant_id, company_name, client_id, client_secret) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE company_name = VALUES(company_name), client_id = VALUES(client_id), client_secret = VALUES(client_secret)',
-            [tenantId, name, clientId || null, clientSecret || null]
-        );
+        // Si vienen credenciales, las guardamos via tenantCredentials (KV con fallback DB).
+        // Si no vienen, solo actualizamos nombre.
+        if (clientId && clientSecret) {
+            await pool.query(
+                'INSERT INTO Tenants (tenant_id, company_name) VALUES (?, ?) ON DUPLICATE KEY UPDATE company_name = VALUES(company_name)',
+                [tenantId, name]
+            );
+            await setTenantCredentials(tenantId, clientId, clientSecret);
+        } else {
+            await pool.query(
+                'INSERT INTO Tenants (tenant_id, company_name) VALUES (?, ?) ON DUPLICATE KEY UPDATE company_name = VALUES(company_name)',
+                [tenantId, name]
+            );
+        }
 
         return NextResponse.json({ success: true });
     } catch (error: any) {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAssessment } from '@/modules/core/aiProvider';
-import jwt from 'jsonwebtoken';
+import { requireTenantAccess, AuthError } from '@/lib/requestAuth';
 
 export async function POST(request: NextRequest) {
     try {
@@ -11,30 +11,15 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Faltan parámetros (tenantId, metrics)" }, { status: 400 });
         }
 
-        const authHeader = request.headers.get("authorization");
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            return NextResponse.json({ error: "Falta token Bearer de autenticación." }, { status: 401 });
-        }
-
-        const token = authHeader.split(" ")[1];
-        const decoded = jwt.decode(token) as any;
-        if (!decoded || !decoded.tid) {
-            return NextResponse.json({ error: "Estructura de token inválida." }, { status: 401 });
-        }
-
-        const email = decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "";
-        const isAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") ;
-
-        if (decoded.tid !== tenantId && !isAdmin) {
-            return NextResponse.json({ error: "Acceso denegado. El token no coincide con el tenant." }, { status: 403 });
-        }
+        await requireTenantAccess(request, tenantId);
 
         const markdownReport = await getAssessment(metrics);
 
         return NextResponse.json({ success: true, report: markdownReport });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
+        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
         console.error("Error in /api/intelligence/assessment:", error);
-        return NextResponse.json({ error: "Error procesando el assessment", details: error.message }, { status: 500 });
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }

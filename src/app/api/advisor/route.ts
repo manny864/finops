@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import jwt from "jsonwebtoken";
+import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { collectAdvisorData } from "@/modules/collectors/azure/advisorCollector";
 
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
@@ -11,17 +11,9 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
         const { tenantId, action, resourceGroup, resourceName, resourceType, subscriptionId } = body;
 
-        const authHeader = request.headers.get("authorization");
-        if (!authHeader) return NextResponse.json({ error: "Falta token Bearer de autenticación." }, { status: 401 });
-        
-        const token = authHeader.split(" ")[1];
-        const decoded = jwt.decode(token) as any;
-        const email = decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "";
-        const isAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar");
-
-        if (decoded.tid !== tenantId && !isAdmin) {
-            return NextResponse.json({ error: "El token no coincide con el tenant." }, { status: 403 });
-        }
+        if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
+        const identity = await requireTenantAccess(request, tenantId);
+        const email = identity.email;
 
         if (action === 'delete') {
             await deleteResource(tenantId, email, subscriptionId, resourceGroup, resourceName, resourceType);
@@ -29,9 +21,10 @@ export async function POST(request: NextRequest) {
         }
         
         return NextResponse.json({ error: "Acción no soportada por el orquestador." }, { status: 400 });
-    } catch (error: any) {
+    } catch (error: unknown) {
+        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
         console.error("Action Center Error:", error);
-        return NextResponse.json({ error: "Error interno", details: error.message }, { status: 500 });
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }
 
@@ -43,25 +36,7 @@ export async function GET(request: NextRequest) {
     const locale = localeParam || request.headers.get('accept-language') || 'es';
     if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
 
-
-
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Falta token Bearer de autenticación." }, { status: 401 });
-    }
-
-    const token = authHeader.split(" ")[1];
-    const decoded = jwt.decode(token) as any;
-    if (!decoded || !decoded.tid) {
-      return NextResponse.json({ error: "Estructura de token inválida." }, { status: 401 });
-    }
-
-    const email = decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "";
-    const isAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") ;
-
-    if (decoded.tid !== tenantId && !isAdmin) {
-      return NextResponse.json({ error: `Acceso denegado. El token no coincide con el tenant.` }, { status: 403 });
-    }
+    await requireTenantAccess(request, tenantId);
 
     const cacheKey = `advisor:${tenantId}:${locale}`;
     const data = await getWithStaleWhileRevalidate(cacheKey, async () => {
@@ -126,21 +101,22 @@ export async function GET(request: NextRequest) {
         subscriptions: data.subscriptions,
         scores: data.scores
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error("Advisor Error:", error);
+    const err = error as { code?: string; message?: string };
     
-    if (error.code === "MISSING_RBAC_ROLE") {
+    if (err.code === "MISSING_RBAC_ROLE") {
         return NextResponse.json({ error: "MISSING_RBAC_ROLE", details: "La aplicación no tiene permisos de Lector en las suscripciones." }, { status: 403 });
     }
 
-    // Detectar falta de Admin Consent (Service Principal faltante)
-    if (error.message && error.message.includes("AADSTS7000229")) {
+    if (err.message && err.message.includes("AADSTS7000229")) {
       return NextResponse.json({
         error: "MISSING_ADMIN_CONSENT",
         details: "Falta el Service Principal en el Tenant destino. Debe proporcionar Admin Consent a la aplicación."
       }, { status: 403 });
     }
 
-    return NextResponse.json({ error: "Error en el Motor de Advisor", details: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

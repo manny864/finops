@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isMockTenant } from "@/lib/mockData";
 import pool from "@/modules/storage/db";
-import jwt from "jsonwebtoken";
+import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 
 const ACADEMY_CONTENT = [
     {
@@ -68,24 +68,15 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Tenant ID requerido" }, { status: 400 });
         }
 
-        // Get user token to find their progress
+        const identity = await requireTenantAccess(request, tenantId);
+        const oid = identity.claims.oid;
+
+        // Get user progress
         let userId = 1; // Default for mock
-        const authHeader = request.headers.get("Authorization");
-        if (authHeader && authHeader.startsWith("Bearer ")) {
-            const token = authHeader.split(" ")[1];
-            try {
-                const decoded: any = jwt.decode(token);
-                if (decoded && decoded.oid) {
-                    // Try to fetch user_id from DB
-                    if (!isMockTenant(tenantId)) {
-                        const [userRows]: any = await pool.query('SELECT id FROM Users WHERE entra_oid = ? AND tenant_id = ?', [decoded.oid, tenantId]);
-                        if (userRows && userRows.length > 0) {
-                            userId = userRows[0].id;
-                        }
-                    }
-                }
-            } catch (e) {
-                // Ignore decoding errors
+        if (oid && !isMockTenant(tenantId)) {
+            const [userRows]: any = await pool.query('SELECT id FROM Users WHERE entra_oid = ? AND tenant_id = ?', [oid, tenantId]);
+            if (userRows && userRows.length > 0) {
+                userId = userRows[0].id;
             }
         }
 
@@ -107,8 +98,10 @@ export async function GET(request: NextRequest) {
             isCertified: completedModules.length === ACADEMY_CONTENT.length
         });
 
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message || "Error interno" }, { status: 500 });
+    } catch (error: unknown) {
+        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
+        console.error("[academy/content] GET error:", error);
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }
 
@@ -125,16 +118,14 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ success: true, message: "Progreso guardado (Mock)" });
         }
 
+        const identity = await requireTenantAccess(request, tenantId);
+        const oid = identity.claims.oid;
+
         let userId = 1;
-        const authHeader = request.headers.get("Authorization");
-        if (authHeader && authHeader.startsWith("Bearer ")) {
-            const token = authHeader.split(" ")[1];
-            const decoded: any = jwt.decode(token);
-            if (decoded && decoded.oid) {
-                const [userRows]: any = await pool.query('SELECT id FROM Users WHERE entra_oid = ? AND tenant_id = ?', [decoded.oid, tenantId]);
-                if (userRows && userRows.length > 0) {
-                    userId = userRows[0].id;
-                }
+        if (oid) {
+            const [userRows]: any = await pool.query('SELECT id FROM Users WHERE entra_oid = ? AND tenant_id = ?', [oid, tenantId]);
+            if (userRows && userRows.length > 0) {
+                userId = userRows[0].id;
             }
         }
 
@@ -150,7 +141,9 @@ export async function POST(request: NextRequest) {
         }
 
         return NextResponse.json({ success: true, message: "Módulo completado" });
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message || "Error interno" }, { status: 500 });
+    } catch (error: unknown) {
+        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
+        console.error("[academy/content] POST error:", error);
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }

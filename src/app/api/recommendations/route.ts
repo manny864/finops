@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getResourceGraphClient, getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
-import jwt from "jsonwebtoken";
+import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,27 +12,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
     }
 
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Falta token Bearer de autenticación." }, { status: 401 });
-    }
-
-    const token = authHeader.split(" ")[1];
-    const decoded = jwt.decode(token) as any;
-
-    if (!decoded || !decoded.tid) {
-      return NextResponse.json({ error: "Estructura de token inválida." }, { status: 401 });
-    }
-
-    const email = decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "";
-    const isAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") ;
-
-    if (decoded.tid !== tenantId && !isAdmin) {
-      return NextResponse.json(
-        { error: `Acceso denegado. El token no coincide con el tenant.` },
-        { status: 403 }
-      );
-    }
+    await requireTenantAccess(request, tenantId);
 
     const resourceGraphClient = await getResourceGraphClient(tenantId);
 
@@ -80,19 +60,20 @@ export async function GET(request: NextRequest) {
         unusedIps 
     });
 
-  } catch (error: any) {
-    const errorMessage = error?.message || String(error) || "Error desconocido";
-    const errorCode = error?.code || error?.name || "";
-    const errorStatus = error?.statusCode || error?.status || 0;
+  } catch (error: unknown) {
+    if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
+    const err = error as { message?: string; code?: string; name?: string; statusCode?: number; status?: number };
+    const errorMessage = err?.message || String(error);
+    const errorCode = err?.code || err?.name || "";
+    const errorStatus = err?.statusCode || err?.status || 0;
 
     console.error(`[Recommendations] ERROR capturado:`, {
-      name: error?.name,
+      name: err?.name,
       code: errorCode,
       statusCode: errorStatus,
       message: errorMessage,
     });
 
-    // Detectar secreto de cliente inválido o expirado (AADSTS7000215)
     if (errorMessage.includes("AADSTS7000215") || errorMessage.includes("invalid_client") || errorMessage.includes("Invalid client secret")) {
       return NextResponse.json({
         error: "INVALID_CLIENT_SECRET",
@@ -103,6 +84,6 @@ export async function GET(request: NextRequest) {
     if (errorCode === "AccessDenied" || errorStatus === 403 || errorMessage.includes("AccessDenied") || errorMessage.includes("AuthorizationFailed")) {
       return NextResponse.json({ error: "MISSING_RBAC_ROLE", details: "La aplicación no tiene permisos de Lector." }, { status: 403 });
     }
-    return NextResponse.json({ error: "Error en SDK o Resource Graph", details: errorMessage }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

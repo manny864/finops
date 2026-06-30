@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSubscriptionBudget } from "@/services/budgetService";
 import { getAzureCredential } from "@/lib/azure";
-import jwt from "jsonwebtoken";
+import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 
 export async function POST(request: NextRequest) {
     try {
@@ -12,24 +12,13 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Faltan parámetros requeridos." }, { status: 400 });
         }
 
-        const authHeader = request.headers.get("authorization");
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            return NextResponse.json({ error: "No autorizado." }, { status: 401 });
-        }
-        const token = authHeader.split(" ")[1];
-        const decoded = jwt.decode(token) as any;
-        if (!decoded || !decoded.tid) {
-            return NextResponse.json({ error: "Token inválido." }, { status: 401 });
+        if (!bodyTenantId) {
+            return NextResponse.json({ error: "Falta tenantId." }, { status: 400 });
         }
 
-        const tenantId = bodyTenantId || decoded.tid;
+        await requireTenantRole(request, bodyTenantId, ['Admin', 'Owner']);
 
-        const email = decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "";
-        const isAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") ;
-
-        if (decoded.tid !== tenantId && !isAdmin) {
-            return NextResponse.json({ error: "El token no coincide con el tenant." }, { status: 403 });
-        }
+        const tenantId = bodyTenantId;
 
         const credential = await getAzureCredential(tenantId);
         
@@ -43,17 +32,18 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ success: true, data: result }, { status: 201 });
 
-    } catch (e: any) {
+    } catch (e: unknown) {
+        if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
         console.error("Error creating budget in route:", e);
         
-        // Manejar falta de permisos de escritura (RBAC)
-        if (e.code === 'RBACAccessDenied' || (e.details?.error?.code === 'RBACAccessDenied')) {
+        const err = e as { code?: string; details?: { error?: { code?: string } } };
+        if (err.code === 'RBACAccessDenied' || (err.details?.error?.code === 'RBACAccessDenied')) {
             return NextResponse.json({ 
                 error: "Permisos insuficientes", 
                 details: "La aplicación no tiene permisos para crear presupuestos. Debes asignar el rol 'Cost Management Contributor' a la aplicación en la suscripción de Azure." 
             }, { status: 403 });
         }
 
-        return NextResponse.json({ error: "Fallo al crear el presupuesto en Azure", details: e.message }, { status: 500 });
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }

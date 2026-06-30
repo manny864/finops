@@ -1,27 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import jwt from "jsonwebtoken";
 import pool, { initializeDatabase } from "@/modules/storage/db";
+import { requireRequestIdentity } from "@/lib/requestAuth";
+import { sendEmailAsync, getWelcomeEmailHtml } from "@/lib/emailHelper";
 
 export async function POST(request: NextRequest) {
     try {
         // Garantizamos que las tablas existan
         await initializeDatabase();
 
-        const authHeader = request.headers.get("authorization");
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            return NextResponse.json({ error: "Falta token Bearer de autenticación." }, { status: 401 });
-        }
-
-        const token = authHeader.split(" ")[1];
-        const decoded = jwt.decode(token) as any;
-
-        if (!decoded || !decoded.tid || !decoded.oid) {
-            return NextResponse.json({ error: "Token inválido o incompleto." }, { status: 400 });
-        }
-
-        const tenantId = decoded.tid;
-        const entraOid = decoded.oid;
-        const email = decoded.preferred_username || decoded.upn || decoded.email || "Unknown";
+        // Use proper auth verification
+        const identity = await requireRequestIdentity(request);
+        const tenantId = identity.tenantId;
+        const entraOid = identity.claims.oid || 'unknown';
+        const email = identity.email;
         
         // Extraemos plan del body
         let reqBody: any = {};
@@ -73,24 +64,60 @@ export async function POST(request: NextRequest) {
             `;
             await connection.query(insertTenantQuery, [tenantId, companyName, tier, subStatus, trialEndsAtValue]);
 
-            // Determine role and system_role for this user
-            let userRole = 'Admin'; // First user in a tenant is always the Admin (owner)
+            // Insert SignupEvents for tracking
+            if (plan === 'pro' || plan === 'business' || plan === 'Essential') {
+                const metadata = {
+                    user_agent: request.headers.get('user-agent'),
+                    ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip'),
+                    plan: plan,
+                };
+                const insertEventQuery = `
+                    INSERT INTO SignupEvents (tenant_id, user_email, event_type, plan, metadata)
+                    VALUES (?, ?, ?, ?, ?)
+                `;
+                await connection.query(insertEventQuery, [
+                    tenantId,
+                    email,
+                    trialInterval > 0 ? 'trial_started' : 'signup_completed',
+                    plan,
+                    JSON.stringify(metadata),
+                ]);
+            }
+
+            // Determine role for this user
+            // First user in tenant gets Admin (owner). Subsequent users get Viewer
+            // and must be promoted by an existing Admin or SUPERADMIN.
+            const [existingUsers] = await connection.query(
+                'SELECT COUNT(*) as cnt FROM Users WHERE tenant_id = ? AND (entra_oid IS NULL OR entra_oid <> ?)',
+                [tenantId, entraOid]
+            );
+            const existingCount = Array.isArray(existingUsers) && existingUsers.length > 0
+                ? Number((existingUsers[0] as { cnt: number }).cnt)
+                : 0;
+            const userRole = existingCount === 0 ? 'Admin' : 'Viewer';
             let systemRole = 'USER';
-            
+
             // Auto-promote CSCloudSolutions master tenant admins to SUPERADMIN
             if (email.toLowerCase().endsWith('@cscloudsolutions.com.ar') && tenantId === '8b41364f-581a-4e43-b7cb-13138dac5517') {
                 systemRole = 'SUPERADMIN';
             }
 
-            // UPSERT User with explicit role and system_role
+            // UPSERT User. Never escalate role on duplicate: preserve existing role.
             const insertUserQuery = `
-                INSERT INTO Users (entra_oid, tenant_id, email, role, system_role) 
-                VALUES (?, ?, ?, ?, ?) 
-                ON DUPLICATE KEY UPDATE email = ?, role = CASE WHEN role IS NULL OR role = '' OR role = 'admin' THEN VALUES(role) ELSE role END
+                INSERT INTO Users (entra_oid, tenant_id, email, role, system_role)
+                VALUES (?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE email = VALUES(email)
             `;
-            await connection.query(insertUserQuery, [entraOid, tenantId, email, userRole, systemRole, email]);
+            await connection.query(insertUserQuery, [entraOid, tenantId, email, userRole, systemRole]);
 
             await connection.commit();
+
+            // Send welcome email async (fire-and-forget)
+            if (trialInterval > 0) {
+                const tierName = tier === 'Professional' ? 'Professional' : tier === 'Business' ? 'Business' : 'Essential';
+                const htmlContent = getWelcomeEmailHtml(email, companyName, tierName);
+                sendEmailAsync('Welcome to FinOps SaaS — Your 14-day trial has started', htmlContent, email);
+            }
         } catch (dbError) {
             await connection.rollback();
             throw dbError;
@@ -102,6 +129,12 @@ export async function POST(request: NextRequest) {
 
     } catch (error: any) {
         console.error("Onboard API Error:", error);
-        return NextResponse.json({ error: "Error interno del servidor", details: error.message }, { status: 500 });
+        
+        // Handle auth errors
+        if (error.name === 'AuthError') {
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        }
+        
+        return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
     }
 }

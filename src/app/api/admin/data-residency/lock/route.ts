@@ -1,0 +1,66 @@
+import { NextRequest, NextResponse } from "next/server";
+import pool from "@/modules/storage/db";
+import { AuthError, requireSuperAdmin } from "@/lib/requestAuth";
+
+export async function POST(request: NextRequest) {
+    try {
+        const body = await request.json();
+        const { tenantId } = body;
+
+        if (!tenantId) {
+            return NextResponse.json(
+                { error: "tenantId required" },
+                { status: 400 }
+            );
+        }
+
+        const identity = await requireSuperAdmin(request);
+
+        const connection = await pool.getConnection();
+        try {
+            await connection.beginTransaction();
+
+            const [checkRows]: any = await connection.query(
+                "SELECT data_residency FROM Tenants WHERE tenant_id = ? FOR UPDATE",
+                [tenantId]
+            );
+
+            if (!checkRows || checkRows.length === 0) {
+                await connection.rollback();
+                return NextResponse.json(
+                    { error: "Tenant not found" },
+                    { status: 404 }
+                );
+            }
+
+            await connection.query(
+                "UPDATE Tenants SET data_residency_locked_at = NOW() WHERE tenant_id = ?",
+                [tenantId]
+            );
+
+            await connection.query(
+                `INSERT INTO ActionLogs (tenant_id, user_email, action_type, resource_id, status, timestamp)
+                 VALUES (?, ?, ?, ?, ?, NOW())`,
+                [tenantId, identity.email || "system", "DATA_RESIDENCY_LOCKED", tenantId, "SUCCESS"]
+            );
+
+            await connection.commit();
+
+            return NextResponse.json({
+                success: true,
+                message: "Data residency region locked",
+            });
+        } catch (txErr) {
+            await connection.rollback();
+            throw txErr;
+        } finally {
+            connection.release();
+        }
+    } catch (err: any) {
+        if (err instanceof AuthError) {
+            return NextResponse.json({ error: err.message }, { status: err.status });
+        }
+        console.error("POST /api/admin/data-residency/lock error:", err);
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    }
+}

@@ -3,28 +3,9 @@
 // devuelve respuesta sintética claramente marcada.
 
 import { NextRequest, NextResponse } from "next/server";
-import jwt from "jsonwebtoken";
+import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";
 import { isMockTenant } from "@/lib/mockData";
-
-function authCheck(request: NextRequest, tenantId: string) {
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-        return { error: "Falta token Bearer de autenticación.", status: 401 };
-    }
-    const token = authHeader.split(" ")[1];
-    const decoded = jwt.decode(token) as Record<string, any> | null;
-    if (!decoded || !decoded.tid) {
-        return { error: "Estructura de token inválida.", status: 401 };
-    }
-    const email: string =
-        decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "";
-    const isAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar");
-    if (decoded.tid !== tenantId && !isAdmin) {
-        return { error: "Acceso denegado. El token no coincide con el tenant.", status: 403 };
-    }
-    return { decoded, email };
-}
 
 function fmtUSD(n: number) {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n || 0);
@@ -119,8 +100,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Falta la pregunta (question)" }, { status: 400 });
         }
 
-        const auth = authCheck(request, tenantId);
-        if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
+        await requireTenantAccess(request, tenantId);
 
         // Tenants DEMO: respuesta sintética claramente marcada
         if (isMockTenant(tenantId)) {
@@ -167,8 +147,9 @@ export async function POST(request: NextRequest) {
             adaptiveCard,
             grounding,
         });
-    } catch (error: any) {
+    } catch (error: unknown) {
+        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
         console.error("M365 Copilot Ask error:", error);
-        return NextResponse.json({ error: "Error al procesar la pregunta", details: error.message }, { status: 500 });
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }

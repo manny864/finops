@@ -139,7 +139,7 @@ export default function AdvisorPanel() {
           const auditJson = await auditRes.json();
           const auditData = auditJson.auditResults || {};
           
-          let rows: any[] = [];
+          const rows: any[] = [];
           
           const auditKeys = Object.keys(auditData);
           auditKeys.forEach(k => {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import jwt from "jsonwebtoken";
+import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
 
 const MOCK_PAYLOAD = {
@@ -39,18 +39,11 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Falta parámetro requerido: tenantId" }, { status: 400 });
         }
 
-        const authHeader = request.headers.get("authorization");
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            return NextResponse.json({ error: "Falta token Bearer." }, { status: 401 });
-        }
-        const decoded = jwt.decode(authHeader.split(" ")[1]) as any;
-        if (!decoded || !decoded.tid) {
-            return NextResponse.json({ error: "Token inválido." }, { status: 401 });
-        }
-        const email = (decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "").toLowerCase();
-        const isSuperAdmin = email.endsWith("@cscloudsolutions.com.ar");
-        if (decoded.tid !== tenantId && !isSuperAdmin) {
-            return NextResponse.json({ error: "Acceso denegado al tenant." }, { status: 403 });
+        try {
+            await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
+        } catch (e) {
+            if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
+            throw e;
         }
 
         if (isMockTenant(tenantId)) {
@@ -64,7 +57,8 @@ export async function GET(request: NextRequest) {
             items: [], totalMonthlyWaste: 0,
             warning: "Detección en vivo de zombies de red pendiente de implementación. Usá el módulo principal de Audit para resultados consolidados.",
         });
-    } catch (err: any) {
-        return NextResponse.json({ error: err.message || "Error interno" }, { status: 500 });
+    } catch (err: unknown) {
+        console.error("[zombies/networking] error:", err instanceof Error ? err.message : err);
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }

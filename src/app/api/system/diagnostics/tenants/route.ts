@@ -1,29 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import jwt from "jsonwebtoken";
+import { requireSuperAdmin, AuthError } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";
 import { verifyTenantCredentials } from "@/services/tenantHealthService";
 
 export async function GET(request: NextRequest) {
     try {
-        // Auth check: only SuperAdmins
-        const authHeader = request.headers.get("authorization");
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            return NextResponse.json({ error: "No autorizado." }, { status: 401 });
-        }
-
-        const token = authHeader.split(" ")[1];
-        const decoded = jwt.decode(token) as any;
-
-        if (!decoded) {
-            return NextResponse.json({ error: "Token inválido." }, { status: 401 });
-        }
-
-        const email = decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "";
-        const isSuperAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") ;
-
-        if (!isSuperAdmin) {
-            return NextResponse.json({ error: "Acceso denegado. Se requiere rol SuperAdmin." }, { status: 403 });
-        }
+        await requireSuperAdmin(request);
 
         // Fetch tenants health from DB
         const [rows] = await pool.query(
@@ -32,33 +14,16 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({ success: true, tenants: rows });
 
-    } catch (e: any) {
+    } catch (e: unknown) {
+        if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
         console.error("Error listing tenant health:", e);
-        return NextResponse.json({ error: "Error interno del servidor", details: e.message }, { status: 500 });
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }
 
 export async function POST(request: NextRequest) {
     try {
-        // Auth check: only SuperAdmins
-        const authHeader = request.headers.get("authorization");
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            return NextResponse.json({ error: "No autorizado." }, { status: 401 });
-        }
-
-        const token = authHeader.split(" ")[1];
-        const decoded = jwt.decode(token) as any;
-
-        if (!decoded) {
-            return NextResponse.json({ error: "Token inválido." }, { status: 401 });
-        }
-
-        const email = decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "";
-        const isSuperAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") ;
-
-        if (!isSuperAdmin) {
-            return NextResponse.json({ error: "Acceso denegado. Se requiere rol SuperAdmin." }, { status: 403 });
-        }
+        await requireSuperAdmin(request);
 
         const body = await request.json();
         const { tenantId } = body;
@@ -71,8 +36,9 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json(result);
 
-    } catch (e: any) {
+    } catch (e: unknown) {
+        if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
         console.error("Error verifying tenant credentials:", e);
-        return NextResponse.json({ error: "Error interno del servidor", details: e.message }, { status: 500 });
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }

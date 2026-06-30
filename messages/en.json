@@ -332,10 +332,9 @@
     "monthly": "Monthly",
     "annual": "Annual",
     "save12": "Save 12%",
-    "tryNow": "Try Now",
+    "tryNow": "Interactive Demo",
     "buyNow": "Buy Now",
     "contactSales": "Contact Sales",
-    "tryDemoTier": "Try Interactive Demo",
     "title": "Simple, Fixed Pricing",
     "subtitle": "Whether you are a startup or Enterprise, we have simple, fixed-rate plans that do not contribute to your cost problems.",
     "essential": {
@@ -641,5 +640,87 @@
   "Mock": {
     "badge": "SAMPLE DATA",
     "description": "You're viewing simulated data. Connect your Azure subscription to see real data."
+  },
+  "signup": {
+    "title": "Start your 14-day free trial",
+    "subtitle": "Connect your Azure subscription in 5 minutes. See savings in 24 hours.",
+    "noCardRequired": "No credit card required",
+    "hero": "Start your 14-day free trial",
+    "planSelector": "Choose Your Plan",
+    "essential": {
+      "name": "Essential",
+      "price": "$0",
+      "monthlyPrice": "Free",
+      "yearlyPrice": "Free",
+      "description": "Perfect for individuals and small teams",
+      "features": [
+        "Azure subscription monitoring",
+        "Basic cost analysis",
+        "Weekly reports",
+        "Email support",
+        "See more"
+      ],
+      "cta": "Start free trial"
+    },
+    "professional": {
+      "name": "Professional",
+      "price": "$99",
+      "monthlyPrice": "$99/month",
+      "yearlyPrice": "$990/year",
+      "description": "For growing teams and departments",
+      "features": [
+        "Everything in Essential",
+        "Advanced FinOps recommendations",
+        "Real-time alerts",
+        "Custom dashboards",
+        "See more"
+      ],
+      "cta": "Start free trial",
+      "recommended": true
+    },
+    "business": {
+      "name": "Business",
+      "price": "$299",
+      "monthlyPrice": "$299/month",
+      "yearlyPrice": "$2,990/year",
+      "description": "For large enterprises",
+      "features": [
+        "Everything in Professional",
+        "Multi-tenant management",
+        "API access",
+        "Priority support",
+        "See more"
+      ],
+      "cta": "Start free trial"
+    },
+    "enterprise": {
+      "name": "Enterprise",
+      "description": "For organizations with complex requirements",
+      "features": [
+        "Unlimited users and tenants",
+        "Custom integrations",
+        "Dedicated account manager",
+        "SLA guarantee",
+        "See more"
+      ],
+      "cta": "Contact sales"
+    },
+    "trustSignals": "Trusted by leading FinOps teams",
+    "badges": [
+      "SOC 2 Certified",
+      "Azure Verified",
+      "ISO 27001 Compliant"
+    ],
+    "faq": {
+      "title": "Frequently Asked Questions",
+      "q1": "What happens after my trial ends?",
+      "a1": "You can upgrade to a paid plan anytime during or after your trial. No credit card required upfront.",
+      "q2": "Do I need to enter credit card information?",
+      "a2": "No! Your trial requires no payment method. You will only be asked for payment when upgrading to a paid plan.",
+      "q3": "Can I cancel my trial?",
+      "a3": "Yes, you can cancel anytime. If you upgrade to a paid plan, you can cancel at the end of your billing cycle.",
+      "q4": "Is my data secure?",
+      "a4": "Absolutely. We are SOC 2 Type II certified and follow industry-leading security standards."
+    }
   }
 }

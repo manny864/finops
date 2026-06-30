@@ -1,22 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAzureCredential } from "@/lib/azure";
 import { deployFinOpsWorkbook } from "@/services/workbookService";
-import jwt from "jsonwebtoken";
+import { requireRequestIdentity, requireTenantRole, AuthError } from "@/lib/requestAuth";
 
 export async function POST(request: NextRequest) {
     try {
-        const authHeader = request.headers.get("authorization");
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            return NextResponse.json({ error: "Falta token Bearer de autenticación." }, { status: 401 });
-        }
-
-        const token = authHeader.split(" ")[1];
-        const decoded = jwt.decode(token) as any;
-
-        if (!decoded || !decoded.tid) {
-            return NextResponse.json({ error: "Estructura de token inválida." }, { status: 401 });
-        }
-
         const body = await request.json();
         const { subscriptionId, resourceGroupName, workbookType } = body;
 
@@ -24,7 +12,11 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Faltan parámetros requeridos: subscriptionId, resourceGroupName o workbookType" }, { status: 400 });
         }
 
-        const credential = await getAzureCredential(decoded.tid);
+        const tmpIdentity = await requireRequestIdentity(request);
+        const tenantId = tmpIdentity.tenantId;
+        await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
+
+        const credential = await getAzureCredential(tenantId);
         const deploymentResult = await deployFinOpsWorkbook(credential, subscriptionId, resourceGroupName, workbookType);
 
         return NextResponse.json({ 
@@ -33,18 +25,19 @@ export async function POST(request: NextRequest) {
             deploymentId: deploymentResult.id 
         });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
+        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
         console.error("Workbook Deployment Error:", error);
-        const azureCode = error?.code || error?.body?.error?.code || error?.statusCode;
-        const azureMsg = error?.body?.error?.message || error?.details?.message || error?.message;
+        const err = error as { code?: string; body?: { error?: { code?: string; message?: string } }; statusCode?: number; details?: { message?: string }; message?: string };
+        const azureCode = err?.code || err?.body?.error?.code || err?.statusCode;
+        const azureMsg = err?.body?.error?.message || err?.details?.message || err?.message;
         const isAuthz = azureCode === 'AuthorizationFailed' || /AuthorizationFailed/i.test(azureMsg || '');
         const status = isAuthz ? 403 : (typeof azureCode === 'number' ? azureCode : 500);
         return NextResponse.json({
             error: isAuthz
                 ? "El Service Principal no tiene permisos para desplegar Workbooks. Se requiere 'Monitoring Contributor' o 'Workbook Contributor' sobre el Resource Group destino. Vuelve a ejecutar el script de onboarding del tier Enterprise."
-                : (azureMsg || "Fallo al desplegar el Workbook."),
+                : "Internal server error",
             azureCode,
-            details: azureMsg
         }, { status });
     }
 }

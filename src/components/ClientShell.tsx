@@ -9,12 +9,15 @@ import { LayoutTemplate, Code2, Bell } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import AuthSync from './AuthSync';
 import LanguageSwitcher from './LanguageSwitcher';
+import { CurrencySelector } from './CurrencyProvider';
 import Sidebar from "./Sidebar";
 import RouteTierGate from './RouteTierGate';
 import ActionCenterDrawer from './ActionCenterDrawer';
 import CostToggle from './dashboard/CostToggle';
 import GlobalPagePinButton from './dashboard/GlobalPagePinButton';
 import PricingPage from './PricingPage';
+import PublicFooter from './PublicFooter';
+import CookieConsent from './CookieConsent';
 import { useActionLogStore } from '@/store/actionLogStore';
 import { useRouter, usePathname } from '@/i18n/routing';
 import { useSearchParams } from 'next/navigation';
@@ -23,6 +26,7 @@ import { toast } from 'sonner';
 import { useMsal, useIsAuthenticated } from "@azure/msal-react";
 
 import { MetricProvider } from './MetricProvider';
+import { CurrencyProvider } from './CurrencyProvider';
 
 export const TabContext = createContext({ activeTab: 'dashboard', setActiveTab: (t: string) => {} });
 
@@ -32,9 +36,12 @@ export default function ClientShell({ children, demoSession }: { children: React
       <TenantProvider demoSession={demoSession}>
         <SubscriptionProvider>
           <MetricProvider>
-            <ViewModeProvider>
-              <ShellContent demoSession={demoSession}>{children}</ShellContent>
-            </ViewModeProvider>
+            <CurrencyProvider>
+              <ViewModeProvider>
+                <ShellContent demoSession={demoSession}>{children}</ShellContent>
+                <CookieConsent />
+              </ViewModeProvider>
+            </CurrencyProvider>
           </MetricProvider>
         </SubscriptionProvider>
       </TenantProvider>
@@ -270,6 +277,7 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
             </div>
             
             <LanguageSwitcher />
+            <CurrencySelector />
             
             <div className="flex items-center space-x-2">
                 <button 
@@ -294,6 +302,8 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
         </main>
         
         <GlobalPagePinButton />
+
+        <PublicFooter />
 
         <div className="fixed bottom-4 right-6 pointer-events-none z-40 opacity-40 select-none">
             <div className="flex flex-col items-end">

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import jwt from "jsonwebtoken";
 import { isMockTenant } from "@/lib/mockData";
 import pool from "@/modules/storage/db";
+import { renderShowbackPdf } from "@/lib/pdf/showbackInvoice";
+import { requireTenantRole } from "@/lib/requestAuth";
+import JSZip from "jszip";
 
 const MOCK_LINES = [
     { date: "2026-06-01", customerId: "cust-001", customerName: "ACME Corp", service: "Virtual Machines", resourceGroup: "rg-prod-acme", originalCost: 1230.50, adjustedCost: 1415.08 },
@@ -39,34 +41,133 @@ function serializeCSV(lines: any[], period: string): string {
     return header + rows.join("\r\n");
 }
 
+async function handlePdfGeneration(
+    payload: any,
+    period: string,
+    customerId: string | null,
+    tenantId: string,
+    tenantName: string | null
+): Promise<NextResponse> {
+    try {
+        const isMock = payload.mock === true;
+        
+        // Get customer details for single PDF
+        if (customerId) {
+            const customer = payload.byCustomer?.find((c: any) => c.customerId === customerId);
+            if (!customer) {
+                return NextResponse.json({ error: "Customer not found." }, { status: 404 });
+            }
+
+            const customerLines = payload.lines.filter((l: any) => l.customerId === customerId);
+            
+            const pdfData = {
+                tenantName: tenantName || "Unknown Tenant",
+                period,
+                generatedDate: new Date().toISOString(),
+                customerName: customer.customerId,
+                customerId: customer.customerId,
+                billingPeriod: period,
+                originalCost: customer.originalCost,
+                adjustedCost: customer.adjustedCost,
+                markupPercent: payload.markupPercent,
+                markupAmount: Math.round((customer.adjustedCost - customer.originalCost) * 100) / 100,
+                currency: payload.currency || "USD",
+                lines: customerLines,
+            };
+
+            const buffer = await renderShowbackPdf({ data: pdfData });
+            
+            // Log audit
+            if (!isMock) {
+                await pool.query(
+                    `INSERT INTO ActionLogs (tenant_id, action_type, resource_id, status, user_email) 
+                     VALUES (?, 'SHOWBACK_PDF_GENERATED', ?, 'SUCCESS', ?)`,
+                    [tenantId, `${customerId}:${period}`, "system"]
+                );
+            }
+
+            return new NextResponse(new Uint8Array(buffer), {
+                headers: {
+                    "Content-Type": "application/pdf",
+                    "Content-Disposition": `attachment; filename="showback-${customerId}-${period}.pdf"`,
+                },
+            });
+        }
+
+        // Generate ZIP with all customer PDFs
+        const zip = new JSZip();
+        const customerPromises = payload.byCustomer.map(async (customer: any) => {
+            const customerLines = payload.lines.filter((l: any) => l.customerId === customer.customerId);
+            
+            const pdfData = {
+                tenantName: tenantName || "Unknown Tenant",
+                period,
+                generatedDate: new Date().toISOString(),
+                customerName: customer.customerId,
+                customerId: customer.customerId,
+                billingPeriod: period,
+                originalCost: customer.originalCost,
+                adjustedCost: customer.adjustedCost,
+                markupPercent: payload.markupPercent,
+                markupAmount: Math.round((customer.adjustedCost - customer.originalCost) * 100) / 100,
+                currency: payload.currency || "USD",
+                lines: customerLines,
+            };
+
+            const buffer = await renderShowbackPdf({ data: pdfData });
+            zip.file(`showback-${customer.customerId}-${period}.pdf`, buffer);
+        });
+
+        await Promise.all(customerPromises);
+
+        // Log audit for batch
+        if (!isMock) {
+            await pool.query(
+                `INSERT INTO ActionLogs (tenant_id, action_type, resource_id, status, user_email) 
+                 VALUES (?, 'SHOWBACK_PDF_GENERATED', ?, 'SUCCESS', ?)`,
+                [tenantId, `all:${period}`, "system"]
+            );
+        }
+
+        const zipBuffer = await zip.generateAsync({ type: "nodebuffer" });
+        return new NextResponse(new Uint8Array(zipBuffer), {
+            headers: {
+                "Content-Type": "application/zip",
+                "Content-Disposition": `attachment; filename="showback-${period}.zip"`,
+            },
+        });
+    } catch (err: any) {
+        console.error("PDF generation error:", err);
+        return NextResponse.json({ error: "Failed to generate PDF: " + err.message }, { status: 500 });
+    }
+}
+
 export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
         const tenantId = searchParams.get("tenantId");
         const period = searchParams.get("period") || new Date().toISOString().substring(0, 7);
         const format = searchParams.get("format") || "json";
+        const customerId = searchParams.get("customerId");
 
         if (!tenantId) {
             return NextResponse.json({ error: "Falta parámetro: tenantId" }, { status: 400 });
         }
 
-        const authHeader = request.headers.get("authorization");
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            return NextResponse.json({ error: "Falta token Bearer." }, { status: 401 });
-        }
-        const decoded = jwt.decode(authHeader.split(" ")[1]) as any;
-        if (!decoded || !decoded.tid) {
-            return NextResponse.json({ error: "Token inválido." }, { status: 401 });
-        }
-        const email = (decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "").toLowerCase();
-        const isSuperAdmin = email.endsWith("@cscloudsolutions.com.ar");
-        if (decoded.tid !== tenantId && !isSuperAdmin) {
-            return NextResponse.json({ error: "Acceso denegado al tenant." }, { status: 403 });
+        // Auth: Use requireTenantRole with special handling for mock tenants
+        let identity;
+        if (!isMockTenant(tenantId)) {
+            try {
+                identity = await requireTenantRole(request, tenantId, ["ADMIN"]);
+            } catch (authErr: any) {
+                return NextResponse.json(
+                    { error: authErr.message || "Unauthorized" },
+                    { status: authErr.status || 401 }
+                );
+            }
         }
 
         // PBIT: not implemented yet
-        // Future implementation: read a .pbit template file, inject data into the embedded JSON model,
-        // repack the ZIP, and stream back as application/x-powerbi-template.
         if (format === "pbit") {
             return NextResponse.json({ success: false, error: "PBIT export coming soon", mock: true });
         }
@@ -81,24 +182,29 @@ export async function GET(request: NextRequest) {
                     },
                 });
             }
+            if (format === "pdf") {
+                return await handlePdfGeneration(MOCK_PAYLOAD, period, customerId, tenantId, "Mock Tenant");
+            }
             return NextResponse.json({ ...MOCK_PAYLOAD, period });
         }
 
         try {
             const [tenants]: any = await pool.query(
-                "SELECT tier, partner_markup_percent FROM Tenants WHERE tenant_id = ?",
+                "SELECT tier, partner_markup_percent, company_name FROM Tenants WHERE tenant_id = ?",
                 [tenantId]
             );
             if (!tenants || tenants.length === 0) {
                 return NextResponse.json({ error: "Tenant no encontrado." }, { status: 404 });
             }
             const tier = String(tenants[0].tier || "");
+            const isSuperAdmin = identity?.isCorporateDomain || false;
             if (tier.toLowerCase() !== "enterprise" && !isSuperAdmin) {
                 return NextResponse.json({ error: "Feature bloqueada. Requiere plan Enterprise." }, { status: 403 });
             }
             const markupPercent = tenants[0].partner_markup_percent != null
                 ? Number(tenants[0].partner_markup_percent)
                 : 15;
+            const tenantName = tenants[0].company_name || "Unknown Tenant";
 
             const [rows]: any = await pool.query(
                 `SELECT
@@ -180,6 +286,10 @@ export async function GET(request: NextRequest) {
                         "Content-Disposition": `attachment; filename="invoicing-${period}.csv"`,
                     },
                 });
+            }
+
+            if (format === "pdf") {
+                return await handlePdfGeneration(payload, period, customerId, tenantId, tenantName);
             }
 
             return NextResponse.json(payload);

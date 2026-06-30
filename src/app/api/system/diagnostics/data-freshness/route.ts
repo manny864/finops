@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import jwt from "jsonwebtoken";
+import { requireSuperAdmin, AuthError } from "@/lib/requestAuth";
 import pool, { initializeDatabase } from "@/modules/storage/db";
 
 /**
@@ -19,17 +19,7 @@ export async function GET(request: NextRequest) {
         const tenantId = request.nextUrl.searchParams.get("tenantId");
         if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
 
-        const authHeader = request.headers.get("authorization");
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            return NextResponse.json({ error: "Falta token Bearer." }, { status: 401 });
-        }
-        const decoded = jwt.decode(authHeader.split(" ")[1]) as any;
-        if (!decoded || !decoded.tid) return NextResponse.json({ error: "Token inválido." }, { status: 401 });
-        const email = (decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "").toLowerCase();
-        const isSuperAdmin = email.endsWith("@cscloudsolutions.com.ar");
-        if (decoded.tid !== tenantId && !isSuperAdmin) {
-            return NextResponse.json({ error: "Acceso denegado al tenant." }, { status: 403 });
-        }
+        await requireSuperAdmin(request);
 
         // 1) Última ingesta + cuenta + delays sobre CostSnapshots últimos 30d
         const [aggRows]: any = await pool.query(
@@ -111,8 +101,9 @@ export async function GET(request: NextRequest) {
             gapsCount30d,
             events: eventRows,
         });
-    } catch (e: any) {
+    } catch (e: unknown) {
+        if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
         console.error("[data-freshness] error:", e);
-        return NextResponse.json({ error: "Error consultando frescura de datos", details: e.message }, { status: 500 });
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }

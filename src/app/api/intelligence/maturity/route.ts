@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import jwt from "jsonwebtoken";
+import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { getAzureCredential } from "@/lib/azure";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { AdvisorManagementClient } from "@azure/arm-advisor";
@@ -15,17 +15,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
     }
 
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Falta token Bearer de autenticación." }, { status: 401 });
-    }
-
-    const token = authHeader.split(" ")[1];
-    const decoded = jwt.decode(token) as any;
-
-    if (!decoded || !decoded.tid) {
-      return NextResponse.json({ error: "Estructura de token inválida." }, { status: 401 });
-    }
+    await requireTenantAccess(request, tenantId);
 
     const cacheKey = `intelligence:maturity:${tenantId}`;
     const resultData = await getWithStaleWhileRevalidate(cacheKey, async () => {
@@ -124,9 +114,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(resultData);
 
-  } catch (error: any) {
+  } catch (error: unknown) {
+    if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error("Maturity API Error:", error);
-    return NextResponse.json({ error: "Fallo en la validación de madurez." }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -172,8 +163,9 @@ export async function POST(request: NextRequest) {
             level
         });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
+        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
         console.error("Maturity Assessment API Error:", error);
-        return NextResponse.json({ error: "Fallo al guardar la evaluación.", details: error.message }, { status: 500 });
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }

@@ -47,13 +47,12 @@ function countBySeverity(items: CredItem[]) {
     return counts;
 }
 
+import { getTenantCredentials } from "@/lib/secrets/tenantCredentials";
+
 async function getGraphTokenForTenant(tenantId: string): Promise<string | null> {
-    const [rows]: any = await pool.query(
-        "SELECT client_id, client_secret FROM Tenants WHERE tenant_id = ?",
-        [tenantId]
-    );
-    if (!rows?.[0]?.client_id || !rows?.[0]?.client_secret) return null;
-    const { client_id, client_secret } = rows[0];
+    const creds = await getTenantCredentials(tenantId);
+    if (!creds) return null;
+    const { clientId: client_id, clientSecret: client_secret } = creds;
     const res = await fetch(`https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },

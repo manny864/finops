@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool, { insertCostSnapshot, insertCostSnapshotRow, updateTenantHealth } from "@/modules/storage/db";
 import { getYesterdaysCost, getYesterdaysDetailedCosts } from "@/modules/collectors/azure/billingService";
+import { getTenantCredentials } from "@/lib/secrets/tenantCredentials";
 
 export async function GET(request: NextRequest) {
     return runSync(request);
@@ -12,9 +13,13 @@ export async function POST(request: NextRequest) {
 
 async function runSync(request: NextRequest) {
     try {
-        // 1. Security Check
+        // 1. Security Check — fail-closed if secret is not configured
+        const cronSecret = process.env.CRON_SECRET;
+        if (!cronSecret || cronSecret.length < 16) {
+            console.error('CRON_SECRET not configured or too short');
+            return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
+        }
         const authHeader = request.headers.get("authorization");
-        const cronSecret = process.env.CRON_SECRET || "local-cron-secret";
         if (authHeader !== `Bearer ${cronSecret}`) {
             return NextResponse.json({ error: "No autorizado." }, { status: 401 });
         }
@@ -27,9 +32,9 @@ async function runSync(request: NextRequest) {
         const dd = String(yesterday.getDate()).padStart(2, '0');
         const yesterdayStr = `${yyyy}-${mm}-${dd}`;
 
-        // 3. Fetch all active tenants
+        // 3. Fetch all active tenants (only IDs — credentials come from KV per-tenant)
         const [tenants] = await pool.query<any[]>(
-            'SELECT tenant_id as id, client_id, client_secret FROM Tenants WHERE status = "active"'
+            'SELECT tenant_id as id FROM Tenants WHERE status = "active"'
         );
 
         let tenantCount = 0;
@@ -38,7 +43,8 @@ async function runSync(request: NextRequest) {
         // 4. Sequential Loop (for...of) to avoid rate limits
         for (const tenant of tenants) {
             try {
-                if (!tenant.client_id || !tenant.client_secret) {
+                const creds = await getTenantCredentials(tenant.id);
+                if (!creds) {
                     throw new Error("Azure client credentials are not configured for this tenant.");
                 }
 

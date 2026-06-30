@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import jwt from "jsonwebtoken";
+import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { getAksChargebackCost } from "@/modules/collectors/azure/aksCostService";
 import { isMockTenant } from "@/lib/mockData";
 import pool from "@/modules/storage/db";
@@ -15,20 +15,8 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Faltan parámetros requeridos: tenantId" }, { status: 400 });
         }
 
-        // --- Auth: Bearer token + match de tenant (o super-admin) ---
-        const authHeader = request.headers.get("authorization");
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            return NextResponse.json({ error: "Falta token Bearer." }, { status: 401 });
-        }
-        const decoded = jwt.decode(authHeader.split(" ")[1]) as any;
-        if (!decoded || !decoded.tid) {
-            return NextResponse.json({ error: "Token inválido." }, { status: 401 });
-        }
-        const email = (decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "").toLowerCase();
-        const isSuperAdmin = email.endsWith("@cscloudsolutions.com.ar");
-        if (decoded.tid !== tenantId && !isSuperAdmin) {
-            return NextResponse.json({ error: "Acceso denegado al tenant." }, { status: 403 });
-        }
+        const identity = await requireTenantAccess(request, tenantId);
+        const isSuperAdmin = identity.isCorporateDomain;
 
         // --- Feature gate (tier Enterprise) ---
         let normalizedTier = 'Enterprise';
@@ -92,8 +80,9 @@ export async function GET(request: NextRequest) {
         );
 
         return NextResponse.json({ ...data, availableClusters });
-    } catch (error: any) {
+    } catch (error: unknown) {
+        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
         console.error("AKS Chargeback API Error:", error);
-        return NextResponse.json({ error: "Fallo al obtener datos de AKS.", details: error.message }, { status: 500 });
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }

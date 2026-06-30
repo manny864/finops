@@ -1,17 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
-import jwt from "jsonwebtoken";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { hasAccess } from "@/lib/tierLogic";
 import { getAzureCredential } from "@/lib/azure";
 import { getWithCache } from "@/lib/cache";
 import { redis } from "@/lib/redis";
+import { requireTenantAccess, requireTenantRole, AuthError } from "@/lib/requestAuth";
+import pool from "@/modules/storage/db";
+
+async function tenantTier(tenantId: string): Promise<string> {
+    const [rows] = await pool.query("SELECT tier FROM Tenants WHERE tenant_id = ? LIMIT 1", [tenantId]);
+    return (Array.isArray(rows) && rows.length > 0 ? (rows[0] as { tier?: string }).tier : null) || 'Essential';
+}
 
 export async function GET(request: NextRequest) {
     try {
         const tenantId = request.nextUrl.searchParams.get('tenantId');
-        const userTier = request.nextUrl.searchParams.get('tier') || 'Essential';
-
         if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
+
+        await requireTenantAccess(request, tenantId);
+        const userTier = await tenantTier(tenantId);
 
         if (!hasAccess(userTier, 'Enterprise')) {
             return NextResponse.json({ error: "Funcionalidad requiere plan Enterprise o superior." }, { status: 403 });
@@ -21,7 +28,6 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(getMockDataForRoute('governance-policies', tenantId));
         }
 
-        // Fetch real Management Groups and Policy Assignments from Azure with Redis caching
         try {
             const cacheKey = `governance-policies:v2:${tenantId}`;
             const realData = await getWithCache(cacheKey, async () => {
@@ -42,7 +48,7 @@ export async function GET(request: NextRequest) {
 
                 // 2. Fetch Subscriptions to map names
                 const subRes = await fetch('https://management.azure.com/subscriptions?api-version=2020-01-01', { headers });
-                let subMap: Record<string, string> = {};
+                const subMap: Record<string, string> = {};
                 if (subRes.ok) {
                     const subData = await subRes.json();
                     subData.value?.forEach((sub: any) => {
@@ -108,12 +114,17 @@ export async function GET(request: NextRequest) {
             }, 300); // 5 min cache
 
             return NextResponse.json({ success: true, managementGroups: realData.managementGroups, subscriptions: realData.subscriptions, data: realData.data });
-        } catch (e: any) {
-            return NextResponse.json({ error: e.message || "Fallo al consultar Azure" }, { status: 403 });
+        } catch (e) {
+            console.error('governance-policies GET azure error:', e);
+            return NextResponse.json({ error: "Fallo al consultar Azure" }, { status: 403 });
         }
 
-    } catch (error: any) {
-        return NextResponse.json({ error: "Fallo al obtener estado de políticas", details: error.message }, { status: 500 });
+    } catch (error) {
+        if (error instanceof AuthError) {
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        }
+        console.error('governance-policies error:', error);
+        return NextResponse.json({ error: "Fallo al obtener estado de políticas" }, { status: 500 });
     }
 }
 
@@ -121,10 +132,12 @@ export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
         const { tenantId, policyId, displayName, action, targetMg, parameters, nonComplianceMessages, identity, location } = body;
-        
+
         if (!tenantId || !policyId || !action) {
             return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
         }
+
+        await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
 
         if (isMockTenant(tenantId)) {
             // Simular delay de inyección de políticas ARM
@@ -179,7 +192,8 @@ export async function POST(request: NextRequest) {
 
             if (!putRes.ok) {
                 const errTxt = await putRes.text();
-                throw new Error(`Azure Error ${putRes.status}: ${errTxt}`);
+                console.error(`Azure policy assign ${putRes.status} for tenant ${tenantId}:`, errTxt);
+                throw new Error(`Azure API error ${putRes.status}`);
             }
             
             // Invalidate cache
@@ -200,7 +214,8 @@ export async function POST(request: NextRequest) {
             });
             if (!delRes.ok) {
                 const errTxt = await delRes.text();
-                throw new Error(`Azure Error ${delRes.status}: ${errTxt}`);
+                console.error(`Azure policy delete ${delRes.status} for tenant ${tenantId}:`, errTxt);
+                throw new Error(`Azure API error ${delRes.status}`);
             }
             
             if (redis) {
@@ -211,7 +226,11 @@ export async function POST(request: NextRequest) {
         } else {
             return NextResponse.json({ error: "Acción no reconocida" }, { status: 400 });
         }
-    } catch (error: any) {
-        return NextResponse.json({ error: "Fallo al aplicar la política", details: error.message }, { status: 500 });
+    } catch (error) {
+        if (error instanceof AuthError) {
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        }
+        console.error('governance-policies POST error:', error);
+        return NextResponse.json({ error: "Fallo al aplicar la política" }, { status: 500 });
     }
 }

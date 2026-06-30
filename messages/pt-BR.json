@@ -332,10 +332,9 @@
     "monthly": "Mensal",
     "annual": "Anual",
     "save12": "Economize 12%",
-    "tryNow": "Experimentar Agora",
+    "tryNow": "Demo Interativa",
     "buyNow": "Comprar Agora",
     "contactSales": "Contatar Vendas",
-    "tryDemoTier": "Experimentar demo interativa",
     "title": "Preços Simples e Fixos",
     "subtitle": "Seja você uma startup ou Enterprise, temos planos simples e de taxa fixa que não aumentam seus problemas de custos.",
     "essential": {
@@ -627,5 +626,87 @@
   "Mock": {
     "badge": "DADOS DE EXEMPLO",
     "description": "Você está vendo dados simulados. Conecte sua assinatura Azure para ver dados reais."
+  },
+  "signup": {
+    "title": "Comece seu julgamento gratuito de 14 dias",
+    "subtitle": "Conecte sua assinatura do Azure em 5 minutos. Veja economia em 24 horas.",
+    "noCardRequired": "Nenhum cartão de crédito obrigatório",
+    "hero": "Comece seu julgamento gratuito de 14 dias",
+    "planSelector": "Escolha Seu Plano",
+    "essential": {
+      "name": "Essential",
+      "price": "$0",
+      "monthlyPrice": "Grátis",
+      "yearlyPrice": "Grátis",
+      "description": "Perfeito para indivíduos e pequenas equipes",
+      "features": [
+        "Monitoramento de assinatura do Azure",
+        "Análise básica de custos",
+        "Relatórios semanais",
+        "Suporte por email",
+        "Ver mais"
+      ],
+      "cta": "Iniciar julgamento gratuito"
+    },
+    "professional": {
+      "name": "Professional",
+      "price": "$99",
+      "monthlyPrice": "$99/mês",
+      "yearlyPrice": "$990/ano",
+      "description": "Para equipes e departamentos em crescimento",
+      "features": [
+        "Tudo no Essential",
+        "Recomendações avançadas de FinOps",
+        "Alertas em tempo real",
+        "Dashboards personalizados",
+        "Ver mais"
+      ],
+      "cta": "Iniciar julgamento gratuito",
+      "recommended": true
+    },
+    "business": {
+      "name": "Business",
+      "price": "$299",
+      "monthlyPrice": "$299/mês",
+      "yearlyPrice": "$2,990/ano",
+      "description": "Para grandes empresas",
+      "features": [
+        "Tudo no Professional",
+        "Gerenciamento multi-tenant",
+        "Acesso à API",
+        "Suporte prioritário",
+        "Ver mais"
+      ],
+      "cta": "Iniciar julgamento gratuito"
+    },
+    "enterprise": {
+      "name": "Enterprise",
+      "description": "Para organizações com requisitos complexos",
+      "features": [
+        "Usuários e tenants ilimitados",
+        "Integrações personalizadas",
+        "Gerente de conta dedicado",
+        "Garantia SLA",
+        "Ver mais"
+      ],
+      "cta": "Contatar vendas"
+    },
+    "trustSignals": "Confiável para líderes de FinOps",
+    "badges": [
+      "Certificado SOC 2",
+      "Verificado pelo Azure",
+      "Conformidade ISO 27001"
+    ],
+    "faq": {
+      "title": "Perguntas Frequentes",
+      "q1": "O que acontece após meu julgamento terminar?",
+      "a1": "Você pode atualizar para um plano pago a qualquer momento durante ou após seu julgamento. Nenhum cartão de crédito obrigatório antecipadamente.",
+      "q2": "Preciso inserir informações de cartão de crédito?",
+      "a2": "Não! Seu julgamento não requer método de pagamento. Você será cobrado apenas ao atualizar para um plano pago.",
+      "q3": "Posso cancelar meu julgamento?",
+      "a3": "Sim, você pode cancelar a qualquer momento. Se você atualizar para um plano pago, poderá cancelar ao final do seu ciclo de cobrança.",
+      "q4": "Meus dados estão seguros?",
+      "a4": "Absolutamente. Somos certificados SOC 2 Type II e seguimos padrões de segurança de classe mundial."
+    }
   }
 }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { escapeHtml } from "@/lib/htmlEscape";
 
 export async function POST(req: NextRequest) {
     try {
@@ -10,11 +11,15 @@ export async function POST(req: NextRequest) {
         }
 
         // 1. Validate reCAPTCHA v3
-        const recaptchaSecret = "6Le3QDItAAAAADv7KnsDqGZ5hgE-CukUd2d_4Y7V";
+        const recaptchaSecret = process.env.RECAPTCHA_SECRET;
+        if (!recaptchaSecret) {
+            console.error('[Demo Lead] RECAPTCHA_SECRET not configured');
+            return NextResponse.json({ success: false, error: "Service misconfigured" }, { status: 503 });
+        }
         const recaptchaVerify = await fetch(`https://www.google.com/recaptcha/api/siteverify`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: `secret=${recaptchaSecret}&response=${recaptchaToken}`
+            body: `secret=${encodeURIComponent(recaptchaSecret)}&response=${encodeURIComponent(recaptchaToken)}`
         });
         
         const recaptchaResult = await recaptchaVerify.json();
@@ -46,19 +51,23 @@ export async function POST(req: NextRequest) {
         const tokenData = await tokenResponse.json();
         const accessToken = tokenData.access_token;
 
-        // 3. Construct Email Payload
+        // 3. Construct Email Payload — HTML escape all user-controlled inputs
+        const safeName = escapeHtml(fullName);
+        const safeEmail = escapeHtml(email);
+        const safePhone = escapeHtml(phone);
+        const safeCompany = escapeHtml(companyName);
         const mailPayload = {
             message: {
-                subject: `🚨 NUEVO LEAD DEMO - FinOps: ${companyName}`,
+                subject: `🚨 NUEVO LEAD DEMO - FinOps: ${safeCompany}`,
                 body: {
                     contentType: "HTML",
                     content: `
                         <h2>Nuevo Lead Capturado en Demo Gate</h2>
-                        <p><strong>Nombre Completo:</strong> ${fullName}</p>
-                        <p><strong>Correo Electrónico:</strong> ${email}</p>
-                        <p><strong>Teléfono:</strong> ${phone}</p>
-                        <p><strong>Nombre empresa:</strong> <span style="font-size: 1.2em; color: #0054A6;">${companyName}</span></p>
-                        <p><strong>Score reCAPTCHA:</strong> ${recaptchaResult.score}</p>
+                        <p><strong>Nombre Completo:</strong> ${safeName}</p>
+                        <p><strong>Correo Electrónico:</strong> ${safeEmail}</p>
+                        <p><strong>Teléfono:</strong> ${safePhone}</p>
+                        <p><strong>Nombre empresa:</strong> <span style="font-size: 1.2em; color: #0054A6;">${safeCompany}</span></p>
+                        <p><strong>Score reCAPTCHA:</strong> ${escapeHtml(recaptchaResult.score)}</p>
                     `
                 },
                 toRecipients: [
