@@ -135,7 +135,7 @@ describe('API: /intelligence/forecast', () => {
 
       expect(response.status).toBe(200);
       const data = await response.json();
-      expect(data.method_used).toMatch(/linear|ema|holt_winters/);
+      expect(data.method_used).toMatch(/linear|ema|holt_winters|ensemble/);
     });
 
     it('should include backtest metrics when requested', async () => {

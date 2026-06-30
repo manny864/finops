@@ -1,5 +1,3 @@
-'use server';
-
 import SignupPageClient from '@/components/SignupPageClient';
 
 export const metadata = {
