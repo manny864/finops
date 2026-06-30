@@ -3,6 +3,7 @@ import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { GLOBAL_MANDATORY_TAGS } from "@/lib/tagConfig";
+import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 3000;
@@ -29,6 +30,9 @@ export async function GET(req: NextRequest) {
         const tenantId = searchParams.get('tenantId');
         const subscriptionId = searchParams.get('subscriptionId');
         if (!tenantId) return NextResponse.json({ error: "Missing tenantId" }, { status: 400 });
+
+        // Auth: validate JWT and assert caller belongs to this tenant.
+        await requireTenantRole(req, tenantId, ['Admin', 'Owner', 'Reader', 'Colaborador']);
 
         const cacheKey = `tags_compliance_v2_${tenantId}_${subscriptionId || 'all'}`;
 
@@ -134,6 +138,7 @@ export async function GET(req: NextRequest) {
         });
 
     } catch (e: any) {
+        if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
         console.error("Tag Compliance API Error:", e);
         return NextResponse.json({ success: false, error: e.message || 'Error del servidor' }, { status: 500 });
     }
