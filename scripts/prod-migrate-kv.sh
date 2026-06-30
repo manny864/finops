@@ -20,9 +20,10 @@ set -euo pipefail
 
 # ---- Config ----------------------------------------------------------------
 PROJECT_DIR="${PROJECT_DIR:-/home/manny/cscloud/finops}"
+MYSQL_DIR="${MYSQL_DIR:-/home/manny/cscloud/database}"
 ENV_FILE="${ENV_FILE:-$PROJECT_DIR/.env}"
-MYSQL_SERVICE="${MYSQL_SERVICE:-mysql}"     # service name en docker-compose
-APP_SERVICE="${APP_SERVICE:-app}"
+MYSQL_SERVICE="${MYSQL_SERVICE:-mysql}"          # service en el compose de MySQL
+APP_SERVICE="${APP_SERVICE:-finops-app}"          # service en el compose de la app
 KV_URL_DEFAULT="https://cscs-kv-finops-saas-prod.vault.azure.net/"
 TS="$(date +%Y%m%d-%H%M%S)"
 LOG_DIR="$PROJECT_DIR/migration-logs"
@@ -103,46 +104,58 @@ DB_PASS="$(grep -E '^DB_PASSWORD=' "$ENV_FILE" | head -1 | cut -d= -f2- | tr -d 
 DB_NAME="$(grep -E '^DB_NAME=' "$ENV_FILE" | head -1 | cut -d= -f2- | tr -d '"'\')"
 [[ -n "$DB_USER" && -n "$DB_PASS" && -n "$DB_NAME" ]] || die "Faltan DB_USER/DB_PASSWORD/DB_NAME en $ENV_FILE"
 
-# Helper para mysql sin spamear el password en logs
+# Helper para mysql sin spamear el password en logs (MySQL corre en otro compose project)
 mysql_exec() {
-  docker compose exec -T "$MYSQL_SERVICE" \
-    env MYSQL_PWD="$DB_PASS" mysql -u"$DB_USER" "$DB_NAME" "$@"
+  ( cd "$MYSQL_DIR" && docker compose exec -T "$MYSQL_SERVICE" \
+      env MYSQL_PWD="$DB_PASS" mysql -u"$DB_USER" "$DB_NAME" "$@" )
 }
 mysql_dump() {
-  docker compose exec -T "$MYSQL_SERVICE" \
-    env MYSQL_PWD="$DB_PASS" mysqldump -u"$DB_USER" "$DB_NAME" "$@"
+  ( cd "$MYSQL_DIR" && docker compose exec -T "$MYSQL_SERVICE" \
+      env MYSQL_PWD="$DB_PASS" mysqldump -u"$DB_USER" "$DB_NAME" "$@" )
+}
+# Helper para app (otro compose project)
+app_exec() {
+  docker compose exec -T "$APP_SERVICE" "$@"
 }
 
 header "Pre-flight checks"
-log "Project dir : $PROJECT_DIR"
+log "Project dir : $PROJECT_DIR  (service: $APP_SERVICE)"
+log "MySQL dir   : $MYSQL_DIR  (service: $MYSQL_SERVICE)"
 log "Env file    : $ENV_FILE"
 log "Log file    : $LOG_FILE"
 log "Backup file : $BACKUP_FILE"
 log "Auto-yes    : $AUTO_YES"
 
-# Validar que los servicios estén UP
-if ! docker compose ps --services --filter status=running | grep -q "^${APP_SERVICE}$"; then
-  die "El servicio docker '$APP_SERVICE' no está corriendo (docker compose ps)"
-fi
-if ! docker compose ps --services --filter status=running | grep -q "^${MYSQL_SERVICE}$"; then
-  die "El servicio docker '$MYSQL_SERVICE' no está corriendo (docker compose ps)"
-fi
-ok "Servicios docker UP ($APP_SERVICE, $MYSQL_SERVICE)"
+[[ -d "$MYSQL_DIR" ]] || die "No existe $MYSQL_DIR (ajusta MYSQL_DIR env var)"
 
-# Validar vars KV en el container
-KV_VARS=$(docker compose exec -T "$APP_SERVICE" sh -c 'env | grep -c "^AZURE_KEYVAULT_" || true')
-if [[ "$KV_VARS" -lt 5 ]]; then
+# Validar que la app esté UP (estamos en PROJECT_DIR)
+if ! docker compose ps --services --filter status=running | grep -q "^${APP_SERVICE}$"; then
+  AVAILABLE=$(docker compose ps --services --filter status=running | tr '\n' ' ')
+  die "Service '$APP_SERVICE' no está corriendo en $PROJECT_DIR. Disponibles: ${AVAILABLE:-(ninguno)}. Override con APP_SERVICE=<nombre>."
+fi
+ok "App service UP: $APP_SERVICE"
+
+# Validar MySQL en su propio compose project
+if ! ( cd "$MYSQL_DIR" && docker compose ps --services --filter status=running | grep -q "^${MYSQL_SERVICE}$" ); then
+  AVAILABLE=$( cd "$MYSQL_DIR" && docker compose ps --services --filter status=running | tr '\n' ' ' )
+  die "Service '$MYSQL_SERVICE' no está corriendo en $MYSQL_DIR. Disponibles: ${AVAILABLE:-(ninguno)}. Override con MYSQL_SERVICE=<nombre>."
+fi
+ok "MySQL service UP: $MYSQL_SERVICE  (en $MYSQL_DIR)"
+
+# Validar vars KV en el container de la app
+KV_VARS=$(app_exec sh -c 'env | grep -c "^AZURE_KEYVAULT_" || true' | tr -d '\r')
+if [[ "${KV_VARS:-0}" -lt 5 ]]; then
   die "El container '$APP_SERVICE' no tiene las vars AZURE_KEYVAULT_* cargadas ($KV_VARS encontradas, esperaba ≥5). Reinicia con: docker compose up -d --force-recreate $APP_SERVICE"
 fi
 ok "Variables AZURE_KEYVAULT_* en container: $KV_VARS"
 
-KV_URL=$(docker compose exec -T "$APP_SERVICE" sh -c 'echo "$AZURE_KEYVAULT_URL"' | tr -d '\r')
+KV_URL=$(app_exec sh -c 'echo "$AZURE_KEYVAULT_URL"' | tr -d '\r')
 log "KV URL: ${KV_URL:-$KV_URL_DEFAULT}"
 
 # Smoke test conectividad KV (debe responder, aunque sea 401)
 log "Probando conectividad TLS al Key Vault..."
-HTTP_CODE=$(docker compose exec -T "$APP_SERVICE" \
-  sh -c "curl -sk -o /dev/null -w '%{http_code}' --max-time 10 ${KV_URL:-$KV_URL_DEFAULT}" || echo "000")
+HTTP_CODE=$(app_exec sh -c "curl -sk -o /dev/null -w '%{http_code}' --max-time 10 ${KV_URL:-$KV_URL_DEFAULT}" || echo "000")
+HTTP_CODE=$(echo "$HTTP_CODE" | tr -d '\r')
 case "$HTTP_CODE" in
   401|400|404) ok "KV responde HTTP $HTTP_CODE (firewall permite acceso)" ;;
   403)         die "KV responde 403 Forbidden — la IP del VPS NO está en el firewall del Key Vault. Agrega \$(curl -s ifconfig.me) en Azure Portal → Networking → Firewall." ;;
@@ -196,8 +209,7 @@ if should_run 3; then
   header "FASE 3 — Dry-run del script de migración"
   log "Ejecutando dry-run (NO escribe en KV)..."
   set +e
-  docker compose exec -T "$APP_SERVICE" \
-    npx tsx scripts/migrate-tenants-to-keyvault.ts --dry-run \
+  app_exec npx tsx scripts/migrate-tenants-to-keyvault.ts --dry-run \
     2>&1 | tee -a "$LOG_FILE"
   RC=${PIPESTATUS[0]}
   set -e
@@ -215,8 +227,7 @@ if should_run 4; then
   confirm "ÚLTIMA confirmación: ¿ejecutar migración LIVE?" || die "Abortado por usuario."
   log "Ejecutando migración..."
   set +e
-  docker compose exec -T "$APP_SERVICE" \
-    npx tsx scripts/migrate-tenants-to-keyvault.ts \
+  app_exec npx tsx scripts/migrate-tenants-to-keyvault.ts \
     2>&1 | tee -a "$LOG_FILE"
   RC=${PIPESTATUS[0]}
   set -e
@@ -272,7 +283,7 @@ echo "   3. Tras 30 días estables, aplicar cleanup:"
 echo "      docker compose exec -T mysql mysql -u\$USER -p \$DB < migrations/20260801-tenants-secret-cleanup.sql"
 echo
 echo "🚨 Rollback (si hace falta):"
-echo "   docker compose exec -T $MYSQL_SERVICE env MYSQL_PWD=\$pwd mysql -u$DB_USER $DB_NAME < $BACKUP_FILE"
+echo "   ( cd $MYSQL_DIR && docker compose exec -T $MYSQL_SERVICE env MYSQL_PWD=\$pwd mysql -u$DB_USER $DB_NAME < $BACKUP_FILE )"
 echo "   sed -i 's/^AZURE_KEYVAULT_ENABLED=true/AZURE_KEYVAULT_ENABLED=false/' $ENV_FILE"
 echo "   docker compose restart $APP_SERVICE"
 echo
