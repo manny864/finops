@@ -10,7 +10,7 @@ export interface Tenant {
 export const tenants: Tenant[] = [
   {
     id: "11111111-2222-3333-4444-555555555555",
-    name: "Cliente Acme (Demo Free)",
+    name: "Cliente Acme (Demo Essential)",
     tier: 'Essential'
   },
   {
