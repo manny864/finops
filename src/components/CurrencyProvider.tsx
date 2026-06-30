@@ -11,6 +11,24 @@ const SYMBOLS: Record<string, string> = {
     JPY: "¥", CHF: "CHF", CNY: "¥", INR: "₹",
 };
 
+const CURRENCY_LABELS: Record<string, string> = {
+    USD: "🇺🇸 USD — US Dollar",
+    EUR: "🇪🇺 EUR — Euro",
+    GBP: "🇬🇧 GBP — British Pound",
+    ARS: "🇦🇷 ARS — Peso Argentino",
+    BRL: "🇧🇷 BRL — Real Brasileño",
+    MXN: "🇲🇽 MXN — Peso Mexicano",
+    CLP: "🇨🇱 CLP — Peso Chileno",
+    COP: "🇨🇴 COP — Peso Colombiano",
+    PEN: "🇵🇪 PEN — Sol Peruano",
+    CAD: "🇨🇦 CAD — Canadian Dollar",
+    AUD: "🇦🇺 AUD — Australian Dollar",
+    JPY: "🇯🇵 JPY — Japanese Yen",
+    CHF: "🇨🇭 CHF — Swiss Franc",
+    CNY: "🇨🇳 CNY — Chinese Yuan",
+    INR: "🇮🇳 INR — Indian Rupee",
+};
+
 const NO_DECIMALS = new Set(["JPY", "CLP", "COP", "ARS"]);
 
 interface CurrencyContextType {
@@ -44,6 +62,9 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
             }
         } catch { /* keep defaults */ }
     }, []);
+
+    // Populate currency list on mount from the public /api/fx/rates endpoint (no auth needed)
+    useEffect(() => { loadRates("USD"); }, [loadRates]);
 
     useEffect(() => {
         if (!selectedTenant?.id || selectedTenant.id === "default" || accounts.length === 0) return;
@@ -132,11 +153,11 @@ export function CurrencySelector({ className }: { className?: string }) {
             value={currency}
             disabled={loading}
             onChange={(e) => setCurrency(e.target.value)}
-            className={className || "border rounded px-2 py-1 text-sm dark:bg-gray-900"}
+            className={className || "border rounded px-2 py-1 text-sm dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100 max-w-[10rem]"}
             title="Divisa de visualización"
         >
             {supported.map(c => (
-                <option key={c} value={c}>{c}</option>
+                <option key={c} value={c}>{CURRENCY_LABELS[c] || c}</option>
             ))}
         </select>
     );
