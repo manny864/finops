@@ -42,7 +42,7 @@ async function runPrewarm(request: NextRequest) {
     }
 
     const [tenants] = await pool.query<any[]>(
-      'SELECT tenant_id AS id, name FROM Tenants WHERE status = "active"'
+      'SELECT tenant_id AS id, company_name AS name FROM Tenants WHERE status = "active"'
     );
 
     const origin = request.nextUrl.origin;
