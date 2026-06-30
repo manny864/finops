@@ -2,34 +2,30 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentMonthAmortizedCosts, getCostForecast } from "@/modules/collectors/azure/billingService";
 import pool from "@/modules/storage/db";
 import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
-
-// Simple linear regression to predict end of month cost
-function predictCost(dailyCosts: { day: number, cost: number }[], daysInMonth: number) {
-    if (dailyCosts.length < 2) return null;
-
-    let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
-    const n = dailyCosts.length;
-
-    dailyCosts.forEach(p => {
-        sumX += p.day;
-        sumY += p.cost;
-        sumXY += (p.day * p.cost);
-        sumX2 += (p.day * p.day);
-    });
-
-    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
-    const intercept = (sumY - slope * sumX) / n;
-
-    const projectedCost = slope * daysInMonth + intercept;
-
-    return { slope, intercept, projectedCost };
-}
+import {
+  linearForecast,
+  emaForecast,
+  holtWintersForecast,
+  dampedHoltForecast,
+  ensembleForecast,
+  forecastWithConfidence,
+  evaluateForecast,
+  selectBestMethod,
+  selectBestMethodExtended,
+  detectAnomalies,
+  type HistoryPoint,
+} from "@/lib/forecasting";
 
 export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
         const tenantId = searchParams.get('tenantId');
         const subscriptionId = searchParams.get('subscriptionId') || 'All';
+        const method = (searchParams.get('method') || 'auto') as 'linear' | 'ema' | 'holt_winters' | 'damped_holt' | 'ensemble' | 'auto';
+        const daysParam = searchParams.get('days');
+        const days = daysParam ? Math.min(parseInt(daysParam), 90) : 30;
+        const withConfidence = searchParams.get('withConfidence') !== 'false';
+        const withBacktest = searchParams.get('withBacktest') === 'true';
 
         if (!tenantId) {
             return NextResponse.json({ error: "Faltan parámetros: tenantId" }, { status: 400 });
@@ -39,11 +35,11 @@ export async function GET(request: NextRequest) {
 
         const metricType = (request.headers.get('x-metric-type') as 'ActualCost' | 'AmortizedCost') || 'ActualCost';
 
-        // First get historical (Focus schema)
+        // Get historical data
         const historicalEntries = await getCurrentMonthAmortizedCosts(tenantId, subscriptionId, metricType);
         
-        // Then get forecast
-        const forecast = await getCostForecast(tenantId, subscriptionId, metricType);
+        // Get forecast
+        const forecastData = await getCostForecast(tenantId, subscriptionId, metricType);
 
         // Combine into one array
         const combinedMap: Record<string, any> = {};
@@ -59,7 +55,7 @@ export async function GET(request: NextRequest) {
             }
         });
 
-        forecast.forEach(item => {
+        forecastData.forEach(item => {
             if (!combinedMap[item.date]) {
                 combinedMap[item.date] = { date: item.date };
             }
@@ -68,7 +64,102 @@ export async function GET(request: NextRequest) {
 
         const combinedData = Object.values(combinedMap).sort((a: any, b: any) => a.date.localeCompare(b.date));
 
-        return NextResponse.json({ data: combinedData });
+        // For backwards compatibility, return simple response if no advanced params
+        if (method === 'auto' && days === 30 && !withConfidence && !withBacktest) {
+            return NextResponse.json({ data: combinedData });
+        }
+
+        // Build history from combined data (actual costs)
+        const history: HistoryPoint[] = combinedData
+            .filter((item: any) => item.actualCost && item.actualCost > 0)
+            .map((item: any) => ({
+                date: item.date,
+                value: item.actualCost.toFixed(2),
+            }));
+
+        if (history.length < 2) {
+            return NextResponse.json({
+                method_used: 'linear',
+                forecast: [],
+                metrics: { rmse: '0', mape: '0', history_points: history.length, forecast_horizon_days: days },
+                backtest: null,
+            });
+        }
+
+        // Determine which method to use
+        let methodToUse: 'linear' | 'ema' | 'holt_winters' | 'damped_holt' | 'ensemble';
+        if (method === 'auto') {
+            methodToUse = selectBestMethodExtended(history);
+        } else {
+            methodToUse = method;
+        }
+
+        // Generate forecast
+        let result;
+        if (withConfidence && (methodToUse === 'linear' || methodToUse === 'ema' || methodToUse === 'holt_winters')) {
+            result = forecastWithConfidence(history, days, methodToUse);
+        } else {
+            let forecast;
+            if (methodToUse === 'linear') {
+                forecast = linearForecast(history, days);
+            } else if (methodToUse === 'ema') {
+                forecast = emaForecast(history, days);
+            } else if (methodToUse === 'damped_holt') {
+                forecast = dampedHoltForecast(history, days);
+            } else if (methodToUse === 'ensemble') {
+                forecast = ensembleForecast(history, days);
+            } else {
+                forecast = holtWintersForecast(history, days);
+            }
+            result = {
+                points: forecast,
+                lower: [] as typeof forecast,
+                upper: [] as typeof forecast,
+                rmse: '0',
+                mape: '0',
+                method: methodToUse,
+            };
+        }
+
+        // Generate forecast response with confidence bands
+        const forecastResponse = result.points.map((point, idx) => ({
+            date: point.date,
+            value: point.value,
+            lower: result.lower[idx]?.value || null,
+            upper: result.upper[idx]?.value || null,
+            method: methodToUse,
+        }));
+
+        // Calculate backtest metrics if requested
+        let backtestMetrics = null;
+        if (withBacktest && history.length >= 3) {
+            try {
+                // backtest only supports classical methods; for damped/ensemble we
+                // approximate via holt_winters MAPE which tends to bound them.
+                const backtestMethod = (methodToUse === 'damped_holt' || methodToUse === 'ensemble')
+                    ? 'holt_winters' as const
+                    : methodToUse;
+                backtestMetrics = evaluateForecast(history, 0.8, backtestMethod);
+            } catch (e) {
+                console.warn('Backtest failed:', e);
+            }
+        }
+
+        // Detect anomalies
+        const anomalies = detectAnomalies(history, result);
+
+        return NextResponse.json({
+            method_used: methodToUse,
+            forecast: forecastResponse,
+            metrics: {
+                rmse: result.rmse,
+                mape: result.mape,
+                history_points: history.length,
+                forecast_horizon_days: days,
+            },
+            anomalies: anomalies.filter((a) => a.is_anomaly),
+            backtest: backtestMetrics,
+        });
 
     } catch (e: unknown) {
         if (e instanceof AuthError) {
@@ -82,7 +173,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { tenantId, monthlyBudget } = body;
+        const { tenantId, monthlyBudget, method = 'holt_winters' } = body;
 
         if (!tenantId) {
             return NextResponse.json({ error: "Faltan parámetros requeridos: tenantId" }, { status: 400 });
@@ -140,17 +231,19 @@ export async function POST(request: NextRequest) {
         }
 
         const currentDay = today.getDate();
-        const dailyCosts: { day: number; cost: number; dailySpend: number }[] = [];
+        const history: HistoryPoint[] = [];
         let accumulated = 0;
+
         for (let i = 1; i <= currentDay; i++) {
             const dailySpend = dailyByDay.get(i) ?? 0;
             accumulated += dailySpend;
-            if (dailySpend > 0 || dailyCosts.length > 0) {
-                dailyCosts.push({ day: i, cost: accumulated, dailySpend });
+            if (dailySpend > 0 || history.length > 0) {
+                const dateStr = new Date(today.getFullYear(), today.getMonth(), i).toISOString().split('T')[0];
+                history.push({ date: dateStr, value: accumulated.toFixed(2) });
             }
         }
 
-        if (dailyCosts.length < 2) {
+        if (history.length < 2) {
             return NextResponse.json({
                 success: true,
                 empty: true,
@@ -163,35 +256,63 @@ export async function POST(request: NextRequest) {
             });
         }
 
-        const prediction = predictCost(dailyCosts, daysInMonth);
+        // Use forecasting library for month-end projection
+        const methodToUse = method === 'auto' ? selectBestMethod(history) : method;
+        const daysToForecast = daysInMonth - currentDay;
+
+        let forecast;
+        if (methodToUse === 'linear') {
+            forecast = linearForecast(history, daysToForecast);
+        } else if (methodToUse === 'ema') {
+            forecast = emaForecast(history, daysToForecast);
+        } else {
+            forecast = holtWintersForecast(history, daysToForecast);
+        }
 
         let breachDate = null;
-        // Si no se provee presupuesto explícito, no inventamos uno (8000 era arbitrario).
         const budget = (typeof monthlyBudget === 'number' && monthlyBudget > 0) ? monthlyBudget : null;
 
-        if (prediction && budget != null && prediction.projectedCost > budget && prediction.slope > 0) {
-            // Find when Y = Budget -> X = (Budget - Intercept) / Slope
-            const breachDay = Math.round((budget - prediction.intercept) / prediction.slope);
-            if (breachDay <= daysInMonth && breachDay > currentDay) {
-                breachDate = new Date(today.getFullYear(), today.getMonth(), breachDay).toISOString().split('T')[0];
+        // Get end-of-month projection
+        const projectedEndOfMonthCost = forecast.length > 0
+            ? parseFloat(forecast[forecast.length - 1].value)
+            : accumulated;
+
+        if (budget != null && projectedEndOfMonthCost > budget) {
+            // Find the first forecast day that exceeds budget
+            for (const point of forecast) {
+                if (parseFloat(point.value) > budget) {
+                    breachDate = point.date;
+                    break;
+                }
             }
         }
 
+        // Build chart data
         const chartData = [];
         const accumByDay = new Map<number, number>();
-        dailyCosts.forEach(p => accumByDay.set(p.day, p.cost));
+        history.forEach((p) => {
+            const d = new Date(p.date);
+            accumByDay.set(d.getDate(), parseFloat(p.value));
+        });
+
         for (let i = 1; i <= daysInMonth; i++) {
-            chartData.push({
+            const dataPoint: any = {
                 day: i,
                 actualSpend: i <= currentDay ? (accumByDay.get(i) ?? null) : null,
-                forecastedSpend: prediction ? (prediction.slope * i + prediction.intercept) : null,
-                budgetLimit: budget
-            });
+                budgetLimit: budget,
+            };
+
+            if (i > currentDay && forecast.length >= i - currentDay) {
+                dataPoint.forecastedSpend = parseFloat(forecast[i - currentDay - 1].value);
+            }
+
+            chartData.push(dataPoint);
         }
 
         return NextResponse.json({
             success: true,
-            projectedEndOfMonthCost: prediction ? prediction.projectedCost : accumulated,
+            method_used: methodToUse,
+            projectedEndOfMonthCost,
             isBreachPredicted: !!breachDate,
             breachDate,
             chartData,

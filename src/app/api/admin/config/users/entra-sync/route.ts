@@ -1,36 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import jwt from "jsonwebtoken";
-import pool from "@/modules/storage/db";
+import { requireRequestIdentity, requireTenantRole, AuthError } from "@/lib/requestAuth";
+import { getTenantCredentials } from "@/lib/secrets/tenantCredentials";
 
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Falta token Bearer de autenticación." }, { status: 401 });
-    }
+    const tmpIdentity = await requireRequestIdentity(request);
+    const tenantId = tmpIdentity.tenantId;
+    await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
 
-    const token = authHeader.split(" ")[1];
-    const decoded = jwt.decode(token) as any;
+    // Step A: KV (with DB fallback)
+    const creds = await getTenantCredentials(tenantId);
 
-    if (!decoded || !decoded.tid) {
-      return NextResponse.json({ error: "Token inválido." }, { status: 401 });
-    }
-
-    const tenantId = decoded.tid;
-
-    // Step A: DB Check
-    const [tenantRows]: any = await pool.query(
-      "SELECT client_id, client_secret FROM Tenants WHERE tenant_id = ?",
-      [tenantId]
-    );
-
-    if (!tenantRows || tenantRows.length === 0 || !tenantRows[0].client_id || !tenantRows[0].client_secret) {
-      const err: any = new Error('Missing Azure credentials in database');
+    if (!creds) {
+      const err: any = new Error('Missing Azure credentials in Key Vault / database');
       err.status = 400;
       throw err;
     }
 
-    const { client_id, client_secret } = tenantRows[0];
+    const { clientId: client_id, clientSecret: client_secret } = creds;
 
     // Step B: Token Fetch
     const tokenUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
@@ -84,11 +71,13 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ success: true, users: graphData.value });
 
-  } catch (error: any) {
-    console.error("[Entra ID Sync Error]", error.stack || error);
+  } catch (error: unknown) {
+    if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
+    console.error("[Entra ID Sync Error]", error);
+    const err = error as { status?: number; message?: string; details?: unknown };
     return NextResponse.json({ 
-        error: error.message || "Error interno al sincronizar Entra ID",
-        details: error.details || null
-    }, { status: error.status || 500 });
+        error: err.message || "Internal server error",
+        details: err.details || null
+    }, { status: err.status || 500 });
   }
 }

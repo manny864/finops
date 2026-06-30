@@ -2,28 +2,9 @@
 // Real integration would require delegated Graph permissions and M365 Search connector provisioning.
 
 import { NextRequest, NextResponse } from "next/server";
-import jwt from "jsonwebtoken";
+import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 import pool, { initializeDatabase } from "@/modules/storage/db";
 import { isMockTenant } from "@/lib/mockData";
-
-function authCheck(request: NextRequest, tenantId: string) {
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-        return { error: "Falta token Bearer de autenticación.", status: 401 };
-    }
-    const token = authHeader.split(" ")[1];
-    const decoded = jwt.decode(token) as Record<string, any> | null;
-    if (!decoded || !decoded.tid) {
-        return { error: "Estructura de token inválida.", status: 401 };
-    }
-    const email: string =
-        decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "";
-    const isAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar");
-    if (decoded.tid !== tenantId && !isAdmin) {
-        return { error: "Acceso denegado. El token no coincide con el tenant.", status: 403 };
-    }
-    return { decoded, email };
-}
 
 // ─── GET ──────────────────────────────────────────────────────────────────────
 export async function GET(request: NextRequest) {
@@ -31,8 +12,12 @@ export async function GET(request: NextRequest) {
         const tenantId = request.nextUrl.searchParams.get("tenantId");
         if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
 
-        const auth = authCheck(request, tenantId);
-        if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
+        try {
+            await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
+        } catch (e) {
+            if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
+            throw e;
+        }
 
         // Mock tenant branch
         if (isMockTenant(tenantId)) {
@@ -109,8 +94,12 @@ export async function POST(request: NextRequest) {
         const tenantId = request.nextUrl.searchParams.get("tenantId");
         if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
 
-        const auth = authCheck(request, tenantId);
-        if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
+        try {
+            await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
+        } catch (e) {
+            if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
+            throw e;
+        }
 
         const body = await request.json();
         const action: "provision" | "reindex" | "revoke" = body?.action;
@@ -173,9 +162,10 @@ export async function POST(request: NextRequest) {
             [tenantId]
         );
         return NextResponse.json({ success: true, action });
-    } catch (error: any) {
+    } catch (error: unknown) {
+        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
         console.error("M365 Copilot Config POST error:", error);
-        return NextResponse.json({ error: "Error al ejecutar acción", details: error.message }, { status: 500 });
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }
 
@@ -185,8 +175,12 @@ export async function DELETE(request: NextRequest) {
         const tenantId = request.nextUrl.searchParams.get("tenantId");
         if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
 
-        const auth = authCheck(request, tenantId);
-        if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
+        try {
+            await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
+        } catch (e) {
+            if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
+            throw e;
+        }
 
         if (isMockTenant(tenantId)) {
             return NextResponse.json({ success: true, mock: true, message: "Configuración mock eliminada." });
@@ -195,8 +189,9 @@ export async function DELETE(request: NextRequest) {
         await initializeDatabase();
         await pool.query("DELETE FROM M365CopilotConfig WHERE tenant_id = ?", [tenantId]);
         return NextResponse.json({ success: true, message: "Configuración eliminada." });
-    } catch (error: any) {
+    } catch (error: unknown) {
+        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
         console.error("M365 Copilot Config DELETE error:", error);
-        return NextResponse.json({ error: "Error al eliminar configuración", details: error.message }, { status: 500 });
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }

@@ -1,44 +1,168 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
-import jwt from "jsonwebtoken";
+import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
+import { buildCsv, AuditLogRow } from "@/lib/csvExport";
+
+interface AuditFilterParams {
+  tenantId: string;
+  user_email?: string;
+  action_type?: string;
+  status?: string;
+  from?: string;
+  to?: string;
+  limit: number;
+  offset: number;
+  format: "json" | "csv" | "ndjson";
+}
+
+function parseParams(request: NextRequest): AuditFilterParams {
+  const { searchParams } = request.nextUrl;
+  
+  const tenantId = searchParams.get("tenantId");
+  if (!tenantId) {
+    throw new AuthError("Falta tenantId", 400);
+  }
+
+  const limit = Math.min(parseInt(searchParams.get("limit") || "100"), 1000);
+  const offset = Math.max(parseInt(searchParams.get("offset") || "0"), 0);
+  const format = (searchParams.get("format") || "json") as "json" | "csv" | "ndjson";
+
+  if (!["json", "csv", "ndjson"].includes(format)) {
+    throw new AuthError("Formato inválido", 400);
+  }
+
+  return {
+    tenantId,
+    user_email: searchParams.get("user_email") || undefined,
+    action_type: searchParams.get("action_type") || undefined,
+    status: searchParams.get("status") || undefined,
+    from: searchParams.get("from") || undefined,
+    to: searchParams.get("to") || undefined,
+    limit,
+    offset,
+    format,
+  };
+}
+
+function buildQuery(params: AuditFilterParams): {
+  where: string;
+  values: unknown[];
+} {
+  const conditions: string[] = ["tenant_id = ?"];
+  const values: unknown[] = [params.tenantId];
+
+  if (params.user_email) {
+    conditions.push("user_email LIKE ?");
+    values.push(`%${params.user_email}%`);
+  }
+
+  if (params.action_type) {
+    conditions.push("action_type = ?");
+    values.push(params.action_type);
+  }
+
+  if (params.status) {
+    conditions.push("status = ?");
+    values.push(params.status);
+  }
+
+  if (params.from) {
+    conditions.push("timestamp >= ?");
+    values.push(new Date(params.from).toISOString());
+  }
+
+  if (params.to) {
+    conditions.push("timestamp <= ?");
+    values.push(new Date(params.to).toISOString());
+  }
+
+  return {
+    where: conditions.join(" AND "),
+    values,
+  };
+}
 
 export async function GET(request: NextRequest) {
-    try {
-        const searchParams = request.nextUrl.searchParams;
-        const tenantId = searchParams.get('tenantId');
+  try {
+    const params = parseParams(request);
 
-        if (!tenantId) {
-            return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
-        }
+    // Validate tenant access
+    await requireTenantAccess(request, params.tenantId);
 
-        const authHeader = request.headers.get("authorization");
-        if (!authHeader) {
-            return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-        }
+    const { where, values } = buildQuery(params);
 
-        const token = authHeader.split(" ")[1];
-        const decoded = jwt.decode(token) as any;
+    // Get total count
+    const [countResult] = (await pool.query(
+      `SELECT COUNT(*) as total FROM ActionLogs WHERE ${where}`,
+      values
+    )) as any[];
+    const total = countResult?.[0]?.total || 0;
 
-        if (!decoded || !decoded.tid) {
-            return NextResponse.json({ error: "Token inválido" }, { status: 401 });
-        }
+    // Get paginated logs
+    const [rows] = await pool.query(
+      `SELECT id, timestamp, user_email, action_type, resource_id, status 
+       FROM ActionLogs 
+       WHERE ${where} 
+       ORDER BY timestamp DESC 
+       LIMIT ? OFFSET ?`,
+      [...values, params.limit, params.offset]
+    );
 
-        const email = decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "";
-        const isAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") ;
+    const logs = rows as AuditLogRow[];
 
-        if (decoded.tid !== tenantId && !isAdmin) {
-            return NextResponse.json({ error: "El token no coincide con el tenant" }, { status: 403 });
-        }
-
-        const [rows] = await pool.query(
-            "SELECT * FROM ActionLogs WHERE tenant_id = ? ORDER BY timestamp DESC LIMIT 500",
-            [tenantId]
-        );
-
-        return NextResponse.json({ logs: rows });
-
-    } catch (e: any) {
-        console.error("Error fetching audit logs:", e);
-        return NextResponse.json({ error: "Error interno del servidor", details: e.message }, { status: 500 });
+    // Format response based on format parameter
+    if (params.format === "csv") {
+      const csv = buildCsv(logs);
+      return new NextResponse(csv, {
+        status: 200,
+        headers: {
+          "Content-Type": "text/csv; charset=utf-8",
+          "Content-Disposition": `attachment; filename="audit-${params.tenantId}-${new Date().toISOString().split("T")[0]}.csv"`,
+        },
+      });
     }
+
+    if (params.format === "ndjson") {
+      const ndjson = logs.map((log) => JSON.stringify(log)).join("\n");
+      return new NextResponse(ndjson, {
+        status: 200,
+        headers: {
+          "Content-Type": "application/x-ndjson",
+          "Content-Disposition": `attachment; filename="audit-${params.tenantId}-${new Date().toISOString().split("T")[0]}.ndjson"`,
+        },
+      });
+    }
+
+    // Default JSON format
+    const hasMore = params.offset + params.limit < total;
+    return NextResponse.json({
+      logs,
+      total,
+      limit: params.limit,
+      offset: params.offset,
+      hasMore,
+    });
+  } catch (e: any) {
+    console.error("Error fetching audit logs:", e);
+
+    if (e instanceof AuthError) {
+      return NextResponse.json(
+        { error: e.message },
+        { status: e.status || 401 }
+      );
+    }
+
+    // Parse error (invalid ISO date format)
+    if (e instanceof SyntaxError && e.message.includes("Invalid time value")) {
+      return NextResponse.json(
+        { error: "Formato de fecha inválido. Use ISO 8601." },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json(
+      { error: "Error interno del servidor", details: e.message },
+      { status: 500 }
+    );
+  }
 }

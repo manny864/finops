@@ -50,11 +50,17 @@ function sha256(content: string): string {
 
 // Divide un .sql en statements respetando ; al final de línea (lo suficiente para
 // nuestras migraciones simples; no parsea strings con ; embebidos).
+// Remueve líneas de comentario `--` antes de splittear para no descartar
+// statements legítimos cuyo header sea un comentario.
 function splitStatements(sql: string): string[] {
-    return sql
-        .split(/;\s*\n/)
+    const cleaned = sql
+        .split(/\r?\n/)
+        .filter(line => !line.trim().startsWith('--'))
+        .join('\n');
+    return cleaned
+        .split(/;\s*(?:\n|$)/)
         .map(s => s.trim())
-        .filter(s => s.length > 0 && !s.startsWith('--'));
+        .filter(s => s.length > 0);
 }
 
 async function applyMigrationFile(filePath: string, fileName: string): Promise<MigrationResult> {

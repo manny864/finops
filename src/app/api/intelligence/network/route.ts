@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAzureCredential } from "@/lib/azure";
 import { getNetworkEgressCosts } from "@/services/networkCostService";
-import jwt from "jsonwebtoken";
+import { requireRequestIdentity, requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 
 export async function GET(request: NextRequest) {
@@ -13,19 +13,9 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Falta subscriptionId" }, { status: 400 });
         }
 
-        const authHeader = request.headers.get("authorization");
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            return NextResponse.json({ error: "Falta token Bearer de autenticación." }, { status: 401 });
-        }
-
-        const token = authHeader.split(" ")[1];
-        const decoded = jwt.decode(token) as any;
-
-        if (!decoded || !decoded.tid) {
-            return NextResponse.json({ error: "Estructura de token inválida." }, { status: 401 });
-        }
-
-        const tenantId = request.headers.get("x-tenant-id") || decoded.tid;
+        const identity = await requireRequestIdentity(request);
+        const tenantId = request.headers.get("x-tenant-id") ?? identity.tenantId;
+        await requireTenantAccess(request, tenantId);
         
         const cacheKey = `network:${tenantId}:${subscriptionId}`;
         const processedData = await getWithStaleWhileRevalidate(cacheKey, async () => {
@@ -54,20 +44,22 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({ data: processedData });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
+        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
         console.error("Network API Error:", error);
+        const err = error as { message?: string; code?: string };
         let errorCode = "ERR_INTERNAL_SERVER";
         let status = 500;
         
-        const msg = (error.message || "").toLowerCase();
-        if (msg.includes("returns null or empty list for id") || error.code === "NotFound") {
+        const msg = (err.message || "").toLowerCase();
+        if (msg.includes("returns null or empty list for id") || err.code === "NotFound") {
             return NextResponse.json({ data: [] });
         }
 
-        if (error.code === "AuthorizationFailed" || error.code === "ScopeNotFound" || msg.includes("authorization") || msg.includes("linkedinvalidpropertyid") || msg.includes("subscriptionnotfound")) {
+        if (err.code === "AuthorizationFailed" || err.code === "ScopeNotFound" || msg.includes("authorization") || msg.includes("linkedinvalidpropertyid") || msg.includes("subscriptionnotfound")) {
             errorCode = "ERR_NETWORK_ACCESS_DENIED";
             status = 403;
         }
-        return NextResponse.json({ error: errorCode, message: error.message }, { status });
+        return NextResponse.json({ error: errorCode, message: err.message }, { status });
     }
 }

@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>SaaS FinOps — Plan de Profesionalización</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm; }
+  body { font-family: -apple-system, "Helvetica Neue", Arial, sans-serif; color: #1f2937; font-size: 11pt; line-height: 1.45; }
+  h1 { color: #0f172a; font-size: 22pt; margin: 0 0 4pt; }
+  h2 { color: #0f172a; font-size: 14pt; border-bottom: 2px solid #2563eb; padding-bottom: 4pt; margin-top: 22pt; }
+  h3 { color: #1e3a8a; font-size: 12pt; margin-top: 14pt; }
+  h4 { color: #1e3a8a; font-size: 11pt; margin-top: 10pt; margin-bottom: 4pt; }
+  p, li { text-align: justify; }
+  ul, ol { padding-left: 18pt; }
+  li { margin-bottom: 3pt; }
+  code { background: #f1f5f9; padding: 1pt 4pt; border-radius: 3pt; font-size: 9.5pt; font-family: "SF Mono", Menlo, monospace; }
+  pre { background: #0f172a; color: #e2e8f0; padding: 10pt; border-radius: 4pt; font-size: 8.5pt; overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; margin: 6pt 0 12pt; font-size: 9.5pt; }
+  th, td { border: 1px solid #cbd5e1; padding: 5pt 7pt; text-align: left; vertical-align: top; }
+  th { background: #f1f5f9; font-weight: 600; }
+  .meta { color: #64748b; font-size: 9pt; margin-bottom: 14pt; }
+  .tier1 { background: #fef2f2; }
+  .tier2 { background: #fefce8; }
+  .tier3 { background: #f0fdf4; }
+  .tier4 { background: #eff6ff; }
+  .pill { display: inline-block; padding: 1pt 6pt; border-radius: 10pt; font-size: 8.5pt; font-weight: 600; }
+  .pill-high { background: #dcfce7; color: #166534; }
+  .pill-med { background: #fef3c7; color: #92400e; }
+  .pill-crit { background: #fee2e2; color: #991b1b; }
+  .summary-box { background: #eff6ff; border-left: 4px solid #2563eb; padding: 10pt 14pt; margin: 10pt 0; border-radius: 0 4pt 4pt 0; }
+  .page-break { page-break-before: always; }
+  .footer { text-align: center; color: #94a3b8; font-size: 8.5pt; margin-top: 20pt; }
+</style>
+</head>
+<body>
+
+<h1>SaaS FinOps — Plan de Profesionalización</h1>
+<div class="meta">CSCloudSolutions · Generado 29 de junio 2026 · Documento interno</div>
+
+<div class="summary-box">
+  <strong>Objetivo:</strong> hoja de ruta priorizada por ROI para llevar el SaaS de su estado actual
+  (multi-tenant Azure-first con tier sales) a producto Enterprise-ready vendible a clientes regulados, con
+  canales self-service, billing automático y diferenciación por features avanzadas FinOps.
+</div>
+
+<h2>1. Tests + CI</h2>
+<p><strong>Esfuerzo:</strong> 5–7 días · <strong>Tier:</strong> 1 (hacer ya) · <strong>ROI:</strong> Alto</p>
+
+<h3>Estado actual</h3>
+<ul>
+  <li>Sin runner de tests, sin tests existentes.</li>
+  <li>CI = solo <code>deploy.yml</code> (SSH + docker compose).</li>
+  <li>TypeScript ya brinda garantías de tipos.</li>
+</ul>
+
+<h3>Stack propuesto</h3>
+<ul>
+  <li><strong>Vitest</strong> — mejor integración Next.js que Jest, ESM nativo, ~10x más rápido.</li>
+  <li><strong>@testing-library/react</strong> + <strong>jest-dom</strong> para componentes.</li>
+  <li><strong>Playwright</strong> para E2E (un solo flujo crítico, no full coverage).</li>
+  <li><strong>MSW</strong> (Mock Service Worker) para interceptar fetch en tests.</li>
+</ul>
+
+<h3>Estructura</h3>
+<pre>__tests__/
+  unit/           ← lib/, services/ puros
+    pricingUnits.test.ts
+    fx.test.ts
+    carbonService.test.ts
+    tierLogic.test.ts
+  integration/    ← API routes con DB en memoria/mock
+    api-mcp.test.ts
+    api-fx.test.ts
+  components/     ← React Testing Library
+    PinButton.test.tsx
+    CurrencySelector.test.tsx
+  e2e/            ← Playwright
+    login-flow.spec.ts
+    onboarding.spec.ts</pre>
+
+<h3>Cobertura objetivo (MVP)</h3>
+<ul>
+  <li><strong>80% lib/</strong>: helpers puros, fáciles y críticos (pricingUnits, fx, carbon, tierLogic, requestAuth).</li>
+  <li><strong>60% services/</strong>: mock de pool DB, validar lógica.</li>
+  <li><strong>40% API routes</strong>: smoke tests de respuestas + auth.</li>
+  <li><strong>3 flujos E2E</strong>: login → dashboard, crear budget, ver costos.</li>
+</ul>
+
+<h3>CI workflow nuevo <code>.github/workflows/ci.yml</code></h3>
+<pre>on: [pull_request, push]
+jobs:
+  lint:       npm run lint
+  typecheck:  npx tsc --noEmit
+  unit:       npm test -- --coverage
+  e2e:        npx playwright test  (matrix node 20)
+  build:      npm run build  (verifica que compila)</pre>
+
+<h3>Sprints</h3>
+<table>
+  <tr><th>Día</th><th>Entregable</th></tr>
+  <tr><td>1</td><td>Vitest setup, primer test verde, config CI</td></tr>
+  <tr><td>2–3</td><td>Tests unit de lib/ (pricingUnits, fx, carbon, tierLogic, requestAuth)</td></tr>
+  <tr><td>4</td><td>Tests de API routes críticos (auth, MCP, fx, billing)</td></tr>
+  <tr><td>5</td><td>Component tests (PinButton, CurrencySelector, ScopeSelector)</td></tr>
+  <tr><td>6</td><td>Playwright + 3 flujos E2E</td></tr>
+  <tr><td>7</td><td>Branch protection, badges, docs</td></tr>
+</table>
+
+<h3>Entregables finales</h3>
+<ul>
+  <li>50–80 tests verdes en CI.</li>
+  <li>Coverage badge en README.</li>
+  <li>PR template con checklist "tests added".</li>
+  <li>Branch protection que exige CI verde.</li>
+</ul>
+
+<h2 class="page-break">2. SSO SAML</h2>
+<p><strong>Esfuerzo:</strong> 3–5 días (homebrew) · 1–2 días (WorkOS) · <strong>Tier:</strong> 1 · <strong>ROI:</strong> Alto Enterprise</p>
+
+<h3>Estado actual</h3>
+<ul>
+  <li>Auth solo Entra ID (OAuth/MSAL).</li>
+  <li>Tabla <code>Users</code> con <code>entra_oid</code> + <code>email</code>.</li>
+</ul>
+
+<h3>Por qué SAML</h3>
+<p>Clientes Enterprise grandes usan Okta, Auth0, OneLogin, Ping, Google Workspace SAML. Sin SAML, cierran negocios alternativos. Es el dealbreaker más citado en RFPs.</p>
+
+<h3>Stack</h3>
+<ul>
+  <li><strong><code>@node-saml/passport-saml</code></strong> (mantenido, soporta Next.js).</li>
+  <li>O <strong>WorkOS</strong> / <strong>Auth0 Enterprise Connections</strong> (managed, ~$0.05/user). <em>Recomendado para MVP por time-to-market.</em></li>
+  <li>Almacenamiento: nueva tabla <code>TenantSAMLConfig</code>.</li>
+</ul>
+
+<h3>Schema</h3>
+<pre>CREATE TABLE TenantSAMLConfig (
+  tenant_id VARCHAR(128) PRIMARY KEY,
+  entity_id VARCHAR(255),
+  sso_url VARCHAR(512),
+  certificate TEXT,
+  attribute_mapping_json JSON,
+  enabled BOOLEAN DEFAULT 0,
+  enforced BOOLEAN DEFAULT 0,
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP
+);</pre>
+
+<h3>Endpoints nuevos</h3>
+<ul>
+  <li><code>GET /api/auth/saml/[tenantId]/login</code> — redirige al IdP.</li>
+  <li><code>POST /api/auth/saml/[tenantId]/acs</code> — Assertion Consumer Service.</li>
+  <li><code>GET /api/auth/saml/[tenantId]/metadata</code> — XML para configurar IdP.</li>
+  <li><code>/api/admin/sso</code> — UI config (upload cert, set URL, attribute mapping).</li>
+</ul>
+
+<h3>Flujo</h3>
+<ol>
+  <li>Tenant admin va a <code>/admin/sso</code>, configura IdP (URL + cert).</li>
+  <li>Genera URL <code>/api/auth/saml/&lt;tenant&gt;/login</code> y la comparte con su IdP.</li>
+  <li>Usuario → "Login with SSO" → ingresa email → detectamos dominio → redirige al IdP → callback al ACS → emitimos nuestro JWT.</li>
+  <li>Si <code>enforced=true</code>, usuarios del dominio NO pueden hacer login via Entra/local — solo SAML.</li>
+</ol>
+
+<h3>Sprints</h3>
+<table>
+  <tr><th>Día</th><th>Entregable</th></tr>
+  <tr><td>1</td><td>Schema + endpoint metadata + UI básica</td></tr>
+  <tr><td>2</td><td>Login init + ACS callback con <code>@node-saml</code></td></tr>
+  <tr><td>3</td><td>Attribute mapping (email, name, role) + crear/sincronizar User</td></tr>
+  <tr><td>4</td><td>UI admin SSO + tests con SAMLtest.id (idp gratuito de prueba)</td></tr>
+  <tr><td>5</td><td>Doc onboarding para Okta/Auth0/Google Workspace + edge cases (logout SLO)</td></tr>
+</table>
+
+<h3>Alternativa rápida — WorkOS (1-2 días total)</h3>
+<ul>
+  <li>Una sola API key, ellos manejan los IdPs.</li>
+  <li>$0.05/user/mes (negociable a fixed pricing &gt;100 users).</li>
+  <li>Entregás SAML + SCIM provisioning + Directory Sync de paso.</li>
+  <li><strong>Recomendado</strong> si el time-to-market importa más que el costo.</li>
+</ul>
+
+<h2 class="page-break">3. Roadmap general — Profesionalización del SaaS</h2>
+
+<p>Items priorizados por ROI, segmentados en 4 tiers. Billing se hará con <strong>Paddle</strong> (no Stripe).</p>
+
+<h3 class="tier1">🔥 Tier 1 — Hacer YA (próximas 4-6 semanas)</h3>
+<table>
+  <tr><th>#</th><th>Item</th><th>Esfuerzo</th><th>ROI</th><th>Razón</th></tr>
+  <tr class="tier1"><td>1</td><td><strong>Tests + CI</strong></td><td>5–7d</td><td><span class="pill pill-high">Alto</span></td><td>Sin esto no podés escalar el equipo ni vender Enterprise.</td></tr>
+  <tr class="tier1"><td>2</td><td><strong>SSO SAML</strong> (WorkOS)</td><td>1–2d</td><td><span class="pill pill-high">Alto</span></td><td>Dealbreaker para Enterprise; quick win con WorkOS.</td></tr>
+  <tr class="tier1"><td>3</td><td><strong>Paddle real end-to-end</strong></td><td>3–5d</td><td><span class="pill pill-crit">Crítico</span></td><td>Ya hay scaffolding (<code>/api/webhooks/paddle</code>, <code>/api/checkout</code>, <code>/api/billing/portal</code>); falta upgrade/downgrade/proration completos.</td></tr>
+  <tr class="tier1"><td>4</td><td><strong>Onboarding wizard guiado</strong></td><td>4–6d</td><td><span class="pill pill-high">Alto</span></td><td>Reduce churn early; convierte trial → paid.</td></tr>
+  <tr class="tier1"><td>5</td><td><strong>Notificaciones Slack/Teams/Email</strong></td><td>3–4d</td><td><span class="pill pill-high">Alto</span></td><td>Ya hay <code>notifications.ts</code> (54 LOC); falta Slack/Teams webhook + SMTP/Resend.</td></tr>
+</table>
+
+<h3 class="tier2">🟡 Tier 2 — Próximo trimestre</h3>
+<table>
+  <tr><th>#</th><th>Item</th><th>Esfuerzo</th><th>ROI</th><th>Razón</th></tr>
+  <tr class="tier2"><td>6</td><td><strong>Status page pública</strong></td><td>2d</td><td><span class="pill pill-med">Medio-alto</span></td><td>StatusPage.io o homebrew (<code>/status</code>).</td></tr>
+  <tr class="tier2"><td>7</td><td><strong>Audit log exportable</strong></td><td>1–2d</td><td><span class="pill pill-med">Medio</span></td><td>Ya hay <code>auditService.ts</code> + <code>/api/admin/audit</code>; falta CSV export + filtros UI.</td></tr>
+  <tr class="tier2"><td>8</td><td><strong>API pública v1 + OpenAPI</strong></td><td>5–7d</td><td><span class="pill pill-med">Medio-alto</span></td><td>Diferencia vs competidores closed; habilita partners.</td></tr>
+  <tr class="tier2"><td>9</td><td><strong>Self-service signup + free trial</strong></td><td>4–5d</td><td><span class="pill pill-crit">Crítico para growth</span></td><td>Ya hay <code>demoSession</code>; falta funnel + nurturing.</td></tr>
+  <tr class="tier2"><td>10</td><td><strong>Showback/Chargeback PDF</strong></td><td>4–6d</td><td><span class="pill pill-high">Alto Enterprise</span></td><td>AKS chargeback ya existe; falta PDF invoice por BU.</td></tr>
+</table>
+
+<h3 class="tier3">🟢 Tier 3 — Cuando haya tracción</h3>
+<table>
+  <tr><th>#</th><th>Item</th><th>Esfuerzo</th><th>Notas</th></tr>
+  <tr class="tier3"><td>11</td><td><strong>FOCUS 1.x exporter</strong></td><td>1–2 sem</td><td>Diferenciador Enterprise. Feature A del plan original (diferida).</td></tr>
+  <tr class="tier3"><td>12</td><td><strong>2FA local</strong></td><td>3d</td><td>Solo si tenés usuarios sin SSO.</td></tr>
+  <tr class="tier3"><td>13</td><td><strong>What-if simulator mejorado</strong></td><td>1 sem</td><td>Ya hay <code>/intelligence/simulator</code>; falta save + compare lado-a-lado.</td></tr>
+  <tr class="tier3"><td>14</td><td><strong>Forecasting ML</strong></td><td>2 sem</td><td>Ya hay <code>forecast/route.ts</code> con proyección lineal; subir a Prophet o LightGBM.</td></tr>
+  <tr class="tier3"><td>15</td><td><strong>DPA + Privacy + SOC2 badges</strong></td><td>2–3d UI</td><td>Solo es contenido + linking; alto trust con dev mínimo.</td></tr>
+</table>
+
+<h3 class="tier4">🔵 Tier 4 — Estratégico, gran inversión</h3>
+<table>
+  <tr><th>#</th><th>Item</th><th>Esfuerzo</th><th>Notas</th></tr>
+  <tr class="tier4"><td>16</td><td><strong>AWS integration MVP</strong></td><td>6–8 sem</td><td>Esperar 5+ clientes Azure validando antes. Scaffolding ya existe (providerFactory, awsFocusMapper).</td></tr>
+  <tr class="tier4"><td>17</td><td><strong>Data residency multi-región</strong></td><td>4–6 sem</td><td>Solo si entras a EU regulated (GDPR strict).</td></tr>
+  <tr class="tier4"><td>18</td><td><strong>Azure/AWS Marketplace</strong></td><td>3–4 sem c/u</td><td>Compliance + co-sell; canal de ventas potente.</td></tr>
+  <tr class="tier4"><td>19</td><td><strong>Pen-test + SOC2 Type I</strong></td><td>3–6 meses</td><td>$25–50K + auditor; necesario para Enterprise top-tier.</td></tr>
+</table>
+
+<h2 class="page-break">4. Ataque recomendado (próximas 8 semanas)</h2>
+<table>
+  <tr><th>Semana</th><th>Foco</th></tr>
+  <tr><td>1</td><td>Tests + CI (paralelo arranco)</td></tr>
+  <tr><td>2</td><td>SSO SAML con WorkOS + Notificaciones Slack/Teams/Email</td></tr>
+  <tr><td>3–4</td><td>Paddle real end-to-end + Onboarding wizard</td></tr>
+  <tr><td>5</td><td>Status page + Audit export CSV + API pública v1 (kickoff)</td></tr>
+  <tr><td>6</td><td>Self-service signup + free trial funnel</td></tr>
+  <tr><td>7–8</td><td>API v1 + OpenAPI + Showback PDF + DPA/SOC2 content</td></tr>
+</table>
+
+<div class="summary-box">
+<strong>Resultado al cabo de 8 semanas:</strong> SaaS <em>vendible a Enterprise</em> (SAML + tests + audit + SLA visible) y
+<em>escalable comercialmente</em> (self-service + billing + notificaciones). AWS y SOC2 quedan como inversión de fase 2 una vez
+validado el modelo con 5+ clientes en producción.
+</div>
+
+<h2>5. Anexo — Integración AWS (estado y esfuerzo)</h2>
+
+<h3>Lo que ya está (5%)</h3>
+<ul>
+  <li><code>providerFactory.ts</code> con stub para AWS (comentado).</li>
+  <li><code>awsFocusMapper.ts</code> (56 LOC) — mapper CUR → FOCUS, esqueleto.</li>
+  <li>Interfaz <code>CloudProvider</code> abstrayendo Azure (preparada para multi-cloud).</li>
+</ul>
+
+<h3>Lo que falta</h3>
+<ul>
+  <li>SDK AWS (<code>@aws-sdk/client-*</code>).</li>
+  <li><code>AWSProvider</code> real (auth via IAM Role + AssumeRole cross-account).</li>
+  <li>CUR (Cost and Usage Report) ingestion desde S3.</li>
+  <li>Equivalentes: ResourceGraph (→ Tag Editor / Resource Explorer), Advisor, Reservations Recommender, Trusted Advisor, Carbon footprint, Compute Optimizer.</li>
+  <li>DB schema multi-cloud (hoy todo es <code>subscription_id</code>; AWS necesita <code>account_id</code> + <code>region</code>).</li>
+  <li>Onboarding UI para AWS (Connect to AWS → bootstrap CloudFormation template).</li>
+  <li>Pricing API AWS (Azure Retail Prices ≠ AWS Pricing API).</li>
+</ul>
+
+<h3>Esfuerzo realista para MVP AWS</h3>
+<table>
+  <tr><th>Fase</th><th>Semanas</th><th>Entregable</th></tr>
+  <tr><td>1 — Auth + Accounts</td><td>1</td><td>AssumeRole cross-account, CloudFormation template, "Add AWS Account" UI, almacenar credenciales en <code>Credentials</code> extendida</td></tr>
+  <tr><td>2 — Cost ingestion</td><td>1.5</td><td>CUR S3 → parseo Parquet → mapear a FOCUS → <code>billing_facts</code> con <code>cloud='aws'</code></td></tr>
+  <tr><td>3 — Inventory</td><td>1</td><td>EC2/EBS/RDS/S3 vía SDK, zombi detection (EBS sin atar)</td></tr>
+  <tr><td>4 — Recommendations</td><td>1</td><td>Compute Optimizer + Trusted Advisor + Savings Plans</td></tr>
+  <tr><td>5 — UI multi-cloud</td><td>1.5</td><td>Selector cloud en header, dashboards que agreguen Azure+AWS, breakdown por proveedor</td></tr>
+  <tr><td>6 — Testing + docs</td><td>1</td><td>Tenant piloto, ajustes, doc onboarding</td></tr>
+  <tr><td colspan="2"><strong>Total</strong></td><td><strong>~7 semanas</strong> dev a tiempo completo</td></tr>
+</table>
+
+<h3>Alternativa rápida</h3>
+<p>Integración con <strong>CloudHealth / Vantage API</strong> como passthrough para mostrar AWS sin reimplementar collectors (3 días, lectura solamente, menos features). Útil como prueba comercial antes de invertir en collector nativo.</p>
+
+<div class="footer">CSCloudSolutions · FinOps SaaS · Plan de Profesionalización v1 · 2026-06-29</div>
+
+</body>
+</html>

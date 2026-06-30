@@ -2,34 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAssessment } from '@/modules/core/aiProvider';
 import pool from '@/modules/storage/db';
 import { RowDataPacket } from 'mysql2';
-import jwt from 'jsonwebtoken';
+import { requireTenantAccess, AuthError } from '@/lib/requestAuth';
 
 export async function POST(request: NextRequest) {
     try {
-        // Auth validation
-        const authHeader = request.headers.get("authorization");
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            return NextResponse.json({ error: "Falta token Bearer." }, { status: 401 });
-        }
-        const token = authHeader.split(" ")[1];
-        const decoded = jwt.decode(token) as any;
-        if (!decoded || !decoded.tid) {
-            return NextResponse.json({ error: "Token inválido." }, { status: 401 });
-        }
-
         const { tenantId, metricsData } = await request.json();
 
         if (!tenantId) {
             return NextResponse.json({ error: "Tenant ID is required" }, { status: 400 });
         }
 
-        // SuperAdmin check for cross-tenant access
-        const email = decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "";
-        const isSuperAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") ;
-
-        if (decoded.tid !== tenantId && !isSuperAdmin) {
-            return NextResponse.json({ error: "Acceso denegado al tenant." }, { status: 403 });
-        }
+        await requireTenantAccess(request, tenantId);
 
         // Validate tenant exists
         const [rows] = await pool.query<RowDataPacket[]>('SELECT * FROM Tenants WHERE tenant_id = ?', [tenantId]);
@@ -60,8 +43,9 @@ export async function POST(request: NextRequest) {
         const report = await getAssessment(enrichedMetrics);
 
         return NextResponse.json({ report });
-    } catch (error: any) {
+    } catch (error: unknown) {
+        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
         console.error("Error generating AI report:", error);
-        return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }

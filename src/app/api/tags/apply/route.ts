@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ResourceManagementClient } from "@azure/arm-resources";
 import { getAzureCredential } from "@/lib/azure";
-import jwt from "jsonwebtoken";
+import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,23 +12,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Faltan parámetros requeridos" }, { status: 400 });
     }
 
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Falta token Bearer." }, { status: 401 });
-    }
-
-    const token = authHeader.split(" ")[1];
-    const decoded = jwt.decode(token) as { tid?: string } | null;
-    if (!decoded) {
-      return NextResponse.json({ error: "Estructura de token inválida." }, { status: 401 });
-    }
-
-    const email = (decoded as any).preferred_username || (decoded as any).unique_name || (decoded as any).email || "";
-    const isSuperAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") ;
-
-    if (decoded.tid !== tenantId && !isSuperAdmin) {
-      return NextResponse.json({ error: "Acceso denegado. Tenant ID inválido." }, { status: 403 });
-    }
+    await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
 
     const credential = await getAzureCredential(tenantId);
     
@@ -48,9 +32,11 @@ export async function POST(request: NextRequest) {
     await poller.pollUntilDone();
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
-    const errorMessage = error?.message || String(error) || "Error desconocido";
-    const errorCode = error?.code || error?.name || "";
+  } catch (error: unknown) {
+    if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
+    const err = error as { message?: string; code?: string; name?: string };
+    const errorMessage = err?.message || String(error);
+    const errorCode = err?.code || err?.name || "";
     
     console.error(`[Tags API] ERROR:`, { code: errorCode, message: errorMessage });
 
@@ -62,6 +48,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "MISSING_RBAC_ROLE", details: "Permisos insuficientes para modificar etiquetas." }, { status: 403 });
     }
 
-    return NextResponse.json({ error: "Error al actualizar etiquetas", details: errorMessage }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

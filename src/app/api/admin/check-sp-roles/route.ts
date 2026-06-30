@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/modules/storage/db';
 import { getAzureCredential } from '@/lib/azure';
+import { getTenantCredentials } from '@/lib/secrets/tenantCredentials';
 import { AuthError, requireRequestIdentity, requireTenantAccess } from '@/lib/requestAuth';
 import { RowDataPacket } from 'mysql2';
 
@@ -115,7 +116,7 @@ export async function GET(request: NextRequest) {
         await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
 
         const [rows] = await pool.query<RowDataPacket[]>(
-            'SELECT client_id, client_secret, tier FROM Tenants WHERE tenant_id = ?',
+            'SELECT tier FROM Tenants WHERE tenant_id = ?',
             [tenantId]
         );
         if (rows.length === 0) {
@@ -125,7 +126,9 @@ export async function GET(request: NextRequest) {
                 hint: 'Complete el onboarding ejecutando el script PowerShell desde Admin > Onboarding.',
             }, { status: 404 });
         }
-        const { client_id: clientId, tier } = rows[0];
+        const { tier } = rows[0];
+        const creds = await getTenantCredentials(tenantId);
+        const clientId = creds?.clientId;
         if (!clientId) {
             return NextResponse.json({
                 error: 'NO_CLIENT_ID',

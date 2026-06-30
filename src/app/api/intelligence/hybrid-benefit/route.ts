@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import jwt from "jsonwebtoken";
+import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { hasAccess } from "@/lib/tierLogic";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
@@ -18,23 +18,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Funcionalidad requiere plan Professional o superior." }, { status: 403 });
         }
 
-        const authHeader = request.headers.get("authorization");
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            return NextResponse.json({ error: "Falta token Bearer de autenticación." }, { status: 401 });
-        }
-
-        const token = authHeader.split(" ")[1];
-        const decoded = jwt.decode(token) as any;
-        if (!decoded || !decoded.tid) {
-            return NextResponse.json({ error: "Estructura de token inválida." }, { status: 401 });
-        }
-
-        const email = decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "";
-        const isAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar");
-
-        if (decoded.tid !== tenantId && !isAdmin) {
-            return NextResponse.json({ error: `Acceso denegado. El token no coincide con el tenant.` }, { status: 403 });
-        }
+        await requireTenantAccess(request, tenantId);
 
         if (isMockTenant(tenantId)) {
             return NextResponse.json(getMockDataForRoute('hybrid-benefit', tenantId));
@@ -106,8 +90,9 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({ success: true, data });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
+        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
         console.error("Hybrid Benefit API Error:", error);
-        return NextResponse.json({ error: "Fallo al generar el reporte de AHB", details: error.message }, { status: 500 });
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }

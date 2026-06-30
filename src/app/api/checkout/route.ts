@@ -1,42 +1,59 @@
 import { NextRequest, NextResponse } from "next/server";
-import jwt from "jsonwebtoken";
-import { getPaymentConfig } from "@/lib/paymentConfig";
+import { requireTenantAccess } from "@/lib/requestAuth";
+import { tierToPriceId } from "@/lib/paddleTierMap";
+import pool from "@/modules/storage/db";
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Falta token Bearer de autenticación." }, { status: 401 });
+    const searchParams = new URL(request.url).searchParams;
+    const tenantId = searchParams.get("tenantId");
+
+    if (!tenantId) {
+      return NextResponse.json({ error: "tenantId es requerido" }, { status: 400 });
     }
 
-    const token = authHeader.split(" ")[1];
-    const decoded = jwt.decode(token) as any;
+    await requireTenantAccess(request, tenantId);
 
-    if (!decoded || !decoded.tid) {
-      return NextResponse.json({ error: "Token inválido." }, { status: 401 });
-    }
-
-    const tenantId = decoded.tid;
     const body = await request.json();
-    const { plan } = body;
+    const { tier, billing } = body;
 
-    // TODO: Implement Paddle Checkout integration
-    // With Paddle Billing, checkouts are usually opened client-side via paddle.Checkout.open()
-    // or by creating a transaction on the server and returning the checkout URL.
-    
-    const config = getPaymentConfig();
-    let priceId = config.PADDLE_PRO_PRICE_ID || process.env.PADDLE_PRO_PRICE_ID;
-    if (plan === 'business') priceId = config.PADDLE_ENTERPRISE_PRICE_ID || process.env.PADDLE_ENTERPRISE_PRICE_ID;
+    if (!tier || !["Essential", "Professional", "Business"].includes(tier)) {
+      return NextResponse.json({ error: "tier inválido" }, { status: 400 });
+    }
 
-    // For now, return a mock URL or return an error indicating Paddle migration is pending for new checkouts
-    console.warn("[Checkout] Paddle checkout endpoint not fully implemented. Returning mock checkout URL.");
-    return NextResponse.json({ 
-        success: true, 
-        checkoutUrl: `https://mock.paddle.com/checkout?tenantId=${tenantId}&plan=${plan}` 
+    if (!billing || !["monthly", "yearly"].includes(billing)) {
+      return NextResponse.json({ error: "billing debe ser 'monthly' o 'yearly'" }, { status: 400 });
+    }
+
+    // Check if tenant already has a subscription
+    const [tenantRows]: any = await pool.query(
+      "SELECT paddle_subscription_id FROM Tenants WHERE tenant_id = ?",
+      [tenantId]
+    );
+
+    if (Array.isArray(tenantRows) && tenantRows[0]?.paddle_subscription_id) {
+      return NextResponse.json(
+        { error: "Tenant ya tiene una suscripción activa. Usa el endpoint de upgrade para cambiar de plan." },
+        { status: 400 }
+      );
+    }
+
+    const priceId = tierToPriceId(tier as any, billing);
+    if (!priceId) {
+      return NextResponse.json({ error: "No se encontró el ID del plan" }, { status: 400 });
+    }
+
+    // Return checkout data for client-side Paddle.js integration
+    // The client will handle opening the overlay via paddle.Checkout.open()
+    return NextResponse.json({
+      success: true,
+      priceId,
+      customData: { tenant_id: tenantId },
+      message: "Use this data with paddle.Checkout.open() to open the checkout overlay",
     });
-
   } catch (error: any) {
-    console.error("Checkout error:", error);
-    return NextResponse.json({ error: "Fallo interno del servidor" }, { status: 500 });
+    console.error("[Checkout] Error:", error);
+    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
   }
 }
+

@@ -1,14 +1,14 @@
 "use client";
 import MockBanner from '@/components/MockBanner';
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Calculator, Play, Network, HardDrive, Cpu, ShieldCheck } from 'lucide-react';
-import RoleAssignmentBanner from '@/components/RoleAssignmentBanner';
 import { hasAccess } from '@/lib/tierLogic';
 import { toast } from 'sonner';
 import { getFreshIdToken } from '@/lib/msalToken';
+import ScenarioManager from '@/components/simulator/ScenarioManager';
 
 export default function SimulatorPage() {
     const { selectedTenant } = useTenant();
@@ -252,6 +252,17 @@ export default function SimulatorPage() {
                     )}
                 </div>
             </div>
+
+            <ScenarioManager
+                currentInputs={{
+                    computeScale: computeScale / 100,
+                    storageScale: storageScale / 100,
+                    networkIncrease,
+                    applyAhb,
+                }}
+                currentBaseCost={simulationData?.baseCost ?? null}
+                currency="USD"
+            />
         </div>
     );
 }

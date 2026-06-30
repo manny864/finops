@@ -40,6 +40,11 @@ export const ROUTE_TIERS: Record<string, 'Essential' | 'Professional' | 'Busines
     '/admin/markup': 'Enterprise',
     '/admin/workbooks': 'Enterprise',
     '/admin/copilot-m365': 'Enterprise',
+    '/admin/pricing-units': 'Essential',
+    '/admin/notifications': 'Professional',
+    '/admin/mcp-keys': 'Professional',
+    '/admin/powerbi-templates': 'Professional',
+    '/admin/sso': 'Enterprise',
 };
 
 /**

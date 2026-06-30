@@ -27,12 +27,14 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 let dbInitialized = false;
+let dbInitPromise: Promise<void> | null = null;
 
 export async function initializeDatabase() {
     if (dbInitialized) return;
-    try {
+    if (dbInitPromise) return dbInitPromise;
+    dbInitPromise = (async () => {
         const connection = await pool.getConnection();
-        
+        try {
         await connection.query(`
             CREATE TABLE IF NOT EXISTS Tenants (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -44,7 +46,7 @@ export async function initializeDatabase() {
                 webhook_url VARCHAR(1024),
                 tier ENUM('Essential', 'Professional', 'Business', 'Enterprise') DEFAULT 'Essential',
                 trial_ends_at DATETIME NULL,
-                subscription_status ENUM('TRIAL', 'ACTIVE', 'EXPIRED') DEFAULT 'ACTIVE',
+                subscription_status ENUM('TRIAL', 'ACTIVE', 'PAST_DUE', 'CANCELED', 'EXPIRED') DEFAULT 'ACTIVE',
                 is_onboarded BOOLEAN DEFAULT FALSE,
                 ai_provider VARCHAR(50) DEFAULT 'system',
                 ai_api_key VARCHAR(255),
@@ -120,6 +122,31 @@ export async function initializeDatabase() {
             if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding paddle_subscription_id:", e);
         }
 
+        // ===== Marketplace Integration =====
+        try {
+            await connection.query("ALTER TABLE Tenants ADD COLUMN marketplace_source ENUM('direct','azure_marketplace','aws_marketplace') DEFAULT 'direct';");
+        } catch (e: any) {
+            if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding marketplace_source:", e);
+        }
+
+        try {
+            await connection.query('ALTER TABLE Tenants ADD COLUMN marketplace_subscription_id VARCHAR(255) NULL;');
+        } catch (e: any) {
+            if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding marketplace_subscription_id:", e);
+        }
+
+        try {
+            await connection.query('ALTER TABLE Tenants ADD COLUMN marketplace_plan_id VARCHAR(255) NULL;');
+        } catch (e: any) {
+            if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding marketplace_plan_id:", e);
+        }
+
+        try {
+            await connection.query('ALTER TABLE Tenants ADD COLUMN last_trial_reminder_at DATETIME NULL;');
+        } catch (e: any) {
+            if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding last_trial_reminder_at:", e);
+        }
+
         await connection.query(`
             CREATE TABLE IF NOT EXISTS Users (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -164,6 +191,72 @@ export async function initializeDatabase() {
         } catch (e: any) {
             if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding scope:", e);
         }
+
+        // ===== 2FA/MFA =====
+        try {
+            await connection.query('ALTER TABLE Users ADD COLUMN mfa_enabled BOOLEAN DEFAULT FALSE;');
+        } catch (e: any) {
+            if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding mfa_enabled:", e);
+        }
+
+        try {
+            await connection.query('ALTER TABLE Users ADD COLUMN mfa_secret_encrypted TEXT NULL;');
+        } catch (e: any) {
+            if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding mfa_secret_encrypted:", e);
+        }
+
+        try {
+            await connection.query('ALTER TABLE Users ADD COLUMN mfa_recovery_codes_hash JSON NULL;');
+        } catch (e: any) {
+            if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding mfa_recovery_codes_hash:", e);
+        }
+
+        try {
+            await connection.query('ALTER TABLE Users ADD COLUMN mfa_last_used_at DATETIME NULL;');
+        } catch (e: any) {
+            if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding mfa_last_used_at:", e);
+        }
+
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS MfaChallenges (
+                id VARCHAR(64) PRIMARY KEY,
+                user_email VARCHAR(255) NOT NULL,
+                tenant_id VARCHAR(255) NOT NULL,
+                operation VARCHAR(100) NOT NULL,
+                payload_hash CHAR(64),
+                expires_at DATETIME NOT NULL,
+                consumed_at DATETIME NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_user (user_email, tenant_id)
+            )
+        `);
+
+        // ===== SSO SAML via WorkOS =====
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS TenantSSO (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                tenant_id VARCHAR(255) NOT NULL UNIQUE,
+                workos_org_id VARCHAR(255),
+                workos_connection_id VARCHAR(255),
+                domain VARCHAR(255),
+                enabled BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            )
+        `);
+
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS SSOSessions (
+                id VARCHAR(64) PRIMARY KEY,
+                tenant_id VARCHAR(255) NOT NULL,
+                email VARCHAR(255) NOT NULL,
+                workos_user_id VARCHAR(255),
+                expires_at DATETIME NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_tenant (tenant_id),
+                INDEX idx_email (email)
+            )
+        `);
 
         await connection.query(`
             CREATE TABLE IF NOT EXISTS TaggingPolicies (
@@ -753,11 +846,77 @@ export async function initializeDatabase() {
             console.error("Migrations runner failed:", migrationsErr);
         }
 
+        // Initialize notification tables
+        try {
+            await ensureNotificationChannelTables();
+        } catch (notifErr) {
+            console.error("Notification tables initialization failed:", notifErr);
+        }
+
+        // Create LegalAcceptances table for DPA/terms/privacy tracking
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS LegalAcceptances (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                tenant_id VARCHAR(255) NOT NULL,
+                user_email VARCHAR(255) NOT NULL,
+                document_type ENUM('dpa','terms','privacy') NOT NULL,
+                document_version VARCHAR(50) NOT NULL,
+                accepted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                ip_address VARCHAR(45),
+                user_agent TEXT,
+                UNIQUE KEY uq_tenant_doc (tenant_id, document_type, document_version),
+                INDEX idx_tenant (tenant_id)
+            )
+        `);
+
+        // ===== Data Residency =====
+        try {
+            await connection.query(`ALTER TABLE Tenants ADD COLUMN data_residency ENUM('EU','US','LATAM','APAC','GLOBAL') DEFAULT 'GLOBAL';`);
+        } catch (e: any) {
+            if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding data_residency:", e);
+        }
+
+        try {
+            await connection.query(`ALTER TABLE Tenants ADD COLUMN data_residency_locked_at DATETIME NULL;`);
+        } catch (e: any) {
+            if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding data_residency_locked_at:", e);
+        }
+
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS DataResidencyChanges (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                tenant_id VARCHAR(255) NOT NULL,
+                changed_by VARCHAR(255) NOT NULL,
+                from_region VARCHAR(20),
+                to_region VARCHAR(20) NOT NULL,
+                reason TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_tenant (tenant_id)
+            )
+        `);
+
+        // Seed best-effort de PricingUnits (feature B). Solo corre si la tabla está vacía.
+        try {
+            const { seedPricingUnits } = await import('../../../scripts/seed-pricing-units');
+            await seedPricingUnits(false);
+        } catch (seedErr) {
+            console.error("PricingUnits seed failed (non-fatal):", seedErr);
+        }
+
         dbInitialized = true;
         console.log("Database schema validated/initialized successfully.");
-    } catch (error) {
-        console.error("Failed to initialize database schema:", error);
-    }
+        } catch (error) {
+            console.error("Failed to initialize database schema:", error);
+            throw error;
+        } finally {
+            try { connection.release(); } catch { /* ignore */ }
+        }
+    })().catch((e) => {
+        // Reset promise so a retry is possible after transient failures (e.g. deadlocks)
+        dbInitPromise = null;
+        throw e;
+    });
+    return dbInitPromise;
 }
 
 export async function insertCostSnapshot(tenantId: string, date: string, cost: number, currency: string) {
@@ -835,6 +994,164 @@ export async function updateTenantHealth(tenantId: string, status: string, error
          ON DUPLICATE KEY UPDATE last_sync_at = CURRENT_TIMESTAMP, sync_status = VALUES(sync_status), last_error = VALUES(last_error)`,
         [tenantId, status, errorMsg || null]
     );
+}
+
+// Create NotificationChannels table if not exists
+export async function ensureNotificationChannelTables() {
+    const connection = await pool.getConnection();
+    try {
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS NotificationChannels (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                tenant_id VARCHAR(255) NOT NULL,
+                type ENUM('slack','teams','email') NOT NULL,
+                name VARCHAR(255) NOT NULL,
+                config_json JSON NOT NULL,
+                severity_filter VARCHAR(50) DEFAULT 'info,warning,error',
+                enabled BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_tenant (tenant_id),
+                INDEX idx_tenant_type (tenant_id, type)
+            )
+        `);
+
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS NotificationLog (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                tenant_id VARCHAR(255) NOT NULL,
+                channel_id INT,
+                channel_type VARCHAR(50),
+                title VARCHAR(500),
+                message TEXT,
+                severity VARCHAR(50),
+                status ENUM('success','failed') NOT NULL,
+                error_message TEXT,
+                sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_tenant_date (tenant_id, sent_at)
+            )
+        `);
+
+        // Platform Status Snapshots table
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS PlatformStatusSnapshots (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                overall_status ENUM('operational','degraded','down') NOT NULL,
+                db_latency_ms INT,
+                azure_sync_ratio DECIMAL(5,4),
+                components_json JSON,
+                captured_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_captured (captured_at)
+            )
+        `);
+
+        // Platform Incidents table
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS PlatformIncidents (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                title VARCHAR(500) NOT NULL,
+                severity ENUM('minor','major','critical') NOT NULL,
+                status ENUM('investigating','identified','monitoring','resolved') NOT NULL,
+                started_at DATETIME NOT NULL,
+                resolved_at DATETIME NULL,
+                description TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_started (started_at)
+            )
+        `);
+    } finally {
+        // BillingTransactions table for tracking Paddle transactions
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS BillingTransactions (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                tenant_id VARCHAR(255) NOT NULL,
+                paddle_transaction_id VARCHAR(255) UNIQUE,
+                paddle_subscription_id VARCHAR(255),
+                amount DECIMAL(12,2),
+                currency VARCHAR(10),
+                status VARCHAR(50),
+                billed_at DATETIME,
+                raw_event JSON,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_tenant_date (tenant_id, billed_at DESC),
+                FOREIGN KEY (tenant_id) REFERENCES Tenants(tenant_id) ON DELETE CASCADE
+            )
+        `);
+
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS SignupEvents (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                tenant_id VARCHAR(255) NOT NULL,
+                user_email VARCHAR(255) NOT NULL,
+                event_type ENUM('signup_started','signup_completed','trial_started','onboarding_completed','trial_extended','trial_expired','converted_to_paid','churned') NOT NULL,
+                plan VARCHAR(50),
+                metadata JSON,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_tenant_event (tenant_id, event_type),
+                INDEX idx_event_date (event_type, created_at),
+                FOREIGN KEY (tenant_id) REFERENCES Tenants(tenant_id) ON DELETE CASCADE
+            )
+        `);
+
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS OnboardingProgress (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                tenant_id VARCHAR(255) NOT NULL UNIQUE,
+                step_welcome ENUM('pending','in_progress','completed','skipped') DEFAULT 'pending',
+                step_azure_sp ENUM('pending','in_progress','completed','skipped') DEFAULT 'pending',
+                step_first_sync ENUM('pending','in_progress','completed','skipped') DEFAULT 'pending',
+                step_first_budget ENUM('pending','in_progress','completed','skipped') DEFAULT 'pending',
+                step_notifications ENUM('pending','in_progress','completed','skipped') DEFAULT 'pending',
+                completed_at DATETIME NULL,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                FOREIGN KEY (tenant_id) REFERENCES Tenants(tenant_id) ON DELETE CASCADE
+            )
+        `);
+        
+        // ===== Public REST API Keys (pak_xxx format, separate from MCP keys) =====
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS PublicApiKeys (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                tenant_id VARCHAR(255) NOT NULL,
+                name VARCHAR(255) NOT NULL,
+                key_hash CHAR(64) NOT NULL UNIQUE,
+                key_prefix CHAR(12) NOT NULL,
+                scopes JSON NOT NULL DEFAULT (JSON_ARRAY('read:cost','read:resources')),
+                rate_limit_per_min INT NOT NULL DEFAULT 60,
+                enabled BOOLEAN DEFAULT TRUE,
+                last_used_at DATETIME,
+                created_by VARCHAR(255),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_tenant (tenant_id),
+                INDEX idx_prefix (key_prefix),
+                FOREIGN KEY (tenant_id) REFERENCES Tenants(tenant_id) ON DELETE CASCADE
+            )
+        `);
+
+        // ===== Marketplace Events Logging =====
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS MarketplaceEvents (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                tenant_id VARCHAR(255),
+                marketplace ENUM('azure','aws') NOT NULL,
+                event_type VARCHAR(100) NOT NULL,
+                subscription_id VARCHAR(255),
+                raw_payload JSON,
+                processed BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_subscription (subscription_id),
+                INDEX idx_tenant (tenant_id),
+                INDEX idx_marketplace_event (marketplace, event_type)
+            )
+        `);
+
+        connection.release();
+    }
+}
+
+// Initialize tables on startup
+if (typeof globalThis !== 'undefined' && !dbInitialized) {
+    // This will be called after initializeDatabase in the application startup
 }
 
 export default pool;

@@ -2,43 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { streamText } from "ai";
 import { AIProviderFactory } from "@/modules/core/aiProvider";
 import { isMockTenant } from "@/lib/mockData";
-import jwt from "jsonwebtoken";
+import { requireRequestIdentity, requireTenantAccess, AuthError } from "@/lib/requestAuth";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
     try {
-        // Auth validation
-        const authHeader = request.headers.get("authorization");
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            return NextResponse.json({ error: "Falta token Bearer." }, { status: 401 });
-        }
-        const token = authHeader.split(" ")[1];
-        const decoded = jwt.decode(token) as any;
-        if (!decoded || !decoded.tid) {
-            return NextResponse.json({ error: "Token inválido." }, { status: 401 });
-        }
+        const identity = await requireRequestIdentity(request);
         const { prompt, pageContext, dataPayload, tenantId, locale = 'es' } = await request.json();
 
-        // SuperAdmin check for cross-tenant access
-        const email = decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "";
-        const isSuperAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") ;
-
-        // Permitimos tenants DEMO (mock) aunque el `tid` del token no coincida:
-        // el dataPayload viene del cliente, los datos son sintéticos y la AI no
-        // accede a ningún recurso real del cloud. Esto permite que las cuentas
-        // de prueba experimenten el Copilot sobre el dataset DEMO.
         const isDemoTenant = tenantId && isMockTenant(tenantId);
 
-        if (tenantId && decoded.tid !== tenantId && !isSuperAdmin && !isDemoTenant) {
-            return NextResponse.json({ error: "Acceso denegado al tenant." }, { status: 403 });
+        if (tenantId && !isDemoTenant) {
+            await requireTenantAccess(request, tenantId);
         }
 
-        // Para tenants DEMO usamos el `tid` real del token al resolver la
-        // config de AI (provider + apiKey), ya que el ID demo no existe en la
-        // tabla Tenants.
-        const effectiveTenantId = isDemoTenant ? decoded.tid : (tenantId || decoded.tid);
+        const effectiveTenantId = isDemoTenant ? identity.tenantId : (tenantId || identity.tenantId);
         const model = await AIProviderFactory.getGeminiModel(effectiveTenantId);
 
         let dataString = "";
@@ -77,8 +57,9 @@ Context payload (summarized): ${dataString}`;
         // Stream de texto plano (text/plain). El cliente lo lee con
         // response.body.getReader() y va appendeando tokens en tiempo real.
         return result.toTextStreamResponse();
-    } catch (error: any) {
-        console.error("[Copilot] Error:", error.message);
-        return NextResponse.json({ error: "Copilot failed to respond.", details: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
+        console.error("[Copilot] Error:", error instanceof Error ? error.message : error);
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }

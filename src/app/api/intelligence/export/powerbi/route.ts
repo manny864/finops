@@ -1,33 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/modules/storage/db';
+import { getTenantCredentials } from '@/lib/secrets/tenantCredentials';
 
 export async function GET(request: NextRequest) {
     try {
         const url = new URL(request.url);
         const tenantId = url.searchParams.get('tenantId');
-        const token = url.searchParams.get('token'); 
+        const token = url.searchParams.get('token');
 
         if (!tenantId || !token) {
             return NextResponse.json({ error: "Faltan credenciales (tenantId, token)." }, { status: 401 });
         }
 
+        // Tier gate (lectura de DB sin secret)
         const [tenantRows]: any = await pool.query(
-            "SELECT client_secret, tier FROM Tenants WHERE tenant_id = ?",
+            "SELECT tier FROM Tenants WHERE tenant_id = ?",
             [tenantId]
         );
-        
+
         if (!tenantRows || tenantRows.length === 0) {
             return NextResponse.json({ error: "Tenant no encontrado." }, { status: 404 });
         }
-        
+
         const tenant = tenantRows[0];
-        
-        // Feature Gating: Enterprise Only
+
         if (tenant.tier !== 'Enterprise' && tenantId !== 'default') {
             return NextResponse.json({ error: "Esta característica requiere el plan Enterprise." }, { status: 403 });
         }
 
-        const validToken = tenant.client_secret || Buffer.from(tenantId).toString('base64');
+        // NOTA: este endpoint usa el client_secret del tenant como API token
+        // para Power BI (compat legacy). Es un anti-pattern (token largo, no
+        // rotable independiente). TODO: migrar a tokens dedicados con scope
+        // limitado (ver issue powerbi-token-revamp).
+        const creds = await getTenantCredentials(tenantId);
+        const validToken = creds?.clientSecret || Buffer.from(tenantId).toString('base64');
         if (token !== validToken) {
             return NextResponse.json({ error: "Token inválido o no autorizado." }, { status: 403 });
         }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import jwt from "jsonwebtoken";
+import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 import pool, { initializeDatabase } from "@/modules/storage/db";
 
 /**
@@ -17,17 +17,8 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Faltan tenantId / recommendationId" }, { status: 400 });
         }
 
-        const authHeader = request.headers.get("authorization");
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            return NextResponse.json({ error: "Falta token Bearer." }, { status: 401 });
-        }
-        const decoded = jwt.decode(authHeader.split(" ")[1]) as any;
-        if (!decoded || !decoded.tid) return NextResponse.json({ error: "Token inválido" }, { status: 401 });
-        const email = (decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "").toLowerCase();
-        const isSuperAdmin = email.endsWith("@cscloudsolutions.com.ar");
-        if (decoded.tid !== tenantId && !isSuperAdmin) {
-            return NextResponse.json({ error: "Acceso denegado al tenant." }, { status: 403 });
-        }
+        const identity = await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
+        const email = identity.email;
 
         const expiresClause = durationDays && Number(durationDays) > 0
             ? `DATE_ADD(CURRENT_TIMESTAMP, INTERVAL ${Math.floor(Number(durationDays))} DAY)`
@@ -41,9 +32,10 @@ export async function POST(request: NextRequest) {
         );
 
         return NextResponse.json({ success: true, recommendationId, suppressedUntil: durationDays ? `+${durationDays}d` : "permanent" });
-    } catch (e: any) {
+    } catch (e: unknown) {
+        if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
         console.error("[suppress] error:", e);
-        return NextResponse.json({ error: "Error al suprimir recomendación", details: e.message }, { status: 500 });
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }
 
@@ -57,13 +49,7 @@ export async function DELETE(request: NextRequest) {
         const recommendationId = request.nextUrl.searchParams.get("recommendationId");
         if (!tenantId || !recommendationId) return NextResponse.json({ error: "Faltan parámetros" }, { status: 400 });
 
-        const authHeader = request.headers.get("authorization");
-        if (!authHeader || !authHeader.startsWith("Bearer ")) return NextResponse.json({ error: "Falta token Bearer." }, { status: 401 });
-        const decoded = jwt.decode(authHeader.split(" ")[1]) as any;
-        if (!decoded || !decoded.tid) return NextResponse.json({ error: "Token inválido" }, { status: 401 });
-        const email = (decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "").toLowerCase();
-        const isSuperAdmin = email.endsWith("@cscloudsolutions.com.ar");
-        if (decoded.tid !== tenantId && !isSuperAdmin) return NextResponse.json({ error: "Acceso denegado." }, { status: 403 });
+        await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
 
         await pool.query(
             `UPDATE RecommendationActions SET status='open', expires_at=NULL, updated_at=CURRENT_TIMESTAMP
@@ -71,7 +57,9 @@ export async function DELETE(request: NextRequest) {
             [tenantId, recommendationId]
         );
         return NextResponse.json({ success: true });
-    } catch (e: any) {
-        return NextResponse.json({ error: "Error", details: e.message }, { status: 500 });
+    } catch (e: unknown) {
+        if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
+        console.error("[suppress DELETE] error:", e);
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }

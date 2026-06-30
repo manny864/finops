@@ -76,6 +76,8 @@ export const PAGES: PageEntry[] = [
     { id: "adm-audit", path: "/admin/audit", title: "Auditoría", description: "Log de acciones del tenant.", icon: "FileSearch", category: "admin" },
     { id: "adm-report", path: "/admin/report", title: "Reportes", description: "Reportes ejecutivos y exports.", icon: "FileText", category: "admin" },
     { id: "adm-workbooks", path: "/admin/workbooks", title: "Artefactos y Workbooks", description: "Plantillas y deploys de workbooks.", icon: "BookOpen", category: "admin" },
+    { id: "adm-focus-export", path: "/admin/focus-export", title: "FOCUS 1.1 Export", description: "Exportá billing en formato FinOps FOCUS estándar.", icon: "FileSpreadsheet", category: "admin" },
+    { id: "adm-cloud-accounts", path: "/admin/cloud-accounts", title: "Cloud Accounts (AWS)", description: "Conectá cuentas AWS via assume-role + CUR S3 ingestion.", icon: "Cloud", category: "admin" },
 ];
 
 const BY_PATH = new Map<string, PageEntry>(PAGES.map(p => [p.path, p]));

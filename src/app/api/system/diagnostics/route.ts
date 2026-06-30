@@ -1,28 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import jwt from "jsonwebtoken";
+import { requireSuperAdmin, AuthError } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";
 
 export async function GET(request: NextRequest) {
     try {
-        // Auth check: only SuperAdmins
-        const authHeader = request.headers.get("authorization");
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            return NextResponse.json({ error: "No autorizado." }, { status: 401 });
-        }
-
-        const token = authHeader.split(" ")[1];
-        const decoded = jwt.decode(token) as any;
-
-        if (!decoded) {
-            return NextResponse.json({ error: "Token inválido." }, { status: 401 });
-        }
-
-        const email = decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "";
-        const isSuperAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") ;
-
-        if (!isSuperAdmin) {
-            return NextResponse.json({ error: "Acceso denegado. Se requiere rol SuperAdmin." }, { status: 403 });
-        }
+        await requireSuperAdmin(request);
 
         // 1. MySQL Health Check
         let dbStatus = "ERROR";
@@ -32,8 +14,8 @@ export async function GET(request: NextRequest) {
             await connection.ping();
             connection.release();
             dbStatus = "OK";
-        } catch (e: any) {
-            dbError = e.message;
+        } catch (e: unknown) {
+            dbError = e instanceof Error ? e.message : String(e);
         }
 
         // 2. Env Vars Check
@@ -75,9 +57,10 @@ export async function GET(request: NextRequest) {
             }
         });
 
-    } catch (e: any) {
+    } catch (e: unknown) {
+        if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
         console.error("Diagnostics error:", e);
-        return NextResponse.json({ error: "Error interno en diagnóstico", details: e.message }, { status: 500 });
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }
 

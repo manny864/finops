@@ -1,33 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import jwt from "jsonwebtoken";
+import { requireTenantRole } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";
+import { getPaddleBaseUrl } from "@/lib/paddleTierMap";
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Falta token Bearer de autenticación." }, { status: 401 });
-    }
-
-    const token = authHeader.split(" ")[1];
-    const decoded = jwt.decode(token) as any;
-
-    if (!decoded || !decoded.tid) {
-      return NextResponse.json({ error: "Token inválido." }, { status: 401 });
-    }
-
-    const tenantId = decoded.tid;
+    const identity = await requireTenantRole(request, new URL(request.url).searchParams.get("tenantId") || "", ["OWNER"]);
+    const tenantId = identity.tenantId;
 
     const [rows]: any = await pool.query(
-      "SELECT subscription_id FROM Tenants WHERE tenant_id = ?",
+      "SELECT paddle_subscription_id FROM Tenants WHERE tenant_id = ?",
       [tenantId]
     );
 
-    if (!rows || rows.length === 0 || !rows[0].subscription_id) {
+    if (!rows || rows.length === 0 || !rows[0].paddle_subscription_id) {
       return NextResponse.json({ error: "No se encontró suscripción activa." }, { status: 404 });
     }
 
-    const subscriptionId = rows[0].subscription_id;
+    const subscriptionId = rows[0].paddle_subscription_id;
     const PADDLE_API_KEY = process.env.PADDLE_API_KEY;
 
     if (!PADDLE_API_KEY) {
@@ -39,7 +29,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true });
     }
 
-    const res = await fetch(`https://api.paddle.com/subscriptions/${subscriptionId}/cancel`, {
+    const baseUrl = getPaddleBaseUrl();
+    const res = await fetch(`${baseUrl}/subscriptions/${subscriptionId}/cancel`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${PADDLE_API_KEY}`,
@@ -68,30 +59,25 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Falta token Bearer de autenticación." }, { status: 401 });
+    const searchParams = new URL(request.url).searchParams;
+    const tenantId = searchParams.get("tenantId");
+    
+    if (!tenantId) {
+      return NextResponse.json({ error: "tenantId es requerido" }, { status: 400 });
     }
 
-    const token = authHeader.split(" ")[1];
-    const decoded = jwt.decode(token) as any;
-
-    if (!decoded || !decoded.tid) {
-      return NextResponse.json({ error: "Token inválido." }, { status: 401 });
-    }
-
-    const tenantId = decoded.tid;
+    await requireTenantRole(request, tenantId, ["OWNER"]);
 
     const [rows]: any = await pool.query(
-      "SELECT subscription_id FROM Tenants WHERE tenant_id = ?",
+      "SELECT paddle_subscription_id FROM Tenants WHERE tenant_id = ?",
       [tenantId]
     );
 
-    if (!rows || rows.length === 0 || !rows[0].subscription_id) {
+    if (!rows || rows.length === 0 || !rows[0].paddle_subscription_id) {
       return NextResponse.json({ error: "No se encontró suscripción activa." }, { status: 404 });
     }
 
-    const subscriptionId = rows[0].subscription_id;
+    const subscriptionId = rows[0].paddle_subscription_id;
     const PADDLE_API_KEY = process.env.PADDLE_API_KEY;
 
     if (!PADDLE_API_KEY) {
@@ -99,7 +85,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: true, url: "https://mock.paddle.com/update-payment" });
     }
 
-    const res = await fetch(`https://api.paddle.com/subscriptions/${subscriptionId}/update-payment-method-transaction`, {
+    const baseUrl = getPaddleBaseUrl();
+    const res = await fetch(`${baseUrl}/subscriptions/${subscriptionId}/update-payment-method-transaction`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${PADDLE_API_KEY}`

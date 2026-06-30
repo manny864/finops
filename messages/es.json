@@ -332,10 +332,9 @@
     "monthly": "Mensual",
     "annual": "Anual",
     "save12": "Ahorra 12%",
-    "tryNow": "Probar Ahora",
+    "tryNow": "Demo Interactiva",
     "buyNow": "Comprar Ahora",
     "contactSales": "Contactar Ventas",
-    "tryDemoTier": "Probar demo interactiva",
     "title": "Precios Simples y Fijos",
     "subtitle": "Ya seas una startup o Enterprise, tenemos planes simples y fijos que no agravan tus problemas de costos.",
     "essential": {
@@ -641,5 +640,87 @@
   "Mock": {
     "badge": "DATOS DE EJEMPLO",
     "description": "Estás viendo datos simulados. Conecta tu suscripción Azure para ver datos reales."
+  },
+  "signup": {
+    "title": "Comienza tu prueba gratuita de 14 días",
+    "subtitle": "Conecta tu suscripción de Azure en 5 minutos. Visualiza ahorros en 24 horas.",
+    "noCardRequired": "Sin tarjeta de crédito requerida",
+    "hero": "Comienza tu prueba gratuita de 14 días",
+    "planSelector": "Elige Tu Plan",
+    "essential": {
+      "name": "Essential",
+      "price": "$0",
+      "monthlyPrice": "Gratuito",
+      "yearlyPrice": "Gratuito",
+      "description": "Perfecto para individuos y equipos pequeños",
+      "features": [
+        "Monitoreo de suscripción Azure",
+        "Análisis de costos básico",
+        "Reportes semanales",
+        "Soporte por email",
+        "Ver más"
+      ],
+      "cta": "Iniciar prueba gratuita"
+    },
+    "professional": {
+      "name": "Professional",
+      "price": "$99",
+      "monthlyPrice": "$99/mes",
+      "yearlyPrice": "$990/año",
+      "description": "Para equipos y departamentos en crecimiento",
+      "features": [
+        "Todo en Essential",
+        "Recomendaciones avanzadas de FinOps",
+        "Alertas en tiempo real",
+        "Dashboards personalizados",
+        "Ver más"
+      ],
+      "cta": "Iniciar prueba gratuita",
+      "recommended": true
+    },
+    "business": {
+      "name": "Business",
+      "price": "$299",
+      "monthlyPrice": "$299/mes",
+      "yearlyPrice": "$2,990/año",
+      "description": "Para grandes empresas",
+      "features": [
+        "Todo en Professional",
+        "Gestión multi-tenant",
+        "Acceso API",
+        "Soporte prioritario",
+        "Ver más"
+      ],
+      "cta": "Iniciar prueba gratuita"
+    },
+    "enterprise": {
+      "name": "Enterprise",
+      "description": "Para organizaciones con requisitos complejos",
+      "features": [
+        "Usuarios y tenants ilimitados",
+        "Integraciones personalizadas",
+        "Gerente de cuenta dedicado",
+        "Garantía SLA",
+        "Ver más"
+      ],
+      "cta": "Contactar ventas"
+    },
+    "trustSignals": "De confianza para líderes de FinOps",
+    "badges": [
+      "Certificado SOC 2",
+      "Verificado por Azure",
+      "Cumplimiento ISO 27001"
+    ],
+    "faq": {
+      "title": "Preguntas Frecuentes",
+      "q1": "¿Qué pasa después de que termina mi prueba?",
+      "a1": "Puedes actualizar a un plan de pago en cualquier momento durante o después de tu prueba. Sin tarjeta de crédito requerida al inicio.",
+      "q2": "¿Necesito ingresar información de tarjeta de crédito?",
+      "a2": "¡No! Tu prueba no requiere método de pago. Solo se te pedirá pago cuando actualices a un plan de pago.",
+      "q3": "¿Puedo cancelar mi prueba?",
+      "a3": "Sí, puedes cancelar en cualquier momento. Si actualizas a un plan de pago, puedes cancelar al final de tu ciclo de facturación.",
+      "q4": "¿Son mis datos seguros?",
+      "a4": "Absolutamente. Estamos certificados SOC 2 Tipo II y seguimos estándares de seguridad de clase mundial."
+    }
   }
 }

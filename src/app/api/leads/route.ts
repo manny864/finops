@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { escapeHtml } from "@/lib/htmlEscape";
 
 export async function POST(req: NextRequest) {
     try {
@@ -27,19 +28,24 @@ export async function POST(req: NextRequest) {
         const tokenData = await tokenResponse.json();
         const accessToken = tokenData.access_token;
 
-        // 2. Construct Email Payload
+        // 2. Construct Email Payload — HTML escape all user-controlled inputs
+        const safeName = escapeHtml(fullName);
+        const safeEmail = escapeHtml(email);
+        const safeCompany = escapeHtml(company);
+        const safeSpend = escapeHtml(spend);
+        const safeRequirements = escapeHtml(requirements || "N/A").replace(/\n/g, '<br/>');
         const mailPayload = {
             message: {
-                subject: `🚨 NUEVO LEAD ENTERPRISE - FinOps: ${company}`,
+                subject: `🚨 NUEVO LEAD ENTERPRISE - FinOps: ${safeCompany}`,
                 body: {
                     contentType: "HTML",
                     content: `
                         <h2>Nuevo Lead Enterprise Capturado</h2>
-                        <p><strong>Nombre:</strong> ${fullName}</p>
-                        <p><strong>Email:</strong> ${email}</p>
-                        <p><strong>Empresa:</strong> <span style="font-size: 1.2em; color: #0054A6;">${company}</span></p>
-                        <p><strong>Gasto Mensual Cloud:</strong> <strong style="font-size: 1.1em; color: #D32F2F;">${spend}</strong></p>
-                        <p><strong>Requerimientos:</strong><br/>${requirements || "N/A"}</p>
+                        <p><strong>Nombre:</strong> ${safeName}</p>
+                        <p><strong>Email:</strong> ${safeEmail}</p>
+                        <p><strong>Empresa:</strong> <span style="font-size: 1.2em; color: #0054A6;">${safeCompany}</span></p>
+                        <p><strong>Gasto Mensual Cloud:</strong> <strong style="font-size: 1.1em; color: #D32F2F;">${safeSpend}</strong></p>
+                        <p><strong>Requerimientos:</strong><br/>${safeRequirements}</p>
                     `
                 },
                 toRecipients: [

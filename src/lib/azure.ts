@@ -2,24 +2,23 @@ import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { ClientSecretCredential } from "@azure/identity";
 import { ComputeManagementClient } from "@azure/arm-compute";
 import { NetworkManagementClient } from "@azure/arm-network";
-import pool, { initializeDatabase } from '@/modules/storage/db';
-import { RowDataPacket } from "mysql2";
+import { initializeDatabase } from '@/modules/storage/db';
+import { getTenantCredentials } from '@/lib/secrets/tenantCredentials';
 
 export async function getAzureCredential(tenantId: string) {
-  // Ensure DB schema exists before querying
+  // Ensure DB schema exists before querying (KV fallback path may hit DB).
   await initializeDatabase();
 
-  // Query DB to find client credentials for this tenant
-  const [rows] = await pool.query<RowDataPacket[]>('SELECT client_id, client_secret FROM Tenants WHERE tenant_id = ?', [tenantId]);
-
-  if (rows.length === 0) {
-    throw new Error(`Tenant no registrado en la base de datos: ${tenantId}`);
-  }
-
-  const clean = (v: any) => (typeof v === 'string' ? v.trim().replace(/^["']+|["']+$/g, '') : v);
+  const clean = (v: string | undefined): string =>
+    (v ?? '').trim().replace(/^["']+|["']+$/g, '');
   const cleanTid = clean(tenantId);
-  const clientId = clean(rows[0].client_id) || clean(process.env.AZURE_CLIENT_ID);
-  const clientSecret = clean(rows[0].client_secret) || clean(process.env.AZURE_CLIENT_SECRET);
+
+  const creds = await getTenantCredentials(cleanTid);
+
+  // Fallback al SP global de la plataforma (env) si el tenant no tiene
+  // credenciales propias todavía. Útil en dev/demo.
+  const clientId = creds?.clientId || clean(process.env.AZURE_CLIENT_ID);
+  const clientSecret = creds?.clientSecret || clean(process.env.AZURE_CLIENT_SECRET);
 
   if (!clientId || !clientSecret) {
     throw new Error(`Faltan credenciales (Client ID o Secret) para el tenant ${tenantId}. Verifique el Onboarding.`);

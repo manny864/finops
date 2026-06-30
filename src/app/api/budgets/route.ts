@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
-import jwt from "jsonwebtoken";
+import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { getBudgetConsumption } from "@/services/budgetService";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 
@@ -14,23 +14,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Falta el tenantId." }, { status: 400 });
         }
 
-        const authHeader = request.headers.get("authorization");
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            return NextResponse.json({ error: "No autorizado." }, { status: 401 });
-        }
-        const token = authHeader.split(" ")[1];
-        const decoded = jwt.decode(token) as any;
-        if (!decoded || !decoded.tid) {
-            return NextResponse.json({ error: "Token inválido." }, { status: 401 });
-        }
-
-        const email = decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "";
-        const isAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") ;
-
-        // QA Security Patch: IDOR Prevention
-        if (!isAdmin) {
-            tenantId = decoded.tid; // Forzar uso del tenant verificado
-        }
+        await requireTenantAccess(request, tenantId);
 
         const [rows]: any = await pool.query(
             "SELECT * FROM Budgets WHERE tenant_id = ?",
@@ -60,37 +44,23 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({ budgets: budgetsWithUtilization });
 
-    } catch (e: any) {
-        return NextResponse.json({ error: "Error interno", details: e.message }, { status: 500 });
+    } catch (e: unknown) {
+        if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
+        console.error("[budgets] GET error:", e);
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }
 
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        let { tenantId, costCenter, monthlyLimit, alertThreshold = 80.00 } = body;
+        const { tenantId, costCenter, monthlyLimit, alertThreshold = 80.00 } = body;
 
         if (!tenantId || !costCenter || monthlyLimit === undefined) {
             return NextResponse.json({ error: "Parámetros incompletos" }, { status: 400 });
         }
 
-        const authHeader = request.headers.get("authorization");
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            return NextResponse.json({ error: "No autorizado." }, { status: 401 });
-        }
-        const token = authHeader.split(" ")[1];
-        const decoded = jwt.decode(token) as any;
-        if (!decoded || !decoded.tid) {
-            return NextResponse.json({ error: "Token inválido." }, { status: 401 });
-        }
-
-        const email = decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "";
-        const isAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") ;
-
-        // QA Security Patch: IDOR Prevention
-        if (!isAdmin) {
-            tenantId = decoded.tid; // Forzar uso del tenant verificado
-        }
+        await requireTenantAccess(request, tenantId);
 
         await pool.query(
             `INSERT INTO Budgets (tenant_id, cost_center_tag_value, monthly_limit_usd, alert_threshold) 
@@ -101,7 +71,9 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ success: true, message: "Presupuesto guardado" });
 
-    } catch (e: any) {
-        return NextResponse.json({ error: "Error interno", details: e.message }, { status: 500 });
+    } catch (e: unknown) {
+        if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
+        console.error("[budgets] POST error:", e);
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }

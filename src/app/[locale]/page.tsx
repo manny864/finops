@@ -1,5 +1,6 @@
 "use client";
-import { useContext, useEffect, useState, useCallback } from 'react';
+import { useContext, useEffect, useState, useCallback, useRef } from 'react';
+import { useRouter, useParams } from 'next/navigation';
 import { TabContext } from '@/components/ClientShell';
 import { useMsal } from '@azure/msal-react';
 import { useTenant } from '@/components/TenantProvider';
@@ -40,6 +41,10 @@ import {
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
 export default function Home() {
+  const router = useRouter();
+  const { locale } = useParams();
+  const onboardingRedirectRef = useRef(false);
+  
   const { activeTab, setActiveTab } = useContext(TabContext);
   const { instance, accounts } = useMsal();
   const { selectedTenant } = useTenant();
@@ -64,6 +69,34 @@ export default function Home() {
       // Proxy: $100 waste removed = 15 kg CO2 saved
       return ((wastedUsd / 100) * 15).toFixed(1);
   };
+
+  // Auto-redirect to onboarding if tenant not onboarded
+  useEffect(() => {
+    if (onboardingRedirectRef.current) return;
+    if (!selectedTenant || selectedTenant.id === 'default' || accounts.length === 0) return;
+    
+    const checkOnboarding = async () => {
+      try {
+        const response = await fetch('/api/onboarding/progress', {
+          headers: { 'Authorization': `Bearer ${await (instance.acquireTokenSilent({
+            scopes: ['api://FinOpsApp/access_as_user'],
+            account: accounts[0],
+          } as any).then((r:any) => r.accessToken)).catch(() => '')}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (!selectedTenant.is_onboarded) {
+            onboardingRedirectRef.current = true;
+            router.push(`/${locale}/onboarding`);
+          }
+        }
+      } catch (error) {
+        console.error('[Home] Failed to check onboarding:', error);
+      }
+    };
+    
+    checkOnboarding();
+  }, [selectedTenant?.id, accounts.length]);
 
   useEffect(() => {
       if (activeTab !== 'dashboard' || (accounts.length === 0 && !isMockTenant(selectedTenant?.id || '')) || selectedTenant.id === 'default') return;

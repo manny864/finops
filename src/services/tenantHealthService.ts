@@ -1,20 +1,13 @@
 import pool from '@/modules/storage/db';
+import { getTenantCredentials } from '@/lib/secrets/tenantCredentials';
 
 export async function verifyTenantCredentials(tenantId: string): Promise<{ success: boolean; error?: string }> {
-    // 1. Fetch credentials from DB
-    const [rows] = await pool.query<any[]>(
-        'SELECT client_id, client_secret FROM Tenants WHERE tenant_id = ?',
-        [tenantId]
-    );
-
-    if (rows.length === 0) {
-        return { success: false, error: 'Tenant no encontrado en la base de datos.' };
-    }
-
+    // 1. Fetch credentials from KV (with DB fallback)
     const clean = (v: any) => (typeof v === 'string' ? v.trim().replace(/^["']+|["']+$/g, '') : v);
-    const clientId = clean(rows[0].client_id);
-    const clientSecret = clean(rows[0].client_secret);
     const cleanTid = clean(tenantId);
+    const creds = await getTenantCredentials(cleanTid);
+    const clientId = creds?.clientId || '';
+    const clientSecret = creds?.clientSecret || '';
 
     if (!clientId || !clientSecret) {
         const errorMsg = 'Credenciales de Azure (Client ID y Client Secret) no configuradas.';

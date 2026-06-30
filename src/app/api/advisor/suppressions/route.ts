@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import jwt from "jsonwebtoken";
+import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import pool, { initializeDatabase } from "@/modules/storage/db";
 
 /** GET /api/advisor/suppressions?tenantId=X → suppressions activas. */
@@ -9,13 +9,7 @@ export async function GET(request: NextRequest) {
         const tenantId = request.nextUrl.searchParams.get("tenantId");
         if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
 
-        const authHeader = request.headers.get("authorization");
-        if (!authHeader || !authHeader.startsWith("Bearer ")) return NextResponse.json({ error: "Falta token Bearer." }, { status: 401 });
-        const decoded = jwt.decode(authHeader.split(" ")[1]) as any;
-        if (!decoded || !decoded.tid) return NextResponse.json({ error: "Token inválido" }, { status: 401 });
-        const email = (decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "").toLowerCase();
-        const isSuperAdmin = email.endsWith("@cscloudsolutions.com.ar");
-        if (decoded.tid !== tenantId && !isSuperAdmin) return NextResponse.json({ error: "Acceso denegado." }, { status: 403 });
+        await requireTenantAccess(request, tenantId);
 
         // Auto-expira las que ya vencieron
         await pool.query(
@@ -34,7 +28,9 @@ export async function GET(request: NextRequest) {
             [tenantId]
         );
         return NextResponse.json({ success: true, suppressions: rows });
-    } catch (e: any) {
-        return NextResponse.json({ error: "Error", details: e.message }, { status: 500 });
+    } catch (e: unknown) {
+        if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
+        console.error("[suppressions] GET error:", e);
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }

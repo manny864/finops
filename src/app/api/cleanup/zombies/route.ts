@@ -4,7 +4,7 @@ import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { runGraphAudits } from "@/services/auditService";
 import { getMonthlyCostEstimate } from "@/services/pricingService";
 import { tenants } from "@/lib/tenants";
-import jwt from "jsonwebtoken";
+import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 
 async function queryResourceGraphWithRetry(client: any, query: string, subscriptions: string[], retries = 3, initialDelay = 3000): Promise<any> {
     let currentDelay = initialDelay;
@@ -34,28 +34,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
     }
 
-    // 1. Validar el Token MSAL (Aislamiento Cero-Trust)
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Falta token Bearer de autenticación." }, { status: 401 });
-    }
-
-    const token = authHeader.split(" ")[1];
-    const decoded = jwt.decode(token) as any;
-
-    if (!decoded || !decoded.tid) {
-      return NextResponse.json({ error: "Estructura de token inválida." }, { status: 401 });
-    }
-
-    const email = decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "";
-    const isAdmin = email.toLowerCase().endsWith("@cscloudsolutions.com.ar") ;
-
-    if (decoded.tid !== tenantId && !isAdmin) {
-      return NextResponse.json(
-        { error: `Acceso denegado. El token no coincide con el tenant.` },
-        { status: 403 }
-      );
-    }
+    await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
 
     // 2. Obtener Cliente Autenticado
     const credential = await getAzureCredential(tenantId);
@@ -226,8 +205,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ success: true, data: allZombies });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
+    if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error(`[Zombies API] ERROR:`, error);
-    return NextResponse.json({ error: "Error en la API de Zombis", details: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import jwt from "jsonwebtoken";
+import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
 import pool from "@/modules/storage/db";
 
@@ -49,24 +49,17 @@ function buildArmTemplate(managingTenantId: string, principalId: string, roles: 
     };
 }
 
-function getAuth(request: NextRequest, tenantId: string) {
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) return { error: "Falta token Bearer.", status: 401 };
-    const decoded = jwt.decode(authHeader.split(" ")[1]) as any;
-    if (!decoded?.tid) return { error: "Token inválido.", status: 401 };
-    const email = (decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "").toLowerCase();
-    const isSuperAdmin = email.endsWith("@cscloudsolutions.com.ar");
-    if (decoded.tid !== tenantId && !isSuperAdmin) return { error: "Acceso denegado al tenant.", status: 403 };
-    return { ok: true };
-}
-
 export async function GET(request: NextRequest) {
     try {
         const tenantId = new URL(request.url).searchParams.get('tenantId');
         if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
 
-        const auth = getAuth(request, tenantId);
-        if ('error' in auth) return NextResponse.json({ error: auth.error }, { status: auth.status as number });
+        try {
+            await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
+        } catch (e) {
+            if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
+            throw e;
+        }
 
         if (isMockTenant(tenantId)) return NextResponse.json(MOCK_GET_RESPONSE);
 
@@ -80,9 +73,9 @@ export async function GET(request: NextRequest) {
             console.error("[lighthouse] GET DB error for real tenant:", tenantId, dbErr?.message);
             return NextResponse.json({ success: false, mock: false, delegations: [], error: `Sin datos: ${dbErr?.message || "error"}` });
         }
-    } catch (err: any) {
-        console.error("[lighthouse] GET handler error:", err?.message);
-        return NextResponse.json({ success: false, mock: false, delegations: [], error: err?.message || "Error interno" }, { status: 500 });
+    } catch (err: unknown) {
+        console.error("[lighthouse] GET handler error:", err instanceof Error ? err.message : err);
+        return NextResponse.json({ success: false, mock: false, delegations: [], error: "Internal server error" }, { status: 500 });
     }
 }
 
@@ -91,8 +84,12 @@ export async function POST(request: NextRequest) {
         const tenantId = new URL(request.url).searchParams.get('tenantId');
         if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
 
-        const auth = getAuth(request, tenantId);
-        if ('error' in auth) return NextResponse.json({ error: auth.error }, { status: auth.status as number });
+        try {
+            await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
+        } catch (e) {
+            if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
+            throw e;
+        }
 
         const body = await request.json();
         const { managedTenantId, managedSubscriptionId, roles, principalId } = body;
@@ -117,7 +114,8 @@ export async function POST(request: NextRequest) {
             console.error("[lighthouse] POST DB error for real tenant:", tenantId, dbErr?.message);
             return NextResponse.json({ success: false, mock: false, error: `No se pudo persistir la delegación: ${dbErr?.message || "error"}`, armTemplate }, { status: 500 });
         }
-    } catch (error: any) {
-        return NextResponse.json({ error: "Error al procesar la solicitud.", details: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        console.error("[lighthouse] POST handler error:", error instanceof Error ? error.message : error);
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }

@@ -39,10 +39,18 @@ import {
     Layers,
     HardDrive,
     BellRing,
+    Bell,
     Sparkles,
     Briefcase,
     KeyRound,
-    Bot
+    Unlock,
+    Database,
+    BarChart3,
+    FileSpreadsheet,
+    Bot,
+    Globe,
+    TrendingUp,
+    Cloud
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -141,8 +149,18 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/admin/ai-config', label: 'Configuración de IA', icon: Cpu },
                 { href: '/admin/report', label: t('executive_report'), icon: FileText },
                 { href: '/admin/workbooks', label: t('workbooks'), icon: BookOpen },
+                { href: '/admin/notifications', label: 'Notificaciones', icon: Bell, requiredTier: 'Professional' },
+                { href: '/admin/billing', label: 'Facturación', icon: CreditCard, requiredTier: 'Essential' },
                 { href: '/admin/copilot-m365', label: t('copilot_m365', { fallback: 'Copilot M365' }), icon: Bot, requiredTier: 'Enterprise' },
-                { href: '/admin/audit', label: t('audit_trail'), icon: Activity }
+                { href: '/admin/audit', label: t('audit_trail'), icon: Activity },
+                { href: '/admin/pricing-units', label: 'Pricing Units', icon: Database },
+                { href: '/admin/mcp-keys', label: 'MCP API Keys', icon: KeyRound, requiredTier: 'Professional' },
+                { href: '/admin/api-keys', label: 'API Pública', icon: Unlock, requiredTier: 'Professional' },
+                { href: '/admin/powerbi-templates', label: 'Power BI Templates', icon: BarChart3, requiredTier: 'Professional' },
+                { href: '/admin/focus-export', label: 'FOCUS 1.1 Export', icon: FileSpreadsheet, requiredTier: 'Professional' },
+                { href: '/admin/cloud-accounts', label: 'Cloud Accounts (AWS)', icon: Cloud, requiredTier: 'Professional' },
+                { href: '/admin/sso', label: 'SSO SAML', icon: ShieldCheck, requiredTier: 'Enterprise' },
+                { href: '/admin/data-residency', label: 'Data Residency', icon: Globe, requiredTier: 'Enterprise' }
             ]
         }
     ];
@@ -157,6 +175,11 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             href: '/admin/tenants',
             label: 'Gestión de Tenants',
             icon: Building2
+        } as any);
+        categories.find(c => c.id === 'admin')?.items.push({
+            href: '/superadmin/funnel',
+            label: 'Signup Funnel',
+            icon: TrendingUp
         } as any);
     }
 

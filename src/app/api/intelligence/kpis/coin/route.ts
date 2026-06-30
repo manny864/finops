@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import jwt from "jsonwebtoken";
+import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import pool, { initializeDatabase } from "@/modules/storage/db";
 
 /**
@@ -17,13 +17,7 @@ export async function GET(request: NextRequest) {
         if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
         const days = Math.max(1, Math.min(365, Number(request.nextUrl.searchParams.get("days") || 90)));
 
-        const authHeader = request.headers.get("authorization");
-        if (!authHeader || !authHeader.startsWith("Bearer ")) return NextResponse.json({ error: "Falta token Bearer." }, { status: 401 });
-        const decoded = jwt.decode(authHeader.split(" ")[1]) as any;
-        if (!decoded || !decoded.tid) return NextResponse.json({ error: "Token inválido" }, { status: 401 });
-        const email = (decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "").toLowerCase();
-        const isSuperAdmin = email.endsWith("@cscloudsolutions.com.ar");
-        if (decoded.tid !== tenantId && !isSuperAdmin) return NextResponse.json({ error: "Acceso denegado." }, { status: 403 });
+        await requireTenantAccess(request, tenantId);
 
         const [globalRows]: any = await pool.query(
             `SELECT
@@ -85,9 +79,10 @@ export async function GET(request: NextRequest) {
             breakdown,
             monthly,
         });
-    } catch (e: any) {
-        console.error("[coin] error:", e);
-        return NextResponse.json({ error: "Error calculando COIN", details: e.message }, { status: 500 });
+    } catch (e: unknown) {
+        if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
+        console.error("[coin] GET error:", e);
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }
 
@@ -105,13 +100,8 @@ export async function POST(request: NextRequest) {
         const validStatus = ["open", "accepted", "implemented", "dismissed", "suppressed"];
         if (!validStatus.includes(status)) return NextResponse.json({ error: "status inválido" }, { status: 400 });
 
-        const authHeader = request.headers.get("authorization");
-        if (!authHeader || !authHeader.startsWith("Bearer ")) return NextResponse.json({ error: "Falta token Bearer." }, { status: 401 });
-        const decoded = jwt.decode(authHeader.split(" ")[1]) as any;
-        if (!decoded || !decoded.tid) return NextResponse.json({ error: "Token inválido" }, { status: 401 });
-        const email = (decoded.preferred_username || decoded.unique_name || decoded.upn || decoded.email || "").toLowerCase();
-        const isSuperAdmin = email.endsWith("@cscloudsolutions.com.ar");
-        if (decoded.tid !== tenantId && !isSuperAdmin) return NextResponse.json({ error: "Acceso denegado." }, { status: 403 });
+        const identity = await requireTenantAccess(request, tenantId);
+        const email = identity.email;
 
         await pool.query(
             `INSERT INTO RecommendationActions (tenant_id, recommendation_id, category, resource_id, status, user_email, reason)
@@ -123,7 +113,9 @@ export async function POST(request: NextRequest) {
             [tenantId, recommendationId, category || null, resourceId || null, status, email, reason || null]
         );
         return NextResponse.json({ success: true });
-    } catch (e: any) {
-        return NextResponse.json({ error: "Error registrando acción", details: e.message }, { status: 500 });
+    } catch (e: unknown) {
+        if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
+        console.error("[coin] POST error:", e);
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }
