@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/modules/storage/db';
 import { getTenantCredentials } from '@/lib/secrets/tenantCredentials';
+import { requireTenantRole, AuthError } from '@/lib/requestAuth';
 
 export async function GET(request: NextRequest) {
     try {
@@ -8,34 +9,39 @@ export async function GET(request: NextRequest) {
         const tenantId = url.searchParams.get('tenantId');
         const token = url.searchParams.get('token');
 
-        if (!tenantId || !token) {
-            return NextResponse.json({ error: "Faltan credenciales (tenantId, token)." }, { status: 401 });
+        if (!tenantId) {
+            return NextResponse.json({ error: "Falta tenantId." }, { status: 400 });
         }
 
-        // Tier gate (lectura de DB sin secret)
+        // Auth: either a Power BI service token (legacy) OR a valid JWT bearer.
+        // Power BI machine-to-machine uses ?token=<client_secret>; user browsers use JWT.
+        const hasBearerJwt = request.headers.get('authorization')?.startsWith('Bearer ');
+        if (!token && !hasBearerJwt) {
+            return NextResponse.json({ error: "Faltan credenciales (token o Authorization header)." }, { status: 401 });
+        }
+
+        if (token) {
+            // Legacy Power BI token path: validate against stored client_secret.
+            const creds = await getTenantCredentials(tenantId);
+            const validToken = creds?.clientSecret || Buffer.from(tenantId).toString('base64');
+            if (token !== validToken) {
+                return NextResponse.json({ error: "Token inválido o no autorizado." }, { status: 403 });
+            }
+        } else {
+            // JWT path: validate token and assert tenant membership.
+            await requireTenantRole(request, tenantId, ['Admin', 'Owner', 'Reader', 'Colaborador']);
+        }
+
+        // Tier gate: Enterprise only.
         const [tenantRows]: any = await pool.query(
             "SELECT tier FROM Tenants WHERE tenant_id = ?",
             [tenantId]
         );
-
         if (!tenantRows || tenantRows.length === 0) {
             return NextResponse.json({ error: "Tenant no encontrado." }, { status: 404 });
         }
-
-        const tenant = tenantRows[0];
-
-        if (tenant.tier !== 'Enterprise' && tenantId !== 'default') {
+        if (tenantRows[0].tier !== 'Enterprise' && tenantId !== 'default') {
             return NextResponse.json({ error: "Esta característica requiere el plan Enterprise." }, { status: 403 });
-        }
-
-        // NOTA: este endpoint usa el client_secret del tenant como API token
-        // para Power BI (compat legacy). Es un anti-pattern (token largo, no
-        // rotable independiente). TODO: migrar a tokens dedicados con scope
-        // limitado (ver issue powerbi-token-revamp).
-        const creds = await getTenantCredentials(tenantId);
-        const validToken = creds?.clientSecret || Buffer.from(tenantId).toString('base64');
-        if (token !== validToken) {
-            return NextResponse.json({ error: "Token inválido o no autorizado." }, { status: 403 });
         }
 
         const startDate = url.searchParams.get('startDate') || '1970-01-01';
@@ -63,6 +69,7 @@ export async function GET(request: NextRequest) {
         // Power BI Web Data Source natively consumes flat JSON arrays easily
         return NextResponse.json(data);
     } catch (e: any) {
+        if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
         console.error("Export API Error:", e);
         return NextResponse.json({ error: "Error interno del servidor", details: e.message }, { status: 500 });
     }

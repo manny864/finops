@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAzureCredential } from "@/lib/azure";
 import { CostManagementClient } from "@azure/arm-costmanagement";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
+import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 
 export async function GET(request: NextRequest) {
     try {
@@ -13,6 +14,9 @@ export async function GET(request: NextRequest) {
         if (!tenantId || !subscriptionId) {
             return NextResponse.json({ error: "Faltan parámetros requeridos: tenantId, subscriptionId" }, { status: 400 });
         }
+
+        // Auth: validate JWT and assert caller belongs to this tenant.
+        await requireTenantRole(request, tenantId, ['Admin', 'Owner', 'Reader', 'Colaborador']);
 
         const cacheKey = `intelligence:chargeback:${tenantId}:${subscriptionId}:${tagKey}`;
 
@@ -126,6 +130,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ data: chargebackData.aggregated, detailed: chargebackData.detailedCosts });
 
     } catch (error: any) {
+        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
         console.error("Chargeback Fetch Error:", error);
         return NextResponse.json({ error: "Fallo al obtener información de chargeback.", details: error.message }, { status: 500 });
     }

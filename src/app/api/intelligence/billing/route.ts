@@ -2,20 +2,26 @@ import { NextRequest, NextResponse } from 'next/server';
 import pool, { initializeDatabase } from '@/modules/storage/db';
 import { getCurrentMonthAmortizedCosts } from '@/modules/collectors/azure/billingService';
 import { getWithStaleWhileRevalidate } from '@/lib/cache';
+import { requireTenantRole, AuthError } from '@/lib/requestAuth';
 
 export async function GET(request: NextRequest) {
     try {
-        const tenantId = request.headers.get('x-tenant-id');
-        const subscriptionId = request.headers.get('x-subscription-id');
+        // Auth: tenantId MUST come from the JWT, not from client headers.
+        const subscriptionId = request.headers.get('x-subscription-id') || 'All';
         const metricTypeHeader = (request.headers.get('x-metric-type') || 'ActualCost') as 'ActualCost' | 'AmortizedCost';
         const metricType: 'ActualCost' | 'AmortizedCost' = metricTypeHeader === 'AmortizedCost' ? 'AmortizedCost' : 'ActualCost';
 
+        // Read tenantId from query param (for compatibility), then validate via JWT.
+        const tenantId = request.headers.get('x-tenant-id') || new URL(request.url).searchParams.get('tenantId');
         if (!tenantId || !subscriptionId) {
             return NextResponse.json(
-                { error: 'Faltan credenciales del entorno (headers x-tenant-id y x-subscription-id)' },
+                { error: 'Faltan credenciales del entorno (tenantId y subscriptionId)' },
                 { status: 400 }
             );
         }
+
+        // Validate JWT identity and assert caller belongs to this tenant.
+        await requireTenantRole(request, tenantId, ['Admin', 'Owner', 'Reader', 'Colaborador']);
 
         // Ensure DB schema exists before querying
         await initializeDatabase();
@@ -100,6 +106,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ success: true, data: mappedData });
 
     } catch (error: any) {
+        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
         console.error('Billing API Error:', error);
         return NextResponse.json(
             { error: 'ERR_INTERNAL_SERVER', details: error.message },

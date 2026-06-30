@@ -3,14 +3,19 @@ import { getTenantLicensesAndInactiveUsers } from '@/services/licenseService';
 import { getResourceGraphClient, getAzureCredential, getSubscriptionsForTenant } from '@/lib/azure';
 import { kqlCatalog } from '@/modules/core/kqlCatalog';
 import { getMonthlyCostEstimate } from '@/services/pricingService';
+import { requireTenantRole, AuthError } from '@/lib/requestAuth';
 
 export async function GET(request: NextRequest) {
     try {
+        // Auth: validate JWT and assert caller belongs to this tenant.
+        // tenantId is read from header for backward-compat but validated via JWT.
         const tenantId = request.headers.get('x-tenant-id');
 
         if (!tenantId || tenantId === 'default') {
             return NextResponse.json({ error: 'Faltan credenciales del entorno' }, { status: 400 });
         }
+
+        await requireTenantRole(request, tenantId, ['Admin', 'Owner', 'Reader', 'Colaborador']);
 
         // 1. Fetch M365 Licenses (Graph API) defensively
         let licenses: any[] = [];
@@ -123,6 +128,7 @@ export async function GET(request: NextRequest) {
             }
         });
     } catch (error: any) {
+        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
         console.error("License API error:", error);
         return NextResponse.json({ success: false, error: error.message || 'Error del servidor' }, { status: 500 });
     }

@@ -3,7 +3,7 @@ import { getResourceGraphClient, getAzureCredential, getSubscriptionsForTenant }
 import { getVmUtilization } from '@/modules/collectors/azure/metricsService';
 import { analyzeVmEfficiency } from '@/modules/core/rightsizingEngine';
 import { getMonthlyCostEstimate } from '@/services/pricingService';
-
+import { requireTenantRole, AuthError } from '@/lib/requestAuth';
 import { getWithStaleWhileRevalidate } from '@/lib/cache';
 
 async function queryResourceGraphWithRetry(client: any, query: string, subscriptions: string[], retries = 3, initialDelay = 3000): Promise<any> {
@@ -33,7 +33,8 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Faltan credenciales del entorno' }, { status: 400 });
         }
 
-
+        // Auth: validate JWT and assert caller belongs to this tenant.
+        await requireTenantRole(request, tenantId, ['Admin', 'Owner', 'Reader', 'Colaborador']);
 
         const cacheKey = `rightsizing:${tenantId}:${subscriptionId || 'all'}`;
         const underutilizedVms = await getWithStaleWhileRevalidate(cacheKey, async () => {
@@ -182,6 +183,7 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({ success: true, data: underutilizedVms });
     } catch (error: any) {
+        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
         console.error('Rightsizing API Error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
