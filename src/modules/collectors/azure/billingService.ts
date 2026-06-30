@@ -249,17 +249,23 @@ export async function getCurrentMonthAmortizedCosts(
 }
 
 export async function getCostForecast(
-    tenantId: string, 
+    tenantId: string,
     subscriptionId: string,
     metricType: 'ActualCost' | 'AmortizedCost' = 'ActualCost'
-) {
-    const credential = await getAzureCredential(tenantId);
+): Promise<Array<{ date: string; forecastCost: number }>> {
+    let credential: Awaited<ReturnType<typeof getAzureCredential>>;
+    try {
+        credential = await getAzureCredential(tenantId);
+    } catch (e: any) {
+        console.warn(`[BillingService] getCostForecast: no credentials for tenant ${tenantId}:`, e?.message);
+        return [];
+    }
     const client = new CostManagementClient(credential);
 
-    const scope = subscriptionId === 'All' 
-        ? `/providers/Microsoft.Management/managementGroups/${tenantId}` 
+    const scope = subscriptionId === 'All' || subscriptionId.toLowerCase() === 'all'
+        ? `/providers/Microsoft.Management/managementGroups/${tenantId}`
         : `/subscriptions/${subscriptionId}`;
-    
+
     const today = new Date();
     const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
 
@@ -289,28 +295,36 @@ export async function getCostForecast(
         result = await withRetry(() => client.forecast.usage(scope, forecastOptions), { label: `forecast(${scope})` });
     } catch (e: any) {
         const isAuthOrNotFound = e.statusCode === 403 || e.statusCode === 401 || e.code === 'AuthorizationFailed' || e.code === 'RBACAccessDenied' || e.message?.includes('AuthorizationFailed') || e.code === 'ManagementGroupNotFound' || e.message?.includes("was not found or you don't have access") || e.message?.includes('does not have authorization') || e.message?.includes('does not have any valid subscriptions') || e.statusCode === 400;
-        if (subscriptionId === 'All' && isAuthOrNotFound) {
+        const isAll = subscriptionId === 'All' || subscriptionId.toLowerCase() === 'all';
+        if (isAll && isAuthOrNotFound) {
             isFallback = true;
-            console.log("Management Group scope failed for forecast, falling back to concurrent subscription iteration...");
-            const token = await credential.getToken("https://management.azure.com/.default");
-            const subRes = await fetch("https://management.azure.com/subscriptions?api-version=2020-01-01", {
-                headers: { 'Authorization': `Bearer ${token?.token}` }
-            });
-            const subJson = await subRes.json();
-            const subs = (subJson.value || []).filter((s: any) => s.subscriptionId && s.state === 'Enabled');
+            console.log("[BillingService] Management Group scope failed for forecast, falling back to subscription iteration...");
+            try {
+                const token = await credential.getToken("https://management.azure.com/.default");
+                const subRes = await fetch("https://management.azure.com/subscriptions?api-version=2020-01-01", {
+                    headers: { 'Authorization': `Bearer ${token.token}` }
+                });
+                const subJson = await subRes.json();
+                const subs = (subJson.value || []).filter((s: any) => s.subscriptionId && s.state === 'Enabled');
 
-            fallbackResults = (await mapWithConcurrency(subs, 3, async (sub: any) => {
-                try {
-                    return await withRetry(
-                        () => client.forecast.usage(`/subscriptions/${sub.subscriptionId}`, forecastOptions),
-                        { label: `forecast(sub ${sub.subscriptionId})`, maxRetries: 3 }
-                    );
-                } catch {
-                    return null;
-                }
-            })).filter((r: any) => r && r.rows);
+                fallbackResults = (await mapWithConcurrency(subs, 3, async (sub: any) => {
+                    try {
+                        return await withRetry(
+                            () => client.forecast.usage(`/subscriptions/${sub.subscriptionId}`, forecastOptions),
+                            { label: `forecast(sub ${sub.subscriptionId})`, maxRetries: 3 }
+                        );
+                    } catch {
+                        return null;
+                    }
+                })).filter((r: any) => r && r.rows);
+            } catch (fallbackErr: any) {
+                console.warn('[BillingService] getCostForecast fallback failed:', fallbackErr?.message);
+                return [];
+            }
         } else {
-            throw e;
+            // Non-All subscription or non-auth error: return empty instead of throwing
+            console.warn(`[BillingService] getCostForecast scope ${scope} failed (${e?.code || e?.statusCode}): ${e?.message}`);
+            return [];
         }
     }
 
