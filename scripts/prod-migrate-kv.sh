@@ -111,7 +111,9 @@ mysql_exec() {
 }
 mysql_dump() {
   ( cd "$MYSQL_DIR" && docker compose exec -T "$MYSQL_SERVICE" \
-      env MYSQL_PWD="$DB_PASS" mysqldump -u"$DB_USER" "$DB_NAME" "$@" )
+      env MYSQL_PWD="$DB_PASS" mysqldump \
+        --no-tablespaces --single-transaction --skip-lock-tables \
+        -u"$DB_USER" "$DB_NAME" "$@" )
 }
 # Helper para app (otro compose project)
 app_exec() {
