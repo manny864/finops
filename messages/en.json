@@ -350,7 +350,8 @@
         "Potential Savings Radar (Teaser)",
         "FinOps Onboarding Academy",
         "Open Data Sets (Services/Regions/Resources)",
-        "Data Freshness Monitoring (Pipeline Health)"
+        "Data Freshness Monitoring (Pipeline Health)",
+        "Multi-Currency Display Preferences"
       ]
     },
     "pro": {
@@ -376,7 +377,11 @@
         "Self-Service Alerts",
         "Networking Zombies (AppGW/LB)",
         "VMSS Rightsizing",
-        "App Service + SQL + Storage Rightsizing"
+        "App Service + SQL + Storage Rightsizing",
+        "Public REST API v1 (read-only)",
+        "Notification Channels (Slack/Teams/Email/Webhook)",
+        "Tenant Health Dashboard",
+        "Multi-Factor Authentication (MFA)"
       ]
     },
     "business": {
@@ -393,7 +398,12 @@
         "Cost Distribution (Chargeback)",
         "Storage Efficiency (Hot/Cool/Archive + $/GB)",
         "VM High Availability",
-        "Expiring Credentials (Entra ID)"
+        "Expiring Credentials (Entra ID)",
+        "AWS Multi-Cloud Cost Ingestion (CUR + Cost Explorer)",
+        "Multi-Tenant Delegations (cross-account)",
+        "Public Status Page + Incident History",
+        "What-If Scenarios (Cost Simulator)",
+        "MCP API Keys (AI Assistants Integration)"
       ]
     },
     "enterprise": {
@@ -416,7 +426,12 @@
         "MACC Tracking & Burn-Rate",
         "Power BI Invoicing (CSP)",
         "Azure Lighthouse Onboarding",
-        "M365 Copilot Connector + Studio Agent"
+        "M365 Copilot Connector + Studio Agent",
+        "SSO Federation (SAML / OIDC)",
+        "Azure Key Vault BYOK (Customer-Managed Secrets)",
+        "AWS Marketplace SaaS Billing",
+        "Azure Marketplace SaaS Billing",
+        "Data Residency Multi-Region (EU / US / BR)"
       ]
     },
     "enterpriseModal": {

@@ -344,11 +344,14 @@
         "Histórico de Custos e Faturamento",
         "Visualização de Orçamentos",
         "Dashboard de Sustentabilidade",
+        "Inventário de Custo Zero",
         "Exportação em PDF/CSV",
         "Health Score do Azure Advisor",
         "Radar de Economia Potencial (Teaser)",
+        "Academia de Onboarding FinOps",
         "Open Data Sets (Serviços/Regiões/Recursos)",
-        "Monitoramento de Frescor de Dados (Pipeline Health)"
+        "Monitoramento de Frescor de Dados (Pipeline Health)",
+        "Preferências Multi-Moeda"
       ]
     },
     "pro": {
@@ -361,6 +364,12 @@
         "Limpeza Ativa de Recursos Zumbi",
         "Execução de Rightsizing",
         "Governança de Tags",
+        "Descontos por Compromisso (RIs)",
+        "Fluxo de Aprovação de Remediação",
+        "Scanner de Benefício Híbrido (AHB)",
+        "Motor Preditivo de Anomalias (Z-Score)",
+        "Action Center (Quick Fixes)",
+        "Smart Shutdown (VMs)",
         "Índice de Otimização (COIN)",
         "Supressão de Recomendações (Snooze)",
         "Recomendador de Compromisso (RI/SP)",
@@ -368,7 +377,11 @@
         "Alertas Self-Service",
         "Networking Zombies (AppGW/LB)",
         "Rightsizing VMSS",
-        "Rightsizing App Service + SQL + Storage"
+        "Rightsizing App Service + SQL + Storage",
+        "API REST Pública v1 (somente leitura)",
+        "Canais de Notificação (Slack/Teams/Email/Webhook)",
+        "Dashboard de Saúde do Tenant",
+        "Autenticação Multi-Fator (MFA)"
       ]
     },
     "business": {
@@ -381,10 +394,16 @@
         "FinOps Copilot (IA)",
         "Detecção de Anomalias",
         "Políticas de Expiração (TTL)",
+        "Controle AKS (Kubernetes)",
         "Distribuição de Custos (Chargeback)",
         "Eficiência de Storage (Hot/Cool/Archive + $/GB)",
         "Alta Disponibilidade de VMs",
-        "Credenciais a Expirar (Entra ID)"
+        "Credenciais a Expirar (Entra ID)",
+        "Ingestão Multi-Cloud AWS (CUR + Cost Explorer)",
+        "Delegações Multi-Tenant (cross-account)",
+        "Página de Status Pública + Histórico de Incidentes",
+        "Cenários What-If (Simulador de Custos)",
+        "API Keys MCP (Integração com Assistentes IA)"
       ]
     },
     "enterprise": {
@@ -398,11 +417,21 @@
         "Workbooks Personalizados",
         "Tarifas Custom (EA)",
         "Auditorias FinOps Modulares",
+        "Rateio de Custos Compartilhados",
+        "Políticas Preventivas as Code",
+        "Motor de Billing para Partners (CSP)",
+        "Gamificação e Scorecard",
+        "Exportação Power BI (FOCUS)",
         "Azure OpenAI Cost Analytics",
         "MACC Tracking & Burn-Rate",
         "Power BI Invoicing (CSP)",
         "Azure Lighthouse Onboarding",
-        "M365 Copilot Connector + Studio Agent"
+        "M365 Copilot Connector + Studio Agent",
+        "SSO Federado (SAML / OIDC)",
+        "Azure Key Vault BYOK (Segredos Gerenciados pelo Cliente)",
+        "Billing AWS Marketplace SaaS",
+        "Billing Azure Marketplace SaaS",
+        "Residência de Dados Multi-Região (UE / US / BR)"
       ]
     },
     "enterpriseModal": {

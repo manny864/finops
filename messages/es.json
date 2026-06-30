@@ -350,7 +350,8 @@
         "Radar de Ahorros Potenciales (Teaser)",
         "Academia de Onboarding FinOps",
         "Open Data Sets (Servicios/Regiones/Recursos)",
-        "Monitoreo de Frescura de Datos (Pipeline Health)"
+        "Monitoreo de Frescura de Datos (Pipeline Health)",
+        "Preferencias Multi-Moneda"
       ]
     },
     "pro": {
@@ -376,7 +377,11 @@
         "Alertas Self-Service",
         "Networking Zombies (AppGW/LB)",
         "Rightsizing VMSS",
-        "Rightsizing App Service + SQL + Storage"
+        "Rightsizing App Service + SQL + Storage",
+        "API REST Pública v1 (solo lectura)",
+        "Canales de Notificación (Slack/Teams/Email/Webhook)",
+        "Dashboard de Salud del Tenant",
+        "Autenticación Multi-Factor (MFA)"
       ]
     },
     "business": {
@@ -393,7 +398,12 @@
         "Distribución de Costos (Chargeback)",
         "Eficiencia de Storage (Hot/Cool/Archive + $/GB)",
         "Alta Disponibilidad de VMs",
-        "Credenciales por Expirar (Entra ID)"
+        "Credenciales por Expirar (Entra ID)",
+        "Ingesta Multi-Cloud AWS (CUR + Cost Explorer)",
+        "Delegaciones Multi-Tenant (cross-account)",
+        "Página de Estado Pública + Historial de Incidentes",
+        "Escenarios What-If (Simulador de Costos)",
+        "API Keys MCP (Integración con Asistentes IA)"
       ]
     },
     "enterprise": {
@@ -416,7 +426,12 @@
         "MACC Tracking & Burn-Rate",
         "Power BI Invoicing (CSP)",
         "Azure Lighthouse Onboarding",
-        "M365 Copilot Connector + Studio Agent"
+        "M365 Copilot Connector + Studio Agent",
+        "SSO Federado (SAML / OIDC)",
+        "Azure Key Vault BYOK (Secretos Gestionados por el Cliente)",
+        "Billing AWS Marketplace SaaS",
+        "Billing Azure Marketplace SaaS",
+        "Residencia de Datos Multi-Región (UE / US / BR)"
       ]
     },
     "enterpriseModal": {
