@@ -1,9 +1,11 @@
+"use client";
 import React, { useState, useEffect, useRef } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@/i18n/routing';
 import { initializePaddle, Paddle } from '@paddle/paddle-js';
 import EnterpriseLeadModal from './EnterpriseLeadModal';
+import LanguageSwitcher from './LanguageSwitcher';
 
 interface PricingPageProps {
   onLoginClick?: () => void;
@@ -96,18 +98,21 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans py-16 px-4 sm:px-6 lg:px-8">
-      {/* Top Right Login Link */}
-      {!hideLogin && (
-        <div className="absolute top-6 right-8">
-          <span className="text-sm font-medium text-gray-500 mr-2">Already have an account?</span>
-          <button 
-            onClick={() => handleSignUp('Essential')}
-            className="text-brand-deep font-bold hover:underline"
-          >
-            Log in
-          </button>
-        </div>
-      )}
+      {/* Top Right: Language switcher + Login link */}
+      <div className="absolute top-6 right-8 flex items-center gap-3 z-10">
+        <LanguageSwitcher />
+        {!hideLogin && (
+          <>
+            <span className="text-sm font-medium text-gray-500">Already have an account?</span>
+            <button
+              onClick={() => handleSignUp('Essential')}
+              className="text-brand-deep font-bold hover:underline"
+            >
+              Log in
+            </button>
+          </>
+        )}
+      </div>
 
       <div className="max-w-7xl mx-auto text-center mt-8 mb-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
         <h2 className="text-4xl sm:text-5xl font-extrabold text-gray-900 tracking-tight font-heading">
@@ -150,10 +155,10 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
           <div className="mb-6">
             <div className="mt-4 flex items-baseline text-5xl font-extrabold text-gray-900">
               ${getPrice(19.99)}
-              <span className="text-lg font-medium text-gray-500 ml-1">/mes</span>
+              <span className="text-lg font-medium text-gray-500 ml-1">{t('perMonth')}</span>
             </div>
             {isAnnual && (
-              <div className="text-sm text-gray-500 line-through mt-1">$19.99/mes</div>
+              <div className="text-sm text-gray-500 line-through mt-1">$19.99{t('perMonth')}</div>
             )}
           </div>
           
@@ -203,10 +208,10 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
           <div className="mb-6">
             <div className="flex items-baseline text-5xl font-extrabold text-gray-900">
               ${getPrice(99.99)}
-              <span className="text-lg font-medium text-gray-500 ml-1">/mes</span>
+              <span className="text-lg font-medium text-gray-500 ml-1">{t('perMonth')}</span>
             </div>
             {isAnnual && (
-              <div className="text-sm text-gray-500 line-through mt-1">$99.99/mes</div>
+              <div className="text-sm text-gray-500 line-through mt-1">$99.99{t('perMonth')}</div>
             )}
           </div>
           
@@ -258,10 +263,10 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
           <div className="mb-6">
             <div className="flex items-baseline text-5xl font-extrabold text-gray-900">
               ${getPrice(299.99)}
-              <span className="text-lg font-medium text-gray-500 ml-1">/mes</span>
+              <span className="text-lg font-medium text-gray-500 ml-1">{t('perMonth')}</span>
             </div>
             {isAnnual && (
-              <div className="text-sm text-gray-500 line-through mt-1">$299.99/mes</div>
+              <div className="text-sm text-gray-500 line-through mt-1">$299.99{t('perMonth')}</div>
             )}
           </div>
           
