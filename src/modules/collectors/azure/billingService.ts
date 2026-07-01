@@ -1,6 +1,7 @@
 import { CostManagementClient } from "@azure/arm-costmanagement";
 import { getAzureCredential } from '@/lib/azure';
 import { FocusCostEntry, mapAzureToFocus } from '@/modules/core/focusMapper';
+import { redis } from '@/lib/redis';
 
 // --- Helpers de resiliencia para Azure Cost Management (rate limiting) ---
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
@@ -207,6 +208,16 @@ async function _fetchCostData(
         // Concurrency 2 (not 3) to reduce 429 throttling pressure on Cost Management API.
         await mapWithConcurrency(subs, 2, async (sub: any) => {
             const subId: string = sub.subscriptionId;
+            // Skip subscriptions permanently marked as billing-disabled (e.g. sponsorship/EA
+            // accounts with SubscriptionCostDisabled). Checked via Redis skip-list (7d TTL).
+            try {
+                const skip = await redis.get(`billing:skip:${tenantId}:${subId}`);
+                if (skip) {
+                    console.log(`[BillingService] Sub ${subId} in billing skip-list — skipping`);
+                    diagnostics.perSubErrors.push({ subscriptionId: subId, code: 'SKIP_BILLING_DISABLED', message: 'Cached skip — SubscriptionCostDisabled' });
+                    return;
+                }
+            } catch { /* Redis unavailable — proceed normally */ }
             try {
                 const res = await withRetry(
                     () => client.query.usage(`/subscriptions/${subId}`, mtdOptions),
@@ -222,6 +233,13 @@ async function _fetchCostData(
                 const message = (subErr.message || String(subErr)).slice(0, 240);
                 diagnostics.perSubErrors.push({ subscriptionId: subId, code: String(code), message });
                 console.warn(`[BillingService] Cost query failed for sub ${subId} (code=${code}): ${message}`);
+                // Sponsorship / EA subscriptions with billing disabled will NEVER return cost data.
+                // Cache this permanently (7 days) so future calls skip the sub immediately.
+                if (String(code) === 'SubscriptionCostDisabled' || message.includes('does not have the privilege to see the cost')) {
+                    redis.set(`billing:skip:${tenantId}:${subId}`, '1', 'EX', 604800)
+                        .catch(() => { /* ignore */ });
+                    console.warn(`[BillingService] Sub ${subId} marked as billing-disabled (skip-list 7d)`);
+                }
             }
         });
 
