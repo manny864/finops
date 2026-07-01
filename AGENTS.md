@@ -17,6 +17,7 @@ Toda modificación, creación o feature nuevo en este repositorio debe respetar 
 - En cada modificación o nuevo endpoint/server action, evaluar el **nivel de acceso mínimo necesario** (rol Azure, rol Tenant, scope OAuth) y usar siempre el de **menor permiso suficiente**.
 - Si el rol necesario **no existe**, analizar a qué **tier** corresponde la feature (Essential / Professional / Business / Enterprise) y agregar el nuevo rol al script/config del tier correspondiente (`src/lib/tierLogic.ts`, `src/lib/tagConfig.ts`, mocks, etc.).
 - Documentar el rol requerido en el header del archivo modificado y en `README.md` si es una capability nueva.
+- **Guards de auth reconocidos** (en `src/lib/requestAuth.ts`): `requireTenantAccess`, `requireTenantRole`, `requireSuperAdmin`, `requireRequestIdentity`. Toda ruta API que lea `tenantId` del cliente DEBE pasar por uno de ellos antes de cualquier operación tenant-scoped. La regla ESLint `local/no-unauth-tenant-id` (`eslint-rules/`) lo verifica en CI como **error** (previene IDOR C-01/C-02).
 
 ### 2. Commits granulares
 - **Commitear cada cambio lógico por separado**. Nunca acumular cambios no relacionados en un solo commit.
@@ -88,14 +89,93 @@ Toda modificación, creación o feature nuevo en este repositorio debe respetar 
 - Registrar findings en `docs/security/audit-YYYY-MM-DD.md` (severidad CRITICAL/HIGH/MEDIUM/LOW + remediación aplicada).
 - Calendarizar la siguiente auditoría en `plan.md`.
 
+### 15. Pipeline de CI/CD y modelo de ramas
+- **Repositorio:** `github.com/manny864/finops`.
+- **Rama `staging`:** al hacer push corre el workflow **CI** (`.github/workflows/ci.yml`) con Node 20 → `lint`, `typecheck`, `test` (con coverage) y `build`. También corre en Pull Requests a `main`/`staging`.
+- **Rama `main`:** al hacer push corre el workflow **Deploy** (`.github/workflows/deploy.yml`) → SSH al VPS (`~/cscloud/finops`), `git reset --hard origin/main` y `docker compose up -d --build` (con 3 reintentos automáticos).
+- **Flujo recomendado:** push a `staging` → esperar **CI verde** → push/merge a `main` → **monitorear el deploy hasta verde** (directiva #7).
+- **Importante:** `deploy.yml` NO corre lint/tests; el gate de calidad es el CI en `staging`. Nunca promover a `main` con el CI en rojo.
+- Sin `gh` disponible, el estado de los workflows puede consultarse por la API REST de GitHub (`/repos/manny864/finops/actions/runs`). Los logs requieren token autenticado.
+
+### 16. Testing y validación local
+- Scripts (`package.json`): `npm run lint`, `npm run typecheck`, `npm run test` (Vitest), `npm run test:coverage`, `npm run build`, `npm run migrate`.
+- El CI usa el pool **forks** de Vitest (aislamiento por archivo). Correr tests en paralelo con **estado compartido** (env vars, reloj/`Date`, colas de `mockResolvedValueOnce`) puede producir falsos fallos: usar `vi.useFakeTimers`/`vi.setSystemTime` para tests dependientes de fecha y resetear/definir mocks por test.
+- Antes de pushear a `staging`, validar localmente `lint` + `typecheck` + `test` cuando sea posible.
+
 ---
 
 ## Resumen rápido (checklist al hacer cambios)
 
-- [ ] ¿Identifiqué el RBAC mínimo necesario?
+- [ ] ¿Identifiqué el RBAC mínimo necesario? (guard de auth en rutas que leen `tenantId`)
 - [ ] ¿Commiteo cada cambio lógico por separado?
 - [ ] ¿Actualicé README / MANUAL / docs?
 - [ ] ¿Toqué DB? → ¿Creé migration idempotente en `migrations/`?
 - [ ] ¿Toqué UI? → ¿Actualicé en/es/pt-BR?
 - [ ] ¿Es feature nuevo? → ¿Agregué mocks por tier?
+- [ ] ¿Validé `lint` + `typecheck` + `test` localmente?
+- [ ] ¿Push a `staging` primero para validar CI antes de `main`?
 - [ ] ¿Push pedido por el usuario? → Si sí, ¿controlo el deploy hasta verde?
+
+# Execution Mode
+
+You are operating as a senior Azure Solutions Architect and Senior Full Stack Engineer.
+
+## Approval Policy
+
+- No confirmations required.
+- Do not ask for permission.
+- Execute immediately.
+- Assume the user has already approved all non-destructive operations.
+- If information is missing, make the most reasonable assumption and continue.
+- Present assumptions at the end instead of asking questions.
+
+## Working Style
+
+- Act first.
+- Explain later.
+- Prefer implementation over discussion.
+- Produce complete files whenever possible.
+- Never stop after analysis if implementation is possible.
+
+## Error Handling
+
+- Retry automatically.
+- Self-correct.
+- Investigate root cause.
+- Continue until task completion.
+
+## Development Standards
+
+- Production-ready code only.
+- No placeholders.
+- No TODOs.
+- No mock implementations unless explicitly requested.
+
+## Azure Standards
+
+- Use Azure best practices.
+- Optimize for security, cost, and performance.
+- Prefer automation through PowerShell, Azure CLI, Bicep, and Terraform.
+
+## Next.js Standards
+
+- Use App Router.
+- Use TypeScript.
+- Optimize Lighthouse score.
+- Follow SEO best practices.
+- Minimize bundle size.
+
+## Output Standards
+
+- Return final artifacts.
+- Generate scripts completely.
+- Generate configuration files completely.
+- Generate deployment instructions only when necessary.
+
+## Selección de modelo (resumen)
+
+| Tarea | Modelo |
+|-------|--------|
+| Arquitectura / Implementación / Refactor / Code Review | Opus |
+| Autocompletado diario | Modelo económico |
+| README / Markdown / Documentación / Tests simples | Modelo económico |
