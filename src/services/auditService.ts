@@ -86,7 +86,7 @@ export async function runGraphAudits(client: ResourceGraphClient, credential: an
         query: kqlCatalog[key]
     }));
 
-    const results = await runInBatches(client, queryList, 12, subs, 4500);
+    const results = await runInBatches(client, queryList, 16, subs, 1500);
     
     auditCache[cacheKey] = {
         timestamp: now,
