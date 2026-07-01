@@ -81,13 +81,19 @@ export default function OnboardingPage() {
 
   const generateScript = async (e: React.FormEvent) => {
       e.preventDefault();
+      if (accounts.length === 0) { alert("Debes iniciar sesión para generar el script."); return; }
       setGenerating(true);
       try {
-          const res = await fetch('/api/admin/onboarding', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ clientTenantId: formTenantId, subscriptionId: formSubscriptionId })
-          });
+          const res = await fetchWithAuthRetry(
+              instance,
+              accounts[0],
+              '/api/admin/onboarding',
+              {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ clientTenantId: formTenantId, subscriptionId: formSubscriptionId }),
+              }
+          );
           const data = await res.json();
           if (data.success) {
               setGeneratedScript(data.script);
