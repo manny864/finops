@@ -27,26 +27,33 @@ export async function GET(request: NextRequest) {
         // Real Data fetching using Cache and Azure Resource Graph (ARG)
         const cacheKey = `hybrid-benefit:${tenantId}`;
         const data = await getWithStaleWhileRevalidate(cacheKey, async () => {
-            const client = await getResourceGraphClient(tenantId);
-            
-            // VMs: Windows OS sin AHB habilitado (licenseType no es 'Windows_Server')
-            // SQL DBs: Sin AHB habilitado (licenseType no es 'BasePrice')
-            const query = `
-                Resources
-                | where (
-                    type =~ 'microsoft.compute/virtualmachines' 
-                    and properties.storageProfile.osDisk.osType =~ 'Windows' 
-                    and (isnull(properties.licenseType) or properties.licenseType != 'Windows_Server')
-                  ) or (
-                    type =~ 'microsoft.sql/servers/databases' 
-                    and name != 'master' 
-                    and properties.licenseType != 'BasePrice'
-                  )
-                | project id, name, type, location, skuName = tostring(coalesce(properties.hardwareProfile.vmSize, sku.name))
-            `;
-            
-            const response = await client.resources({ query });
-            const resources = response.data as any[];
+            let client;
+            let resources: any[];
+            try {
+                client = await getResourceGraphClient(tenantId);
+
+                // VMs: Windows OS sin AHB habilitado (licenseType no es 'Windows_Server')
+                // SQL DBs: Sin AHB habilitado (licenseType no es 'BasePrice')
+                const query = `
+                    Resources
+                    | where (
+                        type =~ 'microsoft.compute/virtualmachines' 
+                        and properties.storageProfile.osDisk.osType =~ 'Windows' 
+                        and (isnull(properties.licenseType) or properties.licenseType != 'Windows_Server')
+                      ) or (
+                        type =~ 'microsoft.sql/servers/databases' 
+                        and name != 'master' 
+                        and properties.licenseType != 'BasePrice'
+                      )
+                    | project id, name, type, location, skuName = tostring(coalesce(properties.hardwareProfile.vmSize, sku.name))
+                `;
+
+                const response = await client.resources({ query });
+                resources = (response.data as any[]) || [];
+            } catch (e: any) {
+                console.warn(`[HybridBenefit] Sin credenciales/acceso para ${tenantId}:`, e?.message);
+                return { totalPotentialSavings: 0, eligibleResources: [] };
+            }
 
             const eligibleResources = [];
             let totalPotentialSavings = 0;

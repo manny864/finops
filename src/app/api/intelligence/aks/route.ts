@@ -19,29 +19,38 @@ export async function GET(request: NextRequest) {
 
         const cacheKey = `aks_intelligence:${tenantId}`;
         const data = await getWithStaleWhileRevalidate(cacheKey, async () => {
-            const credential = await getAzureCredential(tenantId);
-
-            // 1. Inventario de clústeres AKS vía ARG con paginación completa.
-            const argClient = new ResourceGraphClient(credential);
-            const query = `
-                Resources
-                | where type =~ "microsoft.containerservice/managedclusters"
-                | project id, name, resourceGroup, subscriptionId, location, nodeResourceGroup = tostring(properties.nodeResourceGroup)
-            `;
-
+            // Adquisición de credencial + inventario de clústeres: si el tenant no tiene
+            // Service Principal o le falta el rol Reader, degradamos a lista vacía en vez
+            // de propagar un 500 opaco que rompe la tarjeta del dashboard.
+            let credential;
             const clusters: any[] = [];
-            let skipToken: string | undefined;
-            let pages = 0;
-            do {
-                const r: any = await argClient.resources({
-                    query,
-                    options: { resultFormat: "objectArray", top: 1000, ...(skipToken ? { skipToken } : {}) }
-                });
-                if (Array.isArray(r.data)) clusters.push(...r.data);
-                skipToken = r.skipToken || r.$skipToken;
-                pages++;
-                if (pages > 20) break;
-            } while (skipToken);
+            try {
+                credential = await getAzureCredential(tenantId);
+
+                // 1. Inventario de clústeres AKS vía ARG con paginación completa.
+                const argClient = new ResourceGraphClient(credential);
+                const query = `
+                    Resources
+                    | where type =~ "microsoft.containerservice/managedclusters"
+                    | project id, name, resourceGroup, subscriptionId, location, nodeResourceGroup = tostring(properties.nodeResourceGroup)
+                `;
+
+                let skipToken: string | undefined;
+                let pages = 0;
+                do {
+                    const r: any = await argClient.resources({
+                        query,
+                        options: { resultFormat: "objectArray", top: 1000, ...(skipToken ? { skipToken } : {}) }
+                    });
+                    if (Array.isArray(r.data)) clusters.push(...r.data);
+                    skipToken = r.skipToken || r.$skipToken;
+                    pages++;
+                    if (pages > 20) break;
+                } while (skipToken);
+            } catch (e: any) {
+                console.warn(`[AKS] No se pudo listar clústeres para ${tenantId}:`, e?.message);
+                return [];
+            }
 
             if (clusters.length === 0) return [];
 

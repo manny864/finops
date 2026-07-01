@@ -18,8 +18,15 @@ export async function GET(request: NextRequest) {
 
         const cacheKey = `scorecard:${tenantId}`;
         const data = await getWithStaleWhileRevalidate(cacheKey, async () => {
-            const credential = await getAzureCredential(tenantId);
-            const argClient = new ResourceGraphClient(credential);
+            let credential;
+            let argClient;
+            try {
+                credential = await getAzureCredential(tenantId);
+                argClient = new ResourceGraphClient(credential);
+            } catch (e: any) {
+                console.warn(`[Scorecard] Sin credenciales para ${tenantId}:`, e?.message);
+                return [];
+            }
             
             const scope = `/providers/Microsoft.Management/managementGroups/${tenantId}`;
             

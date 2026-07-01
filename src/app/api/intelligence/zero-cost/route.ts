@@ -18,8 +18,15 @@ export async function GET(request: NextRequest) {
 
         const cacheKey = `zerocost:${tenantId}`;
         const data = await getWithStaleWhileRevalidate(cacheKey, async () => {
-            const credential = await getAzureCredential(tenantId);
-            const client = new ResourceGraphClient(credential);
+            let credential;
+            let client;
+            try {
+                credential = await getAzureCredential(tenantId);
+                client = new ResourceGraphClient(credential);
+            } catch (e: any) {
+                console.warn(`[ZeroCost] Sin credenciales para ${tenantId}:`, e?.message);
+                return [];
+            }
 
             const query = `
                 Resources
@@ -38,22 +45,26 @@ export async function GET(request: NextRequest) {
 
             // Paginación completa vía skipToken — ARG limita a 1000 filas por página.
             const all: any[] = [];
-            let skipToken: string | undefined;
-            let pages = 0;
-            do {
-                const res: any = await client.resources({
-                    query,
-                    options: {
-                        resultFormat: "objectArray",
-                        top: 1000,
-                        ...(skipToken ? { skipToken } : {})
-                    }
-                });
-                if (res.data && Array.isArray(res.data)) all.push(...res.data);
-                skipToken = res.skipToken || res.$skipToken;
-                pages++;
-                if (pages > 50) break; // safety: hasta 50k items
-            } while (skipToken);
+            try {
+                let skipToken: string | undefined;
+                let pages = 0;
+                do {
+                    const res: any = await client.resources({
+                        query,
+                        options: {
+                            resultFormat: "objectArray",
+                            top: 1000,
+                            ...(skipToken ? { skipToken } : {})
+                        }
+                    });
+                    if (res.data && Array.isArray(res.data)) all.push(...res.data);
+                    skipToken = res.skipToken || res.$skipToken;
+                    pages++;
+                    if (pages > 50) break; // safety: hasta 50k items
+                } while (skipToken);
+            } catch (e: any) {
+                console.warn(`[ZeroCost] Query ARG falló para ${tenantId}:`, e?.message);
+            }
 
             return all;
         }, 43200); // 12 hours TTL
