@@ -3,7 +3,7 @@ import React, { useMemo, useState } from 'react';
 import useSWR from 'swr';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
-import { Loader2, TrendingUp, ShieldCheck, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Loader2, TrendingUp, ShieldCheck, AlertCircle, ChevronLeft, ChevronRight, BookMarked } from 'lucide-react';
 import {
   ResponsiveContainer,
   PieChart,
@@ -11,10 +11,12 @@ import {
   Cell,
   Tooltip
 } from 'recharts';
+import { useCurrency } from '@/components/CurrencyProvider';
 
 export default function Commitments() {
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
+    const { format } = useCurrency();
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
 
@@ -199,7 +201,49 @@ export default function Commitments() {
 
             </div>
 
-            {/* Bottom Section: Data Table */}
+            {/* ── Reservas Activas ─────────────────────────────────────────────── */}
+            <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-6 shadow-sm">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1 flex items-center gap-2">
+                    <BookMarked className="w-5 h-5 text-emerald-500" />
+                    Reservas Activas
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                    Todos los servicios actualmente cubiertos por reservas o Savings Plans, según el costo amortizado del mes.
+                </p>
+                {!metrics.hasReservations || !metrics.activeReservations?.length ? (
+                    <div className="text-center py-8 text-gray-500 dark:text-gray-400 text-sm">
+                        No se detectaron reservas activas para este tenant.
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
+                            <thead className="bg-gray-50 dark:bg-slate-800/50">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Servicio</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nombre de Reserva</th>
+                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Costo MTD (amortizado)</th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white dark:bg-slate-900 divide-y divide-gray-200 dark:divide-slate-800">
+                                {metrics.activeReservations.map((res: any, idx: number) => (
+                                    <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
+                                        <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-white">
+                                            <span className="inline-flex items-center gap-2">
+                                                <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+                                                {res.serviceName}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{res.reservationName}</td>
+                                        <td className="px-6 py-4 text-sm text-emerald-600 dark:text-emerald-400 font-bold text-right">{format(res.cost)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
+
+            {/* ── Oportunidades de Compra ───────────────────────────────────────── */}
             <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-6 shadow-sm">
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">Oportunidades de Compra</h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Recomendaciones sugeridas por Azure basadas en tu consumo de los últimos 30 días.</p>
@@ -228,7 +272,7 @@ export default function Commitments() {
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{rec.sku}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{rec.term}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white font-semibold">{rec.recommendedQuantity}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 dark:text-green-400 font-bold text-right">${rec.monthlySavings.toFixed(2)}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 dark:text-green-400 font-bold text-right">{format(rec.monthlySavings)}</td>
                                     </tr>
                                 ))}
                             </tbody>

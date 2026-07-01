@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CostManagementClient } from "@azure/arm-costmanagement";
-import { getAzureCredential } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
@@ -16,94 +16,133 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(getMockDataForRoute('commitments', tenantId));
         }
 
-        const cacheKey = `commitments:${tenantId}`;
+        // v2: ahora incluye activeReservations (todas las reservas compradas, no solo VMs)
+        const cacheKey = `commitments:v2:${tenantId}`;
         const data = await getWithStaleWhileRevalidate(cacheKey, async () => {
             const credential = await getAzureCredential(tenantId);
             const costClient = new CostManagementClient(credential);
-            
-            // Scope a nivel tenant o subscripcion dependiendo del acuerdo. 
-            // Azure Cost Management para reservas requiere alcance de Enrollment (EA) o Billing Profile (MCA).
-            // Lo intentamos al nivel de Management Group o Subscription. Si falla, manejamos el error devolviendo arrays vacíos.
-            const scope = `/providers/Microsoft.Management/managementGroups/${tenantId}`;
-            
+            const mgScope = `/providers/Microsoft.Management/managementGroups/${tenantId}`;
+
             let utilization: number | null = null;
             let coverage = 0;
             let hasReservations = false;
+            let activeReservations: any[] = [];
             let recommendations: any[] = [];
 
-            try {
-                // Para obtener recomendaciones a través de Cost Management (esto puede fallar por falta de permisos en EA)
-                const recs = await (costClient as any).generateReservationRecommendationDetails.default(scope, "Shared", "VirtualMachines", "Last30Days");
-                if (recs && recs.value) {
-                    recommendations = recs.value.slice(0, 10).map((r: any) => ({
-                        type: r.type || 'VirtualMachines',
-                        sku: r.skuProperties ? r.skuProperties[0].value : 'Desconocido',
-                        recommendedQuantity: r.recommendedQuantity || 0,
-                        monthlySavings: r.netSavings || 0,
-                        term: r.term || '1-3 YR'
-                    }));
+            // Helper: intenta la query a nivel MG, con fallback por suscripción.
+            // Devuelve las rows combinadas o null si todo falla.
+            const queryCost = async (queryBody: any): Promise<{ rows: any[] } | null> => {
+                try {
+                    const res = await costClient.query.usage(mgScope, queryBody);
+                    return res?.rows ? { rows: res.rows as any[] } : null;
+                } catch {
+                    try {
+                        const subs = await getSubscriptionsForTenant(tenantId, credential);
+                        const settled = await Promise.allSettled(
+                            subs.slice(0, 6).map(subId =>
+                                costClient.query.usage(`/subscriptions/${subId}`, queryBody)
+                            )
+                        );
+                        const combined: any[] = [];
+                        for (const r of settled) {
+                            if (r.status === 'fulfilled' && r.value?.rows) {
+                                combined.push(...(r.value.rows as any[]));
+                            }
+                        }
+                        return combined.length > 0 ? { rows: combined } : null;
+                    } catch {
+                        return null;
+                    }
                 }
-            } catch (e: any) {
-                console.warn("Fallo al obtener recomendaciones de reserva (posiblemente falta Billing Scope):", e.message);
-            }
+            };
 
+            // ─── 1. RESERVAS ACTIVAS ──────────────────────────────────────────────────
+            // Query AmortizedCost filtrado a PricingModel = Reservation | SavingsPlan,
+            // agrupado por ServiceName + ReservationName.
+            // Esto detecta CUALQUIER servicio reservado: VMs, MySQL, PostgreSQL, Redis, etc.
             try {
-                // Cálculo de Utilización de Reservas consultando Usage (AmortizedCost vs ActualCost)
-                const costRes = await costClient.query.usage(scope, {
+                const res = await queryCost({
                     type: "AmortizedCost",
                     timeframe: "MonthToDate",
                     dataset: {
                         granularity: "None",
-                        aggregation: {
-                            totalCost: { name: "PreTaxCost", function: "Sum" }
+                        aggregation: { totalCost: { name: "PreTaxCost", function: "Sum" } },
+                        filter: {
+                            dimensions: {
+                                name: "PricingModel",
+                                operator: "In",
+                                values: ["Reservation", "SavingsPlan"]
+                            }
                         },
-                        grouping: [{ type: "Dimension", name: "PricingModel" }] // Muestra Reservation vs OnDemand
+                        grouping: [
+                            { type: "Dimension", name: "ServiceName" },
+                            { type: "Dimension", name: "ReservationName" }
+                        ]
                     }
                 });
 
-                let onDemandCost = 0;
-                let reservationCost = 0;
-
-                if (costRes.rows) {
-                    costRes.rows.forEach(row => {
-                        const cost = parseFloat(row[0] as string);
-                        const pricingModel = String(row[1]).toLowerCase();
-                        if (pricingModel === 'reservation' || pricingModel === 'savingsplan') {
-                            reservationCost += cost;
-                        } else {
-                            onDemandCost += cost;
-                        }
-                    });
+                if (res?.rows) {
+                    // rows: [cost, serviceName, reservationName, currency?]
+                    const resMap = new Map<string, { serviceName: string; reservationName: string; cost: number }>();
+                    for (const row of res.rows) {
+                        const cost = parseFloat(String(row[0])) || 0;
+                        const serviceName = String(row[1] || 'Unknown Service');
+                        const reservationName = String(row[2] || '—');
+                        const key = `${serviceName}|${reservationName}`;
+                        const ex = resMap.get(key);
+                        if (ex) ex.cost += cost;
+                        else resMap.set(key, { serviceName, reservationName, cost });
+                    }
+                    activeReservations = Array.from(resMap.values())
+                        .filter(r => r.cost > 0)
+                        .sort((a, b) => b.cost - a.cost);
+                    hasReservations = activeReservations.length > 0;
                 }
-                
-                const totalCompute = onDemandCost + reservationCost;
-                if (totalCompute > 0) {
-                    coverage = (reservationCost / totalCompute) * 100;
-                    hasReservations = reservationCost > 0;
-                }
-
             } catch (e: any) {
-                console.warn("Fallo al obtener cobertura de reservas:", e.message);
+                console.warn("[Commitments] activeReservations query failed:", e.message);
             }
 
-            // Utilización REAL de reservas vía Consumption API (ReservationsSummaries).
-            // Solo se intenta si efectivamente hay cobertura de reservas, y requiere
-            // permisos de Billing (EA/MCA). Si falla, devolvemos null (UI mostrará "no disponible").
+            // ─── 2. COBERTURA ─────────────────────────────────────────────────────────
+            // % del gasto total cubierto por reservas/savings plans
+            try {
+                const res = await queryCost({
+                    type: "AmortizedCost",
+                    timeframe: "MonthToDate",
+                    dataset: {
+                        granularity: "None",
+                        aggregation: { totalCost: { name: "PreTaxCost", function: "Sum" } },
+                        grouping: [{ type: "Dimension", name: "PricingModel" }]
+                    }
+                });
+
+                if (res?.rows) {
+                    let onDemand = 0, reserved = 0;
+                    for (const row of res.rows) {
+                        const cost = parseFloat(String(row[0])) || 0;
+                        const model = String(row[1]).toLowerCase();
+                        if (model === 'reservation' || model === 'savingsplan') reserved += cost;
+                        else onDemand += cost;
+                    }
+                    const total = onDemand + reserved;
+                    if (total > 0) coverage = (reserved / total) * 100;
+                }
+            } catch (e: any) {
+                console.warn("[Commitments] coverage query failed:", e.message);
+            }
+
+            // ─── 3. UTILIZACIÓN REAL ──────────────────────────────────────────────────
+            // Solo si hay reservas activas. Requiere Billing Reader (EA/MCA). Silencia fallos.
             if (hasReservations) {
                 try {
                     const { ConsumptionManagementClient } = await import("@azure/arm-consumption");
                     const consumption = new ConsumptionManagementClient(credential, tenantId);
-                    let totalReserved = 0;
-                    let totalUsed = 0;
+                    let totalReserved = 0, totalUsed = 0;
                     const ordersSeen = new Set<string>();
 
-                    // Iteramos summaries del mes actual a través de los reservation orders disponibles.
-                    // La API requiere reservationOrderId, así que primero listamos las recomendaciones existentes
-                    // que ya hayan generado órdenes. Si no podemos enumerarlas, dejamos utilization=null.
                     try {
-                        const recIter = consumption.reservationRecommendations.list(scope);
+                        const recIter = consumption.reservationRecommendations.list(mgScope);
                         for await (const rec of recIter) {
-                            const orderId = (rec as any)?.properties?.reservationOrderId || (rec as any)?.reservationOrderId;
+                            const orderId = (rec as any)?.properties?.reservationOrderId;
                             if (orderId && !ordersSeen.has(orderId)) {
                                 ordersSeen.add(orderId);
                                 try {
@@ -117,20 +156,39 @@ export async function GET(request: NextRequest) {
                         }
                     } catch { /* sin permisos para listar recomendaciones */ }
 
-                    if (totalReserved > 0) {
-                        utilization = (totalUsed / totalReserved) * 100;
-                    }
+                    if (totalReserved > 0) utilization = (totalUsed / totalReserved) * 100;
                 } catch (e: any) {
-                    console.warn("No se pudo calcular utilización real de reservas:", e?.message);
+                    console.warn("[Commitments] utilization query failed:", e?.message);
                 }
             }
 
-            return {
-                utilization,            // number | null
-                coverage,
-                hasReservations,
-                recommendations
-            };
+            // ─── 4. RECOMENDACIONES ───────────────────────────────────────────────────
+            // Usa Consumption API que devuelve TODOS los tipos (VM, MySQL, Redis, etc.)
+            // en lugar de hardcodear "VirtualMachines".
+            try {
+                const { ConsumptionManagementClient } = await import("@azure/arm-consumption");
+                const consumption = new ConsumptionManagementClient(credential, tenantId);
+                const recIter = consumption.reservationRecommendations.list(mgScope, {
+                    filter: "properties/lookBackPeriod eq 'Last30Days'"
+                });
+                const recs: any[] = [];
+                for await (const rec of recIter) {
+                    const props = (rec as any).properties || {};
+                    recs.push({
+                        type: props.resourceType || props.skuName || rec.kind || 'Unknown',
+                        sku: props.skuProperties?.[0]?.value || props.skuName || 'Desconocido',
+                        recommendedQuantity: props.recommendedQuantity || 0,
+                        monthlySavings: props.netSavings || 0,
+                        term: props.term || '1 Year'
+                    });
+                    if (recs.length >= 20) break;
+                }
+                recommendations = recs;
+            } catch (e: any) {
+                console.warn("[Commitments] recommendations query failed:", e.message);
+            }
+
+            return { utilization, coverage, hasReservations, activeReservations, recommendations };
         }, 43200);
 
         return NextResponse.json({ success: true, data });
@@ -141,3 +199,4 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }
+
