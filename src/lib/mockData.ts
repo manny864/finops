@@ -741,6 +741,94 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
                     { id: 'INV-2026-03', date: '2026-03-01', amount: 1499.00, status: 'paid', pdfUrl: '#' }
                 ]
             };
+        case 'macc': {
+            // MACC scales by tier: Enterprise = large multi-commitment, Business = mid, Pro/Essential = small atRisk
+            const today = new Date();
+            const fmtDate = (d: Date) => d.toISOString().slice(0, 10);
+
+            const makeCommitment = (
+                id: number,
+                billingAccountId: string,
+                commitmentAmount: number,
+                progressPct: number,
+                startMonthsAgo: number,
+                durationMonths: number
+            ) => {
+                const startDate = new Date(today);
+                startDate.setMonth(startDate.getMonth() - startMonthsAgo);
+                const endDate = new Date(startDate);
+                endDate.setMonth(endDate.getMonth() + durationMonths);
+                const daysTotal = (endDate.getTime() - startDate.getTime()) / 86400000;
+                const daysRemaining = Math.max(0, Math.ceil((endDate.getTime() - today.getTime()) / 86400000));
+                const consumedAmount = Math.round(commitmentAmount * (progressPct / 100));
+                const remainingAmount = commitmentAmount - consumedAmount;
+                const burnRateMonthly = Math.round(consumedAmount / Math.max(1, startMonthsAgo));
+                const projectedConsumption = Math.round(consumedAmount + burnRateMonthly * (daysRemaining / 30));
+                const monthlyTarget = Math.round(commitmentAmount / durationMonths);
+                const status: "onTrack" | "atRisk" | "overConsumption" =
+                    projectedConsumption > commitmentAmount ? "overConsumption"
+                    : projectedConsumption < commitmentAmount * 0.9 ? "atRisk"
+                    : "onTrack";
+                return {
+                    id,
+                    billingAccountId,
+                    billingProfileId: `BP-${billingAccountId}`,
+                    commitmentAmount,
+                    consumedAmount,
+                    remainingAmount,
+                    burnRateMonthly,
+                    startDate: fmtDate(startDate),
+                    endDate: fmtDate(endDate),
+                    currency: "USD",
+                    progressPercent: progressPct,
+                    daysRemaining,
+                    projectedConsumption,
+                    status,
+                    monthlyTarget,
+                };
+            };
+
+            let commitments: ReturnType<typeof makeCommitment>[];
+            if (multiplier >= 50) {
+                // Enterprise: two large MACCs, multi-year
+                commitments = [
+                    makeCommitment(1, "EA-87654321", 10_000_000, 62, 10, 24),
+                    makeCommitment(2, "EA-99001234", 5_000_000,  45, 4,  12),
+                ];
+            } else if (multiplier >= 10) {
+                // Business: one mid MACC, 2-year
+                commitments = [
+                    makeCommitment(1, "EA-55443322", 2_000_000, 55, 7, 24),
+                ];
+            } else if (multiplier >= 3) {
+                // Pro: smaller commitment, near-atRisk to show the alert
+                commitments = [
+                    makeCommitment(1, "EA-33221100", 500_000, 40, 5, 12),
+                ];
+            } else {
+                // Essential: very small, atRisk (under-consumption)
+                commitments = [
+                    makeCommitment(1, "EA-11220033", 100_000, 28, 4, 12),
+                ];
+            }
+
+            const totalCommitment  = commitments.reduce((s, c) => s + c.commitmentAmount, 0);
+            const totalConsumed    = commitments.reduce((s, c) => s + c.consumedAmount, 0);
+            const totalRemaining   = commitments.reduce((s, c) => s + c.remainingAmount, 0);
+            const overallProgress  = totalCommitment > 0 ? Math.round((totalConsumed / totalCommitment) * 100) : 0;
+            const totalProjected   = commitments.reduce((s, c) => s + c.projectedConsumption, 0);
+            const overallStatus: "onTrack" | "atRisk" | "overConsumption" =
+                totalProjected > totalCommitment ? "overConsumption"
+                : totalProjected < totalCommitment * 0.9 ? "atRisk"
+                : "onTrack";
+
+            return {
+                success: true,
+                mock: true,
+                commitments,
+                aggregates: { totalCommitment, totalConsumed, totalRemaining, overallProgress, overallStatus },
+            };
+        }
         case 'alerts': {
             const now = Date.now();
             const h = 3600000;

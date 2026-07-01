@@ -4,6 +4,7 @@ import useSWR from "swr";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { useTranslations } from "next-intl";
+import { useCurrency } from "@/components/CurrencyProvider";
 import { Loader2, AlertTriangle, CheckCircle, TrendingDown, TrendingUp, DollarSign, Calendar } from "lucide-react";
 import { getFreshIdToken } from "@/lib/msalToken";
 
@@ -28,7 +29,7 @@ function KpiCard({ label, value, sub, icon }: { label: string; value: string; su
     );
 }
 
-function CommitmentCard({ commitment, t }: { commitment: any; t: any }) {
+function CommitmentCard({ commitment, t, format }: { commitment: any; t: any; format: (v: number, opts?: any) => string }) {
     const sc = statusConfig(commitment.status as CommitmentStatus);
     const expectedPct = commitment.daysRemaining > 0
         ? Math.min(100, ((commitment.commitmentAmount - commitment.remainingAmount * (1 - (commitment.daysRemaining / 365))) / commitment.commitmentAmount) * 100)
@@ -54,27 +55,27 @@ function CommitmentCard({ commitment, t }: { commitment: any; t: any }) {
                     <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                     <span>
                         {commitment.status === "atRisk"
-                            ? `Proyección de consumo ($${commitment.projectedConsumption.toLocaleString()}) está por debajo del 90% del compromiso. Riesgo de penalización por sub-consumo.`
-                            : `Proyección de consumo ($${commitment.projectedConsumption.toLocaleString()}) supera el compromiso. Revisar urgente.`}
+                            ? `Proyección de consumo (${format(commitment.projectedConsumption, { compact: true })}) está por debajo del 90% del compromiso. Riesgo de penalización por sub-consumo.`
+                            : `Proyección de consumo (${format(commitment.projectedConsumption, { compact: true })}) supera el compromiso. Revisar urgente.`}
                     </span>
                 </div>
             )}
 
             {/* KPIs */}
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-                <KpiCard label={t("commitment")} value={`$${(commitment.commitmentAmount / 1_000_000).toFixed(2)}M`} icon={<DollarSign className="w-4 h-4" />} />
-                <KpiCard label={t("consumed")} value={`$${(commitment.consumedAmount / 1_000_000).toFixed(2)}M`} sub={`${commitment.progressPercent}% del total`} icon={<TrendingUp className="w-4 h-4" />} />
-                <KpiCard label={t("remaining")} value={`$${(commitment.remainingAmount / 1_000_000).toFixed(2)}M`} icon={<DollarSign className="w-4 h-4" />} />
+                <KpiCard label={t("commitment")} value={format(commitment.commitmentAmount, { compact: true })} icon={<DollarSign className="w-4 h-4" />} />
+                <KpiCard label={t("consumed")} value={format(commitment.consumedAmount,   { compact: true })} sub={`${commitment.progressPercent}% del total`} icon={<TrendingUp className="w-4 h-4" />} />
+                <KpiCard label={t("remaining")} value={format(commitment.remainingAmount,  { compact: true })} icon={<DollarSign className="w-4 h-4" />} />
                 <KpiCard label={t("daysRemaining")} value={String(commitment.daysRemaining)} sub={`${commitment.endDate}`} icon={<Calendar className="w-4 h-4" />} />
-                <KpiCard label={t("burnRate")} value={`$${(commitment.burnRateMonthly / 1_000).toFixed(0)}K/mo`} icon={<TrendingDown className="w-4 h-4" />} />
-                <KpiCard label="Proyección Final" value={`$${(commitment.projectedConsumption / 1_000_000).toFixed(2)}M`} icon={<TrendingUp className="w-4 h-4" />} />
+                <KpiCard label={t("burnRate")} value={format(commitment.burnRateMonthly, { compact: true }) + "/mo"} icon={<TrendingDown className="w-4 h-4" />} />
+                <KpiCard label="Proyección Final" value={format(commitment.projectedConsumption, { compact: true })} icon={<TrendingUp className="w-4 h-4" />} />
             </div>
 
             {/* Progress bar */}
             <div>
                 <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 mb-1">
                     <span>{t("progress")} — {commitment.progressPercent}%</span>
-                    <span>${commitment.commitmentAmount.toLocaleString()} {commitment.currency}</span>
+                    <span>{format(commitment.commitmentAmount)} {commitment.currency}</span>
                 </div>
                 <div className="relative h-4 bg-gray-100 dark:bg-slate-800 rounded-full overflow-hidden">
                     {/* Actual consumed */}
@@ -101,6 +102,7 @@ function CommitmentCard({ commitment, t }: { commitment: any; t: any }) {
 export default function MACCTracker() {
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
+    const { format } = useCurrency();
     const t = useTranslations("MACC");
     const tMock = useTranslations("Mock");
 
@@ -164,9 +166,9 @@ export default function MACCTracker() {
             {/* Aggregate KPIs */}
             {aggregates && (
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    <KpiCard label={t("commitment")} value={`$${(aggregates.totalCommitment / 1_000_000).toFixed(2)}M`} icon={<DollarSign className="w-5 h-5" />} />
-                    <KpiCard label={t("consumed")} value={`$${(aggregates.totalConsumed / 1_000_000).toFixed(2)}M`} sub={`${aggregates.overallProgress}% del total`} icon={<TrendingUp className="w-5 h-5" />} />
-                    <KpiCard label={t("remaining")} value={`$${(aggregates.totalRemaining / 1_000_000).toFixed(2)}M`} icon={<DollarSign className="w-5 h-5" />} />
+                    <KpiCard label={t("commitment")} value={format(aggregates.totalCommitment,  { compact: true })} icon={<DollarSign className="w-5 h-5" />} />
+                    <KpiCard label={t("consumed")} value={format(aggregates.totalConsumed,    { compact: true })} sub={`${aggregates.overallProgress}% del total`} icon={<TrendingUp className="w-5 h-5" />} />
+                    <KpiCard label={t("remaining")} value={format(aggregates.totalRemaining,   { compact: true })} icon={<DollarSign className="w-5 h-5" />} />
                     <div className={`border rounded-xl p-4 flex items-start gap-3 ${statusConfig(aggregates.overallStatus as CommitmentStatus).bg} ${statusConfig(aggregates.overallStatus as CommitmentStatus).border}`}>
                         <div className={`p-2 rounded-lg ${statusConfig(aggregates.overallStatus as CommitmentStatus).bg}`}>
                             {statusConfig(aggregates.overallStatus as CommitmentStatus).icon}
@@ -181,7 +183,7 @@ export default function MACCTracker() {
 
             {/* Per-commitment cards */}
             {commitments.map((c: any) => (
-                <CommitmentCard key={c.id} commitment={c} t={t} />
+                <CommitmentCard key={c.id} commitment={c} t={t} format={format} />
             ))}
         </div>
     );

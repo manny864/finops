@@ -1,37 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import pool from "@/modules/storage/db";
-
-const MOCK_PAYLOAD = {
-    success: true,
-    mock: true,
-    commitments: [
-        {
-            id: 1,
-            billingAccountId: "12345678",
-            commitmentAmount: 5000000,
-            consumedAmount: 2850000,
-            remainingAmount: 2150000,
-            burnRateMonthly: 475000,
-            startDate: "2025-09-01",
-            endDate: "2026-08-31",
-            currency: "USD",
-            progressPercent: 57,
-            daysRemaining: 64,
-            projectedConsumption: 5160000,
-            status: "onTrack",
-            monthlyTarget: 416666.67,
-        },
-    ],
-    aggregates: {
-        totalCommitment: 5000000,
-        totalConsumed: 2850000,
-        totalRemaining: 2150000,
-        overallProgress: 57,
-        overallStatus: "onTrack",
-    },
-};
 
 function computeStatus(
     consumed: number,
@@ -57,7 +27,7 @@ export async function GET(request: NextRequest) {
         const isSuperAdmin = identity.isCorporateDomain;
 
         if (isMockTenant(tenantId)) {
-            return NextResponse.json(MOCK_PAYLOAD);
+            return NextResponse.json(getMockDataForRoute('macc', tenantId));
         }
 
         try {

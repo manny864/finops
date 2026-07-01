@@ -392,7 +392,8 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                   return new Response(JSON.stringify({ success: true, mock: true, source: 'mock', items, counts }), {status: 200});
               }
               if (url.includes('/api/intelligence/compute-cost-per-core')) return new Response(JSON.stringify(getMockDataForRoute('compute-efficiency', tier)), {status: 200});
-              if (url.includes('/api/rightsizing/') || url.includes('/api/intelligence/ai-analytics') || url.includes('/api/intelligence/macc') || url.includes('/api/governance/expiring-credentials') || url.includes('/api/cleanup/zombies/networking') || url.includes('/api/admin/report/invoicing')) {
+              if (url.includes('/api/intelligence/macc')) return new Response(JSON.stringify(getMockDataForRoute('macc', tier)), {status: 200});
+              if (url.includes('/api/rightsizing/') || url.includes('/api/intelligence/ai-analytics') || url.includes('/api/governance/expiring-credentials') || url.includes('/api/cleanup/zombies/networking') || url.includes('/api/admin/report/invoicing')) {
                   return new Response(JSON.stringify({ mock: true, items: [], data: [], success: true }), {status: 200});
               }
               if (url.includes('/api/remediation') && !url.includes('/workflow')) return new Response(JSON.stringify({ mock: true, success: true }), {status: 200});
