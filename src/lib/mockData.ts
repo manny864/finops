@@ -741,6 +741,33 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
                     { id: 'INV-2026-03', date: '2026-03-01', amount: 1499.00, status: 'paid', pdfUrl: '#' }
                 ]
             };
+        case 'alerts': {
+            const now = Date.now();
+            const h = 3600000;
+            const baseThreshold = multiplier === 1 ? 2000 : multiplier === 3 ? 10000 : multiplier === 10 ? 50000 : 250000;
+            const allRules = [
+                // Essential+: budget % alert
+                { id: 'mock-alert-1', ruleName: 'Budget Alert > 80%', ruleType: 'budget', thresholdValue: 80, thresholdUnit: 'percent', channel: 'email', channelTarget: 'finops@contoso.com', enabled: true, lastTriggeredAt: new Date(now - 15 * 24 * h).toISOString(), triggerCount: 3 },
+                // Essential+: threshold USD
+                { id: 'mock-alert-2', ruleName: `Threshold $${baseThreshold.toLocaleString()} USD`, ruleType: 'threshold', thresholdValue: baseThreshold, thresholdUnit: 'usd', channel: 'webhook', channelTarget: 'https://hooks.contoso.com/finops', enabled: true, lastTriggeredAt: new Date(now - 3 * 24 * h).toISOString(), triggerCount: 1 },
+                // Pro+: anomaly
+                { id: 'mock-alert-3', ruleName: 'Cost Anomaly Detection (25%)', ruleType: 'anomaly', thresholdValue: 25, thresholdUnit: 'percent', channel: 'teams', channelTarget: 'https://hooks.teams.example/webhook-finops', enabled: true, lastTriggeredAt: new Date(now - 10 * h).toISOString(), triggerCount: 7 },
+                // Pro+: forecast overrun
+                { id: 'mock-alert-4', ruleName: 'Forecast Overrun > 110%', ruleType: 'forecast', thresholdValue: 110, thresholdUnit: 'percent', channel: 'slack', channelTarget: '#finops-alerts', enabled: false, lastTriggeredAt: null, triggerCount: 0 },
+                // Pro+: budget crítico
+                { id: 'mock-alert-5', ruleName: 'Budget CRÍTICO > 95%', ruleType: 'budget', thresholdValue: 95, thresholdUnit: 'percent', channel: 'email', channelTarget: 'director@contoso.com', enabled: true, lastTriggeredAt: new Date(now - 48 * h).toISOString(), triggerCount: 2 },
+                // Business+: anomaly tight
+                { id: 'mock-alert-6', ruleName: 'Cost Anomaly Detection (15%)', ruleType: 'anomaly', thresholdValue: 15, thresholdUnit: 'percent', channel: 'servicenow', channelTarget: 'https://contoso.service-now.com/api/finops/alert', enabled: true, lastTriggeredAt: new Date(now - 6 * h).toISOString(), triggerCount: 12 },
+                // Business+: Threshold por suscripción
+                { id: 'mock-alert-7', ruleName: 'Prod Subscription > $' + Math.round(baseThreshold * 0.6).toLocaleString(), ruleType: 'threshold', thresholdValue: Math.round(baseThreshold * 0.6), thresholdUnit: 'usd', channel: 'teams', channelTarget: 'https://hooks.teams.example/webhook-ops', enabled: true, lastTriggeredAt: null, triggerCount: 0 },
+                // Enterprise: multiple high-value rules
+                { id: 'mock-alert-8', ruleName: 'Enterprise Total > $' + Math.round(baseThreshold * 1.5).toLocaleString(), ruleType: 'threshold', thresholdValue: Math.round(baseThreshold * 1.5), thresholdUnit: 'usd', channel: 'servicenow', channelTarget: 'https://contoso.service-now.com/api/finops/critical', enabled: true, lastTriggeredAt: new Date(now - 2 * h).toISOString(), triggerCount: 4 },
+                { id: 'mock-alert-9', ruleName: 'AI Anomaly Confidence > 90%', ruleType: 'anomaly', thresholdValue: 10, thresholdUnit: 'percent', channel: 'teams', channelTarget: 'https://hooks.teams.example/webhook-exec', enabled: true, lastTriggeredAt: new Date(now - 30 * h).toISOString(), triggerCount: 19 },
+                { id: 'mock-alert-10', ruleName: 'Monthly Forecast Overrun > 105%', ruleType: 'forecast', thresholdValue: 105, thresholdUnit: 'percent', channel: 'email', channelTarget: 'cfo@contoso.com', enabled: true, lastTriggeredAt: null, triggerCount: 0 },
+            ];
+            const count = multiplier === 1 ? 2 : multiplier === 3 ? 5 : multiplier === 10 ? 7 : 10;
+            return { success: true, mock: true, rules: allRules.slice(0, count) };
+        }
         case 'compute-efficiency': {
             const baseCores       = 40 * multiplier;
             const baseCostPerCore = multiplier === 1 ? 28 : multiplier === 3 ? 33 : multiplier === 10 ? 38 : 45;

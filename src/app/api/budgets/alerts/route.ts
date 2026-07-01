@@ -1,58 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
-
-const MOCK_RULES = [
-    {
-        id: "mock-alert-1",
-        ruleName: "Budget Alert > 80%",
-        ruleType: "budget",
-        thresholdValue: 80,
-        thresholdUnit: "percent",
-        channel: "email",
-        channelTarget: "ops@company.com",
-        enabled: true,
-        lastTriggeredAt: "2026-06-15T10:00:00Z",
-        triggerCount: 3,
-    },
-    {
-        id: "mock-alert-2",
-        ruleName: "Cost Anomaly Detection",
-        ruleType: "anomaly",
-        thresholdValue: 25,
-        thresholdUnit: "percent",
-        channel: "teams",
-        channelTarget: "https://hooks.teams.example/webhook-1",
-        enabled: true,
-        lastTriggeredAt: "2026-06-20T08:30:00Z",
-        triggerCount: 7,
-    },
-    {
-        id: "mock-alert-3",
-        ruleName: "Forecast Overrun Warning",
-        ruleType: "forecast",
-        thresholdValue: 110,
-        thresholdUnit: "percent",
-        channel: "slack",
-        channelTarget: "#finops-alerts",
-        enabled: false,
-        lastTriggeredAt: null,
-        triggerCount: 0,
-    },
-    {
-        id: "mock-alert-4",
-        ruleName: "Threshold $5000 USD",
-        ruleType: "threshold",
-        thresholdValue: 5000,
-        thresholdUnit: "usd",
-        channel: "webhook",
-        channelTarget: "https://hooks.example.com/finops",
-        enabled: true,
-        lastTriggeredAt: "2026-06-28T01:00:00Z",
-        triggerCount: 1,
-    },
-];
 
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
@@ -67,7 +16,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (isMockTenant(tenantId)) {
-        return NextResponse.json({ success: true, mock: true, rules: MOCK_RULES });
+        return NextResponse.json(getMockDataForRoute('alerts', tenantId));
     }
 
     try {

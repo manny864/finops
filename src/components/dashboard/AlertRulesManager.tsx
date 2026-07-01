@@ -4,6 +4,7 @@ import useSWR, { mutate as globalMutate } from "swr";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { useTranslations } from "next-intl";
+import { getFreshIdToken } from "@/lib/msalToken";
 import { Loader2, Bell, Plus, Trash2, AlertCircle, Info, X } from "lucide-react";
 import Pagination, { usePagination } from "@/components/Pagination";
 
@@ -64,8 +65,7 @@ export default function AlertRulesManager() {
     const getToken = async () => {
         const account = accounts[0];
         if (!account) throw new Error("No hay cuenta autenticada");
-        const r = await instance.acquireTokenSilent({ scopes: ["User.Read"], account });
-        return r.idToken;
+        return getFreshIdToken(instance, account, ["User.Read"]);
     };
 
     const apiUrl = selectedTenant && selectedTenant.id !== "default"
