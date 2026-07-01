@@ -21,10 +21,18 @@ export async function GET(request: NextRequest) {
 
         const cacheKey = `unit_economics:${tenantId}`;
         const data = await getWithStaleWhileRevalidate(cacheKey, async () => {
-            const credential = await getAzureCredential(tenantId);
-            const costClient = new CostManagementClient(credential);
-            
-            const subs = await getSubscriptionsForTenant(tenantId, credential);
+            let credential;
+            let costClient;
+            let subs;
+            try {
+                credential = await getAzureCredential(tenantId);
+                costClient = new CostManagementClient(credential);
+                subs = await getSubscriptionsForTenant(tenantId, credential);
+            } catch (e: any) {
+                console.warn(`[UnitEconomics] Sin credenciales/acceso para ${tenantId}:`, e?.message);
+                return { rows: [], estimatedDau: 0 };
+            }
+
             if (!subs || subs.length === 0) {
                 return { rows: [], estimatedDau: 0 };
             }

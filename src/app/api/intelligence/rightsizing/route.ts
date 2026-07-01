@@ -38,18 +38,24 @@ export async function GET(request: NextRequest) {
 
         const cacheKey = `rightsizing:${tenantId}:${subscriptionId || 'all'}`;
         const underutilizedVms = await getWithStaleWhileRevalidate(cacheKey, async () => {
-            const argClient = await getResourceGraphClient(tenantId);
-        let subs: string[] | undefined = undefined;
-        if (subscriptionId && subscriptionId.toLowerCase() !== 'all') {
-            subs = [subscriptionId];
-        } else {
-            const credential = await getAzureCredential(tenantId);
-            subs = await getSubscriptionsForTenant(tenantId, credential);
-        }
+            let argClient;
+            let subs: string[] | undefined = undefined;
+            try {
+                argClient = await getResourceGraphClient(tenantId);
+                if (subscriptionId && subscriptionId.toLowerCase() !== 'all') {
+                    subs = [subscriptionId];
+                } else {
+                    const credential = await getAzureCredential(tenantId);
+                    subs = await getSubscriptionsForTenant(tenantId, credential);
+                }
+            } catch (e: any) {
+                console.warn(`[Rightsizing] Sin credenciales/acceso para ${tenantId}:`, e?.message);
+                return [];
+            }
 
-        if (!subs || subs.length === 0) {
-            return NextResponse.json({ success: true, data: [] });
-        }
+            if (!subs || subs.length === 0) {
+                return [];
+            }
 
         const isAll = !subscriptionId || subscriptionId.toLowerCase() === 'all';
 
@@ -94,11 +100,17 @@ export async function GET(request: NextRequest) {
                 | project id = tolower(id), diskSizeGB = toint(properties.diskSizeGB), sku = sku.name, location
             `;
 
-        const vmsResponse = await queryResourceGraphWithRetry(argClient, query, subs);
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        const stoppedResponse = await queryResourceGraphWithRetry(argClient, stoppedQuery, subs);
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        const disksResponse = await queryResourceGraphWithRetry(argClient, disksQuery, subs);
+        let vmsResponse: any, stoppedResponse: any, disksResponse: any;
+        try {
+            vmsResponse = await queryResourceGraphWithRetry(argClient, query, subs);
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            stoppedResponse = await queryResourceGraphWithRetry(argClient, stoppedQuery, subs);
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            disksResponse = await queryResourceGraphWithRetry(argClient, disksQuery, subs);
+        } catch (e: any) {
+            console.warn(`[Rightsizing] Query ARG falló para ${tenantId}:`, e?.message);
+            return [];
+        }
 
         const vms = vmsResponse.data as any[] || [];
         const stoppedVms = stoppedResponse.data as any[] || [];

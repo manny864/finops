@@ -20,8 +20,15 @@ export async function GET(request: NextRequest) {
         // v3: incluye reservationDetails (blade Microsoft.Capacity/reservations)
         const cacheKey = `commitments:v3:${tenantId}`;
         const data = await getWithStaleWhileRevalidate(cacheKey, async () => {
-            const credential = await getAzureCredential(tenantId);
-            const costClient = new CostManagementClient(credential);
+            let credential;
+            let costClient;
+            try {
+                credential = await getAzureCredential(tenantId);
+                costClient = new CostManagementClient(credential);
+            } catch (e: any) {
+                console.warn(`[Commitments] Sin credenciales para ${tenantId}:`, e?.message);
+                return { utilization: null, coverage: 0, hasReservations: false, activeReservations: [], reservationDetails: [], recommendations: [] };
+            }
             const mgScope = `/providers/Microsoft.Management/managementGroups/${tenantId}`;
 
             let utilization: number | null = null;

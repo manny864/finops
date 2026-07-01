@@ -35,8 +35,15 @@ async function fetchMtdCostForSub(tenantId: string, subscriptionId: string): Pro
 }
 
 export async function getNativeBudgets(tenantId: string, subscriptionId: string) {
-    const credential = await getAzureCredential(tenantId);
-    const client = new ConsumptionManagementClient(credential, subscriptionId);
+    let credential;
+    let client;
+    try {
+        credential = await getAzureCredential(tenantId);
+        client = new ConsumptionManagementClient(credential, subscriptionId);
+    } catch (e) {
+        console.warn(`[Budgets] Sin credenciales para tenant ${tenantId}:`, (e as any)?.message);
+        return [];
+    }
     const scope = `/subscriptions/${subscriptionId}`;
 
     const budgetsData = [];
