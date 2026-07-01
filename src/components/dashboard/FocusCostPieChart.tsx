@@ -103,6 +103,7 @@ export default function FocusCostPieChart({ data, onSegmentClick }: { data: Focu
                                 return [`$${value} USD`, name];
                             }}
                             contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                            wrapperStyle={{ zIndex: 9999 }}
                         />
                     </PieChart>
                 </ResponsiveContainer>

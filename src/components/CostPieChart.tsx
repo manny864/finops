@@ -106,6 +106,7 @@ export default function CostPieChart({ data, onSegmentClick }: { data: any[], on
                                 return [`$${value} USD (${recursos} recursos detectados)`, name];
                             }}
                             contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                            wrapperStyle={{ zIndex: 9999 }}
                         />
                     </PieChart>
                 </ResponsiveContainer>
