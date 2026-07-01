@@ -64,13 +64,13 @@ export async function getNativeBudgets(tenantId: string, subscriptionId: string)
 }
 
 export async function getBudgetConsumption(tenantId: string, subscriptionId: string, costCenterName: string) {
-    const credential = await getAzureCredential(tenantId);
-    const client = new CostManagementClient(credential);
-    const scope = subscriptionId === 'All' 
-        ? `/providers/Microsoft.Management/managementGroups/${tenantId}` 
-        : `/subscriptions/${subscriptionId}`;
-
     try {
+        const credential = await getAzureCredential(tenantId);
+        const client = new CostManagementClient(credential);
+        const scope = subscriptionId === 'All'
+            ? `/providers/Microsoft.Management/managementGroups/${tenantId}`
+            : `/subscriptions/${subscriptionId}`;
+
         const res = await client.query.usage(scope, {
             type: "Usage",
             timeframe: "MonthToDate",

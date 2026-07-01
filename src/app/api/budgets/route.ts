@@ -21,23 +21,27 @@ export async function GET(request: NextRequest) {
             [tenantId]
         );
 
-        // Fetch current consumption for each budget (using SWR cache)
+        // Fetch current consumption for each budget (using SWR cache).
+        // getBudgetConsumption calls Azure — wrap each call so a credential/throttle
+        // error on one budget doesn't crash the whole list (returns 0 gracefully).
         const cacheKey = `budgets:${tenantId}:${subscriptionId}`;
         const budgetsWithUtilization = await getWithStaleWhileRevalidate(cacheKey, async () => {
             return await Promise.all(rows.map(async (b: any) => {
-                const currentSpend = await getBudgetConsumption(tenantId!, subscriptionId, b.cost_center_tag_value);
+                let currentSpend = 0;
+                try {
+                    currentSpend = await getBudgetConsumption(tenantId!, subscriptionId, b.cost_center_tag_value);
+                } catch (consumptionErr: any) {
+                    console.warn(`[budgets] consumption fetch failed for budget ${b.id}:`, consumptionErr?.message);
+                }
                 const limit = parseFloat(b.monthly_limit_usd);
-                
-                // QA Patch: Zero-division prevention
                 const utilization = limit > 0 ? (currentSpend / limit) * 100 : 0;
-                
                 return {
                     id: b.id,
                     costCenter: b.cost_center_tag_value,
                     monthlyLimit: limit,
                     alertThreshold: parseFloat(b.alert_threshold),
-                    currentSpend: currentSpend,
-                    utilization: utilization
+                    currentSpend,
+                    utilization,
                 };
             }));
         }, 3600);
