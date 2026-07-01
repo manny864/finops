@@ -11,7 +11,7 @@ import { useRouter } from 'next/navigation';
 import { FocusCostEntry } from '@/modules/core/focusMapper';
 import FocusCostPieChart from './FocusCostPieChart';
 import FeatureGuard from '@/components/FeatureGuard';
-import { translateAdvisorText } from '@/lib/advisorI18n';
+import { translateAdvisorText, translateZombieType } from '@/lib/advisorI18n';
 
 interface InteractiveDashboardProps {
     loading: boolean;
@@ -215,7 +215,7 @@ export default function InteractiveDashboard({
         const savings = leakageMap[key];
         if (savings > 0) {
             opportunities.push({
-                title: `${t('leak', { fallback: 'Fuga' })}: ${key}`,
+                    title: `${t('leak', { fallback: 'Fuga' })}: ${translateZombieType(key, locale)}`,
                 category: t('inactive_resources_cat', { fallback: 'Recursos Inactivos' }),
                 savings: savings,
                 type: 'zombie'
@@ -353,7 +353,7 @@ export default function InteractiveDashboard({
                         {t('annual_projection')}
                     </div>
                     <div className="text-2xl font-extrabold text-slate-800">
-                        ${((totalCost / Math.max(1, new Date().getDate())) * 365).toLocaleString(undefined, {maximumFractionDigits:0})}
+                        ${((totalCost / Math.max(1, evolutionData.length)) * 365).toLocaleString(undefined, {maximumFractionDigits:0})}
                     </div>
                 </div>
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
@@ -446,7 +446,7 @@ export default function InteractiveDashboard({
                                             <Pie data={leakagePieData} cx="50%" cy="50%" innerRadius={40} outerRadius={65} paddingAngle={5} dataKey="value">
                                                 {leakagePieData.map((e, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                                             </Pie>
-                                            <RechartsTooltip formatter={(v: any) => `$${Number(v).toFixed(2)}`} />
+                                            <RechartsTooltip formatter={(v: any) => `$${Number(v).toFixed(2)}`} wrapperStyle={{ zIndex: 9999 }} />
                                         </RechartsPieChart>
                                     </ResponsiveContainer>
                                 </div>
