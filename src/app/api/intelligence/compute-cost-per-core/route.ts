@@ -1,38 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { vmSizeToCores } from "@/modules/collectors/azure/aksCostService";
 
-const MOCK_PAYLOAD = {
-    success: true,
-    mock: true,
-    totalCores: 240,
-    totalCost: 12480,
-    effectiveCost: 9744,
-    costPerCore: 40.6,
-    costPerCoreNoCommitments: 52.0,
-    savingsFromCommitments: 22,
-    byRegion: [
-        { region: "eastus",       cores: 120, costPerCore: 38 },
-        { region: "westeurope",   cores: 80,  costPerCore: 42 },
-        { region: "brazilsouth",  cores: 40,  costPerCore: 45 },
-    ],
-    bySku: [
-        { sku: "Standard_D4s_v5", cores: 80,  cost: 3200, costPerCore: 40 },
-        { sku: "Standard_E8s_v5", cores: 120, cost: 6240, costPerCore: 52 },
-        { sku: "Standard_B2s",    cores: 40,  cost: 1304, costPerCore: 32.6 },
-    ],
-    trend: [
-        { month: "2026-01", costPerCore: 48 },
-        { month: "2026-02", costPerCore: 45 },
-        { month: "2026-03", costPerCore: 43 },
-        { month: "2026-04", costPerCore: 41.5 },
-        { month: "2026-05", costPerCore: 40.8 },
-        { month: "2026-06", costPerCore: 40.6 },
-    ],
-    benchmark: 42.50,
-};
+/**
+ * Parses an Azure billing MeterName (e.g. "D4s v5", "E8s v5 Spot", "B2s")
+ * into a vCore count using vmSizeToCores.
+ */
+function meterNameToCores(meterName: string | null | undefined): number {
+    if (!meterName) return 0;
+    // Strip usage modifiers that don't affect size
+    const clean = meterName.replace(/\s+(Spot|On-Demand|Promo|Low Priority|Preemptible)$/i, '').trim();
+    // "D4s v5" → "Standard_D4s_v5", "E8s v5" → "Standard_E8s_v5", "B2s" → "Standard_B2s"
+    const sku = 'Standard_' + clean.replace(/\s+v(\d+)$/, '_v$1').replace(/\s+/g, '_');
+    return vmSizeToCores(sku);
+}
 
 export async function GET(request: NextRequest) {
     try {
@@ -52,42 +35,63 @@ export async function GET(request: NextRequest) {
         }
 
         if (isMockTenant(tenantId)) {
-            return NextResponse.json(MOCK_PAYLOAD);
+            return NextResponse.json(getMockDataForRoute('compute-efficiency', tenantId));
         }
 
         try {
             const [rows]: any = await pool.query(
                 `SELECT
-                    ResourceId,
+                    MeterSubCategory,
+                    MeterName,
+                    resource_group,
                     COALESCE(EffectiveCost, BilledCost, cost_usd, 0) AS effectiveCost,
-                    DATE_FORMAT(date, '%Y-%m') AS month
+                    COALESCE(BilledCost, cost_usd, 0)                AS billedCost,
+                    DATE_FORMAT(date, '%Y-%m')                       AS month
                  FROM CostSnapshots
                  WHERE tenant_id = ?
-                   AND (service_name LIKE '%Virtual Machine%' OR ServiceFamily = 'Compute')
+                   AND (
+                        service_name LIKE '%Virtual Machine%'
+                     OR service_name LIKE '%Compute%'
+                     OR MeterCategory LIKE '%Compute%'
+                     OR MeterSubCategory LIKE '%Series%'
+                   )
                    AND date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)`,
                 [tenantId, days]
             );
 
             let totalEffectiveCost = 0;
-            let totalCoreMonths = 0;
+            let totalBilledCost    = 0;
+            let totalCoreMonths    = 0;
 
-            const byMonthMap: Record<string, { cost: number; cores: number }> = {};
+            const bySkuMap:    Record<string, { cores: number; cost: number }> = {};
+            const byRegionMap: Record<string, { cores: number; cost: number }> = {};
+            const byMonthMap:  Record<string, { cost: number; cores: number }> = {};
 
             for (const row of rows as any[]) {
-                const cost = parseFloat(row.effectiveCost) || 0;
-                const resourceId: string = row.ResourceId || "";
-                // Extract VM size from resourceId (last segment often carries the name)
-                const parts = resourceId.split("/");
-                const vmName = parts[parts.length - 1] || "";
-                const cores = vmSizeToCores(vmName);
+                const effectiveCost = parseFloat(row.effectiveCost) || 0;
+                const billedCost    = parseFloat(row.billedCost)    || 0;
+                const cores         = meterNameToCores(row.MeterName);
+                const sku           = (row.MeterSubCategory || row.MeterName || 'Unknown').trim();
+                const region        = (row.resource_group   || 'unknown').trim();
+                const month: string = row.month             || '';
 
-                totalEffectiveCost += cost;
-                totalCoreMonths += cores;
+                totalEffectiveCost += effectiveCost;
+                totalBilledCost    += billedCost;
+                totalCoreMonths    += cores;
 
-                const month: string = row.month || "";
+                if (sku) {
+                    if (!bySkuMap[sku]) bySkuMap[sku] = { cores: 0, cost: 0 };
+                    bySkuMap[sku].cores += cores;
+                    bySkuMap[sku].cost  += effectiveCost;
+                }
+                if (region) {
+                    if (!byRegionMap[region]) byRegionMap[region] = { cores: 0, cost: 0 };
+                    byRegionMap[region].cores += cores;
+                    byRegionMap[region].cost  += effectiveCost;
+                }
                 if (month) {
                     if (!byMonthMap[month]) byMonthMap[month] = { cost: 0, cores: 0 };
-                    byMonthMap[month].cost += cost;
+                    byMonthMap[month].cost  += effectiveCost;
                     byMonthMap[month].cores += cores;
                 }
             }
@@ -95,6 +99,30 @@ export async function GET(request: NextRequest) {
             const costPerCore = totalCoreMonths > 0
                 ? parseFloat((totalEffectiveCost / totalCoreMonths).toFixed(2))
                 : 0;
+
+            // savingsFromCommitments: % reduction from billed → effective (via RIs/SPs)
+            const savingsFromCommitments = totalBilledCost > 0
+                ? Math.max(0, Math.round(((totalBilledCost - totalEffectiveCost) / totalBilledCost) * 100))
+                : 0;
+
+            const bySku = Object.entries(bySkuMap)
+                .sort(([, a], [, b]) => b.cost - a.cost)
+                .slice(0, 10)
+                .map(([sku, v]) => ({
+                    sku,
+                    cores: v.cores,
+                    cost: parseFloat(v.cost.toFixed(2)),
+                    costPerCore: v.cores > 0 ? parseFloat((v.cost / v.cores).toFixed(2)) : 0,
+                }));
+
+            const byRegion = Object.entries(byRegionMap)
+                .sort(([, a], [, b]) => b.cost - a.cost)
+                .slice(0, 8)
+                .map(([region, v]) => ({
+                    region,
+                    cores: v.cores,
+                    costPerCore: v.cores > 0 ? parseFloat((v.cost / v.cores).toFixed(2)) : 0,
+                }));
 
             const trend = Object.entries(byMonthMap)
                 .sort(([a], [b]) => a.localeCompare(b))
@@ -110,10 +138,10 @@ export async function GET(request: NextRequest) {
                 totalCost: parseFloat(totalEffectiveCost.toFixed(2)),
                 effectiveCost: parseFloat(totalEffectiveCost.toFixed(2)),
                 costPerCore,
-                costPerCoreNoCommitments: parseFloat((costPerCore * 1.28).toFixed(2)),
-                savingsFromCommitments: 22,
-                byRegion: [],
-                bySku: [],
+                costPerCoreNoCommitments: parseFloat((totalBilledCost > 0 ? totalBilledCost / Math.max(totalCoreMonths, 1) : costPerCore * 1.28).toFixed(2)),
+                savingsFromCommitments,
+                byRegion,
+                bySku,
                 trend,
                 benchmark: 42.50,
             });
@@ -123,7 +151,7 @@ export async function GET(request: NextRequest) {
                 success: false, mock: false,
                 totalCores: 0, totalCost: 0, effectiveCost: 0,
                 costPerCore: 0, costPerCoreNoCommitments: 0, savingsFromCommitments: 0,
-                byRegion: [], bySku: [], trend: [], benchmark: 0,
+                byRegion: [], bySku: [], trend: [], benchmark: 42.50,
                 error: `Sin datos disponibles: ${dbErr?.message || "error"}`,
             });
         }
@@ -132,3 +160,4 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }
+

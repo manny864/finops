@@ -741,6 +741,51 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
                     { id: 'INV-2026-03', date: '2026-03-01', amount: 1499.00, status: 'paid', pdfUrl: '#' }
                 ]
             };
+        case 'compute-efficiency': {
+            const baseCores       = 40 * multiplier;
+            const baseCostPerCore = multiplier === 1 ? 28 : multiplier === 3 ? 33 : multiplier === 10 ? 38 : 45;
+            const effectiveCost   = Math.round(baseCores * baseCostPerCore);
+            const totalCost       = Math.round(effectiveCost * 1.28); // sin compromisos
+            const benchmark       = 42.50;
+            const now = new Date();
+            const trend = Array.from({ length: 6 }).map((_, i) => {
+                const d = new Date(now);
+                d.setMonth(d.getMonth() - (5 - i));
+                const drift = 1 + (5 - i) * 0.06; // trending down toward present
+                return {
+                    month: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+                    costPerCore: parseFloat((baseCostPerCore * drift).toFixed(2)),
+                };
+            });
+            const regionSplit: { region: string; share: number; costPerCore: number }[] =
+                multiplier === 1
+                    ? [{ region: 'eastus', share: 1.0, costPerCore: 27 }]
+                    : multiplier === 3
+                    ? [{ region: 'eastus', share: 0.55, costPerCore: 31 }, { region: 'westeurope', share: 0.3, costPerCore: 36 }, { region: 'brazilsouth', share: 0.15, costPerCore: 40 }]
+                    : multiplier === 10
+                    ? [{ region: 'eastus', share: 0.4, costPerCore: 34 }, { region: 'westeurope', share: 0.25, costPerCore: 38 }, { region: 'brazilsouth', share: 0.2, costPerCore: 42 }, { region: 'southeastasia', share: 0.15, costPerCore: 36 }]
+                    : [{ region: 'eastus', share: 0.3, costPerCore: 40 }, { region: 'westeurope', share: 0.22, costPerCore: 44 }, { region: 'brazilsouth', share: 0.15, costPerCore: 48 }, { region: 'southeastasia', share: 0.13, costPerCore: 43 }, { region: 'australiaeast', share: 0.12, costPerCore: 46 }, { region: 'japaneast', share: 0.08, costPerCore: 45 }];
+            const skuSplit: { sku: string; share: number; coreSize: number; costPerCore: number }[] =
+                multiplier === 1
+                    ? [{ sku: 'Standard_B2s', share: 0.5, coreSize: 2, costPerCore: 13 }, { sku: 'Standard_D4s_v5', share: 0.5, coreSize: 4, costPerCore: 38 }]
+                    : multiplier === 3
+                    ? [{ sku: 'Standard_D4s_v5', share: 0.45, coreSize: 4, costPerCore: 38 }, { sku: 'Standard_E8s_v5', share: 0.35, coreSize: 8, costPerCore: 52 }, { sku: 'Standard_B2s', share: 0.2, coreSize: 2, costPerCore: 13 }]
+                    : [{ sku: 'Standard_D4s_v5', share: 0.35, coreSize: 4, costPerCore: 38 }, { sku: 'Standard_E8s_v5', share: 0.3, coreSize: 8, costPerCore: 52 }, { sku: 'Standard_F16s_v2', share: 0.2, coreSize: 16, costPerCore: 44 }, { sku: 'Standard_B2s', share: 0.1, coreSize: 2, costPerCore: 13 }, { sku: 'Standard_D16s_v5', share: 0.05, coreSize: 16, costPerCore: 41 }];
+            return {
+                success: true,
+                mock: true,
+                totalCores: baseCores,
+                totalCost,
+                effectiveCost,
+                costPerCore: baseCostPerCore,
+                costPerCoreNoCommitments: parseFloat((baseCostPerCore * 1.28).toFixed(2)),
+                savingsFromCommitments: 22,
+                byRegion: regionSplit.map(r => ({ region: r.region, cores: Math.round(baseCores * r.share), costPerCore: r.costPerCore })),
+                bySku: skuSplit.map(s => ({ sku: s.sku, cores: Math.round(baseCores * s.share), cost: Math.round(baseCores * s.share * s.costPerCore), costPerCore: s.costPerCore })),
+                trend,
+                benchmark,
+            };
+        }
         default:
             return { success: true, message: "Mock data not defined for this route" };
     }
