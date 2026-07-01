@@ -209,6 +209,17 @@ describe('API: /intelligence/forecast', () => {
   // ===========================================================================
 
   describe('POST /intelligence/forecast', () => {
+    // Los tests POST proyectan el gasto del mes en curso y requieren >=2 dias de
+    // historia. Fijamos la fecha a mitad de mes para que sean deterministas y no
+    // fallen a principio de mes (dia 1-2), cuando aun no hay suficientes datos.
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-07-15T12:00:00Z'));
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
     it('should return 400 without tenantId', async () => {
       const request = new NextRequest('http://localhost/api/intelligence/forecast', {
         method: 'POST',
