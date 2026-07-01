@@ -3,13 +3,16 @@ import React, { useState } from 'react';
 import useSWR from 'swr';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
+import { useRouter, useParams } from 'next/navigation';
 import { Loader2, BookOpen, CheckCircle, GraduationCap, PlayCircle, Trophy, Terminal } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { generateOnboardingScript } from '@/lib/onboardingScriptTemplate';
 
 export default function FinOpsAcademy() {
-    const { selectedTenant } = useTenant();
+    const { selectedTenant, setSelectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
+    const router = useRouter();
+    const { locale } = useParams() as { locale: string };
     const [markingComplete, setMarkingComplete] = useState<string | null>(null);
 
     const fetcher = async (url: string) => {
@@ -116,7 +119,12 @@ export default function FinOpsAcademy() {
                             <Trophy className="w-10 h-10 text-yellow-500 mb-1 drop-shadow-md" />
                             <span className="text-xs font-bold text-yellow-600 uppercase tracking-widest">FinOps Certified</span>
                             <button 
-                                onClick={() => window.location.href = '/'}
+                                onClick={() => {
+                                    // Mark is_onboarded in React state + localStorage BEFORE navigating
+                                    // to avoid TenantProvider's academy-redirect loop on remount.
+                                    setSelectedTenant({ ...selectedTenant, is_onboarded: true });
+                                    router.push(`/${locale}`);
+                                }}
                                 className="mt-2 px-3 py-1.5 bg-brand-deep text-white text-xs font-bold rounded hover:bg-brand-bright shadow-sm transition-colors"
                             >
                                 Ingresar al SaaS
