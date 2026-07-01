@@ -370,11 +370,11 @@ export async function getCostForecast(
                 const subJson = await subRes.json();
                 const subs = (subJson.value || []).filter((s: any) => s.subscriptionId && s.state === 'Enabled');
 
-                fallbackResults = (await mapWithConcurrency(subs, 3, async (sub: any) => {
+                fallbackResults = (await mapWithConcurrency(subs, 2, async (sub: any) => {
                     try {
                         return await withRetry(
                             () => client.forecast.usage(`/subscriptions/${sub.subscriptionId}`, forecastOptions),
-                            { label: `forecast(sub ${sub.subscriptionId})`, maxRetries: 3 }
+                            { label: `forecast(sub ${sub.subscriptionId})`, maxRetries: 2 }
                         );
                     } catch {
                         return null;
