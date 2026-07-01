@@ -35,8 +35,12 @@ export default function RightsizingPage() {
                 setVms((mock.data as any[]) || []);
             }
         } else {
+            const idToken = accounts.length > 0
+                ? await getFreshIdToken(instance, accounts[0], ['User.Read'])
+                : '';
             const res = await fetch('/api/intelligence/rightsizing', {
                 headers: {
+                    'Authorization': `Bearer ${idToken}`,
                     'x-tenant-id': selectedTenant.id,
                     'x-subscription-id': selectedSubscription
                 }
