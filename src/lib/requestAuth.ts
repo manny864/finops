@@ -163,7 +163,15 @@ function validateStandardClaims(claims: AuthClaims): void {
 
 function validateAudience(claims: AuthClaims): void {
   const allowList = getAudienceAllowList();
-  if (allowList.length === 0) return;
+  if (allowList.length === 0) {
+    // Fail-closed: sin allow-list de audience configurada no podemos validar el
+    // destinatario del token. Rechazamos en vez de aceptar cualquier audience
+    // (evita que un token firmado para otra app/audience del mismo tenant pase).
+    console.error(
+      "[auth] Audience allow-list vacía: configurar AZURE_CLIENT_ID/AZURE_AD_CLIENT_ID/NEXT_PUBLIC_*. Rechazando (fail-closed)."
+    );
+    throw new AuthError("Validación de audience no configurada.", 500);
+  }
 
   const aud = typeof claims.aud === "string" ? claims.aud : "";
   if (!allowList.includes(aud)) {
