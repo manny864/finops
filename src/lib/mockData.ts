@@ -671,12 +671,48 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
                 success: true,
                 markupPercentage: 15.00
             };
-        case 'commitments':
+        case 'commitments': {
+            const now = Date.now();
+            const day = 86400000;
+            const iso = (ms: number) => new Date(ms).toISOString();
+            // Catálogo base de reservas mock; se recorta según el tier (multiplier).
+            const catalog = [
+                { name: 'ri-vm-prod-eastus', type: 'VirtualMachines', productName: 'Reserved VM Instance, Standard_D4s_v3', region: 'eastus', scopeType: 'Shared', scope: 'Shared', term: 'P3Y', quantity: 12, status: 'Succeeded', renew: true, expiryMs: now + 420 * day, u1: 96.4, u7: 94.1 },
+                { name: 'ri-sql-prod', type: 'SqlDatabases', productName: 'SQL Database Reserved Capacity, GP_Gen5', region: 'eastus', scopeType: 'Single', scope: 'sub-prod-01', term: 'P1Y', quantity: 4, status: 'Succeeded', renew: false, expiryMs: now + 45 * day, u1: 71.2, u7: 68.9 },
+                { name: 'ri-vm-web-westus', type: 'VirtualMachines', productName: 'Reserved VM Instance, Standard_E8s_v4', region: 'westus2', scopeType: 'Single', scope: 'sub-web-02', term: 'P3Y', quantity: 8, status: 'Succeeded', renew: true, expiryMs: now + 610 * day, u1: 88.7, u7: 90.3 },
+                { name: 'ri-redis-cache', type: 'RedisCache', productName: 'Azure Cache for Redis Reserved, Premium P2', region: 'westeurope', scopeType: 'Shared', scope: 'Shared', term: 'P1Y', quantity: 2, status: 'Succeeded', renew: false, expiryMs: now + 12 * day, u1: 54.0, u7: 58.6 },
+                { name: 'sp-compute-shared', type: 'VirtualMachines', productName: 'Compute Savings Plan', region: 'Global', scopeType: 'Shared', scope: 'Shared', term: 'P3Y', quantity: 1, status: 'Succeeded', renew: true, expiryMs: now + 900 * day, u1: 99.1, u7: 97.8 },
+                { name: 'ri-postgres-prod', type: 'PostgreSqlDatabases', productName: 'Azure Database for PostgreSQL Reserved, GP_Gen5_8', region: 'eastus2', scopeType: 'Single', scope: 'sub-data-03', term: 'P1Y', quantity: 3, status: 'Expired', renew: false, expiryMs: now - 5 * day, u1: null, u7: null },
+            ];
+            const takeCount = multiplier >= 50 ? 6 : multiplier >= 10 ? 4 : multiplier >= 3 ? 3 : 2;
+            const reservationDetails = catalog.slice(0, takeCount).map((r, i) => ({
+                reservationId: `res-mock-${i + 1}`,
+                orderId: `order-mock-${i + 1}`,
+                name: r.name,
+                status: r.status,
+                expiryDate: iso(r.expiryMs),
+                scopeType: r.scopeType,
+                scope: r.scope,
+                type: r.type,
+                productName: r.productName,
+                region: r.region,
+                renew: r.renew,
+                quantity: r.quantity,
+                term: r.term,
+                utilizationLastDay: r.u1,
+                utilizationLast7Days: r.u7,
+            }));
+            const activeReservations = reservationDetails
+                .filter(r => r.status !== 'Expired')
+                .map(r => ({ serviceName: r.type, reservationName: r.name, cost: Math.round(r.quantity * 320 * (multiplier >= 10 ? 1.4 : 1)) }));
             return {
                 success: true,
                 data: {
                     utilization: 82.5, // 82.5% de uso
                     coverage: 45.0, // 45% de cobertura total de computo
+                    hasReservations: reservationDetails.length > 0,
+                    activeReservations,
+                    reservationDetails,
                     recommendations: [
                         { type: 'VirtualMachines', sku: 'Standard_D4s_v3', recommendedQuantity: 12, monthlySavings: 1240.50, term: 'P3Y' },
                         { type: 'VirtualMachines', sku: 'Standard_E8s_v4', recommendedQuantity: 4, monthlySavings: 890.00, term: 'P1Y' },
@@ -684,6 +720,25 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
                     ]
                 }
             };
+        }
+        case 'reservation_utilization': {
+            const today = Date.now();
+            const day = 86400000;
+            const trend = Array.from({ length: 30 }).map((_, i) => {
+                const d = new Date(today - (29 - i) * day);
+                const base = 90 + Math.sin(i / 3) * 6;
+                return { date: d.toISOString().slice(0, 10), utilization: Math.max(0, Math.min(100, Number(base.toFixed(1)))) };
+            });
+            const avg = (arr: number[]) => arr.reduce((s, v) => s + v, 0) / arr.length;
+            return {
+                aggregates: {
+                    oneDay: Number(trend[trend.length - 1].utilization.toFixed(1)),
+                    sevenDays: Number(avg(trend.slice(-7).map(t => t.utilization)).toFixed(1)),
+                    thirtyDays: Number(avg(trend.map(t => t.utilization)).toFixed(1)),
+                },
+                trend,
+            };
+        }
         case 'dashboard_summary': {
             const tierMult = (arg2 || '').toLowerCase() === 'enterprise' ? 5
                 : (arg2 || '').toLowerCase() === 'business' ? 2.5
