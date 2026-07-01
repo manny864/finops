@@ -4,6 +4,8 @@ import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { hasAccess } from "@/lib/tierLogic";
 import pool from "@/modules/storage/db";
 import { randomUUID } from "crypto";
+import { requireTenantAccess, requireTenantRole, AuthError } from "@/lib/requestAuth";
+// RBAC: GET requiere pertenencia al tenant. POST (crear allocation rules) requiere Admin/Owner.
 
 export async function GET(request: NextRequest) {
     try {
@@ -11,6 +13,9 @@ export async function GET(request: NextRequest) {
         const userTier = request.nextUrl.searchParams.get('tier') || 'Essential';
 
         if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
+
+        // Valida token JWT + pertenencia al tenant (evita IDOR cross-tenant).
+        await requireTenantAccess(request, tenantId);
 
         if (!hasAccess(userTier, 'Enterprise')) {
             return NextResponse.json({ error: "Funcionalidad requiere plan Enterprise o superior." }, { status: 403 });
@@ -27,6 +32,7 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({ success: true, data: rows });
     } catch (error: any) {
+        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
         return NextResponse.json({ error: "Fallo al obtener reglas de asignación", details: error.message }, { status: 500 });
     }
 }
@@ -41,6 +47,9 @@ export async function POST(request: NextRequest) {
         if (!tenantId || !rules || !Array.isArray(rules)) {
             return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
         }
+
+        // Write privilegiado: requiere rol Admin/Owner del tenant.
+        await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
 
         if (isMockTenant(tenantId)) {
             return NextResponse.json({ success: true, message: "Reglas guardadas (Mock)" });
@@ -81,6 +90,7 @@ export async function POST(request: NextRequest) {
         }
 
     } catch (error: any) {
+        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
         return NextResponse.json({ error: "Fallo al guardar reglas de asignación", details: error.message }, { status: 500 });
     }
 }

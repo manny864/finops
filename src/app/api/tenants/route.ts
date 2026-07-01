@@ -186,6 +186,9 @@ export async function DELETE(request: NextRequest) {
             return NextResponse.json({ error: 'Falta tenantId' }, { status: 400 });
         }
 
+        // Operación destructiva de plataforma (elimina tenant + usuarios): requiere SUPERADMIN.
+        await requireSuperAdmin(request);
+
         // TODO: Para integracion real con Paddle, aqui se haria un fetch a
         // POST https://api.paddle.com/subscriptions/{subscriptionId}/cancel
         // Usando process.env.PADDLE_API_KEY
@@ -199,6 +202,7 @@ export async function DELETE(request: NextRequest) {
 
         return NextResponse.json({ success: true, message: 'Entorno eliminado y facturacion finalizada.' });
     } catch (error: any) {
+        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
         console.error('API DELETE /tenants error:', error);
         return NextResponse.json({ error: 'Fallo al eliminar Tenant' }, { status: 500 });
     }

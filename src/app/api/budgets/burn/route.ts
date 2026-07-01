@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getNativeBudgets } from "@/services/budgetService";
+import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
+// RBAC: lectura de burn de presupuestos requiere pertenencia al tenant (JWT validado).
 
 export async function GET(request: NextRequest) {
     try {
@@ -11,10 +13,8 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Faltan tenantId o subscriptionId." }, { status: 400 });
         }
 
-        const authHeader = request.headers.get("authorization");
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            return NextResponse.json({ error: "No autorizado." }, { status: 401 });
-        }
+        // Valida el token JWT y que el caller pertenezca al tenant (evita IDOR cross-tenant).
+        await requireTenantAccess(request, tenantId);
 
         const subIds = subscriptionId.split(',').map(s => s.trim()).filter(s => s.length > 0);
         
@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ burnData });
 
     } catch (e: any) {
+        if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
         return NextResponse.json({ error: "Error interno", details: e.message }, { status: 500 });
     }
 }
