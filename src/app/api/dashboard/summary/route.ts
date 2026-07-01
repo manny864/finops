@@ -249,7 +249,7 @@ export async function GET(request: NextRequest) {
         const [auditSettled, forecastSettled, mtdActual] = await Promise.all([
           timedFetch(
             `${origin}/api/audit/full?tenantId=${encodeURIComponent(tenantId)}${subParam}`,
-            18000
+            30000
           ).then(async r => {
             if (r.ok) return r.json();
             // 403 con MISSING_RBAC_ROLE / MISSING_ADMIN_CONSENT = SP sin permisos.
