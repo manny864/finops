@@ -79,6 +79,23 @@ function mapAuditData(auditResults: AuditResults) {
 }
 
 async function fetchActualCostMTD(tenantId: string, subscriptionId: string): Promise<number> {
+  // 1. Redis first (written after a successful live Azure fetch — sub-ms read)
+  try {
+    const ym = new Date().toISOString().slice(0, 7);
+    const redisMtdKey = `cost:mtd:v1:${tenantId}:${subscriptionId.toLowerCase()}:${ym}`;
+    const cached = await redis.get(redisMtdKey);
+    if (cached !== null) {
+      const val = Number(cached);
+      if (Number.isFinite(val) && val > 0) {
+        console.log(`[Summary] MTD cost from Redis: ${val.toFixed(2)}`);
+        return val;
+      }
+    }
+  } catch (e: any) {
+    console.warn('[Summary] Redis MTD read failed:', e?.message);
+  }
+
+  // 2. MySQL CostSnapshots fallback
   try {
     const params: any[] = [tenantId];
     let where = 'WHERE tenant_id = ?';
@@ -347,28 +364,15 @@ export async function GET(request: NextRequest) {
               const currentDay = Math.max(today.getDate(), 1);
               projectedCost = actualCost * (daysInMonth / currentDay);
             }
-            // Persist live data to CostSnapshots so the next request uses the DB path (fast).
-            // Fire-and-forget — do not block the response.
-            (async () => {
-              try {
-                const { insertCostSnapshotRow } = await import('@/modules/storage/db');
-                for (const entry of liveData!) {
-                  const rawStr = String((entry as any).ChargePeriodStart ?? (entry as any).UsageDate ?? '');
-                  const compact = rawStr.match(/^(\d{4})(\d{2})(\d{2})$/);
-                  const dateStr = compact ? `${compact[1]}-${compact[2]}-${compact[3]}` : rawStr.slice(0, 10);
-                  if (!dateStr || dateStr.length < 10) continue;
-                  await insertCostSnapshotRow(tenantId, dateStr, {
-                    subscriptionId: String((entry as any).SubAccountId || 'default'),
-                    resourceGroup: '*',
-                    serviceName:   String((entry as any).ServiceName   || ''),
-                    cost: Number((entry as any).EffectiveCost ?? (entry as any).BilledCost ?? 0),
-                  });
-                }
-                console.log(`[Summary] Persisted ${liveData!.length} live rows to CostSnapshots for tenant ${tenantId}`);
-              } catch (persistErr: any) {
-                console.warn('[Summary] CostSnapshots persist failed:', persistErr?.message);
-              }
-            })();
+            // Cache computed MTD cost in Redis so the next request reads it directly
+            // instead of going through Azure API again. TTL = rest of day + 1h buffer.
+            const ym = new Date().toISOString().slice(0, 7);
+            const redisMtdKey = `cost:mtd:v1:${tenantId}:${subscriptionId.toLowerCase()}:${ym}`;
+            const secsUntilMidnight = Math.floor(
+              (new Date(new Date().toISOString().slice(0, 10) + 'T23:59:59Z').getTime() - Date.now()) / 1000
+            ) + 3600; // + 1h buffer past midnight
+            redis.set(redisMtdKey, String(liveActual), 'EX', Math.max(secsUntilMidnight, 3600))
+              .catch((e: any) => console.warn('[Summary] Redis MTD cache write failed:', e?.message));
           }
         }
 
