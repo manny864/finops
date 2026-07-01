@@ -48,6 +48,9 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Tenant ID requerido" }, { status: 400 });
         }
 
+        // Auth antes de cualquier branch (incl. mock), consistente con el resto de rutas.
+        await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
+
         // ── MOCK ──────────────────────────────────────────────────────────────
         if (isMockTenant(tenantId)) {
             const today = new Date();
@@ -72,8 +75,6 @@ export async function GET(request: NextRequest) {
         }
 
         // ── REAL TENANT ───────────────────────────────────────────────────────
-        await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
-
         const [tierRows] = await pool.query(
             "SELECT tier FROM Tenants WHERE tenant_id = ? LIMIT 1",
             [tenantId]
