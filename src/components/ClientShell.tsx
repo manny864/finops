@@ -65,6 +65,7 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
   const t = useTranslations('nav');
   const tc = useTranslations('Common');
   const tAuth = useTranslations('auth');
+  const tPricing = useTranslations('pricing');
   const actions = useActionLogStore(state => state.actions);
 
   const router = useRouter();
@@ -236,7 +237,7 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
                               }}
                               className="w-full mt-4 flex items-center justify-center py-3 px-4 rounded-[12px] text-[14px] font-bold text-[#A9BBD0] hover:text-white hover:bg-white/5 transition-all focus:outline-none font-heading"
                           >
-                              Volver a la página de precios
+                              {tPricing('backToPricing')}
                           </button>
 
 
