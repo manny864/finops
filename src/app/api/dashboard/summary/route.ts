@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
+import { redis } from "@/lib/redis";
 import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";
 import { getCurrentMonthAmortizedCosts } from "@/modules/collectors/azure/billingService";
@@ -193,6 +194,14 @@ export async function GET(request: NextRequest) {
     await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
 
     const cacheKey = `dashboard:summary:v6:${tenantId}:${subscriptionId.toLowerCase()}`;
+
+    // Bust cache on explicit retry (bust=1) so re-configured tenants see fresh data immediately.
+    const bust = searchParams.get("bust") === "1";
+    if (bust) {
+      try { await redis.del(cacheKey); } catch { /* ignore */ }
+      console.log(`[Summary] Cache busted for key ${cacheKey}`);
+    }
+
     const data = await getWithStaleWhileRevalidate(
       cacheKey,
       async () => {

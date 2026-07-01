@@ -118,7 +118,9 @@ export default function Home() {
 
               // Disparamos los 3 endpoints en PARALELO. Antes era serie:
               //   summary (18s) → tags → anomalies. Ahora el wall-clock es max(3) en lugar de sum(3).
-              const summaryP = fetch(`/api/dashboard/summary?tenantId=${selectedTenant.id}&subscriptionId=${summarySubscription}`, { headers })
+              // bust=1 on explicit retries (retryKey > 0) forces Redis cache invalidation for the tenant.
+              const bustParam = retryKey > 0 ? '&bust=1' : '';
+              const summaryP = fetch(`/api/dashboard/summary?tenantId=${selectedTenant.id}&subscriptionId=${summarySubscription}${bustParam}`, { headers })
                   .then(async r => {
                       if (!r.ok) {
                           console.warn('[Dashboard] summary returned', r.status, await r.text().catch(() => ''));
@@ -383,15 +385,20 @@ export default function Home() {
           </button>
         </div>
       )}
-      {azureNoAccess && !loading && !summaryFailed && !summaryDegraded && (
-        <div className="mb-3 flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-700/40 dark:bg-blue-900/20 dark:text-blue-200">
-          <span className="text-lg">💡</span>
+      {azureNoAccess && !loading && !summaryFailed && (
+        <div className="mb-3 flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-700/40 dark:bg-blue-900/20 dark:text-blue-200">
+          <span className="text-lg mt-0.5">💡</span>
           <span className="flex-1">
             <strong>Sin datos de costos Azure.</strong>{' '}
-            Puede ser que el Service Principal no tenga el rol{' '}
+            El Service Principal no tiene el rol{' '}
             <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded text-xs font-mono">Cost Management Reader</code>{' '}
-            en tus suscripciones, o que no haya gasto registrado este mes.{' '}
-            Para habilitar el monitoreo en vivo, asigna ese rol al SP en cada suscripción desde el portal Azure → IAM.
+            asignado en tus suscripciones.{' '}
+            Ve a{' '}
+            <a href={`/${locale}/admin/onboarding`} className="underline font-semibold hover:text-blue-600">
+              Admin → Onboarding
+            </a>
+            , genera el script PowerShell y ejecútalo en Azure para asignar los roles.
+            Luego haz clic en <strong>Reintentar</strong>.
           </span>
           <button
             onClick={() => { setAzureNoAccess(false); setRetryKey(k => k + 1); }}
