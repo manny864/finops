@@ -4,6 +4,8 @@ import useSWR from "swr";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { useTranslations } from "next-intl";
+import { getFreshIdToken } from "@/lib/msalToken";
+import { useCurrency } from "@/components/CurrencyProvider";
 import { Loader2, Cpu, TrendingDown, TrendingUp, AlertCircle, Info } from "lucide-react";
 
 export default function ComputeEfficiencyDashboard() {
@@ -11,16 +13,17 @@ export default function ComputeEfficiencyDashboard() {
     const tm = useTranslations("Mock");
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
+    const { format } = useCurrency();
 
     const fetcher = async (url: string) => {
         const account = accounts[0];
         if (!account) throw new Error("No hay cuenta autenticada");
-        const tokenResponse = await instance.acquireTokenSilent({
-            scopes: ["User.Read"],
-            account,
-        });
+        const idToken = await getFreshIdToken(instance, account, ["User.Read"]);
         const res = await fetch(url, {
-            headers: { Authorization: `Bearer ${tokenResponse.idToken}` },
+            headers: {
+                Authorization: `Bearer ${idToken}`,
+                "x-tenant-id": selectedTenant?.id ?? "",
+            },
         });
         if (!res.ok) {
             const json = await res.json();
@@ -82,7 +85,7 @@ export default function ComputeEfficiencyDashboard() {
                     <div>
                         <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t("costPerCore")}</p>
                         <p className="text-4xl font-bold text-slate-900 dark:text-white">
-                            ${data.costPerCore}
+                            {format(data.costPerCore)}
                             <span className="text-base font-normal text-slate-500 dark:text-slate-400 ml-1">/core</span>
                         </p>
                         <div className="flex items-center gap-1 mt-2">
@@ -92,9 +95,9 @@ export default function ComputeEfficiencyDashboard() {
                                 <TrendingUp className="w-4 h-4 text-red-500" />
                             )}
                             <span className={`text-sm font-semibold ${vssBenchmark ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
-                                ${delta} {vssBenchmark ? "bajo" : "sobre"} benchmark
+                                {format(Number(delta))} {vssBenchmark ? "bajo" : "sobre"} benchmark
                             </span>
-                            <span className="text-xs text-slate-400 ml-1">(benchmark: ${data.benchmark})</span>
+                            <span className="text-xs text-slate-400 ml-1">(benchmark: {format(data.benchmark)})</span>
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-3 sm:gap-4">
@@ -104,11 +107,11 @@ export default function ComputeEfficiencyDashboard() {
                         </div>
                         <div className="text-center">
                             <p className="text-xs text-slate-500 dark:text-slate-400">{t("effective")}</p>
-                            <p className="text-xl font-bold text-slate-800 dark:text-slate-100">${data.effectiveCost?.toLocaleString()}</p>
+                            <p className="text-xl font-bold text-slate-800 dark:text-slate-100">{format(data.effectiveCost)}</p>
                         </div>
                         <div className="text-center">
                             <p className="text-xs text-slate-500 dark:text-slate-400">Sin compromisos</p>
-                            <p className="text-xl font-bold text-slate-600 dark:text-slate-400">${data.costPerCoreNoCommitments}</p>
+                            <p className="text-xl font-bold text-slate-600 dark:text-slate-400">{format(data.costPerCoreNoCommitments)}</p>
                         </div>
                         <div className="text-center">
                             <p className="text-xs text-slate-500 dark:text-slate-400">Ahorro compromisos</p>
@@ -133,7 +136,7 @@ export default function ComputeEfficiencyDashboard() {
                                     <div
                                         className="w-full bg-indigo-400 dark:bg-indigo-500 rounded-t transition-all"
                                         style={{ height: `${max > 0 ? (d.costPerCore / max) * 48 : 0}px` }}
-                                        title={`${d.month}: $${d.costPerCore}`}
+                                        title={`${d.month}: ${format(d.costPerCore)}`}
                                     />
                                     <span className="text-[10px] text-slate-400 truncate">{d.month.slice(5)}</span>
                                 </div>
@@ -164,7 +167,7 @@ export default function ComputeEfficiencyDashboard() {
                                         <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/20">
                                             <td className="px-4 py-2 font-medium text-slate-800 dark:text-slate-200">{r.region}</td>
                                             <td className="px-4 py-2 text-right text-slate-600 dark:text-slate-400">{r.cores}</td>
-                                            <td className="px-4 py-2 text-right font-semibold text-slate-800 dark:text-slate-100">${r.costPerCore}</td>
+                                            <td className="px-4 py-2 text-right font-semibold text-slate-800 dark:text-slate-100">{format(r.costPerCore)}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -194,8 +197,8 @@ export default function ComputeEfficiencyDashboard() {
                                         <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/20">
                                             <td className="px-4 py-2 font-mono text-xs text-slate-700 dark:text-slate-300">{s.sku}</td>
                                             <td className="px-4 py-2 text-right text-slate-600 dark:text-slate-400">{s.cores}</td>
-                                            <td className="px-4 py-2 text-right text-slate-600 dark:text-slate-400">${s.cost.toLocaleString()}</td>
-                                            <td className="px-4 py-2 text-right font-semibold text-slate-800 dark:text-slate-100">${s.costPerCore}</td>
+                                            <td className="px-4 py-2 text-right text-slate-600 dark:text-slate-400">{format(s.cost)}</td>
+                                            <td className="px-4 py-2 text-right font-semibold text-slate-800 dark:text-slate-100">{format(s.costPerCore)}</td>
                                         </tr>
                                     ))}
                                 </tbody>
