@@ -99,6 +99,9 @@ El sistema está dividido en cinco (5) pilares estratégicos en el menú lateral
 - **Alertas Self-Service (Pro):** creación/edición de reglas de alerta de presupuesto y anomalía sin intervención de soporte (`/intelligence/alerts`).
 - **AI Analytics (Enterprise):** consumo de Azure OpenAI (tokens, modelos, $/1k tokens) en `/intelligence/ai-analytics`.
 - **MACC Tracker (Enterprise):** seguimiento del consumo de compromiso anual EA/MCA en `/intelligence/macc`.
+- **Descuentos por Compromiso — Reservas Activas:** en `/intelligence/commitments`, además de la cobertura y utilización global, la tabla **Reservas Activas** replica el blade *Reservations* de Azure y muestra por reserva: **Nombre, Estado, Expiración, Alcance, Tipo, Nombre del producto, Región, Renovación, Cantidad**, y la **utilización del último día y de los últimos 7 días**.
+  - Haz clic en el botón de **Renovación** para abrir el modal que permite **activar o deshabilitar la auto-renovación** de esa reserva (el cambio se aplica directamente en Azure; requiere rol **Admin/Owner** del tenant y permisos *Reservations Contributor/Owner* en Azure).
+  - Haz clic sobre cualquiera de los **porcentajes de utilización** para abrir el modal con la utilización de **último día / 7 días / 30 días** y la **tendencia diaria** de la reserva.
 - **Licencias M365:** Identificación de licencias de Microsoft 365 asignadas pero inactivas en los últimos 30 días, promoviendo su reasignación o cancelación.
 - **Ingesta CSV:** Herramienta para cargar facturación histórica de nubes de terceros bajo el estándar FOCUS.
 

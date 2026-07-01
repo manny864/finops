@@ -158,6 +158,8 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
 
    > ⚠️ **Suscripciones EA/MCA**: Para suscripciones bajo Enterprise Agreement o Microsoft Customer Agreement, el `Billing Admin` debe asignar adicionalmente `Enrollment Reader` o `Billing Account Reader` al SP en el scope de billing account (no es posible desde el script).
 
+   > 🔖 **Reservas (RIs / Savings Plans)**: El detalle del blade *Reservations* (`/intelligence/commitments`) usa `Microsoft.Capacity/reservations`. Lectura requiere el rol **Reservations Reader** sobre el/los *reservation order(s)*; la acción de **renovación** (activar/deshabilitar auto-renew) requiere **Reservations Contributor** u **Owner** del order (menor privilegio suficiente). En la app, la mutación de renovación está protegida por `requireTenantRole(['Admin','Owner'])`.
+
    **Diagnóstico:** El endpoint `GET /api/admin/check-sp-roles` verifica automáticamente que el SP tenga todos los roles requeridos en cada suscripción y reporta los faltantes con instrucciones de remediación.
 
 ### 🔍 Diagnostic Endpoints
@@ -202,6 +204,36 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
 ---
 
 ## 📈 Recent Major Updates
+
+### 2026-07-01 — Reservas Activas: detalle del blade Azure Reservations
+La sección **Reservas Activas** de *Descuentos por Compromiso (RIs & Savings Plans)*
+(`/intelligence/commitments`) ahora replica el blade **Reservations** del portal de Azure,
+consumiendo `Microsoft.Capacity/reservations` (best-effort, degradación silenciosa sin permisos).
+
+**Columnas nuevas:** Nombre, Estado, Expiración, Alcance (Scope), Tipo, Nombre del producto,
+Región, **Renovación**, Cantidad, **Utilización último día** y **últimos 7 días**.
+
+**Interacción:**
+- **Renovación** → botón que abre un modal para **activar/deshabilitar la auto-renovación**
+  (mutación real vía `PATCH Microsoft.Capacity/reservationOrders/{orderId}/reservations/{id}`),
+  invalidando la caché `commitments:v3:{tenantId}` al aplicar.
+- **% de utilización** (clic sobre el porcentaje) → modal con **aggregates 1/7/30 días** +
+  **tendencia diaria (30 días)** desde Consumption `reservationsSummaries` (best-effort EA/MCA).
+
+**Endpoints:**
+
+| Endpoint | Método | RBAC app | Rol Azure mínimo |
+|---|---|---|---|
+| `/api/intelligence/commitments` | GET | `requireTenantAccess` | Reservations Reader |
+| `/api/intelligence/commitments/reservations/utilization` | GET | `requireTenantAccess` | Reservations Reader |
+| `/api/intelligence/commitments/reservations/renew` | PATCH | `requireTenantRole(['Admin','Owner'])` | Reservations Contributor / Owner |
+
+**Cambios asociados:** `src/services/reservationService.ts` (+`getActiveReservations`,
+`getReservationUtilizationTrend`, `setReservationRenew`, `parseReservationResourceId`);
+componentes `ReservationRenewalModal` y `ReservationUtilizationModal`; namespace i18n
+`Commitments` (es/en/pt-BR, 41 keys c/u); mocks por tier (`reservationDetails` +
+`reservation_utilization`). Sin cambios de esquema en DB.
+
 
 ### 2026-06-28 — FinOps Toolkit Gap Closure (P2/P3/P4)
 Implementación de 15 features inspirados en `microsoft/finops-toolkit`, con datos mock para Tenants demo, i18n completo (es/en/pt-BR), `FeatureGuard` por tier y `RouteTierGate` automático. Mapa completo:
