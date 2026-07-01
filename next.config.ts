@@ -10,6 +10,16 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ['mysql2'],
 
   async headers() {
+    // En desarrollo, Next.js/Turbopack y React (modo dev) requieren eval() para HMR,
+    // sourcemaps y reconstrucción de callstacks. Se habilita 'unsafe-eval' SOLO en dev;
+    // en producción la CSP permanece estricta (sin eval).
+    const isDev = process.env.NODE_ENV !== 'production';
+    const scriptSrc = [
+      "script-src 'self' 'unsafe-inline'",
+      isDev ? "'unsafe-eval'" : '',
+      "https://cdn.paddle.com https://www.google.com https://www.gstatic.com https://static.cloudflareinsights.com",
+    ].filter(Boolean).join(' ');
+
     return [
       {
         source: '/(.*)',
@@ -41,7 +51,7 @@ const nextConfig: NextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' https://cdn.paddle.com https://www.google.com https://www.gstatic.com https://static.cloudflareinsights.com",
+              scriptSrc,
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' data: https://fonts.gstatic.com",
               "img-src 'self' data: blob: https:",
