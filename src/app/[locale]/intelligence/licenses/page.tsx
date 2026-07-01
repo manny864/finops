@@ -6,10 +6,13 @@ import { useTranslations } from 'next-intl';
 import { Info } from 'lucide-react';
 import MockBanner from '@/components/MockBanner';
 import Pagination, { usePagination } from '@/components/Pagination';
+import { useMsal } from "@azure/msal-react";
+import { getFreshIdToken } from '@/lib/msalToken';
 
 export default function LicensesPage() {
     const { selectedTenant } = useTenant();
     const { subscriptions } = useSubscription();
+    const { instance, accounts } = useMsal();
     const t = useTranslations('Sidebar');
     const [licenses, setLicenses] = useState<any[]>([]);
     const [inactiveUsers, setInactiveUsers] = useState<any[]>([]);
@@ -30,8 +33,15 @@ export default function LicensesPage() {
             setErrorData(null);
             setGraphError(null);
             try {
+                const account = accounts[0];
+                const idToken = account
+                    ? await getFreshIdToken(instance, account, ['User.Read'])
+                    : null;
                 const res = await fetch('/api/intelligence/licenses', {
-                    headers: { 'x-tenant-id': selectedTenant.id }
+                    headers: {
+                        'x-tenant-id': selectedTenant.id,
+                        ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+                    }
                 });
                 const json = await res.json();
                 if (json.success) {
