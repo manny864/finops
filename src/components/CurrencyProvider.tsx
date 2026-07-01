@@ -38,7 +38,7 @@ interface CurrencyContextType {
     supported: string[];
     loading: boolean;
     convert: (amountUSD: number | string) => number;
-    format: (amountUSD: number | string, opts?: { compact?: boolean }) => string;
+    format: (amountUSD: number | string, opts?: { compact?: boolean; fractionDigits?: number }) => string;
 }
 
 const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined);
@@ -110,9 +110,10 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
         return new Decimal(amountUSD).mul(rate).toNumber();
     }, [rate]);
 
-    const format = useCallback((amountUSD: number | string, opts?: { compact?: boolean }) => {
+    const format = useCallback((amountUSD: number | string, opts?: { compact?: boolean; fractionDigits?: number }) => {
         const value = new Decimal(amountUSD).mul(rate);
-        const fractionDigits = NO_DECIMALS.has(currency) ? 0 : 2;
+        const defaultFractionDigits = NO_DECIMALS.has(currency) ? 0 : 2;
+        const fractionDigits = opts?.fractionDigits ?? defaultFractionDigits;
         const num = Number(value.toFixed(fractionDigits));
         try {
             const f = new Intl.NumberFormat("en-US", {
@@ -140,7 +141,7 @@ export function useCurrency() {
         return {
             currency: "USD", setCurrency: async () => {}, rate: 1, supported: ["USD"],
             loading: false, convert: (n: number | string) => Number(n),
-            format: (n: number | string) => `$${Number(n).toFixed(2)}`,
+            format: (n: number | string, opts?: { compact?: boolean; fractionDigits?: number }) => `$${Number(n).toFixed(opts?.fractionDigits ?? 2)}`,
         } as CurrencyContextType;
     }
     return ctx;

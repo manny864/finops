@@ -4,6 +4,8 @@ import useSWR from "swr";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { useTranslations } from "next-intl";
+import { getFreshIdToken } from "@/lib/msalToken";
+import { useCurrency } from "@/components/CurrencyProvider";
 import { Loader2, HardDrive, TrendingDown, AlertCircle, Info } from "lucide-react";
 
 const TIER_COLORS: Record<string, string> = {
@@ -24,17 +26,18 @@ export default function StorageEfficiencyDashboard() {
     const tm = useTranslations("Mock");
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
+    const { format } = useCurrency();
     const [days] = useState(30);
 
     const fetcher = async (url: string) => {
         const account = accounts[0];
         if (!account) throw new Error("No hay cuenta autenticada");
-        const tokenResponse = await instance.acquireTokenSilent({
-            scopes: ["User.Read"],
-            account,
-        });
+        const idToken = await getFreshIdToken(instance, account, ["User.Read"]);
         const res = await fetch(url, {
-            headers: { Authorization: `Bearer ${tokenResponse.idToken}` },
+            headers: {
+                Authorization: `Bearer ${idToken}`,
+                "x-tenant-id": selectedTenant?.id ?? "",
+            },
         });
         if (!res.ok) {
             const json = await res.json();
@@ -94,7 +97,7 @@ export default function StorageEfficiencyDashboard() {
                 <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-5">
                     <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t("costPerGb")}</p>
                     <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">
-                        ${(data.costPerGb ?? 0).toFixed(5)}
+                        {format(data.costPerGb ?? 0, { fractionDigits: 5 })}
                     </p>
                     <p className="text-xs text-slate-400 mt-1">por GB / mes</p>
                 </div>
@@ -108,7 +111,7 @@ export default function StorageEfficiencyDashboard() {
                 <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-5">
                     <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Costo Total</p>
                     <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">
-                        ${(data.totalCost ?? 0).toFixed(2)}
+                        {format(data.totalCost ?? 0)}
                     </p>
                     <p className="text-xs text-slate-400 mt-1">últimos {days} días</p>
                 </div>
@@ -147,7 +150,7 @@ export default function StorageEfficiencyDashboard() {
                                     <span className={`text-xs font-bold uppercase ${TIER_TEXT_COLORS[tier]}`}>{t(tier as "hot" | "cool" | "cold" | "archive")}</span>
                                 </div>
                                 <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{d.gb.toLocaleString()} GB</p>
-                                <p className="text-xs text-slate-500">${d.cost.toFixed(2)}</p>
+                                <p className="text-xs text-slate-500">{format(d.cost)}</p>
                                 <p className="text-xs text-slate-400">{d.percent}%</p>
                             </div>
                         );
@@ -172,7 +175,7 @@ export default function StorageEfficiencyDashboard() {
                         </div>
                         <div>
                             <p className="text-xs text-slate-500 dark:text-slate-400">{t("potentialSavings")}</p>
-                            <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">${data.recommendation.potentialSavings.toFixed(2)}</p>
+                            <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{format(data.recommendation.potentialSavings)}</p>
                             <p className="text-xs text-slate-500 mt-0.5">ahorro mensual estimado</p>
                         </div>
                         <div>
