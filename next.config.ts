@@ -41,11 +41,11 @@ const nextConfig: NextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' https://cdn.paddle.com https://www.google.com https://www.gstatic.com",
+              "script-src 'self' 'unsafe-inline' https://cdn.paddle.com https://www.google.com https://www.gstatic.com https://static.cloudflareinsights.com",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' data: https://fonts.gstatic.com",
               "img-src 'self' data: blob: https:",
-              "connect-src 'self' https://api.paddle.com https://login.microsoftonline.com https://graph.microsoft.com https://management.azure.com",
+              "connect-src 'self' https://api.paddle.com https://login.microsoftonline.com https://graph.microsoft.com https://management.azure.com https://cloudflareinsights.com",
               "frame-src 'self' https://cdn.paddle.com https://app.powerbi.com",
               "frame-ancestors 'none'",
               "base-uri 'self'",
