@@ -15,6 +15,10 @@ export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
         const domain = searchParams.get("domain");
+        // Endpoint público pre-login: inicia el flujo SSO y solo usa tenantId para
+        // buscar la config SSO del tenant (devuelve 403 si no está habilitada). No
+        // se puede exigir JWT antes del login. Guard de auth no aplica aquí.
+        // eslint-disable-next-line local/no-unauth-tenant-id
         const tenantId = searchParams.get("tenantId");
 
         if (!domain || !tenantId) {
