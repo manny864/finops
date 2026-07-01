@@ -32,6 +32,10 @@ function is429(err: any): boolean {
 type CacheEntry = { data: FocusCostEntry[]; diagnostics: CostQueryDiagnostics; expiresAt: number };
 const COST_CACHE = new Map<string, CacheEntry>();
 const CACHE_TTL_MS = 60_000; // 60s — solo deduplica bursts inmediatos
+
+// In-flight deduplication: prevents multiple concurrent callers for the same
+// cache key (e.g. forecast + summary liveData) from all hitting Azure at once.
+const COST_INFLIGHT = new Map<string, Promise<{ data: FocusCostEntry[]; diagnostics: CostQueryDiagnostics }>>();
 function getFromCache(key: string): CacheEntry | null {
     const e = COST_CACHE.get(key);
     if (!e) return null;
@@ -100,7 +104,18 @@ export async function getCurrentMonthAmortizedCostsWithDiagnostics(
         return { data: cached.data, diagnostics: cached.diagnostics };
     }
 
-    const credential = await getAzureCredential(tenantId);
+    // In-flight dedup: if an identical query is already running (e.g., both the forecast
+    // endpoint and the summary's liveData fallback call this simultaneously), reuse the
+    // same promise instead of launching a second set of Azure API calls. This prevents
+    // amplifying 429 throttling from double-calling.
+    const inflight = COST_INFLIGHT.get(cacheKey);
+    if (inflight) {
+        console.log(`[BillingService] Reusing in-flight query for ${cacheKey}`);
+        return inflight;
+    }
+
+    const promise = (async () => {
+        const credential = await getAzureCredential(tenantId);
     const client = new CostManagementClient(credential);
 
     const scope = subscriptionId === 'All' || subscriptionId.toLowerCase() === 'all'
@@ -203,13 +218,15 @@ export async function getCurrentMonthAmortizedCostsWithDiagnostics(
         diagnostics.subsDiscovered = subs.length;
         diagnostics.subsList = subs.map((s: any) => s.subscriptionId);
 
-        // Limitar a 3 concurrentes para no disparar 429 en Cost Management API.
-        await mapWithConcurrency(subs, 3, async (sub: any) => {
+        // Concurrency 2 (not 3) to reduce 429 throttling pressure on Cost Management API.
+        await mapWithConcurrency(subs, 2, async (sub: any) => {
             const subId: string = sub.subscriptionId;
             try {
                 const res = await withRetry(
                     () => client.query.usage(`/subscriptions/${subId}`, mtdOptions),
-                    { label: `usage(sub ${subId})` }
+                    // maxRetries:2 — fail fast on persistent throttling; 4×retries per sub
+                    // while 4 subs run amplifies 429s. Probe will use Last30Days as fallback.
+                    { label: `usage(sub ${subId})`, maxRetries: 2 }
                 );
                 diagnostics.subsSucceeded++;
                 const n = processResult(res);
@@ -224,33 +241,47 @@ export async function getCurrentMonthAmortizedCostsWithDiagnostics(
 
         diagnostics.totalRows = focusData.length;
 
-        // Si MTD vino vacío pero hubo subs OK, probamos Last30Days para distinguir
-        // "sin consumo NUNCA" vs "sin consumo solo este mes".
+        // If MonthToDate came back empty but at least one sub was accessible, fall back
+        // to Last30Days — this covers cases where the billing period doesn't align with
+        // the calendar month (so "MonthToDate" returns 0 rows but last 30 days has data).
+        // We CAPTURE the data (not just count it) so it's available to the caller.
         if (focusData.length === 0 && diagnostics.subsSucceeded > 0) {
             const to = new Date();
             const from = new Date();
             from.setDate(from.getDate() - 30);
             const last30Options = buildOptions('Custom', from, to);
 
-            let probeCount = 0;
-            await mapWithConcurrency(diagnostics.subsList, 3, async (subId) => {
+            await mapWithConcurrency(diagnostics.subsList, 2, async (subId) => {
                 try {
                     const res = await withRetry(
                         () => client.query.usage(`/subscriptions/${subId}`, last30Options),
-                        { label: `probe30d(sub ${subId})`, maxRetries: 2 }
+                        { label: `fallback30d(sub ${subId})`, maxRetries: 2 }
                     );
-                    if (res?.rows) probeCount += res.rows.length;
+                    if (res?.rows && res?.columns) {
+                        const n = processResult(res);
+                        if (n > 0) diagnostics.subsWithData++;
+                    }
                 } catch {
                     // best-effort
                 }
             });
-            diagnostics.last30RowsIfMtdEmpty = probeCount;
-            console.log(`[BillingService] MTD vacío. Probe Last30Days = ${probeCount} filas.`);
+
+            if (focusData.length > 0) {
+                diagnostics.timeframeUsed = 'Last30Days';
+                console.log(`[BillingService] MonthToDate empty — using Last30Days fallback (${focusData.length} rows).`);
+            } else {
+                diagnostics.last30RowsIfMtdEmpty = 0;
+                console.log(`[BillingService] Both MonthToDate and Last30Days returned no data.`);
+            }
         }
 
         setCache(cacheKey, focusData, diagnostics);
         return { data: focusData, diagnostics };
     }
+    })().finally(() => COST_INFLIGHT.delete(cacheKey));
+
+    COST_INFLIGHT.set(cacheKey, promise);
+    return promise;
 }
 
 export async function getCurrentMonthAmortizedCosts(
