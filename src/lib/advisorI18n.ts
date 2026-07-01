@@ -268,3 +268,40 @@ export function translateAdvisorText(
   }
   return text;
 }
+
+/** Nombres localizados para tipos de recursos zombie/audit. */
+const ZOMBIE_TYPE_NAMES: Record<string, Trio> = {
+  "Disk":             { es: "Disco Desconectado",          en: "Unattached Disk",              "pt-BR": "Disco Desconectado"            },
+  "Public IP":        { es: "IP Pública sin Uso",           en: "Unused Public IP",             "pt-BR": "IP Pública sem Uso"            },
+  "Snapshot":         { es: "Snapshot Obsoleto",            en: "Stale Snapshot",               "pt-BR": "Snapshot Obsoleto"             },
+  "App Service Plan": { es: "App Service Plan Vacío",       en: "Empty App Service Plan",       "pt-BR": "App Service Plan Vazio"        },
+  "SQL Elastic Pool": { es: "SQL Elastic Pool Vacío",       en: "Empty SQL Elastic Pool",       "pt-BR": "SQL Elastic Pool Vazio"        },
+  "Load Balancer":    { es: "Load Balancer Inactivo",       en: "Idle Load Balancer",           "pt-BR": "Load Balancer Inativo"         },
+  "Front Door WAF":   { es: "Front Door WAF sin Recursos",  en: "Front Door WAF No Resources",  "pt-BR": "Front Door WAF sem Recursos"   },
+  "Traffic Manager":  { es: "Traffic Manager sin Endpoints","en": "Traffic Manager No Endpoints","pt-BR": "Traffic Manager sem Endpoints" },
+  "App Gateway":      { es: "Application Gateway Inactivo", en: "Idle Application Gateway",     "pt-BR": "Application Gateway Inativo"   },
+  "NAT Gateway":      { es: "NAT Gateway sin Uso",          en: "Idle NAT Gateway",             "pt-BR": "NAT Gateway sem Uso"           },
+  "Private Endpoint": { es: "Private Endpoint Huérfano",    en: "Orphaned Private Endpoint",    "pt-BR": "Private Endpoint Órfão"        },
+  "VNet Gateway":     { es: "VNet Gateway sin Conexiones",  en: "VNet Gateway No Connections",  "pt-BR": "VNet Gateway sem Conexões"     },
+  "DDoS Plan":        { es: "Plan DDoS sin VNets",          en: "DDoS Plan No VNets",           "pt-BR": "Plano DDoS sem VNets"          },
+  "Private DNS":      { es: "Zona DNS Privada sin Vínculos","en": "Private DNS No Links",        "pt-BR": "DNS Privado sem Vínculos"      },
+  "Flexible Server":  { es: "Servidor Flexible Detenido",   en: "Stopped Flexible Server",      "pt-BR": "Servidor Flexível Parado"      },
+  "Cosmos DB":        { es: "Cosmos DB Vacío",              en: "Empty Cosmos DB",              "pt-BR": "Cosmos DB Vazio"               },
+  "Event Hub":        { es: "Event Hub Namespace Vacío",    en: "Empty Event Hub Namespace",    "pt-BR": "Event Hub Namespace Vazio"     },
+  "Service Bus":      { es: "Service Bus Vacío",            en: "Empty Service Bus",            "pt-BR": "Service Bus Vazio"             },
+  "API Management":   { es: "API Management Vacío",         en: "Empty API Management",         "pt-BR": "API Management Vazio"          },
+  "ExpressRoute":     { es: "ExpressRoute sin Circuito",    en: "ExpressRoute No Circuit",      "pt-BR": "ExpressRoute sem Circuito"     },
+  "WAF Policy":       { es: "WAF Policy sin Recursos",      en: "WAF Policy No Resources",      "pt-BR": "WAF Policy sem Recursos"       },
+  "VM (Stopped)":     { es: "Máquina Virtual Detenida",     en: "Stopped Virtual Machine",      "pt-BR": "Máquina Virtual Parada"        },
+  "App Service Env":  { es: "App Service Env Vacío",        en: "Empty App Service Environment","pt-BR": "App Service Env Vazio"         },
+  "TTL Expired":      { es: "Recurso TTL Expirado",         en: "TTL Expired Resource",         "pt-BR": "Recurso TTL Expirado"          },
+};
+
+/**
+ * Traduce el nombre de un tipo de recurso zombie/audit al locale activo.
+ * Si no hay traducción disponible, devuelve el nombre original.
+ */
+export function translateZombieType(name: string, locale: string): string {
+  const target = normalize(locale);
+  return ZOMBIE_TYPE_NAMES[name]?.[target] ?? name;
+}
