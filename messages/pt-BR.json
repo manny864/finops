@@ -451,7 +451,10 @@
     "customPrice": "Personalizado",
     "seeMore": "Ver mais",
     "closeModal": "Fechar",
-    "allFeatures": "Todos os recursos de"
+    "allFeatures": "Todos os recursos de",
+    "perMonth": "/mês",
+    "backToDashboard": "Voltar ao Dashboard",
+    "backToPricing": "Voltar à página de preços"
   },
   "auth": {
     "paymentSuccess": "Pagamento concluído com sucesso! Por favor, faça login para acessar seu plano."

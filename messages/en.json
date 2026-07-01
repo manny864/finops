@@ -451,7 +451,10 @@
     "customPrice": "Custom",
     "seeMore": "See more",
     "closeModal": "Close",
-    "allFeatures": "All features of"
+    "allFeatures": "All features of",
+    "perMonth": "/mo",
+    "backToDashboard": "Back to Dashboard",
+    "backToPricing": "Back to pricing page"
   },
   "auth": {
     "paymentSuccess": "Payment completed successfully! Please log in to access your plan."
