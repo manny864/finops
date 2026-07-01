@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CostManagementClient } from "@azure/arm-costmanagement";
 import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
-import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
+import { requireTenantAccess, requireTenantRole, AuthError } from "@/lib/requestAuth";
+// RBAC: GET requiere pertenencia al tenant (read). POST (setear DAU estimado)
+// requiere rol Admin/Owner — el DAU es el denominador de unit-economics (gobernanza).
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { redis } from "@/lib/redis";
@@ -129,7 +131,7 @@ export async function POST(request: NextRequest) {
         if (!tenantId || estimatedDau == null) {
             return NextResponse.json({ error: "Faltan parámetros" }, { status: 400 });
         }
-        await requireTenantAccess(request, tenantId);
+        await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
 
         const pool = (await import('@/modules/storage/db')).default;
         await pool.query(

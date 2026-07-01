@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
-import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
+import { requireTenantAccess, requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { getBudgetConsumption } from "@/services/budgetService";
+// RBAC: GET requiere pertenencia al tenant (read). POST (crear/actualizar budget)
+// requiere rol Admin/Owner — es un control de gobernanza financiera.
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 
 export async function GET(request: NextRequest) {
@@ -64,7 +66,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Parámetros incompletos" }, { status: 400 });
         }
 
-        await requireTenantAccess(request, tenantId);
+        await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
 
         await pool.query(
             `INSERT INTO Budgets (tenant_id, cost_center_tag_value, monthly_limit_usd, alert_threshold) 

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
-import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
+import { requireTenantAccess, requireTenantRole, AuthError } from "@/lib/requestAuth";
+// RBAC: GET requiere pertenencia al tenant (read). POST (crear alert rule)
+// requiere rol Admin/Owner, alineado con el DELETE en [id]/route.ts.
 
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
@@ -52,7 +54,7 @@ export async function POST(request: NextRequest) {
     if (!tenantId) return NextResponse.json({ error: "Falta parámetro requerido: tenantId" }, { status: 400 });
 
     try {
-        await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
+        await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
     } catch (e) {
         if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
         return NextResponse.json({ error: "Auth error" }, { status: 401 });
