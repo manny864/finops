@@ -4,69 +4,74 @@ import pool from "@/modules/storage/db";
 import { sendWebhookAlert } from "@/lib/notifications";
 import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
 
+// ── Z-Score helpers ─────────────────────────────────────────────────────────
+function computeStats(values: number[]): { mean: number; stdDev: number } {
+    if (values.length === 0) return { mean: 0, stdDev: 0 };
+    const mean = values.reduce((a, b) => a + b, 0) / values.length;
+    const variance = values.reduce((acc, v) => acc + Math.pow(v - mean, 2), 0) / values.length;
+    return { mean, stdDev: Math.sqrt(variance) };
+}
+
+function detectAnomalies(
+    dailyCosts: { date: string; amount: number }[],
+    mean: number,
+    stdDev: number,
+    subscriptionId: string,
+    threshold = 2.5
+) {
+    if (stdDev === 0) return [];
+    return dailyCosts
+        .filter(d => {
+            const z = (d.amount - mean) / stdDev;
+            return z > threshold;
+        })
+        .map((d, i) => ({
+            id: i + 1,
+            date: d.date,
+            amount: d.amount,
+            expected_amount: mean,
+            z_score: (d.amount - mean) / stdDev,
+            status: 'New',
+            subscription_id: subscriptionId,
+            detected_at: new Date().toISOString()
+        }));
+}
+
 export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
         const tenantId = searchParams.get('tenantId');
         const tier = searchParams.get('tier') || 'Essential';
-        const subscriptionId = searchParams.get('subscriptionId') || 'sub-default-01';
+        const subscriptionId = searchParams.get('subscriptionId') || 'All';
 
         if (!tenantId) {
             return NextResponse.json({ error: "Tenant ID requerido" }, { status: 400 });
         }
 
-        // Mock Logic: Generate 60 days of data and inject an anomaly on the last day
+        // ── MOCK ──────────────────────────────────────────────────────────────
         if (isMockTenant(tenantId)) {
             const today = new Date();
             const dailyCosts = Array.from({ length: 60 }).map((_, i) => {
                 const date = new Date(today.getTime() - (59 - i) * 24 * 60 * 60 * 1000);
-                const isAnomaly = i === 59; // Today is an anomaly
-                const baseCost = 150 + Math.random() * 50; 
-                return {
-                    date: date.toISOString().split('T')[0],
-                    amount: isAnomaly ? 850.45 : baseCost // Massive spike today
-                };
+                const isAnomaly = i === 59;
+                const baseCost = 150 + Math.random() * 50;
+                return { date: date.toISOString().split('T')[0], amount: isAnomaly ? 850.45 : baseCost };
             });
-
-            // Z-Score Calculation (Simple Moving Average)
-            const historicalData = dailyCosts.slice(0, 59);
-            const sum = historicalData.reduce((acc, curr) => acc + curr.amount, 0);
-            const mean = sum / historicalData.length;
-            
-            const variance = historicalData.reduce((acc, curr) => acc + Math.pow(curr.amount - mean, 2), 0) / historicalData.length;
-            const stdDev = Math.sqrt(variance);
-
-            const todayCost = dailyCosts[59].amount;
-            const zScore = (todayCost - mean) / stdDev;
-
-            const anomalies = [];
-            
-            if (zScore > 3) {
-                const anomaly = {
-                    id: 1,
-                    date: dailyCosts[59].date,
-                    amount: todayCost,
-                    expected_amount: mean,
-                    z_score: zScore,
-                    status: 'New',
-                    subscription_id: subscriptionId,
-                    detected_at: new Date().toISOString()
-                };
-                anomalies.push(anomaly);
-                
-                // Simulate sending a webhook alert for the mock anomaly
+            const baseline = dailyCosts.slice(0, 52).map(d => d.amount);
+            const { mean, stdDev } = computeStats(baseline);
+            const anomalies = detectAnomalies(dailyCosts.slice(52), mean, stdDev, subscriptionId, 3);
+            if (anomalies.length > 0) {
                 const dashboardUrl = `${request.nextUrl.origin}/intelligence/anomalies`;
-                await sendWebhookAlert(
-                    tenantId, 
-                    "🚨 Anomalía de Gasto Detectada (Z-Score Alert)", 
-                    `Se ha detectado un gasto anormal de **$${todayCost.toFixed(2)}** en la suscripción *${subscriptionId}*. (Gasto promedio esperado: $${mean.toFixed(2)}).\n\n<a href="${dashboardUrl}">🔍 Investigar en el Dashboard</a>`,
+                await sendWebhookAlert(tenantId,
+                    "🚨 Anomalía de Gasto Detectada (Z-Score Alert)",
+                    `Gasto anormal de **$${anomalies[0].amount.toFixed(2)}** en *${subscriptionId}*. Promedio esperado: $${mean.toFixed(2)}.\n\n<a href="${dashboardUrl}">🔍 Investigar</a>`,
                     'warning'
-                );
+                ).catch(() => {});
             }
-
             return NextResponse.json({ success: true, dailyCosts, anomalies, mean, stdDev });
         }
 
+        // ── REAL TENANT ───────────────────────────────────────────────────────
         await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
 
         const [tierRows] = await pool.query(
@@ -77,25 +82,91 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Tenant no encontrado." }, { status: 404 });
         }
 
-        const resolvedTier = String((tierRows[0] as { tier?: string }).tier || tier || "Essential");
-        const isProfessionalOrHigher = ["professional", "business", "enterprise"].includes(resolvedTier.toLowerCase());
-        if (!isProfessionalOrHigher) {
+        const resolvedTier = String((tierRows[0] as { tier?: string }).tier || tier);
+        const isPro = ["professional", "business", "enterprise"].includes(resolvedTier.toLowerCase());
+        if (!isPro) {
             return NextResponse.json({
-                success: true,
-                dailyCosts: [],
-                anomalies: [],
+                success: true, dailyCosts: [], anomalies: [],
                 message: "La detección de anomalías requiere Tier Professional o superior."
             });
         }
 
-        // For real tenants, we would fetch from Cost Management and save to DB
-        // But for this environment, we return an empty state
-        return NextResponse.json({ 
-            success: true, 
-            dailyCosts: [], 
-            anomalies: [],
-            message: "Conecte su cuenta de Azure para iniciar el aprendizaje automático."
+        // ── Obtener costos diarios desde CostSnapshots (últimos 60 días) ─────
+        // Filtramos por subscripción si se especificó
+        const subFilter = subscriptionId && subscriptionId !== 'All'
+            ? `AND LOWER(subscription_id) IN (${subscriptionId.split(',').map(() => '?').join(',')})`
+            : '';
+        const subParams: string[] = subscriptionId !== 'All'
+            ? subscriptionId.split(',').map(s => s.trim().toLowerCase())
+            : [];
+
+        const query = `
+            SELECT
+                DATE(COALESCE(ChargePeriodStart, date)) AS day_date,
+                SUM(COALESCE(EffectiveCost, cost_usd, 0)) AS daily_total
+            FROM CostSnapshots
+            WHERE tenant_id = ?
+              AND DATE(COALESCE(ChargePeriodStart, date)) >= DATE_SUB(CURDATE(), INTERVAL 60 DAY)
+              ${subFilter}
+            GROUP BY day_date
+            ORDER BY day_date ASC
+        `;
+
+        const [costRows] = await pool.query(query, [tenantId, ...subParams]);
+        const rows = Array.isArray(costRows) ? costRows as any[] : [];
+
+        if (rows.length < 7) {
+            return NextResponse.json({
+                success: true,
+                dailyCosts: [],
+                anomalies: [],
+                mean: 0,
+                stdDev: 0,
+                message: `Historial insuficiente (${rows.length} días). Se requieren al menos 7 días de datos en CostSnapshots.`
+            });
+        }
+
+        // Construir serie ordenada de 60 días rellenando días sin datos con 0
+        const costMap = new Map<string, number>();
+        rows.forEach(r => {
+            const d = r.day_date instanceof Date
+                ? r.day_date.toISOString().split('T')[0]
+                : String(r.day_date).split('T')[0];
+            costMap.set(d, Number(r.daily_total) || 0);
         });
+
+        const dailyCosts: { date: string; amount: number }[] = [];
+        for (let i = 59; i >= 0; i--) {
+            const dt = new Date();
+            dt.setDate(dt.getDate() - i);
+            const ds = dt.toISOString().split('T')[0];
+            dailyCosts.push({ date: ds, amount: costMap.get(ds) ?? 0 });
+        }
+
+        // Baseline: todo excepto los últimos 7 días
+        const baseline = dailyCosts.slice(0, dailyCosts.length - 7).map(d => d.amount).filter(v => v > 0);
+        if (baseline.length < 7) {
+            return NextResponse.json({
+                success: true, dailyCosts, anomalies: [], mean: 0, stdDev: 0,
+                message: "Baseline insuficiente para calcular Z-Score."
+            });
+        }
+
+        const { mean, stdDev } = computeStats(baseline);
+        const recentWindow = dailyCosts.slice(-14); // Detectar en los últimos 14 días
+        const anomalies = detectAnomalies(recentWindow, mean, stdDev, subscriptionId, 2.5);
+
+        // Enviar webhook si hay anomalías nuevas
+        for (const anomaly of anomalies.slice(0, 3)) {
+            const dashboardUrl = `${request.nextUrl.origin}/intelligence/anomalies`;
+            await sendWebhookAlert(tenantId,
+                "🚨 Anomalía de Gasto Detectada",
+                `Gasto anormal de **$${anomaly.amount.toFixed(2)}** el ${anomaly.date} (sub: *${subscriptionId}*). Promedio esperado: $${mean.toFixed(2)} | Z-Score: ${anomaly.z_score.toFixed(2)}.\n\n<a href="${dashboardUrl}">🔍 Investigar</a>`,
+                'warning'
+            ).catch(() => {});
+        }
+
+        return NextResponse.json({ success: true, dailyCosts, anomalies, mean, stdDev });
 
     } catch (error: unknown) {
         if (error instanceof AuthError) {
@@ -105,3 +176,4 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
     }
 }
+

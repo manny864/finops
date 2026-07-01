@@ -3,30 +3,25 @@ import React, { useState } from 'react';
 import useSWR from 'swr';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
+import { getFreshIdToken } from '@/lib/msalToken';
 import { Loader2, Activity, AlertTriangle, TrendingUp, CheckCircle } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceArea, ReferenceLine } from 'recharts';
 import { hasAccess } from '@/lib/tierLogic';
 import PremiumBanner from '@/components/PremiumBanner';
+import { useCurrency } from '@/components/CurrencyProvider';
 
 export default function AnomalyDashboard() {
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
+    const { format } = useCurrency();
     const tier = (selectedTenant as any)?.tier || 'Essential';
     const isPro = hasAccess(tier, 'Professional');
 
     const fetcher = async (url: string) => {
         const account = accounts[0];
         if (!account) throw new Error("No hay cuenta autenticada");
-
-        const tokenResponse = await instance.acquireTokenSilent({
-            scopes: ["User.Read"],
-            account: account
-        });
-
-        const res = await fetch(url, {
-            headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
-        });
-
+        const idToken = await getFreshIdToken(instance, account, ['User.Read']);
+        const res = await fetch(url, { headers: { Authorization: `Bearer ${idToken}` } });
         if (!res.ok) {
             const json = await res.json();
             throw new Error(json.error || "Error al cargar anomalías");
@@ -94,7 +89,7 @@ export default function AnomalyDashboard() {
                 <div className="bg-white dark:bg-slate-800 p-3 rounded-lg shadow-xl border border-gray-200 dark:border-slate-700">
                     <p className="font-bold text-gray-900 dark:text-white mb-1">{label}</p>
                     <p className={`font-mono text-lg ${isSpike ? 'text-red-500' : 'text-brand-deep dark:text-brand-bright'}`}>
-                        ${val.toFixed(2)}
+                        {format(val)}
                     </p>
                     {isSpike && <p className="text-xs text-red-500 font-bold mt-1">¡Desviación Crítica!</p>}
                 </div>
@@ -115,7 +110,7 @@ export default function AnomalyDashboard() {
                             </div>
                             <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400">Gasto Base (Media)</h3>
                         </div>
-                        <p className="text-3xl font-bold text-gray-900 dark:text-white">${mean.toFixed(2)}</p>
+                        <p className="text-3xl font-bold text-gray-900 dark:text-white">{format(mean)}</p>
                         <p className="text-xs text-gray-500 mt-1">Promedio móvil de 60 días</p>
                     </div>
 
@@ -126,8 +121,8 @@ export default function AnomalyDashboard() {
                             </div>
                             <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400">Tolerancia Z-Score (3σ)</h3>
                         </div>
-                        <p className="text-3xl font-bold text-gray-900 dark:text-white">±${(3 * stdDev).toFixed(2)}</p>
-                        <p className="text-xs text-gray-500 mt-1">Límite de alerta: ${upperBound.toFixed(2)}</p>
+                        <p className="text-3xl font-bold text-gray-900 dark:text-white">±{format(3 * stdDev)}</p>
+                        <p className="text-xs text-gray-500 mt-1">Límite de alerta: {format(upperBound)}</p>
                     </div>
 
                     {data.anomalies.length > 0 ? (
@@ -139,10 +134,10 @@ export default function AnomalyDashboard() {
                                 <h3 className="text-sm font-bold text-red-700 dark:text-red-400">¡Anomalía Activa!</h3>
                             </div>
                             <p className="text-2xl font-bold text-red-800 dark:text-red-300">
-                                ${data.anomalies[0].amount.toFixed(2)}
+                                {format(data.anomalies[0].amount)}
                             </p>
                             <p className="text-xs text-red-600 dark:text-red-400 mt-1 font-medium">
-                                Z-Score: {data.anomalies[0].z_score.toFixed(2)} (Impacto: +${(data.anomalies[0].amount - mean).toFixed(2)})
+                                Z-Score: {data.anomalies[0].z_score.toFixed(2)} (Impacto: +{format(data.anomalies[0].amount - mean)})
                             </p>
                         </div>
                     ) : (
@@ -172,7 +167,7 @@ export default function AnomalyDashboard() {
                                 />
                                 <YAxis 
                                     tick={{ fontSize: 12, fill: '#6B7280' }}
-                                    tickFormatter={(val) => `$${val}`}
+                                    tickFormatter={(val) => format(val, { compact: true })}
                                 />
                                 <Tooltip content={<CustomTooltip />} />
                                 
@@ -224,8 +219,8 @@ export default function AnomalyDashboard() {
                                     </p>
                                 </div>
                                 <div className="text-right">
-                                    <p className="text-xl font-bold text-red-600 dark:text-red-400">${anomaly.amount.toFixed(2)}</p>
-                                    <p className="text-xs text-gray-500">vs Esperado: ${anomaly.expected_amount.toFixed(2)}</p>
+                                    <p className="text-xl font-bold text-red-600 dark:text-red-400">{format(anomaly.amount)}</p>
+                                    <p className="text-xs text-gray-500">vs Esperado: {format(anomaly.expected_amount)}</p>
                                     <button className="mt-3 text-sm font-bold text-brand-deep hover:text-brand-bright transition-colors">
                                         Investigar Causas Ráiz →
                                     </button>
