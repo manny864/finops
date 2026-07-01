@@ -1,9 +1,10 @@
 "use client";
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import useSWR from 'swr';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
-import { Loader2, TrendingUp, ShieldCheck, AlertCircle, ChevronLeft, ChevronRight, BookMarked } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import { Loader2, TrendingUp, ShieldCheck, AlertCircle, ChevronLeft, ChevronRight, BookMarked, RefreshCw } from 'lucide-react';
 import {
   ResponsiveContainer,
   PieChart,
@@ -12,15 +13,57 @@ import {
   Tooltip
 } from 'recharts';
 import { useCurrency } from '@/components/CurrencyProvider';
+import ReservationRenewalModal, { type RenewReservation } from '@/components/dashboard/ReservationRenewalModal';
+import ReservationUtilizationModal, { type UtilReservation } from '@/components/dashboard/ReservationUtilizationModal';
+
+interface ReservationDetail {
+    reservationId: string;
+    orderId: string;
+    name: string;
+    status: string;
+    expiryDate: string | null;
+    scopeType: string;
+    scope: string;
+    type: string;
+    productName: string;
+    region: string;
+    renew: boolean;
+    quantity: number;
+    term: string;
+    utilizationLastDay: number | null;
+    utilizationLast7Days: number | null;
+}
+
+function statusBadgeClass(status: string): string {
+    const s = (status || '').toLowerCase();
+    if (s.includes('succeed') || s.includes('active')) return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400';
+    if (s.includes('expir') || s.includes('cancel') || s.includes('fail')) return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400';
+    return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400';
+}
+
+function utilTextColor(v: number | null): string {
+    if (v === null) return 'text-gray-400';
+    return v >= 80 ? 'text-emerald-600 dark:text-emerald-400' : v >= 70 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400';
+}
+
+function fmtExpiry(iso: string | null): string {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '—';
+    return d.toISOString().slice(0, 10);
+}
 
 export default function Commitments() {
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const { format } = useCurrency();
+    const t = useTranslations('Commitments');
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
+    const [renewTarget, setRenewTarget] = useState<RenewReservation | null>(null);
+    const [utilTarget, setUtilTarget] = useState<UtilReservation | null>(null);
 
-    const fetcher = async (url: string) => {
+    const authFetch = useCallback(async (url: string, init?: RequestInit) => {
         const account = accounts[0];
         if (!account) throw new Error("No hay cuenta autenticada");
 
@@ -30,24 +73,26 @@ export default function Commitments() {
         });
 
         const res = await fetch(url, {
+            ...init,
             headers: {
+                ...(init?.headers || {}),
                 'Authorization': `Bearer ${tokenResponse.idToken}`
             }
         });
 
+        const json = await res.json().catch(() => ({}));
         if (!res.ok) {
-            const json = await res.json();
-            throw new Error(json.details || json.error || "Error al cargar métricas");
+            throw new Error(json.details || json.error || "Error al procesar la solicitud");
         }
 
-        return res.json();
-    };
+        return json;
+    }, [accounts, instance]);
 
-    const { data, error, isLoading } = useSWR(
+    const { data, error, isLoading, mutate } = useSWR(
         (selectedTenant && selectedTenant.id !== 'default' && accounts.length > 0) 
             ? `/api/intelligence/commitments?tenantId=${selectedTenant.id}` 
             : null,
-        fetcher,
+        authFetch,
         { revalidateOnFocus: false }
     );
 
@@ -205,36 +250,79 @@ export default function Commitments() {
             <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-6 shadow-sm">
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1 flex items-center gap-2">
                     <BookMarked className="w-5 h-5 text-emerald-500" />
-                    Reservas Activas
+                    {t('reservasTitle')}
                 </h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                    Todos los servicios actualmente cubiertos por reservas o Savings Plans, según el costo amortizado del mes.
+                    {t('reservasSubtitle')}
                 </p>
-                {!metrics.hasReservations || !metrics.activeReservations?.length ? (
+                {!metrics.reservationDetails?.length ? (
                     <div className="text-center py-8 text-gray-500 dark:text-gray-400 text-sm">
-                        No se detectaron reservas activas para este tenant.
+                        {t('empty')}
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
+                        <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700 text-sm">
                             <thead className="bg-gray-50 dark:bg-slate-800/50">
                                 <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Servicio</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nombre de Reserva</th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Costo MTD (amortizado)</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('colName')}</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('colStatus')}</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('colExpiration')}</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('colScope')}</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('colType')}</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('colProduct')}</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('colRegion')}</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('colRenewal')}</th>
+                                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('colQuantity')}</th>
+                                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('colUtilLastDay')}</th>
+                                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('colUtil7Days')}</th>
                                 </tr>
                             </thead>
                             <tbody className="bg-white dark:bg-slate-900 divide-y divide-gray-200 dark:divide-slate-800">
-                                {metrics.activeReservations.map((res: any, idx: number) => (
-                                    <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
-                                        <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-white">
+                                {(metrics.reservationDetails as ReservationDetail[]).map((r: ReservationDetail, idx: number) => (
+                                    <tr key={r.reservationId || idx} className="hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
+                                        <td className="px-4 py-3 font-medium text-gray-900 dark:text-white whitespace-nowrap">
                                             <span className="inline-flex items-center gap-2">
                                                 <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
-                                                {res.serviceName}
+                                                <span className="truncate max-w-[180px]" title={r.name}>{r.name}</span>
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{res.reservationName}</td>
-                                        <td className="px-6 py-4 text-sm text-emerald-600 dark:text-emerald-400 font-bold text-right">{format(res.cost)}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap">
+                                            <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${statusBadgeClass(r.status)}`}>{r.status}</span>
+                                        </td>
+                                        <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">{fmtExpiry(r.expiryDate)}</td>
+                                        <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap" title={r.scopeType}>{r.scope}</td>
+                                        <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">{r.type}</td>
+                                        <td className="px-4 py-3 text-gray-500 dark:text-gray-400"><span className="truncate max-w-[200px] inline-block align-bottom" title={r.productName}>{r.productName}</span></td>
+                                        <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">{r.region}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap">
+                                            <button
+                                                onClick={() => setRenewTarget({ reservationId: r.reservationId, orderId: r.orderId, name: r.name, renew: r.renew })}
+                                                title={t('manageRenewal')}
+                                                className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${r.renew ? 'border-emerald-300 text-emerald-700 dark:text-emerald-400 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/20' : 'border-gray-200 dark:border-slate-700 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-slate-800'}`}
+                                            >
+                                                <RefreshCw className="w-3.5 h-3.5" />
+                                                {r.renew ? t('renewOn') : t('renewOff')}
+                                            </button>
+                                        </td>
+                                        <td className="px-4 py-3 text-right text-gray-900 dark:text-white font-semibold whitespace-nowrap">{r.quantity}</td>
+                                        <td className="px-4 py-3 text-right whitespace-nowrap">
+                                            <button
+                                                onClick={() => setUtilTarget({ reservationId: r.reservationId, orderId: r.orderId, name: r.name })}
+                                                title={t('viewUtilization')}
+                                                className={`font-bold underline decoration-dotted underline-offset-2 cursor-pointer ${utilTextColor(r.utilizationLastDay)}`}
+                                            >
+                                                {r.utilizationLastDay === null ? t('na') : `${r.utilizationLastDay.toFixed(1)}%`}
+                                            </button>
+                                        </td>
+                                        <td className="px-4 py-3 text-right whitespace-nowrap">
+                                            <button
+                                                onClick={() => setUtilTarget({ reservationId: r.reservationId, orderId: r.orderId, name: r.name })}
+                                                title={t('viewUtilization')}
+                                                className={`font-bold underline decoration-dotted underline-offset-2 cursor-pointer ${utilTextColor(r.utilizationLast7Days)}`}
+                                            >
+                                                {r.utilizationLast7Days === null ? t('na') : `${r.utilizationLast7Days.toFixed(1)}%`}
+                                            </button>
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -322,6 +410,24 @@ export default function Commitments() {
                     </>
                 )}
             </div>
+
+            {renewTarget && (
+                <ReservationRenewalModal
+                    tenantId={selectedTenant.id}
+                    reservation={renewTarget}
+                    authFetch={authFetch}
+                    onClose={() => setRenewTarget(null)}
+                    onUpdated={() => { void mutate(); }}
+                />
+            )}
+            {utilTarget && (
+                <ReservationUtilizationModal
+                    tenantId={selectedTenant.id}
+                    reservation={utilTarget}
+                    authFetch={authFetch}
+                    onClose={() => setUtilTarget(null)}
+                />
+            )}
         </div>
     );
 }
