@@ -92,30 +92,16 @@ export type CostQueryDiagnostics = {
     last30RowsIfMtdEmpty?: number;
 };
 
-export async function getCurrentMonthAmortizedCostsWithDiagnostics(
+// Private implementation — all Azure API logic lives here.
+// Called exclusively from getCurrentMonthAmortizedCostsWithDiagnostics, which
+// handles cache lookups and in-flight deduplication before reaching here.
+async function _fetchCostData(
     tenantId: string,
     subscriptionId: string,
-    metricType: 'ActualCost' | 'AmortizedCost' = 'ActualCost'
+    metricType: 'ActualCost' | 'AmortizedCost',
+    cacheKey: string
 ): Promise<{ data: FocusCostEntry[]; diagnostics: CostQueryDiagnostics }> {
-    const cacheKey = `${tenantId}::${subscriptionId}::${metricType}`;
-    const cached = getFromCache(cacheKey);
-    if (cached) {
-        console.log(`[BillingService] cache HIT for ${cacheKey} (rows=${cached.data.length})`);
-        return { data: cached.data, diagnostics: cached.diagnostics };
-    }
-
-    // In-flight dedup: if an identical query is already running (e.g., both the forecast
-    // endpoint and the summary's liveData fallback call this simultaneously), reuse the
-    // same promise instead of launching a second set of Azure API calls. This prevents
-    // amplifying 429 throttling from double-calling.
-    const inflight = COST_INFLIGHT.get(cacheKey);
-    if (inflight) {
-        console.log(`[BillingService] Reusing in-flight query for ${cacheKey}`);
-        return inflight;
-    }
-
-    const promise = (async () => {
-        const credential = await getAzureCredential(tenantId);
+    const credential = await getAzureCredential(tenantId);
     const client = new CostManagementClient(credential);
 
     const scope = subscriptionId === 'All' || subscriptionId.toLowerCase() === 'all'
@@ -278,8 +264,31 @@ export async function getCurrentMonthAmortizedCostsWithDiagnostics(
         setCache(cacheKey, focusData, diagnostics);
         return { data: focusData, diagnostics };
     }
-    })().finally(() => COST_INFLIGHT.delete(cacheKey));
+}
 
+export async function getCurrentMonthAmortizedCostsWithDiagnostics(
+    tenantId: string,
+    subscriptionId: string,
+    metricType: 'ActualCost' | 'AmortizedCost' = 'ActualCost'
+): Promise<{ data: FocusCostEntry[]; diagnostics: CostQueryDiagnostics }> {
+    const cacheKey = `${tenantId}::${subscriptionId}::${metricType}`;
+    const cached = getFromCache(cacheKey);
+    if (cached) {
+        console.log(`[BillingService] cache HIT for ${cacheKey} (rows=${cached.data.length})`);
+        return { data: cached.data, diagnostics: cached.diagnostics };
+    }
+
+    // In-flight dedup: reuse the running promise if the same query was already launched
+    // (e.g., forecast endpoint + summary liveData calling simultaneously), preventing
+    // duplicate Azure API requests that amplify 429 throttling.
+    const inflight = COST_INFLIGHT.get(cacheKey);
+    if (inflight) {
+        console.log(`[BillingService] Reusing in-flight query for ${cacheKey}`);
+        return inflight;
+    }
+
+    const promise = _fetchCostData(tenantId, subscriptionId, metricType, cacheKey)
+        .finally(() => COST_INFLIGHT.delete(cacheKey));
     COST_INFLIGHT.set(cacheKey, promise);
     return promise;
 }
