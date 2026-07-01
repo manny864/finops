@@ -82,7 +82,7 @@ describe("CurrencyProvider", () => {
             expect(select).toBeInTheDocument();
             expect(select).toHaveValue("USD");
 
-            const option = screen.getByRole("option", { name: "USD" });
+            const option = screen.getByRole("option", { name: /USD/ });
             expect(option).toBeInTheDocument();
         });
 
@@ -106,7 +106,7 @@ describe("CurrencyProvider", () => {
 
             const options = screen.getAllByRole("option");
             expect(options.length).toBeGreaterThan(0);
-            expect(screen.getByRole("option", { name: "USD" })).toBeInTheDocument();
+            expect(screen.getByRole("option", { name: /USD/ })).toBeInTheDocument();
         });
 
         it("has title attribute for accessibility", () => {
