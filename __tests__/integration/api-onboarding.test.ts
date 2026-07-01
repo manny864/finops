@@ -4,12 +4,23 @@ import { NextRequest } from 'next/server';
 
 // Mock modules first
 vi.mock('@/lib/requestAuth', () => ({
+  requireRequestIdentity: vi.fn(async () => ({
+    email: 'test@example.com',
+    tenantId: 'test-tenant',
+    isCorporateDomain: false,
+    claims: { tid: 'test-tenant', oid: 'oid-123' },
+  })),
   requireTenantAccess: vi.fn(async () => ({
     email: 'test@example.com',
     tenantId: 'test-tenant',
   })),
   AuthError: class AuthError extends Error {
-    status = 401;
+    status: number;
+    constructor(message?: string, status = 401) {
+      super(message);
+      this.name = 'AuthError';
+      this.status = status;
+    }
   },
 }));
 
@@ -24,7 +35,7 @@ vi.mock('@/modules/storage/db', () => ({
 import { GET, PUT } from '@/app/api/onboarding/progress/route';
 import { POST as POST_FINISH } from '@/app/api/onboarding/finish/route';
 import pool from '@/modules/storage/db';
-import { requireTenantAccess } from '@/lib/requestAuth';
+import { requireRequestIdentity, AuthError } from '@/lib/requestAuth';
 
 describe('GET /api/onboarding/progress', () => {
   beforeEach(() => {
@@ -81,8 +92,8 @@ describe('GET /api/onboarding/progress', () => {
   });
 
   it('should return 401 without auth', async () => {
-    (requireTenantAccess as any).mockRejectedValueOnce(
-      Object.assign(new Error('Unauthorized'), { name: 'AuthError', status: 401 })
+    (requireRequestIdentity as any).mockRejectedValueOnce(
+      new AuthError('Unauthorized', 401)
     );
 
     const request = new NextRequest('http://localhost/api/onboarding/progress');
@@ -200,8 +211,8 @@ describe('POST /api/onboarding/finish', () => {
   });
 
   it('should return 401 without auth', async () => {
-    (requireTenantAccess as any).mockRejectedValueOnce(
-      Object.assign(new Error('Unauthorized'), { name: 'AuthError', status: 401 })
+    (requireRequestIdentity as any).mockRejectedValueOnce(
+      new AuthError('Unauthorized', 401)
     );
 
     const request = new NextRequest('http://localhost/api/onboarding/finish', {
