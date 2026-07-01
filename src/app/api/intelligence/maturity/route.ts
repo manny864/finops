@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
 
     await requireTenantAccess(request, tenantId);
 
-    const cacheKey = `intelligence:maturity:${tenantId}`;
+    const cacheKey = `intelligence:maturity:v2:${tenantId}`;
     const resultData = await getWithStaleWhileRevalidate(cacheKey, async () => {
       // Attempt to get Azure credential for real data
       let credential;
@@ -27,47 +27,33 @@ export async function GET(request: NextRequest) {
         return { data: null, reason: "NO_CREDENTIAL" };
       }
 
-      // Gather real signals from Azure
+      // Gather real signals from Azure. We aggregate across ALL subscriptions
+      // (capped) and, crucially, track whether each data source was actually
+      // *accessible*. A source that throws on permission is NOT the same as a
+      // source that returned zero findings: treating "no access" as "perfect"
+      // made every tenant collapse to an identical constant score.
+      const MAX_SUBS_TO_SCAN = 10;
       let hasSubscriptions = false;
+      let subscriptionCount = 0;
+      let advisorAccessible = false;
+      let budgetsAccessible = false;
+      let scannedSubs = 0;
       let totalAdvisorRecs = 0;
       let costRecs = 0;
       let securityRecs = 0;
       let hasBudgets = false;
-      let subscriptionCount = 0;
+      let budgetCount = 0;
 
+      let subs: any[] = [];
       try {
         const tokenResponse = await credential.getToken("https://management.azure.com/.default");
         const fetchRes = await fetch("https://management.azure.com/subscriptions?api-version=2020-01-01", {
             headers: { "Authorization": `Bearer ${tokenResponse.token}` }
         });
         const data = await fetchRes.json();
-        const subs: any[] = data.value || [];
+        subs = data.value || [];
         subscriptionCount = subs.length;
         hasSubscriptions = subs.length > 0;
-
-        if (hasSubscriptions) {
-          const firstSub = subs[0];
-          
-          // 2. Check Advisor recommendations
-          try {
-            const advisorClient = new AdvisorManagementClient(credential, firstSub.subscriptionId!);
-            for await (const rec of advisorClient.recommendations.list()) {
-              totalAdvisorRecs++;
-              if (rec.category === "Cost") costRecs++;
-              if (rec.category === "Security") securityRecs++;
-            }
-          } catch { /* Advisor not accessible */ }
-
-          // 3. Check budgets exist
-          try {
-            const consumptionClient = new ConsumptionManagementClient(credential, firstSub.subscriptionId!);
-            const scope = `subscriptions/${firstSub.subscriptionId}`;
-            for await (const _budget of consumptionClient.budgets.list(scope)) {
-              hasBudgets = true;
-              break;
-            }
-          } catch { /* Consumption not accessible */ }
-        }
       } catch (err: any) {
         console.error("Maturity API Azure Error:", err);
         const msg = err?.message || '';
@@ -82,23 +68,80 @@ export async function GET(request: NextRequest) {
         return { data: null, reason: "NO_SUBSCRIPTIONS" };
       }
 
-      // Calculate real scores based on actual Azure signals
-      const VisibilityAndAllocation = Math.min(100,
-        30 + (subscriptionCount > 1 ? 20 : 0) +
-        (totalAdvisorRecs === 0 ? 30 : Math.max(0, 30 - costRecs * 5)) +
-        (hasBudgets ? 20 : 0)
+      const subsToScan = subs.slice(0, MAX_SUBS_TO_SCAN);
+      for (const sub of subsToScan) {
+        const subId = sub?.subscriptionId;
+        if (!subId) continue;
+        scannedSubs++;
+
+        // Advisor recommendations (aggregated). Successful enumeration — even
+        // with zero results — marks the source as accessible.
+        try {
+          const advisorClient = new AdvisorManagementClient(credential, subId);
+          for await (const rec of advisorClient.recommendations.list()) {
+            totalAdvisorRecs++;
+            if (rec.category === "Cost") costRecs++;
+            if (rec.category === "Security") securityRecs++;
+          }
+          advisorAccessible = true;
+        } catch { /* Advisor not accessible on this subscription */ }
+
+        // Budgets (aggregated).
+        try {
+          const consumptionClient = new ConsumptionManagementClient(credential, subId);
+          for await (const _budget of consumptionClient.budgets.list(`subscriptions/${subId}`)) {
+            budgetCount++;
+          }
+          budgetsAccessible = true;
+          if (budgetCount > 0) hasBudgets = true;
+        } catch { /* Consumption not accessible on this subscription */ }
+      }
+
+      const clamp = (n: number) => Math.max(0, Math.min(100, Math.round(n)));
+      const denom = Math.max(1, scannedSubs);
+      const costDensity = costRecs / denom;      // cost recs per subscription
+      const securityDensity = securityRecs / denom;
+
+      // Visibility & Allocation: how much of the environment we can actually
+      // observe (multi-sub structure, Advisor reach, budget reach).
+      const VisibilityAndAllocation = clamp(
+        35 +
+        (subscriptionCount > 1 ? 15 : 5) +
+        (advisorAccessible ? 20 : 0) +
+        (budgetsAccessible ? 10 : 0) +
+        (hasBudgets ? 15 : 0)
       );
-      
-      const UsageOptimization = costRecs === 0 ? 100 : Math.max(10, 100 - costRecs * 15);
-      const RateOptimization = costRecs === 0 ? 80 : Math.max(10, 80 - costRecs * 10);
-      const ForecastingAndBudgeting = hasBudgets ? 80 : 15;
-      const GovernanceAndAutomation = securityRecs === 0 ? 85 : Math.max(20, 85 - securityRecs * 10);
+
+      // Usage Optimization: fewer outstanding cost recommendations = better,
+      // but only measurable when Advisor is accessible. Otherwise neutral.
+      const UsageOptimization = advisorAccessible
+        ? clamp(100 - costDensity * 12)
+        : 50;
+
+      // Rate Optimization: proxy from cost recommendations density.
+      const RateOptimization = advisorAccessible
+        ? clamp(90 - costDensity * 10)
+        : 50;
+
+      // Forecasting & Budgeting: driven by budgets. "Can't confirm" is a
+      // conservative low-neutral, distinct from "confirmed none".
+      const ForecastingAndBudgeting = !budgetsAccessible
+        ? 30
+        : hasBudgets
+          ? clamp(60 + Math.min(30, budgetCount * 10))
+          : 20;
+
+      // Governance & Automation: fewer security recommendations = better,
+      // measurable only when Advisor is accessible.
+      const GovernanceAndAutomation = advisorAccessible
+        ? clamp(90 - securityDensity * 12)
+        : 45;
 
       const overallScore = Math.floor(
         (VisibilityAndAllocation + UsageOptimization + RateOptimization + ForecastingAndBudgeting + GovernanceAndAutomation) / 5
       );
 
-      return { 
+      return {
         data: {
           overallScore,
           pillars: {
@@ -107,6 +150,16 @@ export async function GET(request: NextRequest) {
             RateOptimization,
             ForecastingAndBudgeting,
             GovernanceAndAutomation
+          },
+          signals: {
+            subscriptionCount,
+            scannedSubs,
+            advisorAccessible,
+            budgetsAccessible,
+            totalAdvisorRecs,
+            costRecs,
+            securityRecs,
+            budgetCount,
           }
         }
       };
