@@ -5,6 +5,8 @@ import { useSubscription } from "@/components/SubscriptionProvider";
 import { Leaf, Wind, Zap, Loader2, Car, TreePine, Smartphone, MapPin, TrendingDown } from "lucide-react";
 import { useTranslations } from "next-intl";
 import MockBanner from "@/components/MockBanner";
+import { useMsal } from "@azure/msal-react";
+import { fetchWithAuthRetry } from "@/lib/msalToken";
 
 interface RegionRow { region: string; kgCO2e: number; resources: number; intensity: number; }
 interface Recommendation {
@@ -21,18 +23,23 @@ export default function SustainabilityPage() {
     const { selectedTenant } = useTenant();
     const { selectedSubscription } = useSubscription();
     const t = useTranslations("Sustainability");
+    const { instance, accounts } = useMsal();
+    const account = accounts[0];
     const [data, setData] = useState<SustainData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         async function fetchData() {
-            if (!selectedTenant || selectedTenant.id === "default" || !selectedSubscription) {
+            if (!selectedTenant || selectedTenant.id === "default" || !selectedSubscription || !account) {
                 setLoading(false); return;
             }
             setLoading(true); setError(null);
             try {
-                const res = await fetch(`/api/intelligence/sustainability?tenantId=${selectedTenant.id}&subscriptionId=${selectedSubscription}`);
+                const res = await fetchWithAuthRetry(
+                    instance, account,
+                    `/api/intelligence/sustainability?tenantId=${selectedTenant.id}&subscriptionId=${selectedSubscription}`
+                );
                 const json = await res.json();
                 if (!json.success) { setError(json.error || "Error"); }
                 else { setData(json); }
@@ -41,7 +48,7 @@ export default function SustainabilityPage() {
             } finally { setLoading(false); }
         }
         fetchData();
-    }, [selectedTenant, selectedSubscription]);
+    }, [selectedTenant, selectedSubscription, account]);
 
     const fp = data?.footprint || 0;
     const av = data?.avoided || 0;
