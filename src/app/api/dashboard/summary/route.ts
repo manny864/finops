@@ -252,7 +252,7 @@ export async function GET(request: NextRequest) {
            .catch(e => ({ __failed: true, error: String(e?.message || e) })),
           timedFetch(
             `${origin}/api/intelligence/forecast?tenantId=${encodeURIComponent(tenantId)}&subscriptionId=${encodeURIComponent(subscriptionId)}`,
-            12000
+            25000
           ).then(r => r.ok ? r.json() : Promise.reject(new Error(`forecast ${r.status}`)))
            .catch(e => ({ __failed: true, error: String(e?.message || e) })),
           fetchActualCostMTD(tenantId, subscriptionId),
@@ -362,8 +362,9 @@ export async function GET(request: NextRequest) {
           // Inform UI when SP has no Azure permissions (tenant not yet fully onboarded)
           auditNoPermissions: auditNoPerms,
           // Inform UI when Azure Cost Management is unavailable AND DB is also empty
-          // (SP needs Cost Management Reader role, or subscriptions have no spending yet)
-          azureNoAccess: forecastAzureUnavailable && mtdActual === 0 && actualCost === 0,
+          // (SP needs Cost Management Reader role, or subscriptions have no spending yet).
+          // Also fires when forecast timed out (forecastFailed) but DB is empty — same root cause.
+          azureNoAccess: (forecastAzureUnavailable || (forecastFailed && mtdActual === 0)) && actualCost === 0,
         };
       },
       900,  // hard TTL: 15 min
