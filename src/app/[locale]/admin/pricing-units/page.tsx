@@ -1,6 +1,8 @@
 "use client";
 import React, { useEffect, useState, useCallback } from "react";
 import { Database, Loader2, RefreshCw, Play, Search } from "lucide-react";
+import { useMsal } from "@azure/msal-react";
+import { fetchWithAuthRetry } from "@/lib/msalToken";
 
 interface UnitRow {
     uom_raw: string;
@@ -11,6 +13,8 @@ interface UnitRow {
 }
 
 export default function PricingUnitsPage() {
+    const { instance, accounts } = useMsal();
+    const account = accounts[0];
     const [units, setUnits] = useState<UnitRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [reseeding, setReseeding] = useState(false);
@@ -22,22 +26,24 @@ export default function PricingUnitsPage() {
     const [testResult, setTestResult] = useState<any>(null);
 
     const load = useCallback(async () => {
+        if (!account) { setLoading(false); return; }
         setLoading(true); setError(null);
         try {
-            const res = await fetch("/api/admin/pricing-units");
+            const res = await fetchWithAuthRetry(instance, account, "/api/admin/pricing-units");
             const json = await res.json();
             if (!json.success) setError(json.error || "Error");
             else setUnits(json.items || []);
         } catch (e: any) { setError(e?.message); }
         finally { setLoading(false); }
-    }, []);
+    }, [instance, account]);
 
     useEffect(() => { load(); }, [load]);
 
     const reseed = async () => {
+        if (!account) { setError("Sesión no autenticada."); return; }
         setReseeding(true); setError(null); setInfo(null);
         try {
-            const res = await fetch("/api/admin/pricing-units", { method: "POST" });
+            const res = await fetchWithAuthRetry(instance, account, "/api/admin/pricing-units", { method: "POST" });
             const json = await res.json();
             if (!json.success) setError(json.error || "Error al reseed");
             else { setInfo(`Reseed: ${json.inserted ?? "?"} inserted, ${json.skipped ?? "?"} skipped`); await load(); }
@@ -46,10 +52,11 @@ export default function PricingUnitsPage() {
     };
 
     const runTest = async () => {
+        if (!account) { setError("Sesión no autenticada."); return; }
         setError(null); setTestResult(null);
         try {
             const url = `/api/admin/pricing-units?test=${encodeURIComponent(testUom)}&qty=${encodeURIComponent(testQty)}`;
-            const res = await fetch(url);
+            const res = await fetchWithAuthRetry(instance, account, url);
             const json = await res.json();
             if (!json.success) setError(json.error || "Error");
             else setTestResult(json.output || json);
