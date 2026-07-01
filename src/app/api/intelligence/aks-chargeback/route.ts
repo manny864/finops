@@ -41,17 +41,31 @@ export async function GET(request: NextRequest) {
         let availableClusters: Array<{ name: string; subscriptionId: string; resourceGroup: string; nodeResourceGroup: string }> = [];
 
         if (!isMockTenant(tenantId)) {
-            const client = await getResourceGraphClient(tenantId);
-            const query = `
-                Resources
-                | where type =~ 'microsoft.containerservice/managedclusters'
-                | project name, subscriptionId, resourceGroup, nodeResourceGroup = tostring(properties.nodeResourceGroup)
-            `;
-            const resARG: any = await client.resources({ query, options: { resultFormat: "objectArray", top: 1000 } });
-            const clusters = (resARG.data as any[]) || [];
+            let clusters: any[] = [];
+            try {
+                const client = await getResourceGraphClient(tenantId);
+                const query = `
+                    Resources
+                    | where type =~ 'microsoft.containerservice/managedclusters'
+                    | project name, subscriptionId, resourceGroup, nodeResourceGroup = tostring(properties.nodeResourceGroup)
+                `;
+                const resARG: any = await client.resources({ query, options: { resultFormat: "objectArray", top: 1000 } });
+                clusters = (resARG.data as any[]) || [];
+            } catch (e: unknown) {
+                // Sin credenciales del tenant o sin permiso Reader para Resource Graph:
+                // degradamos con un mensaje claro en lugar de un 500 opaco.
+                const message = e instanceof Error ? e.message : String(e);
+                console.warn(`[AKS Chargeback] No se pudo listar clústeres para ${tenantId}:`, message);
+                return NextResponse.json({
+                    success: true,
+                    empty: true,
+                    message: "No se pudieron listar clústeres de AKS. Verifique las credenciales del tenant y el rol Reader del Service Principal.",
+                    availableClusters: [],
+                });
+            }
 
             if (clusters.length === 0) {
-                return NextResponse.json({ success: true, empty: true, message: "No se encontraron clústeres de AKS en el tenant." });
+                return NextResponse.json({ success: true, empty: true, message: "No se encontraron clústeres de AKS en el tenant.", availableClusters: [] });
             }
 
             availableClusters = clusters.map(c => ({
