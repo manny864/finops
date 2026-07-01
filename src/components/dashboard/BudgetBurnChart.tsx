@@ -125,6 +125,7 @@ export default function BudgetBurnChart({ onHeightChange }: BudgetBurnChartProps
                                 <XAxis type="number" xAxisId={1} hide />
                                 <YAxis type="category" dataKey="costCenter" width={220} tick={{fill: '#6b7280', fontSize: 11}} tickLine={false} axisLine={{stroke: '#e5e7eb'}} />
                                 <Tooltip 
+                                    wrapperStyle={{ zIndex: 9999 }}
                                     content={({ active, payload }) => {
                                         if (active && payload && payload.length) {
                                             const data = payload[0].payload;

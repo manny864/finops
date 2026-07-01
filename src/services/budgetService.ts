@@ -1,6 +1,38 @@
 import { getAzureCredential } from "@/lib/azure";
 import { CostManagementClient } from "@azure/arm-costmanagement";
 import { ConsumptionManagementClient } from "@azure/arm-consumption";
+import { redis } from "@/lib/redis";
+import pool from "@/modules/storage/db";
+
+/**
+ * Obtiene el gasto MTD real para una suscripción usando el pipeline de cache:
+ * Redis (sub-ms) → MySQL CostSnapshots → 0
+ */
+async function fetchMtdCostForSub(tenantId: string, subscriptionId: string): Promise<number> {
+    const ym = new Date().toISOString().slice(0, 7); // YYYY-MM
+    // 1. Redis fast path (populated by summary route)
+    try {
+        const cached = await redis.get(`cost:mtd:v1:${tenantId}:${subscriptionId.toLowerCase()}:${ym}`);
+        if (cached && Number(cached) > 0) return Number(cached);
+    } catch (_) { /* Redis unavailable, continue */ }
+
+    // 2. MySQL CostSnapshots fallback
+    try {
+        const [rows]: any = await pool.query(
+            `SELECT SUM(COALESCE(EffectiveCost, cost_usd)) AS mtd
+             FROM CostSnapshots
+             WHERE tenant_id = ?
+               AND LOWER(subscription_id) = LOWER(?)
+               AND date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+               AND date <= CURDATE()`,
+            [tenantId, subscriptionId]
+        );
+        const val = Number((rows as any[])[0]?.mtd ?? 0);
+        if (val > 0) return val;
+    } catch (_) { /* DB unavailable */ }
+
+    return 0;
+}
 
 export async function getNativeBudgets(tenantId: string, subscriptionId: string) {
     const credential = await getAzureCredential(tenantId);
@@ -10,11 +42,18 @@ export async function getNativeBudgets(tenantId: string, subscriptionId: string)
     const budgetsData = [];
     try {
         for await (const budget of client.budgets.list(scope)) {
+            // currentSpend is a read-only field populated by Azure, but it can be
+            // null/0 for sponsorship subs or budgets without spend history.
+            // Fall back to Redis/DB MTD cost when missing.
+            let actual = Number(budget.currentSpend?.amount ?? 0);
+            if (actual === 0) {
+                actual = await fetchMtdCostForSub(tenantId, subscriptionId);
+            }
             budgetsData.push({
                 subscriptionId: subscriptionId,
                 costCenter: budget.name,
-                budget: budget.amount || 0,
-                actual: budget.currentSpend ? budget.currentSpend.amount : 0
+                budget: Number(budget.amount ?? 0),
+                actual,
             });
         }
     } catch (e) {
