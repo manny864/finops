@@ -3,6 +3,7 @@ import pool, { initializeDatabase } from '@/modules/storage/db';
 import { getCurrentMonthAmortizedCosts } from '@/modules/collectors/azure/billingService';
 import { getWithStaleWhileRevalidate } from '@/lib/cache';
 import { requireTenantRole, AuthError } from '@/lib/requestAuth';
+import { redis } from '@/lib/redis';
 
 export async function GET(request: NextRequest) {
     try {
@@ -25,6 +26,16 @@ export async function GET(request: NextRequest) {
 
         // Ensure DB schema exists before querying
         await initializeDatabase();
+
+        // Redis cache: fast path for Consumo Real data (15-min TTL, bust on new month).
+        const ym = new Date().toISOString().slice(0, 7); // YYYY-MM
+        const billingCacheKey = `billing:data:v1:${tenantId}:${subscriptionId.toLowerCase()}:${metricType}:${ym}`;
+        try {
+            const cached = await redis.get(billingCacheKey);
+            if (cached) {
+                return NextResponse.json(JSON.parse(cached));
+            }
+        } catch (_) { /* Redis miss → continue */ }
 
         // 1. Try to read cached data from MySQL CostSnapshots
         let rows: any[] = [];
@@ -103,7 +114,11 @@ export async function GET(request: NextRequest) {
             };
         });
 
-        return NextResponse.json({ success: true, data: mappedData });
+        const response = { success: true, data: mappedData };
+        // Cache computed billing response for 15 min so subsequent loads skip the DB query.
+        redis.set(billingCacheKey, JSON.stringify(response), 'EX', 900)
+            .catch((e: any) => console.warn('[Billing] Redis cache write failed:', e?.message));
+        return NextResponse.json(response);
 
     } catch (error: any) {
         if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
