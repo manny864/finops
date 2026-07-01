@@ -29,15 +29,24 @@ export async function GET(request: NextRequest) {
             let data: any[] = [];
             
             if (rows.length > 0) {
-                const costIndex = columns.findIndex(c => c.name === "PreTaxCost");
-                const subcatIndex = columns.findIndex(c => c.name === "MeterSubCategory");
-                const rgIndex = columns.findIndex(c => c.name === "ResourceGroup");
+                const costIndex = columns.findIndex((c: any) => c.name === "PreTaxCost");
+                const subcatIndex = columns.findIndex((c: any) => c.name === "MeterSubCategory");
+                const rgIndex = columns.findIndex((c: any) => c.name === "ResourceGroup");
 
-                data = rows.map(row => ({
-                    cost: row[costIndex],
-                    subCategory: row[subcatIndex],
-                    resourceGroup: row[rgIndex]
-                })).filter(item => item.subCategory && item.subCategory.toLowerCase().includes('bandwidth') || item.subCategory?.toLowerCase().includes('egress') || item.cost > 0);
+                data = rows
+                    .map((row: any) => ({
+                        cost: Number(row[costIndex]) || 0,
+                        subCategory: String(row[subcatIndex] || ''),
+                        resourceGroup: String(row[rgIndex] || '(sin grupo)')
+                    }))
+                    // Only include rows with an identified network subCategory AND positive cost.
+                    // Do NOT use `|| item.cost > 0` here — that matches everything and causes
+                    // the browser to freeze rendering thousands of irrelevant rows.
+                    .filter((item: any) =>
+                        item.cost > 0 && item.subCategory.length > 0
+                    )
+                    .sort((a: any, b: any) => b.cost - a.cost)
+                    .slice(0, 300); // Safety cap: max 300 rows to prevent browser freeze
             }
             return data;
         }, 3600);
