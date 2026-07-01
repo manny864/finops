@@ -157,7 +157,9 @@ export async function getCurrentMonthAmortizedCostsWithDiagnostics(
     const mtdOptions = buildOptions('MonthToDate');
 
     try {
-        const result = await withRetry(() => client.query.usage(scope, mtdOptions), { label: `usage(MG ${tenantId})` });
+        // maxRetries:0 — on 429 (Azure throttling MG scope) fail immediately and fall back to
+        // per-subscription iteration instead of waiting 24s+ of exponential backoff.
+        const result = await withRetry(() => client.query.usage(scope, mtdOptions), { label: `usage(MG ${tenantId})`, maxRetries: 0 });
         if (result?.columns?.length) {
             console.log(`[BillingService] Azure columns (MG scope): ${result.columns.map((c: any) => c.name).join(', ')}`);
         }
@@ -166,6 +168,7 @@ export async function getCurrentMonthAmortizedCostsWithDiagnostics(
         setCache(cacheKey, focusData, diagnostics);
         return { data: focusData, diagnostics };
     } catch (e: any) {
+        const is429err = is429(e);
         const isAuthOrNotFound =
             e.statusCode === 403 || e.statusCode === 401 ||
             e.code === 'AuthorizationFailed' || e.code === 'RBACAccessDenied' ||
@@ -176,18 +179,20 @@ export async function getCurrentMonthAmortizedCostsWithDiagnostics(
             e.message?.includes('does not have any valid subscriptions') ||
             e.statusCode === 400;
 
-        if (!(subscriptionId === 'All' || subscriptionId.toLowerCase() === 'all') || !isAuthOrNotFound) {
-            if (isAuthOrNotFound) {
-                // Specific subscription returned 401/403 — no access, return empty gracefully
-                console.warn(`[BillingService] Cost query unauthorized for sub ${subscriptionId} (${e.statusCode}): ${e.message?.slice(0, 120)}`);
-                setCache(cacheKey, [], diagnostics);
-                return { data: [], diagnostics };
-            }
+        const isAll = subscriptionId === 'All' || subscriptionId.toLowerCase() === 'all';
+
+        if (isAll && (isAuthOrNotFound || is429err)) {
+            // MG scope not accessible or throttled: fall back to per-subscription iteration.
+            diagnostics.isFallback = true;
+            console.log(`[BillingService] MG scope failed (${is429err ? '429 throttled' : e.code || e.statusCode}), iterating subscriptions...`);
+        } else if (!isAll && isAuthOrNotFound) {
+            // Specific subscription returned 401/403 — no access, return empty gracefully
+            console.warn(`[BillingService] Cost query unauthorized for sub ${subscriptionId} (${e.statusCode}): ${e.message?.slice(0, 120)}`);
+            setCache(cacheKey, [], diagnostics);
+            return { data: [], diagnostics };
+        } else {
             throw e;
         }
-
-        diagnostics.isFallback = true;
-        console.log(`[BillingService] Management Group scope failed (${e.message}), iterating subscriptions...`);
 
         const token = await credential.getToken("https://management.azure.com/.default");
         const subRes = await fetch("https://management.azure.com/subscriptions?api-version=2020-01-01", {
@@ -308,13 +313,15 @@ export async function getCostForecast(
     let isFallback = false;
 
     try {
-        result = await withRetry(() => client.forecast.usage(scope, forecastOptions), { label: `forecast(${scope})` });
+        // maxRetries:0 — 429 on MG scope triggers immediate per-sub fallback, not 24s of backoff.
+        result = await withRetry(() => client.forecast.usage(scope, forecastOptions), { label: `forecast(${scope})`, maxRetries: 0 });
     } catch (e: any) {
+        const is429err = is429(e);
         const isAuthOrNotFound = e.statusCode === 403 || e.statusCode === 401 || e.code === 'AuthorizationFailed' || e.code === 'RBACAccessDenied' || e.message?.includes('AuthorizationFailed') || e.code === 'ManagementGroupNotFound' || e.message?.includes("was not found or you don't have access") || e.message?.includes('does not have authorization') || e.message?.includes('does not have any valid subscriptions') || e.statusCode === 400;
         const isAll = subscriptionId === 'All' || subscriptionId.toLowerCase() === 'all';
-        if (isAll && isAuthOrNotFound) {
+        if (isAll && (isAuthOrNotFound || is429err)) {
             isFallback = true;
-            console.log("[BillingService] Management Group scope failed for forecast, falling back to subscription iteration...");
+            console.log(`[BillingService] MG scope failed for forecast (${is429err ? '429 throttled' : e.code || e.statusCode}), falling back to subscription iteration...`);
             try {
                 const token = await credential.getToken("https://management.azure.com/.default");
                 const subRes = await fetch("https://management.azure.com/subscriptions?api-version=2020-01-01", {
