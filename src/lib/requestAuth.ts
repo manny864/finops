@@ -289,7 +289,7 @@ function tryCronAuth(request: NextRequest, tenantId: string): RequestIdentity | 
   };
 }
 
-async function hasSystemRole(email: string, role: string): Promise<boolean> {
+export async function hasSystemRole(email: string, role: string): Promise<boolean> {
   if (!email) return false;
   const [rows] = await pool.query(
     "SELECT 1 FROM Users WHERE email = ? AND system_role = ? LIMIT 1",

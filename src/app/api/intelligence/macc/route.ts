@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
+import { requireTenantAccess, hasSystemRole, AuthError } from "@/lib/requestAuth";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import pool from "@/modules/storage/db";
 
@@ -24,7 +24,9 @@ export async function GET(request: NextRequest) {
         }
 
         const identity = await requireTenantAccess(request, tenantId);
-        const isSuperAdmin = identity.isCorporateDomain;
+        // Super-admin verificado contra DB (dominio corporativo + system_role=SUPERADMIN),
+        // no solo la heurística de dominio de email. Alineado con requireSuperAdmin.
+        const isSuperAdmin = identity.isCorporateDomain && await hasSystemRole(identity.email, "SUPERADMIN");
 
         if (isMockTenant(tenantId)) {
             return NextResponse.json(getMockDataForRoute('macc', tenantId));
