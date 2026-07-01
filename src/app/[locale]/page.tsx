@@ -28,6 +28,7 @@ import FeatureGuard from '@/components/FeatureGuard';
 import { getFreshIdToken } from '@/lib/msalToken';
 import MockBanner from '@/components/MockBanner';
 import MyPinnedWidgets from '@/components/dashboard/MyPinnedWidgets';
+import { useCurrency } from '@/components/CurrencyProvider';
 import {
   BarChart,
   Bar,
@@ -50,6 +51,7 @@ export default function Home() {
   const { instance, accounts } = useMsal();
   const { selectedTenant } = useTenant();
   const { selectedSubscription } = useSubscription();
+  const { format } = useCurrency();
   
   const [dashboardData, setDashboardData] = useState<any[]>([]);
   const totalSavings = dashboardData.reduce((sum, item) => sum + (item.potentialSavings || 0), 0);
@@ -418,21 +420,21 @@ export default function Home() {
             <div className="bg-sky-50 border border-sky-200 rounded-xl px-5 py-3 flex flex-col items-start sm:items-end shadow-sm w-full min-w-0">
                 <span className="text-[10px] font-bold text-sky-700 uppercase tracking-widest mb-1">Costo Actual</span>
                 <span className="text-3xl lg:text-4xl font-extrabold text-sky-600">
-                    {loading ? <span className="animate-pulse">…</span> : summaryFailed ? <span className="text-xl text-sky-400">—</span> : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(actualCost)}
+                    {loading ? <span className="animate-pulse">…</span> : summaryFailed ? <span className="text-xl text-sky-400">—</span> : format(actualCost)}
                 </span>
                 <span className="text-[10px] text-sky-600 mt-1">acumulado del mes</span>
             </div>
             <div className="bg-purple-50 border border-purple-200 rounded-xl px-5 py-3 flex flex-col items-start sm:items-end shadow-sm w-full min-w-0">
                 <span className="text-[10px] font-bold text-purple-700 uppercase tracking-widest mb-1">Costo Proyectado</span>
                 <span className="text-3xl lg:text-4xl font-extrabold text-purple-600">
-                    {loading ? <span className="animate-pulse">…</span> : summaryFailed ? <span className="text-xl text-purple-400">—</span> : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(projectedCost)}
+                    {loading ? <span className="animate-pulse">…</span> : summaryFailed ? <span className="text-xl text-purple-400">—</span> : format(projectedCost)}
                 </span>
                 <span className="text-[10px] text-purple-600 mt-1">al cierre de mes</span>
             </div>
             <div className="bg-green-50 border border-green-200 rounded-xl px-5 py-3 flex flex-col items-start sm:items-end shadow-sm w-full min-w-0">
                 <span className="text-[10px] font-bold text-green-700 uppercase tracking-widest mb-1">{t('potential_savings')}</span>
                 <span className="text-3xl lg:text-4xl font-extrabold text-green-600">
-                    {loading ? <span className="animate-pulse">…</span> : summaryFailed ? <span className="text-xl text-green-400">—</span> : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(totalSavings)}
+                    {loading ? <span className="animate-pulse">…</span> : summaryFailed ? <span className="text-xl text-green-400">—</span> : format(totalSavings)}
                 </span>
                 <span className="text-[10px] text-green-600 mt-1">{t('monthly_projected')}</span>
             </div>
@@ -491,11 +493,11 @@ export default function Home() {
                               tick={{ fontSize: 12 }}
                           />
                           <YAxis
-                              tickFormatter={(v: number) => `$${Math.round(v)}`}
+                              tickFormatter={(v: number) => format(v, { compact: true })}
                               tick={{ fontSize: 12 }}
                           />
                           <RechartsTooltip
-                              formatter={(value: any) => [new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(value || 0)), 'Costo']}
+                              formatter={(value: any) => [format(Number(value || 0)), 'Costo']}
                               labelFormatter={(label: any) => `Fecha: ${formatHistogramDate(label)}`}
                           />
                           <Bar dataKey="cost" fill="#0ea5e9" radius={[4, 4, 0, 0]} />
@@ -516,7 +518,7 @@ export default function Home() {
       >
         <div key="exec">
             <div className="drag-handle cursor-move w-full h-full">
-                <ExecutiveSummaryCard title={t('captured_savings')} amount={new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalSavings)} trend={t('vs_last_month')} />
+                <ExecutiveSummaryCard title={t('captured_savings')} amount={format(totalSavings)} trend={t('vs_last_month')} />
             </div>
         </div>
         

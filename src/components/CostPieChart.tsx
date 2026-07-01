@@ -1,10 +1,12 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend, Sector } from 'recharts';
+import { useCurrency } from '@/components/CurrencyProvider';
 
 export default function CostPieChart({ data, onSegmentClick }: { data: any[], onSegmentClick?: (category: string | null) => void }) {
     const [activeIndex, setActiveIndex] = useState<number | null>(null);
     const [mounted, setMounted] = useState(false);
+    const { format } = useCurrency();
     useEffect(() => {
         setMounted(true);
     }, []);
@@ -103,7 +105,7 @@ export default function CostPieChart({ data, onSegmentClick }: { data: any[], on
                         <Tooltip 
                             formatter={(value: any, name: any, props: any) => {
                                 const recursos = props.payload?.count ?? props.payload?.payload?.count ?? 0;
-                                return [`$${value} USD (${recursos} recursos detectados)`, name];
+                                return [`${format(value)} (${recursos} recursos detectados)`, name];
                             }}
                             contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                             wrapperStyle={{ zIndex: 9999 }}
@@ -121,7 +123,7 @@ export default function CostPieChart({ data, onSegmentClick }: { data: any[], on
                                 <div className="w-2.5 h-2.5 rounded-full shadow-sm" style={{ backgroundColor: COLORS[i % COLORS.length] }}></div>
                                 <span className="text-slate-600 font-bold truncate max-w-[150px]">{item.name} ({item.count})</span>
                             </div>
-                            <span className="font-extrabold text-slate-800">${item.savings.toFixed(2)}</span>
+                            <span className="font-extrabold text-slate-800">{format(item.savings)}</span>
                         </div>
                     ))}
                 </div>

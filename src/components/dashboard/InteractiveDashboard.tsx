@@ -12,6 +12,7 @@ import { FocusCostEntry } from '@/modules/core/focusMapper';
 import FocusCostPieChart from './FocusCostPieChart';
 import FeatureGuard from '@/components/FeatureGuard';
 import { translateAdvisorText, translateZombieType } from '@/lib/advisorI18n';
+import { useCurrency } from '@/components/CurrencyProvider';
 
 interface InteractiveDashboardProps {
     loading: boolean;
@@ -31,6 +32,7 @@ export default function InteractiveDashboard({
     const t = useTranslations('Billing');
     const locale = useLocale();
     const router = useRouter();
+    const { format } = useCurrency();
     
     // Process backend JSON shapes
     // advisorData.recommendations is grouped: { Cost: [...], Security: [...], ... }
@@ -272,7 +274,7 @@ export default function InteractiveDashboard({
         cost: Number(dailyMap[date].toFixed(2))
     }));
 
-    const formatYAxis = (tickItem: any) => tickItem >= 1000 ? `$${(tickItem / 1000).toFixed(1)}k` : `$${tickItem}`;
+    const formatYAxis = (tickItem: any) => format(tickItem, { compact: true });
 
     const CustomDot = (props: any) => {
         const { cx, cy, index } = props;
@@ -315,7 +317,7 @@ export default function InteractiveDashboard({
                         <DollarSign className="w-3.5 h-3.5 mr-1 text-slate-400" />
                         {t('mtd_spend')}
                     </div>
-                    <div className="text-2xl font-extrabold text-slate-800">${totalCost.toLocaleString(undefined, {maximumFractionDigits:0})}</div>
+                    <div className="text-2xl font-extrabold text-slate-800">{format(totalCost)}</div>
                 </div>
                 <div className="bg-white rounded-xl shadow-sm border-gray-100 p-4 border-[2px] border-amber-200 relative overflow-hidden group">
                     <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-amber-200 to-amber-500 rounded-bl-full opacity-20 group-hover:opacity-30 transition-opacity"></div>
@@ -324,7 +326,7 @@ export default function InteractiveDashboard({
                         {t('potentialSavingsTitle', { fallback: 'Ahorro potencial' })}
                     </div>
                     <div className="text-2xl font-extrabold text-slate-800 relative z-10">
-                        ${totalPotentialSavings.toLocaleString(undefined, {maximumFractionDigits:0})}
+                        {format(totalPotentialSavings)}
                     </div>
                     <div className="text-[11px] text-slate-500 font-medium mt-1 mb-3 relative z-10">
                         {t('potentialSavingsDesc', { fallback: 'Fugas y redimensionamiento' })}
@@ -343,7 +345,7 @@ export default function InteractiveDashboard({
                         Ahorro aplicado
                     </div>
                     <div className="text-2xl font-extrabold text-emerald-500">
-                        ${computedAppliedSavings.toLocaleString(undefined, {maximumFractionDigits:0})}
+                        {format(computedAppliedSavings)}
                     </div>
                     <div className="text-[11px] text-slate-500 font-medium mt-1">{t('captured_percent')}</div>
                 </div>
@@ -353,7 +355,7 @@ export default function InteractiveDashboard({
                         {t('annual_projection')}
                     </div>
                     <div className="text-2xl font-extrabold text-slate-800">
-                        ${((totalCost / Math.max(1, evolutionData.length)) * 365).toLocaleString(undefined, {maximumFractionDigits:0})}
+                        {format((totalCost / Math.max(1, evolutionData.length)) * 365)}
                     </div>
                 </div>
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
@@ -412,7 +414,7 @@ export default function InteractiveDashboard({
                                 <YAxis tickFormatter={formatYAxis} tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} domain={['auto', 'auto']} />
                                 <RechartsTooltip 
                                     contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                                    formatter={(value: any) => [`$${value}`, t('spend_label')]}
+                                formatter={(value: any) => [format(value), t('spend_label')]}
                                 />
                                 <Area type="monotone" dataKey="cost" stroke="#0ea5e9" strokeWidth={4} fillOpacity={1} fill="url(#colorGasto)" activeDot={{ r: 8, strokeWidth: 0 }} dot={<CustomDot />} />
                             </AreaChart>
@@ -446,7 +448,7 @@ export default function InteractiveDashboard({
                                             <Pie data={leakagePieData} cx="50%" cy="50%" innerRadius={40} outerRadius={65} paddingAngle={5} dataKey="value">
                                                 {leakagePieData.map((e, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                                             </Pie>
-                                            <RechartsTooltip formatter={(v: any) => `$${Number(v).toFixed(2)}`} wrapperStyle={{ zIndex: 9999 }} />
+                                            <RechartsTooltip formatter={(v: any) => format(Number(v))} wrapperStyle={{ zIndex: 9999 }} />
                                         </RechartsPieChart>
                                     </ResponsiveContainer>
                                 </div>
@@ -458,7 +460,7 @@ export default function InteractiveDashboard({
                                                     <div className="w-2.5 h-2.5 rounded-full shadow-sm" style={{ backgroundColor: COLORS[i % COLORS.length] }}></div>
                                                     <span className="text-slate-600 font-bold truncate max-w-[120px]">{item.name}</span>
                                                 </div>
-                                                <span className="font-extrabold text-slate-800">${item.value.toFixed(2)}</span>
+                                                <span className="font-extrabold text-slate-800">{format(item.value)}</span>
                                             </div>
                                         ))}
                                     </div>
@@ -502,7 +504,7 @@ export default function InteractiveDashboard({
                                 </div>
                             </div>
                             <div className="flex flex-col items-end shrink-0">
-                                <div className="text-emerald-600 font-extrabold text-sm">${opp.savings.toLocaleString('en-US', {minimumFractionDigits: 0, maximumFractionDigits: 0})} <span className="text-[10px] font-medium text-slate-400">/mes</span></div>
+                                <div className="text-emerald-600 font-extrabold text-sm">{format(opp.savings)} <span className="text-[10px] font-medium text-slate-400">/mes</span></div>
                             </div>
                         </div>
                     ))}
