@@ -192,7 +192,7 @@ export async function GET(request: NextRequest) {
 
     await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
 
-    const cacheKey = `dashboard:summary:v5:${tenantId}:${subscriptionId.toLowerCase()}`;
+    const cacheKey = `dashboard:summary:v6:${tenantId}:${subscriptionId.toLowerCase()}`;
     const data = await getWithStaleWhileRevalidate(
       cacheKey,
       async () => {
@@ -253,6 +253,8 @@ export async function GET(request: NextRequest) {
         const forecastFailed = (forecastSettled as any).__failed === true;
         // Audit without permissions = empty results, not a failure
         const auditNoPerms = (auditSettled as any).__noPermissions === true;
+        // Azure Cost Management unavailable = SP has no Cost Management Reader or subscriptions have no data
+        const forecastAzureUnavailable = !forecastFailed && (forecastSettled as any).azureUnavailable === true;
 
         const auditJson = (auditFailed || auditNoPerms) ? { auditResults: {} } : auditSettled;
         // If forecast returned { data: [], azureUnavailable: true } it's a 200 (not failed)
@@ -260,6 +262,7 @@ export async function GET(request: NextRequest) {
 
         if (auditFailed) console.warn('[Summary] audit failed (degraded):', (auditSettled as any).error);
         if (forecastFailed) console.warn('[Summary] forecast failed (degraded):', (forecastSettled as any).error);
+        if (forecastAzureUnavailable) console.warn('[Summary] Azure Cost Management unavailable or no data for this scope');
 
         const auditResults = (auditJson.auditResults || {}) as AuditResults;
         const { mappedData, zombieCount } = mapAuditData(auditResults);
@@ -349,6 +352,9 @@ export async function GET(request: NextRequest) {
             : auditFailed ? 'audit' : forecastFailed ? 'forecast' : null,
           // Inform UI when SP has no Azure permissions (tenant not yet fully onboarded)
           auditNoPermissions: auditNoPerms,
+          // Inform UI when Azure Cost Management is unavailable AND DB is also empty
+          // (SP needs Cost Management Reader role, or subscriptions have no spending yet)
+          azureNoAccess: forecastAzureUnavailable && mtdActual === 0 && actualCost === 0,
         };
       },
       900,  // hard TTL: 15 min
