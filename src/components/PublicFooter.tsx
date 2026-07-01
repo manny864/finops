@@ -45,7 +45,7 @@ export default function PublicFooter() {
 
           {/* Copyright */}
           <div className="text-xs text-gray-500 text-center md:text-right">
-            © {currentYear} CSCloud Solutions. All rights reserved.
+            © {currentYear} CSCloudSolutions. All rights reserved.
           </div>
         </div>
       </div>
