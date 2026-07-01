@@ -66,6 +66,7 @@ export default function Home() {
   const [summaryFailed, setSummaryFailed] = useState(false);
   const [summaryDegraded, setSummaryDegraded] = useState<string | null>(null);
   const [auditNoPerms, setAuditNoPerms] = useState(false);
+  const [azureNoAccess, setAzureNoAccess] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
   const [chartsMounted, setChartsMounted] = useState(false);
   const { addAction } = useActionLogStore();
@@ -144,6 +145,7 @@ export default function Home() {
 
               setSummaryDegraded(summaryJson.degraded ? (summaryJson.degradedReason || 'unknown') : null);
               setAuditNoPerms(!!summaryJson.auditNoPermissions);
+              setAzureNoAccess(!!summaryJson.azureNoAccess);
               if (summaryJson.dashboardData) {
                   setDashboardData(summaryJson.dashboardData);
               } else {
@@ -199,6 +201,7 @@ export default function Home() {
       setSummaryFailed(false);
       setSummaryDegraded(null);
       setAuditNoPerms(false);
+      setAzureNoAccess(false);
       fetchData();
   }, [activeTab, selectedTenant, selectedSubscription, accounts, instance, retryKey]);
 
@@ -373,8 +376,26 @@ export default function Home() {
             )}
           </span>
           <button
-            onClick={() => { setSummaryDegraded(null); setAuditNoPerms(false); setRetryKey(k => k + 1); }}
+            onClick={() => { setSummaryDegraded(null); setAuditNoPerms(false); setAzureNoAccess(false); setRetryKey(k => k + 1); }}
             className="shrink-0 rounded-md border border-yellow-300 bg-white px-3 py-1 text-xs font-semibold text-yellow-700 hover:bg-yellow-50 dark:bg-yellow-900/30"
+          >
+            Reintentar
+          </button>
+        </div>
+      )}
+      {azureNoAccess && !loading && !summaryFailed && !summaryDegraded && (
+        <div className="mb-3 flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-700/40 dark:bg-blue-900/20 dark:text-blue-200">
+          <span className="text-lg">💡</span>
+          <span className="flex-1">
+            <strong>Sin datos de costos Azure.</strong>{' '}
+            Puede ser que el Service Principal no tenga el rol{' '}
+            <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded text-xs font-mono">Cost Management Reader</code>{' '}
+            en tus suscripciones, o que no haya gasto registrado este mes.{' '}
+            Para habilitar el monitoreo en vivo, asigna ese rol al SP en cada suscripción desde el portal Azure → IAM.
+          </span>
+          <button
+            onClick={() => { setAzureNoAccess(false); setRetryKey(k => k + 1); }}
+            className="shrink-0 rounded-md border border-blue-300 bg-white px-3 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-50 dark:bg-blue-900/30"
           >
             Reintentar
           </button>
