@@ -327,10 +327,14 @@ export async function GET(request: NextRequest) {
           const currYM = new Date().toISOString().slice(0, 7); // YYYY-MM
           let liveActual = 0;
           for (const entry of liveData) {
-            const rawDate = String(
+            const rawStr = String(
               (entry as any).ChargePeriodStart ?? (entry as any).UsageDate ?? ''
-            ).slice(0, 7);
-            if (rawDate === currYM) {
+            );
+            // Azure returns dates as YYYYMMDD (compact, no dashes). Normalize to YYYY-MM-DD
+            // before slicing to YYYY-MM, otherwise "20260615".slice(0,7) = "2026061" ≠ "2026-06".
+            const compact = rawStr.match(/^(\d{4})(\d{2})(\d{2})$/);
+            const normalizedDate = compact ? `${compact[1]}-${compact[2]}-${compact[3]}` : rawStr.slice(0, 10);
+            if (normalizedDate.slice(0, 7) === currYM) {
               liveActual += Number((entry as any).EffectiveCost ?? (entry as any).BilledCost ?? 0);
             }
           }
@@ -343,6 +347,28 @@ export async function GET(request: NextRequest) {
               const currentDay = Math.max(today.getDate(), 1);
               projectedCost = actualCost * (daysInMonth / currentDay);
             }
+            // Persist live data to CostSnapshots so the next request uses the DB path (fast).
+            // Fire-and-forget — do not block the response.
+            (async () => {
+              try {
+                const { insertCostSnapshotRow } = await import('@/modules/storage/db');
+                for (const entry of liveData!) {
+                  const rawStr = String((entry as any).ChargePeriodStart ?? (entry as any).UsageDate ?? '');
+                  const compact = rawStr.match(/^(\d{4})(\d{2})(\d{2})$/);
+                  const dateStr = compact ? `${compact[1]}-${compact[2]}-${compact[3]}` : rawStr.slice(0, 10);
+                  if (!dateStr || dateStr.length < 10) continue;
+                  await insertCostSnapshotRow(tenantId, dateStr, {
+                    subscriptionId: String((entry as any).SubAccountId || 'default'),
+                    resourceGroup: '*',
+                    serviceName:   String((entry as any).ServiceName   || ''),
+                    cost: Number((entry as any).EffectiveCost ?? (entry as any).BilledCost ?? 0),
+                  });
+                }
+                console.log(`[Summary] Persisted ${liveData!.length} live rows to CostSnapshots for tenant ${tenantId}`);
+              } catch (persistErr: any) {
+                console.warn('[Summary] CostSnapshots persist failed:', persistErr?.message);
+              }
+            })();
           }
         }
 
