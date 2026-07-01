@@ -4,6 +4,7 @@ import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
+import { getActiveReservations } from "@/services/reservationService";
 
 export async function GET(request: NextRequest) {
     try {
@@ -16,8 +17,8 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(getMockDataForRoute('commitments', tenantId));
         }
 
-        // v2: ahora incluye activeReservations (todas las reservas compradas, no solo VMs)
-        const cacheKey = `commitments:v2:${tenantId}`;
+        // v3: incluye reservationDetails (blade Microsoft.Capacity/reservations)
+        const cacheKey = `commitments:v3:${tenantId}`;
         const data = await getWithStaleWhileRevalidate(cacheKey, async () => {
             const credential = await getAzureCredential(tenantId);
             const costClient = new CostManagementClient(credential);
@@ -27,6 +28,7 @@ export async function GET(request: NextRequest) {
             let coverage = 0;
             let hasReservations = false;
             let activeReservations: any[] = [];
+            let reservationDetails: any[] = [];
             let recommendations: any[] = [];
 
             // Helper: intenta la query a nivel MG, con fallback por suscripción.
@@ -100,6 +102,16 @@ export async function GET(request: NextRequest) {
                 }
             } catch (e: any) {
                 console.warn("[Commitments] activeReservations query failed:", e.message);
+            }
+
+            // ─── 1b. DETALLE DE RESERVAS (blade Microsoft.Capacity/reservations) ────────
+            // Nombre, Status, Expiration, Scope, Type, Product name, Region, Renewal,
+            // Cantidad, Utilización 1 día / 7 días. Best-effort: requiere Reservations Reader.
+            try {
+                reservationDetails = await getActiveReservations(credential);
+                if (reservationDetails.length > 0) hasReservations = true;
+            } catch (e: any) {
+                console.warn("[Commitments] reservationDetails query failed:", e?.message);
             }
 
             // ─── 2. COBERTURA ─────────────────────────────────────────────────────────
@@ -188,7 +200,7 @@ export async function GET(request: NextRequest) {
                 console.warn("[Commitments] recommendations query failed:", e.message);
             }
 
-            return { utilization, coverage, hasReservations, activeReservations, recommendations };
+            return { utilization, coverage, hasReservations, activeReservations, reservationDetails, recommendations };
         }, 43200);
 
         return NextResponse.json({ success: true, data });
