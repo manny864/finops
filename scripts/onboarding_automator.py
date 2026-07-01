@@ -7,11 +7,34 @@ from azure.mgmt.authorization import AuthorizationManagementClient
 from azure.mgmt.authorization.models import RoleDefinition, RoleAssignmentCreateParameters
 import requests
 
-# Azure Built-in Role IDs
-BUILT_IN_ROLES = {
-    "Reader": "acdd72a7-3385-48ef-bd42-f606fba81ae7",
-    "Cost Management Reader": "72fafb9e-0641-4937-9268-a91bfd8191a3",
-    "Monitoring Reader": "43d0d8ad-25c7-4714-9337-8ba259a9fe05"
+# Azure Built-in Role IDs (canónicos — no cambian entre tenants)
+BUILT_IN_ROLES_ESSENTIAL = {
+    "Reader":                 "acdd72a7-3385-48ef-bd42-f606fba81ae7",  # Resource Graph, Advisor, audit KQL
+    "Cost Management Reader": "72fafb9e-0641-4937-9268-a91bfd8191a3",  # Cost Management API
+    "Monitoring Reader":      "43d0d8ad-25c7-4714-9337-8ba259a9fe05",  # Métricas / rightsizing
+    "Billing Reader":         "fa23ad8b-c56e-40d8-ac0c-ce449e1d2c64",  # Facturación MCA-friendly
+}
+
+BUILT_IN_ROLES_PROFESSIONAL = {
+    **BUILT_IN_ROLES_ESSENTIAL,
+    "Tag Contributor":        "4a9ae827-6dc8-4573-8ac7-8239d42aa03f",  # Auto-tagging
+}
+
+BUILT_IN_ROLES_BUSINESS = {
+    **BUILT_IN_ROLES_PROFESSIONAL,
+    # Custom Remediation Role added separately (see CUSTOM_ROLE_ACTIONS)
+}
+
+BUILT_IN_ROLES_ENTERPRISE = {
+    **BUILT_IN_ROLES_BUSINESS,
+    "Monitoring Contributor": "749f88d5-cbae-40b8-bcfc-e573ddc772fa",  # Workbooks deploy + advanced metrics
+}
+
+ROLES_BY_TIER = {
+    "essential":    BUILT_IN_ROLES_ESSENTIAL,
+    "professional": BUILT_IN_ROLES_PROFESSIONAL,
+    "business":     BUILT_IN_ROLES_BUSINESS,
+    "enterprise":   BUILT_IN_ROLES_ENTERPRISE,
 }
 
 CUSTOM_ROLE_ACTIONS = [
@@ -100,9 +123,16 @@ def create_role_assignment(client: AuthorizationManagementClient, scope: str, ro
 def main():
     parser = argparse.ArgumentParser(
         description="Automatizador de Onboarding para CSCloudSolutions FinOps Agent",
-        epilog="Ejemplo: python onboarding_automator.py --subscription-id 0beb7800-... [--principal-id xxx]"
+        epilog="Ejemplo: python onboarding_automator.py --subscription-id 0beb7800-... --tier essential"
     )
     parser.add_argument("--subscription-id", required=True, help="ID de la suscripción del cliente")
+    parser.add_argument(
+        "--tier",
+        required=False,
+        default="essential",
+        choices=["essential", "professional", "business", "enterprise"],
+        help="Tier del tenant (default: essential). Determina el set de roles a asignar."
+    )
     parser.add_argument(
         "--principal-id", 
         required=False,
@@ -112,13 +142,17 @@ def main():
     args = parser.parse_args()
     
     subscription_id = args.subscription_id
+    tier = args.tier.lower()
     scope = f"/subscriptions/{subscription_id}"
+    built_in_roles = ROLES_BY_TIER[tier]
+    requires_custom_role = tier in ("business", "enterprise")
     
     print("=" * 70)
     print("  CSCloudSolutions FinOps Agent - Onboarding Automático")
     print("=" * 70)
     print(f"  Suscripción: {subscription_id}")
-    print(f"  Scope: {scope}")
+    print(f"  Tier:        {tier.capitalize()}")
+    print(f"  Scope:       {scope}")
     
     # Authenticate using DefaultAzureCredential (requires az login)
     credential = DefaultAzureCredential()
@@ -157,58 +191,54 @@ def main():
     
     client = AuthorizationManagementClient(credential, subscription_id)
     
-    # 1. Assign built-in roles
-    print("\n--- Paso 1: Asignando Roles Incorporados ---")
-    for role_name, role_id in BUILT_IN_ROLES.items():
+    # 1. Assign built-in roles for the selected tier
+    print(f"\n--- Paso 1: Asignando Roles Built-in ({tier.capitalize()}: {len(built_in_roles)} roles) ---")
+    for role_name, role_id in built_in_roles.items():
         print(f"\n  Rol: {role_name}")
         create_role_assignment(client, scope, role_id, principal_id)
         
-    # 2. Create Custom Remediation Role
-    print("\n--- Paso 2: Creando Rol Personalizado de Remediación ---")
-    custom_role_id = str(uuid.uuid4())
+    # 2. Create Custom Remediation Role (Business / Enterprise only)
+    custom_role_assigned = False
     custom_role_name = "CSCloudSolutions Remediation Role"
-    
-    role_def = RoleDefinition(
-        role_name=custom_role_name,
-        description="Permite a CSCloudSolutions ejecutar acciones limitadas de FinOps (apagar, encender, etiquetar, eliminar huérfanos)",
-        assignable_scopes=[scope],
-        permissions=[{"actions": CUSTOM_ROLE_ACTIONS, "not_actions": [], "data_actions": [], "not_data_actions": []}]
-    )
-    
-    try:
-        print(f"  Creando definición: {custom_role_name}...")
-        created_role_def = client.role_definitions.create_or_update(
-            scope,
-            custom_role_id,
-            role_def
+    if requires_custom_role:
+        print("\n--- Paso 2: Creando Rol Personalizado de Remediación ---")
+        custom_role_id = str(uuid.uuid4())
+        role_def = RoleDefinition(
+            role_name=custom_role_name,
+            description="Permite a CSCloudSolutions ejecutar acciones limitadas de FinOps (apagar, encender, etiquetar, eliminar huérfanos)",
+            assignable_scopes=[scope],
+            permissions=[{"actions": CUSTOM_ROLE_ACTIONS, "not_actions": [], "data_actions": [], "not_data_actions": []}]
         )
-        print(f"  ✓ Rol personalizado creado: {created_role_def.name}")
-        
-        # 3. Assign the custom role
-        print("\n--- Paso 3: Asignando Rol Personalizado ---")
-        create_role_assignment(client, scope, created_role_def.name, principal_id)
-        
-    except Exception as e:
-        error_msg = str(e)
-        if "RoleDefinitionWithSameNameExists" in error_msg:
-            print(f"  ℹ El rol personalizado ya existe. Buscando su ID para asignarlo...")
-            # Find the existing custom role and assign it
-            for rd in client.role_definitions.list(scope):
-                if rd.role_name == custom_role_name:
-                    print(f"  ✓ Encontrado: {rd.name}")
-                    create_role_assignment(client, scope, rd.name, principal_id)
-                    break
-        else:
-            print(f"  ✗ ERROR: {e}")
+        try:
+            print(f"  Creando definición: {custom_role_name}...")
+            created_role_def = client.role_definitions.create_or_update(scope, custom_role_id, role_def)
+            print(f"  ✓ Rol personalizado creado: {created_role_def.name}")
+            print("\n--- Paso 3: Asignando Rol Personalizado ---")
+            create_role_assignment(client, scope, created_role_def.name, principal_id)
+            custom_role_assigned = True
+        except Exception as e:
+            error_msg = str(e)
+            if "RoleDefinitionWithSameNameExists" in error_msg:
+                print(f"  ℹ El rol personalizado ya existe. Buscando su ID para asignarlo...")
+                for rd in client.role_definitions.list(scope):
+                    if rd.role_name == custom_role_name:
+                        print(f"  ✓ Encontrado: {rd.name}")
+                        create_role_assignment(client, scope, rd.name, principal_id)
+                        custom_role_assigned = True
+                        break
+            else:
+                print(f"  ✗ ERROR creando rol personalizado: {e}")
 
     print("\n" + "=" * 70)
     print("  ✓ Onboarding Completado")
     print("=" * 70)
-    print(f"\n  El Service Principal (Object ID: {principal_id})")
-    print(f"  tiene los siguientes roles en la suscripción {subscription_id}:")
-    for role_name in BUILT_IN_ROLES:
+    print(f"\n  Service Principal (Object ID: {principal_id})")
+    print(f"  Tier: {tier.capitalize()} | Suscripción: {subscription_id}")
+    print(f"\n  Roles asignados:")
+    for role_name in built_in_roles:
         print(f"    • {role_name}")
-    print(f"    • {custom_role_name}")
+    if custom_role_assigned:
+        print(f"    • {custom_role_name} (rol personalizado)")
     print(f"\n  La aplicación FinOps debería poder leer la suscripción en ~30 segundos.")
 
 if __name__ == "__main__":
