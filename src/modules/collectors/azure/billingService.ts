@@ -174,6 +174,12 @@ export async function getCurrentMonthAmortizedCostsWithDiagnostics(
             e.statusCode === 400;
 
         if (!(subscriptionId === 'All' || subscriptionId.toLowerCase() === 'all') || !isAuthOrNotFound) {
+            if (isAuthOrNotFound) {
+                // Specific subscription returned 401/403 — no access, return empty gracefully
+                console.warn(`[BillingService] Cost query unauthorized for sub ${subscriptionId} (${e.statusCode}): ${e.message?.slice(0, 120)}`);
+                setCache(cacheKey, [], diagnostics);
+                return { data: [], diagnostics };
+            }
             throw e;
         }
 
