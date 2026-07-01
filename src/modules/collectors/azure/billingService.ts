@@ -158,6 +158,9 @@ export async function getCurrentMonthAmortizedCostsWithDiagnostics(
 
     try {
         const result = await withRetry(() => client.query.usage(scope, mtdOptions), { label: `usage(MG ${tenantId})` });
+        if (result?.columns?.length) {
+            console.log(`[BillingService] Azure columns (MG scope): ${result.columns.map((c: any) => c.name).join(', ')}`);
+        }
         const n = processResult(result);
         diagnostics.totalRows = n;
         setCache(cacheKey, focusData, diagnostics);
@@ -274,6 +277,13 @@ export async function getCostForecast(
 
     const today = new Date();
     const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+    // Skip forecast on the last day of the month — Azure rejects timePeriod.from === to (400).
+    const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    if (todayDate.getTime() >= endOfMonth.getTime()) {
+        console.log('[BillingService] getCostForecast: last day of month, skipping forecast to avoid date-range 400.');
+        return [];
+    }
 
     const forecastOptions = {
         type: metricType === 'ActualCost' ? 'ActualCost' : 'AmortizedCost',
