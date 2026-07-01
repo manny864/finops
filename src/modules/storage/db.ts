@@ -298,9 +298,11 @@ export async function initializeDatabase() {
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 tenant_id VARCHAR(255) NOT NULL,
                 user_email VARCHAR(255) NOT NULL,
-                action_type VARCHAR(50) NOT NULL,
+                action_type VARCHAR(120) NOT NULL,
                 resource_id VARCHAR(255) NOT NULL,
+                resource_type VARCHAR(120) NOT NULL DEFAULT '',
                 status VARCHAR(20) NOT NULL,
+                details TEXT NULL,
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (tenant_id) REFERENCES Tenants(tenant_id) ON DELETE CASCADE
             )
