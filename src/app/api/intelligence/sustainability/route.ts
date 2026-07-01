@@ -33,46 +33,64 @@ export async function GET(request: NextRequest) {
         }
 
         const client = new ResourceGraphClient(credential);
-        let subs: string[] | undefined;
-        if (subscriptionId && subscriptionId.toLowerCase() !== "all") {
-            subs = [subscriptionId];
-        } else {
-            subs = await getSubscriptionsForTenant(tenantId, credential);
+        let vms: any[] = [];
+        let disks: any[] = [];
+        let storageAccts: any[] = [];
+        try {
+            let subs: string[] | undefined;
+            if (subscriptionId && subscriptionId.toLowerCase() !== "all") {
+                subs = [subscriptionId];
+            } else {
+                subs = await getSubscriptionsForTenant(tenantId, credential);
+            }
+
+            const subFilter = subscriptionId && subscriptionId.toLowerCase() !== "all"
+                ? `| where subscriptionId =~ '${subscriptionId}'` : "";
+
+            // 1) VMs activas
+            const vmQuery = `
+                Resources
+                | where type =~ 'Microsoft.Compute/virtualMachines'
+                ${subFilter}
+                | project name, location
+            `;
+            const vmRes = await client.resources({ query: vmQuery, subscriptions: subs });
+            vms = (vmRes.data as any[]) || [];
+
+            // 2) Discos zombi
+            const diskQuery = `
+                Resources
+                | where type =~ 'Microsoft.Compute/disks'
+                | where properties.diskState == 'Unattached'
+                ${subFilter}
+                | project name, location, sizeGB = toint(properties.diskSizeGB)
+            `;
+            const diskRes = await client.resources({ query: diskQuery, subscriptions: subs });
+            disks = (diskRes.data as any[]) || [];
+
+            // 3) Storage accounts (GB estimado por tier)
+            const storageQuery = `
+                Resources
+                | where type =~ 'Microsoft.Storage/storageAccounts'
+                ${subFilter}
+                | project name, location, sku = tostring(sku.name)
+            `;
+            const stRes = await client.resources({ query: storageQuery, subscriptions: subs });
+            storageAccts = (stRes.data as any[]) || [];
+        } catch (e: any) {
+            console.warn(`[Sustainability] No se pudo consultar ARG para ${tenantId}:`, e?.message);
+            return NextResponse.json({
+                success: true,
+                footprint: 0,
+                avoided: 0,
+                vmCount: 0,
+                zombieCount: 0,
+                storageCount: 0,
+                byRegion: [],
+                recommendations: [],
+                equivalencies: { carKm: 0, treesYear: 0, phoneCharges: 0 },
+            });
         }
-
-        const subFilter = subscriptionId && subscriptionId.toLowerCase() !== "all"
-            ? `| where subscriptionId =~ '${subscriptionId}'` : "";
-
-        // 1) VMs activas
-        const vmQuery = `
-            Resources
-            | where type =~ 'Microsoft.Compute/virtualMachines'
-            ${subFilter}
-            | project name, location
-        `;
-        const vmRes = await client.resources({ query: vmQuery, subscriptions: subs });
-        const vms = (vmRes.data as any[]) || [];
-
-        // 2) Discos zombi
-        const diskQuery = `
-            Resources
-            | where type =~ 'Microsoft.Compute/disks'
-            | where properties.diskState == 'Unattached'
-            ${subFilter}
-            | project name, location, sizeGB = toint(properties.diskSizeGB)
-        `;
-        const diskRes = await client.resources({ query: diskQuery, subscriptions: subs });
-        const disks = (diskRes.data as any[]) || [];
-
-        // 3) Storage accounts (GB estimado por tier)
-        const storageQuery = `
-            Resources
-            | where type =~ 'Microsoft.Storage/storageAccounts'
-            ${subFilter}
-            | project name, location, sku = tostring(sku.name)
-        `;
-        const stRes = await client.resources({ query: storageQuery, subscriptions: subs });
-        const storageAccts = (stRes.data as any[]) || [];
 
         // VM footprint (mes pasado, 730h)
         let totalFootprint = 0;

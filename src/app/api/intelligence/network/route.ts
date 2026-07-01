@@ -19,8 +19,14 @@ export async function GET(request: NextRequest) {
         
         const cacheKey = `network:${tenantId}:${subscriptionId}`;
         const processedData = await getWithStaleWhileRevalidate(cacheKey, async () => {
-            const credential = await getAzureCredential(tenantId);
-            const rawCosts = await getNetworkEgressCosts(credential, subscriptionId);
+            let rawCosts;
+            try {
+                const credential = await getAzureCredential(tenantId);
+                rawCosts = await getNetworkEgressCosts(credential, subscriptionId);
+            } catch (e: any) {
+                console.warn(`[Network] Sin credenciales/acceso para ${tenantId}:`, e?.message);
+                return [];
+            }
 
             // Process CostManagement Data
             const rows = rawCosts.rows || [];

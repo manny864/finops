@@ -21,8 +21,14 @@ export async function GET(request: NextRequest) {
 
         const aggregatedData = await getWithStaleWhileRevalidate(cacheKey, async () => {
             // 1. Obtener Credenciales y Token de Azure
-            const credential = await getAzureCredential(tenantId);
-            const tokenResponse = await credential.getToken("https://management.azure.com/.default");
+            let tokenResponse;
+            try {
+                const credential = await getAzureCredential(tenantId);
+                tokenResponse = await credential.getToken("https://management.azure.com/.default");
+            } catch (e: any) {
+                console.warn(`[History] Sin credenciales para ${tenantId}:`, e?.message);
+                return [];
+            }
 
             // 2. Obtener Suscripciones del Tenant
             const fetchRes = await fetch("https://management.azure.com/subscriptions?api-version=2020-01-01", {

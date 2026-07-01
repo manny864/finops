@@ -21,8 +21,15 @@ export async function GET(request: NextRequest) {
         const cacheKey = `intelligence:chargeback:${tenantId}:${subscriptionId}:${tagKey}`;
 
         const chargebackData = await getWithStaleWhileRevalidate(cacheKey, async () => {
-            const credential = await getAzureCredential(tenantId);
-            const client = new CostManagementClient(credential);
+            let credential;
+            let client;
+            try {
+                credential = await getAzureCredential(tenantId);
+                client = new CostManagementClient(credential);
+            } catch (e: any) {
+                console.warn(`[Chargeback] Sin credenciales para ${tenantId}:`, e?.message);
+                return { aggregated: [], detailedCosts: [] };
+            }
             const scope = subscriptionId === 'All' 
                 ? `/providers/Microsoft.Management/managementGroups/${tenantId}` 
                 : `/subscriptions/${subscriptionId}`;
