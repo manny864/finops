@@ -315,7 +315,7 @@ export default function OnboardingPage() {
           )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           {/* Generador de Script */}
           <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
               <div className="px-6 py-4 border-b border-gray-200 bg-indigo-50/50 flex items-center">
@@ -399,21 +399,24 @@ export default function OnboardingPage() {
                       </button>
                   )}
               </div>
-              <div className="p-4 flex-grow relative flex flex-col min-h-0">
+              <div className="p-4 flex-grow relative min-h-0">
                   {!generatedScript ? (
                       <div className="flex flex-col items-center justify-center h-full text-gray-600 min-h-[200px]">
                           <Terminal className="w-12 h-12 mb-2 opacity-20" />
                           <p className="text-sm">El script generado aparecerá aquí.</p>
                       </div>
                   ) : (
-                      <>
+                      // absolute inset para que el script largo no dicte la altura de la
+                      // caja: así ésta iguala a la columna vecina y el <pre> scrollea
+                      // dentro. Al desplegar la nota, la vecina crece y esta la sigue.
+                      <div className="absolute inset-4 flex flex-col">
                           <div className="text-xs text-indigo-300 mb-3 font-medium bg-indigo-900/30 p-2 rounded border border-indigo-800/50 flex-shrink-0">
                               ℹ️ Pida a su cliente que pegue este bloque en Azure Cloud Shell (Modo PowerShell).
                           </div>
-                          <pre className="text-xs font-mono text-gray-300 overflow-auto whitespace-pre max-h-[480px] custom-scrollbar">
+                          <pre className="text-xs font-mono text-gray-300 whitespace-pre flex-1 min-h-0 overflow-auto custom-scrollbar">
                               <code>{generatedScript}</code>
                           </pre>
-                      </>
+                      </div>
                   )}
               </div>
           </div>
