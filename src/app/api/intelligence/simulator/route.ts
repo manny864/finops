@@ -1,7 +1,10 @@
+// RBAC: requiere membresía al tenant (requireTenantAccess) — previene IDOR
+// (lectura de gasto real vía CostSnapshots y escritura en ActionLogs).
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { isMockTenant } from "@/lib/mockData";
 import { runScenario, parseInputs } from "@/lib/simulator/engine";
+import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
 
 export async function POST(request: NextRequest) {
     try {
@@ -11,6 +14,8 @@ export async function POST(request: NextRequest) {
         if (!tenantId) {
             return NextResponse.json({ error: "Faltan parámetros requeridos: tenantId" }, { status: 400 });
         }
+
+        await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
 
         // Feature Gate Verification
         let normalizedTier = 'Enterprise'; // Default for mock tenants
@@ -74,6 +79,9 @@ export async function POST(request: NextRequest) {
         });
 
     } catch (error: any) {
+        if (error instanceof AuthError) {
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        }
         console.error("Simulator API Error:", error);
         return NextResponse.json({ error: "Fallo al ejecutar simulación.", details: error.message }, { status: 500 });
     }
