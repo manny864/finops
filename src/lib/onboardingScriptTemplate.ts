@@ -1,3 +1,41 @@
+// Acciones del custom role de remediación por tier. Única fuente de verdad,
+// compartida entre el generador del script de onboarding y el verificador de
+// permisos (check-sp-roles), para no duplicar/desincronizar la lista.
+export const BUSINESS_CUSTOM_ACTIONS: string[] = [
+    "Microsoft.Compute/virtualMachines/deallocate/action",
+    "Microsoft.Compute/virtualMachines/start/action",
+    "Microsoft.Compute/virtualMachines/restart/action",
+    "Microsoft.Resources/tags/write",
+    "Microsoft.Consumption/budgets/read",
+    "Microsoft.Consumption/budgets/write",
+    "Microsoft.Consumption/budgets/delete",
+];
+
+export const ENTERPRISE_CUSTOM_ACTIONS: string[] = [
+    ...BUSINESS_CUSTOM_ACTIONS,
+    "Microsoft.Resources/subscriptions/resourceGroups/write",
+    "Microsoft.Compute/disks/delete",
+    "Microsoft.Compute/snapshots/delete",
+    "Microsoft.Network/networkInterfaces/delete",
+    "Microsoft.Network/publicIPAddresses/delete",
+    "Microsoft.Network/networkSecurityGroups/delete",
+];
+
+// Nombre canónico del custom role creado por el script de onboarding.
+export const CUSTOM_REMEDIATION_ROLE_NAME = 'CSCloudSolutions Remediation Role';
+
+/** Devuelve las acciones que el custom role de remediación debe tener para el tier dado. */
+export function getCustomRoleActionsForTier(tier: string): string[] {
+    switch ((tier || 'Essential').toLowerCase()) {
+        case 'business':
+            return [...BUSINESS_CUSTOM_ACTIONS];
+        case 'enterprise':
+            return [...ENTERPRISE_CUSTOM_ACTIONS];
+        default:
+            return [];
+    }
+}
+
 export function generateOnboardingScript(clientTenantId: string, subscriptionIdsStr: string, tier: string = 'Essential'): string {
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -20,41 +58,15 @@ export function generateOnboardingScript(clientTenantId: string, subscriptionIds
     ];
 
     const baseRoles = [...essentialRoles];
-    let customActions: string[] = [];
+    const customActions: string[] = getCustomRoleActionsForTier(tier);
 
     if (tier === 'Professional') {
         baseRoles.push('Tag Contributor'); // auto-tagging
     } else if (tier === 'Business') {
-        baseRoles.push('Tag Contributor');
-        // Custom role solo con acciones de power management para VMs + gestión de budgets
-        customActions = [
-            "Microsoft.Compute/virtualMachines/deallocate/action",
-            "Microsoft.Compute/virtualMachines/start/action",
-            "Microsoft.Compute/virtualMachines/restart/action",
-            "Microsoft.Resources/tags/write",
-            "Microsoft.Consumption/budgets/read",
-            "Microsoft.Consumption/budgets/write",
-            "Microsoft.Consumption/budgets/delete",
-        ];
+        baseRoles.push('Tag Contributor'); // auto-tagging + custom role (power mgmt + budgets)
     } else if (tier === 'Enterprise') {
         baseRoles.push('Tag Contributor');
         baseRoles.push('Monitoring Contributor'); // workbooks deploy + métricas avanzadas
-        // Custom role expandido: power mgmt + gestión de budgets + delete de recursos huérfanos + crear RG (para Artefactos)
-        customActions = [
-            "Microsoft.Compute/virtualMachines/deallocate/action",
-            "Microsoft.Compute/virtualMachines/start/action",
-            "Microsoft.Compute/virtualMachines/restart/action",
-            "Microsoft.Resources/tags/write",
-            "Microsoft.Consumption/budgets/read",
-            "Microsoft.Consumption/budgets/write",
-            "Microsoft.Consumption/budgets/delete",
-            "Microsoft.Resources/subscriptions/resourceGroups/write",
-            "Microsoft.Compute/disks/delete",
-            "Microsoft.Compute/snapshots/delete",
-            "Microsoft.Network/networkInterfaces/delete",
-            "Microsoft.Network/publicIPAddresses/delete",
-            "Microsoft.Network/networkSecurityGroups/delete",
-        ];
     }
 
     const subList = subscriptions.map(s => `"${s}"`).join(", ");
@@ -171,7 +183,7 @@ ${customActions.length > 0 ? `#
 $TenantId = "${clientTenantId}"
 $Subscriptions = @(${subList})
 $AppName = "CSCloudSolutions-FinOps-Agent"
-$RoleName = "CSCloudSolutions Remediation Role"
+$RoleName = "${CUSTOM_REMEDIATION_ROLE_NAME}"
 
 # Silenciar warnings cosméticos de breaking changes de Az PowerShell
 $WarningPreference = 'SilentlyContinue'
