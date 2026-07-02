@@ -8,6 +8,102 @@ export const isMockTenant = (tenantId: string) => {
     ].includes(tenantId);
 };
 
+/**
+ * Genera una serie histórica diaria simulada para un dominio/tier, usada por
+ * /api/history cuando el tenant es de demo/mock. Determinista (misma fecha => mismo
+ * valor) para que la demo sea estable. Escala por tier y aplica una tendencia suave
+ * de mejora (costo baja, cobertura sube) más ruido pseudoaleatorio acotado.
+ */
+export const getMockSnapshotHistory = (
+    domain: string,
+    tier: string,
+    from: string,
+    to: string,
+): Array<{ date: string; payload: Record<string, number> }> => {
+    const t = (tier || 'essential').toLowerCase();
+    const mult = t === 'enterprise' ? 50 : t === 'business' ? 10 : t === 'pro' || t === 'professional' ? 3 : 1;
+
+    // Ruido determinista en [-1,1] a partir de un string.
+    const noise = (seed: string): number => {
+        let h = 2166136261;
+        for (let i = 0; i < seed.length; i++) { h ^= seed.charCodeAt(i); h = Math.imul(h, 16777619); }
+        return ((h >>> 0) / 0xffffffff) * 2 - 1;
+    };
+
+    const start = new Date(from + 'T00:00:00Z');
+    const end = new Date(to + 'T00:00:00Z');
+    const days: Array<{ date: string; payload: Record<string, number> }> = [];
+    const totalDays = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000));
+
+    for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
+        const date = d.toISOString().slice(0, 10);
+        // progress: 0 (más antiguo) -> 1 (hoy)
+        const progress = Math.min(1, Math.max(0, (d.getTime() - start.getTime()) / (totalDays * 86400000)));
+        const n = noise(`${domain}:${date}`);
+        const round2 = (x: number) => Math.round(x * 100) / 100;
+
+        let payload: Record<string, number>;
+        switch (domain) {
+            case 'dashboard_summary':
+                payload = {
+                    actualCost: round2((1000 * mult) * (1 - 0.15 * progress) * (1 + 0.05 * n)),
+                    forecastCost: round2((1000 * mult) * (1.1 - 0.1 * progress)),
+                    savingsOpportunity: round2((180 * mult) * (1 + 0.2 * progress) * (1 + 0.04 * n)),
+                };
+                break;
+            case 'commitments':
+                payload = {
+                    coveragePct: round2(Math.min(98, 55 + 30 * progress + 3 * n)),
+                    utilizationPct: round2(Math.min(99, 70 + 20 * progress + 2 * n)),
+                    activeReservations: Math.round(2 + mult / 5),
+                };
+                break;
+            case 'rightsizing':
+                payload = {
+                    potentialSavings: round2((240 * mult) * (1 - 0.3 * progress) * (1 + 0.05 * n)),
+                    candidates: Math.max(0, Math.round((8 + mult) * (1 - 0.4 * progress))),
+                };
+                break;
+            case 'anomalies':
+                payload = {
+                    anomaliesDetected: Math.max(0, Math.round(3 + 3 * n + mult / 20)),
+                    impactUsd: round2(Math.max(0, (120 * mult / 10) * (1 + 0.3 * n))),
+                };
+                break;
+            case 'budgets':
+                payload = {
+                    totalBudget: round2(1200 * mult),
+                    totalSpent: round2((1200 * mult) * Math.min(1.05, 0.4 + 0.6 * progress + 0.03 * n)),
+                    burnPct: round2(Math.min(105, 40 + 60 * progress + 3 * n)),
+                };
+                break;
+            case 'governance':
+                payload = {
+                    complianceScore: round2(Math.min(100, 62 + 28 * progress + 2 * n)),
+                    untaggedResources: Math.max(0, Math.round((40 + mult) * (1 - 0.5 * progress))),
+                };
+                break;
+            case 'sustainability':
+                payload = {
+                    co2Kg: round2((90 * mult / 10) * (1 - 0.2 * progress) * (1 + 0.04 * n)),
+                    zombieResources: Math.max(0, Math.round((6 + mult / 5) * (1 - 0.5 * progress))),
+                };
+                break;
+            case 'zombies':
+                payload = {
+                    zombieCount: Math.max(0, Math.round((10 + mult / 3) * (1 - 0.5 * progress))),
+                    wastedUsd: round2((150 * mult / 10) * (1 - 0.4 * progress) * (1 + 0.05 * n)),
+                };
+                break;
+            default:
+                payload = { value: round2((100 * mult) * (1 + 0.1 * n)) };
+        }
+        days.push({ date, payload });
+    }
+    return days;
+};
+
+
 export const getMockDataForRoute = (route: string, arg2: string): any => {
     // Arg2 can be either a tenantId (from backend) or a tier string (from frontend mock override)
     const isTenantId = arg2 && arg2.length > 20; // tenantIds are GUIDs
