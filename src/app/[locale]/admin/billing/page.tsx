@@ -25,6 +25,28 @@ interface Invoice {
   billedAt: string;
 }
 
+interface ChangePreview {
+  previewAvailable: boolean;
+  currencyCode?: string;
+  result?: { action: "charge" | "credit" | "none"; amount: string };
+  credit?: string;
+  charge?: string;
+  immediateTotal?: string | null;
+  nextBillTotal?: string | null;
+  nextBillDate?: string | null;
+  recurringTotal?: string | null;
+}
+
+// Formatea montos que Paddle devuelve en unidad menor (centavos, string) para display.
+// No realiza aritmética de costos: sólo renderiza el valor exacto calculado por Paddle.
+function formatMinorAmount(minor: string | null | undefined, currency: string): string {
+  if (minor == null || minor === "") return "—";
+  const fmt = new Intl.NumberFormat("es-AR", { style: "currency", currency });
+  const digits = fmt.resolvedOptions().maximumFractionDigits ?? 2;
+  const major = Number(minor) / Math.pow(10, digits);
+  return fmt.format(major);
+}
+
 const TIER_FEATURES = {
   Essential: ["Hasta 5 suscripciones Azure", "Análisis básico de costos", "Reportes mensuales"],
   Professional: [
@@ -52,9 +74,12 @@ export default function BillingPage() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [selectedNewTier, setSelectedNewTier] = useState<string | null>(null);
   const [selectedBilling, setSelectedBilling] = useState<"monthly" | "yearly">("monthly");
-  const [prorationType, setProrationType] = useState<"prorated_immediately" | "prorated_next_billing_period">(
+  const [prorationType, setProrationType] = useState<"prorated_immediately" | "prorated_next_billing_period" | "do_not_bill">(
     "prorated_immediately"
   );
+  const [modalStep, setModalStep] = useState<"select" | "confirm">("select");
+  const [previewData, setPreviewData] = useState<ChangePreview | null>(null);
+  const [loadingPreview, setLoadingPreview] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
 
   const authHeaders = useCallback(async (): Promise<Record<string, string>> => {
@@ -121,11 +146,47 @@ export default function BillingPage() {
     }
   };
 
+  const resetUpgradeModal = useCallback(() => {
+    setShowUpgradeModal(false);
+    setModalStep("select");
+    setPreviewData(null);
+    setSelectedNewTier(null);
+  }, []);
+
+  const handlePreviewChange = async () => {
+    if (!selectedTenant?.id || !selectedNewTier) return;
+    setLoadingPreview(true);
+    setPreviewData(null);
+    try {
+      const headers = { ...(await authHeaders()), "Content-Type": "application/json" };
+      const res = await fetch(`/api/billing/subscription/preview?tenantId=${selectedTenant.id}`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          newTier: selectedNewTier,
+          billing: selectedBilling,
+          prorationBillingMode: prorationType,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setPreviewData(data as ChangePreview);
+        setModalStep("confirm");
+      } else {
+        toast.error(data.error || "No se pudo obtener el resumen del cambio");
+      }
+    } catch {
+      toast.error("Error al calcular el resumen del cambio");
+    } finally {
+      setLoadingPreview(false);
+    }
+  };
+
   const handleUpgradeSubscription = async () => {
     if (!selectedTenant?.id || !selectedNewTier) return;
     setUpdatingSubscription(true);
     try {
-      const headers = await authHeaders();
+      const headers = { ...(await authHeaders()), "Content-Type": "application/json" };
       const res = await fetch(`/api/billing/subscription?tenantId=${selectedTenant.id}`, {
         method: "PATCH",
         headers,
@@ -137,7 +198,7 @@ export default function BillingPage() {
       });
       if (res.ok) {
         toast.success("Suscripción actualizada correctamente");
-        setShowUpgradeModal(false);
+        resetUpgradeModal();
         await loadBillingInfo();
       } else {
         const error = await res.json();
@@ -319,56 +380,114 @@ export default function BillingPage() {
         {showUpgradeModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
             <div className="w-96 rounded-lg bg-white p-6 shadow-lg dark:bg-gray-800">
-              <h3 className="mb-4 text-lg font-semibold">Selecciona nuevo plan</h3>
+              {modalStep === "select" ? (
+                <>
+                  <h3 className="mb-4 text-lg font-semibold">Selecciona nuevo plan</h3>
 
-              <div className="mb-4 space-y-2">
-                <label className="flex items-center gap-2">
-                  <input type="radio" value="Essential" checked={selectedNewTier === "Essential"} onChange={(e) => setSelectedNewTier(e.target.value)} />
-                  <span>Essential</span>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input type="radio" value="Professional" checked={selectedNewTier === "Professional"} onChange={(e) => setSelectedNewTier(e.target.value)} />
-                  <span>Professional</span>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input type="radio" value="Business" checked={selectedNewTier === "Business"} onChange={(e) => setSelectedNewTier(e.target.value)} />
-                  <span>Business</span>
-                </label>
-              </div>
+                  <div className="mb-4 space-y-2">
+                    <label className="flex items-center gap-2">
+                      <input type="radio" value="Essential" checked={selectedNewTier === "Essential"} onChange={(e) => setSelectedNewTier(e.target.value)} />
+                      <span>Essential</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="radio" value="Professional" checked={selectedNewTier === "Professional"} onChange={(e) => setSelectedNewTier(e.target.value)} />
+                      <span>Professional</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="radio" value="Business" checked={selectedNewTier === "Business"} onChange={(e) => setSelectedNewTier(e.target.value)} />
+                      <span>Business</span>
+                    </label>
+                  </div>
 
-              <div className="mb-4 space-y-2">
-                <p className="text-sm font-medium">Frecuencia de facturación:</p>
-                <label className="flex items-center gap-2">
-                  <input type="radio" value="monthly" checked={selectedBilling === "monthly"} onChange={(e) => setSelectedBilling(e.target.value as any)} />
-                  <span>Mensual</span>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input type="radio" value="yearly" checked={selectedBilling === "yearly"} onChange={(e) => setSelectedBilling(e.target.value as any)} />
-                  <span>Anual</span>
-                </label>
-              </div>
+                  <div className="mb-4 space-y-2">
+                    <p className="text-sm font-medium">Frecuencia de facturación:</p>
+                    <label className="flex items-center gap-2">
+                      <input type="radio" value="monthly" checked={selectedBilling === "monthly"} onChange={(e) => setSelectedBilling(e.target.value as any)} />
+                      <span>Mensual</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="radio" value="yearly" checked={selectedBilling === "yearly"} onChange={(e) => setSelectedBilling(e.target.value as any)} />
+                      <span>Anual</span>
+                    </label>
+                  </div>
 
-              <div className="mb-4 space-y-2">
-                <p className="text-sm font-medium">Modo de prorrateo:</p>
-                <select
-                  value={prorationType}
-                  onChange={(e) => setProrationType(e.target.value as any)}
-                  className="w-full rounded border border-gray-300 px-3 py-2 dark:border-gray-600 dark:bg-gray-700"
-                >
-                  <option value="prorated_immediately">Inmediato</option>
-                  <option value="prorated_next_billing_period">Siguiente ciclo</option>
-                  <option value="do_not_bill">Sin cobro</option>
-                </select>
-              </div>
+                  <div className="mb-4 space-y-2">
+                    <p className="text-sm font-medium">Modo de prorrateo:</p>
+                    <select
+                      value={prorationType}
+                      onChange={(e) => setProrationType(e.target.value as any)}
+                      className="w-full rounded border border-gray-300 px-3 py-2 dark:border-gray-600 dark:bg-gray-700"
+                    >
+                      <option value="prorated_immediately">Inmediato</option>
+                      <option value="prorated_next_billing_period">Siguiente ciclo</option>
+                      <option value="do_not_bill">Sin cobro</option>
+                    </select>
+                  </div>
 
-              <div className="flex gap-2">
-                <button onClick={() => setShowUpgradeModal(false)} className="flex-1 rounded border border-gray-300 px-4 py-2 font-semibold dark:border-gray-600">
-                  Cancelar
-                </button>
-                <button onClick={handleUpgradeSubscription} disabled={!selectedNewTier || updatingSubscription} className="flex-1 rounded bg-brand-deep px-4 py-2 font-semibold text-white disabled:opacity-50">
-                  {updatingSubscription ? <Loader2 className="inline h-4 w-4 animate-spin" /> : "Confirmar"}
-                </button>
-              </div>
+                  <div className="flex gap-2">
+                    <button onClick={resetUpgradeModal} className="flex-1 rounded border border-gray-300 px-4 py-2 font-semibold dark:border-gray-600">
+                      Cancelar
+                    </button>
+                    <button onClick={handlePreviewChange} disabled={!selectedNewTier || loadingPreview} className="flex-1 rounded bg-brand-deep px-4 py-2 font-semibold text-white disabled:opacity-50">
+                      {loadingPreview ? <Loader2 className="inline h-4 w-4 animate-spin" /> : "Ver resumen"}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h3 className="mb-4 text-lg font-semibold">Confirmar cambio de plan</h3>
+
+                  <div className="mb-4 rounded-md bg-gray-50 p-4 text-sm dark:bg-gray-700/50">
+                    <p className="mb-2">
+                      Plan nuevo: <span className="font-semibold">{selectedNewTier}</span> ({selectedBilling === "monthly" ? "Mensual" : "Anual"})
+                    </p>
+
+                    {previewData?.previewAvailable ? (
+                      <>
+                        {previewData.result?.action === "charge" && (
+                          <p className="font-semibold text-amber-700 dark:text-amber-400">
+                            Se cobrará ahora: {formatMinorAmount(previewData.result.amount, previewData.currencyCode || "USD")}
+                          </p>
+                        )}
+                        {previewData.result?.action === "credit" && (
+                          <p className="font-semibold text-green-700 dark:text-green-400">
+                            Recibirás un crédito de: {formatMinorAmount(previewData.result.amount, previewData.currencyCode || "USD")}
+                          </p>
+                        )}
+                        {previewData.result?.action === "none" && (
+                          <p className="font-semibold text-gray-700 dark:text-gray-300">Sin cargo ni crédito inmediato.</p>
+                        )}
+
+                        {previewData.recurringTotal && (
+                          <p className="mt-2 text-gray-600 dark:text-gray-400">
+                            Nuevo total recurrente: {formatMinorAmount(previewData.recurringTotal, previewData.currencyCode || "USD")}
+                            {selectedBilling === "monthly" ? " / mes" : " / año"}
+                          </p>
+                        )}
+                        {previewData.nextBillDate && (
+                          <p className="text-gray-600 dark:text-gray-400">
+                            Próxima facturación: {new Date(previewData.nextBillDate).toLocaleDateString("es-AR")}
+                            {previewData.nextBillTotal ? ` — ${formatMinorAmount(previewData.nextBillTotal, previewData.currencyCode || "USD")}` : ""}
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <p className="text-gray-600 dark:text-gray-400">
+                        No se pudo calcular el prorrateo (Paddle no disponible). Se aplicará el prorrateo estándar del proveedor al confirmar.
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button onClick={() => setModalStep("select")} className="flex-1 rounded border border-gray-300 px-4 py-2 font-semibold dark:border-gray-600">
+                      Volver
+                    </button>
+                    <button onClick={handleUpgradeSubscription} disabled={updatingSubscription} className="flex-1 rounded bg-brand-deep px-4 py-2 font-semibold text-white disabled:opacity-50">
+                      {updatingSubscription ? <Loader2 className="inline h-4 w-4 animate-spin" /> : "Confirmar cambio"}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}
