@@ -5,6 +5,7 @@ export const BUSINESS_CUSTOM_ACTIONS: string[] = [
     "Microsoft.Compute/virtualMachines/deallocate/action",
     "Microsoft.Compute/virtualMachines/start/action",
     "Microsoft.Compute/virtualMachines/restart/action",
+    "Microsoft.Compute/virtualMachines/write",
     "Microsoft.Resources/tags/write",
     "Microsoft.Consumption/budgets/read",
     "Microsoft.Consumption/budgets/write",
@@ -14,8 +15,10 @@ export const BUSINESS_CUSTOM_ACTIONS: string[] = [
 export const ENTERPRISE_CUSTOM_ACTIONS: string[] = [
     ...BUSINESS_CUSTOM_ACTIONS,
     "Microsoft.Resources/subscriptions/resourceGroups/write",
+    "Microsoft.Compute/virtualMachines/delete",
     "Microsoft.Compute/disks/delete",
     "Microsoft.Compute/snapshots/delete",
+    "Microsoft.Web/serverfarms/delete",
     "Microsoft.Network/networkInterfaces/delete",
     "Microsoft.Network/publicIPAddresses/delete",
     "Microsoft.Network/networkSecurityGroups/delete",
