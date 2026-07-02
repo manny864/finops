@@ -17,7 +17,7 @@ const nextConfig: NextConfig = {
     const scriptSrc = [
       "script-src 'self' 'unsafe-inline'",
       isDev ? "'unsafe-eval'" : '',
-      "https://cdn.paddle.com https://www.google.com https://www.gstatic.com https://static.cloudflareinsights.com",
+      "https://cdn.paddle.com https://sandbox-cdn.paddle.com https://www.google.com https://www.gstatic.com https://static.cloudflareinsights.com",
     ].filter(Boolean).join(' ');
 
     return [
@@ -52,11 +52,11 @@ const nextConfig: NextConfig = {
             value: [
               "default-src 'self'",
               scriptSrc,
-              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.paddle.com https://sandbox-cdn.paddle.com",
               "font-src 'self' data: https://fonts.gstatic.com",
               "img-src 'self' data: blob: https:",
-              "connect-src 'self' https://api.paddle.com https://login.microsoftonline.com https://graph.microsoft.com https://management.azure.com https://cloudflareinsights.com",
-              "frame-src 'self' https://cdn.paddle.com https://app.powerbi.com",
+              "connect-src 'self' https://api.paddle.com https://sandbox-api.paddle.com https://cdn.paddle.com https://sandbox-cdn.paddle.com https://checkout-service.paddle.com https://checkout-service.sandbox.paddle.com https://login.microsoftonline.com https://graph.microsoft.com https://management.azure.com https://cloudflareinsights.com",
+              "frame-src 'self' https://cdn.paddle.com https://sandbox-cdn.paddle.com https://buy.paddle.com https://sandbox-buy.paddle.com https://app.powerbi.com",
               "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self'",
