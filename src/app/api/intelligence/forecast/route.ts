@@ -224,8 +224,17 @@ export async function POST(request: NextRequest) {
 
         const dailyByDay = new Map<number, number>();
         (Array.isArray(costRows) ? costRows as any[] : []).forEach(r => {
-            const d = r.day_date instanceof Date ? r.day_date : new Date(r.day_date);
-            dailyByDay.set(d.getDate(), Number(r.daily) || 0);
+            // TZ-safe: si el driver devuelve string 'YYYY-MM-DD', parsear el día
+            // directamente (new Date(str).getDate() corre el día en TZ detrás de UTC).
+            let dayOfMonth: number;
+            if (r.day_date instanceof Date) {
+                dayOfMonth = r.day_date.getDate();
+            } else {
+                const m = String(r.day_date).match(/^(\d{4})-(\d{2})-(\d{2})/);
+                if (!m) return;
+                dayOfMonth = Number(m[3]);
+            }
+            dailyByDay.set(dayOfMonth, Number(r.daily) || 0);
         });
 
         if (dailyByDay.size === 0) {
