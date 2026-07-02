@@ -14,6 +14,8 @@ export interface Tenant {
   trial_ends_at?: string;
   requires_rbac_update?: boolean;
   is_onboarded?: boolean;
+  client_id?: string | null;
+  has_client_secret?: boolean;
 }
 
 interface TenantContextType {
