@@ -321,13 +321,40 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
                     });
                 })()
             };
-        case 'sustainability':
+        case 'sustainability': {
+            const vmCount = 12 * multiplier;
+            const storageCount = 5 * multiplier;
+            const zombieCount = 3 * multiplier;
+            const byRegion = [
+                { region: 'eastus', resources: 8 * multiplier, intensity: 379, kgCO2e: 4200.5 * multiplier },
+                { region: 'westeurope', resources: 5 * multiplier, intensity: 88, kgCO2e: 1100.2 * multiplier },
+                { region: 'northeurope', resources: 3 * multiplier, intensity: 42, kgCO2e: 520.8 * multiplier },
+                { region: 'southeastasia', resources: 4 * multiplier, intensity: 408, kgCO2e: 2680.0 * multiplier },
+                { region: 'brazilsouth', resources: 2 * multiplier, intensity: 95, kgCO2e: 640.3 * multiplier },
+            ];
+            const footprint = byRegion.reduce((s, r) => s + r.kgCO2e, 0);
+            const avoided = 340.2 * multiplier;
+            const recommendations = [
+                { fromRegion: 'eastus', currentIntensity: 379, toRegion: 'northeurope', targetIntensity: 42, reductionPct: 89, projectedReductionKgCO2: 1580.4 * multiplier, impactedResources: 6 * multiplier },
+                { fromRegion: 'southeastasia', currentIntensity: 408, toRegion: 'westeurope', targetIntensity: 88, reductionPct: 78, projectedReductionKgCO2: 980.6 * multiplier, impactedResources: 3 * multiplier },
+            ];
             return {
-                footprint: 12500.5,
-                avoided: 3400.2,
-                vmCount: 45,
-                zombieCount: 8
+                success: true,
+                mock: true,
+                footprint,
+                avoided,
+                vmCount,
+                storageCount,
+                zombieCount,
+                byRegion,
+                recommendations,
+                equivalencies: {
+                    carKm: Math.round(footprint * 4.6),
+                    treesYear: Math.round(footprint / 21),
+                    phoneCharges: Math.round(footprint * 121),
+                },
             };
+        }
         case 'schedules':
             return {
                 success: true,
@@ -543,6 +570,32 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
                     { department: 'Sales', cost: 1500.00, percentage: 20 }
                 ]
             };
+        case 'aks_chargeback': {
+            const namespaces = [
+                { namespace: 'payments-api', totalCost: 3120 * multiplier },
+                { namespace: 'checkout-web', totalCost: 1890 * multiplier },
+                { namespace: 'analytics-batch', totalCost: 2450 * multiplier },
+                { namespace: 'data-streaming', totalCost: 1740 * multiplier },
+                { namespace: 'identity', totalCost: 520 * multiplier },
+                { namespace: 'monitoring', totalCost: 610 * multiplier },
+                { namespace: 'ingress-nginx', totalCost: 420 * multiplier },
+                { namespace: 'kube-system', totalCost: 380 * multiplier },
+            ];
+            const totalClusterCost = namespaces.reduce((s, n) => s + n.totalCost, 0);
+            return {
+                success: true,
+                mock: true,
+                clusterName: 'aks-prod-01',
+                availableClusters: [
+                    { name: 'aks-prod-01', subscriptionId: 'demo', resourceGroup: 'rg-k8s-prod', nodeResourceGroup: 'MC_rg-k8s-prod_aks-prod-01_eastus' },
+                    { name: 'aks-dev-02', subscriptionId: 'demo', resourceGroup: 'rg-k8s-dev', nodeResourceGroup: 'MC_rg-k8s-dev_aks-dev-02_eastus' },
+                ],
+                namespaceBreakdownAvailable: true,
+                totalClusterCost,
+                totalClusterCpuCores: 16 * (multiplier >= 50 ? 8 : multiplier >= 10 ? 4 : multiplier >= 3 ? 2 : 1),
+                chargebackData: namespaces,
+            };
+        }
         case 'budgets':
             return {
                 success: true,
@@ -654,28 +707,32 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
                     }
                 ]
             };
-        case 'unit_economics':
-            // Generar 30 días de datos deterministas
-            const ueData = [];
+        case 'unit_economics': {
+            // 30 días deterministas (sin Math.random para evitar flakiness en tests/SSR).
+            const ueRows = [];
             for (let i = 29; i >= 0; i--) {
                 const date = new Date(Date.now() - i * 86400000);
-                const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-                // El tráfico baja en fines de semana
-                const dau = isWeekend ? 35000 + Math.floor(Math.random() * 5000) : 55000 + Math.floor(Math.random() * 8000);
-                // El costo baja menos que el tráfico por costos fijos (esto empeora la economía unitaria el finde)
-                const cost = isWeekend ? (450 + Math.random() * 50) * multiplier : (850 + Math.random() * 100) * multiplier;
-                
-                ueData.push({
+                const dow = date.getDay();
+                const isWeekend = dow === 0 || dow === 6;
+                // Variación pseudo-determinista derivada del índice del día.
+                const wob = (i * 7919) % 8000;
+                const dau = isWeekend ? 35000 + (wob % 5000) : 55000 + wob;
+                // El costo baja menos que el tráfico en fin de semana (costos fijos),
+                // por eso el costo unitario empeora los findes.
+                const cost = (isWeekend ? 450 + (wob % 50) : 850 + (wob % 100)) * multiplier;
+                ueRows.push({
                     date: date.toISOString().split('T')[0],
-                    cost: cost,
-                    dau: dau,
-                    costPerUser: cost / dau // En dólares por usuario
+                    cost,
+                    dau,
+                    costPerUser: cost / dau,
                 });
             }
             return {
                 success: true,
-                data: ueData
+                mock: true,
+                data: { rows: ueRows, estimatedDau: 55000 },
             };
+        }
         case 'scorecard':
             return {
                 success: true,
