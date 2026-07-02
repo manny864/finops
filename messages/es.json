@@ -476,6 +476,7 @@
     "executorRolesIntro": "El usuario que ejecute el script en Azure Cloud Shell debe tener, en CADA suscripción destino:",
     "executorRolesOwner": "Owner O (Contributor + User Access Administrator) — necesario para asignar roles y para crear/actualizar el rol personalizado.",
     "executorRolesUaa": "El rol personalizado es a nivel directorio: su AssignableScopes debe incluir todas las suscripciones, por lo que necesitás permiso de escritura en TODAS; de lo contrario solo se creará/asignará en las que controlás.",
+    "executorRolesReservations": "Para que se muestre el panel 'Descuentos por Compromiso (RIs)' debés ser Reservations Administrator (u Owner de los reservation orders) para que el script pueda asignar 'Reservations Reader' en el scope tenant /providers/Microsoft.Capacity. Las reservas viven a nivel tenant (no por suscripción) e incluyen scope Shared y Single; sin este rol no aparecen.",
     "executorRolesGlobalAdmin": "Nota: ser Global Administrator de Entra ID NO otorga acceso a las suscripciones de Azure. Asignate Owner en cada suscripción, o activá \"Administración de acceso para recursos de Azure\" en Entra ID (otorga User Access Administrator en la raíz /).",
     "executorRolesSummary": "Si un rol aparece en una sola suscripción, revisá el resumen de \"FALLOS\" que imprime el script al final — muestra exactamente qué scopes fueron denegados."
   },

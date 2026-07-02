@@ -340,6 +340,7 @@ export default function OnboardingPage() {
                           <ul className="list-disc pl-5 space-y-1">
                               <li>{t('executorRolesOwner')}</li>
                               <li>{t('executorRolesUaa')}</li>
+                              <li>{t('executorRolesReservations')}</li>
                           </ul>
                           <p>{t('executorRolesGlobalAdmin')}</p>
                           <p className="text-xs text-amber-700">{t('executorRolesSummary')}</p>
@@ -498,6 +499,20 @@ export default function OnboardingPage() {
                               SP ObjectId: <code className="font-mono">{checkResult.summary.spObjectId}</code>
                           </div>
                       </div>
+
+                      {/* Acceso a Reservas (RIs) — scope tenant Microsoft.Capacity */}
+                      {checkResult.summary.reservationsAccess && (
+                          <div className={`p-3 rounded-lg border text-xs flex items-start gap-2 ${
+                              checkResult.summary.reservationsAccess.status === 'OK'
+                                  ? 'bg-green-50 dark:bg-green-950/40 border-green-200 dark:border-green-900/60 text-green-900 dark:text-green-200'
+                                  : checkResult.summary.reservationsAccess.status === 'MISSING'
+                                      ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900/60 text-amber-900 dark:text-amber-200'
+                                      : 'bg-gray-50 dark:bg-slate-800/60 border-gray-200 dark:border-slate-700 text-gray-700 dark:text-gray-300'
+                          }`}>
+                              <span className="font-semibold whitespace-nowrap">Reservas (RIs):</span>
+                              <span>{checkResult.summary.reservationsAccess.hint}</span>
+                          </div>
+                      )}
 
                       {/* Hint global */}
                       {checkResult.globalHint && (
