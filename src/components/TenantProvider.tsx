@@ -253,7 +253,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                           message: `[DEMO] Acción "${parsedBody.action}" SIMULADA sobre ${Array.isArray(parsedBody.vms) ? parsedBody.vms.length : 0} VM(s). En un tenant real este comando se enviaría a Azure.`,
                       }), { status: 200 });
                   }
-                  return new Response(JSON.stringify(getMockDataForRoute('schedules', tier)), {status: 200});
+                  return new Response(JSON.stringify(getMockDataForRoute('audit_full', tier)), {status: 200});
               }
               if (url.includes('/api/intelligence/chargeback')) return new Response(JSON.stringify(getMockDataForRoute('chargeback', tier)), {status: 200});
               // AKS Chargeback debe ir ANTES que /api/intelligence/aks (substring).
@@ -401,7 +401,206 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               }
               if (url.includes('/api/intelligence/compute-cost-per-core')) return new Response(JSON.stringify(getMockDataForRoute('compute-efficiency', tier)), {status: 200});
               if (url.includes('/api/intelligence/macc')) return new Response(JSON.stringify(getMockDataForRoute('macc', tier)), {status: 200});
-              if (url.includes('/api/rightsizing/') || url.includes('/api/intelligence/ai-analytics') || url.includes('/api/governance/expiring-credentials') || url.includes('/api/cleanup/zombies/networking') || url.includes('/api/admin/report/invoicing')) {
+
+              // ===== Bloque demo: features admin / gobernanza / analytics faltantes =====
+              {
+                  const dm = tier === 'enterprise' ? 50 : tier === 'business' ? 10 : tier === 'pro' ? 3 : 1;
+                  const nowMs = Date.now();
+                  const dayMs = 86400000;
+
+                  // AI Cost Analytics
+                  if (url.includes('/api/intelligence/ai-analytics')) return new Response(JSON.stringify(getMockDataForRoute('ai-analytics', tier)), { status: 200 });
+
+                  // Credenciales por expirar
+                  if (url.includes('/api/governance/expiring-credentials')) {
+                      const samples = [
+                          { displayName: 'finops-onboarding-sp', credentialType: 'password' as const, days: 2 },
+                          { displayName: 'github-actions-cicd', credentialType: 'certificate' as const, days: 12 },
+                          { displayName: 'data-ingest-job', credentialType: 'password' as const, days: 28 },
+                          { displayName: 'monitoring-sp', credentialType: 'certificate' as const, days: 65 },
+                      ];
+                      const sev = (d: number) => (d <= 7 ? 'critical' : d <= 30 ? 'high' : d <= 60 ? 'medium' : 'low');
+                      const items = samples.map((s, i) => ({
+                          appId: `00000000-0000-0000-0000-${String(i).padStart(12, '0')}`,
+                          displayName: s.displayName,
+                          credentialType: s.credentialType,
+                          credentialId: `cred-${i}`,
+                          expiresAt: new Date(nowMs + s.days * dayMs).toISOString(),
+                          daysTillExpiry: s.days,
+                          severity: sev(s.days),
+                      }));
+                      const counts = { critical: 0, high: 0, medium: 0, low: 0 } as Record<string, number>;
+                      items.forEach((it) => { counts[it.severity]++; });
+                      return new Response(JSON.stringify({ success: true, mock: true, items, counts }), { status: 200 });
+                  }
+
+                  // Notificaciones (canales)
+                  if (url.includes('/api/admin/notifications/channels')) {
+                      if (init?.method && init.method !== 'GET') return new Response(JSON.stringify({ success: true, mock: true, id: Date.now() }), { status: 200 });
+                      return new Response(JSON.stringify({ success: true, mock: true, channels: [
+                          { id: 1, type: 'slack', name: 'FinOps Alerts', severity_filter: 'high', enabled: 1, created_at: new Date(nowMs - 30 * dayMs).toISOString(), updated_at: new Date(nowMs - 2 * dayMs).toISOString() },
+                          { id: 2, type: 'teams', name: 'Ops On-Call', severity_filter: 'critical', enabled: 1, created_at: new Date(nowMs - 60 * dayMs).toISOString(), updated_at: new Date(nowMs - 5 * dayMs).toISOString() },
+                          { id: 3, type: 'email', name: 'Finance Digest', severity_filter: 'medium', enabled: 0, created_at: new Date(nowMs - 90 * dayMs).toISOString(), updated_at: new Date(nowMs - 10 * dayMs).toISOString() },
+                      ] }), { status: 200 });
+                  }
+
+                  // Cloud accounts (AWS)
+                  if (url.includes('/api/aws/accounts')) {
+                      if (init?.method && init.method !== 'GET') return new Response(JSON.stringify({ id: 'mock-aws-' + Date.now(), accountId: '123456789012', alias: 'demo', externalId: 'ext-demo' }), { status: 201 });
+                      return new Response(JSON.stringify({ accounts: [
+                          { id: 'aws-1', tenant_id: 'demo', account_id: '123456789012', role_arn: 'arn:aws:iam::123456789012:role/FinOpsReadOnly', alias: 'prod-aws', cur_bucket: 'cur-prod-billing', cur_prefix: 'cur/', cur_report_name: 'finops-cur', last_sync_at: new Date(nowMs - dayMs).toISOString(), sync_status: 'OK', last_error_message: null, created_at: new Date(nowMs - 120 * dayMs).toISOString() },
+                          { id: 'aws-2', tenant_id: 'demo', account_id: '210987654321', role_arn: 'arn:aws:iam::210987654321:role/FinOpsReadOnly', alias: 'data-lake-aws', cur_bucket: 'cur-data-billing', cur_prefix: 'cur/', cur_report_name: 'finops-cur', last_sync_at: new Date(nowMs - 3 * dayMs).toISOString(), sync_status: 'SYNCING', last_error_message: null, created_at: new Date(nowMs - 60 * dayMs).toISOString() },
+                      ] }), { status: 200 });
+                  }
+
+                  // SSO SAML
+                  if (url.includes('/api/admin/sso')) {
+                      if (init?.method && init.method !== 'GET') return new Response(JSON.stringify({ success: true, mock: true }), { status: 200 });
+                      const enabled = tier === 'enterprise' || tier === 'business';
+                      return new Response(JSON.stringify({ success: true, config: {
+                          tenant_id: 'demo',
+                          workos_org_id: enabled ? 'org_demo_123' : null,
+                          workos_connection_id: enabled ? 'conn_demo_456' : null,
+                          domain: enabled ? 'contoso.com' : null,
+                          enabled,
+                      } }), { status: 200 });
+                  }
+
+                  // Data residency
+                  if (url.includes('/api/admin/data-residency')) {
+                      if (init?.method && init.method !== 'GET') return new Response(JSON.stringify({ success: true, mock: true }), { status: 200 });
+                      return new Response(JSON.stringify({
+                          region: 'LATAM',
+                          locked_at: new Date(nowMs - 200 * dayMs).toISOString(),
+                          can_change: false,
+                          available_regions: ['US', 'EU', 'LATAM', 'APAC', 'GLOBAL'],
+                      }), { status: 200 });
+                  }
+
+                  // Webhook config
+                  if (url.includes('/api/admin/config/webhook')) {
+                      if (init?.method && init.method !== 'GET') return new Response(JSON.stringify({ success: true, mock: true }), { status: 200 });
+                      return new Response(JSON.stringify({ webhook_url: 'https://hooks.demo.finops/incoming/xxxxx' }), { status: 200 });
+                  }
+
+                  // AI config (guardar) — evita 401 en PATCH
+                  if (url.includes('/api/admin/config/ai')) return new Response(JSON.stringify({ success: true, mock: true }), { status: 200 });
+
+                  // Pricing units
+                  if (url.includes('/api/admin/pricing-units')) {
+                      if (url.includes('test=')) return new Response(JSON.stringify({ success: true, input: { uom: 'demo', qty: '1' }, output: { baseUnit: 'Hour', normalizedQty: '1', display: '1 Hour', category: 'Compute', inferred: false } }), { status: 200 });
+                      if (init?.method === 'POST') return new Response(JSON.stringify({ success: true, mock: true, inserted: 45, message: 'Demo reseed' }), { status: 200 });
+                      return new Response(JSON.stringify({ success: true, cacheSize: 45, total: 5, items: [
+                          { uom_raw: '1 Hour', block_size: '1', base_unit: 'Hour', display_unit: 'Hours', category: 'Compute' },
+                          { uom_raw: '100 Hours', block_size: '100', base_unit: 'Hour', display_unit: 'Hours', category: 'Compute' },
+                          { uom_raw: '1 GB/Month', block_size: '1', base_unit: 'GB', display_unit: 'GB-Month', category: 'Storage' },
+                          { uom_raw: '10K Operations', block_size: '10000', base_unit: 'Operation', display_unit: 'Operations', category: 'Transactions' },
+                          { uom_raw: '1 GB (egress)', block_size: '1', base_unit: 'GB', display_unit: 'GB', category: 'Networking' },
+                      ] }), { status: 200 });
+                  }
+
+                  // FOCUS 1.1 export (descarga blob)
+                  if (url.includes('/api/exports/focus')) {
+                      const csv = [
+                          'BillingAccountId,ChargePeriodStart,ServiceName,ResourceId,BilledCost,EffectiveCost,BillingCurrency',
+                          'demo-ea-001,2026-06-01,Virtual Machines,/subscriptions/demo/rg/vm-prod-01,1234.56,1100.00,USD',
+                          'demo-ea-001,2026-06-01,Storage,/subscriptions/demo/rg/stprod01,320.00,300.00,USD',
+                          'demo-ea-001,2026-06-01,Azure Kubernetes Service,/subscriptions/demo/rg/aks-prod,890.10,820.00,USD',
+                      ].join('\n');
+                      return new Response(csv, { status: 200, headers: { 'Content-Type': 'text/csv', 'Content-Disposition': 'attachment; filename="focus-demo.csv"' } });
+                  }
+
+                  // Registro de auditoría
+                  if (url.includes('/api/admin/audit')) {
+                      const actions = ['LOGIN', 'UPDATE_BUDGET', 'CREATE_APIKEY', 'DELETE_RESOURCE', 'ASSIGN_ROLE', 'EXPORT_FOCUS'];
+                      const logs = Array.from({ length: 8 }).map((_, i) => ({
+                          id: i + 1,
+                          user_email: ['admin@contoso.com', 'finops@contoso.com', 'ops@contoso.com'][i % 3],
+                          action_type: actions[i % actions.length],
+                          resource_type: 'Tenant',
+                          resource_id: 'demo',
+                          status: i % 5 === 0 ? 'FAILURE' : 'SUCCESS',
+                          ip_address: '200.55.10.' + (10 + i),
+                          created_at: new Date(nowMs - i * 3 * 3600000).toISOString(),
+                      }));
+                      return new Response(JSON.stringify({ logs, total: 128, limit: 10, offset: 0, hasMore: true }), { status: 200 });
+                  }
+
+                  // MCP API keys
+                  if (url.includes('/api/admin/mcp-keys')) {
+                      if (init?.method === 'POST') return new Response(JSON.stringify({ success: true, mock: true, key: 'mcp_live_demo_' + Math.random().toString(36).slice(2, 18), key_prefix: 'mcp_demo' }), { status: 200 });
+                      if (init?.method === 'DELETE') return new Response(JSON.stringify({ success: true, mock: true }), { status: 200 });
+                      return new Response(JSON.stringify({ success: true, keys: [
+                          { id: 1, key_prefix: 'mcp_demo1', label: 'Claude Desktop', created_by_email: 'admin@contoso.com', created_at: new Date(nowMs - 40 * dayMs).toISOString(), last_used_at: new Date(nowMs - 2 * dayMs).toISOString(), revoked_at: null },
+                          { id: 2, key_prefix: 'mcp_demo2', label: 'CI Pipeline', created_by_email: 'devops@contoso.com', created_at: new Date(nowMs - 12 * dayMs).toISOString(), last_used_at: null, revoked_at: null },
+                      ] }), { status: 200 });
+                  }
+
+                  // API pública
+                  if (url.includes('/api/admin/public-api-keys')) {
+                      if (init?.method === 'POST') return new Response(JSON.stringify({ success: true, mock: true, key: 'apk_live_demo_' + Math.random().toString(36).slice(2, 18), key_prefix: 'apk_demo' }), { status: 200 });
+                      if (init?.method === 'DELETE' || init?.method === 'PATCH') return new Response(JSON.stringify({ success: true, mock: true }), { status: 200 });
+                      return new Response(JSON.stringify({ success: true, keys: [
+                          { id: 1, name: 'Grafana Integration', key_prefix: 'apk_demo1', scopes: ['read:cost', 'read:resources'], rate_limit_per_min: 60, enabled: 1, last_used_at: new Date(nowMs - dayMs).toISOString(), created_by: 'admin@contoso.com', created_at: new Date(nowMs - 30 * dayMs).toISOString() },
+                          { id: 2, name: 'Data Warehouse ETL', key_prefix: 'apk_demo2', scopes: ['read:cost'], rate_limit_per_min: 120, enabled: 1, last_used_at: null, created_by: 'data@contoso.com', created_at: new Date(nowMs - 7 * dayMs).toISOString() },
+                      ] }), { status: 200 });
+                  }
+
+                  // Resource groups (Artefactos y Workbooks)
+                  if (url.includes('/api/resourcegroups')) {
+                      if (init?.method === 'POST') return new Response(JSON.stringify({ success: true, mock: true, resourceGroup: { name: 'demo-rg-new', location: 'eastus' } }), { status: 200 });
+                      return new Response(JSON.stringify({ success: true, resourceGroups: [
+                          { name: 'rg-prod-core', location: 'eastus' },
+                          { name: 'rg-data-lake', location: 'westeurope' },
+                          { name: 'rg-k8s-prod', location: 'eastus' },
+                          { name: 'rg-network-hub', location: 'eastus2' },
+                      ] }), { status: 200 });
+                  }
+
+                  // Presupuestos (Reporte Ejecutivo usa /api/budgets)
+                  if (url.includes('/api/budgets') && !url.includes('/api/budgets/burn') && !url.includes('/api/budgets/alerts')) {
+                      return new Response(JSON.stringify({ budgets: [
+                          { id: 1, costCenter: 'Engineering', monthlyLimit: 20000 * dm, alertThreshold: 80, currentSpend: 16400 * dm, utilization: 82 },
+                          { id: 2, costCenter: 'Data & Analytics', monthlyLimit: 12000 * dm, alertThreshold: 85, currentSpend: 12600 * dm, utilization: 105 },
+                          { id: 3, costCenter: 'Marketing', monthlyLimit: 5000 * dm, alertThreshold: 75, currentSpend: 3100 * dm, utilization: 62 },
+                      ] }), { status: 200 });
+                  }
+
+                  // Ingesta CSV (POST)
+                  if (url.includes('/api/intelligence/upload')) {
+                      return new Response(JSON.stringify({ success: true, mock: true, mappedEntries: 128, assessment: '## Análisis de costos (DEMO)\n\nSe procesaron **128 filas** del CSV FOCUS v1.1.\n\n- Top servicio: Virtual Machines (42% del gasto)\n- Anomalía detectada: +23% en Storage vs. mes previo\n- Ahorro potencial estimado: **$3,450/mes** (rightsizing + reservas)\n\n*En producción este análisis lo genera el motor de IA sobre tus datos reales.*' }), { status: 200 });
+                  }
+
+                  // Onboarding: verificación de roles del SP
+                  if (url.includes('/api/admin/check-sp-roles')) {
+                      const roles = ['Reader', 'Cost Management Reader', 'Tag Contributor'];
+                      return new Response(JSON.stringify({
+                          success: true, mock: true,
+                          summary: {
+                              tier: tier.charAt(0).toUpperCase() + tier.slice(1),
+                              totalSubscriptions: 3, okCount: 3, partialCount: 0, noRolesCount: 0,
+                              requiredRoles: roles,
+                              requiredCustomRole: 'FinOps Remediation',
+                              spObjectId: '00000000-1111-2222-3333-444444444444',
+                              reservationsAccess: { status: 'OK', hint: 'El SP tiene acceso de lectura a Reservations (Microsoft.Capacity).' },
+                          },
+                          globalHint: 'Todas las suscripciones tienen los roles requeridos. ✅',
+                          subscriptions: [
+                              { subscriptionId: 'sub-demo-001', displayName: 'Production', status: 'OK', assignedRoles: roles, missingRoles: [], customRoleRequired: true, customRoleName: 'FinOps Remediation' },
+                              { subscriptionId: 'sub-demo-002', displayName: 'Staging', status: 'OK', assignedRoles: roles, missingRoles: [], customRoleRequired: true, customRoleName: 'FinOps Remediation' },
+                              { subscriptionId: 'sub-demo-003', displayName: 'Sandbox', status: 'OK', assignedRoles: roles, missingRoles: [], customRoleRequired: false, customRoleName: null },
+                          ],
+                          timestamp: new Date().toISOString(),
+                      }), { status: 200 });
+                  }
+
+                  // Onboarding: generación de script
+                  if (url.includes('/api/admin/onboarding')) {
+                      return new Response(JSON.stringify({ success: true, mock: true, script: '# DEMO — Script de onboarding (Azure CLI)\n# En producción este script crea el App Registration, el Service Principal\n# y asigna los roles mínimos requeridos por tu tier.\n\naz ad sp create-for-rbac --name "finops-cscloud" --role "Reader" \\\n  --scopes /subscriptions/<SUB_ID>\n\naz role assignment create --assignee <SP_APP_ID> \\\n  --role "Cost Management Reader" --scope /subscriptions/<SUB_ID>\n' }), { status: 200 });
+                  }
+              }
+
+              if (url.includes('/api/rightsizing/') || url.includes('/api/cleanup/zombies/networking') || url.includes('/api/admin/report/invoicing')) {
                   return new Response(JSON.stringify({ mock: true, items: [], data: [], success: true }), {status: 200});
               }
               if (url.includes('/api/remediation') && !url.includes('/workflow')) return new Response(JSON.stringify({ mock: true, success: true }), {status: 200});
