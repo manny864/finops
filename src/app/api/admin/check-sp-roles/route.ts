@@ -17,6 +17,12 @@ const BUILTIN_ROLE_IDS: Record<string, string> = {
     'Owner': '8e3af657-a8ff-443c-a75c-2fe8c4bcb635',
 };
 
+// Rol built-in para lectura de reservas (RIs). Se asigna a nivel TENANT
+// (/providers/Microsoft.Capacity), NO por suscripción, porque las reservas
+// viven a nivel directorio e incluyen scope Shared y Single.
+const RESERVATIONS_READER_ROLE_ID = '582fc458-8989-419f-a480-75249bc5db7e';
+const RESERVATIONS_SCOPE = '/providers/Microsoft.Capacity';
+
 type RolesByTier = {
     builtIn: string[];
     requireCustomRole: boolean;
@@ -104,6 +110,43 @@ async function listSpRoleAssignmentsInSubscription(
         roleDefinitionId: a.properties?.roleDefinitionId?.split('/').pop() || '',
         principalId: a.properties?.principalId || '',
     }));
+}
+
+// Verifica si el SP tiene 'Reservations Reader' a nivel tenant (Microsoft.Capacity).
+// Necesario para el panel "Descuentos por Compromiso (RIs)". Es un scope distinto al
+// de suscripción, por eso se consulta por separado. Best-effort: si no se puede
+// listar asignaciones en ese scope, se reporta 'UNKNOWN' en lugar de romper.
+type ReservationsAccess = {
+    assigned: boolean;
+    status: 'OK' | 'MISSING' | 'UNKNOWN';
+    hint: string;
+};
+
+async function checkReservationsAccess(armToken: string, spObjectId: string): Promise<ReservationsAccess> {
+    try {
+        const url = `https://management.azure.com${RESERVATIONS_SCOPE}/providers/Microsoft.Authorization/roleAssignments?$filter=principalId eq '${spObjectId}'&api-version=2022-04-01`;
+        const res = await fetch(url, { headers: { Authorization: `Bearer ${armToken}` } });
+        if (!res.ok) {
+            return {
+                assigned: false,
+                status: 'UNKNOWN',
+                hint: `No se pudo verificar el rol de reservas (HTTP ${res.status}). Requiere poder leer asignaciones en ${RESERVATIONS_SCOPE}.`,
+            };
+        }
+        const data = await res.json();
+        const assigned = (data.value || []).some(
+            (a: any) => (a.properties?.roleDefinitionId?.split('/').pop() || '').toLowerCase() === RESERVATIONS_READER_ROLE_ID
+        );
+        return assigned
+            ? { assigned: true, status: 'OK', hint: `✅ 'Reservations Reader' asignado en ${RESERVATIONS_SCOPE}. Las reservas (RIs) Shared/Single se listarán en el panel.` }
+            : { assigned: false, status: 'MISSING', hint: `⚠️ Falta 'Reservations Reader' en ${RESERVATIONS_SCOPE}. Un Reservations Administrator debe asignarlo al SP (Portal > Reservations > Access control) o re-ejecutar el script de onboarding. Sin él, las reservas no aparecen.` };
+    } catch (e: any) {
+        return {
+            assigned: false,
+            status: 'UNKNOWN',
+            hint: `No se pudo verificar el rol de reservas: ${(e?.message || String(e)).slice(0, 160)}`,
+        };
+    }
 }
 
 // Resuelve la definición completa de un rol (nombre + acciones + notActions + tipo).
@@ -271,6 +314,9 @@ export async function GET(request: NextRequest) {
             return report;
         }));
 
+        // Chequeo de acceso a RESERVAS (RIs) a nivel tenant (scope aparte de las suscripciones).
+        const reservationsAccess = await checkReservationsAccess(armToken, spObjectId);
+
         const summary = {
             tenantId,
             tier: tier || 'Essential',
@@ -284,6 +330,7 @@ export async function GET(request: NextRequest) {
             partialCount: subReports.filter(r => r.status === 'PARTIAL').length,
             noRolesCount: subReports.filter(r => r.status === 'NO_ROLES').length,
             errorCount: subReports.filter(r => r.status === 'ERROR').length,
+            reservationsAccess,
         };
 
         let globalHint = '';
@@ -300,6 +347,11 @@ export async function GET(request: NextRequest) {
             globalHint = `⚠️ ${summary.partialCount} suscripción(es) con roles/permisos incompletos. Faltantes: ${allMissingRoles.join(', ')}. Asigne al SP (objectId: ${spObjectId}) en las suscripciones afectadas, o re-ejecute el script de onboarding.${actionsHint}`;
         } else if (summary.totalSubscriptions === 0) {
             globalHint = '⚠️ El SP no ve ninguna suscripción. Verifique que tenga al menos rol Reader en alguna suscripción del tenant.';
+        }
+
+        // Anexar estado de acceso a reservas (RIs) al hint global.
+        if (reservationsAccess.status !== 'OK') {
+            globalHint = `${globalHint} ${reservationsAccess.hint}`.trim();
         }
 
         return NextResponse.json({
