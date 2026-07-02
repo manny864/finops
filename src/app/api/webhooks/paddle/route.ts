@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import pool from "@/modules/storage/db";
 import { priceIdToTier, TierName } from "@/lib/paddleTierMap";
+import { minorUnitsToDecimalString } from "@/lib/money";
 
 const REPLAY_WINDOW_SECONDS = 5 * 60; // 5 minutes
 
@@ -291,7 +292,8 @@ async function handleTransactionCompleted(payload: any, tenantId?: string) {
           tenant,
           transactionId,
           subscriptionId,
-          amount ? amount / 100 : null, // Paddle amounts are in cents
+          // Paddle envía montos en unidad menor; conversión exacta sin floats.
+          minorUnitsToDecimalString(amount, currency),
           currency,
           "completed",
           billedAt ? new Date(billedAt) : null,
