@@ -1,6 +1,8 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
+import { useMsal } from '@azure/msal-react';
+import { fetchWithAuthRetry } from '@/lib/msalToken';
 
 interface CreateResourceGroupModalProps {
     isOpen: boolean;
@@ -11,6 +13,7 @@ interface CreateResourceGroupModalProps {
 }
 
 export default function CreateResourceGroupModal({ isOpen, onClose, tenantId, subscriptionId, onSuccess }: CreateResourceGroupModalProps) {
+    const { instance, accounts } = useMsal();
     const [rgName, setRgName] = useState('');
     const [location, setLocation] = useState('eastus');
     const [regions, setRegions] = useState<{name: string, displayName: string}[]>([]);
@@ -23,11 +26,12 @@ export default function CreateResourceGroupModal({ isOpen, onClose, tenantId, su
     const [loadingRgs, setLoadingRgs] = useState(false);
 
     useEffect(() => {
-        if (isOpen && tenantId && subscriptionId) {
+        if (isOpen && tenantId && subscriptionId && accounts.length > 0) {
             const fetchRgs = async () => {
                 setLoadingRgs(true);
                 try {
-                    const res = await fetch(`/api/resourcegroups?tenantId=${tenantId}&subscriptionId=${subscriptionId}`);
+                    const res = await fetchWithAuthRetry(instance, accounts[0],
+                        `/api/resourcegroups?tenantId=${tenantId}&subscriptionId=${subscriptionId}`);
                     const json = await res.json();
                     if (json.resourceGroups) setExistingRgs(json.resourceGroups);
                 } catch (e) {
@@ -39,17 +43,21 @@ export default function CreateResourceGroupModal({ isOpen, onClose, tenantId, su
             const fetchRegions = async () => {
                 setLoadingRegions(true);
                 try {
-                    const res = await fetch(`/api/locations?tenantId=${tenantId}&subscriptionId=${subscriptionId}`);
+                    const res = await fetchWithAuthRetry(instance, accounts[0],
+                        `/api/locations?tenantId=${tenantId}&subscriptionId=${subscriptionId}`);
                     const json = await res.json();
-                    if (json.locations && json.locations.length > 0) {
+                    if (res.ok && json.locations && json.locations.length > 0) {
                         setRegions(json.locations);
                         // set default location if not in list
                         if (!json.locations.find((l: any) => l.name === location)) {
                             setLocation(json.locations[0].name);
                         }
+                    } else if (!res.ok) {
+                        toast.error('No se pudieron cargar las regiones disponibles', { description: json.error });
                     }
                 } catch (e) {
                     console.error("Error fetching locations:", e);
+                    toast.error('No se pudieron cargar las regiones disponibles');
                 }
                 setLoadingRegions(false);
             };
@@ -57,7 +65,7 @@ export default function CreateResourceGroupModal({ isOpen, onClose, tenantId, su
             fetchRgs();
             fetchRegions();
         }
-    }, [isOpen, tenantId, subscriptionId]);
+    }, [isOpen, tenantId, subscriptionId, accounts, instance]);
 
     if (!isOpen) return null;
 
@@ -84,7 +92,8 @@ export default function CreateResourceGroupModal({ isOpen, onClose, tenantId, su
 
         setLoading(true);
         try {
-            const res = await fetch('/api/resourcegroups', {
+            if (accounts.length === 0) throw new Error('Sesión no iniciada.');
+            const res = await fetchWithAuthRetry(instance, accounts[0], '/api/resourcegroups', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
