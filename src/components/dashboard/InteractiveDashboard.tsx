@@ -198,10 +198,13 @@ export default function InteractiveDashboard({
         advisorData.recommendations.Cost.forEach((rec: any) => {
             const savings = parseFloat(rec.extendedProperties?.savingsAmount || '0');
             if (savings > 0) {
-                const rawTitle = rec.shortDescription?.solution || rec.shortDescription?.problem || '';
-                const translated = translateAdvisorText(rawTitle, locale, 'solution')
-                    || translateAdvisorText(rec.shortDescription?.problem, locale, 'problem')
-                    || rawTitle
+                const rawProblem = rec.shortDescription?.problem || '';
+                const rawSolution = rec.shortDescription?.solution || '';
+                // Preferimos el "problem" (título conciso, con mejor cobertura de
+                // traducción) sobre la "solution" larga que casi nunca tiene trío
+                // traducido y quedaba en inglés.
+                const translated = translateAdvisorText(rawProblem, locale, 'problem')
+                    || translateAdvisorText(rawSolution, locale, 'solution')
                     || t('cost_optimization', { fallback: 'Optimización de Costos' });
                 opportunities.push({
                     title: translated,
@@ -274,6 +277,21 @@ export default function InteractiveDashboard({
         cost: Number(dailyMap[date].toFixed(2))
     }));
 
+    // Proyección anual: usamos el SPAN inclusivo de fechas (primera→última), NO la
+    // cantidad de días con datos. Si hay días sin cargos dentro del rango, igual
+    // transcurrieron, así que deben contar en el promedio diario. Dividir por
+    // `evolutionData.length` (solo días con datos) inflaba el promedio y producía
+    // una proyección anual exageradamente alta cuando el consumo era esporádico.
+    const sortedDays = Object.keys(dailyMap).sort();
+    let daysCovered = sortedDays.length;
+    if (sortedDays.length >= 2) {
+        const first = new Date(sortedDays[0]).getTime();
+        const last = new Date(sortedDays[sortedDays.length - 1]).getTime();
+        const spanDays = Math.round((last - first) / 86_400_000) + 1;
+        if (Number.isFinite(spanDays) && spanDays > daysCovered) daysCovered = spanDays;
+    }
+    const annualProjection = daysCovered > 0 ? (totalCost / daysCovered) * 365 : 0;
+
     const formatYAxis = (tickItem: any) => format(tickItem, { compact: true });
 
     const CustomDot = (props: any) => {
@@ -317,7 +335,7 @@ export default function InteractiveDashboard({
                         <DollarSign className="w-3.5 h-3.5 mr-1 text-slate-400" />
                         {t('mtd_spend')}
                     </div>
-                    <div className="text-2xl font-extrabold text-slate-800">{format(totalCost)}</div>
+                    <div className="text-2xl font-extrabold text-slate-800 truncate" title={format(totalCost)}>{format(totalCost)}</div>
                 </div>
                 <div className="bg-white rounded-xl shadow-sm border-gray-100 p-4 border-[2px] border-amber-200 relative overflow-hidden group">
                     <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-amber-200 to-amber-500 rounded-bl-full opacity-20 group-hover:opacity-30 transition-opacity"></div>
@@ -325,7 +343,7 @@ export default function InteractiveDashboard({
                         <TrendingDown className="w-3.5 h-3.5 mr-1 text-amber-500" />
                         {t('potentialSavingsTitle', { fallback: 'Ahorro potencial' })}
                     </div>
-                    <div className="text-2xl font-extrabold text-slate-800 relative z-10">
+                    <div className="text-2xl font-extrabold text-slate-800 relative z-10 truncate" title={format(totalPotentialSavings)}>
                         {format(totalPotentialSavings)}
                     </div>
                     <div className="text-[11px] text-slate-500 font-medium mt-1 mb-3 relative z-10">
@@ -342,9 +360,9 @@ export default function InteractiveDashboard({
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
                     <div className="flex items-center text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
                         <CheckSquare className="w-3.5 h-3.5 mr-1 text-emerald-500 fill-emerald-500/20" />
-                        Ahorro aplicado
+                        {t('applied_savings')}
                     </div>
-                    <div className="text-2xl font-extrabold text-emerald-500">
+                    <div className="text-2xl font-extrabold text-emerald-500 truncate" title={format(computedAppliedSavings)}>
                         {format(computedAppliedSavings)}
                     </div>
                     <div className="text-[11px] text-slate-500 font-medium mt-1">{t('captured_percent')}</div>
@@ -354,8 +372,8 @@ export default function InteractiveDashboard({
                         <Calendar className="w-3.5 h-3.5 mr-1 text-rose-400" />
                         {t('annual_projection')}
                     </div>
-                    <div className="text-2xl font-extrabold text-slate-800">
-                        {format((totalCost / Math.max(1, evolutionData.length)) * 365)}
+                    <div className="text-2xl font-extrabold text-slate-800 truncate" title={format(annualProjection)}>
+                        {format(annualProjection)}
                     </div>
                 </div>
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
@@ -363,7 +381,7 @@ export default function InteractiveDashboard({
                         <Skull className="w-3.5 h-3.5 mr-1 text-slate-500" />
                         {t('zombie_resources')}
                     </div>
-                    <div className="text-2xl font-extrabold text-slate-800">
+                    <div className="text-2xl font-extrabold text-slate-800 truncate">
                         {computedZombies}
                     </div>
                     <div className="text-[11px] text-slate-500 font-medium mt-1">{t('inactive_resources')}</div>
@@ -373,7 +391,7 @@ export default function InteractiveDashboard({
                         <Tag className="w-3.5 h-3.5 mr-1 text-amber-500 fill-amber-500/20" />
                         {t('tag_compliance')}
                     </div>
-                    <div className="text-2xl font-extrabold text-slate-800">
+                    <div className="text-2xl font-extrabold text-slate-800 truncate">
                         {computedUntagged !== undefined ? computedUntagged : '--'}
                     </div>
                     <div className="text-[11px] text-slate-500 font-medium mt-1">{t('untagged_resources')}</div>
@@ -382,12 +400,12 @@ export default function InteractiveDashboard({
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
                     <div className="flex items-center text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
                         <Zap className="w-3.5 h-3.5 mr-1 text-green-500" />
-                        Impacto ambiental
+                        {t('environmental_impact')}
                     </div>
-                    <div className="text-2xl font-extrabold text-slate-800">
+                    <div className="text-2xl font-extrabold text-slate-800 truncate">
                         {(totalCost * 0.35).toLocaleString(undefined, {maximumFractionDigits:1})}
                     </div>
-                    <div className="text-[11px] text-slate-500 font-medium mt-1">kg CO2e estimado</div>
+                    <div className="text-[11px] text-slate-500 font-medium mt-1">{t('estimated_co2e')}</div>
                 </div>
             </div>
 
