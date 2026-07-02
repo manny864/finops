@@ -396,7 +396,7 @@ export default function OnboardingPage() {
                       </button>
                   )}
               </div>
-              <div className="p-4 flex-grow relative">
+              <div className="p-4 flex-grow relative flex flex-col min-h-0">
                   {!generatedScript ? (
                       <div className="flex flex-col items-center justify-center h-full text-gray-600 min-h-[200px]">
                           <Terminal className="w-12 h-12 mb-2 opacity-20" />
@@ -404,10 +404,10 @@ export default function OnboardingPage() {
                       </div>
                   ) : (
                       <>
-                          <div className="text-xs text-indigo-300 mb-3 font-medium bg-indigo-900/30 p-2 rounded border border-indigo-800/50">
+                          <div className="text-xs text-indigo-300 mb-3 font-medium bg-indigo-900/30 p-2 rounded border border-indigo-800/50 flex-shrink-0">
                               ℹ️ Pida a su cliente que pegue este bloque en Azure Cloud Shell (Modo PowerShell).
                           </div>
-                          <pre className="text-xs font-mono text-gray-300 overflow-x-auto whitespace-pre-wrap max-h-[300px] overflow-y-auto custom-scrollbar">
+                          <pre className="text-xs font-mono text-gray-300 overflow-x-auto whitespace-pre-wrap flex-1 min-h-0 overflow-y-auto custom-scrollbar">
                               <code>{generatedScript}</code>
                           </pre>
                       </>
