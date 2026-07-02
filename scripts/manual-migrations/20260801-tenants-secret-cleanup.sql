@@ -1,3 +1,6 @@
+-- ⚠️  MIGRACIÓN MANUAL — NO colocar en /migrations (el runner la aplicaría
+-- automáticamente en el próximo deploy). Ejecutar a mano contra la DB.
+--
 -- Cleanup post-migración: ejecutar SOLO después de:
 --   1) scripts/migrate-tenants-to-keyvault.ts → éxito.
 --   2) 30 días observando logs sin "[tenantCredentials] KV read failed"
