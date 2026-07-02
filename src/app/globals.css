@@ -4,6 +4,12 @@
 
 
 :root {
+  /* Bind native form-control rendering (incl. <select> popup surface on macOS)
+   * to the APP theme, not the OS. Without this the macOS native dropdown menu
+   * follows prefers-color-scheme and can paint a dark popup under a light app,
+   * making dark option text unreadable. See select rules below. */
+  color-scheme: light;
+
   --background: #EEF3F9;
   --foreground: #1B2A41;
   
@@ -73,6 +79,7 @@
 }
 
 .dark {
+  color-scheme: dark;
   --background: #0C1B30;
   --foreground: #F6F9FD;
   --surface: #0A1728;
