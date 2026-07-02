@@ -94,30 +94,27 @@ h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-montserrat), sans-serif;
 }
 
-/* ===== Native <select>/<option> readability fix =====
- * Browsers (especially Chrome/Safari on macOS) render <option> elements
- * with OS-level colors and largely ignore Tailwind classes applied to them.
- * This causes invisible white-on-white text in the open dropdown when the
- * OS uses light theme but the page is in dark theme (or vice versa).
- * Forcing color-scheme and explicit option colors makes the popup readable.
+/* ===== Native <select>/<option> readability — DEFINITIVE FIX =====
+ * Root cause of the recurring "invisible white option text" bug: hard-setting
+ * background-color/color on <option> (or forcing them on <select> with
+ * !important) breaks NATIVE dropdown rendering on macOS/Safari, which paints
+ * the popup with OS colors and ignores/half-honors those styles → white-on-white.
+ *
+ * The robust, cross-platform solution is to NOT paint the native popup by hand
+ * and instead drive it with `color-scheme`, matched to the app theme
+ * (next-themes, class strategy). The browser then renders the native <option>
+ * popup with the correct, always-readable native colors on every OS.
+ *
+ * We only set a readable DEFAULT text color on the closed control (no
+ * !important, so per-element Tailwind `text-*` utilities still win), and never
+ * touch <option> styling. Do NOT reintroduce option/background hacks here.
  */
 select {
   color-scheme: light;
-  background-color: #ffffff !important;
-  color: #0f172a !important;
-}
-select option {
-  background-color: #ffffff !important;
-  color: #0f172a !important;
+  color: var(--ink);
 }
 .dark select {
   color-scheme: dark;
-  background-color: #1e293b !important;
-  color: #f1f5f9 !important;
-}
-.dark select option {
-  background-color: #1e293b !important;
-  color: #f1f5f9 !important;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
