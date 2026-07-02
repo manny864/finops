@@ -9,6 +9,17 @@ async function runInBatches(client: ResourceGraphClient, queries: {key: string, 
     });
 
     const results: any = {};
+    // Si TODAS las queries fallan por permisos (AuthorizationFailed/403), el
+    // audit NO debe devolver "todo en 0" silencioso: se propaga AccessDenied
+    // para que /api/audit/full responda MISSING_RBAC_ROLE y el dashboard
+    // muestre el banner de onboarding en vez de tarjetas en cero.
+    let authFailures = 0;
+    const isAuthError = (e: any) => {
+        const msg = String(e?.message || e || "");
+        return e?.statusCode === 403 || e?.status === 403 ||
+            e?.code === "AuthorizationFailed" || e?.code === "AccessDenied" ||
+            /authorizationfailed|accessdenied|forbidden/i.test(msg);
+    };
     for (let i = 0; i < queries.length; i += batchSize) {
         const batch = queries.slice(i, i + batchSize);
         const batchPromises = batch.map(async (q) => {
@@ -26,6 +37,7 @@ async function runInBatches(client: ResourceGraphClient, queries: {key: string, 
                         currentDelay *= 1.5;
                         retries--;
                     } else {
+                        if (isAuthError(e)) authFailures++;
                         console.warn(`Query ${q.key} failed after retries:`, e.message || e);
                         return { key: q.key, data: [] };
                     }
@@ -35,7 +47,14 @@ async function runInBatches(client: ResourceGraphClient, queries: {key: string, 
         });
         const batchResults = await Promise.all(batchPromises);
         batchResults.forEach(r => results[r.key] = r.data);
-        
+
+        if (authFailures >= queries.length) {
+            throw Object.assign(
+                new Error("AuthorizationFailed: el Service Principal no tiene rol Reader en las suscripciones."),
+                { code: "AccessDenied" }
+            );
+        }
+
         if (i + batchSize < queries.length) {
             await new Promise(resolve => setTimeout(resolve, delayMs));
         }
