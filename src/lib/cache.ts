@@ -71,17 +71,30 @@ export async function getWithStaleWhileRevalidate<T>(
   key: string,
   fetcher: () => Promise<T>,
   ttl: number = 3600,
-  softTtl?: number
+  softTtl?: number,
+  // Permite decidir el TTL en función del dato obtenido (p.ej. cachear un
+  // resultado "degradado"/parcial por poco tiempo para no envenenar el cache
+  // durante 15 min ante un fallo transitorio). Si devuelve <= 0, no se cachea.
+  dynamicTtl?: (data: T) => number
 ): Promise<T> {
   const soft = typeof softTtl === 'number' ? softTtl : Math.floor(ttl / 2);
+  const resolveTtl = (data: T): number =>
+    typeof dynamicTtl === 'function' ? dynamicTtl(data) : ttl;
 
   const revalidate = async () => {
     if (_inFlight.has(key)) return;
     const p = (async () => {
       try {
         const freshData = await fetcher();
-        const envelope: Envelope<T> = { __sw: true, t: Date.now(), data: freshData };
-        await redis.set(key, JSON.stringify(envelope), 'EX', ttl);
+        const effTtl = resolveTtl(freshData);
+        if (effTtl > 0) {
+          const envelope: Envelope<T> = { __sw: true, t: Date.now(), data: freshData };
+          await redis.set(key, JSON.stringify(envelope), 'EX', effTtl);
+        } else {
+          // Resultado no cacheable (p.ej. degradado): borramos cualquier
+          // entrada previa para forzar un fetch fresco en la próxima request.
+          await redis.del(key).catch(() => {});
+        }
       } catch (bgError) {
         console.error(`[SWR] Revalidación fallida en background para key ${key}:`, bgError);
       } finally {
@@ -121,8 +134,11 @@ export async function getWithStaleWhileRevalidate<T>(
   // Cache miss: fetch sincrónico y guardar.
   const freshData = await fetcher();
   try {
-    const envelope: Envelope<T> = { __sw: true, t: Date.now(), data: freshData };
-    await redis.set(key, JSON.stringify(envelope), 'EX', ttl);
+    const effTtl = resolveTtl(freshData);
+    if (effTtl > 0) {
+      const envelope: Envelope<T> = { __sw: true, t: Date.now(), data: freshData };
+      await redis.set(key, JSON.stringify(envelope), 'EX', effTtl);
+    }
   } catch (error) {
     console.error('Error escribiendo en Redis en SWR:', error);
   }

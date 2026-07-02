@@ -398,7 +398,11 @@ export async function GET(request: NextRequest) {
         };
       },
       900,  // hard TTL: 15 min
-      300   // soft TTL: 5 min (revalida en background a partir de aquí)
+      300,  // soft TTL: 5 min (revalida en background a partir de aquí)
+      // No envenenar el cache con resultados degradados: un fallo transitorio
+      // del audit/forecast se cachea sólo 60s (en vez de 15 min), así el banner
+      // "modo degradado" desaparece apenas Azure se recupera.
+      (d: any) => (d && d.degraded ? 60 : 900)
     );
 
     return NextResponse.json({ success: true, ...data, fromCache: true });
