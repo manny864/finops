@@ -158,7 +158,7 @@ export default function WorkbooksPage() {
                                         className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white rounded-md shadow-sm focus:ring-[#0054A6] focus:border-[#0054A6] sm:text-sm placeholder-gray-500 dark:placeholder-gray-400"
                                     >
                                         <option value="">Selecciona una suscripción...</option>
-                                        {subscriptions.map((s:any) => <option key={s.id} value={s.id}>{s.displayName}</option>)}
+                                        {subscriptions.map((s:any) => <option key={s.id} value={s.id}>{s.name || s.displayName || s.id}</option>)}
                                     </select>
                                 </div>
                                 <div>
@@ -213,7 +213,7 @@ export default function WorkbooksPage() {
                                         className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm placeholder-gray-500 dark:placeholder-gray-400"
                                     >
                                         <option value="">Selecciona una suscripción...</option>
-                                        {subscriptions.map((s:any) => <option key={s.id} value={s.id}>{s.displayName}</option>)}
+                                        {subscriptions.map((s:any) => <option key={s.id} value={s.id}>{s.name || s.displayName || s.id}</option>)}
                                     </select>
                                 </div>
                                 <div>
