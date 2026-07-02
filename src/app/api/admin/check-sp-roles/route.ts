@@ -4,6 +4,7 @@ import { getAzureCredential } from '@/lib/azure';
 import { getTenantCredentials } from '@/lib/secrets/tenantCredentials';
 import { AuthError, requireRequestIdentity, requireTenantAccess } from '@/lib/requestAuth';
 import { RowDataPacket } from 'mysql2';
+import { getCustomRoleActionsForTier, CUSTOM_REMEDIATION_ROLE_NAME } from '@/lib/onboardingScriptTemplate';
 
 // IDs canónicos de roles built-in de Azure (no cambian).
 const BUILTIN_ROLE_IDS: Record<string, string> = {
@@ -16,26 +17,26 @@ const BUILTIN_ROLE_IDS: Record<string, string> = {
     'Owner': '8e3af657-a8ff-443c-a75c-2fe8c4bcb635',
 };
 
-const CUSTOM_REMEDIATION_ROLE_NAME = 'CSCloudSolutions Remediation Role';
-
 type RolesByTier = {
     builtIn: string[];
     requireCustomRole: boolean;
+    customActions: string[];
 };
 
 function getRequiredRoles(tier: string): RolesByTier {
     const essentialBuiltIn = ['Reader', 'Cost Management Reader', 'Monitoring Reader', 'Billing Reader'];
+    const customActions = getCustomRoleActionsForTier(tier);
 
     switch ((tier || 'Essential').toLowerCase()) {
         case 'professional':
-            return { builtIn: [...essentialBuiltIn, 'Tag Contributor'], requireCustomRole: false };
+            return { builtIn: [...essentialBuiltIn, 'Tag Contributor'], requireCustomRole: false, customActions };
         case 'business':
-            return { builtIn: [...essentialBuiltIn, 'Tag Contributor'], requireCustomRole: true };
+            return { builtIn: [...essentialBuiltIn, 'Tag Contributor'], requireCustomRole: true, customActions };
         case 'enterprise':
-            return { builtIn: [...essentialBuiltIn, 'Tag Contributor'], requireCustomRole: true };
+            return { builtIn: [...essentialBuiltIn, 'Tag Contributor'], requireCustomRole: true, customActions };
         case 'essential':
         default:
-            return { builtIn: essentialBuiltIn, requireCustomRole: false };
+            return { builtIn: essentialBuiltIn, requireCustomRole: false, customActions };
     }
 }
 
@@ -45,11 +46,39 @@ type SubReport = {
     state?: string;
     assignedRoles: string[];
     missingRoles: string[];
-    hasCustomRole?: boolean;
+    // Verificación del custom role por PERMISOS (no por nombre):
     customRoleRequired: boolean;
+    customRoleName?: string | null;   // nombre real del custom role hallado con las acciones requeridas
+    missingActions?: string[];        // acciones requeridas que NINGÚN rol asignado otorga
+    hasCustomRole?: boolean;          // true si todas las acciones requeridas están cubiertas
     status: 'OK' | 'PARTIAL' | 'NO_ROLES' | 'ERROR';
     error?: string;
 };
+
+// Definición resuelta de un rol (para inspeccionar sus acciones).
+type ResolvedRoleDef = {
+    name: string;
+    actions: string[];
+    notActions: string[];
+    roleType: string; // 'BuiltInRole' | 'CustomRole'
+};
+
+// Convierte un patrón de acción de Azure (con wildcards) a RegExp.
+// Ej: 'Microsoft.Consumption/*' cubre 'Microsoft.Consumption/budgets/write'; '*' cubre todo.
+function actionPatternToRegex(pattern: string): RegExp {
+    const escaped = pattern
+        .split('*')
+        .map(seg => seg.replace(/[.+?^${}()|[\]\\]/g, '\\$&'))
+        .join('.*');
+    return new RegExp(`^${escaped}$`, 'i');
+}
+
+function isActionGranted(action: string, actions: string[], notActions: string[]): boolean {
+    const granted = actions.some(p => actionPatternToRegex(p).test(action));
+    if (!granted) return false;
+    const denied = notActions.some(p => actionPatternToRegex(p).test(action));
+    return !denied;
+}
 
 async function resolveSpObjectId(token: string, clientId: string): Promise<string | null> {
     const url = `https://graph.microsoft.com/v1.0/servicePrincipals?$filter=appId eq '${clientId}'&$select=id`;
@@ -77,35 +106,37 @@ async function listSpRoleAssignmentsInSubscription(
     }));
 }
 
-async function resolveRoleName(
+// Resuelve la definición completa de un rol (nombre + acciones + notActions + tipo).
+async function resolveRoleDef(
     armToken: string,
     subscriptionId: string,
     roleDefinitionId: string,
-    cache: Map<string, string>
-): Promise<string> {
+    cache: Map<string, ResolvedRoleDef>
+): Promise<ResolvedRoleDef> {
     if (cache.has(roleDefinitionId)) return cache.get(roleDefinitionId)!;
 
-    for (const [name, id] of Object.entries(BUILTIN_ROLE_IDS)) {
-        if (id === roleDefinitionId) {
-            cache.set(roleDefinitionId, name);
-            return name;
-        }
-    }
-
+    let def: ResolvedRoleDef = { name: `Unknown (${roleDefinitionId})`, actions: [], notActions: [], roleType: 'Unknown' };
     try {
         const url = `https://management.azure.com/subscriptions/${subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/${roleDefinitionId}?api-version=2022-04-01`;
         const res = await fetch(url, { headers: { Authorization: `Bearer ${armToken}` } });
         if (res.ok) {
             const data = await res.json();
-            const name = data.properties?.roleName || `Unknown (${roleDefinitionId})`;
-            cache.set(roleDefinitionId, name);
-            return name;
+            const perms = data.properties?.permissions || [];
+            def = {
+                name: data.properties?.roleName || def.name,
+                actions: perms.flatMap((p: any) => p.actions || []),
+                notActions: perms.flatMap((p: any) => p.notActions || []),
+                roleType: data.properties?.type || 'Unknown',
+            };
         }
     } catch {
-        // ignore
+        // fallback al nombre built-in conocido si el fetch falla
+        for (const [name, id] of Object.entries(BUILTIN_ROLE_IDS)) {
+            if (id === roleDefinitionId) { def = { ...def, name, roleType: 'BuiltInRole' }; break; }
+        }
     }
-    cache.set(roleDefinitionId, `Unknown (${roleDefinitionId})`);
-    return cache.get(roleDefinitionId)!;
+    cache.set(roleDefinitionId, def);
+    return def;
 }
 
 export async function GET(request: NextRequest) {
@@ -177,7 +208,7 @@ export async function GET(request: NextRequest) {
             ? allSubs.filter(s => subFilter.split(',').map(x => x.trim()).includes(s.subscriptionId))
             : allSubs;
 
-        const roleNameCache = new Map<string, string>();
+        const roleDefCache = new Map<string, ResolvedRoleDef>();
         const subReports: SubReport[] = await Promise.all(filtered.map(async (sub) => {
             const report: SubReport = {
                 subscriptionId: sub.subscriptionId,
@@ -191,18 +222,41 @@ export async function GET(request: NextRequest) {
 
             try {
                 const assignments = await listSpRoleAssignmentsInSubscription(armToken, sub.subscriptionId, spObjectId);
-                const names = await Promise.all(
-                    assignments.map(a => resolveRoleName(armToken, sub.subscriptionId, a.roleDefinitionId, roleNameCache))
+                const defs = await Promise.all(
+                    assignments.map(a => resolveRoleDef(armToken, sub.subscriptionId, a.roleDefinitionId, roleDefCache))
                 );
-                report.assignedRoles = Array.from(new Set(names)).sort();
+                report.assignedRoles = Array.from(new Set(defs.map(d => d.name))).sort();
 
                 const missingBuiltIn = required.builtIn.filter(r => !report.assignedRoles.includes(r));
                 report.missingRoles = missingBuiltIn;
 
-                if (required.requireCustomRole) {
-                    report.hasCustomRole = report.assignedRoles.some(r => r.includes(CUSTOM_REMEDIATION_ROLE_NAME));
+                if (required.requireCustomRole && required.customActions.length > 0) {
+                    // Verificación por PERMISOS: cada acción requerida debe ser otorgada
+                    // por algún rol asignado (considerando wildcards y notActions).
+                    const missingActions = required.customActions.filter(
+                        action => !defs.some(d => isActionGranted(action, d.actions, d.notActions))
+                    );
+                    report.missingActions = missingActions;
+                    report.hasCustomRole = missingActions.length === 0;
+
+                    // Nombre real del custom role que aporta las acciones de remediación.
+                    // Preferimos el rol custom que otorgue MÁS acciones requeridas.
+                    const customDefs = defs
+                        .filter(d => d.roleType === 'CustomRole')
+                        .map(d => ({
+                            name: d.name,
+                            granted: required.customActions.filter(a => isActionGranted(a, d.actions, d.notActions)).length,
+                        }))
+                        .filter(d => d.granted > 0)
+                        .sort((a, b) => b.granted - a.granted);
+                    report.customRoleName = customDefs[0]?.name || null;
+
                     if (!report.hasCustomRole) {
-                        report.missingRoles.push(CUSTOM_REMEDIATION_ROLE_NAME);
+                        report.missingRoles.push(
+                            report.customRoleName
+                                ? `${report.customRoleName} (acciones faltantes)`
+                                : `Rol de remediación (${missingActions.length} acción/es faltante/s)`
+                        );
                     }
                 }
 
@@ -224,6 +278,7 @@ export async function GET(request: NextRequest) {
             spObjectId,
             requiredRoles: required.builtIn,
             requiredCustomRole: required.requireCustomRole ? CUSTOM_REMEDIATION_ROLE_NAME : null,
+            requiredCustomActions: required.requireCustomRole ? required.customActions : [],
             totalSubscriptions: subReports.length,
             okCount: subReports.filter(r => r.status === 'OK').length,
             partialCount: subReports.filter(r => r.status === 'PARTIAL').length,
@@ -233,12 +288,16 @@ export async function GET(request: NextRequest) {
 
         let globalHint = '';
         if (summary.okCount === summary.totalSubscriptions && summary.totalSubscriptions > 0) {
-            globalHint = `✅ Todas las suscripciones (${summary.totalSubscriptions}) tienen los roles requeridos para el tier ${summary.tier}.`;
+            globalHint = `✅ Todas las suscripciones (${summary.totalSubscriptions}) tienen los roles y permisos requeridos para el tier ${summary.tier}.`;
         } else if (summary.noRolesCount > 0) {
             globalHint = `⚠️ El SP no tiene NINGÚN rol en ${summary.noRolesCount} suscripción(es). Re-ejecute el script de onboarding o asigne manualmente los roles requeridos.`;
         } else if (summary.partialCount > 0) {
             const allMissingRoles = Array.from(new Set(subReports.flatMap(r => r.missingRoles)));
-            globalHint = `⚠️ ${summary.partialCount} suscripción(es) con roles incompletos. Roles faltantes: ${allMissingRoles.join(', ')}. Asigne estos roles al SP (objectId: ${spObjectId}) en las suscripciones afectadas, o re-ejecute el script de onboarding actualizado.`;
+            const allMissingActions = Array.from(new Set(subReports.flatMap(r => r.missingActions || [])));
+            const actionsHint = allMissingActions.length > 0
+                ? ` Acciones del custom role faltantes: ${allMissingActions.join(', ')}. Regenere y re-ejecute el script de onboarding actualizado para actualizar el custom role.`
+                : '';
+            globalHint = `⚠️ ${summary.partialCount} suscripción(es) con roles/permisos incompletos. Faltantes: ${allMissingRoles.join(', ')}. Asigne al SP (objectId: ${spObjectId}) en las suscripciones afectadas, o re-ejecute el script de onboarding.${actionsHint}`;
         } else if (summary.totalSubscriptions === 0) {
             globalHint = '⚠️ El SP no ve ninguna suscripción. Verifique que tenga al menos rol Reader en alguna suscripción del tenant.';
         }
