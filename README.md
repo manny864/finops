@@ -205,6 +205,44 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
 
 ## 📈 Recent Major Updates
 
+### 2026-07-02 — Historial diario genérico (retención ≥ 1 año, consultable por página)
+Framework **write-through** que persiste una foto (snapshot) diaria de las métricas clave de
+cada página y permite consultarlas históricamente. Retención **400 días** (~13 meses), con poda
+automática por escritura (sin cron adicional).
+
+**Modelo de datos:** tabla `DailySnapshots` (migración `20260702-001-daily-snapshots.sql`)
+con `UNIQUE(tenant_id, subscription_scope, domain, snapshot_date)` → un registro por
+tenant/scope/dominio/día (`ON DUPLICATE KEY UPDATE` idempotente). Payload en `LONGTEXT` (JSON serializado).
+Sin FK a `Tenants` (resiliencia: el write-through nunca debe romper el request principal).
+
+**Dominios capturados:** `dashboard_summary`, `commitments`, `rightsizing`, `anomalies`,
+`budgets`, `governance` (extensible vía `SNAPSHOT_DOMAINS`).
+
+**Servicio:** `src/services/snapshotService.ts` → `recordDailySnapshot` / `recordDailySnapshotAsync`
+(fire-and-forget, best-effort), `getSnapshotHistory`, `getSnapshotRange`, `getSnapshotDomains`,
+`SNAPSHOT_RETENTION_DAYS = 400`.
+
+**Endpoint:**
+
+| Endpoint | Método | RBAC app | Notas |
+|---|---|---|---|
+| `/api/history` | GET | `requireTenantAccess` | Params: `tenantId`, `domain`, `from?`, `to?`, `scope?`, `tier?`. Default: último año. Tenants demo → serie simulada por tier. |
+
+**UI:** componente reutilizable `<HistoryButton domain="..." title="..." />`
+(`src/components/history/HistoryButton.tsx`, self-contained con MSAL + `useTenant`) montado en el
+header de Dashboard, Descuentos por Compromiso, Rightsizing, Anomalías, Presupuestos y Alta
+Disponibilidad. Abre un panel con selector de rango (hasta 1 año), gráfico de líneas (recharts) y
+tabla; grafica automáticamente las métricas numéricas del payload.
+
+**i18n:** namespace `History` (es/en/pt-BR, 9 keys c/u). **Mocks:** `getMockSnapshotHistory(domain, tier, from, to)`
+en `src/lib/mockData.ts` (serie determinista escalada por tier).
+
+**Adopción en una página nueva:** (1) en el route handler, llamar
+`recordDailySnapshotAsync(tenantId, '<domain>', { ...métricas numéricas }, scope)` sobre datos
+frescos (no degradados/mock); (2) añadir `'<domain>'` a `SNAPSHOT_DOMAINS`; (3) montar
+`<HistoryButton domain="<domain>" title={...} />` en el header; (4) opcional: añadir un `case`
+en `getMockSnapshotHistory` para la demo.
+
 ### 2026-07-01 — Reservas Activas: detalle del blade Azure Reservations
 La sección **Reservas Activas** de *Descuentos por Compromiso (RIs & Savings Plans)*
 (`/intelligence/commitments`) ahora replica el blade **Reservations** del portal de Azure,

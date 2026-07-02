@@ -90,6 +90,8 @@ El sistema está dividido en cinco (5) pilares estratégicos en el menú lateral
 - **Azure Advisor:** Sincronización directa con las recomendaciones nativas de Microsoft Azure, clasificadas por Costo, Seguridad, y Excelencia Operativa. Las recomendaciones se muestran en el idioma activo seleccionado por el usuario en la plataforma.
 - **Madurez FinOps:** Evaluación interactiva para determinar la madurez de la organización (Crawl, Walk, Run).
 
+> **📅 Historial (botón "Historial"):** En las páginas de Dashboard, Descuentos por Compromiso, Rightsizing, Anomalías, Presupuestos y Alta Disponibilidad encontrarás un botón **Historial** en la esquina superior derecha. Al pulsarlo se abre un panel donde puedes **elegir un rango de fechas (hasta 1 año atrás)** y ver la evolución diaria de las métricas de esa página como **gráfico de líneas** y **tabla**. La plataforma guarda automáticamente una foto diaria de cada página (retención de ~13 meses), sin que debas hacer nada.
+
 ### 3.2. Inteligencia Financiera
 - **Consumo Real y Presupuestos:** Monitoreo del gasto mensual contra los límites preestablecidos por departamento o centro de costos (Budget Burn).
 - **Rightsizing:** Detección de Máquinas Virtuales subutilizadas con recomendaciones específicas de cambio de familia (SKU) para maximizar el retorno de inversión.
