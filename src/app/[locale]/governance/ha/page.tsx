@@ -2,6 +2,7 @@ import React from 'react';
 import { getTranslations } from 'next-intl/server';
 import MockBanner from '@/components/MockBanner';
 import HARecommendationsPanel from '@/components/dashboard/HARecommendationsPanel';
+import HistoryButton from '@/components/history/HistoryButton';
 
 export default async function HAPage() {
     const t = await getTranslations('HA');
@@ -15,6 +16,9 @@ export default async function HAPage() {
                         {t('title')}
                     </div>
                     <div className="vs">{t('subtitle')}</div>
+                </div>
+                <div className="right">
+                    <HistoryButton domain="governance" title={t('title')} />
                 </div>
             </div>
             <div className="p-6 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm mt-6">

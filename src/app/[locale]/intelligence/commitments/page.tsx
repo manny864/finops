@@ -1,6 +1,7 @@
 import React from 'react';
 import Commitments from '@/components/dashboard/Commitments';
 import MockBanner from '@/components/MockBanner';
+import HistoryButton from '@/components/history/HistoryButton';
 
 export default function CommitmentsPage() {
     return (
@@ -13,6 +14,9 @@ export default function CommitmentsPage() {
                         Descuentos por Compromiso (RIs)
                     </div>
                     <div className="vs">Analiza la cobertura y utilización financiera de las reservas en tu infraestructura.</div>
+                </div>
+                <div className="right">
+                    <HistoryButton domain="commitments" title="Descuentos por Compromiso (RIs)" />
                 </div>
             </div>
 

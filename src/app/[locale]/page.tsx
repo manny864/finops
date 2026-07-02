@@ -27,6 +27,7 @@ import { isMockTenant } from '@/lib/mockData';
 import FeatureGuard from '@/components/FeatureGuard';
 import { getFreshIdToken } from '@/lib/msalToken';
 import MockBanner from '@/components/MockBanner';
+import HistoryButton from '@/components/history/HistoryButton';
 import MyPinnedWidgets from '@/components/dashboard/MyPinnedWidgets';
 import { useCurrency } from '@/components/CurrencyProvider';
 import {
@@ -419,6 +420,7 @@ export default function Home() {
         <div className="title">
           <h1 className="text-gray-900 dark:text-white">{t('title')}</h1>
           <p>{t('subtitle')} <span className="text-xs text-brand/60 ml-2">({t('drag_hint')})</span></p>
+          <div className="mt-2"><HistoryButton domain="dashboard_summary" title={t('title')} /></div>
         </div>
         
         <div className="w-full grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">

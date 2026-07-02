@@ -9,6 +9,7 @@ import { useMsal } from "@azure/msal-react";
 import { getMockDataForRoute } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
 import MockBanner from '@/components/MockBanner';
+import HistoryButton from '@/components/history/HistoryButton';
 import Pagination, { usePagination } from '@/components/Pagination';
 
 export default function RightsizingPage() {
@@ -138,6 +139,7 @@ export default function RightsizingPage() {
           <div className="vs">{t("subtitle")}</div>
         </div>
         <div className="right">
+          <HistoryButton domain="rightsizing" title={t("title")} />
           <span className="scopechip">📍 {selectedTenant?.name || "Tenant"}</span>
         </div>
       </div>

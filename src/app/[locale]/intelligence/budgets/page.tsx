@@ -2,6 +2,7 @@ import React from 'react';
 import { getTranslations } from 'next-intl/server';
 import BudgetCard from '@/components/budgets/BudgetCard';
 import MockBanner from '@/components/MockBanner';
+import HistoryButton from '@/components/history/HistoryButton';
 
 export default async function BudgetsPage() {
     const t = await getTranslations('Budgets');
@@ -15,6 +16,9 @@ export default async function BudgetsPage() {
                         {t('title')}
                     </div>
                     <div className="vs">{t('subtitle')}</div>
+                </div>
+                <div className="right">
+                    <HistoryButton domain="budgets" title={t('title')} />
                 </div>
             </div>
             <div className="mt-6"><MockBanner /></div>

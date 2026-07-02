@@ -1,6 +1,7 @@
 import React from 'react';
 import MockBanner from '@/components/MockBanner';
 import AnomalyDashboard from '@/components/dashboard/AnomalyDashboard';
+import HistoryButton from '@/components/history/HistoryButton';
 import { ShieldAlert } from 'lucide-react';
 
 export default function AnomaliesPage() {
@@ -16,6 +17,9 @@ export default function AnomaliesPage() {
                         Detección de Anomalías (AI)
                     </div>
                     <div className="vs">Monitoreo 24/7 estadístico (Z-Score) que dispara alertas automáticamente al detectar desviaciones financieras anómalas.</div>
+                </div>
+                <div className="right">
+                    <HistoryButton domain="anomalies" title="Detección de Anomalías (AI)" />
                 </div>
             </div>
 
