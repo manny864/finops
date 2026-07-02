@@ -89,7 +89,10 @@ export default function PowerSchedules() {
 
     const handleAction = async (action: 'start' | 'stop' | 'restart', singleVm?: any) => {
         const targetVms = singleVm ? [singleVm] : vms.filter(vm => selectedVmIds.includes(vm.id));
-        if (targetVms.length === 0) return;
+        if (targetVms.length === 0) {
+            toast('No hay VMs seleccionadas. Marca al menos una VM para ejecutar la acción.', { icon: 'ℹ️' });
+            return;
+        }
         
         setActionLoading(action);
         try {
