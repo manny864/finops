@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireTenantRole } from "@/lib/requestAuth";
+import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";
 import { tierToPriceId, getPaddleBaseUrl } from "@/lib/paddleTierMap";
 
@@ -95,6 +95,7 @@ export async function PATCH(request: NextRequest) {
         : null,
     });
   } catch (error: any) {
+    if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error("[Billing] PATCH /subscription error:", error);
     return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
   }
@@ -162,6 +163,7 @@ export async function DELETE(request: NextRequest) {
       message: "Suscripción cancelada correctamente",
     });
   } catch (error: any) {
+    if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error("[Billing] DELETE /subscription error:", error);
     return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
   }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireTenantRole } from "@/lib/requestAuth";
+import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";
 import { getPaddleBaseUrl } from "@/lib/paddleTierMap";
 
@@ -52,6 +52,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
+    if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error("[Billing API POST Error]", error);
     return NextResponse.json({ error: "Error interno del servidor." }, { status: 500 });
   }
@@ -108,6 +109,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ success: true, url });
   } catch (error: any) {
+    if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error("[Billing API GET Error]", error);
     return NextResponse.json({ error: "Error interno del servidor." }, { status: 500 });
   }

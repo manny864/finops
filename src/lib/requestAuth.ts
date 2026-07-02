@@ -371,7 +371,8 @@ export async function requireTenantRole(
     [tenantId, identity.claims.oid || "", identity.email || ""]
   );
   const row = Array.isArray(rows) && rows.length > 0 ? (rows[0] as { role?: string }) : null;
-  if (!row || !row.role || !allowedRoles.includes(row.role)) {
+  const allowedLower = allowedRoles.map((r) => r.toLowerCase());
+  if (!row || !row.role || !allowedLower.includes(row.role.toLowerCase())) {
     throw new AuthError(`Acceso denegado: requiere rol ${allowedRoles.join("/")}.`, 403);
   }
   return identity;
