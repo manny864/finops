@@ -175,6 +175,9 @@ if ($existingCustom) {
 #
 # Roles que asigna a nivel SUSCRIPCIÓN:
 #   ${baseRoles.map(r => `* ${r}`).join('\n#   ')}
+#
+# Rol que asigna a nivel TENANT (Microsoft.Capacity):
+#   * Reservations Reader  (lectura de Reservas/RIs Shared y Single para el panel de Compromisos)
 ${customActions.length > 0 ? `#
 # Custom role con permisos de remediación:
 #   ${customActions.map(a => `* ${a}`).join('\n#   ')}` : ''}
@@ -264,6 +267,13 @@ ${customRoleAssignPerSub}
 }
 
 Write-Host ""
+Write-Host "6. Asignando lectura de RESERVAS (RIs) a nivel TENANT (Microsoft.Capacity)..." -ForegroundColor Cyan
+Write-Host "   Necesario para el panel 'Descuentos por Compromiso (RIs)'. Las reservas viven a nivel tenant," -ForegroundColor DarkGray
+Write-Host "   NO por suscripcion; incluye reservas de scope Shared y Single. Requiere que quien ejecute" -ForegroundColor DarkGray
+Write-Host "   sea Reservations Administrator u Owner/User Access Administrator en '/providers/Microsoft.Capacity'." -ForegroundColor DarkGray
+Try-AssignRole -ObjectId $spId -RoleName "Reservations Reader" -Scope "/providers/Microsoft.Capacity"
+
+Write-Host ""
 Write-Host "==============================================================================" -ForegroundColor Green
 Write-Host "RESUMEN DE ASIGNACIONES" -ForegroundColor Green
 Write-Host "==============================================================================" -ForegroundColor Green
@@ -298,6 +308,7 @@ $output | ConvertTo-Json -Depth 5
 Write-Host ""
 Write-Host "NOTA: El ClientSecret solo es visible UNA VEZ. Si lo pierde, deberá regenerarlo." -ForegroundColor Red
 Write-Host "NOTA: Si está usando una suscripción EA/MCA, pídale al Billing Admin que asigne 'Enrollment Reader' o 'Billing Account Reader' al SP para ver datos de billing-account scope." -ForegroundColor Yellow
+Write-Host "NOTA: Si 'Reservations Reader' aparece como [FAIL], un Reservations Administrator debe asignarlo manualmente al SP en el scope '/providers/Microsoft.Capacity' (Portal > Reservations > Access control, o 'New-AzRoleAssignment -ObjectId $spId -RoleDefinitionName ''Reservations Reader'' -Scope ''/providers/Microsoft.Capacity'''). Sin este rol, las reservas (RIs) Shared/Single no aparecen en el panel." -ForegroundColor Yellow
 `;
 }
 
