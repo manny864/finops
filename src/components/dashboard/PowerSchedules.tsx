@@ -140,7 +140,24 @@ export default function PowerSchedules() {
             if (data?.mock || data?.simulated) {
                 toast(`[SIMULACIÓN DEMO] ${labelAction}: ${data.message || `acción simulada sobre ${targetVms.length} VM(s). En un tenant real esto enviaría el comando a Azure.`}`, { icon: '🧪', duration: 6000 });
             } else {
-                toast.success(`${labelAction}: comando aceptado por Azure para ${targetVms.length} VM(s). Refrescando estado…`);
+                // Aunque res.ok sea 200, puede haber VMs OMITIDAS (Smart Shutdown:
+                // CPU sobre umbral) o FALLIDAS. En esos casos NO mostramos un
+                // "éxito" liso: informamos exactamente qué VM no se apagó y por qué.
+                const skipped: Array<{ vm: string; reason: string }> = Array.isArray(data?.skipped) ? data.skipped : [];
+                const failed: Array<{ vm: string; error: string }> = Array.isArray(data?.failed)
+                    ? data.failed
+                    : (Array.isArray(data?.details) ? data.details : []);
+                const succeeded = typeof data?.succeeded === 'number' ? data.succeeded : (targetVms.length - skipped.length - failed.length);
+
+                if (failed.length > 0) {
+                    const msgs = failed.map((d) => `• ${d.vm}: ${d.error}`).join('\n');
+                    toast.error(`${labelAction}: ${failed.length} VM(s) con error y no se ejecutaron:\n${msgs}`, { duration: 9000 });
+                } else if (skipped.length > 0) {
+                    const msgs = skipped.map((d) => `• ${d.vm}: ${d.reason}`).join('\n');
+                    toast(`${labelAction}: ${succeeded} ejecutada(s), ${skipped.length} OMITIDA(s) por Smart Shutdown (siguen encendidas):\n${msgs}`, { icon: '⚠️', duration: 9000 });
+                } else {
+                    toast.success(`${labelAction}: comando aceptado por Azure para ${succeeded} VM(s). Refrescando estado…`);
+                }
                 // Esperar ~5s y refrescar para mostrar el powerState actualizado.
                 // beginDeallocateAndWait ya esperó la transición, pero el cache
                 // de ARG puede tardar unos segundos en reflejarla.

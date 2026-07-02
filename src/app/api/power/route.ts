@@ -113,6 +113,10 @@ export async function POST(request: NextRequest) {
 
         // Ejecutar las acciones asíncronamente (sin await individual bloqueante)
         const errors: Array<{ vm: string; error: string }> = [];
+        // Skips intencionales (p.ej. Smart Shutdown: CPU por encima del umbral).
+        // NO son fallos, pero SÍ significan que la VM no se apagó — hay que
+        // reportarlos al usuario para no mostrar un falso "apagado exitoso".
+        const skipped: Array<{ vm: string; reason: string }> = [];
         const promises = vms.map(async (vm: { subscriptionId: string; resourceGroup: string; resourceName: string }) => {
             try {
                 if (action === 'stop') {
@@ -149,7 +153,7 @@ export async function POST(request: NextRequest) {
                                 avgCpu = avgCpu / count;
                                 if (avgCpu > (thresholdOptions.maxCpuPercentage || 10)) {
                                     console.log(`Skipping shutdown for ${vm.resourceName}, CPU ${avgCpu.toFixed(2)}% > ${thresholdOptions.maxCpuPercentage}%`);
-                                    errors.push({ vm: vm.resourceName, error: `Skipped: CPU utilization (${avgCpu.toFixed(2)}%) is above threshold.` });
+                                    skipped.push({ vm: vm.resourceName, reason: `CPU en uso (${avgCpu.toFixed(2)}%) por encima del umbral (${thresholdOptions.maxCpuPercentage || 10}%).` });
                                     return; // Skip shutting down this VM
                                 }
                             }
@@ -181,18 +185,31 @@ export async function POST(request: NextRequest) {
             if (vm?.subscriptionId) vmCache.delete(`${tenantId}:${vm.subscriptionId}`);
         }
 
-        if (errors.length > 0) {
+        if (errors.length > 0 || skipped.length > 0) {
             // Distinguir errores de permisos (AuthorizationFailed/403) de skips por threshold.
             const isPermError = errors.some(e => /authoriz|forbid|denied|403/i.test(e.error));
+            // Sólo devolvemos error HTTP si hubo fallos reales de permisos. Los
+            // skips por umbral (o fallos parciales) van con 200 PERO el body deja
+            // en claro qué VMs NO se apagaron, para que el frontend no muestre
+            // un falso "apagado exitoso".
+            const succeeded = vms.length - errors.length - skipped.length;
             const status = isPermError ? 403 : 200;
             return NextResponse.json({
-                error: isPermError ? "Fallo de permisos: el Service Principal del tenant no tiene rol con acción Microsoft.Compute/virtualMachines/deallocate (o start/restart). Asigne 'Virtual Machine Contributor' o superior en la suscripción." : "Acción completada con advertencias",
+                success: errors.length === 0,
+                error: isPermError
+                    ? "Fallo de permisos: el Service Principal del tenant no tiene rol con acción Microsoft.Compute/virtualMachines/deallocate (o start/restart). Asigne 'Virtual Machine Contributor' o superior en la suscripción."
+                    : undefined,
+                message: `Acción ${action}: ${succeeded} ejecutada(s), ${skipped.length} omitida(s), ${errors.length} con error.`,
+                succeeded,
+                skipped,
+                failed: errors,
+                // Compat: algunos consumidores leen `details`.
                 details: errors,
-                partial: !isPermError,
+                partial: !isPermError && (errors.length > 0 || skipped.length > 0),
             }, { status });
         }
 
-        return NextResponse.json({ success: true, message: `Comando ${action} enviado a ${vms.length} VMs.` });
+        return NextResponse.json({ success: true, succeeded: vms.length, skipped: [], failed: [], message: `Comando ${action} enviado a ${vms.length} VMs.` });
 
     } catch (e: unknown) {
         if (e instanceof AuthError) {
