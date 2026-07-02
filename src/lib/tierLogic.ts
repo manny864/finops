@@ -5,22 +5,23 @@ export const TIERS: Record<string, number> = {
     Enterprise: 4
 };
 
+function normalizeTier(tier: string): string | null {
+    const t = (tier || '').trim().toLowerCase();
+    if (t === 'pro' || t === 'professional') return 'Professional';
+    if (t === 'essential' || t === 'starter') return 'Essential';
+    if (t === 'business') return 'Business';
+    if (t === 'enterprise') return 'Enterprise';
+    return null;
+}
+
 export function hasAccess(currentTier: string, requiredTier: string): boolean {
-    // Normalize current tier mapping 'pro' to 'Professional'
-    let normalizedCurrent = currentTier;
-    if (normalizedCurrent.toLowerCase() === 'pro') normalizedCurrent = 'Professional';
-    if (normalizedCurrent.toLowerCase() === 'essential') normalizedCurrent = 'Essential';
-    if (normalizedCurrent.toLowerCase() === 'business') normalizedCurrent = 'Business';
-    if (normalizedCurrent.toLowerCase() === 'enterprise') normalizedCurrent = 'Enterprise';
+    const normalizedCurrent = normalizeTier(currentTier);
+    const normalizedRequired = normalizeTier(requiredTier);
 
-    // Normalize required tier just in case
-    let normalizedRequired = requiredTier;
-    if (normalizedRequired.toLowerCase() === 'pro') normalizedRequired = 'Professional';
-    if (normalizedRequired.toLowerCase() === 'essential') normalizedRequired = 'Essential';
-    if (normalizedRequired.toLowerCase() === 'business') normalizedRequired = 'Business';
-    if (normalizedRequired.toLowerCase() === 'enterprise') normalizedRequired = 'Enterprise';
+    // Fail-closed: un requiredTier desconocido NO debe abrir la feature.
+    if (!normalizedRequired) return false;
 
-    const current = TIERS[normalizedCurrent] || 0;
-    const required = TIERS[normalizedRequired] || 0;
+    const current = normalizedCurrent ? TIERS[normalizedCurrent] : 0;
+    const required = TIERS[normalizedRequired];
     return current >= required;
 }

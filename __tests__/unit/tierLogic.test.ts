@@ -25,4 +25,15 @@ describe("tierLogic.hasAccess", () => {
     it("same tier grants access", () => {
         expect(hasAccess("Business", "Business")).toBe(true);
     });
+
+    it("fail-closed: unknown requiredTier denies access", () => {
+        expect(hasAccess("Enterprise", "professsional")).toBe(false);
+        expect(hasAccess("Enterprise", "")).toBe(false);
+    });
+
+    it("normalizes starter → Essential and unknown currentTier gets no access", () => {
+        expect(hasAccess("starter", "Essential")).toBe(true);
+        expect(hasAccess("starter", "Professional")).toBe(false);
+        expect(hasAccess("unknown-tier", "Essential")).toBe(false);
+    });
 });
