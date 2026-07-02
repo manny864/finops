@@ -239,7 +239,9 @@
     "viewDetails": "View Optimization Details",
     "cost_optimization": "Cost Optimization",
     "inactive_resources_cat": "Inactive Resources",
-    "leak": "Leak"
+    "leak": "Leak",
+    "environmental_impact": "Environmental Impact",
+    "estimated_co2e": "estimated kg CO2e"
   },
   "Network": {
     "title": "Network & Egress Analysis",

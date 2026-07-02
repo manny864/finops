@@ -263,8 +263,13 @@ export function translateAdvisorText(
   const target = normalize(locale);
   for (const entry of ENTRIES) {
     if (!entry.match.test(text)) continue;
-    const trio = kind === "problem" ? entry.problem : entry.solution;
-    if (trio && trio[target]) return trio[target];
+    // Preferimos el trío del `kind` pedido, pero si no existe (muchas entradas
+    // solo definen `problem`) caemos al otro trío: siempre es mejor un texto
+    // traducido del problema que la `solution` original en inglés.
+    const primary = kind === "problem" ? entry.problem : entry.solution;
+    const secondary = kind === "problem" ? entry.solution : entry.problem;
+    if (primary && primary[target]) return primary[target];
+    if (secondary && secondary[target]) return secondary[target];
   }
   return text;
 }
