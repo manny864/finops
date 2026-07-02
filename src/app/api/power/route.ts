@@ -108,7 +108,8 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Parámetros inválidos" }, { status: 400 });
         }
 
-        const identity = await requireTenantRole(request, tenantId, ['Admin', 'Operator']);
+        // RBAC mínimo: Owner/Admin (gestión del tenant) u Operator (rol operativo).
+        const identity = await requireTenantRole(request, tenantId, ['Owner', 'Admin', 'Operator']);
         const email = identity.email || "unknown@tenant.local";
 
         // Ejecutar las acciones asíncronamente (sin await individual bloqueante)
