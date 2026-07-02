@@ -26,22 +26,28 @@ export function generateOnboardingScript(clientTenantId: string, subscriptionIds
         baseRoles.push('Tag Contributor'); // auto-tagging
     } else if (tier === 'Business') {
         baseRoles.push('Tag Contributor');
-        // Custom role solo con acciones de power management para VMs
+        // Custom role solo con acciones de power management para VMs + gestión de budgets
         customActions = [
             "Microsoft.Compute/virtualMachines/deallocate/action",
             "Microsoft.Compute/virtualMachines/start/action",
             "Microsoft.Compute/virtualMachines/restart/action",
             "Microsoft.Resources/tags/write",
+            "Microsoft.Consumption/budgets/read",
+            "Microsoft.Consumption/budgets/write",
+            "Microsoft.Consumption/budgets/delete",
         ];
     } else if (tier === 'Enterprise') {
         baseRoles.push('Tag Contributor');
         baseRoles.push('Monitoring Contributor'); // workbooks deploy + métricas avanzadas
-        // Custom role expandido: power mgmt + delete de recursos huérfanos + crear RG (para Artefactos)
+        // Custom role expandido: power mgmt + gestión de budgets + delete de recursos huérfanos + crear RG (para Artefactos)
         customActions = [
             "Microsoft.Compute/virtualMachines/deallocate/action",
             "Microsoft.Compute/virtualMachines/start/action",
             "Microsoft.Compute/virtualMachines/restart/action",
             "Microsoft.Resources/tags/write",
+            "Microsoft.Consumption/budgets/read",
+            "Microsoft.Consumption/budgets/write",
+            "Microsoft.Consumption/budgets/delete",
             "Microsoft.Resources/subscriptions/resourceGroups/write",
             "Microsoft.Compute/disks/delete",
             "Microsoft.Compute/snapshots/delete",
