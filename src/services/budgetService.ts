@@ -49,18 +49,38 @@ export async function getNativeBudgets(tenantId: string, subscriptionId: string)
     const budgetsData = [];
     try {
         for await (const budget of client.budgets.list(scope)) {
-            // currentSpend is a read-only field populated by Azure, but it can be
-            // null/0 for sponsorship subs or budgets without spend history.
-            // Fall back to Redis/DB MTD cost when missing.
-            let actual = Number(budget.currentSpend?.amount ?? 0);
-            if (actual === 0) {
+            // currentSpend es un campo read-only que Azure calcula para el scope
+            // EXACTO del budget (incluyendo su filter por resource group / tags).
+            // Reglas de precisión (Regla Cero):
+            //  1. Si Azure trae currentSpend (incluso 0), es la verdad → usarlo.
+            //  2. Si NO lo trae (null/undefined) y el budget cubre TODA la
+            //     suscripción (sin filter), aproximamos con el MTD de la sub.
+            //  3. Si NO lo trae pero el budget está FILTRADO (RG/tags), NO
+            //     fabricamos con el total de la sub (inflaría el gasto): dejamos
+            //     0 y marcamos estimated=false para no confundir.
+            const rawSpend = budget.currentSpend?.amount;
+            const hasCurrentSpend = rawSpend !== null && rawSpend !== undefined;
+            const isWholeSubScope = !budget.filter;
+
+            let actual: number;
+            let estimated = false;
+            if (hasCurrentSpend) {
+                actual = Number(rawSpend);
+            } else if (isWholeSubScope) {
                 actual = await fetchMtdCostForSub(tenantId, subscriptionId);
+                estimated = actual > 0;
+            } else {
+                actual = 0;
             }
+
             budgetsData.push({
                 subscriptionId: subscriptionId,
                 costCenter: budget.name,
                 budget: Number(budget.amount ?? 0),
                 actual,
+                // true cuando `actual` proviene del MTD de la sub y no del
+                // currentSpend autoritativo de Azure (para la UI/tooltips).
+                estimated,
             });
         }
     } catch (e) {

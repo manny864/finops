@@ -138,7 +138,7 @@ export default function BudgetBurnChart({ onHeightChange }: BudgetBurnChartProps
                                                 <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-100">
                                                     <p className="font-bold text-sm text-gray-800 mb-1">{data.costCenter}</p>
                                                     <p className="text-xs text-gray-600">
-                                                        Gasto: <span className="font-bold" style={{ color: gastoColor }}>${data.actual.toFixed(2)}</span> / Presupuesto: <span className="font-bold" style={{ color: '#0d9488' }}>${data.budget.toFixed(2)}</span>
+                                                        Gasto: <span className="font-bold" style={{ color: gastoColor }}>${data.actual.toFixed(2)}</span>{data.estimated ? <span className="text-[10px] text-gray-400" title="Gasto estimado desde el MTD de la suscripción (Azure no reportó currentSpend para este presupuesto)."> ≈ est.</span> : null} / Presupuesto: <span className="font-bold" style={{ color: '#0d9488' }}>${data.budget.toFixed(2)}</span>
                                                     </p>
                                                 </div>
                                             );
