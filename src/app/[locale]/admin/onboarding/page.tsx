@@ -537,6 +537,11 @@ export default function OnboardingPage() {
                                                       ))}
                                                   </div>
                                               )}
+                                              {s.customRoleRequired && s.customRoleName && (
+                                                  <div className="mt-1 text-xs text-indigo-700 dark:text-indigo-300">
+                                                      🛡️ Rol de remediación: <span className="font-mono font-semibold">{s.customRoleName}</span>
+                                                  </div>
+                                              )}
                                           </td>
                                           <td className="px-4 py-3 align-top">
                                               {s.missingRoles.length === 0 ? (
@@ -546,6 +551,16 @@ export default function OnboardingPage() {
                                                       {s.missingRoles.map((r: string) => (
                                                           <span key={r} className="px-2 py-0.5 rounded bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300 text-xs font-mono">{r}</span>
                                                       ))}
+                                                  </div>
+                                              )}
+                                              {s.missingActions && s.missingActions.length > 0 && (
+                                                  <div className="mt-1.5">
+                                                      <div className="text-[11px] font-semibold text-red-700 dark:text-red-400 mb-0.5">Acciones faltantes:</div>
+                                                      <div className="flex flex-wrap gap-1">
+                                                          {s.missingActions.map((a: string) => (
+                                                              <span key={a} className="px-1.5 py-0.5 rounded bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 text-[10px] font-mono border border-red-200 dark:border-red-900/60">{a}</span>
+                                                          ))}
+                                                      </div>
                                                   </div>
                                               )}
                                           </td>
