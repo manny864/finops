@@ -256,6 +256,12 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                   return new Response(JSON.stringify(getMockDataForRoute('schedules', tier)), {status: 200});
               }
               if (url.includes('/api/intelligence/chargeback')) return new Response(JSON.stringify(getMockDataForRoute('chargeback', tier)), {status: 200});
+              // AKS Chargeback debe ir ANTES que /api/intelligence/aks (substring).
+              if (url.includes('/api/intelligence/aks-chargeback')) return new Response(JSON.stringify(getMockDataForRoute('aks_chargeback', tier)), {status: 200});
+              if (url.includes('/api/intelligence/aks')) return new Response(JSON.stringify(getMockDataForRoute('aks', tier)), {status: 200});
+              if (url.includes('/api/intelligence/zero-cost')) return new Response(JSON.stringify(getMockDataForRoute('zero_cost', tier)), {status: 200});
+              if (url.includes('/api/intelligence/unit-economics')) return new Response(JSON.stringify(getMockDataForRoute('unit_economics', tier)), {status: 200});
+              if (url.includes('/api/intelligence/scorecard')) return new Response(JSON.stringify(getMockDataForRoute('scorecard', tier)), {status: 200});
               if (url.includes('/api/intelligence/commitments')) {
                   const m = (selectedTenantRef.current?.tier?.toLowerCase()==='enterprise')?50:(selectedTenantRef.current?.tier?.toLowerCase()==='business')?10:(selectedTenantRef.current?.tier?.toLowerCase()==='pro')?3:1;
                   return new Response(JSON.stringify({ success: true, mock: true, data: {
