@@ -446,10 +446,41 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
 
                   // Cloud accounts (AWS)
                   if (url.includes('/api/aws/accounts')) {
-                      if (init?.method && init.method !== 'GET') return new Response(JSON.stringify({ id: 'mock-aws-' + Date.now(), accountId: '123456789012', alias: 'demo', externalId: 'ext-demo' }), { status: 201 });
+                      // Sub-acción: test de conexión (POST /{id}/test)
+                      if (url.includes('/test')) {
+                          return new Response(JSON.stringify({
+                              success: true,
+                              assumeRoleMs: 420,
+                              costExplorerMs: 380,
+                              window: { start: new Date(nowMs - 7 * dayMs).toISOString().slice(0, 10), end: new Date(nowMs).toISOString().slice(0, 10) },
+                              totalCost: 1284.57 * dm,
+                              rowCount: 42,
+                              currency: 'USD',
+                              cur: { configured: true, status: 'OK' },
+                          }), { status: 200 });
+                      }
+                      // Eliminar cuenta (DELETE /{id})
+                      if (init?.method === 'DELETE') return new Response(JSON.stringify({ success: true, mock: true }), { status: 200 });
+                      // Crear cuenta (POST a la colección)
+                      if (init?.method && init.method !== 'GET') return new Response(JSON.stringify({ id: 'mock-aws-' + Date.now(), accountId: '123456789012', alias: 'demo', externalId: 'ext-demo-' + Math.random().toString(36).slice(2, 10) }), { status: 201 });
                       return new Response(JSON.stringify({ accounts: [
                           { id: 'aws-1', tenant_id: 'demo', account_id: '123456789012', role_arn: 'arn:aws:iam::123456789012:role/FinOpsReadOnly', alias: 'prod-aws', cur_bucket: 'cur-prod-billing', cur_prefix: 'cur/', cur_report_name: 'finops-cur', last_sync_at: new Date(nowMs - dayMs).toISOString(), sync_status: 'OK', last_error_message: null, created_at: new Date(nowMs - 120 * dayMs).toISOString() },
                           { id: 'aws-2', tenant_id: 'demo', account_id: '210987654321', role_arn: 'arn:aws:iam::210987654321:role/FinOpsReadOnly', alias: 'data-lake-aws', cur_bucket: 'cur-data-billing', cur_prefix: 'cur/', cur_report_name: 'finops-cur', last_sync_at: new Date(nowMs - 3 * dayMs).toISOString(), sync_status: 'SYNCING', last_error_message: null, created_at: new Date(nowMs - 60 * dayMs).toISOString() },
+                      ] }), { status: 200 });
+                  }
+
+                  // Sync AWS (CUR / Cost Explorer) — /api/sync/aws/{id}/{source}
+                  if (url.includes('/api/sync/aws/')) {
+                      return new Response(JSON.stringify({ success: true, mock: true, rowsUpserted: 30 * dm, message: 'Sync demo completado' }), { status: 200 });
+                  }
+
+                  // Azure Policy definitions (Políticas as Code — Enterprise)
+                  if (url.includes('/api/admin/azure-policies')) {
+                      return new Response(JSON.stringify({ success: true, mock: true, data: [
+                          { id: '/providers/Microsoft.Authorization/policyDefinitions/mock-1', displayName: 'Requiere Etiqueta Específica', description: 'Fuerza la existencia de una etiqueta en los recursos.', parameters: { tagName: { type: 'String', metadata: { displayName: 'Tag Name', description: 'Name of the tag to require' } } } },
+                          { id: '/providers/Microsoft.Authorization/policyDefinitions/mock-2', displayName: 'Allowed Locations', description: 'Fuerza que los recursos solo se creen en ciertas regiones.', parameters: { listOfAllowedLocations: { type: 'Array', metadata: { displayName: 'Allowed locations', description: 'The list of allowed locations for resources.' } } } },
+                          { id: '/providers/Microsoft.Authorization/policyDefinitions/mock-3', displayName: 'Allowed Virtual Machine Size SKUs', description: 'Restringe qué tamaños de VM se pueden crear.', parameters: { listOfAllowedSKUs: { type: 'Array', metadata: { displayName: 'Allowed Size SKUs' } } } },
+                          { id: '/providers/Microsoft.Authorization/policyDefinitions/mock-4', displayName: 'Storage Accounts must disable public network access', description: 'Mejora la seguridad bloqueando el acceso público a Storage Accounts.', parameters: {} },
                       ] }), { status: 200 });
                   }
 

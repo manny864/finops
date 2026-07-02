@@ -132,7 +132,7 @@ export default function CloudAccountsPage() {
       if (!res.ok) {
         toast.error(data.error || 'Test falló');
       } else {
-        toast.success(`Test OK: $${data.totalCost.toFixed(2)} en últimos 7 días (${data.rowCount} filas)`);
+        toast.success(`Test OK: $${(data.totalCost ?? 0).toFixed(2)} en últimos 7 días (${data.rowCount ?? 0} filas)`);
       }
       await load();
     } finally {
