@@ -91,7 +91,12 @@ export default function Home() {
         });
         if (response.ok) {
           const data = await response.json();
-          if (!selectedTenant.is_onboarded) {
+          // El funnel de onboarding sólo aplica a entornos recién creados que
+          // aún NO tienen credenciales Azure (client_id + secret). Si el entorno
+          // ya está configurado, no lo forzamos al wizard aunque is_onboarded
+          // sea false (p.ej. onboarding técnico hecho pero flag no seteado).
+          const hasCredentials = !!(selectedTenant.client_id && selectedTenant.has_client_secret);
+          if (!selectedTenant.is_onboarded && !hasCredentials) {
             onboardingRedirectRef.current = true;
             router.push(`/${locale}/onboarding`);
           }
@@ -419,28 +424,28 @@ export default function Home() {
         <div className="w-full grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
             <div className="bg-sky-50 border border-sky-200 rounded-xl px-5 py-3 flex flex-col items-start sm:items-end shadow-sm w-full min-w-0">
                 <span className="text-[10px] font-bold text-sky-700 uppercase tracking-widest mb-1">Costo Actual</span>
-                <span className="text-3xl lg:text-4xl font-extrabold text-sky-600">
+                <span className="text-2xl lg:text-3xl font-extrabold text-sky-600 w-full text-left sm:text-right truncate tabular-nums leading-tight">
                     {loading ? <span className="animate-pulse">…</span> : summaryFailed ? <span className="text-xl text-sky-400">—</span> : format(actualCost)}
                 </span>
                 <span className="text-[10px] text-sky-600 mt-1">acumulado del mes</span>
             </div>
             <div className="bg-purple-50 border border-purple-200 rounded-xl px-5 py-3 flex flex-col items-start sm:items-end shadow-sm w-full min-w-0">
                 <span className="text-[10px] font-bold text-purple-700 uppercase tracking-widest mb-1">Costo Proyectado</span>
-                <span className="text-3xl lg:text-4xl font-extrabold text-purple-600">
+                <span className="text-2xl lg:text-3xl font-extrabold text-purple-600 w-full text-left sm:text-right truncate tabular-nums leading-tight">
                     {loading ? <span className="animate-pulse">…</span> : summaryFailed ? <span className="text-xl text-purple-400">—</span> : format(projectedCost)}
                 </span>
                 <span className="text-[10px] text-purple-600 mt-1">al cierre de mes</span>
             </div>
             <div className="bg-green-50 border border-green-200 rounded-xl px-5 py-3 flex flex-col items-start sm:items-end shadow-sm w-full min-w-0">
                 <span className="text-[10px] font-bold text-green-700 uppercase tracking-widest mb-1">{t('potential_savings')}</span>
-                <span className="text-3xl lg:text-4xl font-extrabold text-green-600">
+                <span className="text-2xl lg:text-3xl font-extrabold text-green-600 w-full text-left sm:text-right truncate tabular-nums leading-tight">
                     {loading ? <span className="animate-pulse">…</span> : summaryFailed ? <span className="text-xl text-green-400">—</span> : format(totalSavings)}
                 </span>
                 <span className="text-[10px] text-green-600 mt-1">{t('monthly_projected')}</span>
             </div>
             <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 flex flex-col items-start sm:items-end shadow-sm w-full min-w-0">
                 <span className="text-[10px] font-bold text-amber-700 uppercase tracking-widest mb-1">Recursos Zombies</span>
-                <span className="text-3xl lg:text-4xl font-extrabold text-amber-600">
+                <span className="text-2xl lg:text-3xl font-extrabold text-amber-600 w-full text-left sm:text-right truncate tabular-nums leading-tight">
                     {loading ? <span className="animate-pulse">…</span> : summaryFailed ? <span className="text-xl text-amber-400">—</span> : zombieCount}
                 </span>
                 <span className="text-[10px] text-amber-600 mt-1">detectados</span>
@@ -449,7 +454,7 @@ export default function Home() {
                 <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest mb-1 flex items-center">
                     <Leaf className="w-3 h-3 mr-1" /> {t('environmental_impact')}
                 </span>
-                <span className="text-3xl lg:text-4xl font-extrabold text-emerald-600">
+                <span className="text-2xl lg:text-3xl font-extrabold text-emerald-600 w-full text-left sm:text-right truncate tabular-nums leading-tight">
                     {loading ? <span className="animate-pulse">…</span> : summaryFailed ? <span className="text-xl text-emerald-400">—</span> : calculateCO2Savings(totalSavings)}
                 </span>
                 <span className="text-[10px] text-emerald-600 mt-1">{t('co2_avoided')}</span>
