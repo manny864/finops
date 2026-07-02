@@ -792,5 +792,16 @@
     "utilTrendTitle": "Tendencia diaria (30 días)",
     "utilNoTrend": "Serie diaria no disponible (requiere Billing Reader en EA/MCA).",
     "close": "Cerrar"
+  },
+  "History": {
+    "button": "Historial",
+    "title": "Historial diario",
+    "close": "Cerrar",
+    "from": "Desde",
+    "to": "Hasta",
+    "query": "Consultar",
+    "retentionNote": "Hasta 1 año de historial diario",
+    "empty": "Aún no hay historial registrado para este rango.",
+    "date": "Fecha"
   }
 }

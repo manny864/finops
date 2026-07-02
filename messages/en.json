@@ -792,5 +792,16 @@
     "utilTrendTitle": "Daily trend (30 days)",
     "utilNoTrend": "Daily series unavailable (requires Billing Reader on EA/MCA).",
     "close": "Close"
+  },
+  "History": {
+    "button": "History",
+    "title": "Daily history",
+    "close": "Close",
+    "from": "From",
+    "to": "To",
+    "query": "Query",
+    "retentionNote": "Up to 1 year of daily history",
+    "empty": "No history recorded yet for this range.",
+    "date": "Date"
   }
 }
