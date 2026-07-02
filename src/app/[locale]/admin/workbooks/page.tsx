@@ -157,8 +157,8 @@ export default function WorkbooksPage() {
                                         onChange={e => handleSubChange(e.target.value, setSubIdCost, true)}
                                         className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white rounded-md shadow-sm focus:ring-[#0054A6] focus:border-[#0054A6] sm:text-sm placeholder-gray-500 dark:placeholder-gray-400"
                                     >
-                                        <option value="" className="text-gray-900 dark:text-gray-100 bg-white dark:bg-slate-800">Selecciona una suscripción...</option>
-                                        {subscriptions.map((s:any) => <option key={s.id} value={s.id} className="text-gray-900 dark:text-gray-100 bg-white dark:bg-slate-800">{s.displayName}</option>)}
+                                        <option value="">Selecciona una suscripción...</option>
+                                        {subscriptions.map((s:any) => <option key={s.id} value={s.id}>{s.displayName}</option>)}
                                     </select>
                                 </div>
                                 <div>
@@ -178,8 +178,8 @@ export default function WorkbooksPage() {
                                         disabled={!subIdCost || loadingRgs}
                                         className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white rounded-md shadow-sm sm:text-sm placeholder-gray-500 dark:placeholder-gray-400"
                                     >
-                                        <option value="" className="text-gray-900 dark:text-gray-100 bg-white dark:bg-slate-800">{loadingRgs ? 'Cargando...' : 'Selecciona un RG...'}</option>
-                                        {rgs.map((r:any) => <option key={r.name} value={r.name} className="text-gray-900 dark:text-gray-100 bg-white dark:bg-slate-800">{r.name} ({r.location})</option>)}
+                                        <option value="">{loadingRgs ? 'Cargando...' : 'Selecciona un RG...'}</option>
+                                        {rgs.map((r:any) => <option key={r.name} value={r.name}>{r.name} ({r.location})</option>)}
                                     </select>
                                 </div>
                             </div>
@@ -212,8 +212,8 @@ export default function WorkbooksPage() {
                                         onChange={e => handleSubChange(e.target.value, setSubIdZombie, false)}
                                         className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm placeholder-gray-500 dark:placeholder-gray-400"
                                     >
-                                        <option value="" className="text-gray-900 dark:text-gray-100 bg-white dark:bg-slate-800">Selecciona una suscripción...</option>
-                                        {subscriptions.map((s:any) => <option key={s.id} value={s.id} className="text-gray-900 dark:text-gray-100 bg-white dark:bg-slate-800">{s.displayName}</option>)}
+                                        <option value="">Selecciona una suscripción...</option>
+                                        {subscriptions.map((s:any) => <option key={s.id} value={s.id}>{s.displayName}</option>)}
                                     </select>
                                 </div>
                                 <div>
@@ -233,8 +233,8 @@ export default function WorkbooksPage() {
                                         disabled={!subIdZombie || loadingRgs}
                                         className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white rounded-md shadow-sm sm:text-sm placeholder-gray-500 dark:placeholder-gray-400"
                                     >
-                                        <option value="" className="text-gray-900 dark:text-gray-100 bg-white dark:bg-slate-800">{loadingRgs ? 'Cargando...' : 'Selecciona un RG...'}</option>
-                                        {rgs.map((r:any) => <option key={r.name} value={r.name} className="text-gray-900 dark:text-gray-100 bg-white dark:bg-slate-800">{r.name} ({r.location})</option>)}
+                                        <option value="">{loadingRgs ? 'Cargando...' : 'Selecciona un RG...'}</option>
+                                        {rgs.map((r:any) => <option key={r.name} value={r.name}>{r.name} ({r.location})</option>)}
                                     </select>
                                 </div>
                             </div>
