@@ -751,7 +751,7 @@
   },
   "Commitments": {
     "reservasTitle": "Reservas Activas",
-    "reservasSubtitle": "Todas las reservas y Savings Plans de tu infraestructura, directo desde el blade de Reservations de Azure.",
+    "reservasSubtitle": "Todas tus reservas (RIs), directo desde el blade de Reservations de Azure.",
     "empty": "No se detectaron reservas activas para este tenant.",
     "colName": "Nombre",
     "colStatus": "Estado",

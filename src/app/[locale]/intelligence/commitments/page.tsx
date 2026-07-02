@@ -10,7 +10,7 @@ export default function CommitmentsPage() {
                 <div>
                     <div className="vt">
                         <span className="vico bg-gradient-to-br from-[#10B981] to-[#047857]">🔖</span>
-                        Descuentos por Compromiso (RIs & Savings Plans)
+                        Descuentos por Compromiso (RIs)
                     </div>
                     <div className="vs">Analiza la cobertura y utilización financiera de las reservas en tu infraestructura.</div>
                 </div>
