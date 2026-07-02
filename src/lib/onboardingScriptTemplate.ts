@@ -68,6 +68,12 @@ export function generateOnboardingScript(clientTenantId: string, subscriptionIds
 # Los custom roles son directory-wide. AssignableScopes debe incluir TODAS las subs.
 Write-Host "4b. Creando/Actualizando Rol Personalizado (directory-wide)..." -ForegroundColor Cyan
 
+# IMPORTANTE: los cmdlets *-AzRoleDefinition operan contra la suscripción del
+# CONTEXTO actual. Fijamos el contexto a la primera suscripción destino para que
+# la creación/actualización sea determinística y no dependa de la sub default de
+# Cloud Shell (que podría no estar en AssignableScopes o no ser controlada).
+Set-AzContext -SubscriptionId $Subscriptions[0] -ErrorAction SilentlyContinue | Out-Null
+
 $customActions = @(
 ${customRoleActionsBlock}
 )
