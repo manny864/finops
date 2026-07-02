@@ -33,7 +33,14 @@ export default function TagManager() {
         
         setIsAnalyzing(true);
         try {
-            const res = await fetch(`/api/tags/compliance?tenantId=${selectedTenant.id}&subscriptionId=${selectedSubscription}`);
+            const tokenResponse = await instance.acquireTokenSilent({
+                scopes: ["User.Read"],
+                account: accounts[0]
+            });
+            const res = await fetch(
+                `/api/tags/compliance?tenantId=${selectedTenant.id}&subscriptionId=${selectedSubscription}`,
+                { headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` } }
+            );
             const json = await res.json();
             
             if (json.success && json.data) {
