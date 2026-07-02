@@ -4,9 +4,11 @@ import { getAzureCredential } from "@/lib/azure";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 
 export async function POST(request: NextRequest) {
+    let subscriptionId: string | undefined;
     try {
         const body = await request.json();
-        const { subscriptionId, budgetName, amount, contactEmail, alertThreshold, tenantId: bodyTenantId, timeGrain } = body;
+        const { budgetName, amount, contactEmail, alertThreshold, tenantId: bodyTenantId, timeGrain } = body;
+        subscriptionId = body.subscriptionId;
 
         if (!subscriptionId || !budgetName || amount === undefined || !contactEmail) {
             return NextResponse.json({ error: "Faltan parámetros requeridos." }, { status: 400 });
@@ -38,9 +40,9 @@ export async function POST(request: NextRequest) {
         
         const err = e as { code?: string; details?: { error?: { code?: string } } };
         if (err.code === 'RBACAccessDenied' || (err.details?.error?.code === 'RBACAccessDenied')) {
-            return NextResponse.json({ 
-                error: "Permisos insuficientes", 
-                details: "La aplicación no tiene permisos para crear presupuestos. Debes asignar el rol 'Cost Management Contributor' a la aplicación en la suscripción de Azure." 
+            return NextResponse.json({
+                error: "Permisos insuficientes en Azure",
+                details: `La aplicación (Service Principal) no tiene permiso para crear presupuestos en la suscripción ${subscriptionId}. Asigná el rol 'Cost Management Contributor' (mínimo privilegio, incluye Microsoft.Consumption/budgets/write) al App Registration del tenant sobre esa suscripción y reintentá.`
             }, { status: 403 });
         }
 
