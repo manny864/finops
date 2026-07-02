@@ -129,11 +129,16 @@ export default function BudgetBurnChart({ onHeightChange }: BudgetBurnChartProps
                                     content={({ active, payload }) => {
                                         if (active && payload && payload.length) {
                                             const data = payload[0].payload;
+                                            // Mismo criterio de color que la barra "Gasto Actual"
+                                            // (ver Cell abajo) para que el tooltip no confunda:
+                                            // rojo ≥90%, ámbar ≥75%, azul si está sano.
+                                            const ratio = data.budget > 0 ? data.actual / data.budget : 0;
+                                            const gastoColor = ratio >= 0.9 ? '#ef4444' : ratio >= 0.75 ? '#f59e0b' : '#3b82f6';
                                             return (
                                                 <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-100">
                                                     <p className="font-bold text-sm text-gray-800 mb-1">{data.costCenter}</p>
                                                     <p className="text-xs text-gray-600">
-                                                        Gasto: <span className="font-bold text-blue-600">${data.actual.toFixed(2)}</span> / Presupuesto: <span className="font-bold text-teal-600">${data.budget.toFixed(2)}</span>
+                                                        Gasto: <span className="font-bold" style={{ color: gastoColor }}>${data.actual.toFixed(2)}</span> / Presupuesto: <span className="font-bold" style={{ color: '#0d9488' }}>${data.budget.toFixed(2)}</span>
                                                     </p>
                                                 </div>
                                             );
