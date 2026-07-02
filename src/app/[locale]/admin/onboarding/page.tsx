@@ -315,7 +315,7 @@ export default function OnboardingPage() {
           )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8 items-start">
           {/* Generador de Script */}
           <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
               <div className="px-6 py-4 border-b border-gray-200 bg-indigo-50/50 flex items-center">
@@ -410,7 +410,7 @@ export default function OnboardingPage() {
                           <div className="text-xs text-indigo-300 mb-3 font-medium bg-indigo-900/30 p-2 rounded border border-indigo-800/50 flex-shrink-0">
                               ℹ️ Pida a su cliente que pegue este bloque en Azure Cloud Shell (Modo PowerShell).
                           </div>
-                          <pre className="text-xs font-mono text-gray-300 overflow-x-auto whitespace-pre-wrap flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+                          <pre className="text-xs font-mono text-gray-300 overflow-auto whitespace-pre max-h-[480px] custom-scrollbar">
                               <code>{generatedScript}</code>
                           </pre>
                       </>
