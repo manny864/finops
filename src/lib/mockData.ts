@@ -482,14 +482,70 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
                     };
                 })
             };
-        case 'tags_compliance':
+        case 'tags_compliance': {
+            const mkRes = (id: string, name: string, missing: string[], type?: string, sub?: string) => ({
+                resourceId: id, id, name,
+                type: type || 'microsoft.compute/virtualmachines',
+                subscriptionId: sub || 'demo', location: 'eastus',
+                reason: missing.length === 0 ? 'Cumple con las políticas' : `Faltan etiquetas obligatorias: ${missing.join(', ')}`,
+                missingTags: missing, isCompliant: missing.length === 0,
+            });
+            const allResources = [
+                mkRes('/subscriptions/demo/rg/prod/vm-app-01', 'vm-app-01', []),
+                mkRes('/subscriptions/demo/rg/prod/vm-app-02', 'vm-app-02', ['Owner']),
+                mkRes('/subscriptions/demo/rg/data/sql-main', 'sql-main', [], 'microsoft.sql/servers'),
+                mkRes('/subscriptions/demo/rg/data/st-archive', 'st-archive', ['Environment', 'CostCenter'], 'microsoft.storage/storageaccounts'),
+                mkRes('/subscriptions/demo/rg/net/gw-hub', 'gw-hub', ['CostCenter'], 'microsoft.network/virtualnetworkgateways'),
+            ];
+            const resourceGroups = [
+                { resourceId: '/subscriptions/demo/rg/prod', id: '/subscriptions/demo/rg/prod', name: 'rg-prod-core', type: 'microsoft.resources/subscriptions/resourcegroups', subscriptionId: 'demo', location: 'eastus', reason: 'Cumple con las políticas', missingTags: [], isCompliant: true },
+                { resourceId: '/subscriptions/demo/rg/data', id: '/subscriptions/demo/rg/data', name: 'rg-data-lake', type: 'microsoft.resources/subscriptions/resourcegroups', subscriptionId: 'demo', location: 'westeurope', reason: 'Faltan etiquetas obligatorias: CostCenter', missingTags: ['CostCenter'], isCompliant: false },
+            ];
+            const cc = allResources.filter(r => r.isCompliant).length;
+            const rgc = resourceGroups.filter(r => r.isCompliant).length;
             return {
                 success: true,
-                complianceScore: 85,
-                resources: [
-                    { id: 'res1', name: 'demo-vm', missingTags: ['Environment', 'Owner'] },
-                    { id: 'res2', name: 'demo-db', missingTags: ['CostCenter'] }
-                ]
+                data: {
+                    complianceScore: Math.round((cc / allResources.length) * 100),
+                    allResources,
+                    rgComplianceScore: Math.round((rgc / resourceGroups.length) * 100),
+                    resourceGroups,
+                },
+            };
+        }
+        case 'ai-analytics':
+            return {
+                success: true, mock: true,
+                summary: { totalCost: 8420.50 * multiplier, totalInputTokens: 42500000 * multiplier, totalOutputTokens: 18300000 * multiplier, costPer1kTokens: 0.139, activeModels: 4, activeApplications: 7 },
+                byModel: [
+                    { model: 'gpt-4o', cost: 5200 * multiplier, inputTokens: 25000000 * multiplier, outputTokens: 12000000 * multiplier, costPer1k: 0.140 },
+                    { model: 'gpt-4-turbo', cost: 2100 * multiplier, inputTokens: 10000000 * multiplier, outputTokens: 4500000 * multiplier, costPer1k: 0.145 },
+                    { model: 'gpt-35-turbo', cost: 850 * multiplier, inputTokens: 6500000 * multiplier, outputTokens: 1500000 * multiplier, costPer1k: 0.106 },
+                    { model: 'text-embedding-3-large', cost: 270.50 * multiplier, inputTokens: 1000000 * multiplier, outputTokens: 300000 * multiplier, costPer1k: 0.208 },
+                ],
+                byApplication: [
+                    { application: 'customer-support-bot', cost: 3200 * multiplier, model: 'gpt-4o' },
+                    { application: 'doc-summarizer', cost: 1800 * multiplier, model: 'gpt-4o' },
+                    { application: 'sales-assistant', cost: 1100 * multiplier, model: 'gpt-4-turbo' },
+                    { application: 'embeddings-pipeline', cost: 850 * multiplier, model: 'text-embedding-3-large' },
+                    { application: 'internal-search', cost: 650 * multiplier, model: 'gpt-35-turbo' },
+                    { application: 'code-helper', cost: 520 * multiplier, model: 'gpt-4-turbo' },
+                    { application: 'qa-eval', cost: 300.50 * multiplier, model: 'gpt-35-turbo' },
+                ],
+                byTeam: [
+                    { team: 'cx', cost: 3200 * multiplier },
+                    { team: 'product', cost: 2520 * multiplier },
+                    { team: 'sales', cost: 1100 * multiplier },
+                    { team: 'data-eng', cost: 850 * multiplier },
+                    { team: 'engineering', cost: 750.50 * multiplier },
+                ],
+                trend: [
+                    { date: '2026-06-01', cost: 265 * multiplier, inputTokens: 1350000 * multiplier, outputTokens: 580000 * multiplier },
+                    { date: '2026-06-08', cost: 285 * multiplier, inputTokens: 1450000 * multiplier, outputTokens: 620000 * multiplier },
+                    { date: '2026-06-15', cost: 305 * multiplier, inputTokens: 1530000 * multiplier, outputTokens: 670000 * multiplier },
+                    { date: '2026-06-22', cost: 295 * multiplier, inputTokens: 1490000 * multiplier, outputTokens: 640000 * multiplier },
+                    { date: '2026-06-27', cost: 310 * multiplier, inputTokens: 1560000 * multiplier, outputTokens: 680000 * multiplier },
+                ],
             };
         case 'rates':
             return {
