@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useTenant } from '@/components/TenantProvider';
+import { isMockTenant } from '@/lib/mockData';
 import { useMsal } from '@azure/msal-react';
 import { fetchWithAuthRetry } from '@/lib/msalToken';
 import WizardLayout from '@/components/onboarding/WizardLayout';
@@ -47,6 +48,34 @@ export default function OnboardingPage() {
         if (!selectedTenant || !accounts.length) return;
         loadProgress();
     }, [selectedTenant, accounts]);
+
+    // DEMO: precargar el formulario de onboarding con datos ya completados.
+    // En modo demo no hay cuentas MSAL, por lo que loadProgress() nunca corre;
+    // aquí rellenamos todos los campos y marcamos el wizard como 100% completado.
+    useEffect(() => {
+        if (!selectedTenant || !isMockTenant(selectedTenant.id)) return;
+        setCompanyName(selectedTenant.name || 'Contoso Demo');
+        setPrimaryCloud('azure');
+        setCurrency('USD');
+        setTimezone('UTC');
+        setClientId('a1b2c3d4-1111-2222-3333-9f9f9f9f9f9f');
+        setClientSecret('demo-secret-oculto-1234567890');
+        setAzureTenantId('54d7cf18-0baa-4da7-8242-fbf59a92aaac');
+        setBudgetName('Producción Cloud');
+        setBudgetLimit('5000');
+        setBudgetAlertThreshold('80');
+        setSpValidationResult({ success: true, allPermissionsPresent: true });
+        setProgress({
+            step_welcome: 'completed',
+            step_azure_sp: 'completed',
+            step_first_sync: 'completed',
+            step_first_budget: 'completed',
+            step_notifications: 'completed',
+            percent_complete: 100,
+        });
+        setActiveStep(5);
+        setLoading(false);
+    }, [selectedTenant]);
 
     const loadProgress = async () => {
         if (!accounts.length) return;
