@@ -329,6 +329,19 @@ export default function OnboardingPage() {
                           {t('leastPrivilegeBanner', { tier: currentTier })}
                       </p>
                   </div>
+                  <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start">
+                      <AlertTriangle className="w-5 h-5 text-amber-600 mr-3 mt-0.5 flex-shrink-0" />
+                      <div className="text-sm text-amber-900 space-y-2">
+                          <p className="font-bold">{t('executorRolesTitle')}</p>
+                          <p>{t('executorRolesIntro')}</p>
+                          <ul className="list-disc pl-5 space-y-1">
+                              <li>{t('executorRolesOwner')}</li>
+                              <li>{t('executorRolesUaa')}</li>
+                          </ul>
+                          <p>{t('executorRolesGlobalAdmin')}</p>
+                          <p className="text-xs text-amber-700">{t('executorRolesSummary')}</p>
+                      </div>
+                  </div>
                   <form onSubmit={generateScript} className="space-y-4">
                       <div>
                           <label className="block text-sm font-bold text-gray-700 mb-1">ID del Tenant del Cliente</label>

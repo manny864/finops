@@ -471,7 +471,13 @@
     "configure_btn": "Configure Budget"
   },
   "onboarding": {
-    "leastPrivilegeBanner": "As your current plan is {tier}, this script has been custom-tailored to request only the strictly necessary RBAC permissions for your features."
+    "leastPrivilegeBanner": "As your current plan is {tier}, this script has been custom-tailored to request only the strictly necessary RBAC permissions for your features.",
+    "executorRolesTitle": "Required permissions to run the script",
+    "executorRolesIntro": "The user running the script in Azure Cloud Shell must have, on EACH target subscription:",
+    "executorRolesOwner": "Owner OR (Contributor + User Access Administrator) — required to assign roles and to create/update the custom role.",
+    "executorRolesUaa": "The custom role is directory-wide: its AssignableScopes must include every subscription, so you need write access on ALL of them, otherwise it will only be created/assigned on the ones you control.",
+    "executorRolesGlobalAdmin": "Note: being Entra ID Global Administrator does NOT grant access to Azure subscriptions. Either assign yourself Owner on each subscription, or enable \"Access management for Azure resources\" in Entra ID (grants User Access Administrator at root /).",
+    "executorRolesSummary": "If a role appears in only one subscription, check the \"FAILURES\" summary the script prints at the end — it shows exactly which scopes were denied."
   },
   "Admin": {
     "Users": {
