@@ -329,10 +329,13 @@ export default function OnboardingPage() {
                           {t('leastPrivilegeBanner', { tier: currentTier })}
                       </p>
                   </div>
-                  <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start">
-                      <AlertTriangle className="w-5 h-5 text-amber-600 mr-3 mt-0.5 flex-shrink-0" />
-                      <div className="text-sm text-amber-900 space-y-2">
-                          <p className="font-bold">{t('executorRolesTitle')}</p>
+                  <details className="mb-4 rounded-lg bg-amber-50 border border-amber-200 group">
+                      <summary className="p-3 flex items-center gap-2 cursor-pointer text-sm font-bold text-amber-900 list-none select-none">
+                          <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+                          <span>{t('executorRolesTitle')}</span>
+                          <ChevronDown className="w-4 h-4 ml-auto transition-transform group-open:rotate-180" />
+                      </summary>
+                      <div className="px-4 pb-4 pt-1 text-sm text-amber-900 space-y-2">
                           <p>{t('executorRolesIntro')}</p>
                           <ul className="list-disc pl-5 space-y-1">
                               <li>{t('executorRolesOwner')}</li>
@@ -341,7 +344,7 @@ export default function OnboardingPage() {
                           <p>{t('executorRolesGlobalAdmin')}</p>
                           <p className="text-xs text-amber-700">{t('executorRolesSummary')}</p>
                       </div>
-                  </div>
+                  </details>
                   <form onSubmit={generateScript} className="space-y-4">
                       <div>
                           <label className="block text-sm font-bold text-gray-700 mb-1">ID del Tenant del Cliente</label>
