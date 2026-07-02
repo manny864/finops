@@ -32,10 +32,14 @@ export async function POST(request: NextRequest) {
         const azureCode = err?.code || err?.body?.error?.code || err?.statusCode;
         const azureMsg = err?.body?.error?.message || err?.details?.message || err?.message;
         const isAuthz = azureCode === 'AuthorizationFailed' || /AuthorizationFailed/i.test(azureMsg || '');
-        const status = isAuthz ? 403 : (typeof azureCode === 'number' ? azureCode : 500);
+        const isProviderReg = azureCode === 'MissingSubscriptionRegistration' || azureCode === 'ProviderRegistrationTimeout'
+            || /MissingSubscriptionRegistration/i.test(azureMsg || '');
+        const status = isAuthz ? 403 : isProviderReg ? 409 : (typeof azureCode === 'number' ? azureCode : 500);
         return NextResponse.json({
             error: isAuthz
                 ? "El Service Principal no tiene permisos para desplegar Workbooks. Se requiere 'Monitoring Contributor' o 'Workbook Contributor' sobre el Resource Group destino. Vuelve a ejecutar el script de onboarding del tier Enterprise."
+                : isProviderReg
+                ? "La suscripción no tiene registrado el resource provider 'microsoft.insights' y el registro automático no se completó. Regístrelo manualmente (az provider register --namespace microsoft.insights) y reintente."
                 : "Internal server error",
             azureCode,
         }, { status });
