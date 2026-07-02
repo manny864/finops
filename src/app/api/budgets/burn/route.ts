@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getNativeBudgets } from "@/services/budgetService";
+import { recordDailySnapshotAsync } from "@/services/snapshotService";
+import { isMockTenant } from "@/lib/mockData";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 // RBAC: lectura de burn de presupuestos requiere pertenencia al tenant (JWT validado).
 
@@ -23,6 +25,17 @@ export async function GET(request: NextRequest) {
         
         // Flatten array if there are multiple subscriptions
         const burnData = results.flat();
+
+        // Write-through de historial diario (best-effort, solo tenants reales).
+        if (!isMockTenant(tenantId) && burnData.length > 0) {
+            const totalBudget = burnData.reduce((s: number, b: { budget?: number }) => s + Number(b.budget || 0), 0);
+            const totalActual = burnData.reduce((s: number, b: { actual?: number }) => s + Number(b.actual || 0), 0);
+            recordDailySnapshotAsync(tenantId, 'budgets', {
+                totalBudget: Number(totalBudget.toFixed(2)),
+                totalActual: Number(totalActual.toFixed(2)),
+                budgetsCount: burnData.length,
+            }, subscriptionId);
+        }
 
         return NextResponse.json({ burnData });
 

@@ -3,6 +3,7 @@ import { isMockTenant } from "@/lib/mockData";
 import pool from "@/modules/storage/db";
 import { sendWebhookAlert } from "@/lib/notifications";
 import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
+import { recordDailySnapshotAsync } from "@/services/snapshotService";
 
 // ── Z-Score helpers ─────────────────────────────────────────────────────────
 function computeStats(values: number[]): { mean: number; stdDev: number } {
@@ -166,6 +167,13 @@ export async function GET(request: NextRequest) {
                 'warning'
             ).catch(() => {});
         }
+
+        // Write-through de historial diario (best-effort, solo tenants reales con datos).
+        recordDailySnapshotAsync(tenantId, 'anomalies', {
+            anomaliesCount: anomalies.length,
+            mean: Number(mean.toFixed(2)),
+            stdDev: Number(stdDev.toFixed(2)),
+        }, subscriptionId);
 
         return NextResponse.json({ success: true, dailyCosts, anomalies, mean, stdDev });
 

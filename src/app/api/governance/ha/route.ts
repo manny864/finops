@@ -4,6 +4,7 @@ import { isMockTenant } from "@/lib/mockData";
 import pool from "@/modules/storage/db";
 import { evaluateHALive } from "@/services/haService";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
+import { recordDailySnapshotAsync } from "@/services/snapshotService";
 
 const MOCK_ITEMS = [
     // Crítico
@@ -66,6 +67,14 @@ export async function GET(request: NextRequest) {
                 900,
                 300
             );
+            // Write-through de historial diario (best-effort, datos frescos ARG).
+            recordDailySnapshotAsync(tenantId, 'governance', {
+                critical: Number(live.counts?.critical || 0),
+                high: Number(live.counts?.high || 0),
+                medium: Number(live.counts?.medium || 0),
+                low: Number(live.counts?.low || 0),
+                total: Array.isArray(live.items) ? live.items.length : 0,
+            });
             return NextResponse.json({
                 success: true,
                 mock: false,

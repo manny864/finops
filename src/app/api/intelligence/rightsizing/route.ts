@@ -5,6 +5,8 @@ import { analyzeVmEfficiency } from '@/modules/core/rightsizingEngine';
 import { getMonthlyCostEstimate } from '@/services/pricingService';
 import { requireTenantRole, AuthError } from '@/lib/requestAuth';
 import { getWithStaleWhileRevalidate } from '@/lib/cache';
+import { isMockTenant } from '@/lib/mockData';
+import { recordDailySnapshotAsync } from '@/services/snapshotService';
 
 async function queryResourceGraphWithRetry(client: any, query: string, subscriptions: string[], retries = 3, initialDelay = 3000): Promise<any> {
     let currentDelay = initialDelay;
@@ -192,6 +194,15 @@ export async function GET(request: NextRequest) {
         const results = [...activeResults, ...stoppedResults];
             return results.filter(r => r.isUnderutilized);
         }, 3600);
+
+        // Write-through de historial diario (best-effort, solo tenants reales).
+        if (!isMockTenant(tenantId)) {
+            const potentialSavings = underutilizedVms.reduce((s, v) => s + Number(v.hiddenCost || 0), 0);
+            recordDailySnapshotAsync(tenantId, 'rightsizing', {
+                recommendationsCount: underutilizedVms.length,
+                potentialSavings: Number(potentialSavings.toFixed(2)),
+            }, subscriptionId || 'All');
+        }
 
         return NextResponse.json({ success: true, data: underutilizedVms });
     } catch (error: any) {

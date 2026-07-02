@@ -4,6 +4,8 @@ import { redis } from "@/lib/redis";
 import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";
 import { getCurrentMonthAmortizedCosts } from "@/modules/collectors/azure/billingService";
+import { isMockTenant } from "@/lib/mockData";
+import { recordDailySnapshotAsync } from "@/services/snapshotService";
 
 type AuditResults = Record<string, unknown[]>;
 
@@ -404,6 +406,17 @@ export async function GET(request: NextRequest) {
       // "modo degradado" desaparece apenas Azure se recupera.
       (d: any) => (d && d.degraded ? 60 : 900)
     );
+
+    // Write-through de historial diario (best-effort, solo datos frescos no degradados).
+    if (!isMockTenant(tenantId) && data && !data.degraded && !data.azureNoAccess) {
+      recordDailySnapshotAsync(tenantId, 'dashboard_summary', {
+        actualCost: Number(data.actualCost || 0),
+        projectedCost: Number(data.projectedCost || 0),
+        totalSavings: Number(data.totalSavings || 0),
+        zombieCount: Number(data.zombieCount || 0),
+        environmentalImpact: Number(data.environmentalImpact || 0),
+      }, subscriptionId);
+    }
 
     return NextResponse.json({ success: true, ...data, fromCache: true });
   } catch (error: unknown) {

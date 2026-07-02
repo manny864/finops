@@ -5,6 +5,7 @@ import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { getActiveReservations } from "@/services/reservationService";
+import { recordDailySnapshotAsync } from "@/services/snapshotService";
 
 export async function GET(request: NextRequest) {
     try {
@@ -209,6 +210,14 @@ export async function GET(request: NextRequest) {
 
             return { utilization, coverage, hasReservations, activeReservations, reservationDetails, recommendations };
         }, 43200);
+
+        // Write-through de historial diario (best-effort, solo tenants reales).
+        recordDailySnapshotAsync(tenantId, 'commitments', {
+            utilization: Number(data.utilization || 0),
+            coverage: Number(data.coverage || 0),
+            activeReservations: Number(data.activeReservations || 0),
+            recommendationsCount: Array.isArray(data.recommendations) ? data.recommendations.length : 0,
+        });
 
         return NextResponse.json({ success: true, data });
 
