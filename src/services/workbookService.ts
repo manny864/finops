@@ -1,4 +1,5 @@
 import { ResourceManagementClient } from "@azure/arm-resources";
+import { randomUUID } from "crypto";
 import finopsTemplate from "@/lib/templates/finops-workbook.json";
 import zombieTemplate from "@/lib/templates/zombie-workbook.json";
 
@@ -37,16 +38,16 @@ export async function deployFinOpsWorkbook(credential: any, subscriptionId: stri
     const client = new ResourceManagementClient(credential, subscriptionId);
     
     let templateContent;
-    let workbookName;
     let workbookDisplayName;
+    // ARM exige que el nombre del recurso Microsoft.Insights/workbooks sea un GUID
+    // (si no, devuelve 400 "Invalid Workbook resource name").
+    const workbookName = randomUUID();
 
     if (workbookType === 'cost-optimization') {
         templateContent = finopsTemplate;
-        workbookName = `finops-workbook-${Date.now()}`;
         workbookDisplayName = 'FinOps Cost Optimization Workbook';
     } else if (workbookType === 'zombie-resources') {
         templateContent = zombieTemplate;
-        workbookName = `zombie-workbook-${Date.now()}`;
         workbookDisplayName = 'Zombie Resources Tracker';
     } else {
         throw new Error(`Tipo de workbook inválido: ${workbookType}`);
