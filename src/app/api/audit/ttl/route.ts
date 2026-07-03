@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { findExpiredResources } from "@/services/ttlService";
 import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
+import { getWithStaleWhileRevalidate } from "@/lib/cache";
 
 
 export async function GET(request: NextRequest) {
@@ -16,7 +17,15 @@ export async function GET(request: NextRequest) {
 
         await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
 
-        const expiredResources = await findExpiredResources(tenantId);
+        // Cache Redis SWR: mismo motivo que audit/full, evita relanzar la
+        // query TTL en cada refresh del dashboard.
+        const expiredResources = await getWithStaleWhileRevalidate(
+            `audit:ttl:v1:${tenantId}`,
+            () => findExpiredResources(tenantId),
+            600,
+            120,
+            (data: unknown[]) => (Array.isArray(data) && data.length > 0 ? 600 : 30)
+        );
         
         return NextResponse.json({ expiredResources });
 

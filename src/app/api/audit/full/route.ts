@@ -5,20 +5,12 @@ import { runGraphAudits, runMonitorAudits, runM365Audits } from "@/services/audi
 import { getMonthlyCostEstimate } from "@/services/pricingService";
 import { tenants } from "@/lib/tenants";
 import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
+import { getWithStaleWhileRevalidate } from "@/lib/cache";
+import { withArgLimit } from "@/lib/argConcurrency";
 
+type AuditPayload = { mode: string; auditResults: Record<string, unknown[]> };
 
-export async function GET(request: NextRequest) {
-  try {
-    const searchParams = request.nextUrl.searchParams;
-    const subscriptionId = searchParams.get('subscriptionId');
-    const tenantId = searchParams.get('tenantId');
-
-    if (!tenantId) {
-      return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
-    }
-
-    await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
-
+async function computeAuditPayload(tenantId: string, subscriptionId: string | null): Promise<AuditPayload> {
     // 2. Obtener Cliente Autenticado
     const credential = await getAzureCredential(tenantId);
     const resourceGraphClient = new ResourceGraphClient(credential);
@@ -136,8 +128,32 @@ export async function GET(request: NextRequest) {
             | where type =~ 'microsoft.compute/disks'
             | project id = tolower(id), diskSizeGB = toint(properties.diskSizeGB), sku = sku.name, location
         `;
-        const disksResponse = await resourceGraphClient.resources({ query: disksQuery, subscriptions: subs });
-        const disksData = disksResponse.data as any[] || [];
+        // Esta query NO pasaba por retry ni por el limitador global de ARG:
+        // ante un 429 sostenido, tiraba una excepcion sin capturar que
+        // rompia TODO /api/audit/full con un 500 (visto en produccion).
+        let disksData: any[] = [];
+        try {
+            let retries = 3;
+            let currentDelay = 3000;
+            for (;;) {
+                try {
+                    const disksResponse = await withArgLimit(() => resourceGraphClient.resources({ query: disksQuery, subscriptions: subs }));
+                    disksData = disksResponse.data as any[] || [];
+                    break;
+                } catch (e: any) {
+                    const isRateLimit = e?.statusCode === 429 || (e?.code && e.code === 'RateLimiting');
+                    if (isRateLimit && retries > 1) {
+                        await new Promise(resolve => setTimeout(resolve, currentDelay));
+                        currentDelay *= 2;
+                        retries--;
+                    } else {
+                        throw e;
+                    }
+                }
+            }
+        } catch (e: any) {
+            console.warn(`[Audit] No se pudo enriquecer costo de discos de longStoppedVMs (degradado a $0):`, e?.message || e);
+        }
         const disksMap = new Map<string, { sizeGB: number, sku: string, location: string }>();
         for (const d of disksData) {
             if (d.id) {
@@ -192,16 +208,53 @@ export async function GET(request: NextRequest) {
     // 4. Lógica Freemium Teaser (Removido el enmascaramiento de privacidad de VMs por solicitud)
     // El nombre real (vm.name) ahora se enviará como texto plano.
 
-    // 5. Retornar Estructura Unificada
-    return NextResponse.json({ 
-        success: true, 
-        tenantId, 
+    return {
         mode: subscriptionId ? "single-subscription" : "tenant-wide",
         auditResults: {
             ...graphResults,
             // vmUnderutilized: monitorResults,
             // unassignedLicenses: m365Results
         }
+    };
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const searchParams = request.nextUrl.searchParams;
+    const subscriptionId = searchParams.get('subscriptionId');
+    const tenantId = searchParams.get('tenantId');
+
+    if (!tenantId) {
+      return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
+    }
+
+    await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
+
+    // Cache Redis SWR (igual patrón que HA/rightsizing): evita relanzar las
+    // ~47 queries de ARG en cada refresh del dashboard, que era la causa
+    // principal de la tormenta de 429 que vaciaba el conteo de zombies.
+    // TTL corto (30s) si el resultado vino totalmente vacío, para no
+    // "congelar" un falso 0 durante 10 minutos ante una degradación puntual.
+    const cacheKey = `audit:full:v1:${tenantId}:${(subscriptionId || 'all').toLowerCase()}`;
+    const payload = await getWithStaleWhileRevalidate(
+      cacheKey,
+      () => computeAuditPayload(tenantId, subscriptionId),
+      600,
+      120,
+      (data: AuditPayload) => {
+        const total = Object.values(data.auditResults || {}).reduce(
+          (acc: number, arr) => acc + (Array.isArray(arr) ? arr.length : 0), 0
+        );
+        return total > 0 ? 600 : 30;
+      }
+    );
+
+    // 5. Retornar Estructura Unificada
+    return NextResponse.json({
+        success: true,
+        tenantId,
+        mode: payload.mode,
+        auditResults: payload.auditResults
     });
 
   } catch (error: unknown) {

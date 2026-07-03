@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { deleteResource } from "@/services/remediationService";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
+import { redis } from "@/lib/redis";
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,6 +13,15 @@ export async function POST(request: NextRequest) {
     const email = identity.email;
 
     await deleteResource(tenantId, email, subscriptionId, resourceGroup, resourceName, resourceType);
+
+    // Invalidar cache de auditoría (Redis SWR) para que el recurso recién
+    // borrado no siga apareciendo como zombie hasta que expire el TTL.
+    const keysToInvalidate = [
+      `audit:full:v1:${tenantId}:all`,
+      `audit:ttl:v1:${tenantId}`,
+    ];
+    if (subscriptionId) keysToInvalidate.push(`audit:full:v1:${tenantId}:${String(subscriptionId).toLowerCase()}`);
+    await redis.del(...keysToInvalidate).catch((e) => console.warn("[Remediation] No se pudo invalidar cache de audit:", e?.message));
 
     return NextResponse.json({ success: true });
   } catch (e: unknown) {
