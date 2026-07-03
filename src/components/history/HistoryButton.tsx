@@ -64,7 +64,11 @@ export default function HistoryButton({
         if (account) {
             try {
                 const token = await instance.acquireTokenSilent({ scopes: ["User.Read"], account });
-                headers["Authorization"] = `Bearer ${token.accessToken}`;
+                // El backend (requestAuth.ts) valida un ID token (aud = nuestro
+                // AZURE_CLIENT_ID, claims.tid, issuer v2.0). token.accessToken es
+                // el access token para Microsoft Graph (aud distinto) y siempre
+                // fallaba la validacion de audience -> 401 Unauthorized.
+                headers["Authorization"] = `Bearer ${token.idToken}`;
             } catch { /* sin token: el server valida por sesión/guard */ }
         }
         const res = await fetch(url, { headers });
