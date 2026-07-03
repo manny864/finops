@@ -60,7 +60,12 @@ export async function deployFinOpsWorkbook(credential: any, subscriptionId: stri
         properties: {
             displayName: workbookDisplayName,
             serializedData: JSON.stringify(templateContent),
-            category: "workbook"
+            category: "workbook",
+            // Recurso "dueño" del workbook. Sin esto, Azure Portal falla al abrirlo
+            // con: "The owning resource for this workbook was not set.
+            // ComponentId was {LinkedApplicationType:-2}" (404).
+            // 'azure monitor' = workbook standalone vinculado a Azure Monitor.
+            sourceId: "azure monitor"
         }
     };
 
