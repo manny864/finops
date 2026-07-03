@@ -101,7 +101,11 @@ export function linearForecast(
 
     forecast.push({
       date: dateStr,
-      value: decimalToString(value),
+      // El costo nunca puede ser negativo: con series cortas/ruidosas, la
+      // extrapolacion lineal puede dar pendiente muy negativa y proyectar
+      // valores absurdos (ej. -1392.96). Se aplica piso en 0, igual que ya
+      // hacen dampedHoltForecast y ensembleForecast.
+      value: decimalToString(value.lessThan(0) ? new Decimal(0) : value),
       method: 'linear',
     });
   }
@@ -247,7 +251,9 @@ export function holtWintersForecast(
 
     forecast.push({
       date: dateStr,
-      value: decimalToString(value),
+      // Piso en 0: mismo motivo que linearForecast, la tendencia puede
+      // proyectar un costo negativo en horizontes largos.
+      value: decimalToString(value.lessThan(0) ? new Decimal(0) : value),
       method: 'holt_winters',
     });
   }
@@ -278,15 +284,31 @@ export function forecastWithConfidence(
     forecast = holtWintersForecast(history, days);
   }
 
-  // Compute residuals on historical data
-  const historicalForecast =
-    history.length >= 2
-      ? (method === 'linear'
-          ? linearForecast(history.slice(0, -1), 1)
-          : method === 'ema'
-            ? emaForecast(history.slice(0, -1), 1)
-            : holtWintersForecast(history.slice(0, -1), 1))
-      : [];
+  // Compute residuals on historical data.
+  // NOTA: el guard original comparaba `history.length >= 2`, pero el metodo
+  // 'linear' llama a linearForecast sobre `history.slice(0, -1)` (un elemento
+  // menos). Con history.length === 2, el slice queda con 1 elemento y
+  // linearForecast tira "History must have at least 2 points" sin capturar,
+  // rompiendo todo /api/intelligence/forecast con un 500 (bug reproducido:
+  // pasaba en casi cada llamada real con series cortas de costo).
+  let historicalForecast: ForecastPoint[] = [];
+  if (history.length >= 2) {
+    try {
+      const histSliceForResidual = history.slice(0, -1);
+      if (method === 'linear') {
+        if (histSliceForResidual.length >= 2) {
+          historicalForecast = linearForecast(histSliceForResidual, 1);
+        }
+      } else if (method === 'ema') {
+        historicalForecast = emaForecast(histSliceForResidual, 1);
+      } else {
+        historicalForecast = holtWintersForecast(histSliceForResidual, 1);
+      }
+    } catch (e) {
+      console.warn('[Forecasting] No se pudo calcular residual histórico inicial:', e);
+      historicalForecast = [];
+    }
+  }
 
   const residuals: Decimal[] = [];
   if (historicalForecast.length > 0) {
@@ -346,7 +368,13 @@ export function forecastWithConfidence(
   for (const point of forecast) {
     const val = toDecimal(point.value);
     const lowerBound = val.minus(ci95);
+    const upperBound = val.plus(ci95);
+    // Ambos extremos de la banda deben tener piso en 0 (costo nunca
+    // negativo). Antes solo se acotaba `lower`, dejando `upper` libre: si
+    // `val` ya era negativo (bug de linearForecast sin piso), el resultado
+    // era `lower=0.00` y `upper` negativo — una banda invertida sin sentido.
     const lowerValue = lowerBound.lessThan(0) ? new Decimal(0) : lowerBound;
+    const upperValue = upperBound.lessThan(0) ? new Decimal(0) : upperBound;
     lower.push({
       date: point.date,
       value: decimalToString(lowerValue),
@@ -354,13 +382,26 @@ export function forecastWithConfidence(
     });
     upper.push({
       date: point.date,
-      value: decimalToString(val.plus(ci95)),
+      value: decimalToString(upperValue),
       method,
     });
   }
 
-  // Calculate RMSE and MAPE
-  const { rmse, mape } = evaluateForecast(history, 0.8, method);
+  // Calculate RMSE and MAPE.
+  // evaluateForecast exige history.length >= 3 (necesita un split
+  // train/test); con series de 2 puntos tiraba sin capturar y rompia
+  // forecastWithConfidence entero. Degradamos a '0' si no alcanza.
+  let rmse = '0';
+  let mape = '0';
+  if (history.length >= 3) {
+    try {
+      const metrics = evaluateForecast(history, 0.8, method);
+      rmse = metrics.rmse;
+      mape = metrics.mape;
+    } catch (e) {
+      console.warn('[Forecasting] No se pudo calcular RMSE/MAPE final:', e);
+    }
+  }
 
   return {
     points: forecast,
