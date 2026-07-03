@@ -4,6 +4,7 @@ import { getAzureCredential } from "@/lib/azure";
 import { MonitorClient } from "@azure/arm-monitor";
 import { getResourceGraphClient, getSubscriptionsForTenant } from "@/lib/azure";
 import { AuthError, requireTenantAccess, requireTenantRole } from "@/lib/requestAuth";
+import { withArgLimit } from "@/lib/argConcurrency";
 
 type VmRow = {
     id: string;
@@ -60,7 +61,7 @@ export async function GET(request: NextRequest) {
             | project id, name, location, resourceGroup, subscriptionId, tags, powerState = tostring(properties.extended.instanceView.powerState.code)
         `;
 
-        const response = await client.resources({ query, subscriptions });
+        const response = await withArgLimit(() => client.resources({ query, subscriptions }));
         const rows = Array.isArray(response.data) ? (response.data as VmRow[]) : [];
         vmCache.set(cacheKey, { timestamp: now, data: rows });
 

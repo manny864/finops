@@ -1,5 +1,6 @@
 import { getResourceGraphClient } from "@/lib/azure";
 import { getSubscriptionsForTenant } from "@/lib/azure";
+import { withArgLimit } from "@/lib/argConcurrency";
 
 export type HASeverity = "critical" | "high" | "medium" | "low";
 
@@ -194,24 +195,38 @@ export async function evaluateHALive(tenantId: string): Promise<HAEvalResult> {
   for (let i = 0; i < QUERIES.length; i += CHUNK) {
     const batch = QUERIES.slice(i, i + CHUNK);
     await Promise.all(batch.map(async q => {
-      try {
-        const res = await client.resources({
-          query: q.kql.trim(),
-          subscriptions: subscriptions.length > 0 ? subscriptions : undefined,
-        } as any);
-        const rows = ((res.data as any[]) || []).map(r => ({
-          resourceId: String(r.resourceId || ''),
-          resourceName: String(r.resourceName || ''),
-          resourceType: String(r.resourceType || ''),
-          issueType: String(r.issueType || ''),
-          severity: (r.severity as HASeverity) || 'low',
-          estimatedRisk: String(r.estimatedRisk || ''),
-        }));
-        perQuery[q.key] = { count: rows.length };
-        all.push(...rows);
-      } catch (e: any) {
-        perQuery[q.key] = { count: 0, error: e?.message || String(e) };
-        console.warn(`[HA] Query "${q.key}" failed:`, e?.message || e);
+      let retries = 3;
+      let currentDelay = 3000;
+      for (;;) {
+        try {
+          const res = await withArgLimit(() => client.resources({
+            query: q.kql.trim(),
+            subscriptions: subscriptions.length > 0 ? subscriptions : undefined,
+          } as any));
+          const rows = ((res.data as any[]) || []).map(r => ({
+            resourceId: String(r.resourceId || ''),
+            resourceName: String(r.resourceName || ''),
+            resourceType: String(r.resourceType || ''),
+            issueType: String(r.issueType || ''),
+            severity: (r.severity as HASeverity) || 'low',
+            estimatedRisk: String(r.estimatedRisk || ''),
+          }));
+          perQuery[q.key] = { count: rows.length };
+          all.push(...rows);
+          break;
+        } catch (e: any) {
+          const isRateLimit = e?.statusCode === 429 || (e?.code && e.code === 'RateLimiting');
+          if (isRateLimit && retries > 1) {
+            console.warn(`[HA] Query "${q.key}" rate limited (429). Reintentando en ${currentDelay}ms... (Intentos restantes: ${retries - 1})`);
+            await new Promise(resolve => setTimeout(resolve, currentDelay));
+            currentDelay *= 2;
+            retries--;
+          } else {
+            perQuery[q.key] = { count: 0, error: e?.message || String(e) };
+            console.warn(`[HA] Query "${q.key}" failed:`, e?.message || e);
+            break;
+          }
+        }
       }
     }));
   }

@@ -7,12 +7,13 @@ import { requireTenantRole, AuthError } from '@/lib/requestAuth';
 import { getWithStaleWhileRevalidate } from '@/lib/cache';
 import { isMockTenant } from '@/lib/mockData';
 import { recordDailySnapshotAsync } from '@/services/snapshotService';
+import { withArgLimit } from '@/lib/argConcurrency';
 
 async function queryResourceGraphWithRetry(client: any, query: string, subscriptions: string[], retries = 3, initialDelay = 3000): Promise<any> {
     let currentDelay = initialDelay;
     for (let attempt = 1; attempt <= retries; attempt++) {
         try {
-            return await client.resources({ query, subscriptions });
+            return await withArgLimit(() => client.resources({ query, subscriptions }));
         } catch (e: any) {
             const isRateLimit = e.statusCode === 429 || (e.code && e.code === 'RateLimiting');
             if (isRateLimit && attempt < retries) {

@@ -1,6 +1,7 @@
 import { SubscriptionClient } from "@azure/arm-subscriptions";
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { kqlCatalog } from "../modules/core/kqlCatalog";
+import { withArgLimit } from "@/lib/argConcurrency";
 
 async function runInBatches(client: ResourceGraphClient, queries: {key: string, query: string}[], batchSize = 2, subscriptions: string[] = [], delayMs = 1500) {
     const getQuery = (query: string) => ({
@@ -27,7 +28,7 @@ async function runInBatches(client: ResourceGraphClient, queries: {key: string, 
             let currentDelay = 3000;
             while (retries > 0) {
                 try {
-                    const res = await client.resources(getQuery(q.query));
+                    const res = await withArgLimit(() => client.resources(getQuery(q.query)));
                     return { key: q.key, data: res.data };
                 } catch (e: any) {
                     const isRateLimit = e.statusCode === 429 || (e.code && e.code === 'RateLimiting');

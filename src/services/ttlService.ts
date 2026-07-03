@@ -1,6 +1,7 @@
 import { getAzureCredential, getSubscriptionsForTenant } from "../lib/azure";
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { kqlCatalog } from "../modules/core/kqlCatalog";
+import { withArgLimit } from "../lib/argConcurrency";
 
 export async function findExpiredResources(tenantId: string) {
     const credential = await getAzureCredential(tenantId);
@@ -19,7 +20,7 @@ export async function findExpiredResources(tenantId: string) {
     let currentDelay = 3000;
     for (;;) {
         try {
-            const res = await client.resources({ query, subscriptions });
+            const res = await withArgLimit(() => client.resources({ query, subscriptions }));
             resources = res.data as any[] || [];
             break;
         } catch (e: any) {

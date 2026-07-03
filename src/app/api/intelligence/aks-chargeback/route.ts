@@ -5,6 +5,7 @@ import { isMockTenant } from "@/lib/mockData";
 import pool from "@/modules/storage/db";
 import { getResourceGraphClient } from "@/lib/azure";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
+import { withArgLimit } from "@/lib/argConcurrency";
 
 export async function GET(request: NextRequest) {
     try {
@@ -49,7 +50,7 @@ export async function GET(request: NextRequest) {
                     | where type =~ 'microsoft.containerservice/managedclusters'
                     | project name, subscriptionId, resourceGroup, nodeResourceGroup = tostring(properties.nodeResourceGroup)
                 `;
-                const resARG: any = await client.resources({ query, options: { resultFormat: "objectArray", top: 1000 } });
+                const resARG: any = await withArgLimit(() => client.resources({ query, options: { resultFormat: "objectArray", top: 1000 } }));
                 clusters = (resARG.data as any[]) || [];
             } catch (e: unknown) {
                 // Sin credenciales del tenant o sin permiso Reader para Resource Graph:
