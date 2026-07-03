@@ -15,17 +15,28 @@ export async function findExpiredResources(tenantId: string) {
     }
 
     let resources: any[] = [];
-    try {
-        const res = await client.resources({ query, subscriptions });
-        resources = res.data as any[] || [];
-    } catch (e: any) {
-        if (e.statusCode === 429 || (e.code && e.code === 'RateLimiting')) {
-            console.warn(`[TTL] Rate Limited (429). Reintentando en 3s...`);
-            await new Promise(resolve => setTimeout(resolve, 3000));
+    let retries = 3;
+    let currentDelay = 3000;
+    for (;;) {
+        try {
             const res = await client.resources({ query, subscriptions });
             resources = res.data as any[] || [];
-        } else {
-            throw e;
+            break;
+        } catch (e: any) {
+            const isRateLimit = e.statusCode === 429 || (e.code && e.code === 'RateLimiting');
+            if (isRateLimit && retries > 1) {
+                console.warn(`[TTL] Rate Limited (429). Reintentando en ${currentDelay}ms... (Intentos restantes: ${retries - 1})`);
+                await new Promise(resolve => setTimeout(resolve, currentDelay));
+                currentDelay *= 1.5;
+                retries--;
+            } else if (isRateLimit) {
+                // Se agotaron los reintentos por throttling: degradar a lista
+                // vacía en lugar de propagar un 500 al dashboard.
+                console.warn(`[TTL] Rate Limited (429) tras reintentos agotados. Devolviendo lista vacía.`);
+                return [];
+            } else {
+                throw e;
+            }
         }
     }
 

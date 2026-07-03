@@ -41,6 +41,16 @@ export async function GET(request: NextRequest) {
             });
         }
 
+        const errorObj = (typeof e === "object" && e !== null)
+            ? (e as { message?: string; code?: string; name?: string; statusCode?: number; status?: number })
+            : {};
+        console.error(`[TTL] ERROR capturado:`, {
+            name: errorObj.name,
+            code: errorObj.code,
+            statusCode: errorObj.statusCode || errorObj.status,
+            message: errorObj.message || message,
+        });
+
         return NextResponse.json({ error: "Error interno" }, { status: 500 });
     }
 }
