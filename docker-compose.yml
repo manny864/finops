@@ -1,11 +1,26 @@
-version: "3.8"
-
 services:
   finops-app:
     build: .
     restart: always
     env_file:
       - .env
+    # Fase 0 (docs/vps-infra-improvement-plan.md): limites de recursos para
+    # que un pico/fuga de memoria en la app no tumbe a Redis/MySQL en el
+    # mismo VPS de 2 vCPU / 8 GB. Ajustar si el monitoreo (Fase 2) muestra
+    # que estos topes son insuficientes.
+    mem_limit: 3g
+    cpus: "1.4"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.finops.rule=Host(`finops.cscloudsolutions.com.ar`)"
@@ -21,6 +36,34 @@ services:
   redis:
     image: redis:alpine
     restart: always
+    # env_file agregado en Fase 0 para poder leer REDIS_PASSWORD en runtime
+    # dentro del propio contenedor (distinto de la sustitucion ${VAR} que
+    # hace docker-compose al parsear este YAML). Si REDIS_PASSWORD ya esta
+    # seteado en el .env del VPS (confirmado: Redis en produccion ya corre
+    # con password), este comando simplemente lo aplica explicitamente via
+    # --requirepass en vez de depender de configuracion implicita. Si la
+    # variable no existe, el flag se omite (no rompe el arranque).
+    env_file:
+      - .env
+    command: >
+      sh -c 'exec redis-server
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --appendonly yes
+      $${REDIS_PASSWORD:+--requirepass "$$REDIS_PASSWORD"}'
+    mem_limit: 768m
+    cpus: "0.4"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     networks:
       - proxy_network
 
