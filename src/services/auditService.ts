@@ -63,8 +63,22 @@ async function runInBatches(client: ResourceGraphClient, queries: {key: string, 
     return results;
 }
 
-const auditCache: Record<string, { timestamp: number, data: any }> = {};
+// Fase 0 (docs/vps-infra-improvement-plan.md): Map con tope de tamaño en vez
+// de objeto sin limite. En un proceso de larga duracion (VPS sin restarts
+// frecuentes) esta cache podria crecer indefinidamente si se auditan muchas
+// combinaciones distintas de suscripciones. Se acota con eviccion FIFO simple
+// (mismo patron que src/lib/secrets/keyvault.ts).
+const auditCache = new Map<string, { timestamp: number, data: any }>();
 const CACHE_TTL_MS = 60 * 1000; // 60 seconds cache
+const MAX_AUDIT_CACHE_ENTRIES = 200;
+
+function evictAuditCacheIfFull(): void {
+    while (auditCache.size > MAX_AUDIT_CACHE_ENTRIES) {
+        const firstKey = auditCache.keys().next().value;
+        if (firstKey === undefined) break;
+        auditCache.delete(firstKey);
+    }
+}
 
 export async function runGraphAudits(client: ResourceGraphClient, credential: any, subscriptionId?: string) {
     let subs: string[] = [];
@@ -96,9 +110,10 @@ export async function runGraphAudits(client: ResourceGraphClient, credential: an
 
     const cacheKey = [...subs].sort().join(",");
     const now = Date.now();
-    if (auditCache[cacheKey] && (now - auditCache[cacheKey].timestamp < CACHE_TTL_MS)) {
+    const cached = auditCache.get(cacheKey);
+    if (cached && (now - cached.timestamp < CACHE_TTL_MS)) {
         console.log(`[AuditCache] Returning cached results for subscriptions: ${cacheKey}`);
-        return auditCache[cacheKey].data;
+        return cached.data;
     }
 
     const queryList = Object.keys(kqlCatalog).map(key => ({
@@ -113,10 +128,11 @@ export async function runGraphAudits(client: ResourceGraphClient, credential: an
     // audit volvia practicamente vacio (zombieCount=0 en el dashboard).
     const results = await runInBatches(client, queryList, 5, subs, 2500);
     
-    auditCache[cacheKey] = {
+    auditCache.set(cacheKey, {
         timestamp: now,
         data: results
-    };
+    });
+    evictAuditCacheIfFull();
     
     return results;
 }

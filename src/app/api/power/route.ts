@@ -18,6 +18,17 @@ type VmRow = {
 
 const vmCache = new Map<string, { timestamp: number; data: VmRow[] }>();
 const VM_CACHE_TTL_MS = 30 * 1000;
+// Fase 0 (docs/vps-infra-improvement-plan.md): tope de tamaño + eviccion
+// FIFO para no crecer sin limite (una entrada por combinacion tenant+sub).
+const MAX_VM_CACHE_ENTRIES = 500;
+
+function evictVmCacheIfFull(): void {
+    while (vmCache.size > MAX_VM_CACHE_ENTRIES) {
+        const firstKey = vmCache.keys().next().value;
+        if (firstKey === undefined) break;
+        vmCache.delete(firstKey);
+    }
+}
 
 export async function GET(request: NextRequest) {
     try {
@@ -64,6 +75,7 @@ export async function GET(request: NextRequest) {
         const response = await withArgLimit(() => client.resources({ query, subscriptions }));
         const rows = Array.isArray(response.data) ? (response.data as VmRow[]) : [];
         vmCache.set(cacheKey, { timestamp: now, data: rows });
+        evictVmCacheIfFull();
 
         return NextResponse.json({ success: true, auditResults: { allVirtualMachines: rows } });
     } catch (e: unknown) {

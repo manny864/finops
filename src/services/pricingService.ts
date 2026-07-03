@@ -1,5 +1,16 @@
 // Servicio de precios de Azure Retail API con caché en memoria
+// Fase 0 (docs/vps-infra-improvement-plan.md): tope de tamaño + eviccion
+// FIFO para no crecer sin limite en un proceso de larga duracion.
 const priceCache = new Map<string, number>();
+const MAX_PRICE_CACHE_ENTRIES = 2000;
+
+function evictPriceCacheIfFull(): void {
+    while (priceCache.size > MAX_PRICE_CACHE_ENTRIES) {
+        const firstKey = priceCache.keys().next().value;
+        if (firstKey === undefined) break;
+        priceCache.delete(firstKey);
+    }
+}
 
 export async function getMonthlyCostEstimate(serviceName: string, skuName: string, region: string): Promise<number> {
     if (!skuName || !region || !serviceName) return 0;
@@ -25,11 +36,13 @@ export async function getMonthlyCostEstimate(serviceName: string, skuName: strin
             const retailPrice = data.Items[0].retailPrice || 0;
             const monthlyCost = retailPrice * 730;
             priceCache.set(cacheKey, monthlyCost);
+            evictPriceCacheIfFull();
             return monthlyCost;
         }
         
         // Cachear a 0 si no se encontró resultado para no martillar la API
         priceCache.set(cacheKey, 0);
+        evictPriceCacheIfFull();
         return 0;
 
     } catch (e) {
