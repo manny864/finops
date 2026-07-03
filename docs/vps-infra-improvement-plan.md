@@ -41,34 +41,18 @@
 
 **Objetivo:** evitar que un solo contenedor tumbe a los demás por memoria, y cerrar el hueco de auth de Redis.
 
-- [ ] **Límites de recursos** en `docker-compose.yml` (Compose v3.8 soporta `deploy.resources` solo en modo swarm; para Compose standalone usar `mem_limit`/`cpus` directamente):
-  ```yaml
-  finops-app:
-    mem_limit: 3g
-    cpus: "1.2"
-  redis:
-    mem_limit: 768m
-    cpus: "0.3"
-    command: redis-server --requirepass ${REDIS_PASSWORD} --maxmemory 512mb --maxmemory-policy allkeys-lru --appendonly yes
-  ```
-  Presupuesto de referencia sobre 8 GB totales: `finops-app` 3 GB · MySQL ~2-2.5 GB (si corre en el mismo host, vía `innodb_buffer_pool_size=1G`) · Redis 768 MB · SO + Docker + Traefik ~1.5 GB · colchón ~0.5-1 GB.
-- [ ] **Redis con contraseña** (`REDIS_PASSWORD` generado y guardado — ver Fase 0.1) + `maxmemory-policy allkeys-lru` para que el cache SWR nunca haga crecer el contenedor sin límite.
-- [ ] **Rotación de logs de Docker** (100 GB de disco se llenan solos con `json-file` sin límite):
-  ```yaml
-  logging:
-    driver: json-file
-    options:
-      max-size: "10m"
-      max-file: "5"
-  ```
-- [ ] **Auditar exposición de puertos**: confirmar con `ufw status` / `docker compose ps` que 3306 (MySQL) y 6379 (Redis) **no** están publicados hacia `0.0.0.0`. Si MySQL corre nativo, restringir `bind-address = 127.0.0.1` en `my.cnf`.
-- [ ] **Purga de caches en memoria no acotadas**: agregar límite de tamaño (`Map` → LRU simple o TTL activo) a `priceCache` (`pricingService.ts`), `vmCache` (`power/route.ts`) y cualquier `Map` global remanente, para que no crezcan indefinidamente en un proceso que puede correr semanas sin restart.
+- [x] **Límites de recursos** en `docker-compose.yml` (`mem_limit`/`cpus` en `finops-app` y `redis`, healthchecks, `logging` con rotación `json-file` max-size/max-file). Verificado localmente con `docker compose config` + arranque real del contenedor `redis`.
+- [x] **Redis con contraseña**: `command` con `--requirepass "$REDIS_PASSWORD"` condicional (shell `${VAR:+...}`, no rompe si la variable no existe), `--maxmemory 512mb --maxmemory-policy allkeys-lru --appendonly yes`. Confirmado en producción: Redis del VPS ya corre con password: este cambio solo lo hace explícito/reproducible en el compose en vez de depender de configuración manual fuera de git.
+- [x] **Rotación de logs de Docker** (`max-size: 10m`, `max-file: 5` en la app / `3` en Redis).
+- [ ] **Auditar exposición de puertos** (3306/6379 no publicados a `0.0.0.0`): pendiente de verificar directamente en el VPS (requiere acceso SSH, fuera del alcance de este cambio de código).
+- [x] **Purga de caches en memoria no acotadas**: `auditCache` (`auditService.ts`), `priceCache` (`pricingService.ts`) y `vmCache` (`power/route.ts`) ahora son `Map` con eviction FIFO acotada (mismo patrón que `keyvault.ts`), en vez de crecer sin límite.
 
 **Fase 0.1 — Secretos de infraestructura a Key Vault**
-Ya existe la integración con Azure Key Vault para credenciales de tenant (`src/lib/secrets/tenantCredentials.ts`). Extenderla a `DB_PASSWORD`, `REDIS_PASSWORD` y `CRON_SECRET`:
-- Guardar como secrets en el mismo Key Vault (bajo un prefijo `infra-*` para diferenciarlos de los `tenant-*`).
-- En el arranque del contenedor, un pequeño *entrypoint* (ya existe patrón de disk-cache en `[keyvault] disk cache loaded` — reutilizar esa lógica) resuelve los secretos de infra antes de levantar la app, en vez de tenerlos en texto plano en `.env` del VPS.
-- Costo: Key Vault ya está pagado (se usa para tenants); agregar 3 secrets más no cambia el tier de precio (Standard KV cobra por operación, y son lecturas esporádicas en el arranque).
+Ya existe la integración con Azure Key Vault para credenciales de tenant (`src/lib/secrets/tenantCredentials.ts`). Extendida a `DB_PASSWORD`, `REDIS_PASSWORD` y `CRON_SECRET`:
+- [x] `src/lib/secrets/infraSecrets.ts`: resuelve cada secreto desde Key Vault (`infra-db-password`, `infra-redis-password`, `infra-cron-secret`) con fallback silencioso a `process.env` si KV no los tiene todavía o está deshabilitado.
+- [x] `src/instrumentation.ts`: hook de arranque de Next.js que hidrata `process.env` desde Key Vault ANTES de que `db.ts`/`redis.ts` creen sus singletons (ambos leen `process.env` en su primer uso).
+- [x] `scripts/migrate-infra-secrets-to-kv.ts` (`npm run migrate:infra-secrets`): script idempotente para correr **en el VPS** (donde están los valores reales) y poblar Key Vault sin sobreescribir secrets ya existentes. Soporta `--dry-run`.
+- Costo: Key Vault ya está pagado (se usa para tenants); agregar 3 secrets más no cambia el tier de precio.
 
 ---
 
