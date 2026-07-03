@@ -68,6 +68,15 @@ export default function PowerSchedules() {
 
     useEffect(() => {
         void loadSchedules();
+        // Refresco periodico: el cron /api/cron/power-schedules apaga VMs en el
+        // servidor de forma independiente a esta pestana, asi que sin polling
+        // la tabla de "Ultima Ejecucion" queda mostrando el estado previo hasta
+        // que el usuario recargue manualmente. 60s es suficiente sin generar
+        // carga relevante (misma cadencia de referencia que el cron, cada 10min).
+        const intervalId = setInterval(() => {
+            void loadSchedules();
+        }, 60_000);
+        return () => clearInterval(intervalId);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [accounts, instance, selectedTenant.id]);
 
@@ -169,6 +178,13 @@ export default function PowerSchedules() {
             setLoading(false);
         };
         fetchVms();
+        // Mismo motivo que en loadSchedules: refrescar el powerState real de las
+        // VMs para que "Encendida"/"Apagada" no quede desactualizado cuando el
+        // cron de Power Schedules apaga una maquina mientras la pestana esta abierta.
+        const intervalId = setInterval(() => {
+            fetchVms();
+        }, 60_000);
+        return () => clearInterval(intervalId);
     }, [accounts, instance, selectedTenant.id, selectedSubscription, refetchTick]);
 
     const handleAction = async (action: 'start' | 'stop' | 'restart', singleVm?: any) => {
