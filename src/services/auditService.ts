@@ -34,7 +34,7 @@ async function runInBatches(client: ResourceGraphClient, queries: {key: string, 
                     if (isRateLimit && retries > 1) {
                         console.warn(`[Audit] Rate Limited (429) en ${q.key}. Reintentando en ${currentDelay}ms... (Intentos restantes: ${retries - 1})`);
                         await new Promise(resolve => setTimeout(resolve, currentDelay));
-                        currentDelay *= 1.5;
+                        currentDelay *= 2;
                         retries--;
                     } else {
                         if (isAuthError(e)) authFailures++;
@@ -105,7 +105,12 @@ export async function runGraphAudits(client: ResourceGraphClient, credential: an
         query: kqlCatalog[key]
     }));
 
-    const results = await runInBatches(client, queryList, 16, subs, 1500);
+    // batchSize bajo + delay alto: Resource Graph throttlea agresivamente
+    // (429) cuando se disparan muchas queries concurrentes junto con las
+    // demas llamadas del dashboard (forecast, billing, ttl, power). Con
+    // batchSize=16 casi todas las queries agotaban sus reintentos y el
+    // audit volvia practicamente vacio (zombieCount=0 en el dashboard).
+    const results = await runInBatches(client, queryList, 5, subs, 2500);
     
     auditCache[cacheKey] = {
         timestamp: now,
