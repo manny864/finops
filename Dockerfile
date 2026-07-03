@@ -28,4 +28,10 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 USER nextjs
 EXPOSE 3000
 ENV PORT 3000
+# Docker inyecta automaticamente HOSTNAME=<container_id> en todo contenedor.
+# El server.js standalone de Next.js usa process.env.HOSTNAME para decidir
+# en que interfaz escuchar, asi que sin este override termina bindeando
+# solo a la IP especifica del contenedor (no a localhost/127.0.0.1),
+# rompiendo cualquier healthcheck/proceso interno que hable con localhost:3000.
+ENV HOSTNAME "0.0.0.0"
 CMD ["node", "server.js"]
