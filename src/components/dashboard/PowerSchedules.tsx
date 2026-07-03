@@ -31,6 +31,9 @@ export default function PowerSchedules() {
     const [smartShutdownEnabled, setSmartShutdownEnabled] = useState(false);
     const [maxCpuPercentage, setMaxCpuPercentage] = useState(10);
     const [idleDurationMinutes, setIdleDurationMinutes] = useState(60);
+    const [schedules, setSchedules] = useState<any[]>([]);
+    const [schedulesLoading, setSchedulesLoading] = useState(false);
+    const [savingSchedule, setSavingSchedule] = useState(false);
     
     let t: any = (key: string) => key === 'prev' ? 'Anterior' : 'Siguiente';
     try {
@@ -40,11 +43,92 @@ export default function PowerSchedules() {
       }
     } catch (e) {}
 
-    const handleSetSchedule = () => {
+    const getAuthHeaders = async (): Promise<Record<string, string>> => {
+        const tokenResponse = await instance.acquireTokenSilent({
+            scopes: ["User.Read"],
+            account: accounts[0]
+        });
+        return { 'Authorization': `Bearer ${tokenResponse.idToken}` };
+    };
+
+    const loadSchedules = async () => {
+        if (!selectedTenant || selectedTenant.id === 'default' || accounts.length === 0) return;
+        if (isMockTenant(selectedTenant.id)) return;
+        setSchedulesLoading(true);
+        try {
+            const headers = await getAuthHeaders();
+            const res = await fetch(`/api/power/schedule?tenantId=${selectedTenant.id}`, { headers });
+            const json = await res.json();
+            if (res.ok) setSchedules(Array.isArray(json.schedules) ? json.schedules : []);
+        } catch (e) {
+            console.error("Error cargando power schedules:", e);
+        }
+        setSchedulesLoading(false);
+    };
+
+    useEffect(() => {
+        void loadSchedules();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [accounts, instance, selectedTenant.id]);
+
+    const handleSetSchedule = async () => {
         if (!scheduleVmName || !shutdownTime) return;
-        alert(`Horario de apagado configurado para ${scheduleVmName} a las ${shutdownTime} (GMT ${gmtOffset}).\nEsta configuración ha sido enviada al engine.`);
-        setScheduleVmName('');
-        setShutdownTime('');
+        const vm = vms.find(v => v.name === scheduleVmName);
+        if (!vm) {
+            toast.error('Máquina no encontrada. Refresca la lista de VMs e intenta de nuevo.');
+            return;
+        }
+        if (isMockTenant(selectedTenant.id)) {
+            toast(`[SIMULACIÓN DEMO] Horario configurado para ${scheduleVmName} a las ${shutdownTime} (GMT ${gmtOffset}).`, { icon: '🧪' });
+            setScheduleVmName('');
+            setShutdownTime('');
+            return;
+        }
+        setSavingSchedule(true);
+        try {
+            const headers = await getAuthHeaders();
+            const res = await fetch('/api/power/schedule', {
+                method: 'POST',
+                headers: { ...headers, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    tenantId: selectedTenant.id,
+                    subscriptionId: vm.subscriptionId,
+                    resourceGroup: vm.resourceGroup,
+                    vmName: vm.name,
+                    shutdownTime,
+                    gmtOffset,
+                    smartShutdownEnabled,
+                    maxCpuPercentage,
+                    idleDurationMinutes,
+                })
+            });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.error || 'Error al guardar el horario');
+            setSchedules(Array.isArray(json.schedules) ? json.schedules : []);
+            toast.success(`Horario de apagado guardado para ${scheduleVmName} a las ${shutdownTime} (GMT ${gmtOffset}).`);
+            setScheduleVmName('');
+            setShutdownTime('');
+        } catch (e: any) {
+            toast.error(`No se pudo guardar el horario: ${e.message}`);
+        }
+        setSavingSchedule(false);
+    };
+
+    const handleDeleteSchedule = async (id: number, vmName: string) => {
+        if (!window.confirm(`¿Eliminar el horario de apagado de ${vmName}?`)) return;
+        try {
+            const headers = await getAuthHeaders();
+            const res = await fetch(`/api/power/schedule?tenantId=${selectedTenant.id}&id=${id}`, {
+                method: 'DELETE',
+                headers,
+            });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.error || 'Error al eliminar el horario');
+            setSchedules(Array.isArray(json.schedules) ? json.schedules : []);
+            toast.success(`Horario de ${vmName} eliminado.`);
+        } catch (e: any) {
+            toast.error(`No se pudo eliminar el horario: ${e.message}`);
+        }
     };
 
     useEffect(() => {
@@ -353,12 +437,61 @@ export default function PowerSchedules() {
                             <button 
                                 onClick={handleSetSchedule}
                                 className="w-full bg-brand-deep text-white px-[11px] py-[7px] rounded-[10px] font-heading font-bold text-[12px] hover:brightness-110 shadow-sm transition-colors cursor-pointer disabled:opacity-50"
-                                disabled={!scheduleVmName || !shutdownTime}
+                                disabled={!scheduleVmName || !shutdownTime || savingSchedule}
                             >
-                                Establecer
+                                {savingSchedule ? 'Guardando...' : 'Establecer'}
                             </button>
                         </div>
                     </div>
+
+                    {(schedulesLoading || schedules.length > 0) && (
+                        <div className="border border-line rounded-[14px] overflow-hidden bg-surface mb-6">
+                            <div className="px-4 py-3 border-b border-line bg-surface-2">
+                                <h4 className="text-[13px] font-bold text-ink m-0">Horarios de Apagado Configurados</h4>
+                            </div>
+                            {schedulesLoading ? (
+                                <div className="empty animate-pulse">Cargando horarios...</div>
+                            ) : (
+                                <div className="overflow-x-auto w-full">
+                                    <table className="tbl w-full">
+                                        <thead>
+                                            <tr>
+                                                <th>Máquina Virtual</th>
+                                                <th>Hora de Apagado</th>
+                                                <th>Zona Horaria</th>
+                                                <th>Smart Shutdown</th>
+                                                <th>Última Ejecución</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {schedules.map((s: any) => (
+                                                <tr key={s.id}>
+                                                    <td className="text-sm font-semibold text-gray-900 dark:text-gray-100">{s.vm_name}</td>
+                                                    <td className="text-sm text-gray-500 dark:text-gray-400">{String(s.shutdown_time).slice(0, 5)}</td>
+                                                    <td className="text-sm text-gray-500 dark:text-gray-400">GMT{s.gmt_offset}</td>
+                                                    <td className="text-sm text-gray-500 dark:text-gray-400">{s.smart_shutdown_enabled ? `Sí (≤${s.max_cpu_percentage}% CPU)` : 'No'}</td>
+                                                    <td className="text-sm text-gray-500 dark:text-gray-400">
+                                                        {s.last_executed_date
+                                                            ? `${s.last_executed_date} — ${s.last_execution_status === 'executed' ? 'Apagada' : s.last_execution_status === 'skipped_cpu' ? 'Omitida (CPU activa)' : s.last_execution_status === 'failed' ? 'Falló' : s.last_execution_status || ''}`
+                                                            : 'Aún no ejecutado'}
+                                                    </td>
+                                                    <td className="text-right">
+                                                        <button
+                                                            onClick={() => handleDeleteSchedule(s.id, s.vm_name)}
+                                                            className="text-xs bg-red-50 text-red-700 px-2 py-1 border border-red-200 rounded hover:bg-red-100 transition-colors"
+                                                        >
+                                                            Eliminar
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     <div className="bg-surface-2 p-[18px] rounded-[10px] border border-line mb-6 flex flex-col items-start gap-4">
                         <div className="flex items-center justify-between w-full">
