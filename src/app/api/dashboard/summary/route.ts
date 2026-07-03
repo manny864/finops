@@ -251,7 +251,11 @@ export async function GET(request: NextRequest) {
         const [auditSettled, forecastSettled, mtdActual] = await Promise.all([
           timedFetch(
             `${origin}/api/audit/full?tenantId=${encodeURIComponent(tenantId)}${subParam}`,
-            30000
+            // El catálogo KQL ya supera 45 consultas (batches de 16 con delay
+            // de 1500ms + reintentos por 429). Con 30s el audit se abortaba
+            // silenciosamente en tenants grandes y el dashboard mostraba
+            // zombieCount=0 sin ningún error visible para el usuario.
+            60000
           ).then(async r => {
             if (r.ok) return r.json();
             // 403 con MISSING_RBAC_ROLE / MISSING_ADMIN_CONSENT = SP sin permisos.
