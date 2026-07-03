@@ -803,5 +803,10 @@
     "retentionNote": "Up to 1 year of daily history",
     "empty": "No history recorded yet for this range.",
     "date": "Date"
+  },
+  "Workbooks": {
+    "provider_alert_title": "Notice: 'microsoft.insights' provider (Azure Monitor)",
+    "provider_alert_body": "If deployment fails with \"The subscription is not registered to use namespace 'microsoft.insights'\": the platform registers it and retries automatically. If the provider already shows as 'Registered' in Azure, the error is due to ARM propagation (it can take a few minutes) — wait 2-5 minutes and retry. Manual registration:",
+    "provider_alert_retry": "The first deployment after registering the provider may need 1-2 automatic retries due to ARM propagation."
   }
 }

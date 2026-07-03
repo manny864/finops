@@ -803,5 +803,10 @@
     "retentionNote": "Hasta 1 año de historial diario",
     "empty": "Aún no hay historial registrado para este rango.",
     "date": "Fecha"
+  },
+  "Workbooks": {
+    "provider_alert_title": "Aviso: provider 'microsoft.insights' (Azure Monitor)",
+    "provider_alert_body": "Si el despliegue falla con \"La suscripción no tiene registrado el resource provider 'microsoft.insights'\": la plataforma lo registra y reintenta automáticamente. Si el provider ya figura como 'Registered' en Azure, el error se debe a la propagación de ARM (puede tardar unos minutos) — espere 2-5 minutos y reintente. Registro manual:",
+    "provider_alert_retry": "El primer despliegue tras registrar el provider puede requerir 1-2 reintentos automáticos por la propagación de ARM."
   }
 }

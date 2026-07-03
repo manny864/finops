@@ -10,8 +10,11 @@ import { isMockTenant } from '@/lib/mockData';
 import FeatureGuard from '@/components/FeatureGuard';
 import { Info } from 'lucide-react';
 import { getFreshIdToken } from '@/lib/msalToken';
+import { useTranslations } from 'next-intl';
+import { AlertTriangle } from 'lucide-react';
 
 export default function WorkbooksPage() {
+    const t = useTranslations('Workbooks');
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     
@@ -138,6 +141,16 @@ export default function WorkbooksPage() {
                     <Box className="w-5 h-5 mr-2 text-gray-500" />
                     Artefactos Disponibles
                 </h2>
+            </div>
+
+            <div className="mb-6 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-4 flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <div className="text-sm">
+                    <p className="font-semibold text-amber-800 dark:text-amber-300">{t('provider_alert_title')}</p>
+                    <p className="text-amber-700 dark:text-amber-400 mt-1">{t('provider_alert_body')}</p>
+                    <code className="inline-block mt-2 px-2 py-1 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200 text-xs font-mono">az provider register --namespace microsoft.insights</code>
+                    <p className="text-amber-700 dark:text-amber-400 mt-2 text-xs">{t('provider_alert_retry')}</p>
+                </div>
             </div>
 
             <FeatureGuard featureName="Custom Workbooks" requiredTier="Enterprise">
