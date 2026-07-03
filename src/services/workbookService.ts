@@ -12,17 +12,20 @@ function isMissingProviderError(e: unknown): boolean {
 }
 
 /**
- * Registra el resource provider microsoft.insights en la suscripción y espera
- * (poll) hasta que quede 'Registered'. Requiere permiso
+ * Registra el resource provider microsoft.insights en la suscripción (si no lo
+ * está ya) y espera (poll) hasta que quede 'Registered'. Requiere permiso
  * Microsoft.Insights/register/action (incluido en Contributor).
  */
 async function registerInsightsProvider(client: ResourceManagementClient): Promise<void> {
-    await client.providers.register(INSIGHTS_NAMESPACE);
+    const current = await client.providers.get(INSIGHTS_NAMESPACE);
+    if ((current.registrationState || "").toLowerCase() !== "registered") {
+        await client.providers.register(INSIGHTS_NAMESPACE);
+    }
     const maxAttempts = 18; // ~90s
     for (let i = 0; i < maxAttempts; i++) {
-        await new Promise(resolve => setTimeout(resolve, 5000));
         const provider = await client.providers.get(INSIGHTS_NAMESPACE);
         if ((provider.registrationState || "").toLowerCase() === "registered") return;
+        await new Promise(resolve => setTimeout(resolve, 5000));
     }
     throw Object.assign(
         new Error("El registro del provider microsoft.insights no se completó a tiempo. Reintente en unos minutos."),
@@ -74,10 +77,24 @@ export async function deployFinOpsWorkbook(credential: any, subscriptionId: stri
         return await createWorkbook();
     } catch (e: unknown) {
         // Suscripciones nuevas no tienen registrado microsoft.insights (409
-        // MissingSubscriptionRegistration). Lo registramos y reintentamos una vez.
+        // MissingSubscriptionRegistration). Nota: incluso con el provider ya
+        // 'Registered', ARM puede devolver 409 unos minutos por propagación.
+        // Estrategia: asegurar registro y reintentar con backoff (10/20/30s).
         if (!isMissingProviderError(e)) throw e;
-        console.warn(`[Workbooks] microsoft.insights no registrado en ${subscriptionId}. Registrando provider y reintentando...`);
+        console.warn(`[Workbooks] 409 MissingSubscriptionRegistration en ${subscriptionId}. Verificando/registrando provider y reintentando con backoff...`);
         await registerInsightsProvider(client);
-        return await createWorkbook();
+
+        const delaysMs = [10000, 20000, 30000];
+        for (let i = 0; i < delaysMs.length; i++) {
+            await new Promise(resolve => setTimeout(resolve, delaysMs[i]));
+            try {
+                return await createWorkbook();
+            } catch (retryErr: unknown) {
+                if (!isMissingProviderError(retryErr) || i === delaysMs.length - 1) throw retryErr;
+                console.warn(`[Workbooks] Reintento ${i + 1} aún con 409 (propagación ARM). Esperando ${delaysMs[i + 1] / 1000}s...`);
+            }
+        }
+        // Inalcanzable (el loop retorna o lanza), pero TypeScript lo requiere.
+        throw e;
     }
 }
