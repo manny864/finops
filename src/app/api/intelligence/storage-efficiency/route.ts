@@ -1,3 +1,12 @@
+/**
+ * GET /api/intelligence/storage-efficiency — tiers Hot/Cool/Cold/Archive y ahorro potencial.
+ *
+ * RBAC app: requireTenantAccess (tenant-scoped). Tier: Business (routeTiers).
+ * Roles Azure requeridos: NINGUNO en el request (sirve datos ya persistidos en
+ * CostMeterSnapshots/CostSnapshots). El productor de esos datos es el cron
+ * /api/cron/sync, que requiere 'Cost Management Reader' (incluido en el tier
+ * Essential del script de onboarding y verificado por /api/admin/check-sp-roles).
+ */
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";
@@ -43,17 +52,45 @@ function detectTier(...fields: Array<string | null | undefined>): string {
     return "hot";
 }
 
-async function runQuery(tenantId: string, days: number) {
-    // Ensure optional FOCUS columns exist (idempotent)
-    for (const col of [
-        "ADD COLUMN MeterName VARCHAR(255)",
-        "ADD COLUMN MeterSubCategory VARCHAR(255)",
-        "ADD COLUMN MeterCategory VARCHAR(255)",
-        "ADD COLUMN Quantity DECIMAL(18,6)",
-        "ADD COLUMN UnitOfMeasure VARCHAR(64)"
-    ]) {
-        try { await pool.query(`ALTER TABLE CostSnapshots ${col}`); } catch { /* exists */ }
-    }
+const STORAGE_SERVICE_FILTER = `(
+                service_name LIKE '%Storage%'
+             OR service_name LIKE '%Blob%'
+             OR service_name LIKE '%File%'
+             OR service_name LIKE '%Disk%'
+           )`;
+
+// Fuente primaria: filas a nivel de meter (CostMeterSnapshots), que traen la
+// subcategoría real (Hot/Cool/Archive/...) necesaria para detectar tiers.
+async function queryMeterRows(tenantId: string, days: number) {
+    const [rows]: any = await pool.query(
+        `SELECT
+            MeterName,
+            MeterSubCategory,
+            MeterCategory,
+            service_name,
+            COALESCE(Quantity, 0) AS quantity,
+            UnitOfMeasure,
+            cost_usd AS billedCost
+         FROM CostMeterSnapshots
+         WHERE tenant_id = ?
+           AND (
+                LOWER(MeterCategory) IN ('storage','azure storage','disks','disk storage')
+             OR MeterSubCategory LIKE '%Blob%'
+             OR MeterSubCategory LIKE '%LRS%'
+             OR MeterSubCategory LIKE '%GRS%'
+             OR MeterSubCategory LIKE '%ZRS%'
+             OR ${STORAGE_SERVICE_FILTER}
+           )
+           AND date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)`,
+        [tenantId, days]
+    );
+    return rows as any[];
+}
+
+// Fallback: filas de chargeback (CostSnapshots) para tenants cuyos syncs son
+// anteriores a la tabla de meters. Sin subcategoría, el tier se infiere del
+// nombre del servicio (usualmente cae en 'hot').
+async function queryLegacyRows(tenantId: string, days: number) {
     const [rows]: any = await pool.query(
         `SELECT
             MeterName,
@@ -69,15 +106,18 @@ async function runQuery(tenantId: string, days: number) {
            AND (
                 LOWER(COALESCE(ServiceFamily,'')) = 'storage'
              OR LOWER(COALESCE(MeterCategory,'')) IN ('storage','azure storage','disks','disk storage')
-             OR service_name LIKE '%Storage%'
-             OR service_name LIKE '%Blob%'
-             OR service_name LIKE '%File%'
-             OR service_name LIKE '%Disk%'
+             OR ${STORAGE_SERVICE_FILTER}
            )
            AND date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)`,
         [tenantId, days]
     );
     return rows as any[];
+}
+
+async function runQuery(tenantId: string, days: number): Promise<{ rows: any[]; source: 'meters' | 'legacy' }> {
+    const meterRows = await queryMeterRows(tenantId, days);
+    if (meterRows.length > 0) return { rows: meterRows, source: 'meters' };
+    return { rows: await queryLegacyRows(tenantId, days), source: 'legacy' };
 }
 
 export async function GET(request: NextRequest) {
@@ -103,16 +143,16 @@ export async function GET(request: NextRequest) {
 
         try {
             // Try requested window first; if empty, widen to 90 days, then 365
-            let rows = await runQuery(tenantId, days);
+            let { rows, source } = await runQuery(tenantId, days);
             let effectiveDays = days;
             let widened = false;
             if (rows.length === 0 && days < 90) {
-                rows = await runQuery(tenantId, 90);
+                ({ rows, source } = await runQuery(tenantId, 90));
                 effectiveDays = 90;
                 widened = rows.length > 0;
             }
             if (rows.length === 0) {
-                rows = await runQuery(tenantId, 365);
+                ({ rows, source } = await runQuery(tenantId, 365));
                 effectiveDays = 365;
                 widened = rows.length > 0;
             }
@@ -163,7 +203,7 @@ export async function GET(request: NextRequest) {
                     totalGb: 0,
                     totalCost: 0,
                     costPerGb: 0,
-                    diagnostics: { rowsFound: 0, requestedDays: days, effectiveDays: 365, widened: false }
+                    diagnostics: { rowsFound: 0, requestedDays: days, effectiveDays: 365, widened: false, source }
                 });
             }
 
@@ -180,7 +220,7 @@ export async function GET(request: NextRequest) {
                     fromTier: "hot",
                     toTier: "cool",
                 },
-                diagnostics: { rowsFound: rows.length, requestedDays: days, effectiveDays, widened }
+                diagnostics: { rowsFound: rows.length, requestedDays: days, effectiveDays, widened, source }
             });
         } catch (dbErr: any) {
             console.error("[storage-efficiency] DB error for real tenant:", tenantId, dbErr?.message);

@@ -52,3 +52,6 @@ mysql_data/
 # pero los archivos de migración explícitos SÍ deben commitearse
 !migrations/*.sql
 .tmp/
+
+# Claude Code (config local de la herramienta, no del proyecto)
+.claude/

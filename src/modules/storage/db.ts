@@ -333,9 +333,40 @@ export async function initializeDatabase() {
                 service_name VARCHAR(100) NOT NULL,
                 cost_usd DECIMAL(12, 4) NOT NULL,
                 currency VARCHAR(10) DEFAULT 'USD',
+                MeterName VARCHAR(255) NULL,
+                MeterSubCategory VARCHAR(255) NULL,
+                MeterCategory VARCHAR(255) NULL,
+                Quantity DECIMAL(18,6) NULL,
+                UnitOfMeasure VARCHAR(64) NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (tenant_id) REFERENCES Tenants(tenant_id) ON DELETE CASCADE,
                 UNIQUE KEY unique_tenant_date_rg_service_sub (tenant_id, subscription_id, date, resource_group, service_name)
+            )
+        `);
+
+        // Filas de costo a nivel de meter (query B del sync). Viven separadas de
+        // CostSnapshots porque representan el MISMO costo con otro desglose:
+        // mezclarlas en una tabla duplica el total en cualquier SUM y la unique
+        // key por (rg, service) colapsa las subcategorías entre sí.
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS CostMeterSnapshots (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                tenant_id VARCHAR(100) NOT NULL,
+                subscription_id VARCHAR(100) NOT NULL DEFAULT 'default',
+                date DATE NOT NULL,
+                service_name VARCHAR(100) NOT NULL,
+                MeterCategory VARCHAR(255) NOT NULL DEFAULT '',
+                MeterSubCategory VARCHAR(255) NOT NULL DEFAULT '',
+                MeterName VARCHAR(255) NOT NULL DEFAULT '',
+                resource_location VARCHAR(64) NOT NULL DEFAULT '',
+                cost_usd DECIMAL(12, 4) NOT NULL,
+                Quantity DECIMAL(18, 6) NULL,
+                UnitOfMeasure VARCHAR(64) NULL,
+                currency VARCHAR(10) DEFAULT 'USD',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (tenant_id) REFERENCES Tenants(tenant_id) ON DELETE CASCADE,
+                UNIQUE KEY uq_meter_row (tenant_id, subscription_id, date, service_name, MeterSubCategory, resource_location),
+                INDEX idx_tenant_date (tenant_id, date)
             )
         `);
 
@@ -946,16 +977,6 @@ export async function insertCostSnapshotRow(tenantId: string, date: string, row:
     quantity?: number;
     unitOfMeasure?: string;
 }) {
-    // Ensure FOCUS columns exist (idempotent — also done at boot)
-    for (const col of [
-        "ADD COLUMN MeterName VARCHAR(255)",
-        "ADD COLUMN MeterSubCategory VARCHAR(255)",
-        "ADD COLUMN MeterCategory VARCHAR(255)",
-        "ADD COLUMN Quantity DECIMAL(18,6)",
-        "ADD COLUMN UnitOfMeasure VARCHAR(64)"
-    ]) {
-        try { await pool.query(`ALTER TABLE CostSnapshots ${col}`); } catch { /* exists */ }
-    }
     await pool.query(
         `INSERT INTO CostSnapshots
             (tenant_id, subscription_id, date, resource_group, service_name,
@@ -982,6 +1003,53 @@ export async function insertCostSnapshotRow(tenantId: string, date: string, row:
             row.meterSubCategory || null,
             row.meterName || null,
             row.cost,
+            row.cost,
+            row.quantity ?? null,
+            row.unitOfMeasure || null
+        ]
+    );
+}
+
+/**
+ * Inserts (or replaces) a meter-level cost row into CostMeterSnapshots.
+ * Idempotent via UNIQUE KEY (tenant_id, subscription_id, date, service_name,
+ * MeterSubCategory) — la subcategoría integra la clave para que los tiers de
+ * un mismo servicio (Hot/Cool/Archive, series de VM, etc.) no se pisen.
+ * MeterSubCategory se normaliza a '' (nunca NULL): MySQL trata los NULL como
+ * distintos dentro de una unique key y rompería la idempotencia.
+ */
+export async function insertCostMeterSnapshotRow(tenantId: string, date: string, row: {
+    subscriptionId: string;
+    serviceName: string;
+    meterCategory?: string;
+    meterSubCategory?: string;
+    meterName?: string;
+    resourceLocation?: string;
+    cost: number;
+    quantity?: number;
+    unitOfMeasure?: string;
+}) {
+    await pool.query(
+        `INSERT INTO CostMeterSnapshots
+            (tenant_id, subscription_id, date, service_name,
+             MeterCategory, MeterSubCategory, MeterName, resource_location,
+             cost_usd, Quantity, UnitOfMeasure, currency)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'USD')
+         ON DUPLICATE KEY UPDATE
+             cost_usd = VALUES(cost_usd),
+             MeterCategory = VALUES(MeterCategory),
+             MeterName = VALUES(MeterName),
+             Quantity = VALUES(Quantity),
+             UnitOfMeasure = VALUES(UnitOfMeasure)`,
+        [
+            tenantId,
+            row.subscriptionId || 'default',
+            date,
+            row.serviceName || '',
+            row.meterCategory || '',
+            row.meterSubCategory || '',
+            row.meterName || '',
+            row.resourceLocation || '',
             row.cost,
             row.quantity ?? null,
             row.unitOfMeasure || null

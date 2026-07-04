@@ -521,8 +521,14 @@ export async function getYesterdaysCost(tenantId: string): Promise<number> {
  * Requires: Cost Management Reader at MG or each subscription scope.
  */
 export type DetailedCostRow = {
+    // 'chargeback': query A (por ResourceGroup) → CostSnapshots.
+    // 'meter': query B (por MeterSubCategory) → CostMeterSnapshots.
+    // Son el MISMO costo con dos desgloses distintos: nunca deben convivir en
+    // la misma tabla ni sumarse juntas.
+    kind: 'chargeback' | 'meter';
     subscriptionId: string;
     resourceGroup: string;
+    resourceLocation: string;
     serviceName: string;
     serviceFamily: string;
     meterCategory: string;
@@ -567,7 +573,13 @@ export async function getYesterdaysDetailedCosts(tenantId: string): Promise<Deta
     } as any);
 
     const queryA = buildOpts(['ServiceName', 'ResourceGroupName']);
-    const queryB = buildOpts(['ServiceName', 'MeterSubCategory']);
+    // 'Meter' (nombre del meter) y no 'MeterSubCategory': el tier de storage
+    // (Hot/Cool/Cold/Archive, p.ej. "Cool LRS Data Stored") y el SKU de VM
+    // (p.ej. "D4s v5") viven en el nombre del meter. La subcategoría solo dice
+    // "Blob Storage"/"Dv5 Series", insuficiente para detectar tiers o cores.
+    // + ResourceLocation: región real del recurso (para el desglose por región de
+    // compute-cost-per-core). Cost Management acepta esta 3ª dimensión de grouping.
+    const queryB = buildOpts(['ServiceName', 'Meter', 'ResourceLocation']);
 
     async function runOnScope(scope: string, opts: any): Promise<{ rows: any[][]; columns: any[] }> {
         const res: any = await withRetry(() => client.query.usage(scope, opts), { label: `detailed(${scope})`, maxRetries: 3 });
@@ -588,8 +600,10 @@ export async function getYesterdaysDetailedCosts(tenantId: string): Promise<Deta
                 const cost = Number(row[cIdx] ?? 0);
                 if (!Number.isFinite(cost) || cost === 0) continue;
                 out.push({
+                    kind: 'chargeback',
                     subscriptionId: subId,
                     resourceGroup: String(row[rgIdx] ?? '*'),
+                    resourceLocation: '',
                     serviceName: String(row[sIdx] ?? ''),
                     serviceFamily: '',
                     meterCategory: '',
@@ -606,20 +620,27 @@ export async function getYesterdaysDetailedCosts(tenantId: string): Promise<Deta
         try {
             const b = await runOnScope(scope, queryB);
             const sIdx = colIdx(b.columns, 'ServiceName');
-            const mscIdx = colIdx(b.columns, 'MeterSubCategory');
+            const mIdx = colIdx(b.columns, 'Meter');
+            const locIdx = colIdx(b.columns, 'ResourceLocation');
             const cIdx = colIdx(b.columns, 'PreTaxCost');
             const qIdx = colIdx(b.columns, 'UsageQuantity');
             for (const row of b.rows) {
                 const cost = Number(row[cIdx] ?? 0);
                 if (!Number.isFinite(cost) || cost === 0) continue;
+                const meterName = String(row[mIdx] ?? '');
                 out.push({
+                    kind: 'meter',
                     subscriptionId: subId,
                     resourceGroup: '*',
+                    resourceLocation: locIdx >= 0 ? String(row[locIdx] ?? '') : '',
                     serviceName: String(row[sIdx] ?? ''),
                     serviceFamily: '',
-                    meterCategory: String(row[mscIdx] ?? ''),
-                    meterSubCategory: String(row[mscIdx] ?? ''),
-                    meterName: String(row[mscIdx] ?? ''),
+                    meterCategory: '',
+                    // El nombre del meter se replica en meterSubCategory porque esa
+                    // columna integra la clave única de CostMeterSnapshots y alimenta
+                    // detectTier()/labels de SKU aguas abajo.
+                    meterSubCategory: meterName,
+                    meterName,
                     cost,
                     quantity: Number(row[qIdx] ?? 0) || 0,
                     unitOfMeasure: ''

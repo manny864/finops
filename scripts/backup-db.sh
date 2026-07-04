@@ -64,6 +64,9 @@ if ! ( cd "$MYSQL_DIR" && docker compose ps --services --filter status=running |
 fi
 
 mkdir -p "$BACKUP_DIR/daily" "$BACKUP_DIR/weekly"
+# cwd estable: si se invoca desde un directorio inaccesible para el usuario
+# (p.ej. sudo -u manny desde /root), find falla al restaurar su cwd inicial.
+cd "$BACKUP_DIR"
 DUMP_FILE="$BACKUP_DIR/daily/finops-${DB_NAME}-${TS}.sql.gz"
 
 # ---- Dump --------------------------------------------------------------------

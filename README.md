@@ -205,6 +205,36 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
 
 ## 📈 Recent Major Updates
 
+### 2026-07-04 — Fix Storage Efficiency: tabla dedicada `CostMeterSnapshots` para filas a nivel de meter
+
+**Bug:** el cron `sync` escribía dos desgloses del mismo costo en `CostSnapshots`: (A) por
+ResourceGroup y (B) por `MeterSubCategory` con `resource_group='*'`. La
+`UNIQUE KEY (tenant, sub, date, resource_group, service_name)` hacía colisionar entre sí a todas
+las filas B de un mismo servicio: cada `ON DUPLICATE KEY UPDATE` pisaba la subcategoría anterior y
+**solo sobrevivía la última** (Storage Efficiency nunca veía los tiers Hot/Cool/Archive reales).
+Además, A+B en la misma tabla duplicaba el costo en cualquier consumidor que sume.
+
+**Fix:** las filas B viven en `CostMeterSnapshots` (migración `20260704-001-cost-meter-snapshots.sql`),
+con `UNIQUE KEY (tenant, sub, date, service_name, MeterSubCategory)` — la subcategoría integra la
+clave y se normaliza a `''` (nunca `NULL`; MySQL trata los NULL como distintos en unique keys).
+La migración además elimina las filas B corruptas históricas de `CostSnapshots`.
+
+**Consumidores actualizados** (fuente primaria `CostMeterSnapshots`, fallback legacy a `CostSnapshots`):
+`/api/intelligence/storage-efficiency` (expone `diagnostics.source: 'meters' | 'legacy'`) y
+`/api/intelligence/compute-cost-per-core`. `insertCostSnapshotRow` ya no ejecuta `ALTER TABLE`
+ad-hoc por fila (las columnas las garantizan el `CREATE TABLE` y la migración).
+
+**Tests:** `__tests__/unit/storageEfficiency.test.ts` (tiers por subcategoría sin colapso, fallback
+legacy, estado vacío, normalización de la clave en el insert).
+
+**Follow-up (misma fecha) — región real en compute-cost-per-core:** el desglose "por región"
+mostraba todo como `unknown` porque se derivaba de `resource_group` (vacío en filas de meter, y
+un RG no es una región). La query B del sync ahora agrega la dimensión `ResourceLocation` de Cost
+Management (3 groupings: `ServiceName + Meter + ResourceLocation`), persistida en la nueva columna
+`CostMeterSnapshots.resource_location` (migración `20260704-002`, integrada a la unique key para no
+colapsar un mismo meter facturado en varias regiones). Verificado end-to-end: el panel pasa de
+`unknown` a regiones reales (`us east`, `us west 2`, ...).
+
 ### 2026-07-02 — Historial diario genérico (retención ≥ 1 año, consultable por página)
 Framework **write-through** que persiste una foto (snapshot) diaria de las métricas clave de
 cada página y permite consultarlas históricamente. Retención **400 días** (~13 meses), con poda
