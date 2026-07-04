@@ -118,10 +118,12 @@ async function syncRegions(): Promise<number> {
     const csv = await fetchCsv(DATASETS.regions.url);
     if (csv.length < 2) return 0;
     const headers = csv[0];
-    const iLoc = colIdx(headers, "ResourceLocation", "Location");
+    // El toolkit renombró la columna de valor crudo a 'OriginalValue' (antes
+    // 'ResourceLocation'). Aceptamos ambos para no romper ante futuros renames.
+    const iLoc = colIdx(headers, "OriginalValue", "ResourceLocation", "Location");
     const iId = colIdx(headers, "RegionId");
     const iName = colIdx(headers, "RegionName");
-    if (iLoc < 0) throw new Error("Regions.csv: falta ResourceLocation");
+    if (iLoc < 0) throw new Error("Regions.csv: falta columna de valor crudo (OriginalValue/ResourceLocation)");
     const rows: any[][] = [];
     for (let r = 1; r < csv.length; r++) {
         const row = csv[r];
