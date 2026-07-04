@@ -528,6 +528,7 @@ export type DetailedCostRow = {
     kind: 'chargeback' | 'meter';
     subscriptionId: string;
     resourceGroup: string;
+    resourceLocation: string;
     serviceName: string;
     serviceFamily: string;
     meterCategory: string;
@@ -576,7 +577,9 @@ export async function getYesterdaysDetailedCosts(tenantId: string): Promise<Deta
     // (Hot/Cool/Cold/Archive, p.ej. "Cool LRS Data Stored") y el SKU de VM
     // (p.ej. "D4s v5") viven en el nombre del meter. La subcategoría solo dice
     // "Blob Storage"/"Dv5 Series", insuficiente para detectar tiers o cores.
-    const queryB = buildOpts(['ServiceName', 'Meter']);
+    // + ResourceLocation: región real del recurso (para el desglose por región de
+    // compute-cost-per-core). Cost Management acepta esta 3ª dimensión de grouping.
+    const queryB = buildOpts(['ServiceName', 'Meter', 'ResourceLocation']);
 
     async function runOnScope(scope: string, opts: any): Promise<{ rows: any[][]; columns: any[] }> {
         const res: any = await withRetry(() => client.query.usage(scope, opts), { label: `detailed(${scope})`, maxRetries: 3 });
@@ -600,6 +603,7 @@ export async function getYesterdaysDetailedCosts(tenantId: string): Promise<Deta
                     kind: 'chargeback',
                     subscriptionId: subId,
                     resourceGroup: String(row[rgIdx] ?? '*'),
+                    resourceLocation: '',
                     serviceName: String(row[sIdx] ?? ''),
                     serviceFamily: '',
                     meterCategory: '',
@@ -617,6 +621,7 @@ export async function getYesterdaysDetailedCosts(tenantId: string): Promise<Deta
             const b = await runOnScope(scope, queryB);
             const sIdx = colIdx(b.columns, 'ServiceName');
             const mIdx = colIdx(b.columns, 'Meter');
+            const locIdx = colIdx(b.columns, 'ResourceLocation');
             const cIdx = colIdx(b.columns, 'PreTaxCost');
             const qIdx = colIdx(b.columns, 'UsageQuantity');
             for (const row of b.rows) {
@@ -627,6 +632,7 @@ export async function getYesterdaysDetailedCosts(tenantId: string): Promise<Deta
                     kind: 'meter',
                     subscriptionId: subId,
                     resourceGroup: '*',
+                    resourceLocation: locIdx >= 0 ? String(row[locIdx] ?? '') : '',
                     serviceName: String(row[sIdx] ?? ''),
                     serviceFamily: '',
                     meterCategory: '',

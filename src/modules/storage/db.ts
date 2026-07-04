@@ -358,13 +358,14 @@ export async function initializeDatabase() {
                 MeterCategory VARCHAR(255) NOT NULL DEFAULT '',
                 MeterSubCategory VARCHAR(255) NOT NULL DEFAULT '',
                 MeterName VARCHAR(255) NOT NULL DEFAULT '',
+                resource_location VARCHAR(64) NOT NULL DEFAULT '',
                 cost_usd DECIMAL(12, 4) NOT NULL,
                 Quantity DECIMAL(18, 6) NULL,
                 UnitOfMeasure VARCHAR(64) NULL,
                 currency VARCHAR(10) DEFAULT 'USD',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (tenant_id) REFERENCES Tenants(tenant_id) ON DELETE CASCADE,
-                UNIQUE KEY uq_meter_row (tenant_id, subscription_id, date, service_name, MeterSubCategory),
+                UNIQUE KEY uq_meter_row (tenant_id, subscription_id, date, service_name, MeterSubCategory, resource_location),
                 INDEX idx_tenant_date (tenant_id, date)
             )
         `);
@@ -1023,6 +1024,7 @@ export async function insertCostMeterSnapshotRow(tenantId: string, date: string,
     meterCategory?: string;
     meterSubCategory?: string;
     meterName?: string;
+    resourceLocation?: string;
     cost: number;
     quantity?: number;
     unitOfMeasure?: string;
@@ -1030,9 +1032,9 @@ export async function insertCostMeterSnapshotRow(tenantId: string, date: string,
     await pool.query(
         `INSERT INTO CostMeterSnapshots
             (tenant_id, subscription_id, date, service_name,
-             MeterCategory, MeterSubCategory, MeterName,
+             MeterCategory, MeterSubCategory, MeterName, resource_location,
              cost_usd, Quantity, UnitOfMeasure, currency)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'USD')
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'USD')
          ON DUPLICATE KEY UPDATE
              cost_usd = VALUES(cost_usd),
              MeterCategory = VALUES(MeterCategory),
@@ -1047,6 +1049,7 @@ export async function insertCostMeterSnapshotRow(tenantId: string, date: string,
             row.meterCategory || '',
             row.meterSubCategory || '',
             row.meterName || '',
+            row.resourceLocation || '',
             row.cost,
             row.quantity ?? null,
             row.unitOfMeasure || null
