@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
                 `SELECT
                     MeterSubCategory,
                     MeterName,
-                    '' AS resource_group,
+                    resource_location AS region,
                     cost_usd AS effectiveCost,
                     cost_usd AS billedCost,
                     DATE_FORMAT(date, '%Y-%m') AS month
@@ -71,11 +71,13 @@ export async function GET(request: NextRequest) {
                 [tenantId, days]
             );
             if (!Array.isArray(rows) || rows.length === 0) {
+                // Fallback legacy: CostSnapshots no tiene región; resource_group NO
+                // es una región, así que no lo usamos como tal (quedaría 'unknown').
                 [rows] = await pool.query(
                     `SELECT
                         MeterSubCategory,
                         MeterName,
-                        resource_group,
+                        '' AS region,
                         COALESCE(EffectiveCost, BilledCost, cost_usd, 0) AS effectiveCost,
                         COALESCE(BilledCost, cost_usd, 0)                AS billedCost,
                         DATE_FORMAT(date, '%Y-%m')                       AS month
@@ -105,7 +107,7 @@ export async function GET(request: NextRequest) {
                 const billedCost    = parseFloat(row.billedCost)    || 0;
                 const cores         = meterNameToCores(row.MeterName);
                 const sku           = (row.MeterSubCategory || row.MeterName || 'Unknown').trim();
-                const region        = (row.resource_group   || 'unknown').trim();
+                const region        = (row.region || 'unknown').trim();
                 const month: string = row.month             || '';
 
                 totalEffectiveCost += effectiveCost;
