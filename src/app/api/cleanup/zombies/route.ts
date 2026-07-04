@@ -84,6 +84,7 @@ export async function GET(request: NextRequest) {
         "emptyAppServicePlans",
         "unusedVNetGateways",
         "unusedLoadBalancers",
+        "unusedAppGateways",
         "oldSnapshots",
         "longStoppedVMs",
         "emptyRgs"
@@ -148,6 +149,18 @@ export async function GET(request: NextRequest) {
                 case "unusedLoadBalancers":
                     cost = 18.0;
                     typeLabel = "microsoft.network/loadbalancers";
+                    break;
+                case "unusedAppGateways":
+                    {
+                        // El costo real varía por tier/capacity units; usamos un
+                        // piso conservador por tier cuando no hay pricing exacto.
+                        const tier = String(res.tier || res.sku || "").toLowerCase();
+                        if (tier.includes("waf_v2") || tier.includes("wafv2")) cost = 330.0;
+                        else if (tier.includes("_v2") || tier.includes("v2")) cost = 250.0;
+                        else if (tier.includes("waf")) cost = 200.0;
+                        else cost = 130.0;
+                        typeLabel = "microsoft.network/applicationgateways";
+                    }
                     break;
                 case "oldSnapshots":
                     cost = (res.sizeGB || 50) * 0.05;
