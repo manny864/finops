@@ -1,3 +1,12 @@
+/**
+ * GET /api/intelligence/compute-cost-per-core — costo unitario por vCore.
+ *
+ * RBAC app: requireTenantAccess (tenant-scoped).
+ * Roles Azure requeridos: NINGUNO en el request (sirve datos persistidos en
+ * CostMeterSnapshots/CostSnapshots por /api/cron/sync, que requiere
+ * 'Cost Management Reader' — tier Essential del onboarding, verificado por
+ * /api/admin/check-sp-roles).
+ */
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";

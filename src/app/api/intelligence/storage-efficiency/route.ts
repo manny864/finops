@@ -1,3 +1,12 @@
+/**
+ * GET /api/intelligence/storage-efficiency — tiers Hot/Cool/Cold/Archive y ahorro potencial.
+ *
+ * RBAC app: requireTenantAccess (tenant-scoped). Tier: Business (routeTiers).
+ * Roles Azure requeridos: NINGUNO en el request (sirve datos ya persistidos en
+ * CostMeterSnapshots/CostSnapshots). El productor de esos datos es el cron
+ * /api/cron/sync, que requiere 'Cost Management Reader' (incluido en el tier
+ * Essential del script de onboarding y verificado por /api/admin/check-sp-roles).
+ */
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";
