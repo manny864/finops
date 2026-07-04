@@ -12,7 +12,7 @@
 | **VPS** | Hostinger — 2 vCPU, 8 GB RAM, 100 GB SSD NVMe |
 | **App** | Next.js standalone (`Dockerfile`, `node:22-alpine`), contenedor `finops-app`, `restart: always`, sin `mem_limit`/`cpus` |
 | **Redis** | Contenedor `redis:alpine` en `docker-compose.yml`, **sin `requirepass`** (`.env.production: REDIS_PASSWORD=` vacío), sin `maxmemory`, sin persistencia configurada explícitamente |
-| **MySQL** | `DB_HOST=127.0.0.1` en `.env.production` → corre **fuera** del `docker-compose.yml` del repo (nativo en el VPS o gestionado aparte). **A confirmar**: si en realidad está dockerizado, debe correr con `network_mode: host` o similar — recomendamos aclarar esto como primer paso de la Fase 0. |
+| **MySQL** | ✅ **Topología confirmada (2026-07-04):** dockerizado en un compose project **separado** (`~/cscloud/database`, servicio `mysql`), fuera del `docker-compose.yml` de la app — evidencia en `scripts/prod-migrate-kv.sh` (`MYSQL_DIR`). `DB_HOST=127.0.0.1` funciona porque el contenedor publica el puerto al host. |
 | **Red** | `proxy_network` es `external: true` — compartida con Traefik (y posiblemente otros stacks del mismo VPS) |
 | **Deploy** | GitHub Actions (`deploy.yml`) hace SSH, `git reset --hard origin/main`, `docker compose stop finops-app`, `docker compose up -d --build` — **con downtime** durante el build |
 | **Secretos Azure (Client ID/Secret por tenant)** | Ya en Azure Key Vault (`src/lib/secrets/tenantCredentials.ts`) ✅ |
@@ -60,16 +60,14 @@ Ya existe la integración con Azure Key Vault para credenciales de tenant (`src/
 
 Actualmente **no hay backups automatizados** — el mayor riesgo del diseño (VPS único, sin redundancia).
 
-- [ ] **Script de backup diario** (`scripts/backup-db.sh`) vía `mysqldump` con compresión (`gzip`), cron a las 03:00 local (fuera de horario de uso):
+- [x] **Script de backup diario** (`scripts/backup-db.sh`) vía `mysqldump` con compresión (`gzip`), cron a las 03:00 local (fuera de horario de uso):
   ```cron
-  0 3 * * * /home/deploy/cscloud/finops/scripts/backup-db.sh >> /var/log/finops-backup.log 2>&1
+  0 3 * * * /home/manny/cscloud/finops/scripts/backup-db.sh >> /var/log/finops-backup.log 2>&1
   ```
-- [ ] **Retención local**: 7 diarios + 4 semanales (rotación simple con `find -mtime +N -delete`), acotado en disco (dumps comprimidos de una BD de este tamaño son pequeños, del orden de decenas de MB).
-- [ ] **Copia off-site barata** (para sobrevivir a una falla del disco del VPS, no solo del proceso):
-  - Opción más económica: **Backblaze B2** (10 GB gratis, luego ~$0.006/GB/mes) o **Cloudflare R2** (10 GB gratis, sin costo de egress) vía `rclone` en el mismo cron.
-  - Alternativa $0: subir el dump cifrado (`gpg --symmetric`) como *artifact* privado en un repo de GitHub separado (dentro de los límites gratuitos de Actions/Storage para repos privados pequeños).
-- [ ] **Runbook de restore** documentado (`docs/` — no crear ahora, pero dejarlo como entregable de la Fase 1) con pasos probados al menos una vez en un entorno de prueba.
-- [ ] **Backup de volúmenes de Redis** solo si se empieza a usar Redis como algo más que cache (hoy es 100% cache regenerable — no crítico de respaldar).
+- [x] **Retención local**: 7 diarios + 4 semanales (rotación simple con `find -mtime +N -delete`), acotado en disco (dumps comprimidos de una BD de este tamaño son pequeños, del orden de decenas de MB).
+- [x] **Copia off-site**: decisión (2026-07-04) — **Azure Blob Storage** (Storage Account tier Cool + LRS + lifecycle 35 días, mismo ecosistema que el Key Vault existente; costo estimado < $0.05/mes). Upload vía `curl PUT` con **SAS de contenedor solo-escritura** (`cw` — un VPS comprometido no puede leer ni borrar backups). Sin `az` CLI en el VPS. Provisioning documentado en el runbook. *(Pendiente operativo: crear el Storage Account y setear `BACKUP_AZURE_SAS_URL` en el `.env` del VPS.)*
+- [x] **Runbook de restore** documentado: `docs/runbook-restore-mysql.md` (provisioning, instalación del cron, restore local/off-site, prueba en DB de test, troubleshooting). *(Pendiente operativo: ejecutar la prueba de restore §4.3 al menos una vez.)*
+- [x] **Backup de volúmenes de Redis**: descartado explícitamente — hoy es 100% cache regenerable, no crítico de respaldar. Revisar solo si Redis pasa a guardar estado.
 
 ---
 
