@@ -46,6 +46,9 @@ next-env.d.ts
 # local database
 mysql_data/
 *.sql
+# backups generados por scripts/backup-db.sh (viven solo en el VPS)
+/backups/
+*.sql.gz
 # pero los archivos de migración explícitos SÍ deben commitearse
 !migrations/*.sql
 .tmp/
