@@ -227,6 +227,14 @@ ad-hoc por fila (las columnas las garantizan el `CREATE TABLE` y la migración).
 **Tests:** `__tests__/unit/storageEfficiency.test.ts` (tiers por subcategoría sin colapso, fallback
 legacy, estado vacío, normalización de la clave en el insert).
 
+**Follow-up (misma fecha) — región real en compute-cost-per-core:** el desglose "por región"
+mostraba todo como `unknown` porque se derivaba de `resource_group` (vacío en filas de meter, y
+un RG no es una región). La query B del sync ahora agrega la dimensión `ResourceLocation` de Cost
+Management (3 groupings: `ServiceName + Meter + ResourceLocation`), persistida en la nueva columna
+`CostMeterSnapshots.resource_location` (migración `20260704-002`, integrada a la unique key para no
+colapsar un mismo meter facturado en varias regiones). Verificado end-to-end: el panel pasa de
+`unknown` a regiones reales (`us east`, `us west 2`, ...).
+
 ### 2026-07-02 — Historial diario genérico (retención ≥ 1 año, consultable por página)
 Framework **write-through** que persiste una foto (snapshot) diaria de las métricas clave de
 cada página y permite consultarlas históricamente. Retención **400 días** (~13 meses), con poda

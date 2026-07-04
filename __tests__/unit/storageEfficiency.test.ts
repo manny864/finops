@@ -112,7 +112,7 @@ describe("insertCostMeterSnapshotRow", () => {
         poolQueryMock.mockResolvedValue([[], []]);
     });
 
-    it("escribe en CostMeterSnapshots normalizando meter fields a '' (clave única sin NULLs)", async () => {
+    it("escribe en CostMeterSnapshots normalizando meter fields y región a '' (clave única sin NULLs)", async () => {
         const { insertCostMeterSnapshotRow } =
             await vi.importActual<typeof import("@/modules/storage/db")>("@/modules/storage/db");
         await insertCostMeterSnapshotRow("t1", "2026-07-03", {
@@ -125,11 +125,29 @@ describe("insertCostMeterSnapshotRow", () => {
         const [sql, params] = poolQueryMock.mock.calls[0];
         expect(String(sql)).toContain("INSERT INTO CostMeterSnapshots");
         expect(String(sql)).toContain("ON DUPLICATE KEY UPDATE");
-        // meterCategory / meterSubCategory / meterName ausentes → '' (no NULL)
+        // meterCategory / meterSubCategory / meterName / resource_location
+        // ausentes → '' (no NULL, porque integran la unique key)
         expect(params).toEqual([
             "t1", "sub-1", "2026-07-03", "Storage",
-            "", "", "",
+            "", "", "", "",
             12.34, null, null,
         ]);
+    });
+
+    it("persiste resource_location cuando viene informado (región para compute)", async () => {
+        const { insertCostMeterSnapshotRow } =
+            await vi.importActual<typeof import("@/modules/storage/db")>("@/modules/storage/db");
+        await insertCostMeterSnapshotRow("t1", "2026-07-03", {
+            subscriptionId: "sub-1",
+            serviceName: "Virtual Machines",
+            meterName: "D4s v5",
+            meterSubCategory: "D4s v5",
+            resourceLocation: "us east",
+            cost: 20,
+        });
+
+        const [, params] = poolQueryMock.mock.calls[0];
+        // orden: tenant, sub, date, service, cat, subcat, meter, LOCATION, cost, qty, uom
+        expect(params[7]).toBe("us east");
     });
 });
