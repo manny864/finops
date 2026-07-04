@@ -205,6 +205,17 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
 
 ## 📈 Recent Major Updates
 
+### 2026-07-04 — Ola 1 de adopción del FinOps Toolkit (enriquecimiento con Open Data)
+
+Tres mejoras que aprovechan reference-data del Microsoft FinOps Toolkit que **ya ingeríamos pero no aplicábamos**:
+
+1. **Fix del sync de regiones**: `syncRegions` (`src/lib/openData.ts`) buscaba la columna `ResourceLocation`, pero el toolkit la renombró a `OriginalValue` → el sync tiraba error y `OpenDataRegions` quedaba **vacía**. Ahora acepta `OriginalValue`/`ResourceLocation`/`Location`.
+2. **Nombre canónico de región en compute-cost-per-core**: el desglose por región mostraba el valor crudo de billing (`us east`); ahora aplica `getRegionFriendlyName()` → `East US`. Fallback al valor crudo si el dataset no está sincronizado.
+3. **Cron semanal de Open Data** (`GET /api/cron/open-data`): sincroniza los 5 datasets a `OpenData*`. Sin esto los lookups quedaban en null. Estos datasets cambian con baja frecuencia → semanal (lunes 04:00).
+4. **Colector de Application Gateways sin uso** en el motor de zombies (`kqlCatalog.unusedAppGateways`): detecta App GWs sin backend pools o sin reglas de ruteo (gasto puro), con costo estimado por tier (Standard/WAF/v2). Cierra un gap de recomendación del Optimization Engine del toolkit.
+
+Estas mejoras **enriquecen features existentes** (compute-efficiency = Professional, zombies/cleanup) y heredan su tier; el cron es interno (protegido por `CRON_SECRET`, sin tier).
+
 ### 2026-07-04 — Fix Storage Efficiency: tabla dedicada `CostMeterSnapshots` para filas a nivel de meter
 
 **Bug:** el cron `sync` escribía dos desgloses del mismo costo en `CostSnapshots`: (A) por
@@ -392,6 +403,7 @@ Endpoints internos protegidos por `Authorization: Bearer ${CRON_SECRET}`. Se inv
 | `GET /api/cron/sync`                  | Diaria 06:00 UTC       | Snapshot diario de costos por tenant (CostManagement / CUR).                                    |
 | `GET /api/cron/prewarm-dashboard`     | Cada 10 min            | Pre-calienta el cache SWR del Dashboard General (`/api/dashboard/summary`) por tenant activo.  |
 | `GET /api/cron/power-schedules`      | Cada 10 min            | Ejecuta los horarios de apagado programado de VMs (tabla `PowerSchedules`) cuyo horario local ya se cumplió. |
+| `GET /api/cron/open-data`            | Semanal (lunes 04:00)  | Sincroniza los Open Data Sets del Microsoft FinOps Toolkit (Regions/Services/ResourceTypes/PricingUnits/CommitmentEligibility) a las tablas `OpenData*`. Sin él, los lookups (nombre canónico de región, categoría de servicio, iconos) devuelven null. |
 
 **Ejemplo crontab VPS:**
 ```cron
@@ -406,6 +418,9 @@ Endpoints internos protegidos por `Authorization: Bearer ${CRON_SECRET}`. Se inv
 
 # Backup diario de MySQL (script local del VPS, no endpoint HTTP) — ver docs/runbook-restore-mysql.md
 0 3 * * * /home/manny/cscloud/finops/scripts/backup-db.sh >> /var/log/finops-backup.log 2>&1
+
+# Open Data del FinOps Toolkit (Regions/Services/ResourceTypes/PricingUnits/CommitmentEligibility) — semanal
+0 4 * * 1 curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://app.cscloudsolutions.com.ar/api/cron/open-data >> /var/log/finops-cron.log 2>&1
 ```
 
 **Backups de MySQL** (`scripts/backup-db.sh`, Fase 1 del [plan de infra](docs/vps-infra-improvement-plan.md)): dump diario comprimido con retención local 7 diarios + 4 semanales, y copia off-site a Azure Blob Storage vía SAS solo-escritura (`BACKUP_AZURE_SAS_URL` en el `.env` del VPS). Runbook completo de provisioning y restore en `docs/runbook-restore-mysql.md`.
