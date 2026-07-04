@@ -84,7 +84,7 @@ Prices are in USD, auto-converted for local currency where applicable.
 
 ### Direct (Paddle) Flow
 
-1. Customer signs up at app.cscloudsolutions.com.ar
+1. Customer signs up at finops.cscloudsolutions.com.ar
 2. Selects tier and billing frequency
 3. Paddle collects payment, stores subscription ID
 4. User account created with `marketplace_source='direct'`

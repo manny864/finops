@@ -177,13 +177,13 @@ Custom enterprise solution with dedicated support and tailored feature set.
 ## Privacy, Legal & Support
 
 ### Privacy Policy URL
-https://app.cscloudsolutions.com.ar/legal/privacy
+https://finops.cscloudsolutions.com.ar/legal/privacy
 
 ### Terms of Use URL
-https://app.cscloudsolutions.com.ar/legal/terms
+https://finops.cscloudsolutions.com.ar/legal/terms
 
 ### Support Website URL
-https://app.cscloudsolutions.com.ar/support
+https://finops.cscloudsolutions.com.ar/support
 
 ### Support Email
 support@cscloudsolutions.com.ar

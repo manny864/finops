@@ -11,7 +11,7 @@ This document describes the technical setup required for FinOps SaaS Platform to
 ### Landing Page URL (with token resolution)
 
 ```
-https://app.cscloudsolutions.com.ar/marketplace/azure/landing?token={token}
+https://finops.cscloudsolutions.com.ar/marketplace/azure/landing?token={token}
 ```
 
 **Flow:**
@@ -29,7 +29,7 @@ https://app.cscloudsolutions.com.ar/marketplace/azure/landing?token={token}
 ### Webhook URL (incoming events)
 
 ```
-https://app.cscloudsolutions.com.ar/api/webhooks/marketplace/azure
+https://finops.cscloudsolutions.com.ar/api/webhooks/marketplace/azure
 ```
 
 **Method:** POST
@@ -173,8 +173,8 @@ Content-Type: application/json
 ### Test Environment URLs
 
 ```
-Landing Page (Sandbox): https://app.cscloudsolutions.com.ar/marketplace/azure/landing?token=sandbox_token_xxx
-Webhook URL (Sandbox): https://app.cscloudsolutions.com.ar/api/webhooks/marketplace/azure
+Landing Page (Sandbox): https://finops.cscloudsolutions.com.ar/marketplace/azure/landing?token=sandbox_token_xxx
+Webhook URL (Sandbox): https://finops.cscloudsolutions.com.ar/api/webhooks/marketplace/azure
 ```
 
 ### Test Credentials

@@ -33,7 +33,7 @@ This guide walks through setting up FinOps SaaS Platform on Azure Marketplace, f
    Azure Portal → Azure Active Directory → App registrations → New registration
    - Name: FinOps Marketplace App (Dev)
    - Supported account types: Accounts in any organizational directory
-   - Redirect URI: https://app.cscloudsolutions.com.ar/api/auth/callback
+   - Redirect URI: https://finops.cscloudsolutions.com.ar/api/auth/callback
    ```
 
 2. **Create application secret:**
@@ -116,8 +116,8 @@ Fill in:
 - **Category:** Management Tools / Cloud Management
 - **Industries:** Finance, IT, Healthcare (select applicable)
 - **Legal documents:**
-  - Privacy Policy: https://app.cscloudsolutions.com.ar/legal/privacy
-  - Terms: https://app.cscloudsolutions.com.ar/legal/terms
+  - Privacy Policy: https://finops.cscloudsolutions.com.ar/legal/privacy
+  - Terms: https://finops.cscloudsolutions.com.ar/legal/terms
 
 ### Offer Listing
 
@@ -127,8 +127,8 @@ Use content from `marketplace/azure/offer-listing.md`:
 - **Summary:** Cloud cost management and FinOps automation for Azure environments. (100 chars max)
 - **Description:** (Use HTML version from offer-listing.md, max 3000 chars)
 - **Search keywords:** finops, cost management, azure cost, kubernetes cost, cloud optimization
-- **Privacy policy URL:** https://app.cscloudsolutions.com.ar/legal/privacy
-- **Support URL:** https://app.cscloudsolutions.com.ar/support
+- **Privacy policy URL:** https://finops.cscloudsolutions.com.ar/legal/privacy
+- **Support URL:** https://finops.cscloudsolutions.com.ar/support
 
 ### Media
 
@@ -172,7 +172,7 @@ Create 4 plans:
 
 1. **Landing page URL:**
    ```
-   https://app.cscloudsolutions.com.ar/marketplace/azure/landing?token={token}
+   https://finops.cscloudsolutions.com.ar/marketplace/azure/landing?token={token}
    ```
 
 2. **Fulfillment API:**
@@ -182,7 +182,7 @@ Create 4 plans:
 
 3. **Webhook:**
    ```
-   https://app.cscloudsolutions.com.ar/api/webhooks/marketplace/azure
+   https://finops.cscloudsolutions.com.ar/api/webhooks/marketplace/azure
    ```
 
 4. **Webhook authentication:**
@@ -211,8 +211,8 @@ Create 4 plans:
 
 1. **Partner Center → Create offer → Technical configuration**
 2. **Sandbox AAD tenant ID:** Provide sandbox Azure AD directory
-3. **Sandbox Landing Page:** https://app.cscloudsolutions.com.ar/marketplace/azure/landing?token=sandbox_token
-4. **Sandbox Webhook:** https://app.cscloudsolutions.com.ar/api/webhooks/marketplace/azure
+3. **Sandbox Landing Page:** https://finops.cscloudsolutions.com.ar/marketplace/azure/landing?token=sandbox_token
+4. **Sandbox Webhook:** https://finops.cscloudsolutions.com.ar/api/webhooks/marketplace/azure
 
 ### Test Scenarios
 

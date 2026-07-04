@@ -64,7 +64,7 @@ This guide walks through setting up FinOps SaaS Platform on AWS Marketplace, fro
    aws sns subscribe \
      --topic-arn arn:aws:sns:us-east-1:123456789012:marketplace-subscription-events \
      --protocol https \
-     --notification-endpoint https://app.cscloudsolutions.com.ar/api/webhooks/marketplace/aws
+     --notification-endpoint https://finops.cscloudsolutions.com.ar/api/webhooks/marketplace/aws
    ```
 
 5. **Update `.env.development`:**
@@ -131,8 +131,8 @@ This guide walks through setting up FinOps SaaS Platform on AWS Marketplace, fro
    ```
 
 3. **Long description:** (2000 chars, from aws/listing.md)
-4. **Product URL:** https://app.cscloudsolutions.com.ar
-5. **Support URL:** https://app.cscloudsolutions.com.ar/support
+4. **Product URL:** https://finops.cscloudsolutions.com.ar
+5. **Support URL:** https://finops.cscloudsolutions.com.ar/support
 
 ### Pricing Configuration
 
@@ -187,7 +187,7 @@ If implementing usage-based pricing:
 
 1. **Software delivery:**
    - Fulfillment type: SaaS (customer managed)
-   - Registration URL: https://app.cscloudsolutions.com.ar/marketplace/aws/landing
+   - Registration URL: https://finops.cscloudsolutions.com.ar/marketplace/aws/landing
    - Token parameter: `x-amzn-marketplace-token`
 
 2. **Customer notification:**
@@ -209,14 +209,14 @@ If implementing usage-based pricing:
 ### Legal & Compliance
 
 1. **Terms and conditions:**
-   - URL: https://app.cscloudsolutions.com.ar/legal/terms
+   - URL: https://finops.cscloudsolutions.com.ar/legal/terms
    - Acceptance: Required
 
 2. **Privacy policy:**
-   - URL: https://app.cscloudsolutions.com.ar/legal/privacy
+   - URL: https://finops.cscloudsolutions.com.ar/legal/privacy
 
 3. **EULA:**
-   - URL: https://app.cscloudsolutions.com.ar/legal/eula
+   - URL: https://finops.cscloudsolutions.com.ar/legal/eula
 
 ---
 
@@ -411,7 +411,7 @@ If implementing usage-based pricing:
 **Solution:**
 1. Verify registration URL in Seller Central:
    ```
-   https://app.cscloudsolutions.com.ar/marketplace/aws/landing?x-amzn-marketplace-token={token}
+   https://finops.cscloudsolutions.com.ar/marketplace/aws/landing?x-amzn-marketplace-token={token}
    ```
 2. Check that `{token}` placeholder is used (not hardcoded)
 3. Test URL manually with mock token

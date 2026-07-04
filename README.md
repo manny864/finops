@@ -408,19 +408,19 @@ Endpoints internos protegidos por `Authorization: Bearer ${CRON_SECRET}`. Se inv
 **Ejemplo crontab VPS:**
 ```cron
 # Snapshot diario de costos
-0 6 * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://app.cscloudsolutions.com.ar/api/cron/sync >> /var/log/finops-cron.log 2>&1
+0 6 * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/sync >> /var/log/finops-cron.log 2>&1
 
 # Pre-warm dashboard cada 10 min (cache hard-TTL = 15 min)
-*/10 * * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://app.cscloudsolutions.com.ar/api/cron/prewarm-dashboard >> /var/log/finops-cron.log 2>&1
+*/10 * * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/prewarm-dashboard >> /var/log/finops-cron.log 2>&1
 
 # Power Schedules (apagado programado de VMs) cada 10 min (ventana de ejecución = 15 min)
-*/10 * * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://app.cscloudsolutions.com.ar/api/cron/power-schedules >> /var/log/finops-cron.log 2>&1
+*/10 * * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/power-schedules >> /var/log/finops-cron.log 2>&1
 
 # Backup diario de MySQL (script local del VPS, no endpoint HTTP) — ver docs/runbook-restore-mysql.md
 0 3 * * * /home/manny/cscloud/finops/scripts/backup-db.sh >> /var/log/finops-backup.log 2>&1
 
 # Open Data del FinOps Toolkit (Regions/Services/ResourceTypes/PricingUnits/CommitmentEligibility) — semanal
-0 4 * * 1 curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://app.cscloudsolutions.com.ar/api/cron/open-data >> /var/log/finops-cron.log 2>&1
+0 4 * * 1 curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/open-data >> /var/log/finops-cron.log 2>&1
 ```
 
 **Backups de MySQL** (`scripts/backup-db.sh`, Fase 1 del [plan de infra](docs/vps-infra-improvement-plan.md)): dump diario comprimido con retención local 7 diarios + 4 semanales, y copia off-site a Azure Blob Storage vía SAS solo-escritura (`BACKUP_AZURE_SAS_URL` en el `.env` del VPS). Runbook completo de provisioning y restore en `docs/runbook-restore-mysql.md`.

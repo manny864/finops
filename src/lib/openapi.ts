@@ -12,7 +12,7 @@ export const openApiSpec = {
   },
   servers: [
     {
-      url: "https://app.cscloudsolutions.com.ar/api/v1",
+      url: "https://finops.cscloudsolutions.com.ar/api/v1",
       description: "Production",
     },
     {
