@@ -39,15 +39,18 @@ export async function GET(request: NextRequest) {
         }
 
         try {
-            const [rows]: any = await pool.query(
+            // Fuente primaria: filas a nivel de meter (CostMeterSnapshots) — traen
+            // MeterName/MeterSubCategory reales para derivar SKU y cores. Fallback
+            // a CostSnapshots (chargeback) para datos anteriores a esa tabla.
+            let [rows]: any = await pool.query(
                 `SELECT
                     MeterSubCategory,
                     MeterName,
-                    resource_group,
-                    COALESCE(EffectiveCost, BilledCost, cost_usd, 0) AS effectiveCost,
-                    COALESCE(BilledCost, cost_usd, 0)                AS billedCost,
-                    DATE_FORMAT(date, '%Y-%m')                       AS month
-                 FROM CostSnapshots
+                    '' AS resource_group,
+                    cost_usd AS effectiveCost,
+                    cost_usd AS billedCost,
+                    DATE_FORMAT(date, '%Y-%m') AS month
+                 FROM CostMeterSnapshots
                  WHERE tenant_id = ?
                    AND (
                         service_name LIKE '%Virtual Machine%'
@@ -58,6 +61,27 @@ export async function GET(request: NextRequest) {
                    AND date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)`,
                 [tenantId, days]
             );
+            if (!Array.isArray(rows) || rows.length === 0) {
+                [rows] = await pool.query(
+                    `SELECT
+                        MeterSubCategory,
+                        MeterName,
+                        resource_group,
+                        COALESCE(EffectiveCost, BilledCost, cost_usd, 0) AS effectiveCost,
+                        COALESCE(BilledCost, cost_usd, 0)                AS billedCost,
+                        DATE_FORMAT(date, '%Y-%m')                       AS month
+                     FROM CostSnapshots
+                     WHERE tenant_id = ?
+                       AND (
+                            service_name LIKE '%Virtual Machine%'
+                         OR service_name LIKE '%Compute%'
+                         OR MeterCategory LIKE '%Compute%'
+                         OR MeterSubCategory LIKE '%Series%'
+                       )
+                       AND date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)`,
+                    [tenantId, days]
+                );
+            }
 
             let totalEffectiveCost = 0;
             let totalBilledCost    = 0;
