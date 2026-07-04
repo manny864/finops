@@ -521,6 +521,11 @@ export async function getYesterdaysCost(tenantId: string): Promise<number> {
  * Requires: Cost Management Reader at MG or each subscription scope.
  */
 export type DetailedCostRow = {
+    // 'chargeback': query A (por ResourceGroup) → CostSnapshots.
+    // 'meter': query B (por MeterSubCategory) → CostMeterSnapshots.
+    // Son el MISMO costo con dos desgloses distintos: nunca deben convivir en
+    // la misma tabla ni sumarse juntas.
+    kind: 'chargeback' | 'meter';
     subscriptionId: string;
     resourceGroup: string;
     serviceName: string;
@@ -588,6 +593,7 @@ export async function getYesterdaysDetailedCosts(tenantId: string): Promise<Deta
                 const cost = Number(row[cIdx] ?? 0);
                 if (!Number.isFinite(cost) || cost === 0) continue;
                 out.push({
+                    kind: 'chargeback',
                     subscriptionId: subId,
                     resourceGroup: String(row[rgIdx] ?? '*'),
                     serviceName: String(row[sIdx] ?? ''),
@@ -613,6 +619,7 @@ export async function getYesterdaysDetailedCosts(tenantId: string): Promise<Deta
                 const cost = Number(row[cIdx] ?? 0);
                 if (!Number.isFinite(cost) || cost === 0) continue;
                 out.push({
+                    kind: 'meter',
                     subscriptionId: subId,
                     resourceGroup: '*',
                     serviceName: String(row[sIdx] ?? ''),

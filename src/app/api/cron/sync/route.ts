@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import pool, { insertCostSnapshot, insertCostSnapshotRow, updateTenantHealth } from "@/modules/storage/db";
+import pool, { insertCostSnapshot, insertCostSnapshotRow, insertCostMeterSnapshotRow, updateTenantHealth } from "@/modules/storage/db";
 import { getYesterdaysCost, getYesterdaysDetailedCosts } from "@/modules/collectors/azure/billingService";
 import { getTenantCredentials } from "@/lib/secrets/tenantCredentials";
 
@@ -57,7 +57,14 @@ async function runSync(request: NextRequest) {
                 try {
                     const detailedRows = await getYesterdaysDetailedCosts(tenant.id);
                     for (const row of detailedRows) {
-                        await insertCostSnapshotRow(tenant.id, yesterdayStr, row);
+                        // Mismo costo, dos desgloses: chargeback (por RG) va a
+                        // CostSnapshots; meter (por subcategoría) a su propia
+                        // tabla para no duplicar sumas ni colapsar tiers.
+                        if (row.kind === 'meter') {
+                            await insertCostMeterSnapshotRow(tenant.id, yesterdayStr, row);
+                        } else {
+                            await insertCostSnapshotRow(tenant.id, yesterdayStr, row);
+                        }
                     }
                     detailRowsTotal += detailedRows.length;
                     console.log(`[cron-sync] tenant=${tenant.id} detailed rows inserted=${detailedRows.length}`);
