@@ -38,11 +38,13 @@ function makeRequest(days = 30) {
     } as any;
 }
 
-// Filas con la forma que devuelve el SELECT sobre CostMeterSnapshots
+// Filas con la forma que devuelve el SELECT sobre CostMeterSnapshots.
+// MeterSubCategory lleva el NOMBRE del meter (dimensión 'Meter' de Cost
+// Management) — ahí vive el tier real, p.ej. "Cool LRS Data Stored".
 const METER_ROWS = [
-    { MeterName: "Hot Block Blob", MeterSubCategory: "Hot Block Blob", MeterCategory: "Storage", service_name: "Storage", quantity: 1000, UnitOfMeasure: "GB", billedCost: 18.4 },
-    { MeterName: "Cool Block Blob", MeterSubCategory: "Cool Block Blob", MeterCategory: "Storage", service_name: "Storage", quantity: 500, UnitOfMeasure: "GB", billedCost: 5 },
-    { MeterName: "Archive Block Blob", MeterSubCategory: "Archive Block Blob", MeterCategory: "Storage", service_name: "Storage", quantity: 200, UnitOfMeasure: "GB", billedCost: 0.198 },
+    { MeterName: "Hot LRS Data Stored", MeterSubCategory: "Hot LRS Data Stored", MeterCategory: "", service_name: "Storage", quantity: 1000, UnitOfMeasure: "GB", billedCost: 18.4 },
+    { MeterName: "Cool LRS Data Stored", MeterSubCategory: "Cool LRS Data Stored", MeterCategory: "", service_name: "Storage", quantity: 500, UnitOfMeasure: "GB", billedCost: 5 },
+    { MeterName: "Archive RA-GRS Data Stored", MeterSubCategory: "Archive RA-GRS Data Stored", MeterCategory: "", service_name: "Storage", quantity: 200, UnitOfMeasure: "GB", billedCost: 0.198 },
 ];
 
 describe("storage-efficiency route", () => {
