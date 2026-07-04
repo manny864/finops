@@ -12,6 +12,7 @@ import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { vmSizeToCores } from "@/modules/collectors/azure/aksCostService";
+import { getRegionFriendlyName } from "@/lib/openData";
 
 /**
  * Parses an Azure billing MeterName (e.g. "D4s v5", "E8s v5 Spot", "B2s")
@@ -150,14 +151,17 @@ export async function GET(request: NextRequest) {
                     costPerCore: v.cores > 0 ? parseFloat((v.cost / v.cores).toFixed(2)) : 0,
                 }));
 
-            const byRegion = Object.entries(byRegionMap)
+            // Nombre canónico de región vía Open Data del FinOps Toolkit
+            // (OpenDataRegions): 'us east' → 'East US'. Fallback al valor crudo
+            // si el dataset aún no está sincronizado o no mapea.
+            const byRegionRaw = Object.entries(byRegionMap)
                 .sort(([, a], [, b]) => b.cost - a.cost)
-                .slice(0, 8)
-                .map(([region, v]) => ({
-                    region,
-                    cores: v.cores,
-                    costPerCore: v.cores > 0 ? parseFloat((v.cost / v.cores).toFixed(2)) : 0,
-                }));
+                .slice(0, 8);
+            const byRegion = await Promise.all(byRegionRaw.map(async ([region, v]) => ({
+                region: (region && region !== 'unknown' ? await getRegionFriendlyName(region) : null) || region,
+                cores: v.cores,
+                costPerCore: v.cores > 0 ? parseFloat((v.cost / v.cores).toFixed(2)) : 0,
+            })));
 
             const trend = Object.entries(byMonthMap)
                 .sort(([a], [b]) => a.localeCompare(b))
