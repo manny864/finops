@@ -65,8 +65,8 @@ Actualmente **no hay backups automatizados** — el mayor riesgo del diseño (VP
   0 3 * * * /home/manny/cscloud/finops/scripts/backup-db.sh >> /var/log/finops-backup.log 2>&1
   ```
 - [x] **Retención local**: 7 diarios + 4 semanales (rotación simple con `find -mtime +N -delete`), acotado en disco (dumps comprimidos de una BD de este tamaño son pequeños, del orden de decenas de MB).
-- [x] **Copia off-site**: decisión (2026-07-04) — **Azure Blob Storage** (Storage Account tier Cool + LRS + lifecycle 35 días, mismo ecosistema que el Key Vault existente; costo estimado < $0.05/mes). Upload vía `curl PUT` con **SAS de contenedor solo-escritura** (`cw` — un VPS comprometido no puede leer ni borrar backups). Sin `az` CLI en el VPS. Provisioning documentado en el runbook. *(Pendiente operativo: crear el Storage Account y setear `BACKUP_AZURE_SAS_URL` en el `.env` del VPS.)*
-- [x] **Runbook de restore** documentado: `docs/runbook-restore-mysql.md` (provisioning, instalación del cron, restore local/off-site, prueba en DB de test, troubleshooting). *(Pendiente operativo: ejecutar la prueba de restore §4.3 al menos una vez.)*
+- [x] **Copia off-site**: decisión (2026-07-04) — **Azure Blob Storage** (Storage Account tier Cool + LRS + lifecycle 35 días, mismo ecosistema que el Key Vault existente; costo estimado < $0.05/mes). Upload vía `curl PUT` con **SAS de contenedor solo-escritura** (`cw` — un VPS comprometido no puede leer ni borrar backups). Sin `az` CLI en el VPS. Provisioning documentado en el runbook. ✅ **Verificado en producción (2026-07-04):** Storage Account creado, SAS en el `.env` del VPS, upload off-site exitoso desde el script.
+- [x] **Runbook de restore** documentado: `docs/runbook-restore-mysql.md` (provisioning, instalación del cron, restore local/off-site, prueba en DB de test, troubleshooting). ✅ **Prueba de restore §4.3 ejecutada en el VPS (2026-07-04):** dump real restaurado en `finops_restore_test` — 63 tablas y 5 tenants OK, DB de prueba eliminada.
 - [x] **Backup de volúmenes de Redis**: descartado explícitamente — hoy es 100% cache regenerable, no crítico de respaldar. Revisar solo si Redis pasa a guardar estado.
 
 ---
