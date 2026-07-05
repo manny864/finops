@@ -87,10 +87,10 @@ export default function SuperAdminTenantsPage() {
     const handleTierChange = async (tenantId: string, newTierValue: string) => {
         try {
             const tokenResponse = { idToken: await getFreshIdToken(instance, accounts[0]) };
-            
+
             const res = await fetch('/api/admin/tenants', {
                 method: 'PATCH',
-                headers: { 
+                headers: {
                     'Authorization': `Bearer ${tokenResponse.idToken}`,
                     'Content-Type': 'application/json'
                 },
@@ -109,6 +109,35 @@ export default function SuperAdminTenantsPage() {
             }
         } catch (e) {
             console.error("Error updating tier:", e);
+            toast.error("Error de conexión.");
+        }
+    };
+
+    const handleSubscriptionStatusChange = async (tenantId: string, newStatus: string) => {
+        try {
+            const tokenResponse = { idToken: await getFreshIdToken(instance, accounts[0]) };
+
+            const res = await fetch('/api/admin/tenants', {
+                method: 'PATCH',
+                headers: {
+                    'Authorization': `Bearer ${tokenResponse.idToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    tenantId,
+                    subscriptionStatus: newStatus
+                })
+            });
+            const json = await res.json();
+
+            if (res.ok) {
+                toast.success("Estado de suscripción actualizado exitosamente.");
+                loadTenants();
+            } else {
+                toast.error(json.error || "Error al actualizar el estado de suscripción.");
+            }
+        } catch (e) {
+            console.error("Error updating subscription status:", e);
             toast.error("Error de conexión.");
         }
     };
@@ -216,7 +245,19 @@ export default function SuperAdminTenantsPage() {
                                         <tr key={t.id}>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">{t.name || '-'}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 font-mono text-xs">{t.id}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{t.subscription_status}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                                <select
+                                                    value={t.subscription_status || 'ACTIVE'}
+                                                    onChange={(e) => handleSubscriptionStatusChange(t.id, e.target.value)}
+                                                    className="px-2 py-1 border border-gray-300 dark:border-slate-700 rounded bg-white dark:bg-slate-900 text-sm font-medium"
+                                                >
+                                                    <option value="TRIAL">TRIAL</option>
+                                                    <option value="ACTIVE">ACTIVE</option>
+                                                    <option value="PAST_DUE">PAST_DUE</option>
+                                                    <option value="CANCELED">CANCELED</option>
+                                                    <option value="EXPIRED">EXPIRED</option>
+                                                </select>
+                                            </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                                 <select 
                                                     value={t.tier || 'Essential'}
