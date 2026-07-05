@@ -55,6 +55,7 @@ export const PAGES: PageEntry[] = [
     // Governance
     { id: "gov-power", path: "/governance/power", title: "Horario de Apagado", description: "Schedules de power on/off de recursos.", icon: "Power", category: "governance" },
     { id: "gov-policies", path: "/governance/policies", title: "Policies", description: "Azure Policies y compliance FinOps.", icon: "FileLock", category: "governance" },
+    { id: "gov-reporting", path: "/governance/reporting", title: "Governance Reporting", description: "Compliance de políticas, inventario y accesos (RBAC).", icon: "ShieldCheck", category: "governance" },
     { id: "gov-tags", path: "/governance/tags", title: "Gobernanza de Tags", description: "Coverage y consistencia de tagging.", icon: "Tags", category: "governance" },
     { id: "gov-ha", path: "/governance/ha", title: "Alta Disponibilidad", description: "Hallazgos HA por recurso, SLA risk.", icon: "ShieldAlert", category: "governance" },
     { id: "gov-credentials", path: "/governance/credentials", title: "Credenciales por Expirar", description: "Secrets y certs de App Registrations próximos a vencer.", icon: "KeyRound", category: "governance" },

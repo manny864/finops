@@ -35,6 +35,7 @@ export const ROUTE_TIERS: Record<string, 'Essential' | 'Professional' | 'Busines
     '/governance/tags': 'Business',
     '/governance/power': 'Business',
     '/governance/policies': 'Enterprise',
+    '/governance/reporting': 'Enterprise',
     '/governance/ha': 'Business',
     '/governance/credentials': 'Business',
     '/remediation/approvals': 'Professional',
