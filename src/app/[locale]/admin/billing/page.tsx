@@ -14,6 +14,7 @@ interface BillingInfo {
   marketplaceSource?: string;
   marketplaceSubscriptionId?: string;
   marketplacePlanId?: string;
+  isEnterprise?: boolean;
 }
 
 interface Invoice {
@@ -96,10 +97,14 @@ export default function BillingPage() {
     setLoading(true);
     try {
       const headers = await authHeaders();
-      const res = await fetch(`/api/billing?tenantId=${selectedTenant.id}`, { headers });
+      // Info del plan (tier/estado/trial/paddle/marketplace) desde /api/billing/plan.
+      // NO usar GET /api/billing: ese devuelve la URL de pago de Paddle, no el plan.
+      const res = await fetch(`/api/billing/plan?tenantId=${selectedTenant.id}`, { headers });
       if (res.ok) {
         const data = await res.json();
         setBillingInfo(data);
+      } else {
+        console.error("Error loading billing info: HTTP", res.status);
       }
     } catch (error: any) {
       console.error("Error loading billing info:", error);
@@ -366,7 +371,11 @@ export default function BillingPage() {
         <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-xl font-semibold">Cambiar Plan</h2>
-            {billingInfo?.tier !== "Business" && (
+            {/* Enterprise usa pricing negociado: no aplica el flujo self-service de
+                Paddle (tierToPriceId(Enterprise) = null → daría 502). Mostramos un
+                aviso para contactar al equipo comercial. Business es el tope de los
+                planes auto-gestionables, por eso tampoco muestra "Actualizar". */}
+            {!billingInfo?.isEnterprise && billingInfo?.tier !== "Business" && (
               <button
                 onClick={() => setShowUpgradeModal(true)}
                 className="rounded-lg bg-brand-deep px-4 py-2 text-sm font-semibold text-white hover:bg-blue-900 disabled:opacity-50"
@@ -376,6 +385,17 @@ export default function BillingPage() {
             </button>
           )}
         </div>
+
+        {billingInfo?.isEnterprise && (
+          <div className="rounded-md border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-200">
+            Tu organización está en el plan <span className="font-semibold">Enterprise</span>, con condiciones y
+            precios personalizados. Para modificar tu plan, contactá a nuestro equipo comercial en{" "}
+            <a href="mailto:ventas@cscloudsolutions.com.ar" className="font-semibold underline">
+              ventas@cscloudsolutions.com.ar
+            </a>
+            .
+          </div>
+        )}
 
         {showUpgradeModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
