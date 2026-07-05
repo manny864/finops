@@ -66,7 +66,8 @@
     "macc": "MACC Tracking",
     "ha_recommendations": "Alta Disponibilidad",
     "expiring_credentials": "Credenciales por Expirar",
-    "copilot_m365": "Copilot M365"
+    "copilot_m365": "Copilot M365",
+    "governance_reporting": "Reporting de Gobernanza"
   },
   "Dashboard": {
     "title": "Dashboard General",
@@ -840,5 +841,21 @@
     "none": "Sin ahorro",
     "guidance": "Las reservas dan el mayor ahorro para cargas estables en una instancia/región fija. Los Savings Plans son más flexibles (cualquier región/familia) y convienen para cargas cambiantes. Primero rightsizing, después comprometer.",
     "source": "Fuente: APIs de Reservation y Benefit Recommendations de Azure · {subs} suscripción(es) evaluadas."
+  },
+  "GovernanceReporting": {
+    "title": "Reporting de Gobernanza",
+    "subtitle": "Cumplimiento de políticas, inventario de recursos y acceso (RBAC) de un vistazo",
+    "loading": "Cargando reporte de gobernanza...",
+    "empty": "Sin datos de gobernanza disponibles.",
+    "policyTitle": "Cumplimiento de Azure Policy",
+    "nonCompliantResources": "Recursos no conformes",
+    "nonCompliantPolicies": "Políticas no conformes",
+    "policyAssignments": "Asignaciones de política",
+    "policyUnavailable": "No se encontraron asignaciones de Azure Policy para este tenant.",
+    "inventoryTitle": "Inventario de recursos",
+    "byType": "Por tipo de recurso",
+    "byLocation": "Por región",
+    "identitiesTitle": "Asignaciones de acceso (RBAC)",
+    "source": "Fuente: Azure Resource Graph + Policy Insights · {subs} suscripción(es)."
   }
 }

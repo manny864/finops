@@ -1120,6 +1120,38 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
             const count = multiplier === 1 ? 2 : multiplier === 3 ? 5 : multiplier === 10 ? 7 : 10;
             return { success: true, mock: true, rules: allRules.slice(0, count) };
         }
+        case 'governance-reporting': {
+            const m = multiplier;
+            return {
+                success: true,
+                mock: true,
+                subscriptionsEvaluated: m >= 10 ? 4 : m === 3 ? 2 : 1,
+                policyCompliance: { nonCompliantResources: 3 * m, nonCompliantPolicies: Math.max(1, Math.round(m / 2)), policyAssignments: 4 + m, available: true },
+                resourceInventory: {
+                    total: 40 * m,
+                    byType: [
+                        { type: 'microsoft.compute/virtualmachines', count: 8 * m },
+                        { type: 'microsoft.storage/storageaccounts', count: 6 * m },
+                        { type: 'microsoft.network/networkinterfaces', count: 6 * m },
+                        { type: 'microsoft.network/publicipaddresses', count: 4 * m },
+                        { type: 'microsoft.sql/servers/databases', count: 3 * m },
+                    ],
+                    byLocation: [
+                        { location: 'eastus', count: 22 * m },
+                        { location: 'westeurope', count: 12 * m },
+                        { location: 'brazilsouth', count: 6 * m },
+                    ],
+                },
+                identities: {
+                    totalAssignments: 12 * m,
+                    byPrincipalType: [
+                        { principalType: 'User', count: 7 * m },
+                        { principalType: 'ServicePrincipal', count: 3 * m },
+                        { principalType: 'Group', count: 2 * m },
+                    ],
+                },
+            };
+        }
         case 'commitment-simulator': {
             // Ahorro mensual estimado por RI y por SP, escalado por tier.
             const riY1 = 120 * multiplier, riY3 = 210 * multiplier;

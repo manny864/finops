@@ -66,7 +66,8 @@
     "macc": "MACC Tracking",
     "ha_recommendations": "High Availability",
     "expiring_credentials": "Expiring Credentials",
-    "copilot_m365": "Copilot M365"
+    "copilot_m365": "Copilot M365",
+    "governance_reporting": "Governance Reporting"
   },
   "Dashboard": {
     "title": "General Dashboard",
@@ -840,5 +841,21 @@
     "none": "No savings",
     "guidance": "Reservations give the deepest savings for stable workloads on a fixed instance/region. Savings Plans are more flexible (any region/family) and better for changing workloads. Right-size first, then commit.",
     "source": "Source: Azure Reservation & Benefit Recommendations APIs · {subs} subscription(s) evaluated."
+  },
+  "GovernanceReporting": {
+    "title": "Governance Reporting",
+    "subtitle": "Policy compliance, resource inventory and access (RBAC) at a glance",
+    "loading": "Loading governance report...",
+    "empty": "No governance data available.",
+    "policyTitle": "Azure Policy compliance",
+    "nonCompliantResources": "Non-compliant resources",
+    "nonCompliantPolicies": "Non-compliant policies",
+    "policyAssignments": "Policy assignments",
+    "policyUnavailable": "No Azure Policy assignments found for this tenant.",
+    "inventoryTitle": "Resource inventory",
+    "byType": "By resource type",
+    "byLocation": "By location",
+    "identitiesTitle": "Access assignments (RBAC)",
+    "source": "Source: Azure Resource Graph + Policy Insights · {subs} subscription(s)."
   }
 }
