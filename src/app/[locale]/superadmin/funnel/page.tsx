@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useLocale } from 'next-intl';
 import { useRouter } from 'next/navigation';
+import { useMsal } from '@azure/msal-react';
+import { getFreshIdToken } from '@/lib/msalToken';
 
 interface KPIs {
   signups_30d: number;
@@ -35,6 +37,7 @@ interface FunnelData {
 export default function FunnelPage() {
   const locale = useLocale();
   const router = useRouter();
+  const { instance, accounts } = useMsal();
   const [data, setData] = useState<FunnelData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -42,9 +45,16 @@ export default function FunnelPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch('/api/superadmin/funnel');
-        
-        if (response.status === 403) {
+        if (accounts.length === 0) {
+          router.push(`/${locale}/auth/login`);
+          return;
+        }
+        const token = await getFreshIdToken(instance, accounts[0]);
+        const response = await fetch('/api/superadmin/funnel', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (response.status === 401 || response.status === 403) {
           router.push(`/${locale}/auth/login`);
           return;
         }
@@ -63,7 +73,7 @@ export default function FunnelPage() {
     };
 
     fetchData();
-  }, [locale, router]);
+  }, [locale, router, instance, accounts]);
 
   if (isLoading) {
     return (
