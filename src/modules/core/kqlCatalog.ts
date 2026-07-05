@@ -46,6 +46,12 @@ export const kqlCatalog: Record<string, string> = {
   // Application Gateways sin backend real: sin backend pools o con todos vacíos.
   // Un App GW facturando sin backend es gasto puro (colector del FinOps Toolkit).
   unusedAppGateways: `Resources | where type =~ 'microsoft.network/applicationgateways' | where isnull(properties.backendAddressPools) or array_length(properties.backendAddressPools) == 0 or isnull(properties.requestRoutingRules) or array_length(properties.requestRoutingRules) == 0 | project id, name, location, resourceGroup, subscriptionId, sku=tostring(properties.sku.name), tier=tostring(properties.sku.tier)`,
+  // Elastic Pools de SQL sin bases de datos: el pool factura capacidad reservada
+  // aunque no aloje ninguna DB (gasto puro, colector SqlDb del FinOps Toolkit).
+  emptySqlElasticPools: `Resources | where type =~ 'microsoft.sql/servers/elasticpools' | extend poolId = tolower(id) | join kind=leftouter (Resources | where type =~ 'microsoft.sql/servers/databases' | extend poolId = tolower(tostring(properties.elasticPoolId)) | where isnotempty(poolId) | summarize dbCount = count() by poolId) on poolId | where isnull(dbCount) or dbCount == 0 | project id, name, location, resourceGroup, subscriptionId, sku=tostring(sku.name), tier=tostring(sku.tier)`,
+  // VM Scale Sets escalados a 0 instancias: recurso remanente sin capacidad
+  // (flag de gobernanza; su rightsizing por métricas es otra feature).
+  idleVmss: `Resources | where type =~ 'microsoft.compute/virtualmachinescalesets' | extend cap = toint(sku.capacity) | where isnull(cap) or cap == 0 | project id, name, location, resourceGroup, subscriptionId, sku=tostring(sku.name)`,
   longStoppedVMs: `Resources | where type =~ 'microsoft.compute/virtualmachines' | where properties.extended.instanceView.powerState.code == 'PowerState/deallocated' | project id, name, location, resourceGroup, subscriptionId, sku = properties.hardwareProfile.vmSize, osDiskId = properties.storageProfile.osDisk.managedDisk.id, dataDisks = properties.storageProfile.dataDisks`,
   unattachedPublicIps: `Resources | where type =~ 'microsoft.network/publicipaddresses' | where properties.ipConfiguration == '' or isnull(properties.ipConfiguration) | where properties.timeCreated < ago(14d) | project id, name, location, resourceGroup, subscriptionId, sku=sku.name`,
   unattachedNics: `Resources | where type =~ 'microsoft.network/networkinterfaces' | where isnull(properties.virtualMachine) | project id, name, location, resourceGroup, subscriptionId`,

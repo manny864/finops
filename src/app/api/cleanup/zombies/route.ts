@@ -85,6 +85,8 @@ export async function GET(request: NextRequest) {
         "unusedVNetGateways",
         "unusedLoadBalancers",
         "unusedAppGateways",
+        "emptySqlElasticPools",
+        "idleVmss",
         "oldSnapshots",
         "longStoppedVMs",
         "emptyRgs"
@@ -161,6 +163,21 @@ export async function GET(request: NextRequest) {
                         else cost = 130.0;
                         typeLabel = "microsoft.network/applicationgateways";
                     }
+                    break;
+                case "emptySqlElasticPools":
+                    {
+                        // El costo depende del tier/DTU-vCore; piso conservador.
+                        const sku = String(res.sku || res.tier || "").toLowerCase();
+                        if (sku.includes("premium") || sku.includes("businesscritical")) cost = 400.0;
+                        else if (sku.includes("standard") || sku.includes("generalpurpose")) cost = 150.0;
+                        else cost = 100.0;
+                        typeLabel = "microsoft.sql/servers/elasticpools";
+                    }
+                    break;
+                case "idleVmss":
+                    // Escalado a 0 instancias: sin costo de cómputo, flag de gobernanza.
+                    cost = 0;
+                    typeLabel = "microsoft.compute/virtualmachinescalesets";
                     break;
                 case "oldSnapshots":
                     cost = (res.sizeGB || 50) * 0.05;
