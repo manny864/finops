@@ -459,7 +459,14 @@
     "allFeatures": "Todas las funciones de",
     "perMonth": "/mes",
     "backToDashboard": "Volver al Dashboard",
-    "backToPricing": "Volver a la página de precios"
+    "backToPricing": "Volver a la página de precios",
+    "corporateEmailNotice": {
+      "title": "Usá tu correo corporativo",
+      "body": "El correo que ingreses en el pago de Paddle quedará como la cuenta administradora del tenant que estás registrando. Usá tu correo corporativo (el mismo con el que iniciaste sesión), no uno personal.",
+      "willUse": "Se usará",
+      "cancel": "Cancelar",
+      "continue": "Continuar al pago"
+    }
   },
   "auth": {
     "paymentSuccess": "¡Pago completado con éxito! Por favor, inicia sesión para acceder a tu plan."
