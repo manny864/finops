@@ -227,3 +227,50 @@ npx vitest run __tests__/unit/keyvault.test.ts
 2. **Migrar Marketplace credentials** al mismo KV (publisher tenant secrets).
 3. **Considerar Azure Private Link** si la app se mueve a Azure Container Apps en el futuro (elimina exposición pública del KV).
 4. **Alertas** sobre `Vault.SecretGet/Set` desde Azure Monitor → Slack canal `#security`.
+
+---
+
+## Secretos de infraestructura (`infra-*`) — Fase 0.1 + Fase 2
+
+Distinto del naming `tenant-*` de arriba (credenciales de SP **por tenant cliente**), este
+prefijo cubre secretos **globales de la plataforma** que antes vivían sólo en el `.env` plano
+del VPS. Implementado en `src/lib/secrets/infraSecrets.ts`, mismo mecanismo de fallback
+(KV primero, `process.env` si KV no responde o no tiene el secret todavía).
+
+| Secret | Env var | KV name | Fase |
+| --- | --- | --- | --- |
+| Password de MySQL | `DB_PASSWORD` | `infra-db-password` | 0.1 |
+| Password de Redis | `REDIS_PASSWORD` | `infra-redis-password` | 0.1 |
+| Secret de los cron internos | `CRON_SECRET` | `infra-cron-secret` | 0.1 |
+| API key de Paddle (Live) | `PADDLE_API_KEY` | `infra-paddle-api-key` | 2 |
+| Webhook secret de Paddle | `PADDLE_WEBHOOK_SECRET` | `infra-paddle-webhook-secret` | 2 |
+| Secret del SP principal de Azure | `AZURE_CLIENT_SECRET` | `infra-azure-client-secret` | 2 |
+| Secret del App Registration de Azure Marketplace | `AZURE_MARKETPLACE_AAD_APP_SECRET` | `infra-azure-marketplace-aad-app-secret` | 2 |
+| SAS de escritura del backup a Blob Storage | `BACKUP_AZURE_SAS_URL` | `infra-backup-azure-sas-url` | 2 |
+| API key de Gemini | `GEMINI_API_KEY` | `infra-gemini-api-key` | 2 |
+
+**Hidratación en boot:** `src/instrumentation.ts` llama a `hydrateInfraSecretsFromKeyVault()`
+una vez al arrancar el server, ANTES de que cualquier módulo (pool de MySQL, cliente de Redis)
+lea `process.env` por primera vez. Si KV tiene el secret, sobreescribe `process.env` en memoria;
+si no, el valor del `.env` queda como estaba.
+
+**Migración:** `npx tsx scripts/migrate-infra-secrets-to-kv.ts --dry-run` (y sin `--dry-run`
+para aplicar), corriendo en el VPS con el `.env` real cargado. Idempotente: si el secret ya
+existe en KV, no lo sobreescribe.
+
+**NO migrables a KV (bootstrapping, quedan siempre en el `.env` plano):**
+
+- `AZURE_KEYVAULT_URL` / `_TENANT_ID` / `_CLIENT_ID` / `_CLIENT_SECRET`: son las credenciales
+  para autenticarse contra Key Vault — no se puede guardar la llave de la caja fuerte dentro
+  de la caja fuerte.
+- `MFA_ENCRYPTION_KEY` (o `AZURE_KEYVAULT_CACHE_KEY`): deriva la clave que descifra el caché
+  local en disco de Key Vault, usado para operar en cold-start si Azure no responde.
+
+**Fuera de alcance (Fase 2, 2026-07-05):** `SMTP_*` y `MFA_ENCRYPTION_KEY` no están
+configurados en prod todavía (no hay email transaccional ni 2FA funcionando) — activarlos
+es un tema aparte, no de esta consolidación.
+
+**Excepción operativa:** `BACKUP_AZURE_SAS_URL` se migra a KV como respaldo/rotación
+centralizada, pero `scripts/backup-db.sh` es un script bash de cron que corre **fuera** del
+proceso Node — no pasa por el hydrate y sigue leyendo del `.env` plano directamente. Si rotás
+ese secret en KV, actualizá también el `.env` del VPS.

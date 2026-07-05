@@ -6,6 +6,17 @@
  * VPS. Se migran a Key Vault (mismo vault que ya usa `tenantCredentials.ts`),
  * bajo el prefijo `infra-*` para no colisionar con los secrets `tenant-*`.
  *
+ * Fase 2 (consolidación, 2026-07-05): se suman Paddle (Live), el Service
+ * Principal de Azure, marketplace y el SAS de backups.
+ *
+ * NO migrables a propósito (quedan SIEMPRE en el `.env` plano):
+ *  - AZURE_KEYVAULT_URL / TENANT_ID / CLIENT_ID / CLIENT_SECRET: son las
+ *    credenciales para HABLAR con Key Vault. No se puede guardar la llave
+ *    de la caja fuerte dentro de la caja fuerte (bootstrapping).
+ *  - MFA_ENCRYPTION_KEY / AZURE_KEYVAULT_CACHE_KEY: deriva la clave que
+ *    descifra el caché local en disco de Key Vault (usado en cold-start
+ *    si Azure no responde) — mismo problema de bootstrapping.
+ *
  * Estrategia (no rompe nada si Key Vault no tiene el secret todavía):
  *  - Si Key Vault está deshabilitado o el secret no existe → usa el valor
  *    de `process.env` como fallback (comportamiento actual, sin cambios).
@@ -18,19 +29,52 @@
 
 import { getSecret, isKeyVaultEnabled } from "./keyvault";
 
-export type InfraSecretName = "db-password" | "redis-password" | "cron-secret";
+export type InfraSecretName =
+  | "db-password"
+  | "redis-password"
+  | "cron-secret"
+  | "paddle-api-key"
+  | "paddle-webhook-secret"
+  | "azure-client-secret"
+  | "azure-marketplace-aad-app-secret"
+  | "backup-azure-sas-url"
+  | "gemini-api-key";
 
 const ENV_VAR_BY_SECRET: Record<InfraSecretName, string> = {
   "db-password": "DB_PASSWORD",
   "redis-password": "REDIS_PASSWORD",
   "cron-secret": "CRON_SECRET",
+  "paddle-api-key": "PADDLE_API_KEY",
+  "paddle-webhook-secret": "PADDLE_WEBHOOK_SECRET",
+  "azure-client-secret": "AZURE_CLIENT_SECRET",
+  "azure-marketplace-aad-app-secret": "AZURE_MARKETPLACE_AAD_APP_SECRET",
+  "backup-azure-sas-url": "BACKUP_AZURE_SAS_URL",
+  "gemini-api-key": "GEMINI_API_KEY",
 };
 
 const KV_SECRET_NAME: Record<InfraSecretName, string> = {
   "db-password": "infra-db-password",
   "redis-password": "infra-redis-password",
   "cron-secret": "infra-cron-secret",
+  "paddle-api-key": "infra-paddle-api-key",
+  "paddle-webhook-secret": "infra-paddle-webhook-secret",
+  "azure-client-secret": "infra-azure-client-secret",
+  "azure-marketplace-aad-app-secret": "infra-azure-marketplace-aad-app-secret",
+  "backup-azure-sas-url": "infra-backup-azure-sas-url",
+  "gemini-api-key": "infra-gemini-api-key",
 };
+
+const ALL_INFRA_SECRETS: InfraSecretName[] = [
+  "db-password",
+  "redis-password",
+  "cron-secret",
+  "paddle-api-key",
+  "paddle-webhook-secret",
+  "azure-client-secret",
+  "azure-marketplace-aad-app-secret",
+  "backup-azure-sas-url",
+  "gemini-api-key",
+];
 
 /**
  * Resuelve un secreto de infraestructura: Key Vault primero (si está
@@ -69,9 +113,8 @@ export async function getInfraSecret(name: InfraSecretName): Promise<string> {
 export async function hydrateInfraSecretsFromKeyVault(): Promise<void> {
   if (!isKeyVaultEnabled()) return;
 
-  const names: InfraSecretName[] = ["db-password", "redis-password", "cron-secret"];
   await Promise.all(
-    names.map(async (name) => {
+    ALL_INFRA_SECRETS.map(async (name) => {
       try {
         const kvValue = await getSecret(KV_SECRET_NAME[name]);
         if (kvValue) {
