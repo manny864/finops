@@ -205,6 +205,10 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
 
 ## 📈 Recent Major Updates
 
+### 2026-07-05 — Ocultar referencias a AWS (por ahora)
+
+No hacemos referencia a AWS por el momento. Se oculta la entrada "Cloud Accounts (AWS)" del Sidebar y del page registry (pin de dashboard), y se remueven las 2 menciones de AWS en las features de la pantalla de precios (Business: "Ingesta Multi-Cloud AWS"; Enterprise: "Billing AWS Marketplace SaaS") en los 3 idiomas. El código de ingesta AWS (CUR/Cost Explorer), el webhook de AWS Marketplace y la landing `/marketplace/aws` **no se tocan** — quedan implementados y funcionales, sólo sin superficie de navegación ni promesa comercial, para cuando se retome soporte AWS.
+
 ### 2026-07-05 — Fix Signup Funnel (401) + canal de email de Alertas migrado a Graph + MFA activado en prod
 
 - **Signup Funnel (SuperAdmin) 401**: la página hacía `fetch('/api/superadmin/funnel')` sin el Bearer token MSAL (mismo patrón de bug ya visto en `TagInheritancePanel`). Corregido.
