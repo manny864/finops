@@ -5,6 +5,7 @@ import { createAnthropic } from '@ai-sdk/anthropic';
 import { createAzure } from '@ai-sdk/azure';
 import pool from '@/modules/storage/db';
 import { RowDataPacket } from 'mysql2';
+import { decryptSecret } from '@/lib/secretCrypto';
 
 export async function getAIConfig(tenantId?: string) {
     let tenantProvider = null;
@@ -14,7 +15,9 @@ export async function getAIConfig(tenantId?: string) {
         const [tenantRows] = await pool.query<RowDataPacket[]>('SELECT ai_provider, ai_api_key FROM Tenants WHERE tenant_id = ? LIMIT 1', [tenantId]);
         if (tenantRows.length > 0 && tenantRows[0].ai_provider && tenantRows[0].ai_provider !== 'system') {
             tenantProvider = tenantRows[0].ai_provider;
-            tenantApiKey = tenantRows[0].ai_api_key;
+            // Descifra la key almacenada (IA-2). decryptSecret devuelve el valor
+            // tal cual si es plaintext legacy (sin prefijo enc:v1:).
+            tenantApiKey = decryptSecret(tenantRows[0].ai_api_key);
         }
     }
 
@@ -23,10 +26,12 @@ export async function getAIConfig(tenantId?: string) {
     for (const row of rows) {
         config[row.setting_key] = row.setting_value;
     }
-    
+    // La key global también puede estar cifrada (o plaintext legacy).
+    const globalApiKey = config['ai_api_key'] ? decryptSecret(config['ai_api_key']) : '';
+
     return {
         provider: tenantProvider || config['ai_provider'] || process.env.AI_PROVIDER || 'google',
-        apiKey: tenantApiKey || config['ai_api_key'] || process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY || process.env.AZURE_OPENAI_API_KEY || ''
+        apiKey: tenantApiKey || globalApiKey || process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY || process.env.AZURE_OPENAI_API_KEY || ''
     };
 }
 
