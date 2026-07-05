@@ -1,0 +1,12 @@
+-- 20260705-001-tenants-markup-percentage.sql
+-- Agrega Tenants.markup_percentage.
+--
+-- La columna existía SOLO en el `CREATE TABLE IF NOT EXISTS Tenants` de
+-- src/modules/storage/db.ts, que es un no-op sobre la tabla ya existente en
+-- prod. Nunca hubo una migración ALTER que la agregara, así que en producción
+-- la columna faltaba y /api/admin/billing-markup rompía con 500
+-- ("Fallo al obtener margen") en el `SELECT markup_percentage, tier FROM Tenants`.
+--
+-- Idempotente: si la columna ya existe, el runner ignora ER_DUP_FIELDNAME.
+-- Tipo/DEFAULT en paridad exacta con el CREATE TABLE de db.ts.
+ALTER TABLE Tenants ADD COLUMN markup_percentage DECIMAL(5,2) DEFAULT 0.00;
