@@ -6,6 +6,8 @@ import { useMsal } from '@azure/msal-react';
 import { useRouter, useParams } from 'next/navigation';
 import { Loader2, BookOpen, CheckCircle, GraduationCap, PlayCircle, Trophy, Terminal } from 'lucide-react';
 import toast from 'react-hot-toast';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { generateOnboardingScript } from '@/lib/onboardingScriptTemplate';
 
 export default function FinOpsAcademy() {
@@ -66,16 +68,15 @@ export default function FinOpsAcademy() {
         }
     };
 
-    // A very simple markdown parser for our controlled academy content
-    const parseMarkdown = (md: string) => {
-        let html = md;
-        html = html.replace(/### (.*)/g, '<h3 class="text-xl font-bold text-gray-900 dark:text-white mt-4 mb-2">$1</h3>');
-        html = html.replace(/#### (.*)/g, '<h4 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mt-3 mb-1">$1</h4>');
-        html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-        html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
-        html = html.replace(/- (.*)/g, '<li class="ml-4 list-disc text-gray-600 dark:text-gray-300">$1</li>');
-        html = html.replace(/\n/g, '<br/>');
-        return { __html: html };
+    // Componentes de render para el markdown de la Academia. Reemplaza el
+    // parser manual + dangerouslySetInnerHTML (XSS A-1): ReactMarkdown escapa
+    // cualquier HTML embebido y no usamos rehype-raw, así que el contenido del
+    // módulo no puede inyectar scripts aunque provenga de la DB.
+    const mdComponents = {
+        h3: (props: any) => <h3 className="text-xl font-bold text-gray-900 dark:text-white mt-4 mb-2" {...props} />,
+        h4: (props: any) => <h4 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mt-3 mb-1" {...props} />,
+        li: (props: any) => <li className="ml-4 list-disc text-gray-600 dark:text-gray-300" {...props} />,
+        p: (props: any) => <p className="mb-2" {...props} />,
     };
 
     if (!selectedTenant || selectedTenant.id === 'default') return null;
@@ -177,7 +178,9 @@ export default function FinOpsAcademy() {
                                 </div>
 
                                 <div className="mt-6 pt-6 border-t border-gray-100 dark:border-slate-800 text-sm text-gray-700 dark:text-gray-300">
-                                    <div dangerouslySetInnerHTML={parseMarkdown(mod.content)} />
+                                    <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
+                                        {mod.content}
+                                    </ReactMarkdown>
                                 </div>
 
                                 {/* Intelligent Onboarding Suggestion */}
