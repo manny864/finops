@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import pool, { insertCostSnapshot, insertCostSnapshotRow, insertCostMeterSnapshotRow, updateTenantHealth } from "@/modules/storage/db";
+import pool, { insertCostSnapshot, insertCostSnapshotRow, insertCostMeterSnapshotRow, insertCostCategorySnapshotRow, updateTenantHealth } from "@/modules/storage/db";
 import { getYesterdaysCost, getYesterdaysDetailedCosts } from "@/modules/collectors/azure/billingService";
 import { getTenantCredentials } from "@/lib/secrets/tenantCredentials";
 
@@ -62,6 +62,8 @@ async function runSync(request: NextRequest) {
                         // tabla para no duplicar sumas ni colapsar tiers.
                         if (row.kind === 'meter') {
                             await insertCostMeterSnapshotRow(tenant.id, yesterdayStr, row);
+                        } else if (row.kind === 'category') {
+                            await insertCostCategorySnapshotRow(tenant.id, yesterdayStr, row);
                         } else {
                             await insertCostSnapshotRow(tenant.id, yesterdayStr, row);
                         }
