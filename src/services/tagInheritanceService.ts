@@ -55,17 +55,21 @@ export async function analyzeMissingTags(
         : "";
 
     // Une recursos con su RG y compara tags. Excluye recursos sin RG (raros).
+    // IMPORTANTE: el join se scopea por (subscriptionId, rgName), NO sólo por
+    // nombre del RG. RGs homónimos entre subscripciones (p.ej. NetworkWatcherRG,
+    // que Azure crea en TODAS las subs) producirían un producto cruzado y filas
+    // duplicadas con subscriptionId="All".
     const query = `
         Resources
         ${subFilter}
         | extend rgName = tolower(resourceGroup)
-        | project resourceId = id, resourceName = name, resourceType = type, rgName, location, resourceTags = coalesce(tags, parse_json("{}"))
+        | project resourceId = id, resourceName = name, resourceType = type, subscriptionId, rgName, location, resourceTags = coalesce(tags, parse_json("{}"))
         | join kind=inner (
             ResourceContainers
             | where type =~ 'microsoft.resources/subscriptions/resourcegroups'
             ${subFilter}
-            | project rgName = tolower(name), rgTags = coalesce(tags, parse_json("{}"))
-        ) on rgName
+            | project subscriptionId, rgName = tolower(name), rgTags = coalesce(tags, parse_json("{}"))
+        ) on subscriptionId, rgName
         | project resourceId, resourceName, resourceType, resourceGroupName = rgName, location, resourceTags, rgTags
         | limit ${limit}
     `;

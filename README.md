@@ -205,6 +205,17 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
 
 ## 📈 Recent Major Updates
 
+### 2026-07-05 — Hotfix de incidentes en producción
+
+Diagnóstico y corrección de un conjunto de fallos reportados en prod:
+
+- **Partner Markup (500 "Fallo al obtener margen")**: la columna `Tenants.markup_percentage` sólo existía en el `CREATE TABLE` de `db.ts` (no-op sobre la tabla preexistente) y nunca tuvo una migración `ALTER`. Nueva migración idempotente `20260705-001`.
+- **Alertas Self-Service (500 al crear reglas)**: el código consulta una tabla `Budgets` (GET/POST budgets, `LEFT JOIN` en alerts, `/api/mcp`, powerbi-feed) que **nunca se creaba** en el esquema (`ER_NO_SUCH_TABLE`). Nueva migración `20260705-002` que la crea con el esquema derivado de todas las queries.
+- **Dashboard / Reporte Ejecutivo (`fetch failed`)**: los self-fetch server-side usaban `request.nextUrl.origin` (dominio público) → NAT hairpin desde el contenedor. Nuevo helper `getInternalBaseUrl()` (loopback `127.0.0.1:$PORT`, override con `INTERNAL_BASE_URL`) aplicado en `dashboard/summary` y `cron/prewarm-dashboard`.
+- **Herencia de Tags (401)**: `TagInheritancePanel` hacía fetch sin el Bearer token MSAL a endpoints protegidos por `requireTenantAccess/requireTenantRole`. Se agrega el id token.
+- **Cumplimiento de Etiquetas**: paginación + autorefresh (60s, sólo con la pestaña visible) en `TagManager`.
+- **Nota operativa**: las páginas de costo (Categoría / Storage / Cómputo) muestran cero porque las tablas `Cost*Snapshots` están vacías: el sync de Azure viene fallando por throttling (429) y `AADSTS700016` (SP sin consentir en directorios cliente). Es un tema de pipeline/consentimiento, no de código.
+
 ### 2026-07-05 — Ola 2: Reporting de Gobernanza (nueva feature, tier Enterprise)
 
 Nueva página `/governance/reporting` con tres vistas read-only de gobernanza, todas con roles ya

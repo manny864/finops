@@ -5,6 +5,12 @@ import { useSubscription } from './SubscriptionProvider';
 import { useMsal } from '@azure/msal-react';
 import { Info, ShieldAlert, Tag, CheckCircle2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import Pagination, { usePagination } from './Pagination';
+
+// Autorefresh: la auditoría escanea Azure Resource Graph (llamada con costo),
+// así que refrescamos cada 60s SÓLO con la pestaña visible para no malgastar
+// consultas en tabs en background.
+const AUTO_REFRESH_MS = 60_000;
 
 export default function TagManager() {
     const t = useTranslations();
@@ -63,6 +69,20 @@ export default function TagManager() {
     useEffect(() => {
         analyzeCompliance();
     }, [analyzeCompliance]);
+
+    // Autorefresh cada 60s, sólo con la pestaña visible (ahorra llamadas a Azure).
+    useEffect(() => {
+        if (selectedTenant.id === 'default') return;
+        const id = setInterval(() => {
+            if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+            analyzeCompliance();
+        }, AUTO_REFRESH_MS);
+        return () => clearInterval(id);
+    }, [analyzeCompliance, selectedTenant]);
+
+    // Paginación de ambas tablas (recursos y grupos de recursos).
+    const resPage = usePagination(resources, 10);
+    const rgPage = usePagination(resourceGroups, 10);
 
     const applyTags = async () => {
         if (!editingResource) return;
@@ -275,11 +295,11 @@ export default function TagManager() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {resources.map((item, i) => {
+                                {resPage.paged.map((item, i) => {
                                     const sub = subscriptions.find(s => s.id === item.subscriptionId);
                                     const subName = sub ? sub.name : item.subscriptionId;
                                     return (
-                                        <tr key={`item-${i}`}>
+                                        <tr key={`item-${(resPage.page - 1) * resPage.pageSize + i}`}>
                                             <td>
                                                 <div className="font-bold text-ink text-[13px]">{item.name || 'Unknown'}</div>
                                             </td>
@@ -337,6 +357,13 @@ export default function TagManager() {
                                 })}
                             </tbody>
                         </table>
+                        <div className="px-4 pb-3">
+                            <Pagination
+                                page={resPage.page} setPage={resPage.setPage}
+                                pageSize={resPage.pageSize} setPageSize={resPage.setPageSize}
+                                total={resPage.total} totalPages={resPage.totalPages}
+                            />
+                        </div>
                     </div>
                 )}
             </div>
@@ -374,11 +401,11 @@ export default function TagManager() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {resourceGroups.map((item, i) => {
+                                {rgPage.paged.map((item, i) => {
                                     const sub = subscriptions.find(s => s.id === item.subscriptionId);
                                     const subName = sub ? sub.name : item.subscriptionId;
                                     return (
-                                        <tr key={`rg-${i}`}>
+                                        <tr key={`rg-${(rgPage.page - 1) * rgPage.pageSize + i}`}>
                                             <td>
                                                 <div className="font-bold text-ink text-[13px]">{item.name || 'Unknown'}</div>
                                             </td>
@@ -431,6 +458,13 @@ export default function TagManager() {
                                 })}
                             </tbody>
                         </table>
+                        <div className="px-4 pb-3">
+                            <Pagination
+                                page={rgPage.page} setPage={rgPage.setPage}
+                                pageSize={rgPage.pageSize} setPageSize={rgPage.setPageSize}
+                                total={rgPage.total} totalPages={rgPage.totalPages}
+                            />
+                        </div>
                     </div>
                 )}
             </div>
