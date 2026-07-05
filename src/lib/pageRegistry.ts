@@ -45,6 +45,7 @@ export const PAGES: PageEntry[] = [
     { id: "int-zero-cost", path: "/intelligence/zero-cost", title: "Zero Cost Initiative", description: "Recursos sin uso real con costo cero esperado.", icon: "ZapOff", category: "intelligence" },
     { id: "int-storage-eff", path: "/intelligence/storage-efficiency", title: "Storage Efficiency", description: "Eficiencia y oportunidades en Storage.", icon: "HardDrive", category: "intelligence" },
     { id: "int-cost-by-category", path: "/intelligence/cost-by-category", title: "Cost by Category", description: "Desglose de costo por categoría FinOps.", icon: "PieChart", category: "intelligence" },
+    { id: "int-commitment-sim", path: "/intelligence/commitment-simulator", title: "Savings Plan vs Reservation", description: "Comparación de compromiso: qué ahorra más.", icon: "PiggyBank", category: "intelligence" },
     { id: "int-hybrid-benefit", path: "/intelligence/hybrid-benefit", title: "Azure Hybrid Benefit", description: "Aplicación y oportunidades de AHUB.", icon: "ShieldCheck", category: "intelligence" },
     { id: "int-scorecard", path: "/intelligence/scorecard", title: "FinOps Scorecard", description: "Indicadores clave de madurez FinOps.", icon: "Trophy", category: "intelligence" },
     { id: "int-billing", path: "/intelligence/billing", title: "Billing Engine (CSP)", description: "Motor de facturación Partner / CSP.", icon: "Receipt", category: "intelligence" },

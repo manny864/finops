@@ -25,6 +25,7 @@ export const ROUTE_TIERS: Record<string, 'Essential' | 'Professional' | 'Busines
     '/intelligence/storage-efficiency': 'Business',
     '/intelligence/compute-efficiency': 'Professional',
     '/intelligence/cost-by-category': 'Business',
+    '/intelligence/commitment-simulator': 'Enterprise',
     '/intelligence/alerts': 'Professional',
     '/intelligence/ai-analytics': 'Enterprise',
     '/intelligence/macc': 'Enterprise',

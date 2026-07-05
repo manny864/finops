@@ -59,6 +59,7 @@
     "budgets": "Orçamentos",
     "storage_efficiency": "Eficiência de Storage",
     "cost_by_category": "Custo por Categoria",
+    "commitment_simulator": "Savings Plan vs Reserva",
     "compute_efficiency": "Eficiência de Computação",
     "alerts_self_service": "Alertas (Self-Service)",
     "ai_analytics": "AI Cost Analytics",
@@ -818,5 +819,26 @@
     "totalLabel": "Gasto total",
     "topCategory": "Categoria principal",
     "source": "Categorias do Open Data do Microsoft FinOps Toolkit (ResourceType → ServiceCategory)."
+  },
+  "CommitmentSimulator": {
+    "title": "Savings Plan vs Reserva",
+    "subtitle": "Recomendação nativa da Azure: qual compromisso economiza mais, por prazo",
+    "loading": "Consultando recomendações de compromisso da Azure...",
+    "empty": "Sem dados de compromisso disponíveis.",
+    "noRecs": "A Azure ainda não tem recomendações de compromisso para este tenant (requer uso de computação elegível e estável nos últimos 30 dias).",
+    "term1y": "1 ano",
+    "term3y": "3 anos",
+    "reservation": "Reserva (RI)",
+    "savingsPlan": "Savings Plan",
+    "perMonth": "estimado / mês",
+    "recs": "recomendações",
+    "savingsPct": "economia",
+    "coverage": "cobertura",
+    "winnerSP": "Savings Plan vence",
+    "winnerRI": "Reserva vence",
+    "tie": "Empate",
+    "none": "Sem economia",
+    "guidance": "Reservas dão a maior economia para cargas estáveis em uma instância/região fixa. Savings Plans são mais flexíveis (qualquer região/família) e melhores para cargas variáveis. Primeiro rightsizing, depois comprometer.",
+    "source": "Fonte: APIs de Reservation e Benefit Recommendations da Azure · {subs} assinatura(s) avaliadas."
   }
 }

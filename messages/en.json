@@ -59,6 +59,7 @@
     "budgets": "Tenant Budgets",
     "storage_efficiency": "Storage Efficiency",
     "cost_by_category": "Cost by Category",
+    "commitment_simulator": "Savings Plan vs Reservation",
     "compute_efficiency": "Compute Efficiency",
     "alerts_self_service": "Alerts (Self-Service)",
     "ai_analytics": "AI Cost Analytics",
@@ -818,5 +819,26 @@
     "totalLabel": "Total spend",
     "topCategory": "Top category",
     "source": "Categories from the Microsoft FinOps Toolkit open data (ResourceType → ServiceCategory)."
+  },
+  "CommitmentSimulator": {
+    "title": "Savings Plan vs Reservation",
+    "subtitle": "Azure's native recommendation: which commitment saves more, by term",
+    "loading": "Fetching Azure commitment recommendations...",
+    "empty": "No commitment data available.",
+    "noRecs": "Azure has no commitment recommendations for this tenant yet (needs stable eligible compute usage over the last 30 days).",
+    "term1y": "1 year",
+    "term3y": "3 years",
+    "reservation": "Reservation (RI)",
+    "savingsPlan": "Savings Plan",
+    "perMonth": "estimated / month",
+    "recs": "recommendations",
+    "savingsPct": "savings",
+    "coverage": "coverage",
+    "winnerSP": "Savings Plan wins",
+    "winnerRI": "Reservation wins",
+    "tie": "Tie",
+    "none": "No savings",
+    "guidance": "Reservations give the deepest savings for stable workloads on a fixed instance/region. Savings Plans are more flexible (any region/family) and better for changing workloads. Right-size first, then commit.",
+    "source": "Source: Azure Reservation & Benefit Recommendations APIs · {subs} subscription(s) evaluated."
   }
 }
