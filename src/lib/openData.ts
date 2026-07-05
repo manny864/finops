@@ -191,9 +191,16 @@ async function syncCommitmentEligibility(): Promise<number> {
     const iProd = colIdx(headers, "ProductName");
     const iSku = colIdx(headers, "SkuName");
     const iReg = colIdx(headers, "Region", "MeterRegion");
-    const iRi = colIdx(headers, "ReservationEligible", "RIEligible");
-    const iSp = colIdx(headers, "SavingsPlanEligible", "SPEligible");
+    // El toolkit migró a columnas FOCUS: x_CommitmentDiscountUsageEligibility
+    // (uso → reserva) y x_CommitmentDiscountSpendEligibility (gasto → savings
+    // plan), con valores 'Eligible'/'Not eligible'. Antes eran ReservationEligible
+    // /SavingsPlanEligible booleanas. Aceptamos ambos esquemas.
+    const iRi = colIdx(headers, "x_CommitmentDiscountUsageEligibility", "ReservationEligible", "RIEligible");
+    const iSp = colIdx(headers, "x_CommitmentDiscountSpendEligibility", "SavingsPlanEligible", "SPEligible");
     if (iMid < 0) throw new Error("CommitmentDiscountEligibility.csv: falta MeterId");
+    // 'Eligible' (esquema FOCUS) o true/yes/1 (esquema viejo) → elegible.
+    const isEligible = (v: string | undefined) =>
+        !!v && (v.trim().toLowerCase() === "eligible" || asBool(v));
     const seen = new Set<string>();
     const rows: any[][] = [];
     for (let r = 1; r < csv.length; r++) {
@@ -203,13 +210,13 @@ async function syncCommitmentEligibility(): Promise<number> {
         seen.add(mid);
         rows.push([
             mid,
-            row[iName] || null,
-            row[iFam] || null,
-            row[iProd] || null,
-            row[iSku] || null,
-            row[iReg] || null,
-            asBool(row[iRi]),
-            asBool(row[iSp])
+            iName >= 0 ? (row[iName] || null) : null,
+            iFam >= 0 ? (row[iFam] || null) : null,
+            iProd >= 0 ? (row[iProd] || null) : null,
+            iSku >= 0 ? (row[iSku] || null) : null,
+            iReg >= 0 ? (row[iReg] || null) : null,
+            isEligible(row[iRi]),
+            isEligible(row[iSp])
         ]);
     }
     const sql = `INSERT INTO OpenDataCommitmentEligibility (meter_id, meter_name, service_family, product_name, sku_name, region, ri_eligible, sp_eligible)

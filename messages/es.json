@@ -58,6 +58,8 @@
     "licenses": "Licencias",
     "budgets": "Presupuestos",
     "storage_efficiency": "Eficiencia de Storage",
+    "cost_by_category": "Costo por Categoría",
+    "commitment_simulator": "Savings Plan vs Reserva",
     "compute_efficiency": "Eficiencia de Cómputo",
     "alerts_self_service": "Alertas (Self-Service)",
     "ai_analytics": "AI Cost Analytics",
@@ -808,5 +810,35 @@
     "provider_alert_title": "Aviso: provider 'microsoft.insights' (Azure Monitor)",
     "provider_alert_body": "Si el despliegue falla con \"La suscripción no tiene registrado el resource provider 'microsoft.insights'\": la plataforma lo registra y reintenta automáticamente. Si el provider ya figura como 'Registered' en Azure, el error se debe a la propagación de ARM (puede tardar unos minutos) — espere 2-5 minutos y reintente. Registro manual:",
     "provider_alert_retry": "El primer despliegue tras registrar el provider puede requerir 1-2 reintentos automáticos por la propagación de ARM."
+  },
+  "CostByCategory": {
+    "title": "Costo por Categoría",
+    "subtitle": "Desglose del gasto por categoría de servicio FinOps",
+    "loading": "Analizando costo por categoría...",
+    "empty": "No se encontraron costos categorizados en los últimos 365 días. Verificá que la sincronización de FinOps haya corrido al menos una vez.",
+    "totalLabel": "Gasto total",
+    "topCategory": "Categoría principal",
+    "source": "Categorías del Open Data del Microsoft FinOps Toolkit (ResourceType → ServiceCategory)."
+  },
+  "CommitmentSimulator": {
+    "title": "Savings Plan vs Reserva",
+    "subtitle": "Recomendación nativa de Azure: qué compromiso ahorra más, por término",
+    "loading": "Consultando recomendaciones de compromiso de Azure...",
+    "empty": "Sin datos de compromiso disponibles.",
+    "noRecs": "Azure todavía no tiene recomendaciones de compromiso para este tenant (requiere uso de cómputo elegible y estable en los últimos 30 días).",
+    "term1y": "1 año",
+    "term3y": "3 años",
+    "reservation": "Reserva (RI)",
+    "savingsPlan": "Savings Plan",
+    "perMonth": "estimado / mes",
+    "recs": "recomendaciones",
+    "savingsPct": "ahorro",
+    "coverage": "cobertura",
+    "winnerSP": "Gana Savings Plan",
+    "winnerRI": "Gana Reserva",
+    "tie": "Empate",
+    "none": "Sin ahorro",
+    "guidance": "Las reservas dan el mayor ahorro para cargas estables en una instancia/región fija. Los Savings Plans son más flexibles (cualquier región/familia) y convienen para cargas cambiantes. Primero rightsizing, después comprometer.",
+    "source": "Fuente: APIs de Reservation y Benefit Recommendations de Azure · {subs} suscripción(es) evaluadas."
   }
 }

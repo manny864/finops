@@ -236,13 +236,13 @@ Product demo video: 2-3 minutes showing key features and dashboard walkthrough
 ## Terms & Policies
 
 ### Privacy Policy URL
-https://app.cscloudsolutions.com.ar/legal/privacy
+https://finops.cscloudsolutions.com.ar/legal/privacy
 
 ### Terms of Service URL
-https://app.cscloudsolutions.com.ar/legal/terms
+https://finops.cscloudsolutions.com.ar/legal/terms
 
 ### End User License Agreement
-https://app.cscloudsolutions.com.ar/legal/eula
+https://finops.cscloudsolutions.com.ar/legal/eula
 
 ### Data Processing Addendum
 Available upon request from sales@cscloudsolutions.com.ar

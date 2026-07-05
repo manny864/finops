@@ -6,7 +6,7 @@ Versioned, key-authenticated REST API for programmatic access to FinOps data.
 
 The FinOps REST API provides read-only access to cost analysis, budgets, recommendations, and anomaly data. All requests require authentication via API keys (`pak_xxx` format).
 
-- **Base URL**: `https://app.cscloudsolutions.com.ar/api/v1` (production)
+- **Base URL**: `https://finops.cscloudsolutions.com.ar/api/v1` (production)
 - **Versions**: Currently v1 (future versions available at `/api/v2`, `/api/v3`, etc.)
 - **Response Format**: JSON with consistent envelope structure
 - **Rate Limits**: Per-key, configurable (default 60 req/min)
@@ -16,13 +16,13 @@ The FinOps REST API provides read-only access to cost analysis, budgets, recomme
 ### API Key Header
 
 ```bash
-curl -H "X-API-Key: pak_live_xxx..." https://app.cscloudsolutions.com.ar/api/v1/me
+curl -H "X-API-Key: pak_live_xxx..." https://finops.cscloudsolutions.com.ar/api/v1/me
 ```
 
 ### Bearer Token
 
 ```bash
-curl -H "Authorization: Bearer pak_live_xxx..." https://app.cscloudsolutions.com.ar/api/v1/me
+curl -H "Authorization: Bearer pak_live_xxx..." https://finops.cscloudsolutions.com.ar/api/v1/me
 ```
 
 ## Scopes
@@ -101,7 +101,7 @@ Get current API key info.
 **Example**:
 
 ```bash
-curl -H "X-API-Key: pak_live_xxx..." https://app.cscloudsolutions.com.ar/api/v1/me
+curl -H "X-API-Key: pak_live_xxx..." https://finops.cscloudsolutions.com.ar/api/v1/me
 ```
 
 **Response**:
@@ -135,7 +135,7 @@ Aggregate cost data for a date range.
 **Example**:
 
 ```bash
-curl "https://app.cscloudsolutions.com.ar/api/v1/cost/summary?from=2024-06-01&to=2024-06-30&groupBy=service" \
+curl "https://finops.cscloudsolutions.com.ar/api/v1/cost/summary?from=2024-06-01&to=2024-06-30&groupBy=service" \
   -H "X-API-Key: pak_live_xxx..."
 ```
 
@@ -176,7 +176,7 @@ Cost data as a timeseries.
 **Example**:
 
 ```bash
-curl "https://app.cscloudsolutions.com.ar/api/v1/cost/timeseries?from=2024-06-01&to=2024-06-30&granularity=daily" \
+curl "https://finops.cscloudsolutions.com.ar/api/v1/cost/timeseries?from=2024-06-01&to=2024-06-30&granularity=daily" \
   -H "X-API-Key: pak_live_xxx..."
 ```
 

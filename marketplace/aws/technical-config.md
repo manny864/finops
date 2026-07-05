@@ -11,7 +11,7 @@ This document describes the technical setup required for FinOps SaaS Platform to
 ### Registration Page URL (with token resolution)
 
 ```
-https://app.cscloudsolutions.com.ar/marketplace/aws/landing?x-amzn-marketplace-token={token}
+https://finops.cscloudsolutions.com.ar/marketplace/aws/landing?x-amzn-marketplace-token={token}
 ```
 
 **Flow:**
@@ -34,7 +34,7 @@ arn:aws:sns:us-east-1:123456789012:marketplace-subscription-events
 ```
 
 **Protocol:** HTTPS
-**Endpoint:** https://app.cscloudsolutions.com.ar/api/webhooks/marketplace/aws
+**Endpoint:** https://finops.cscloudsolutions.com.ar/api/webhooks/marketplace/aws
 
 **Events Subscribed:**
 - `aws:ce:purchase-entitlement:v1` — Customer purchased subscription
@@ -198,8 +198,8 @@ x-amz-sns-topic-arn: arn:aws:sns:us-east-1:123456789012:marketplace-subscription
 ### Test Environment
 
 ```
-Registration Page (Sandbox): https://app.cscloudsolutions.com.ar/marketplace/aws/landing?x-amzn-marketplace-token=sandbox_token_xxx
-Webhook URL (Sandbox): https://app.cscloudsolutions.com.ar/api/webhooks/marketplace/aws
+Registration Page (Sandbox): https://finops.cscloudsolutions.com.ar/marketplace/aws/landing?x-amzn-marketplace-token=sandbox_token_xxx
+Webhook URL (Sandbox): https://finops.cscloudsolutions.com.ar/api/webhooks/marketplace/aws
 ```
 
 ### Test Credentials

@@ -49,7 +49,7 @@ Con un gateway HTTP→stdio como `mcp-bridge` o un wrapper custom:
     "finops-saas": {
       "transport": {
         "type": "http",
-        "url": "https://app.cscloudsolutions.com.ar/api/mcp",
+        "url": "https://finops.cscloudsolutions.com.ar/api/mcp",
         "headers": { "Authorization": "Bearer mcp_xxx" }
       }
     }

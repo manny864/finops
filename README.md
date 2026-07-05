@@ -205,6 +205,41 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
 
 ## 📈 Recent Major Updates
 
+### 2026-07-05 — Ola 2: Simulación Savings Plan vs Reservation (nueva feature, tier Enterprise)
+
+Nueva página `/intelligence/commitment-simulator` que compara, por término (1 y 3 años), el ahorro
+mensual estimado de una **Reserva (RI)** vs un **Savings Plan (SP)**, con un veredicto de cuál conviene.
+
+- **Números nativos de Azure** (no heurística propia): `commitmentSimulatorService` cruza la
+  **Reservation Recommendations API** (`@azure/arm-consumption`) y la **Benefit Recommendations API**
+  (`@azure/arm-costmanagement`). Ambas operan por suscripción (no MG) y usan `Cost Management Reader`
+  — **ya incluido en el tier Essential**, sin rol nuevo. Montos con `decimal.js` (Regla Cero).
+- **Endpoint**: `GET /api/intelligence/commitment-simulator` (RBAC `requireTenantAccess`, tier Enterprise).
+- **UI** `CommitmentSimulatorDashboard` (comparación lado a lado por término + guía de decisión),
+  i18n es/en/pt-BR (namespace `CommitmentSimulator`), mocks por tier, registrada en Sidebar/registry.
+- **Verificado contra Azure real** (tenant productivo, 4 suscripciones): SP a 3 años ahorraría
+  **$861/mes (23% de ahorro, 85% de cobertura)**, sin recomendación de RI ni de SP a 1 año.
+- **Fix colateral**: el sync de `OpenDataCommitmentEligibility` estaba roto (el toolkit migró a columnas
+  FOCUS `x_CommitmentDiscount*Eligibility`) → todos los meters figuraban como no elegibles. Corregido:
+  75.943 RI-elegibles / 99.840 SP-elegibles (antes 0). Reactiva `commitments/recommendations`.
+
+### 2026-07-04 — Ola 2: Costo por Categoría FinOps (nueva feature, tier Business)
+
+Nueva página `/intelligence/cost-by-category` que desglosa el gasto por **categoría FinOps**
+(Compute/Storage/Networking/Databases/...), uniendo el costo por `ResourceType` a la categoría
+canónica del FinOps Toolkit.
+
+- **Clave de join correcta**: se captura `ResourceType` en el sync (query C de Cost Management,
+  dimensión `ResourceType`) → tabla dedicada `CostCategorySnapshots` (migración `20260704-003`).
+  El join `resource_type → OpenDataServices.service_category` tiene cobertura **~100%** (2 de 330
+  tipos son ambiguos), vs. ~75% si se usara el `ServiceName` de billing (dejaba ~25% en "Other").
+- **Endpoint**: `GET /api/intelligence/cost-by-category` (RBAC `requireTenantAccess`, tier Business).
+  No lee Azure en el request; los datos los puebla `/api/cron/sync` (rol `Cost Management Reader`).
+- **UI**: `CostByCategoryDashboard` (barra apilada 100% + detalle por categoría), i18n es/en/pt-BR
+  (namespace `CostByCategory`), mocks por tier, registrada en Sidebar/pageRegistry/routeTiers.
+- **Verificado end-to-end** con tenant real: 0% "Other" (Compute 67% / Networking 9% / Storage 7%
+  / Management&Governance 7% / Web 5% / Databases 4% / Analytics 2%).
+
 ### 2026-07-04 — Ola 1 de adopción del FinOps Toolkit (enriquecimiento con Open Data)
 
 Tres mejoras que aprovechan reference-data del Microsoft FinOps Toolkit que **ya ingeríamos pero no aplicábamos**:
@@ -408,19 +443,19 @@ Endpoints internos protegidos por `Authorization: Bearer ${CRON_SECRET}`. Se inv
 **Ejemplo crontab VPS:**
 ```cron
 # Snapshot diario de costos
-0 6 * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://app.cscloudsolutions.com.ar/api/cron/sync >> /var/log/finops-cron.log 2>&1
+0 6 * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/sync >> /var/log/finops-cron.log 2>&1
 
 # Pre-warm dashboard cada 10 min (cache hard-TTL = 15 min)
-*/10 * * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://app.cscloudsolutions.com.ar/api/cron/prewarm-dashboard >> /var/log/finops-cron.log 2>&1
+*/10 * * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/prewarm-dashboard >> /var/log/finops-cron.log 2>&1
 
 # Power Schedules (apagado programado de VMs) cada 10 min (ventana de ejecución = 15 min)
-*/10 * * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://app.cscloudsolutions.com.ar/api/cron/power-schedules >> /var/log/finops-cron.log 2>&1
+*/10 * * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/power-schedules >> /var/log/finops-cron.log 2>&1
 
 # Backup diario de MySQL (script local del VPS, no endpoint HTTP) — ver docs/runbook-restore-mysql.md
 0 3 * * * /home/manny/cscloud/finops/scripts/backup-db.sh >> /var/log/finops-backup.log 2>&1
 
 # Open Data del FinOps Toolkit (Regions/Services/ResourceTypes/PricingUnits/CommitmentEligibility) — semanal
-0 4 * * 1 curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://app.cscloudsolutions.com.ar/api/cron/open-data >> /var/log/finops-cron.log 2>&1
+0 4 * * 1 curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/open-data >> /var/log/finops-cron.log 2>&1
 ```
 
 **Backups de MySQL** (`scripts/backup-db.sh`, Fase 1 del [plan de infra](docs/vps-infra-improvement-plan.md)): dump diario comprimido con retención local 7 diarios + 4 semanales, y copia off-site a Azure Blob Storage vía SAS solo-escritura (`BACKUP_AZURE_SAS_URL` en el `.env` del VPS). Runbook completo de provisioning y restore en `docs/runbook-restore-mysql.md`.

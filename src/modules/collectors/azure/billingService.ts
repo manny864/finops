@@ -523,12 +523,14 @@ export async function getYesterdaysCost(tenantId: string): Promise<number> {
 export type DetailedCostRow = {
     // 'chargeback': query A (por ResourceGroup) → CostSnapshots.
     // 'meter': query B (por MeterSubCategory) → CostMeterSnapshots.
-    // Son el MISMO costo con dos desgloses distintos: nunca deben convivir en
-    // la misma tabla ni sumarse juntas.
-    kind: 'chargeback' | 'meter';
+    // 'category': query C (por ResourceType) → CostCategorySnapshots.
+    // Son el MISMO costo con desgloses distintos: nunca deben convivir en la
+    // misma tabla ni sumarse juntas.
+    kind: 'chargeback' | 'meter' | 'category';
     subscriptionId: string;
     resourceGroup: string;
     resourceLocation: string;
+    resourceType: string;
     serviceName: string;
     serviceFamily: string;
     meterCategory: string;
@@ -573,6 +575,8 @@ export async function getYesterdaysDetailedCosts(tenantId: string): Promise<Deta
     } as any);
 
     const queryA = buildOpts(['ServiceName', 'ResourceGroupName']);
+    // query C: costo por ResourceType (clave de join FOCUS → categoría).
+    const queryC = buildOpts(['ResourceType']);
     // 'Meter' (nombre del meter) y no 'MeterSubCategory': el tier de storage
     // (Hot/Cool/Cold/Archive, p.ej. "Cool LRS Data Stored") y el SKU de VM
     // (p.ej. "D4s v5") viven en el nombre del meter. La subcategoría solo dice
@@ -604,6 +608,7 @@ export async function getYesterdaysDetailedCosts(tenantId: string): Promise<Deta
                     subscriptionId: subId,
                     resourceGroup: String(row[rgIdx] ?? '*'),
                     resourceLocation: '',
+                    resourceType: '',
                     serviceName: String(row[sIdx] ?? ''),
                     serviceFamily: '',
                     meterCategory: '',
@@ -633,6 +638,7 @@ export async function getYesterdaysDetailedCosts(tenantId: string): Promise<Deta
                     subscriptionId: subId,
                     resourceGroup: '*',
                     resourceLocation: locIdx >= 0 ? String(row[locIdx] ?? '') : '',
+                    resourceType: '',
                     serviceName: String(row[sIdx] ?? ''),
                     serviceFamily: '',
                     meterCategory: '',
@@ -648,6 +654,32 @@ export async function getYesterdaysDetailedCosts(tenantId: string): Promise<Deta
             }
         } catch (e: any) {
             console.warn(`[BillingService] detailed B query failed for ${scope}:`, e.message);
+        }
+        try {
+            const c = await runOnScope(scope, queryC);
+            const rtIdx = colIdx(c.columns, 'ResourceType');
+            const cIdx = colIdx(c.columns, 'PreTaxCost');
+            for (const row of c.rows) {
+                const cost = Number(row[cIdx] ?? 0);
+                if (!Number.isFinite(cost) || cost === 0) continue;
+                out.push({
+                    kind: 'category',
+                    subscriptionId: subId,
+                    resourceGroup: '*',
+                    resourceLocation: '',
+                    resourceType: (rtIdx >= 0 ? String(row[rtIdx] ?? '') : '').toLowerCase(),
+                    serviceName: '',
+                    serviceFamily: '',
+                    meterCategory: '',
+                    meterSubCategory: '',
+                    meterName: '',
+                    cost,
+                    quantity: 0,
+                    unitOfMeasure: ''
+                });
+            }
+        } catch (e: any) {
+            console.warn(`[BillingService] detailed C query failed for ${scope}:`, e.message);
         }
         return out;
     }
