@@ -91,6 +91,7 @@ Sin esto, cualquier degradación (como la tormenta de 429 de esta sesión) se de
   ```
 - [ ] **Métricas de recursos del VPS sin agregar servicios pesados**: `docker stats --no-stream` cada 5 min por cron, escribiendo a un log rotado; o `netdata` (gratis, self-hosted, ~150-200 MB RAM) si el presupuesto de memoria de la Fase 0 lo permite — es la opción con mejor relación esfuerzo/valor si sobra RAM tras los límites de la Fase 0.
 - [ ] **Alertas de fallo de cron** (los jobs de `/api/cron/*`, incluido el nuevo `power-schedules`): usar **healthchecks.io** (gratis hasta 20 checks) — el propio `curl` del crontab hace *ping* de éxito; si no llega a tiempo, alerta automática. Cero costo, cero infraestructura nueva.
+  - **Justificación concreta (2026-07-05)**: `/api/cron/sync` estuvo documentado en el README como cron diario pero **ausente del crontab real** del VPS, dejando 3 tablas de costo vacías indefinidamente sin ningún error visible (ver README § Recent Major Updates). Un ping de healthchecks.io habría alertado el mismo día en que el job no corrió, en vez de descubrirse recién cuando el usuario reportó páginas sin datos.
 
 ---
 
