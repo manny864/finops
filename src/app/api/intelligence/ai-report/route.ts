@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
             currentBudget: budgets.length > 0 ? budgets[0] : null
         };
 
-        const report = await getAssessment(enrichedMetrics);
+        const report = await getAssessment(enrichedMetrics, tenantId);
 
         return NextResponse.json({ report });
     } catch (error: unknown) {
