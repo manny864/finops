@@ -205,6 +205,23 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
 
 ## 📈 Recent Major Updates
 
+### 2026-07-05 — Ola 2: Reporting de Gobernanza (nueva feature, tier Enterprise)
+
+Nueva página `/governance/reporting` con tres vistas read-only de gobernanza, todas con roles ya
+presentes en el tier Essential (Reader):
+
+- **Cumplimiento de Azure Policy** (PolicyInsights `policyStates/latest/summarize` REST): recursos y
+  políticas no conformes, y nº de asignaciones. Distinto de `/governance/policies` (que despliega
+  Azure Policy; esto lo *reporta*).
+- **Inventario de recursos** (Resource Graph): total y desglose por tipo y por región.
+- **Identidades/roles (RBAC)** (Resource Graph `authorizationresources`): asignaciones de rol por tipo
+  de principal (User/ServicePrincipal/Group).
+
+`governanceReportingService` + `GET /api/governance/reporting` (RBAC `requireTenantAccess`, tier
+Enterprise) + UI de 3 secciones + i18n es/en/pt-BR + mocks por tier. **Verificado contra Azure real**:
+122 recursos no conformes / 32 asignaciones de política, 376 recursos inventariados, 219 asignaciones
+de rol (110 User / 106 ServicePrincipal).
+
 ### 2026-07-05 — Ola 2: colectores SQL Elastic Pool + VMSS ociosos en el motor de zombies
 
 Dos colectores nuevos en `kqlCatalog` / motor de limpieza (`/cleanup/zombies`), cerrando gaps del
