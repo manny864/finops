@@ -404,7 +404,6 @@
         "Eficiencia de Storage (Hot/Cool/Archive + $/GB)",
         "Alta Disponibilidad de VMs",
         "Credenciales por Expirar (Entra ID)",
-        "Ingesta Multi-Cloud AWS (CUR + Cost Explorer)",
         "Delegaciones Multi-Tenant (cross-account)",
         "Página de Estado Pública + Historial de Incidentes",
         "Escenarios What-If (Simulador de Costos)",
@@ -434,7 +433,6 @@
         "M365 Copilot Connector + Studio Agent",
         "SSO Federado (SAML / OIDC)",
         "Azure Key Vault BYOK (Secretos Gestionados por el Cliente)",
-        "Billing AWS Marketplace SaaS",
         "Billing Azure Marketplace SaaS",
         "Residencia de Datos Multi-Región (UE / US / BR)"
       ]
