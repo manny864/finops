@@ -72,9 +72,17 @@ export async function PATCH(request: NextRequest) {
     });
 
     if (!paddleRes.ok) {
-      const error = await paddleRes.json();
-      console.error("[Paddle] Update subscription error:", error);
-      return NextResponse.json({ error: "Fallo al actualizar suscripción en Paddle" }, { status: 502 });
+      const error: any = await paddleRes.json().catch(() => ({}));
+      console.error("[Paddle] Update subscription error:", paddleRes.status, error);
+      const detail = error?.error?.detail || error?.error?.code;
+      return NextResponse.json(
+        {
+          error: detail
+            ? `Fallo al actualizar la suscripción en Paddle: ${detail}`
+            : "Fallo al actualizar la suscripción en Paddle. Verificá que la suscripción esté activa y pertenezca al entorno configurado.",
+        },
+        { status: 502 }
+      );
     }
 
     const paddleData = await paddleRes.json();

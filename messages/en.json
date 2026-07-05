@@ -459,7 +459,14 @@
     "allFeatures": "All features of",
     "perMonth": "/mo",
     "backToDashboard": "Back to Dashboard",
-    "backToPricing": "Back to pricing page"
+    "backToPricing": "Back to pricing page",
+    "corporateEmailNotice": {
+      "title": "Use your corporate email",
+      "body": "The email you enter at Paddle checkout will become the admin account for the tenant you are registering. Use your corporate email (the same one you signed in with), not a personal one.",
+      "willUse": "Will use",
+      "cancel": "Cancel",
+      "continue": "Continue to payment"
+    }
   },
   "auth": {
     "paymentSuccess": "Payment completed successfully! Please log in to access your plan."

@@ -32,7 +32,7 @@ function buildArmTemplate(managingTenantId: string, principalId: string, roles: 
             apiVersion: '2020-02-01-preview',
             name: '[guid(subscription().id)]',
             properties: {
-                registrationDefinitionName: 'CSCloud FinOps Delegation',
+                registrationDefinitionName: 'CSCloudSolutions FinOps Delegation',
                 description: 'Delegated access for FinOps management via CSCloudSolutions',
                 managedByTenantId: managingTenantId,
                 authorizations,

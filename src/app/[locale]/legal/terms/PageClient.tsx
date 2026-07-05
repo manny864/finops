@@ -23,7 +23,7 @@ export default function TermsPage() {
         <section className="space-y-4">
           <h2 className="text-2xl font-bold text-ink">1. Acceptance of Terms</h2>
           <p className="text-gray-700">
-            By accessing and using the CSCloud Solutions FinOps platform ("Service"), you accept and agree to be bound by these Terms of Service. If you do not agree to these terms, you must not use the Service.
+            By accessing and using the CSCloudSolutions FinOps platform ("Service"), you accept and agree to be bound by these Terms of Service. If you do not agree to these terms, you must not use the Service.
           </p>
         </section>
 
@@ -50,7 +50,7 @@ export default function TermsPage() {
         <section className="space-y-4">
           <h2 className="text-2xl font-bold text-ink">4. Intellectual Property</h2>
           <p className="text-gray-700">
-            All content, features, and functionality of the Service are the exclusive property of CSCloud Solutions, its licensors, or other providers. You retain ownership of your data (Azure costs, configuration, etc.). We retain a license to use your data as necessary to provide the Service.
+            All content, features, and functionality of the Service are the exclusive property of CSCloudSolutions, its licensors, or other providers. You retain ownership of your data (Azure costs, configuration, etc.). We retain a license to use your data as necessary to provide the Service.
           </p>
         </section>
 
@@ -70,14 +70,14 @@ export default function TermsPage() {
         <section className="space-y-4">
           <h2 className="text-2xl font-bold text-ink">6. Limitation of Liability</h2>
           <p className="text-gray-700">
-            To the maximum extent permitted by law, CSCloud Solutions shall not be liable for indirect, incidental, special, or consequential damages arising from your use of the Service, even if advised of the possibility of such damages.
+            To the maximum extent permitted by law, CSCloudSolutions shall not be liable for indirect, incidental, special, or consequential damages arising from your use of the Service, even if advised of the possibility of such damages.
           </p>
         </section>
 
         <section className="space-y-4">
           <h2 className="text-2xl font-bold text-ink">7. Indemnification</h2>
           <p className="text-gray-700">
-            You agree to indemnify, defend, and hold harmless CSCloud Solutions from any claims, damages, or costs (including legal fees) arising from your violation of these terms or misuse of the Service.
+            You agree to indemnify, defend, and hold harmless CSCloudSolutions from any claims, damages, or costs (including legal fees) arising from your violation of these terms or misuse of the Service.
           </p>
         </section>
 
@@ -91,7 +91,7 @@ export default function TermsPage() {
         <section className="space-y-4">
           <h2 className="text-2xl font-bold text-ink">9. Termination</h2>
           <p className="text-gray-700">
-            CSCloud Solutions may terminate your account immediately if you violate these terms or law. Upon termination, your access is revoked, and unpaid fees become due.
+            CSCloudSolutions may terminate your account immediately if you violate these terms or law. Upon termination, your access is revoked, and unpaid fees become due.
           </p>
         </section>
 

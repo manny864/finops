@@ -83,9 +83,20 @@ export async function POST(request: NextRequest) {
     });
 
     if (!paddleRes.ok) {
-      const err = await paddleRes.json().catch(() => ({}));
-      console.error("[Paddle] Preview subscription error:", err);
-      return NextResponse.json({ error: "Fallo al previsualizar el cambio en Paddle" }, { status: 502 });
+      const err: any = await paddleRes.json().catch(() => ({}));
+      console.error("[Paddle] Preview subscription error:", paddleRes.status, err);
+      // Propagamos el detalle de Paddle (sin secretos) para que el usuario sepa
+      // POR QUÉ falla, en vez de un 502 mudo. Causa típica: la suscripción
+      // pertenece a otro entorno Paddle (sandbox vs prod) o ya no está activa.
+      const detail = err?.error?.detail || err?.error?.code;
+      return NextResponse.json(
+        {
+          error: detail
+            ? `No se pudo previsualizar el cambio en Paddle: ${detail}`
+            : "No se pudo previsualizar el cambio en Paddle. Verificá que la suscripción esté activa y pertenezca al entorno configurado.",
+        },
+        { status: 502 }
+      );
     }
 
     const paddleData = await paddleRes.json();

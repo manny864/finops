@@ -47,6 +47,9 @@ export const ROUTE_TIERS: Record<string, 'Essential' | 'Professional' | 'Busines
     '/admin/api-keys': 'Professional',
     '/admin/focus-export': 'Professional',
     '/admin/cloud-accounts': 'Professional',
+    // Oculta del Sidebar (ver Sidebar.tsx): sólo un datacenter real (Brasil) hoy,
+    // no ofrecemos multi-región. La entrada de tier queda por si se accede directo
+    // a la URL mientras la feature esté deshabilitada de la nav.
     '/admin/data-residency': 'Enterprise',
     '/admin/notifications': 'Professional',
     '/admin/mcp-keys': 'Professional',

@@ -14,13 +14,20 @@ interface PricingPageProps {
 }
 
 export default function PricingPage({ onLoginClick, tenantId, hideLogin }: PricingPageProps) {
-  const { instance } = useMsal();
+  const { instance, accounts } = useMsal();
   const router = useRouter();
   const [isAnnual, setIsAnnual] = useState(false);
   const [paddle, setPaddle] = useState<Paddle>();
   const [isEnterpriseModalOpen, setEnterpriseModalOpen] = useState(false);
   const [detailTier, setDetailTier] = useState<null | 'essential' | 'pro' | 'business' | 'enterprise'>(null);
+  const [pendingCheckoutPriceId, setPendingCheckoutPriceId] = useState<string | undefined>(undefined);
   const t = useTranslations('pricing');
+
+  // Email corporativo del usuario ya logueado con MSAL (viene de preferred_username /
+  // UPN del tenant Azure AD). Para cuando se llega al checkout, el login/onboarding
+  // (ver AuthProvider.tsx) ya ocurrió, así que este es el email que debe quedar
+  // asociado a la cuenta admin en Paddle — evitamos que el usuario tipee otro.
+  const corporateEmail = accounts?.[0]?.username;
 
   const goToDemo = (tier: 'essential' | 'pro' | 'business' | 'enterprise') => {
     // Lead-capture modal and demo session are handled inside /demo
@@ -87,8 +94,21 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
       alert("Falta el ID del plan en la configuración. Verifica las variables NEXT_PUBLIC_PADDLE_ en el entorno.");
       return;
     }
+    // Antes de abrir el checkout de Paddle, confirmamos con el usuario que va a
+    // pagar con su correo corporativo (esa cuenta queda como admin del tenant).
+    // Si ya conocemos el email (login MSAL previo), se lo prellenamos en Paddle.
+    setPendingCheckoutPriceId(priceId);
+  };
+
+  const confirmCheckout = () => {
+    if (!paddle || !pendingCheckoutPriceId) return;
     const customData = tenantId ? { tenant_id: tenantId } : undefined;
-    paddle.Checkout.open({ items: [{ priceId, quantity: 1 }], customData });
+    paddle.Checkout.open({
+      items: [{ priceId: pendingCheckoutPriceId, quantity: 1 }],
+      customData,
+      customer: corporateEmail ? { email: corporateEmail } : undefined,
+    });
+    setPendingCheckoutPriceId(undefined);
   };
 
   const getPrice = (monthly: number) => {
@@ -355,6 +375,70 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
       </div>
       <EnterpriseLeadModal isOpen={isEnterpriseModalOpen} onClose={() => setEnterpriseModalOpen(false)} />
       <TierDetailsModal tier={detailTier} onClose={() => setDetailTier(null)} t={t} />
+      <CorporateEmailNoticeModal
+        open={!!pendingCheckoutPriceId}
+        email={corporateEmail}
+        onCancel={() => setPendingCheckoutPriceId(undefined)}
+        onConfirm={confirmCheckout}
+        t={t}
+      />
+    </div>
+  );
+}
+
+interface CorporateEmailNoticeModalProps {
+  open: boolean;
+  email?: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+  t: ReturnType<typeof useTranslations>;
+}
+
+// Aviso previo al checkout de Paddle: el correo que se use ahí queda como la
+// cuenta admin del tenant que se está registrando, así que debe ser el
+// corporativo (el mismo con el que se logueó), no uno personal.
+function CorporateEmailNoticeModal({ open, email, onCancel, onConfirm, t }: CorporateEmailNoticeModalProps) {
+  if (!open) return null;
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      onClick={onCancel}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div
+        className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-md w-full p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+          {t('corporateEmailNotice.title')}
+        </h3>
+        <p className="text-sm text-gray-600 dark:text-gray-300 text-justify">
+          {t('corporateEmailNotice.body')}
+        </p>
+        {email && (
+          <div className="mt-4 rounded-lg bg-brand-soft dark:bg-slate-800 border border-brand-bright/20 dark:border-slate-700 px-4 py-3">
+            <p className="text-xs font-bold text-grey uppercase tracking-wide">{t('corporateEmailNotice.willUse')}</p>
+            <p className="text-sm font-semibold text-ink dark:text-white mt-1">{email}</p>
+          </div>
+        )}
+        <div className="flex gap-2 mt-6">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex-1 rounded-lg border border-gray-300 dark:border-slate-600 px-4 py-2 font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-800"
+          >
+            {t('corporateEmailNotice.cancel')}
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="flex-1 rounded-lg bg-brand-deep text-white px-4 py-2 font-semibold hover:brightness-110"
+          >
+            {t('corporateEmailNotice.continue')}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

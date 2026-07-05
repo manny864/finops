@@ -1,8 +1,8 @@
 import PageClient from './PageClient';
 
 export const metadata = {
-  title: "Terms of Service | CSCloud Solutions",
-  description: "Terms of Service for CSCloud Solutions FinOps platform.",
+  title: "Terms of Service | CSCloudSolutions",
+  description: "Terms of Service for CSCloudSolutions FinOps platform.",
 };
 
 export default function Page() {

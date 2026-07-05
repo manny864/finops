@@ -1114,6 +1114,11 @@ curl "$BASE/openapi.json" | jq .openapi
 
 ## 32. Data Residency
 
+> ⚠️ **DESHABILITADA DE LA UI (2026-07-05)** — oculta del Sidebar, futura mejora. Sólo hay un
+> datacenter real (Brazil South); ofrecer selección de región sería engañoso. Ver `docs/data-residency.md`.
+> La página/API siguen accesibles por URL directa (no removidas del código), así que los checks de
+> API abajo siguen aplicando; el "Sidebar Check" ya NO aplica (el link fue removido a propósito).
+
 **Route:** `/{locale}/admin/data-residency` (requires Enterprise + OWNER role)
 **Tier:** Enterprise
 **DB:** `Tenants.data_residency`, `Tenants.data_residency_locked_at`, `DataResidencyChanges`
@@ -1135,9 +1140,8 @@ curl "$BASE/openapi.json" | jq .openapi
 - [ ] Info box explains: "Currently a logical declaration; physical routing Q2 2026."
 
 ### Sidebar Check
-- [ ] "/admin/data-residency" appears in admin menu with Globe icon.
-- [ ] Link hidden if tier is not Enterprise.
-- [ ] Link visible only if user has Admin/OWNER role.
+
+- [x] **N/A** — entrada removida del Sidebar a propósito (2026-07-05) mientras la feature esté deshabilitada. No debe aparecer en el menú admin.
 
 ### API: GET /api/admin/data-residency?tenantId=X
 - [ ] **Positive:** Returns `{ region, locked_at, can_change, available_regions }`.
@@ -1185,9 +1189,10 @@ curl "$BASE/openapi.json" | jq .openapi
 - [ ] All regions currently map to same pool (roadmap: split in Q2 2026).
 
 ### Subprocessors Page
-- [ ] `/legal/subprocessors` section "Data Residency & Regional Deployment" lists regions + providers.
-- [ ] Section shows: EU (GDPR), US, LATAM, APAC with example subprocessor locations.
-- [ ] Note: "Current Implementation: declared and audited; routing Q2 2026."
+
+- [ ] `/legal/subprocessors` section "Data Residency" states the real current state: single deployment in Brazil (Latin America), no regional selection offered yet.
+- [ ] Section does NOT list EU/US/APAC as available regions (removed 2026-07-05 — was misleading, no multi-region deployment exists).
+- [ ] Note: "Planned: Multi-region data residency is a potential future enhancement, not yet scheduled."
 
 ### Tests
 - [ ] Unit: `__tests__/unit/regionPool.test.ts` passes (getTenantPool for all regions).

@@ -89,7 +89,7 @@ This guide walks through setting up FinOps SaaS Platform on Azure Marketplace, f
 
 1. **Partner Center → Settings → Publisher profile**
 2. **Publisher ID:** Auto-assigned (e.g., `cscloudsolutions-prod-xyz`)
-3. **Publisher name:** CSCloud Solutions
+3. **Publisher name:** CSCloudSolutions
 4. **Contact email:** sales@cscloudsolutions.com.ar
 5. **Support email:** support@cscloudsolutions.com.ar
 
@@ -123,7 +123,7 @@ Fill in:
 
 Use content from `marketplace/azure/offer-listing.md`:
 
-- **Title:** FinOps SaaS Platform · CSCloud Solutions
+- **Title:** FinOps SaaS Platform · CSCloudSolutions
 - **Summary:** Cloud cost management and FinOps automation for Azure environments. (100 chars max)
 - **Description:** (Use HTML version from offer-listing.md, max 3000 chars)
 - **Search keywords:** finops, cost management, azure cost, kubernetes cost, cloud optimization

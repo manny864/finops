@@ -226,7 +226,7 @@ export default function OnboardingPage() {
 
     return (
         <WizardLayout
-            title="Welcome to CSCloud FinOps"
+            title="Welcome to CSCloudSolutions FinOps"
             description="Complete these steps to get started"
             progressPercent={progress.percent_complete}
             onSkipWizard={() => router.push(`/${locale}/overview`)}

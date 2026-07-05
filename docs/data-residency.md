@@ -1,8 +1,14 @@
 # Data Residency
 
+> ⚠️ **DESHABILITADA DE LA UI (2026-07-05).** Hoy sólo operamos un datacenter real (Azure Brazil South).
+> Ofrecer selección de región (EU/US/LATAM/APAC) sería engañoso para el cliente/compliance cuando no hay
+> aislamiento físico multi-región. La página (`/admin/data-residency`) y los endpoints siguen implementados
+> y funcionales, pero se sacó la entrada del Sidebar — es una **futura mejora**, no una feature activa.
+> Reactivar sólo cuando exista un segundo deployment físico real (ver Roadmap Q2 2026 más abajo).
+
 ## Overview
 
-CSCloud Solutions provides data residency selection for Enterprise customers. This feature allows tenants to declare their preferred region for data storage, supporting compliance with regulations like GDPR, CCPA, and regional data protection laws.
+CSCloudSolutions provides data residency selection for Enterprise customers. This feature allows tenants to declare their preferred region for data storage, supporting compliance with regulations like GDPR, CCPA, and regional data protection laws.
 
 ## Current Implementation
 

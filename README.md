@@ -205,6 +205,31 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
 
 ## 📈 Recent Major Updates
 
+### 2026-07-05 — Gestión de tenants: activar suscripción TRIAL→ACTIVE + Data Residency deshabilitada (feature engañosa)
+
+- **`/admin/tenants` (SuperAdmin):** la columna "Suscripción" era texto plano; ahora es un `<select>` editable (TRIAL/ACTIVE/PAST_DUE/CANCELED/EXPIRED) igual que el Tier. `PATCH /api/admin/tenants` acepta `subscriptionStatus` opcional (además de `tier`, cada uno independiente o juntos). Permite al superadmin activar manualmente un tenant que quedó en TRIAL sin depender de un webhook de Paddle.
+- **Data Residency oculta del Sidebar**: la feature ofrecía elegir entre 5 regiones (EU/US/LATAM/APAC/GLOBAL) con listas de subprocesadores, pero hoy sólo existe **un datacenter real (Azure Brazil South)** — la UI sugería una capacidad que no existe. Se sacó la entrada de `Sidebar.tsx` (página y API quedan implementadas, sin romper, para cuando haya multi-región real). Se corrigió además `/legal/subprocessors` (página legal pública) que afirmaba tener subprocesadores en 4 regiones y prometía "routing por región en Q2 2026" — ahora refleja el estado real (Brasil, único deployment) con nota de "futura mejora sin fecha". `docs/data-residency.md` y `docs/qa-checklist.md` actualizados con el mismo criterio.
+
+### 2026-07-05 — Paddle Live habilitado en prod + aviso de correo corporativo en checkout
+
+- **Paddle Live activado en producción** (solo VPS; local/dev sigue en sandbox): se descomentó el bloque `#PRODUCCION` del `.env` del VPS (API key, webhook secret y 6 price IDs live) y se comentó el bloque `#SANDBOX`. Requirió `docker compose up -d --build` (no alcanza con restart) porque `NEXT_PUBLIC_PADDLE_*` se usa en `PricingPage.tsx` (`"use client"`) y esas variables se inlinean en build-time en el bundle del navegador. Verificado: `PADDLE_API_KEY` runtime = `pdl_live...`, health check 200, webhook `/api/webhooks/paddle` responde 401 (vivo) y la *Notification Destination* ya está configurada en el dashboard de Paddle Live.
+- **Aviso de correo corporativo antes del checkout**: como el correo usado en Paddle queda como cuenta admin del tenant, `PricingPage.tsx` ahora muestra un modal de confirmación antes de abrir el checkout embebido, prellenando el email con el que el usuario ya inició sesión (MSAL `accounts[0].username`) vía el campo `customer.email` de `Paddle.Checkout.open()`. Nuevas keys i18n `pricing.corporateEmailNotice.*` (es/en/pt-BR).
+
+### 2026-07-05 — Fix: página de Facturación (plan en N/A, pago inactivo, 502 al cambiar plan)
+
+- **Tier/Estado en "N/A"**: la UI pedía `GET /api/billing` esperando `{tier, status, trialEndsAt, paddleSubscriptionId, marketplace*}`, pero ese endpoint devuelve la URL de actualización de pago de Paddle (y 404 si el tenant no tiene `paddle_subscription_id`). Los datos siempre existieron en `Tenants`; nunca se exponían en ese shape. **Nuevo endpoint `GET /api/billing/plan`** (RBAC OWNER) que lee el plan directo de la DB sin llamar a Paddle.
+- **Botón "Método de pago" inactivo**: colateral del anterior (`billingInfo` quedaba `null`). Resuelto al poblar el plan; el botón se habilita cuando hay `paddle_subscription_id`.
+- **Cambiar plan → 502**: el tenant era Enterprise; `tierToPriceId('Enterprise')` es `null` y no hay flujo self-service de Paddle para pricing negociado. Ahora Enterprise muestra un aviso de **contactar al equipo comercial** en lugar del modal. Además, `preview`/`PATCH` de suscripción **propagan el `error.detail` de Paddle** (sin secretos) para diagnosticar fallos reales (ej. suscripción de otro entorno sandbox/prod) en vez de un 502 mudo.
+
+### 2026-07-05 — Fix operativo: `/api/cron/sync` faltaba en el crontab del VPS
+
+Cost by Category, Storage Efficiency y Compute Efficiency mostraban "sin datos" / "verificá que la sincronización haya corrido" en prod. Causa: el README siempre documentó `/api/cron/sync` (snapshot diario de costos → `CostSnapshots`/`CostMeterSnapshots`/`CostCategorySnapshots`) como cron diario 06:00 UTC, pero esa entrada **nunca se instaló** en el crontab real del VPS — sólo estaban `prewarm-dashboard`, `power-schedules` y `open-data`. No era un bug de código: las 3 tablas de costo estuvieron vacías desde siempre en prod por falta del disparador, sin ningún error visible (el dashboard general no dependía de ellas, sólo estas 3 features nuevas).
+
+- Se agregó la entrada faltante al crontab del VPS (backup del crontab previo tomado antes de editar).
+- Se disparó un sync manual para backfillear de inmediato: 320 filas insertadas, 3 de 5 tenants sincronizados con éxito en el primer run.
+- Los 2 tenants restantes no sincronizaron por falta de Service Principal configurado (onboarding técnico incompleto de esos clientes) — no requiere acción de código.
+- Se agregó una nota de verificación periódica en la sección [Cron Jobs](#-cron-jobs) para detectar este tipo de drift crontab-vs-documentación en futuras auditorías/migraciones de VPS.
+
 ### 2026-07-05 — Hotfix de incidentes en producción
 
 Diagnóstico y corrección de un conjunto de fallos reportados en prod:
@@ -502,6 +527,8 @@ Endpoints internos protegidos por `Authorization: Bearer ${CRON_SECRET}`. Se inv
 **Backups de MySQL** (`scripts/backup-db.sh`, Fase 1 del [plan de infra](docs/vps-infra-improvement-plan.md)): dump diario comprimido con retención local 7 diarios + 4 semanales, y copia off-site a Azure Blob Storage vía SAS solo-escritura (`BACKUP_AZURE_SAS_URL` en el `.env` del VPS). Runbook completo de provisioning y restore en `docs/runbook-restore-mysql.md`.
 
 **Auth interna**: `prewarm-dashboard` propaga `X-Cron-Auth` a las llamadas internas (`summary` → `audit/full` / `intelligence/forecast`) gracias al bypass en `requireTenantAccess`. Comparación timing-safe; nunca concede superadmin global, solo acceso al `tenantId` de la query.
+
+> ⚠️ **Verificación periódica obligatoria**: esta tabla documenta el crontab *esperado*, pero puede desincronizarse del real (ej. tras migrar de VPS, reprovisionar el servidor, o editar el crontab a mano). El 2026-07-05 se detectó que `/api/cron/sync` — el que puebla `CostSnapshots`/`CostMeterSnapshots`/`CostCategorySnapshots` — **no estaba en el crontab real**, dejando Cost by Category, Storage Efficiency y Compute Efficiency sin datos indefinidamente sin ningún error visible. Verificar con `ssh finops-vps 'crontab -l'` contra esta tabla cada vez que se audite el VPS (ver directiva #14, auditorías de seguridad ~quincenales).
 
 ---
 

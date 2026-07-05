@@ -6,7 +6,7 @@
 `finops-saas-aws-prod-xxx` (assigned by AWS during registration)
 
 ### Title
-FinOps SaaS Platform · CSCloud Solutions
+FinOps SaaS Platform · CSCloudSolutions
 
 ### Short Description (max 500 chars)
 Cloud cost management and FinOps automation for AWS. Real-time cost analysis, optimization recommendations, Kubernetes cost tracking, and multi-account governance in one platform.
@@ -19,7 +19,7 @@ Cloud cost management and FinOps automation for AWS. Real-time cost analysis, op
 
 **Intelligent Cloud Cost Management for AWS**
 
-FinOps SaaS Platform by CSCloud Solutions is a comprehensive cost management and optimization solution built for organizations managing AWS infrastructure at scale.
+FinOps SaaS Platform by CSCloudSolutions is a comprehensive cost management and optimization solution built for organizations managing AWS infrastructure at scale.
 
 **Key Features:**
 - Real-time Cost Analysis: Monitor AWS costs across multiple accounts with granular visibility by service, region, and tag
@@ -200,7 +200,7 @@ Monday - Friday, 09:00 - 18:00 ART (UTC-3)
 ## Seller Information
 
 ### Company Name
-CSCloud Solutions SRL
+CSCloudSolutions SRL
 
 ### Website
 https://cscloudsolutions.com.ar

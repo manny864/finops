@@ -7,13 +7,13 @@ export default function SubprocessorsPage() {
     {
       name: 'Microsoft Azure',
       purpose: 'Cloud compute, storage, networking, and data processing',
-      locations: ['United States', 'European Union', 'Latin America'],
+      locations: ['Brazil (Latin America)'],
       dpa: 'yes' as const,
     },
     {
       name: 'MySQL Database Host',
       purpose: 'Relational database hosting and backups',
-      locations: ['Configurable (US/EU/LATAM)'],
+      locations: ['Brazil (Latin America)'],
       dpa: 'yes' as const,
     },
     {
@@ -49,7 +49,7 @@ export default function SubprocessorsPage() {
         <div className="max-w-6xl mx-auto px-6">
           <h1 className="text-4xl font-bold text-ink mb-2">Subprocessors</h1>
           <p className="text-gray-600">
-            CSCloud Solutions uses the following third-party processors to deliver its services
+            CSCloudSolutions uses the following third-party processors to deliver its services
           </p>
         </div>
       </div>
@@ -64,30 +64,19 @@ export default function SubprocessorsPage() {
 
         {/* Data Residency & Regional Subprocessors */}
         <div className="bg-indigo-50 border border-indigo-200 p-6 rounded-lg space-y-4">
-          <h2 className="text-xl font-bold text-ink">Data Residency & Regional Deployment</h2>
+          <h2 className="text-xl font-bold text-ink">Data Residency</h2>
           <p className="text-gray-700">
-            CSCloud Solutions supports data residency selection for Enterprise customers. Select your preferred region in the admin panel to declare where your data should be stored.
+            CSCloudSolutions currently operates a single physical deployment, hosted in Brazil (Latin America). We do not
+            yet offer regional data residency selection — all customer data is processed and stored in this single location
+            regardless of the customer&apos;s own region.
           </p>
-          <div className="grid md:grid-cols-2 gap-4 text-sm">
-            <div>
-              <p className="font-semibold text-ink">🇪🇺 Europe (GDPR)</p>
-              <p className="text-gray-700">Azure Netherlands, AWS Frankfurt, Google Cloud Belgium</p>
-            </div>
-            <div>
-              <p className="font-semibold text-ink">🇺🇸 United States</p>
-              <p className="text-gray-700">AWS us-east-1, Azure East US 2, Google Cloud South Carolina</p>
-            </div>
-            <div>
-              <p className="font-semibold text-ink">🌎 Latin America</p>
-              <p className="text-gray-700">AWS São Paulo, Azure Brazil South</p>
-            </div>
-            <div>
-              <p className="font-semibold text-ink">🌏 Asia Pacific</p>
-              <p className="text-gray-700">AWS Singapore, Azure Singapore, Google Cloud Tokyo</p>
-            </div>
+          <div className="text-sm">
+            <p className="font-semibold text-ink">🌎 Latin America (Brazil)</p>
+            <p className="text-gray-700">Azure Brazil South</p>
           </div>
           <p className="text-xs text-gray-600 pt-2">
-            <strong>Current Implementation:</strong> Data residency preferences are declared and audited. Database routing by region will be enabled in Q2 2026 as we scale to multi-region deployments.
+            <strong>Planned:</strong> Multi-region data residency (EU/US/LATAM/APAC) is a potential future enhancement,
+            not yet scheduled. This page will be updated with a firm timeline once multi-region deployment is planned.
           </p>
         </div>
 

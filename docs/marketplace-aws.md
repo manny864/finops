@@ -103,8 +103,8 @@ This guide walks through setting up FinOps SaaS Platform on AWS Marketplace, fro
 ### Set Up Marketplace Profile
 
 1. **Seller Central → Account → Company Profile**
-2. **Organization Name:** CSCloud Solutions SRL
-3. **Legal Business Name:** CSCloud Solutions Sociedad de Responsabilidad Limitada
+2. **Organization Name:** CSCloudSolutions SRL
+3. **Legal Business Name:** CSCloudSolutions Sociedad de Responsabilidad Limitada
 4. **Website:** https://cscloudsolutions.com.ar
 5. **Contact Email:** sales@cscloudsolutions.com.ar
 6. **Support Email:** support@cscloudsolutions.com.ar

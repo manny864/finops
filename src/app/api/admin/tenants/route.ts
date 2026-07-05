@@ -29,27 +29,42 @@ export async function POST(request: NextRequest) {
     }
 }
 
+const VALID_SUBSCRIPTION_STATUSES = ['TRIAL', 'ACTIVE', 'PAST_DUE', 'CANCELED', 'EXPIRED'];
+
 export async function PATCH(request: NextRequest) {
     try {
         await initializeDatabase();
         await requireSuperAdmin(request);
 
         const body = await request.json();
-        const { tenantId, tier } = body;
+        const { tenantId, tier, subscriptionStatus } = body;
 
-        if (!tenantId || !tier) {
-            return NextResponse.json({ error: 'Faltan datos (tenantId, tier)' }, { status: 400 });
+        if (!tenantId || (!tier && !subscriptionStatus)) {
+            return NextResponse.json({ error: 'Faltan datos (tenantId y al menos tier o subscriptionStatus)' }, { status: 400 });
         }
 
+        if (subscriptionStatus && !VALID_SUBSCRIPTION_STATUSES.includes(subscriptionStatus)) {
+            return NextResponse.json({ error: 'subscriptionStatus inválido' }, { status: 400 });
+        }
+
+        // Construcción dinámica: el superadmin puede actualizar tier y/o
+        // subscriptionStatus en la misma llamada, o cada uno por separado
+        // (ej. activar manualmente un tenant en TRIAL sin tocar su tier).
+        const sets: string[] = [];
+        const params: any[] = [];
+        if (tier) { sets.push('tier = ?'); params.push(tier); }
+        if (subscriptionStatus) { sets.push('subscription_status = ?'); params.push(subscriptionStatus); }
+        params.push(tenantId);
+
         await pool.query(
-            'UPDATE Tenants SET tier = ? WHERE tenant_id = ?',
-            [tier, tenantId]
+            `UPDATE Tenants SET ${sets.join(', ')} WHERE tenant_id = ?`,
+            params
         );
 
-        return NextResponse.json({ success: true, message: 'Tier actualizado exitosamente.' });
+        return NextResponse.json({ success: true, message: 'Tenant actualizado exitosamente.' });
     } catch (error: any) {
         if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
         console.error('API PATCH /admin/tenants error:', error);
-        return NextResponse.json({ error: 'Fallo al actualizar Tier', details: error.message }, { status: 500 });
+        return NextResponse.json({ error: 'Fallo al actualizar Tenant', details: error.message }, { status: 500 });
     }
 }
