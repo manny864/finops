@@ -49,7 +49,7 @@ export async function initializeDatabase() {
                 subscription_status ENUM('TRIAL', 'ACTIVE', 'PAST_DUE', 'CANCELED', 'EXPIRED') DEFAULT 'ACTIVE',
                 is_onboarded BOOLEAN DEFAULT FALSE,
                 ai_provider VARCHAR(50) DEFAULT 'system',
-                ai_api_key VARCHAR(255),
+                ai_api_key VARCHAR(1024),
                 paddle_subscription_id VARCHAR(255),
                 last_sync_at TIMESTAMP NULL,
                 sync_status VARCHAR(50) DEFAULT 'OK',
