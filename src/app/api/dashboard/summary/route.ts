@@ -6,6 +6,7 @@ import pool from "@/modules/storage/db";
 import { getCurrentMonthAmortizedCosts } from "@/modules/collectors/azure/billingService";
 import { isMockTenant } from "@/lib/mockData";
 import { recordDailySnapshotAsync } from "@/services/snapshotService";
+import { getInternalBaseUrl } from "@/lib/internalBaseUrl";
 
 type AuditResults = Record<string, unknown[]>;
 
@@ -224,7 +225,9 @@ export async function GET(request: NextRequest) {
     const data = await getWithStaleWhileRevalidate(
       cacheKey,
       async () => {
-        const origin = request.nextUrl.origin;
+        // Self-fetch server-side: usar loopback interno, NO la origin pública
+        // (evita el NAT hairpin que causaba "fetch failed" en audit/forecast).
+        const origin = getInternalBaseUrl();
         const subParam = subscriptionId && subscriptionId.toLowerCase() !== "all"
           ? `&subscriptionId=${encodeURIComponent(subscriptionId)}`
           : "";

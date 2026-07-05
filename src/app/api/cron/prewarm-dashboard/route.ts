@@ -17,6 +17,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
+import { getInternalBaseUrl } from "@/lib/internalBaseUrl";
 
 export const dynamic = "force-dynamic";
 
@@ -45,7 +46,9 @@ async function runPrewarm(request: NextRequest) {
       'SELECT tenant_id AS id, company_name AS name FROM Tenants WHERE status = "active"'
     );
 
-    const origin = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
+    // Self-fetch server-side: loopback interno (NO la origin pública, que hace
+    // NAT hairpin desde el contenedor y falla con "fetch failed").
+    const origin = getInternalBaseUrl();
     const headers: Record<string, string> = { "X-Cron-Auth": cronSecret };
 
     type Result = { tenantId: string; name?: string; ok: boolean; ms: number; error?: string };
