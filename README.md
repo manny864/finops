@@ -205,6 +205,16 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
 
 ## 📈 Recent Major Updates
 
+### 2026-07-05 — Assessment de seguridad: remediados 2 hallazgos de código + hardening VPS
+
+Assessment exhaustivo (VPS + app Next.js + IA). Postura general sólida; ver informe completo en [`docs/security/audit-2026-07-05.md`](docs/security/audit-2026-07-05.md). Remediaciones aplicadas en este ciclo:
+
+- **IA-1 (CRÍTICO) — fuga cross-tenant en cache de IA:** `getAssessment` cacheaba en `AiCache` indexando solo por `sha256(metricsData)` sin `tenant_id`, y resolvía la key de IA global en vez de la del tenant. Ahora el hash incluye `tenantId`, se requiere `tenantId` explícito y se usa `getGeminiModel(tenantId)`. Sin migración de esquema (`hash_prompt` sigue VARCHAR(64)); las entradas viejas quedan huérfanas y se recalculan en el primer miss.
+- **A-1 (ALTO) — stored XSS en FinOps Academy:** se eliminó `parseMarkdown` + `dangerouslySetInnerHTML` (sin sanitización) y se reemplazó por `<ReactMarkdown remarkPlugins={[remarkGfm]}>` sin `rehype-raw`, consistente con el resto de la app.
+- **Hardening VPS (V-1/V-2/V-4/V-6):** SSH endurecido vía drop-in `99-hardening.conf` (`PasswordAuthentication no`, `PermitRootLogin prohibit-password`, `X11Forwarding no`) + neutralización de `50-cloud-init.conf`; `.env` de producción a `chmod 600`. Verificado con conexión nueva por key.
+
+Pendientes priorizados para el próximo ciclo: IA-2 (keys de IA en texto plano), V-3 (reboot para kernel parcheado), IA-3/IA-4 (prompt injection + rate limit de IA), A-2 (dependencia `thrift`/`@dsnp/parquetjs`).
+
 ### 2026-07-05 — Auditoría de honestidad en pricing: corregidas 6 features sobre-vendidas
 
 Auditoría completa de las ~50 features anunciadas en la pantalla de precios contra la implementación real (40+ confirmadas reales y funcionales). Se corrigieron/removieron las que prometían algo que el código no cumple:

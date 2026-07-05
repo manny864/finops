@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
         const summaryData = Object.values(aggregated).sort((a, b) => b.BilledCost - a.BilledCost).slice(0, 50);
 
         // Call AI Provider
-        const assessmentMarkdown = await getAssessment(summaryData);
+        const assessmentMarkdown = await getAssessment(summaryData, tenantId);
 
         return NextResponse.json({ success: true, assessment: assessmentMarkdown, mappedEntries: summaryData.length });
 

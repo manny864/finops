@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
 
         await requireTenantAccess(request, tenantId);
 
-        const markdownReport = await getAssessment(metrics);
+        const markdownReport = await getAssessment(metrics, tenantId);
 
         return NextResponse.json({ success: true, report: markdownReport });
 

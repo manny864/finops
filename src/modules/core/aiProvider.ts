@@ -124,9 +124,16 @@ export class AIProviderFactory {
     }
 }
 
-export async function getAssessment(metricsData: any): Promise<string> {
+export async function getAssessment(metricsData: any, tenantId: string): Promise<string> {
+    if (!tenantId) {
+        // Aislamiento multi-tenant obligatorio: sin tenantId el caché podría
+        // cruzar reportes entre tenants (IA-1) y la key resuelta sería la global.
+        throw new Error("getAssessment requires a tenantId for cache/config isolation.");
+    }
     const dataString = JSON.stringify(metricsData);
-    const hashPrompt = crypto.createHash('sha256').update(dataString).digest('hex');
+    // El hash incluye el tenantId para que dos tenants con el mismo payload
+    // NO compartan la misma entrada de caché (fuga cross-tenant IA-1).
+    const hashPrompt = crypto.createHash('sha256').update(`${tenantId}:${dataString}`).digest('hex');
 
     // Query Cache
     const [rows] = await pool.query<RowDataPacket[]>(
@@ -148,8 +155,9 @@ export async function getAssessment(metricsData: any): Promise<string> {
 
     console.log(`[AI Cache] Miss for hash ${hashPrompt}. Calling Gemini...`);
 
-    // Call Gemini
-    const model = await AIProviderFactory.getGeminiModel();
+    // Call Gemini — usa la config/key del tenant (no la global) para respetar
+    // el aislamiento por tenant y la key configurada por cada cliente (IA-1).
+    const model = await AIProviderFactory.getGeminiModel(tenantId);
     const systemPrompt = `Eres un Arquitecto Principal de Azure FinOps (FinOps Copilot).
 Tu objetivo es analizar las métricas JSON proporcionadas y generar un Reporte Ejecutivo exhaustivo y altamente estructurado en formato Markdown.
 
