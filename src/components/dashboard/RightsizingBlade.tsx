@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useMsal } from '@azure/msal-react';
 import { useTenant } from '../TenantProvider';
 import useSWR from 'swr';
@@ -7,27 +7,21 @@ import useSWR from 'swr';
 export default function RightsizingBlade() {
     const { instance, accounts } = useMsal();
     const { selectedTenant } = useTenant();
-    const [token, setToken] = useState<string | null>(null);
 
-    // Fetch MSAL token silently once
-    useEffect(() => {
-        if (accounts.length > 0) {
-            instance.acquireTokenSilent({
-                scopes: ["User.Read"],
-                account: accounts[0]
-            }).then(res => {
-                setToken(res.idToken);
-            }).catch(e => {
-                console.error("Error acquiring token silently:", e);
-            });
-        }
-    }, [accounts, instance]);
-
-    // SWR fetcher
+    // SWR fetcher: adquiere el token MSAL fresco en CADA request (no cachearlo
+    // en useState), porque este componente hace polling cada 15s via SWR y un
+    // token cacheado una sola vez al montar termina expirando (~60-90min) y
+    // quedando pegado en 401 para siempre, ya que acquireTokenSilent lo
+    // refresca automáticamente si es necesario pero nunca se vuelve a llamar.
     const fetcher = async (url: string) => {
+        if (accounts.length === 0) throw new Error("No hay cuenta MSAL activa.");
+        const tokenResponse = await instance.acquireTokenSilent({
+            scopes: ["User.Read"],
+            account: accounts[0]
+        });
         const res = await fetch(url, {
-            headers: { 
-                'Authorization': `Bearer ${token}`,
+            headers: {
+                'Authorization': `Bearer ${tokenResponse.idToken}`,
                 'x-tenant-id': selectedTenant.id,
                 'x-subscription-id': 'All'
             }
@@ -37,7 +31,7 @@ export default function RightsizingBlade() {
 
     // SWR Hook
     const { data: json, isValidating } = useSWR(
-        token && selectedTenant.id !== 'default' ? `/api/intelligence/rightsizing` : null,
+        accounts.length > 0 && selectedTenant.id !== 'default' ? `/api/intelligence/rightsizing` : null,
         fetcher,
         { 
             refreshInterval: 15000, // Background polling to catch backend resolution
