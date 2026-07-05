@@ -205,6 +205,19 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
 
 ## 📈 Recent Major Updates
 
+### 2026-07-05 — Ola 2: colectores SQL Elastic Pool + VMSS ociosos en el motor de zombies
+
+Dos colectores nuevos en `kqlCatalog` / motor de limpieza (`/cleanup/zombies`), cerrando gaps del
+Optimization Engine del FinOps Toolkit:
+
+- **`emptySqlElasticPools`**: Elastic Pools de SQL sin bases de datos (facturan capacidad reservada
+  sin alojar nada) — join en KQL a `sql/servers/databases` por `elasticPoolId`. Gasto puro; costo
+  estimado por tier (Standard $150 / Premium $400).
+- **`idleVmss`**: VM Scale Sets escalados a 0 instancias — flag de gobernanza (sin costo de cómputo;
+  el rightsizing por métricas de utilización queda para otra feature).
+
+Ambos heredan el tier del motor de zombies (sin nueva superficie). Labels en la tabla de la UI.
+
 ### 2026-07-05 — Ola 2: Simulación Savings Plan vs Reservation (nueva feature, tier Enterprise)
 
 Nueva página `/intelligence/commitment-simulator` que compara, por término (1 y 3 años), el ahorro

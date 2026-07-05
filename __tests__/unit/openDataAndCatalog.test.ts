@@ -24,4 +24,19 @@ describe("kqlCatalog — colector de Application Gateways sin uso (FinOps Toolki
         // proyecta las columnas que el motor de zombies consume
         expect(kqlCatalog.unusedAppGateways).toContain("subscriptionId");
     });
+
+    it("incluye emptySqlElasticPools (join a databases por elasticPoolId)", () => {
+        expect(kqlCatalog.emptySqlElasticPools).toBeDefined();
+        expect(kqlCatalog.emptySqlElasticPools).toContain("microsoft.sql/servers/elasticpools");
+        expect(kqlCatalog.emptySqlElasticPools).toContain("microsoft.sql/servers/databases");
+        expect(kqlCatalog.emptySqlElasticPools).toMatch(/join/i);
+        expect(kqlCatalog.emptySqlElasticPools).toContain("subscriptionId");
+    });
+
+    it("incluye idleVmss (scale sets con capacity 0)", () => {
+        expect(kqlCatalog.idleVmss).toBeDefined();
+        expect(kqlCatalog.idleVmss).toContain("microsoft.compute/virtualmachinescalesets");
+        expect(kqlCatalog.idleVmss).toMatch(/capacity/i);
+        expect(kqlCatalog.idleVmss).toContain("subscriptionId");
+    });
 });
