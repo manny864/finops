@@ -5,6 +5,7 @@ import { useSubscription } from "@/components/SubscriptionProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { Tag, Play, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
+import Pagination, { usePagination } from "@/components/Pagination";
 
 interface PreviewRow {
     resourceId: string;
@@ -60,8 +61,16 @@ export default function TagInheritancePanel() {
                 setError(json.error || "Error al obtener preview.");
                 setRows([]);
             } else {
-                setRows(json.rows || []);
-                setSelected(new Set((json.rows || []).map((r: PreviewRow) => r.resourceId)));
+                // Dedupe defensivo por resourceId: aunque el join del backend ya se
+                // scopea por subscripción, garantizamos keys únicas en el render.
+                const seen = new Set<string>();
+                const unique = ((json.rows || []) as PreviewRow[]).filter((r) => {
+                    if (seen.has(r.resourceId)) return false;
+                    seen.add(r.resourceId);
+                    return true;
+                });
+                setRows(unique);
+                setSelected(new Set(unique.map((r) => r.resourceId)));
             }
         } catch (e: any) {
             setError(e?.message || "Error de red.");
@@ -116,6 +125,9 @@ export default function TagInheritancePanel() {
             setApplying(false);
         }
     }, [rows, selected, selectedTenant, runPreview]);
+
+    // Paginación del resultado de "Analizar".
+    const preview = usePagination(rows, 10);
 
     return (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mt-6">
@@ -199,7 +211,7 @@ export default function TagInheritancePanel() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {rows.map((r) => (
+                                {preview.paged.map((r) => (
                                     <tr key={r.resourceId} className="border-b hover:bg-gray-50 dark:hover:bg-gray-700/50">
                                         <td className="py-2 pr-2">
                                             <input
@@ -224,6 +236,11 @@ export default function TagInheritancePanel() {
                                 ))}
                             </tbody>
                         </table>
+                        <Pagination
+                            page={preview.page} setPage={preview.setPage}
+                            pageSize={preview.pageSize} setPageSize={preview.setPageSize}
+                            total={preview.total} totalPages={preview.totalPages}
+                        />
                     </div>
                 </>
             )}
