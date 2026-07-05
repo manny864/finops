@@ -266,9 +266,12 @@ existe en KV, no lo sobreescribe.
 - `MFA_ENCRYPTION_KEY` (o `AZURE_KEYVAULT_CACHE_KEY`): deriva la clave que descifra el caché
   local en disco de Key Vault, usado para operar en cold-start si Azure no responde.
 
-**Fuera de alcance (Fase 2, 2026-07-05):** `SMTP_*` y `MFA_ENCRYPTION_KEY` no están
-configurados en prod todavía (no hay email transaccional ni 2FA funcionando) — activarlos
-es un tema aparte, no de esta consolidación.
+**Actualización (2026-07-05):** `MFA_ENCRYPTION_KEY` ya está activo en prod (agregado al
+`.env` plano del VPS, no a KV — ver excepción de bootstrapping arriba). Habilita el MFA
+local (TOTP) para operaciones sensibles y, como efecto colateral, el caché encriptado en
+disco de Key Vault. `SMTP_*` sigue sin configurarse: el canal de email de Alertas
+Self-Service se migró a Microsoft Graph en su lugar (ver `src/lib/notifications.ts`), así
+que no hace falta un SMTP genérico en la plataforma.
 
 **Excepción operativa:** `BACKUP_AZURE_SAS_URL` se migra a KV como respaldo/rotación
 centralizada, pero `scripts/backup-db.sh` es un script bash de cron que corre **fuera** del

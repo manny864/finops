@@ -12,13 +12,10 @@ vi.mock("@/modules/storage/db", () => ({
 // Mock fetch
 global.fetch = vi.fn();
 
-// Mock nodemailer
-vi.mock("nodemailer", () => ({
-  default: {
-    createTransport: vi.fn(() => ({
-      sendMail: vi.fn().mockResolvedValue({}),
-    })),
-  },
+// El canal de email de Alertas Self-Service envía vía Microsoft Graph
+// (emailHelper.ts), no SMTP/nodemailer.
+vi.mock("@/lib/emailHelper", () => ({
+  sendEmailAsync: vi.fn().mockResolvedValue(undefined),
 }));
 
 describe("notifyTenant", () => {

@@ -1,6 +1,6 @@
 import pool from "@/modules/storage/db";
-import nodemailer from "nodemailer";
 import { assertSafeWebhookUrl } from "@/lib/webhookSecurity";
+import { sendEmailAsync } from "@/lib/emailHelper";
 
 export type Severity = 'info' | 'warning' | 'error';
 
@@ -142,35 +142,13 @@ async function sendToTeams(config: TeamsConfig, payload: NotificationPayload): P
 
 interface EmailConfig {
     recipients: string[];
-    smtp_host?: string;
-    smtp_port?: number;
-    smtp_secure?: boolean;
-    smtp_user?: string;
-    smtp_password?: string;
-    smtp_from?: string;
 }
 
+// Envía vía Microsoft Graph (mismo mecanismo que leads/invoicing en
+// emailHelper.ts), no SMTP. Antes dependía de SMTP_HOST/USER/PASSWORD, que
+// nunca estuvieron configurados en prod — el canal de email de Alertas
+// Self-Service fallaba en silencio (console.warn, sin error visible).
 async function sendToEmail(config: EmailConfig, payload: NotificationPayload): Promise<void> {
-    const host = config.smtp_host || process.env.SMTP_HOST;
-    const port = config.smtp_port ?? Number(process.env.SMTP_PORT || 587);
-    const secure = config.smtp_secure ?? (process.env.SMTP_SECURE === "true");
-    const user = config.smtp_user || process.env.SMTP_USER;
-    const pass = config.smtp_password || process.env.SMTP_PASSWORD;
-    const from = config.smtp_from || process.env.SMTP_FROM;
-
-    // Skip silently if SMTP not configured
-    if (!host || host === "smtp.example.com" || !user || user === "user@example.com") {
-        console.warn("SMTP not configured for email notification; skipping");
-        return;
-    }
-
-    const transporter = nodemailer.createTransport({
-        host,
-        port,
-        secure,
-        auth: { user, pass },
-    });
-
     const html = `
         <h2>${payload.title}</h2>
         <p>${payload.message}</p>
@@ -178,13 +156,11 @@ async function sendToEmail(config: EmailConfig, payload: NotificationPayload): P
         <hr />
         <p style="color: #999; font-size: 12px;">FinOps SaaS · ${new Date().toISOString()}</p>
     `;
+    const subject = `[${(payload.severity || "info").toUpperCase()}] ${payload.title}`;
 
-    await transporter.sendMail({
-        from: from || "noreply@finops.example.com",
-        to: config.recipients.join(","),
-        subject: `[${(payload.severity || "info").toUpperCase()}] ${payload.title}`,
-        html,
-    });
+    await Promise.all(
+        config.recipients.map((recipient) => sendEmailAsync(subject, html, recipient))
+    );
 }
 
 // ===== PUBLIC API =====

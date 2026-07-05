@@ -205,6 +205,31 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
 
 ## 📈 Recent Major Updates
 
+### 2026-07-05 — Auditoría de honestidad en pricing: corregidas 6 features sobre-vendidas
+
+Auditoría completa de las ~50 features anunciadas en la pantalla de precios contra la implementación real (40+ confirmadas reales y funcionales). Se corrigieron/removieron las que prometían algo que el código no cumple:
+
+- **Azure Key Vault BYOK (Secretos Gestionados por el Cliente)** → "Azure Key Vault (cifrado gestionado por la plataforma)". No existe ningún mecanismo para que el cliente aporte su propio Key Vault; es el KV interno de la plataforma.
+- **M365 Copilot Connector + Studio Agent** → "Configuración de Costos de M365 Copilot". El propio código lo admite: `// NOTE: This is a mock-first implementation. No real Microsoft Graph API calls are made.`
+- **SSO Federado (SAML / OIDC)** → "SSO Federado (SAML)". Solo SAML vía WorkOS está implementado; cero OIDC en el código de auth.
+- **Residencia de Datos Multi-Región (UE / US / BR)** → removida del pricing Enterprise. Mismo hallazgo que la entrada de Sidebar ya oculta: sólo hay un datacenter real (Brasil).
+- **Tarifas Custom (EA)** y **Azure OpenAI Cost Analytics** → removidas (sin evidencia de implementación real en el código).
+- **Gamificación y Scorecard** → "Scorecard y Ranking de Equipos". Existe un ranking real por equipo con score y penalizaciones, pero no hay mecánica de gamificación (badges, puntos, niveles).
+- **Monitoreo de Frescura de Datos (Pipeline Health)** → removida de Essential. Es una herramienta interna de super-admin (`requireSuperAdmin`), sin panel visible para el cliente.
+- **Detección de Anomalías** (duplicado en Business) → removida; el motor real (Z-Score) ya se lista en Professional y los tiers son acumulativos ("Todo lo de X").
+
+Aplicado en paridad en los 3 idiomas (es/en/pt-BR), conteos verificados. Ninguna corrección requirió cambios de código — sólo redacción del pricing.
+
+### 2026-07-05 — Ocultar referencias a AWS (por ahora)
+
+No hacemos referencia a AWS por el momento. Se oculta la entrada "Cloud Accounts (AWS)" del Sidebar y del page registry (pin de dashboard), y se remueven las 2 menciones de AWS en las features de la pantalla de precios (Business: "Ingesta Multi-Cloud AWS"; Enterprise: "Billing AWS Marketplace SaaS") en los 3 idiomas. El código de ingesta AWS (CUR/Cost Explorer), el webhook de AWS Marketplace y la landing `/marketplace/aws` **no se tocan** — quedan implementados y funcionales, sólo sin superficie de navegación ni promesa comercial, para cuando se retome soporte AWS.
+
+### 2026-07-05 — Fix Signup Funnel (401) + canal de email de Alertas migrado a Graph + MFA activado en prod
+
+- **Signup Funnel (SuperAdmin) 401**: la página hacía `fetch('/api/superadmin/funnel')` sin el Bearer token MSAL (mismo patrón de bug ya visto en `TagInheritancePanel`). Corregido.
+- **Alertas Self-Service, canal `email`**: usaba SMTP genérico (`nodemailer`) vía `SMTP_HOST/USER/PASSWORD`, nunca configurado en prod → fallaba en silencio (`console.warn`, sin error visible). Migrado a **Microsoft Graph** (`emailHelper.ts`), el mismo mecanismo ya usado para leads/invoicing — un solo sistema de email en toda la plataforma. Se remueve la dependencia `nodemailer`/`@types/nodemailer` (sin más usos).
+- **MFA local (TOTP) activado en prod**: es una segunda verificación para operaciones sensibles dentro de la app ya logueada (aprobar gastos, borrar tenants, cambiar billing) — no reemplaza el login con Microsoft/MSAL, lo complementa (ver `docs/mfa.md`). `MFA_ENCRYPTION_KEY` no existía en el `.env` de prod; se generó y agregó (queda en el `.env` plano a propósito — es un secreto de bootstrapping, no migrable a Key Vault). Efecto colateral positivo: también habilita el caché encriptado en disco de Key Vault (`~/.finops-data/kv-cache.enc`), antes deshabilitado por falta de clave.
+
 ### 2026-07-05 — Fase 2: consolidación de secretos en Key Vault (Paddle, Azure SP, backup SAS, Gemini)
 
 Extiende el patrón de `infraSecrets.ts` (ya usado para `DB_PASSWORD`/`REDIS_PASSWORD`/`CRON_SECRET`, Fase 0.1) a 6 secretos más: `PADDLE_API_KEY`, `PADDLE_WEBHOOK_SECRET` (ahora Live), `AZURE_CLIENT_SECRET`, `AZURE_MARKETPLACE_AAD_APP_SECRET`, `BACKUP_AZURE_SAS_URL` y `GEMINI_API_KEY`. Mismo mecanismo fallback-seguro (KV primero, `.env` si KV no responde); `scripts/migrate-infra-secrets-to-kv.ts` extendido con la misma lista para poblar KV desde el VPS. **No migrables a propósito**: las credenciales de acceso al propio Key Vault y `MFA_ENCRYPTION_KEY` (bootstrapping — no se puede guardar la llave de la caja fuerte dentro de la caja fuerte). **Fuera de alcance**: `SMTP_*`/`MFA_ENCRYPTION_KEY` no están configurados en prod (sin email/2FA activos hoy), es un tema aparte. Detalle completo en `docs/key-vault-integration.md`.
