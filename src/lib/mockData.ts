@@ -1120,6 +1120,28 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
             const count = multiplier === 1 ? 2 : multiplier === 3 ? 5 : multiplier === 10 ? 7 : 10;
             return { success: true, mock: true, rules: allRules.slice(0, count) };
         }
+        case 'commitment-simulator': {
+            // Ahorro mensual estimado por RI y por SP, escalado por tier.
+            const riY1 = 120 * multiplier, riY3 = 210 * multiplier;
+            const spY1 = 135 * multiplier, spY3 = 195 * multiplier;
+            return {
+                success: true,
+                mock: true,
+                currency: 'USD',
+                subscriptionsEvaluated: multiplier >= 10 ? 4 : multiplier === 3 ? 2 : 1,
+                reservation: {
+                    oneYear: { monthlySavings: riY1, recommendations: Math.max(1, multiplier) },
+                    threeYear: { monthlySavings: riY3, recommendations: Math.max(1, multiplier) },
+                },
+                savingsPlan: {
+                    oneYear: { monthlySavings: spY1, savingsPct: 17, coveragePct: 62, hourlyCommitment: parseFloat((spY1 / 30 / 24).toFixed(2)) },
+                    threeYear: { monthlySavings: spY3, savingsPct: 24, coveragePct: 68, hourlyCommitment: parseFloat((spY3 / 30 / 24).toFixed(2)) },
+                },
+                // Y1: SP gana (flexibilidad); Y3: RI gana (mayor profundidad si es estable).
+                verdict: { oneYear: 'savingsPlan', threeYear: 'reservation' },
+                hasData: true,
+            };
+        }
         case 'cost-by-category': {
             // Reparto por categoría FinOps, escalado por tier. Shares realistas:
             // Compute domina, seguido de Storage/Networking/Databases.
