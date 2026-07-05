@@ -48,7 +48,6 @@ import {
     BarChart3,
     FileSpreadsheet,
     Bot,
-    Globe,
     TrendingUp,
     Cloud,
     PiggyBank
@@ -163,8 +162,11 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/admin/powerbi-templates', label: 'Power BI Templates', icon: BarChart3, requiredTier: 'Professional' },
                 { href: '/admin/focus-export', label: 'FOCUS 1.1 Export', icon: FileSpreadsheet, requiredTier: 'Professional' },
                 { href: '/admin/cloud-accounts', label: 'Cloud Accounts (AWS)', icon: Cloud, requiredTier: 'Professional' },
-                { href: '/admin/sso', label: 'SSO SAML', icon: ShieldCheck, requiredTier: 'Enterprise' },
-                { href: '/admin/data-residency', label: 'Data Residency', icon: Globe, requiredTier: 'Enterprise' }
+                { href: '/admin/sso', label: 'SSO SAML', icon: ShieldCheck, requiredTier: 'Enterprise' }
+                // Data Residency oculto: hoy sólo tenemos un datacenter (Brasil), ofrecer
+                // selección de región (EU/US/LATAM/APAC) sería engañoso. Página y API
+                // quedan implementadas para cuando haya despliegue multi-región real.
+                // Ver docs/data-residency.md.
             ]
         }
     ];
