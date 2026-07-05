@@ -205,6 +205,24 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
 
 ## 📈 Recent Major Updates
 
+### 2026-07-05 — Ola 2: Simulación Savings Plan vs Reservation (nueva feature, tier Enterprise)
+
+Nueva página `/intelligence/commitment-simulator` que compara, por término (1 y 3 años), el ahorro
+mensual estimado de una **Reserva (RI)** vs un **Savings Plan (SP)**, con un veredicto de cuál conviene.
+
+- **Números nativos de Azure** (no heurística propia): `commitmentSimulatorService` cruza la
+  **Reservation Recommendations API** (`@azure/arm-consumption`) y la **Benefit Recommendations API**
+  (`@azure/arm-costmanagement`). Ambas operan por suscripción (no MG) y usan `Cost Management Reader`
+  — **ya incluido en el tier Essential**, sin rol nuevo. Montos con `decimal.js` (Regla Cero).
+- **Endpoint**: `GET /api/intelligence/commitment-simulator` (RBAC `requireTenantAccess`, tier Enterprise).
+- **UI** `CommitmentSimulatorDashboard` (comparación lado a lado por término + guía de decisión),
+  i18n es/en/pt-BR (namespace `CommitmentSimulator`), mocks por tier, registrada en Sidebar/registry.
+- **Verificado contra Azure real** (tenant productivo, 4 suscripciones): SP a 3 años ahorraría
+  **$861/mes (23% de ahorro, 85% de cobertura)**, sin recomendación de RI ni de SP a 1 año.
+- **Fix colateral**: el sync de `OpenDataCommitmentEligibility` estaba roto (el toolkit migró a columnas
+  FOCUS `x_CommitmentDiscount*Eligibility`) → todos los meters figuraban como no elegibles. Corregido:
+  75.943 RI-elegibles / 99.840 SP-elegibles (antes 0). Reactiva `commitments/recommendations`.
+
 ### 2026-07-04 — Ola 2: Costo por Categoría FinOps (nueva feature, tier Business)
 
 Nueva página `/intelligence/cost-by-category` que desglosa el gasto por **categoría FinOps**
