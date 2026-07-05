@@ -229,7 +229,7 @@ export default function SecurityPage() {
           <h2 className="text-2xl font-bold text-ink">Frequently Asked Questions</h2>
           <div className="space-y-4">
             <details className="bg-gray-50 p-4 rounded-lg cursor-pointer group">
-              <summary className="font-semibold text-ink group-open:text-brand-deep">Is CSCloud SOC 2 certified?</summary>
+              <summary className="font-semibold text-ink group-open:text-brand-deep">Is CSCloudSolutions SOC 2 certified?</summary>
               <p className="text-gray-700 mt-3">We are targeting SOC 2 Type II certification by Q4 2026. Contact us for our current audit status.</p>
             </details>
             <details className="bg-gray-50 p-4 rounded-lg cursor-pointer group">

@@ -216,7 +216,7 @@ export default function PrivacyPage() {
                 </p>
                 <p>
                   <strong>Company:</strong><br />
-                  CSCloud Solutions<br />
+                  CSCloudSolutions<br />
                   Buenos Aires, Argentina
                 </p>
               </div>

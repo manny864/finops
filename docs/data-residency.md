@@ -8,7 +8,7 @@
 
 ## Overview
 
-CSCloud Solutions provides data residency selection for Enterprise customers. This feature allows tenants to declare their preferred region for data storage, supporting compliance with regulations like GDPR, CCPA, and regional data protection laws.
+CSCloudSolutions provides data residency selection for Enterprise customers. This feature allows tenants to declare their preferred region for data storage, supporting compliance with regulations like GDPR, CCPA, and regional data protection laws.
 
 ## Current Implementation
 

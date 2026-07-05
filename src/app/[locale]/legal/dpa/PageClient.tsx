@@ -59,7 +59,7 @@ export default function DPAPage() {
           <h2 className="text-2xl font-bold text-ink">1. Definitions (Art. 4, GDPR)</h2>
           <div className="space-y-3 text-gray-700">
             <p><strong>Controller:</strong> Your organization, which determines the purposes and means of processing personal data.</p>
-            <p><strong>Processor:</strong> CSCloud Solutions, which processes personal data on your behalf.</p>
+            <p><strong>Processor:</strong> CSCloudSolutions, which processes personal data on your behalf.</p>
             <p><strong>Personal Data:</strong> Any information relating to an identified or identifiable natural person.</p>
             <p><strong>Processing:</strong> Any operation performed on personal data (collection, recording, analysis, erasure, etc.).</p>
           </div>
@@ -69,7 +69,7 @@ export default function DPAPage() {
           <h2 className="text-2xl font-bold text-ink">2. Subject Matter & Duration (Art. 28(3))</h2>
           <div className="space-y-3 text-gray-700">
             <p><strong>Subject Matter:</strong> Processing of Azure cost data and associated metadata.</p>
-            <p><strong>Duration:</strong> For the term of your subscription with CSCloud Solutions. Processing ceases upon termination unless required by law.</p>
+            <p><strong>Duration:</strong> For the term of your subscription with CSCloudSolutions. Processing ceases upon termination unless required by law.</p>
             <p><strong>Nature:</strong> Storage, analysis, and reporting of customer billing and governance data.</p>
             <p><strong>Purpose:</strong> To deliver FinOps optimization, cost analysis, and governance services.</p>
           </div>
@@ -97,7 +97,7 @@ export default function DPAPage() {
         <section className="space-y-4">
           <h2 className="text-2xl font-bold text-ink">4. Subprocessors (Art. 28(2) & (4))</h2>
           <p className="text-gray-700">
-            CSCloud Solutions engages the following subprocessors. You are notified of changes and may object within 30 days.
+            CSCloudSolutions engages the following subprocessors. You are notified of changes and may object within 30 days.
           </p>
           <div className="overflow-x-auto">
             <table className="w-full text-sm border-collapse">
@@ -146,7 +146,7 @@ export default function DPAPage() {
 
         <section className="space-y-4">
           <h2 className="text-2xl font-bold text-ink">6. Security Measures (Art. 28(3)(c) & 32)</h2>
-          <p className="text-gray-700">CSCloud Solutions implements:</p>
+          <p className="text-gray-700">CSCloudSolutions implements:</p>
           <ul className="list-disc list-inside space-y-2 text-gray-700">
             <li><strong>Encryption:</strong> TLS 1.2+ in transit; AES-256 at rest</li>
             <li><strong>Access Control:</strong> RBAC, MSAL/Entra ID integration, MFA mandatory</li>
@@ -162,7 +162,7 @@ export default function DPAPage() {
         <section className="space-y-4">
           <h2 className="text-2xl font-bold text-ink">7. Audit Rights (Art. 28(3)(h))</h2>
           <p className="text-gray-700">
-            You (or an independent auditor) may conduct audits of CSCloud's security and compliance practices. Annual SOC 2 Type II audit reports are available upon request for Enterprise customers.
+            You (or an independent auditor) may conduct audits of CSCloudSolutions' security and compliance practices. Annual SOC 2 Type II audit reports are available upon request for Enterprise customers.
           </p>
         </section>
 

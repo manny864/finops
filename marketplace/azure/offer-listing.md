@@ -13,7 +13,7 @@
 ## Offer Listing
 
 ### Title
-FinOps SaaS Platform · CSCloud Solutions
+FinOps SaaS Platform · CSCloudSolutions
 
 ### Summary (max 100 chars)
 Cloud cost management and FinOps automation for Azure environments.
@@ -24,7 +24,7 @@ Cloud cost management and FinOps automation for Azure environments.
 
 <p><strong>Intelligent Cloud Cost Management for Azure</strong></p>
 
-<p>FinOps SaaS Platform by CSCloud Solutions is a comprehensive cost management and optimization solution built specifically for organizations managing Azure infrastructure at scale.</p>
+<p>FinOps SaaS Platform by CSCloudSolutions is a comprehensive cost management and optimization solution built specifically for organizations managing Azure infrastructure at scale.</p>
 
 <h3>Key Features:</h3>
 <ul>

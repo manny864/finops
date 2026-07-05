@@ -49,7 +49,7 @@ export default function SubprocessorsPage() {
         <div className="max-w-6xl mx-auto px-6">
           <h1 className="text-4xl font-bold text-ink mb-2">Subprocessors</h1>
           <p className="text-gray-600">
-            CSCloud Solutions uses the following third-party processors to deliver its services
+            CSCloudSolutions uses the following third-party processors to deliver its services
           </p>
         </div>
       </div>
@@ -66,7 +66,7 @@ export default function SubprocessorsPage() {
         <div className="bg-indigo-50 border border-indigo-200 p-6 rounded-lg space-y-4">
           <h2 className="text-xl font-bold text-ink">Data Residency</h2>
           <p className="text-gray-700">
-            CSCloud Solutions currently operates a single physical deployment, hosted in Brazil (Latin America). We do not
+            CSCloudSolutions currently operates a single physical deployment, hosted in Brazil (Latin America). We do not
             yet offer regional data residency selection — all customer data is processed and stored in this single location
             regardless of the customer&apos;s own region.
           </p>

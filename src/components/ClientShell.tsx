@@ -245,7 +245,7 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
                   </div>
                   
                   <p className="text-center text-[11px] text-[#566f8c] mt-8 tracking-wide">
-                      &copy; {new Date().getFullYear()} CS Cloud Solutions. {tc('all_rights')}
+                      &copy; {new Date().getFullYear()} CSCloudSolutions. {tc('all_rights')}
                   </p>
               </div>
           </div>

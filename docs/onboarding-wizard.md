@@ -2,7 +2,7 @@
 
 ## Overview
 
-The **Linear Onboarding Wizard** is a guided step-by-step experience for new CSCloud FinOps SaaS tenants. It guides users through essential setup tasks with visual progress indicators and persistent storage per tenant.
+The **Linear Onboarding Wizard** is a guided step-by-step experience for new CSCloudSolutions FinOps SaaS tenants. It guides users through essential setup tasks with visual progress indicators and persistent storage per tenant.
 
 The wizard is automatically launched after first login if `Tenants.is_onboarded = 0` and is accessible via `/{locale}/onboarding`.
 
