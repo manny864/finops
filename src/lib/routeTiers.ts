@@ -24,6 +24,7 @@ export const ROUTE_TIERS: Record<string, 'Essential' | 'Professional' | 'Busines
     // New (P2/P3/P4 — finops-toolkit gap analysis)
     '/intelligence/storage-efficiency': 'Business',
     '/intelligence/compute-efficiency': 'Professional',
+    '/intelligence/cost-by-category': 'Business',
     '/intelligence/alerts': 'Professional',
     '/intelligence/ai-analytics': 'Enterprise',
     '/intelligence/macc': 'Enterprise',

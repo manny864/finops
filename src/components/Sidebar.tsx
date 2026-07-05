@@ -111,6 +111,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/intelligence/anomalies', label: 'Detección Anomalías', icon: ShieldAlert, requiredTier: 'Professional' },
                 { href: '/intelligence/simulator', label: 'Simulador (What-If)', icon: Activity, requiredTier: 'Enterprise' },
                 { href: '/intelligence/storage-efficiency', label: t('storage_efficiency', { fallback: 'Eficiencia de Storage' }), icon: HardDrive, requiredTier: 'Business' },
+                { href: '/intelligence/cost-by-category', label: t('cost_by_category', { fallback: 'Costo por Categoría' }), icon: PieChart, requiredTier: 'Business' },
                 { href: '/intelligence/compute-efficiency', label: t('compute_efficiency', { fallback: 'Eficiencia de Cómputo' }), icon: Cpu, requiredTier: 'Professional' },
                 { href: '/intelligence/alerts', label: t('alerts_self_service', { fallback: 'Alertas (Self-Service)' }), icon: BellRing, requiredTier: 'Professional' },
                 { href: '/intelligence/ai-analytics', label: t('ai_analytics', { fallback: 'AI Cost Analytics' }), icon: Sparkles, requiredTier: 'Enterprise' },

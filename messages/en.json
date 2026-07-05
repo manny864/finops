@@ -58,6 +58,7 @@
     "licenses": "License Optimization",
     "budgets": "Tenant Budgets",
     "storage_efficiency": "Storage Efficiency",
+    "cost_by_category": "Cost by Category",
     "compute_efficiency": "Compute Efficiency",
     "alerts_self_service": "Alerts (Self-Service)",
     "ai_analytics": "AI Cost Analytics",
@@ -808,5 +809,14 @@
     "provider_alert_title": "Notice: 'microsoft.insights' provider (Azure Monitor)",
     "provider_alert_body": "If deployment fails with \"The subscription is not registered to use namespace 'microsoft.insights'\": the platform registers it and retries automatically. If the provider already shows as 'Registered' in Azure, the error is due to ARM propagation (it can take a few minutes) — wait 2-5 minutes and retry. Manual registration:",
     "provider_alert_retry": "The first deployment after registering the provider may need 1-2 automatic retries due to ARM propagation."
+  },
+  "CostByCategory": {
+    "title": "Cost by Category",
+    "subtitle": "Spend breakdown by FinOps service category",
+    "loading": "Analyzing cost by category...",
+    "empty": "No categorized costs found in the last 365 days. Make sure the FinOps sync has run at least once.",
+    "totalLabel": "Total spend",
+    "topCategory": "Top category",
+    "source": "Categories from the Microsoft FinOps Toolkit open data (ResourceType → ServiceCategory)."
   }
 }
