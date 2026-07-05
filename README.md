@@ -205,6 +205,23 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
 
 ## 📈 Recent Major Updates
 
+### 2026-07-04 — Ola 2: Costo por Categoría FinOps (nueva feature, tier Business)
+
+Nueva página `/intelligence/cost-by-category` que desglosa el gasto por **categoría FinOps**
+(Compute/Storage/Networking/Databases/...), uniendo el costo por `ResourceType` a la categoría
+canónica del FinOps Toolkit.
+
+- **Clave de join correcta**: se captura `ResourceType` en el sync (query C de Cost Management,
+  dimensión `ResourceType`) → tabla dedicada `CostCategorySnapshots` (migración `20260704-003`).
+  El join `resource_type → OpenDataServices.service_category` tiene cobertura **~100%** (2 de 330
+  tipos son ambiguos), vs. ~75% si se usara el `ServiceName` de billing (dejaba ~25% en "Other").
+- **Endpoint**: `GET /api/intelligence/cost-by-category` (RBAC `requireTenantAccess`, tier Business).
+  No lee Azure en el request; los datos los puebla `/api/cron/sync` (rol `Cost Management Reader`).
+- **UI**: `CostByCategoryDashboard` (barra apilada 100% + detalle por categoría), i18n es/en/pt-BR
+  (namespace `CostByCategory`), mocks por tier, registrada en Sidebar/pageRegistry/routeTiers.
+- **Verificado end-to-end** con tenant real: 0% "Other" (Compute 67% / Networking 9% / Storage 7%
+  / Management&Governance 7% / Web 5% / Databases 4% / Analytics 2%).
+
 ### 2026-07-04 — Ola 1 de adopción del FinOps Toolkit (enriquecimiento con Open Data)
 
 Tres mejoras que aprovechan reference-data del Microsoft FinOps Toolkit que **ya ingeríamos pero no aplicábamos**:
