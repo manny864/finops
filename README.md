@@ -205,6 +205,17 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
 
 ## 📈 Recent Major Updates
 
+### 2026-07-05 — Seguridad IA-2: API keys de IA cifradas en reposo (AES-256-GCM)
+
+Remediación del hallazgo **IA-2 (CRÍTICO)** del assessment: las API keys de IA por tenant (`Tenants.ai_api_key`) y global (`GlobalSettings`) se guardaban en **texto plano**; un dump/backup/acceso DBA exponía las keys de OpenAI/Anthropic/Azure/Gemini de todos los clientes (denial-of-wallet).
+
+- Nuevo helper `src/lib/secretCrypto.ts` (AES-256-GCM, formato self-contained `enc:v1:<iv>:<authTag>:<ciphertext>`, clave maestra `MFA_ENCRYPTION_KEY` — la misma que MFA y el cache de Key Vault, ya en KV).
+- Cifrado al escribir (`admin/config/ai` PATCH), descifrado al leer (`getAIConfig`) con **fallback transparente a plaintext legacy** (`decryptSecret` devuelve el valor tal cual si no lleva el prefijo). Migración de datos sin downtime.
+- Columna `Tenants.ai_api_key` ampliada a `VARCHAR(1024)` (migración `20260705-003`, idempotente).
+- Script `scripts/encrypt-existing-ai-keys.ts` (`--dry-run` disponible) para cifrar las keys ya existentes en prod; idempotente (salta las ya cifradas).
+- De paso se remedió **IA-7**: el PATCH ahora invalida el cache in-memory de config IA (`invalidateAIConfigCache`), sin ventana de ~5 min con la key vieja tras rotar.
+- 8 tests nuevos para `secretCrypto` (round-trip, IV aleatorio, idempotencia, retrocompat, detección de tampering).
+
 ### 2026-07-05 — Assessment de seguridad: remediados 2 hallazgos de código + hardening VPS
 
 Assessment exhaustivo (VPS + app Next.js + IA). Postura general sólida; ver informe completo en [`docs/security/audit-2026-07-05.md`](docs/security/audit-2026-07-05.md). Remediaciones aplicadas en este ciclo:
