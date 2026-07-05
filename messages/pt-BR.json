@@ -355,7 +355,6 @@
         "Radar de Economia Potencial (Teaser)",
         "Academia de Onboarding FinOps",
         "Open Data Sets (Serviços/Regiões/Recursos)",
-        "Monitoramento de Frescor de Dados (Pipeline Health)",
         "Preferências Multi-Moeda"
       ]
     },
@@ -397,7 +396,6 @@
         "Tudo do Professional",
         "Ligar/Desligar Automático (Schedules)",
         "FinOps Copilot (IA)",
-        "Detecção de Anomalias",
         "Políticas de Expiração (TTL)",
         "Controle AKS (Kubernetes)",
         "Distribuição de Custos (Chargeback)",
@@ -419,22 +417,19 @@
         "Tudo do Business",
         "Suporte Dedicado (SLA)",
         "Workbooks Personalizados",
-        "Tarifas Custom (EA)",
         "Auditorias FinOps Modulares",
         "Rateio de Custos Compartilhados",
         "Políticas Preventivas as Code",
         "Motor de Billing para Partners (CSP)",
-        "Gamificação e Scorecard",
+        "Scorecard e Ranking de Equipes",
         "Exportação Power BI (FOCUS)",
-        "Azure OpenAI Cost Analytics",
         "MACC Tracking & Burn-Rate",
         "Power BI Invoicing (CSP)",
         "Azure Lighthouse Onboarding",
-        "M365 Copilot Connector + Studio Agent",
-        "SSO Federado (SAML / OIDC)",
-        "Azure Key Vault BYOK (Segredos Gerenciados pelo Cliente)",
-        "Billing Azure Marketplace SaaS",
-        "Residência de Dados Multi-Região (UE / US / BR)"
+        "Configuração de Custos do M365 Copilot",
+        "SSO Federado (SAML)",
+        "Azure Key Vault (criptografia gerenciada pela plataforma)",
+        "Billing Azure Marketplace SaaS"
       ]
     },
     "enterpriseModal": {

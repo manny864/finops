@@ -355,7 +355,6 @@
         "Potential Savings Radar (Teaser)",
         "FinOps Onboarding Academy",
         "Open Data Sets (Services/Regions/Resources)",
-        "Data Freshness Monitoring (Pipeline Health)",
         "Multi-Currency Display Preferences"
       ]
     },
@@ -397,7 +396,6 @@
         "Everything in Professional",
         "Automatic Power Schedules",
         "FinOps Copilot (AI)",
-        "Anomaly Detection",
         "Time-to-Live (TTL) Policies",
         "AKS Control (Kubernetes)",
         "Cost Distribution (Chargeback)",
@@ -419,22 +417,19 @@
         "Everything in Business",
         "Dedicated Support (SLA)",
         "Custom Workbooks",
-        "Custom Rates (EA)",
         "Modular FinOps Audits",
         "Shared Cost Allocation Engine",
         "FinOps Policies as Code",
         "Partner CSP Billing Engine",
-        "FinOps Gamification Scorecard",
+        "Team Scorecard & Ranking",
         "Power BI Data Export (FOCUS)",
-        "Azure OpenAI Cost Analytics",
         "MACC Tracking & Burn-Rate",
         "Power BI Invoicing (CSP)",
         "Azure Lighthouse Onboarding",
-        "M365 Copilot Connector + Studio Agent",
-        "SSO Federation (SAML / OIDC)",
-        "Azure Key Vault BYOK (Customer-Managed Secrets)",
-        "Azure Marketplace SaaS Billing",
-        "Data Residency Multi-Region (EU / US / BR)"
+        "M365 Copilot Cost Configuration",
+        "SSO Federation (SAML)",
+        "Azure Key Vault (platform-managed encryption)",
+        "Azure Marketplace SaaS Billing"
       ]
     },
     "enterpriseModal": {
