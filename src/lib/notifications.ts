@@ -290,7 +290,9 @@ export async function notifyTenant(tenantId: string, payload: NotificationPayloa
 
 // ===== LEGACY: Backward compatibility =====
 
-async function sendLegacyWebhookAlert(webhookUrl: string, payload: NotificationPayload): Promise<void> {
+// Exportado: lo usa también el evaluador de AlertRules (credential_expiry),
+// donde el webhook (Slack/Teams/Power Automate) viene en channel_target.
+export async function sendLegacyWebhookAlert(webhookUrl: string, payload: NotificationPayload): Promise<void> {
     const isPowerAutomate = webhookUrl.includes("powerautomate") || webhookUrl.includes("powerplatform");
     let body: any;
 

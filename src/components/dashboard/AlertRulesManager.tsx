@@ -25,7 +25,7 @@ type Rule = {
 
 type Budget = { id: number; costCenter: string; monthlyLimit: number };
 
-const RULE_TYPES = ["budget", "anomaly", "forecast", "threshold"] as const;
+const RULE_TYPES = ["budget", "anomaly", "forecast", "threshold", "credential_expiry"] as const;
 const CHANNELS = ["email", "webhook", "teams", "slack", "servicenow"] as const;
 
 const CHANNEL_BADGE: Record<string, string> = {
@@ -40,6 +40,7 @@ const TYPE_BADGE: Record<string, string> = {
     anomaly:   "bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-400",
     forecast:  "bg-cyan-100 dark:bg-cyan-950/40 text-cyan-700 dark:text-cyan-400",
     threshold: "bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-400",
+    credential_expiry: "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400",
 };
 
 export default function AlertRulesManager() {
@@ -137,7 +138,7 @@ export default function AlertRulesManager() {
                     ruleName: form.ruleName,
                     ruleType: form.ruleType,
                     thresholdValue: parseFloat(form.thresholdValue),
-                    thresholdUnit: form.thresholdUnit,
+                    thresholdUnit: form.ruleType === "credential_expiry" ? "days" : form.thresholdUnit,
                     channel: form.channel,
                     channelTarget: form.channelTarget,
                     budgetId: form.ruleType === "budget" && form.budgetId ? Number(form.budgetId) : null,
@@ -329,12 +330,19 @@ export default function AlertRulesManager() {
                                             className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                                         />
                                         <select
-                                            value={form.thresholdUnit}
+                                            value={form.ruleType === "credential_expiry" ? "days" : form.thresholdUnit}
                                             onChange={(e) => setForm((f) => ({ ...f, thresholdUnit: e.target.value }))}
-                                            className="px-2 py-2 text-sm rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                                            disabled={form.ruleType === "credential_expiry"}
+                                            className="px-2 py-2 text-sm rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 disabled:opacity-70"
                                         >
-                                            <option value="percent">%</option>
-                                            <option value="usd">USD</option>
+                                            {form.ruleType === "credential_expiry" ? (
+                                                <option value="days">{t("daysUnit")}</option>
+                                            ) : (
+                                                <>
+                                                    <option value="percent">%</option>
+                                                    <option value="usd">USD</option>
+                                                </>
+                                            )}
                                         </select>
                                     </div>
                                 </div>

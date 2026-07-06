@@ -574,7 +574,8 @@
       "budget": "Orçamento",
       "anomaly": "Anomalia",
       "forecast": "Forecast",
-      "threshold": "Limite"
+      "threshold": "Limite",
+      "credential_expiry": "Vencimento de credenciais"
     },
     "channels": {
       "email": "Email",
@@ -586,7 +587,8 @@
     "save": "Salvar",
     "delete": "Excluir",
     "noRules": "Nenhuma regra configurada ainda.",
-    "empty": "Crie seu primeiro alerta self-service."
+    "empty": "Crie seu primeiro alerta self-service.",
+    "daysUnit": "dias"
   },
   "AIAnalytics": {
     "title": "Azure OpenAI Cost Analytics",
@@ -663,7 +665,18 @@
     "status": "Status",
     "statusExpired": "Vencidas",
     "statusExpiring": "Prestes a vencer",
-    "statusActive": "Habilitadas"
+    "statusActive": "Habilitadas",
+    "createAlert": "Criar alerta de vencimento",
+    "alertSubtitle": "Receba uma notificação quando alguma credencial estiver prestes a vencer (avaliado diariamente).",
+    "alertDays": "Avisar quando faltarem (dias)",
+    "alertChannel": "Canal",
+    "alertDefaultName": "Credenciais a vencer (≤ {days} dias)",
+    "alertNote": "No máximo uma notificação por dia enquanto houver credenciais dentro do limiar. Inclui as já vencidas.",
+    "alertCreate": "Criar alerta",
+    "alertCancel": "Cancelar",
+    "alertCreated": "Alerta criado. Será avaliado diariamente.",
+    "alertInvalidForm": "Verifique os campos: dias entre 1 e 365 e um destino válido.",
+    "alertError": "Não foi possível criar o alerta."
   },
   "CopilotM365": {
     "title": "Copilot M365 — Integração FinOps",

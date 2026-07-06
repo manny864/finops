@@ -1,12 +1,14 @@
 "use client";
-import React from 'react';
+import React, { useState } from 'react';
 import useSWR from 'swr';
 import { useTranslations } from 'next-intl';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
-import { Loader2, KeyRound, Info } from 'lucide-react';
+import { Loader2, KeyRound, Info, BellPlus } from 'lucide-react';
 import Pagination, { usePagination } from '@/components/Pagination';
 import PinButton from '@/components/dashboard/PinButton';
+import { isMockTenant } from '@/lib/mockData';
+import { toast } from 'sonner';
 
 function MockBanner({ tMock }: { tMock: (k: string) => string }) {
     return (
@@ -83,6 +85,48 @@ export default function ExpiringCredentialsPanel() {
 
     // Hooks ANTES de cualquier return (Rules of Hooks).
     const { paged, ...paginationProps } = usePagination(items, 10);
+    const [showAlertModal, setShowAlertModal] = useState(false);
+    const [alertForm, setAlertForm] = useState({ days: "30", channel: "email", target: "" });
+    const [savingAlert, setSavingAlert] = useState(false);
+
+    const createExpiryAlert = async () => {
+        const days = Number(alertForm.days);
+        if (!Number.isInteger(days) || days < 1 || days > 365 || !alertForm.target.trim()) {
+            toast.error(t('alertInvalidForm'));
+            return;
+        }
+        if (isMockTenant(selectedTenant?.id || '')) {
+            toast.success(t('alertCreated'));
+            setShowAlertModal(false);
+            return;
+        }
+        setSavingAlert(true);
+        try {
+            const account = accounts[0];
+            const tokenResponse = await instance.acquireTokenSilent({ scopes: ["User.Read"], account });
+            const res = await fetch(`/api/budgets/alerts?tenantId=${selectedTenant.id}`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${tokenResponse.idToken}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    tenantId: selectedTenant.id,
+                    ruleName: t('alertDefaultName', { days }),
+                    ruleType: 'credential_expiry',
+                    thresholdValue: days,
+                    thresholdUnit: 'days',
+                    channel: alertForm.channel,
+                    channelTarget: alertForm.target.trim(),
+                }),
+            });
+            const json = await res.json();
+            if (!res.ok || json.success === false) throw new Error(json.error);
+            toast.success(t('alertCreated'));
+            setShowAlertModal(false);
+        } catch (e) {
+            toast.error(e instanceof Error && e.message ? e.message : t('alertError'));
+        } finally {
+            setSavingAlert(false);
+        }
+    };
 
     if (!selectedTenant || selectedTenant.id === 'default') return null;
     if (isLoading) return <div className="flex items-center justify-center py-16"><Loader2 className="w-7 h-7 animate-spin text-brand-deep mr-3" /><span className="text-gray-500">Cargando...</span></div>;
@@ -92,7 +136,13 @@ export default function ExpiringCredentialsPanel() {
         <div className="space-y-4">
             {data?.mock && <MockBanner tMock={tMock} />}
 
-            <div className="flex items-center justify-end">
+            <div className="flex items-center justify-end gap-2">
+                <button
+                    onClick={() => setShowAlertModal(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-deep text-white rounded-md text-xs font-bold hover:brightness-110"
+                >
+                    <BellPlus className="w-3.5 h-3.5" /> {t('createAlert')}
+                </button>
                 <PinButton widgetKey="governance.expiring-credentials" />
             </div>
 
@@ -164,6 +214,57 @@ export default function ExpiringCredentialsPanel() {
             </div>
 
             <Pagination {...paginationProps} />
+
+            {showAlertModal && (
+                <div className="fixed inset-0 bg-black/40 z-50 grid place-items-center p-4" onClick={() => !savingAlert && setShowAlertModal(false)}>
+                    <div className="bg-white dark:bg-slate-900 rounded-xl w-full max-w-md p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+                        <h4 className="font-bold text-[15px] text-gray-900 dark:text-white mb-1">{t('createAlert')}</h4>
+                        <p className="text-xs text-gray-500 mb-4">{t('alertSubtitle')}</p>
+                        <div className="flex flex-col gap-3">
+                            <div>
+                                <label className="text-xs font-semibold text-gray-500">{t('alertDays')}</label>
+                                <input
+                                    type="number" min={1} max={365}
+                                    value={alertForm.days}
+                                    onChange={(e) => setAlertForm({ ...alertForm, days: e.target.value })}
+                                    className="w-full border border-gray-200 dark:border-slate-700 rounded-md p-2 text-sm mt-1 bg-transparent"
+                                />
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label className="text-xs font-semibold text-gray-500">{t('alertChannel')}</label>
+                                    <select
+                                        value={alertForm.channel}
+                                        onChange={(e) => setAlertForm({ ...alertForm, channel: e.target.value })}
+                                        className="w-full border border-gray-200 dark:border-slate-700 rounded-md p-2 text-sm mt-1 bg-white dark:bg-slate-800"
+                                    >
+                                        <option value="email">Email</option>
+                                        <option value="slack">Slack (webhook)</option>
+                                        <option value="teams">Teams (webhook)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="text-xs font-semibold text-gray-500">{alertForm.channel === 'email' ? 'Email' : 'Webhook URL'}</label>
+                                    <input
+                                        type={alertForm.channel === 'email' ? 'email' : 'url'}
+                                        value={alertForm.target}
+                                        onChange={(e) => setAlertForm({ ...alertForm, target: e.target.value })}
+                                        placeholder={alertForm.channel === 'email' ? 'ops@empresa.com' : 'https://hooks...'}
+                                        className="w-full border border-gray-200 dark:border-slate-700 rounded-md p-2 text-sm mt-1 bg-transparent"
+                                    />
+                                </div>
+                            </div>
+                            <p className="text-[11px] text-gray-400">{t('alertNote')}</p>
+                            <div className="flex justify-end gap-2 mt-1">
+                                <button onClick={() => setShowAlertModal(false)} disabled={savingAlert} className="px-4 py-2 text-sm font-semibold text-gray-500 hover:text-gray-800 dark:hover:text-gray-200">{t('alertCancel')}</button>
+                                <button onClick={createExpiryAlert} disabled={savingAlert} className="px-4 py-2 bg-brand-deep text-white rounded-md text-sm font-bold flex items-center gap-2 disabled:opacity-50 hover:brightness-110">
+                                    {savingAlert && <Loader2 className="w-4 h-4 animate-spin" />} {t('alertCreate')}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
