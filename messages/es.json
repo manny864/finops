@@ -1052,6 +1052,7 @@
     "statusRejected": "Rechazada",
     "errorGeneric": "Algo salió mal. Intentá de nuevo.",
     "goDesktop": "Usar versión de escritorio",
-    "language": "Idioma"
+    "language": "Idioma",
+    "scope": "Ámbito (tenant / suscripción)"
   }
 }

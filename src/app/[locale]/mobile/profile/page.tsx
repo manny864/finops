@@ -13,6 +13,7 @@ import { getFreshIdToken } from "@/lib/msalToken";
 import { useTenant } from "@/components/TenantProvider";
 import { CurrencySelector } from "@/components/CurrencyProvider";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
+import ScopeSelector from "@/components/ScopeSelector";
 import { Pencil, Check, X, LogOut, Sun, Moon, Monitor, Loader2, MonitorSmartphone } from "lucide-react";
 import { toast } from "sonner";
 
@@ -138,6 +139,12 @@ export default function MobileProfilePage() {
             </div>
 
             <div className="flex flex-col gap-3">
+                {/* Ámbito: tenant (superadmin), suscripción (usuarios) o demo a ver */}
+                <div className="rounded-2xl border border-line dark:border-slate-800 bg-surface dark:bg-slate-900 p-4">
+                    <label className="block text-sm font-bold text-ink dark:text-white mb-2">{tm("scope")}</label>
+                    <ScopeSelector mobile />
+                </div>
+
                 {/* Moneda */}
                 <div className="rounded-2xl border border-line dark:border-slate-800 bg-surface dark:bg-slate-900 p-4">
                     <label className="block text-sm font-bold text-ink dark:text-white mb-2">{t("currency")}</label>
