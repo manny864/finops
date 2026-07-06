@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, usePathname } from '@/i18n/routing';
 import { useTranslations } from 'next-intl';
 import { useMsal } from '@azure/msal-react';
@@ -66,12 +66,15 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
     const { selectedTenant } = useTenant();
     const tier = (selectedTenant as any).tier || 'Essential';
     
+    // Secciones contraídas por defecto (móvil Y escritorio): el menú muestra
+    // solo los títulos de sección; el usuario expande la que necesita. La
+    // sección de la página activa se auto-expande (ver useEffect más abajo).
     const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
-        visibilidad: true,
-        inteligencia: true,
-        limpieza: true,
-        gobernanza: true,
-        admin: true
+        visibilidad: false,
+        inteligencia: false,
+        limpieza: false,
+        gobernanza: false,
+        admin: false
     });
 
     const toggleGroup = (group: string) => {
@@ -196,6 +199,19 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             icon: LifeBuoy
         } as any);
     }
+
+    // Auto-expandir solo la sección que contiene la página activa; el resto
+    // permanece contraído.
+    useEffect(() => {
+        const active = categories.find(c =>
+            c.items.some(i => i.href === '/' ? pathname === '/' : pathname.startsWith(i.href))
+        );
+        if (active) {
+            setOpenGroups(prev => prev[active.id] ? prev : { ...prev, [active.id]: true });
+        }
+        // categories se reconstruye en cada render; alcanza con reaccionar a la ruta.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pathname]);
 
     // RBAC logic
     const { userRole } = useTenant();
