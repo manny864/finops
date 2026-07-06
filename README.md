@@ -205,6 +205,19 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
 
 ## 📈 Recent Major Updates
 
+### 2026-07-05 — Seguridad (tercera tanda): rate limit IA, prompt injection, Redis, CSP report-only
+
+Remediación de 8 hallazgos más del assessment, todo sin downtime. Ver `docs/security/audit-2026-07-05.md`.
+
+- **IA-3 (ALTO) — prompt injection:** en el copilot, los datos no confiables (payload de tenant, `pageContext`, pregunta) se movieron del `system` prompt al mensaje de usuario, envueltos en delimitadores `<context_data>`/`<user_question>` con instrucción explícita de tratarlos como datos, no instrucciones.
+- **IA-4 (ALTO) — denial-of-wallet:** rate limiting por (tenant, usuario) en todos los endpoints de IA (copilot 15/min; ai-report/assessment/upload 5 cada 5 min).
+- **A-4 (MEDIO) — rate limiter distribuido:** nuevo `checkByKeyDistributed` con backend Redis (INCR+PTTL atómico) y **fallback transparente a memoria** si Redis no responde. Aplicado a IA, `checkout` y `sso/start` (throttle pre-login por IP).
+- **A-6 — fuga de internals:** helper `src/lib/apiErrors.ts` (`serverError`) que loguea server-side y omite `details` en producción; aplicado a 18 handlers que devolvían `error.message` al cliente.
+- **IA-6 (MEDIO) — inyección KQL:** validación de formato UUID de `subscriptionId` antes de interpolarlo en el query de Resource Graph (`sustainability`).
+- **A-3 (MEDIO) — CSP:** CSP nonce + `strict-dynamic` desplegada en modo **Report-Only** (`src/proxy.ts`, compuesta con next-intl). No bloquea nada; recoge violaciones para validar antes de promover a enforcing y quitar `unsafe-inline`. Enfoque de bajo riesgo elegido para no romper checkout/login.
+- **IA-5 (MEDIO):** marcador DLP documentado en `aiProvider.ts` (redacción de PII pendiente de decisión de producto).
+- **A-2 (ALTO):** riesgo aceptado — `thrift`/`@dsnp/parquetjs` sin fix upstream; path parquet solo alcanzable vía endpoints AWS con RBAC ADMIN/OWNER, input semi-confiable, feature AWS oculta.
+
 ### 2026-07-05 — Seguridad IA-2: API keys de IA cifradas en reposo (AES-256-GCM)
 
 Remediación del hallazgo **IA-2 (CRÍTICO)** del assessment: las API keys de IA por tenant (`Tenants.ai_api_key`) y global (`GlobalSettings`) se guardaban en **texto plano**; un dump/backup/acceso DBA exponía las keys de OpenAI/Anthropic/Azure/Gemini de todos los clientes (denial-of-wallet).

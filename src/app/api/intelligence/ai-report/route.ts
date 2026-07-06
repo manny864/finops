@@ -3,6 +3,11 @@ import { getAssessment } from '@/modules/core/aiProvider';
 import pool from '@/modules/storage/db';
 import { RowDataPacket } from 'mysql2';
 import { requireTenantAccess, AuthError } from '@/lib/requestAuth';
+import rateLimiter from '@/lib/rateLimiter';
+
+/** Reportes de IA: 5 por (tenant, usuario) cada 5 min — son costosos (IA-4). */
+const AI_RL_LIMIT = 5;
+const AI_RL_WINDOW_MS = 5 * 60_000;
 
 export async function POST(request: NextRequest) {
     try {
@@ -12,7 +17,16 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Tenant ID is required" }, { status: 400 });
         }
 
-        await requireTenantAccess(request, tenantId);
+        const identity = await requireTenantAccess(request, tenantId);
+
+        // Rate limit por (tenant, usuario) para evitar Denial-of-Wallet (IA-4).
+        const rl = await rateLimiter.checkByKeyDistributed(`ai:report:${tenantId}:${identity.email}`, AI_RL_LIMIT, AI_RL_WINDOW_MS);
+        if (!rl.allowed) {
+            return NextResponse.json(
+                { error: `Límite de reportes IA alcanzado (${AI_RL_LIMIT} cada 5 min). Reintentá después de ${rl.resetAt.toISOString()}.` },
+                { status: 429 }
+            );
+        }
 
         // Validate tenant exists
         const [rows] = await pool.query<RowDataPacket[]>('SELECT * FROM Tenants WHERE tenant_id = ?', [tenantId]);

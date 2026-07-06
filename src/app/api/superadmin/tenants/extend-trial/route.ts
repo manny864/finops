@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool, { initializeDatabase } from "@/modules/storage/db";
 import { requireSuperAdmin } from "@/lib/requestAuth";
+import { serverError } from '@/lib/apiErrors';
 
 export async function POST(request: NextRequest) {
     try {
@@ -114,6 +115,6 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: error.message }, { status: error.status });
         }
         
-        return NextResponse.json({ error: "Internal Server Error", details: error.message }, { status: 500 });
+        return serverError(error, { message: "Internal Server Error", status: 500 });
     }
 }

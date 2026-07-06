@@ -3,6 +3,7 @@ import pool from "@/modules/storage/db";
 import { renderShowbackPdf } from "@/lib/pdf/showbackInvoice";
 import { requireTenantRole } from "@/lib/requestAuth";
 import { notifyTenant } from "@/lib/notifications";
+import { serverError } from '@/lib/apiErrors';
 
 interface EmailRequest {
     tenantId: string;
@@ -223,6 +224,6 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: true, message: "Email sent successfully" });
     } catch (error: any) {
         console.error("[Invoicing Email] Error:", error);
-        return NextResponse.json({ error: "Internal Server Error", details: error.message }, { status: 500 });
+        return serverError(error, { message: "Internal Server Error", status: 500 });
     }
 }

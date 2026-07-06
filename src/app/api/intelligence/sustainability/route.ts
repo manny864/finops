@@ -20,6 +20,13 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ success: false, error: "Falta tenantId" }, { status: 400 });
         }
 
+        // IA-6: subscriptionId se interpola en un query KQL (Resource Graph).
+        // Se acepta solo "all" o un UUID válido para prevenir inyección KQL.
+        if (subscriptionId.toLowerCase() !== "all" &&
+            !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(subscriptionId)) {
+            return NextResponse.json({ success: false, error: "subscriptionId inválido" }, { status: 400 });
+        }
+
         await requireTenantAccess(request, tenantId);
 
         let credential;

@@ -1,6 +1,14 @@
+import { redis } from './redis';
+
 interface RateLimitEntry {
   count: number;
   resetAt: number;
+}
+
+export interface RateLimitResult {
+  allowed: boolean;
+  remaining: number;
+  resetAt: Date;
 }
 
 class RateLimiter {
@@ -56,6 +64,41 @@ class RateLimiter {
       remaining,
       resetAt: new Date(entry.resetAt),
     };
+  }
+
+  /**
+   * Rate limit distribuido con backend Redis (A-4): el estado se comparte
+   * entre instancias y sobrevive a reinicios del contenedor. Usa INCR + EXPIRE
+   * (atómico vía pipeline) sobre `rl:<key>`. Si Redis no responde (offline,
+   * timeout), degrada de forma transparente al limitador en memoria — nunca
+   * bloquea la request por un problema de infraestructura de rate limiting.
+   */
+  async checkByKeyDistributed(key: string, limitPerWindow: number, windowMs = this.windowMs): Promise<RateLimitResult> {
+    const redisKey = `rl:${key}`;
+    try {
+      const pipeline = redis.pipeline();
+      pipeline.incr(redisKey);
+      pipeline.pttl(redisKey);
+      const res = await pipeline.exec();
+      // res: [[err, incrValue], [err, pttl]]
+      if (!res) throw new Error('redis pipeline returned null');
+      const count = Number(res[0][1]);
+      let pttl = Number(res[1][1]);
+      if (pttl < 0) {
+        // Primera vez en la ventana (o sin TTL): setear expiración.
+        await redis.pexpire(redisKey, windowMs);
+        pttl = windowMs;
+      }
+      const allowed = count <= limitPerWindow;
+      return {
+        allowed,
+        remaining: Math.max(0, limitPerWindow - count),
+        resetAt: new Date(Date.now() + pttl),
+      };
+    } catch {
+      // Fallback a memoria si Redis no está disponible.
+      return this.checkByKey(key, limitPerWindow, windowMs);
+    }
   }
 
   // Cleanup old entries periodically (every 5 minutes)

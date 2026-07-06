@@ -4,6 +4,7 @@ import { getCurrentMonthAmortizedCosts } from '@/modules/collectors/azure/billin
 import { getWithStaleWhileRevalidate } from '@/lib/cache';
 import { requireTenantRole, AuthError } from '@/lib/requestAuth';
 import { redis } from '@/lib/redis';
+import { serverError } from '@/lib/apiErrors';
 
 export async function GET(request: NextRequest) {
     try {
@@ -123,10 +124,7 @@ export async function GET(request: NextRequest) {
     } catch (error: any) {
         if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
         console.error('Billing API Error:', error);
-        return NextResponse.json(
-            { error: 'ERR_INTERNAL_SERVER', details: error.message },
-            { status: 500 }
-        );
+        return serverError(error, { message: 'ERR_INTERNAL_SERVER', status: 500 });
     }
 }
 

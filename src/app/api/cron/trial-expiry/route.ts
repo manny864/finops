@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool, { initializeDatabase } from "@/modules/storage/db";
 import { sendEmailAsync, getTrialReminderEmailHtml, getTrialExpiredEmailHtml } from "@/lib/emailHelper";
+import { serverError } from '@/lib/apiErrors';
 
 export async function GET(request: NextRequest) {
     try {
@@ -103,6 +104,6 @@ export async function GET(request: NextRequest) {
 
     } catch (error: any) {
         console.error("Trial Expiry Cron Error:", error);
-        return NextResponse.json({ error: "Internal Server Error", details: error.message }, { status: 500 });
+        return serverError(error, { message: "Internal Server Error", status: 500 });
     }
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isWorkOSConfigured, getWorkOS } from "@/lib/workosClient";
 import pool from "@/modules/storage/db";
 import crypto from "crypto";
+import rateLimiter from "@/lib/rateLimiter";
 
 const STATE_COOKIE = 'finops_sso_state';
 const STATE_TTL_SECONDS = 10 * 60;
@@ -26,6 +27,14 @@ export async function GET(request: NextRequest) {
                 { error: "Missing domain or tenantId" },
                 { status: 400 }
             );
+        }
+
+        // Throttle pre-login por IP (endpoint sin autenticación): 20/min (A-4).
+        const ip = request.headers.get('x-forwarded-for')?.split(',')[0].trim()
+            || request.headers.get('x-real-ip') || 'unknown';
+        const rl = await rateLimiter.checkByKeyDistributed(`sso-start:${ip}`, 20, 60_000);
+        if (!rl.allowed) {
+            return NextResponse.json({ error: "Too many requests" }, { status: 429 });
         }
 
         if (!isWorkOSConfigured()) {

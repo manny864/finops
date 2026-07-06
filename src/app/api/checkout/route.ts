@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess } from "@/lib/requestAuth";
 import { tierToPriceId } from "@/lib/paddleTierMap";
 import pool from "@/modules/storage/db";
+import rateLimiter from "@/lib/rateLimiter";
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,7 +13,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "tenantId es requerido" }, { status: 400 });
     }
 
-    await requireTenantAccess(request, tenantId);
+    const identity = await requireTenantAccess(request, tenantId);
+
+    // Throttle de checkout por (tenant, usuario): 10/min (A-4).
+    const rl = await rateLimiter.checkByKeyDistributed(`checkout:${tenantId}:${identity.email}`, 10, 60_000);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: `Demasiadas solicitudes de checkout. Reintentá después de ${rl.resetAt.toISOString()}.` },
+        { status: 429 }
+      );
+    }
 
     const body = await request.json();
     const { tier, billing } = body;

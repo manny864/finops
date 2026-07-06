@@ -130,6 +130,11 @@ export async function getAssessment(metricsData: any, tenantId: string): Promise
         // cruzar reportes entre tenants (IA-1) y la key resuelta sería la global.
         throw new Error("getAssessment requires a tenantId for cache/config isolation.");
     }
+    // DLP (IA-5): metricsData se envía a un proveedor de IA EXTERNO. Puede
+    // contener nombres de recursos y tags con potencial PII. Para clientes
+    // Enterprise con requisitos de residencia/no-retención, evaluar redactar/
+    // tokenizar identificadores sensibles antes del envío y/o restringir el
+    // provider a uno con garantía de no-entrenamiento. Ver docs/security/audit-2026-07-05.md.
     const dataString = JSON.stringify(metricsData);
     // El hash incluye el tenantId para que dos tenants con el mismo payload
     // NO compartan la misma entrada de caché (fuga cross-tenant IA-1).

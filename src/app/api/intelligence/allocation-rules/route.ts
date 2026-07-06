@@ -5,6 +5,7 @@ import { hasAccess } from "@/lib/tierLogic";
 import pool from "@/modules/storage/db";
 import { randomUUID } from "crypto";
 import { requireTenantAccess, requireTenantRole, AuthError } from "@/lib/requestAuth";
+import { serverError } from '@/lib/apiErrors';
 // RBAC: GET requiere pertenencia al tenant. POST (crear allocation rules) requiere Admin/Owner.
 
 export async function GET(request: NextRequest) {
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ success: true, data: rows });
     } catch (error: any) {
         if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
-        return NextResponse.json({ error: "Fallo al obtener reglas de asignación", details: error.message }, { status: 500 });
+        return serverError(error, { message: "Fallo al obtener reglas de asignación", status: 500 });
     }
 }
 
@@ -91,6 +92,6 @@ export async function POST(request: NextRequest) {
 
     } catch (error: any) {
         if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
-        return NextResponse.json({ error: "Fallo al guardar reglas de asignación", details: error.message }, { status: 500 });
+        return serverError(error, { message: "Fallo al guardar reglas de asignación", status: 500 });
     }
 }

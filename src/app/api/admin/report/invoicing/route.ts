@@ -4,6 +4,7 @@ import pool from "@/modules/storage/db";
 import { renderShowbackPdf } from "@/lib/pdf/showbackInvoice";
 import { requireTenantRole } from "@/lib/requestAuth";
 import JSZip from "jszip";
+import { serverError } from '@/lib/apiErrors';
 
 const MOCK_LINES = [
     { date: "2026-06-01", customerId: "cust-001", customerName: "ACME Corp", service: "Virtual Machines", resourceGroup: "rg-prod-acme", originalCost: 1230.50, adjustedCost: 1415.08 },
@@ -304,6 +305,6 @@ export async function GET(request: NextRequest) {
         }
     } catch (error: any) {
         console.error("Invoicing API Error:", error);
-        return NextResponse.json({ error: "Error al obtener datos de facturación.", details: error.message }, { status: 500 });
+        return serverError(error, { message: "Error al obtener datos de facturación.", status: 500 });
     }
 }
