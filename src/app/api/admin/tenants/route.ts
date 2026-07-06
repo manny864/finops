@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool, { initializeDatabase } from "@/modules/storage/db";
 import { AuthError, requireSuperAdmin } from "@/lib/requestAuth";
+import { serverError } from '@/lib/apiErrors';
 
 export async function POST(request: NextRequest) {
     try {
@@ -25,7 +26,7 @@ export async function POST(request: NextRequest) {
     } catch (error: any) {
         if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
         console.error('API POST /admin/tenants error:', error);
-        return NextResponse.json({ error: 'Fallo al crear Tenant manual', details: error.message }, { status: 500 });
+        return serverError(error, { message: 'Fallo al crear Tenant manual', status: 500 });
     }
 }
 
@@ -65,6 +66,6 @@ export async function PATCH(request: NextRequest) {
     } catch (error: any) {
         if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
         console.error('API PATCH /admin/tenants error:', error);
-        return NextResponse.json({ error: 'Fallo al actualizar Tenant', details: error.message }, { status: 500 });
+        return serverError(error, { message: 'Fallo al actualizar Tenant', status: 500 });
     }
 }

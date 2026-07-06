@@ -3,6 +3,7 @@ import { getAzureCredential } from "@/lib/azure";
 import { CostManagementClient } from "@azure/arm-costmanagement";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
+import { serverError } from '@/lib/apiErrors';
 
 export async function GET(request: NextRequest) {
     try {
@@ -139,6 +140,6 @@ export async function GET(request: NextRequest) {
     } catch (error: any) {
         if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
         console.error("Chargeback Fetch Error:", error);
-        return NextResponse.json({ error: "Fallo al obtener información de chargeback.", details: error.message }, { status: 500 });
+        return serverError(error, { message: "Fallo al obtener información de chargeback.", status: 500 });
     }
 }

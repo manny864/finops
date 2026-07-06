@@ -5,6 +5,7 @@ import pool from "@/modules/storage/db";
 import { isMockTenant } from "@/lib/mockData";
 import { runScenario, parseInputs } from "@/lib/simulator/engine";
 import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
+import { serverError } from '@/lib/apiErrors';
 
 export async function POST(request: NextRequest) {
     try {
@@ -83,6 +84,6 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: error.message }, { status: error.status });
         }
         console.error("Simulator API Error:", error);
-        return NextResponse.json({ error: "Fallo al ejecutar simulación.", details: error.message }, { status: 500 });
+        return serverError(error, { message: "Fallo al ejecutar simulación.", status: 500 });
     }
 }

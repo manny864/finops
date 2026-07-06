@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool, { initializeDatabase } from "@/modules/storage/db";
 import { requireRequestIdentity, AuthError } from "@/lib/requestAuth";
+import { serverError } from '@/lib/apiErrors';
 
 export async function GET(request: NextRequest) {
     try {
@@ -45,10 +46,7 @@ export async function GET(request: NextRequest) {
         if (error instanceof AuthError) {
             return NextResponse.json({ error: error.message }, { status: error.status });
         }
-        return NextResponse.json(
-            { error: "Internal Server Error", details: error.message },
-            { status: 500 }
-        );
+        return serverError(error, { message: "Internal Server Error", status: 500 });
     }
 }
 
@@ -132,9 +130,6 @@ export async function PUT(request: NextRequest) {
         if (error instanceof AuthError) {
             return NextResponse.json({ error: error.message }, { status: error.status });
         }
-        return NextResponse.json(
-            { error: "Internal Server Error", details: error.message },
-            { status: 500 }
-        );
+        return serverError(error, { message: "Internal Server Error", status: 500 });
     }
 }
