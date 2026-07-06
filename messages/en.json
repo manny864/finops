@@ -992,5 +992,19 @@
     "sentOk": "Reply sent to the customer.",
     "errorGeneric": "Something went wrong. Please try again.",
     "backToList": "Back to queue"
+  },
+  "Profile": {
+    "openProfile": "Open profile",
+    "editName": "Change name",
+    "save": "Save",
+    "cancel": "Cancel",
+    "nameSaved": "Name updated.",
+    "currency": "Currency",
+    "appearance": "Appearance",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeAuto": "Auto",
+    "logout": "Sign out",
+    "errorGeneric": "Something went wrong. Please try again."
   }
 }
