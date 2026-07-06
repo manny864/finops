@@ -356,7 +356,8 @@
         "Radar de Ahorros Potenciales (Teaser)",
         "Academia de Onboarding FinOps",
         "Open Data Sets (Servicios/Regiones/Recursos)",
-        "Preferencias Multi-Moneda"
+        "Preferencias Multi-Moneda",
+        "Soporte en plataforma (5 tickets/mes, respuesta en 48 h)"
       ]
     },
     "pro": {
@@ -386,7 +387,8 @@
         "API REST Pública v1 (solo lectura)",
         "Canales de Notificación (Slack/Teams/Email/Webhook)",
         "Dashboard de Salud del Tenant",
-        "Autenticación Multi-Factor (MFA)"
+        "Autenticación Multi-Factor (MFA)",
+        "Soporte en plataforma (20 tickets/mes, respuesta en 24 h)"
       ]
     },
     "business": {
@@ -406,7 +408,8 @@
         "Delegaciones Multi-Tenant (cross-account)",
         "Página de Estado Pública + Historial de Incidentes",
         "Escenarios What-If (Simulador de Costos)",
-        "API Keys MCP (Integración con Asistentes IA)"
+        "API Keys MCP (Integración con Asistentes IA)",
+        "Soporte ilimitado en plataforma (respuesta en 8 h)"
       ]
     },
     "enterprise": {
@@ -416,7 +419,7 @@
       "desc": "Para corporaciones con topologías complejas (Hub & Spoke).",
       "features": [
         "Todo lo de Business",
-        "Soporte Dedicado (SLA)",
+        "Soporte dedicado ilimitado (SLA 4 h)",
         "Workbooks Personalizados",
         "Auditorías FinOps Modulares",
         "Prorrateo de Costos Compartidos",
@@ -903,7 +906,15 @@
     "category_feature_request": "Pedido de feature",
     "errorGeneric": "Algo salió mal. Intentá de nuevo.",
     "createdOk": "Ticket creado. Te respondemos dentro del SLA de tu plan.",
-    "sentOk": "Respuesta enviada."
+    "sentOk": "Respuesta enviada.",
+    "attachments": "Adjuntos",
+    "attach": "Adjuntar archivo",
+    "attachHint": "Adjuntar (jpg/png/txt/json, máx 5 MB)",
+    "attachInvalid": "Archivo inválido: jpg/jpeg/png/txt/json de hasta 5 MB.",
+    "attachError": "No se pudo subir el adjunto.",
+    "attachDemoNote": "Descarga no disponible en modo demo.",
+    "notifNewReply": "Soporte respondió tu ticket: {subject}",
+    "notifNewCustomerMsg": "Nuevo mensaje de cliente en soporte: {subject}"
   },
   "SuperAdminSupport": {
     "title": "Soporte (Global)",

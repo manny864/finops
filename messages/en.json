@@ -356,7 +356,8 @@
         "Potential Savings Radar (Teaser)",
         "FinOps Onboarding Academy",
         "Open Data Sets (Services/Regions/Resources)",
-        "Multi-Currency Display Preferences"
+        "Multi-Currency Display Preferences",
+        "In-platform support (5 tickets/mo, 48 h response)"
       ]
     },
     "pro": {
@@ -386,7 +387,8 @@
         "Public REST API v1 (read-only)",
         "Notification Channels (Slack/Teams/Email/Webhook)",
         "Tenant Health Dashboard",
-        "Multi-Factor Authentication (MFA)"
+        "Multi-Factor Authentication (MFA)",
+        "In-platform support (20 tickets/mo, 24 h response)"
       ]
     },
     "business": {
@@ -406,7 +408,8 @@
         "Multi-Tenant Delegations (cross-account)",
         "Public Status Page + Incident History",
         "What-If Scenarios (Cost Simulator)",
-        "MCP API Keys (AI Assistants Integration)"
+        "MCP API Keys (AI Assistants Integration)",
+        "Unlimited in-platform support (8 h response)"
       ]
     },
     "enterprise": {
@@ -416,7 +419,7 @@
       "desc": "For corporations with complex topologies (Hub & Spoke).",
       "features": [
         "Everything in Business",
-        "Dedicated Support (SLA)",
+        "Unlimited dedicated support (4 h SLA)",
         "Custom Workbooks",
         "Modular FinOps Audits",
         "Shared Cost Allocation Engine",
@@ -903,7 +906,15 @@
     "category_feature_request": "Feature request",
     "errorGeneric": "Something went wrong. Please try again.",
     "createdOk": "Ticket created. We'll reply within your plan's SLA.",
-    "sentOk": "Reply sent."
+    "sentOk": "Reply sent.",
+    "attachments": "Attachments",
+    "attach": "Attach file",
+    "attachHint": "Attach (jpg/png/txt/json, max 5 MB)",
+    "attachInvalid": "Invalid file: jpg/jpeg/png/txt/json up to 5 MB.",
+    "attachError": "Could not upload the attachment.",
+    "attachDemoNote": "Download not available in demo mode.",
+    "notifNewReply": "Support replied to your ticket: {subject}",
+    "notifNewCustomerMsg": "New customer message in support: {subject}"
   },
   "SuperAdminSupport": {
     "title": "Support (Global)",
