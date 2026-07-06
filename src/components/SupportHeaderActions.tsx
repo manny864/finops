@@ -39,7 +39,7 @@ export default function SupportHeaderActions() {
             if (!token) return;
             const headers = { Authorization: `Bearer ${token}` };
 
-            const checks: Array<{ key: string; url: string; notify: (row: { subject: string; authorName: string | null }) => void }> = [];
+            const checks: Array<{ key: string; url: string; notify: (row: { ticketId: number; subject: string; authorName: string | null }) => void }> = [];
 
             if (selectedTenant?.id && selectedTenant.id !== "default" && !isMockTenant(selectedTenant.id)) {
                 checks.push({
@@ -47,7 +47,8 @@ export default function SupportHeaderActions() {
                     url: `/api/support/notifications?tenantId=${selectedTenant.id}`,
                     notify: (row) => {
                         const msg = t("notifNewReply", { subject: row.subject });
-                        addAction({ message: msg, status: "info" });
+                        // href: la campanita navega directo al ticket correspondiente.
+                        addAction({ message: msg, status: "info", href: `/support?ticket=${row.ticketId}` });
                         toast.info(msg);
                     },
                 });
@@ -58,7 +59,7 @@ export default function SupportHeaderActions() {
                     url: "/api/support/notifications?scope=global",
                     notify: (row) => {
                         const msg = t("notifNewCustomerMsg", { subject: row.subject, author: row.authorName || "" });
-                        addAction({ message: msg, status: "info" });
+                        addAction({ message: msg, status: "info", href: `/superadmin/support?ticket=${row.ticketId}` });
                         toast.info(msg);
                     },
                 });

@@ -1,5 +1,6 @@
 "use client";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
@@ -99,6 +100,8 @@ export default function SupportPage() {
     const [replyFile, setReplyFile] = useState<File | null>(null);
 
     const isMock = isMockTenant(selectedTenant?.id || "");
+    const searchParams = useSearchParams();
+    const deepLinkHandled = useRef(false);
 
     const authHeaders = useCallback(async (): Promise<Record<string, string>> => {
         if (!accounts || accounts.length === 0) return {};
@@ -134,6 +137,18 @@ export default function SupportPage() {
     useEffect(() => {
         loadTickets();
     }, [loadTickets]);
+
+    // Deep-link desde la campanita: /support?ticket=N abre el hilo directamente.
+    useEffect(() => {
+        const ticketParam = Number(searchParams.get("ticket"));
+        if (deepLinkHandled.current || !Number.isInteger(ticketParam) || ticketParam <= 0 || tickets.length === 0) return;
+        const target = tickets.find((tk) => tk.id === ticketParam);
+        if (target) {
+            deepLinkHandled.current = true;
+            openThread(target);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [tickets, searchParams]);
 
     const openThread = async (ticket: Ticket) => {
         setSelected(ticket);
