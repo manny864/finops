@@ -8,7 +8,6 @@ import RoleAssignmentBanner from './RoleAssignmentBanner';
 import { Info, Lightbulb, X, Play } from 'lucide-react';
 import { hasAccess } from '@/lib/tierLogic';
 import { translateAdvisorText } from '@/lib/advisorI18n';
-import { toast } from 'sonner';
 
 export default function AdvisorPanel() {
   const { instance, accounts } = useMsal();
@@ -194,50 +193,6 @@ export default function AdvisorPanel() {
       } catch (err) {
           console.error("Error exporting CSV:", err);
           alert("Error al exportar CSV.");
-      }
-  };
-
-  const handleCreateTicket = async (rec: any, targetSystem: string) => {
-      try {
-          const account = accounts[0];
-          const tokenResponse = await instance.acquireTokenSilent({
-              scopes: ["User.Read"],
-              account: account
-          });
-          
-          const savings = parseFloat(rec.extendedProperties?.savingsAmount || '0');
-          const payload = {
-              tenantId: selectedTenant.id,
-              targetSystem,
-              resourceId: rec.impactedField,
-              resourceName: subscriptions.find(s => s.id === rec.subscriptionId)?.name || rec.subscriptionId,
-              issueTitle: `[FinOps] Optimize Resource: ${rec.impactedField}`,
-              issueBody: translateAdvisorText(rec.shortDescription?.solution, locale, 'solution'),
-              estimatedSavings: savings
-          };
-
-          toast.promise(
-              fetch('/api/integrations/itsm', {
-                  method: 'POST',
-                  headers: {
-                      'Content-Type': 'application/json',
-                      'Authorization': `Bearer ${tokenResponse.idToken}`
-                  },
-                  body: JSON.stringify(payload)
-              }).then(async (res) => {
-                  const json = await res.json();
-                  if (!res.ok) throw new Error(json.error || 'Error al crear ticket');
-                  return json;
-              }),
-              {
-                  loading: 'Creando ticket en ITSM...',
-                  success: (data) => `Ticket creado exitosamente: ${data.ticketUrl}`,
-                  error: (err) => `Fallo al crear ticket: ${err.message}`
-              }
-          );
-      } catch (error) {
-          console.error(error);
-          toast.error("Error al iniciar creación de ticket.");
       }
   };
 
@@ -475,21 +430,6 @@ export default function AdvisorPanel() {
                                                     <span className="text-[10.5px] text-grey font-semibold"> /mes</span>
                                                 </div>
                                                 <div className="flex gap-2">
-                                                    {isPro && (
-                                                        <select
-                                                            onChange={(e) => {
-                                                                if (e.target.value) {
-                                                                    handleCreateTicket(rec, e.target.value);
-                                                                    e.target.value = "";
-                                                                }
-                                                            }}
-                                                            className="bg-gray-100 text-gray-700 px-2 py-[4px] rounded-[6px] font-semibold text-[11px] shadow-sm border border-gray-300 outline-none cursor-pointer"
-                                                        >
-                                                            <option value="">+ Create Ticket</option>
-                                                            <option value="jira">Jira</option>
-                                                            <option value="ado">Azure DevOps</option>
-                                                        </select>
-                                                    )}
                                                     {((rec.shortDescription?.solution || '').toLowerCase().includes('delete') || (rec.shortDescription?.solution || '').toLowerCase().includes('remove')) && (
                                                         <button onClick={() => handleApplyFix(rec)} disabled={actionLoading === (rec.id || rec.impactedField)} className="bg-brand-deep text-white hover:brightness-110 px-[11px] py-[4px] rounded-[6px] font-heading font-semibold text-[11px] shadow-sm transition-colors flex items-center gap-1 disabled:opacity-50">
                                                             {actionLoading === (rec.id || rec.impactedField) ? 'Aplicando...' : <><Play className="w-3 h-3" /> Apply Fix</>}
