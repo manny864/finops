@@ -247,8 +247,40 @@ table.tbl{width:100%;border-collapse:collapse}
 }
 
 @media (max-width: 640px) {
-  .kpis, .grid-3, .sumstrip { grid-template-columns: repeat(2, 1fr) }
-  .content { padding: 16px }
+  /* Layout: todo a 1-2 columnas; nunca forzar el ancho de desktop en un teléfono. */
+  .kpis, .sumstrip { grid-template-columns: repeat(2, 1fr) }
+  .grid-3, .grid-5, .gov { grid-template-columns: 1fr }
+  .content { padding: 14px }
+  .vhead { flex-wrap: wrap; gap: 10px }
+  .bar-line { grid-template-columns: 96px 1fr 56px; gap: 8px }
+  .mat-d { grid-template-columns: 110px 1fr 56px; gap: 8px }
+  .rec { grid-template-columns: 34px 1fr; }
+  .rec > :last-child { grid-column: 1 / -1; text-align: left; }
+
+  /* El heatmap (12 columnas) scrollea horizontal dentro de su caja en vez de
+     comprimir toda la página. */
+  .heat { overflow-x: auto; grid-template-columns: 42px repeat(12, minmax(28px, 1fr)) }
+
+  /* Legibilidad: en pantallas táctiles los tamaños de desktop (9-11px) son
+     ilegibles; se suben los mínimos del design system. */
+  .vhead .vt { font-size: 19px }
+  .vhead .vs { font-size: 13.5px }
+  .kpi .lab { font-size: 11px }
+  .kpi .val { font-size: 20px }
+  .card-h .sub { font-size: 12.5px }
+  .tag { font-size: 11px }
+  .scopechip { font-size: 12px }
+  .heat .hlab { font-size: 11px }
+  .heat .htime { font-size: 10px }
+
+  /* iOS Safari hace auto-zoom al enfocar inputs con font-size < 16px, y ese
+     zoom "rompe" el layout; 16px lo evita. */
+  input, select, textarea { font-size: 16px !important }
+
+  /* Evita que un elemento ancho encoja/desplace toda la página: el scroll
+     horizontal queda confinado a los contenedores overflow-x-auto internos. */
+  html, body { overflow-x: hidden }
+  table { font-size: 13px }
 }
 
 

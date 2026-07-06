@@ -574,7 +574,8 @@
       "budget": "Budget",
       "anomaly": "Anomaly",
       "forecast": "Forecast",
-      "threshold": "Threshold"
+      "threshold": "Threshold",
+      "credential_expiry": "Credential expiry"
     },
     "channels": {
       "email": "Email",
@@ -586,7 +587,8 @@
     "save": "Save",
     "delete": "Delete",
     "noRules": "No alert rules configured yet.",
-    "empty": "Create your first self-service alert."
+    "empty": "Create your first self-service alert.",
+    "daysUnit": "days"
   },
   "AIAnalytics": {
     "title": "Azure OpenAI Cost Analytics",
@@ -663,7 +665,18 @@
     "status": "Status",
     "statusExpired": "Expired",
     "statusExpiring": "Expiring soon",
-    "statusActive": "Active"
+    "statusActive": "Active",
+    "createAlert": "Create expiry alert",
+    "alertSubtitle": "Get notified when any credential is about to expire (evaluated daily).",
+    "alertDays": "Notify when (days) remain",
+    "alertChannel": "Channel",
+    "alertDefaultName": "Credentials expiring (≤ {days} days)",
+    "alertNote": "At most one notification per day while credentials are within the threshold. Includes already-expired ones.",
+    "alertCreate": "Create alert",
+    "alertCancel": "Cancel",
+    "alertCreated": "Alert created. It will be evaluated daily.",
+    "alertInvalidForm": "Check the fields: days between 1 and 365, and a valid target.",
+    "alertError": "Could not create the alert."
   },
   "CopilotM365": {
     "title": "Copilot M365 — FinOps Integration",

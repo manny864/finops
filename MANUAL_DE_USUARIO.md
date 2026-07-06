@@ -115,7 +115,7 @@ El sistema está dividido en cinco (5) pilares estratégicos en el menú lateral
 ### 3.4. Gobernanza
 - **Cumplimiento de Etiquetas:** Auditoría de la infraestructura contra las políticas de etiquetado corporativas (Ej. CostCenter, Owner, Environment).
 - **HA Recommendations (Business):** VMs en producción sin Availability Zone o Availability Set (`/governance/ha`).
-- **Credenciales AAD por Expirar (Business):** alerta proactiva de App Registrations / Service Principals cuyos secretos o certificados expiran en los próximos 30/60/90 días (`/governance/credentials`).
+- **Credenciales AAD por Expirar (Business):** alerta proactiva de App Registrations / Service Principals cuyos secretos o certificados expiran en los próximos 30/60/90 días (`/governance/credentials`). Cada credencial muestra su estado: **Vencida**, **Próxima a vencer** (≤ 30 días) o **Habilitada**. Con **"Crear alerta de vencimiento"** defines cuántos días antes quieres el aviso (1–365) y el canal (email, Slack o Teams vía webhook); el sistema evalúa a diario y envía como máximo una notificación por día mientras haya credenciales dentro del umbral (incluye vencidas). Las reglas también se administran en **Alertas (Self-Service)** con el tipo "Vencimiento de credenciales".
 - **Horarios de Apagado (Power Schedules):** Creación de rutinas automáticas para el encendido y apagado de flotas de Máquinas Virtuales durante horarios no productivos (Ej. Apagar a las 8 PM, encender a las 6 AM).
 
 ### 3.5. Administración

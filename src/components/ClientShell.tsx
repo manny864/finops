@@ -265,23 +265,25 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
       <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-16 bg-surface/85 backdrop-blur-md border-b border-line flex items-center justify-between px-6 z-30 shadow-sm sticky top-0">
+        <header className="h-16 bg-surface/85 backdrop-blur-md border-b border-line flex items-center justify-between px-3 sm:px-6 z-30 shadow-sm sticky top-0">
           <div className="flex items-center">
-            <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 mr-4 text-gray-400 hover:text-[#0054A6] transition-colors focus:outline-none">
+            <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 mr-1 sm:mr-4 text-gray-400 hover:text-[#0054A6] transition-colors focus:outline-none">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
             </button>
             <h1 className="text-xl font-bold text-ink hidden sm:block tracking-tight">Cloud FinOps</h1>
           </div>
           
-          <div className="flex items-center space-x-6">
+          <div className="flex items-center space-x-2 sm:space-x-6">
             <div className="hidden sm:flex items-center space-x-4">
                 <ScopeSelector />
             </div>
-            
-            <LanguageSwitcher />
-            <CurrencySelector />
-            
-            <div className="flex items-center space-x-2">
+
+            <div className="flex items-center space-x-1 sm:space-x-2">
+                <LanguageSwitcher />
+                <CurrencySelector />
+            </div>
+
+            <div className="flex items-center space-x-1 sm:space-x-2">
                 <SupportHeaderActions />
                 <button
                     onClick={() => setDrawerOpen(true)}
@@ -300,7 +302,7 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-6 relative">
+        <main className="flex-1 overflow-y-auto p-3 sm:p-6 relative">
           <RouteTierGate>{children}</RouteTierGate>
         </main>
         
