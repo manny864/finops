@@ -1,5 +1,6 @@
 "use client";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
@@ -80,6 +81,8 @@ export default function SuperAdminSupportPage() {
     const [reply, setReply] = useState("");
     const [sending, setSending] = useState(false);
     const [replyFile, setReplyFile] = useState<File | null>(null);
+    const searchParams = useSearchParams();
+    const deepLinkHandled = useRef(false);
 
     const authHeaders = useCallback(async (): Promise<Record<string, string>> => {
         if (!accounts || accounts.length === 0) return {};
@@ -107,6 +110,18 @@ export default function SuperAdminSupportPage() {
     useEffect(() => {
         loadQueue();
     }, [loadQueue]);
+
+    // Deep-link desde la campanita: /superadmin/support?ticket=N abre el hilo.
+    useEffect(() => {
+        const ticketParam = Number(searchParams.get("ticket"));
+        if (deepLinkHandled.current || !Number.isInteger(ticketParam) || ticketParam <= 0 || tickets.length === 0) return;
+        const target = tickets.find((tk) => tk.id === ticketParam);
+        if (target) {
+            deepLinkHandled.current = true;
+            openThread(target);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [tickets, searchParams]);
 
     const openThread = async (ticket: AdminTicket) => {
         setSelected(ticket);
