@@ -1271,6 +1271,15 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
                 benchmark,
             };
         }
+        case 'mobile-summary': {
+            // Resumen de la app móvil: mismos campos que /api/dashboard/summary.
+            return {
+                actualCost: Math.round(1000 * multiplier * 0.85),
+                projectedCost: Math.round(1000 * multiplier * 1.08),
+                totalSavings: Math.round(180 * multiplier),
+                zombieCount: Math.max(1, Math.round(4 + multiplier / 3)),
+            };
+        }
         case 'platform-budgets': {
             // Presupuestos de plataforma por cost center (tabla Budgets), para la
             // demo del gestor en /intelligence/budgets. Escala por tier.
