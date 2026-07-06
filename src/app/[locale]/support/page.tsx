@@ -5,7 +5,7 @@ import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
-import { LifeBuoy, Plus, Loader2, ArrowLeft, Send, MessageSquare, Clock } from "lucide-react";
+import { LifeBuoy, Plus, Loader2, ArrowLeft, Send, MessageSquare, Clock, Paperclip, Download } from "lucide-react";
 import { toast } from "sonner";
 
 interface TicketMessage {
@@ -15,6 +15,30 @@ interface TicketMessage {
     author_role: "user" | "support";
     body: string;
     created_at: string;
+}
+
+interface TicketAttachment {
+    id: number;
+    uploaded_by_email: string;
+    uploaded_by_role: "user" | "support";
+    original_name: string;
+    mime_type: string;
+    size_bytes: number;
+    created_at: string;
+}
+
+const ATTACHMENT_EXTENSIONS = ".jpg,.jpeg,.png,.txt,.json";
+const ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024;
+
+function validAttachment(file: File): boolean {
+    const ext = (file.name.split(".").pop() || "").toLowerCase();
+    return ["jpg", "jpeg", "png", "txt", "json"].includes(ext) && file.size > 0 && file.size <= ATTACHMENT_MAX_BYTES;
+}
+
+function formatBytes(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 interface Ticket {
@@ -67,9 +91,12 @@ export default function SupportPage() {
 
     const [selected, setSelected] = useState<Ticket | null>(null);
     const [messages, setMessages] = useState<TicketMessage[]>([]);
+    const [attachments, setAttachments] = useState<TicketAttachment[]>([]);
     const [threadLoading, setThreadLoading] = useState(false);
     const [reply, setReply] = useState("");
     const [sending, setSending] = useState(false);
+    const [newFile, setNewFile] = useState<File | null>(null);
+    const [replyFile, setReplyFile] = useState<File | null>(null);
 
     const isMock = isMockTenant(selectedTenant?.id || "");
 
@@ -111,8 +138,10 @@ export default function SupportPage() {
     const openThread = async (ticket: Ticket) => {
         setSelected(ticket);
         setReply("");
+        setReplyFile(null);
         if (isMock) {
             setMessages(ticket.mockMessages || []);
+            setAttachments([]);
             return;
         }
         setThreadLoading(true);
@@ -123,11 +152,61 @@ export default function SupportPage() {
             if (!res.ok) throw new Error(json.error);
             setSelected(json.ticket);
             setMessages(json.messages || []);
+            setAttachments(json.attachments || []);
         } catch {
             toast.error(t("errorGeneric"));
         } finally {
             setThreadLoading(false);
         }
+    };
+
+    const uploadAttachment = async (ticketId: number, file: File): Promise<boolean> => {
+        try {
+            const headers = await authHeaders();
+            const form = new FormData();
+            form.append("tenantId", selectedTenant.id);
+            form.append("file", file);
+            const res = await fetch(`/api/support/tickets/${ticketId}/attachments`, { method: "POST", headers, body: form });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.error);
+            return true;
+        } catch (e) {
+            toast.error(e instanceof Error && e.message ? e.message : t("attachError"));
+            return false;
+        }
+    };
+
+    const downloadAttachment = async (att: TicketAttachment) => {
+        if (isMock) {
+            toast.info(t("attachDemoNote"));
+            return;
+        }
+        try {
+            const headers = await authHeaders();
+            const res = await fetch(`/api/support/attachments/${att.id}?tenantId=${selectedTenant.id}`, { headers });
+            if (!res.ok) {
+                const json = await res.json();
+                throw new Error(json.error);
+            }
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = att.original_name;
+            a.click();
+            URL.revokeObjectURL(url);
+        } catch (e) {
+            toast.error(e instanceof Error && e.message ? e.message : t("errorGeneric"));
+        }
+    };
+
+    const onPickFile = (file: File | null, setter: (f: File | null) => void) => {
+        if (file && !validAttachment(file)) {
+            toast.error(t("attachInvalid"));
+            setter(null);
+            return;
+        }
+        setter(file);
     };
 
     const createTicket = async () => {
@@ -147,9 +226,13 @@ export default function SupportPage() {
             });
             const json = await res.json();
             if (!res.ok) throw new Error(json.error);
+            if (newFile && json.ticketId) {
+                await uploadAttachment(json.ticketId, newFile);
+            }
             toast.success(t("createdOk"));
             setShowCreate(false);
             setForm({ subject: "", category: "question", priority: "medium", message: "" });
+            setNewFile(null);
             await loadTickets();
         } catch (e) {
             toast.error(e instanceof Error && e.message ? e.message : t("errorGeneric"));
@@ -175,6 +258,10 @@ export default function SupportPage() {
             });
             const json = await res.json();
             if (!res.ok) throw new Error(json.error);
+            if (replyFile) {
+                await uploadAttachment(selected.id, replyFile);
+                setReplyFile(null);
+            }
             toast.success(t("sentOk"));
             setReply("");
             await openThread(selected);
@@ -258,6 +345,23 @@ export default function SupportPage() {
                         ))}
                     </div>
 
+                    {attachments.length > 0 && (
+                        <div className="p-[18px] border-t border-line">
+                            <div className="text-[12px] font-semibold text-ink-soft mb-2 flex items-center gap-1">
+                                <Paperclip className="w-3.5 h-3.5" /> {t("attachments")} ({attachments.length})
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                {attachments.map((att) => (
+                                    <button key={att.id} onClick={() => downloadAttachment(att)} className="flex items-center gap-2 text-[12.5px] text-brand-deep hover:underline text-left w-fit">
+                                        <Download className="w-3.5 h-3.5 shrink-0" />
+                                        {att.original_name}
+                                        <span className="text-ink-soft no-underline">({formatBytes(att.size_bytes)}{att.uploaded_by_role === "support" ? " · 🛟" : ""})</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     <div className="p-[18px] border-t border-line">
                         {selected.status === "closed" ? (
                             <div className="text-[13px] text-ink-soft">{t("ticketClosedNote")}</div>
@@ -271,7 +375,12 @@ export default function SupportPage() {
                                     maxLength={10000}
                                     className="w-full border border-line rounded-[10px] p-3 text-[13px] outline-none focus:border-brand-deep resize-y"
                                 />
-                                <div className="flex justify-end">
+                                <div className="flex justify-between items-center gap-2 flex-wrap">
+                                    <label className="flex items-center gap-1.5 text-[12px] text-ink-soft cursor-pointer hover:text-ink">
+                                        <Paperclip className="w-3.5 h-3.5" />
+                                        {replyFile ? `${replyFile.name} (${formatBytes(replyFile.size)})` : t("attach")}
+                                        <input type="file" accept={ATTACHMENT_EXTENSIONS} className="hidden" onChange={(e) => onPickFile(e.target.files?.[0] || null, setReplyFile)} />
+                                    </label>
                                     <button onClick={sendReply} disabled={sending || !reply.trim()} className="bg-brand-deep text-white px-4 py-2 rounded-[8px] font-semibold text-[13px] flex items-center gap-2 disabled:opacity-50 hover:brightness-110">
                                         {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                                         {sending ? t("sending") : t("send")}
@@ -388,6 +497,11 @@ export default function SupportPage() {
                                     className="w-full border border-line rounded-[10px] p-3 text-[13px] outline-none focus:border-brand-deep mt-1 resize-y"
                                 />
                             </div>
+                            <label className="flex items-center gap-1.5 text-[12px] text-ink-soft cursor-pointer hover:text-ink w-fit">
+                                <Paperclip className="w-3.5 h-3.5" />
+                                {newFile ? `${newFile.name} (${formatBytes(newFile.size)})` : t("attachHint")}
+                                <input type="file" accept={ATTACHMENT_EXTENSIONS} className="hidden" onChange={(e) => onPickFile(e.target.files?.[0] || null, setNewFile)} />
+                            </label>
                             <div className="flex justify-end gap-2 mt-1">
                                 <button onClick={() => setShowCreate(false)} disabled={creating} className="px-4 py-2 rounded-[8px] font-semibold text-[13px] text-ink-soft hover:text-ink">{t("cancel")}</button>
                                 <button
