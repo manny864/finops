@@ -3,6 +3,7 @@ import { getAssessment, normalizeBillingCsv } from "@/modules/core/aiProvider";
 import { FocusCostEntry } from "@/modules/core/focusMapper";
 import { requireRequestIdentity, AuthError } from "@/lib/requestAuth";
 import rateLimiter from "@/lib/rateLimiter";
+import { serverError } from '@/lib/apiErrors';
 
 /** Max rows accepted to prevent CPU/memory abuse and Gemini token drain. */
 const MAX_ROWS = 10_000;
@@ -17,7 +18,7 @@ export async function POST(request: NextRequest) {
         const { email, tenantId } = identity;
 
         // Rate limit per (tenant, email) to prevent Denial-of-Wallet on Gemini.
-        const rl = rateLimiter.checkByKey(`upload:${tenantId}:${email}`, RL_LIMIT, RL_WINDOW_MS);
+        const rl = await rateLimiter.checkByKeyDistributed(`upload:${tenantId}:${email}`, RL_LIMIT, RL_WINDOW_MS);
         if (!rl.allowed) {
             return NextResponse.json(
                 { error: `Rate limit exceeded. Max ${RL_LIMIT} uploads per 5 minutes. Retry after ${rl.resetAt.toISOString()}.` },
@@ -72,6 +73,6 @@ export async function POST(request: NextRequest) {
     } catch (error: any) {
         if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
         console.error("Error processing CSV upload:", error);
-        return NextResponse.json({ error: "Internal server error processing CSV", details: error.message }, { status: 500 });
+        return serverError(error, { message: "Internal server error processing CSV", status: 500 });
     }
 }
