@@ -1,6 +1,7 @@
 import React from 'react';
 import { getTranslations } from 'next-intl/server';
 import BudgetCard from '@/components/budgets/BudgetCard';
+import PlatformBudgetsManager from '@/components/budgets/PlatformBudgetsManager';
 import MockBanner from '@/components/MockBanner';
 import HistoryButton from '@/components/history/HistoryButton';
 
@@ -24,6 +25,8 @@ export default async function BudgetsPage() {
             <div className="mt-6"><MockBanner /></div>
 
             <BudgetCard />
+
+            <PlatformBudgetsManager />
         </div>
     );
 }

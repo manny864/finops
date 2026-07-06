@@ -1247,6 +1247,27 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
                 benchmark,
             };
         }
+        case 'platform-budgets': {
+            // Presupuestos de plataforma por cost center (tabla Budgets), para la
+            // demo del gestor en /intelligence/budgets. Escala por tier.
+            const mkBudget = (id: number, costCenter: string, limit: number, spendPct: number, threshold = 80) => ({
+                id,
+                costCenter,
+                monthlyLimit: Math.round(limit * multiplier),
+                alertThreshold: threshold,
+                currentSpend: Math.round(limit * multiplier * spendPct / 100),
+                utilization: spendPct,
+            });
+            const base = [
+                mkBudget(101, 'engineering', 1200, 72),
+                mkBudget(102, 'marketing', 400, 91, 85),
+            ];
+            const extra = [
+                mkBudget(103, 'data-platform', 2500, 58),
+                mkBudget(104, 'shared-services', 900, 103, 90),
+            ];
+            return { success: true, budgets: multiplier >= 3 ? [...base, ...extra] : base };
+        }
         case 'support': {
             // Sistema de soporte interno: tickets de demo escalados por tier.
             // Cada ticket incluye mockMessages para que la vista de hilo funcione
