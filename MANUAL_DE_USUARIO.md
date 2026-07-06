@@ -127,6 +127,23 @@ El sistema está dividido en cinco (5) pilares estratégicos en el menú lateral
 - **Azure Lighthouse Onboarding (Enterprise):** generación de ARM template para delegación cross-tenant en `/admin/onboarding/lighthouse`.
 - **M365 Copilot (Enterprise):** configuración del tenant + chat asistido sobre datos FinOps en `/admin/copilot-m365`.
 
+### 3.6. Soporte (todos los planes, desde Essential)
+
+En **Soporte** (`/support`, ícono de salvavidas en el menú de Administración) cualquier usuario del tenant puede abrir tickets al equipo de CSCloudSolutions y seguir la conversación dentro de la plataforma:
+
+- **Crear ticket:** asunto, categoría (Técnico / Facturación / Consulta / Pedido de feature), prioridad y mensaje inicial.
+- **Hilo de conversación:** las respuestas del equipo de soporte aparecen identificadas con 🛟; puedes responder mientras el ticket no esté cerrado, y cerrarlo o reabrirlo tú mismo.
+- **Cuotas y SLA por plan:**
+
+| Plan | Tickets por mes | Primera respuesta (SLA) |
+| --- | --- | --- |
+| Essential | 5 | 48 h |
+| Professional | 20 | 24 h |
+| Business | Ilimitados | 8 h |
+| Enterprise | Ilimitados | 4 h |
+
+El equipo de CSCloudSolutions atiende la cola global desde `/superadmin/support` (exclusivo SuperAdmin), donde puede responder como soporte, cambiar estado y prioridad de cualquier ticket.
+
 ---
 
 ## 4. FinOps Copilot (Asistente de IA)

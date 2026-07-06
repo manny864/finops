@@ -50,7 +50,8 @@ import {
     Bot,
     TrendingUp,
     Cloud,
-    PiggyBank
+    PiggyBank,
+    LifeBuoy
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -145,6 +146,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             id: 'admin',
             title: t('admin'),
             items: [
+                { href: '/support', label: t('support', { fallback: 'Soporte' }), icon: LifeBuoy },
                 { href: '/admin/users', label: 'Usuarios y Permisos', icon: Users },
                 { href: '/admin/onboarding', label: t('client_onboarding'), icon: Users },
                 { href: '/admin/config', label: t('configuration'), icon: Settings },
@@ -187,6 +189,11 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             href: '/superadmin/funnel',
             label: 'Signup Funnel',
             icon: TrendingUp
+        } as any);
+        categories.find(c => c.id === 'admin')?.items.push({
+            href: '/superadmin/support',
+            label: 'Soporte (Global)',
+            icon: LifeBuoy
         } as any);
     }
 
