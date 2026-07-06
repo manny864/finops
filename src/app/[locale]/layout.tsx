@@ -23,7 +23,18 @@ const openSans = Open_Sans({
 // Developer Note: If the favicon does not update immediately, please forcefully clear your browser cache or do a hard refresh (Ctrl + F5), as browsers aggressively cache favicons.
 export const metadata: Metadata = {
   title: "CSCloudSolutions FinOps",
-  description: "Plataforma automatizada para optimización de costos en Azure y gobernanza cloud."
+  description: "Plataforma automatizada para optimización de costos en Azure y gobernanza cloud.",
+  manifest: "/manifest.webmanifest",
+  // iOS no usa el manifest para "Agregar a inicio": necesita estas metas para
+  // abrir a pantalla completa con el ícono correcto.
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "FinOps",
+  },
+  icons: {
+    apple: "/icons/apple-touch-icon.png",
+  },
 };
 
 export default async function RootLayout({

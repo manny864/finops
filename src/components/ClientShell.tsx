@@ -15,6 +15,7 @@ import ActionCenterDrawer from './ActionCenterDrawer';
 import CostToggle from './dashboard/CostToggle';
 import GlobalPagePinButton from './dashboard/GlobalPagePinButton';
 import SupportHeaderActions from './SupportHeaderActions';
+import MobileTabBar from './mobile/MobileTabBar';
 import PricingPage from './PricingPage';
 import PublicFooter from './PublicFooter';
 import CookieConsent from './CookieConsent';
@@ -80,6 +81,16 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
           router.replace(newUrl);
       }
   }, [searchParams, tAuth, pathname, router]);
+
+  // En teléfonos, la home es la experiencia móvil (/mobile) salvo que el
+  // usuario haya pedido la versión de escritorio desde su perfil.
+  useEffect(() => {
+      if (pathname !== '/' || !isAuthenticated) return;
+      const isPhone = window.matchMedia('(max-width: 767px)').matches;
+      if (isPhone && sessionStorage.getItem('finops:forceDesktop') !== '1') {
+          router.replace('/mobile');
+      }
+  }, [pathname, isAuthenticated, router]);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -300,9 +311,11 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
 
         <ActionCenterDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
 
-        <main className="flex-1 overflow-y-auto p-3 sm:p-6 relative">
+        <main className="flex-1 overflow-y-auto p-3 sm:p-6 pb-24 md:pb-6 relative">
           <RouteTierGate>{children}</RouteTierGate>
         </main>
+
+        <MobileTabBar />
 
         <GlobalPagePinButton />
 
