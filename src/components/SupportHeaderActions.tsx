@@ -92,8 +92,11 @@ export default function SupportHeaderActions() {
 
     if (accounts.length === 0) return null;
 
+    // Los links solo en ≥md: en móvil, Soporte ya tiene pestaña inferior y el
+    // acceso superadmin queda en el menú hamburguesa. El poller sigue corriendo
+    // igual (este componente permanece montado).
     return (
-        <>
+        <div className="hidden md:flex items-center">
             <Link
                 href="/support"
                 title={t("title")}
@@ -110,6 +113,6 @@ export default function SupportHeaderActions() {
                     <Headset className="w-5 h-5" />
                 </Link>
             )}
-        </>
+        </div>
     );
 }
