@@ -25,6 +25,11 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
+# Adjuntos de soporte: el mountpoint debe existir con ownership de la app
+# ANTES de USER nextjs — el named volume hereda este ownership al crearse;
+# sin esto, el volumen montaría como root y la app (uid 1001) no podría escribir.
+RUN mkdir -p /app/data/support-attachments && chown -R nextjs:nodejs /app/data
+
 USER nextjs
 EXPOSE 3000
 ENV PORT 3000

@@ -55,3 +55,6 @@ mysql_data/
 
 # Claude Code (config local de la herramienta, no del proyecto)
 .claude/
+
+# Adjuntos de soporte en dev local (SUPPORT_UPLOAD_DIR default)
+data/

@@ -24,11 +24,27 @@ function severityFromDays(d: number): 'critical' | 'high' | 'medium' | 'low' {
     return 'low';
 }
 
+/**
+ * Estado explícito de la credencial (más allá de los días restantes):
+ * vencida (< 0 días), próxima a vencer (≤ 30 días) o habilitada/vigente.
+ */
+function statusFromDays(d: number): 'expired' | 'expiring' | 'active' {
+    if (d < 0) return 'expired';
+    if (d <= 30) return 'expiring';
+    return 'active';
+}
+
 const SEV_STYLES: Record<string, string> = {
     critical: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
     high: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
     medium: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
     low: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+};
+
+const STATUS_STYLES: Record<string, string> = {
+    expired: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-900/50',
+    expiring: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-900/50',
+    active: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/50',
 };
 
 export default function ExpiringCredentialsPanel() {
@@ -48,14 +64,22 @@ export default function ExpiringCredentialsPanel() {
 
     const { data, error, isLoading } = useSWR(
         selectedTenant?.id && selectedTenant.id !== 'default' && accounts.length > 0
-            ? `/api/governance/expiring-credentials?tenantId=${selectedTenant.id}&daysAhead=90`
+            // daysAhead amplio: trae también las vigentes para poder clasificar
+            // vencida / próxima a vencer / habilitada (no solo las que expiran pronto).
+            ? `/api/governance/expiring-credentials?tenantId=${selectedTenant.id}&daysAhead=3650`
             : null,
         fetcher,
         { revalidateOnFocus: false }
     );
 
     const items: any[] = data?.items || [];
-    const counts = data?.counts || { critical: 0, high: 0, medium: 0 };
+    const statusCounts = items.reduce(
+        (acc: { expired: number; expiring: number; active: number }, it: any) => {
+            acc[statusFromDays(Number(it.daysTillExpiry ?? 0))]++;
+            return acc;
+        },
+        { expired: 0, expiring: 0, active: 0 }
+    );
 
     // Hooks ANTES de cualquier return (Rules of Hooks).
     const { paged, ...paginationProps } = usePagination(items, 10);
@@ -73,17 +97,17 @@ export default function ExpiringCredentialsPanel() {
             </div>
 
             <div className="grid grid-cols-3 gap-3">
-                <div className={`rounded-xl p-4 border ${SEV_STYLES.critical} border-red-200 dark:border-red-900/50`}>
-                    <p className="text-xs font-semibold uppercase tracking-wide opacity-75">{t('severityCritical')}</p>
-                    <p className="text-2xl font-bold mt-1">{counts.critical || 0}</p>
+                <div className={`rounded-xl p-4 border ${STATUS_STYLES.expired}`}>
+                    <p className="text-xs font-semibold uppercase tracking-wide opacity-75">{t('statusExpired')}</p>
+                    <p className="text-2xl font-bold mt-1">{statusCounts.expired}</p>
                 </div>
-                <div className={`rounded-xl p-4 border ${SEV_STYLES.high} border-orange-200 dark:border-orange-900/50`}>
-                    <p className="text-xs font-semibold uppercase tracking-wide opacity-75">{t('severityHigh')}</p>
-                    <p className="text-2xl font-bold mt-1">{counts.high || 0}</p>
+                <div className={`rounded-xl p-4 border ${STATUS_STYLES.expiring}`}>
+                    <p className="text-xs font-semibold uppercase tracking-wide opacity-75">{t('statusExpiring')}</p>
+                    <p className="text-2xl font-bold mt-1">{statusCounts.expiring}</p>
                 </div>
-                <div className={`rounded-xl p-4 border ${SEV_STYLES.medium} border-amber-200 dark:border-amber-900/50`}>
-                    <p className="text-xs font-semibold uppercase tracking-wide opacity-75">{t('severityMedium')}</p>
-                    <p className="text-2xl font-bold mt-1">{counts.medium || 0}</p>
+                <div className={`rounded-xl p-4 border ${STATUS_STYLES.active}`}>
+                    <p className="text-xs font-semibold uppercase tracking-wide opacity-75">{t('statusActive')}</p>
+                    <p className="text-2xl font-bold mt-1">{statusCounts.active}</p>
                 </div>
             </div>
 
@@ -93,6 +117,7 @@ export default function ExpiringCredentialsPanel() {
                         <tr>
                             <th className="px-4 py-3 font-semibold">{t('app')}</th>
                             <th className="px-4 py-3 font-semibold">{t('type')}</th>
+                            <th className="px-4 py-3 font-semibold">{t('status')}</th>
                             <th className="px-4 py-3 font-semibold">{t('expiresAt')}</th>
                             <th className="px-4 py-3 font-semibold text-right">{t('daysLeft')}</th>
                             <th className="px-4 py-3 font-semibold">App ID</th>
@@ -100,7 +125,9 @@ export default function ExpiringCredentialsPanel() {
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-slate-800/50">
                         {paged.map((it, i) => {
-                            const sev = it.severity || severityFromDays(it.daysTillExpiry);
+                            const days = Number(it.daysTillExpiry ?? 0);
+                            const sev = it.severity || severityFromDays(days);
+                            const status = statusFromDays(days);
                             return (
                                 <tr key={`${it.appId}-${it.credentialId}-${i}`} className="hover:bg-slate-50 dark:hover:bg-slate-800/20">
                                     <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-200">
@@ -114,10 +141,15 @@ export default function ExpiringCredentialsPanel() {
                                             {t(`types.${it.credentialType}`)}
                                         </span>
                                     </td>
+                                    <td className="px-4 py-3">
+                                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${STATUS_STYLES[status]}`}>
+                                            {status === 'expired' ? t('statusExpired') : status === 'expiring' ? t('statusExpiring') : t('statusActive')}
+                                        </span>
+                                    </td>
                                     <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400 font-mono">{(it.expiresAt || '').slice(0, 10)}</td>
                                     <td className="px-4 py-3 text-right">
                                         <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${SEV_STYLES[sev]}`}>
-                                            {it.daysTillExpiry} días
+                                            {days} días
                                         </span>
                                     </td>
                                     <td className="px-4 py-3 text-xs text-slate-400 font-mono">{it.appId?.slice(0, 18)}…</td>
@@ -125,7 +157,7 @@ export default function ExpiringCredentialsPanel() {
                             );
                         })}
                         {items.length === 0 && (
-                            <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-slate-500">{t('noExpiring')}</td></tr>
+                            <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-slate-500">{t('noExpiring')}</td></tr>
                         )}
                     </tbody>
                 </table>

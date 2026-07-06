@@ -25,10 +25,12 @@ function buildMockItems(): CredItem[] {
     const now = Date.now();
     const day = 24 * 60 * 60 * 1000;
     const samples: Array<{ days: number; name: string; type: CredItem["credentialType"] }> = [
-        { days: 2,  name: "finops-onboarding-sp",   type: "password" },
-        { days: 12, name: "github-actions-cicd",    type: "certificate" },
-        { days: 28, name: "data-ingest-job",        type: "password" },
-        { days: 65, name: "monitoring-sp",          type: "certificate" },
+        { days: -14, name: "legacy-etl-sp",          type: "password" },
+        { days: 2,   name: "finops-onboarding-sp",   type: "password" },
+        { days: 12,  name: "github-actions-cicd",    type: "certificate" },
+        { days: 28,  name: "data-ingest-job",        type: "password" },
+        { days: 65,  name: "monitoring-sp",          type: "certificate" },
+        { days: 320, name: "powerbi-gateway-sp",     type: "password" },
     ];
     return samples.map((s, i) => ({
         appId: `${"abcd".repeat(8).slice(0, 8)}-0000-0000-0000-${String(i + 1).padStart(12, "0")}`,
@@ -130,7 +132,10 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const tenantId = searchParams.get("tenantId");
     if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
-    const daysAhead = Math.min(parseInt(searchParams.get("daysAhead") || "90", 10), 365);
+    // Cap 3650: la UI pide horizonte amplio para clasificar vencida / próxima a
+    // vencer / habilitada. No cambia el costo (Graph trae las mismas apps; solo
+    // varía el filtro por horizonte).
+    const daysAhead = Math.min(parseInt(searchParams.get("daysAhead") || "90", 10), 3650);
 
     try {
         await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });

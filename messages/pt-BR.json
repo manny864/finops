@@ -356,7 +356,8 @@
         "Radar de Economia Potencial (Teaser)",
         "Academia de Onboarding FinOps",
         "Open Data Sets (Serviços/Regiões/Recursos)",
-        "Preferências Multi-Moeda"
+        "Preferências Multi-Moeda",
+        "Suporte na plataforma (5 tickets/mês, resposta em 48 h)"
       ]
     },
     "pro": {
@@ -386,7 +387,8 @@
         "API REST Pública v1 (somente leitura)",
         "Canais de Notificação (Slack/Teams/Email/Webhook)",
         "Dashboard de Saúde do Tenant",
-        "Autenticação Multi-Fator (MFA)"
+        "Autenticação Multi-Fator (MFA)",
+        "Suporte na plataforma (20 tickets/mês, resposta em 24 h)"
       ]
     },
     "business": {
@@ -406,7 +408,8 @@
         "Delegações Multi-Tenant (cross-account)",
         "Página de Status Pública + Histórico de Incidentes",
         "Cenários What-If (Simulador de Custos)",
-        "API Keys MCP (Integração com Assistentes IA)"
+        "API Keys MCP (Integração com Assistentes IA)",
+        "Suporte ilimitado na plataforma (resposta em 8 h)"
       ]
     },
     "enterprise": {
@@ -416,7 +419,7 @@
       "desc": "Para corporações com topologias complexas (Hub & Spoke).",
       "features": [
         "Tudo do Business",
-        "Suporte Dedicado (SLA)",
+        "Suporte dedicado ilimitado (SLA 4 h)",
         "Workbooks Personalizados",
         "Auditorias FinOps Modulares",
         "Rateio de Custos Compartilhados",
@@ -472,7 +475,32 @@
     "assigned_budget": "Orçamento Atribuído",
     "alert_threshold": "Limite de Alerta",
     "no_budget_configured": "Não há orçamento configurado para este tenant.",
-    "configure_btn": "Configurar Orçamento"
+    "configure_btn": "Configurar Orçamento",
+    "platformTitle": "Orçamentos por Cost Center",
+    "platformSubtitle": "Orçamentos da plataforma: edite o limite/limiar e crie alertas vinculados (e-mail dispara ao ultrapassar o limiar).",
+    "platformNew": "Novo orçamento",
+    "platformLoading": "Carregando orçamentos...",
+    "platformEmpty": "Ainda não há orçamentos por cost center. Crie o primeiro.",
+    "platformCostCenter": "Cost Center",
+    "platformLimit": "Limite mensal",
+    "platformSpend": "Consumido",
+    "platformUtilization": "Utilização",
+    "platformActions": "Ações",
+    "platformEdit": "Editar orçamento",
+    "platformEditTitle": "Editar orçamento: {costCenter}",
+    "platformThreshold": "Limiar de alerta",
+    "platformSave": "Salvar",
+    "platformCancel": "Cancelar",
+    "platformSaved": "Orçamento salvo.",
+    "platformInvalidForm": "Verifique os campos: limite > 0 e limiar entre 1 e 100.",
+    "platformError": "Algo deu errado. Tente novamente.",
+    "platformCreateAlert": "Criar alerta para este orçamento",
+    "platformAlertLinked": "O alerta ficará vinculado ao orçamento de {costCenter}.",
+    "platformAlertName": "Nome da regra",
+    "platformAlertDefaultName": "Orçamento {costCenter} excedido",
+    "platformAlertCreate": "Criar alerta",
+    "platformAlertCreated": "Alerta criado e vinculado ao orçamento.",
+    "platformGoToAlerts": "Ver todas as regras em Alertas (Self-Service)"
   },
   "onboarding": {
     "leastPrivilegeBanner": "Como seu plano atual é {tier}, este script foi personalizado para solicitar apenas as permissões RBAC estritamente necessárias para seus recursos.",
@@ -631,7 +659,11 @@
     "severityHigh": "< 30 dias",
     "severityMedium": "< 90 dias",
     "noExpiring": "Sem credenciais a vencer em breve.",
-    "noted": "Notificação enviada"
+    "noted": "Notificação enviada",
+    "status": "Status",
+    "statusExpired": "Vencidas",
+    "statusExpiring": "Prestes a vencer",
+    "statusActive": "Habilitadas"
   },
   "CopilotM365": {
     "title": "Copilot M365 — Integração FinOps",
@@ -857,7 +889,15 @@
     "byType": "Por tipo de recurso",
     "byLocation": "Por região",
     "identitiesTitle": "Atribuições de acesso (RBAC)",
-    "source": "Fonte: Azure Resource Graph + Policy Insights · {subs} assinatura(s)."
+    "source": "Fonte: Azure Resource Graph + Policy Insights · {subs} assinatura(s).",
+    "showDetail": "Ver detalhe",
+    "hideDetail": "Ocultar detalhe",
+    "detailUnavailable": "Detalhe não disponível para este tenant.",
+    "violatesPolicy": "Viola a política",
+    "viaAssignment": "via atribuição",
+    "resourcesShort": "recursos",
+    "nonCompliantShort": "não conformes",
+    "compliantShort": "Conforme"
   },
   "Support": {
     "title": "Suporte",
@@ -903,7 +943,15 @@
     "category_feature_request": "Pedido de feature",
     "errorGeneric": "Algo deu errado. Tente novamente.",
     "createdOk": "Ticket criado. Responderemos dentro do SLA do seu plano.",
-    "sentOk": "Resposta enviada."
+    "sentOk": "Resposta enviada.",
+    "attachments": "Anexos",
+    "attach": "Anexar arquivo",
+    "attachHint": "Anexar (jpg/png/txt/json, máx 5 MB)",
+    "attachInvalid": "Arquivo inválido: jpg/jpeg/png/txt/json de até 5 MB.",
+    "attachError": "Não foi possível enviar o anexo.",
+    "attachDemoNote": "Download não disponível no modo demo.",
+    "notifNewReply": "O suporte respondeu seu ticket: {subject}",
+    "notifNewCustomerMsg": "Nova mensagem de cliente no suporte: {subject}"
   },
   "SuperAdminSupport": {
     "title": "Suporte (Global)",

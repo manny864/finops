@@ -3,8 +3,29 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
-import { LifeBuoy, Loader2, ArrowLeft, Send } from "lucide-react";
+import { LifeBuoy, Loader2, ArrowLeft, Send, Paperclip, Download } from "lucide-react";
 import { toast } from "sonner";
+
+interface TicketAttachment {
+    id: number;
+    uploaded_by_role: "user" | "support";
+    original_name: string;
+    size_bytes: number;
+}
+
+const ATTACHMENT_EXTENSIONS = ".jpg,.jpeg,.png,.txt,.json";
+const ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024;
+
+function validAttachment(file: File): boolean {
+    const ext = (file.name.split(".").pop() || "").toLowerCase();
+    return ["jpg", "jpeg", "png", "txt", "json"].includes(ext) && file.size > 0 && file.size <= ATTACHMENT_MAX_BYTES;
+}
+
+function formatBytes(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 interface AdminTicket {
     id: number;
@@ -54,9 +75,11 @@ export default function SuperAdminSupportPage() {
 
     const [selected, setSelected] = useState<AdminTicket | null>(null);
     const [messages, setMessages] = useState<TicketMessage[]>([]);
+    const [attachments, setAttachments] = useState<TicketAttachment[]>([]);
     const [threadLoading, setThreadLoading] = useState(false);
     const [reply, setReply] = useState("");
     const [sending, setSending] = useState(false);
+    const [replyFile, setReplyFile] = useState<File | null>(null);
 
     const authHeaders = useCallback(async (): Promise<Record<string, string>> => {
         if (!accounts || accounts.length === 0) return {};
@@ -95,10 +118,32 @@ export default function SuperAdminSupportPage() {
             const json = await res.json();
             if (!res.ok) throw new Error(json.error);
             setMessages(json.messages || []);
+            setAttachments(json.attachments || []);
         } catch {
             toast.error(t("errorGeneric"));
         } finally {
             setThreadLoading(false);
+        }
+    };
+
+    const downloadAttachment = async (att: TicketAttachment) => {
+        if (!selected) return;
+        try {
+            const headers = await authHeaders();
+            const res = await fetch(`/api/support/attachments/${att.id}?tenantId=${selected.tenant_id}`, { headers });
+            if (!res.ok) {
+                const json = await res.json();
+                throw new Error(json.error);
+            }
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = att.original_name;
+            a.click();
+            URL.revokeObjectURL(url);
+        } catch (e) {
+            toast.error(e instanceof Error && e.message ? e.message : t("errorGeneric"));
         }
     };
 
@@ -114,6 +159,17 @@ export default function SuperAdminSupportPage() {
             });
             const json = await res.json();
             if (!res.ok) throw new Error(json.error);
+            if (replyFile) {
+                const form = new FormData();
+                form.append("tenantId", selected.tenant_id);
+                form.append("file", replyFile);
+                const upRes = await fetch(`/api/support/tickets/${selected.id}/attachments`, { method: "POST", headers, body: form });
+                if (!upRes.ok) {
+                    const upJson = await upRes.json();
+                    toast.error(upJson.error || t("errorGeneric"));
+                }
+                setReplyFile(null);
+            }
             toast.success(t("sentOk"));
             setReply("");
             setSelected({ ...selected, status: json.status });
@@ -202,6 +258,23 @@ export default function SuperAdminSupportPage() {
                         ))}
                     </div>
 
+                    {attachments.length > 0 && (
+                        <div className="p-[18px] border-t border-line">
+                            <div className="text-[12px] font-semibold text-ink-soft mb-2 flex items-center gap-1">
+                                <Paperclip className="w-3.5 h-3.5" /> {attachments.length} adjunto(s)
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                {attachments.map((att) => (
+                                    <button key={att.id} onClick={() => downloadAttachment(att)} className="flex items-center gap-2 text-[12.5px] text-brand-deep hover:underline text-left w-fit">
+                                        <Download className="w-3.5 h-3.5 shrink-0" />
+                                        {att.original_name}
+                                        <span className="text-ink-soft">({formatBytes(att.size_bytes)}{att.uploaded_by_role === "support" ? " · 🛟" : ""})</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     <div className="p-[18px] border-t border-line flex flex-col gap-2">
                         <textarea
                             value={reply}
@@ -211,7 +284,16 @@ export default function SuperAdminSupportPage() {
                             maxLength={10000}
                             className="w-full border border-line rounded-[10px] p-3 text-[13px] outline-none focus:border-brand-deep resize-y"
                         />
-                        <div className="flex justify-end">
+                        <div className="flex justify-between items-center gap-2 flex-wrap">
+                            <label className="flex items-center gap-1.5 text-[12px] text-ink-soft cursor-pointer hover:text-ink">
+                                <Paperclip className="w-3.5 h-3.5" />
+                                {replyFile ? `${replyFile.name} (${formatBytes(replyFile.size)})` : "Adjuntar (jpg/png/txt/json, máx 5 MB)"}
+                                <input type="file" accept={ATTACHMENT_EXTENSIONS} className="hidden" onChange={(e) => {
+                                    const f = e.target.files?.[0] || null;
+                                    if (f && !validAttachment(f)) { toast.error("Archivo inválido: jpg/jpeg/png/txt/json de hasta 5 MB."); return; }
+                                    setReplyFile(f);
+                                }} />
+                            </label>
                             <button onClick={sendReply} disabled={sending || !reply.trim()} className="bg-brand-deep text-white px-4 py-2 rounded-[8px] font-semibold text-[13px] flex items-center gap-2 disabled:opacity-50 hover:brightness-110">
                                 {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                                 {sending ? t("sending") : t("send")}

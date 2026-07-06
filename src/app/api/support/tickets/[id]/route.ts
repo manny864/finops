@@ -50,7 +50,13 @@ export async function GET(
             [ticketId]
         );
 
-        return NextResponse.json({ success: true, ticket, messages });
+        const [attachments]: any = await pool.query(
+            `SELECT id, uploaded_by_email, uploaded_by_role, original_name, mime_type, size_bytes, created_at
+             FROM SupportTicketAttachments WHERE ticket_id = ? ORDER BY created_at ASC`,
+            [ticketId]
+        );
+
+        return NextResponse.json({ success: true, ticket, messages, attachments });
     } catch (e: unknown) {
         if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
         return serverError(e, { context: "GET /api/support/tickets/[id]" });

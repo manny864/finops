@@ -15,6 +15,7 @@ import RouteTierGate from './RouteTierGate';
 import ActionCenterDrawer from './ActionCenterDrawer';
 import CostToggle from './dashboard/CostToggle';
 import GlobalPagePinButton from './dashboard/GlobalPagePinButton';
+import SupportHeaderActions from './SupportHeaderActions';
 import PricingPage from './PricingPage';
 import PublicFooter from './PublicFooter';
 import CookieConsent from './CookieConsent';
@@ -281,7 +282,8 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
             <CurrencySelector />
             
             <div className="flex items-center space-x-2">
-                <button 
+                <SupportHeaderActions />
+                <button
                     onClick={() => setDrawerOpen(true)}
                     className="relative p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
                 >

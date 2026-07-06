@@ -21,6 +21,11 @@ services:
       timeout: 5s
       retries: 3
       start_period: 30s
+    # Adjuntos del sistema de soporte (jpg/png/txt/json, retención 60 días).
+    # Volumen nombrado: sobrevive a `docker compose up --build` (el filesystem
+    # del contenedor es efímero). Ruta = SUPPORT_UPLOAD_DIR default de la app.
+    volumes:
+      - support_uploads:/app/data/support-attachments
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.finops.rule=Host(`finops.cscloudsolutions.com.ar`)"
@@ -70,3 +75,6 @@ services:
 networks:
   proxy_network:
     external: true
+
+volumes:
+  support_uploads:
