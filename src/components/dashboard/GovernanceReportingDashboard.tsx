@@ -1,21 +1,97 @@
 "use client";
-import React from "react";
+import React, { useState } from "react";
 import useSWR from "swr";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { useTranslations } from "next-intl";
 import { getFreshIdToken } from "@/lib/msalToken";
-import { Loader2, AlertCircle, ShieldCheck, Boxes, Users } from "lucide-react";
+import Pagination, { usePagination } from "@/components/Pagination";
+import { Loader2, AlertCircle, ShieldCheck, Boxes, Users, ChevronDown, ChevronUp } from "lucide-react";
 
-function Bar({ label, count, max }: { label: string; count: number; max: number }) {
+/**
+ * Nombre completo/legible del tipo de recurso ARM:
+ * "microsoft.compute/virtualmachines" → "Virtual Machines · Microsoft.Compute/virtualMachines".
+ * Mapa para los tipos más comunes; fallback: prettify del último segmento.
+ */
+const FRIENDLY_TYPES: Record<string, string> = {
+    "microsoft.compute/virtualmachines": "Virtual Machines",
+    "microsoft.compute/disks": "Managed Disks",
+    "microsoft.compute/virtualmachinescalesets": "VM Scale Sets",
+    "microsoft.compute/snapshots": "Disk Snapshots",
+    "microsoft.compute/images": "VM Images",
+    "microsoft.storage/storageaccounts": "Storage Accounts",
+    "microsoft.network/networkinterfaces": "Network Interfaces",
+    "microsoft.network/networksecuritygroups": "Network Security Groups",
+    "microsoft.network/publicipaddresses": "Public IP Addresses",
+    "microsoft.network/virtualnetworks": "Virtual Networks",
+    "microsoft.network/loadbalancers": "Load Balancers",
+    "microsoft.network/applicationgateways": "Application Gateways",
+    "microsoft.network/privateendpoints": "Private Endpoints",
+    "microsoft.network/privatednszones": "Private DNS Zones",
+    "microsoft.network/dnszones": "DNS Zones",
+    "microsoft.web/sites": "App Services / Function Apps",
+    "microsoft.web/serverfarms": "App Service Plans",
+    "microsoft.sql/servers": "SQL Servers",
+    "microsoft.sql/servers/databases": "SQL Databases",
+    "microsoft.dbformysql/flexibleservers": "MySQL Flexible Servers",
+    "microsoft.dbforpostgresql/flexibleservers": "PostgreSQL Flexible Servers",
+    "microsoft.documentdb/databaseaccounts": "Cosmos DB Accounts",
+    "microsoft.keyvault/vaults": "Key Vaults",
+    "microsoft.containerservice/managedclusters": "AKS Clusters",
+    "microsoft.containerregistry/registries": "Container Registries",
+    "microsoft.insights/components": "Application Insights",
+    "microsoft.insights/metricalerts": "Metric Alerts",
+    "microsoft.insights/actiongroups": "Action Groups",
+    "microsoft.operationalinsights/workspaces": "Log Analytics Workspaces",
+    "microsoft.recoveryservices/vaults": "Recovery Services Vaults",
+    "microsoft.managedidentity/userassignedidentities": "Managed Identities",
+    "microsoft.automation/automationaccounts": "Automation Accounts",
+    "microsoft.logic/workflows": "Logic Apps",
+    "microsoft.eventhub/namespaces": "Event Hubs Namespaces",
+    "microsoft.servicebus/namespaces": "Service Bus Namespaces",
+    "microsoft.cache/redis": "Azure Cache for Redis",
+    "microsoft.cognitiveservices/accounts": "Cognitive Services / OpenAI",
+    "microsoft.apimanagement/service": "API Management",
+    "microsoft.datafactory/factories": "Data Factories",
+};
+
+export function formatResourceType(type: string): string {
+    const lower = (type || "").toLowerCase();
+    const friendly = FRIENDLY_TYPES[lower];
+    if (friendly) return friendly;
+    const last = lower.split("/").pop() || lower;
+    // prettify: "virtualmachines" no es separable sin diccionario; capitalizar basta.
+    return last.charAt(0).toUpperCase() + last.slice(1);
+}
+
+function Bar({ label, fullName, count, max }: { label: string; fullName?: string; count: number; max: number }) {
     const pct = max > 0 ? Math.round((count / max) * 100) : 0;
     return (
-        <div className="flex items-center gap-3 text-sm">
-            <span className="w-48 truncate text-gray-600 dark:text-gray-300" title={label}>{label}</span>
-            <div className="flex-1 h-2 rounded-full bg-gray-100 dark:bg-slate-800 overflow-hidden">
+        <div className="flex items-start gap-3 text-sm">
+            <div className="w-56 shrink-0">
+                <div className="text-gray-700 dark:text-gray-200 leading-tight">{label}</div>
+                {fullName && fullName.toLowerCase() !== label.toLowerCase() && (
+                    <div className="text-[10.5px] text-gray-400 dark:text-gray-500 break-all leading-tight">{fullName}</div>
+                )}
+            </div>
+            <div className="flex-1 h-2 rounded-full bg-gray-100 dark:bg-slate-800 overflow-hidden mt-1.5">
                 <div className="h-full bg-brand-deep dark:bg-brand-sky" style={{ width: `${pct}%` }} />
             </div>
             <span className="w-12 text-right font-medium text-gray-900 dark:text-white">{count}</span>
+        </div>
+    );
+}
+
+type DetailSection = "resources" | "policies" | "assignments";
+
+function DetailBox({ items, render }: { items: any[]; render: (item: any, i: number) => React.ReactNode }) {
+    const { paged, ...pag } = usePagination(items, 10);
+    return (
+        <div className="mt-3 rounded-lg border border-gray-200 dark:border-slate-800 bg-gray-50/60 dark:bg-slate-800/30 p-3 text-left">
+            <div className="divide-y divide-gray-100 dark:divide-slate-800">
+                {paged.map(render)}
+            </div>
+            {items.length > 10 && <Pagination {...pag} pageSizes={[10]} />}
         </div>
     );
 }
@@ -24,6 +100,7 @@ export default function GovernanceReportingDashboard() {
     const t = useTranslations("GovernanceReporting");
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
+    const [openDetail, setOpenDetail] = useState<DetailSection | null>(null);
 
     const fetcher = async (url: string) => {
         const account = accounts[0];
@@ -62,6 +139,7 @@ export default function GovernanceReportingDashboard() {
     if (!data || data.success === false) return <p className="text-sm text-gray-500">{data?.error || t("empty")}</p>;
 
     const pc = data.policyCompliance || {};
+    const detail = pc.detail || null;
     const inv = data.resourceInventory || { byType: [], byLocation: [], total: 0 };
     const ids = data.identities || { byPrincipalType: [], totalAssignments: 0 };
     const maxType = Math.max(1, ...inv.byType.map((r: any) => r.count));
@@ -75,25 +153,87 @@ export default function GovernanceReportingDashboard() {
         </div>
     );
 
+    const toggleDetail = (section: DetailSection) => setOpenDetail(openDetail === section ? null : section);
+
+    const detailToggle = (section: DetailSection, count: number) => (
+        detail ? (
+            <button onClick={() => toggleDetail(section)} className="mt-1 text-[11px] font-semibold text-brand-deep hover:underline inline-flex items-center gap-0.5">
+                {openDetail === section ? t("hideDetail") : t("showDetail")}
+                {openDetail === section ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            </button>
+        ) : count > 0 ? <div className="mt-1 text-[11px] text-gray-400">{t("detailUnavailable")}</div> : null
+    );
+
     return (
         <div className="space-y-6">
             {/* Policy compliance */}
             <Card icon={<ShieldCheck className="w-4 h-4" />} title={t("policyTitle")}>
                 {pc.available ? (
-                    <div className="grid grid-cols-3 gap-4 text-center">
-                        <div>
-                            <div className="text-3xl font-bold text-red-600 dark:text-red-400">{pc.nonCompliantResources}</div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">{t("nonCompliantResources")}</div>
+                    <>
+                        <div className="grid grid-cols-3 gap-4 text-center">
+                            <div>
+                                <div className="text-3xl font-bold text-red-600 dark:text-red-400">{pc.nonCompliantResources}</div>
+                                <div className="text-xs text-gray-500 dark:text-gray-400">{t("nonCompliantResources")}</div>
+                                {detailToggle("resources", pc.nonCompliantResources)}
+                            </div>
+                            <div>
+                                <div className="text-3xl font-bold text-amber-600 dark:text-amber-400">{pc.nonCompliantPolicies}</div>
+                                <div className="text-xs text-gray-500 dark:text-gray-400">{t("nonCompliantPolicies")}</div>
+                                {detailToggle("policies", pc.nonCompliantPolicies)}
+                            </div>
+                            <div>
+                                <div className="text-3xl font-bold text-gray-900 dark:text-white">{pc.policyAssignments}</div>
+                                <div className="text-xs text-gray-500 dark:text-gray-400">{t("policyAssignments")}</div>
+                                {detailToggle("assignments", pc.policyAssignments)}
+                            </div>
                         </div>
-                        <div>
-                            <div className="text-3xl font-bold text-amber-600 dark:text-amber-400">{pc.nonCompliantPolicies}</div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">{t("nonCompliantPolicies")}</div>
-                        </div>
-                        <div>
-                            <div className="text-3xl font-bold text-gray-900 dark:text-white">{pc.policyAssignments}</div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">{t("policyAssignments")}</div>
-                        </div>
-                    </div>
+
+                        {detail && openDetail === "resources" && (
+                            <DetailBox
+                                items={detail.nonCompliantResources || []}
+                                render={(r, i) => (
+                                    <div key={`${r.resourceId}-${i}`} className="py-2 text-sm">
+                                        <div className="font-medium text-gray-800 dark:text-gray-100 break-all">{r.name}</div>
+                                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                                            {formatResourceType(r.type)} · <span className="break-all">{r.type}</span>
+                                        </div>
+                                        <div className="text-xs text-gray-400 dark:text-gray-500">
+                                            {t("violatesPolicy")}: <b className="text-gray-600 dark:text-gray-300">{r.policyName}</b> · {t("viaAssignment")}: {r.assignmentName}
+                                        </div>
+                                    </div>
+                                )}
+                            />
+                        )}
+                        {detail && openDetail === "policies" && (
+                            <DetailBox
+                                items={detail.nonCompliantPolicies || []}
+                                render={(p, i) => (
+                                    <div key={`${p.name}-${i}`} className="py-2 flex items-center justify-between gap-3 text-sm">
+                                        <span className="text-gray-800 dark:text-gray-100">{p.name}</span>
+                                        <span className="shrink-0 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                                            {p.count} {t("resourcesShort")}
+                                        </span>
+                                    </div>
+                                )}
+                            />
+                        )}
+                        {detail && openDetail === "assignments" && (
+                            <DetailBox
+                                items={detail.assignments || []}
+                                render={(a, i) => (
+                                    <div key={`${a.name}-${i}`} className="py-2 flex items-center justify-between gap-3 text-sm">
+                                        <div className="min-w-0">
+                                            <div className="text-gray-800 dark:text-gray-100">{a.name}</div>
+                                            <div className="text-xs text-gray-400 break-all">{a.scope}</div>
+                                        </div>
+                                        <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-bold ${a.nonCompliantCount > 0 ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"}`}>
+                                            {a.nonCompliantCount > 0 ? `${a.nonCompliantCount} ${t("nonCompliantShort")}` : t("compliantShort")}
+                                        </span>
+                                    </div>
+                                )}
+                            />
+                        )}
+                    </>
                 ) : (
                     <p className="text-sm text-gray-500 dark:text-gray-400">{t("policyUnavailable")}</p>
                 )}
@@ -104,7 +244,9 @@ export default function GovernanceReportingDashboard() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div className="space-y-2">
                         <div className="text-xs uppercase tracking-wide text-gray-400 mb-1">{t("byType")}</div>
-                        {inv.byType.slice(0, 8).map((r: any) => <Bar key={r.type} label={r.type} count={r.count} max={maxType} />)}
+                        {inv.byType.slice(0, 8).map((r: any) => (
+                            <Bar key={r.type} label={formatResourceType(r.type)} fullName={r.type} count={r.count} max={maxType} />
+                        ))}
                     </div>
                     <div className="space-y-2">
                         <div className="text-xs uppercase tracking-wide text-gray-400 mb-1">{t("byLocation")}</div>

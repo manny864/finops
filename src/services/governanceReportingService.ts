@@ -20,13 +20,94 @@ async function rg(client: ResourceGraphClient, query: string, subscriptions: str
     }
 }
 
+export interface PolicyComplianceDetail {
+    nonCompliantResources: Array<{ resourceId: string; name: string; type: string; policyName: string; assignmentName: string }>;
+    nonCompliantPolicies: Array<{ name: string; count: number }>;
+    assignments: Array<{ name: string; scope: string; nonCompliantCount: number }>;
+}
+
 export interface GovernanceReport {
     success: true;
     mock: false;
     subscriptionsEvaluated: number;
-    policyCompliance: { nonCompliantResources: number; nonCompliantPolicies: number; policyAssignments: number; available: boolean };
+    policyCompliance: { nonCompliantResources: number; nonCompliantPolicies: number; policyAssignments: number; available: boolean; detail?: PolicyComplianceDetail };
     resourceInventory: { total: number; byType: Array<{ type: string; count: number }>; byLocation: Array<{ location: string; count: number }> };
     identities: { totalAssignments: number; byPrincipalType: Array<{ principalType: string; count: number }> };
+}
+
+/**
+ * Detalle del cumplimiento de Azure Policy vía Resource Graph
+ * (`policyresources`, read-only, rol Reader): estados NonCompliant a nivel
+ * recurso, agregado por definición de política y lista de asignaciones con su
+ * conteo de no conformes. Los GUIDs de definiciones/asignaciones se resuelven
+ * a displayName con dos queries adicionales y join en memoria.
+ */
+async function getPolicyComplianceDetail(client: ResourceGraphClient, subs: string[]): Promise<PolicyComplianceDetail> {
+    const states = await rg(
+        client,
+        `policyresources
+         | where type =~ 'microsoft.policyinsights/policystates'
+         | where tostring(properties.complianceState) =~ 'NonCompliant'
+         | project resourceId = tostring(properties.resourceId),
+                   resourceType = tostring(properties.resourceType),
+                   policyDefId = tolower(tostring(properties.policyDefinitionId)),
+                   assignmentId = tolower(tostring(properties.policyAssignmentId))
+         | limit 400`,
+        subs
+    );
+
+    const definitions = await rg(
+        client,
+        `policyresources
+         | where type =~ 'microsoft.authorization/policydefinitions'
+         | project id = tolower(id), displayName = tostring(properties.displayName)
+         | limit 1000`,
+        subs
+    );
+    const assignments = await rg(
+        client,
+        `policyresources
+         | where type =~ 'microsoft.authorization/policyassignments'
+         | project id = tolower(id), displayName = tostring(properties.displayName), scope = tostring(properties.scope)
+         | limit 500`,
+        subs
+    );
+
+    const defName = new Map<string, string>(definitions.map(d => [String(d.id), String(d.displayName || "")]));
+    const asgMeta = new Map<string, { name: string; scope: string }>(
+        assignments.map(a => [String(a.id), { name: String(a.displayName || a.id.split("/").pop() || ""), scope: String(a.scope || "") }])
+    );
+
+    const lastSegment = (id: string) => id.split("/").pop() || id;
+
+    const nonCompliantResources = states.slice(0, 200).map(s => ({
+        resourceId: String(s.resourceId || ""),
+        name: lastSegment(String(s.resourceId || "")),
+        type: String(s.resourceType || "unknown"),
+        policyName: defName.get(String(s.policyDefId)) || lastSegment(String(s.policyDefId || "")),
+        assignmentName: asgMeta.get(String(s.assignmentId))?.name || lastSegment(String(s.assignmentId || "")),
+    }));
+
+    const byPolicy = new Map<string, number>();
+    const byAssignment = new Map<string, number>();
+    for (const s of states) {
+        const p = defName.get(String(s.policyDefId)) || lastSegment(String(s.policyDefId || ""));
+        byPolicy.set(p, (byPolicy.get(p) || 0) + 1);
+        byAssignment.set(String(s.assignmentId), (byAssignment.get(String(s.assignmentId)) || 0) + 1);
+    }
+
+    const nonCompliantPolicies = Array.from(byPolicy.entries())
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 100);
+
+    const assignmentList = assignments.map(a => ({
+        name: String(a.displayName || lastSegment(String(a.id))),
+        scope: String(a.scope || ""),
+        nonCompliantCount: byAssignment.get(String(a.id)) || 0,
+    })).sort((a, b) => b.nonCompliantCount - a.nonCompliantCount).slice(0, 100);
+
+    return { nonCompliantResources, nonCompliantPolicies, assignments: assignmentList };
 }
 
 async function getPolicyCompliance(credential: any, subs: string[]): Promise<GovernanceReport["policyCompliance"]> {
@@ -74,8 +155,15 @@ export async function getGovernanceReport(tenantId: string): Promise<GovernanceR
     );
     const totalAssignments = idRows.reduce((s, r) => s + Number(r.count_ ?? 0), 0);
 
-    // --- Cumplimiento de Azure Policy ---
+    // --- Cumplimiento de Azure Policy (resumen + detalle) ---
     const policyCompliance = await getPolicyCompliance(credential, subs);
+    if (policyCompliance.available) {
+        try {
+            policyCompliance.detail = await getPolicyComplianceDetail(client, subs);
+        } catch (e: any) {
+            console.warn("[governanceReporting] policy detail failed:", e?.message);
+        }
+    }
 
     return {
         success: true,

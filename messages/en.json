@@ -659,7 +659,11 @@
     "severityHigh": "< 30 days",
     "severityMedium": "< 90 days",
     "noExpiring": "No credentials expiring soon.",
-    "noted": "Notification sent"
+    "noted": "Notification sent",
+    "status": "Status",
+    "statusExpired": "Expired",
+    "statusExpiring": "Expiring soon",
+    "statusActive": "Active"
   },
   "CopilotM365": {
     "title": "Copilot M365 — FinOps Integration",
@@ -885,7 +889,15 @@
     "byType": "By resource type",
     "byLocation": "By location",
     "identitiesTitle": "Access assignments (RBAC)",
-    "source": "Source: Azure Resource Graph + Policy Insights · {subs} subscription(s)."
+    "source": "Source: Azure Resource Graph + Policy Insights · {subs} subscription(s).",
+    "showDetail": "View detail",
+    "hideDetail": "Hide detail",
+    "detailUnavailable": "Detail not available for this tenant.",
+    "violatesPolicy": "Violates policy",
+    "viaAssignment": "via assignment",
+    "resourcesShort": "resources",
+    "nonCompliantShort": "non-compliant",
+    "compliantShort": "Compliant"
   },
   "Support": {
     "title": "Support",

@@ -1126,7 +1126,31 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
                 success: true,
                 mock: true,
                 subscriptionsEvaluated: m >= 10 ? 4 : m === 3 ? 2 : 1,
-                policyCompliance: { nonCompliantResources: 3 * m, nonCompliantPolicies: Math.max(1, Math.round(m / 2)), policyAssignments: 4 + m, available: true },
+                policyCompliance: {
+                    nonCompliantResources: 3 * m,
+                    nonCompliantPolicies: Math.max(1, Math.round(m / 2)),
+                    policyAssignments: 4 + m,
+                    available: true,
+                    detail: {
+                        nonCompliantResources: Array.from({ length: Math.min(3 * m, 25) }, (_, i) => ({
+                            resourceId: `/subscriptions/mock-sub/resourceGroups/rg-demo/providers/Microsoft.Compute/virtualMachines/vm-demo-${i + 1}`,
+                            name: `vm-demo-${i + 1}`,
+                            type: i % 3 === 0 ? 'microsoft.compute/virtualmachines' : i % 3 === 1 ? 'microsoft.storage/storageaccounts' : 'microsoft.network/publicipaddresses',
+                            policyName: i % 2 === 0 ? 'Require a tag on resources (CostCenter)' : 'Allowed virtual machine size SKUs',
+                            assignmentName: i % 2 === 0 ? 'Tag Governance Baseline' : 'Cost Control - VM SKUs',
+                        })),
+                        nonCompliantPolicies: [
+                            { name: 'Require a tag on resources (CostCenter)', count: 2 * m },
+                            { name: 'Allowed virtual machine size SKUs', count: m },
+                        ],
+                        assignments: [
+                            { name: 'Tag Governance Baseline', scope: '/subscriptions/mock-sub', nonCompliantCount: 2 * m },
+                            { name: 'Cost Control - VM SKUs', scope: '/subscriptions/mock-sub', nonCompliantCount: m },
+                            { name: 'Security Baseline (ASC)', scope: '/subscriptions/mock-sub', nonCompliantCount: 0 },
+                            { name: 'Diagnostic Settings Required', scope: '/subscriptions/mock-sub', nonCompliantCount: 0 },
+                        ],
+                    },
+                },
                 resourceInventory: {
                     total: 40 * m,
                     byType: [

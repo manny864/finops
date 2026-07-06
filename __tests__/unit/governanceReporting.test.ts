@@ -36,7 +36,10 @@ describe("governanceReportingService", () => {
         expect(r.resourceInventory.byType[1]).toEqual({ type: "microsoft.storage/storageaccounts", count: 25 });
         expect(r.identities.totalAssignments).toBe(216);
         expect(r.identities.byPrincipalType[0]).toEqual({ principalType: "User", count: 110 });
-        expect(r.policyCompliance).toEqual({ nonCompliantResources: 122, nonCompliantPolicies: 13, policyAssignments: 32, available: true });
+        expect(r.policyCompliance).toMatchObject({ nonCompliantResources: 122, nonCompliantPolicies: 13, policyAssignments: 32, available: true });
+        // Cuando policy está disponible, se adjunta el detalle (con los mocks RG
+        // vacíos de este test, las listas quedan vacías pero la estructura existe).
+        expect(r.policyCompliance.detail).toEqual({ nonCompliantResources: [], nonCompliantPolicies: [], assignments: [] });
     });
 
     it("policy available=false cuando PolicyInsights no responde OK", async () => {
