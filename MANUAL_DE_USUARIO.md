@@ -133,6 +133,8 @@ En **Soporte** (`/support`, ícono de salvavidas en el menú de Administración)
 
 - **Crear ticket:** asunto, categoría (Técnico / Facturación / Consulta / Pedido de feature), prioridad y mensaje inicial.
 - **Hilo de conversación:** las respuestas del equipo de soporte aparecen identificadas con 🛟; puedes responder mientras el ticket no esté cerrado, y cerrarlo o reabrirlo tú mismo.
+- **Adjuntos:** al crear o responder puedes adjuntar capturas o archivos (`jpg`, `jpeg`, `png`, `txt`, `json`; máx. 5 MB por archivo, 10 por ticket). Los adjuntos se conservan **60 días** y luego se eliminan automáticamente.
+- **Acceso rápido y notificaciones:** el ícono de salvavidas junto a tu usuario (header) abre Soporte desde cualquier página. Cuando el equipo responde tu ticket, verás una notificación en la campanita 🔔 y un aviso en pantalla.
 - **Cuotas y SLA por plan:**
 
 | Plan | Tickets por mes | Primera respuesta (SLA) |
@@ -142,7 +144,7 @@ En **Soporte** (`/support`, ícono de salvavidas en el menú de Administración)
 | Business | Ilimitados | 8 h |
 | Enterprise | Ilimitados | 4 h |
 
-El equipo de CSCloudSolutions atiende la cola global desde `/superadmin/support` (exclusivo SuperAdmin), donde puede responder como soporte, cambiar estado y prioridad de cualquier ticket.
+El equipo de CSCloudSolutions atiende la cola global desde `/superadmin/support` (exclusivo SuperAdmin, con acceso directo desde el header 🎧), donde puede responder como soporte, adjuntar archivos, y cambiar estado y prioridad de cualquier ticket. El equipo también recibe notificación en la campanita cuando un cliente escribe.
 
 ---
 
