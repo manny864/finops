@@ -992,5 +992,19 @@
     "sentOk": "Resposta enviada ao cliente.",
     "errorGeneric": "Algo deu errado. Tente novamente.",
     "backToList": "Voltar à fila"
+  },
+  "Profile": {
+    "openProfile": "Abrir perfil",
+    "editName": "Alterar nome",
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "nameSaved": "Nome atualizado.",
+    "currency": "Moeda",
+    "appearance": "Aparência",
+    "themeLight": "Claro",
+    "themeDark": "Escuro",
+    "themeAuto": "Automático",
+    "logout": "Sair",
+    "errorGeneric": "Algo deu errado. Tente novamente."
   }
 }

@@ -148,6 +148,18 @@ El equipo de CSCloudSolutions atiende la cola global desde `/superadmin/support`
 
 ---
 
+## 3.7. Tu Perfil
+
+Haciendo clic en tu **avatar** (círculo con tu inicial, arriba a la derecha) se abre el menú de perfil, disponible en móvil y escritorio:
+
+- **Nombre completo:** editable con el ícono de lápiz (se guarda en tu usuario de la plataforma).
+- **Correo electrónico** y **Rol** dentro del tenant.
+- **Moneda:** selector de divisa de visualización (antes estaba suelto en el header).
+- **Aspecto:** Claro, Oscuro o Automático (sigue el tema del sistema).
+- **Cerrar sesión.**
+
+---
+
 ## 4. FinOps Copilot (Asistente de IA)
 
 La plataforma cuenta con un asistente inteligente integrado (**FinOps Copilot**), accesible a través de un ícono flotante en la esquina inferior de la pantalla.

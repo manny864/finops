@@ -992,5 +992,19 @@
     "sentOk": "Respuesta enviada al cliente.",
     "errorGeneric": "Algo salió mal. Intentá de nuevo.",
     "backToList": "Volver a la cola"
+  },
+  "Profile": {
+    "openProfile": "Abrir perfil",
+    "editName": "Cambiar nombre",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "nameSaved": "Nombre actualizado.",
+    "currency": "Moneda",
+    "appearance": "Aspecto",
+    "themeLight": "Claro",
+    "themeDark": "Oscuro",
+    "themeAuto": "Automático",
+    "logout": "Cerrar sesión",
+    "errorGeneric": "Algo salió mal. Intentá de nuevo."
   }
 }

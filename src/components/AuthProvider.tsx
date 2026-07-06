@@ -5,6 +5,7 @@ import { MsalProvider, useMsal, useIsAuthenticated } from "@azure/msal-react";
 import { useTenant } from "./TenantProvider";
 import { isMockTenant } from "@/lib/mockData";
 import { exitDemoSession } from "@/app/_actions/demoAuth";
+import UserProfileMenu from "./UserProfileMenu";
 
 const pca = new PublicClientApplication({
     auth: {
@@ -28,32 +29,11 @@ export function AuthButton() {
         }).catch(e => console.error("Error al iniciar loginRedirect:", e));
     };
 
-    const handleLogout = () => {
-        instance.logoutRedirect({
-            postLogoutRedirectUri: typeof window !== "undefined" ? window.location.origin : "/"
-        }).catch(e => console.error("Error al iniciar logout:", e));
-    };
-
     if (isAuthenticated && accounts.length > 0) {
-        return (
-            <div className="flex items-center space-x-4 px-3">
-                <div className="flex items-center space-x-3">
-                    <div className="w-9 h-9 rounded-full bg-[var(--color-primary)] flex items-center justify-center text-white font-bold shadow-sm">
-                        {accounts[0].name?.charAt(0) || "U"}
-                    </div>
-                    <div className="hidden md:block">
-                        <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{accounts[0].name}</p>
-                        <p className="text-xs text-gray-500">{accounts[0].username}</p>
-                    </div>
-                </div>
-                <button 
-                    onClick={handleLogout}
-                    className="text-xs font-semibold text-red-600 hover:text-red-800 transition-colors border border-red-200 dark:border-red-900/50 bg-red-50 hover:bg-red-100 dark:bg-red-900/10 dark:hover:bg-red-900/30 px-3 py-1.5 rounded-md"
-                >
-                    Cerrar Sesión
-                </button>
-            </div>
-        );
+        // Solo el avatar: nombre, email, rol, moneda, aspecto y logout viven
+        // dentro del menú de perfil (en móvil el botón de logout separado
+        // quedaba fuera de pantalla).
+        return <UserProfileMenu />;
     }
 
     if (inProgress === "startup" || inProgress === "handleRedirect") {

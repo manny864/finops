@@ -9,7 +9,6 @@ import { LayoutTemplate, Code2, Bell } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import AuthSync from './AuthSync';
 import LanguageSwitcher from './LanguageSwitcher';
-import { CurrencySelector } from './CurrencyProvider';
 import Sidebar from "./Sidebar";
 import RouteTierGate from './RouteTierGate';
 import ActionCenterDrawer from './ActionCenterDrawer';
@@ -278,10 +277,7 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
                 <ScopeSelector />
             </div>
 
-            <div className="flex items-center space-x-1 sm:space-x-2">
-                <LanguageSwitcher />
-                <CurrencySelector />
-            </div>
+            <LanguageSwitcher />
 
             <div className="flex items-center space-x-1 sm:space-x-2">
                 <SupportHeaderActions />
@@ -302,10 +298,12 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
           </div>
         </header>
 
+        <ActionCenterDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+
         <main className="flex-1 overflow-y-auto p-3 sm:p-6 relative">
           <RouteTierGate>{children}</RouteTierGate>
         </main>
-        
+
         <GlobalPagePinButton />
 
         <PublicFooter />
