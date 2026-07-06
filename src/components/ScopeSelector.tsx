@@ -5,7 +5,7 @@ import { useSubscription } from './SubscriptionProvider';
 import { useTenant } from './TenantProvider';
 import { useTranslations } from 'next-intl';
 
-export default function ScopeSelector() {
+export default function ScopeSelector({ mobile = false }: { mobile?: boolean }) {
     const { selectedSubscription, setSelectedSubscription, subscriptions, loading } = useSubscription();
     const { selectedTenant, setSelectedTenant, tenants, isAdmin, userScope } = useTenant();
     const tc = useTranslations('Common');
@@ -34,7 +34,9 @@ export default function ScopeSelector() {
     const currentValue = `${selectedTenant.id}|${selectedSubscription}`;
 
     return (
-        <div className="flex items-center gap-[9px] bg-surface border border-line-strong rounded-[10px] p-[6px_9px_6px_12px] shadow-sm">
+        <div className={mobile
+            ? "flex items-center gap-2 bg-surface dark:bg-slate-900 border border-line dark:border-slate-700 rounded-xl px-3 py-1 w-full"
+            : "flex items-center gap-[9px] bg-surface border border-line-strong rounded-[10px] p-[6px_9px_6px_12px] shadow-sm"}>
             <label className="text-[10px] tracking-[1px] uppercase text-grey font-bold hidden md:block">
                 {tc('scope')}
             </label>
@@ -42,7 +44,9 @@ export default function ScopeSelector() {
                 value={currentValue}
                 onChange={handleChange}
                 disabled={loading}
-                className="border-0 bg-transparent font-heading font-bold text-[13px] text-brand-deep cursor-pointer outline-none w-[180px] md:w-[280px] truncate dark:bg-slate-800 dark:border-slate-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                className={mobile
+                    ? "border-0 bg-transparent font-heading font-bold text-base text-brand-deep dark:text-brand-sky cursor-pointer outline-none w-full py-2 truncate"
+                    : "border-0 bg-transparent font-heading font-bold text-[13px] text-brand-deep cursor-pointer outline-none w-[180px] md:w-[280px] truncate dark:bg-slate-800 dark:border-slate-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"}
             >
                 {isAdmin ? (
                     tenants.map(t => (

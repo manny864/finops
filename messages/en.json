@@ -1052,6 +1052,7 @@
     "statusRejected": "Rejected",
     "errorGeneric": "Something went wrong. Please try again.",
     "goDesktop": "Use desktop version",
-    "language": "Language"
+    "language": "Language",
+    "scope": "Scope (tenant / subscription)"
   }
 }

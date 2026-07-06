@@ -1052,6 +1052,7 @@
     "statusRejected": "Rejeitada",
     "errorGeneric": "Algo deu errado. Tente novamente.",
     "goDesktop": "Usar versão desktop",
-    "language": "Idioma"
+    "language": "Idioma",
+    "scope": "Escopo (tenant / assinatura)"
   }
 }

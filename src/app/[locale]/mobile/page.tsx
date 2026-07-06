@@ -8,6 +8,8 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/routing";
 import { useTenant } from "@/components/TenantProvider";
+import { useSubscription } from "@/components/SubscriptionProvider";
+import ScopeSelector from "@/components/ScopeSelector";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
@@ -26,6 +28,7 @@ const fmt = (n: number) =>
 export default function MobileSummaryPage() {
     const t = useTranslations("Mobile");
     const { selectedTenant } = useTenant();
+    const { selectedSubscription } = useSubscription();
     const { instance, accounts } = useMsal();
     const [summary, setSummary] = useState<Summary | null>(null);
     const [loading, setLoading] = useState(true);
@@ -47,7 +50,8 @@ export default function MobileSummaryPage() {
             }
             if (accounts.length === 0) return;
             const token = await getFreshIdToken(instance, accounts[0]);
-            const res = await fetch(`/api/dashboard/summary?tenantId=${selectedTenant.id}&subscriptionId=All`, {
+            const subId = selectedSubscription && selectedSubscription.toLowerCase() !== "all" ? selectedSubscription : "All";
+            const res = await fetch(`/api/dashboard/summary?tenantId=${selectedTenant.id}&subscriptionId=${encodeURIComponent(subId)}`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             const json = await res.json();
@@ -63,7 +67,7 @@ export default function MobileSummaryPage() {
         } finally {
             setLoading(false);
         }
-    }, [selectedTenant, isMock, accounts, instance]);
+    }, [selectedTenant, selectedSubscription, isMock, accounts, instance]);
 
     useEffect(() => {
         load();
@@ -78,14 +82,17 @@ export default function MobileSummaryPage() {
 
     return (
         <div className="max-w-lg mx-auto">
-            <div className="flex items-center justify-between mb-4">
-                <div>
-                    <h1 className="text-2xl font-extrabold text-ink dark:text-white font-heading">{t("summaryTitle")}</h1>
-                    <p className="text-sm text-ink-soft dark:text-gray-400 mt-0.5">{selectedTenant?.name || ""}</p>
-                </div>
+            <div className="flex items-center justify-between mb-3">
+                <h1 className="text-2xl font-extrabold text-ink dark:text-white font-heading">{t("summaryTitle")}</h1>
                 <button onClick={load} aria-label={t("refresh")} className="p-2.5 rounded-full bg-surface-2 dark:bg-slate-800 text-ink-soft dark:text-gray-300">
                     <RefreshCw className={`w-5 h-5 ${loading ? "animate-spin" : ""}`} />
                 </button>
+            </div>
+
+            {/* Ámbito: superadmin elige tenant, usuarios eligen suscripción y en
+                demo se elige qué demo (tier) ver. */}
+            <div className="mb-4">
+                <ScopeSelector mobile />
             </div>
 
             {loading ? (
