@@ -463,7 +463,9 @@
       "willUse": "Será usado",
       "cancel": "Cancelar",
       "continue": "Continuar para o pagamento"
-    }
+    },
+    "showFeatures": "Ver funções ({count})",
+    "hideFeatures": "Ocultar funções"
   },
   "auth": {
     "paymentSuccess": "Pagamento concluído com sucesso! Por favor, faça login para acessar seu plano."

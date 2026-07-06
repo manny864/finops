@@ -19,7 +19,6 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
   const [isAnnual, setIsAnnual] = useState(false);
   const [paddle, setPaddle] = useState<Paddle>();
   const [isEnterpriseModalOpen, setEnterpriseModalOpen] = useState(false);
-  const [detailTier, setDetailTier] = useState<null | 'essential' | 'pro' | 'business' | 'enterprise'>(null);
   const [pendingCheckoutPriceId, setPendingCheckoutPriceId] = useState<string | undefined>(undefined);
   const t = useTranslations('pricing');
 
@@ -201,19 +200,11 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
             {t('essential.desc')}
           </p>
           
-          <ul className="space-y-4 text-sm text-gray-600">
-            {(t.raw('essential.features') as string[]).slice(0, 5).map((feature, idx) => (
-              <li key={idx} className="flex items-start font-medium text-gray-900">
-                <svg className="w-5 h-5 text-blue-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-                {feature}
-              </li>
-            ))}
-          </ul>
-          {(t.raw('essential.features') as string[]).length > 5 && (
-            <button type="button" onClick={() => setDetailTier('essential')} className="mt-3 text-sm font-semibold text-brand-deep hover:underline self-start cursor-pointer">
-              {t('seeMore')} →
-            </button>
-          )}
+          <PlanFeatures
+            features={t.raw('essential.features') as string[]}
+            showLabel={t('showFeatures', {count: (t.raw('essential.features') as string[]).length})}
+            hideLabel={t('hideFeatures')}
+          />
           <div className="flex-1" />
         </div>
 
@@ -254,19 +245,11 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
             {t('pro.desc')}
           </p>
           
-          <ul className="space-y-4 text-sm text-gray-600">
-            {(t.raw('pro.features') as string[]).slice(0, 5).map((feature, idx) => (
-              <li key={idx} className="flex items-start font-medium text-gray-900">
-                <svg className="w-5 h-5 text-blue-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-                {feature}
-              </li>
-            ))}
-          </ul>
-          {(t.raw('pro.features') as string[]).length > 5 && (
-            <button type="button" onClick={() => setDetailTier('pro')} className="mt-3 text-sm font-semibold text-brand-deep hover:underline self-start cursor-pointer">
-              {t('seeMore')} →
-            </button>
-          )}
+          <PlanFeatures
+            features={t.raw('pro.features') as string[]}
+            showLabel={t('showFeatures', {count: (t.raw('pro.features') as string[]).length})}
+            hideLabel={t('hideFeatures')}
+          />
           <div className="flex-1" />
         </div>
 
@@ -309,19 +292,11 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
             {t('business.desc')}
           </p>
           
-          <ul className="space-y-4 text-sm text-gray-600">
-            {(t.raw('business.features') as string[]).slice(0, 5).map((feature, idx) => (
-              <li key={idx} className="flex items-start font-medium text-gray-900">
-                <svg className="w-5 h-5 text-brand-deep mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-                {feature}
-              </li>
-            ))}
-          </ul>
-          {(t.raw('business.features') as string[]).length > 5 && (
-            <button type="button" onClick={() => setDetailTier('business')} className="mt-3 text-sm font-semibold text-brand-deep hover:underline self-start cursor-pointer">
-              {t('seeMore')} →
-            </button>
-          )}
+          <PlanFeatures
+            features={t.raw('business.features') as string[]}
+            showLabel={t('showFeatures', {count: (t.raw('business.features') as string[]).length})}
+            hideLabel={t('hideFeatures')}
+          />
           <div className="flex-1" />
         </div>
 
@@ -356,25 +331,19 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
             {t('enterprise.desc')}
           </p>
           
-          <ul className="space-y-4 text-sm text-gray-300 relative z-10">
-            {(t.raw('enterprise.features') as string[]).slice(0, 5).map((feature, idx) => (
-              <li key={idx} className="flex items-start font-medium text-white">
-                <svg className="w-5 h-5 text-brand-bright mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-                {feature}
-              </li>
-            ))}
-          </ul>
-          {(t.raw('enterprise.features') as string[]).length > 5 && (
-            <button type="button" onClick={() => setDetailTier('enterprise')} className="mt-3 text-sm font-semibold text-brand-bright hover:underline self-start cursor-pointer relative z-10">
-              {t('seeMore')} →
-            </button>
-          )}
+          <div className="relative z-10">
+            <PlanFeatures
+              features={t.raw('enterprise.features') as string[]}
+              showLabel={t('showFeatures', {count: (t.raw('enterprise.features') as string[]).length})}
+              hideLabel={t('hideFeatures')}
+              dark
+            />
+          </div>
           <div className="flex-1" />
         </div>
 
       </div>
       <EnterpriseLeadModal isOpen={isEnterpriseModalOpen} onClose={() => setEnterpriseModalOpen(false)} />
-      <TierDetailsModal tier={detailTier} onClose={() => setDetailTier(null)} t={t} />
       <CorporateEmailNoticeModal
         open={!!pendingCheckoutPriceId}
         email={corporateEmail}
@@ -443,65 +412,35 @@ function CorporateEmailNoticeModal({ open, email, onCancel, onConfirm, t }: Corp
   );
 }
 
-interface TierDetailsModalProps {
-  tier: null | 'essential' | 'pro' | 'business' | 'enterprise';
-  onClose: () => void;
-  t: ReturnType<typeof useTranslations>;
-}
 
-function TierDetailsModal({ tier, onClose, t }: TierDetailsModalProps) {
-  if (!tier) return null;
-  const features = (t.raw(`${tier}.features`) as string[]) || [];
-  const name = t(`${tier}.name`);
-  const desc = t(`${tier}.desc`);
-  const accent = tier === 'enterprise' ? 'text-brand-bright' : 'text-brand-deep';
-
+/**
+ * Lista de funciones del plan contraída por defecto (móvil y escritorio):
+ * un toggle "Ver funciones (N)" expande la lista completa inline.
+ */
+function PlanFeatures({ features, showLabel, hideLabel, dark = false }: { features: string[]; showLabel: string; hideLabel: string; dark?: boolean }) {
+  const [open, setOpen] = useState(false);
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-    >
-      <div
-        className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col"
-        onClick={(e) => e.stopPropagation()}
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        className={`w-full flex items-center justify-between py-2.5 px-3 rounded-lg border text-sm font-semibold transition-colors cursor-pointer ${dark ? 'border-white/25 text-white hover:bg-white/10' : 'border-gray-200 text-gray-800 hover:bg-gray-50'}`}
       >
-        <div className="flex items-start justify-between p-6 border-b border-gray-200 dark:border-slate-700">
-          <div>
-            <div className={`text-xs font-bold uppercase tracking-wide ${accent}`}>{t('allFeatures')}</div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{name}</h2>
-            <p className="text-sm text-gray-600 dark:text-gray-300 mt-2 text-justify">{desc}</p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={t('closeModal')}
-            className="p-2 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:hover:bg-slate-800 cursor-pointer flex-shrink-0"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-          </button>
-        </div>
-        <div className="p-6 overflow-y-auto">
-          <ul className="space-y-3">
-            {features.map((f, i) => (
-              <li key={i} className="flex items-start text-sm text-gray-800 dark:text-gray-100">
-                <svg className={`w-5 h-5 ${accent} mr-3 mt-0.5 flex-shrink-0`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
-                <span>{f}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div className="p-4 border-t border-gray-200 dark:border-slate-700 flex justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 rounded-lg bg-gray-100 dark:bg-slate-800 text-gray-800 dark:text-gray-100 font-semibold text-sm hover:bg-gray-200 dark:hover:bg-slate-700 cursor-pointer"
-          >
-            {t('closeModal')}
-          </button>
-        </div>
-      </div>
+        {open ? hideLabel : showLabel}
+        <svg className={`w-4 h-4 transition-transform ${dark ? 'text-gray-300' : 'text-gray-500'} ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+      </button>
+      {open && (
+        <ul className={`space-y-3 text-sm mt-4 ${dark ? 'text-gray-300' : 'text-gray-600'}`}>
+          {features.map((feature, idx) => (
+            <li key={idx} className={`flex items-start font-medium ${dark ? 'text-white' : 'text-gray-900'}`}>
+              <svg className={`w-5 h-5 mr-2 flex-shrink-0 ${dark ? 'text-brand-bright' : 'text-blue-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+              {feature}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
+
