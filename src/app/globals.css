@@ -287,6 +287,19 @@ table.tbl{width:100%;border-collapse:collapse}
   /* Evita que un elemento ancho encoja/desplace toda la página: el scroll
      horizontal queda confinado a los contenedores overflow-x-auto internos. */
   html, body { overflow-x: hidden }
+
+  /* ===== Escalado de tamaños fijos (Tailwind arbitrary values) =====
+     La app usa ~340 tamaños de texto fijos en px (text-[10px]…text-[14px])
+     que NO escalan con el font-size del root y quedan ilegibles en teléfonos.
+     Estas reglas apuntan a las clases generadas por Tailwind y suben cada
+     escalón ~2px (mínimo efectivo 11.5px). Solo en ≤640px. */
+  .text-\[9px\], .text-\[9\.5px\] { font-size: 11.5px !important }
+  .text-\[10px\], .text-\[10\.5px\] { font-size: 12px !important }
+  .text-\[11px\], .text-\[11\.5px\] { font-size: 12.5px !important }
+  .text-\[12px\], .text-\[12\.5px\] { font-size: 13.5px !important }
+  .text-\[13px\], .text-\[13\.5px\] { font-size: 14.5px !important }
+  .text-\[14px\] { font-size: 15px !important }
+  .text-\[15px\] { font-size: 16px !important }
 }
 
 
