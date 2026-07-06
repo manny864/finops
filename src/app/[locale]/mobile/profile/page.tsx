@@ -12,6 +12,7 @@ import { useRouter } from "@/i18n/routing";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { useTenant } from "@/components/TenantProvider";
 import { CurrencySelector } from "@/components/CurrencyProvider";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { Pencil, Check, X, LogOut, Sun, Moon, Monitor, Loader2, MonitorSmartphone } from "lucide-react";
 import { toast } from "sonner";
 
@@ -141,6 +142,12 @@ export default function MobileProfilePage() {
                 <div className="rounded-2xl border border-line dark:border-slate-800 bg-surface dark:bg-slate-900 p-4">
                     <label className="block text-sm font-bold text-ink dark:text-white mb-2">{t("currency")}</label>
                     <CurrencySelector className="w-full border border-gray-200 dark:border-slate-700 rounded-xl px-3 py-3 text-base bg-white dark:bg-slate-800 dark:text-gray-100" />
+                </div>
+
+                {/* Idioma (en móvil no está en el header) */}
+                <div className="rounded-2xl border border-line dark:border-slate-800 bg-surface dark:bg-slate-900 p-4">
+                    <label className="block text-sm font-bold text-ink dark:text-white mb-2">{tm("language")}</label>
+                    <LanguageSwitcher />
                 </div>
 
                 {/* Aspecto */}

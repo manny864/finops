@@ -1051,6 +1051,7 @@
     "statusApproved": "Aprovada",
     "statusRejected": "Rejeitada",
     "errorGeneric": "Algo deu errado. Tente novamente.",
-    "goDesktop": "Usar versão desktop"
+    "goDesktop": "Usar versão desktop",
+    "language": "Idioma"
   }
 }

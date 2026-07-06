@@ -288,7 +288,11 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
                 <ScopeSelector />
             </div>
 
-            <LanguageSwitcher />
+            {/* En móvil el idioma vive en el Perfil y Soporte tiene su pestaña
+                inferior: el header queda solo con hamburguesa, campana y avatar. */}
+            <div className="hidden md:block">
+                <LanguageSwitcher />
+            </div>
 
             <div className="flex items-center space-x-1 sm:space-x-2">
                 <SupportHeaderActions />
