@@ -523,7 +523,12 @@
     "executorRolesUaa": "The custom role is directory-wide: its AssignableScopes must include every subscription, so you need write access on ALL of them, otherwise it will only be created/assigned on the ones you control.",
     "executorRolesReservations": "To display the 'Commitment Discounts (Reservations)' panel, you must be a Reservations Administrator (or Owner on the reservation orders) so the script can grant 'Reservations Reader' at the tenant scope /providers/Microsoft.Capacity. Reservations live at the tenant level (not per subscription) and include Shared and Single scope; without this role they will not appear.",
     "executorRolesGlobalAdmin": "Note: being Entra ID Global Administrator does NOT grant access to Azure subscriptions. Either assign yourself Owner on each subscription, or enable \"Access management for Azure resources\" in Entra ID (grants User Access Administrator at root /).",
-    "executorRolesSummary": "If a role appears in only one subscription, check the \"FAILURES\" summary the script prints at the end — it shows exactly which scopes were denied."
+    "executorRolesSummary": "If a role appears in only one subscription, check the \"FAILURES\" summary the script prints at the end — it shows exactly which scopes were denied.",
+    "salesReferrerLabel": "Sales origin / Referred by",
+    "salesReferrerHint": "Superadmin only. Identifies which sales rep sold or referred this client, for internal tracking. Not visible to the tenant.",
+    "salesReferrerPlaceholder": "e.g. John Doe (Sales) or Partner XYZ",
+    "salesReferrerSave": "Save",
+    "salesReferrerSaving": "Saving..."
   },
   "Admin": {
     "Users": {

@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { useMsal } from '@azure/msal-react';
 import { fetchWithAuthRetry } from '@/lib/msalToken';
 import Pagination, { usePagination } from '@/components/Pagination';
+import { toast } from 'sonner';
 
 export default function OnboardingPage() {
   const t = useTranslations('onboarding');
@@ -14,6 +15,9 @@ export default function OnboardingPage() {
   const [tenants, setTenants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
+  // Etiquetado de origen comercial (solo SUPERADMIN): borrador local y estado de guardado.
+  const [salesReferrerDraft, setSalesReferrerDraft] = useState<Record<string, string>>({});
+  const [salesReferrerSavingId, setSalesReferrerSavingId] = useState<string | null>(null);
 
   // Generador State
   const [formTenantId, setFormTenantId] = useState("");
@@ -100,6 +104,28 @@ export default function OnboardingPage() {
           alert('Error de red');
       }
       setPartnerLinkBusy(null);
+  };
+
+  const saveSalesReferrer = async (tenantId: string) => {
+      if (accounts.length === 0) { alert("Sesión no iniciada"); return; }
+      setSalesReferrerSavingId(tenantId);
+      try {
+          const res = await fetchWithAuthRetry(instance, accounts[0], '/api/admin/tenants', {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ tenantId, salesReferrer: salesReferrerDraft[tenantId] ?? '' })
+          });
+          const data = await res.json().catch(() => ({}));
+          if (res.ok && data.success) {
+              toast.success('Origen comercial actualizado.');
+              await fetchTenants();
+          } else {
+              toast.error(data.error || 'No se pudo actualizar el origen comercial.');
+          }
+      } catch {
+          toast.error('Error de red');
+      }
+      setSalesReferrerSavingId(null);
   };
 
   const generateScript = async (e: React.FormEvent) => {
@@ -356,6 +382,34 @@ export default function OnboardingPage() {
                                           </span>
                                           {tenant.partner_link_detail ? ` — ${tenant.partner_link_detail}` : ""}
                                       </p>
+                                  )}
+
+                                  {isSuperAdmin && (
+                                      <div className="mt-4 border-t border-gray-200 dark:border-slate-700 pt-4">
+                                          <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-1">
+                                              {t('salesReferrerLabel')}
+                                          </label>
+                                          <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-2">
+                                              {t('salesReferrerHint')}
+                                          </p>
+                                          <div className="flex gap-2">
+                                              <input
+                                                  type="text"
+                                                  value={salesReferrerDraft[tenant.id] ?? tenant.sales_referrer ?? ''}
+                                                  onChange={(e) => setSalesReferrerDraft(prev => ({ ...prev, [tenant.id]: e.target.value }))}
+                                                  placeholder={t('salesReferrerPlaceholder')}
+                                                  maxLength={255}
+                                                  className="flex-1 border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 rounded px-2 py-1.5 text-sm focus:ring-indigo-500 focus:border-indigo-500"
+                                              />
+                                              <button
+                                                  onClick={() => saveSalesReferrer(tenant.id)}
+                                                  disabled={salesReferrerSavingId === tenant.id}
+                                                  className="bg-indigo-600 text-white px-3 py-1.5 rounded-md text-xs font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                                              >
+                                                  {salesReferrerSavingId === tenant.id ? t('salesReferrerSaving') : t('salesReferrerSave')}
+                                              </button>
+                                          </div>
+                                      </div>
                                   )}
                               </div>
                           )}
