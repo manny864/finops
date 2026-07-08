@@ -30,6 +30,7 @@ Para que un nuevo Tenant de Azure pueda operar dentro de la plataforma (si no ha
 
 1. **Registrar Tenant Manual:** Dirígete a la sección `Gestión de Tenants` (`/admin/tenants`). Aquí debes ingresar el Entra ID del Tenant, el nombre comercial de la empresa y asignar un Tier inicial. **Nota:** Si tu cuenta de Microsoft Entra oculta tu correo en la propiedad `upn`, la plataforma ya está parcheada para reconocer tu identidad y otorgarte acceso de SuperAdmin.
 2. **Generar Credenciales:** Una vez creado en la base de datos, ve a `Onboarding de Clientes` (`/admin/onboarding`). Solo ahora aparecerán las casillas de **Client ID** y **Client Secret** junto al nombre del entorno, permitiéndote pegar las credenciales del Service Principal generadas por el script de PowerShell.
+3. **Etiquetar origen comercial (opcional):** en el mismo panel expandido de cada tenant del **Directorio de Entornos**, el campo **"Origen comercial / Referido por"** permite anotar qué comercial vendió o refirió al cliente, para tracking interno de ventas. Es visible y editable solo por SuperAdmin; el propio tenant nunca lo ve.
 
 ### 3.1. Roles Azure que el script PowerShell asigna (por tier)
 
@@ -86,7 +87,8 @@ Llamá a `/api/admin/check-sp-roles` para confirmar cuál escenario aplica antes
 El sistema está dividido en cinco (5) pilares estratégicos en el menú lateral izquierdo:
 
 ### 3.1. Visibilidad
-- **Dashboard:** Panel principal que resume el estado general de salud del Tenant. Incluye el Ahorro Potencial Total, Recursos Zombis detectados y una calificación de Gobernanza.
+- **Dashboard:** Panel principal que resume el estado general de salud del Tenant. Incluye el Ahorro Potencial Total, Recursos Zombis detectados, una calificación de Gobernanza y el **Histograma de costos** (distribución diaria del gasto, seleccionable desde el último mes hasta **13 meses atrás** — el máximo histórico que permite consultar la API de Azure Cost Management).
+- **Proyección de Gastos (Pro+):** tarjeta del dashboard que calcula el gasto mensual promedio de los últimos 12 meses y proyecta 3/6/12/24 meses hacia adelante aplicando el **% de crecimiento anual** que ingreses (podés usar valores negativos para simular escenarios de optimización/ahorro). Muestra el promedio base, la tasa mensual equivalente y el total proyectado del horizonte elegido, junto a un gráfico de línea real vs. proyectado.
 - **Azure Advisor:** Sincronización directa con las recomendaciones nativas de Microsoft Azure, clasificadas por Costo, Seguridad, y Excelencia Operativa. Las recomendaciones se muestran en el idioma activo seleccionado por el usuario en la plataforma.
 - **Madurez FinOps:** Evaluación interactiva para determinar la madurez de la organización (Crawl, Walk, Run).
 
@@ -106,6 +108,7 @@ El sistema está dividido en cinco (5) pilares estratégicos en el menú lateral
   - Haz clic sobre cualquiera de los **porcentajes de utilización** para abrir el modal con la utilización de **último día / 7 días / 30 días** y la **tendencia diaria** de la reserva.
 - **Licencias M365:** Identificación de licencias de Microsoft 365 asignadas pero inactivas en los últimos 30 días, promoviendo su reasignación o cancelación.
 - **Ingesta CSV:** Herramienta para cargar facturación histórica de nubes de terceros bajo el estándar FOCUS.
+- **Simulador What-If (`/intelligence/simulator`):** simulá el impacto de escalar cómputo/storage, variar tráfico de red o activar Azure Hybrid Benefit sobre tu costo actual. Podés **guardar escenarios**, **compararlos lado a lado** (hasta 4 a la vez) y **descargarlos en CSV** — un escenario individual, todos los guardados, o la comparación completa con el delta de cada uno contra la línea base.
 
 ### 3.3. Limpieza de Nube (Hygiene)
 - **Recursos Zombis:** Identificación proactiva de recursos huérfanos (Ej. Discos sin adjuntar, IPs públicas sin uso, App Service Plans vacíos) que generan gastos innecesarios.
