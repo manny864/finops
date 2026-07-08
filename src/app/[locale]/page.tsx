@@ -84,6 +84,12 @@ export default function Home() {
   useEffect(() => {
     if (onboardingRedirectRef.current) return;
     if (!selectedTenant || selectedTenant.id === 'default' || accounts.length === 0) return;
+    // Tenants demo/mock (incluido cuando un SUPERADMIN navega a uno) nunca
+    // deben pasar por el wizard de onboarding real: no tienen fila en la DB,
+    // por lo que `/api/onboarding/progress` respondía is_onboarded=false y
+    // esto redirigía de vuelta a /onboarding en loop justo después de que el
+    // wizard llamara a router.push(`/${locale}`) al finalizar.
+    if (isMockTenant(selectedTenant.id)) return;
     
     const checkOnboarding = async () => {
       try {
