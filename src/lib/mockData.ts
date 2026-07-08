@@ -1000,18 +1000,20 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
             const base = 12500 * tierMult;
             const proj = base * 1.18;
             const sav = base * 0.22;
-            // Histograma diario del último año (365 días) para que el selector
-            // "hasta 12 meses" tenga datos. El frontend espera { date, cost } (NO
+            // Histograma diario de los últimos 13 meses (~400 días) para que el
+            // selector "hasta 13 meses" (límite histórico de Azure Cost
+            // Management) tenga datos. El frontend espera { date, cost } (NO
             // { name, value }): la forma anterior dejaba el histograma vacío.
             // Determinista-ish: gasto diario base con tendencia + estacionalidad
             // semanal (fines de semana más bajos) + ruido acotado.
             const dailyBase = base / 30; // ~gasto diario del mes actual
-            const histogram = Array.from({ length: 365 }).map((_, i) => {
-                const d = new Date(Date.now() - (364 - i) * 86400000);
+            const HIST_DAYS = 400;
+            const histogram = Array.from({ length: HIST_DAYS }).map((_, i) => {
+                const d = new Date(Date.now() - (HIST_DAYS - 1 - i) * 86400000);
                 const iso = d.toISOString().slice(0, 10);
                 const dow = d.getUTCDay(); // 0=domingo, 6=sábado
                 const weekendFactor = (dow === 0 || dow === 6) ? 0.72 : 1;
-                const trend = 0.82 + 0.36 * (i / 364); // crecimiento suave a lo largo del año
+                const trend = 0.82 + 0.36 * (i / (HIST_DAYS - 1)); // crecimiento suave a lo largo del período
                 const noise = 0.9 + 0.2 * Math.abs(Math.sin(i * 1.7));
                 return { date: iso, cost: Number((dailyBase * trend * weekendFactor * noise).toFixed(2)) };
             });

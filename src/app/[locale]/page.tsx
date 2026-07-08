@@ -128,7 +128,7 @@ export default function Home() {
               //   summary (18s) → tags → anomalies. Ahora el wall-clock es max(3) en lugar de sum(3).
               // bust=1 on explicit retries (retryKey > 0) forces Redis cache invalidation for the tenant.
               const bustParam = retryKey > 0 ? '&bust=1' : '';
-              const summaryP = fetch(`/api/dashboard/summary?tenantId=${selectedTenant.id}&subscriptionId=${summarySubscription}${bustParam}`, { headers })
+              const summaryP = fetch(`/api/dashboard/summary?tenantId=${selectedTenant.id}&subscriptionId=${summarySubscription}&months=13${bustParam}`, { headers })
                   .then(async r => {
                       if (!r.ok) {
                           console.warn('[Dashboard] summary returned', r.status, await r.text().catch(() => ''));
@@ -472,7 +472,7 @@ export default function Home() {
           <div className="card-h flex items-center justify-between gap-3">
               <div>
                   <h3 className="m-0 text-[var(--brand-deep)]">Histograma de costos</h3>
-                  <p className="text-[13px] text-ink-soft m-0 mt-1 font-normal">Distribución diaria del gasto (último mes por defecto, hasta 12 meses).</p>
+                  <p className="text-[13px] text-ink-soft m-0 mt-1 font-normal">Distribución diaria del gasto (último mes por defecto, hasta 13 meses — límite de datos históricos de Azure Cost Management).</p>
               </div>
               <select
                   value={histogramMonths}
@@ -484,6 +484,7 @@ export default function Home() {
                   <option value={6}>Últimos 6 meses</option>
                   <option value={9}>Últimos 9 meses</option>
                   <option value={12}>Último año</option>
+                  <option value={13}>Máximo (13 meses — límite de Azure)</option>
               </select>
           </div>
           <div className="p-[18px] h-[320px] min-w-0">

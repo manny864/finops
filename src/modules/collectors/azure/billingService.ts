@@ -711,3 +711,111 @@ export async function getYesterdaysDetailedCosts(tenantId: string): Promise<Deta
         return results;
     }
 }
+
+/**
+ * Límite documentado de Azure Cost Management Query API: los datos de costo
+ * ("ActualCost") pueden consultarse hasta 13 meses atrás desde la fecha
+ * actual, sin importar el tipo de contrato (MCA/EA/CSP). Más allá de esa
+ * ventana, Azure requiere Cost Management Exports programados de antemano —
+ * no hay forma de recuperar retroactivamente datos más antiguos vía API.
+ * Ver: https://learn.microsoft.com/azure/cost-management-billing/costs/understand-cost-mgt-data#cost-data-retention
+ */
+export const AZURE_COST_HISTORY_MAX_MONTHS = 13;
+
+/**
+ * Serie diaria de costo real ("ActualCost") de Azure Cost Management para un
+ * rango histórico de hasta `AZURE_COST_HISTORY_MAX_MONTHS` meses atrás. Se usa
+ * para completar el histograma del dashboard cuando la ventana solicitada por
+ * el usuario excede lo que ya está persistido localmente en `CostSnapshots`
+ * (p.ej. tenants nuevos cuyo job diario de snapshots empezó hace poco).
+ */
+export async function getHistoricalDailyCosts(
+    tenantId: string,
+    subscriptionId: string | undefined,
+    monthsBack: number
+): Promise<{ date: string; cost: number }[]> {
+    const months = Math.min(Math.max(1, Math.round(monthsBack)), AZURE_COST_HISTORY_MAX_MONTHS);
+    const credential = await getAzureCredential(tenantId);
+    const client = new CostManagementClient(credential);
+
+    const to = new Date();
+    const from = new Date();
+    from.setMonth(from.getMonth() - months);
+
+    const queryOptions = {
+        type: 'ActualCost',
+        timeframe: 'Custom',
+        timePeriod: { from, to },
+        dataset: {
+            granularity: 'Daily',
+            aggregation: {
+                totalCost: { name: 'PreTaxCost', function: 'Sum' }
+            }
+        }
+    } as any;
+
+    const normalizeRows = (rows: any[][], columns: any[]): { date: string; cost: number }[] => {
+        const dateIdx = columns.findIndex((c: any) => /usagedate|date/i.test(c?.name || ''));
+        const costIdx = columns.findIndex((c: any) => /pretaxcost|cost/i.test(c?.name || ''));
+        const byDate = new Map<string, number>();
+        for (const row of rows) {
+            const rawDate = String(row[dateIdx >= 0 ? dateIdx : 0]);
+            const iso = /^\d{8}$/.test(rawDate)
+                ? `${rawDate.slice(0, 4)}-${rawDate.slice(4, 6)}-${rawDate.slice(6, 8)}`
+                : rawDate.slice(0, 10);
+            const cost = Number(row[costIdx >= 0 ? costIdx : 1]) || 0;
+            byDate.set(iso, (byDate.get(iso) || 0) + cost);
+        }
+        return Array.from(byDate.entries())
+            .map(([date, cost]) => ({ date, cost: Number(cost.toFixed(2)) }))
+            .sort((a, b) => a.date.localeCompare(b.date));
+    };
+
+    const useSubScope = !!subscriptionId && subscriptionId.toLowerCase() !== 'all';
+    try {
+        const scope = useSubScope
+            ? `/subscriptions/${subscriptionId}`
+            : `/providers/Microsoft.Management/managementGroups/${tenantId}`;
+        const result: any = await withRetry(
+            () => client.query.usage(scope, queryOptions),
+            { label: `historical(${scope}, ${months}mo)`, maxRetries: 3 }
+        );
+        const rows = result?.rows || [];
+        if (rows.length > 0) return normalizeRows(rows, result?.columns || []);
+        if (useSubScope) return [];
+        throw new Error('MG scope returned 0 rows, falling back to subscriptions');
+    } catch (e: any) {
+        if (useSubScope) {
+            console.warn(`[BillingService] Historical query failed for subscription ${subscriptionId}:`, e.message);
+            return [];
+        }
+        console.warn(`[BillingService] MG scope historical query failed for tenant ${tenantId}, falling back to subscriptions:`, e.message);
+        const token = await credential.getToken('https://management.azure.com/.default');
+        if (!token) throw new Error('No se pudo obtener el token de acceso de Azure.');
+        const subRes = await fetch('https://management.azure.com/subscriptions?api-version=2020-01-01', {
+            headers: { 'Authorization': `Bearer ${token.token}` }
+        });
+        if (!subRes.ok) throw new Error(`Failed to fetch subscriptions: HTTP ${subRes.status}`);
+        const subJson: any = await subRes.json();
+        const subs = (subJson.value || []).filter((s: any) => s.subscriptionId && s.state === 'Enabled');
+
+        const merged = new Map<string, number>();
+        await mapWithConcurrency(subs, 3, async (sub: any) => {
+            try {
+                const subScope = `/subscriptions/${sub.subscriptionId}`;
+                const res: any = await withRetry(
+                    () => client.query.usage(subScope, queryOptions),
+                    { label: `historical(sub ${sub.subscriptionId}, ${months}mo)`, maxRetries: 3 }
+                );
+                for (const { date, cost } of normalizeRows(res?.rows || [], res?.columns || [])) {
+                    merged.set(date, (merged.get(date) || 0) + cost);
+                }
+            } catch (subErr: any) {
+                console.warn(`[BillingService] Historical query failed for subscription ${sub.subscriptionId}:`, subErr.message);
+            }
+        });
+        return Array.from(merged.entries())
+            .map(([date, cost]) => ({ date, cost: Number(cost.toFixed(2)) }))
+            .sort((a, b) => a.date.localeCompare(b.date));
+    }
+}
