@@ -77,8 +77,9 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Email not provided by IdP" }, { status: 400 });
         }
 
+        // El dashboard vive en la raíz del locale; /overview (sin subruta) es 404.
         const response = NextResponse.redirect(
-            new URL(`/${process.env.NEXT_PUBLIC_DEFAULT_LOCALE || "es"}/overview`, request.url)
+            new URL(`/${process.env.NEXT_PUBLIC_DEFAULT_LOCALE || "es"}`, request.url)
         );
 
         await setSsoCookie(response, {

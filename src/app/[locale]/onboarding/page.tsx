@@ -206,9 +206,9 @@ export default function OnboardingPage() {
                     method: 'POST',
                 }
             );
-            if (response.ok) {
-                router.push(`/${locale}/overview?onboarding_success=true`);
-            }
+            // El dashboard vive en la raíz del locale (/${locale}), NO en
+            // /${locale}/overview (que solo tiene subrutas y daba 404 al finalizar).
+            router.push(`/${locale}?onboarding_success=true`);
         } catch (error) {
             console.error('[Onboarding] Failed to finish:', error);
         } finally {
@@ -229,7 +229,7 @@ export default function OnboardingPage() {
             title="Welcome to CSCloudSolutions FinOps"
             description="Complete these steps to get started"
             progressPercent={progress.percent_complete}
-            onSkipWizard={() => router.push(`/${locale}/overview`)}
+            onSkipWizard={() => router.push(`/${locale}`)}
         >
             <div className="space-y-6">
                 <WizardStep
