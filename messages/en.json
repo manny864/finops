@@ -92,7 +92,18 @@
     "configure_policies": "Configure Policies",
     "drag_hint": "Drag and drop cards to reorder them",
     "no_rules": "Add rules in Tag Management.",
-    "based_on_rules": "Based on active tag rules."
+    "based_on_rules": "Based on active tag rules.",
+    "cost_projection_title": "Cost Projection",
+    "cost_projection_desc": "Based on the average monthly spend of the last {months} month(s) with data, plus the annual growth % you provide.",
+    "cost_projection_annual_growth": "Annual growth",
+    "cost_projection_months_ahead": "Project {months} months",
+    "cost_projection_calculating": "Calculating…",
+    "cost_projection_no_data": "Not enough historical data to project.",
+    "cost_projection_avg_12m": "Monthly average (12m)",
+    "cost_projection_monthly_rate": "Equivalent monthly rate",
+    "cost_projection_total": "Projected total ({months}m)",
+    "cost_projection_real": "Real",
+    "cost_projection_projected": "Projected"
   },
   "Common": {
     "save": "Save",

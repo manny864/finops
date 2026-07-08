@@ -92,7 +92,18 @@
     "configure_policies": "Configurar Políticas",
     "drag_hint": "Arraste e solte os cartões para reordená-los",
     "no_rules": "Adicione regras no Gerenciamento de Tags.",
-    "based_on_rules": "Baseado nas regras de tags ativas."
+    "based_on_rules": "Baseado nas regras de tags ativas.",
+    "cost_projection_title": "Projeção de Gastos",
+    "cost_projection_desc": "Baseada na média mensal dos últimos {months} mês(es) com dados, mais o % de crescimento anual que você informar.",
+    "cost_projection_annual_growth": "Crescimento anual",
+    "cost_projection_months_ahead": "Projetar {months} meses",
+    "cost_projection_calculating": "Calculando…",
+    "cost_projection_no_data": "Dados históricos insuficientes para projetar.",
+    "cost_projection_avg_12m": "Média mensal (12m)",
+    "cost_projection_monthly_rate": "Taxa mensal equivalente",
+    "cost_projection_total": "Total projetado ({months}m)",
+    "cost_projection_real": "Real",
+    "cost_projection_projected": "Projetado"
   },
   "Common": {
     "save": "Salvar",

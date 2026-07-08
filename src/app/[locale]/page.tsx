@@ -17,6 +17,7 @@ import ExpiredSandboxTable from "@/components/dashboard/ExpiredSandboxTable";
 import ExecutiveSummaryCard from "@/components/dashboard/ExecutiveSummaryCard";
 import HABreakdownCard from "@/components/dashboard/HABreakdownCard";
 import AksChargebackCard from "@/components/dashboard/AksChargebackCard";
+import CostProjectionCard from "@/components/dashboard/CostProjectionCard";
 import { useActionLogStore } from "@/store/actionLogStore";
 import { Leaf } from "lucide-react";
 import { useTranslations } from 'next-intl';
@@ -269,6 +270,7 @@ export default function Home() {
         const newKeys: Record<string, any> = {
           ha: { i: 'ha', x: 0, y: 14, w: 6, h: 4 },
           aks: { i: 'aks', x: 6, y: 14, w: 6, h: 4 },
+          projection: { i: 'projection', x: 0, y: 18, w: 12, h: 6 },
         };
         Object.keys(parsed).forEach((bp: string) => {
           const existing = new Set((parsed[bp] || []).map((l: any) => l.i));
@@ -287,7 +289,8 @@ export default function Home() {
           { i: 'right', x: 0, y: 10, w: 6, h: 4 },
           { i: 'sandbox', x: 6, y: 10, w: 6, h: 4 },
           { i: 'ha', x: 0, y: 14, w: 6, h: 4 },
-          { i: 'aks', x: 6, y: 14, w: 6, h: 4 }
+          { i: 'aks', x: 6, y: 14, w: 6, h: 4 },
+          { i: 'projection', x: 0, y: 18, w: 12, h: 6 }
         ]
       });
     }
@@ -619,6 +622,12 @@ export default function Home() {
         <div key="aks">
             <FeatureGuard requiredTier="Enterprise" featureName="AKS Chargeback" className="drag-handle cursor-move h-full w-full overflow-hidden">
                 <AksChargebackCard />
+            </FeatureGuard>
+        </div>
+
+        <div key="projection">
+            <FeatureGuard requiredTier="Professional" featureName="Proyección de Gastos" className="drag-handle cursor-move h-full w-full overflow-hidden">
+                <CostProjectionCard dailyHistory={billingHistogram} loading={billingLoading} />
             </FeatureGuard>
         </div>
       </ResponsiveGridLayout>

@@ -92,7 +92,18 @@
     "configure_policies": "Configurar Políticas",
     "drag_hint": "Arrastra las tarjetas para reordenarlas a tu gusto",
     "no_rules": "Añade reglas en Gestión de Etiquetas.",
-    "based_on_rules": "Basado en las reglas de etiquetado activas."
+    "based_on_rules": "Basado en las reglas de etiquetado activas.",
+    "cost_projection_title": "Proyección de Gastos",
+    "cost_projection_desc": "Basada en el promedio mensual de los últimos {months} mes(es) con datos, más el % de crecimiento anual que indiques.",
+    "cost_projection_annual_growth": "Crecimiento anual",
+    "cost_projection_months_ahead": "Proyectar {months} meses",
+    "cost_projection_calculating": "Calculando…",
+    "cost_projection_no_data": "Sin datos históricos suficientes para proyectar.",
+    "cost_projection_avg_12m": "Promedio mensual (12m)",
+    "cost_projection_monthly_rate": "Tasa mensual equivalente",
+    "cost_projection_total": "Total proyectado ({months}m)",
+    "cost_projection_real": "Real",
+    "cost_projection_projected": "Proyectado"
   },
   "Common": {
     "save": "Guardar",
