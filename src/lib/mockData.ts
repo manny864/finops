@@ -1000,6 +1000,21 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
             const base = 12500 * tierMult;
             const proj = base * 1.18;
             const sav = base * 0.22;
+            // Histograma diario del último año (365 días) para que el selector
+            // "hasta 12 meses" tenga datos. El frontend espera { date, cost } (NO
+            // { name, value }): la forma anterior dejaba el histograma vacío.
+            // Determinista-ish: gasto diario base con tendencia + estacionalidad
+            // semanal (fines de semana más bajos) + ruido acotado.
+            const dailyBase = base / 30; // ~gasto diario del mes actual
+            const histogram = Array.from({ length: 365 }).map((_, i) => {
+                const d = new Date(Date.now() - (364 - i) * 86400000);
+                const iso = d.toISOString().slice(0, 10);
+                const dow = d.getUTCDay(); // 0=domingo, 6=sábado
+                const weekendFactor = (dow === 0 || dow === 6) ? 0.72 : 1;
+                const trend = 0.82 + 0.36 * (i / 364); // crecimiento suave a lo largo del año
+                const noise = 0.9 + 0.2 * Math.abs(Math.sin(i * 1.7));
+                return { date: iso, cost: Number((dailyBase * trend * weekendFactor * noise).toFixed(2)) };
+            });
             return {
                 success: true,
                 mock: true,
@@ -1008,10 +1023,14 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
                 zombieCount: Math.round(48 * tierMult),
                 totalSavings: Math.round(sav),
                 environmentalImpact: Number(((sav / 100) * 15).toFixed(1)),
-                histogram: Array.from({ length: 7 }).map((_, i) => ({
-                    name: ['Compute', 'Storage', 'Network', 'Database', 'AI/ML', 'Monitor', 'Otros'][i],
-                    value: Math.round((base / 7) * (0.6 + Math.random()))
-                })),
+                // Score de gobernanza pre-calculado: el frontend lo prefiere sobre
+                // el cálculo por-recurso cuando viene presente (ver page.tsx). Sin
+                // esto, el cálculo sobre los recursos zombie —que legítimamente no
+                // tienen tags— arrojaba ~0%, dando la impresión de "sin datos".
+                complianceScore: (arg2 || '').toLowerCase() === 'enterprise' ? 86
+                    : (arg2 || '').toLowerCase() === 'business' ? 78
+                    : (arg2 || '').toLowerCase().startsWith('pro') ? 71 : 64,
+                histogram,
                 dashboardData: [
                     { type: 'Disk', name: 'orphan-disk-01', issueType: 'cost', potentialSavings: 78, sizeGB: 512 },
                     { type: 'Public IP', name: 'pip-legacy', issueType: 'cost', potentialSavings: 4.2 },

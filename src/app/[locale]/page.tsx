@@ -169,8 +169,12 @@ export default function Home() {
               setBillingLoading(false);
               setLoading(false);
 
-              // Tags + anomalies se procesan en background sin bloquear la UI principal.
-              if (summaryJson.auditResults) {
+              // Si el backend ya provee un complianceScore (p.ej. modo demo, o un
+              // futuro cálculo server-side), usarlo directo y saltar el cómputo
+              // por-recurso (que sobre recursos zombie sin tags da ~0%).
+              if (typeof summaryJson.complianceScore === 'number') {
+                  setComplianceScore(summaryJson.complianceScore);
+              } else if (summaryJson.auditResults) {
                   const polJson: any = await tagsP;
                   const policies = polJson.policies || [];
 
