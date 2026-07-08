@@ -10,6 +10,7 @@ import { useActionLogStore } from '@/store/actionLogStore';
 import { useTranslations } from 'next-intl';
 import { useAIContext } from '@/hooks/useAIContext';
 import { getMockDataForRoute, isMockTenant } from '@/lib/mockData';
+import { getFreshIdToken } from '@/lib/msalToken';
 import {
   useReactTable,
   getCoreRowModel,
@@ -61,16 +62,12 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
       
       try {
           setDeletingId(item.id);
-          const account = accounts[0];
-          const tokenResponse = await instance.acquireTokenSilent({
-              scopes: ["User.Read"],
-              account: account
-          });
-          
+          const idToken = await getFreshIdToken(instance, accounts[0]);
+
           const res = await fetch('/api/remediation', {
               method: 'POST',
               headers: {
-                  'Authorization': `Bearer ${tokenResponse.idToken}`,
+                  'Authorization': `Bearer ${idToken}`,
                   'Content-Type': 'application/json'
               },
               body: JSON.stringify({
@@ -115,16 +112,12 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
       if (!taggingItem) return;
       setIsTagging(true);
       try {
-          const account = accounts[0];
-          const tokenResponse = await instance.acquireTokenSilent({
-              scopes: ["User.Read"],
-              account: account
-          });
+          const idToken = await getFreshIdToken(instance, accounts[0]);
 
           const res = await fetch('/api/tags/apply', {
               method: 'POST',
               headers: {
-                  'Authorization': `Bearer ${tokenResponse.idToken}`,
+                  'Authorization': `Bearer ${idToken}`,
                   'Content-Type': 'application/json'
               },
               body: JSON.stringify({
@@ -151,7 +144,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
   };
 
   useEffect(() => {
-    if (accounts.length === 0 || selectedTenant.id === 'default') {
+    if ((accounts.length === 0 && !isMockTenant(selectedTenant.id)) || selectedTenant.id === 'default') {
       setLoading(false);
       return;
     }
@@ -159,14 +152,10 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
     const fetchResourcesAndSubs = async () => {
       try {
         setLoading(true);
-        const account = accounts[0];
         const tenantId = selectedTenant.id;
-        
-        const tokenResponse = await instance.acquireTokenSilent({
-            scopes: ["User.Read"],
-            account: account
-        });
-        const headers = { 'Authorization': `Bearer ${tokenResponse.idToken}` };
+
+        const idToken = await getFreshIdToken(instance, accounts[0]);
+        const headers = { 'Authorization': `Bearer ${idToken}` };
 
         if (subscriptions.length === 0) {
             const subRes = await fetch(`/api/subscriptions?tenantId=${tenantId}`, { headers });
@@ -449,7 +438,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
     getPaginationRowModel: getPaginationRowModel(),
   });
 
-  if (accounts.length === 0 || selectedTenant.id === 'default') {
+  if ((accounts.length === 0 && !isMockTenant(selectedTenant.id)) || selectedTenant.id === 'default') {
     return (
         <div className="bg-white shadow-sm rounded-lg border border-gray-200 p-8 text-center flex flex-col items-center justify-center">
             <svg className="w-12 h-12 text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>

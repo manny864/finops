@@ -6,6 +6,7 @@ import { useMsal } from "@azure/msal-react";
 import { useTranslations } from "next-intl";
 import { Loader2, BrainCircuit, AlertTriangle, TrendingUp, Cpu, DollarSign, Zap } from "lucide-react";
 import { getFreshIdToken } from "@/lib/msalToken";
+import { isMockTenant } from '@/lib/mockData';
 
 // ── KPI card ──────────────────────────────────────────────────────────────────
 function KpiCard({ label, value, sub, icon }: { label: string; value: string; sub?: string; icon: React.ReactNode }) {
@@ -65,9 +66,7 @@ export default function AIAnalyticsDashboard() {
     const [appSort, setAppSort] = useState<"cost" | "application">("cost");
 
     const fetcher = async (url: string) => {
-        const account = accounts[0];
-        if (!account) throw new Error("No hay cuenta autenticada");
-        const token = await getFreshIdToken(instance, account);
+        const token = await getFreshIdToken(instance, accounts[0]);
         const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
         if (!res.ok) {
             const j = await res.json();
@@ -77,7 +76,7 @@ export default function AIAnalyticsDashboard() {
     };
 
     const apiUrl =
-        selectedTenant && selectedTenant.id !== "default" && accounts.length > 0
+        selectedTenant && selectedTenant.id !== "default" && (accounts.length > 0 || isMockTenant(selectedTenant.id))
             ? `/api/intelligence/ai-analytics?tenantId=${selectedTenant.id}&days=${days}`
             : null;
 

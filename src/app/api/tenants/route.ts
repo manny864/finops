@@ -48,14 +48,16 @@ export async function GET(request: NextRequest) {
         // the right call-to-action ("complete onboarding" vs "ready").
         let query = `SELECT tenant_id as id, company_name as name, client_id,
                             (client_secret IS NOT NULL AND client_secret <> '') as has_client_secret,
-                            tier, trial_ends_at, subscription_status, is_onboarded
+                            tier, trial_ends_at, subscription_status, is_onboarded,
+                            partner_link_status, partner_link_detail
                      FROM Tenants ORDER BY created_at ASC`;
         let queryParams: any[] = [];
 
         if (!isSuperAdmin && email) {
             query = `SELECT t.tenant_id as id, t.company_name as name, t.client_id,
                             (t.client_secret IS NOT NULL AND t.client_secret <> '') as has_client_secret,
-                            t.tier, t.trial_ends_at, t.subscription_status, t.is_onboarded
+                            t.tier, t.trial_ends_at, t.subscription_status, t.is_onboarded,
+                            t.partner_link_status, t.partner_link_detail
                      FROM Tenants t
                      JOIN Users u ON t.tenant_id = u.tenant_id
                      WHERE u.email = ? ORDER BY t.created_at ASC`;
@@ -79,7 +81,8 @@ export async function GET(request: NextRequest) {
                 const [newRows] = await pool.query(
                     `SELECT tenant_id as id, company_name as name, client_id,
                             (client_secret IS NOT NULL AND client_secret <> '') as has_client_secret,
-                            tier, trial_ends_at, subscription_status, is_onboarded
+                            tier, trial_ends_at, subscription_status, is_onboarded,
+                            partner_link_status, partner_link_detail
                      FROM Tenants WHERE tenant_id = ? LIMIT 1`,
                     [identity.tenantId]
                 );

@@ -11,22 +11,39 @@ export async function POST(req: NextRequest) {
         }
 
         // 1. Validate reCAPTCHA v3
+        // Bypass de desarrollo: sin RECAPTCHA_SECRET local no hay forma de resolver
+        // un token real (el site key está hardcodeado en DemoLeadModal.tsx para el
+        // dominio de producción). Fuera de development seguimos fail-closed.
+        const isDev = process.env.NODE_ENV !== 'production';
         const recaptchaSecret = process.env.RECAPTCHA_SECRET;
-        if (!recaptchaSecret) {
+        if (!recaptchaSecret && !isDev) {
             console.error('[Demo Lead] RECAPTCHA_SECRET not configured');
             return NextResponse.json({ success: false, error: "Service misconfigured" }, { status: 503 });
         }
-        const recaptchaVerify = await fetch(`https://www.google.com/recaptcha/api/siteverify`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: `secret=${encodeURIComponent(recaptchaSecret)}&response=${encodeURIComponent(recaptchaToken)}`
-        });
-        
-        const recaptchaResult = await recaptchaVerify.json();
+        let recaptchaResult: { success?: boolean; score?: number } = {};
+        if (recaptchaSecret) {
+            const recaptchaVerify = await fetch(`https://www.google.com/recaptcha/api/siteverify`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `secret=${encodeURIComponent(recaptchaSecret)}&response=${encodeURIComponent(recaptchaToken)}`
+            });
 
-        if (!recaptchaResult.success || recaptchaResult.score < 0.5) {
-            console.error("[Demo Lead] reCAPTCHA failed:", recaptchaResult);
-            return NextResponse.json({ success: false, error: "Fallo de validación de seguridad (reCAPTCHA)" }, { status: 400 });
+            recaptchaResult = await recaptchaVerify.json();
+
+            if (!recaptchaResult.success || (recaptchaResult.score ?? 0) < 0.5) {
+                console.error("[Demo Lead] reCAPTCHA failed:", recaptchaResult);
+                return NextResponse.json({ success: false, error: "Fallo de validación de seguridad (reCAPTCHA)" }, { status: 400 });
+            }
+        } else {
+            console.warn('[Demo Lead] DEV bypass: RECAPTCHA_SECRET no configurado, se omite la verificación');
+        }
+
+        // Bypass de desarrollo: no pegarle a MS Graph con las credenciales reales
+        // de la plataforma (.env.development las trae) para no mandar un email real
+        // a sales@ por cada prueba local.
+        if (isDev && !recaptchaSecret) {
+            console.log(`[Demo Lead] DEV bypass: no se envía email real. Lead: ${JSON.stringify({ fullName, email, phone, companyName })}`);
+            return NextResponse.json({ success: true, message: "Lead captured successfully (dev bypass, no email sent)" });
         }
 
         // 2. Fetch MS Graph Token

@@ -6,6 +6,8 @@ import { useMsal } from '@azure/msal-react';
 import { Loader2, ShieldAlert, CheckCircle2, XCircle, Plus, Trash2, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { hasAccess } from '@/lib/tierLogic';
+import { isMockTenant } from '@/lib/mockData';
+import { getFreshIdToken } from '@/lib/msalToken';
 
 export default function PoliciesAsCode() {
     const { selectedTenant } = useTenant();
@@ -29,16 +31,10 @@ export default function PoliciesAsCode() {
     const [activeTab, setActiveTab] = useState('all');
 
     const fetcher = async (url: string) => {
-        const account = accounts[0];
-        if (!account) throw new Error("No hay cuenta autenticada");
-
-        const tokenResponse = await instance.acquireTokenSilent({
-            scopes: ["User.Read"],
-            account: account
-        });
+        const idToken = await getFreshIdToken(instance, accounts[0]);
 
         const res = await fetch(url, {
-            headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
+            headers: { 'Authorization': `Bearer ${idToken}` }
         });
 
         if (!res.ok) {
@@ -50,15 +46,15 @@ export default function PoliciesAsCode() {
     };
 
     const { data, error, isLoading, mutate } = useSWR(
-        (isEnterprise && selectedTenant && selectedTenant.id !== 'default' && accounts.length > 0) 
-            ? `/api/admin/governance-policies?tenantId=${selectedTenant.id}&tier=${tier}` 
+        (isEnterprise && selectedTenant && selectedTenant.id !== 'default' && (accounts.length > 0 || isMockTenant(selectedTenant.id)))
+            ? `/api/admin/governance-policies?tenantId=${selectedTenant.id}&tier=${tier}`
             : null,
         fetcher,
         { revalidateOnFocus: false }
     );
 
     const { data: defData, error: defError } = useSWR(
-        (isEnterprise && selectedTenant && selectedTenant.id !== 'default' && accounts.length > 0) 
+        (isEnterprise && selectedTenant && selectedTenant.id !== 'default' && (accounts.length > 0 || isMockTenant(selectedTenant.id)))
             ? `/api/admin/azure-policies?tenantId=${selectedTenant.id}&tier=${tier}&subscriptionId=${(accounts[0] as any)?.id || ''}`
             : null,
         fetcher,
@@ -72,14 +68,13 @@ export default function PoliciesAsCode() {
         }
         setToggling('new');
         try {
-            const account = accounts[0];
-            const tokenResponse = await instance.acquireTokenSilent({ scopes: ["User.Read"], account });
-            
+            const idToken = await getFreshIdToken(instance, accounts[0]);
+
             const response = await fetch(`/api/admin/governance-policies`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${tokenResponse.idToken}`
+                    'Authorization': `Bearer ${idToken}`
                 },
                 body: JSON.stringify({ 
                     tenantId: selectedTenant.id, 
@@ -120,14 +115,13 @@ export default function PoliciesAsCode() {
         if (!confirm("¿Seguro que deseas remover esta política?")) return;
         setToggling(assignmentId);
         try {
-            const account = accounts[0];
-            const tokenResponse = await instance.acquireTokenSilent({ scopes: ["User.Read"], account });
-            
+            const idToken = await getFreshIdToken(instance, accounts[0]);
+
             const response = await fetch(`/api/admin/governance-policies`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${tokenResponse.idToken}`
+                    'Authorization': `Bearer ${idToken}`
                 },
                 body: JSON.stringify({ tenantId: selectedTenant.id, policyId: assignmentId, action: 'Deactivate', targetMg })
             });

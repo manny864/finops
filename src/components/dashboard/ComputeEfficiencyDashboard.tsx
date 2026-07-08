@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { Loader2, Cpu, TrendingDown, TrendingUp, AlertCircle, Info } from "lucide-react";
+import { isMockTenant } from '@/lib/mockData';
 
 export default function ComputeEfficiencyDashboard() {
     const t = useTranslations("ComputeEfficiency");
@@ -16,9 +17,7 @@ export default function ComputeEfficiencyDashboard() {
     const { format } = useCurrency();
 
     const fetcher = async (url: string) => {
-        const account = accounts[0];
-        if (!account) throw new Error("No hay cuenta autenticada");
-        const idToken = await getFreshIdToken(instance, account, ["User.Read"]);
+        const idToken = await getFreshIdToken(instance, accounts[0], ["User.Read"]);
         const res = await fetch(url, {
             headers: {
                 Authorization: `Bearer ${idToken}`,
@@ -33,7 +32,7 @@ export default function ComputeEfficiencyDashboard() {
     };
 
     const { data, error, isLoading } = useSWR(
-        selectedTenant && selectedTenant.id !== "default" && accounts.length > 0
+        selectedTenant && selectedTenant.id !== "default" && (accounts.length > 0 || isMockTenant(selectedTenant.id))
             ? `/api/intelligence/compute-cost-per-core?tenantId=${selectedTenant.id}&days=30`
             : null,
         fetcher,

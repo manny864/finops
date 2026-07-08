@@ -22,6 +22,9 @@ export default function OnboardingPage() {
   const [generating, setGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  // Asociación de partner (PAL / CPOR)
+  const [partnerLinkBusy, setPartnerLinkBusy] = useState<string | null>(null);
+
   // Verificador de permisos State
   const [checkTenantId, setCheckTenantId] = useState("");
   const [checking, setChecking] = useState(false);
@@ -77,6 +80,26 @@ export default function OnboardingPage() {
           alert("Error de red");
       }
       setSavingId(null);
+  };
+
+  const partnerLink = async (tenantId: string, approve: boolean) => {
+      if (accounts.length === 0) { alert("Sesión no iniciada"); return; }
+      setPartnerLinkBusy(tenantId);
+      try {
+          const res = await fetchWithAuthRetry(instance, accounts[0], '/api/tenants/partner-link', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ tenantId, approve }),
+          });
+          const data = await res.json();
+          if (!res.ok || !data.success) {
+              alert(data.error || 'No se pudo procesar la asociación de partner');
+          }
+          await fetchTenants();
+      } catch {
+          alert('Error de red');
+      }
+      setPartnerLinkBusy(null);
   };
 
   const generateScript = async (e: React.FormEvent) => {
@@ -287,6 +310,53 @@ export default function OnboardingPage() {
                                           {savingId === tenant.id ? 'Guardando...' : 'Guardar'}
                                       </button>
                                   </div>
+
+                                  {tenant.has_client_secret && (!tenant.partner_link_status || tenant.partner_link_status === 'NONE') && (
+                                      <div className="mt-4 border-t border-gray-200 dark:border-slate-700 pt-4 flex flex-col gap-2">
+                                          <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">Asociación de partner (PAL / CPOR)</p>
+                                          <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-relaxed">
+                                              CS Cloud Solutions es partner de Microsoft. Si lo aprobás, asociaremos nuestro
+                                              Partner ID a las credenciales de nuestro Service Principal <b>dentro de tu tenant</b>{" "}
+                                              (Partner Admin Link) y podremos registrar la relación de partner (CPOR) en
+                                              Microsoft Partner Center. Esto <b>no otorga permisos adicionales</b> sobre tus
+                                              datos ni tiene costo: solo le indica a Microsoft que somos tu partner de
+                                              servicios de FinOps. Microsoft puede notificarte del reclamo CPOR y podés
+                                              disputarlo o revocarlo cuando quieras. <b>No se hace nada hasta tu aprobación.</b>
+                                          </p>
+                                          <div className="flex gap-2">
+                                              <button
+                                                  onClick={() => partnerLink(tenant.id, true)}
+                                                  disabled={partnerLinkBusy !== null}
+                                                  className="bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 hover:opacity-80 disabled:opacity-50 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                                              >
+                                                  {partnerLinkBusy === tenant.id ? 'Asociando…' : 'Aprobar asociación'}
+                                              </button>
+                                              <button
+                                                  onClick={() => partnerLink(tenant.id, false)}
+                                                  disabled={partnerLinkBusy !== null}
+                                                  className="border border-gray-300 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 disabled:opacity-50 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-700 dark:text-gray-300"
+                                              >
+                                                  No, gracias
+                                              </button>
+                                          </div>
+                                      </div>
+                                  )}
+                                  {tenant.partner_link_status && tenant.partner_link_status !== 'NONE' && (
+                                      <p className="mt-3 border-t border-gray-200 dark:border-slate-700 pt-3 text-[11px] text-gray-500 dark:text-gray-400">
+                                          Asociación de partner:{" "}
+                                          <span className={
+                                              tenant.partner_link_status === 'LINKED' ? 'text-green-600 dark:text-green-400 font-semibold'
+                                              : tenant.partner_link_status === 'FAILED' ? 'text-red-600 dark:text-red-400 font-semibold'
+                                              : 'font-semibold'
+                                          }>
+                                              {tenant.partner_link_status === 'LINKED' ? 'vinculada (PAL)'
+                                                  : tenant.partner_link_status === 'APPROVED' ? 'aprobada'
+                                                  : tenant.partner_link_status === 'FAILED' ? 'aprobada, link con error'
+                                                  : 'rechazada'}
+                                          </span>
+                                          {tenant.partner_link_detail ? ` — ${tenant.partner_link_detail}` : ""}
+                                      </p>
+                                  )}
                               </div>
                           )}
                       </li>

@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import MockBanner from "@/components/MockBanner";
 import { useMsal } from "@azure/msal-react";
 import { fetchWithAuthRetry } from "@/lib/msalToken";
+import { isMockTenant } from "@/lib/mockData";
 
 interface RegionRow { region: string; kgCO2e: number; resources: number; intensity: number; }
 interface Recommendation {
@@ -31,7 +32,7 @@ export default function SustainabilityPage() {
 
     useEffect(() => {
         async function fetchData() {
-            if (!selectedTenant || selectedTenant.id === "default" || !selectedSubscription || !account) {
+            if (!selectedTenant || selectedTenant.id === "default" || !selectedSubscription || (!account && !isMockTenant(selectedTenant.id))) {
                 setLoading(false); return;
             }
             setLoading(true); setError(null);

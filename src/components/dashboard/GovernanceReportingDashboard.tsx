@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { getFreshIdToken } from "@/lib/msalToken";
 import Pagination, { usePagination } from "@/components/Pagination";
 import { Loader2, AlertCircle, ShieldCheck, Boxes, Users, ChevronDown, ChevronUp } from "lucide-react";
+import { isMockTenant } from '@/lib/mockData';
 
 /**
  * Nombre completo/legible del tipo de recurso ARM:
@@ -103,16 +104,14 @@ export default function GovernanceReportingDashboard() {
     const [openDetail, setOpenDetail] = useState<DetailSection | null>(null);
 
     const fetcher = async (url: string) => {
-        const account = accounts[0];
-        if (!account) throw new Error("No hay cuenta autenticada");
-        const idToken = await getFreshIdToken(instance, account, ["User.Read"]);
+        const idToken = await getFreshIdToken(instance, accounts[0], ["User.Read"]);
         const res = await fetch(url, { headers: { Authorization: `Bearer ${idToken}`, "x-tenant-id": selectedTenant?.id ?? "" } });
         if (!res.ok) { const j = await res.json(); throw new Error(j.details || j.error || "Error"); }
         return res.json();
     };
 
     const { data, error, isLoading } = useSWR(
-        selectedTenant && selectedTenant.id !== "default" && accounts.length > 0
+        selectedTenant && selectedTenant.id !== "default" && (accounts.length > 0 || isMockTenant(selectedTenant.id))
             ? `/api/governance/reporting?tenantId=${selectedTenant.id}`
             : null,
         fetcher,

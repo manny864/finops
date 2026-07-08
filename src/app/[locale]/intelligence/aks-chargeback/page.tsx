@@ -9,6 +9,8 @@ import { hasAccess } from '@/lib/tierLogic';
 import { toast } from 'sonner';
 import Pagination, { usePagination } from '@/components/Pagination';
 import PinButton from '@/components/dashboard/PinButton';
+import { isMockTenant } from '@/lib/mockData';
+import { getFreshIdToken } from '@/lib/msalToken';
 
 export default function AksChargebackPage() {
     const { selectedTenant } = useTenant();
@@ -21,7 +23,7 @@ export default function AksChargebackPage() {
     const { page, setPage, pageSize, setPageSize, total, totalPages, paged: pagedChargebackData } = usePagination(data?.chargebackData);
 
     useEffect(() => {
-        if (!isEnterprise || selectedTenant.id === 'default' || accounts.length === 0) {
+        if (!isEnterprise || selectedTenant.id === 'default' || (accounts.length === 0 && !isMockTenant(selectedTenant.id))) {
             setLoading(false);
             return;
         }
@@ -30,15 +32,12 @@ export default function AksChargebackPage() {
         const fetchData = async () => {
             setLoading(true);
             try {
-                const tokenResponse = await instance.acquireTokenSilent({
-                    scopes: ["User.Read"],
-                    account: accounts[0]
-                });
+                const idToken = await getFreshIdToken(instance, accounts[0]);
                 const url = new URL(`/api/intelligence/aks-chargeback`, window.location.origin);
                 url.searchParams.set('tenantId', selectedTenant.id);
                 if (selectedCluster) url.searchParams.set('clusterName', selectedCluster);
                 const res = await fetch(url.toString(), {
-                    headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
+                    headers: { 'Authorization': `Bearer ${idToken}` }
                 });
                 const json = await res.json();
                 if (cancelled) return;

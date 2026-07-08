@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { Loader2, AlertTriangle, CheckCircle, TrendingDown, TrendingUp, DollarSign, Calendar } from "lucide-react";
 import { getFreshIdToken } from "@/lib/msalToken";
+import { isMockTenant } from '@/lib/mockData';
 
 type CommitmentStatus = "onTrack" | "atRisk" | "overConsumption";
 
@@ -107,9 +108,7 @@ export default function MACCTracker() {
     const tMock = useTranslations("Mock");
 
     const fetcher = async (url: string) => {
-        const account = accounts[0];
-        if (!account) throw new Error("No hay cuenta autenticada");
-        const token = await getFreshIdToken(instance, account);
+        const token = await getFreshIdToken(instance, accounts[0]);
         const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
         if (!res.ok) {
             const j = await res.json();
@@ -119,7 +118,7 @@ export default function MACCTracker() {
     };
 
     const apiUrl =
-        selectedTenant && selectedTenant.id !== "default" && accounts.length > 0
+        selectedTenant && selectedTenant.id !== "default" && (accounts.length > 0 || isMockTenant(selectedTenant.id))
             ? `/api/intelligence/macc?tenantId=${selectedTenant.id}`
             : null;
 

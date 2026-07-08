@@ -9,6 +9,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { hasAccess } from '@/lib/tierLogic';
 import PremiumBanner from '@/components/PremiumBanner';
 import { useCurrency } from '@/components/CurrencyProvider';
+import { isMockTenant } from '@/lib/mockData';
 
 export default function AnomalyDashboard() {
     const { selectedTenant } = useTenant();
@@ -18,9 +19,7 @@ export default function AnomalyDashboard() {
     const isPro = hasAccess(tier, 'Professional');
 
     const fetcher = async (url: string) => {
-        const account = accounts[0];
-        if (!account) throw new Error("No hay cuenta autenticada");
-        const idToken = await getFreshIdToken(instance, account, ['User.Read']);
+        const idToken = await getFreshIdToken(instance, accounts[0], ['User.Read']);
         const res = await fetch(url, { headers: { Authorization: `Bearer ${idToken}` } });
         if (!res.ok) {
             const json = await res.json();
@@ -30,7 +29,7 @@ export default function AnomalyDashboard() {
     };
 
     const { data, error, isLoading } = useSWR(
-        (isPro && selectedTenant && selectedTenant.id !== 'default' && accounts.length > 0) 
+        (isPro && selectedTenant && selectedTenant.id !== 'default' && (accounts.length > 0 || isMockTenant(selectedTenant.id))) 
             ? `/api/intelligence/anomalies?tenantId=${selectedTenant.id}&tier=${tier}` 
             : null,
         fetcher,

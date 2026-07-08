@@ -6,6 +6,8 @@ import { useMsal } from '@azure/msal-react';
 import { Loader2, Save, Plus, Trash2, PieChart } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Pagination, { usePagination } from '@/components/Pagination';
+import { isMockTenant } from '@/lib/mockData';
+import { getFreshIdToken } from '@/lib/msalToken';
 
 export default function AllocationManager() {
     const { selectedTenant } = useTenant();
@@ -17,16 +19,10 @@ export default function AllocationManager() {
     const [paginationState, setPaginationState] = useState<Record<string, { page: number; pageSize: number }>>({});
 
     const fetcher = async (url: string) => {
-        const account = accounts[0];
-        if (!account) throw new Error("No hay cuenta autenticada");
-
-        const tokenResponse = await instance.acquireTokenSilent({
-            scopes: ["User.Read"],
-            account: account
-        });
+        const idToken = await getFreshIdToken(instance, accounts[0]);
 
         const res = await fetch(url, {
-            headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
+            headers: { 'Authorization': `Bearer ${idToken}` }
         });
 
         if (!res.ok) {
@@ -37,7 +33,7 @@ export default function AllocationManager() {
     };
 
     const { data, error, isLoading, mutate } = useSWR(
-        (selectedTenant && selectedTenant.id !== 'default' && accounts.length > 0) 
+        (selectedTenant && selectedTenant.id !== 'default' && (accounts.length > 0 || isMockTenant(selectedTenant.id))) 
             ? `/api/intelligence/allocation-rules?tenantId=${selectedTenant.id}&tier=${tier}` 
             : null,
         fetcher,
@@ -127,8 +123,7 @@ export default function AllocationManager() {
     const handleSave = async () => {
         setIsSaving(true);
         try {
-            const account = accounts[0];
-            const tokenResponse = await instance.acquireTokenSilent({ scopes: ["User.Read"], account });
+            const idToken = await getFreshIdToken(instance, accounts[0]);
 
             // Flatten rules
             const flatRules: any[] = [];
@@ -153,7 +148,7 @@ export default function AllocationManager() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${tokenResponse.idToken}`
+                    'Authorization': `Bearer ${idToken}`
                 },
                 body: JSON.stringify({ tenantId: selectedTenant.id, rules: flatRules })
             });

@@ -9,6 +9,8 @@ import toast from 'react-hot-toast';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { generateOnboardingScript } from '@/lib/onboardingScriptTemplate';
+import { isMockTenant } from '@/lib/mockData';
+import { getFreshIdToken } from '@/lib/msalToken';
 
 export default function FinOpsAcademy() {
     const { selectedTenant, setSelectedTenant } = useTenant();
@@ -18,16 +20,10 @@ export default function FinOpsAcademy() {
     const [markingComplete, setMarkingComplete] = useState<string | null>(null);
 
     const fetcher = async (url: string) => {
-        const account = accounts[0];
-        if (!account) throw new Error("No hay cuenta autenticada");
-
-        const tokenResponse = await instance.acquireTokenSilent({
-            scopes: ["User.Read"],
-            account: account
-        });
+        const idToken = await getFreshIdToken(instance, accounts[0]);
 
         const res = await fetch(url, {
-            headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
+            headers: { 'Authorization': `Bearer ${idToken}` }
         });
 
         if (!res.ok) throw new Error("Error al cargar la Academia");
@@ -35,8 +31,8 @@ export default function FinOpsAcademy() {
     };
 
     const { data, error, isLoading, mutate } = useSWR(
-        (selectedTenant && selectedTenant.id !== 'default' && accounts.length > 0) 
-            ? `/api/academy/content?tenantId=${selectedTenant.id}` 
+        (selectedTenant && selectedTenant.id !== 'default' && (accounts.length > 0 || isMockTenant(selectedTenant.id)))
+            ? `/api/academy/content?tenantId=${selectedTenant.id}`
             : null,
         fetcher,
         { revalidateOnFocus: false }
@@ -45,14 +41,13 @@ export default function FinOpsAcademy() {
     const handleMarkComplete = async (moduleId: string) => {
         setMarkingComplete(moduleId);
         try {
-            const account = accounts[0];
-            const tokenResponse = await instance.acquireTokenSilent({ scopes: ["User.Read"], account });
+            const idToken = await getFreshIdToken(instance, accounts[0]);
 
             const response = await fetch(`/api/academy/content`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${tokenResponse.idToken}`
+                    'Authorization': `Bearer ${idToken}`
                 },
                 body: JSON.stringify({ tenantId: selectedTenant?.id, moduleId })
             });
@@ -97,6 +92,8 @@ export default function FinOpsAcademy() {
             </div>
         );
     }
+
+    if (!data) return null;
 
     const { modules, totalCompleted, isCertified } = data;
     const progressPercentage = (totalCompleted / modules.length) * 100;

@@ -27,13 +27,7 @@ export default function TtlCleanupPage() {
       setLoading(true);
       setError("");
       try {
-        const account = accounts[0];
-        if (!account) {
-          setError("Sesión no inicializada. Recargue la página.");
-          setLoading(false);
-          return;
-        }
-        const res = await fetchWithAuthRetry(instance, account, '/api/cleanup/ttl', {
+        const res = await fetchWithAuthRetry(instance, accounts[0], '/api/cleanup/ttl', {
             headers: {
                 'x-tenant-id': selectedTenant.id
             }
@@ -58,13 +52,7 @@ export default function TtlCleanupPage() {
       
       setDeletingId(resourceId);
       try {
-          const account = accounts[0];
-          if (!account) {
-              toast.error('Sesión no inicializada');
-              setDeletingId(null);
-              return;
-          }
-          const res = await fetchWithAuthRetry(instance, account, '/api/remediation', {
+          const res = await fetchWithAuthRetry(instance, accounts[0], '/api/remediation', {
               method: 'POST',
               headers: {
                   'Content-Type': 'application/json',

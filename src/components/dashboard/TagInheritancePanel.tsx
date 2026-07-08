@@ -26,9 +26,7 @@ export default function TagInheritancePanel() {
     // Los endpoints de tags pasan por requireTenantAccess → exigen Bearer token.
     // Sin este header, el fetch devolvía 401 al pulsar "Analizar".
     const getToken = async () => {
-        const account = accounts[0];
-        if (!account) throw new Error("No hay cuenta autenticada");
-        return getFreshIdToken(instance, account, ["User.Read"]);
+        return getFreshIdToken(instance, accounts[0], ["User.Read"]);
     };
 
     const [tagKeys, setTagKeys] = useState("");

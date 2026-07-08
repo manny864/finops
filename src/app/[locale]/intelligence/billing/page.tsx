@@ -26,6 +26,7 @@ export default function BillingPage() {
   const [advisorData, setAdvisorData] = useState<any | null>(null);
   const [zombieData, setZombieData] = useState<any | null>(null);
   const [tagsData, setTagsData] = useState<any | null>(null);
+  const [appliedSavingsData, setAppliedSavingsData] = useState<any | null>(null);
   const setPageContext = useAIContext(state => state.setPageContext);
   
 
@@ -57,6 +58,7 @@ export default function BillingPage() {
                   setAdvisorData(getMockDataForRoute('advisor', selectedTenant.id));
                   setZombieData(getMockDataForRoute('audit_full', selectedTenant.id));
                   setTagsData(getMockDataForRoute('tags_compliance', selectedTenant.id));
+                  setAppliedSavingsData({ success: true, appliedSavings: 380.5, actionsCount: 6 });
                   setLoading(false);
                   return;
               }
@@ -73,11 +75,12 @@ export default function BillingPage() {
               const subParam = (!selectedSubscription || selectedSubscription.toLowerCase() === 'all') ? '' : `&subscriptionId=${selectedSubscription}`;
               console.log('[BillingPage] Fetching APIs with subParam:', subParam);
               
-              const [billingRes, advisorRes, zombieRes, tagsRes] = await Promise.allSettled([
+              const [billingRes, advisorRes, zombieRes, tagsRes, appliedSavingsRes] = await Promise.allSettled([
                   fetchWithAuthRetry(instance, accounts[0], '/api/intelligence/billing', { headers }),
                   fetchWithAuthRetry(instance, accounts[0], `/api/advisor?tenantId=${selectedTenant.id}${subParam}&locale=${encodeURIComponent(locale)}`, { headers }),
                   fetchWithAuthRetry(instance, accounts[0], `/api/audit/full?tenantId=${selectedTenant.id}${subParam}`, { headers }),
-                  fetchWithAuthRetry(instance, accounts[0], `/api/tags/compliance?tenantId=${selectedTenant.id}${subParam}`, { headers })
+                  fetchWithAuthRetry(instance, accounts[0], `/api/tags/compliance?tenantId=${selectedTenant.id}${subParam}`, { headers }),
+                  fetchWithAuthRetry(instance, accounts[0], `/api/intelligence/applied-savings?tenantId=${selectedTenant.id}&days=30`, { headers })
               ]);
 
               console.log('[BillingPage] API responses:', {
@@ -138,6 +141,12 @@ export default function BillingPage() {
                   console.warn('[BillingPage] tags NOT ok:', tagsRes.status === 'fulfilled' ? tagsRes.value.status : 'rejected');
               }
 
+              if (appliedSavingsRes.status === 'fulfilled' && appliedSavingsRes.value.ok) {
+                  try {
+                      setAppliedSavingsData(await appliedSavingsRes.value.json());
+                  } catch(e) { console.error('[BillingPage] applied-savings parse error', e); }
+              }
+
           } catch (e) {
               console.error("Billing fetch error", e);
               setBillingData([]);
@@ -156,6 +165,7 @@ export default function BillingPage() {
             advisorData={advisorData}
             zombieData={zombieData}
             tagsData={tagsData}
+            appliedSavingsData={appliedSavingsData}
         />
 
     </div>

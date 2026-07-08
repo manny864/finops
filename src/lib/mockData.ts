@@ -119,6 +119,44 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
     if (tier.toLowerCase() === 'enterprise') multiplier = 50;
 
     switch (route) {
+        case 'academy': {
+            const modules = [
+                {
+                    id: "module-1",
+                    title: "Conceptos Básicos de Presupuesto",
+                    description: "Aprende a leer y configurar las alertas de presupuesto (Burn Rate) antes de que el dinero se agote.",
+                    content: "### Bienvenido a FinOps 101\n\nEl presupuesto es la base de cualquier estrategia FinOps. No se trata solo de limitar el gasto, sino de **predecir** cuándo te quedarás sin fondos usando el *Burn Rate*.\n\n#### ¿Qué es el Burn Rate?\nEs la velocidad a la que consumes tu presupuesto.\n\n#### Mejores Prácticas:\n1. **Configura múltiples umbrales:** No avises solo al 100%.\n2. **Alertas a los responsables:** Envía el webhook directo al canal de Slack.\n3. **Revisa los picos:** Usa el módulo de **Anomalías** para investigar.",
+                    duration: "5 min",
+                    suggestOnboardingScript: true,
+                    isCompleted: true,
+                },
+                {
+                    id: "module-2",
+                    title: "Cómo entender tu factura de Azure",
+                    description: "Desmitificando los recursos Zombie y los costos ocultos de transferencia de red (Egress).",
+                    content: "### Desenmascarando a Azure\n\n#### 1. Recursos Zombis 🧟\nSon recursos que estás pagando pero que no hacen nada.\n\n#### 2. Costos de Egress 🌐\nSacar datos de Azure cuesta mucho dinero.",
+                    duration: "8 min",
+                    suggestOnboardingScript: false,
+                    isCompleted: true,
+                },
+                {
+                    id: "module-3",
+                    title: "Derecho de Uso (Hybrid Benefit)",
+                    description: "No pagues doble. Reutiliza tus licencias de Windows y SQL Server.",
+                    content: "### El Secreto Mejor Guardado de Microsoft\n\n#### Azure Hybrid Benefit (AHB)\nAplicá licencias que ya poseés directamente en la nube. ¡Podés ahorrar hasta un 45% del costo de cómputo!",
+                    duration: "10 min",
+                    suggestOnboardingScript: false,
+                    isCompleted: false,
+                },
+            ];
+            return {
+                success: true,
+                mock: true,
+                modules,
+                totalCompleted: modules.filter(m => m.isCompleted).length,
+                isCertified: false,
+            };
+        }
         case 'advisor':
             return {
                 success: true,
@@ -467,8 +505,10 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
                     const services = ['Virtual Machines', 'Storage', 'SQL Database', 'App Service', 'Networking', 'AKS', 'Functions'];
                     const svc = services[i % services.length];
                     const cost = (150 + Math.random() * 50) * multiplier;
+                    const isoDate = new Date(Date.now() - (29 - i) * 86400000).toISOString().split('T')[0];
                     return {
-                        date: new Date(Date.now() - (29 - i) * 86400000).toISOString().split('T')[0],
+                        date: isoDate,
+                        UsageDate: isoDate,
                         cost,
                         BilledCost: cost,
                         EffectiveCost: cost * 0.92,
@@ -627,16 +667,21 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
                 ]
             };
         case 'aks_chargeback': {
-            const namespaces = [
-                { namespace: 'payments-api', totalCost: 3120 * multiplier },
-                { namespace: 'checkout-web', totalCost: 1890 * multiplier },
-                { namespace: 'analytics-batch', totalCost: 2450 * multiplier },
-                { namespace: 'data-streaming', totalCost: 1740 * multiplier },
-                { namespace: 'identity', totalCost: 520 * multiplier },
-                { namespace: 'monitoring', totalCost: 610 * multiplier },
-                { namespace: 'ingress-nginx', totalCost: 420 * multiplier },
-                { namespace: 'kube-system', totalCost: 380 * multiplier },
+            const rawNamespaces = [
+                { namespace: 'payments-api', totalCost: 3120 * multiplier, cpuCores: 8 },
+                { namespace: 'checkout-web', totalCost: 1890 * multiplier, cpuCores: 4 },
+                { namespace: 'analytics-batch', totalCost: 2450 * multiplier, cpuCores: 6 },
+                { namespace: 'data-streaming', totalCost: 1740 * multiplier, cpuCores: 4 },
+                { namespace: 'identity', totalCost: 520 * multiplier, cpuCores: 1 },
+                { namespace: 'monitoring', totalCost: 610 * multiplier, cpuCores: 2 },
+                { namespace: 'ingress-nginx', totalCost: 420 * multiplier, cpuCores: 1 },
+                { namespace: 'kube-system', totalCost: 380 * multiplier, cpuCores: 1 },
             ];
+            const namespaces = rawNamespaces.map(n => ({
+                ...n,
+                computeCost: Math.round(n.totalCost * 0.8 * 100) / 100,
+                storageCost: Math.round(n.totalCost * 0.2 * 100) / 100,
+            }));
             const totalClusterCost = namespaces.reduce((s, n) => s + n.totalCost, 0);
             return {
                 success: true,
@@ -664,10 +709,10 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
             return {
                 success: true,
                 burnData: [
-                    { costCenter: 'IT & Ops', budget: 15000 * multiplier, actual: 12000 * multiplier },
-                    { costCenter: 'Marketing', budget: 5000 * multiplier, actual: 4800 * multiplier },
-                    { costCenter: 'R&D', budget: 8000 * multiplier, actual: 9500 * multiplier },
-                    { costCenter: 'HR', budget: 2000 * multiplier, actual: 1200 * multiplier }
+                    { costCenter: 'IT & Ops', subscriptionId: 'mock-sub', budget: 15000 * multiplier, actual: 12000 * multiplier },
+                    { costCenter: 'Marketing', subscriptionId: 'mock-sub', budget: 5000 * multiplier, actual: 4800 * multiplier },
+                    { costCenter: 'R&D', subscriptionId: 'mock-sub', budget: 8000 * multiplier, actual: 9500 * multiplier },
+                    { costCenter: 'HR', subscriptionId: 'mock-sub', budget: 2000 * multiplier, actual: 1200 * multiplier }
                 ]
             };
         case 'tags':

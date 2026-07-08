@@ -26,7 +26,6 @@ export default function PricingUnitsPage() {
     const [testResult, setTestResult] = useState<any>(null);
 
     const load = useCallback(async () => {
-        if (!account) { setLoading(false); return; }
         setLoading(true); setError(null);
         try {
             const res = await fetchWithAuthRetry(instance, account, "/api/admin/pricing-units");
@@ -40,7 +39,6 @@ export default function PricingUnitsPage() {
     useEffect(() => { load(); }, [load]);
 
     const reseed = async () => {
-        if (!account) { setError("Sesión no autenticada."); return; }
         setReseeding(true); setError(null); setInfo(null);
         try {
             const res = await fetchWithAuthRetry(instance, account, "/api/admin/pricing-units", { method: "POST" });
@@ -52,7 +50,6 @@ export default function PricingUnitsPage() {
     };
 
     const runTest = async () => {
-        if (!account) { setError("Sesión no autenticada."); return; }
         setError(null); setTestResult(null);
         try {
             const url = `/api/admin/pricing-units?test=${encodeURIComponent(testUom)}&qty=${encodeURIComponent(testQty)}`;

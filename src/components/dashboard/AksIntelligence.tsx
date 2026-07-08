@@ -4,6 +4,8 @@ import useSWR from 'swr';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { Loader2, Server, DollarSign, Box } from 'lucide-react';
+import { isMockTenant } from '@/lib/mockData';
+import { getFreshIdToken } from '@/lib/msalToken';
 
 const currencyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 
@@ -12,17 +14,11 @@ export default function AksIntelligence() {
     const { instance, accounts } = useMsal();
 
     const fetcher = async (url: string) => {
-        const account = accounts[0];
-        if (!account) throw new Error("No hay cuenta autenticada");
-
-        const tokenResponse = await instance.acquireTokenSilent({
-            scopes: ["User.Read"],
-            account: account
-        });
+        const idToken = await getFreshIdToken(instance, accounts[0]);
 
         const res = await fetch(url, {
             headers: {
-                'Authorization': `Bearer ${tokenResponse.idToken}`
+                'Authorization': `Bearer ${idToken}`
             }
         });
 
@@ -35,8 +31,8 @@ export default function AksIntelligence() {
     };
 
     const { data, error, isLoading } = useSWR(
-        (selectedTenant && selectedTenant.id !== 'default' && accounts.length > 0) 
-            ? `/api/intelligence/aks?tenantId=${selectedTenant.id}` 
+        (selectedTenant && selectedTenant.id !== 'default' && (accounts.length > 0 || isMockTenant(selectedTenant.id)))
+            ? `/api/intelligence/aks?tenantId=${selectedTenant.id}`
             : null,
         fetcher,
         { revalidateOnFocus: false }

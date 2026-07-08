@@ -6,6 +6,8 @@ import { Loader2, DollarSign, Bell } from 'lucide-react';
 import { useSubscription } from '@/components/SubscriptionProvider';
 import { useMsal } from '@azure/msal-react';
 import CreateBudgetModal from '@/components/CreateBudgetModal';
+import { isMockTenant } from '@/lib/mockData';
+import { getFreshIdToken } from '@/lib/msalToken';
 
 const currencyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 
@@ -24,7 +26,7 @@ export default function BudgetCard() {
     const { instance, accounts } = useMsal();
 
     useEffect(() => {
-        if (!selectedTenant || selectedTenant.id === 'default' || accounts.length === 0 || subscriptions.length === 0) {
+        if (!selectedTenant || selectedTenant.id === 'default' || (accounts.length === 0 && !isMockTenant(selectedTenant.id)) || subscriptions.length === 0) {
             setBudgetData(null);
             return;
         }
@@ -34,13 +36,10 @@ export default function BudgetCard() {
 
         const fetchData = async () => {
             try {
-                const tokenResponse = await instance.acquireTokenSilent({
-                    scopes: ["User.Read"],
-                    account: accounts[0]
-                });
+                const idToken = await getFreshIdToken(instance, accounts[0]);
 
-                const subIds = selectedSubscription !== 'All' 
-                    ? selectedSubscription 
+                const subIds = selectedSubscription !== 'All'
+                    ? selectedSubscription
                     : subscriptions.map(s => s.id).join(',');
 
                 if (!subIds) {
@@ -49,7 +48,7 @@ export default function BudgetCard() {
                 }
 
                 const res = await fetch(`/api/budgets/burn?tenantId=${selectedTenant.id}&subscriptionId=${subIds}`, {
-                    headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
+                    headers: { 'Authorization': `Bearer ${idToken}` }
                 });
                 const json = await res.json();
 

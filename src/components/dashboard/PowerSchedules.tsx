@@ -6,7 +6,21 @@ import { useTenant } from '../TenantProvider';
 import { useSubscription } from '../SubscriptionProvider';
 import FeatureGuard from '../FeatureGuard';
 import { getMockDataForRoute, isMockTenant } from '@/lib/mockData';
+import { getFreshIdToken } from '@/lib/msalToken';
 import { hasAccess } from '@/lib/tierLogic';
+
+const MOCK_SCHEDULES = [
+    {
+        id: 'mock-sched-1', vm_name: 'dev-vm-loadtest-01', shutdown_time: '20:00:00', gmt_offset: '-05:00',
+        smart_shutdown_enabled: true, max_cpu_percentage: 10,
+        last_executed_date: new Date(Date.now() - 86400000).toISOString().slice(0, 10), last_execution_status: 'executed',
+    },
+    {
+        id: 'mock-sched-2', vm_name: 'app-prod-vm-02', shutdown_time: '22:30:00', gmt_offset: '-05:00',
+        smart_shutdown_enabled: false, max_cpu_percentage: 10,
+        last_executed_date: new Date(Date.now() - 172800000).toISOString().slice(0, 10), last_execution_status: 'skipped_cpu',
+    },
+];
 import {
   useReactTable,
   getCoreRowModel,
@@ -44,16 +58,16 @@ export default function PowerSchedules() {
     } catch (e) {}
 
     const getAuthHeaders = async (): Promise<Record<string, string>> => {
-        const tokenResponse = await instance.acquireTokenSilent({
-            scopes: ["User.Read"],
-            account: accounts[0]
-        });
-        return { 'Authorization': `Bearer ${tokenResponse.idToken}` };
+        const idToken = await getFreshIdToken(instance, accounts[0]);
+        return { 'Authorization': `Bearer ${idToken}` };
     };
 
     const loadSchedules = async () => {
-        if (!selectedTenant || selectedTenant.id === 'default' || accounts.length === 0) return;
-        if (isMockTenant(selectedTenant.id)) return;
+        if (!selectedTenant || selectedTenant.id === 'default' || (accounts.length === 0 && !isMockTenant(selectedTenant.id))) return;
+        if (isMockTenant(selectedTenant.id)) {
+            setSchedules(MOCK_SCHEDULES);
+            return;
+        }
         setSchedulesLoading(true);
         try {
             const headers = await getAuthHeaders();
@@ -141,7 +155,7 @@ export default function PowerSchedules() {
     };
 
     useEffect(() => {
-        if (accounts.length === 0 || selectedTenant.id === 'default') return;
+        if ((accounts.length === 0 && !isMockTenant(selectedTenant.id)) || selectedTenant.id === 'default') return;
         const fetchVms = async () => {
             setLoading(true);
             try {
@@ -366,7 +380,7 @@ export default function PowerSchedules() {
         getPaginationRowModel: getPaginationRowModel(),
     });
 
-    if (accounts.length === 0 || selectedTenant.id === 'default') return null;
+    if ((accounts.length === 0 && !isMockTenant(selectedTenant.id)) || selectedTenant.id === 'default') return null;
 
     const isPro = hasAccess(selectedTenant.tier || 'Essential', 'Professional');
 

@@ -15,6 +15,8 @@ import {
 import { useCurrency } from '@/components/CurrencyProvider';
 import ReservationRenewalModal, { type RenewReservation } from '@/components/dashboard/ReservationRenewalModal';
 import ReservationUtilizationModal, { type UtilReservation } from '@/components/dashboard/ReservationUtilizationModal';
+import { isMockTenant } from '@/lib/mockData';
+import { getFreshIdToken } from '@/lib/msalToken';
 
 interface ReservationDetail {
     reservationId: string;
@@ -64,19 +66,13 @@ export default function Commitments() {
     const [utilTarget, setUtilTarget] = useState<UtilReservation | null>(null);
 
     const authFetch = useCallback(async (url: string, init?: RequestInit) => {
-        const account = accounts[0];
-        if (!account) throw new Error("No hay cuenta autenticada");
-
-        const tokenResponse = await instance.acquireTokenSilent({
-            scopes: ["User.Read"],
-            account: account
-        });
+        const idToken = await getFreshIdToken(instance, accounts[0]);
 
         const res = await fetch(url, {
             ...init,
             headers: {
                 ...(init?.headers || {}),
-                'Authorization': `Bearer ${tokenResponse.idToken}`
+                'Authorization': `Bearer ${idToken}`
             }
         });
 
@@ -89,8 +85,8 @@ export default function Commitments() {
     }, [accounts, instance]);
 
     const { data, error, isLoading, mutate } = useSWR(
-        (selectedTenant && selectedTenant.id !== 'default' && accounts.length > 0) 
-            ? `/api/intelligence/commitments?tenantId=${selectedTenant.id}` 
+        (selectedTenant && selectedTenant.id !== 'default' && (accounts.length > 0 || isMockTenant(selectedTenant.id)))
+            ? `/api/intelligence/commitments?tenantId=${selectedTenant.id}`
             : null,
         authFetch,
         { revalidateOnFocus: false }

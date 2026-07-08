@@ -8,6 +8,8 @@ import RoleAssignmentBanner from './RoleAssignmentBanner';
 import { Info, Lightbulb, X, Play } from 'lucide-react';
 import { hasAccess } from '@/lib/tierLogic';
 import { translateAdvisorText } from '@/lib/advisorI18n';
+import { isMockTenant } from '@/lib/mockData';
+import { getFreshIdToken } from '@/lib/msalToken';
 
 export default function AdvisorPanel() {
   const { instance, accounts } = useMsal();
@@ -33,7 +35,7 @@ export default function AdvisorPanel() {
   }, [selectedSubscription]);
 
   useEffect(() => {
-    if (accounts.length === 0 || selectedTenant.id === 'default') {
+    if ((accounts.length === 0 && !isMockTenant(selectedTenant?.id || '')) || selectedTenant.id === 'default') {
       setLoading(false);
       return;
     }
@@ -41,14 +43,10 @@ export default function AdvisorPanel() {
     const fetchAdvisor = async () => {
       try {
         setLoading(true);
-        const account = accounts[0];
-        const tokenResponse = await instance.acquireTokenSilent({
-            scopes: ["User.Read"],
-            account: account
-        });
-        
+        const idToken = await getFreshIdToken(instance, accounts[0]);
+
         const res = await fetch(`/api/advisor?tenantId=${selectedTenant.id}&locale=${encodeURIComponent(locale)}`, {
-            headers: { 'Authorization': `Bearer ${tokenResponse.idToken}`, 'Accept-Language': locale }
+            headers: { 'Authorization': `Bearer ${idToken}`, 'Accept-Language': locale }
         });
         
         const json = await res.json();
@@ -124,13 +122,9 @@ export default function AdvisorPanel() {
 
   const handleCsvExport = async () => {
       try {
-          const account = accounts[0];
-          const tokenResponse = await instance.acquireTokenSilent({
-              scopes: ["User.Read"],
-              account: account
-          });
-          const headers = { 'Authorization': `Bearer ${tokenResponse.idToken}` };
-          
+          const idToken = await getFreshIdToken(instance, accounts[0]);
+          const headers = { 'Authorization': `Bearer ${idToken}` };
+
           let auditUrl = `/api/audit/full?tenantId=${selectedTenant.id}`;
           if (selectedSub !== "all") auditUrl += `&subscriptionId=${selectedSub}`;
 
@@ -229,14 +223,11 @@ export default function AdvisorPanel() {
 
       setActionLoading(rec.id || resourceId);
       try {
-          const tokenResponse = await instance.acquireTokenSilent({
-              scopes: ["User.Read"],
-              account: accounts[0]
-          });
-          
+          const idToken = await getFreshIdToken(instance, accounts[0]);
+
           const res = await fetch(`/api/advisor`, {
               method: 'POST',
-              headers: { 'Authorization': `Bearer ${tokenResponse.idToken}`, 'Content-Type': 'application/json' },
+              headers: { 'Authorization': `Bearer ${idToken}`, 'Content-Type': 'application/json' },
               body: JSON.stringify({
                   tenantId: selectedTenant.id,
                   action: 'delete',
@@ -265,7 +256,7 @@ export default function AdvisorPanel() {
       { id: "OperationalExcellence", name: t('operational_label'), note: t('operational_note'), tooltip: t('operationalExcellenceTooltip'), color: "text-purple", icon: "⚙️" }
   ];
 
-  if (accounts.length === 0 || selectedTenant.id === 'default') {
+  if ((accounts.length === 0 && !isMockTenant(selectedTenant?.id || '')) || selectedTenant.id === 'default') {
       return <div className="p-8 text-center text-ink-soft">{tCommon('loading')}</div>;
   }
 

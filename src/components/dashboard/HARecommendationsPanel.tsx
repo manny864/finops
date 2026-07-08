@@ -7,6 +7,8 @@ import { useMsal } from '@azure/msal-react';
 import { Loader2, ShieldAlert, Info } from 'lucide-react';
 import Pagination, { usePagination } from '@/components/Pagination';
 import PinButton from '@/components/dashboard/PinButton';
+import { isMockTenant } from '@/lib/mockData';
+import { getFreshIdToken } from '@/lib/msalToken';
 
 function MockBanner({ tMock }: { tMock: (k: string) => string }) {
     return (
@@ -31,16 +33,14 @@ export default function HARecommendationsPanel() {
     const tMock = useTranslations('Mock');
 
     const fetcher = async (url: string) => {
-        const account = accounts[0];
-        if (!account) throw new Error("No hay cuenta autenticada");
-        const tokenResponse = await instance.acquireTokenSilent({ scopes: ["User.Read"], account });
-        const res = await fetch(url, { headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` } });
+        const idToken = await getFreshIdToken(instance, accounts[0]);
+        const res = await fetch(url, { headers: { 'Authorization': `Bearer ${idToken}` } });
         if (!res.ok) { const j = await res.json(); throw new Error(j.error || "Error"); }
         return res.json();
     };
 
     const { data, error, isLoading } = useSWR(
-        selectedTenant?.id && selectedTenant.id !== 'default' && accounts.length > 0
+        selectedTenant?.id && selectedTenant.id !== 'default' && (accounts.length > 0 || isMockTenant(selectedTenant.id))
             ? `/api/governance/ha?tenantId=${selectedTenant.id}`
             : null,
         fetcher,

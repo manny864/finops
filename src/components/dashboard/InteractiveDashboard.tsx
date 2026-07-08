@@ -20,6 +20,7 @@ interface InteractiveDashboardProps {
     advisorData?: any;
     zombieData?: any;
     tagsData?: any;
+    appliedSavingsData?: any;
 }
 
 export default function InteractiveDashboard({
@@ -27,7 +28,8 @@ export default function InteractiveDashboard({
     billingData,
     advisorData,
     zombieData,
-    tagsData
+    tagsData,
+    appliedSavingsData
 }: InteractiveDashboardProps) {
     const t = useTranslations('Billing');
     const locale = useLocale();
@@ -43,7 +45,10 @@ export default function InteractiveDashboard({
             acc + parseFloat(curr.extendedProperties?.savingsAmount || '0'), 0);
     }
 
-    const computedAppliedSavings = 0; // Placeholder
+    // Ahorro ya materializado: suma de estimados por tipo de recurso para las
+    // eliminaciones exitosas (ActionLogs.action_type='DELETE_RESOURCE') de los
+    // últimos 30 días. Ver /api/intelligence/applied-savings.
+    const computedAppliedSavings = appliedSavingsData?.appliedSavings ?? 0;
 
     const computedUntagged = tagsData?.data?.allResources ? tagsData.data.allResources.filter((r: any) => !r.isCompliant).length : undefined;
     let computedZombies: number | string = '--';

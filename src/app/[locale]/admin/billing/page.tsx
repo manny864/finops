@@ -586,7 +586,7 @@ export default function BillingPage() {
                   <tr key={invoice.id} className="border-b border-gray-100 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700">
                     <td className="px-4 py-3">{new Date(invoice.billedAt).toLocaleDateString()}</td>
                     <td className="px-4 py-3 font-semibold">
-                      {invoice.currency} {invoice.amount?.toFixed(2)}
+                      {invoice.currency} {Number(invoice.amount ?? 0).toFixed(2)}
                     </td>
                     <td className="px-4 py-3">
                       <span

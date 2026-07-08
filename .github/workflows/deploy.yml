@@ -26,6 +26,7 @@ jobs:
             # Detenemos la app vieja para liberar memoria RAM antes de compilar la nueva
             docker compose stop finops-app
             docker compose up -d --build
+            docker builder prune -af --filter until=48h || true
 
       - name: Wait before retry
         if: steps.deploy1.outcome == 'failure'
@@ -50,6 +51,7 @@ jobs:
             git reset --hard origin/main
             docker compose stop finops-app
             docker compose up -d --build
+            docker builder prune -af --filter until=48h || true
 
       - name: Wait before final retry
         if: steps.deploy1.outcome == 'failure' && steps.deploy2.outcome == 'failure'
@@ -72,3 +74,4 @@ jobs:
             git reset --hard origin/main
             docker compose stop finops-app
             docker compose up -d --build
+            docker builder prune -af --filter until=48h || true

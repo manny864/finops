@@ -4,6 +4,8 @@ import useSWR from 'swr';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { Loader2, Box, Info, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { isMockTenant } from '@/lib/mockData';
+import { getFreshIdToken } from '@/lib/msalToken';
 
 const PAGE_SIZES = [10, 25, 50, 100] as const;
 
@@ -12,16 +14,10 @@ export default function ZeroCostInventory() {
     const { instance, accounts } = useMsal();
 
     const fetcher = async (url: string) => {
-        const account = accounts[0];
-        if (!account) throw new Error("No hay cuenta autenticada");
-
-        const tokenResponse = await instance.acquireTokenSilent({
-            scopes: ["User.Read"],
-            account: account
-        });
+        const idToken = await getFreshIdToken(instance, accounts[0]);
 
         const res = await fetch(url, {
-            headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
+            headers: { 'Authorization': `Bearer ${idToken}` }
         });
 
         if (!res.ok) {
@@ -32,7 +28,7 @@ export default function ZeroCostInventory() {
     };
 
     const { data, error, isLoading } = useSWR(
-        (selectedTenant && selectedTenant.id !== 'default' && accounts.length > 0)
+        (selectedTenant && selectedTenant.id !== 'default' && (accounts.length > 0 || isMockTenant(selectedTenant.id)))
             ? `/api/intelligence/zero-cost?tenantId=${selectedTenant.id}`
             : null,
         fetcher,

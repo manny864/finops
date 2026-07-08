@@ -6,6 +6,8 @@ import { useMsal } from '@azure/msal-react';
 import { Info, ShieldAlert, Tag, CheckCircle2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import Pagination, { usePagination } from './Pagination';
+import { isMockTenant } from '@/lib/mockData';
+import { getFreshIdToken } from '@/lib/msalToken';
 
 // Autorefresh: la auditoría escanea Azure Resource Graph (llamada con costo),
 // así que refrescamos cada 60s SÓLO con la pestaña visible para no malgastar
@@ -29,23 +31,20 @@ export default function TagManager() {
     const [rgComplianceScore, setRgComplianceScore] = useState<number | null>(null);
 
     const analyzeCompliance = useCallback(async () => {
-        if (accounts.length === 0 || selectedTenant.id === 'default') {
+        if ((accounts.length === 0 && !isMockTenant(selectedTenant.id)) || selectedTenant.id === 'default') {
             setComplianceScore(null);
             setResources([]);
             setRgComplianceScore(null);
             setResourceGroups([]);
             return;
         }
-        
+
         setIsAnalyzing(true);
         try {
-            const tokenResponse = await instance.acquireTokenSilent({
-                scopes: ["User.Read"],
-                account: accounts[0]
-            });
+            const idToken = await getFreshIdToken(instance, accounts[0]);
             const res = await fetch(
                 `/api/tags/compliance?tenantId=${selectedTenant.id}&subscriptionId=${selectedSubscription}`,
-                { headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` } }
+                { headers: { 'Authorization': `Bearer ${idToken}` } }
             );
             const json = await res.json();
             
@@ -88,10 +87,7 @@ export default function TagManager() {
         if (!editingResource) return;
         setIsApplying(true);
         try {
-            const tokenResponse = await instance.acquireTokenSilent({
-                scopes: ["User.Read"],
-                account: accounts[0]
-            });
+            const idToken = await getFreshIdToken(instance, accounts[0]);
             const payload = {
                 tenantId: selectedTenant.id,
                 resourceId: editingResource.id,
@@ -101,7 +97,7 @@ export default function TagManager() {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${tokenResponse.idToken}` 
+                    'Authorization': `Bearer ${idToken}`
                 },
                 body: JSON.stringify(payload)
             });

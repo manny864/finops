@@ -6,22 +6,18 @@ import { useMsal } from '@azure/msal-react';
 import { Loader2, CheckCircle, XCircle, Clock, Server, Trash2, ArrowDownCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import Pagination, { usePagination } from '@/components/Pagination';
+import { isMockTenant } from '@/lib/mockData';
+import { getFreshIdToken } from '@/lib/msalToken';
 
 export default function RemediationApprovals() {
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
 
     const fetcher = async (url: string) => {
-        const account = accounts[0];
-        if (!account) throw new Error("No hay cuenta autenticada");
-
-        const tokenResponse = await instance.acquireTokenSilent({
-            scopes: ["User.Read"],
-            account: account
-        });
+        const idToken = await getFreshIdToken(instance, accounts[0]);
 
         const res = await fetch(url, {
-            headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
+            headers: { 'Authorization': `Bearer ${idToken}` }
         });
 
         if (!res.ok) {
@@ -32,7 +28,7 @@ export default function RemediationApprovals() {
     };
 
     const { data, error, isLoading, mutate } = useSWR(
-        (selectedTenant && selectedTenant.id !== 'default' && accounts.length > 0) 
+        (selectedTenant && selectedTenant.id !== 'default' && (accounts.length > 0 || isMockTenant(selectedTenant.id))) 
             ? `/api/remediation/workflow?tenantId=${selectedTenant.id}` 
             : null,
         fetcher
@@ -53,14 +49,13 @@ export default function RemediationApprovals() {
         }
 
         try {
-            const account = accounts[0];
-            const tokenResponse = await instance.acquireTokenSilent({ scopes: ["User.Read"], account });
+            const idToken = await getFreshIdToken(instance, accounts[0]);
 
             const res = await fetch(`/api/remediation/workflow`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${tokenResponse.idToken}`
+                    'Authorization': `Bearer ${idToken}`
                 },
                 body: JSON.stringify({ id, status: action, tenantId: selectedTenant?.id })
             });

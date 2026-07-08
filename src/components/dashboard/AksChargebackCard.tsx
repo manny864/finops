@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { getFreshIdToken } from '@/lib/msalToken';
+import { isMockTenant } from '@/lib/mockData';
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Server, Loader2 } from 'lucide-react';
 import PinButton from '@/components/dashboard/PinButton';
@@ -19,7 +20,7 @@ export default function AksChargebackCard() {
     const [error, setError] = useState<string>('');
 
     useEffect(() => {
-        if (!selectedTenant?.id || selectedTenant.id === 'default' || accounts.length === 0) {
+        if (!selectedTenant?.id || selectedTenant.id === 'default' || (accounts.length === 0 && !isMockTenant(selectedTenant.id))) {
             setLoading(false);
             return;
         }

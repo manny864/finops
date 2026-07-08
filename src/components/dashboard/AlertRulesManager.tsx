@@ -64,9 +64,7 @@ export default function AlertRulesManager() {
     });
 
     const getToken = async () => {
-        const account = accounts[0];
-        if (!account) throw new Error("No hay cuenta autenticada");
-        return getFreshIdToken(instance, account, ["User.Read"]);
+        return getFreshIdToken(instance, accounts[0], ["User.Read"]);
     };
 
     const apiUrl = selectedTenant && selectedTenant.id !== "default"

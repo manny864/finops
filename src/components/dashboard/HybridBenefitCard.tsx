@@ -5,6 +5,8 @@ import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { Loader2, Server, Database, TrendingDown, Info, Cpu } from 'lucide-react';
 import Pagination, { usePagination } from '@/components/Pagination';
+import { isMockTenant } from '@/lib/mockData';
+import { getFreshIdToken } from '@/lib/msalToken';
 
 export default function HybridBenefitCard() {
     const { selectedTenant } = useTenant();
@@ -13,16 +15,10 @@ export default function HybridBenefitCard() {
     const [showAll, setShowAll] = useState(false);
 
     const fetcher = async (url: string) => {
-        const account = accounts[0];
-        if (!account) throw new Error("No hay cuenta autenticada");
-
-        const tokenResponse = await instance.acquireTokenSilent({
-            scopes: ["User.Read"],
-            account: account
-        });
+        const idToken = await getFreshIdToken(instance, accounts[0]);
 
         const res = await fetch(url, {
-            headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
+            headers: { 'Authorization': `Bearer ${idToken}` }
         });
 
         if (!res.ok) {
@@ -33,8 +29,8 @@ export default function HybridBenefitCard() {
     };
 
     const { data, error, isLoading } = useSWR(
-        (selectedTenant && selectedTenant.id !== 'default' && accounts.length > 0) 
-            ? `/api/intelligence/hybrid-benefit?tenantId=${selectedTenant.id}&tier=${tier}` 
+        (selectedTenant && selectedTenant.id !== 'default' && (accounts.length > 0 || isMockTenant(selectedTenant.id)))
+            ? `/api/intelligence/hybrid-benefit?tenantId=${selectedTenant.id}&tier=${tier}`
             : null,
         fetcher,
         { revalidateOnFocus: false }

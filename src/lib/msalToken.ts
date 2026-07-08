@@ -30,6 +30,13 @@ export async function getFreshIdToken(
   account: AccountInfo,
   scopes: string[] = ['User.Read']
 ): Promise<string> {
+  // Sin cuenta real no hay nada que pedirle a MSAL — típicamente sesión de
+  // demo/mock (ver TenantProvider: intercepta window.fetch por URL para esos
+  // tenants). Sin este corte, acquireTokenSilent(..., account: undefined)
+  // lanza no_account_error ANTES de llegar al fetch(), y el interceptor de
+  // demo nunca se ejecuta pese a tener el mock data listo.
+  if (!account) return 'demo';
+
   const SKEW_SECONDS = 300; // 5 min de margen
 
   let result: AuthenticationResult = await instance.acquireTokenSilent({
@@ -70,7 +77,7 @@ export async function fetchWithAuthRetry(
   };
 
   const res = await fetch(url, { ...init, headers });
-  if (res.status !== 401) return res;
+  if (res.status !== 401 || !account) return res;
 
   const freshToken = await instance.acquireTokenSilent({
     scopes,

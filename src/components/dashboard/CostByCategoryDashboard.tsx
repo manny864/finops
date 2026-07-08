@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { Loader2, AlertCircle, Info, PieChart } from "lucide-react";
+import { isMockTenant } from '@/lib/mockData';
 
 // Paleta por categoría FinOps (consistente en light/dark).
 const CATEGORY_COLORS: Record<string, string> = {
@@ -32,9 +33,7 @@ export default function CostByCategoryDashboard() {
     const [days] = useState(30);
 
     const fetcher = async (url: string) => {
-        const account = accounts[0];
-        if (!account) throw new Error("No hay cuenta autenticada");
-        const idToken = await getFreshIdToken(instance, account, ["User.Read"]);
+        const idToken = await getFreshIdToken(instance, accounts[0], ["User.Read"]);
         const res = await fetch(url, {
             headers: {
                 Authorization: `Bearer ${idToken}`,
@@ -49,7 +48,7 @@ export default function CostByCategoryDashboard() {
     };
 
     const { data, error, isLoading } = useSWR(
-        selectedTenant && selectedTenant.id !== "default" && accounts.length > 0
+        selectedTenant && selectedTenant.id !== "default" && (accounts.length > 0 || isMockTenant(selectedTenant.id))
             ? `/api/intelligence/cost-by-category?tenantId=${selectedTenant.id}&days=${days}`
             : null,
         fetcher,

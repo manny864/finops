@@ -4,6 +4,8 @@ import { useMsal } from '@azure/msal-react';
 import { toast } from 'sonner';
 import { Loader2, X } from 'lucide-react';
 import KillSwitchConfig from '@/components/budgets/KillSwitchConfig';
+import { isMockTenant } from '@/lib/mockData';
+import { getFreshIdToken } from '@/lib/msalToken';
 
 interface CreateBudgetModalProps {
     isOpen: boolean;
@@ -33,17 +35,24 @@ export default function CreateBudgetModal({ isOpen, onClose, onSuccess, subscrip
 
         setLoading(true);
         try {
-            const account = accounts[0];
-            const tokenResponse = await instance.acquireTokenSilent({
-                scopes: ["User.Read"],
-                account: account
-            });
+            if (isMockTenant(tenantId)) {
+                toast.success("Presupuesto creado con éxito en Azure y base de datos local.");
+                onSuccess();
+                onClose();
+                setBudgetName('');
+                setAmount('');
+                setContactEmail('');
+                setLoading(false);
+                return;
+            }
+
+            const idToken = await getFreshIdToken(instance, accounts[0]);
 
             // First save/create budget in Azure via API
             const res = await fetch('/api/budgets/create', {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${tokenResponse.idToken}`,
+                    'Authorization': `Bearer ${idToken}`,
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
@@ -63,7 +72,7 @@ export default function CreateBudgetModal({ isOpen, onClose, onSuccess, subscrip
                 await fetch('/api/budgets', {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${tokenResponse.idToken}`,
+                        'Authorization': `Bearer ${idToken}`,
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
