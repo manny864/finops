@@ -301,22 +301,22 @@ export default function SuperAdminTenantsPage() {
                     ) : tenants.length === 0 ? (
                         <div className="text-sm text-gray-500">No hay tenants registrados.</div>
                     ) : (
-                        <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
+                        <div className="overflow-x-auto custom-scrollbar pb-2">
+                            <table className="min-w-full table-fixed divide-y divide-gray-200 dark:divide-slate-700">
                                 <thead className="bg-gray-50 dark:bg-slate-900">
                                     <tr>
-                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Empresa</th>
-                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tenant ID</th>
-                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Suscripción</th>
-                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tier Actual</th>
-                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cobrar vía Paddle</th>
+                                        <th scope="col" className="w-40 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Empresa</th>
+                                        <th scope="col" className="w-44 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tenant ID</th>
+                                        <th scope="col" className="w-32 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Suscripción</th>
+                                        <th scope="col" className="w-32 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tier Actual</th>
+                                        <th scope="col" className="w-72 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cobrar vía Paddle</th>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-slate-700">
                                     {tenants.map((t) => (
                                         <tr key={t.id}>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">{t.name || '-'}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 font-mono text-xs">{t.id}</td>
+                                            <td className="px-6 py-4 break-words text-sm font-medium text-gray-900 dark:text-gray-100">{t.name || '-'}</td>
+                                            <td className="px-6 py-4 break-all text-sm text-gray-500 dark:text-gray-400 font-mono text-xs">{t.id}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                                 <select
                                                     value={t.subscription_status || 'ACTIVE'}
@@ -342,14 +342,14 @@ export default function SuperAdminTenantsPage() {
                                                     <option value="Enterprise">Enterprise</option>
                                                 </select>
                                             </td>
-                                            <td className="px-6 py-4 text-sm min-w-[220px]">
+                                            <td className="px-6 py-4 text-sm">
                                                 <div className="flex flex-col sm:flex-row sm:items-center gap-1.5">
                                                     <input
                                                         type="text"
                                                         placeholder="pri_..."
                                                         value={chargePriceId[t.id] || ''}
                                                         onChange={(e) => setChargePriceId(prev => ({ ...prev, [t.id]: e.target.value }))}
-                                                        className="w-full sm:w-28 min-w-0 px-2 py-1 border border-gray-300 dark:border-slate-700 rounded bg-white dark:bg-slate-900 text-xs font-mono"
+                                                        className="w-full sm:flex-1 min-w-0 px-2 py-1 border border-gray-300 dark:border-slate-700 rounded bg-white dark:bg-slate-900 text-xs font-mono"
                                                     />
                                                     <button
                                                         onClick={() => handleGenerateCheckoutLink(t.id, t.tier || 'Enterprise')}
@@ -368,7 +368,7 @@ export default function SuperAdminTenantsPage() {
                                                             readOnly
                                                             value={checkoutLinks[t.id]}
                                                             onFocus={(e) => e.target.select()}
-                                                            className="w-full sm:w-56 min-w-0 px-2 py-1 border border-gray-300 dark:border-slate-700 rounded bg-gray-50 dark:bg-slate-900 text-xs font-mono text-gray-600 dark:text-gray-300"
+                                                            className="w-full sm:flex-1 min-w-0 px-2 py-1 border border-gray-300 dark:border-slate-700 rounded bg-gray-50 dark:bg-slate-900 text-xs font-mono text-gray-600 dark:text-gray-300"
                                                         />
                                                         <button
                                                             onClick={() => handleCopyLink(t.id)}

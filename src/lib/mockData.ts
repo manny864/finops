@@ -484,6 +484,55 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
                 anomalies
             };
         }
+        case 'coin': {
+            const breakdown = [
+                { category: 'Cost', implemented: 18, total: 24, coin: 75 },
+                { category: 'Performance', implemented: 6, total: 12, coin: 50 },
+                { category: 'Reliability', implemented: 4, total: 9, coin: 44.4 },
+                { category: 'Security', implemented: 9, total: 10, coin: 90 },
+            ];
+            const totalImplemented = breakdown.reduce((s, b) => s + b.implemented, 0);
+            const totalAll = breakdown.reduce((s, b) => s + b.total, 0);
+            const monthly = Array.from({ length: 6 }).map((_, i) => {
+                const d = new Date();
+                d.setMonth(d.getMonth() - (5 - i));
+                const total = 8 + i * 2;
+                const implementedM = Math.round(total * (0.5 + i * 0.07));
+                return { month: d.toISOString().slice(0, 7), coin: Math.round((implementedM / total) * 1000) / 10, implemented: implementedM, total };
+            });
+            return {
+                success: true, mock: true, windowDays: 90,
+                coin: Math.round((totalImplemented / totalAll) * 1000) / 10,
+                implemented: totalImplemented, total: totalAll,
+                suppressed: 3, dismissed: 2, accepted: 5,
+                breakdown, monthly,
+            };
+        }
+        case 'tenant_health': {
+            // Tiers más altos tienden a tener mejor postura (más automatización
+            // activada) — igual que el resto de los mocks, escalado por `multiplier`.
+            const maturityBoost = Math.min(20, multiplier * 2);
+            const score = Math.min(100, Math.round(52 + maturityBoost));
+            return {
+                success: true,
+                mock: true,
+                overallScore: score,
+                grade: score >= 85 ? 'A' : score >= 70 ? 'B' : score >= 50 ? 'C' : 'D',
+                signals: [
+                    { key: 'tagging', label: 'Cumplimiento de Etiquetas', score: Math.min(100, 50 + maturityBoost * 2), weight: 20, detail: 'Recursos con tags obligatorios completos' },
+                    { key: 'waste', label: 'Recursos Zombis', score: Math.max(20, 85 - multiplier), weight: 20, detail: 'Inventario sin desperdicio detectado' },
+                    { key: 'budget', label: 'Cumplimiento de Presupuesto', score: Math.min(100, 60 + maturityBoost), weight: 20, detail: 'Burn rate vs. presupuesto asignado' },
+                    { key: 'credentials', label: 'Credenciales por Expirar', score: Math.min(100, 65 + maturityBoost), weight: 15, detail: 'Secrets/certificados dentro de la ventana segura' },
+                    { key: 'savings', label: 'Ahorro Aplicado vs Potencial', score: Math.min(100, 35 + maturityBoost * 2), weight: 15, detail: 'Recomendaciones implementadas sobre el total detectado' },
+                    { key: 'security', label: 'Postura de Seguridad (MFA)', score: Math.min(100, 72 + maturityBoost), weight: 10, detail: 'Usuarios administradores con MFA activo' },
+                ],
+                trend: Array.from({ length: 6 }).map((_, i) => {
+                    const d = new Date();
+                    d.setMonth(d.getMonth() - (5 - i));
+                    return { month: d.toISOString().slice(0, 7), score: Math.min(100, Math.round(45 + i * 5 + maturityBoost)) };
+                }),
+            };
+        }
         case 'copilot_history':
             return {
                 success: true,

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireTenantRole, AuthError } from "@/lib/requestAuth";
+import { requireTenantRole, requireTenantTier, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
 
 const MOCK_PAYLOAD = {
@@ -40,6 +40,8 @@ export async function GET(request: NextRequest) {
         }
 
         try {
+            // Networking Zombies es feature Professional (ver Sidebar).
+            await requireTenantTier(request, tenantId, 'Professional');
             await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
         } catch (e) {
             if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });

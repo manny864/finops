@@ -6,8 +6,10 @@
 
 export const ROUTE_TIERS: Record<string, 'Essential' | 'Professional' | 'Business' | 'Enterprise'> = {
     // Inteligencia
-    '/intelligence/billing': 'Professional',
-    '/intelligence/budgets': 'Professional',
+    // billing (Consumo Real) y budgets (Presupuestos) bajados a Essential —
+    // ver pricing.essential.features / Sidebar.tsx.
+    '/intelligence/billing': 'Essential',
+    '/intelligence/budgets': 'Essential',
     '/intelligence/rightsizing': 'Professional',
     '/intelligence/network': 'Professional',
     '/intelligence/rates': 'Business',
@@ -20,6 +22,8 @@ export const ROUTE_TIERS: Record<string, 'Essential' | 'Professional' | 'Busines
     '/intelligence/allocation': 'Enterprise',
     '/intelligence/scorecard': 'Enterprise',
     '/intelligence/anomalies': 'Professional',
+    '/intelligence/optimization-index': 'Professional',
+    '/intelligence/tenant-health': 'Professional',
     '/intelligence/simulator': 'Enterprise',
     '/intelligence/cost-projection': 'Professional',
     // New (P2/P3/P4 — finops-toolkit gap analysis)
@@ -30,30 +34,39 @@ export const ROUTE_TIERS: Record<string, 'Essential' | 'Professional' | 'Busines
     '/intelligence/alerts': 'Professional',
     '/intelligence/ai-analytics': 'Enterprise',
     '/intelligence/macc': 'Enterprise',
-    // Limpieza
-    '/cleanup/ttl': 'Professional',
-    // Gobernanza
-    '/governance/tags': 'Business',
+    '/intelligence/upload': 'Professional',
+    // Limpieza — TTL subido a Business, Networking Zombies nuevo (Professional).
+    '/cleanup/ttl': 'Business',
+    '/cleanup/zombies/networking': 'Professional',
+    // Gobernanza — Tags bajado de Business a Professional.
+    '/governance/tags': 'Professional',
     '/governance/power': 'Business',
     '/governance/policies': 'Enterprise',
     '/governance/reporting': 'Enterprise',
     '/governance/ha': 'Business',
     '/governance/credentials': 'Business',
     '/remediation/approvals': 'Professional',
+    // Visibilidad
+    '/overview/maturity': 'Essential',
     // Admin
     '/admin/markup': 'Enterprise',
     '/admin/workbooks': 'Enterprise',
     '/admin/copilot-m365': 'Enterprise',
+    // pricing-units: oculto del Sidebar para tenants, exclusivo super-admin
+    // (ver Sidebar.tsx) — el tier acá es irrelevante para clientes, pero se
+    // deja Essential (piso) ya que el gate real es requireSuperAdmin server-side.
     '/admin/pricing-units': 'Essential',
     '/admin/api-keys': 'Professional',
-    '/admin/focus-export': 'Professional',
+    // focus-export subido a Enterprise (antes Professional).
+    '/admin/focus-export': 'Enterprise',
     '/admin/cloud-accounts': 'Professional',
     // Oculta del Sidebar (ver Sidebar.tsx): sólo un datacenter real (Brasil) hoy,
     // no ofrecemos multi-región. La entrada de tier queda por si se accede directo
     // a la URL mientras la feature esté deshabilitada de la nav.
     '/admin/data-residency': 'Enterprise',
     '/admin/notifications': 'Professional',
-    '/admin/mcp-keys': 'Professional',
+    // mcp-keys subido a Business (antes Professional).
+    '/admin/mcp-keys': 'Business',
     '/admin/powerbi-templates': 'Professional',
     '/admin/sso': 'Enterprise',
 };

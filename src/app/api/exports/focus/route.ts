@@ -25,7 +25,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import pool from "@/modules/storage/db";
-import { requireTenantRole, AuthError } from "@/lib/requestAuth";
+import { requireTenantRole, requireTenantTier, AuthError } from "@/lib/requestAuth";
 import { mapCostSnapshotToFocus, type CostSnapshotRow } from "@/lib/focus/mapper";
 import {
     buildFocusCsvHeader,
@@ -109,6 +109,8 @@ async function authorise(request: NextRequest, tenantId: string): Promise<void> 
     if (mcpTid && mcpTid !== tenantId) {
         throw new AuthError("MCP key no autorizada para este tenant.", 403);
     }
+    // FOCUS 1.1 Export es feature Enterprise (ver Sidebar).
+    await requireTenantTier(request, tenantId, "Enterprise");
     await requireTenantRole(request, tenantId, ["ADMIN", "OWNER"]);
 }
 

@@ -248,6 +248,54 @@ export default function AdvisorPanel() {
       }
   };
 
+  // Supresión de Recomendaciones (Snooze) — feature Professional. Pospone una
+  // recomendación por N días (o para siempre, sin días) usando el mismo
+  // tracker que alimenta el Índice de Optimización (COIN): status='suppressed'
+  // con expires_at calculado server-side. El backend de /api/advisor ya
+  // filtra automáticamente las suprimidas vigentes y las reabre solo cuando
+  // vencen.
+  const handleSnooze = async (rec: any, days: number | null) => {
+      if (!isPro) {
+          alert("Posponer recomendaciones (Snooze) requiere el plan Professional o superior.");
+          return;
+      }
+      const recId = rec.id || rec.impactedField;
+      if (!recId) return;
+
+      setActionLoading(recId);
+      try {
+          const idToken = await getFreshIdToken(instance, accounts[0]);
+          const res = await fetch('/api/intelligence/kpis/coin', {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${idToken}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                  tenantId: selectedTenant.id,
+                  recommendationId: recId,
+                  status: 'suppressed',
+                  category: rec.category || rec.recommendationType || null,
+                  resourceId: rec.impactedField || null,
+                  snoozeDays: days,
+              }),
+          });
+          const json = await res.json();
+          if (!res.ok) throw new Error(json.error || 'Error al posponer la recomendación');
+          // La recomendación reaparecerá recién cuando expire el snooze — la
+          // sacamos de la vista local ya mismo para feedback inmediato.
+          setData((prev: any) => {
+              if (!prev) return prev;
+              const next: Record<string, any[]> = {};
+              for (const [cat, arr] of Object.entries(prev as Record<string, any[]>)) {
+                  next[cat] = (arr as any[]).filter(r => (r.id || r.impactedField) !== recId);
+              }
+              return next;
+          });
+      } catch (e: any) {
+          alert("Error al posponer: " + e.message);
+      } finally {
+          setActionLoading(null);
+      }
+  };
+
   const categories = [
       { id: "Cost", name: t('cost_label'), note: t('cost_note'), tooltip: t('costTooltip'), color: "text-brand-deep", icon: "💰" },
       { id: "Security", name: t('security_label'), note: t('security_note'), tooltip: t('securityTooltip'), color: "text-danger", icon: "🛡️" },
@@ -421,6 +469,14 @@ export default function AdvisorPanel() {
                                                     <span className="text-[10.5px] text-grey font-semibold"> /mes</span>
                                                 </div>
                                                 <div className="flex gap-2">
+                                                    <button
+                                                        onClick={() => handleSnooze(rec, 30)}
+                                                        disabled={actionLoading === (rec.id || rec.impactedField)}
+                                                        title={isPro ? "Posponer 30 días" : "Requiere plan Professional"}
+                                                        className="bg-surface-2 border border-line text-ink-soft hover:text-ink hover:border-line-strong px-[11px] py-[4px] rounded-[6px] font-heading font-semibold text-[11px] transition-colors flex items-center gap-1 disabled:opacity-50"
+                                                    >
+                                                        {actionLoading === (rec.id || rec.impactedField) ? '...' : '⏰ Posponer'}
+                                                    </button>
                                                     {((rec.shortDescription?.solution || '').toLowerCase().includes('delete') || (rec.shortDescription?.solution || '').toLowerCase().includes('remove')) && (
                                                         <button onClick={() => handleApplyFix(rec)} disabled={actionLoading === (rec.id || rec.impactedField)} className="bg-brand-deep text-white hover:brightness-110 px-[11px] py-[4px] rounded-[6px] font-heading font-semibold text-[11px] shadow-sm transition-colors flex items-center gap-1 disabled:opacity-50">
                                                             {actionLoading === (rec.id || rec.impactedField) ? 'Aplicando...' : <><Play className="w-3 h-3" /> Apply Fix</>}
@@ -525,11 +581,21 @@ export default function AdvisorPanel() {
                                                 {translateAdvisorText(rec.shortDescription?.solution, locale, 'solution') || rec.recommendationType?.name || rec.impact || 'Consulte el Portal'}
                                             </td>
                                             <td className="p-[13px_16px] text-right">
-                                                {((rec.shortDescription?.solution || '').toLowerCase().includes('delete') || (rec.shortDescription?.solution || '').toLowerCase().includes('remove')) && (
-                                                    <button onClick={() => handleApplyFix(rec)} disabled={actionLoading === (rec.id || rec.impactedField)} className="bg-brand-deep text-white hover:brightness-110 px-[11px] py-[4px] rounded-[6px] font-heading font-semibold text-[11px] shadow-sm transition-colors flex items-center gap-1 disabled:opacity-50 ml-auto">
-                                                        {actionLoading === (rec.id || rec.impactedField) ? 'Aplicando...' : <><Play className="w-3 h-3" /> Apply Fix</>}
+                                                <div className="flex gap-2 justify-end">
+                                                    <button
+                                                        onClick={() => handleSnooze(rec, 30)}
+                                                        disabled={actionLoading === (rec.id || rec.impactedField)}
+                                                        title={isPro ? "Posponer 30 días" : "Requiere plan Professional"}
+                                                        className="bg-surface-2 border border-line text-ink-soft hover:text-ink hover:border-line-strong px-[11px] py-[4px] rounded-[6px] font-heading font-semibold text-[11px] transition-colors flex items-center gap-1 disabled:opacity-50"
+                                                    >
+                                                        {actionLoading === (rec.id || rec.impactedField) ? '...' : '⏰ Posponer'}
                                                     </button>
-                                                )}
+                                                    {((rec.shortDescription?.solution || '').toLowerCase().includes('delete') || (rec.shortDescription?.solution || '').toLowerCase().includes('remove')) && (
+                                                        <button onClick={() => handleApplyFix(rec)} disabled={actionLoading === (rec.id || rec.impactedField)} className="bg-brand-deep text-white hover:brightness-110 px-[11px] py-[4px] rounded-[6px] font-heading font-semibold text-[11px] shadow-sm transition-colors flex items-center gap-1 disabled:opacity-50">
+                                                            {actionLoading === (rec.id || rec.impactedField) ? 'Aplicando...' : <><Play className="w-3 h-3" /> Apply Fix</>}
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}

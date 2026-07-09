@@ -50,7 +50,9 @@ import {
     Bot,
     TrendingUp,
     PiggyBank,
-    LifeBuoy
+    Network,
+    LifeBuoy,
+    HeartPulse
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -88,7 +90,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/', label: t('dashboard'), icon: LayoutDashboard },
                 { href: '/academy', label: 'Academia FinOps', icon: BookOpen },
                 { href: '/advisor', label: t('advisor'), icon: Lightbulb },
-                { href: '/overview/maturity', label: t('finops_maturity'), icon: Target },
+                { href: '/overview/maturity', label: t('finops_maturity'), icon: Target, requiredTier: 'Essential' },
                 { href: '/overview/progress', label: t('historical_progress'), icon: TrendingDown },
                 { href: '/overview/sustainability', label: 'Green FinOps', icon: Leaf }
             ]
@@ -97,8 +99,8 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             id: 'inteligencia',
             title: t('inteligencia'),
             items: [
-                { href: '/intelligence/billing', label: t('billing'), icon: PieChart, requiredTier: 'Professional' },
-                { href: '/intelligence/budgets', label: t('budgets', { fallback: 'Tenant Budgets' }), icon: DollarSign, requiredTier: 'Professional' },
+                { href: '/intelligence/billing', label: t('billing'), icon: PieChart, requiredTier: 'Essential' },
+                { href: '/intelligence/budgets', label: t('budgets', { fallback: 'Tenant Budgets' }), icon: DollarSign, requiredTier: 'Essential' },
                 { href: '/intelligence/rightsizing', label: t('rightsizing'), icon: Zap, requiredTier: 'Professional' },
                 { href: '/intelligence/network', label: t('network_analytics'), icon: Activity, requiredTier: 'Professional' },
                 { href: '/intelligence/rates', label: t('rate_optimization'), icon: DollarSign, requiredTier: 'Business' },
@@ -112,6 +114,8 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/intelligence/allocation', label: 'Prorrateo (Allocation)', icon: PieChart, requiredTier: 'Enterprise' },
                 { href: '/intelligence/scorecard', label: 'Scorecard (Fama)', icon: Trophy, requiredTier: 'Enterprise' },
                 { href: '/intelligence/anomalies', label: 'Detección Anomalías', icon: ShieldAlert, requiredTier: 'Professional' },
+                { href: '/intelligence/optimization-index', label: 'Índice de Optimización (COIN)', icon: Target, requiredTier: 'Professional' },
+                { href: '/intelligence/tenant-health', label: 'Salud del Tenant', icon: HeartPulse, requiredTier: 'Professional' },
                 { href: '/intelligence/simulator', label: 'Simulador (What-If)', icon: Activity, requiredTier: 'Enterprise' },
                 { href: '/intelligence/cost-projection', label: t('cost_projection', { fallback: 'Proyección de Gastos' }), icon: TrendingUp, requiredTier: 'Professional' },
                 { href: '/intelligence/storage-efficiency', label: t('storage_efficiency', { fallback: 'Eficiencia de Storage' }), icon: HardDrive, requiredTier: 'Business' },
@@ -121,7 +125,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/intelligence/alerts', label: t('alerts_self_service', { fallback: 'Alertas (Self-Service)' }), icon: BellRing, requiredTier: 'Professional' },
                 { href: '/intelligence/ai-analytics', label: t('ai_analytics', { fallback: 'AI Cost Analytics' }), icon: Sparkles, requiredTier: 'Enterprise' },
                 { href: '/intelligence/macc', label: t('macc', { fallback: 'MACC Tracking' }), icon: Briefcase, requiredTier: 'Enterprise' },
-                { href: '/intelligence/upload', label: 'Ingesta CSV', icon: FileText }
+                { href: '/intelligence/upload', label: 'Ingesta CSV', icon: FileText, requiredTier: 'Professional' }
             ]
         },
         {
@@ -129,14 +133,15 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             title: t('cleanup'),
             items: [
                 { href: '/cleanup/zombies', label: t('zombie_resources'), icon: Trash2 },
-                { href: '/cleanup/ttl', label: t('ttl_expirations'), icon: Clock, requiredTier: 'Professional' }
+                { href: '/cleanup/zombies/networking', label: 'Networking Zombies', icon: Network, requiredTier: 'Professional' },
+                { href: '/cleanup/ttl', label: t('ttl_expirations'), icon: Clock, requiredTier: 'Business' }
             ]
         },
         {
             id: 'gobernanza',
             title: t('governance'),
             items: [
-                { href: '/governance/tags', label: t('tag_compliance'), icon: Tags, requiredTier: 'Business' },
+                { href: '/governance/tags', label: t('tag_compliance'), icon: Tags, requiredTier: 'Professional' },
                 { href: '/governance/power', label: t('power_schedules'), icon: Power, requiredTier: 'Business' },
                 { href: '/governance/policies', label: 'Políticas (Auto-Block)', icon: ShieldAlert, requiredTier: 'Enterprise' },
                 { href: '/governance/reporting', label: t('governance_reporting', { fallback: 'Reporting de Gobernanza' }), icon: ShieldCheck, requiredTier: 'Enterprise' },
@@ -161,10 +166,10 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/admin/billing', label: 'Facturación', icon: CreditCard, requiredTier: 'Essential' },
                 { href: '/admin/copilot-m365', label: t('copilot_m365', { fallback: 'Copilot M365' }), icon: Bot, requiredTier: 'Enterprise' },
                 { href: '/admin/audit', label: t('audit_trail'), icon: Activity },
-                { href: '/admin/mcp-keys', label: 'MCP API Keys', icon: KeyRound, requiredTier: 'Professional' },
+                { href: '/admin/mcp-keys', label: 'MCP API Keys', icon: KeyRound, requiredTier: 'Business' },
                 { href: '/admin/api-keys', label: 'API Pública', icon: Unlock, requiredTier: 'Professional' },
                 { href: '/admin/powerbi-templates', label: 'Power BI Templates', icon: BarChart3, requiredTier: 'Professional' },
-                { href: '/admin/focus-export', label: 'FOCUS 1.1 Export', icon: FileSpreadsheet, requiredTier: 'Professional' },
+                { href: '/admin/focus-export', label: 'FOCUS 1.1 Export', icon: FileSpreadsheet, requiredTier: 'Enterprise' },
                 // Cloud Accounts (AWS) oculto: no hacemos referencia a AWS por ahora (2026-07-05).
                 // Página y API quedan implementadas, sin uso, para cuando se retome soporte AWS.
                 { href: '/admin/sso', label: 'SSO SAML', icon: ShieldCheck, requiredTier: 'Enterprise' }

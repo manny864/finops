@@ -373,6 +373,8 @@
       "features": [
         "Histórico de Custos e Faturamento",
         "Visualização de Orçamentos",
+        "Consumo Real (Dashboard Detalhado)",
+        "Maturidade FinOps (Assessment)",
         "Dashboard de Sustentabilidade",
         "Inventário de Custo Zero",
         "Exportação em PDF/CSV",

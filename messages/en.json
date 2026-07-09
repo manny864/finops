@@ -373,6 +373,8 @@
       "features": [
         "Billing & Cost History",
         "Budgets View",
+        "Real Consumption (Detailed Dashboard)",
+        "FinOps Maturity (Assessment)",
         "Sustainability Dashboard",
         "Zero-Cost Inventory",
         "PDF/CSV Exports",

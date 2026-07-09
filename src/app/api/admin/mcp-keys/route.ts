@@ -8,7 +8,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import { AuthError, requireTenantRole, requireTenantAccess } from "@/lib/requestAuth";
+import { AuthError, requireTenantRole, requireTenantTier } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";
 
 function hashKey(plain: string): string {
@@ -28,7 +28,8 @@ export async function GET(request: NextRequest) {
         const tenantId = searchParams.get("tenantId");
         if (!tenantId) return NextResponse.json({ success: false, error: "Falta tenantId" }, { status: 400 });
 
-        await requireTenantAccess(request, tenantId);
+        // MCP API Keys es feature Business (ver Sidebar).
+        await requireTenantTier(request, tenantId, "Business");
 
         const [rows] = await pool.query(
             `SELECT id, key_prefix, label, created_by_email, created_at, last_used_at, revoked_at
@@ -50,6 +51,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ success: false, error: "Falta tenantId o label" }, { status: 400 });
         }
 
+        await requireTenantTier(request, tenantId, "Business");
         const identity = await requireTenantRole(request, tenantId, ["Admin", "Owner"]);
         const { plaintext, prefix, hash } = generateKey();
 
@@ -80,6 +82,7 @@ export async function DELETE(request: NextRequest) {
             return NextResponse.json({ success: false, error: "Falta tenantId o keyId" }, { status: 400 });
         }
 
+        await requireTenantTier(request, tenantId, "Business");
         await requireTenantRole(request, tenantId, ["Admin", "Owner"]);
 
         await pool.query(

@@ -307,6 +307,11 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               if (url.includes('/api/intelligence/licenses')) return new Response(JSON.stringify(getMockDataForRoute('licenses', tier)), {status: 200});
               if (url.includes('/api/intelligence/rightsizing')) return new Response(JSON.stringify(getMockDataForRoute('rightsizing', tier)), {status: 200});
               if (url.includes('/api/intelligence/anomalies')) return new Response(JSON.stringify(getMockDataForRoute('anomalies', tier)), {status: 200});
+              if (url.includes('/api/intelligence/kpis/coin')) {
+                  if (init?.method === 'POST') return new Response(JSON.stringify({ success: true, mock: true, expiresAt: null }), {status: 200});
+                  return new Response(JSON.stringify(getMockDataForRoute('coin', tier)), {status: 200});
+              }
+              if (url.includes('/api/intelligence/tenant-health')) return new Response(JSON.stringify(getMockDataForRoute('tenant_health', tier)), {status: 200});
               // entra-sync ANTES que /api/admin/config/users (substring): trae forma
               // Graph (mail/userPrincipalName/displayName), no la de usuarios locales.
               if (url.includes('/api/admin/config/users/entra-sync')) {

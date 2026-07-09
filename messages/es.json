@@ -373,6 +373,8 @@
       "features": [
         "Historial de Costos y Facturación",
         "Visualización de Presupuestos",
+        "Consumo Real (Dashboard Detallado)",
+        "Madurez FinOps (Assessment)",
         "Dashboard de Sustentabilidad",
         "Inventario de Costo Cero",
         "Exportaciones PDF/CSV",

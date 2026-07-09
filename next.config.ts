@@ -43,12 +43,18 @@ const nextConfig: NextConfig = {
             key: 'Permissions-Policy',
             value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
           },
-          // HSTS: 1 year, include subdomains, preload-ready.
-          // CloudFlare also sets this, but defense-in-depth.
-          {
+          // HSTS: 1 year, include subdomains, preload-ready. SOLO en producción:
+          // en dev el server sirve HTTP plano (sin TLS), y este header le dice al
+          // navegador "recordá por 1 año que este origin es HTTPS-only". Safari
+          // (a diferencia de Chrome, que exceptúa "localhost") cachea igual esa
+          // política para localhost, y termina forzando https://localhost:3000
+          // en cada visita — que falla con error de TLS porque ahí no hay
+          // certificado. CloudFlare también setea este header en prod, esto es
+          // defensa en profundidad solo quería aplicar quando corresponde.
+          ...(isDev ? [] : [{
             key: 'Strict-Transport-Security',
             value: 'max-age=31536000; includeSubDomains; preload',
-          },
+          }]),
           // CSP: baseline strict policy.
           // - default-src 'self' blocks most vectors.
           // - script-src allows Next.js inline scripts (hash-based in prod) + unsafe-inline
@@ -68,8 +74,10 @@ const nextConfig: NextConfig = {
               "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self'",
-              "upgrade-insecure-requests",
-            ].join('; '),
+              // Solo en prod: en dev forzaría subrecursos http://localhost a
+              // https, que no existe acá (mismo motivo que el HSTS de arriba).
+              isDev ? '' : "upgrade-insecure-requests",
+            ].filter(Boolean).join('; '),
           },
         ],
       },

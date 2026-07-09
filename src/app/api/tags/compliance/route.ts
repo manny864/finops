@@ -3,7 +3,7 @@ import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { GLOBAL_MANDATORY_TAGS } from "@/lib/tagConfig";
-import { requireTenantRole, AuthError } from "@/lib/requestAuth";
+import { requireTenantRole, requireTenantTier, AuthError } from "@/lib/requestAuth";
 
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 3000;
@@ -33,6 +33,8 @@ export async function GET(req: NextRequest) {
 
         // Auth: validate JWT and assert caller belongs to this tenant.
         await requireTenantRole(req, tenantId, ['Admin', 'Owner', 'Reader', 'Colaborador']);
+        // Cumplimiento de Etiquetas es feature Professional (ver Sidebar).
+        await requireTenantTier(req, tenantId, 'Professional');
 
         const cacheKey = `tags_compliance_v2_${tenantId}_${subscriptionId || 'all'}`;
 

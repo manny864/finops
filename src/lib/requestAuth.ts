@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { NextRequest } from "next/server";
 import pool from "@/modules/storage/db";
+import { hasAccess } from "@/lib/tierLogic";
 
 type JwtHeader = {
   alg?: string;
@@ -340,6 +341,47 @@ export async function requireTenantAccess(
   const superAdmin = await hasSystemRole(identity.email, "SUPERADMIN");
   if (!superAdmin) {
     throw new AuthError("Acceso denegado al tenant.", 403);
+  }
+
+  return identity;
+}
+
+/**
+ * Requiere que el caller pertenezca al tenant (o sea SuperAdmin) Y que el tier
+ * PAGADO del tenant (columna `Tenants.tier`, no un valor mandado por el
+ * cliente) alcance `minTier`. Contraparte server-side del gating de
+ * Sidebar/FeatureGuard, que es solo client-side y por ende no evita que un
+ * tenant Essential le pegue directo a una API de una feature Business —
+ * seguía la URL/token válidos, pero nunca se validaba el tier ahí.
+ *
+ * Uso: reemplaza `requireTenantAccess` en el handler cuando la ruta respalda
+ * una feature gateada por tier en el Sidebar; deja pasar siempre a
+ * SuperAdmins (mismo criterio que el resto de `requestAuth`). Los tenants
+ * demo/mock nunca llegan hasta acá: `TenantProvider` intercepta el fetch en
+ * el cliente para esas URLs antes de que salga al servidor.
+ */
+export async function requireTenantTier(
+  request: NextRequest,
+  tenantId: string,
+  minTier: string,
+  options?: { allowSuperAdmin?: boolean }
+): Promise<RequestIdentity> {
+  const identity = await requireTenantAccess(request, tenantId, options);
+
+  if (identity.isCorporateDomain) {
+    const superAdmin = await hasSystemRole(identity.email, "SUPERADMIN");
+    if (superAdmin) return identity;
+  }
+
+  const [rows] = await pool.query(
+    "SELECT tier FROM Tenants WHERE tenant_id = ? LIMIT 1",
+    [tenantId]
+  );
+  const row = Array.isArray(rows) && rows.length > 0 ? (rows[0] as { tier?: string }) : null;
+  const tier = row?.tier || "Essential";
+
+  if (!hasAccess(tier, minTier)) {
+    throw new AuthError(`Esta función requiere el plan ${minTier} o superior.`, 403);
   }
 
   return identity;
