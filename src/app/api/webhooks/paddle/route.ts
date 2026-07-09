@@ -2,6 +2,33 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import pool from "@/modules/storage/db";
 import { priceIdToTier, TierName } from "@/lib/paddleTierMap";
+
+const VALID_TIERS: readonly TierName[] = ["Essential", "Professional", "Business", "Enterprise"];
+
+/**
+ * Resuelve el tier de una suscripción de Paddle. Prioridad:
+ * 1. `custom_data.tier` — lo seteamos nosotros al abrir el checkout (necesario
+ *    para Enterprise, que usa Prices custom por-cliente sin mapeo fijo por
+ *    priceId; ver admin/tenants).
+ * 2. `priceIdToTier(priceId)` — mapeo fijo vía env vars para los planes
+ *    self-service (Essential/Professional/Business).
+ *
+ * Devuelve null si no se puede resolver, en vez de asumir "Essential": un
+ * evento con un priceId no mapeado (ej. un Price custom sin custom_data)
+ * NO debe degradar silenciosamente el tier de un tenant existente.
+ */
+function resolveTier(payload: any): TierName | null {
+  const customTier = payload.data?.custom_data?.tier;
+  if (typeof customTier === "string" && (VALID_TIERS as readonly string[]).includes(customTier)) {
+    return customTier as TierName;
+  }
+  const items = payload.data?.items || [];
+  if (items.length > 0) {
+    const priceId = items[0].price?.id;
+    return priceIdToTier(priceId);
+  }
+  return null;
+}
 import { minorUnitsToDecimalString } from "@/lib/money";
 
 const REPLAY_WINDOW_SECONDS = 5 * 60; // 5 minutes
@@ -105,18 +132,8 @@ async function handleSubscriptionCreated(payload: any, tenantId?: string) {
   try {
     const subscriptionId = payload.data?.id;
     const status = payload.data?.status;
-    const items = payload.data?.items || [];
     const trialEndsAt = payload.data?.trial_ends_at;
-
-    // Map first item price to tier
-    let tier: TierName = "Essential";
-    if (items.length > 0) {
-      const priceId = items[0].price?.id;
-      const mappedTier = priceIdToTier(priceId);
-      if (mappedTier) {
-        tier = mappedTier;
-      }
-    }
+    const tier = resolveTier(payload);
 
     // Map Paddle status to internal status
     let internalStatus = "ACTIVE";
@@ -130,15 +147,29 @@ async function handleSubscriptionCreated(payload: any, tenantId?: string) {
 
     const connection = await pool.getConnection();
     try {
-      await connection.execute(
-        `UPDATE Tenants 
-         SET paddle_subscription_id = ?, subscription_status = ?, tier = ?, trial_ends_at = ?
-         WHERE tenant_id = ?`,
-        [subscriptionId, internalStatus, tier, trialEndsAt ? new Date(trialEndsAt) : null, tenantId]
-      );
-      console.log(
-        `[Webhooks] Subscription created for tenant ${tenantId}: tier=${tier}, status=${internalStatus}`
-      );
+      if (tier) {
+        await connection.execute(
+          `UPDATE Tenants
+           SET paddle_subscription_id = ?, subscription_status = ?, tier = ?, trial_ends_at = ?
+           WHERE tenant_id = ?`,
+          [subscriptionId, internalStatus, tier, trialEndsAt ? new Date(trialEndsAt) : null, tenantId]
+        );
+        console.log(
+          `[Webhooks] Subscription created for tenant ${tenantId}: tier=${tier}, status=${internalStatus}`
+        );
+      } else {
+        // priceId sin mapeo y sin custom_data.tier: no adivinamos el tier.
+        // Igual guardamos el subscription_id/status para no perder el evento.
+        await connection.execute(
+          `UPDATE Tenants
+           SET paddle_subscription_id = ?, subscription_status = ?, trial_ends_at = ?
+           WHERE tenant_id = ?`,
+          [subscriptionId, internalStatus, trialEndsAt ? new Date(trialEndsAt) : null, tenantId]
+        );
+        console.warn(
+          `[Webhooks] Subscription created for tenant ${tenantId} but tier could not be resolved (no custom_data.tier, priceId not mapped). Tier left unchanged.`
+        );
+      }
     } finally {
       connection.release();
     }
@@ -158,18 +189,8 @@ async function handleSubscriptionUpdated(payload: any, tenantId?: string) {
 
   try {
     const status = payload.data?.status;
-    const items = payload.data?.items || [];
     const trialEndsAt = payload.data?.trial_ends_at;
-
-    // Map first item price to tier (might be upgrade/downgrade)
-    let tier: TierName = "Essential";
-    if (items.length > 0) {
-      const priceId = items[0].price?.id;
-      const mappedTier = priceIdToTier(priceId);
-      if (mappedTier) {
-        tier = mappedTier;
-      }
-    }
+    const tier = resolveTier(payload);
 
     // Map Paddle status to internal status
     let internalStatus = "ACTIVE";
@@ -183,15 +204,27 @@ async function handleSubscriptionUpdated(payload: any, tenantId?: string) {
 
     const connection = await pool.getConnection();
     try {
-      await connection.execute(
-        `UPDATE Tenants 
-         SET subscription_status = ?, tier = ?, trial_ends_at = ?
-         WHERE tenant_id = ?`,
-        [internalStatus, tier, trialEndsAt ? new Date(trialEndsAt) : null, tenantId]
-      );
-      console.log(
-        `[Webhooks] Subscription updated for tenant ${tenantId}: tier=${tier}, status=${internalStatus}`
-      );
+      if (tier) {
+        await connection.execute(
+          `UPDATE Tenants
+           SET subscription_status = ?, tier = ?, trial_ends_at = ?
+           WHERE tenant_id = ?`,
+          [internalStatus, tier, trialEndsAt ? new Date(trialEndsAt) : null, tenantId]
+        );
+        console.log(
+          `[Webhooks] Subscription updated for tenant ${tenantId}: tier=${tier}, status=${internalStatus}`
+        );
+      } else {
+        await connection.execute(
+          `UPDATE Tenants
+           SET subscription_status = ?, trial_ends_at = ?
+           WHERE tenant_id = ?`,
+          [internalStatus, trialEndsAt ? new Date(trialEndsAt) : null, tenantId]
+        );
+        console.warn(
+          `[Webhooks] Subscription updated for tenant ${tenantId} but tier could not be resolved. Tier left unchanged.`
+        );
+      }
     } finally {
       connection.release();
     }

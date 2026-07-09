@@ -119,7 +119,7 @@ export function getWelcomeEmailHtml(userEmail: string, companyName: string, plan
             </p>
             
             <p style="margin-top: 30px; color: #666; font-size: 14px;">
-              If you have any questions or need help getting started, our support team is here to assist you at <strong>support@cscloudsolutions.com</strong>
+              If you have any questions or need help getting started, our support team is here to assist you at <strong>soporte@cscloudsolutions.com.ar</strong>
             </p>
           </div>
           <div class="footer">
@@ -168,7 +168,7 @@ export function getTrialReminderEmailHtml(daysLeft: number): string {
             </p>
             
             <p style="margin-top: 30px; color: #666; font-size: 14px;">
-              Have questions? Contact us at <strong>support@cscloudsolutions.com</strong>
+              Have questions? Contact us at <strong>soporte@cscloudsolutions.com.ar</strong>
             </p>
           </div>
           <div class="footer">
@@ -209,7 +209,7 @@ export function getTrialExpiredEmailHtml(): string {
             </p>
             
             <p style="margin-top: 30px; color: #666; font-size: 14px;">
-              Questions? Reach out to <strong>support@cscloudsolutions.com</strong> or contact our sales team at <strong>ventas@cscloudsolutions.com</strong>
+              Questions? Reach out to <strong>soporte@cscloudsolutions.com.ar</strong> or contact our sales team at <strong>ventas@cscloudsolutions.com.ar</strong>
             </p>
           </div>
           <div class="footer">

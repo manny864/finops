@@ -223,7 +223,7 @@ export default async function StatusPage() {
         <div className="bg-blue-50 rounded-lg shadow p-8 border border-blue-200">
           <h3 className="text-lg font-bold text-gray-900 mb-2">Subscribe to Updates</h3>
           <p className="text-gray-600 mb-4">Get notified when our status changes</p>
-          <a href="mailto:support@cscloudsolutions.com.ar?subject=Status Updates" className="inline-block px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition">
+          <a href="mailto:soporte@cscloudsolutions.com.ar?subject=Status Updates" className="inline-block px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition">
             Subscribe via Email
           </a>
         </div>
