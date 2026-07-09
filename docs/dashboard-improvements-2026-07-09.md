@@ -162,6 +162,31 @@ tracking de ventas interno — nunca visible para el propio tenant.
   `salesReferrerHint`, `salesReferrerPlaceholder`, `salesReferrerSave`,
   `salesReferrerSaving`), paridad en `en/es/pt-BR.json`.
 
+## 8. Seguimiento (2026-07-08, misma tarde): 3 ajustes post-QA
+
+- **Cache Redis para Proyección de Gastos + página propia:** el agregado
+  mensual (13 meses) que alimenta la card ahora se sirve desde
+  `GET /api/intelligence/cost-projection`, cacheado en Redis (`getWithCache`,
+  TTL 6h) por tenant+subscripción. La card dejó de recibir el histograma por
+  prop y ahora hace su propio fetch (mismo patrón `useSWR` +
+  `isMockTenant`/`getFreshIdToken` que el resto de dashboards de
+  Inteligencia). Nueva página dedicada `/intelligence/cost-projection`
+  (tier Professional), enlazada desde la card con "Ver detalle completo".
+- **Loop del wizard de onboarding en tenants demo:** un SUPERADMIN con sesión
+  MSAL real que navegaba a un tenant demo y presionaba "Skip"/"Finalizar"
+  volvía siempre al wizard. Causa: el guard de auto-redirect del dashboard
+  (`checkOnboarding()` en `page.tsx`) no excluía `isMockTenant()`, así que
+  `/api/onboarding/progress` devolvía `is_onboarded=false` para un tenantId
+  mock (sin fila real en la DB) y redirigía de vuelta a `/onboarding` justo
+  después de que el wizard navegara a `/${locale}`. Fix: excluir
+  `isMockTenant()` en ese guard, y en `handleFinishOnboarding` saltar la
+  llamada real a `/api/onboarding/finish` para tenants mock.
+- **Descarga CSV o PDF en What-If:** `ScenarioManager.tsx` ahora tiene un
+  selector de formato (CSV/PDF) que aplica a las 3 descargas (escenario
+  individual, todos, comparación). El PDF usa `jsPDF` + `jspdf-autotable`
+  (mismo patrón que `PdfExportButton.tsx`), con la comparación en
+  orientación landscape (escenarios como columnas).
+
 ## Cómo verificar en otro entorno
 
 ```bash

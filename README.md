@@ -216,6 +216,7 @@ Seis pedidos consecutivos sobre el dashboard, la Simulación (What-If) y el pane
 - **Tarjetas bloqueadas por tier sin borde:** `FeatureGuard.tsx` no tenía borde/fondo propio y se fundía con el fondo oscuro; se agrega contenedor con borde y radio visibles.
 - **404 al finalizar onboarding:** el dashboard vive en `/${locale}` (raíz), no en `/${locale}/overview` (ruta inexistente). Corregido en el wizard de onboarding, el callback SSO y el link del email de bienvenida.
 - **Etiquetado de tenants por origen comercial (solo SUPERADMIN):** nuevo campo `sales_referrer` en `Tenants` (migración `20260709-001`), editable desde el Directorio de Entornos (`admin/onboarding`), para identificar clientes vendidos/referidos por un comercial. Expuesto únicamente en el branch de lectura SUPERADMIN de `GET /api/tenants` (least privilege).
+- **Post-QA (misma tarde):** cache Redis + página dedicada `/intelligence/cost-projection` para la Proyección de Gastos (`GET /api/intelligence/cost-projection`, `getWithCache` TTL 6h); fix del loop del wizard de onboarding cuando un SUPERADMIN entra a un tenant demo (el guard de auto-redirect no excluía `isMockTenant()`); selector CSV/PDF para las descargas de What-If (`jsPDF` + `jspdf-autotable`).
 
 ### 2026-07-05 — Seguridad (tercera tanda): rate limit IA, prompt injection, Redis, CSP report-only
 
