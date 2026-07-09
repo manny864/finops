@@ -235,15 +235,15 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
     }).filter(Boolean) as typeof categories;
 
     return (
-        <aside className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 fixed inset-y-0 left-0 z-50 md:relative ${sidebarOpen ? 'w-[252px]' : 'w-[64px]'} bg-gradient-to-b from-nav-bg to-nav-bg2 text-[#A9BBD0] border-r border-[#0a1726] transition-all duration-300 flex flex-col h-full custom-scrollbar`}>
+        <aside className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 fixed inset-y-0 left-0 z-50 md:relative ${sidebarOpen ? 'w-[252px]' : 'w-[64px]'} bg-gradient-to-b from-[var(--surface-2)] to-[var(--surface)] text-[var(--ink-soft)] border-r border-[var(--line)] transition-all duration-300 flex flex-col h-full custom-scrollbar`}>
             <div className="flex items-center gap-3 p-[18px_18px_14px] shrink-0">
                 <div className="flex items-center justify-center overflow-hidden w-full">
                     {sidebarOpen ? (
                         <div className="flex items-center gap-3">
                             <img src="/logo_29k.png" alt="Logo" className="w-[34px] h-[34px] object-contain" />
                             <div className="flex flex-col">
-                                <div className="font-heading font-extrabold text-[15px] text-white tracking-[0.2px] leading-none">CS<b className="text-brand-bright font-extrabold">Cloud</b>Solutions</div>
-                                <div className="text-[9.5px] tracking-[2px] text-[#62809c] uppercase font-semibold mt-[3px]">FinOps Platform</div>
+                                <div className="font-heading font-extrabold text-[15px] text-[var(--ink)] tracking-[0.2px] leading-none">CS<b className="text-brand-bright font-extrabold">Cloud</b>Solutions</div>
+                                <div className="text-[9.5px] tracking-[2px] text-[var(--ink-soft)] uppercase font-semibold mt-[3px]">FinOps Platform</div>
                             </div>
                         </div>
                     ) : (
@@ -260,12 +260,12 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                                 onClick={() => toggleGroup(category.id)}
                                 className="flex items-center justify-between px-3 py-2 w-full text-left focus:outline-none group"
                             >
-                                <span className="text-[10px] font-bold text-[#566f8c] uppercase tracking-[1.6px] group-hover:text-white transition-colors">
+                                <span className="text-[10px] font-bold text-[var(--ink-soft)] uppercase tracking-[1.6px] group-hover:text-[var(--ink)] transition-colors">
                                     {category.title}
                                 </span>
-                                {openGroups[category.id] ? 
-                                    <ChevronDown className="w-4 h-4 text-[#566f8c] group-hover:text-white" /> : 
-                                    <ChevronRight className="w-4 h-4 text-[#566f8c] group-hover:text-white" />
+                                {openGroups[category.id] ?
+                                    <ChevronDown className="w-4 h-4 text-[var(--ink-soft)] group-hover:text-[var(--ink)]" /> :
+                                    <ChevronRight className="w-4 h-4 text-[var(--ink-soft)] group-hover:text-[var(--ink)]" />
                                 }
                             </button>
                         ) : (
@@ -292,9 +292,9 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                                                 }
                                             }}
                                             className={`w-full flex items-center px-[11px] py-[9px] rounded-[10px] font-semibold transition-all duration-200 text-[13.5px] mb-1 ${
-                                                isActive 
-                                                    ? 'bg-gradient-to-br from-brand-deep to-[#1E88E5] text-white shadow-[0_6px_16px_rgba(0,84,166,0.4)]' 
-                                                    : 'text-[#A9BBD0] hover:bg-white/5 hover:text-[#dce8f5]'
+                                                isActive
+                                                    ? 'bg-gradient-to-br from-brand-deep to-[#1E88E5] text-white shadow-[0_6px_16px_rgba(0,84,166,0.4)]'
+                                                    : 'text-[var(--ink-soft)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]'
                                             }`}
                                         >
                                             <Icon className={`flex-shrink-0 ${sidebarOpen ? 'w-5 h-5 mr-3' : 'w-6 h-6 mx-auto'}`} />
@@ -317,8 +317,8 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 ))}
             </nav>
 
-            <div className={`shrink-0 border-t border-white/5 py-3 ${sidebarOpen ? 'px-4' : 'px-2'}`}>
-                <div className={`flex items-center gap-2 text-[#566f8c] ${sidebarOpen ? 'justify-start' : 'justify-center'}`}>
+            <div className={`shrink-0 border-t border-[var(--line)] py-3 ${sidebarOpen ? 'px-4' : 'px-2'}`}>
+                <div className={`flex items-center gap-2 text-[var(--ink-soft)] ${sidebarOpen ? 'justify-start' : 'justify-center'}`}>
                     <img src="/logo_29k.png" alt="CS Cloud Solutions" className="w-4 h-4 object-contain shrink-0 opacity-70" />
                     {sidebarOpen && (
                         <span className="text-[10px] font-semibold tracking-[0.5px] truncate">

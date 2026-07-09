@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, createContext, useEffect } from 'react';
+import { Link } from '@/i18n/routing';
 import AuthProvider, { AuthButton, useAuthLoading } from "./AuthProvider";
 import { TenantProvider, useTenant } from './TenantProvider';
 import { SubscriptionProvider } from './SubscriptionProvider';
@@ -255,7 +256,20 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
                       </div>
                   </div>
                   
-                  <p className="text-center text-[11px] text-[#566f8c] mt-8 tracking-wide">
+                  <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 mt-8 text-[11px] text-[#566f8c]">
+                      <Link href="/legal/privacy" className="hover:text-[#A9BBD0] transition-colors">Privacy</Link>
+                      <span className="text-[#324259]">·</span>
+                      <Link href="/legal/terms" className="hover:text-[#A9BBD0] transition-colors">Terms</Link>
+                      <span className="text-[#324259]">·</span>
+                      <Link href="/legal/dpa" className="hover:text-[#A9BBD0] transition-colors">DPA</Link>
+                      <span className="text-[#324259]">·</span>
+                      <Link href="/legal/security" className="hover:text-[#A9BBD0] transition-colors">Security</Link>
+                      <span className="text-[#324259]">·</span>
+                      <Link href="/legal/subprocessors" className="hover:text-[#A9BBD0] transition-colors">Subprocessors</Link>
+                      <span className="text-[#324259]">·</span>
+                      <Link href="/status" className="hover:text-[#A9BBD0] transition-colors">Status</Link>
+                  </div>
+                  <p className="text-center text-[11px] text-[#566f8c] mt-2 tracking-wide">
                       &copy; {new Date().getFullYear()} CSCloudSolutions. {tc('all_rights')}
                   </p>
               </div>
