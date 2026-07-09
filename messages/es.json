@@ -92,7 +92,18 @@
     "configure_policies": "Configurar Políticas",
     "drag_hint": "Arrastra las tarjetas para reordenarlas a tu gusto",
     "no_rules": "Añade reglas en Gestión de Etiquetas.",
-    "based_on_rules": "Basado en las reglas de etiquetado activas."
+    "based_on_rules": "Basado en las reglas de etiquetado activas.",
+    "cost_projection_title": "Proyección de Gastos",
+    "cost_projection_desc": "Basada en el promedio mensual de los últimos {months} mes(es) con datos, más el % de crecimiento anual que indiques.",
+    "cost_projection_annual_growth": "Crecimiento anual",
+    "cost_projection_months_ahead": "Proyectar {months} meses",
+    "cost_projection_calculating": "Calculando…",
+    "cost_projection_no_data": "Sin datos históricos suficientes para proyectar.",
+    "cost_projection_avg_12m": "Promedio mensual (12m)",
+    "cost_projection_monthly_rate": "Tasa mensual equivalente",
+    "cost_projection_total": "Total proyectado ({months}m)",
+    "cost_projection_real": "Real",
+    "cost_projection_projected": "Proyectado"
   },
   "Common": {
     "save": "Guardar",
@@ -512,7 +523,12 @@
     "executorRolesUaa": "El rol personalizado es a nivel directorio: su AssignableScopes debe incluir todas las suscripciones, por lo que necesitás permiso de escritura en TODAS; de lo contrario solo se creará/asignará en las que controlás.",
     "executorRolesReservations": "Para que se muestre el panel 'Descuentos por Compromiso (RIs)' debés ser Reservations Administrator (u Owner de los reservation orders) para que el script pueda asignar 'Reservations Reader' en el scope tenant /providers/Microsoft.Capacity. Las reservas viven a nivel tenant (no por suscripción) e incluyen scope Shared y Single; sin este rol no aparecen.",
     "executorRolesGlobalAdmin": "Nota: ser Global Administrator de Entra ID NO otorga acceso a las suscripciones de Azure. Asignate Owner en cada suscripción, o activá \"Administración de acceso para recursos de Azure\" en Entra ID (otorga User Access Administrator en la raíz /).",
-    "executorRolesSummary": "Si un rol aparece en una sola suscripción, revisá el resumen de \"FALLOS\" que imprime el script al final — muestra exactamente qué scopes fueron denegados."
+    "executorRolesSummary": "Si un rol aparece en una sola suscripción, revisá el resumen de \"FALLOS\" que imprime el script al final — muestra exactamente qué scopes fueron denegados.",
+    "salesReferrerLabel": "Origen comercial / Referido por",
+    "salesReferrerHint": "Solo superadmin. Identifica qué comercial vendió o refirió a este cliente, para tracking interno. No es visible para el tenant.",
+    "salesReferrerPlaceholder": "Ej: Juan Pérez (Ventas) o Partner XYZ",
+    "salesReferrerSave": "Guardar",
+    "salesReferrerSaving": "Guardando..."
   },
   "Admin": {
     "Users": {

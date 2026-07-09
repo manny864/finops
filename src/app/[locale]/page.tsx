@@ -17,6 +17,7 @@ import ExpiredSandboxTable from "@/components/dashboard/ExpiredSandboxTable";
 import ExecutiveSummaryCard from "@/components/dashboard/ExecutiveSummaryCard";
 import HABreakdownCard from "@/components/dashboard/HABreakdownCard";
 import AksChargebackCard from "@/components/dashboard/AksChargebackCard";
+import CostProjectionCard from "@/components/dashboard/CostProjectionCard";
 import { useActionLogStore } from "@/store/actionLogStore";
 import { Leaf } from "lucide-react";
 import { useTranslations } from 'next-intl';
@@ -128,7 +129,7 @@ export default function Home() {
               //   summary (18s) → tags → anomalies. Ahora el wall-clock es max(3) en lugar de sum(3).
               // bust=1 on explicit retries (retryKey > 0) forces Redis cache invalidation for the tenant.
               const bustParam = retryKey > 0 ? '&bust=1' : '';
-              const summaryP = fetch(`/api/dashboard/summary?tenantId=${selectedTenant.id}&subscriptionId=${summarySubscription}${bustParam}`, { headers })
+              const summaryP = fetch(`/api/dashboard/summary?tenantId=${selectedTenant.id}&subscriptionId=${summarySubscription}&months=13${bustParam}`, { headers })
                   .then(async r => {
                       if (!r.ok) {
                           console.warn('[Dashboard] summary returned', r.status, await r.text().catch(() => ''));
@@ -169,8 +170,12 @@ export default function Home() {
               setBillingLoading(false);
               setLoading(false);
 
-              // Tags + anomalies se procesan en background sin bloquear la UI principal.
-              if (summaryJson.auditResults) {
+              // Si el backend ya provee un complianceScore (p.ej. modo demo, o un
+              // futuro cálculo server-side), usarlo directo y saltar el cómputo
+              // por-recurso (que sobre recursos zombie sin tags da ~0%).
+              if (typeof summaryJson.complianceScore === 'number') {
+                  setComplianceScore(summaryJson.complianceScore);
+              } else if (summaryJson.auditResults) {
                   const polJson: any = await tagsP;
                   const policies = polJson.policies || [];
 
@@ -265,6 +270,7 @@ export default function Home() {
         const newKeys: Record<string, any> = {
           ha: { i: 'ha', x: 0, y: 14, w: 6, h: 4 },
           aks: { i: 'aks', x: 6, y: 14, w: 6, h: 4 },
+          projection: { i: 'projection', x: 0, y: 18, w: 12, h: 6 },
         };
         Object.keys(parsed).forEach((bp: string) => {
           const existing = new Set((parsed[bp] || []).map((l: any) => l.i));
@@ -283,7 +289,8 @@ export default function Home() {
           { i: 'right', x: 0, y: 10, w: 6, h: 4 },
           { i: 'sandbox', x: 6, y: 10, w: 6, h: 4 },
           { i: 'ha', x: 0, y: 14, w: 6, h: 4 },
-          { i: 'aks', x: 6, y: 14, w: 6, h: 4 }
+          { i: 'aks', x: 6, y: 14, w: 6, h: 4 },
+          { i: 'projection', x: 0, y: 18, w: 12, h: 6 }
         ]
       });
     }
@@ -468,7 +475,7 @@ export default function Home() {
           <div className="card-h flex items-center justify-between gap-3">
               <div>
                   <h3 className="m-0 text-[var(--brand-deep)]">Histograma de costos</h3>
-                  <p className="text-[13px] text-ink-soft m-0 mt-1 font-normal">Distribución diaria del gasto (último mes por defecto, hasta 12 meses).</p>
+                  <p className="text-[13px] text-ink-soft m-0 mt-1 font-normal">Distribución diaria del gasto (último mes por defecto, hasta 13 meses — límite de datos históricos de Azure Cost Management).</p>
               </div>
               <select
                   value={histogramMonths}
@@ -480,6 +487,7 @@ export default function Home() {
                   <option value={6}>Últimos 6 meses</option>
                   <option value={9}>Últimos 9 meses</option>
                   <option value={12}>Último año</option>
+                  <option value={13}>Máximo (13 meses — límite de Azure)</option>
               </select>
           </div>
           <div className="p-[18px] h-[320px] min-w-0">
@@ -614,6 +622,12 @@ export default function Home() {
         <div key="aks">
             <FeatureGuard requiredTier="Enterprise" featureName="AKS Chargeback" className="drag-handle cursor-move h-full w-full overflow-hidden">
                 <AksChargebackCard />
+            </FeatureGuard>
+        </div>
+
+        <div key="projection">
+            <FeatureGuard requiredTier="Professional" featureName="Proyección de Gastos" className="drag-handle cursor-move h-full w-full overflow-hidden">
+                <CostProjectionCard dailyHistory={billingHistogram} loading={billingLoading} />
             </FeatureGuard>
         </div>
       </ResponsiveGridLayout>

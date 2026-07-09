@@ -3,7 +3,7 @@ import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { redis } from "@/lib/redis";
 import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";
-import { getCurrentMonthAmortizedCosts } from "@/modules/collectors/azure/billingService";
+import { getCurrentMonthAmortizedCosts, getHistoricalDailyCosts, AZURE_COST_HISTORY_MAX_MONTHS } from "@/modules/collectors/azure/billingService";
 import { isMockTenant } from "@/lib/mockData";
 import { recordDailySnapshotAsync } from "@/services/snapshotService";
 import { getInternalBaseUrl } from "@/lib/internalBaseUrl";
@@ -120,7 +120,7 @@ async function fetchActualCostMTD(tenantId: string, subscriptionId: string): Pro
   }
 }
 
-async function fetchHistogramFromDb(tenantId: string, subscriptionId: string): Promise<{ date: string; cost: number }[]> {
+async function fetchHistogramFromDb(tenantId: string, subscriptionId: string, days: number = 400): Promise<{ date: string; cost: number }[]> {
   try {
     const params: any[] = [tenantId];
     let where = 'WHERE tenant_id = ?';
@@ -128,12 +128,17 @@ async function fetchHistogramFromDb(tenantId: string, subscriptionId: string): P
       where += ' AND subscription_id = ?';
       params.push(subscriptionId);
     }
+    // `days` va parametrizado como valor entero validado por el caller (nunca
+    // interpolado directo en el SQL) para permitir ventanas > 365 días sin
+    // reescribir el query. mysql2 no soporta bind params dentro de INTERVAL,
+    // por eso se castea a entero seguro antes de interpolar.
+    const safeDays = Math.max(1, Math.min(Math.round(days), 3000));
     const [rows]: any = await pool.query(
       `SELECT DATE_FORMAT(date, '%Y-%m-%d') AS d,
               ROUND(SUM(COALESCE(EffectiveCost, BilledCost, cost_usd, 0)), 2) AS cost
        FROM CostSnapshots
        ${where}
-         AND date >= DATE_SUB(CURDATE(), INTERVAL 365 DAY)
+         AND date >= DATE_SUB(CURDATE(), INTERVAL ${safeDays} DAY)
        GROUP BY d
        ORDER BY d ASC`,
       params
@@ -201,6 +206,14 @@ export async function GET(request: NextRequest) {
     const subscriptionId = searchParams.get("subscriptionId") || "All";
     const authHeader = request.headers.get("authorization");
     const cronAuth = request.headers.get("x-cron-auth");
+    // Ventana del histograma en meses, solicitada por el selector del dashboard.
+    // Tope duro = límite documentado de Azure Cost Management Query API (ver
+    // AZURE_COST_HISTORY_MAX_MONTHS en billingService.ts): más atrás requiere
+    // Cost Management Exports, no disponible retroactivamente vía API.
+    const monthsParam = Number(searchParams.get("months"));
+    const histogramMonths = Number.isFinite(monthsParam) && monthsParam > 0
+      ? Math.min(Math.round(monthsParam), AZURE_COST_HISTORY_MAX_MONTHS)
+      : 12;
 
     if (!tenantId) {
       return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
@@ -213,7 +226,7 @@ export async function GET(request: NextRequest) {
 
     await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
 
-    const cacheKey = `dashboard:summary:v6:${tenantId}:${subscriptionId.toLowerCase()}`;
+    const cacheKey = `dashboard:summary:v6:${tenantId}:${subscriptionId.toLowerCase()}:${histogramMonths}m`;
 
     // Bust cache on explicit retry (bust=1) so re-configured tenants see fresh data immediately.
     const bust = searchParams.get("bust") === "1";
@@ -334,9 +347,11 @@ export async function GET(request: NextRequest) {
           projectedCost = 0;
         }
 
-        // Histograma: pull directo de CostSnapshots (FOCUS) últimos 365 días.
-        // Si está vacío, fallback live (best-effort, sin throw).
-        let histogram = await fetchHistogramFromDb(tenantId, subscriptionId);
+        // Histograma: pull directo de CostSnapshots (FOCUS) para la ventana
+        // solicitada (hasta AZURE_COST_HISTORY_MAX_MONTHS meses, tope de la
+        // Query API de Azure). Si está vacío, fallback live (best-effort, sin throw).
+        const histogramDays = histogramMonths * 31; // margen holgado por mes calendario
+        let histogram = await fetchHistogramFromDb(tenantId, subscriptionId, histogramDays);
         let liveData: Awaited<ReturnType<typeof getCurrentMonthAmortizedCosts>> | null = null;
         if (histogram.length === 0) {
           try {
@@ -344,6 +359,28 @@ export async function GET(request: NextRequest) {
             histogram = buildHistogramRows(liveData || []);
           } catch (e: any) {
             console.warn('[Summary] live billing fallback failed:', e?.message);
+          }
+        } else if (histogramMonths > 1) {
+          // El snapshot diario local puede no cubrir toda la ventana pedida
+          // (p.ej. tenants nuevos cuyo job de snapshots arrancó hace poco).
+          // Si la fecha más antigua en DB es más reciente que la requerida,
+          // completar el resto directo desde Azure Cost Management (best-effort).
+          const requiredFrom = new Date();
+          requiredFrom.setMonth(requiredFrom.getMonth() - histogramMonths);
+          const earliestInDb = histogram[0]?.date;
+          if (earliestInDb && new Date(earliestInDb) > requiredFrom) {
+            try {
+              const historical = await getHistoricalDailyCosts(tenantId, subscriptionId, histogramMonths);
+              const byDate = new Map(histogram.map((h) => [h.date, h.cost]));
+              for (const { date, cost } of historical) {
+                if (!byDate.has(date)) byDate.set(date, cost);
+              }
+              histogram = Array.from(byDate.entries())
+                .map(([date, cost]) => ({ date, cost }))
+                .sort((a, b) => a.date.localeCompare(b.date));
+            } catch (e: any) {
+              console.warn('[Summary] historical Azure fallback for extended histogram failed:', e?.message);
+            }
           }
         }
 

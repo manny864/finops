@@ -115,7 +115,7 @@ export function getWelcomeEmailHtml(userEmail: string, companyName: string, plan
             </ol>
             
             <p style="margin-top: 30px;">
-              <a href="${baseUrl}/overview" class="button">Go to Dashboard</a>
+              <a href="${baseUrl}/es" class="button">Go to Dashboard</a>
             </p>
             
             <p style="margin-top: 30px; color: #666; font-size: 14px;">

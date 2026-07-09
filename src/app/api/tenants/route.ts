@@ -46,10 +46,13 @@ export async function GET(request: NextRequest) {
         // SECURITY: never return client_secret over the wire. Expose only a boolean
         // indicating whether credentials are configured so the UI can render
         // the right call-to-action ("complete onboarding" vs "ready").
+        // sales_referrer: etiqueta comercial interna (origen de venta/referido),
+        // solo visible para SUPERADMIN — no forma parte del SELECT por-usuario.
         let query = `SELECT tenant_id as id, company_name as name, client_id,
                             (client_secret IS NOT NULL AND client_secret <> '') as has_client_secret,
                             tier, trial_ends_at, subscription_status, is_onboarded,
-                            partner_link_status, partner_link_detail
+                            partner_link_status, partner_link_detail,
+                            sales_referrer
                      FROM Tenants ORDER BY created_at ASC`;
         let queryParams: any[] = [];
 

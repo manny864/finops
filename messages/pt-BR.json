@@ -92,7 +92,18 @@
     "configure_policies": "Configurar Políticas",
     "drag_hint": "Arraste e solte os cartões para reordená-los",
     "no_rules": "Adicione regras no Gerenciamento de Tags.",
-    "based_on_rules": "Baseado nas regras de tags ativas."
+    "based_on_rules": "Baseado nas regras de tags ativas.",
+    "cost_projection_title": "Projeção de Gastos",
+    "cost_projection_desc": "Baseada na média mensal dos últimos {months} mês(es) com dados, mais o % de crescimento anual que você informar.",
+    "cost_projection_annual_growth": "Crescimento anual",
+    "cost_projection_months_ahead": "Projetar {months} meses",
+    "cost_projection_calculating": "Calculando…",
+    "cost_projection_no_data": "Dados históricos insuficientes para projetar.",
+    "cost_projection_avg_12m": "Média mensal (12m)",
+    "cost_projection_monthly_rate": "Taxa mensal equivalente",
+    "cost_projection_total": "Total projetado ({months}m)",
+    "cost_projection_real": "Real",
+    "cost_projection_projected": "Projetado"
   },
   "Common": {
     "save": "Salvar",
@@ -512,7 +523,12 @@
     "executorRolesUaa": "A função personalizada é a nível de diretório: seu AssignableScopes deve incluir todas as assinaturas, então você precisa de acesso de escrita em TODAS; caso contrário, ela só será criada/atribuída nas que você controla.",
     "executorRolesReservations": "Para exibir o painel 'Descontos por Compromisso (RIs)' você deve ser Reservations Administrator (ou Owner dos reservation orders) para que o script possa atribuir 'Reservations Reader' no escopo do tenant /providers/Microsoft.Capacity. As reservas vivem a nível de tenant (não por assinatura) e incluem escopo Shared e Single; sem essa função elas não aparecem.",
     "executorRolesGlobalAdmin": "Observação: ser Global Administrator do Entra ID NÃO concede acesso às assinaturas do Azure. Atribua-se Owner em cada assinatura ou ative \"Gerenciamento de acesso para recursos do Azure\" no Entra ID (concede User Access Administrator na raiz /).",
-    "executorRolesSummary": "Se uma função aparecer em apenas uma assinatura, verifique o resumo de \"FALHAS\" que o script imprime no final — mostra exatamente quais escopos foram negados."
+    "executorRolesSummary": "Se uma função aparecer em apenas uma assinatura, verifique o resumo de \"FALHAS\" que o script imprime no final — mostra exatamente quais escopos foram negados.",
+    "salesReferrerLabel": "Origem comercial / Indicado por",
+    "salesReferrerHint": "Somente superadmin. Identifica qual vendedor vendeu ou indicou este cliente, para rastreamento interno. Não é visível para o tenant.",
+    "salesReferrerPlaceholder": "Ex: João Silva (Vendas) ou Parceiro XYZ",
+    "salesReferrerSave": "Salvar",
+    "salesReferrerSaving": "Salvando..."
   },
   "Admin": {
     "Users": {

@@ -5,7 +5,7 @@ import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { isMockTenant } from "@/lib/mockData";
 import { toast } from "sonner";
-import { Save, Trash2, GitCompare, Plus, Bookmark, X, Loader2 } from "lucide-react";
+import { Save, Trash2, GitCompare, Plus, Bookmark, X, Loader2, Download } from "lucide-react";
 
 export interface SavedScenario {
     id: string;
@@ -47,6 +47,86 @@ function fmt(amount: number, currency = "USD") {
         currency,
         maximumFractionDigits: 0,
     }).format(amount);
+}
+
+/** Escapa un valor para una celda CSV (RFC 4180). */
+function csvCell(value: string | number | boolean | null | undefined): string {
+    const s = value === null || value === undefined ? "" : String(value);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+/** Dispara la descarga de un string como archivo en el browser. */
+function downloadTextFile(filename: string, content: string, mime = "text/csv;charset=utf-8;") {
+    const blob = new Blob(["\uFEFF" + content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+}
+
+/** CSV de un único escenario, con todos los inputs y resultados. */
+function scenarioToCsv(s: SavedScenario): string {
+    const rows: [string, string | number][] = [
+        ["Nombre", s.name],
+        ["Notas", s.notes || ""],
+        ["Creado", s.createdAt],
+        ["Moneda", s.currency],
+        ["Compute Scale", s.inputs.computeScale ?? 1],
+        ["Storage Scale", s.inputs.storageScale ?? 1],
+        ["Network Increase (%)", s.inputs.networkIncrease ?? 0],
+        ["Azure Hybrid Benefit", s.inputs.applyAhb ? "ON" : "OFF"],
+        ["Costo Base", s.baseCost],
+        ["Costo Proyectado", s.projectedCost],
+        ["Delta", s.delta],
+        ["Delta %", s.deltaPct],
+        ["Compute (proyectado)", s.breakdown.compute],
+        ["Storage (proyectado)", s.breakdown.storage],
+        ["Network (proyectado)", s.breakdown.network],
+    ];
+    return ["Campo,Valor", ...rows.map(([k, v]) => `${csvCell(k)},${csvCell(v)}`)].join("\n");
+}
+
+/** CSV con todos los escenarios guardados, uno por fila. */
+function scenariosListToCsv(scenarios: SavedScenario[]): string {
+    const header = [
+        "Nombre", "Notas", "Moneda", "Compute Scale", "Storage Scale", "Network Increase (%)",
+        "AHB", "Costo Base", "Costo Proyectado", "Delta", "Delta %", "Compute", "Storage", "Network", "Creado",
+    ];
+    const lines = scenarios.map((s) => [
+        s.name, s.notes || "", s.currency, s.inputs.computeScale ?? 1, s.inputs.storageScale ?? 1,
+        s.inputs.networkIncrease ?? 0, s.inputs.applyAhb ? "ON" : "OFF", s.baseCost, s.projectedCost,
+        s.delta, s.deltaPct, s.breakdown.compute, s.breakdown.storage, s.breakdown.network, s.createdAt,
+    ].map(csvCell).join(","));
+    return [header.map(csvCell).join(","), ...lines].join("\n");
+}
+
+/** CSV de comparación lado-a-lado (escenarios en columnas). */
+function comparisonToCsv(scenarios: SavedScenario[]): string {
+    const baseline = scenarios[0];
+    const metricRows: [string, (s: SavedScenario) => string | number][] = [
+        ["Costo Base", (s) => s.baseCost],
+        ["Costo Proyectado", (s) => s.projectedCost],
+        ["Delta % vs propio base", (s) => s.deltaPct],
+        ["Delta % vs línea base (" + baseline.name + ")", (s) => {
+            if (s.id === baseline.id) return 0;
+            const dProj = s.projectedCost - baseline.projectedCost;
+            return baseline.projectedCost > 0 ? Math.round((dProj / baseline.projectedCost) * 1000) / 10 : 0;
+        }],
+        ["Compute (proyectado)", (s) => s.breakdown.compute],
+        ["Storage (proyectado)", (s) => s.breakdown.storage],
+        ["Network (proyectado)", (s) => s.breakdown.network],
+        ["Compute ×", (s) => s.inputs.computeScale ?? 1],
+        ["Storage ×", (s) => s.inputs.storageScale ?? 1],
+        ["Network Δ (%)", (s) => s.inputs.networkIncrease ?? 0],
+        ["AHB", (s) => (s.inputs.applyAhb ? "ON" : "OFF")],
+    ];
+    const header = ["Métrica", ...scenarios.map((s) => s.name)];
+    const lines = metricRows.map(([label, fn]) => [label, ...scenarios.map((s) => fn(s))].map(csvCell).join(","));
+    return [header.map(csvCell).join(","), ...lines].join("\n");
 }
 
 export default function ScenarioManager({ currentInputs, currentBaseCost, currency = "USD" }: Props) {
@@ -186,6 +266,14 @@ export default function ScenarioManager({ currentInputs, currentBaseCost, curren
                         <Plus className="w-3.5 h-3.5" /> Guardar actual
                     </button>
                     <button
+                        onClick={() => downloadTextFile(`escenarios-whatif-${new Date().toISOString().slice(0, 10)}.csv`, scenariosListToCsv(scenarios))}
+                        disabled={scenarios.length === 0}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-slate-700 disabled:opacity-50"
+                        title="Descargar todos los escenarios guardados (CSV)"
+                    >
+                        <Download className="w-3.5 h-3.5" /> Descargar todo
+                    </button>
+                    <button
                         onClick={() => setCompareOpen(true)}
                         disabled={selected.size < 2}
                         className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
@@ -242,7 +330,15 @@ export default function ScenarioManager({ currentInputs, currentBaseCost, curren
                                         {s.deltaPct >= 0 ? "+" : ""}{s.deltaPct}%
                                     </td>
                                     <td className="px-3 py-2 text-xs text-gray-500">{new Date(s.createdAt).toLocaleDateString()}</td>
-                                    <td className="px-3 py-2 text-right">
+                                    <td className="px-3 py-2 text-right whitespace-nowrap">
+                                        <button
+                                            onClick={() => downloadTextFile(`escenario-${s.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.csv`, scenarioToCsv(s))}
+                                            className="text-gray-400 hover:text-indigo-600 mr-2"
+                                            aria-label={`Descargar ${s.name}`}
+                                            title="Descargar este escenario (CSV)"
+                                        >
+                                            <Download className="w-4 h-4" />
+                                        </button>
                                         <button
                                             onClick={() => handleDelete(s.id)}
                                             className="text-rose-500 hover:text-rose-700"
@@ -323,7 +419,16 @@ function CompareModal({ scenarios, onClose }: { scenarios: SavedScenario[]; onCl
                     <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                         <GitCompare className="w-6 h-6 text-emerald-500" /> Comparación lado-a-lado
                     </h3>
-                    <button onClick={onClose}><X className="w-5 h-5 text-gray-500" /></button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => downloadTextFile(`comparacion-whatif-${new Date().toISOString().slice(0, 10)}.csv`, comparisonToCsv(scenarios))}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-emerald-600 text-white hover:bg-emerald-700"
+                            title="Descargar esta comparación (CSV)"
+                        >
+                            <Download className="w-3.5 h-3.5" /> Descargar comparación
+                        </button>
+                        <button onClick={onClose}><X className="w-5 h-5 text-gray-500" /></button>
+                    </div>
                 </div>
                 <p className="text-xs text-gray-500 mb-4">
                     Línea base: <strong>{baseline.name}</strong>. Las diferencias (Δ) se calculan respecto a ella.

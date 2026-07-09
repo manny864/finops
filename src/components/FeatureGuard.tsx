@@ -26,7 +26,10 @@ export default function FeatureGuard({ children, requiredTier, featureName, clas
     }
 
     return (
-        <div className={`relative group cursor-not-allowed ${className || 'mb-1'}`}>
+        // Borde + fondo crisp en el wrapper (NO en el hijo, que va borroso) para
+        // que la tarjeta bloqueada tenga un contenedor visible y no se funda con
+        // el fondo oscuro. overflow-hidden contiene el blur del contenido.
+        <div className={`relative group cursor-not-allowed rounded-[14px] border border-[var(--line)] bg-[var(--surface)] overflow-hidden ${className || 'mb-1'}`}>
             <div className="opacity-40 grayscale pointer-events-none blur-[1px] transition-all h-full w-full">
                 {children}
             </div>

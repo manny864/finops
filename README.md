@@ -205,6 +205,18 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
 
 ## 📈 Recent Major Updates
 
+### 2026-07-09 — Dashboard: histórico extendido, proyección de gastos, descarga What-If, tags de venta
+
+Seis pedidos consecutivos sobre el dashboard, la Simulación (What-If) y el panel superadmin. Ver `docs/dashboard-improvements-2026-07-09.md` para el detalle técnico completo.
+
+- **Histograma de costos + Estado de Gobernanza en modo demo:** el mock de `dashboard_summary` devolvía el histograma en formato `{name, value}` (categorías) en vez de `{date, cost}` (serie diaria) que espera el chart — quedaba vacío. Se agrega `complianceScore` precalculado por tier al mock para que el score de gobernanza no dependa del cálculo por-recurso (que da ~0% sobre zombies sin tags).
+- **Lookback histórico hasta 13 meses (límite de Azure Cost Management Query API):** nueva `getHistoricalDailyCosts()` en `billingService.ts` que completa el histograma desde Azure cuando el snapshot local (`CostSnapshots`) no cubre toda la ventana pedida. El selector del dashboard ahora permite hasta 13 meses (antes 12, hardcodeado a 365 días).
+- **Tarjeta de Proyección de Gastos** (tier Professional+): proyecta N meses (3/6/12/24) a partir del promedio mensual real de los últimos 12 meses, aplicando el % de crecimiento anual que el usuario ingresa (compuesto mes a mes, calculado con `Decimal.js` — Regla Cero). `src/lib/costProjection.ts` + `CostProjectionCard.tsx`.
+- **Descarga de simulaciones What-If:** `ScenarioManager.tsx` permite exportar a CSV un escenario individual, todos los escenarios guardados, o la comparación lado-a-lado con delta vs. línea base.
+- **Tarjetas bloqueadas por tier sin borde:** `FeatureGuard.tsx` no tenía borde/fondo propio y se fundía con el fondo oscuro; se agrega contenedor con borde y radio visibles.
+- **404 al finalizar onboarding:** el dashboard vive en `/${locale}` (raíz), no en `/${locale}/overview` (ruta inexistente). Corregido en el wizard de onboarding, el callback SSO y el link del email de bienvenida.
+- **Etiquetado de tenants por origen comercial (solo SUPERADMIN):** nuevo campo `sales_referrer` en `Tenants` (migración `20260709-001`), editable desde el Directorio de Entornos (`admin/onboarding`), para identificar clientes vendidos/referidos por un comercial. Expuesto únicamente en el branch de lectura SUPERADMIN de `GET /api/tenants` (least privilege).
+
 ### 2026-07-05 — Seguridad (tercera tanda): rate limit IA, prompt injection, Redis, CSP report-only
 
 Remediación de 8 hallazgos más del assessment, todo sin downtime. Ver `docs/security/audit-2026-07-05.md`.
