@@ -33,15 +33,18 @@ export async function POST(request: NextRequest) {
         let tier = 'Essential';
         let subStatus = 'PENDING_PAYMENT';
         let trialInterval = 0;
-        
-        if (plan === 'pro') {
+
+        if (plan === 'essential') {
+            subStatus = 'TRIAL';
+            trialInterval = 7;
+        } else if (plan === 'pro') {
             tier = 'Professional';
             subStatus = 'TRIAL';
-            trialInterval = 14;
+            trialInterval = 7;
         } else if (plan === 'business') {
             tier = 'Business';
             subStatus = 'TRIAL';
-            trialInterval = 14;
+            trialInterval = 7;
         } else if (plan === 'enterprise') {
             tier = 'Enterprise';
         }
@@ -123,7 +126,7 @@ export async function POST(request: NextRequest) {
             if (trialInterval > 0) {
                 const tierName = tier === 'Professional' ? 'Professional' : tier === 'Business' ? 'Business' : 'Essential';
                 const htmlContent = getWelcomeEmailHtml(email, companyName, tierName);
-                sendEmailAsync('Welcome to FinOps SaaS — Your 14-day trial has started', htmlContent, email);
+                sendEmailAsync('Welcome to FinOps SaaS — Your 7-day trial has started', htmlContent, email);
             }
         } catch (dbError) {
             await connection.rollback();

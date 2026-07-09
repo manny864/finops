@@ -97,13 +97,13 @@ export function getWelcomeEmailHtml(userEmail: string, companyName: string, plan
           </div>
           <div class="content">
             <p>Hi there,</p>
-            <p>Welcome to FinOps SaaS! Your 14-day free trial has started, and we're excited to help you optimize your Azure cloud costs.</p>
+            <p>Welcome to FinOps SaaS! Your 7-day free trial has started, and we're excited to help you optimize your Azure cloud costs.</p>
             
             <h2>Your Trial Includes:</h2>
             <ul>
               <li>✅ Full access to <strong>${planName}</strong> plan features</li>
               <li>✅ Real-time Azure cost analysis and recommendations</li>
-              <li>✅ 14 days to explore all features at no cost</li>
+              <li>✅ 7 days to explore all features at no cost</li>
               <li>✅ No credit card required</li>
             </ul>
             
@@ -202,7 +202,7 @@ export function getTrialExpiredEmailHtml(): string {
           </div>
           <div class="content">
             <p>Hi there,</p>
-            <p>Your 14-day free trial has ended. To continue using FinOps SaaS and keep your data, please upgrade to a paid plan.</p>
+            <p>Your 7-day free trial has ended. To continue using FinOps SaaS and keep your data, please upgrade to a paid plan.</p>
             
             <p style="margin-top: 30px;">
               <a href="${baseUrl}/pricing" class="button">Upgrade Now</a>

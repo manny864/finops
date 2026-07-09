@@ -193,11 +193,11 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
           </div>
           <div className="mb-6">
             <div className="mt-4 flex items-baseline text-5xl font-extrabold text-gray-900">
-              ${getPrice(19.99)}
+              ${getPrice(49.99)}
               <span className="text-lg font-medium text-gray-500 ml-1">{t('perMonth')}</span>
             </div>
             {isAnnual && (
-              <div className="text-sm text-gray-500 line-through mt-1">$19.99{t('perMonth')}</div>
+              <div className="text-sm text-gray-500 line-through mt-1">$49.99{t('perMonth')}</div>
             )}
           </div>
           
@@ -238,11 +238,11 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
           </div>
           <div className="mb-6">
             <div className="flex items-baseline text-5xl font-extrabold text-gray-900">
-              ${getPrice(99.99)}
+              ${getPrice(249.99)}
               <span className="text-lg font-medium text-gray-500 ml-1">{t('perMonth')}</span>
             </div>
             {isAnnual && (
-              <div className="text-sm text-gray-500 line-through mt-1">$99.99{t('perMonth')}</div>
+              <div className="text-sm text-gray-500 line-through mt-1">$249.99{t('perMonth')}</div>
             )}
           </div>
           
@@ -285,11 +285,11 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
           </div>
           <div className="mb-6">
             <div className="flex items-baseline text-5xl font-extrabold text-gray-900">
-              ${getPrice(299.99)}
+              ${getPrice(899.99)}
               <span className="text-lg font-medium text-gray-500 ml-1">{t('perMonth')}</span>
             </div>
             {isAnnual && (
-              <div className="text-sm text-gray-500 line-through mt-1">$299.99{t('perMonth')}</div>
+              <div className="text-sm text-gray-500 line-through mt-1">$899.99{t('perMonth')}</div>
             )}
           </div>
           

@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
                     se.user_email,
                     se.plan,
                     t.subscription_status as status,
-                    DATEDIFF(COALESCE(t.trial_ends_at, DATE_ADD(NOW(), INTERVAL 14 DAY)), NOW()) as trial_days_left,
+                    DATEDIFF(COALESCE(t.trial_ends_at, DATE_ADD(NOW(), INTERVAL 7 DAY)), NOW()) as trial_days_left,
                     se.created_at
                 FROM SignupEvents se
                 LEFT JOIN Tenants t ON se.tenant_id = t.tenant_id

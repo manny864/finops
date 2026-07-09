@@ -387,7 +387,7 @@
     "pro": {
       "name": "Professional",
       "badge": "Recomendado",
-      "trial": "Prueba gratuita de 14 días",
+      "trial": "Prueba gratuita de 7 días",
       "desc": "Para empresas medianas que necesitan entender tendencias y reportar.",
       "features": [
         "Todo lo de Essential",
@@ -749,10 +749,10 @@
     "description": "Estás viendo datos simulados. Conecta tu suscripción Azure para ver datos reales."
   },
   "signup": {
-    "title": "Comienza tu prueba gratuita de 14 días",
+    "title": "Comienza tu prueba gratuita de 7 días",
     "subtitle": "Conecta tu suscripción de Azure en 5 minutos. Visualiza ahorros en 24 horas.",
     "noCardRequired": "Sin tarjeta de crédito requerida",
-    "hero": "Comienza tu prueba gratuita de 14 días",
+    "hero": "Comienza tu prueba gratuita de 7 días",
     "planSelector": "Elige Tu Plan",
     "essential": {
       "name": "Essential",

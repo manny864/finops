@@ -387,7 +387,7 @@
     "pro": {
       "name": "Professional",
       "badge": "Recommended",
-      "trial": "14-Day Free Trial",
+      "trial": "7-Day Free Trial",
       "desc": "For mid-sized companies needing to understand trends and report.",
       "features": [
         "Everything in Essential",
@@ -749,10 +749,10 @@
     "description": "You're viewing simulated data. Connect your Azure subscription to see real data."
   },
   "signup": {
-    "title": "Start your 14-day free trial",
+    "title": "Start your 7-day free trial",
     "subtitle": "Connect your Azure subscription in 5 minutes. See savings in 24 hours.",
     "noCardRequired": "No credit card required",
-    "hero": "Start your 14-day free trial",
+    "hero": "Start your 7-day free trial",
     "planSelector": "Choose Your Plan",
     "essential": {
       "name": "Essential",
