@@ -1,6 +1,7 @@
 import { CostManagementClient } from "@azure/arm-costmanagement";
+import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError } from "@/lib/azureCostColumn";
 
-export async function getNetworkEgressCosts(credential: any, subscriptionId: string) {
+export async function getNetworkEgressCosts(credential: any, subscriptionId: string, tenantId: string) {
     const client = new CostManagementClient(credential);
     const scope = `/subscriptions/${subscriptionId}`;
 
@@ -8,7 +9,9 @@ export async function getNetworkEgressCosts(credential: any, subscriptionId: str
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(now.getDate() - 30);
 
-    const queryParameters = {
+    // CostUSD (normalizado a USD por Azure) en vez de PreTaxCost (moneda de
+    // facturación de la suscripción) — ver src/lib/azureCostColumn.ts.
+    const buildQueryParameters = (col: string) => ({
         type: "Usage",
         timeframe: "Custom",
         timePeriod: {
@@ -19,7 +22,7 @@ export async function getNetworkEgressCosts(credential: any, subscriptionId: str
             granularity: "None",
             aggregation: {
                 totalCost: {
-                    name: "PreTaxCost",
+                    name: col,
                     function: "Sum"
                 }
             },
@@ -35,12 +38,23 @@ export async function getNetworkEgressCosts(credential: any, subscriptionId: str
                 }
             }
         }
-    };
+    });
+
+    let activeCol = await resolveCostColumn(tenantId);
 
     try {
-        const result = await client.query.usage(scope, queryParameters as any);
-        return result;
-    } catch (error) {
+        return await client.query.usage(scope, buildQueryParameters(activeCol) as any);
+    } catch (error: any) {
+        if (activeCol === 'CostUSD' && isCostUsdUnsupportedError(error)) {
+            console.warn(`[NetworkCostService] CostUSD no soportado para tenant ${tenantId} — degradando a PreTaxCost.`);
+            await degradeCostColumn(tenantId);
+            try {
+                return await client.query.usage(scope, buildQueryParameters('PreTaxCost') as any);
+            } catch (retryError) {
+                console.error("CostManagement Error:", retryError);
+                throw retryError;
+            }
+        }
         console.error("CostManagement Error:", error);
         throw error;
     }

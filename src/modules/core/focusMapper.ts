@@ -25,7 +25,7 @@ export function mapAzureToFocus(row: any[], columns: any[]): FocusCostEntry {
 
     columns.forEach((col, idx) => {
         const name = col.name.toLowerCase();
-        if (name === 'pretaxcost' || name === 'amortizedcost' || name === 'actualcost' || name === 'cost' || name === 'totalcost') costIndex = idx;
+        if (name === 'pretaxcost' || name === 'amortizedcost' || name === 'actualcost' || name === 'cost' || name === 'totalcost' || name === 'costusd') costIndex = idx;
         else if (name === 'usagedate') dateIndex = idx;
         else if (name === 'servicename') serviceIndex = idx;
         else if (name === 'subscriptionid') subIndex = idx;

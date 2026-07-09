@@ -2,6 +2,7 @@ import { CloudProvider } from './types';
 import { getAzureCredential } from '@/lib/azure';
 import { CostManagementClient } from "@azure/arm-costmanagement";
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
+import { withCostColumn } from '@/lib/azureCostColumn';
 
 export class AzureProvider implements CloudProvider {
     async getBillingData(tenantId: string, subscriptionId: string, timeframe: string = 'MonthToDate'): Promise<any> {
@@ -11,18 +12,18 @@ export class AzureProvider implements CloudProvider {
             ? `/providers/Microsoft.Management/managementGroups/${tenantId}` 
             : `/subscriptions/${subscriptionId}`;
 
-        const parameters = {
+        // CostUSD (normalizado a USD por Azure) en vez de PreTaxCost (moneda de
+        // facturación de la suscripción) — ver src/lib/azureCostColumn.ts.
+        return await withCostColumn(tenantId, (col) => client.query.usage(scope, {
             type: "Usage",
             timeframe: timeframe,
             dataset: {
                 granularity: "None",
                 aggregation: {
-                    totalCost: { name: "PreTaxCost", function: "Sum" }
+                    totalCost: { name: col, function: "Sum" }
                 }
             }
-        };
-
-        return await client.query.usage(scope, parameters as any);
+        } as any));
     }
 
     async getActiveResources(tenantId: string, subscriptionId: string, resourceType: string = 'Microsoft.Compute/virtualMachines'): Promise<any[]> {

@@ -7,6 +7,7 @@ import { requireTenantAccess, requireTenantRole, AuthError } from "@/lib/request
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { redis } from "@/lib/redis";
+import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError, type CostColumn } from "@/lib/azureCostColumn";
 
 export async function GET(request: NextRequest) {
     try {
@@ -43,18 +44,35 @@ export async function GET(request: NextRequest) {
 
             const dailyCosts = new Map<string, number>();
 
+            // CostUSD (normalizado a USD por Azure) en vez de PreTaxCost (moneda
+            // de facturación de la suscripción) — ver src/lib/azureCostColumn.ts.
+            let activeCol: CostColumn = await resolveCostColumn(tenantId);
+            const buildCostQuery = (col: CostColumn) => ({
+                type: "ActualCost",
+                timeframe: "Custom",
+                timePeriod: { from: startDate, to: endDate },
+                dataset: {
+                    granularity: "Daily",
+                    aggregation: { totalCost: { name: col, function: "Sum" } }
+                }
+            });
+
             for (const subId of subs) {
                 const scope = `subscriptions/${subId}`;
                 try {
-                    const costRes = await costClient.query.usage(scope, {
-                        type: "ActualCost",
-                        timeframe: "Custom",
-                        timePeriod: { from: startDate, to: endDate },
-                        dataset: {
-                            granularity: "Daily",
-                            aggregation: { totalCost: { name: "PreTaxCost", function: "Sum" } }
+                    let costRes;
+                    try {
+                        costRes = await costClient.query.usage(scope, buildCostQuery(activeCol));
+                    } catch (colErr: any) {
+                        if (activeCol === 'CostUSD' && isCostUsdUnsupportedError(colErr)) {
+                            console.warn(`[UnitEconomics] CostUSD no soportado para tenant ${tenantId} — degradando a PreTaxCost.`);
+                            await degradeCostColumn(tenantId);
+                            activeCol = 'PreTaxCost';
+                            costRes = await costClient.query.usage(scope, buildCostQuery(activeCol));
+                        } else {
+                            throw colErr;
                         }
-                    });
+                    }
 
                     if (costRes.rows) {
                         costRes.rows.forEach(row => {

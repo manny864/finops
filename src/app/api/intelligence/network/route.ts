@@ -3,6 +3,7 @@ import { getAzureCredential } from "@/lib/azure";
 import { getNetworkEgressCosts } from "@/services/networkCostService";
 import { requireRequestIdentity, requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
+import { findCostColumnIndex } from "@/lib/azureCostColumn";
 
 export async function GET(request: NextRequest) {
     try {
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest) {
             let rawCosts;
             try {
                 const credential = await getAzureCredential(tenantId);
-                rawCosts = await getNetworkEgressCosts(credential, subscriptionId);
+                rawCosts = await getNetworkEgressCosts(credential, subscriptionId, tenantId);
             } catch (e: any) {
                 console.warn(`[Network] Sin credenciales/acceso para ${tenantId}:`, e?.message);
                 return [];
@@ -35,7 +36,7 @@ export async function GET(request: NextRequest) {
             let data: any[] = [];
             
             if (rows.length > 0) {
-                const costIndex = columns.findIndex((c: any) => c.name === "PreTaxCost");
+                const costIndex = findCostColumnIndex(columns);
                 const subcatIndex = columns.findIndex((c: any) => c.name === "MeterSubCategory");
                 const rgIndex = columns.findIndex((c: any) => c.name === "ResourceGroup");
 
