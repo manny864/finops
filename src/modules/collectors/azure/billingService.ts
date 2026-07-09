@@ -742,17 +742,31 @@ export async function getHistoricalDailyCosts(
     const from = new Date();
     from.setMonth(from.getMonth() - months);
 
-    const queryOptions = {
+    // Azure Cost Management Query API rechaza rangos Custom de más de 366 días
+    // ("Invalid query definition: time period cannot exceed a year"). Para 13
+    // meses partimos la ventana en chunks de ≤350 días y mergeamos: una sola
+    // query de 395 días fallaba entera y el histograma quedaba solo con lo
+    // persistido localmente (a veces, un único día).
+    const CHUNK_DAYS = 350;
+    const chunks: Array<{ from: Date; to: Date }> = [];
+    let cursor = new Date(from);
+    while (cursor < to) {
+        const chunkEnd = new Date(Math.min(cursor.getTime() + CHUNK_DAYS * 86400000, to.getTime()));
+        chunks.push({ from: new Date(cursor), to: chunkEnd });
+        cursor = new Date(chunkEnd.getTime() + 86400000);
+    }
+
+    const buildQueryOptions = (range: { from: Date; to: Date }) => ({
         type: 'ActualCost',
         timeframe: 'Custom',
-        timePeriod: { from, to },
+        timePeriod: { from: range.from, to: range.to },
         dataset: {
             granularity: 'Daily',
             aggregation: {
                 totalCost: { name: 'PreTaxCost', function: 'Sum' }
             }
         }
-    } as any;
+    } as any);
 
     const normalizeRows = (rows: any[][], columns: any[]): { date: string; cost: number }[] => {
         const dateIdx = columns.findIndex((c: any) => /usagedate|date/i.test(c?.name || ''));
@@ -771,17 +785,41 @@ export async function getHistoricalDailyCosts(
             .sort((a, b) => a.date.localeCompare(b.date));
     };
 
+    // Consulta secuencial de todos los chunks sobre un scope (secuencial para
+    // no amplificar 429s del rate limit de Cost Management). El PRIMER chunk
+    // propaga el error (permite el fallback MG→subscripciones); fallas en
+    // chunks posteriores solo se loguean y se devuelve lo acumulado.
+    const queryScopeAllChunks = async (scope: string, label: string): Promise<Map<string, number>> => {
+        const byDate = new Map<string, number>();
+        for (let i = 0; i < chunks.length; i++) {
+            try {
+                const res: any = await withRetry(
+                    () => client.query.usage(scope, buildQueryOptions(chunks[i])),
+                    { label: `historical(${label}, chunk ${i + 1}/${chunks.length})`, maxRetries: 3 }
+                );
+                for (const { date, cost } of normalizeRows(res?.rows || [], res?.columns || [])) {
+                    byDate.set(date, (byDate.get(date) || 0) + cost);
+                }
+            } catch (chunkErr: any) {
+                if (i === 0) throw chunkErr;
+                console.warn(`[BillingService] Historical chunk ${i + 1}/${chunks.length} failed for ${label}:`, chunkErr.message);
+            }
+        }
+        return byDate;
+    };
+
+    const toSortedSeries = (byDate: Map<string, number>) =>
+        Array.from(byDate.entries())
+            .map(([date, cost]) => ({ date, cost: Number(cost.toFixed(2)) }))
+            .sort((a, b) => a.date.localeCompare(b.date));
+
     const useSubScope = !!subscriptionId && subscriptionId.toLowerCase() !== 'all';
     try {
         const scope = useSubScope
             ? `/subscriptions/${subscriptionId}`
             : `/providers/Microsoft.Management/managementGroups/${tenantId}`;
-        const result: any = await withRetry(
-            () => client.query.usage(scope, queryOptions),
-            { label: `historical(${scope}, ${months}mo)`, maxRetries: 3 }
-        );
-        const rows = result?.rows || [];
-        if (rows.length > 0) return normalizeRows(rows, result?.columns || []);
+        const byDate = await queryScopeAllChunks(scope, `${scope}, ${months}mo`);
+        if (byDate.size > 0) return toSortedSeries(byDate);
         if (useSubScope) return [];
         throw new Error('MG scope returned 0 rows, falling back to subscriptions');
     } catch (e: any) {
@@ -800,22 +838,16 @@ export async function getHistoricalDailyCosts(
         const subs = (subJson.value || []).filter((s: any) => s.subscriptionId && s.state === 'Enabled');
 
         const merged = new Map<string, number>();
-        await mapWithConcurrency(subs, 3, async (sub: any) => {
+        await mapWithConcurrency(subs, 2, async (sub: any) => {
             try {
-                const subScope = `/subscriptions/${sub.subscriptionId}`;
-                const res: any = await withRetry(
-                    () => client.query.usage(subScope, queryOptions),
-                    { label: `historical(sub ${sub.subscriptionId}, ${months}mo)`, maxRetries: 3 }
-                );
-                for (const { date, cost } of normalizeRows(res?.rows || [], res?.columns || [])) {
+                const byDate = await queryScopeAllChunks(`/subscriptions/${sub.subscriptionId}`, `sub ${sub.subscriptionId}, ${months}mo`);
+                for (const [date, cost] of byDate.entries()) {
                     merged.set(date, (merged.get(date) || 0) + cost);
                 }
             } catch (subErr: any) {
                 console.warn(`[BillingService] Historical query failed for subscription ${sub.subscriptionId}:`, subErr.message);
             }
         });
-        return Array.from(merged.entries())
-            .map(([date, cost]) => ({ date, cost: Number(cost.toFixed(2)) }))
-            .sort((a, b) => a.date.localeCompare(b.date));
+        return toSortedSeries(merged);
     }
 }

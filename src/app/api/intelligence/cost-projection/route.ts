@@ -22,7 +22,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
-import { getWithCache } from "@/lib/cache";
+import { redis } from "@/lib/redis";
 import pool from "@/modules/storage/db";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { getHistoricalDailyCosts, AZURE_COST_HISTORY_MAX_MONTHS } from "@/modules/collectors/azure/billingService";
@@ -82,45 +82,61 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(getMockDataForRoute("cost-projection", tenantId));
         }
 
-        // v2: la entrada del cache pasó de MonthlyPoint[] a {dailyHistory, monthlyHistory}.
-        const cacheKey = `costProjection:v2:${tenantId}:${subscriptionId.toLowerCase()}`;
-        const payload = await getWithCache(
-            cacheKey,
-            async () => {
-                let daily = await queryDailyFromDb(tenantId, subscriptionId);
+        // v3: chunking de 13 meses en getHistoricalDailyCosts (Azure rechaza
+        // rangos > 366 días) — se bumpea la key para invalidar payloads viejos
+        // cacheados con el backfill roto (traían un solo día).
+        const cacheKey = `costProjection:v3:${tenantId}:${subscriptionId.toLowerCase()}`;
 
-                // Relleno desde Azure Cost Management: si el snapshot local no
-                // arranca donde debería (tenants nuevos, o gaps por cron caído),
-                // pedimos la ventana completa a Azure y mergeamos. El snapshot
-                // local gana en fechas superpuestas (ya validado/persistido).
-                const requiredFrom = new Date();
-                requiredFrom.setMonth(requiredFrom.getMonth() - AZURE_COST_HISTORY_MAX_MONTHS);
-                const earliestInDb = daily[0]?.date;
-                const needsBackfill = daily.length === 0 || (earliestInDb && new Date(earliestInDb) > requiredFrom);
-                if (needsBackfill) {
-                    try {
-                        const historical = await getHistoricalDailyCosts(tenantId, subscriptionId, AZURE_COST_HISTORY_MAX_MONTHS);
-                        const byDate = new Map<string, number>(daily.map((p) => [p.date, p.cost]));
-                        for (const { date, cost } of historical) {
-                            if (!byDate.has(date)) byDate.set(date, cost);
-                        }
-                        daily = Array.from(byDate.entries())
-                            .map(([date, cost]) => ({ date, cost: Number(cost.toFixed(2)) }))
-                            .sort((a, b) => a.date.localeCompare(b.date));
-                    } catch (e: any) {
-                        console.warn("[cost-projection] historical Azure backfill failed:", e?.message);
+        type Payload = { dailyHistory: DailyPoint[]; monthlyHistory: MonthlyPoint[]; backfillOk: boolean };
+        let payload: Payload | null = null;
+        try {
+            const cached = await redis.get(cacheKey);
+            if (cached) payload = JSON.parse(cached) as Payload;
+        } catch (e: any) {
+            console.warn("[cost-projection] Redis read failed:", e?.message);
+        }
+
+        if (!payload) {
+            let daily = await queryDailyFromDb(tenantId, subscriptionId);
+            let backfillOk = true;
+
+            // Relleno desde Azure Cost Management: si el snapshot local no
+            // arranca donde debería (tenants nuevos, o gaps por cron caído),
+            // pedimos la ventana completa a Azure y mergeamos. El snapshot
+            // local gana en fechas superpuestas (ya validado/persistido).
+            const requiredFrom = new Date();
+            requiredFrom.setMonth(requiredFrom.getMonth() - AZURE_COST_HISTORY_MAX_MONTHS);
+            const earliestInDb = daily[0]?.date;
+            const needsBackfill = daily.length === 0 || (earliestInDb && new Date(earliestInDb) > requiredFrom);
+            if (needsBackfill) {
+                try {
+                    const historical = await getHistoricalDailyCosts(tenantId, subscriptionId, AZURE_COST_HISTORY_MAX_MONTHS);
+                    const byDate = new Map<string, number>(daily.map((p) => [p.date, p.cost]));
+                    for (const { date, cost } of historical) {
+                        if (!byDate.has(date)) byDate.set(date, cost);
                     }
+                    daily = Array.from(byDate.entries())
+                        .map(([date, cost]) => ({ date, cost: Number(cost.toFixed(2)) }))
+                        .sort((a, b) => a.date.localeCompare(b.date));
+                    backfillOk = historical.length > 0;
+                } catch (e: any) {
+                    console.warn("[cost-projection] historical Azure backfill failed:", e?.message);
+                    backfillOk = false;
                 }
+            }
 
-                return { dailyHistory: daily, monthlyHistory: aggregateMonthly(daily) };
-            },
-            // 6h: el gasto histórico no cambia intra-día salvo por el snapshot
-            // diario (cron), así que una ventana amplia evita pegarle a la DB/Azure
-            // en cada visita a la card o a la página dedicada.
-            6 * 3600
-        );
+            payload = { dailyHistory: daily, monthlyHistory: aggregateMonthly(daily), backfillOk };
 
-        return NextResponse.json({ success: true, mock: false, ...payload });
+            // TTL adaptativo: 6h con backfill sano (el gasto histórico no cambia
+            // intra-día salvo por el snapshot diario del cron); solo 10 min si el
+            // backfill de Azure falló, para reintentar pronto en vez de dejar 6h
+            // un histograma incompleto cacheado.
+            const ttl = backfillOk ? 6 * 3600 : 600;
+            redis.set(cacheKey, JSON.stringify(payload), "EX", ttl)
+                .catch((e: any) => console.warn("[cost-projection] Redis write failed:", e?.message));
+        }
+
+        return NextResponse.json({ success: true, mock: false, dailyHistory: payload.dailyHistory, monthlyHistory: payload.monthlyHistory });
     } catch (error: any) {
         console.error("API GET /intelligence/cost-projection error:", error);
         return NextResponse.json({ error: "Fallo al calcular gastos y proyección" }, { status: 500 });
