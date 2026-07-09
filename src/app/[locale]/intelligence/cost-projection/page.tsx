@@ -1,6 +1,7 @@
 import React from "react";
 import { getTranslations } from "next-intl/server";
 import MockBanner from '@/components/MockBanner';
+import CostHistogramCard from "@/components/dashboard/CostHistogramCard";
 import CostProjectionCard from "@/components/dashboard/CostProjectionCard";
 
 export default async function CostProjectionPage() {
@@ -13,13 +14,16 @@ export default async function CostProjectionPage() {
                 <div>
                     <div className="vt">
                         <span className="vico bg-gradient-to-br from-[#0054A6] to-[#00AEEF]">📈</span>
-                        {t("cost_projection_title")}
+                        {t("cost_projection_page_title")}
                     </div>
                     <div className="vs">{t("cost_projection_page_subtitle")}</div>
                 </div>
             </div>
 
-            <div className="mt-6" style={{ minHeight: 480 }}>
+            <div className="mt-6">
+                <CostHistogramCard />
+            </div>
+            <div className="mt-4" style={{ minHeight: 480 }}>
                 <CostProjectionCard showFullPageLink={false} />
             </div>
         </div>

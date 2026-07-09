@@ -2,6 +2,7 @@ import { CostManagementClient } from "@azure/arm-costmanagement";
 import { getAzureCredential } from '@/lib/azure';
 import { FocusCostEntry, mapAzureToFocus } from '@/modules/core/focusMapper';
 import { redis } from '@/lib/redis';
+import { withCostColumn, findCostColumnIndex, resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError, type CostColumn } from '@/lib/azureCostColumn';
 
 // --- Helpers de resiliencia para Azure Cost Management (rate limiting) ---
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
@@ -109,6 +110,8 @@ async function _fetchCostData(
         ? `/providers/Microsoft.Management/managementGroups/${tenantId}`
         : `/subscriptions/${subscriptionId}`;
 
+    const costCol = await resolveCostColumn(tenantId);
+
     const diagnostics: CostQueryDiagnostics = {
         scopeAttempted: scope,
         isFallback: false,
@@ -133,14 +136,16 @@ async function _fetchCostData(
     };
 
     // Construye queryOptions con timeframe específico. Reutilizable para reintento Last30Days.
-    const buildOptions = (timeframe: 'MonthToDate' | 'Custom', from?: Date, to?: Date) => {
+    // `col` es 'CostUSD' (default) o 'PreTaxCost' (fallback si la oferta del
+    // tenant no soporta CostUSD — ver resolveCostColumnCached/degradeCostColumn).
+    const buildOptions = (timeframe: 'MonthToDate' | 'Custom', col: CostColumn, from?: Date, to?: Date) => {
         const base: any = {
             type: metricType === 'ActualCost' ? 'ActualCost' : 'AmortizedCost',
             timeframe,
             dataset: {
                 granularity: "Daily",
                 aggregation: {
-                    totalCost: { name: "PreTaxCost", function: "Sum" }
+                    totalCost: { name: col, function: "Sum" }
                 },
                 grouping: [
                     { type: "Dimension", name: "ServiceName" },
@@ -156,12 +161,26 @@ async function _fetchCostData(
         return base;
     };
 
-    const mtdOptions = buildOptions('MonthToDate');
+    let mtdOptions = buildOptions('MonthToDate', costCol);
+    let activeCol = costCol;
 
     try {
         // maxRetries:0 — on 429 (Azure throttling MG scope) fail immediately and fall back to
         // per-subscription iteration instead of waiting 24s+ of exponential backoff.
-        const result = await withRetry(() => client.query.usage(scope, mtdOptions), { label: `usage(MG ${tenantId})`, maxRetries: 0 });
+        let result: any;
+        try {
+            result = await withRetry(() => client.query.usage(scope, mtdOptions), { label: `usage(MG ${tenantId})`, maxRetries: 0 });
+        } catch (colErr: any) {
+            if (activeCol === 'CostUSD' && isCostUsdUnsupportedError(colErr)) {
+                console.warn(`[BillingService] CostUSD no soportado (MG scope) para tenant ${tenantId} — degradando a PreTaxCost.`);
+                await degradeCostColumn(tenantId);
+                activeCol = 'PreTaxCost';
+                mtdOptions = buildOptions('MonthToDate', activeCol);
+                result = await withRetry(() => client.query.usage(scope, mtdOptions), { label: `usage(MG ${tenantId}, PreTaxCost)`, maxRetries: 0 });
+            } else {
+                throw colErr;
+            }
+        }
         if (result?.columns?.length) {
             console.log(`[BillingService] Azure columns (MG scope): ${result.columns.map((c: any) => c.name).join(', ')}`);
         }
@@ -229,6 +248,24 @@ async function _fetchCostData(
                 const n = processResult(res);
                 if (n > 0) diagnostics.subsWithData++;
             } catch (subErr: any) {
+                // Suscripciones individuales pueden tener un tipo de oferta distinto
+                // al resto del tenant (p.ej. EA legado) y rechazar CostUSD aunque el
+                // resto sí lo soporte — reintento puntual con PreTaxCost para esta sub.
+                if (activeCol === 'CostUSD' && isCostUsdUnsupportedError(subErr)) {
+                    try {
+                        const fallbackOptions = buildOptions('MonthToDate', 'PreTaxCost');
+                        const res = await withRetry(
+                            () => client.query.usage(`/subscriptions/${subId}`, fallbackOptions),
+                            { label: `usage(sub ${subId}, PreTaxCost)`, maxRetries: 2 }
+                        );
+                        diagnostics.subsSucceeded++;
+                        const n = processResult(res);
+                        if (n > 0) diagnostics.subsWithData++;
+                        return;
+                    } catch (retryErr: any) {
+                        subErr = retryErr;
+                    }
+                }
                 const code = subErr.code || subErr.statusCode || 'UNKNOWN';
                 const message = (subErr.message || String(subErr)).slice(0, 240);
                 diagnostics.perSubErrors.push({ subscriptionId: subId, code: String(code), message });
@@ -253,7 +290,7 @@ async function _fetchCostData(
             const to = new Date();
             const from = new Date();
             from.setDate(from.getDate() - 30);
-            const last30Options = buildOptions('Custom', from, to);
+            const last30Options = buildOptions('Custom', activeCol, from, to);
 
             await mapWithConcurrency(diagnostics.subsList, 2, async (subId) => {
                 try {
@@ -348,7 +385,7 @@ export async function getCostForecast(
         return [];
     }
 
-    const forecastOptions = {
+    const forecastOptions = (col: CostColumn) => ({
         type: metricType === 'ActualCost' ? 'ActualCost' : 'AmortizedCost',
         timeframe: "Custom",
         timePeriod: {
@@ -359,20 +396,32 @@ export async function getCostForecast(
             granularity: "Daily",
             aggregation: {
                 totalCost: {
-                    name: "PreTaxCost",
+                    name: col,
                     function: "Sum"
                 }
             }
         }
-    } as any;
+    } as any);
 
     let result;
     let fallbackResults: any[] = [];
     let isFallback = false;
+    let activeCol: CostColumn = await resolveCostColumn(tenantId);
 
     try {
         // maxRetries:0 — 429 on MG scope triggers immediate per-sub fallback, not 24s of backoff.
-        result = await withRetry(() => client.forecast.usage(scope, forecastOptions), { label: `forecast(${scope})`, maxRetries: 0 });
+        try {
+            result = await withRetry(() => client.forecast.usage(scope, forecastOptions(activeCol)), { label: `forecast(${scope})`, maxRetries: 0 });
+        } catch (colErr: any) {
+            if (activeCol === 'CostUSD' && isCostUsdUnsupportedError(colErr)) {
+                console.warn(`[BillingService] CostUSD no soportado en forecast para tenant ${tenantId} — degradando a PreTaxCost.`);
+                await degradeCostColumn(tenantId);
+                activeCol = 'PreTaxCost';
+                result = await withRetry(() => client.forecast.usage(scope, forecastOptions(activeCol)), { label: `forecast(${scope}, PreTaxCost)`, maxRetries: 0 });
+            } else {
+                throw colErr;
+            }
+        }
     } catch (e: any) {
         const is429err = is429(e);
         const isAuthOrNotFound = e.statusCode === 403 || e.statusCode === 401 || e.code === 'AuthorizationFailed' || e.code === 'RBACAccessDenied' || e.message?.includes('AuthorizationFailed') || e.code === 'ManagementGroupNotFound' || e.message?.includes("was not found or you don't have access") || e.message?.includes('does not have authorization') || e.message?.includes('does not have any valid subscriptions') || e.statusCode === 400;
@@ -391,7 +440,7 @@ export async function getCostForecast(
                 fallbackResults = (await mapWithConcurrency(subs, 2, async (sub: any) => {
                     try {
                         return await withRetry(
-                            () => client.forecast.usage(`/subscriptions/${sub.subscriptionId}`, forecastOptions),
+                            () => client.forecast.usage(`/subscriptions/${sub.subscriptionId}`, forecastOptions(activeCol)),
                             { label: `forecast(sub ${sub.subscriptionId})`, maxRetries: 2 }
                         );
                     } catch {
@@ -453,7 +502,9 @@ export async function getYesterdaysCost(tenantId: string): Promise<number> {
     const fromDate = new Date(yyyy, mm, dd, 0, 0, 0);
     const toDate = new Date(yyyy, mm, dd, 23, 59, 59);
 
-    const queryOptions = {
+    // CostUSD (costo normalizado a USD por Azure) en vez de PreTaxCost (moneda
+    // de facturación de la suscripción) — ver docs en src/lib/azureCostColumn.ts.
+    const buildQueryOptions = (col: CostColumn) => ({
         type: 'ActualCost',
         timeframe: "Custom",
         timePeriod: {
@@ -464,16 +515,32 @@ export async function getYesterdaysCost(tenantId: string): Promise<number> {
             granularity: "None",
             aggregation: {
                 totalCost: {
-                    name: "PreTaxCost",
+                    name: col,
                     function: "Sum"
                 }
             }
         }
-    } as any;
+    } as any);
+
+    let activeCol: CostColumn = await resolveCostColumn(tenantId);
+    let queryOptions = buildQueryOptions(activeCol);
 
     try {
         const scope = `/providers/Microsoft.Management/managementGroups/${tenantId}`;
-        const result = await withRetry(() => client.query.usage(scope, queryOptions), { label: `yesterday(MG ${tenantId})` });
+        let result: any;
+        try {
+            result = await withRetry(() => client.query.usage(scope, queryOptions), { label: `yesterday(MG ${tenantId})` });
+        } catch (colErr: any) {
+            if (activeCol === 'CostUSD' && isCostUsdUnsupportedError(colErr)) {
+                console.warn(`[BillingService] CostUSD no soportado (yesterday, MG) para tenant ${tenantId} — degradando a PreTaxCost.`);
+                await degradeCostColumn(tenantId);
+                activeCol = 'PreTaxCost';
+                queryOptions = buildQueryOptions(activeCol);
+                result = await withRetry(() => client.query.usage(scope, queryOptions), { label: `yesterday(MG ${tenantId}, PreTaxCost)` });
+            } else {
+                throw colErr;
+            }
+        }
         if (result && result.rows && result.rows.length > 0) {
             return Number(result.rows[0][0]) || 0;
         }
@@ -497,8 +564,8 @@ export async function getYesterdaysCost(tenantId: string): Promise<number> {
 
         let totalCost = 0;
         await mapWithConcurrency(subs, 3, async (sub: any) => {
+            const subScope = `/subscriptions/${sub.subscriptionId}`;
             try {
-                const subScope = `/subscriptions/${sub.subscriptionId}`;
                 const res = await withRetry(
                     () => client.query.usage(subScope, queryOptions),
                     { label: `yesterday(sub ${sub.subscriptionId})`, maxRetries: 3 }
@@ -507,6 +574,20 @@ export async function getYesterdaysCost(tenantId: string): Promise<number> {
                     totalCost += Number(res.rows[0][0]) || 0;
                 }
             } catch (subErr: any) {
+                if (activeCol === 'CostUSD' && isCostUsdUnsupportedError(subErr)) {
+                    try {
+                        const res = await withRetry(
+                            () => client.query.usage(subScope, buildQueryOptions('PreTaxCost')),
+                            { label: `yesterday(sub ${sub.subscriptionId}, PreTaxCost)`, maxRetries: 3 }
+                        );
+                        if (res && res.rows && res.rows.length > 0) {
+                            totalCost += Number(res.rows[0][0]) || 0;
+                        }
+                        return;
+                    } catch (retryErr: any) {
+                        subErr = retryErr;
+                    }
+                }
                 console.warn(`Failed to query yesterday's cost for subscription ${sub.subscriptionId}:`, subErr.message);
             }
         });
@@ -553,52 +634,81 @@ export async function getYesterdaysDetailedCosts(tenantId: string): Promise<Deta
     const fromDate = new Date(yyyy, mm, dd, 0, 0, 0);
     const toDate = new Date(yyyy, mm, dd, 23, 59, 59);
 
+    // CostUSD (costo normalizado a USD por Azure) en vez de PreTaxCost (moneda
+    // de facturación de la suscripción) — ver docs en src/lib/azureCostColumn.ts.
+    // Resuelto una vez por tenant (no por-sub): un cambio de oferta comercial
+    // afecta a todas las suscripciones del tenant por igual en la práctica.
+    let activeCol: CostColumn = await resolveCostColumn(tenantId);
+
     // Cost Management caps grouping dimensions; we run two complementary
     // queries and merge by (sub, rg, service):
     //  A) [ServiceName, ResourceGroupName] -> billing/chargeback shape
     //  B) [ServiceName, MeterSubCategory]  -> storage-tier detection
-    const baseDataset = {
+    const buildBaseDataset = (col: CostColumn) => ({
         granularity: "None",
         aggregation: {
-            totalCost: { name: "PreTaxCost", function: "Sum" },
+            totalCost: { name: col, function: "Sum" },
             totalQty:  { name: "UsageQuantity", function: "Sum" }
         }
-    };
-    const buildOpts = (groupings: string[]) => ({
+    });
+    const buildOpts = (groupings: string[], col: CostColumn) => ({
         type: 'ActualCost',
         timeframe: 'Custom',
         timePeriod: { from: fromDate, to: toDate },
         dataset: {
-            ...baseDataset,
+            ...buildBaseDataset(col),
             grouping: groupings.map(name => ({ type: 'Dimension', name }))
         }
     } as any);
 
-    const queryA = buildOpts(['ServiceName', 'ResourceGroupName']);
     // query C: costo por ResourceType (clave de join FOCUS → categoría).
-    const queryC = buildOpts(['ResourceType']);
     // 'Meter' (nombre del meter) y no 'MeterSubCategory': el tier de storage
     // (Hot/Cool/Cold/Archive, p.ej. "Cool LRS Data Stored") y el SKU de VM
     // (p.ej. "D4s v5") viven en el nombre del meter. La subcategoría solo dice
     // "Blob Storage"/"Dv5 Series", insuficiente para detectar tiers o cores.
     // + ResourceLocation: región real del recurso (para el desglose por región de
     // compute-cost-per-core). Cost Management acepta esta 3ª dimensión de grouping.
-    const queryB = buildOpts(['ServiceName', 'Meter', 'ResourceLocation']);
+    const buildQueryA = (col: CostColumn) => buildOpts(['ServiceName', 'ResourceGroupName'], col);
+    const buildQueryB = (col: CostColumn) => buildOpts(['ServiceName', 'Meter', 'ResourceLocation'], col);
+    const buildQueryC = (col: CostColumn) => buildOpts(['ResourceType'], col);
 
     async function runOnScope(scope: string, opts: any): Promise<{ rows: any[][]; columns: any[] }> {
         const res: any = await withRetry(() => client.query.usage(scope, opts), { label: `detailed(${scope})`, maxRetries: 3 });
         return { rows: res?.rows || [], columns: res?.columns || [] };
     }
 
+    // Corre una query con la columna activa; si Azure rechaza CostUSD, degrada
+    // (recordado por tenant en Redis) y reintenta una vez con PreTaxCost.
+    async function runOnScopeWithFallback(scope: string, build: (col: CostColumn) => any, label: string): Promise<{ rows: any[][]; columns: any[] }> {
+        try {
+            return await runOnScope(scope, build(activeCol));
+        } catch (e: any) {
+            if (activeCol === 'CostUSD' && isCostUsdUnsupportedError(e)) {
+                console.warn(`[BillingService] CostUSD no soportado (detailed ${label}) para tenant ${tenantId} — degradando a PreTaxCost.`);
+                await degradeCostColumn(tenantId);
+                activeCol = 'PreTaxCost';
+                return await runOnScope(scope, build(activeCol));
+            }
+            throw e;
+        }
+    }
+
     const colIdx = (cols: any[], name: string) => cols.findIndex((c: any) => c.name === name);
+    // La columna de costo real en la respuesta es la que Azure aceptó
+    // (activeCol tras runOnScopeWithFallback), no necesariamente la que se
+    // pidió al inicio de este scope.
+    const costColIdx = (cols: any[]) => {
+        const usd = colIdx(cols, 'CostUSD');
+        return usd >= 0 ? usd : colIdx(cols, 'PreTaxCost');
+    };
 
     async function runForScope(scope: string, subId: string): Promise<DetailedCostRow[]> {
         const out: DetailedCostRow[] = [];
         try {
-            const a = await runOnScope(scope, queryA);
+            const a = await runOnScopeWithFallback(scope, buildQueryA, 'A');
             const sIdx = colIdx(a.columns, 'ServiceName');
             const rgIdx = colIdx(a.columns, 'ResourceGroupName');
-            const cIdx = colIdx(a.columns, 'PreTaxCost');
+            const cIdx = costColIdx(a.columns);
             const qIdx = colIdx(a.columns, 'UsageQuantity');
             for (const row of a.rows) {
                 const cost = Number(row[cIdx] ?? 0);
@@ -623,11 +733,11 @@ export async function getYesterdaysDetailedCosts(tenantId: string): Promise<Deta
             console.warn(`[BillingService] detailed A query failed for ${scope}:`, e.message);
         }
         try {
-            const b = await runOnScope(scope, queryB);
+            const b = await runOnScopeWithFallback(scope, buildQueryB, 'B');
             const sIdx = colIdx(b.columns, 'ServiceName');
             const mIdx = colIdx(b.columns, 'Meter');
             const locIdx = colIdx(b.columns, 'ResourceLocation');
-            const cIdx = colIdx(b.columns, 'PreTaxCost');
+            const cIdx = costColIdx(b.columns);
             const qIdx = colIdx(b.columns, 'UsageQuantity');
             for (const row of b.rows) {
                 const cost = Number(row[cIdx] ?? 0);
@@ -656,9 +766,9 @@ export async function getYesterdaysDetailedCosts(tenantId: string): Promise<Deta
             console.warn(`[BillingService] detailed B query failed for ${scope}:`, e.message);
         }
         try {
-            const c = await runOnScope(scope, queryC);
+            const c = await runOnScopeWithFallback(scope, buildQueryC, 'C');
             const rtIdx = colIdx(c.columns, 'ResourceType');
-            const cIdx = colIdx(c.columns, 'PreTaxCost');
+            const cIdx = costColIdx(c.columns);
             for (const row of c.rows) {
                 const cost = Number(row[cIdx] ?? 0);
                 if (!Number.isFinite(cost) || cost === 0) continue;
@@ -688,7 +798,7 @@ export async function getYesterdaysDetailedCosts(tenantId: string): Promise<Deta
 
     try {
         const mgScope = `/providers/Microsoft.Management/managementGroups/${tenantId}`;
-        const rowsA = await runOnScope(mgScope, queryA);
+        const rowsA = await runOnScopeWithFallback(mgScope, buildQueryA, 'A-probe');
         if (rowsA.rows.length > 0) {
             results.push(...await runForScope(mgScope, 'mg-aggregated'));
             return results;
@@ -742,28 +852,56 @@ export async function getHistoricalDailyCosts(
     const from = new Date();
     from.setMonth(from.getMonth() - months);
 
-    const queryOptions = {
+    // Azure Cost Management Query API rechaza rangos Custom de más de 366 días
+    // ("Invalid query definition: time period cannot exceed a year"). Para 13
+    // meses partimos la ventana en chunks de ≤350 días y mergeamos: una sola
+    // query de 395 días fallaba entera y el histograma quedaba solo con lo
+    // persistido localmente (a veces, un único día).
+    const CHUNK_DAYS = 350;
+    const chunks: Array<{ from: Date; to: Date }> = [];
+    let cursor = new Date(from);
+    while (cursor < to) {
+        const chunkEnd = new Date(Math.min(cursor.getTime() + CHUNK_DAYS * 86400000, to.getTime()));
+        chunks.push({ from: new Date(cursor), to: chunkEnd });
+        cursor = new Date(chunkEnd.getTime() + 86400000);
+    }
+
+    const buildQueryOptions = (range: { from: Date; to: Date }, includeUsd: boolean) => ({
         type: 'ActualCost',
         timeframe: 'Custom',
-        timePeriod: { from, to },
+        timePeriod: { from: range.from, to: range.to },
         dataset: {
             granularity: 'Daily',
-            aggregation: {
-                totalCost: { name: 'PreTaxCost', function: 'Sum' }
-            }
+            aggregation: includeUsd
+                ? {
+                    // CostUSD: costo normalizado a dólares por Azure. PreTaxCost
+                    // viene en la MONEDA DE FACTURACIÓN de la suscripción (p.ej.
+                    // ARS) — usarlo como si fueran dólares inflaba el histograma
+                    // y el promedio de la proyección órdenes de magnitud para
+                    // tenants no facturados en USD.
+                    totalCostUSD: { name: 'CostUSD', function: 'Sum' },
+                    totalCost: { name: 'PreTaxCost', function: 'Sum' }
+                }
+                : {
+                    totalCost: { name: 'PreTaxCost', function: 'Sum' }
+                }
         }
-    } as any;
+    } as any);
 
     const normalizeRows = (rows: any[][], columns: any[]): { date: string; cost: number }[] => {
         const dateIdx = columns.findIndex((c: any) => /usagedate|date/i.test(c?.name || ''));
-        const costIdx = columns.findIndex((c: any) => /pretaxcost|cost/i.test(c?.name || ''));
+        // Preferir la columna en USD; PreTaxCost (moneda de facturación) solo
+        // como último recurso cuando CostUSD no está disponible para la oferta.
+        const usdIdx = columns.findIndex((c: any) => /costusd/i.test(c?.name || ''));
+        const preTaxIdx = columns.findIndex((c: any) => /pretaxcost/i.test(c?.name || ''));
+        const costIdx = usdIdx >= 0 ? usdIdx : (preTaxIdx >= 0 ? preTaxIdx : 1);
         const byDate = new Map<string, number>();
         for (const row of rows) {
             const rawDate = String(row[dateIdx >= 0 ? dateIdx : 0]);
             const iso = /^\d{8}$/.test(rawDate)
                 ? `${rawDate.slice(0, 4)}-${rawDate.slice(4, 6)}-${rawDate.slice(6, 8)}`
                 : rawDate.slice(0, 10);
-            const cost = Number(row[costIdx >= 0 ? costIdx : 1]) || 0;
+            const cost = Number(row[costIdx]) || 0;
             byDate.set(iso, (byDate.get(iso) || 0) + cost);
         }
         return Array.from(byDate.entries())
@@ -771,17 +909,61 @@ export async function getHistoricalDailyCosts(
             .sort((a, b) => a.date.localeCompare(b.date));
     };
 
+    // Consulta secuencial de todos los chunks sobre un scope (secuencial para
+    // no amplificar 429s del rate limit de Cost Management). El PRIMER chunk
+    // propaga el error (permite el fallback MG→subscripciones); fallas en
+    // chunks posteriores solo se loguean y se devuelve lo acumulado.
+    // Si Azure rechaza la agregación CostUSD (ofertas que no la exponen), se
+    // reintenta el chunk sin ella, se recuerda la preferencia del tenant
+    // (Redis, 7 días — compartida con el resto de billingService.ts) y se
+    // sigue con PreTaxCost para el resto de los chunks.
+    const queryScopeAllChunks = async (scope: string, label: string): Promise<Map<string, number>> => {
+        const byDate = new Map<string, number>();
+        let includeUsd = (await resolveCostColumn(tenantId)) === 'CostUSD';
+        for (let i = 0; i < chunks.length; i++) {
+            try {
+                let res: any;
+                try {
+                    res = await withRetry(
+                        () => client.query.usage(scope, buildQueryOptions(chunks[i], includeUsd)),
+                        { label: `historical(${label}, chunk ${i + 1}/${chunks.length})`, maxRetries: 3 }
+                    );
+                } catch (aggErr: any) {
+                    if (includeUsd && isCostUsdUnsupportedError(aggErr)) {
+                        console.warn(`[BillingService] CostUSD no soportado en ${label}, degradando a PreTaxCost:`, aggErr?.message?.slice(0, 150));
+                        includeUsd = false;
+                        await degradeCostColumn(tenantId);
+                        res = await withRetry(
+                            () => client.query.usage(scope, buildQueryOptions(chunks[i], false)),
+                            { label: `historical(${label}, chunk ${i + 1}/${chunks.length}, sin USD)`, maxRetries: 3 }
+                        );
+                    } else {
+                        throw aggErr;
+                    }
+                }
+                for (const { date, cost } of normalizeRows(res?.rows || [], res?.columns || [])) {
+                    byDate.set(date, (byDate.get(date) || 0) + cost);
+                }
+            } catch (chunkErr: any) {
+                if (i === 0) throw chunkErr;
+                console.warn(`[BillingService] Historical chunk ${i + 1}/${chunks.length} failed for ${label}:`, chunkErr.message);
+            }
+        }
+        return byDate;
+    };
+
+    const toSortedSeries = (byDate: Map<string, number>) =>
+        Array.from(byDate.entries())
+            .map(([date, cost]) => ({ date, cost: Number(cost.toFixed(2)) }))
+            .sort((a, b) => a.date.localeCompare(b.date));
+
     const useSubScope = !!subscriptionId && subscriptionId.toLowerCase() !== 'all';
     try {
         const scope = useSubScope
             ? `/subscriptions/${subscriptionId}`
             : `/providers/Microsoft.Management/managementGroups/${tenantId}`;
-        const result: any = await withRetry(
-            () => client.query.usage(scope, queryOptions),
-            { label: `historical(${scope}, ${months}mo)`, maxRetries: 3 }
-        );
-        const rows = result?.rows || [];
-        if (rows.length > 0) return normalizeRows(rows, result?.columns || []);
+        const byDate = await queryScopeAllChunks(scope, `${scope}, ${months}mo`);
+        if (byDate.size > 0) return toSortedSeries(byDate);
         if (useSubScope) return [];
         throw new Error('MG scope returned 0 rows, falling back to subscriptions');
     } catch (e: any) {
@@ -800,22 +982,16 @@ export async function getHistoricalDailyCosts(
         const subs = (subJson.value || []).filter((s: any) => s.subscriptionId && s.state === 'Enabled');
 
         const merged = new Map<string, number>();
-        await mapWithConcurrency(subs, 3, async (sub: any) => {
+        await mapWithConcurrency(subs, 2, async (sub: any) => {
             try {
-                const subScope = `/subscriptions/${sub.subscriptionId}`;
-                const res: any = await withRetry(
-                    () => client.query.usage(subScope, queryOptions),
-                    { label: `historical(sub ${sub.subscriptionId}, ${months}mo)`, maxRetries: 3 }
-                );
-                for (const { date, cost } of normalizeRows(res?.rows || [], res?.columns || [])) {
+                const byDate = await queryScopeAllChunks(`/subscriptions/${sub.subscriptionId}`, `sub ${sub.subscriptionId}, ${months}mo`);
+                for (const [date, cost] of byDate.entries()) {
                     merged.set(date, (merged.get(date) || 0) + cost);
                 }
             } catch (subErr: any) {
                 console.warn(`[BillingService] Historical query failed for subscription ${sub.subscriptionId}:`, subErr.message);
             }
         });
-        return Array.from(merged.entries())
-            .map(([date, cost]) => ({ date, cost: Number(cost.toFixed(2)) }))
-            .sort((a, b) => a.date.localeCompare(b.date));
+        return toSortedSeries(merged);
     }
 }

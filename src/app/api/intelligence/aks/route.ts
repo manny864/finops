@@ -5,6 +5,7 @@ import { getAzureCredential } from "@/lib/azure";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
+import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError, findCostColumnIndex, type CostColumn } from "@/lib/azureCostColumn";
 
 export async function GET(request: NextRequest) {
     try {
@@ -64,26 +65,43 @@ export async function GET(request: NextRequest) {
             // Costo específico del control plane AKS (Uptime SLA), keyed por resourceId del cluster.
             const aksServiceCostByResourceId: Record<string, number> = {};
 
+            // CostUSD (normalizado a USD por Azure) en vez de PreTaxCost (moneda
+            // de facturación de la suscripción) — ver src/lib/azureCostColumn.ts.
+            let activeCol: CostColumn = await resolveCostColumn(tenantId);
+
             try {
-                const costRes = await costClient.query.usage(scope, {
+                const buildRgCostQuery = (col: CostColumn) => ({
                     type: "Usage",
                     timeframe: "MonthToDate",
                     dataset: {
                         granularity: "None",
-                        aggregation: { totalCost: { name: "PreTaxCost", function: "Sum" } },
+                        aggregation: { totalCost: { name: col, function: "Sum" } },
                         grouping: [
                             { type: "Dimension", name: "ResourceGroupName" },
                             { type: "Dimension", name: "SubscriptionId" }
                         ]
                     }
                 });
+                let costRes: any;
+                try {
+                    costRes = await costClient.query.usage(scope, buildRgCostQuery(activeCol));
+                } catch (colErr: any) {
+                    if (activeCol === 'CostUSD' && isCostUsdUnsupportedError(colErr)) {
+                        console.warn(`[AKS] CostUSD no soportado para tenant ${tenantId} — degradando a PreTaxCost.`);
+                        await degradeCostColumn(tenantId);
+                        activeCol = 'PreTaxCost';
+                        costRes = await costClient.query.usage(scope, buildRgCostQuery(activeCol));
+                    } else {
+                        throw colErr;
+                    }
+                }
 
                 if (costRes.rows && costRes.columns) {
                     const colIdx = (name: string) => costRes.columns!.findIndex((c: any) => String(c.name).toLowerCase() === name.toLowerCase());
-                    const iCost = colIdx("PreTaxCost") >= 0 ? colIdx("PreTaxCost") : 0;
+                    const iCost = findCostColumnIndex(costRes.columns) >= 0 ? findCostColumnIndex(costRes.columns) : 0;
                     const iRg = colIdx("ResourceGroupName") >= 0 ? colIdx("ResourceGroupName") : 1;
                     const iSub = colIdx("SubscriptionId") >= 0 ? colIdx("SubscriptionId") : 2;
-                    costRes.rows.forEach(row => {
+                    costRes.rows.forEach((row: any[]) => {
                         const cost = Number(row[iCost]) || 0;
                         const rg = String(row[iRg] || "").toLowerCase();
                         const sub = String(row[iSub] || "").toLowerCase();
@@ -96,12 +114,12 @@ export async function GET(request: NextRequest) {
 
             // Costo SOLO del servicio AKS (control plane / Uptime SLA), aislado del resto del RG principal.
             try {
-                const aksOnly = await costClient.query.usage(scope, {
+                const buildAksOnlyQuery = (col: CostColumn) => ({
                     type: "Usage",
                     timeframe: "MonthToDate",
                     dataset: {
                         granularity: "None",
-                        aggregation: { totalCost: { name: "PreTaxCost", function: "Sum" } },
+                        aggregation: { totalCost: { name: col, function: "Sum" } },
                         grouping: [{ type: "Dimension", name: "ResourceId" }],
                         filter: {
                             dimensions: {
@@ -112,12 +130,25 @@ export async function GET(request: NextRequest) {
                         }
                     }
                 });
+                let aksOnly: any;
+                try {
+                    aksOnly = await costClient.query.usage(scope, buildAksOnlyQuery(activeCol));
+                } catch (colErr: any) {
+                    if (activeCol === 'CostUSD' && isCostUsdUnsupportedError(colErr)) {
+                        console.warn(`[AKS] CostUSD no soportado (control plane) para tenant ${tenantId} — degradando a PreTaxCost.`);
+                        await degradeCostColumn(tenantId);
+                        activeCol = 'PreTaxCost';
+                        aksOnly = await costClient.query.usage(scope, buildAksOnlyQuery(activeCol));
+                    } else {
+                        throw colErr;
+                    }
+                }
 
                 if (aksOnly.rows && aksOnly.columns) {
                     const colIdx = (name: string) => aksOnly.columns!.findIndex((c: any) => String(c.name).toLowerCase() === name.toLowerCase());
-                    const iCost = colIdx("PreTaxCost") >= 0 ? colIdx("PreTaxCost") : 0;
+                    const iCost = findCostColumnIndex(aksOnly.columns) >= 0 ? findCostColumnIndex(aksOnly.columns) : 0;
                     const iRid = colIdx("ResourceId") >= 0 ? colIdx("ResourceId") : 1;
-                    aksOnly.rows.forEach(row => {
+                    aksOnly.rows.forEach((row: any[]) => {
                         const cost = Number(row[iCost]) || 0;
                         const rid = String(row[iRid] || "").toLowerCase();
                         if (rid) aksServiceCostByResourceId[rid] = (aksServiceCostByResourceId[rid] || 0) + cost;

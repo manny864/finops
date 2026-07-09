@@ -86,7 +86,7 @@ export default function CostProjectionCard({ showFullPageLink = true }: Props) {
     if (!selectedTenant || selectedTenant.id === "default") return null;
 
     return (
-        <div className="card h-full flex flex-col overflow-hidden">
+        <div className="card h-full min-h-[460px] flex flex-col overflow-hidden">
             <div className="card-h shrink-0 border-b-0 pb-0 flex items-center justify-between gap-3 flex-wrap">
                 <div>
                     <h3 className="m-0 text-[var(--brand-deep)] flex items-center gap-2">
@@ -158,8 +158,8 @@ export default function CostProjectionCard({ showFullPageLink = true }: Props) {
                                 <p className="text-lg font-bold text-[var(--brand)] m-0">{format(result.projectedTotal)}</p>
                             </div>
                         </div>
-                        <div className="flex-1 min-h-0">
-                            <ResponsiveContainer width="100%" height="100%">
+                        <div className="flex-1 min-h-[240px]">
+                            <ResponsiveContainer width="100%" height="100%" minHeight={240}>
                                 <LineChart data={chartData} margin={{ top: 10, right: 12, left: 0, bottom: 0 }}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                                     <XAxis dataKey="month" tick={{ fontSize: 11 }} minTickGap={14} />

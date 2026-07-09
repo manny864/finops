@@ -69,7 +69,7 @@
     "copilot_m365": "Copilot M365",
     "governance_reporting": "Reporting de Gobernanza",
     "support": "Soporte",
-    "cost_projection": "Proyección de Gastos"
+    "cost_projection": "Gastos y Proyección"
   },
   "Dashboard": {
     "title": "Dashboard General",
@@ -106,7 +106,17 @@
     "cost_projection_real": "Real",
     "cost_projection_projected": "Proyectado",
     "cost_projection_view_full": "Ver detalle completo",
-    "cost_projection_page_subtitle": "Proyectá el gasto cloud futuro a partir de tu promedio real de 12 meses más una tasa de crecimiento que definís vos."
+    "cost_projection_page_subtitle": "Proyectá el gasto cloud futuro a partir de tu promedio real de 12 meses más una tasa de crecimiento que definís vos.",
+    "cost_projection_page_title": "Gastos y Proyección",
+    "cost_histogram_title": "Histograma de costos",
+    "cost_histogram_desc": "Distribución diaria del gasto (hasta 13 meses — límite histórico de Azure Cost Management).",
+    "cost_histogram_range": "Rango",
+    "cost_histogram_1m": "Último mes",
+    "cost_histogram_nm": "Últimos {months} meses",
+    "cost_histogram_12m": "Último año",
+    "cost_histogram_13m": "Máximo (13 meses — límite de Azure)",
+    "cost_histogram_empty": "Sin datos de costos para el período seleccionado.",
+    "cost_histogram_cost_label": "Costo"
   },
   "Common": {
     "save": "Guardar",

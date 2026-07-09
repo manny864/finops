@@ -31,15 +31,6 @@ import MockBanner from '@/components/MockBanner';
 import HistoryButton from '@/components/history/HistoryButton';
 import MyPinnedWidgets from '@/components/dashboard/MyPinnedWidgets';
 import { useCurrency } from '@/components/CurrencyProvider';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip as RechartsTooltip,
-  ResponsiveContainer,
-} from 'recharts';
 
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
@@ -64,15 +55,11 @@ export default function Home() {
   const [actualCost, setActualCost] = useState<number>(0);
   const [projectedCost, setProjectedCost] = useState<number>(0);
   const [zombieCount, setZombieCount] = useState<number>(0);
-  const [histogramMonths, setHistogramMonths] = useState<number>(1);
-  const [billingHistogram, setBillingHistogram] = useState<Array<{ date: string; cost: number }>>([]);
-  const [billingLoading, setBillingLoading] = useState(false);
   const [summaryFailed, setSummaryFailed] = useState(false);
   const [summaryDegraded, setSummaryDegraded] = useState<string | null>(null);
   const [auditNoPerms, setAuditNoPerms] = useState(false);
   const [azureNoAccess, setAzureNoAccess] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
-  const [chartsMounted, setChartsMounted] = useState(false);
   const { addAction } = useActionLogStore();
 
   const calculateCO2Savings = (wastedUsd: number) => {
@@ -122,7 +109,6 @@ export default function Home() {
       
       const fetchData = async () => {
           setLoading(true);
-          setBillingLoading(true);
           try {
               const tokenResponse = { idToken: await getFreshIdToken(instance, accounts[0]) };
               const summarySubscription = selectedSubscription && selectedSubscription.toLowerCase() !== 'all'
@@ -135,7 +121,7 @@ export default function Home() {
               //   summary (18s) → tags → anomalies. Ahora el wall-clock es max(3) en lugar de sum(3).
               // bust=1 on explicit retries (retryKey > 0) forces Redis cache invalidation for the tenant.
               const bustParam = retryKey > 0 ? '&bust=1' : '';
-              const summaryP = fetch(`/api/dashboard/summary?tenantId=${selectedTenant.id}&subscriptionId=${summarySubscription}&months=13${bustParam}`, { headers })
+              const summaryP = fetch(`/api/dashboard/summary?tenantId=${selectedTenant.id}&subscriptionId=${summarySubscription}${bustParam}`, { headers })
                   .then(async r => {
                       if (!r.ok) {
                           console.warn('[Dashboard] summary returned', r.status, await r.text().catch(() => ''));
@@ -171,9 +157,7 @@ export default function Home() {
               setActualCost(Number(summaryJson.actualCost || 0));
               setProjectedCost(Number(summaryJson.projectedCost || 0));
               setZombieCount(Number(summaryJson.zombieCount || 0));
-              setBillingHistogram(Array.isArray(summaryJson.histogram) ? summaryJson.histogram : []);
               setAdvisorSavings(Number(summaryJson.totalSavings || 0));
-              setBillingLoading(false);
               setLoading(false);
 
               // Si el backend ya provee un complianceScore (p.ej. modo demo, o un
@@ -216,7 +200,6 @@ export default function Home() {
                   instance.loginRedirect({ scopes: ['User.Read'] }).catch(() => {});
               }
           }
-          setBillingLoading(false);
           setLoading(false);
       };
       setSummaryFailed(false);
@@ -226,46 +209,10 @@ export default function Home() {
       fetchData();
   }, [activeTab, selectedTenant, selectedSubscription, accounts, instance, retryKey]);
 
-  const filteredHistogramData = (() => {
-      if (billingHistogram.length === 0) return [];
-      const latest = new Date(`${billingHistogram[billingHistogram.length - 1].date}T00:00:00`);
-      if (Number.isNaN(latest.getTime())) return billingHistogram;
-      const start = new Date(latest);
-      start.setMonth(start.getMonth() - histogramMonths + 1);
-      start.setDate(1);
-      return billingHistogram.filter(point => {
-          const d = new Date(`${point.date}T00:00:00`);
-          return !Number.isNaN(d.getTime()) && d >= start && d <= latest;
-      });
-  })();
-
-  const formatHistogramDate = (value: unknown) => {
-      const raw = String(value || '').trim();
-      if (!raw) return '--/--';
-      const compact = raw.match(/^(\d{4})(\d{2})(\d{2})$/);
-      if (compact) {
-          return `${compact[3]}/${compact[2]}`;
-      }
-      const dashed = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-      if (dashed) {
-          return `${dashed[3]}/${dashed[2]}`;
-      }
-      const parsed = new Date(raw);
-      if (!Number.isNaN(parsed.getTime())) {
-          const d = String(parsed.getUTCDate()).padStart(2, '0');
-          const m = String(parsed.getUTCMonth() + 1).padStart(2, '0');
-          return `${d}/${m}`;
-      }
-      return '--/--';
-  };
-
   const t = useTranslations('Dashboard');
   const tCommon = useTranslations('Common');
 
   const [layouts, setLayouts] = useState<any>(null);
-  useEffect(() => {
-    setChartsMounted(true);
-  }, []);
 
   useEffect(() => {
     const saved = localStorage.getItem('finops_dashboard_layout_v2');
@@ -477,56 +424,6 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="card mb-4">
-          <div className="card-h flex items-center justify-between gap-3">
-              <div>
-                  <h3 className="m-0 text-[var(--brand-deep)]">Histograma de costos</h3>
-                  <p className="text-[13px] text-ink-soft m-0 mt-1 font-normal">Distribución diaria del gasto (último mes por defecto, hasta 13 meses — límite de datos históricos de Azure Cost Management).</p>
-              </div>
-              <select
-                  value={histogramMonths}
-                  onChange={(e) => setHistogramMonths(Number(e.target.value))}
-                  className="border rounded-md px-2 py-1 text-sm bg-white dark:bg-slate-900"
-              >
-                  <option value={1}>Último mes</option>
-                  <option value={3}>Últimos 3 meses</option>
-                  <option value={6}>Últimos 6 meses</option>
-                  <option value={9}>Últimos 9 meses</option>
-                  <option value={12}>Último año</option>
-                  <option value={13}>Máximo (13 meses — límite de Azure)</option>
-              </select>
-          </div>
-          <div className="p-[18px] h-[320px] min-w-0">
-              {billingLoading ? (
-                  <div className="h-full flex items-center justify-center text-gray-400 animate-pulse">Cargando histograma...</div>
-              ) : filteredHistogramData.length === 0 ? (
-                  <div className="h-full flex items-center justify-center text-gray-400 text-sm">Sin datos de costos para el período seleccionado.</div>
-              ) : !chartsMounted ? (
-                  <div className="h-full flex items-center justify-center text-gray-300 text-sm">Inicializando gráfico...</div>
-              ) : (
-                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={260}>
-                      <BarChart data={filteredHistogramData} margin={{ top: 10, right: 12, left: 0, bottom: 0 }}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                          <XAxis
-                              dataKey="date"
-                              tickFormatter={formatHistogramDate}
-                              minTickGap={18}
-                              tick={{ fontSize: 12 }}
-                          />
-                          <YAxis
-                              tickFormatter={(v: number) => format(v, { compact: true })}
-                              tick={{ fontSize: 12 }}
-                          />
-                          <RechartsTooltip
-                              formatter={(value: any) => [format(Number(value || 0)), 'Costo']}
-                              labelFormatter={(label: any) => `Fecha: ${formatHistogramDate(label)}`}
-                          />
-                          <Bar dataKey="cost" fill="#0ea5e9" radius={[4, 4, 0, 0]} />
-                      </BarChart>
-                  </ResponsiveContainer>
-              )}
-          </div>
-      </div>
       
       <ResponsiveGridLayout
         className="layout"

@@ -3,6 +3,7 @@ import { CostManagementClient } from "@azure/arm-costmanagement";
 import { ConsumptionManagementClient } from "@azure/arm-consumption";
 import { redis } from "@/lib/redis";
 import pool from "@/modules/storage/db";
+import { withCostColumn, findCostColumnIndex } from "@/lib/azureCostColumn";
 
 /**
  * Obtiene el gasto MTD real para una suscripción usando el pipeline de cache:
@@ -98,23 +99,26 @@ export async function getBudgetConsumption(tenantId: string, subscriptionId: str
             ? `/providers/Microsoft.Management/managementGroups/${tenantId}`
             : `/subscriptions/${subscriptionId}`;
 
-        const res = await client.query.usage(scope, {
+        // CostUSD (normalizado a USD por Azure) en vez de PreTaxCost (moneda de
+        // facturación de la suscripción) — ver src/lib/azureCostColumn.ts.
+        const res = await withCostColumn(tenantId, (col) => client.query.usage(scope, {
             type: "Usage",
             timeframe: "MonthToDate",
             dataset: {
                 granularity: "Monthly",
                 aggregation: {
-                    totalCost: { name: "PreTaxCost", function: "Sum" }
+                    totalCost: { name: col, function: "Sum" }
                 },
                 grouping: [],
                 filter: {
                     tags: { name: "CostCenter", operator: "In", values: [costCenterName] }
                 }
             }
-        });
+        }));
 
         if (res.rows && res.rows.length > 0 && res.rows[0].length > 0) {
-            return parseFloat(res.rows[0][0] as string);
+            const costIdx = res.columns ? findCostColumnIndex(res.columns) : -1;
+            return parseFloat(String(res.rows[0][costIdx >= 0 ? costIdx : 0]));
         }
         return 0;
     } catch (e) {

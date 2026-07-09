@@ -4,6 +4,7 @@ import { CostManagementClient } from "@azure/arm-costmanagement";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { serverError } from '@/lib/apiErrors';
+import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError, findCostColumnIndex } from '@/lib/azureCostColumn';
 
 export async function GET(request: NextRequest) {
     try {
@@ -36,13 +37,16 @@ export async function GET(request: NextRequest) {
                 : `/subscriptions/${subscriptionId}`;
 
             // Advanced Payload: Daily Granularity, ResourceGroup, ChargeType, and TagKey
-            const parameters = {
+            // CostUSD (normalizado a USD por Azure) en vez de PreTaxCost (moneda
+            // de facturación de la suscripción) — ver src/lib/azureCostColumn.ts.
+            let activeCol = await resolveCostColumn(tenantId);
+            const buildParameters = (col: string) => ({
                 type: "Usage",
                 timeframe: "MonthToDate",
                 dataset: {
                     granularity: "Daily",
                     aggregation: {
-                        totalCost: { name: "PreTaxCost", function: "Sum" }
+                        totalCost: { name: col, function: "Sum" }
                     },
                     grouping: [
                         { type: "Dimension", name: "ResourceGroup" },
@@ -50,7 +54,8 @@ export async function GET(request: NextRequest) {
                         { type: "TagKey", name: tagKey }
                     ]
                 }
-            };
+            });
+            let parameters = buildParameters(activeCol);
 
             let result;
             let fallbackResults: any[] = [];
@@ -61,7 +66,19 @@ export async function GET(request: NextRequest) {
                 // ciertas suscripciones (como Enterprise Agreement directas o CSP) pueden devolver errores HTTP 400
                 // si la API nativa no soporta ciertas dimensiones cruzadas con etiquetas en este scope.
                 // Si eso sucede o si falla por RBAC, caerá en el bloque catch inferior y usará el fallback iterativo.
-                result = await client.query.usage(scope, parameters as any);
+                try {
+                    result = await client.query.usage(scope, parameters as any);
+                } catch (colErr: any) {
+                    if (activeCol === 'CostUSD' && isCostUsdUnsupportedError(colErr)) {
+                        console.warn(`[Chargeback] CostUSD no soportado para tenant ${tenantId} — degradando a PreTaxCost.`);
+                        await degradeCostColumn(tenantId);
+                        activeCol = 'PreTaxCost';
+                        parameters = buildParameters(activeCol);
+                        result = await client.query.usage(scope, parameters as any);
+                    } else {
+                        throw colErr;
+                    }
+                }
             } catch (e: any) {
                 const isAuthOrNotFound = e.statusCode === 403 || e.statusCode === 401 || e.statusCode === 400 || e.code === 'AuthorizationFailed' || e.code === 'RBACAccessDenied' || e.message?.includes('AuthorizationFailed') || e.code === 'ManagementGroupNotFound' || e.message?.includes("was not found or you don't have access") || e.message?.includes('does not have authorization') || e.message?.includes('does not have any valid subscriptions');
                 if (subscriptionId === 'All' && isAuthOrNotFound) {
@@ -91,7 +108,7 @@ export async function GET(request: NextRequest) {
 
             const processRows = (res: any) => {
                 if (res.rows && res.columns) {
-                    const costIndex = res.columns.findIndex((c: any) => c.name === 'PreTaxCost');
+                    const costIndex = findCostColumnIndex(res.columns);
                     const dateIndex = res.columns.findIndex((c: any) => c.name === 'UsageDate');
                     const rgIndex = res.columns.findIndex((c: any) => c.name === 'ResourceGroup');
                     const chargeTypeIndex = res.columns.findIndex((c: any) => c.name === 'ChargeType');

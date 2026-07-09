@@ -71,7 +71,15 @@ export function projectFutureCosts(
     monthsAhead: number
 ): CostProjectionResult {
     const sorted = [...monthlyHistory].sort((a, b) => a.month.localeCompare(b.month));
-    const trailing12 = sorted.slice(-12);
+
+    // Excluir el mes calendario EN CURSO de la base: es un mes parcial y
+    // entrarlo al promedio como si fuera completo distorsiona la proyección
+    // hacia abajo (y hacia arriba el primer día del mes con datos live).
+    // Solo se mantiene si es el ÚNICO dato disponible.
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    const completed = sorted.filter((p) => p.month < currentMonth);
+    const usable = completed.length > 0 ? completed : sorted;
+    const trailing12 = usable.slice(-12);
 
     const trailing12mTotalDec = trailing12.reduce(
         (acc, p) => acc.plus(new Decimal(p.cost || 0)),

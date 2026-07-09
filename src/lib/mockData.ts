@@ -1293,18 +1293,30 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
             };
         }
         case 'cost-projection': {
-            // 13 meses de gasto mensual real (con tendencia leve) para alimentar
-            // la Proyección de Gastos también en modo demo.
-            const base = 12500 * multiplier / 30 * 30.44; // ~gasto mensual, consistente con dashboard_summary
-            const monthlyHistory = Array.from({ length: 13 }).map((_, i) => {
-                const d = new Date();
-                d.setUTCMonth(d.getUTCMonth() - (12 - i));
-                const month = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
-                const trend = 0.85 + 0.3 * (i / 12);
+            // 13 meses (~400 días) de gasto diario real (con tendencia +
+            // estacionalidad semanal) para el histograma de "Gastos y
+            // Proyección" en modo demo; el agregado mensual se deriva de él.
+            const monthlyBase = 12500 * multiplier / 30 * 30.44; // consistente con dashboard_summary
+            const dailyBase = monthlyBase / 30.44;
+            const DAYS = 400;
+            const dailyHistory = Array.from({ length: DAYS }).map((_, i) => {
+                const d = new Date(Date.now() - (DAYS - 1 - i) * 86400000);
+                const iso = d.toISOString().slice(0, 10);
+                const dow = d.getUTCDay();
+                const weekendFactor = (dow === 0 || dow === 6) ? 0.72 : 1;
+                const trend = 0.85 + 0.3 * (i / (DAYS - 1));
                 const noise = 0.95 + 0.1 * Math.abs(Math.sin(i * 1.3));
-                return { month, cost: Number((base * trend * noise).toFixed(2)) };
+                return { date: iso, cost: Number((dailyBase * trend * weekendFactor * noise).toFixed(2)) };
             });
-            return { success: true, mock: true, monthlyHistory };
+            const byMonth = new Map<string, number>();
+            for (const { date, cost } of dailyHistory) {
+                const m = date.slice(0, 7);
+                byMonth.set(m, (byMonth.get(m) || 0) + cost);
+            }
+            const monthlyHistory = Array.from(byMonth.entries())
+                .map(([month, cost]) => ({ month, cost: Number(cost.toFixed(2)) }))
+                .sort((a, b) => a.month.localeCompare(b.month));
+            return { success: true, mock: true, dailyHistory, monthlyHistory };
         }
         case 'compute-efficiency': {
             const baseCores       = 40 * multiplier;

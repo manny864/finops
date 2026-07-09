@@ -6,6 +6,7 @@ import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { getActiveReservations } from "@/services/reservationService";
 import { recordDailySnapshotAsync } from "@/services/snapshotService";
+import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError } from "@/lib/azureCostColumn";
 
 export async function GET(request: NextRequest) {
     try {
@@ -40,17 +41,32 @@ export async function GET(request: NextRequest) {
             let recommendations: any[] = [];
 
             // Helper: intenta la query a nivel MG, con fallback por suscripción.
-            // Devuelve las rows combinadas o null si todo falla.
-            const queryCost = async (queryBody: any): Promise<{ rows: any[] } | null> => {
+            // Devuelve las rows combinadas o null si todo falla. `buildQueryBody`
+            // recibe la columna de costo activa (CostUSD por defecto; PreTaxCost
+            // si Azure la rechaza — ver src/lib/azureCostColumn.ts) para que el
+            // llamador arme la agregación con el nombre correcto.
+            let costCol = await resolveCostColumn(tenantId);
+            const queryCost = async (buildQueryBody: (col: string) => any): Promise<{ rows: any[] } | null> => {
                 try {
-                    const res = await costClient.query.usage(mgScope, queryBody);
+                    const res = await costClient.query.usage(mgScope, buildQueryBody(costCol));
                     return res?.rows ? { rows: res.rows as any[] } : null;
-                } catch {
+                } catch (e: any) {
+                    if (costCol === 'CostUSD' && isCostUsdUnsupportedError(e)) {
+                        console.warn(`[Commitments] CostUSD no soportado para tenant ${tenantId} — degradando a PreTaxCost.`);
+                        await degradeCostColumn(tenantId);
+                        costCol = 'PreTaxCost';
+                        try {
+                            const res = await costClient.query.usage(mgScope, buildQueryBody(costCol));
+                            return res?.rows ? { rows: res.rows as any[] } : null;
+                        } catch {
+                            /* cae al fallback por suscripción de abajo */
+                        }
+                    }
                     try {
                         const subs = await getSubscriptionsForTenant(tenantId, credential);
                         const settled = await Promise.allSettled(
                             subs.slice(0, 6).map(subId =>
-                                costClient.query.usage(`/subscriptions/${subId}`, queryBody)
+                                costClient.query.usage(`/subscriptions/${subId}`, buildQueryBody(costCol))
                             )
                         );
                         const combined: any[] = [];
@@ -71,12 +87,12 @@ export async function GET(request: NextRequest) {
             // agrupado por ServiceName + ReservationName.
             // Esto detecta CUALQUIER servicio reservado: VMs, MySQL, PostgreSQL, Redis, etc.
             try {
-                const res = await queryCost({
+                const res = await queryCost((col) => ({
                     type: "AmortizedCost",
                     timeframe: "MonthToDate",
                     dataset: {
                         granularity: "None",
-                        aggregation: { totalCost: { name: "PreTaxCost", function: "Sum" } },
+                        aggregation: { totalCost: { name: col, function: "Sum" } },
                         filter: {
                             dimensions: {
                                 name: "PricingModel",
@@ -89,7 +105,7 @@ export async function GET(request: NextRequest) {
                             { type: "Dimension", name: "ReservationName" }
                         ]
                     }
-                });
+                }));
 
                 if (res?.rows) {
                     // rows: [cost, serviceName, reservationName, currency?]
@@ -125,15 +141,15 @@ export async function GET(request: NextRequest) {
             // ─── 2. COBERTURA ─────────────────────────────────────────────────────────
             // % del gasto total cubierto por reservas/savings plans
             try {
-                const res = await queryCost({
+                const res = await queryCost((col) => ({
                     type: "AmortizedCost",
                     timeframe: "MonthToDate",
                     dataset: {
                         granularity: "None",
-                        aggregation: { totalCost: { name: "PreTaxCost", function: "Sum" } },
+                        aggregation: { totalCost: { name: col, function: "Sum" } },
                         grouping: [{ type: "Dimension", name: "PricingModel" }]
                     }
-                });
+                }));
 
                 if (res?.rows) {
                     let onDemand = 0, reserved = 0;
