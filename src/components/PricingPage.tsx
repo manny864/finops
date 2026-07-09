@@ -282,6 +282,9 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
           </div>
           <div className="mb-6 flex items-center justify-between mt-2">
             <h3 className="text-xl font-bold text-brand-deep">{t('business.name')}</h3>
+            <span className="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded">
+              {t('pro.trial')}
+            </span>
           </div>
           <div className="mb-6">
             <div className="flex items-baseline text-5xl font-extrabold text-gray-900">
