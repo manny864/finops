@@ -995,3 +995,228 @@ export async function getHistoricalDailyCosts(
         return toSortedSeries(merged);
     }
 }
+
+export type HistoricalDetailedCostRow = DetailedCostRow & {
+    /** YYYY-MM-DD — a diferencia de DetailedCostRow (un único día "ayer"), acá
+     * cada fila pertenece a un día distinto dentro de la ventana histórica. */
+    date: string;
+};
+
+/**
+ * Igual que getYesterdaysDetailedCosts pero para TODA una ventana histórica
+ * (hasta AZURE_COST_HISTORY_MAX_MONTHS meses), con granularidad diaria en vez
+ * de un solo día. Pensado para recalcular/limpiar snapshots ya persistidos
+ * que se guardaron con PreTaxCost (moneda de facturación) en vez de CostUSD —
+ * ver scripts/recalculate-cost-snapshots-usd.ts.
+ *
+ * Mismo chunking de ≤350 días que getHistoricalDailyCosts (Azure rechaza
+ * rangos Custom > 366 días) y misma resolución de columna de costo
+ * (CostUSD con degradación automática a PreTaxCost vía azureCostColumn.ts).
+ */
+export async function getHistoricalDetailedCosts(
+    tenantId: string,
+    monthsBack: number
+): Promise<HistoricalDetailedCostRow[]> {
+    const months = Math.min(Math.max(1, Math.round(monthsBack)), AZURE_COST_HISTORY_MAX_MONTHS);
+    const credential = await getAzureCredential(tenantId);
+    const client = new CostManagementClient(credential);
+
+    const to = new Date();
+    const from = new Date();
+    from.setMonth(from.getMonth() - months);
+
+    const CHUNK_DAYS = 350;
+    const chunks: Array<{ from: Date; to: Date }> = [];
+    let cursor = new Date(from);
+    while (cursor < to) {
+        const chunkEnd = new Date(Math.min(cursor.getTime() + CHUNK_DAYS * 86400000, to.getTime()));
+        chunks.push({ from: new Date(cursor), to: chunkEnd });
+        cursor = new Date(chunkEnd.getTime() + 86400000);
+    }
+
+    let activeCol: CostColumn = await resolveCostColumn(tenantId);
+
+    const buildBaseDataset = (col: CostColumn) => ({
+        granularity: 'Daily',
+        aggregation: {
+            totalCost: { name: col, function: 'Sum' },
+            totalQty: { name: 'UsageQuantity', function: 'Sum' }
+        }
+    });
+    const buildOpts = (range: { from: Date; to: Date }, groupings: string[], col: CostColumn) => ({
+        type: 'ActualCost',
+        timeframe: 'Custom',
+        timePeriod: { from: range.from, to: range.to },
+        dataset: {
+            ...buildBaseDataset(col),
+            grouping: groupings.map(name => ({ type: 'Dimension', name }))
+        }
+    } as any);
+
+    const buildQueryA = (range: { from: Date; to: Date }, col: CostColumn) => buildOpts(range, ['ServiceName', 'ResourceGroupName'], col);
+    const buildQueryB = (range: { from: Date; to: Date }, col: CostColumn) => buildOpts(range, ['ServiceName', 'Meter', 'ResourceLocation'], col);
+    const buildQueryC = (range: { from: Date; to: Date }, col: CostColumn) => buildOpts(range, ['ResourceType'], col);
+
+    const colIdx = (cols: any[], name: string) => cols.findIndex((c: any) => c.name === name);
+    const costColIdx = (cols: any[]) => {
+        const usd = colIdx(cols, 'CostUSD');
+        return usd >= 0 ? usd : colIdx(cols, 'PreTaxCost');
+    };
+    const dateColIdx = (cols: any[]) => cols.findIndex((c: any) => /usagedate/i.test(c?.name || ''));
+    const normalizeDate = (raw: unknown): string => {
+        const s = String(raw ?? '');
+        return /^\d{8}$/.test(s) ? `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}` : s.slice(0, 10);
+    };
+
+    async function runOnScope(scope: string, opts: any): Promise<{ rows: any[][]; columns: any[] }> {
+        const res: any = await withRetry(() => client.query.usage(scope, opts), { label: `histDetailed(${scope})`, maxRetries: 3 });
+        return { rows: res?.rows || [], columns: res?.columns || [] };
+    }
+
+    async function runChunkWithFallback(
+        scope: string,
+        build: (range: { from: Date; to: Date }, col: CostColumn) => any,
+        range: { from: Date; to: Date },
+        label: string
+    ): Promise<{ rows: any[][]; columns: any[] }> {
+        try {
+            return await runOnScope(scope, build(range, activeCol));
+        } catch (e: any) {
+            if (activeCol === 'CostUSD' && isCostUsdUnsupportedError(e)) {
+                console.warn(`[BillingService] CostUSD no soportado (historical detailed ${label}) para tenant ${tenantId} — degradando a PreTaxCost.`);
+                await degradeCostColumn(tenantId);
+                activeCol = 'PreTaxCost';
+                return await runOnScope(scope, build(range, activeCol));
+            }
+            throw e;
+        }
+    }
+
+    async function runForScope(scope: string, subId: string): Promise<HistoricalDetailedCostRow[]> {
+        const out: HistoricalDetailedCostRow[] = [];
+        for (const range of chunks) {
+            try {
+                const a = await runChunkWithFallback(scope, buildQueryA, range, 'A');
+                const sIdx = colIdx(a.columns, 'ServiceName');
+                const rgIdx = colIdx(a.columns, 'ResourceGroupName');
+                const cIdx = costColIdx(a.columns);
+                const qIdx = colIdx(a.columns, 'UsageQuantity');
+                const dIdx = dateColIdx(a.columns);
+                for (const row of a.rows) {
+                    const cost = Number(row[cIdx] ?? 0);
+                    if (!Number.isFinite(cost) || cost === 0) continue;
+                    out.push({
+                        kind: 'chargeback',
+                        date: normalizeDate(row[dIdx]),
+                        subscriptionId: subId,
+                        resourceGroup: String(row[rgIdx] ?? '*'),
+                        resourceLocation: '',
+                        resourceType: '',
+                        serviceName: String(row[sIdx] ?? ''),
+                        serviceFamily: '',
+                        meterCategory: '',
+                        meterSubCategory: '',
+                        meterName: '',
+                        cost,
+                        quantity: Number(row[qIdx] ?? 0) || 0,
+                        unitOfMeasure: ''
+                    });
+                }
+            } catch (e: any) {
+                console.warn(`[BillingService] historical detailed A query failed for ${scope}:`, e.message);
+            }
+            try {
+                const b = await runChunkWithFallback(scope, buildQueryB, range, 'B');
+                const sIdx = colIdx(b.columns, 'ServiceName');
+                const mIdx = colIdx(b.columns, 'Meter');
+                const locIdx = colIdx(b.columns, 'ResourceLocation');
+                const cIdx = costColIdx(b.columns);
+                const qIdx = colIdx(b.columns, 'UsageQuantity');
+                const dIdx = dateColIdx(b.columns);
+                for (const row of b.rows) {
+                    const cost = Number(row[cIdx] ?? 0);
+                    if (!Number.isFinite(cost) || cost === 0) continue;
+                    const meterName = String(row[mIdx] ?? '');
+                    out.push({
+                        kind: 'meter',
+                        date: normalizeDate(row[dIdx]),
+                        subscriptionId: subId,
+                        resourceGroup: '*',
+                        resourceLocation: locIdx >= 0 ? String(row[locIdx] ?? '') : '',
+                        resourceType: '',
+                        serviceName: String(row[sIdx] ?? ''),
+                        serviceFamily: '',
+                        meterCategory: '',
+                        meterSubCategory: meterName,
+                        meterName,
+                        cost,
+                        quantity: Number(row[qIdx] ?? 0) || 0,
+                        unitOfMeasure: ''
+                    });
+                }
+            } catch (e: any) {
+                console.warn(`[BillingService] historical detailed B query failed for ${scope}:`, e.message);
+            }
+            try {
+                const c = await runChunkWithFallback(scope, buildQueryC, range, 'C');
+                const rtIdx = colIdx(c.columns, 'ResourceType');
+                const cIdx = costColIdx(c.columns);
+                const dIdx = dateColIdx(c.columns);
+                for (const row of c.rows) {
+                    const cost = Number(row[cIdx] ?? 0);
+                    if (!Number.isFinite(cost) || cost === 0) continue;
+                    out.push({
+                        kind: 'category',
+                        date: normalizeDate(row[dIdx]),
+                        subscriptionId: subId,
+                        resourceGroup: '*',
+                        resourceLocation: '',
+                        resourceType: (rtIdx >= 0 ? String(row[rtIdx] ?? '') : '').toLowerCase(),
+                        serviceName: '',
+                        serviceFamily: '',
+                        meterCategory: '',
+                        meterSubCategory: '',
+                        meterName: '',
+                        cost,
+                        quantity: 0,
+                        unitOfMeasure: ''
+                    });
+                }
+            } catch (e: any) {
+                console.warn(`[BillingService] historical detailed C query failed for ${scope}:`, e.message);
+            }
+        }
+        return out;
+    }
+
+    const results: HistoricalDetailedCostRow[] = [];
+
+    try {
+        const mgScope = `/providers/Microsoft.Management/managementGroups/${tenantId}`;
+        const probe = await runChunkWithFallback(mgScope, buildQueryA, chunks[0], 'A-probe');
+        if (probe.rows.length > 0) {
+            results.push(...await runForScope(mgScope, 'mg-aggregated'));
+            return results;
+        }
+        throw new Error('MG scope returned 0 rows in probe chunk, falling back to subs');
+    } catch (e: any) {
+        const token = await credential.getToken('https://management.azure.com/.default');
+        if (!token) throw new Error('No se pudo obtener token Azure');
+        const subRes = await fetch('https://management.azure.com/subscriptions?api-version=2020-01-01', {
+            headers: { 'Authorization': `Bearer ${token.token}` }
+        });
+        if (!subRes.ok) throw new Error(`Failed to fetch subscriptions: HTTP ${subRes.status}`);
+        const subJson: any = await subRes.json();
+        const subs = (subJson.value || []).filter((s: any) => s.subscriptionId && s.state === 'Enabled');
+        await mapWithConcurrency(subs, 2, async (sub: any) => {
+            const subId: string = sub.subscriptionId;
+            try {
+                const rows = await runForScope(`/subscriptions/${subId}`, subId);
+                results.push(...rows);
+            } catch (subErr: any) {
+                console.warn(`[BillingService] historical detailed query failed for subscription ${subId}:`, subErr.message);
+            }
+        });
+        return results;
+    }
+}
