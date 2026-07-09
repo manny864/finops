@@ -756,28 +756,42 @@ export async function getHistoricalDailyCosts(
         cursor = new Date(chunkEnd.getTime() + 86400000);
     }
 
-    const buildQueryOptions = (range: { from: Date; to: Date }) => ({
+    const buildQueryOptions = (range: { from: Date; to: Date }, includeUsd: boolean) => ({
         type: 'ActualCost',
         timeframe: 'Custom',
         timePeriod: { from: range.from, to: range.to },
         dataset: {
             granularity: 'Daily',
-            aggregation: {
-                totalCost: { name: 'PreTaxCost', function: 'Sum' }
-            }
+            aggregation: includeUsd
+                ? {
+                    // CostUSD: costo normalizado a dólares por Azure. PreTaxCost
+                    // viene en la MONEDA DE FACTURACIÓN de la suscripción (p.ej.
+                    // ARS) — usarlo como si fueran dólares inflaba el histograma
+                    // y el promedio de la proyección órdenes de magnitud para
+                    // tenants no facturados en USD.
+                    totalCostUSD: { name: 'CostUSD', function: 'Sum' },
+                    totalCost: { name: 'PreTaxCost', function: 'Sum' }
+                }
+                : {
+                    totalCost: { name: 'PreTaxCost', function: 'Sum' }
+                }
         }
     } as any);
 
     const normalizeRows = (rows: any[][], columns: any[]): { date: string; cost: number }[] => {
         const dateIdx = columns.findIndex((c: any) => /usagedate|date/i.test(c?.name || ''));
-        const costIdx = columns.findIndex((c: any) => /pretaxcost|cost/i.test(c?.name || ''));
+        // Preferir la columna en USD; PreTaxCost (moneda de facturación) solo
+        // como último recurso cuando CostUSD no está disponible para la oferta.
+        const usdIdx = columns.findIndex((c: any) => /costusd/i.test(c?.name || ''));
+        const preTaxIdx = columns.findIndex((c: any) => /pretaxcost/i.test(c?.name || ''));
+        const costIdx = usdIdx >= 0 ? usdIdx : (preTaxIdx >= 0 ? preTaxIdx : 1);
         const byDate = new Map<string, number>();
         for (const row of rows) {
             const rawDate = String(row[dateIdx >= 0 ? dateIdx : 0]);
             const iso = /^\d{8}$/.test(rawDate)
                 ? `${rawDate.slice(0, 4)}-${rawDate.slice(4, 6)}-${rawDate.slice(6, 8)}`
                 : rawDate.slice(0, 10);
-            const cost = Number(row[costIdx >= 0 ? costIdx : 1]) || 0;
+            const cost = Number(row[costIdx]) || 0;
             byDate.set(iso, (byDate.get(iso) || 0) + cost);
         }
         return Array.from(byDate.entries())
@@ -789,14 +803,32 @@ export async function getHistoricalDailyCosts(
     // no amplificar 429s del rate limit de Cost Management). El PRIMER chunk
     // propaga el error (permite el fallback MG→subscripciones); fallas en
     // chunks posteriores solo se loguean y se devuelve lo acumulado.
+    // Si Azure rechaza la agregación CostUSD (ofertas que no la exponen), se
+    // reintenta el chunk sin ella y se sigue con PreTaxCost para el resto.
     const queryScopeAllChunks = async (scope: string, label: string): Promise<Map<string, number>> => {
         const byDate = new Map<string, number>();
+        let includeUsd = true;
         for (let i = 0; i < chunks.length; i++) {
             try {
-                const res: any = await withRetry(
-                    () => client.query.usage(scope, buildQueryOptions(chunks[i])),
-                    { label: `historical(${label}, chunk ${i + 1}/${chunks.length})`, maxRetries: 3 }
-                );
+                let res: any;
+                try {
+                    res = await withRetry(
+                        () => client.query.usage(scope, buildQueryOptions(chunks[i], includeUsd)),
+                        { label: `historical(${label}, chunk ${i + 1}/${chunks.length})`, maxRetries: 3 }
+                    );
+                } catch (aggErr: any) {
+                    const msg = String(aggErr?.message || '');
+                    if (includeUsd && /costusd|aggregation|invalid.*column/i.test(msg)) {
+                        console.warn(`[BillingService] CostUSD no soportado en ${label}, fallback a PreTaxCost:`, msg.slice(0, 150));
+                        includeUsd = false;
+                        res = await withRetry(
+                            () => client.query.usage(scope, buildQueryOptions(chunks[i], false)),
+                            { label: `historical(${label}, chunk ${i + 1}/${chunks.length}, sin USD)`, maxRetries: 3 }
+                        );
+                    } else {
+                        throw aggErr;
+                    }
+                }
                 for (const { date, cost } of normalizeRows(res?.rows || [], res?.columns || [])) {
                     byDate.set(date, (byDate.get(date) || 0) + cost);
                 }

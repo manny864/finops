@@ -82,10 +82,11 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(getMockDataForRoute("cost-projection", tenantId));
         }
 
-        // v3: chunking de 13 meses en getHistoricalDailyCosts (Azure rechaza
-        // rangos > 366 días) — se bumpea la key para invalidar payloads viejos
-        // cacheados con el backfill roto (traían un solo día).
-        const cacheKey = `costProjection:v3:${tenantId}:${subscriptionId.toLowerCase()}`;
+        // v4: getHistoricalDailyCosts ahora agrega CostUSD (USD normalizado por
+        // Azure) en vez de PreTaxCost (moneda de facturación — inflaba órdenes
+        // de magnitud a tenants no facturados en USD). Bump para invalidar
+        // payloads viejos cacheados con montos en moneda local.
+        const cacheKey = `costProjection:v4:${tenantId}:${subscriptionId.toLowerCase()}`;
 
         type Payload = { dailyHistory: DailyPoint[]; monthlyHistory: MonthlyPoint[]; backfillOk: boolean };
         let payload: Payload | null = null;
@@ -111,9 +112,14 @@ export async function GET(request: NextRequest) {
             if (needsBackfill) {
                 try {
                     const historical = await getHistoricalDailyCosts(tenantId, subscriptionId, AZURE_COST_HISTORY_MAX_MONTHS);
+                    // Azure GANA en fechas superpuestas: el backfill viene en USD
+                    // normalizado (CostUSD), mientras que CostSnapshots guarda hoy
+                    // PreTaxCost en moneda de facturación — mezclar unidades por
+                    // fecha rompería la serie. La DB solo aporta fechas que Azure
+                    // no tiene (p.ej. filas AWS ingestadas por CUR).
                     const byDate = new Map<string, number>(daily.map((p) => [p.date, p.cost]));
                     for (const { date, cost } of historical) {
-                        if (!byDate.has(date)) byDate.set(date, cost);
+                        byDate.set(date, cost);
                     }
                     daily = Array.from(byDate.entries())
                         .map(([date, cost]) => ({ date, cost: Number(cost.toFixed(2)) }))
