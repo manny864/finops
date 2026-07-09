@@ -482,8 +482,8 @@
     "backToDashboard": "Voltar ao Dashboard",
     "backToPricing": "Voltar à página de preços",
     "corporateEmailNotice": {
-      "title": "Use seu e-mail corporativo",
-      "body": "O e-mail informado no checkout da Paddle se tornará a conta de administrador do tenant que você está registrando. Use seu e-mail corporativo (o mesmo com o qual você entrou), não um pessoal.",
+      "title": "Use seu e-mail de trabalho",
+      "body": "Use seu e-mail de trabalho: não aceitamos provedores gratuitos (Gmail, Outlook, …) nem endereços .onmicrosoft.com do diretório do Azure. Vamos usá-lo para confirmar seu acesso e fazer o acompanhamento do onboarding. O e-mail informado no checkout da Paddle também se tornará a conta de administrador do tenant que você está registrando, então use o mesmo com o qual você entrou.",
       "willUse": "Será usado",
       "cancel": "Cancelar",
       "continue": "Continuar para o pagamento"
@@ -1083,5 +1083,36 @@
     "goDesktop": "Usar versão desktop",
     "language": "Idioma",
     "scope": "Escopo (tenant / assinatura)"
+  },
+  "Anomalies": {
+    "kpiOpenAnomalies": "Anomalias Abertas",
+    "kpiUnresolvedImpact": "Impacto Não Resolvido",
+    "kpiCompleted": "Concluídas",
+    "kpiMeanTimeToAction": "Tempo Médio de Ação",
+    "kpiOpenAnomaliesDesc": "Requerem revisão",
+    "kpiUnresolvedImpactDesc": "Abertas + Adiadas",
+    "kpiCompletedDesc": "Resolvidas no total",
+    "kpiMeanTimeToActionDesc": "Detecção → resolução",
+    "tabOpen": "Abertas",
+    "tabPostponed": "Adiadas",
+    "tabDismissed": "Descartadas",
+    "tabCompleted": "Concluídas",
+    "tabAll": "Todas",
+    "statusOpen": "Aberta",
+    "statusPostponed": "Adiada",
+    "statusDismissed": "Descartada",
+    "statusCompleted": "Concluída",
+    "actionPostpone": "Adiar",
+    "actionDismiss": "Descartar",
+    "actionComplete": "Marcar Resolvida",
+    "actionReopen": "Reabrir",
+    "investigate": "Investigar Causa Raiz →",
+    "noAnomaliesInTab": "Nenhuma anomalia nesta categoria.",
+    "statusDistribution": "Distribuição por Status",
+    "confidenceBand": "Faixa de Confiança vs Custo Real",
+    "incidentLog": "Registro de Incidentes Z-Score",
+    "vsExpected": "vs Esperado",
+    "detectedOn": "Detectada em {date}",
+    "resolvedOn": "Resolvida em {date}"
   }
 }

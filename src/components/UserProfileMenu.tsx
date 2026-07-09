@@ -9,7 +9,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useMsal } from "@azure/msal-react";
 import { useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
-import { getFreshIdToken } from "@/lib/msalToken";
+import { getFreshIdToken, getGraphAccessToken } from "@/lib/msalToken";
 import { useTenant } from "@/components/TenantProvider";
 import { CurrencySelector } from "@/components/CurrencyProvider";
 import { Pencil, Check, X, LogOut, Sun, Moon, Monitor, Loader2 } from "lucide-react";
@@ -28,6 +28,7 @@ export default function UserProfileMenu() {
     const [nameDraft, setNameDraft] = useState("");
     const [saving, setSaving] = useState(false);
     const [mounted, setMounted] = useState(false);
+    const [photoUrl, setPhotoUrl] = useState<string | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
 
     // next-themes: theme solo es confiable tras montar (evita mismatch SSR).
@@ -62,6 +63,34 @@ export default function UserProfileMenu() {
         })();
         return () => { cancelled = true; };
     }, [account, authHeaders]);
+
+    // Foto de perfil desde Microsoft Graph (Azure AD). 404 = usuario sin foto
+    // configurada en Entra ID: se mantiene el fallback de iniciales.
+    useEffect(() => {
+        if (!account) return;
+        let cancelled = false;
+        let objectUrl: string | null = null;
+        (async () => {
+            try {
+                const accessToken = await getGraphAccessToken(instance, account);
+                if (!accessToken) return;
+                const res = await fetch("https://graph.microsoft.com/v1.0/me/photo/$value", {
+                    headers: { Authorization: `Bearer ${accessToken}` },
+                });
+                if (!res.ok || cancelled) return;
+                const blob = await res.blob();
+                if (cancelled) return;
+                objectUrl = URL.createObjectURL(blob);
+                setPhotoUrl(objectUrl);
+            } catch {
+                // Sin foto en Entra ID o Graph no accesible: se usan iniciales.
+            }
+        })();
+        return () => {
+            cancelled = true;
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
+        };
+    }, [account, instance]);
 
     // Cerrar con click afuera o Escape.
     useEffect(() => {
@@ -122,9 +151,13 @@ export default function UserProfileMenu() {
                 onClick={() => setOpen(!open)}
                 aria-expanded={open}
                 aria-label={t("openProfile")}
-                className="w-9 h-9 rounded-full bg-[var(--color-primary)] flex items-center justify-center text-white font-bold shadow-sm hover:brightness-110 transition-all focus:outline-none focus:ring-2 focus:ring-brand-deep/50"
+                className="w-9 h-9 rounded-full bg-[var(--color-primary)] flex items-center justify-center text-white font-bold shadow-sm hover:brightness-110 transition-all focus:outline-none focus:ring-2 focus:ring-brand-deep/50 overflow-hidden"
             >
-                {initial}
+                {photoUrl ? (
+                    <img src={photoUrl} alt={shownName} className="w-full h-full object-cover" />
+                ) : (
+                    initial
+                )}
             </button>
 
             {open && (
@@ -132,8 +165,12 @@ export default function UserProfileMenu() {
                     {/* Identidad */}
                     <div className="p-4 border-b border-gray-100 dark:border-slate-800">
                         <div className="flex items-center gap-3">
-                            <div className="w-11 h-11 rounded-full bg-[var(--color-primary)] flex items-center justify-center text-white font-bold text-lg shrink-0">
-                                {initial}
+                            <div className="w-11 h-11 rounded-full bg-[var(--color-primary)] flex items-center justify-center text-white font-bold text-lg shrink-0 overflow-hidden">
+                                {photoUrl ? (
+                                    <img src={photoUrl} alt={shownName} className="w-full h-full object-cover" />
+                                ) : (
+                                    initial
+                                )}
                             </div>
                             <div className="min-w-0 flex-1">
                                 {editing ? (

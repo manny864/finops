@@ -59,6 +59,25 @@ export async function getFreshIdToken(
 }
 
 /**
+ * Access token (no idToken) para llamar directamente a Microsoft Graph desde
+ * el cliente (ej. foto de perfil en `/me/photo/$value`). El scope `User.Read`
+ * ya se usa en el login, así que esto no pide consentimiento adicional.
+ */
+export async function getGraphAccessToken(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+  scopes: string[] = ['User.Read']
+): Promise<string | null> {
+  if (!account) return null;
+  try {
+    const result = await instance.acquireTokenSilent({ scopes, account });
+    return result.accessToken;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * `fetch` con retry automático en 401: si la respuesta es 401, fuerza refresh
  * del idToken y reintenta una sola vez. Útil cuando el token caducó entre
  * que el usuario abrió la página y disparó la llamada.

@@ -482,8 +482,8 @@
     "backToDashboard": "Volver al Dashboard",
     "backToPricing": "Volver a la página de precios",
     "corporateEmailNotice": {
-      "title": "Usá tu correo corporativo",
-      "body": "El correo que ingreses en el pago de Paddle quedará como la cuenta administradora del tenant que estás registrando. Usá tu correo corporativo (el mismo con el que iniciaste sesión), no uno personal.",
+      "title": "Usá tu correo laboral",
+      "body": "Usá tu correo laboral: no aceptamos proveedores gratuitos (Gmail, Outlook, …) ni direcciones .onmicrosoft.com del directorio de Azure. Lo usaremos para confirmar tu acceso y hacer seguimiento del onboarding. El correo que ingreses en el pago de Paddle quedará además como la cuenta administradora del tenant que estás registrando, así que usá el mismo con el que iniciaste sesión.",
       "willUse": "Se usará",
       "cancel": "Cancelar",
       "continue": "Continuar al pago"
@@ -1083,5 +1083,36 @@
     "goDesktop": "Usar versión de escritorio",
     "language": "Idioma",
     "scope": "Ámbito (tenant / suscripción)"
+  },
+  "Anomalies": {
+    "kpiOpenAnomalies": "Anomalías Abiertas",
+    "kpiUnresolvedImpact": "Impacto sin Resolver",
+    "kpiCompleted": "Completadas",
+    "kpiMeanTimeToAction": "Tiempo Medio de Acción",
+    "kpiOpenAnomaliesDesc": "Requieren revisión",
+    "kpiUnresolvedImpactDesc": "Abiertas + Pospuestas",
+    "kpiCompletedDesc": "Resueltas en total",
+    "kpiMeanTimeToActionDesc": "Detección → resolución",
+    "tabOpen": "Abiertas",
+    "tabPostponed": "Pospuestas",
+    "tabDismissed": "Descartadas",
+    "tabCompleted": "Completadas",
+    "tabAll": "Todas",
+    "statusOpen": "Abierta",
+    "statusPostponed": "Pospuesta",
+    "statusDismissed": "Descartada",
+    "statusCompleted": "Completada",
+    "actionPostpone": "Posponer",
+    "actionDismiss": "Descartar",
+    "actionComplete": "Marcar Resuelta",
+    "actionReopen": "Reabrir",
+    "investigate": "Investigar Causas Raíz →",
+    "noAnomaliesInTab": "No hay anomalías en esta categoría.",
+    "statusDistribution": "Distribución por Estado",
+    "confidenceBand": "Banda de Confianza vs Costo Real",
+    "incidentLog": "Registro de Incidentes Z-Score",
+    "vsExpected": "vs Esperado",
+    "detectedOn": "Detectada el {date}",
+    "resolvedOn": "Resuelta el {date}"
   }
 }

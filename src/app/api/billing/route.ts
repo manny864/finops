@@ -5,7 +5,7 @@ import { getPaddleBaseUrl } from "@/lib/paddleTierMap";
 
 export async function POST(request: NextRequest) {
   try {
-    const identity = await requireTenantRole(request, new URL(request.url).searchParams.get("tenantId") || "", ["OWNER"]);
+    const identity = await requireTenantRole(request, new URL(request.url).searchParams.get("tenantId") || "", ["Admin"]);
     const tenantId = identity.tenantId;
 
     const [rows]: any = await pool.query(
@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "tenantId es requerido" }, { status: 400 });
     }
 
-    await requireTenantRole(request, tenantId, ["OWNER"]);
+    await requireTenantRole(request, tenantId, ["Admin"]);
 
     const [rows]: any = await pool.query(
       "SELECT paddle_subscription_id FROM Tenants WHERE tenant_id = ?",

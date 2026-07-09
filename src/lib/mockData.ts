@@ -449,19 +449,32 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
             const spikes = dailyCosts.filter(d => d.amount > upperBound);
             const services = ['Virtual Machines', 'Storage', 'SQL Database', 'App Service', 'Cosmos DB'];
             const subs = ['sub-prod-eastus', 'sub-prod-westus', 'sub-staging', 'sub-data-analytics', 'sub-dev'];
-            const anomalies = spikes.map((s, i) => ({
-                id: `anom-${i + 1}`,
-                date: s.date,
-                status: i === 0 ? 'Activa' : (i === 1 ? 'Investigando' : 'Resuelta'),
-                service: services[i % services.length],
-                subscription_id: subs[i % subs.length],
-                amount: s.amount,
-                expected_amount: baseMean,
-                z_score: (s.amount - baseMean) / std,
-                metric: ['Bandwidth', 'Compute Hours', 'DTU', 'RU/s', 'GB-month'][i % 5],
-                severity: s.amount > baseMean + 5 * std ? 'Critical' : 'High',
-                description: `Pico inusual detectado en ${services[i % services.length]} — desviación de +$${(s.amount - baseMean).toFixed(0)} vs media móvil.`
-            }));
+            // Estados del ciclo de vida de la anomalía (Open/Postponed/Dismissed/Completed)
+            // repartidos de forma determinística para que las pestañas del dashboard
+            // (Detección de Anomalías) muestren datos en todas las categorías.
+            const STATUS_CYCLE = ['Open', 'Postponed', 'Dismissed', 'Completed', 'Completed', 'Open'] as const;
+            const anomalies = spikes.map((s, i) => {
+                const status = STATUS_CYCLE[i % STATUS_CYCLE.length];
+                const detectedAt = new Date(`${s.date}T06:00:00.000Z`);
+                const resolvedAt = status !== 'Open'
+                    ? new Date(detectedAt.getTime() + (4 + rand(i + 200) * 36) * 60 * 60 * 1000)
+                    : null;
+                return {
+                    id: i + 1,
+                    date: s.date,
+                    status,
+                    service: services[i % services.length],
+                    subscription_id: subs[i % subs.length],
+                    amount: s.amount,
+                    expected_amount: baseMean,
+                    z_score: (s.amount - baseMean) / std,
+                    metric: ['Bandwidth', 'Compute Hours', 'DTU', 'RU/s', 'GB-month'][i % 5],
+                    severity: s.amount > baseMean + 5 * std ? 'Critical' : 'High',
+                    description: `Pico inusual detectado en ${services[i % services.length]} — desviación de +$${(s.amount - baseMean).toFixed(0)} vs media móvil.`,
+                    detected_at: detectedAt.toISOString(),
+                    resolved_at: resolvedAt ? resolvedAt.toISOString() : null,
+                };
+            });
             return {
                 success: true,
                 mock: true,

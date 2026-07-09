@@ -482,8 +482,8 @@
     "backToDashboard": "Back to Dashboard",
     "backToPricing": "Back to pricing page",
     "corporateEmailNotice": {
-      "title": "Use your corporate email",
-      "body": "The email you enter at Paddle checkout will become the admin account for the tenant you are registering. Use your corporate email (the same one you signed in with), not a personal one.",
+      "title": "Use your work email",
+      "body": "Use your work email — free providers (Gmail, Outlook, …) and Azure directory .onmicrosoft.com addresses aren't accepted. We'll use it to confirm your access and follow up about onboarding. The email you enter at Paddle checkout will become the admin account for the tenant you are registering, so use the same one you signed in with.",
       "willUse": "Will use",
       "cancel": "Cancel",
       "continue": "Continue to payment"
@@ -1083,5 +1083,36 @@
     "goDesktop": "Use desktop version",
     "language": "Language",
     "scope": "Scope (tenant / subscription)"
+  },
+  "Anomalies": {
+    "kpiOpenAnomalies": "Open Anomalies",
+    "kpiUnresolvedImpact": "Unresolved Impact",
+    "kpiCompleted": "Completed",
+    "kpiMeanTimeToAction": "Mean Time to Action",
+    "kpiOpenAnomaliesDesc": "Need review",
+    "kpiUnresolvedImpactDesc": "Open + Postponed",
+    "kpiCompletedDesc": "Resolved in total",
+    "kpiMeanTimeToActionDesc": "Detection → resolution",
+    "tabOpen": "Open",
+    "tabPostponed": "Postponed",
+    "tabDismissed": "Dismissed",
+    "tabCompleted": "Completed",
+    "tabAll": "All",
+    "statusOpen": "Open",
+    "statusPostponed": "Postponed",
+    "statusDismissed": "Dismissed",
+    "statusCompleted": "Completed",
+    "actionPostpone": "Postpone",
+    "actionDismiss": "Dismiss",
+    "actionComplete": "Mark Resolved",
+    "actionReopen": "Reopen",
+    "investigate": "Investigate Root Cause →",
+    "noAnomaliesInTab": "No anomalies in this category.",
+    "statusDistribution": "Status Distribution",
+    "confidenceBand": "Confidence Band vs Actual Cost",
+    "incidentLog": "Z-Score Incident Log",
+    "vsExpected": "vs Expected",
+    "detectedOn": "Detected on {date}",
+    "resolvedOn": "Resolved on {date}"
   }
 }

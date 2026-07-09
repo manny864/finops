@@ -32,7 +32,7 @@ function detectAnomalies(
             amount: d.amount,
             expected_amount: mean,
             z_score: (d.amount - mean) / stdDev,
-            status: 'New',
+            status: 'Open',
             subscription_id: subscriptionId,
             detected_at: new Date().toISOString()
         }));
@@ -55,15 +55,41 @@ export async function GET(request: NextRequest) {
         // ── MOCK ──────────────────────────────────────────────────────────────
         if (isMockTenant(tenantId)) {
             const today = new Date();
+            // Días con picos de gasto simulados, repartidos en la ventana de 60 días
+            // para poder mostrar anomalías en distintos estados (Open/Postponed/
+            // Dismissed/Completed) en el demo.
+            const spikeIndices = [59, 55, 47, 39, 30, 21, 12];
+            const spikeSet = new Set(spikeIndices);
             const dailyCosts = Array.from({ length: 60 }).map((_, i) => {
                 const date = new Date(today.getTime() - (59 - i) * 24 * 60 * 60 * 1000);
-                const isAnomaly = i === 59;
                 const baseCost = 150 + Math.random() * 50;
-                return { date: date.toISOString().split('T')[0], amount: isAnomaly ? 850.45 : baseCost };
+                const spikeCost = 600 + Math.random() * 500;
+                return { date: date.toISOString().split('T')[0], amount: spikeSet.has(i) ? spikeCost : baseCost };
             });
-            const baseline = dailyCosts.slice(0, 52).map(d => d.amount);
+            const baseline = dailyCosts.filter((_, i) => !spikeSet.has(i)).slice(0, 40).map(d => d.amount);
             const { mean, stdDev } = computeStats(baseline);
-            const anomalies = detectAnomalies(dailyCosts.slice(52), mean, stdDev, subscriptionId, 3);
+
+            const STATUS_CYCLE = ['Open', 'Postponed', 'Dismissed', 'Completed', 'Completed', 'Open', 'Dismissed'];
+            const SUBS = ['sub-prod-eastus', 'sub-dev-westeurope', 'sub-shared-services', 'sub-prod-brazilsouth'];
+            const anomalies = [...spikeIndices].sort((a, b) => b - a).map((idx, i) => {
+                const d = dailyCosts[idx];
+                const detectedAt = new Date(new Date(d.date).getTime() + 6 * 60 * 60 * 1000);
+                const status = STATUS_CYCLE[i % STATUS_CYCLE.length];
+                const resolvedAt = status !== 'Open'
+                    ? new Date(detectedAt.getTime() + (4 + Math.random() * 36) * 60 * 60 * 1000)
+                    : null;
+                return {
+                    id: i + 1,
+                    date: d.date,
+                    amount: d.amount,
+                    expected_amount: mean,
+                    z_score: stdDev > 0 ? (d.amount - mean) / stdDev : 0,
+                    status,
+                    subscription_id: SUBS[i % SUBS.length],
+                    detected_at: detectedAt.toISOString(),
+                    resolved_at: resolvedAt ? resolvedAt.toISOString() : null,
+                };
+            });
             if (anomalies.length > 0) {
                 const dashboardUrl = `${request.nextUrl.origin}/intelligence/anomalies`;
                 await sendWebhookAlert(tenantId,

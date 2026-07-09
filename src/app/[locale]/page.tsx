@@ -316,7 +316,6 @@ export default function Home() {
   return (
     <div className="content animate-in fade-in duration-500">
       <MockBanner />
-      <MyPinnedWidgets />
       {summaryFailed && !loading && (
         <div className="mb-3 flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-700/40 dark:bg-amber-900/20 dark:text-amber-200">
           <span className="text-lg">⚠️</span>
@@ -424,7 +423,8 @@ export default function Home() {
         </div>
       </div>
 
-      
+      <MyPinnedWidgets />
+
       <ResponsiveGridLayout
         className="layout"
         layouts={layouts}

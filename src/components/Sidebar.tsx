@@ -49,7 +49,6 @@ import {
     FileSpreadsheet,
     Bot,
     TrendingUp,
-    Cloud,
     PiggyBank,
     LifeBuoy
 } from 'lucide-react';
@@ -157,12 +156,11 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/admin/markup', label: 'Partner Markup (CSP)', icon: DollarSign, requiredTier: 'Enterprise' },
                 { href: '/admin/ai-config', label: 'Configuración de IA', icon: Cpu },
                 { href: '/admin/report', label: t('executive_report'), icon: FileText },
-                { href: '/admin/workbooks', label: t('workbooks'), icon: BookOpen },
+                { href: '/admin/workbooks', label: t('workbooks'), icon: BookOpen, requiredTier: 'Enterprise' },
                 { href: '/admin/notifications', label: 'Notificaciones', icon: Bell, requiredTier: 'Professional' },
                 { href: '/admin/billing', label: 'Facturación', icon: CreditCard, requiredTier: 'Essential' },
                 { href: '/admin/copilot-m365', label: t('copilot_m365', { fallback: 'Copilot M365' }), icon: Bot, requiredTier: 'Enterprise' },
                 { href: '/admin/audit', label: t('audit_trail'), icon: Activity },
-                { href: '/admin/pricing-units', label: 'Pricing Units', icon: Database },
                 { href: '/admin/mcp-keys', label: 'MCP API Keys', icon: KeyRound, requiredTier: 'Professional' },
                 { href: '/admin/api-keys', label: 'API Pública', icon: Unlock, requiredTier: 'Professional' },
                 { href: '/admin/powerbi-templates', label: 'Power BI Templates', icon: BarChart3, requiredTier: 'Professional' },
@@ -199,6 +197,11 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             label: 'Soporte (Global)',
             icon: LifeBuoy
         } as any);
+        categories.find(c => c.id === 'admin')?.items.push({
+            href: '/admin/pricing-units',
+            label: 'Pricing Units',
+            icon: Database
+        } as any);
     }
 
     // Auto-expandir solo la sección que contiene la página activa; el resto
@@ -225,7 +228,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
         }
         if (userRole === 'Colaborador') {
             // Colaborador can't see users, config, billing
-            if (cat.id === 'admin') return { ...cat, items: cat.items.filter(i => !i.href.includes('users') && !i.href.includes('config')) };
+            if (cat.id === 'admin') return { ...cat, items: cat.items.filter(i => !i.href.includes('users') && !i.href.includes('config') && !i.href.includes('pricing-units')) };
             return cat;
         }
         return cat; // Admin sees what the tier allows
@@ -313,6 +316,17 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                     </div>
                 ))}
             </nav>
+
+            <div className={`shrink-0 border-t border-white/5 py-3 ${sidebarOpen ? 'px-4' : 'px-2'}`}>
+                <div className={`flex items-center gap-2 text-[#566f8c] ${sidebarOpen ? 'justify-start' : 'justify-center'}`}>
+                    <img src="/logo_29k.png" alt="CS Cloud Solutions" className="w-4 h-4 object-contain shrink-0 opacity-70" />
+                    {sidebarOpen && (
+                        <span className="text-[10px] font-semibold tracking-[0.5px] truncate">
+                            Powered by CSCloudSolutions
+                        </span>
+                    )}
+                </div>
+            </div>
         </aside>
     );
 }
