@@ -38,7 +38,8 @@ export type InfraSecretName =
   | "azure-client-secret"
   | "azure-marketplace-aad-app-secret"
   | "backup-azure-sas-url"
-  | "gemini-api-key";
+  | "gemini-api-key"
+  | "recaptcha-secret";
 
 const ENV_VAR_BY_SECRET: Record<InfraSecretName, string> = {
   "db-password": "DB_PASSWORD",
@@ -50,6 +51,7 @@ const ENV_VAR_BY_SECRET: Record<InfraSecretName, string> = {
   "azure-marketplace-aad-app-secret": "AZURE_MARKETPLACE_AAD_APP_SECRET",
   "backup-azure-sas-url": "BACKUP_AZURE_SAS_URL",
   "gemini-api-key": "GEMINI_API_KEY",
+  "recaptcha-secret": "RECAPTCHA_SECRET",
 };
 
 const KV_SECRET_NAME: Record<InfraSecretName, string> = {
@@ -62,6 +64,7 @@ const KV_SECRET_NAME: Record<InfraSecretName, string> = {
   "azure-marketplace-aad-app-secret": "infra-azure-marketplace-aad-app-secret",
   "backup-azure-sas-url": "infra-backup-azure-sas-url",
   "gemini-api-key": "infra-gemini-api-key",
+  "recaptcha-secret": "infra-recaptcha-secret",
 };
 
 const ALL_INFRA_SECRETS: InfraSecretName[] = [
@@ -74,6 +77,7 @@ const ALL_INFRA_SECRETS: InfraSecretName[] = [
   "azure-marketplace-aad-app-secret",
   "backup-azure-sas-url",
   "gemini-api-key",
+  "recaptcha-secret",
 ];
 
 /**

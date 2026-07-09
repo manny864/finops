@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { escapeHtml } from "@/lib/htmlEscape";
+import { getInfraSecret } from "@/lib/secrets/infraSecrets";
 
 export async function POST(req: NextRequest) {
     try {
@@ -11,11 +12,13 @@ export async function POST(req: NextRequest) {
         }
 
         // 1. Validate reCAPTCHA v3
-        // Bypass de desarrollo: sin RECAPTCHA_SECRET local no hay forma de resolver
+        // Secret resuelto vía infraSecrets: Key Vault (infra-recaptcha-secret)
+        // primero, RECAPTCHA_SECRET del .env como fallback.
+        // Bypass de desarrollo: sin secret local no hay forma de resolver
         // un token real (el site key está hardcodeado en DemoLeadModal.tsx para el
         // dominio de producción). Fuera de development seguimos fail-closed.
         const isDev = process.env.NODE_ENV !== 'production';
-        const recaptchaSecret = process.env.RECAPTCHA_SECRET;
+        const recaptchaSecret = await getInfraSecret("recaptcha-secret");
         if (!recaptchaSecret && !isDev) {
             console.error('[Demo Lead] RECAPTCHA_SECRET not configured');
             return NextResponse.json({ success: false, error: "Service misconfigured" }, { status: 503 });

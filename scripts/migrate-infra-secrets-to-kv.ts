@@ -39,6 +39,7 @@ const SECRETS: Array<{ envVar: string; kvName: string }> = [
   { envVar: "AZURE_MARKETPLACE_AAD_APP_SECRET", kvName: "infra-azure-marketplace-aad-app-secret" },
   { envVar: "BACKUP_AZURE_SAS_URL", kvName: "infra-backup-azure-sas-url" },
   { envVar: "GEMINI_API_KEY", kvName: "infra-gemini-api-key" },
+  { envVar: "RECAPTCHA_SECRET", kvName: "infra-recaptcha-secret" },
 ];
 
 async function main() {
