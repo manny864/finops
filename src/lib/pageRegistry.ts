@@ -41,6 +41,7 @@ export const PAGES: PageEntry[] = [
     { id: "int-aks", path: "/intelligence/aks", title: "AKS Overview", description: "Visión general de clusters AKS.", icon: "Container", category: "intelligence" },
     { id: "int-alerts", path: "/intelligence/alerts", title: "Alertas Self-Service", description: "Reglas de alerta de costo configurables.", icon: "Bell", category: "intelligence" },
     { id: "int-simulator", path: "/intelligence/simulator", title: "Simulador de Costos", description: "Simulá cambios y proyectá impacto.", icon: "Calculator", category: "intelligence" },
+    { id: "int-cost-projection", path: "/intelligence/cost-projection", title: "Proyección de Gastos", description: "Proyección de gasto a futuro (12m + % crecimiento).", icon: "TrendingUp", category: "intelligence" },
     { id: "int-budgets", path: "/intelligence/budgets", title: "Presupuestos", description: "Gestión y seguimiento de budgets.", icon: "Wallet", category: "intelligence" },
     { id: "int-zero-cost", path: "/intelligence/zero-cost", title: "Zero Cost Initiative", description: "Recursos sin uso real con costo cero esperado.", icon: "ZapOff", category: "intelligence" },
     { id: "int-storage-eff", path: "/intelligence/storage-efficiency", title: "Storage Efficiency", description: "Eficiencia y oportunidades en Storage.", icon: "HardDrive", category: "intelligence" },

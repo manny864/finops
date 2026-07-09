@@ -633,7 +633,7 @@ export default function Home() {
 
         <div key="projection">
             <FeatureGuard requiredTier="Professional" featureName="Proyección de Gastos" className="drag-handle cursor-move h-full w-full overflow-hidden">
-                <CostProjectionCard dailyHistory={billingHistogram} loading={billingLoading} />
+                <CostProjectionCard />
             </FeatureGuard>
         </div>
       </ResponsiveGridLayout>

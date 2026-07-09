@@ -353,6 +353,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               }
               if (url.includes('/api/intelligence/allocation-rules')) return new Response(JSON.stringify(getMockDataForRoute('allocation-rules', tier)), {status: 200});
               if (url.includes('/api/intelligence/cost-by-category')) return new Response(JSON.stringify(getMockDataForRoute('cost-by-category', tier)), {status: 200});
+              if (url.includes('/api/intelligence/cost-projection')) return new Response(JSON.stringify(getMockDataForRoute('cost-projection', tier)), {status: 200});
               if (url.includes('/api/intelligence/commitment-simulator')) return new Response(JSON.stringify(getMockDataForRoute('commitment-simulator', tier)), {status: 200});
               if (url.includes('/api/intelligence/compute-efficiency')) return new Response(JSON.stringify(getMockDataForRoute('compute-efficiency', tier)), {status: 200});
               // Simulador What-If: reproduce la misma matemática pura de

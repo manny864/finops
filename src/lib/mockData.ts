@@ -1292,6 +1292,20 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
                 diagnostics: { requestedDays: 30, effectiveDays: 30, rowsFound: categories.length },
             };
         }
+        case 'cost-projection': {
+            // 13 meses de gasto mensual real (con tendencia leve) para alimentar
+            // la Proyección de Gastos también en modo demo.
+            const base = 12500 * multiplier / 30 * 30.44; // ~gasto mensual, consistente con dashboard_summary
+            const monthlyHistory = Array.from({ length: 13 }).map((_, i) => {
+                const d = new Date();
+                d.setUTCMonth(d.getUTCMonth() - (12 - i));
+                const month = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+                const trend = 0.85 + 0.3 * (i / 12);
+                const noise = 0.95 + 0.1 * Math.abs(Math.sin(i * 1.3));
+                return { month, cost: Number((base * trend * noise).toFixed(2)) };
+            });
+            return { success: true, mock: true, monthlyHistory };
+        }
         case 'compute-efficiency': {
             const baseCores       = 40 * multiplier;
             const baseCostPerCore = multiplier === 1 ? 28 : multiplier === 3 ? 33 : multiplier === 10 ? 38 : 45;
