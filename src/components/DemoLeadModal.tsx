@@ -5,6 +5,8 @@ import { Loader2 } from 'lucide-react';
 
 interface DemoLeadModalProps {
     onSuccess: () => void;
+    /** Si se provee, muestra una X para cerrar el modal sin completar (p.ej. en la página de precios). */
+    onClose?: () => void;
 }
 
 declare global {
@@ -13,7 +15,7 @@ declare global {
     }
 }
 
-export default function DemoLeadModal({ onSuccess }: DemoLeadModalProps) {
+export default function DemoLeadModal({ onSuccess, onClose }: DemoLeadModalProps) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [formData, setFormData] = useState({
@@ -66,7 +68,17 @@ export default function DemoLeadModal({ onSuccess }: DemoLeadModalProps) {
                 strategy="afterInteractive" 
             />
             <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-300">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-300 relative">
+                    {onClose && (
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            aria-label="Cerrar"
+                            className="absolute top-3 right-3 z-10 p-1.5 text-gray-400 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    )}
                     <div className="p-8">
                         <div className="text-center mb-6">
                             <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Acceso a la Demo</h2>
