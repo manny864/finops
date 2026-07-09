@@ -16,14 +16,20 @@ const intlMiddleware = createMiddleware({
  * enforcing y quitar 'unsafe-inline'. No puede romper checkout/login.
  */
 function reportOnlyCsp(nonce: string): string {
+  // Sandbox de Paddle solo en dev — en producción los tokens son live y los
+  // dominios sandbox no deben figurar como orígenes permitidos (least privilege).
+  const isDev = process.env.NODE_ENV !== 'production';
+  const sbCdn = isDev ? ' https://sandbox-cdn.paddle.com' : '';
+  const sbApi = isDev ? ' https://sandbox-api.paddle.com https://checkout-service.sandbox.paddle.com' : '';
+  const sbBuy = isDev ? ' https://sandbox-buy.paddle.com' : '';
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' https: 'unsafe-inline'`,
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.paddle.com https://sandbox-cdn.paddle.com",
+    `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.paddle.com${sbCdn}`,
     "font-src 'self' data: https://fonts.gstatic.com",
     "img-src 'self' data: blob: https:",
-    "connect-src 'self' https://api.paddle.com https://sandbox-api.paddle.com https://cdn.paddle.com https://sandbox-cdn.paddle.com https://checkout-service.paddle.com https://checkout-service.sandbox.paddle.com https://login.microsoftonline.com https://graph.microsoft.com https://management.azure.com https://cloudflareinsights.com",
-    "frame-src 'self' https://cdn.paddle.com https://sandbox-cdn.paddle.com https://buy.paddle.com https://sandbox-buy.paddle.com https://app.powerbi.com https://www.google.com",
+    `connect-src 'self' https://api.paddle.com https://cdn.paddle.com https://checkout-service.paddle.com${sbApi}${sbCdn} https://login.microsoftonline.com https://graph.microsoft.com https://management.azure.com https://cloudflareinsights.com`,
+    `frame-src 'self' https://cdn.paddle.com https://buy.paddle.com${sbCdn}${sbBuy} https://app.powerbi.com https://www.google.com`,
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",

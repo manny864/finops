@@ -14,10 +14,18 @@ const nextConfig: NextConfig = {
     // sourcemaps y reconstrucción de callstacks. Se habilita 'unsafe-eval' SOLO en dev;
     // en producción la CSP permanece estricta (sin eval).
     const isDev = process.env.NODE_ENV !== 'production';
+    // Dominios sandbox de Paddle SOLO en dev: en producción los tokens/price IDs
+    // son live y permitir sandbox en el CSP viola least-privilege (además de
+    // generar confusión al leer la política — "¿por qué aparece sandbox en prod?").
+    const paddleSandbox = {
+      cdn: isDev ? ' https://sandbox-cdn.paddle.com' : '',
+      api: isDev ? ' https://sandbox-api.paddle.com https://checkout-service.sandbox.paddle.com' : '',
+      buy: isDev ? ' https://sandbox-buy.paddle.com' : '',
+    };
     const scriptSrc = [
       "script-src 'self' 'unsafe-inline'",
       isDev ? "'unsafe-eval'" : '',
-      "https://cdn.paddle.com https://sandbox-cdn.paddle.com https://www.google.com https://www.gstatic.com https://static.cloudflareinsights.com",
+      `https://cdn.paddle.com${paddleSandbox.cdn} https://www.google.com https://www.gstatic.com https://static.cloudflareinsights.com`,
     ].filter(Boolean).join(' ');
 
     return [
@@ -52,11 +60,11 @@ const nextConfig: NextConfig = {
             value: [
               "default-src 'self'",
               scriptSrc,
-              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.paddle.com https://sandbox-cdn.paddle.com",
+              `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.paddle.com${paddleSandbox.cdn}`,
               "font-src 'self' data: https://fonts.gstatic.com",
               "img-src 'self' data: blob: https:",
-              "connect-src 'self' https://api.paddle.com https://sandbox-api.paddle.com https://cdn.paddle.com https://sandbox-cdn.paddle.com https://checkout-service.paddle.com https://checkout-service.sandbox.paddle.com https://login.microsoftonline.com https://graph.microsoft.com https://management.azure.com https://cloudflareinsights.com",
-              "frame-src 'self' https://cdn.paddle.com https://sandbox-cdn.paddle.com https://buy.paddle.com https://sandbox-buy.paddle.com https://app.powerbi.com https://www.google.com",
+              `connect-src 'self' https://api.paddle.com https://cdn.paddle.com https://checkout-service.paddle.com${paddleSandbox.api}${paddleSandbox.cdn} https://login.microsoftonline.com https://graph.microsoft.com https://management.azure.com https://cloudflareinsights.com`,
+              `frame-src 'self' https://cdn.paddle.com https://buy.paddle.com${paddleSandbox.cdn}${paddleSandbox.buy} https://app.powerbi.com https://www.google.com`,
               "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self'",

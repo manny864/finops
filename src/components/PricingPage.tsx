@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@/i18n/routing';
 import { initializePaddle, Paddle } from '@paddle/paddle-js';
 import EnterpriseLeadModal from './EnterpriseLeadModal';
+import DemoLeadModal from './DemoLeadModal';
 import LanguageSwitcher from './LanguageSwitcher';
 
 interface PricingPageProps {
@@ -13,6 +14,8 @@ interface PricingPageProps {
   hideLogin?: boolean;
 }
 
+type DemoTier = 'essential' | 'pro' | 'business' | 'enterprise';
+
 export default function PricingPage({ onLoginClick, tenantId, hideLogin }: PricingPageProps) {
   const { instance, accounts } = useMsal();
   const router = useRouter();
@@ -20,6 +23,10 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
   const [paddle, setPaddle] = useState<Paddle>();
   const [isEnterpriseModalOpen, setEnterpriseModalOpen] = useState(false);
   const [pendingCheckoutPriceId, setPendingCheckoutPriceId] = useState<string | undefined>(undefined);
+  // Gate de leads para "Demo Interactiva": si el visitante todavía no completó
+  // el formulario de datos, se abre acá mismo (en la página de precios) y solo
+  // tras enviarlo se navega a /demo. Guarda el tier elegido mientras tanto.
+  const [pendingDemoTier, setPendingDemoTier] = useState<DemoTier | null>(null);
   const t = useTranslations('pricing');
 
   // Email corporativo del usuario ya logueado con MSAL (viene de preferred_username /
@@ -28,9 +35,22 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
   // asociado a la cuenta admin en Paddle — evitamos que el usuario tipee otro.
   const corporateEmail = accounts?.[0]?.username;
 
-  const goToDemo = (tier: 'essential' | 'pro' | 'business' | 'enterprise') => {
-    // Lead-capture modal and demo session are handled inside /demo
+  const goToDemo = (tier: DemoTier) => {
+    // Mismo flag que usa /demo: si ya completó el formulario alguna vez, pasa
+    // directo; si no, el modal se muestra ANTES de salir de la página de precios.
+    const hasCompleted = typeof window !== 'undefined' && localStorage.getItem('hasCompletedDemoLead');
+    if (!hasCompleted) {
+      setPendingDemoTier(tier);
+      return;
+    }
     router.push({ pathname: '/demo', query: { tier } });
+  };
+
+  const handleDemoLeadSuccess = () => {
+    localStorage.setItem('hasCompletedDemoLead', 'true');
+    const tier = pendingDemoTier;
+    setPendingDemoTier(null);
+    if (tier) router.push({ pathname: '/demo', query: { tier } });
   };
 
   const instanceRef = useRef(instance);
@@ -344,6 +364,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
 
       </div>
       <EnterpriseLeadModal isOpen={isEnterpriseModalOpen} onClose={() => setEnterpriseModalOpen(false)} />
+      {pendingDemoTier && <DemoLeadModal onSuccess={handleDemoLeadSuccess} onClose={() => setPendingDemoTier(null)} />}
       <CorporateEmailNoticeModal
         open={!!pendingCheckoutPriceId}
         email={corporateEmail}
