@@ -114,6 +114,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/intelligence/scorecard', label: 'Scorecard (Fama)', icon: Trophy, requiredTier: 'Enterprise' },
                 { href: '/intelligence/anomalies', label: 'Detección Anomalías', icon: ShieldAlert, requiredTier: 'Professional' },
                 { href: '/intelligence/simulator', label: 'Simulador (What-If)', icon: Activity, requiredTier: 'Enterprise' },
+                { href: '/intelligence/cost-projection', label: t('cost_projection', { fallback: 'Proyección de Gastos' }), icon: TrendingUp, requiredTier: 'Professional' },
                 { href: '/intelligence/storage-efficiency', label: t('storage_efficiency', { fallback: 'Eficiencia de Storage' }), icon: HardDrive, requiredTier: 'Business' },
                 { href: '/intelligence/cost-by-category', label: t('cost_by_category', { fallback: 'Costo por Categoría' }), icon: PieChart, requiredTier: 'Business' },
                 { href: '/intelligence/commitment-simulator', label: t('commitment_simulator', { fallback: 'Savings Plan vs Reserva' }), icon: PiggyBank, requiredTier: 'Enterprise' },

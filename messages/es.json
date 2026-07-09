@@ -68,7 +68,8 @@
     "expiring_credentials": "Credenciales por Expirar",
     "copilot_m365": "Copilot M365",
     "governance_reporting": "Reporting de Gobernanza",
-    "support": "Soporte"
+    "support": "Soporte",
+    "cost_projection": "Proyección de Gastos"
   },
   "Dashboard": {
     "title": "Dashboard General",
@@ -103,7 +104,9 @@
     "cost_projection_monthly_rate": "Tasa mensual equivalente",
     "cost_projection_total": "Total proyectado ({months}m)",
     "cost_projection_real": "Real",
-    "cost_projection_projected": "Proyectado"
+    "cost_projection_projected": "Proyectado",
+    "cost_projection_view_full": "Ver detalle completo",
+    "cost_projection_page_subtitle": "Proyectá el gasto cloud futuro a partir de tu promedio real de 12 meses más una tasa de crecimiento que definís vos."
   },
   "Common": {
     "save": "Guardar",

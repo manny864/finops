@@ -68,7 +68,8 @@
     "expiring_credentials": "Credenciais a Expirar",
     "copilot_m365": "Copilot M365",
     "governance_reporting": "Relatórios de Governança",
-    "support": "Suporte"
+    "support": "Suporte",
+    "cost_projection": "Projeção de Gastos"
   },
   "Dashboard": {
     "title": "Dashboard Geral",
@@ -103,7 +104,9 @@
     "cost_projection_monthly_rate": "Taxa mensal equivalente",
     "cost_projection_total": "Total projetado ({months}m)",
     "cost_projection_real": "Real",
-    "cost_projection_projected": "Projetado"
+    "cost_projection_projected": "Projetado",
+    "cost_projection_view_full": "Ver página completa",
+    "cost_projection_page_subtitle": "Projete o gasto futuro em nuvem a partir da sua média real de 12 meses mais uma taxa de crescimento que você define."
   },
   "Common": {
     "save": "Salvar",

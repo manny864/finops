@@ -198,14 +198,18 @@ export default function OnboardingPage() {
     const handleFinishOnboarding = async () => {
         try {
             setSaving(true);
-            const response = await fetchWithAuthRetry(
-                instance,
-                accounts[0],
-                '/api/onboarding/finish',
-                {
-                    method: 'POST',
-                }
-            );
+            // Tenants demo/mock no tienen fila real en Onboarding/Tenants: saltar
+            // la llamada al backend (fallaría o sería un no-op) y navegar directo.
+            if (!selectedTenant || !isMockTenant(selectedTenant.id)) {
+                await fetchWithAuthRetry(
+                    instance,
+                    accounts[0],
+                    '/api/onboarding/finish',
+                    {
+                        method: 'POST',
+                    }
+                );
+            }
             // El dashboard vive en la raíz del locale (/${locale}), NO en
             // /${locale}/overview (que solo tiene subrutas y daba 404 al finalizar).
             router.push(`/${locale}?onboarding_success=true`);

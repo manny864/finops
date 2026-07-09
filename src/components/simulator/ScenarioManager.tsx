@@ -6,6 +6,8 @@ import { getFreshIdToken } from "@/lib/msalToken";
 import { isMockTenant } from "@/lib/mockData";
 import { toast } from "sonner";
 import { Save, Trash2, GitCompare, Plus, Bookmark, X, Loader2, Download } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 export interface SavedScenario {
     id: string;
@@ -129,6 +131,122 @@ function comparisonToCsv(scenarios: SavedScenario[]): string {
     return [header.map(csvCell).join(","), ...lines].join("\n");
 }
 
+/** Métricas de un escenario en [label, value] — reusadas por CSV y PDF. */
+function scenarioRows(s: SavedScenario): [string, string | number][] {
+    return [
+        ["Nombre", s.name],
+        ["Notas", s.notes || "—"],
+        ["Creado", new Date(s.createdAt).toLocaleString()],
+        ["Moneda", s.currency],
+        ["Compute Scale", s.inputs.computeScale ?? 1],
+        ["Storage Scale", s.inputs.storageScale ?? 1],
+        ["Network Increase (%)", s.inputs.networkIncrease ?? 0],
+        ["Azure Hybrid Benefit", s.inputs.applyAhb ? "ON" : "OFF"],
+        ["Costo Base", fmt(s.baseCost, s.currency)],
+        ["Costo Proyectado", fmt(s.projectedCost, s.currency)],
+        ["Delta", fmt(s.delta, s.currency)],
+        ["Delta %", `${s.deltaPct >= 0 ? "+" : ""}${s.deltaPct}%`],
+        ["Compute (proyectado)", fmt(s.breakdown.compute, s.currency)],
+        ["Storage (proyectado)", fmt(s.breakdown.storage, s.currency)],
+        ["Network (proyectado)", fmt(s.breakdown.network, s.currency)],
+    ];
+}
+
+/** Header corporativo compartido por los 3 reportes PDF de What-If. */
+function addPdfHeader(pdf: jsPDF, title: string, subtitle?: string): number {
+    pdf.setFontSize(16);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(0, 84, 166);
+    pdf.text("CSCloudSolutions - Simulación What-If", 15, 20);
+    pdf.setFontSize(12);
+    pdf.setTextColor(30, 30, 30);
+    pdf.text(title, 15, 28);
+    pdf.setFontSize(9);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(100, 100, 100);
+    pdf.text(`Generado: ${new Date().toLocaleString()}`, 15, 34);
+    let y = 40;
+    if (subtitle) {
+        pdf.text(subtitle, 15, y);
+        y += 6;
+    }
+    return y;
+}
+
+/** PDF de un único escenario (tabla clave/valor). */
+function scenarioToPdf(s: SavedScenario): jsPDF {
+    const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const startY = addPdfHeader(pdf, `Escenario: ${s.name}`);
+    autoTable(pdf, {
+        startY,
+        head: [["Campo", "Valor"]],
+        body: scenarioRows(s).map(([k, v]) => [k, String(v)]),
+        theme: "striped",
+        headStyles: { fillColor: [0, 84, 166] },
+        styles: { fontSize: 10 },
+    });
+    return pdf;
+}
+
+/** PDF con todos los escenarios guardados (tabla, uno por fila). */
+function scenariosListToPdf(scenarios: SavedScenario[]): jsPDF {
+    const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+    const startY = addPdfHeader(pdf, "Todos los escenarios guardados", `Total: ${scenarios.length}`);
+    autoTable(pdf, {
+        startY,
+        head: [["Nombre", "Base", "Proyectado", "Δ%", "Compute×", "Storage×", "Network Δ%", "AHB", "Creado"]],
+        body: scenarios.map((s) => [
+            s.name,
+            fmt(s.baseCost, s.currency),
+            fmt(s.projectedCost, s.currency),
+            `${s.deltaPct >= 0 ? "+" : ""}${s.deltaPct}%`,
+            String(s.inputs.computeScale ?? 1),
+            String(s.inputs.storageScale ?? 1),
+            `${(s.inputs.networkIncrease ?? 0) > 0 ? "+" : ""}${s.inputs.networkIncrease ?? 0}%`,
+            s.inputs.applyAhb ? "ON" : "OFF",
+            new Date(s.createdAt).toLocaleDateString(),
+        ]),
+        theme: "striped",
+        headStyles: { fillColor: [0, 84, 166] },
+        styles: { fontSize: 9 },
+    });
+    return pdf;
+}
+
+/** PDF de comparación lado-a-lado (escenarios en columnas, métricas en filas). */
+function comparisonToPdf(scenarios: SavedScenario[]): jsPDF {
+    const baseline = scenarios[0];
+    const metricRows: [string, (s: SavedScenario) => string][] = [
+        ["Costo Base", (s) => fmt(s.baseCost, s.currency)],
+        ["Costo Proyectado", (s) => fmt(s.projectedCost, s.currency)],
+        ["Delta % vs propio base", (s) => `${s.deltaPct >= 0 ? "+" : ""}${s.deltaPct}%`],
+        [`Delta % vs línea base (${baseline.name})`, (s) => {
+            if (s.id === baseline.id) return "—";
+            const dProj = s.projectedCost - baseline.projectedCost;
+            const pct = baseline.projectedCost > 0 ? Math.round((dProj / baseline.projectedCost) * 1000) / 10 : 0;
+            return `${pct >= 0 ? "+" : ""}${pct}%`;
+        }],
+        ["Compute (proyectado)", (s) => fmt(s.breakdown.compute, s.currency)],
+        ["Storage (proyectado)", (s) => fmt(s.breakdown.storage, s.currency)],
+        ["Network (proyectado)", (s) => fmt(s.breakdown.network, s.currency)],
+        ["Compute ×", (s) => String(s.inputs.computeScale ?? 1)],
+        ["Storage ×", (s) => String(s.inputs.storageScale ?? 1)],
+        ["Network Δ (%)", (s) => `${(s.inputs.networkIncrease ?? 0) > 0 ? "+" : ""}${s.inputs.networkIncrease ?? 0}%`],
+        ["AHB", (s) => (s.inputs.applyAhb ? "ON" : "OFF")],
+    ];
+    const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+    const startY = addPdfHeader(pdf, "Comparación lado-a-lado", `Línea base: ${baseline.name}`);
+    autoTable(pdf, {
+        startY,
+        head: [["Métrica", ...scenarios.map((s) => s.name)]],
+        body: metricRows.map(([label, fn]) => [label, ...scenarios.map((s) => fn(s))]),
+        theme: "striped",
+        headStyles: { fillColor: [0, 84, 166] },
+        styles: { fontSize: 9 },
+    });
+    return pdf;
+}
+
 export default function ScenarioManager({ currentInputs, currentBaseCost, currency = "USD" }: Props) {
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
@@ -141,6 +259,7 @@ export default function ScenarioManager({ currentInputs, currentBaseCost, curren
     const [notes, setNotes] = useState("");
     const [selected, setSelected] = useState<Set<string>>(new Set());
     const [compareOpen, setCompareOpen] = useState(false);
+    const [exportFormat, setExportFormat] = useState<"csv" | "pdf">("csv");
 
     const authHeaders = useCallback(async (): Promise<Record<string, string>> => {
         if (isMockTenant(selectedTenant?.id || "") || accounts.length === 0) return {};
@@ -250,14 +369,53 @@ export default function ScenarioManager({ currentInputs, currentBaseCost, curren
 
     const selectedScenarios = scenarios.filter((s) => selected.has(s.id));
 
+    const dateSlug = () => new Date().toISOString().slice(0, 10);
+
+    const downloadOne = (s: SavedScenario) => {
+        const slug = s.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+        if (exportFormat === "pdf") {
+            scenarioToPdf(s).save(`escenario-${slug}.pdf`);
+        } else {
+            downloadTextFile(`escenario-${slug}.csv`, scenarioToCsv(s));
+        }
+    };
+
+    const downloadAll = () => {
+        if (exportFormat === "pdf") {
+            scenariosListToPdf(scenarios).save(`escenarios-whatif-${dateSlug()}.pdf`);
+        } else {
+            downloadTextFile(`escenarios-whatif-${dateSlug()}.csv`, scenariosListToCsv(scenarios));
+        }
+    };
+
+    const downloadComparison = (list: SavedScenario[]) => {
+        if (exportFormat === "pdf") {
+            comparisonToPdf(list).save(`comparacion-whatif-${dateSlug()}.pdf`);
+        } else {
+            downloadTextFile(`comparacion-whatif-${dateSlug()}.csv`, comparisonToCsv(list));
+        }
+    };
+
     return (
         <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-6 mt-6">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
                     <Bookmark className="w-5 h-5 text-indigo-500" />
                     Escenarios Guardados
                 </h3>
-                <div className="flex gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                    <label className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                        Formato
+                        <select
+                            value={exportFormat}
+                            onChange={(e) => setExportFormat(e.target.value as "csv" | "pdf")}
+                            className="border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-md px-2 py-1 text-xs"
+                            aria-label="Formato de descarga"
+                        >
+                            <option value="csv">CSV</option>
+                            <option value="pdf">PDF</option>
+                        </select>
+                    </label>
                     <button
                         onClick={() => setShowSave(true)}
                         disabled={!currentBaseCost}
@@ -266,10 +424,10 @@ export default function ScenarioManager({ currentInputs, currentBaseCost, curren
                         <Plus className="w-3.5 h-3.5" /> Guardar actual
                     </button>
                     <button
-                        onClick={() => downloadTextFile(`escenarios-whatif-${new Date().toISOString().slice(0, 10)}.csv`, scenariosListToCsv(scenarios))}
+                        onClick={downloadAll}
                         disabled={scenarios.length === 0}
                         className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-slate-700 disabled:opacity-50"
-                        title="Descargar todos los escenarios guardados (CSV)"
+                        title={`Descargar todos los escenarios guardados (${exportFormat.toUpperCase()})`}
                     >
                         <Download className="w-3.5 h-3.5" /> Descargar todo
                     </button>
@@ -332,10 +490,10 @@ export default function ScenarioManager({ currentInputs, currentBaseCost, curren
                                     <td className="px-3 py-2 text-xs text-gray-500">{new Date(s.createdAt).toLocaleDateString()}</td>
                                     <td className="px-3 py-2 text-right whitespace-nowrap">
                                         <button
-                                            onClick={() => downloadTextFile(`escenario-${s.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.csv`, scenarioToCsv(s))}
+                                            onClick={() => downloadOne(s)}
                                             className="text-gray-400 hover:text-indigo-600 mr-2"
                                             aria-label={`Descargar ${s.name}`}
-                                            title="Descargar este escenario (CSV)"
+                                            title={`Descargar este escenario (${exportFormat.toUpperCase()})`}
                                         >
                                             <Download className="w-4 h-4" />
                                         </button>
@@ -403,13 +561,20 @@ export default function ScenarioManager({ currentInputs, currentBaseCost, curren
                 <CompareModal
                     scenarios={selectedScenarios}
                     onClose={() => setCompareOpen(false)}
+                    onDownload={() => downloadComparison(selectedScenarios)}
+                    exportFormat={exportFormat}
                 />
             )}
         </div>
     );
 }
 
-function CompareModal({ scenarios, onClose }: { scenarios: SavedScenario[]; onClose: () => void }) {
+function CompareModal({ scenarios, onClose, onDownload, exportFormat }: {
+    scenarios: SavedScenario[];
+    onClose: () => void;
+    onDownload: () => void;
+    exportFormat: "csv" | "pdf";
+}) {
     const baseline = scenarios[0];
     const gridCols = scenarios.length === 2 ? "md:grid-cols-2" : scenarios.length === 3 ? "md:grid-cols-3" : "md:grid-cols-4";
     return (
@@ -421,9 +586,9 @@ function CompareModal({ scenarios, onClose }: { scenarios: SavedScenario[]; onCl
                     </h3>
                     <div className="flex items-center gap-2">
                         <button
-                            onClick={() => downloadTextFile(`comparacion-whatif-${new Date().toISOString().slice(0, 10)}.csv`, comparisonToCsv(scenarios))}
+                            onClick={onDownload}
                             className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-emerald-600 text-white hover:bg-emerald-700"
-                            title="Descargar esta comparación (CSV)"
+                            title={`Descargar esta comparación (${exportFormat.toUpperCase()})`}
                         >
                             <Download className="w-3.5 h-3.5" /> Descargar comparación
                         </button>

@@ -21,8 +21,15 @@ export async function POST(request: NextRequest) {
         } catch (e) {
             // Ignore if no body
         }
-        const plan = reqBody.plan || 'Essential';
-        
+        // Normalizado: los dos flujos de checkout del frontend usan convenciones
+        // distintas para el mismo plan — SignupPageClient.tsx (/signup) manda
+        // 'professional' y 'Essential' capitalizado; PricingPage.tsx manda 'pro'
+        // y 'Essential'/'business' en minúscula. Sin esta normalización, el plan
+        // 'professional' no matcheaba ningún branch y el usuario quedaba
+        // provisionado silenciosamente como Essential/PENDING_PAYMENT sin trial.
+        const rawPlan = String(reqBody.plan || 'essential').toLowerCase();
+        const plan = rawPlan === 'professional' ? 'pro' : rawPlan;
+
         let tier = 'Essential';
         let subStatus = 'PENDING_PAYMENT';
         let trialInterval = 0;
@@ -65,7 +72,7 @@ export async function POST(request: NextRequest) {
             await connection.query(insertTenantQuery, [tenantId, companyName, tier, subStatus, trialEndsAtValue]);
 
             // Insert SignupEvents for tracking
-            if (plan === 'pro' || plan === 'business' || plan === 'Essential') {
+            if (plan === 'pro' || plan === 'business' || plan === 'essential') {
                 const metadata = {
                     user_agent: request.headers.get('user-agent'),
                     ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip'),

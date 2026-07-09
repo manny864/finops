@@ -84,6 +84,12 @@ export default function Home() {
   useEffect(() => {
     if (onboardingRedirectRef.current) return;
     if (!selectedTenant || selectedTenant.id === 'default' || accounts.length === 0) return;
+    // Tenants demo/mock (incluido cuando un SUPERADMIN navega a uno) nunca
+    // deben pasar por el wizard de onboarding real: no tienen fila en la DB,
+    // por lo que `/api/onboarding/progress` respondía is_onboarded=false y
+    // esto redirigía de vuelta a /onboarding en loop justo después de que el
+    // wizard llamara a router.push(`/${locale}`) al finalizar.
+    if (isMockTenant(selectedTenant.id)) return;
     
     const checkOnboarding = async () => {
       try {
@@ -627,7 +633,7 @@ export default function Home() {
 
         <div key="projection">
             <FeatureGuard requiredTier="Professional" featureName="Proyección de Gastos" className="drag-handle cursor-move h-full w-full overflow-hidden">
-                <CostProjectionCard dailyHistory={billingHistogram} loading={billingLoading} />
+                <CostProjectionCard />
             </FeatureGuard>
         </div>
       </ResponsiveGridLayout>

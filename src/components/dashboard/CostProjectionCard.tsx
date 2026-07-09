@@ -1,6 +1,9 @@
 "use client";
 import React, { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
+import useSWR from "swr";
+import Link from "next/link";
+import { useParams } from "next/navigation";
 import {
     LineChart,
     Line,
@@ -11,25 +14,55 @@ import {
     Legend,
     ResponsiveContainer,
 } from "recharts";
-import { TrendingUp } from "lucide-react";
+import { TrendingUp, ExternalLink } from "lucide-react";
+import { useTenant } from "@/components/TenantProvider";
+import { useSubscription } from "@/components/SubscriptionProvider";
+import { useMsal } from "@azure/msal-react";
+import { getFreshIdToken } from "@/lib/msalToken";
+import { isMockTenant } from "@/lib/mockData";
 import { useCurrency } from "@/components/CurrencyProvider";
-import { aggregateDailyToMonthly, projectFutureCosts } from "@/lib/costProjection";
+import { projectFutureCosts, type MonthlyCostPoint } from "@/lib/costProjection";
 
 interface Props {
-    /** Serie diaria { date: 'YYYY-MM-DD', cost } — la misma que alimenta el histograma. */
-    dailyHistory: { date: string; cost: number }[];
-    loading?: boolean;
+    /** Muestra el link "Ver detalle completo" hacia /intelligence/cost-projection (default true). */
+    showFullPageLink?: boolean;
 }
 
 const MONTHS_AHEAD_OPTIONS = [3, 6, 12, 24] as const;
 
-export default function CostProjectionCard({ dailyHistory, loading }: Props) {
+export default function CostProjectionCard({ showFullPageLink = true }: Props) {
     const t = useTranslations('Dashboard');
     const { format } = useCurrency();
+    const { locale } = useParams();
+    const { selectedTenant } = useTenant();
+    const { selectedSubscription } = useSubscription();
+    const { instance, accounts } = useMsal();
     const [growthPct, setGrowthPct] = useState<number>(10);
     const [monthsAhead, setMonthsAhead] = useState<number>(12);
 
-    const monthlyHistory = useMemo(() => aggregateDailyToMonthly(dailyHistory || []), [dailyHistory]);
+    const fetcher = async (url: string) => {
+        const idToken = await getFreshIdToken(instance, accounts[0], ["User.Read"]);
+        const res = await fetch(url, { headers: { Authorization: `Bearer ${idToken}` } });
+        if (!res.ok) {
+            const json = await res.json().catch(() => ({}));
+            throw new Error(json.error || "Error");
+        }
+        return res.json();
+    };
+
+    const subParam = selectedSubscription && selectedSubscription.toLowerCase() !== 'all'
+        ? `&subscriptionId=${encodeURIComponent(selectedSubscription)}`
+        : '';
+
+    const { data, error, isLoading } = useSWR(
+        selectedTenant && selectedTenant.id !== "default" && (accounts.length > 0 || isMockTenant(selectedTenant.id))
+            ? `/api/intelligence/cost-projection?tenantId=${selectedTenant.id}${subParam}`
+            : null,
+        fetcher,
+        { revalidateOnFocus: false }
+    );
+
+    const monthlyHistory: MonthlyCostPoint[] = data?.monthlyHistory || [];
 
     const result = useMemo(
         () => projectFutureCosts(monthlyHistory, growthPct, monthsAhead),
@@ -47,7 +80,10 @@ export default function CostProjectionCard({ dailyHistory, loading }: Props) {
         return [...historyPoints, ...projectionPoints];
     }, [trailing12, result]);
 
+    const loading = isLoading;
     const hasData = monthlyHistory.length > 0;
+
+    if (!selectedTenant || selectedTenant.id === "default") return null;
 
     return (
         <div className="card h-full flex flex-col overflow-hidden">
@@ -85,11 +121,23 @@ export default function CostProjectionCard({ dailyHistory, loading }: Props) {
                             <option key={m} value={m}>{t('cost_projection_months_ahead', { months: m })}</option>
                         ))}
                     </select>
+                    {showFullPageLink && (
+                        <Link
+                            href={`/${locale}/intelligence/cost-projection`}
+                            className="inline-flex items-center gap-1 text-xs font-medium text-[var(--brand)] hover:underline whitespace-nowrap"
+                        >
+                            {t('cost_projection_view_full')} <ExternalLink className="w-3 h-3" />
+                        </Link>
+                    )}
                 </div>
             </div>
             <div className="p-[18px] flex-1 overflow-hidden flex flex-col min-h-[280px]">
                 {loading ? (
                     <div className="flex-1 flex items-center justify-center text-gray-400 animate-pulse">{t('cost_projection_calculating')}</div>
+                ) : error ? (
+                    <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">
+                        {t('cost_projection_no_data')}
+                    </div>
                 ) : !hasData ? (
                     <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">
                         {t('cost_projection_no_data')}
