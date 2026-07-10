@@ -1,20 +1,25 @@
 /**
- * Almacenamiento local de adjuntos del sistema de soporte.
+ * Almacenamiento de adjuntos del sistema de soporte.
  *
  * - Tipos permitidos: jpg/jpeg/png (validados por magic bytes), txt y json.
  * - Tamaño máximo: 5 MB por archivo. Máximo 10 adjuntos por ticket.
- * - Los archivos se guardan como `<uuid>.<ext>` bajo SUPPORT_UPLOAD_DIR
- *   (default: ./data/support-attachments, montado como volumen en Docker) —
- *   nunca con el nombre original (evita path traversal / colisiones).
+ * - Los archivos se guardan como `<uuid>.<ext>` (nunca con el nombre
+ *   original, evita path traversal / colisiones) en el container
+ *   "support-attachments" de Azure Blob Storage (ver
+ *   src/lib/azureBlobStorage.ts) si AZURE_STORAGE_CONNECTION_STRING está
+ *   configurado; si no, cae a filesystem local bajo SUPPORT_UPLOAD_DIR
+ *   (default: ./data/support-attachments, montado como volumen en Docker).
  * - Retención: 60 días. Limpieza vía cron + oportunista en cada upload.
  */
 import { promises as fs } from "fs";
 import path from "path";
 import crypto from "crypto";
+import { isBlobStorageEnabled, uploadBlob, downloadBlob, deleteBlob } from "@/lib/azureBlobStorage";
 
 export const SUPPORT_ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024; // 5 MB
 export const SUPPORT_ATTACHMENT_MAX_PER_TICKET = 10;
 export const SUPPORT_ATTACHMENT_RETENTION_DAYS = 60;
+export const SUPPORT_ATTACHMENT_CONTAINER = process.env.AZURE_STORAGE_CONTAINER_SUPPORT_ATTACHMENTS || "support-attachments";
 
 const ALLOWED: Record<string, { mime: string; magic?: number[][] }> = {
     jpg: { mime: "image/jpeg", magic: [[0xff, 0xd8, 0xff]] },
@@ -23,6 +28,8 @@ const ALLOWED: Record<string, { mime: string; magic?: number[][] }> = {
     txt: { mime: "text/plain" },
     json: { mime: "application/json" },
 };
+
+const STORED_NAME_RE = /^[0-9a-f-]{36}\.(jpg|jpeg|png|txt|json)$/i;
 
 export function getSupportUploadDir(): string {
     return process.env.SUPPORT_UPLOAD_DIR || path.join(process.cwd(), "data", "support-attachments");
@@ -68,19 +75,30 @@ export function validateAttachment(fileName: string, bytes: Buffer): AttachmentV
     return { ok: true, ext, mime: spec.mime };
 }
 
+function mimeForExt(ext: string): string {
+    return ALLOWED[ext.toLowerCase()]?.mime || "application/octet-stream";
+}
+
 /** Guarda el buffer como <uuid>.<ext> y devuelve el stored_name. */
 export async function saveAttachment(bytes: Buffer, ext: string): Promise<string> {
+    const storedName = `${crypto.randomUUID()}.${ext}`;
+    if (isBlobStorageEnabled()) {
+        await uploadBlob(SUPPORT_ATTACHMENT_CONTAINER, storedName, bytes, mimeForExt(ext));
+        return storedName;
+    }
     const dir = getSupportUploadDir();
     await fs.mkdir(dir, { recursive: true });
-    const storedName = `${crypto.randomUUID()}.${ext}`;
     await fs.writeFile(path.join(dir, storedName), bytes, { mode: 0o600 });
     return storedName;
 }
 
 export async function readAttachment(storedName: string): Promise<Buffer | null> {
     // stored_name viene de la DB (UUID generado por nosotros), pero igual se
-    // valida el formato para que nunca pueda escapar del directorio.
-    if (!/^[0-9a-f-]{36}\.(jpg|jpeg|png|txt|json)$/i.test(storedName)) return null;
+    // valida el formato para que nunca pueda escapar del directorio/container.
+    if (!STORED_NAME_RE.test(storedName)) return null;
+    if (isBlobStorageEnabled()) {
+        return downloadBlob(SUPPORT_ATTACHMENT_CONTAINER, storedName);
+    }
     try {
         return await fs.readFile(path.join(getSupportUploadDir(), storedName));
     } catch {
@@ -89,7 +107,15 @@ export async function readAttachment(storedName: string): Promise<Buffer | null>
 }
 
 export async function deleteAttachmentFile(storedName: string): Promise<void> {
-    if (!/^[0-9a-f-]{36}\.(jpg|jpeg|png|txt|json)$/i.test(storedName)) return;
+    if (!STORED_NAME_RE.test(storedName)) return;
+    if (isBlobStorageEnabled()) {
+        try {
+            await deleteBlob(SUPPORT_ATTACHMENT_CONTAINER, storedName);
+        } catch {
+            // Ya no existe o falló best-effort; la fila DB se borra igual.
+        }
+        return;
+    }
     try {
         await fs.unlink(path.join(getSupportUploadDir(), storedName));
     } catch {

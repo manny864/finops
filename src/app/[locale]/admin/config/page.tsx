@@ -73,6 +73,15 @@ export default function ConfigPage() {
 
       <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden mb-8">
         <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50">
+            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">Marca (Branding)</h3>
+        </div>
+        <div className="p-6">
+            <BrandingConfig />
+        </div>
+      </div>
+
+      <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden mb-8">
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50">
             <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">Integraciones</h3>
         </div>
         <div className="p-6 flex flex-col gap-8">
@@ -346,6 +355,122 @@ function PowerBIExportConfig() {
                 >
                     Copiar URL
                 </button>
+            </div>
+        </div>
+    );
+}
+
+function BrandingConfig() {
+    const { selectedTenant, setSelectedTenant, userRole } = useTenant();
+    const { instance, accounts } = useMsal();
+    const [uploading, setUploading] = useState(false);
+    const [removing, setRemoving] = useState(false);
+    const [cacheBust, setCacheBust] = useState(0);
+
+    if (selectedTenant.id === 'default') {
+        return <div className="text-sm text-gray-500">Selecciona un Tenant en el selector principal para configurar la marca.</div>;
+    }
+
+    const canManage = userRole === 'Admin' || userRole === 'Owner';
+
+    const handleUpload = async (file: File) => {
+        if (!file) return;
+        if (file.size > 2 * 1024 * 1024) {
+            toast.error('El logo supera el máximo de 2 MB.');
+            return;
+        }
+        setUploading(true);
+        try {
+            const idToken = await getFreshIdToken(instance, accounts[0]);
+            const form = new FormData();
+            form.append('tenantId', selectedTenant.id);
+            form.append('file', file);
+            const res = await fetch('/api/admin/tenants/logo', {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${idToken}` },
+                body: form,
+            });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.error || 'Fallo al subir el logo');
+            setSelectedTenant({ ...selectedTenant, has_logo: true });
+            setCacheBust(Date.now());
+            toast.success('Logo actualizado exitosamente.');
+        } catch (e: any) {
+            toast.error('Error al subir el logo', { description: e.message });
+        }
+        setUploading(false);
+    };
+
+    const handleRemove = async () => {
+        if (!window.confirm('¿Quitar el logo actual? El header volverá a mostrar el nombre por defecto de la plataforma.')) return;
+        setRemoving(true);
+        try {
+            const idToken = await getFreshIdToken(instance, accounts[0]);
+            const res = await fetch(`/api/admin/tenants/logo?tenantId=${selectedTenant.id}`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${idToken}` },
+            });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.error || 'Fallo al quitar el logo');
+            setSelectedTenant({ ...selectedTenant, has_logo: false });
+            toast.success('Logo eliminado.');
+        } catch (e: any) {
+            toast.error('Error al quitar el logo', { description: e.message });
+        }
+        setRemoving(false);
+    };
+
+    return (
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div>
+                <h4 className="font-semibold text-gray-900 dark:text-white">Logo de la Organización</h4>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 max-w-lg">
+                    Reemplaza el texto &quot;Cloud FinOps&quot; del encabezado por tu logo y el nombre de tu empresa en negrita, debajo. PNG, JPG o WEBP, máx. 2 MB.
+                </p>
+                {!canManage && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">Solo un Admin/Owner del tenant puede cambiar el logo.</p>
+                )}
+            </div>
+
+            <div className="flex items-center gap-4">
+                <div className="w-32 h-16 flex items-center justify-center border border-dashed border-gray-300 dark:border-slate-700 rounded-lg bg-gray-50 dark:bg-slate-800/50 overflow-hidden">
+                    {selectedTenant.has_logo ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                            src={`/api/tenant-logo/${selectedTenant.id}?v=${cacheBust}`}
+                            alt="Logo actual"
+                            className="max-h-full max-w-full object-contain"
+                        />
+                    ) : (
+                        <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wide">Sin logo</span>
+                    )}
+                </div>
+
+                <div className="flex flex-col gap-2">
+                    <label className={`px-4 py-2 rounded-md shadow-sm text-sm font-semibold transition-colors text-center ${canManage ? 'bg-[#0054A6] text-white hover:bg-[#004080] cursor-pointer' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}>
+                        {uploading ? 'Subiendo...' : 'Subir logo'}
+                        <input
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp"
+                            disabled={!canManage || uploading}
+                            className="hidden"
+                            onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) handleUpload(file);
+                                e.target.value = '';
+                            }}
+                        />
+                    </label>
+                    {selectedTenant.has_logo && (
+                        <button
+                            onClick={handleRemove}
+                            disabled={!canManage || removing}
+                            className="px-4 py-2 rounded-md text-sm font-semibold text-red-600 hover:text-red-700 disabled:opacity-50 transition-colors"
+                        >
+                            {removing ? 'Quitando...' : 'Quitar logo'}
+                        </button>
+                    )}
+                </div>
             </div>
         </div>
     );

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/modules/storage/db';
-import { verifyWebhookJwt } from '@/lib/marketplace/azure';
+import { verifyWebhookJwt, getSubscription } from '@/lib/marketplace/azure';
 import { azurePlanToTier } from '@/lib/marketplace/planMapping';
+import { notifyInternalCancellation } from '@/lib/billingAlerts';
 
 interface AzureWebhookEvent {
   id?: string;
@@ -72,7 +73,26 @@ export async function POST(request: NextRequest) {
     }
 
     const newStatus = ACTION_TO_STATUS[action];
-    if (newStatus) {
+    if (newStatus === 'CANCELED') {
+      // 'Unsubscribed' no trae la fecha de fin de término en el payload del
+      // webhook — a diferencia de Paddle (current_billing_period.ends_at)
+      // acá hay que pedirla aparte a la Fulfillment API. Azure Marketplace
+      // ya factura el período por adelantado, así que el acceso debe seguir
+      // vigente hasta term.endDate (no cortar de inmediato) — mismo
+      // mecanismo de access_until + /api/cron/subscription-expiry que Paddle.
+      let accessUntil: Date | null = null;
+      try {
+        const sub = await getSubscription(subscriptionId);
+        if (sub.term?.endDate) accessUntil = new Date(sub.term.endDate);
+      } catch (err) {
+        console.warn(`[Azure Webhook] No se pudo obtener term.endDate para ${subscriptionId}:`, (err as Error).message);
+      }
+      await connection.query(
+        'UPDATE Tenants SET subscription_status = ?, access_until = COALESCE(?, access_until) WHERE tenant_id = ?',
+        [newStatus, accessUntil, tenant.tenant_id]
+      );
+      await notifyInternalCancellation(tenant.tenant_id, 'Azure Marketplace', accessUntil);
+    } else if (newStatus) {
       await connection.query(
         'UPDATE Tenants SET subscription_status = ? WHERE tenant_id = ?',
         [newStatus, tenant.tenant_id]

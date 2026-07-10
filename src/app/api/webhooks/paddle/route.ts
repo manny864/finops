@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import pool from "@/modules/storage/db";
 import { priceIdToTier, TierName } from "@/lib/paddleTierMap";
+import { notifyInternalCancellation } from "@/lib/billingAlerts";
 
 const VALID_TIERS: readonly TierName[] = ["Essential", "Professional", "Business", "Enterprise"];
 
@@ -28,6 +29,21 @@ function resolveTier(payload: any): TierName | null {
     return priceIdToTier(priceId);
   }
   return null;
+}
+
+/**
+ * Fin del período YA PAGADO por el tenant (Paddle current_billing_period.
+ * ends_at), independiente de si la suscripción sigue activa o fue
+ * cancelada. Al cancelar (ya sea de inmediato o "al final del período"),
+ * Paddle no vuelve a facturar, pero el acceso debe seguir vigente hasta
+ * esta fecha — no antes. Devuelve null si el payload no la trae (ej. un
+ * evento sin ese campo), en cuyo caso no se pisa el valor ya guardado.
+ */
+function resolveAccessUntil(payload: any): Date | null {
+  const endsAt = payload.data?.current_billing_period?.ends_at;
+  if (!endsAt) return null;
+  const date = new Date(endsAt);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 import { minorUnitsToDecimalString } from "@/lib/money";
 
@@ -134,6 +150,7 @@ async function handleSubscriptionCreated(payload: any, tenantId?: string) {
     const status = payload.data?.status;
     const trialEndsAt = payload.data?.trial_ends_at;
     const tier = resolveTier(payload);
+    const accessUntil = resolveAccessUntil(payload);
 
     // Map Paddle status to internal status
     let internalStatus = "ACTIVE";
@@ -150,9 +167,10 @@ async function handleSubscriptionCreated(payload: any, tenantId?: string) {
       if (tier) {
         await connection.execute(
           `UPDATE Tenants
-           SET paddle_subscription_id = ?, subscription_status = ?, tier = ?, trial_ends_at = ?
+           SET paddle_subscription_id = ?, subscription_status = ?, tier = ?, trial_ends_at = ?,
+               access_until = COALESCE(?, access_until)
            WHERE tenant_id = ?`,
-          [subscriptionId, internalStatus, tier, trialEndsAt ? new Date(trialEndsAt) : null, tenantId]
+          [subscriptionId, internalStatus, tier, trialEndsAt ? new Date(trialEndsAt) : null, accessUntil, tenantId]
         );
         console.log(
           `[Webhooks] Subscription created for tenant ${tenantId}: tier=${tier}, status=${internalStatus}`
@@ -162,9 +180,10 @@ async function handleSubscriptionCreated(payload: any, tenantId?: string) {
         // Igual guardamos el subscription_id/status para no perder el evento.
         await connection.execute(
           `UPDATE Tenants
-           SET paddle_subscription_id = ?, subscription_status = ?, trial_ends_at = ?
+           SET paddle_subscription_id = ?, subscription_status = ?, trial_ends_at = ?,
+               access_until = COALESCE(?, access_until)
            WHERE tenant_id = ?`,
-          [subscriptionId, internalStatus, trialEndsAt ? new Date(trialEndsAt) : null, tenantId]
+          [subscriptionId, internalStatus, trialEndsAt ? new Date(trialEndsAt) : null, accessUntil, tenantId]
         );
         console.warn(
           `[Webhooks] Subscription created for tenant ${tenantId} but tier could not be resolved (no custom_data.tier, priceId not mapped). Tier left unchanged.`
@@ -191,6 +210,7 @@ async function handleSubscriptionUpdated(payload: any, tenantId?: string) {
     const status = payload.data?.status;
     const trialEndsAt = payload.data?.trial_ends_at;
     const tier = resolveTier(payload);
+    const accessUntil = resolveAccessUntil(payload);
 
     // Map Paddle status to internal status
     let internalStatus = "ACTIVE";
@@ -207,9 +227,10 @@ async function handleSubscriptionUpdated(payload: any, tenantId?: string) {
       if (tier) {
         await connection.execute(
           `UPDATE Tenants
-           SET subscription_status = ?, tier = ?, trial_ends_at = ?
+           SET subscription_status = ?, tier = ?, trial_ends_at = ?,
+               access_until = COALESCE(?, access_until)
            WHERE tenant_id = ?`,
-          [internalStatus, tier, trialEndsAt ? new Date(trialEndsAt) : null, tenantId]
+          [internalStatus, tier, trialEndsAt ? new Date(trialEndsAt) : null, accessUntil, tenantId]
         );
         console.log(
           `[Webhooks] Subscription updated for tenant ${tenantId}: tier=${tier}, status=${internalStatus}`
@@ -217,9 +238,10 @@ async function handleSubscriptionUpdated(payload: any, tenantId?: string) {
       } else {
         await connection.execute(
           `UPDATE Tenants
-           SET subscription_status = ?, trial_ends_at = ?
+           SET subscription_status = ?, trial_ends_at = ?,
+               access_until = COALESCE(?, access_until)
            WHERE tenant_id = ?`,
-          [internalStatus, trialEndsAt ? new Date(trialEndsAt) : null, tenantId]
+          [internalStatus, trialEndsAt ? new Date(trialEndsAt) : null, accessUntil, tenantId]
         );
         console.warn(
           `[Webhooks] Subscription updated for tenant ${tenantId} but tier could not be resolved. Tier left unchanged.`
@@ -243,18 +265,37 @@ async function handleSubscriptionCanceled(payload: any, tenantId?: string) {
   }
 
   try {
+    // El tenant sigue teniendo acceso hasta el final del período que ya
+    // pagó (ver access_until / /api/cron/subscription-expiry) — cancelar
+    // NO revoca acceso de inmediato. accessUntil normalmente ya quedó
+    // guardado por un subscription.updated previo (ej. cuando el cliente
+    // programa la cancelación "al final del período"); acá lo volvemos a
+    // leer por si este es el único evento que llega (cancelación inmediata).
+    const accessUntil = resolveAccessUntil(payload);
+
+    let finalAccessUntil: Date | null = accessUntil;
     const connection = await pool.getConnection();
     try {
       await connection.execute(
-        `UPDATE Tenants 
-         SET subscription_status = 'CANCELED'
+        `UPDATE Tenants
+         SET subscription_status = 'CANCELED',
+             access_until = COALESCE(?, access_until)
          WHERE tenant_id = ?`,
-        [tenantId]
+        [accessUntil, tenantId]
       );
-      console.log(`[Webhooks] Subscription canceled for tenant ${tenantId}`);
+      if (!finalAccessUntil) {
+        const [rows]: any = await connection.query(
+          "SELECT access_until FROM Tenants WHERE tenant_id = ? LIMIT 1",
+          [tenantId]
+        );
+        finalAccessUntil = rows?.[0]?.access_until ? new Date(rows[0].access_until) : null;
+      }
+      console.log(`[Webhooks] Subscription canceled for tenant ${tenantId}, access_until=${finalAccessUntil?.toISOString() || '(desconocido)'}`);
     } finally {
       connection.release();
     }
+
+    await notifyInternalCancellation(tenantId, "Paddle", finalAccessUntil);
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

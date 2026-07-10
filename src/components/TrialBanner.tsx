@@ -75,6 +75,40 @@ export default function TrialBanner() {
 
   const { daysLeft, severity, expired } = trialState;
 
+  // Cancelado pero todavía dentro del período pagado: no bloquea (eso lo
+  // hace subscription_status=EXPIRED, vía /api/cron/subscription-expiry
+  // una vez que access_until pasa), solo avisa la fecha de corte.
+  if (selectedTenant.subscription_status === 'CANCELED' && selectedTenant.access_until) {
+    const accessUntilDate = new Date(selectedTenant.access_until);
+    if (accessUntilDate > new Date()) {
+      const formatted = accessUntilDate.toLocaleDateString(locale === 'en' ? 'en-US' : locale === 'pt-BR' ? 'pt-BR' : 'es-AR');
+      return (
+        <div className="bg-amber-50 border-l-4 border-amber-400 p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <svg className="w-6 h-6 text-amber-600" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 002 0V6zm0 6a1 1 0 10-2 0v2a1 1 0 102 0v-2z" clipRule="evenodd" />
+              </svg>
+              <div>
+                <p className="font-semibold text-amber-800">
+                  {locale === 'en' ? 'Your subscription is canceled' : locale === 'es' ? 'Tu suscripción está cancelada' : 'Sua assinatura foi cancelada'}
+                </p>
+                <p className="text-sm text-amber-700">
+                  {locale === 'en' ? `You'll keep access until ${formatted}.` :
+                   locale === 'es' ? `Vas a mantener el acceso hasta el ${formatted}.` :
+                   `Você manterá o acesso até ${formatted}.`}
+                </p>
+              </div>
+            </div>
+            <Link href="/admin/billing" className="px-4 py-2 bg-amber-600 text-white rounded hover:bg-amber-700 font-semibold text-sm">
+              {locale === 'en' ? 'Reactivate' : locale === 'es' ? 'Reactivar' : 'Reativar'}
+            </Link>
+          </div>
+        </div>
+      );
+    }
+  }
+
   // Only show if TRIAL or EXPIRED
   if (!expired && selectedTenant.subscription_status !== 'TRIAL') {
     return null;
@@ -117,11 +151,13 @@ export default function TrialBanner() {
             </svg>
             <div>
               <p className="font-semibold text-red-800">
-                {locale === 'en' ? 'Your trial has expired' : locale === 'es' ? 'Tu prueba ha expirado' : 'Seu julgamento expirou'}
+                {selectedTenant.trial_ends_at
+                  ? (locale === 'en' ? 'Your trial has expired' : locale === 'es' ? 'Tu prueba ha expirado' : 'Seu julgamento expirou')
+                  : (locale === 'en' ? 'Your subscription access has ended' : locale === 'es' ? 'Tu acceso por suscripción finalizó' : 'Seu acesso por assinatura terminou')}
               </p>
               <p className="text-sm text-red-700">
-                {locale === 'en' ? 'Upgrade to restore access to your account.' : 
-                 locale === 'es' ? 'Actualiza para restaurar el acceso a tu cuenta.' : 
+                {locale === 'en' ? 'Upgrade to restore access to your account.' :
+                 locale === 'es' ? 'Actualiza para restaurar el acceso a tu cuenta.' :
                  'Atualize para restaurar o acesso à sua conta.'}
               </p>
             </div>

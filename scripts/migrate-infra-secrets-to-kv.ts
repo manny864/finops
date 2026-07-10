@@ -27,6 +27,48 @@
  * secret en KV, actualizá también el `.env` del VPS para que el backup no
  * quede con una SAS vencida.
  */
+
+/* eslint-disable no-console, @typescript-eslint/no-require-imports */
+// A diferencia de la app Next.js (que carga .env automático), `npx tsx` de
+// un script suelto NO carga ningún .env por sí solo — sin esto,
+// isKeyVaultEnabled() siempre da false aunque el .env del VPS tenga todo
+// bien configurado. Mismo patrón que scripts/migrate-tenants-to-keyvault.ts.
+// Busca ".env" primero (nombre real del archivo en el VPS, ver
+// scripts/prod-migrate-kv.sh) y cae a .env.production/.env.development en
+// local si no lo encuentra. dotenv nunca pisa una env var ya seteada, así
+// que si el runtime ya inyectó las vars (Docker) esto es un no-op.
+import path from "path";
+import fs from "fs";
+try {
+  // require() en lugar de import estático para compat CJS (tsx en prod) y
+  // para poder tolerar que dotenv no esté instalado en el runtime standalone.
+  const dotenv = require("dotenv") as typeof import("dotenv");
+  // Para en el PRIMER archivo que encuentre — nunca cargar más de uno: si
+  // .env.production y .env.development coexistieran (ej. corriendo esto en
+  // local por error) y se cargaran ambos, dotenv no pisa valores ya
+  // seteados, así que el orden decidiría en silencio de dónde sale cada
+  // secreto. ".env" primero porque es el nombre real del archivo en el VPS
+  // (ver scripts/prod-migrate-kv.sh); en local no existe y cae a
+  // .env.development/.env.production según NODE_ENV.
+  const nodeEnvFile = process.env.NODE_ENV === "production" ? ".env.production" : ".env.development";
+  const candidates = [".env", nodeEnvFile];
+  let loaded = false;
+  for (const f of candidates) {
+    const envPath = path.resolve(process.cwd(), f);
+    if (fs.existsSync(envPath)) {
+      dotenv.config({ path: envPath });
+      console.log(`[env] loaded ${f}`);
+      loaded = true;
+      break;
+    }
+  }
+  if (!loaded) {
+    console.warn(`[env] Ningún archivo .env encontrado en ${process.cwd()} — usando solo env vars ya inyectadas.`);
+  }
+} catch {
+  console.log(`[env] dotenv no instalado — usando solo env vars ya inyectadas por el runtime.`);
+}
+
 import { isKeyVaultEnabled, setSecret, getSecret } from "../src/lib/secrets/keyvault";
 
 const SECRETS: Array<{ envVar: string; kvName: string }> = [
@@ -40,6 +82,7 @@ const SECRETS: Array<{ envVar: string; kvName: string }> = [
   { envVar: "BACKUP_AZURE_SAS_URL", kvName: "infra-backup-azure-sas-url" },
   { envVar: "GEMINI_API_KEY", kvName: "infra-gemini-api-key" },
   { envVar: "RECAPTCHA_SECRET", kvName: "infra-recaptcha-secret" },
+  { envVar: "AZURE_STORAGE_CONNECTION_STRING", kvName: "infra-azure-storage-connection-string" },
 ];
 
 async function main() {

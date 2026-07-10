@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/modules/storage/db';
 import { verifySnsMessage, confirmSubscription, type SnsMessage } from '@/lib/marketplace/aws';
 import { awsDimensionToTier } from '@/lib/marketplace/planMapping';
+import { notifyInternalCancellation } from '@/lib/billingAlerts';
 
 interface EntitlementNotification {
   action: 'subscribe-success' | 'subscribe-fail' | 'unsubscribe-pending' | 'unsubscribe-success' | string;
@@ -90,15 +91,30 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === 'unsubscribe-pending') {
-      // Grace period: customer canceled but billing window still open
+      // Grace period: el cliente canceló pero AWS todavía no cerró la
+      // ventana de facturación — 'PENDING_CANCELLATION' no es un valor
+      // válido del ENUM subscription_status (TRIAL/ACTIVE/PAST_DUE/
+      // CANCELED/EXPIRED en Tenants), así que la UPDATE fallaba o
+      // corrompía el campo según sql_mode. Usamos 'CANCELED' (sí es
+      // válido) — no bloquea acceso por sí solo (ver ClientShell.tsx /
+      // access_until), que es exactamente lo que se busca en este período
+      // de gracia. No conocemos la fecha exacta de corte en este evento
+      // (AWS no la manda), así que no seteamos access_until: el corte
+      // real llega cuando AWS confirma 'unsubscribe-success' abajo.
       await connection.query(
-        "UPDATE Tenants SET subscription_status = ? WHERE tenant_id = ?",
-        ['PENDING_CANCELLATION', tenant.tenant_id]
+        "UPDATE Tenants SET subscription_status = 'CANCELED' WHERE tenant_id = ?",
+        [tenant.tenant_id]
       );
+      await notifyInternalCancellation(tenant.tenant_id, 'AWS Marketplace', null);
     } else if (action === 'unsubscribe-success') {
+      // AWS confirma acá que la ventana de facturación ya cerró — a
+      // diferencia de Paddle, este evento YA es la señal autoritativa de
+      // "el período pagado terminó", así que pasamos directo a EXPIRED
+      // (revoca acceso ya — ver isPendingPayment en ClientShell.tsx) en
+      // vez de depender de /api/cron/subscription-expiry.
       await connection.query(
-        "UPDATE Tenants SET subscription_status = ? WHERE tenant_id = ?",
-        ['CANCELED', tenant.tenant_id]
+        "UPDATE Tenants SET subscription_status = 'EXPIRED' WHERE tenant_id = ?",
+        [tenant.tenant_id]
       );
     } else if (action === 'subscribe-success') {
       await connection.query(
@@ -113,9 +129,12 @@ export async function POST(request: NextRequest) {
         ]);
       }
     } else if (action === 'subscribe-fail') {
+      // 'PAYMENT_FAILED' tampoco es un valor válido del ENUM — el estado
+      // correcto y ya soportado en toda la app (banner PAST_DUE en
+      // TrialBanner.tsx) es 'PAST_DUE'.
       await connection.query(
-        "UPDATE Tenants SET subscription_status = ? WHERE tenant_id = ?",
-        ['PAYMENT_FAILED', tenant.tenant_id]
+        "UPDATE Tenants SET subscription_status = 'PAST_DUE' WHERE tenant_id = ?",
+        [tenant.tenant_id]
       );
     }
 

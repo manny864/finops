@@ -1,0 +1,79 @@
+/**
+ * Cliente compartido de Azure Blob Storage — reemplaza el filesystem local
+ * (montado como volumen Docker) para los adjuntos de soporte y los logos de
+ * tenant, cada uno en su propio container.
+ *
+ * Env var requerida: AZURE_STORAGE_CONNECTION_STRING (ver
+ * src/lib/secrets/infraSecrets.ts para la resolución híbrida vía Key
+ * Vault). Si no está configurada, isBlobStorageEnabled() devuelve false y
+ * los callers (src/lib/tenantLogo.ts, src/lib/supportAttachments.ts) caen
+ * a filesystem local — mismo patrón híbrido que ya usa el resto del código
+ * (Key Vault -> env var, DefaultAzureCredential -> fallback, etc.), para no
+ * requerir un Storage Account real en cada entorno de desarrollo.
+ *
+ * Containers privados (sin acceso público anónimo): SIEMPRE se sirven a
+ * través de nuestras propias API routes, nunca con una URL directa de blob.
+ */
+import { BlobServiceClient, ContainerClient } from "@azure/storage-blob";
+
+let serviceClientSingleton: BlobServiceClient | null = null;
+const containerClients = new Map<string, ContainerClient>();
+
+export function isBlobStorageEnabled(): boolean {
+  return !!process.env.AZURE_STORAGE_CONNECTION_STRING;
+}
+
+function getServiceClient(): BlobServiceClient {
+  if (serviceClientSingleton) return serviceClientSingleton;
+  const conn = process.env.AZURE_STORAGE_CONNECTION_STRING;
+  if (!conn) throw new Error("AZURE_STORAGE_CONNECTION_STRING no está configurado.");
+  serviceClientSingleton = BlobServiceClient.fromConnectionString(conn);
+  return serviceClientSingleton;
+}
+
+async function getContainerClient(containerName: string): Promise<ContainerClient> {
+  const cached = containerClients.get(containerName);
+  if (cached) return cached;
+  const client = getServiceClient().getContainerClient(containerName);
+  // access: undefined = privado (sin lectura anónima). Idempotente.
+  await client.createIfNotExists();
+  containerClients.set(containerName, client);
+  return client;
+}
+
+export async function uploadBlob(
+  containerName: string,
+  blobName: string,
+  bytes: Buffer,
+  contentType: string
+): Promise<void> {
+  const container = await getContainerClient(containerName);
+  const blockBlob = container.getBlockBlobClient(blobName);
+  await blockBlob.uploadData(bytes, {
+    blobHTTPHeaders: { blobContentType: contentType },
+  });
+}
+
+/** Devuelve null si el blob no existe (404), en vez de tirar. */
+export async function downloadBlob(containerName: string, blobName: string): Promise<Buffer | null> {
+  try {
+    const container = await getContainerClient(containerName);
+    const blockBlob = container.getBlockBlobClient(blobName);
+    return await blockBlob.downloadToBuffer();
+  } catch (e: any) {
+    if (e?.statusCode === 404) return null;
+    throw e;
+  }
+}
+
+/** Best-effort: no lanza si el blob ya no existe. */
+export async function deleteBlob(containerName: string, blobName: string): Promise<void> {
+  const container = await getContainerClient(containerName);
+  await container.getBlockBlobClient(blobName).deleteIfExists();
+}
+
+/** Test helper. No usar en runtime. */
+export function _resetForTests(): void {
+  serviceClientSingleton = null;
+  containerClients.clear();
+}
