@@ -147,6 +147,17 @@ export async function initializeDatabase() {
             if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding last_trial_reminder_at:", e);
         }
 
+        // access_until: fecha hasta la que el tenant ya pagó acceso (Paddle
+        // current_billing_period.ends_at), independiente de subscription_status.
+        // Al cancelar, Paddle deja de facturar pero el período YA PAGADO sigue
+        // vigente — usamos esto para no revocar acceso antes de tiempo (ver
+        // /api/webhooks/paddle y /api/cron/subscription-expiry).
+        try {
+            await connection.query('ALTER TABLE Tenants ADD COLUMN access_until DATETIME NULL;');
+        } catch (e: any) {
+            if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding access_until:", e);
+        }
+
         await connection.query(`
             CREATE TABLE IF NOT EXISTS Users (
                 id INT AUTO_INCREMENT PRIMARY KEY,

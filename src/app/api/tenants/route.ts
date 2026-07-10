@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
         // solo visible para SUPERADMIN — no forma parte del SELECT por-usuario.
         let query = `SELECT tenant_id as id, company_name as name, client_id,
                             (client_secret IS NOT NULL AND client_secret <> '') as has_client_secret,
-                            tier, trial_ends_at, subscription_status, is_onboarded,
+                            tier, trial_ends_at, subscription_status, access_until, is_onboarded,
                             partner_link_status, partner_link_detail,
                             sales_referrer
                      FROM Tenants ORDER BY created_at ASC`;
@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
         if (!isSuperAdmin && email) {
             query = `SELECT t.tenant_id as id, t.company_name as name, t.client_id,
                             (t.client_secret IS NOT NULL AND t.client_secret <> '') as has_client_secret,
-                            t.tier, t.trial_ends_at, t.subscription_status, t.is_onboarded,
+                            t.tier, t.trial_ends_at, t.subscription_status, t.access_until, t.is_onboarded,
                             t.partner_link_status, t.partner_link_detail
                      FROM Tenants t
                      JOIN Users u ON t.tenant_id = u.tenant_id
@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
                 const [newRows] = await pool.query(
                     `SELECT tenant_id as id, company_name as name, client_id,
                             (client_secret IS NOT NULL AND client_secret <> '') as has_client_secret,
-                            tier, trial_ends_at, subscription_status, is_onboarded,
+                            tier, trial_ends_at, subscription_status, access_until, is_onboarded,
                             partner_link_status, partner_link_detail
                      FROM Tenants WHERE tenant_id = ? LIMIT 1`,
                     [identity.tenantId]

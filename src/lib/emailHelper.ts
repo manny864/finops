@@ -220,3 +220,44 @@ export function getTrialExpiredEmailHtml(): string {
     </html>
   `;
 }
+
+export function getSubscriptionEndedEmailHtml(): string {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://finops.example.com';
+
+  return `
+    <html>
+      <head>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; padding: 40px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background: white; border: 1px solid #e0e0e0; border-radius: 0 0 8px 8px; padding: 40px; }
+          .button { display: inline-block; padding: 12px 32px; background-color: #ef4444; color: white; text-decoration: none; border-radius: 4px; font-weight: bold; margin-top: 20px; }
+          .footer { text-align: center; font-size: 12px; color: #666; margin-top: 40px; padding-top: 20px; border-top: 1px solid #e0e0e0; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>📅 Tu acceso a FinOps SaaS finalizó</h1>
+          </div>
+          <div class="content">
+            <p>Hola,</p>
+            <p>Tu suscripción fue cancelada y el período que ya tenías pagado terminó, así que tu acceso a la plataforma quedó suspendido. Tus datos se conservan — si querés reactivar el servicio en cualquier momento, podés volver a suscribirte.</p>
+
+            <p style="margin-top: 30px;">
+              <a href="${baseUrl}/pricing" class="button">Reactivar plan</a>
+            </p>
+
+            <p style="margin-top: 30px; color: #666; font-size: 14px;">
+              ¿Preguntas? Escribinos a <strong>soporte@cscloudsolutions.com.ar</strong> o a nuestro equipo comercial en <strong>ventas@cscloudsolutions.com.ar</strong>
+            </p>
+          </div>
+          <div class="footer">
+            <p>© 2026 CSCloudSolutions. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+}
