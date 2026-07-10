@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
         const graphResults = await runGraphAudits(resourceGraphClient, credential, subscriptionId);
 
         const items: Array<{
-            resourceId: string; resourceName: string; resourceType: string;
+            resourceId: string; resourceName: string; resourceType: string; armType: string;
             resourceGroup: string; subscriptionId: string; monthlyCost: number;
             reason: string; daysIdle: number;
         }> = [];
@@ -56,6 +56,7 @@ export async function GET(request: NextRequest) {
                 resourceId: agw.id,
                 resourceName: agw.name,
                 resourceType: "applicationGateway",
+                armType: "Microsoft.Network/applicationGateways",
                 resourceGroup: agw.resourceGroup,
                 subscriptionId: agw.subscriptionId,
                 monthlyCost: cost,
@@ -72,6 +73,7 @@ export async function GET(request: NextRequest) {
                 resourceId: b.id,
                 resourceName: b.name,
                 resourceType: "bastionHost",
+                armType: "Microsoft.Network/bastionHosts",
                 resourceGroup: b.resourceGroup,
                 subscriptionId: b.subscriptionId,
                 monthlyCost: /premium/i.test(sku) ? 280.0 : /standard/i.test(sku) ? 209.0 : 137.0,
@@ -82,33 +84,36 @@ export async function GET(request: NextRequest) {
 
         // Tabla de recursos "zombie" con costo estimado plano — cada entrada lee
         // una key del catálogo KQL (src/modules/core/kqlCatalog.ts), ya ejecutada
-        // por runGraphAudits para todo el audit.
+        // por runGraphAudits para todo el audit. armType es el tipo ARM exacto
+        // usado por /api/remediation para el DELETE (puede diferir del
+        // resourceType usado solo para agrupar/badges, ej. Front Door classic
+        // vs Standard/Premium comparten badge pero tienen provider distinto).
         const FLAT_COST_TYPES: Array<{
-            key: string; resourceType: string; monthlyCost: number; reason: string; daysIdle?: number;
+            key: string; resourceType: string; armType: string; monthlyCost: number; reason: string; daysIdle?: number;
         }> = [
-            { key: "unusedLoadBalancers", resourceType: "loadBalancer", monthlyCost: 18.0, reason: "Sin frontend IP configurado o sin backend pool asociado" },
-            { key: "unusedVNetGateways", resourceType: "virtualNetworkGateway", monthlyCost: 130.0, reason: "Sin conexiones (Connections) configuradas" },
-            { key: "emptyVnets", resourceType: "virtualNetwork", monthlyCost: 0, reason: "VNet sin subnets configuradas" },
-            { key: "emptySubnets", resourceType: "subnet", monthlyCost: 0, reason: "Subnet sin recursos ni delegaciones asociadas" },
-            { key: "unusedVirtualHubs", resourceType: "virtualWanHub", monthlyCost: 180.0, reason: "Virtual WAN Hub sin conexiones a VNets" },
-            { key: "unusedRouteServers", resourceType: "routeServer", monthlyCost: 216.0, reason: "Azure Route Server sin conexiones a VNets" },
-            { key: "unprovisionedExpressRoute", resourceType: "expressRouteCircuit", monthlyCost: 300.0, reason: "Circuito sin aprovisionar o sin peerings/autorizaciones" },
-            { key: "disconnectedVnetPeerings", resourceType: "vnetPeering", monthlyCost: 0, reason: "Peering en estado distinto de Connected" },
-            { key: "idleAzureFirewalls", resourceType: "azureFirewall", monthlyCost: 900.0, reason: "Sin reglas (network/application/nat) ni Firewall Policy asociada" },
-            { key: "orphanedNsgs", resourceType: "networkSecurityGroup", monthlyCost: 0, reason: "NSG sin NICs ni Subnets asociadas" },
-            { key: "orphanedAsgs", resourceType: "applicationSecurityGroup", monthlyCost: 0, reason: "ASG sin NICs asociadas" },
-            { key: "privateEndpoints", resourceType: "privateEndpoint", monthlyCost: 7.2, reason: "Conexión Private Link en estado Disconnected" },
-            { key: "privateDnsZones", resourceType: "privateDnsZone", monthlyCost: 0.5, reason: "Zona Private DNS sin Virtual Network Links" },
-            { key: "ddos", resourceType: "ddosProtectionPlan", monthlyCost: 2944.0, reason: "Plan DDoS Standard sin VNets protegidas" },
-            { key: "unattachedWafPolicies", resourceType: "webApplicationFirewall", monthlyCost: 0, reason: "WAF Policy (Application Gateway) sin Application Gateway asociado" },
-            { key: "frontDoorWaf", resourceType: "webApplicationFirewall", monthlyCost: 0, reason: "WAF Policy (Front Door) sin Security Policy vinculada" },
-            { key: "unusedFrontDoorClassic", resourceType: "frontDoor", monthlyCost: 35.0, reason: "Front Door (classic) sin backend pools configurados" },
-            { key: "unusedFrontDoorStandard", resourceType: "frontDoor", monthlyCost: 35.0, reason: "Front Door Standard/Premium sin endpoints configurados" },
-            { key: "trafficManager", resourceType: "trafficManager", monthlyCost: 1.0, reason: "Perfil de Traffic Manager sin endpoints configurados" },
-            { key: "natGateways", resourceType: "natGateway", monthlyCost: 32.0, reason: "NAT Gateway sin subnets asociadas" },
-            { key: "emptyDnsZones", resourceType: "dnsZone", monthlyCost: 0.5, reason: "Zona DNS pública sin registros más allá de NS/SOA por defecto" },
-            { key: "networkWatchersNoFlowLogs", resourceType: "networkWatcher", monthlyCost: 0, reason: "Network Watcher habilitado sin Flow Logs configurados" },
-            { key: "flowLogsWithoutTrafficAnalytics", resourceType: "trafficAnalytics", monthlyCost: 0, reason: "Flow Log activo sin Traffic Analytics habilitado" },
+            { key: "unusedLoadBalancers", resourceType: "loadBalancer", armType: "Microsoft.Network/loadBalancers", monthlyCost: 18.0, reason: "Sin frontend IP configurado o sin backend pool asociado" },
+            { key: "unusedVNetGateways", resourceType: "virtualNetworkGateway", armType: "Microsoft.Network/virtualNetworkGateways", monthlyCost: 130.0, reason: "Sin conexiones (Connections) configuradas" },
+            { key: "emptyVnets", resourceType: "virtualNetwork", armType: "Microsoft.Network/virtualNetworks", monthlyCost: 0, reason: "VNet sin subnets configuradas" },
+            { key: "emptySubnets", resourceType: "subnet", armType: "Microsoft.Network/virtualNetworks/subnets", monthlyCost: 0, reason: "Subnet sin recursos ni delegaciones asociadas" },
+            { key: "unusedVirtualHubs", resourceType: "virtualWanHub", armType: "Microsoft.Network/virtualHubs", monthlyCost: 180.0, reason: "Virtual WAN Hub sin conexiones a VNets" },
+            { key: "unusedRouteServers", resourceType: "routeServer", armType: "Microsoft.Network/virtualHubs", monthlyCost: 216.0, reason: "Azure Route Server sin conexiones a VNets" },
+            { key: "unprovisionedExpressRoute", resourceType: "expressRouteCircuit", armType: "Microsoft.Network/expressRouteCircuits", monthlyCost: 300.0, reason: "Circuito sin aprovisionar o sin peerings/autorizaciones" },
+            { key: "disconnectedVnetPeerings", resourceType: "vnetPeering", armType: "Microsoft.Network/virtualNetworks/virtualNetworkPeerings", monthlyCost: 0, reason: "Peering en estado distinto de Connected" },
+            { key: "idleAzureFirewalls", resourceType: "azureFirewall", armType: "Microsoft.Network/azureFirewalls", monthlyCost: 900.0, reason: "Sin reglas (network/application/nat) ni Firewall Policy asociada" },
+            { key: "orphanedNsgs", resourceType: "networkSecurityGroup", armType: "Microsoft.Network/networkSecurityGroups", monthlyCost: 0, reason: "NSG sin NICs ni Subnets asociadas" },
+            { key: "orphanedAsgs", resourceType: "applicationSecurityGroup", armType: "Microsoft.Network/applicationSecurityGroups", monthlyCost: 0, reason: "ASG sin NICs asociadas" },
+            { key: "privateEndpoints", resourceType: "privateEndpoint", armType: "Microsoft.Network/privateEndpoints", monthlyCost: 7.2, reason: "Conexión Private Link en estado Disconnected" },
+            { key: "privateDnsZones", resourceType: "privateDnsZone", armType: "Microsoft.Network/privateDnsZones", monthlyCost: 0.5, reason: "Zona Private DNS sin Virtual Network Links" },
+            { key: "ddos", resourceType: "ddosProtectionPlan", armType: "Microsoft.Network/ddosProtectionPlans", monthlyCost: 2944.0, reason: "Plan DDoS Standard sin VNets protegidas" },
+            { key: "unattachedWafPolicies", resourceType: "webApplicationFirewall", armType: "Microsoft.Network/applicationGatewayWebApplicationFirewallPolicies", monthlyCost: 0, reason: "WAF Policy (Application Gateway) sin Application Gateway asociado" },
+            { key: "frontDoorWaf", resourceType: "webApplicationFirewall", armType: "Microsoft.Network/frontDoorWebApplicationFirewallPolicies", monthlyCost: 0, reason: "WAF Policy (Front Door) sin Security Policy vinculada" },
+            { key: "unusedFrontDoorClassic", resourceType: "frontDoor", armType: "Microsoft.Network/frontDoors", monthlyCost: 35.0, reason: "Front Door (classic) sin backend pools configurados" },
+            { key: "unusedFrontDoorStandard", resourceType: "frontDoor", armType: "Microsoft.Cdn/profiles", monthlyCost: 35.0, reason: "Front Door Standard/Premium sin endpoints configurados" },
+            { key: "trafficManager", resourceType: "trafficManager", armType: "Microsoft.Network/trafficManagerProfiles", monthlyCost: 1.0, reason: "Perfil de Traffic Manager sin endpoints configurados" },
+            { key: "natGateways", resourceType: "natGateway", armType: "Microsoft.Network/natGateways", monthlyCost: 32.0, reason: "NAT Gateway sin subnets asociadas" },
+            { key: "emptyDnsZones", resourceType: "dnsZone", armType: "Microsoft.Network/dnsZones", monthlyCost: 0.5, reason: "Zona DNS pública sin registros más allá de NS/SOA por defecto" },
+            { key: "networkWatchersNoFlowLogs", resourceType: "networkWatcher", armType: "Microsoft.Network/networkWatchers", monthlyCost: 0, reason: "Network Watcher habilitado sin Flow Logs configurados" },
+            { key: "flowLogsWithoutTrafficAnalytics", resourceType: "trafficAnalytics", armType: "Microsoft.Network/networkWatchers/flowLogs", monthlyCost: 0, reason: "Flow Log activo sin Traffic Analytics habilitado" },
         ];
 
         for (const cfg of FLAT_COST_TYPES) {
@@ -118,6 +123,7 @@ export async function GET(request: NextRequest) {
                     resourceId: r.id,
                     resourceName: r.name,
                     resourceType: cfg.resourceType,
+                    armType: cfg.armType,
                     resourceGroup: r.resourceGroup,
                     subscriptionId: r.subscriptionId,
                     monthlyCost: cfg.monthlyCost,

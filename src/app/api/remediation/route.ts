@@ -6,13 +6,13 @@ import { redis } from "@/lib/redis";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { tenantId, subscriptionId, resourceGroup, resourceName, resourceType } = body;
+    const { tenantId, subscriptionId, resourceGroup, resourceName, resourceType, resourceId } = body;
 
     if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
     const identity = await requireTenantAccess(request, tenantId);
     const email = identity.email;
 
-    await deleteResource(tenantId, email, subscriptionId, resourceGroup, resourceName, resourceType);
+    await deleteResource(tenantId, email, subscriptionId, resourceGroup, resourceName, resourceType, resourceId);
 
     // Invalidar cache de auditoría (Redis SWR) para que el recurso recién
     // borrado no siga apareciendo como zombie hasta que expire el TTL.

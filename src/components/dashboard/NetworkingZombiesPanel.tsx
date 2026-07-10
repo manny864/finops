@@ -1,10 +1,11 @@
 "use client";
-import React from "react";
+import React, { useState } from "react";
 import useSWR from "swr";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { useTranslations } from "next-intl";
-import { Loader2, Network, AlertCircle, Info, DollarSign } from "lucide-react";
+import { toast } from "sonner";
+import { Loader2, Network, AlertCircle, Info, DollarSign, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { isMockTenant } from "@/lib/mockData";
 import { getFreshIdToken } from "@/lib/msalToken";
 
@@ -12,6 +13,7 @@ type ZombieItem = {
     resourceId: string;
     resourceName: string;
     resourceType: string;
+    armType: string;
     resourceGroup: string;
     subscriptionId: string;
     monthlyCost: number;
@@ -45,10 +47,14 @@ const TYPE_BADGE: Record<string, string> = {
     trafficAnalytics:         "bg-slate-100 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300",
 };
 
+const PAGE_SIZE = 15;
+
 export default function NetworkingZombiesPanel() {
     const tm = useTranslations("Mock");
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
+    const [pageIndex, setPageIndex] = useState(0);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
 
     const fetcher = async (url: string) => {
         const idToken = await getFreshIdToken(instance, accounts[0]);
@@ -62,13 +68,60 @@ export default function NetworkingZombiesPanel() {
         return res.json();
     };
 
-    const { data, error, isLoading } = useSWR(
+    const { data, error, isLoading, mutate } = useSWR(
         selectedTenant && selectedTenant.id !== "default" && (accounts.length > 0 || isMockTenant(selectedTenant.id))
             ? `/api/cleanup/zombies/networking?tenantId=${selectedTenant.id}`
             : null,
         fetcher,
         { revalidateOnFocus: false }
     );
+
+    const handleDelete = async (item: ZombieItem) => {
+        if (!selectedTenant) return;
+        if (!window.confirm(`¿Estás completamente seguro de ELIMINAR el recurso ${item.resourceName} (${item.resourceType}) permanentemente? Esto impactará los costos en Azure al instante.`)) return;
+
+        try {
+            setDeletingId(item.resourceId);
+            const idToken = await getFreshIdToken(instance, accounts[0]);
+            const res = await fetch("/api/remediation", {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${idToken}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    tenantId: selectedTenant.id,
+                    subscriptionId: item.subscriptionId,
+                    resourceGroup: item.resourceGroup,
+                    resourceName: item.resourceName,
+                    resourceType: item.armType,
+                    resourceId: item.resourceId,
+                }),
+            });
+
+            const json = await res.json();
+            if (!res.ok) {
+                if (json.error === "MISSING_CONTRIBUTOR_ROLE") {
+                    toast.error("¡Operación Denegada!", { description: "Tu aplicación FinOps solo tiene rol de Lector o faltan permisos en la suscripción." });
+                    return;
+                }
+                throw new Error(json.error || "Fallo al eliminar");
+            }
+
+            await mutate((prev: any) => {
+                if (!prev) return prev;
+                const items = (prev.items || []).filter((r: ZombieItem) => r.resourceId !== item.resourceId);
+                const totalMonthlyWaste = Number(items.reduce((sum: number, r: ZombieItem) => sum + r.monthlyCost, 0).toFixed(2));
+                return { ...prev, items, totalMonthlyWaste };
+            }, { revalidate: false });
+
+            toast.success("Recurso Eliminado", { description: `${item.resourceName} fue destruido.` });
+        } catch (err: any) {
+            toast.error("Error al borrar", { description: err.message });
+        } finally {
+            setDeletingId(null);
+        }
+    };
 
     if (!selectedTenant || selectedTenant.id === "default") return null;
 
@@ -94,6 +147,10 @@ export default function NetworkingZombiesPanel() {
 
     const items: ZombieItem[] = data.items || [];
     const totalWaste: number = data.totalMonthlyWaste || 0;
+
+    const pageCount = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+    const safePageIndex = Math.min(pageIndex, pageCount - 1);
+    const pageItems = items.slice(safePageIndex * PAGE_SIZE, safePageIndex * PAGE_SIZE + PAGE_SIZE);
 
     return (
         <div className="w-full space-y-6">
@@ -145,46 +202,90 @@ export default function NetworkingZombiesPanel() {
                         <p className="font-medium">No se detectaron recursos de red zombies</p>
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-left">
-                            <thead className="bg-gray-50 dark:bg-slate-800/50 text-xs text-slate-500 dark:text-slate-400">
-                                <tr>
-                                    <th className="px-4 py-3 font-semibold">Recurso</th>
-                                    <th className="px-4 py-3 font-semibold">Tipo</th>
-                                    <th className="px-4 py-3 font-semibold">Resource Group</th>
-                                    <th className="px-4 py-3 font-semibold">Motivo</th>
-                                    <th className="px-4 py-3 font-semibold text-right">Días Idle</th>
-                                    <th className="px-4 py-3 font-semibold text-right">Costo/Mes</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100 dark:divide-slate-800/50">
-                                {items.map((item, i) => (
-                                    <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors">
-                                        <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-200 max-w-[220px] truncate" title={item.resourceName}>
-                                            {item.resourceName}
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${TYPE_BADGE[item.resourceType] || "bg-gray-100 text-gray-600"}`}>
-                                                {item.resourceType}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400 font-mono">{item.resourceGroup}</td>
-                                        <td className="px-4 py-3 text-xs text-slate-600 dark:text-slate-300 max-w-[200px] truncate" title={item.reason}>
-                                            {item.reason}
-                                        </td>
-                                        <td className="px-4 py-3 text-right">
-                                            <span className={`px-2 py-0.5 rounded text-xs font-bold ${item.daysIdle >= 30 ? "bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-400" : "bg-yellow-100 dark:bg-yellow-950/40 text-yellow-700 dark:text-yellow-400"}`}>
-                                                {item.daysIdle}d
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3 text-right font-semibold text-red-600 dark:text-red-400">
-                                            ${item.monthlyCost.toFixed(2)}
-                                        </td>
+                    <>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm text-left">
+                                <thead className="bg-gray-50 dark:bg-slate-800/50 text-xs text-slate-500 dark:text-slate-400">
+                                    <tr>
+                                        <th className="px-4 py-3 font-semibold">Recurso</th>
+                                        <th className="px-4 py-3 font-semibold">Tipo</th>
+                                        <th className="px-4 py-3 font-semibold">Resource Group</th>
+                                        <th className="px-4 py-3 font-semibold">Motivo</th>
+                                        <th className="px-4 py-3 font-semibold text-right">Días Idle</th>
+                                        <th className="px-4 py-3 font-semibold text-right">Costo/Mes</th>
+                                        <th className="px-4 py-3 font-semibold text-right">Acción</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 dark:divide-slate-800/50">
+                                    {pageItems.map((item) => (
+                                        <tr key={item.resourceId} className="hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors">
+                                            <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-200 max-w-[220px] truncate" title={item.resourceName}>
+                                                {item.resourceName}
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${TYPE_BADGE[item.resourceType] || "bg-gray-100 text-gray-600"}`}>
+                                                    {item.resourceType}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400 font-mono">{item.resourceGroup}</td>
+                                            <td className="px-4 py-3 text-xs text-slate-600 dark:text-slate-300 max-w-[200px] truncate" title={item.reason}>
+                                                {item.reason}
+                                            </td>
+                                            <td className="px-4 py-3 text-right">
+                                                <span className={`px-2 py-0.5 rounded text-xs font-bold ${item.daysIdle >= 30 ? "bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-400" : "bg-yellow-100 dark:bg-yellow-950/40 text-yellow-700 dark:text-yellow-400"}`}>
+                                                    {item.daysIdle}d
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3 text-right font-semibold text-red-600 dark:text-red-400">
+                                                ${item.monthlyCost.toFixed(2)}
+                                            </td>
+                                            <td className="px-4 py-3 text-right">
+                                                <button
+                                                    onClick={() => handleDelete(item)}
+                                                    disabled={deletingId === item.resourceId}
+                                                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-950/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                                    title={`Eliminar ${item.resourceName}`}
+                                                >
+                                                    {deletingId === item.resourceId ? (
+                                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                    ) : (
+                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                    )}
+                                                    Eliminar
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Pagination */}
+                        <div className="px-4 py-3 border-t border-gray-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                            <span>
+                                Mostrando {safePageIndex * PAGE_SIZE + 1}–{Math.min(items.length, safePageIndex * PAGE_SIZE + PAGE_SIZE)} de {items.length}
+                            </span>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setPageIndex((p) => Math.max(0, p - 1))}
+                                    disabled={safePageIndex === 0}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg font-semibold bg-gray-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    <ChevronLeft className="w-3.5 h-3.5" /> Anterior
+                                </button>
+                                <span className="px-2 font-medium text-slate-700 dark:text-slate-200">
+                                    Página {safePageIndex + 1} de {pageCount}
+                                </span>
+                                <button
+                                    onClick={() => setPageIndex((p) => Math.min(pageCount - 1, p + 1))}
+                                    disabled={safePageIndex >= pageCount - 1}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg font-semibold bg-gray-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    Siguiente <ChevronRight className="w-3.5 h-3.5" />
+                                </button>
+                            </div>
+                        </div>
+                    </>
                 )}
             </div>
         </div>

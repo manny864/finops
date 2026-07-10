@@ -360,6 +360,31 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
                 { resourceName: "nw-eastus", resourceType: "networkWatcher", resourceGroup: "NetworkWatcherRG", monthlyCost: 0, reason: "Network Watcher habilitado sin Flow Logs configurados", daysIdle: 0 },
                 { resourceName: "flowlog-nsg-web", resourceType: "trafficAnalytics", resourceGroup: "NetworkWatcherRG", monthlyCost: 0, reason: "Flow Log activo sin Traffic Analytics habilitado", daysIdle: 0 },
             ];
+            const ARM_TYPE: Record<string, string> = {
+                applicationGateway: "Microsoft.Network/applicationGateways",
+                loadBalancer: "Microsoft.Network/loadBalancers",
+                virtualNetworkGateway: "Microsoft.Network/virtualNetworkGateways",
+                virtualNetwork: "Microsoft.Network/virtualNetworks",
+                subnet: "Microsoft.Network/virtualNetworks/subnets",
+                virtualWanHub: "Microsoft.Network/virtualHubs",
+                routeServer: "Microsoft.Network/virtualHubs",
+                expressRouteCircuit: "Microsoft.Network/expressRouteCircuits",
+                vnetPeering: "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
+                azureFirewall: "Microsoft.Network/azureFirewalls",
+                networkSecurityGroup: "Microsoft.Network/networkSecurityGroups",
+                applicationSecurityGroup: "Microsoft.Network/applicationSecurityGroups",
+                privateEndpoint: "Microsoft.Network/privateEndpoints",
+                privateDnsZone: "Microsoft.Network/privateDnsZones",
+                bastionHost: "Microsoft.Network/bastionHosts",
+                ddosProtectionPlan: "Microsoft.Network/ddosProtectionPlans",
+                webApplicationFirewall: "Microsoft.Network/applicationGatewayWebApplicationFirewallPolicies",
+                frontDoor: "Microsoft.Network/frontDoors",
+                trafficManager: "Microsoft.Network/trafficManagerProfiles",
+                natGateway: "Microsoft.Network/natGateways",
+                dnsZone: "Microsoft.Network/dnsZones",
+                networkWatcher: "Microsoft.Network/networkWatchers",
+                trafficAnalytics: "Microsoft.Network/networkWatchers/flowLogs",
+            };
             const items = Array.from({ length: base.length * scale }).map((_, i) => {
                 const b = base[i % base.length];
                 const suffix = i >= base.length ? `-${Math.floor(i / base.length) + 1}` : "";
@@ -367,6 +392,7 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
                     resourceId: `/subscriptions/mock-sub-${(i % 3) + 1}/resourceGroups/${b.resourceGroup}/providers/Microsoft.Network/${b.resourceType}s/${b.resourceName}${suffix}`,
                     resourceName: `${b.resourceName}${suffix}`,
                     resourceType: b.resourceType,
+                    armType: ARM_TYPE[b.resourceType] || "Microsoft.Network/unknown",
                     resourceGroup: b.resourceGroup,
                     subscriptionId: `mock-sub-${(i % 3) + 1}`,
                     monthlyCost: b.monthlyCost,

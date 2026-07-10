@@ -39,13 +39,30 @@ const apiVersionMap: Record<string, string> = {
     'microsoft.web/certificates': '2022-09-01',
     'microsoft.sql/servers/elasticpools': '2021-11-01',
     'microsoft.compute/availabilitysets': '2023-03-01',
-    'microsoft.resources/subscriptions/resourcegroups': '2021-04-01'
+    'microsoft.resources/subscriptions/resourcegroups': '2021-04-01',
+    // Networking Zombies (expansión): resto de tipos de red soportados por Delete.
+    'microsoft.network/virtualnetworks/subnets': '2023-05-01',
+    'microsoft.network/virtualhubs': '2023-05-01',
+    'microsoft.network/virtualnetworks/virtualnetworkpeerings': '2023-05-01',
+    'microsoft.network/azurefirewalls': '2023-05-01',
+    'microsoft.network/applicationsecuritygroups': '2023-05-01',
+    'microsoft.network/bastionhosts': '2023-05-01',
+    'microsoft.network/frontdoors': '2022-05-01',
+    'microsoft.cdn/profiles': '2023-05-01',
+    'microsoft.network/dnszones': '2018-05-01',
+    'microsoft.network/networkwatchers': '2023-05-01',
+    'microsoft.network/networkwatchers/flowlogs': '2023-05-01',
+    'microsoft.network/expressroutecircuits': '2023-05-01',
+    'microsoft.network/applicationgatewaywebapplicationfirewallpolicies': '2023-05-01',
 };
 
-export async function deleteResource(tenantId: string, userEmail: string, subscriptionId: string, resourceGroup: string, resourceName: string, resourceType: string) {
+export async function deleteResource(tenantId: string, userEmail: string, subscriptionId: string, resourceGroup: string, resourceName: string, resourceType: string, resourceId?: string) {
     const credential = await getAzureCredential(tenantId);
     const type = resourceType.toLowerCase();
-    const fullResourceId = `/subscriptions/${subscriptionId}/resourceGroups/${resourceGroup}/providers/${resourceType}/${resourceName}`;
+    // Si el caller ya tiene el ARM ID completo (ej. subrecursos anidados como
+    // subnets, peerings o flow logs, cuyo path real no es
+    // /providers/{type}/{name}), lo usamos tal cual en vez de reconstruirlo.
+    const fullResourceId = resourceId || `/subscriptions/${subscriptionId}/resourceGroups/${resourceGroup}/providers/${resourceType}/${resourceName}`;
 
     try {
         let result;
