@@ -21,6 +21,8 @@ export const ROUTE_TIERS: Record<string, 'Essential' | 'Professional' | 'Busines
     '/intelligence/aks-chargeback': 'Business',
     '/intelligence/aks': 'Business',
     '/intelligence/unit-economics': 'Business',
+    // Cost Groups (Budget & Forecast por Business Unit) — Business y Enterprise.
+    '/intelligence/cost-groups': 'Business',
     '/intelligence/allocation': 'Enterprise',
     '/intelligence/scorecard': 'Enterprise',
     '/intelligence/whiteboard': 'Enterprise',

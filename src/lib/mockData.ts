@@ -1620,6 +1620,35 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
             ];
             return { success: true, budgets: multiplier >= 3 ? [...base, ...extra] : base };
         }
+        case 'cost_groups': {
+            // Mismos cost centers que 'platform-budgets' para que Budget/Forecast
+            // sean consistentes entre /intelligence/budgets y /intelligence/cost-groups.
+            return { success: true, mock: true, groups: MOCK_COST_GROUPS(multiplier) };
+        }
+        case 'top_expenses': {
+            const round2 = (x: number) => Math.round(x * 100) / 100;
+            const groups = MOCK_COST_GROUPS(multiplier)
+                .filter(g => g.name !== 'Untagged/Unknown')
+                .sort((a, b) => b.periodCost - a.periodCost)
+                .slice(0, 3)
+                .map(g => ({ name: g.name, cost: g.periodCost }));
+            const topSubscriptions = [
+                { name: 'Subscription A', cost: round2(4200 * multiplier) },
+                { name: 'Subscription B', cost: round2(3100 * multiplier) },
+                { name: 'Subscription C', cost: round2(1850 * multiplier) },
+            ];
+            const topResourceGroups = [
+                { name: 'rg-data-platform-1', cost: round2(2600 * multiplier) },
+                { name: 'rg-engineering-3', cost: round2(2100 * multiplier) },
+                { name: 'rg-shared-services-1', cost: round2(1750 * multiplier) },
+            ];
+            const topResources = [
+                { name: `Virtual Machines — rg-engineering-1`, cost: round2(1400 * multiplier) },
+                { name: `Azure SQL Database — rg-data-platform-1`, cost: round2(1120 * multiplier) },
+                { name: `Storage Accounts — rg-shared-services-1`, cost: round2(890 * multiplier) },
+            ];
+            return { success: true, mock: true, topCostGroups: groups, topSubscriptions, topResourceGroups, topResources };
+        }
         case 'support': {
             // Sistema de soporte interno: tickets de demo escalados por tier.
             // Cada ticket incluye mockMessages para que la vista de hilo funcione
@@ -1679,4 +1708,209 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
         default:
             return { success: true, message: "Mock data not defined for this route" };
     }
+};
+
+// Base de cost groups para la demo, reusada por 'cost_groups' (listado) y por
+// getMockCostGroupDetail (drill-through). Mismos nombres que 'platform-budgets'
+// para que Budget/Forecast sean consistentes entre pantallas.
+const MOCK_COST_GROUPS = (multiplier: number) => {
+    const round2 = (x: number) => Math.round(x * 100) / 100;
+    const iso = (daysAgo: number) => { const d = new Date(); d.setUTCDate(d.getUTCDate() - daysAgo); return d.toISOString(); };
+    const base = [
+        { name: 'engineering', description: 'Cargas de cómputo y datos del equipo de Ingeniería', periodCost: 1200 * multiplier * 0.72, budget: 1200 * multiplier, owner: 'Sofía Méndez', subscriptions: 3, resourceGroups: 12, resources: 96, daysAgo: 1 },
+        { name: 'marketing', description: 'Sitios web, CDN y analítica del equipo de Marketing', periodCost: 400 * multiplier * 0.91, budget: 400 * multiplier, owner: 'Carlos Ruiz', subscriptions: 1, resourceGroups: 4, resources: 22, daysAgo: 2 },
+        { name: 'data-platform', description: 'Data Lake, Synapse y pipelines de analítica', periodCost: 2500 * multiplier * 0.58, budget: 2500 * multiplier, owner: 'Ana Torres', subscriptions: 2, resourceGroups: 9, resources: 74, daysAgo: 0 },
+        { name: 'shared-services', description: 'Networking, identidad y servicios compartidos entre BUs', periodCost: 900 * multiplier * 1.03, budget: 900 * multiplier, owner: 'Diego Fernández', subscriptions: 4, resourceGroups: 15, resources: 130, daysAgo: 3 },
+        { name: 'Untagged/Unknown', description: 'Recursos sin tag CostCenter asignado', periodCost: 300 * multiplier * 0.35, budget: 0, owner: null, subscriptions: 1, resourceGroups: 3, resources: 18, daysAgo: 12 },
+    ];
+    return base.map(g => ({
+        name: g.name,
+        description: g.description,
+        avgDailyCost: round2(g.periodCost / 30),
+        periodCost: round2(g.periodCost),
+        monthlyBilledCost: round2(g.periodCost),
+        budget: round2(g.budget),
+        forecast: round2(g.periodCost * 1.08),
+        owner: g.owner,
+        lastUpdated: iso(g.daysAgo),
+        subscriptions: g.subscriptions,
+        resourceGroups: g.resourceGroups,
+        resources: g.resources,
+    }));
+};
+
+/**
+ * Detalle de drill-through de un Cost Group para tenants de demo/mock —
+ * separado de getMockDataForRoute porque necesita el nombre del grupo, no
+ * sólo tenantId/tier. Usado por GET /api/cost-groups/[name] cuando
+ * isMockTenant(tenantId).
+ */
+export const getMockCostGroupDetail = (name: string, tier: string): any => {
+    const t = (tier || 'essential').toLowerCase();
+    const multiplier = t === 'enterprise' ? 50 : t === 'business' ? 10 : t === 'pro' || t === 'professional' ? 3 : 1;
+    const round2 = (x: number) => Math.round(x * 100) / 100;
+    const groups = MOCK_COST_GROUPS(multiplier);
+    const group = groups.find(g => g.name.toLowerCase() === name.toLowerCase()) || groups[0];
+
+    const monthLabel = (offset: number) => { const d = new Date(); d.setUTCMonth(d.getUTCMonth() - offset); return d.toISOString().slice(0, 7); };
+    const monthlyCost = [5, 4, 3, 2, 1, 0].map((offset, i) => ({
+        month: monthLabel(offset),
+        actual: round2(group.periodCost / 30 * 30 * (0.85 + i * 0.03)),
+        budget: round2(group.budget),
+        forecast: round2(group.periodCost / 30 * 30 * (0.9 + i * 0.035)),
+    }));
+
+    const subs = Array.from({ length: group.subscriptions }, (_, i) => ({
+        name: `Subscription ${String.fromCharCode(65 + i)}`,
+        cost: round2((group.periodCost / group.subscriptions) * (1 - i * 0.15)),
+        budget: round2((group.budget / group.subscriptions)),
+    }));
+
+    const locations = [
+        { region: 'eastus', resources: Math.round(group.resources * 0.4) },
+        { region: 'westeurope', resources: Math.round(group.resources * 0.25) },
+        { region: 'brazilsouth', resources: Math.round(group.resources * 0.2) },
+        { region: 'southeastasia', resources: Math.round(group.resources * 0.15) },
+    ].filter(l => l.resources > 0);
+
+    const resourceTypes = ['microsoft.compute/virtualmachines', 'microsoft.storage/storageaccounts', 'microsoft.sql/servers/databases', 'microsoft.network/networkinterfaces'];
+
+    const recommendationsCount = Math.max(1, Math.round(group.resources / 12));
+    const recommendations = Array.from({ length: recommendationsCount }, (_, i) => ({
+        id: `mock-rec-${group.name}-${i}`,
+        title: i % 2 === 0 ? 'Redimensionar VM subutilizada' : 'Eliminar disco no adjunto',
+        category: i % 2 === 0 ? 'Cost' : 'OperationalExcellence',
+        impact: i % 3 === 0 ? 'High' : 'Medium',
+        resource: `${group.name}-res-${i + 1}`,
+        resourceGroup: `rg-${group.name}-${(i % group.resourceGroups) + 1}`,
+        subscription: subs[i % Math.max(1, subs.length)]?.name || 'Subscription A',
+        potentialSavingsMonthly: round2((group.periodCost * 0.06) / recommendationsCount),
+    }));
+
+    const costAnomaliesCount = Math.max(1, Math.round(group.resources / 25));
+    const costAnomalies = Array.from({ length: costAnomaliesCount }, (_, i) => {
+        const prev = round2((group.periodCost / 30) * (0.6 + i * 0.05));
+        const curr = round2(prev * (1.4 + i * 0.1));
+        const d = new Date(); d.setUTCDate(d.getUTCDate() - (i + 1) * 2);
+        return {
+            date: d.toISOString().slice(0, 10),
+            resource: resourceTypes[i % resourceTypes.length].split('/')[1],
+            previousCost: prev,
+            newCost: curr,
+            costChange: round2(curr - prev),
+            pctChange: round2(((curr - prev) / prev) * 100),
+            costGroup: group.name,
+            subscription: subs[i % Math.max(1, subs.length)]?.name || 'Subscription A',
+            resourceGroup: `rg-${group.name}-${(i % group.resourceGroups) + 1}`,
+        };
+    });
+
+    const monthlySaving = round2(group.periodCost * 0.06);
+
+    const serviceNames = ['Application Gateways', 'Azure App Services', 'Azure Cosmos DB', 'Virtual Machines', 'Storage Accounts', 'Azure SQL Database'];
+    const meterNames = ['vCore', 'GRS Data Stored', 'RA-GRS Data Stored', 'Standard IO', 'Bandwidth', 'Reserved Instance'];
+    const serviceCategories = ['Compute', 'Storage', 'Networking', 'Databases', 'Web', 'Analytics'];
+    const distribute = (names: string[], seed: number) => {
+        const weights = [0.32, 0.24, 0.18, 0.12, 0.09, 0.05];
+        return names.map((n, i) => ({ name: n, cost: round2(group.periodCost * (weights[i] || 0.02) * (0.85 + ((i + seed) % 3) * 0.1)) })).filter(r => r.cost > 0);
+    };
+
+    const subscriptionTrend = [2, 1, 0].map(offset => {
+        const d = new Date(); d.setUTCMonth(d.getUTCMonth() - offset);
+        const point: Record<string, any> = { month: d.toISOString().slice(0, 7) };
+        subs.forEach((s, i) => { point[s.name] = round2(s.cost * (0.85 + offset * 0.05 + i * 0.02)); });
+        return point;
+    });
+
+    const auditLogsCount = Math.max(2, Math.round(group.resources / 20));
+    const auditActionTypes = ['STOP_VM', 'START_VM', 'RESIZE_VM', 'DELETE_RESOURCE', 'RESTART_VM'];
+    const auditUsers = ['sofia@demo.com', 'carlos@demo.com', 'ana@demo.com', 'admin@demo.com'];
+    const auditLogs = Array.from({ length: auditLogsCount }, (_, i) => {
+        const d = new Date(); d.setUTCDate(d.getUTCDate() - (i + 1) * 3);
+        return {
+            date: d.toISOString(),
+            from: auditUsers[i % auditUsers.length],
+            to: i % 5 === 0 ? 'failed' : 'success',
+            subject: auditActionTypes[i % auditActionTypes.length],
+            resource: `${group.name}-res-${i + 1}`,
+            comment: i % 5 === 0 ? 'Fallo de permisos en la suscripción destino.' : 'Ejecutado vía Centro de Acciones.',
+        };
+    });
+
+    const periodCost = round2(group.periodCost);
+    const previousPeriodCost = round2(group.periodCost * 0.92);
+    const currentFYCost = round2(group.periodCost * 8.5);
+    const previousFYCostRaw = round2(currentFYCost * 0.88);
+    const projectedFYCost = round2(currentFYCost * 1.1);
+
+    const resourceGroups = Array.from({ length: group.resourceGroups }, (_, i) => ({
+        resourceGroup: `rg-${group.name}-${i + 1}`,
+        avgDailyCost: round2((group.periodCost / group.resourceGroups) / 30),
+        periodCost: round2(group.periodCost / group.resourceGroups),
+        subscriptions: 1 + (i % Math.max(1, group.subscriptions)),
+        owner: group.owner ? [group.owner, subs[i % Math.max(1, subs.length)]?.name].filter(Boolean)[0] : null,
+        createdDate: new Date(Date.now() - (120 + i * 17) * 86400000).toISOString(),
+        createdBy: group.owner || 'admin@demo.com',
+    }));
+
+    return {
+        success: true,
+        mock: true,
+        name: group.name,
+        description: group.description,
+        owner: group.owner,
+        createdBy: 'admin@demo.com',
+        createdAt: new Date(Date.now() - 200 * 86400000).toISOString(),
+        lastUpdated: group.lastUpdated,
+        currentFY: {
+            actualCostToDateFY: currentFYCost,
+            currentMonthActualCost: round2(group.periodCost),
+            monthlyBudget: round2(group.budget),
+            currentMonthForecast: round2(group.forecast),
+            subscriptionBreakdown: subs,
+            monthlySaving,
+            subscriptionsCount: group.subscriptions,
+            recommendationsCount,
+            resourceGroupsCount: group.resourceGroups,
+            costAnomaliesCount,
+        },
+        costs: {
+            monthlyCost,
+            locations,
+            periodComparison: {
+                periodCost,
+                previousPeriodCost,
+                periodChangePct: round2(((periodCost - previousPeriodCost) / previousPeriodCost) * 100),
+                projectedFYCost,
+                previousFYCost: previousFYCostRaw,
+                fyChangePct: round2(((projectedFYCost - previousFYCostRaw) / previousFYCostRaw) * 100),
+                monthlyBudget: round2(group.budget),
+            },
+            byService: distribute(serviceNames, 0),
+            byMeter: distribute(meterNames, 1),
+            byServiceCategory: distribute(serviceCategories, 2),
+            subscriptionTrend,
+        },
+        actions: {
+            costAnomaliesCount,
+            recommendationsCount,
+            monthlySaving,
+            costAnomalies,
+            recommendations,
+        },
+        resources: {
+            resourceGroupsCount: group.resourceGroups,
+            resourceGroups,
+        },
+        governance: {
+            resourcesTotal: group.resources,
+            tagCoverage: [
+                { name: 'Environment', pct: 82.5 },
+                { name: 'Owner', pct: 68.0 },
+                { name: 'CostCenter', pct: 100 },
+            ],
+            auditLogsCount,
+            auditLogs,
+        },
+    };
 };

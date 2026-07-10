@@ -1,7 +1,7 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useMsal } from '@azure/msal-react';
-import { getMockDataForRoute } from '@/lib/mockData';
+import { getMockDataForRoute, getMockCostGroupDetail } from '@/lib/mockData';
 import { usePathname, useRouter } from 'next/navigation';
 import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
@@ -447,6 +447,14 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                   }), {status: 200});
               }
               if (url.includes('/api/governance/reporting')) return new Response(JSON.stringify(getMockDataForRoute('governance-reporting', tier)), {status: 200});
+              {
+                  const costGroupDetailMatch = url.match(/\/api\/cost-groups\/([^/?]+)/);
+                  if (costGroupDetailMatch) {
+                      return new Response(JSON.stringify(getMockCostGroupDetail(decodeURIComponent(costGroupDetailMatch[1]), tier)), {status: 200});
+                  }
+              }
+              if (url.includes('/api/cost-groups')) return new Response(JSON.stringify(getMockDataForRoute('cost_groups', tier)), {status: 200});
+              if (url.includes('/api/intelligence/top-expenses')) return new Response(JSON.stringify(getMockDataForRoute('top_expenses', tier)), {status: 200});
               if (url.includes('/api/governance/ha')) {
                   const m = (selectedTenant?.tier?.toLowerCase()==='enterprise')?5:(selectedTenant?.tier?.toLowerCase()==='business')?2:1;
                   const baseItems = [
