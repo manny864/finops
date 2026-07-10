@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
+import { requireTenantAccess, requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { collectAdvisorData } from "@/modules/collectors/azure/advisorCollector";
 
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
@@ -12,13 +12,16 @@ export async function POST(request: NextRequest) {
         const { tenantId, action, resourceGroup, resourceName, resourceType, subscriptionId } = body;
 
         if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
-        const identity = await requireTenantAccess(request, tenantId);
-        const email = identity.email;
 
         if (action === 'delete') {
-            await deleteResource(tenantId, email, subscriptionId, resourceGroup, resourceName, resourceType);
+            // Eliminar un recurso es destructivo: mismo criterio de rol que
+            // /api/remediation (Admin/Owner), no solo membresía al tenant.
+            const identity = await requireTenantRole(request, tenantId, ["Admin", "Owner"]);
+            await deleteResource(tenantId, identity.email, subscriptionId, resourceGroup, resourceName, resourceType);
             return NextResponse.json({ success: true, message: "Recurso eliminado" });
         }
+
+        await requireTenantAccess(request, tenantId);
         
         return NextResponse.json({ error: "Acción no soportada por el orquestador." }, { status: 400 });
     } catch (error: unknown) {
@@ -70,10 +73,19 @@ export async function GET(request: NextRequest) {
             const cat = r.category || r.recommendationType || null;
             const resId = r.resourceId || r.impactedValue || null;
             try {
+                // updated_at se refresca a mano (no solo vía ON UPDATE
+                // CURRENT_TIMESTAMP): si category/resource_id no cambian entre
+                // syncs (lo usual, una recomendación estable), MySQL trata el
+                // UPDATE como no-op y NO dispara el trigger ON UPDATE — la fila
+                // queda con el updated_at de su primer INSERT para siempre. Eso
+                // hacía que /api/intelligence/kpis/coin (que filtra por
+                // `updated_at >= NOW() - days`) perdiera de vista recomendaciones
+                // reales apenas pasaba la ventana, mostrando 0 en tenants
+                // productivos con recomendaciones vigentes pero sin cambios.
                 await pool.query(
                     `INSERT INTO RecommendationActions (tenant_id, recommendation_id, category, resource_id, status)
                      VALUES (?, ?, ?, ?, 'open')
-                     ON DUPLICATE KEY UPDATE category=COALESCE(VALUES(category), category), resource_id=COALESCE(VALUES(resource_id), resource_id)`,
+                     ON DUPLICATE KEY UPDATE category=COALESCE(VALUES(category), category), resource_id=COALESCE(VALUES(resource_id), resource_id), updated_at=CURRENT_TIMESTAMP`,
                     [tenantId, recId, cat, resId]
                 );
             } catch (e: any) {

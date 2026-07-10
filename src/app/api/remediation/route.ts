@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { deleteResource } from "@/services/remediationService";
-import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
+import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { redis } from "@/lib/redis";
 
 export async function POST(request: NextRequest) {
@@ -9,7 +9,12 @@ export async function POST(request: NextRequest) {
     const { tenantId, subscriptionId, resourceGroup, resourceName, resourceType, resourceId } = body;
 
     if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
-    const identity = await requireTenantAccess(request, tenantId);
+    // Eliminar un recurso de Azure es una acción destructiva e irreversible:
+    // solo Admin/Owner del tenant (mismo criterio que remediation/downgrade,
+    // tags/apply y el GET de zombies/networking, que ya exige Admin/Owner
+    // para siquiera ver la lista). requireTenantAccess (solo membresía)
+    // permitía que cualquier Reader/Colaborador pudiera borrar recursos.
+    const identity = await requireTenantRole(request, tenantId, ["Admin", "Owner"]);
     const email = identity.email;
 
     await deleteResource(tenantId, email, subscriptionId, resourceGroup, resourceName, resourceType, resourceId);
