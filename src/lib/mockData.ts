@@ -966,6 +966,101 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
                 data: { rows: ueRows, estimatedDau: 55000 },
             };
         }
+        case 'white_board': {
+            const round2 = (x: number) => Math.round(x * 100) / 100;
+            const scale = Math.max(1, multiplier / 5); // Enterprise-only feature: multiplier ya es 50, escala base razonable
+            const currentFYCost = round2(420000 * scale);
+            const previousFYCost = round2(currentFYCost * 0.88);
+            const monthLabel = (offset: number) => {
+                const d = new Date();
+                d.setUTCMonth(d.getUTCMonth() - offset);
+                return d.toISOString().slice(0, 7);
+            };
+            return {
+                success: true,
+                mock: true,
+                costs: {
+                    currentFYCost,
+                    previousFYCost,
+                    costProjected: round2(currentFYCost * 1.12),
+                    costChangePct: round2(((currentFYCost - previousFYCost) / previousFYCost) * 100),
+                    top3Services: [
+                        { name: "Virtual Machines", cost: round2(currentFYCost * 0.34) },
+                        { name: "Storage", cost: round2(currentFYCost * 0.19) },
+                        { name: "Azure SQL Database", cost: round2(currentFYCost * 0.14) },
+                    ],
+                    last3MonthsTrend: [
+                        { month: monthLabel(2), cost: round2(currentFYCost / 12 * 0.9) },
+                        { month: monthLabel(1), cost: round2(currentFYCost / 12 * 1.05) },
+                        { month: monthLabel(0), cost: round2(currentFYCost / 12 * 1.1) },
+                    ],
+                },
+                security: { pct: 53.4, withMfa: Math.round(31 * scale), total: Math.round(58 * scale) },
+                vulnerabilities: { high: Math.round(9 * scale), medium: Math.round(24 * scale), low: Math.round(41 * scale) },
+                governance: {
+                    untagged: {
+                        count: Math.round(861 * scale),
+                        total: Math.round(1912 * scale),
+                        countPct: 45.0,
+                        cost: round2(currentFYCost / 12 * 0.001 * 3.5),
+                        costPct: 0.01,
+                        trend: [
+                            { month: monthLabel(2), cost: round2(currentFYCost / 12 * 0.0015) },
+                            { month: monthLabel(1), cost: round2(currentFYCost / 12 * 0.0012) },
+                            { month: monthLabel(0), cost: round2(currentFYCost / 12 * 0.001) },
+                        ],
+                    },
+                    top3ComplianceWins: [
+                        { name: "Environment", pct: 88.2 },
+                        { name: "Owner", pct: 74.6 },
+                        { name: "CostCenter", pct: 55.0 },
+                    ],
+                },
+                top3ThreatCategories: [
+                    { name: "Enable MFA for accounts with owner permissions", high: Math.round(6 * scale), medium: Math.round(3 * scale), low: 0, total: Math.round(9 * scale) },
+                    { name: "Internet-exposed resource without NSG", high: Math.round(4 * scale), medium: Math.round(5 * scale), low: Math.round(1 * scale), total: Math.round(10 * scale) },
+                    { name: "Disk encryption should be enabled", high: 0, medium: Math.round(8 * scale), low: Math.round(6 * scale), total: Math.round(14 * scale) },
+                ],
+                top5Locations: [
+                    { name: "eastus", count: Math.round(612 * scale) },
+                    { name: "westeurope", count: Math.round(388 * scale) },
+                    { name: "brazilsouth", count: Math.round(241 * scale) },
+                    { name: "centralus", count: Math.round(190 * scale) },
+                    { name: "southeastasia", count: Math.round(112 * scale) },
+                ],
+                top5Inventory: [
+                    { name: "microsoft.compute/virtualmachines", count: Math.round(340 * scale) },
+                    { name: "microsoft.storage/storageaccounts", count: Math.round(212 * scale) },
+                    { name: "microsoft.network/networkinterfaces", count: Math.round(198 * scale) },
+                    { name: "microsoft.compute/disks", count: Math.round(176 * scale) },
+                    { name: "microsoft.sql/servers/databases", count: Math.round(94 * scale) },
+                ],
+                recommendations: {
+                    open: Math.round(37 * scale),
+                    potentialCostSavings: round2(currentFYCost * 0.045),
+                    trend: [
+                        { month: monthLabel(2), count: Math.round(28 * scale) },
+                        { month: monthLabel(1), count: Math.round(33 * scale) },
+                        { month: monthLabel(0), count: Math.round(37 * scale) },
+                    ],
+                },
+                costAnomalyTrend: [
+                    { month: monthLabel(2), count: 1 },
+                    { month: monthLabel(1), count: 3 },
+                    { month: monthLabel(0), count: 2 },
+                ],
+                top5CostGroups: {
+                    totalCost: round2(currentFYCost * 0.7),
+                    groups: [
+                        { name: "IT", cost: round2(currentFYCost * 0.22) },
+                        { name: "Data", cost: round2(currentFYCost * 0.18) },
+                        { name: "Marketing", cost: round2(currentFYCost * 0.13) },
+                        { name: "HR", cost: round2(currentFYCost * 0.09) },
+                        { name: "Untagged/Unknown", cost: round2(currentFYCost * 0.08) },
+                    ],
+                },
+            };
+        }
         case 'scorecard':
             return {
                 success: true,

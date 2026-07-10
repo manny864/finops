@@ -69,7 +69,8 @@
     "copilot_m365": "Copilot M365",
     "governance_reporting": "Relatórios de Governança",
     "support": "Suporte",
-    "cost_projection": "Gastos e Projeção"
+    "cost_projection": "Gastos e Projeção",
+    "white_board": "White Board"
   },
   "Dashboard": {
     "title": "Dashboard Geral",
@@ -463,7 +464,8 @@
         "Configuração de Custos do M365 Copilot",
         "SSO Federado (SAML)",
         "Azure Key Vault (criptografia gerenciada pela plataforma)",
-        "Billing Azure Marketplace SaaS"
+        "Billing Azure Marketplace SaaS",
+        "White Board Executivo (Executive Summary)"
       ]
     },
     "enterpriseModal": {
@@ -1120,5 +1122,37 @@
     "vsExpected": "vs Esperado",
     "detectedOn": "Detectada em {date}",
     "resolvedOn": "Resolvida em {date}"
+  },
+  "WhiteBoard": {
+    "title": "Executive Summary - Current FY",
+    "subtitle": "Obtenha uma visão geral do seu Cloud Estate por Unidade de Negócio (Grupos de Custo).",
+    "enterprise_required": "O White Board é uma capacidade exclusiva do plano Enterprise.",
+    "costs": "Custos",
+    "current_fy_cost": "Custo do FY Atual",
+    "cost_projected": "Custo Projetado",
+    "previous_fy": "FY Anterior",
+    "last_3_months_trend": "Tendência de Custo (Últimos 3 Meses)",
+    "top3_services": "Top 3 Serviços",
+    "security_vulnerabilities": "Segurança e Vulnerabilidades",
+    "security": "Segurança",
+    "vulnerabilities": "Vulnerabilidades",
+    "high": "Alta",
+    "medium": "Média",
+    "low": "Baixa",
+    "governance": "Governança",
+    "untagged_resources_trend": "Tendência de Recursos sem Etiqueta",
+    "untagged_resources_count": "Recursos sem Etiqueta",
+    "untagged_resources_cost": "Custo de Recursos sem Etiqueta",
+    "top3_compliance_wins": "Top 3 Conquistas de Conformidade",
+    "top3_threat_categories": "Top 3 Categorias de Ameaças",
+    "top5_locations": "Top 5 Localizações",
+    "top5_inventory": "Top 5 Inventário",
+    "open_recommendations": "Recomendações Abertas",
+    "potential_cost_savings": "Economia Potencial",
+    "recommendation_trend": "Tendência de Recomendações",
+    "cost_anomaly_trend": "Tendência de Anomalias de Custo",
+    "top5_cost_groups": "Top 5 Grupos de Custo",
+    "of": "de",
+    "monthly_cost_pct": "% do custo mensal"
   }
 }

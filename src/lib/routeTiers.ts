@@ -23,6 +23,7 @@ export const ROUTE_TIERS: Record<string, 'Essential' | 'Professional' | 'Busines
     '/intelligence/unit-economics': 'Business',
     '/intelligence/allocation': 'Enterprise',
     '/intelligence/scorecard': 'Enterprise',
+    '/intelligence/whiteboard': 'Enterprise',
     '/intelligence/anomalies': 'Professional',
     '/intelligence/optimization-index': 'Professional',
     '/intelligence/tenant-health': 'Professional',

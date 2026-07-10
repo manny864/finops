@@ -113,6 +113,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/intelligence/unit-economics', label: 'Unit Economics', icon: Activity, requiredTier: 'Business' },
                 { href: '/intelligence/allocation', label: 'Prorrateo (Allocation)', icon: PieChart, requiredTier: 'Enterprise' },
                 { href: '/intelligence/scorecard', label: 'Scorecard (Fama)', icon: Trophy, requiredTier: 'Enterprise' },
+                { href: '/intelligence/whiteboard', label: t('white_board', { fallback: 'White Board' }), icon: LayoutDashboard, requiredTier: 'Enterprise' },
                 { href: '/intelligence/anomalies', label: 'Detección Anomalías', icon: ShieldAlert, requiredTier: 'Professional' },
                 { href: '/intelligence/optimization-index', label: 'Índice de Optimización (COIN)', icon: Target, requiredTier: 'Professional' },
                 { href: '/intelligence/tenant-health', label: 'Salud del Tenant', icon: HeartPulse, requiredTier: 'Professional' },
