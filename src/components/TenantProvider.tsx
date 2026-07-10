@@ -269,6 +269,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               if (url.includes('/api/intelligence/zero-cost')) return new Response(JSON.stringify(getMockDataForRoute('zero_cost', tier)), {status: 200});
               if (url.includes('/api/intelligence/unit-economics')) return new Response(JSON.stringify(getMockDataForRoute('unit_economics', tier)), {status: 200});
               if (url.includes('/api/intelligence/scorecard')) return new Response(JSON.stringify(getMockDataForRoute('scorecard', tier)), {status: 200});
+              if (url.includes('/api/intelligence/whiteboard')) return new Response(JSON.stringify(getMockDataForRoute('white_board', tier)), {status: 200});
               if (url.includes('/api/intelligence/commitments')) {
                   const m = (selectedTenantRef.current?.tier?.toLowerCase()==='enterprise')?50:(selectedTenantRef.current?.tier?.toLowerCase()==='business')?10:(selectedTenantRef.current?.tier?.toLowerCase()==='pro')?3:1;
                   return new Response(JSON.stringify({ success: true, mock: true, data: {

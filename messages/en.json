@@ -69,7 +69,8 @@
     "copilot_m365": "Copilot M365",
     "governance_reporting": "Governance Reporting",
     "support": "Support",
-    "cost_projection": "Spend & Projection"
+    "cost_projection": "Spend & Projection",
+    "white_board": "White Board"
   },
   "Dashboard": {
     "title": "General Dashboard",
@@ -463,7 +464,8 @@
         "M365 Copilot Cost Configuration",
         "SSO Federation (SAML)",
         "Azure Key Vault (platform-managed encryption)",
-        "Azure Marketplace SaaS Billing"
+        "Azure Marketplace SaaS Billing",
+        "Executive White Board (Executive Summary)"
       ]
     },
     "enterpriseModal": {
@@ -1120,5 +1122,40 @@
     "vsExpected": "vs Expected",
     "detectedOn": "Detected on {date}",
     "resolvedOn": "Resolved on {date}"
+  },
+  "WhiteBoard": {
+    "title": "Executive Summary - Current FY",
+    "subtitle": "Get a high-level overview of your Cloud Estate by Business Unit (Cost Groups).",
+    "enterprise_required": "The White Board is an Enterprise plan exclusive capability.",
+    "costs": "Costs",
+    "current_fy_cost": "Current FY Cost",
+    "cost_projected": "Cost Projected",
+    "previous_fy": "Previous FY",
+    "last_3_months_trend": "Last 3 Months Cost Trend",
+    "top3_services": "Top 3 Services",
+    "security_vulnerabilities": "Security & Vulnerabilities",
+    "security": "Security",
+    "vulnerabilities": "Vulnerabilities",
+    "high": "High",
+    "medium": "Medium",
+    "low": "Low",
+    "governance": "Governance",
+    "untagged_resources_trend": "Untagged Resources Trend",
+    "untagged_resources_count": "Untagged Resources Count",
+    "untagged_resources_cost": "Untagged Resources Cost",
+    "top3_compliance_wins": "Top 3 Compliance Wins",
+    "top3_threat_categories": "Top 3 Threat Categories",
+    "top5_locations": "Top 5 Locations",
+    "top5_inventory": "Top 5 Inventory",
+    "open_recommendations": "Open Recommendations",
+    "potential_cost_savings": "Potential Cost Savings",
+    "recommendation_trend": "Recommendation Trend",
+    "cost_anomaly_trend": "Cost Anomaly Trend",
+    "top5_cost_groups": "Top 5 Cost Groups",
+    "of": "of",
+    "monthly_cost_pct": "% of monthly cost",
+    "total": "Total",
+    "no_findings": "No findings",
+    "mock_data_notice": "You're viewing simulated data from the demo version."
   }
 }
