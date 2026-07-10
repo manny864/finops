@@ -421,7 +421,7 @@ function BrandingConfig() {
     };
 
     return (
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div id="logo-upload" className="flex flex-col md:flex-row md:items-center justify-between gap-6 scroll-mt-24">
             <div>
                 <h4 className="font-semibold text-gray-900 dark:text-white">Logo de la Organización</h4>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 max-w-lg">

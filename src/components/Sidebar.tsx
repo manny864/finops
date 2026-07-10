@@ -52,7 +52,8 @@ import {
     PiggyBank,
     Network,
     LifeBuoy,
-    HeartPulse
+    HeartPulse,
+    Table2
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -92,6 +93,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/advisor', label: t('advisor'), icon: Lightbulb },
                 { href: '/overview/maturity', label: t('finops_maturity'), icon: Target, requiredTier: 'Essential' },
                 { href: '/overview/progress', label: t('historical_progress'), icon: TrendingDown },
+                { href: '/overview/top-expenses', label: t('top_expenses', { fallback: 'TOP Expenses' }), icon: BarChart3 },
                 { href: '/overview/sustainability', label: 'Green FinOps', icon: Leaf }
             ]
         },
@@ -101,6 +103,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             items: [
                 { href: '/intelligence/billing', label: t('billing'), icon: PieChart, requiredTier: 'Essential' },
                 { href: '/intelligence/budgets', label: t('budgets', { fallback: 'Tenant Budgets' }), icon: DollarSign, requiredTier: 'Essential' },
+                { href: '/intelligence/cost-groups', label: t('cost_groups', { fallback: 'Cost Groups' }), icon: Table2, requiredTier: 'Business' },
                 { href: '/intelligence/rightsizing', label: t('rightsizing'), icon: Zap, requiredTier: 'Professional' },
                 { href: '/intelligence/network', label: t('network_analytics'), icon: Activity, requiredTier: 'Professional' },
                 { href: '/intelligence/rates', label: t('rate_optimization'), icon: DollarSign, requiredTier: 'Business' },
