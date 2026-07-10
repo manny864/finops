@@ -158,6 +158,16 @@ export async function initializeDatabase() {
             if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding access_until:", e);
         }
 
+        // logo_stored_name: nombre de archivo (uuid.ext) del logo del tenant,
+        // subido desde Administración > Configuración Global. Se sirve
+        // públicamente vía /api/tenant-logo/[tenantId] (ver src/lib/tenantLogo.ts)
+        // para poder usarlo directo en un <img src> del header sin auth.
+        try {
+            await connection.query('ALTER TABLE Tenants ADD COLUMN logo_stored_name VARCHAR(255) NULL;');
+        } catch (e: any) {
+            if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding logo_stored_name:", e);
+        }
+
         await connection.query(`
             CREATE TABLE IF NOT EXISTS Users (
                 id INT AUTO_INCREMENT PRIMARY KEY,

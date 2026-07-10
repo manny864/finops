@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
                             (client_secret IS NOT NULL AND client_secret <> '') as has_client_secret,
                             tier, trial_ends_at, subscription_status, access_until, is_onboarded,
                             partner_link_status, partner_link_detail,
-                            sales_referrer
+                            sales_referrer, (logo_stored_name IS NOT NULL) as has_logo
                      FROM Tenants ORDER BY created_at ASC`;
         let queryParams: any[] = [];
 
@@ -60,7 +60,8 @@ export async function GET(request: NextRequest) {
             query = `SELECT t.tenant_id as id, t.company_name as name, t.client_id,
                             (t.client_secret IS NOT NULL AND t.client_secret <> '') as has_client_secret,
                             t.tier, t.trial_ends_at, t.subscription_status, t.access_until, t.is_onboarded,
-                            t.partner_link_status, t.partner_link_detail
+                            t.partner_link_status, t.partner_link_detail,
+                            (t.logo_stored_name IS NOT NULL) as has_logo
                      FROM Tenants t
                      JOIN Users u ON t.tenant_id = u.tenant_id
                      WHERE u.email = ? ORDER BY t.created_at ASC`;
@@ -85,7 +86,8 @@ export async function GET(request: NextRequest) {
                     `SELECT tenant_id as id, company_name as name, client_id,
                             (client_secret IS NOT NULL AND client_secret <> '') as has_client_secret,
                             tier, trial_ends_at, subscription_status, access_until, is_onboarded,
-                            partner_link_status, partner_link_detail
+                            partner_link_status, partner_link_detail,
+                            (logo_stored_name IS NOT NULL) as has_logo
                      FROM Tenants WHERE tenant_id = ? LIMIT 1`,
                     [identity.tenantId]
                 );

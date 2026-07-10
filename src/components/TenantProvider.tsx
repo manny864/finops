@@ -13,6 +13,7 @@ export interface Tenant {
   subscription_status?: string;
   trial_ends_at?: string;
   access_until?: string;
+  has_logo?: boolean;
   requires_rbac_update?: boolean;
   is_onboarded?: boolean;
   client_id?: string | null;
