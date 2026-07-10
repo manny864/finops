@@ -22,6 +22,35 @@ export const ENTERPRISE_CUSTOM_ACTIONS: string[] = [
     "Microsoft.Network/networkInterfaces/delete",
     "Microsoft.Network/publicIPAddresses/delete",
     "Microsoft.Network/networkSecurityGroups/delete",
+    // Networking Zombies (expansión): resto de tipos de red con soporte de
+    // eliminación en la plataforma (ver armType en
+    // src/app/api/cleanup/zombies/networking/route.ts). La eliminación de
+    // recursos es exclusiva de Enterprise (ver canDeleteResources en
+    // src/lib/tierLogic.ts) — sin estas acciones, el DELETE contra Azure
+    // devuelve AuthorizationFailed (403) aunque el tenant sea Enterprise.
+    "Microsoft.Network/loadBalancers/delete",
+    "Microsoft.Network/applicationGateways/delete",
+    "Microsoft.Network/virtualNetworkGateways/delete",
+    "Microsoft.Network/virtualNetworks/delete",
+    "Microsoft.Network/virtualNetworks/subnets/delete",
+    "Microsoft.Network/virtualHubs/delete",
+    "Microsoft.Network/expressRouteCircuits/delete",
+    "Microsoft.Network/virtualNetworks/virtualNetworkPeerings/delete",
+    "Microsoft.Network/azureFirewalls/delete",
+    "Microsoft.Network/applicationSecurityGroups/delete",
+    "Microsoft.Network/privateEndpoints/delete",
+    "Microsoft.Network/privateDnsZones/delete",
+    "Microsoft.Network/bastionHosts/delete",
+    "Microsoft.Network/ddosProtectionPlans/delete",
+    "Microsoft.Network/applicationGatewayWebApplicationFirewallPolicies/delete",
+    "Microsoft.Network/frontDoorWebApplicationFirewallPolicies/delete",
+    "Microsoft.Network/frontDoors/delete",
+    "Microsoft.Cdn/profiles/delete",
+    "Microsoft.Network/trafficManagerProfiles/delete",
+    "Microsoft.Network/natGateways/delete",
+    "Microsoft.Network/dnsZones/delete",
+    "Microsoft.Network/networkWatchers/delete",
+    "Microsoft.Network/networkWatchers/flowLogs/delete",
 ];
 
 // Nombre canónico del custom role creado por el script de onboarding.

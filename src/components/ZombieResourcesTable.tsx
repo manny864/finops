@@ -11,6 +11,8 @@ import { useTranslations } from 'next-intl';
 import { useAIContext } from '@/hooks/useAIContext';
 import { getMockDataForRoute, isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
+import { canDeleteResources } from '@/lib/tierLogic';
+import EnterpriseDeleteDisclaimer from '@/components/EnterpriseDeleteDisclaimer';
 import {
   useReactTable,
   getCoreRowModel,
@@ -82,23 +84,22 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
           const json = await res.json();
           if (!res.ok) {
               if (json.error === "MISSING_CONTRIBUTOR_ROLE") {
-                  toast.error('¡Operación Denegada!', { description: 'Tu aplicación FinOps solo tiene rol de Lector o faltan permisos en la suscripción.' });
-                  addAction({ message: `Fallo de permisos al borrar ${item.resourceName}. Se requiere Rol Contributor.`, status: 'error' }); 
+                  toast.error('¡Operación Denegada!', { description: 'La eliminación de recursos requiere el plan Enterprise (tu Service Principal no tiene el rol de Azure necesario).' });
+                  addAction({ message: `Fallo de permisos al borrar ${item.resourceName}. Requiere plan Enterprise.`, status: 'error' });
                   setDeletingId(null);
                   return;
               }
               throw new Error(json.error || "Fallo al eliminar");
           }
-          
+
           setData(prev => prev.filter(r => r.id !== item.id));
           toast.success('Recurso Eliminado', { description: `${item.resourceName} fue destruido.` });
           addAction({ message: `Se eliminó el recurso zombi: ${item.resourceName} exitosamente.`, status: 'success' });
       } catch (err: any) {
           console.warn("Aviso de eliminación:", err.message);
           if (err.message && err.message.startsWith("MISSING_CONTRIBUTOR_ROLE")) {
-              const clientId = err.message.split("|")[1];
-              toast.error('¡Operación Denegada!', { description: 'Tu aplicación FinOps solo tiene rol de Lector.' });
-              addAction({ message: `Fallo de permisos al borrar ${item.resourceName}. Se requiere Rol Contributor.`, status: 'error' }); 
+              toast.error('¡Operación Denegada!', { description: 'La eliminación de recursos requiere el plan Enterprise.' });
+              addAction({ message: `Fallo de permisos al borrar ${item.resourceName}. Requiere plan Enterprise.`, status: 'error' });
           } else {
               toast.error('Error al borrar', { description: err.message });
               addAction({ message: `Error al borrar ${item.resourceName}: ${err.message}`, status: 'error' });
@@ -302,6 +303,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
   }, [data, filterType, filterGroup, filterIssue, searchQuery]);
 
   const hasLockedItems = useMemo(() => filteredData.some(item => item.isLocked), [filteredData]);
+  const canDelete = canDeleteResources(selectedTenant.tier);
 
   const columns = useMemo<ColumnDef<any>[]>(() => {
     const cols: ColumnDef<any>[] = [
@@ -410,20 +412,26 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                         </button>
                     </>
                 )}
-                <button 
-                    onClick={() => handleDelete(item)}
-                    disabled={deletingId === item.id || (item.issueType === 'governance' && item.issue === "Sin Etiquetas FinOps")}
-                    className={`px-3 py-1 rounded-md text-xs font-semibold shadow-sm transition-colors ${deletingId === item.id ? 'bg-gray-100 text-gray-400 cursor-wait' : (item.issueType === 'governance' && item.issue === "Sin Etiquetas FinOps") ? 'bg-gray-50 text-gray-300 cursor-not-allowed' : 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200'}`}
-                >
-                    {deletingId === item.id ? 'Borrando...' : 'Borrar'}
-                </button>
+                {canDelete ? (
+                    <button
+                        onClick={() => handleDelete(item)}
+                        disabled={deletingId === item.id || (item.issueType === 'governance' && item.issue === "Sin Etiquetas FinOps")}
+                        className={`px-3 py-1 rounded-md text-xs font-semibold shadow-sm transition-colors ${deletingId === item.id ? 'bg-gray-100 text-gray-400 cursor-wait' : (item.issueType === 'governance' && item.issue === "Sin Etiquetas FinOps") ? 'bg-gray-50 text-gray-300 cursor-not-allowed' : 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200'}`}
+                    >
+                        {deletingId === item.id ? 'Borrando...' : 'Borrar'}
+                    </button>
+                ) : (
+                    <span className="px-3 py-1 rounded-md text-xs font-semibold bg-gray-50 text-gray-400 border border-gray-200" title="La eliminación de recursos requiere el plan Enterprise">
+                        Enterprise
+                    </span>
+                )}
             </div>
           );
       }
     });
 
     return cols;
-  }, [viewMode, deletingId]);
+  }, [viewMode, deletingId, canDelete]);
 
   const table = useReactTable({
     data: filteredData,
@@ -450,6 +458,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
 
   return (
     <div className="card">
+      {!canDelete && <div className="mb-4"><EnterpriseDeleteDisclaimer /></div>}
       <div className="card-h flex-col sm:flex-row items-start sm:items-center gap-4 border-b border-line pb-4 mb-4">
         <div>
             <h3 className="text-brand-deep dark:text-white m-0">

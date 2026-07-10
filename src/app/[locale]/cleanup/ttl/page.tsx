@@ -8,6 +8,8 @@ import { useActionLogStore } from '@/store/actionLogStore';
 import { Clock, CheckCircle, Trash2, AlertCircle } from "lucide-react";
 import MockBanner from '@/components/MockBanner';
 import Pagination, { usePagination } from '@/components/Pagination';
+import { canDeleteResources } from '@/lib/tierLogic';
+import EnterpriseDeleteDisclaimer from '@/components/EnterpriseDeleteDisclaimer';
 
 export default function TtlCleanupPage() {
   const { selectedTenant } = useTenant();
@@ -71,6 +73,9 @@ export default function TtlCleanupPage() {
               setResources(prev => prev.filter(r => r.id !== resourceId));
               toast.success('Entorno Destruido');
               addAction({ message: `Entorno TTL expirado destruido exitosamente.`, status: 'success' });
+          } else if (json.error === 'MISSING_CONTRIBUTOR_ROLE') {
+              toast.error('¡Operación Denegada!', { description: 'La eliminación de recursos requiere el plan Enterprise (tu Service Principal no tiene el rol de Azure necesario).' });
+              addAction({ message: `Fallo de permisos al borrar entorno TTL. Requiere plan Enterprise.`, status: 'error' });
           } else {
               toast.error('Error al eliminar', { description: json.error });
               addAction({ message: `Fallo al eliminar entorno TTL: ${resourceId}`, status: 'error' });
@@ -83,6 +88,8 @@ export default function TtlCleanupPage() {
   };
 
   if (selectedTenant.id === 'default') return null;
+
+  const canDelete = canDeleteResources(selectedTenant.tier);
 
   return (
     <div className="content animate-in fade-in duration-500">
@@ -99,6 +106,7 @@ export default function TtlCleanupPage() {
         </div>
       </div>
       <MockBanner />
+      {!canDelete && <div className="mb-4"><EnterpriseDeleteDisclaimer /></div>}
 
       {error && (
         <div className="card">
@@ -180,20 +188,24 @@ export default function TtlCleanupPage() {
                                         </span>
                                     </td>
                                     <td className="num">
-                                        <button
-                                            onClick={() => handleDelete(r.id, r.subscriptionId, r.type)}
-                                            disabled={deletingId === r.id || r.ttlStatus === 'Active'}
-                                            className={`${r.ttlStatus === 'Active' ? 'bg-surface-2 text-grey' : 'bg-danger text-white hover:brightness-110'} px-[11px] py-[7px] rounded-[10px] text-[12px] font-heading font-semibold shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-[6px]`}
-                                        >
-                                            {deletingId === r.id ? (
-                                                'Eliminando...'
-                                            ) : (
-                                                <>
-                                                    <Trash2 className="w-3.5 h-3.5" />
-                                                    Eliminar
-                                                </>
-                                            )}
-                                        </button>
+                                        {canDelete ? (
+                                            <button
+                                                onClick={() => handleDelete(r.id, r.subscriptionId, r.type)}
+                                                disabled={deletingId === r.id || r.ttlStatus === 'Active'}
+                                                className={`${r.ttlStatus === 'Active' ? 'bg-surface-2 text-grey' : 'bg-danger text-white hover:brightness-110'} px-[11px] py-[7px] rounded-[10px] text-[12px] font-heading font-semibold shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-[6px]`}
+                                            >
+                                                {deletingId === r.id ? (
+                                                    'Eliminando...'
+                                                ) : (
+                                                    <>
+                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                        Eliminar
+                                                    </>
+                                                )}
+                                            </button>
+                                        ) : (
+                                            <span className="tag grey" title="La eliminación de recursos requiere el plan Enterprise">Enterprise</span>
+                                        )}
                                     </td>
                                 </tr>
                             );

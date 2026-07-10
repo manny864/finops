@@ -8,6 +8,8 @@ import { toast } from "sonner";
 import { Loader2, Network, AlertCircle, Info, DollarSign, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { isMockTenant } from "@/lib/mockData";
 import { getFreshIdToken } from "@/lib/msalToken";
+import { canDeleteResources } from "@/lib/tierLogic";
+import EnterpriseDeleteDisclaimer from "@/components/EnterpriseDeleteDisclaimer";
 
 type ZombieItem = {
     resourceId: string;
@@ -102,7 +104,7 @@ export default function NetworkingZombiesPanel() {
             const json = await res.json();
             if (!res.ok) {
                 if (json.error === "MISSING_CONTRIBUTOR_ROLE") {
-                    toast.error("¡Operación Denegada!", { description: "Tu aplicación FinOps solo tiene rol de Lector o faltan permisos en la suscripción." });
+                    toast.error("¡Operación Denegada!", { description: "La eliminación de recursos requiere el plan Enterprise (tu Service Principal no tiene el rol de Azure necesario)." });
                     return;
                 }
                 throw new Error(json.error || "Fallo al eliminar");
@@ -147,6 +149,7 @@ export default function NetworkingZombiesPanel() {
 
     const items: ZombieItem[] = data.items || [];
     const totalWaste: number = data.totalMonthlyWaste || 0;
+    const canDelete = canDeleteResources(selectedTenant.tier);
 
     const pageCount = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
     const safePageIndex = Math.min(pageIndex, pageCount - 1);
@@ -164,6 +167,8 @@ export default function NetworkingZombiesPanel() {
                     </div>
                 </div>
             )}
+
+            {!canDelete && <EnterpriseDeleteDisclaimer />}
 
             {/* Summary KPI */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -213,7 +218,7 @@ export default function NetworkingZombiesPanel() {
                                         <th className="px-4 py-3 font-semibold">Motivo</th>
                                         <th className="px-4 py-3 font-semibold text-right">Días Idle</th>
                                         <th className="px-4 py-3 font-semibold text-right">Costo/Mes</th>
-                                        <th className="px-4 py-3 font-semibold text-right">Acción</th>
+                                        {canDelete && <th className="px-4 py-3 font-semibold text-right">Acción</th>}
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 dark:divide-slate-800/50">
@@ -239,21 +244,23 @@ export default function NetworkingZombiesPanel() {
                                             <td className="px-4 py-3 text-right font-semibold text-red-600 dark:text-red-400">
                                                 ${item.monthlyCost.toFixed(2)}
                                             </td>
-                                            <td className="px-4 py-3 text-right">
-                                                <button
-                                                    onClick={() => handleDelete(item)}
-                                                    disabled={deletingId === item.resourceId}
-                                                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-950/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                                    title={`Eliminar ${item.resourceName}`}
-                                                >
-                                                    {deletingId === item.resourceId ? (
-                                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                                    ) : (
-                                                        <Trash2 className="w-3.5 h-3.5" />
-                                                    )}
-                                                    Eliminar
-                                                </button>
-                                            </td>
+                                            {canDelete && (
+                                                <td className="px-4 py-3 text-right">
+                                                    <button
+                                                        onClick={() => handleDelete(item)}
+                                                        disabled={deletingId === item.resourceId}
+                                                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-950/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                                        title={`Eliminar ${item.resourceName}`}
+                                                    >
+                                                        {deletingId === item.resourceId ? (
+                                                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                        ) : (
+                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                        )}
+                                                        Eliminar
+                                                    </button>
+                                                </td>
+                                            )}
                                         </tr>
                                     ))}
                                 </tbody>

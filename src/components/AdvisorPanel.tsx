@@ -6,7 +6,7 @@ import { useSubscription } from './SubscriptionProvider';
 import { useLocale, useTranslations } from 'next-intl';
 import RoleAssignmentBanner from './RoleAssignmentBanner';
 import { Info, Lightbulb, X, Play } from 'lucide-react';
-import { hasAccess } from '@/lib/tierLogic';
+import { hasAccess, canDeleteResources } from '@/lib/tierLogic';
 import { translateAdvisorText } from '@/lib/advisorI18n';
 import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
@@ -219,6 +219,11 @@ export default function AdvisorPanel() {
           return;
       }
 
+      if (!canDeleteResources(selectedTenant.tier)) {
+          alert("La eliminación de recursos es una capacidad del plan Enterprise. Tu plan actual puede detectar esta recomendación, pero no ejecutarla automáticamente — hacelo desde el portal de Azure o actualizá a Enterprise.");
+          return;
+      }
+
       if (!confirm(`¿Estás seguro de que deseas ejecutar este Quick Fix y ELIMINAR permanentemente el recurso ${resourceName}? Esta acción no se puede deshacer.`)) return;
 
       setActionLoading(rec.id || resourceId);
@@ -237,9 +242,14 @@ export default function AdvisorPanel() {
                   resourceName
               })
           });
-          
+
           const json = await res.json();
-          if (!res.ok) throw new Error(json.error || json.details || 'Error al ejecutar remediación');
+          if (!res.ok) {
+              if (json.error === 'MISSING_CONTRIBUTOR_ROLE') {
+                  throw new Error('La eliminación de recursos requiere el plan Enterprise (tu Service Principal no tiene el rol de Azure necesario).');
+              }
+              throw new Error(json.error || json.details || 'Error al ejecutar remediación');
+          }
           alert("✅ Remediación ejecutada exitosamente. Los cambios pueden tardar unos minutos en reflejarse en Azure.");
       } catch(e: any) {
           alert("Error al ejecutar la remediación: " + e.message);

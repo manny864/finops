@@ -27,6 +27,19 @@ export function hasAccess(currentTier: string, requiredTier: string): boolean {
 }
 
 /**
+ * Eliminación de recursos de Azure (Recursos Zombis, Networking Zombies,
+ * Expiraciones TTL, Azure Advisor Action Center): el Service Principal solo
+ * tiene permisos `delete` en Azure vía el Custom Role de remediación que el
+ * script de onboarding asigna, y ese rol solo se crea para tier Enterprise
+ * (ver getCustomRoleActionsForTier en onboardingScriptTemplate.ts). Otros
+ * tiers pueden VER/detectar zombis pero no tienen el rol de Azure para
+ * borrarlos — se oculta el botón en vez de dejar que falle en el backend.
+ */
+export function canDeleteResources(currentTier?: string | null): boolean {
+    return hasAccess(currentTier || '', 'Enterprise');
+}
+
+/**
  * Límites de uso por plan (ver pricing.*.limits en messages/*.json y
  * PricingPage.tsx). No confundir con `hasAccess`/`requiredTier`, que gatean
  * FEATURES (qué páginas ves); esto gatea CANTIDAD (cuántas suscripciones
