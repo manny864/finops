@@ -40,6 +40,7 @@ const SECRETS: Array<{ envVar: string; kvName: string }> = [
   { envVar: "BACKUP_AZURE_SAS_URL", kvName: "infra-backup-azure-sas-url" },
   { envVar: "GEMINI_API_KEY", kvName: "infra-gemini-api-key" },
   { envVar: "RECAPTCHA_SECRET", kvName: "infra-recaptcha-secret" },
+  { envVar: "AZURE_STORAGE_CONNECTION_STRING", kvName: "infra-azure-storage-connection-string" },
 ];
 
 async function main() {

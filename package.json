@@ -45,6 +45,7 @@
     "@azure/keyvault-secrets": "^4.11.2",
     "@azure/msal-browser": "^5.11.0",
     "@azure/msal-react": "^5.4.2",
+    "@azure/storage-blob": "^12.33.0",
     "@dsnp/parquetjs": "^1.8.7",
     "@paddle/paddle-js": "^1.6.4",
     "@react-pdf/renderer": "^4.5.1",

@@ -1,9 +1,13 @@
 /**
- * Almacenamiento local del logo de marca de un tenant (branding del header).
+ * Almacenamiento del logo de marca de un tenant (branding del header).
  *
- * Mismo patrón que src/lib/supportAttachments.ts: se guarda como
- * `<uuid>.<ext>` bajo TENANT_LOGO_UPLOAD_DIR (default: ./data/tenant-logos,
- * montado como volumen en Docker), nunca con el nombre original.
+ * Se guarda como `<uuid>.<ext>` (nunca con el nombre original) en el
+ * container "tenant-logos" de Azure Blob Storage (ver
+ * src/lib/azureBlobStorage.ts) si AZURE_STORAGE_CONNECTION_STRING está
+ * configurado; si no, cae a filesystem local bajo TENANT_LOGO_UPLOAD_DIR
+ * (default: ./data/tenant-logos, montado como volumen en Docker) — mismo
+ * patrón híbrido que el resto del código (Key Vault -> env, etc.), para no
+ * requerir un Storage Account real en cada entorno de desarrollo.
  *
  * Solo raster (png/jpg/jpeg/webp) — deliberadamente SIN soporte de SVG: un
  * SVG puede embeber <script>, y como el logo se sirve inline desde nuestro
@@ -14,8 +18,10 @@
 import { promises as fs } from "fs";
 import path from "path";
 import crypto from "crypto";
+import { isBlobStorageEnabled, uploadBlob, downloadBlob, deleteBlob } from "@/lib/azureBlobStorage";
 
 export const TENANT_LOGO_MAX_BYTES = 2 * 1024 * 1024; // 2 MB
+export const TENANT_LOGO_CONTAINER = process.env.AZURE_STORAGE_CONTAINER_LOGOS || "tenant-logos";
 
 const ALLOWED: Record<string, { mime: string; magic: number[][] }> = {
     png: { mime: "image/png", magic: [[0x89, 0x50, 0x4e, 0x47]] },
@@ -23,6 +29,8 @@ const ALLOWED: Record<string, { mime: string; magic: number[][] }> = {
     jpeg: { mime: "image/jpeg", magic: [[0xff, 0xd8, 0xff]] },
     webp: { mime: "image/webp", magic: [[0x52, 0x49, 0x46, 0x46]] }, // 'RIFF'
 };
+
+const STORED_NAME_RE = /^[0-9a-f-]{36}\.(png|jpe?g|webp)$/i;
 
 export function getTenantLogoUploadDir(): string {
     return process.env.TENANT_LOGO_UPLOAD_DIR || path.join(process.cwd(), "data", "tenant-logos");
@@ -55,15 +63,22 @@ export function validateTenantLogo(fileName: string, bytes: Buffer): LogoValidat
 }
 
 export async function saveTenantLogo(bytes: Buffer, ext: string): Promise<string> {
+    const storedName = `${crypto.randomUUID()}.${ext}`;
+    if (isBlobStorageEnabled()) {
+        await uploadBlob(TENANT_LOGO_CONTAINER, storedName, bytes, mimeForExt(ext));
+        return storedName;
+    }
     const dir = getTenantLogoUploadDir();
     await fs.mkdir(dir, { recursive: true });
-    const storedName = `${crypto.randomUUID()}.${ext}`;
     await fs.writeFile(path.join(dir, storedName), bytes, { mode: 0o644 });
     return storedName;
 }
 
 export async function readTenantLogo(storedName: string): Promise<Buffer | null> {
-    if (!/^[0-9a-f-]{36}\.(png|jpe?g|webp)$/i.test(storedName)) return null;
+    if (!STORED_NAME_RE.test(storedName)) return null;
+    if (isBlobStorageEnabled()) {
+        return downloadBlob(TENANT_LOGO_CONTAINER, storedName);
+    }
     try {
         return await fs.readFile(path.join(getTenantLogoUploadDir(), storedName));
     } catch {
@@ -72,7 +87,15 @@ export async function readTenantLogo(storedName: string): Promise<Buffer | null>
 }
 
 export async function deleteTenantLogoFile(storedName: string): Promise<void> {
-    if (!/^[0-9a-f-]{36}\.(png|jpe?g|webp)$/i.test(storedName)) return;
+    if (!STORED_NAME_RE.test(storedName)) return;
+    if (isBlobStorageEnabled()) {
+        try {
+            await deleteBlob(TENANT_LOGO_CONTAINER, storedName);
+        } catch {
+            // Ya no existe o falló best-effort; no-op.
+        }
+        return;
+    }
     try {
         await fs.unlink(path.join(getTenantLogoUploadDir(), storedName));
     } catch {
