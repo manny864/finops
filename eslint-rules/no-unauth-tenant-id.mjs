@@ -6,8 +6,12 @@
  * searchParams.get('tenantId')) directamente en su cuerpo sin un guard de auth
  * en el mismo handler, se emite un ERROR.
  *
- * Guards reconocidos: requireTenantAccess, requireTenantRole, requireSuperAdmin,
- * requireRequestIdentity.
+ * Guards reconocidos: requireTenantAccess, requireTenantRole, requireTenantTier,
+ * requireSuperAdmin, requireRequestIdentity.
+ *
+ * requireTenantTier cuenta como guard porque llama a requireTenantAccess como
+ * primera línea de su implementación (ver src/lib/requestAuth.ts) antes de
+ * chequear el tier — es un guard estrictamente más fuerte, no uno alternativo.
  *
  * Reglas de exención (para evitar falsos positivos):
  *  - Lecturas dentro de funciones helper (ej. parseParams) o callbacks anidados
@@ -48,6 +52,7 @@ const rule = {
     const SAFE_GUARDS = new Set([
       "requireTenantAccess",
       "requireTenantRole",
+      "requireTenantTier",
       "requireSuperAdmin",
       "requireRequestIdentity",
     ]);
