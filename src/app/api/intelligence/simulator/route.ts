@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { isMockTenant } from "@/lib/mockData";
 import { runScenario, parseInputs } from "@/lib/simulator/engine";
-import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
+import { AuthError, requireTenantAccess, requireTenantTier } from "@/lib/requestAuth";
 import { serverError } from '@/lib/apiErrors';
 
 export async function POST(request: NextRequest) {
@@ -16,22 +16,12 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Faltan parámetros requeridos: tenantId" }, { status: 400 });
         }
 
-        await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
-
-        // Feature Gate Verification
-        let normalizedTier = 'Enterprise'; // Default for mock tenants
-        if (!isMockTenant(tenantId)) {
-            const [tenants]: any = await pool.query('SELECT * FROM Tenants WHERE tenant_id = ?', [tenantId]);
-            if (!tenants || tenants.length === 0) {
-                return NextResponse.json({ error: "Tenant no encontrado." }, { status: 404 });
-            }
-            
-            const tier = tenants[0].tier;
-            normalizedTier = tier.toLowerCase() === 'enterprise' ? 'Enterprise' : tier;
-        }
-
-        if (normalizedTier !== 'Enterprise') {
-            return NextResponse.json({ error: "Feature bloqueada. Requiere plan Enterprise." }, { status: 403 });
+        // Simulador What-If es feature Business (ver pricing.business.features:
+        // "Escenarios What-If (Simulador de Costos)"), antes exigía Enterprise.
+        if (isMockTenant(tenantId)) {
+            await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
+        } else {
+            await requireTenantTier(request, tenantId, 'Business', { allowSuperAdmin: true });
         }
 
         // Resolver baseCost a partir del gasto real del último mes para tenants reales.

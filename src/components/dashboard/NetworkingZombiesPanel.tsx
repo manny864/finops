@@ -18,8 +18,9 @@ type ZombieItem = {
 };
 
 const TYPE_BADGE: Record<string, string> = {
-    applicationGateway: "bg-purple-100 dark:bg-purple-950/40 text-purple-700 dark:text-purple-400",
-    loadBalancer:       "bg-cyan-100 dark:bg-cyan-950/40 text-cyan-700 dark:text-cyan-400",
+    applicationGateway:     "bg-purple-100 dark:bg-purple-950/40 text-purple-700 dark:text-purple-400",
+    loadBalancer:           "bg-cyan-100 dark:bg-cyan-950/40 text-cyan-700 dark:text-cyan-400",
+    virtualNetworkGateway:  "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400",
 };
 
 export default function NetworkingZombiesPanel() {

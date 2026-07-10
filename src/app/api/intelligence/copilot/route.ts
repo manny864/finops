@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { streamText } from "ai";
 import { AIProviderFactory } from "@/modules/core/aiProvider";
 import { isMockTenant } from "@/lib/mockData";
-import { requireRequestIdentity, requireTenantAccess, AuthError } from "@/lib/requestAuth";
+import { requireRequestIdentity, requireTenantTier, AuthError } from "@/lib/requestAuth";
 import rateLimiter from "@/lib/rateLimiter";
 
 export const runtime = "nodejs";
@@ -21,7 +21,8 @@ export async function POST(request: NextRequest) {
         const isDemoTenant = tenantId && isMockTenant(tenantId);
 
         if (tenantId && !isDemoTenant) {
-            await requireTenantAccess(request, tenantId);
+            // FinOps Copilot (IA) es feature Business (ver pricing.business.features).
+            await requireTenantTier(request, tenantId, 'Business');
         }
 
         const effectiveTenantId = isDemoTenant ? identity.tenantId : (tenantId || identity.tenantId);

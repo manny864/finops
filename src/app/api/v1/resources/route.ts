@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
+import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { verifyApiKey, requireScope } from "@/lib/publicApiAuth";
 import rateLimiter from "@/lib/rateLimiter";
+import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
 
 export async function GET(request: NextRequest) {
   const requestId = uuidv4();
@@ -66,19 +68,33 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(Math.max(Number(searchParams.get("limit")) || 100, 1), 1000);
     const offset = Math.max(Number(searchParams.get("offset")) || 0, 0);
 
+    let data: any[] = [];
+    try {
+      const credential = await getAzureCredential(authResult.tenantId);
+      const subs = await getSubscriptionsForTenant(authResult.tenantId, credential);
+      if (subs.length > 0) {
+        const client = new ResourceGraphClient(credential);
+        const result = await client.resources({
+          subscriptions: subs,
+          query: `Resources | project id, name, type, subscriptionId, resourceGroup, location, tags | order by name asc | skip ${offset} | take ${limit}`,
+        });
+        data = ((result.data as any[]) || []).map((r) => ({
+          id: r.id,
+          name: r.name,
+          type: r.type,
+          subscription_id: r.subscriptionId,
+          resource_group: r.resourceGroup,
+          location: r.location,
+          tags: r.tags || {},
+        }));
+      }
+    } catch (e: any) {
+      console.warn("[v1/resources] Resource Graph query falló, devolviendo lista vacía:", e?.message);
+    }
+
     return NextResponse.json(
       {
-        data: [
-          {
-            id: "placeholder-1",
-            name: "Placeholder Resource",
-            type: "Microsoft.Compute/virtualMachines",
-            subscription_id: "sub-123",
-            resource_group: "default",
-            location: "eastus",
-            tags: {},
-          },
-        ],
+        data,
         meta: {
           request_id: requestId,
           rate_limit: {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 import { verifyApiKey, requireScope } from "@/lib/publicApiAuth";
 import rateLimiter from "@/lib/rateLimiter";
+import { collectAdvisorData } from "@/modules/collectors/azure/advisorCollector";
 
 export async function GET(request: NextRequest) {
   const requestId = uuidv4();
@@ -62,21 +63,35 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const { searchParams } = new URL(request.url);
+    const limit = Math.min(Math.max(Number(searchParams.get("limit")) || 100, 1), 1000);
+    const offset = Math.max(Number(searchParams.get("offset")) || 0, 0);
+
+    let data: any[] = [];
+    try {
+      const advisorData = await collectAdvisorData(authResult.tenantId, "en");
+      const grouped: Record<string, any[]> = advisorData?.recommendations || {};
+      const flat = Object.entries(grouped).flatMap(([category, recs]) =>
+        (recs as any[]).map((r) => ({
+          id: r.id || r.recommendationId || `${category}-${r.impactedField || ""}`,
+          type: category,
+          resource: r.impactedValue || r.impactedField || "unknown",
+          estimated_savings_usd: String(Number(r.extendedProperties?.savingsAmount || 0).toFixed(2)),
+          priority: r.impact || "medium",
+          details: {
+            problem: r.shortDescription?.problem || null,
+            solution: r.shortDescription?.solution || null,
+          },
+        }))
+      );
+      data = flat.slice(offset, offset + limit);
+    } catch (e: any) {
+      console.warn("[v1/recommendations] collectAdvisorData falló, devolviendo lista vacía:", e?.message);
+    }
+
     return NextResponse.json(
       {
-        data: [
-          {
-            id: "rec-001",
-            type: "rightsizing",
-            resource: "vm-prod-01",
-            estimated_savings_usd: "500.00",
-            priority: "high",
-            details: {
-              current_sku: "Standard_D4s_v3",
-              recommended_sku: "Standard_D2s_v3",
-            },
-          },
-        ],
+        data,
         meta: {
           request_id: requestId,
           rate_limit: {

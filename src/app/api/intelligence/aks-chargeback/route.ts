@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
+import { requireTenantAccess, requireTenantTier, AuthError } from "@/lib/requestAuth";
 import { getAksChargebackCost } from "@/modules/collectors/azure/aksCostService";
 import { isMockTenant } from "@/lib/mockData";
-import pool from "@/modules/storage/db";
 import { getResourceGraphClient } from "@/lib/azure";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { withArgLimit } from "@/lib/argConcurrency";
@@ -16,21 +15,13 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Faltan parámetros requeridos: tenantId" }, { status: 400 });
         }
 
-        const identity = await requireTenantAccess(request, tenantId);
-        const isSuperAdmin = identity.isCorporateDomain;
-
-        // --- Feature gate (tier Enterprise) ---
-        let normalizedTier = 'Enterprise';
+        // AKS Chargeback es feature Business (ver pricing.business.features:
+        // "Distribución de Costos (Chargeback)"), antes exigía Enterprise acá
+        // aunque el Sidebar ya lo mostraba distinto.
         if (!isMockTenant(tenantId)) {
-            const [tenants]: any = await pool.query('SELECT tier FROM Tenants WHERE tenant_id = ?', [tenantId]);
-            if (!tenants || tenants.length === 0) {
-                return NextResponse.json({ error: "Tenant no encontrado." }, { status: 404 });
-            }
-            const tier = String(tenants[0].tier || '');
-            normalizedTier = tier.toLowerCase() === 'enterprise' ? 'Enterprise' : tier;
-        }
-        if (normalizedTier !== 'Enterprise' && !isSuperAdmin) {
-            return NextResponse.json({ error: "Feature bloqueada. Requiere plan Enterprise." }, { status: 403 });
+            await requireTenantTier(request, tenantId, 'Business');
+        } else {
+            await requireTenantAccess(request, tenantId);
         }
 
         // --- Cluster selection ---

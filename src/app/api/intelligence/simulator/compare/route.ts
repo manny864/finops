@@ -9,7 +9,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
-import { requireTenantRole, AuthError } from "@/lib/requestAuth";
+import { requireTenantRole, requireTenantTier, AuthError } from "@/lib/requestAuth";
+import { isMockTenant } from "@/lib/mockData";
 
 interface Row {
     id: string;
@@ -38,6 +39,7 @@ export async function POST(request: NextRequest) {
         }
 
         await requireTenantRole(request, tenantId, ["ADMIN", "OWNER", "Colaborador", "Reader"]);
+        if (!isMockTenant(tenantId)) await requireTenantTier(request, tenantId, "Business");
 
         const placeholders = ids.map(() => "?").join(",");
         const [rowsRaw] = await pool.query(

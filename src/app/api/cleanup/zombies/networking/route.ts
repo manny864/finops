@@ -106,6 +106,20 @@ export async function GET(request: NextRequest) {
             });
         }
 
+        const unusedVNetGateways = (graphResults as any)?.unusedVNetGateways as any[] | undefined;
+        for (const gw of unusedVNetGateways || []) {
+            items.push({
+                resourceId: gw.id,
+                resourceName: gw.name,
+                resourceType: "virtualNetworkGateway",
+                resourceGroup: gw.resourceGroup,
+                subscriptionId: gw.subscriptionId,
+                monthlyCost: 130.0, // VPN Gateway (SKU base) — mismo estimado que /api/audit/full.
+                reason: "Sin conexiones (Connections) configuradas",
+                daysIdle: 30,
+            });
+        }
+
         const totalMonthlyWaste = Number(items.reduce((sum, i) => sum + i.monthlyCost, 0).toFixed(2));
 
         return NextResponse.json({ success: true, mock: false, items, totalMonthlyWaste });

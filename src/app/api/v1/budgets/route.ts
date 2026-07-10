@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 import { verifyApiKey, requireScope } from "@/lib/publicApiAuth";
 import rateLimiter from "@/lib/rateLimiter";
+import pool from "@/modules/storage/db";
 
 export async function GET(request: NextRequest) {
   const requestId = uuidv4();
@@ -62,19 +63,45 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    let data: any[] = [];
+    try {
+      const [rows]: any = await pool.query(
+        `SELECT id, budget_month, budget_year, budget_usd, alert_threshold
+         FROM TenantMonthlyBudgets
+         WHERE tenant_id = ?
+         ORDER BY budget_year DESC, budget_month DESC
+         LIMIT 100`,
+        [authResult.tenantId]
+      );
+      data = await Promise.all((rows as any[]).map(async (b) => {
+        const monthStr = String(b.budget_month).padStart(2, "0");
+        const [spendRows]: any = await pool.query(
+          `SELECT SUM(COALESCE(EffectiveCost, cost_usd, 0)) AS spend
+           FROM CostSnapshots
+           WHERE tenant_id = ? AND DATE_FORMAT(COALESCE(ChargePeriodStart, date), '%Y-%m') = ?`,
+          [authResult.tenantId, `${b.budget_year}-${monthStr}`]
+        );
+        const spent = Number(spendRows?.[0]?.spend || 0);
+        const limitUsd = Number(b.budget_usd || 0);
+        const percentSpent = limitUsd > 0 ? Math.round((spent / limitUsd) * 100) : 0;
+        const alertThreshold = Number(b.alert_threshold || 80);
+        return {
+          id: b.id,
+          name: `${b.budget_year}-${monthStr} Budget`,
+          limit_usd: limitUsd.toFixed(2),
+          spent_usd: spent.toFixed(2),
+          percent_spent: percentSpent,
+          status: percentSpent >= 100 ? "exceeded" : percentSpent >= alertThreshold ? "warning" : "ok",
+          period: "monthly",
+        };
+      }));
+    } catch (e: any) {
+      console.warn("[v1/budgets] query falló, devolviendo lista vacía:", e?.message);
+    }
+
     return NextResponse.json(
       {
-        data: [
-          {
-            id: 1,
-            name: "Production Budget",
-            limit_usd: "10000.00",
-            spent_usd: "7500.00",
-            percent_spent: 75,
-            status: "ok",
-            period: "monthly",
-          },
-        ],
+        data,
         meta: {
           request_id: requestId,
           rate_limit: {

@@ -12,8 +12,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import pool from "@/modules/storage/db";
-import { requireTenantRole, AuthError } from "@/lib/requestAuth";
+import { requireTenantRole, requireTenantTier, AuthError } from "@/lib/requestAuth";
 import { runScenario, parseInputs } from "@/lib/simulator/engine";
+import { isMockTenant } from "@/lib/mockData";
 
 interface ScenarioRow {
     id: string;
@@ -62,6 +63,7 @@ export async function GET(request: NextRequest) {
         if (!tenantId) throw new AuthError("Falta tenantId", 400);
 
         await requireTenantRole(request, tenantId, ["ADMIN", "OWNER", "Colaborador", "Reader"]);
+        if (!isMockTenant(tenantId)) await requireTenantTier(request, tenantId, "Business");
 
         const [rows] = await pool.query(
             `SELECT id, tenant_id, user_email, name, notes, inputs_json,
@@ -94,6 +96,7 @@ export async function POST(request: NextRequest) {
         if (name.length > 120) throw new AuthError("name demasiado largo (máx 120)", 400);
 
         const identity = await requireTenantRole(request, tenantId, ["ADMIN", "OWNER", "Colaborador"]);
+        if (!isMockTenant(tenantId)) await requireTenantTier(request, tenantId, "Business");
 
         const parsedInputs = parseInputs(inputs);
         const numericBase = Number(baseCost);
