@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import pool from "@/modules/storage/db";
 import { priceIdToTier, TierName } from "@/lib/paddleTierMap";
+import { notifyInternalCancellation } from "@/lib/billingAlerts";
 
 const VALID_TIERS: readonly TierName[] = ["Essential", "Professional", "Business", "Enterprise"];
 
@@ -272,6 +273,7 @@ async function handleSubscriptionCanceled(payload: any, tenantId?: string) {
     // leer por si este es el único evento que llega (cancelación inmediata).
     const accessUntil = resolveAccessUntil(payload);
 
+    let finalAccessUntil: Date | null = accessUntil;
     const connection = await pool.getConnection();
     try {
       await connection.execute(
@@ -281,10 +283,19 @@ async function handleSubscriptionCanceled(payload: any, tenantId?: string) {
          WHERE tenant_id = ?`,
         [accessUntil, tenantId]
       );
-      console.log(`[Webhooks] Subscription canceled for tenant ${tenantId}, access_until=${accessUntil?.toISOString() || '(sin cambios)'}`);
+      if (!finalAccessUntil) {
+        const [rows]: any = await connection.query(
+          "SELECT access_until FROM Tenants WHERE tenant_id = ? LIMIT 1",
+          [tenantId]
+        );
+        finalAccessUntil = rows?.[0]?.access_until ? new Date(rows[0].access_until) : null;
+      }
+      console.log(`[Webhooks] Subscription canceled for tenant ${tenantId}, access_until=${finalAccessUntil?.toISOString() || '(desconocido)'}`);
     } finally {
       connection.release();
     }
+
+    await notifyInternalCancellation(tenantId, "Paddle", finalAccessUntil);
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

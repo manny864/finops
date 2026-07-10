@@ -261,3 +261,62 @@ export function getSubscriptionEndedEmailHtml(): string {
     </html>
   `;
 }
+
+/**
+ * Alerta INTERNA (equipo CSCloudSolutions, no el cliente) cuando un tenant
+ * cancela su suscripción — cualquiera sea el canal (Paddle, AWS/Azure
+ * Marketplace). Notifica cuánto acceso le queda todavía, para que ventas/
+ * customer success pueda intentar retenerlo antes de que se corte.
+ */
+export function getInternalCancellationAlertEmailHtml(params: {
+  tenantId: string;
+  companyName: string | null;
+  tier: string | null;
+  source: string;
+  accessUntil: Date | null;
+  adminEmail: string | null;
+}): string {
+  const { tenantId, companyName, tier, source, accessUntil, adminEmail } = params;
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://finops.example.com';
+  const accessUntilText = accessUntil
+    ? accessUntil.toLocaleDateString('es-AR', { year: 'numeric', month: 'long', day: 'numeric' })
+    : 'sin fecha exacta (depende del ciclo de facturación del marketplace)';
+
+  return `
+    <html>
+      <head>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #b45309 0%, #92400e 100%); color: white; padding: 32px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background: white; border: 1px solid #e0e0e0; border-radius: 0 0 8px 8px; padding: 32px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+          td { padding: 8px 0; border-bottom: 1px solid #eee; font-size: 14px; }
+          td:first-child { color: #666; width: 160px; }
+          .button { display: inline-block; padding: 10px 24px; background-color: #b45309; color: white; text-decoration: none; border-radius: 4px; font-weight: bold; margin-top: 20px; font-size: 14px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1 style="margin:0;font-size:20px;">⚠️ Cancelación de suscripción</h1>
+          </div>
+          <div class="content">
+            <table>
+              <tr><td>Cliente</td><td><strong>${companyName || '(sin nombre)'}</strong></td></tr>
+              <tr><td>Tenant ID</td><td style="font-family:monospace;">${tenantId}</td></tr>
+              <tr><td>Plan</td><td>${tier || '(desconocido)'}</td></tr>
+              <tr><td>Canal</td><td>${source}</td></tr>
+              <tr><td>Admin de cuenta</td><td>${adminEmail || '(sin email registrado)'}</td></tr>
+              <tr><td>Acceso hasta</td><td><strong>${accessUntilText}</strong></td></tr>
+            </table>
+            <p style="margin-top:24px;">El cliente conserva acceso a la plataforma hasta la fecha indicada; después se revoca automáticamente. Si corresponde, contactalo antes de esa fecha para intentar retenerlo.</p>
+            <p style="margin-top: 20px;">
+              <a href="${baseUrl}/admin/tenants" class="button">Ver tenant en Admin</a>
+            </p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+}
