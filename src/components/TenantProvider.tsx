@@ -38,7 +38,6 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
   const pathname = usePathname();
   const { instance, accounts } = useMsal();
   const [tenantsList, setTenantsList] = useState<Tenant[]>([{ id: 'default', name: 'Cargando entornos...' }]);
-  const selectedTenantRef = React.useRef<Tenant | null>(null);
   const [selectedTenant, setSelectedTenant] = useState<Tenant>(() => {
     if (demoSession?.isDemo) {
       let id = 'demo_tenant';
@@ -61,7 +60,6 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
 
   // Sync to localStorage
   useEffect(() => {
-    selectedTenantRef.current = selectedTenant;
     if (selectedTenant.id !== 'default') {
       localStorage.setItem('finops_active_tenant', JSON.stringify(selectedTenant));
     }
@@ -168,7 +166,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
   }, [accounts, tenantsList]);
 
   // GLOBAL MOCK OVERRIDE FOR DEMO SESSIONS or when a MOCK TENANT is selected
-  useEffect(() => {
+  function applyDemoFetchInterception() {
       const tenantIsMock = isMockTenant(selectedTenant?.id || '');
       const shouldIntercept = demoSession?.isDemo || tenantIsMock;
       if (shouldIntercept && typeof window !== 'undefined') {
@@ -193,7 +191,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               if (url.includes('/api/tenants') && !url.match(/\/api\/tenants\/[a-f0-9-]+\//i)) {
                   return originalFetch(input, init);
               }
-              const tier = selectedTenantRef.current?.tier?.toLowerCase() || demoSession?.tier?.toLowerCase() || 'essential';
+              const tier = selectedTenant?.tier?.toLowerCase() || demoSession?.tier?.toLowerCase() || 'essential';
               if (url.includes('/api/intelligence/billing')) return new Response(JSON.stringify(getMockDataForRoute('billing', tier)), {status: 200});
               if (url.includes('/api/advisor')) return new Response(JSON.stringify(getMockDataForRoute('advisor', tier)), {status: 200});
               if (url.includes('/api/academy/content')) {
@@ -215,7 +213,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               if (url.includes('/api/cleanup/zombies/networking')) return new Response(JSON.stringify(getMockDataForRoute('networking_zombies', tier)), {status: 200});
               if (url.includes('/api/cleanup/zombies')) return new Response(JSON.stringify(getMockDataForRoute('audit_full', tier)), {status: 200});
               if (url.includes('/api/cleanup/ttl')) {
-                  const m = (selectedTenantRef.current?.tier?.toLowerCase()==='enterprise')?50:(selectedTenantRef.current?.tier?.toLowerCase()==='business')?10:(selectedTenantRef.current?.tier?.toLowerCase()==='pro')?3:1;
+                  const m = (selectedTenant?.tier?.toLowerCase()==='enterprise')?50:(selectedTenant?.tier?.toLowerCase()==='business')?10:(selectedTenant?.tier?.toLowerCase()==='pro')?3:1;
                   const now = Date.now();
                   const day = 86400000;
                   const baseResources = [
@@ -271,7 +269,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               if (url.includes('/api/intelligence/scorecard')) return new Response(JSON.stringify(getMockDataForRoute('scorecard', tier)), {status: 200});
               if (url.includes('/api/intelligence/whiteboard')) return new Response(JSON.stringify(getMockDataForRoute('white_board', tier)), {status: 200});
               if (url.includes('/api/intelligence/commitments')) {
-                  const m = (selectedTenantRef.current?.tier?.toLowerCase()==='enterprise')?50:(selectedTenantRef.current?.tier?.toLowerCase()==='business')?10:(selectedTenantRef.current?.tier?.toLowerCase()==='pro')?3:1;
+                  const m = (selectedTenant?.tier?.toLowerCase()==='enterprise')?50:(selectedTenant?.tier?.toLowerCase()==='business')?10:(selectedTenant?.tier?.toLowerCase()==='pro')?3:1;
                   return new Response(JSON.stringify({ success: true, mock: true, data: {
                       hasReservations: true,
                       utilization: 87.4,
@@ -296,7 +294,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                   }}), {status: 200});
               }
               if (url.includes('/api/intelligence/hybrid-benefit')) {
-                  const m = (Number((selectedTenantRef.current?.tier?.toLowerCase()==='enterprise')?50:(selectedTenantRef.current?.tier?.toLowerCase()==='business')?10:(selectedTenantRef.current?.tier?.toLowerCase()==='pro')?3:1));
+                  const m = (Number((selectedTenant?.tier?.toLowerCase()==='enterprise')?50:(selectedTenant?.tier?.toLowerCase()==='business')?10:(selectedTenant?.tier?.toLowerCase()==='pro')?3:1));
                   const eligibleResources = [
                       { id: 'r1', name: 'app-prod-vm-01', type: 'Windows Server VM', currentCost: 290 * m, ahbCost: 145 * m, savings: 145 * m },
                       { id: 'r2', name: 'app-prod-vm-02', type: 'Windows Server VM', currentCost: 290 * m, ahbCost: 145 * m, savings: 145 * m },
@@ -415,7 +413,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                       success: true, mock: true,
                       enabled,
                       config: {
-                          tenantId: selectedTenantRef.current?.id || 'demo',
+                          tenantId: selectedTenant?.id || 'demo',
                           status: enabled ? 'ready' : 'not_configured',
                           connectorId: enabled ? 'conn-demo-001' : null,
                           copilotStudioAgentId: enabled ? 'agent-finops-demo' : null,
@@ -427,7 +425,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               }
               if (url.includes('/api/onboard/lighthouse')) return new Response(JSON.stringify({ mock: true, armTemplate: { '$schema':'https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json', contentVersion:'1.0.0.0', resources:[] } }), {status: 200});
               if (url.includes('/api/intelligence/storage-efficiency')) {
-                  const m = (selectedTenantRef.current?.tier?.toLowerCase()==='enterprise')?50:(selectedTenantRef.current?.tier?.toLowerCase()==='business')?10:(selectedTenantRef.current?.tier?.toLowerCase()==='pro')?3:1;
+                  const m = (selectedTenant?.tier?.toLowerCase()==='enterprise')?50:(selectedTenant?.tier?.toLowerCase()==='business')?10:(selectedTenant?.tier?.toLowerCase()==='pro')?3:1;
                   const hotGb = 12500 * m, coolGb = 5000 * m, coldGb = 1600 * m, archGb = 1000 * m;
                   const hotCost = hotGb * 0.0184, coolCost = coolGb * 0.01, coldCost = coldGb * 0.0036, archCost = archGb * 0.00099;
                   const totalGb = hotGb + coolGb + coldGb + archGb;
@@ -450,7 +448,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               }
               if (url.includes('/api/governance/reporting')) return new Response(JSON.stringify(getMockDataForRoute('governance-reporting', tier)), {status: 200});
               if (url.includes('/api/governance/ha')) {
-                  const m = (selectedTenantRef.current?.tier?.toLowerCase()==='enterprise')?5:(selectedTenantRef.current?.tier?.toLowerCase()==='business')?2:1;
+                  const m = (selectedTenant?.tier?.toLowerCase()==='enterprise')?5:(selectedTenant?.tier?.toLowerCase()==='business')?2:1;
                   const baseItems = [
                       { resourceId: '/subscriptions/mock-sub-1/resourceGroups/rg-prod/providers/Microsoft.Compute/virtualMachines/vm-payments-01', resourceName: 'vm-payments-01', resourceType: 'Microsoft.Compute/virtualMachines', issueType: 'no_zone', severity: 'critical', estimatedRisk: 'VM productiva del API de Payments en eastus sin zona ni Availability Set: caída zonal = pérdida total' },
                       { resourceId: '/subscriptions/mock-sub-1/resourceGroups/rg-prod/providers/Microsoft.Compute/virtualMachines/vm-payments-02', resourceName: 'vm-payments-02', resourceType: 'Microsoft.Compute/virtualMachines', issueType: 'no_zone', severity: 'critical', estimatedRisk: 'Segunda VM del cluster Payments en la misma zona implícita' },
@@ -733,6 +731,26 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               instance.acquireTokenSilent = (instance as any).__finopsOriginalAcquire;
           }
       }
+  }
+
+  // Instalar el parche SINCRÓNICAMENTE durante el render (no solo en el
+  // useEffect de abajo): React ejecuta los efectos de los componentes hijos
+  // ANTES que los del padre (orden bottom-up), y useSWR dispara su primer
+  // fetch en su propio useLayoutEffect interno. Si window.fetch solo se
+  // parcheaba en un useEffect acá, la primera carga de una sesión demo/mock
+  // pegaba contra el fetch real (sin datos) y solo funcionaba después de un
+  // refresh manual — para entonces el parche ya estaba instalado de una
+  // carga anterior de la pestaña. Ejecutar esto en el cuerpo del render
+  // garantiza que el parche está activo antes de que cualquier hijo monte.
+  // Sin ref/estado de control: la función ya es idempotente (chequea
+  // __finopsOriginalFetch/__finopsOriginalAcquire antes de envolver), así que
+  // llamarla en cada render no tiene costo ni efecto colateral extra.
+  if (typeof window !== 'undefined' && (demoSession?.isDemo || isMockTenant(selectedTenant?.id || ''))) {
+      applyDemoFetchInterception();
+  }
+
+  useEffect(() => {
+      applyDemoFetchInterception();
   }, [demoSession, instance, selectedTenant?.id]);
 
   useEffect(() => {
