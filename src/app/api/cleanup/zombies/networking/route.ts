@@ -1,38 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { requireTenantRole, requireTenantTier, AuthError } from "@/lib/requestAuth";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { getAzureCredential } from "@/lib/azure";
 import { runGraphAudits } from "@/services/auditService";
 import { getMonthlyCostEstimate } from "@/services/pricingService";
-
-const MOCK_PAYLOAD = {
-    success: true,
-    mock: true,
-    items: [
-        {
-            resourceId: "/subscriptions/sub-1/resourceGroups/rg-network/providers/Microsoft.Network/applicationGateways/agw-prod",
-            resourceName: "agw-prod",
-            resourceType: "applicationGateway",
-            resourceGroup: "rg-network",
-            subscriptionId: "sub-1",
-            monthlyCost: 420.00,
-            reason: "No backend addresses configured",
-            daysIdle: 45,
-        },
-        {
-            resourceId: "/subscriptions/sub-2/resourceGroups/rg-shared/providers/Microsoft.Network/loadBalancers/lb-internal",
-            resourceName: "lb-internal",
-            resourceType: "loadBalancer",
-            resourceGroup: "rg-shared",
-            subscriptionId: "sub-2",
-            monthlyCost: 18.25,
-            reason: "Zero traffic in 30 days",
-            daysIdle: 60,
-        },
-    ],
-    totalMonthlyWaste: 438.25,
-};
 
 export async function GET(request: NextRequest) {
     try {
@@ -53,7 +25,7 @@ export async function GET(request: NextRequest) {
         }
 
         if (isMockTenant(tenantId)) {
-            return NextResponse.json(MOCK_PAYLOAD);
+            return NextResponse.json(getMockDataForRoute('networking_zombies', tenantId));
         }
 
         // Detección en vivo: reutiliza runGraphAudits (el mismo motor que
@@ -74,20 +46,6 @@ export async function GET(request: NextRequest) {
             reason: string; daysIdle: number;
         }> = [];
 
-        const unusedLoadBalancers = (graphResults as any)?.unusedLoadBalancers as any[] | undefined;
-        for (const lb of unusedLoadBalancers || []) {
-            items.push({
-                resourceId: lb.id,
-                resourceName: lb.name,
-                resourceType: "loadBalancer",
-                resourceGroup: lb.resourceGroup,
-                subscriptionId: lb.subscriptionId,
-                monthlyCost: 18.0, // Standard LB base, sin reglas de balanceo activas.
-                reason: "Sin frontend IP configurado o sin backend pool asociado",
-                daysIdle: 30,
-            });
-        }
-
         const unusedAppGateways = (graphResults as any)?.unusedAppGateways as any[] | undefined;
         for (const agw of unusedAppGateways || []) {
             const sku = agw.sku || "Standard_v2";
@@ -106,18 +64,67 @@ export async function GET(request: NextRequest) {
             });
         }
 
-        const unusedVNetGateways = (graphResults as any)?.unusedVNetGateways as any[] | undefined;
-        for (const gw of unusedVNetGateways || []) {
+        // Bastion: sin telemetría de sesiones vía Resource Graph, se estima por SKU.
+        const allBastionHosts = (graphResults as any)?.allBastionHosts as any[] | undefined;
+        for (const b of allBastionHosts || []) {
+            const sku = String(b.sku || "Basic");
             items.push({
-                resourceId: gw.id,
-                resourceName: gw.name,
-                resourceType: "virtualNetworkGateway",
-                resourceGroup: gw.resourceGroup,
-                subscriptionId: gw.subscriptionId,
-                monthlyCost: 130.0, // VPN Gateway (SKU base) — mismo estimado que /api/audit/full.
-                reason: "Sin conexiones (Connections) configuradas",
-                daysIdle: 30,
+                resourceId: b.id,
+                resourceName: b.name,
+                resourceType: "bastionHost",
+                resourceGroup: b.resourceGroup,
+                subscriptionId: b.subscriptionId,
+                monthlyCost: /premium/i.test(sku) ? 280.0 : /standard/i.test(sku) ? 209.0 : 137.0,
+                reason: "Revisar uso — Bastion no expone sesiones vía Resource Graph, validar necesidad real",
+                daysIdle: 0,
             });
+        }
+
+        // Tabla de recursos "zombie" con costo estimado plano — cada entrada lee
+        // una key del catálogo KQL (src/modules/core/kqlCatalog.ts), ya ejecutada
+        // por runGraphAudits para todo el audit.
+        const FLAT_COST_TYPES: Array<{
+            key: string; resourceType: string; monthlyCost: number; reason: string; daysIdle?: number;
+        }> = [
+            { key: "unusedLoadBalancers", resourceType: "loadBalancer", monthlyCost: 18.0, reason: "Sin frontend IP configurado o sin backend pool asociado" },
+            { key: "unusedVNetGateways", resourceType: "virtualNetworkGateway", monthlyCost: 130.0, reason: "Sin conexiones (Connections) configuradas" },
+            { key: "emptyVnets", resourceType: "virtualNetwork", monthlyCost: 0, reason: "VNet sin subnets configuradas" },
+            { key: "emptySubnets", resourceType: "subnet", monthlyCost: 0, reason: "Subnet sin recursos ni delegaciones asociadas" },
+            { key: "unusedVirtualHubs", resourceType: "virtualWanHub", monthlyCost: 180.0, reason: "Virtual WAN Hub sin conexiones a VNets" },
+            { key: "unusedRouteServers", resourceType: "routeServer", monthlyCost: 216.0, reason: "Azure Route Server sin conexiones a VNets" },
+            { key: "unprovisionedExpressRoute", resourceType: "expressRouteCircuit", monthlyCost: 300.0, reason: "Circuito sin aprovisionar o sin peerings/autorizaciones" },
+            { key: "disconnectedVnetPeerings", resourceType: "vnetPeering", monthlyCost: 0, reason: "Peering en estado distinto de Connected" },
+            { key: "idleAzureFirewalls", resourceType: "azureFirewall", monthlyCost: 900.0, reason: "Sin reglas (network/application/nat) ni Firewall Policy asociada" },
+            { key: "orphanedNsgs", resourceType: "networkSecurityGroup", monthlyCost: 0, reason: "NSG sin NICs ni Subnets asociadas" },
+            { key: "orphanedAsgs", resourceType: "applicationSecurityGroup", monthlyCost: 0, reason: "ASG sin NICs asociadas" },
+            { key: "privateEndpoints", resourceType: "privateEndpoint", monthlyCost: 7.2, reason: "Conexión Private Link en estado Disconnected" },
+            { key: "privateDnsZones", resourceType: "privateDnsZone", monthlyCost: 0.5, reason: "Zona Private DNS sin Virtual Network Links" },
+            { key: "ddos", resourceType: "ddosProtectionPlan", monthlyCost: 2944.0, reason: "Plan DDoS Standard sin VNets protegidas" },
+            { key: "unattachedWafPolicies", resourceType: "webApplicationFirewall", monthlyCost: 0, reason: "WAF Policy (Application Gateway) sin Application Gateway asociado" },
+            { key: "frontDoorWaf", resourceType: "webApplicationFirewall", monthlyCost: 0, reason: "WAF Policy (Front Door) sin Security Policy vinculada" },
+            { key: "unusedFrontDoorClassic", resourceType: "frontDoor", monthlyCost: 35.0, reason: "Front Door (classic) sin backend pools configurados" },
+            { key: "unusedFrontDoorStandard", resourceType: "frontDoor", monthlyCost: 35.0, reason: "Front Door Standard/Premium sin endpoints configurados" },
+            { key: "trafficManager", resourceType: "trafficManager", monthlyCost: 1.0, reason: "Perfil de Traffic Manager sin endpoints configurados" },
+            { key: "natGateways", resourceType: "natGateway", monthlyCost: 32.0, reason: "NAT Gateway sin subnets asociadas" },
+            { key: "emptyDnsZones", resourceType: "dnsZone", monthlyCost: 0.5, reason: "Zona DNS pública sin registros más allá de NS/SOA por defecto" },
+            { key: "networkWatchersNoFlowLogs", resourceType: "networkWatcher", monthlyCost: 0, reason: "Network Watcher habilitado sin Flow Logs configurados" },
+            { key: "flowLogsWithoutTrafficAnalytics", resourceType: "trafficAnalytics", monthlyCost: 0, reason: "Flow Log activo sin Traffic Analytics habilitado" },
+        ];
+
+        for (const cfg of FLAT_COST_TYPES) {
+            const rows = (graphResults as any)?.[cfg.key] as any[] | undefined;
+            for (const r of rows || []) {
+                items.push({
+                    resourceId: r.id,
+                    resourceName: r.name,
+                    resourceType: cfg.resourceType,
+                    resourceGroup: r.resourceGroup,
+                    subscriptionId: r.subscriptionId,
+                    monthlyCost: cfg.monthlyCost,
+                    reason: cfg.reason,
+                    daysIdle: cfg.daysIdle ?? 30,
+                });
+            }
         }
 
         const totalMonthlyWaste = Number(items.reduce((sum, i) => sum + i.monthlyCost, 0).toFixed(2));

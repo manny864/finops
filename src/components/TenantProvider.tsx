@@ -210,6 +210,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               if (url.includes('/api/intelligence/history')) return new Response(JSON.stringify(getMockDataForRoute('history', tier)), {status: 200});
               if (url.includes('/api/intelligence/forecast')) return new Response(JSON.stringify(getMockDataForRoute('forecast', tier)), {status: 200});
               if (url.includes('/api/intelligence/maturity')) return new Response(JSON.stringify(getMockDataForRoute('maturity', tier)), {status: 200});
+              if (url.includes('/api/cleanup/zombies/networking')) return new Response(JSON.stringify(getMockDataForRoute('networking_zombies', tier)), {status: 200});
               if (url.includes('/api/cleanup/zombies')) return new Response(JSON.stringify(getMockDataForRoute('audit_full', tier)), {status: 200});
               if (url.includes('/api/cleanup/ttl')) {
                   const m = (selectedTenantRef.current?.tier?.toLowerCase()==='enterprise')?50:(selectedTenantRef.current?.tier?.toLowerCase()==='business')?10:(selectedTenantRef.current?.tier?.toLowerCase()==='pro')?3:1;
@@ -716,7 +717,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                   }
               }
 
-              if (url.includes('/api/rightsizing/') || url.includes('/api/cleanup/zombies/networking') || url.includes('/api/admin/report/invoicing')) {
+              if (url.includes('/api/rightsizing/') || url.includes('/api/admin/report/invoicing')) {
                   return new Response(JSON.stringify({ mock: true, items: [], data: [], success: true }), {status: 200});
               }
               if (url.includes('/api/remediation') && !url.includes('/workflow')) return new Response(JSON.stringify({ mock: true, success: true }), {status: 200});

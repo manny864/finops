@@ -333,6 +333,50 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
                     ]
                 }
             };
+        case 'networking_zombies': {
+            const scale = Math.min(3, Math.max(1, Math.round(multiplier / 5))); // 1x (Essential/Pro) .. 3x (Enterprise)
+            const base: Array<{ resourceName: string; resourceType: string; resourceGroup: string; monthlyCost: number; reason: string; daysIdle: number }> = [
+                { resourceName: "agw-prod-legacy", resourceType: "applicationGateway", resourceGroup: "rg-network", monthlyCost: 125.0, reason: "Sin backend pools o reglas de ruteo configuradas", daysIdle: 45 },
+                { resourceName: "lb-internal-qa", resourceType: "loadBalancer", resourceGroup: "rg-shared", monthlyCost: 18.0, reason: "Sin frontend IP configurado o sin backend pool asociado", daysIdle: 60 },
+                { resourceName: "vgw-dr-site", resourceType: "virtualNetworkGateway", resourceGroup: "rg-network", monthlyCost: 130.0, reason: "Sin conexiones (Connections) configuradas", daysIdle: 90 },
+                { resourceName: "vnet-training-workshop", resourceType: "virtualNetwork", resourceGroup: "rg-training", monthlyCost: 0, reason: "VNet sin subnets configuradas", daysIdle: 22 },
+                { resourceName: "snet-legacy-app/default", resourceType: "subnet", resourceGroup: "rg-network", monthlyCost: 0, reason: "Subnet sin recursos ni delegaciones asociadas", daysIdle: 40 },
+                { resourceName: "vwan-hub-westus", resourceType: "virtualWanHub", resourceGroup: "rg-vwan", monthlyCost: 180.0, reason: "Virtual WAN Hub sin conexiones a VNets", daysIdle: 35 },
+                { resourceName: "route-server-hub01", resourceType: "routeServer", resourceGroup: "rg-vwan", monthlyCost: 216.0, reason: "Azure Route Server sin conexiones a VNets", daysIdle: 50 },
+                { resourceName: "expressroute-poc-circuit", resourceType: "expressRouteCircuit", resourceGroup: "rg-connectivity", monthlyCost: 300.0, reason: "Circuito sin aprovisionar o sin peerings/autorizaciones", daysIdle: 70 },
+                { resourceName: "peering-hub-to-spoke02", resourceType: "vnetPeering", resourceGroup: "rg-network", monthlyCost: 0, reason: "Peering en estado distinto de Connected", daysIdle: 15 },
+                { resourceName: "afw-perimeter-old", resourceType: "azureFirewall", resourceGroup: "rg-security", monthlyCost: 900.0, reason: "Sin reglas (network/application/nat) ni Firewall Policy asociada", daysIdle: 80 },
+                { resourceName: "nsg-unused-web", resourceType: "networkSecurityGroup", resourceGroup: "rg-network", monthlyCost: 0, reason: "NSG sin NICs ni Subnets asociadas", daysIdle: 25 },
+                { resourceName: "asg-orphan-api", resourceType: "applicationSecurityGroup", resourceGroup: "rg-network", monthlyCost: 0, reason: "ASG sin NICs asociadas", daysIdle: 25 },
+                { resourceName: "pe-storage-old", resourceType: "privateEndpoint", resourceGroup: "rg-data", monthlyCost: 7.2, reason: "Conexión Private Link en estado Disconnected", daysIdle: 33 },
+                { resourceName: "privatelink.blob.core.windows.net", resourceType: "privateDnsZone", resourceGroup: "rg-data", monthlyCost: 0.5, reason: "Zona Private DNS sin Virtual Network Links", daysIdle: 33 },
+                { resourceName: "bastion-shared-hub", resourceType: "bastionHost", resourceGroup: "rg-network", monthlyCost: 137.0, reason: "Revisar uso — Bastion no expone sesiones vía Resource Graph, validar necesidad real", daysIdle: 0 },
+                { resourceName: "ddos-plan-corp", resourceType: "ddosProtectionPlan", resourceGroup: "rg-security", monthlyCost: 2944.0, reason: "Plan DDoS Standard sin VNets protegidas", daysIdle: 60 },
+                { resourceName: "waf-policy-unassigned", resourceType: "webApplicationFirewall", resourceGroup: "rg-security", monthlyCost: 0, reason: "WAF Policy (Application Gateway) sin Application Gateway asociado", daysIdle: 28 },
+                { resourceName: "afd-classic-staging", resourceType: "frontDoor", resourceGroup: "rg-cdn", monthlyCost: 35.0, reason: "Front Door (classic) sin backend pools configurados", daysIdle: 40 },
+                { resourceName: "tm-profile-decommissioned", resourceType: "trafficManager", resourceGroup: "rg-cdn", monthlyCost: 1.0, reason: "Perfil de Traffic Manager sin endpoints configurados", daysIdle: 55 },
+                { resourceName: "natgw-outbound-dev", resourceType: "natGateway", resourceGroup: "rg-network", monthlyCost: 32.0, reason: "NAT Gateway sin subnets asociadas", daysIdle: 20 },
+                { resourceName: "contoso-old-domain.com", resourceType: "dnsZone", resourceGroup: "rg-dns", monthlyCost: 0.5, reason: "Zona DNS pública sin registros más allá de NS/SOA por defecto", daysIdle: 100 },
+                { resourceName: "nw-eastus", resourceType: "networkWatcher", resourceGroup: "NetworkWatcherRG", monthlyCost: 0, reason: "Network Watcher habilitado sin Flow Logs configurados", daysIdle: 0 },
+                { resourceName: "flowlog-nsg-web", resourceType: "trafficAnalytics", resourceGroup: "NetworkWatcherRG", monthlyCost: 0, reason: "Flow Log activo sin Traffic Analytics habilitado", daysIdle: 0 },
+            ];
+            const items = Array.from({ length: base.length * scale }).map((_, i) => {
+                const b = base[i % base.length];
+                const suffix = i >= base.length ? `-${Math.floor(i / base.length) + 1}` : "";
+                return {
+                    resourceId: `/subscriptions/mock-sub-${(i % 3) + 1}/resourceGroups/${b.resourceGroup}/providers/Microsoft.Network/${b.resourceType}s/${b.resourceName}${suffix}`,
+                    resourceName: `${b.resourceName}${suffix}`,
+                    resourceType: b.resourceType,
+                    resourceGroup: b.resourceGroup,
+                    subscriptionId: `mock-sub-${(i % 3) + 1}`,
+                    monthlyCost: b.monthlyCost,
+                    reason: b.reason,
+                    daysIdle: b.daysIdle,
+                };
+            });
+            const totalMonthlyWaste = Number(items.reduce((sum, it) => sum + it.monthlyCost, 0).toFixed(2));
+            return { success: true, mock: true, items, totalMonthlyWaste };
+        }
         case 'history':
             // Genera 12 puntos semanales terminando hoy, con score creciente
             // según el tier (multiplier). Refleja "evolución de optimización"

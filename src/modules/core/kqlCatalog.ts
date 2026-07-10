@@ -64,5 +64,30 @@ export const kqlCatalog: Record<string, string> = {
     | extend elasticPoolId = tostring(properties.elasticPoolId)
     | project id, name, location, resourceGroup, subscriptionId, sku = sku.name, tier = sku.tier, capacity = sku.capacity, serverId, elasticPoolId`,
   completelyUntaggedResources: `Resources | where isnull(tags) or isempty(tags) | project id, name, type, tags, location, resourceGroup, subscriptionId`,
-  missingMandatoryTags: `Resources | where isnull(tags['Environment']) or isnull(tags['CostCenter']) | project id, name, type, tags, location, resourceGroup, subscriptionId`
+  missingMandatoryTags: `Resources | where isnull(tags['Environment']) or isnull(tags['CostCenter']) | project id, name, type, tags, location, resourceGroup, subscriptionId`,
+
+  // --- Networking Zombies: expansión de cobertura de red (vWAN, Route Server,
+  // Peering, Firewall, ASG, Bastion, Front Door, DNS, Network Watcher/Traffic
+  // Analytics). Se suman a lo ya cubierto arriba por emptyVnets/emptySubnets,
+  // vnetGateways/unusedVNetGateways, unprovisionedExpressRoute,
+  // privateEndpoints/privateDnsZones, ddos, orphanedNsgs, frontDoorWaf,
+  // unattachedWafPolicies, trafficManager, natGateways, appGateways/
+  // unusedAppGateways y loadBalancers/unusedLoadBalancers.
+  unusedVirtualHubs: `Resources | where type =~ 'microsoft.network/virtualhubs' | where isnull(properties.virtualNetworkConnections) or array_length(properties.virtualNetworkConnections) == 0 | project id, name, location, resourceGroup, subscriptionId`,
+  // Azure Route Server: hub con ASN de virtual router (lo distingue de un vWAN hub común) sin conexiones de red asociadas.
+  unusedRouteServers: `Resources | where type =~ 'microsoft.network/virtualhubs' | where isnotempty(properties.virtualRouterAsn) | where isnull(properties.virtualNetworkConnections) or array_length(properties.virtualNetworkConnections) == 0 | project id, name, location, resourceGroup, subscriptionId`,
+  disconnectedVnetPeerings: `Resources | where type =~ 'microsoft.network/virtualnetworks/virtualnetworkpeerings' | where properties.peeringState !~ 'Connected' | project id, name, location, resourceGroup, subscriptionId, peeringState=tostring(properties.peeringState)`,
+  idleAzureFirewalls: `Resources | where type =~ 'microsoft.network/azurefirewalls' | where isnull(properties.firewallPolicy) | where (isnull(properties.networkRuleCollections) or array_length(properties.networkRuleCollections)==0) and (isnull(properties.applicationRuleCollections) or array_length(properties.applicationRuleCollections)==0) and (isnull(properties.natRuleCollections) or array_length(properties.natRuleCollections)==0) | project id, name, location, resourceGroup, subscriptionId, tier=tostring(properties.sku.tier)`,
+  // ASG sin ninguna NIC referenciándolo desde sus ipConfigurations.
+  orphanedAsgs: `Resources | where type =~ 'microsoft.network/applicationsecuritygroups' | extend AsgId = tolower(tostring(id)) | join kind=leftouter ( Resources | where type =~ 'microsoft.network/networkinterfaces' | mv-expand ipconfig = properties.ipConfigurations | mv-expand asg = ipconfig.properties.applicationSecurityGroups | extend AsgId = tolower(tostring(asg.id)) | where isnotempty(AsgId) | project AsgId, nicId = id ) on AsgId | summarize nicCount = countif(isnotempty(nicId)) by id, name, location, resourceGroup, subscriptionId | where nicCount == 0`,
+  // Bastion no expone telemetría de sesiones vía Resource Graph: se listan para
+  // visibilidad de costo fijo, no como "zombie" confirmado (revisar uso manual).
+  allBastionHosts: `Resources | where type =~ 'microsoft.network/bastionhosts' | project id, name, location, resourceGroup, subscriptionId, sku=tostring(properties.sku)`,
+  unusedFrontDoorClassic: `Resources | where type =~ 'microsoft.network/frontdoors' | where isnull(properties.backendPools) or array_length(properties.backendPools) == 0 | project id, name, location, resourceGroup, subscriptionId`,
+  unusedFrontDoorStandard: `Resources | where type =~ 'microsoft.cdn/profiles' | where sku.name in~ ('Standard_AzureFrontDoor','Premium_AzureFrontDoor') | extend profileId = tolower(tostring(id)) | join kind=leftouter ( Resources | where type =~ 'microsoft.cdn/profiles/afdendpoints' | extend profileId = tolower(extract("(?i)(^.+/profiles/[^/]+)", 1, tostring(id))) | project epId=id, profileId ) on profileId | summarize epCount = countif(isnotempty(epId)) by id, name, location, resourceGroup, subscriptionId | where epCount == 0`,
+  emptyDnsZones: `Resources | where type =~ 'microsoft.network/dnszones' | where toint(properties.numberOfRecordSets) <= 2 | project id, name, location, resourceGroup, subscriptionId, recordCount=toint(properties.numberOfRecordSets)`,
+  networkWatchersNoFlowLogs: `Resources | where type =~ 'microsoft.network/networkwatchers' | extend nwId = tolower(tostring(id)) | join kind=leftouter ( Resources | where type =~ 'microsoft.network/networkwatchers/flowlogs' | extend nwId = tolower(extract("(?i)(^.+/networkwatchers/[^/]+)", 1, tostring(id))) | project flId=id, nwId ) on nwId | summarize flCount = countif(isnotempty(flId)) by id, name, location, resourceGroup, subscriptionId | where flCount == 0`,
+  // Traffic Analytics no es un recurso propio: se detecta como Flow Log activo
+  // (pagando almacenamiento de logs) sin el análisis de Traffic Analytics prendido.
+  flowLogsWithoutTrafficAnalytics: `Resources | where type =~ 'microsoft.network/networkwatchers/flowlogs' | where properties.enabled == true | where properties.flowAnalyticsConfiguration.networkWatcherFlowAnalyticsConfiguration.enabled != true | project id, name, location, resourceGroup, subscriptionId`
 };

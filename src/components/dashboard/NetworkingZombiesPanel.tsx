@@ -5,6 +5,8 @@ import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { useTranslations } from "next-intl";
 import { Loader2, Network, AlertCircle, Info, DollarSign } from "lucide-react";
+import { isMockTenant } from "@/lib/mockData";
+import { getFreshIdToken } from "@/lib/msalToken";
 
 type ZombieItem = {
     resourceId: string;
@@ -18,9 +20,29 @@ type ZombieItem = {
 };
 
 const TYPE_BADGE: Record<string, string> = {
-    applicationGateway:     "bg-purple-100 dark:bg-purple-950/40 text-purple-700 dark:text-purple-400",
-    loadBalancer:           "bg-cyan-100 dark:bg-cyan-950/40 text-cyan-700 dark:text-cyan-400",
-    virtualNetworkGateway:  "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400",
+    applicationGateway:       "bg-purple-100 dark:bg-purple-950/40 text-purple-700 dark:text-purple-400",
+    loadBalancer:             "bg-cyan-100 dark:bg-cyan-950/40 text-cyan-700 dark:text-cyan-400",
+    virtualNetworkGateway:    "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400",
+    virtualNetwork:           "bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400",
+    subnet:                   "bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400",
+    virtualWanHub:            "bg-indigo-100 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400",
+    routeServer:              "bg-indigo-100 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400",
+    expressRouteCircuit:      "bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-400",
+    vnetPeering:              "bg-sky-100 dark:bg-sky-950/40 text-sky-700 dark:text-sky-400",
+    azureFirewall:            "bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-400",
+    networkSecurityGroup:     "bg-teal-100 dark:bg-teal-950/40 text-teal-700 dark:text-teal-400",
+    applicationSecurityGroup: "bg-teal-100 dark:bg-teal-950/40 text-teal-700 dark:text-teal-400",
+    privateEndpoint:          "bg-fuchsia-100 dark:bg-fuchsia-950/40 text-fuchsia-700 dark:text-fuchsia-400",
+    privateDnsZone:           "bg-fuchsia-100 dark:bg-fuchsia-950/40 text-fuchsia-700 dark:text-fuchsia-400",
+    dnsZone:                  "bg-fuchsia-100 dark:bg-fuchsia-950/40 text-fuchsia-700 dark:text-fuchsia-400",
+    bastionHost:              "bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400",
+    ddosProtectionPlan:       "bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400",
+    webApplicationFirewall:   "bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-400",
+    frontDoor:                "bg-violet-100 dark:bg-violet-950/40 text-violet-700 dark:text-violet-400",
+    trafficManager:           "bg-violet-100 dark:bg-violet-950/40 text-violet-700 dark:text-violet-400",
+    natGateway:               "bg-lime-100 dark:bg-lime-950/40 text-lime-700 dark:text-lime-400",
+    networkWatcher:           "bg-slate-100 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300",
+    trafficAnalytics:         "bg-slate-100 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300",
 };
 
 export default function NetworkingZombiesPanel() {
@@ -29,14 +51,9 @@ export default function NetworkingZombiesPanel() {
     const { instance, accounts } = useMsal();
 
     const fetcher = async (url: string) => {
-        const account = accounts[0];
-        if (!account) throw new Error("No hay cuenta autenticada");
-        const tokenResponse = await instance.acquireTokenSilent({
-            scopes: ["User.Read"],
-            account,
-        });
+        const idToken = await getFreshIdToken(instance, accounts[0]);
         const res = await fetch(url, {
-            headers: { Authorization: `Bearer ${tokenResponse.idToken}` },
+            headers: { Authorization: `Bearer ${idToken}` },
         });
         if (!res.ok) {
             const json = await res.json();
@@ -46,7 +63,7 @@ export default function NetworkingZombiesPanel() {
     };
 
     const { data, error, isLoading } = useSWR(
-        selectedTenant && selectedTenant.id !== "default" && accounts.length > 0
+        selectedTenant && selectedTenant.id !== "default" && (accounts.length > 0 || isMockTenant(selectedTenant.id))
             ? `/api/cleanup/zombies/networking?tenantId=${selectedTenant.id}`
             : null,
         fetcher,
@@ -96,7 +113,7 @@ export default function NetworkingZombiesPanel() {
                 <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-5">
                     <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Recursos Detectados</p>
                     <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">{items.length}</p>
-                    <p className="text-xs text-slate-400 mt-1">Application Gateways + Load Balancers</p>
+                    <p className="text-xs text-slate-400 mt-1">VNet, vWAN, ExpressRoute, Firewall, Bastion, Front Door, DNS y más</p>
                 </div>
                 <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-5">
                     <p className="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
