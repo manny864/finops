@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import pool, { initializeDatabase } from "@/modules/storage/db";
 import { requireRequestIdentity } from "@/lib/requestAuth";
 import { sendEmailAsync, getWelcomeEmailHtml } from "@/lib/emailHelper";
+import { getUserLimit } from "@/lib/tierLogic";
 
 export async function POST(request: NextRequest) {
     try {
@@ -110,6 +111,36 @@ export async function POST(request: NextRequest) {
             // Auto-promote CSCloudSolutions master tenant admins to SUPERADMIN
             if (email.toLowerCase().endsWith('@cscloudsolutions.com.ar') && tenantId === '8b41364f-581a-4e43-b7cb-13138dac5517') {
                 systemRole = 'SUPERADMIN';
+            }
+
+            // Límite de usuarios por plan (Essential=1, Professional=5,
+            // Business=20, Enterprise=sin límite). Solo bloquea altas
+            // NUEVAS — un usuario ya provisionado (mismo entra_oid) siempre
+            // puede seguir logueándose aunque el tenant esté hoy en o sobre
+            // el límite (p. ej. después de un downgrade).
+            const [isNewUserRows] = await connection.query(
+                'SELECT 1 FROM Users WHERE tenant_id = ? AND entra_oid = ? LIMIT 1',
+                [tenantId, entraOid]
+            );
+            const isNewUser = !Array.isArray(isNewUserRows) || isNewUserRows.length === 0;
+
+            if (isNewUser && systemRole !== 'SUPERADMIN') {
+                const [tenantTierRows] = await connection.query(
+                    'SELECT tier FROM Tenants WHERE tenant_id = ? LIMIT 1',
+                    [tenantId]
+                );
+                const currentTier = (Array.isArray(tenantTierRows) && tenantTierRows.length > 0)
+                    ? String((tenantTierRows[0] as { tier?: string }).tier || 'Essential')
+                    : 'Essential';
+                const userLimit = getUserLimit(currentTier);
+                // existingCount ya excluye a este usuario (entra_oid <> ?), así que
+                // agregarlo llevaría el total a existingCount + 1.
+                if (Number.isFinite(userLimit) && existingCount + 1 > userLimit) {
+                    await connection.rollback();
+                    return NextResponse.json({
+                        error: `Tu organización alcanzó el límite de usuarios del plan ${currentTier} (${userLimit}). Pedile a un administrador que libere un usuario o actualice el plan para agregar más.`,
+                    }, { status: 403 });
+                }
             }
 
             // UPSERT User. Never escalate role on duplicate: preserve existing role.

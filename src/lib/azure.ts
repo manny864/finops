@@ -2,8 +2,9 @@ import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { ClientSecretCredential } from "@azure/identity";
 import { ComputeManagementClient } from "@azure/arm-compute";
 import { NetworkManagementClient } from "@azure/arm-network";
-import { initializeDatabase } from '@/modules/storage/db';
+import pool, { initializeDatabase } from '@/modules/storage/db';
 import { getTenantCredentials } from '@/lib/secrets/tenantCredentials';
+import { getSubscriptionLimit } from '@/lib/tierLogic';
 
 export async function getAzureCredential(tenantId: string) {
   // Ensure DB schema exists before querying (KV fallback path may hit DB).
@@ -27,6 +28,17 @@ export async function getAzureCredential(tenantId: string) {
   return new ClientSecretCredential(cleanTid, clientId, clientSecret);
 }
 
+/**
+ * Suscripciones de Azure visibles para el Service Principal del tenant,
+ * truncadas al límite de plan (Essential=1, Professional=5, Business=20,
+ * Enterprise=sin límite — ver SUBSCRIPTION_LIMITS en tierLogic.ts). El SP
+ * puede tener Reader en más suscripciones de las que el plan permite
+ * monitorear (el cliente le asigna el rol en Azure IAM, fuera de nuestro
+ * control); el corte pasa acá para que TODO lo que consume esta función
+ * (cost snapshots, tags compliance, zombies, rightsizing, etc. — ~16
+ * llamadores) respete el límite de forma consistente sin tener que tocar
+ * cada caller individualmente.
+ */
 export async function getSubscriptionsForTenant(tenantId: string, credential?: ClientSecretCredential): Promise<string[]> {
   const cred = credential || await getAzureCredential(tenantId);
   const subs: string[] = [];
@@ -44,6 +56,21 @@ export async function getSubscriptionsForTenant(tenantId: string, credential?: C
   } catch (e) {
     console.error(`[azure] Error fetching subscriptions for tenant ${tenantId}:`, e);
   }
+
+  if (subs.length === 0) return subs;
+
+  try {
+    const [rows]: any = await pool.query("SELECT tier FROM Tenants WHERE tenant_id = ? LIMIT 1", [tenantId]);
+    const tier = rows?.[0]?.tier || "Essential";
+    const limit = getSubscriptionLimit(tier);
+    if (Number.isFinite(limit) && subs.length > limit) {
+      console.warn(`[azure] Tenant ${tenantId} (${tier}): ${subs.length} suscripciones visibles, límite del plan es ${limit}. Truncando (orden estable por ID).`);
+      return [...subs].sort().slice(0, limit);
+    }
+  } catch (e: any) {
+    console.warn(`[azure] No se pudo verificar el límite de suscripciones para ${tenantId}, devolviendo lista completa:`, e?.message);
+  }
+
   return subs;
 }
 

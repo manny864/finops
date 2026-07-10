@@ -3,6 +3,7 @@ import { SubscriptionClient } from "@azure/arm-subscriptions";
 import { getAzureCredential } from "@/lib/azure";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";
+import { getSubscriptionLimit } from "@/lib/tierLogic";
 
 export async function GET(request: NextRequest) {
   try {
@@ -35,14 +36,31 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await res.json();
-    const subscriptions = (data.value || []).map((sub: any) => ({
+    const allSubscriptions = (data.value || []).map((sub: any) => ({
         id: sub.subscriptionId,
         name: sub.displayName,
         state: sub.state,
         tenantId: sub.tenantId
     }));
 
-    console.log(`[Subscriptions] OK: ${subscriptions.length} suscripciones encontradas`);
+    // Límite de suscripciones por plan (Essential=1, Professional=5,
+    // Business=20, Enterprise=sin límite). El SP puede tener Reader en más
+    // de las que el plan permite monitorear; acá se corta y se informa al
+    // frontend cuántas quedaron ocultas para mostrar el upsell.
+    let tier = "Essential";
+    try {
+        const [tierRows]: any = await pool.query("SELECT tier FROM Tenants WHERE tenant_id = ? LIMIT 1", [tenantId]);
+        tier = tierRows?.[0]?.tier || "Essential";
+    } catch (e: any) {
+        console.warn(`[Subscriptions] No se pudo leer el tier de ${tenantId}, asumiendo Essential:`, e.message);
+    }
+    const limit = getSubscriptionLimit(tier);
+    const limitApplied = Number.isFinite(limit) && allSubscriptions.length > limit;
+    const subscriptions = limitApplied
+        ? [...allSubscriptions].sort((a, b) => a.id.localeCompare(b.id)).slice(0, limit)
+        : allSubscriptions;
+
+    console.log(`[Subscriptions] OK: ${allSubscriptions.length} suscripciones encontradas (plan ${tier}, límite ${Number.isFinite(limit) ? limit : "∞"}${limitApplied ? ", truncado" : ""})`);
 
     try {
         const [updateRes] = await pool.query(`UPDATE Tenants SET is_onboarded = 1 WHERE tenant_id = ?`, [tenantId]) as any[];
@@ -53,7 +71,13 @@ export async function GET(request: NextRequest) {
         console.error(`[Subscriptions] Error actualizando is_onboarded:`, e.message);
     }
 
-    return NextResponse.json({ subscriptions });
+    return NextResponse.json({
+        subscriptions,
+        subscriptionLimit: Number.isFinite(limit) ? limit : null,
+        totalAvailable: allSubscriptions.length,
+        limitApplied,
+        tier,
+    });
   } catch (error: unknown) {
     if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
     const err = error as { message?: string; code?: string; name?: string; statusCode?: number; status?: number };

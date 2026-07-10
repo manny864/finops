@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool, { initializeDatabase } from "@/modules/storage/db";
 import { AuthError, requireRequestIdentity, requireSuperAdmin, requireTenantAccess } from "@/lib/requestAuth";
+import { getUserLimit } from "@/lib/tierLogic";
 
 export async function GET(request: NextRequest) {
     try {
@@ -129,23 +130,23 @@ export async function POST(request: NextRequest) {
             }
             const tier = tenantRows[0].tier || 'Essential';
 
-            const [userRows] = await connection.execute<any>(
-                `SELECT COUNT(*) as count FROM Users WHERE tenant_id = ?`,
+            const [existingOidRows] = await connection.execute<any>(
+                `SELECT entra_oid FROM Users WHERE tenant_id = ?`,
                 [tenantId]
             );
-            let count = userRows[0].count;
+            const existingOids = new Set((existingOidRows as any[]).map(r => r.entra_oid));
+            let count = existingOids.size;
+            const userLimit = getUserLimit(tier);
 
             const adminDomain = currentAdminEmail.split('@')[1]?.toLowerCase();
 
             for (const user of usersToProcess) {
-                if (tier === 'Essential' && count >= 1) {
-                    return NextResponse.json({ error: "Límite de usuarios alcanzado para el plan Essential (Máx 1)." }, { status: 403 });
-                }
-                if (tier === 'Professional' && count >= 5) {
-                    return NextResponse.json({ error: "Límite de usuarios alcanzado para el plan Professional (Máx 5)." }, { status: 403 });
-                }
-                if (tier === 'Business' && count >= 20) {
-                    return NextResponse.json({ error: "Límite de usuarios alcanzado para el plan Business (Máx 20)." }, { status: 403 });
+                // Un usuario que YA existe (re-sync desde Entra, cambio de rol, etc.)
+                // no cuenta como alta nueva — solo bloqueamos incorporaciones
+                // genuinamente nuevas que llevarían el total por encima del límite.
+                const isNewUser = !existingOids.has(user.entraOid);
+                if (isNewUser && Number.isFinite(userLimit) && count >= userLimit) {
+                    return NextResponse.json({ error: `Límite de usuarios alcanzado para el plan ${tier} (máx. ${userLimit}). Liberá un usuario o actualizá el plan para agregar más.` }, { status: 403 });
                 }
 
                 const newEmailDomain = user.email.split('@')[1]?.toLowerCase();
@@ -170,7 +171,10 @@ export async function POST(request: NextRequest) {
                      ON DUPLICATE KEY UPDATE email = VALUES(email), display_name = VALUES(display_name), role = VALUES(role), system_role = VALUES(system_role)`,
                     [user.entraOid, tenantId, user.email, user.displayName || null, effectiveRole === 'SuperAdmin' ? 'Admin' : effectiveRole, systemRole]
                 );
-                count++;
+                if (isNewUser) {
+                    existingOids.add(user.entraOid);
+                    count++;
+                }
             }
 
             return NextResponse.json({ success: true, message: "Usuarios agregados/actualizados exitosamente." });

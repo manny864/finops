@@ -371,6 +371,7 @@
       "name": "Essential (Starter)",
       "desc": "Para empresas que recién comienzan a preocuparse por sus costos en Azure.",
       "features": [
+        "1 suscripción de Azure, 1 usuario",
         "Historial de Costos y Facturación",
         "Visualización de Presupuestos",
         "Consumo Real (Dashboard Detallado)",
@@ -392,6 +393,7 @@
       "trial": "Prueba gratuita de 7 días",
       "desc": "Para empresas medianas que necesitan entender tendencias y reportar.",
       "features": [
+        "Hasta 5 suscripciones de Azure, hasta 5 usuarios",
         "Todo lo de Essential",
         "Limpieza Activa de Recursos Zombie",
         "Ejecución de Rightsizing",
@@ -422,6 +424,7 @@
       "badge": "Más Popular",
       "desc": "Automatización básica y múltiples entornos para empresas en crecimiento.",
       "features": [
+        "Hasta 20 suscripciones de Azure, hasta 20 usuarios",
         "Todo lo de Professional",
         "Encendido/Apagado Automático (Schedules)",
         "FinOps Copilot (IA)",
@@ -444,6 +447,7 @@
       "badge": "Control Total",
       "desc": "Para corporaciones con topologías complejas (Hub & Spoke).",
       "features": [
+        "Suscripciones de Azure y usuarios ilimitados",
         "Todo lo de Business",
         "Soporte dedicado ilimitado (SLA 4 h)",
         "Workbooks Personalizados",

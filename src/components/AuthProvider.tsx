@@ -6,6 +6,7 @@ import { useTenant } from "./TenantProvider";
 import { isMockTenant } from "@/lib/mockData";
 import { exitDemoSession } from "@/app/_actions/demoAuth";
 import UserProfileMenu from "./UserProfileMenu";
+import { toast } from "sonner";
 
 const pca = new PublicClientApplication({
     auth: {
@@ -90,6 +91,11 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
                             console.log("Onboarding en Base de Datos exitoso.");
                         } else {
                             console.error("Fallo Onboarding DB:", data.error, data.details);
+                            // Sin esto, un 403 por límite de usuarios (ver /api/onboard)
+                            // dejaba al usuario logueado en Entra ID pero sin fila en
+                            // Users — entraba a la app "colgado", sin rol y sin ninguna
+                            // explicación de por qué.
+                            if (data.error) toast.error(data.error, { duration: 10000 });
                         }
                     }).catch(err => console.error("Error Fetch Onboard:", err));
                 }

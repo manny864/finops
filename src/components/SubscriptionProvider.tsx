@@ -9,11 +9,19 @@ export interface Subscription {
     name: string;
 }
 
+interface SubscriptionLimitInfo {
+    limitApplied: boolean;
+    subscriptionLimit: number | null;
+    totalAvailable: number;
+    tier: string;
+}
+
 interface SubscriptionContextType {
     selectedSubscription: string; // 'All' or subscription ID
     setSelectedSubscription: (id: string) => void;
     subscriptions: Subscription[];
     loading: boolean;
+    limitInfo: SubscriptionLimitInfo | null;
 }
 
 const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);
@@ -27,6 +35,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     
     const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
     const [loading, setLoading] = useState(false);
+    const [limitInfo, setLimitInfo] = useState<SubscriptionLimitInfo | null>(null);
     
     const selectedSubscription = searchParams.get('sub') || 'All';
 
@@ -65,6 +74,12 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
                 
                 if (res.ok && json.subscriptions) {
                     setSubscriptions(json.subscriptions);
+                    setLimitInfo({
+                        limitApplied: !!json.limitApplied,
+                        subscriptionLimit: json.subscriptionLimit ?? null,
+                        totalAvailable: json.totalAvailable ?? json.subscriptions.length,
+                        tier: json.tier || 'Essential',
+                    });
                     // Validate if selected still exists
                     const savedId = localStorage.getItem(`finops_sub_${selectedTenant.id}`);
                     if (savedId && savedId !== 'All') {
@@ -115,7 +130,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     };
 
     return (
-        <SubscriptionContext.Provider value={{ selectedSubscription, setSelectedSubscription, subscriptions, loading }}>
+        <SubscriptionContext.Provider value={{ selectedSubscription, setSelectedSubscription, subscriptions, loading, limitInfo }}>
             {children}
         </SubscriptionContext.Provider>
     );
