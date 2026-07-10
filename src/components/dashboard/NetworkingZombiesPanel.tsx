@@ -5,7 +5,7 @@ import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Loader2, Network, AlertCircle, Info, DollarSign, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2, Network, AlertCircle, Info, DollarSign, Trash2, Tag, ChevronLeft, ChevronRight } from "lucide-react";
 import { isMockTenant } from "@/lib/mockData";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { canDeleteResources } from "@/lib/tierLogic";
@@ -57,6 +57,11 @@ export default function NetworkingZombiesPanel() {
     const { instance, accounts } = useMsal();
     const [pageIndex, setPageIndex] = useState(0);
     const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [bulkDeleting, setBulkDeleting] = useState(false);
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [taggingItems, setTaggingItems] = useState<ZombieItem[]>([]);
+    const [tagValues, setTagValues] = useState({ CostCenter: "", Environment: "", Owner: "" });
+    const [isTagging, setIsTagging] = useState(false);
 
     const fetcher = async (url: string) => {
         const idToken = await getFreshIdToken(instance, accounts[0]);
@@ -78,12 +83,27 @@ export default function NetworkingZombiesPanel() {
         { revalidateOnFocus: false }
     );
 
-    const handleDelete = async (item: ZombieItem) => {
-        if (!selectedTenant) return;
-        if (!window.confirm(`¿Estás completamente seguro de ELIMINAR el recurso ${item.resourceName} (${item.resourceType}) permanentemente? Esto impactará los costos en Azure al instante.`)) return;
+    const toggleSelected = (id: string) => {
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id); else next.add(id);
+            return next;
+        });
+    };
 
+    const removeFromCache = (resourceIds: Set<string>) => {
+        mutate((prev: any) => {
+            if (!prev) return prev;
+            const items = (prev.items || []).filter((r: ZombieItem) => !resourceIds.has(r.resourceId));
+            const totalMonthlyWaste = Number(items.reduce((sum: number, r: ZombieItem) => sum + r.monthlyCost, 0).toFixed(2));
+            return { ...prev, items, totalMonthlyWaste };
+        }, { revalidate: false });
+    };
+
+    // Ejecuta el DELETE contra /api/remediation para un único recurso; no
+    // muestra toasts (single-item y bulk manejan su propio feedback).
+    const deleteResourceItem = async (item: ZombieItem): Promise<{ ok: boolean; error?: string }> => {
         try {
-            setDeletingId(item.resourceId);
             const idToken = await getFreshIdToken(instance, accounts[0]);
             const res = await fetch("/api/remediation", {
                 method: "POST",
@@ -92,7 +112,7 @@ export default function NetworkingZombiesPanel() {
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
-                    tenantId: selectedTenant.id,
+                    tenantId: selectedTenant?.id,
                     subscriptionId: item.subscriptionId,
                     resourceGroup: item.resourceGroup,
                     resourceName: item.resourceName,
@@ -100,29 +120,89 @@ export default function NetworkingZombiesPanel() {
                     resourceId: item.resourceId,
                 }),
             });
-
             const json = await res.json();
-            if (!res.ok) {
-                if (json.error === "MISSING_CONTRIBUTOR_ROLE") {
-                    toast.error("¡Operación Denegada!", { description: "La eliminación de recursos requiere el plan Enterprise (tu Service Principal no tiene el rol de Azure necesario)." });
-                    return;
-                }
-                throw new Error(json.error || "Fallo al eliminar");
-            }
-
-            await mutate((prev: any) => {
-                if (!prev) return prev;
-                const items = (prev.items || []).filter((r: ZombieItem) => r.resourceId !== item.resourceId);
-                const totalMonthlyWaste = Number(items.reduce((sum: number, r: ZombieItem) => sum + r.monthlyCost, 0).toFixed(2));
-                return { ...prev, items, totalMonthlyWaste };
-            }, { revalidate: false });
-
-            toast.success("Recurso Eliminado", { description: `${item.resourceName} fue destruido.` });
+            if (!res.ok) return { ok: false, error: json.error || "Fallo al eliminar" };
+            return { ok: true };
         } catch (err: any) {
-            toast.error("Error al borrar", { description: err.message });
-        } finally {
-            setDeletingId(null);
+            return { ok: false, error: err.message };
         }
+    };
+
+    const handleDelete = async (item: ZombieItem) => {
+        if (!selectedTenant) return;
+        if (!window.confirm(`¿Estás completamente seguro de ELIMINAR el recurso ${item.resourceName} (${item.resourceType}) permanentemente? Esto impactará los costos en Azure al instante.`)) return;
+
+        setDeletingId(item.resourceId);
+        const result = await deleteResourceItem(item);
+        if (result.ok) {
+            removeFromCache(new Set([item.resourceId]));
+            toast.success("Recurso Eliminado", { description: `${item.resourceName} fue destruido.` });
+        } else if (result.error === "MISSING_CONTRIBUTOR_ROLE") {
+            toast.error("¡Operación Denegada!", { description: "La eliminación de recursos requiere el plan Enterprise (tu Service Principal no tiene el rol de Azure necesario)." });
+        } else {
+            toast.error("Error al borrar", { description: result.error });
+        }
+        setDeletingId(null);
+    };
+
+    const handleBulkDelete = async (items: ZombieItem[]) => {
+        if (!selectedTenant || items.length === 0) return;
+        if (!window.confirm(`¿Estás completamente seguro de ELIMINAR permanentemente ${items.length} recursos seleccionados? Esto impactará los costos en Azure al instante y no se puede deshacer.`)) return;
+
+        setBulkDeleting(true);
+        const removed = new Set<string>();
+        let ok = 0, missingRole = 0, failed = 0;
+        for (const item of items) {
+            setDeletingId(item.resourceId);
+            const result = await deleteResourceItem(item);
+            if (result.ok) { ok++; removed.add(item.resourceId); }
+            else if (result.error === "MISSING_CONTRIBUTOR_ROLE") missingRole++;
+            else failed++;
+        }
+        if (removed.size > 0) removeFromCache(removed);
+        setDeletingId(null);
+        setBulkDeleting(false);
+        setSelectedIds(new Set());
+
+        if (ok > 0) toast.success(`${ok} recurso(s) eliminados`, { description: "Eliminación en bulk completada." });
+        if (missingRole > 0) toast.error("¡Operación Denegada!", { description: `${missingRole} recurso(s) requieren el plan Enterprise para poder eliminarse.` });
+        if (failed > 0) toast.error("Error al eliminar", { description: `${failed} recurso(s) fallaron.` });
+    };
+
+    const handleTagSubmit = async () => {
+        if (!selectedTenant || taggingItems.length === 0) return;
+        setIsTagging(true);
+
+        let ok = 0, failed = 0;
+        for (const item of taggingItems) {
+            try {
+                const idToken = await getFreshIdToken(instance, accounts[0]);
+                const res = await fetch("/api/tags/apply", {
+                    method: "POST",
+                    headers: {
+                        Authorization: `Bearer ${idToken}`,
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        tenantId: selectedTenant.id,
+                        resourceId: item.resourceId,
+                        tags: tagValues,
+                    }),
+                });
+                const json = await res.json();
+                if (!res.ok) throw new Error(json.details || json.error || "Fallo al aplicar etiquetas");
+                ok++;
+            } catch {
+                failed++;
+            }
+        }
+
+        setIsTagging(false);
+        setTaggingItems([]);
+        setSelectedIds(new Set());
+
+        if (ok > 0) toast.success(ok === 1 ? "Etiquetas aplicadas exitosamente." : `Etiquetas aplicadas a ${ok} recursos.`);
+        if (failed > 0) toast.error(`${failed} recurso(s) fallaron al etiquetar.`);
     };
 
     if (!selectedTenant || selectedTenant.id === "default") return null;
@@ -154,6 +234,9 @@ export default function NetworkingZombiesPanel() {
     const pageCount = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
     const safePageIndex = Math.min(pageIndex, pageCount - 1);
     const pageItems = items.slice(safePageIndex * PAGE_SIZE, safePageIndex * PAGE_SIZE + PAGE_SIZE);
+    const pageAllSelected = pageItems.length > 0 && pageItems.every((i) => selectedIds.has(i.resourceId));
+    const pageSomeSelected = !pageAllSelected && pageItems.some((i) => selectedIds.has(i.resourceId));
+    const selectedItems = items.filter((i) => selectedIds.has(i.resourceId));
 
     return (
         <div className="w-full space-y-6">
@@ -192,6 +275,38 @@ export default function NetworkingZombiesPanel() {
                 </div>
             </div>
 
+            {/* Bulk action bar */}
+            {selectedIds.size > 0 && (
+                <div className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-xl border border-blue-200 dark:border-blue-800/50">
+                    <span className="text-sm font-semibold text-blue-800 dark:text-blue-300">{selectedIds.size} seleccionado(s)</span>
+                    <button
+                        onClick={() => {
+                            setTaggingItems(selectedItems);
+                            setTagValues({ CostCenter: "", Environment: "", Owner: "" });
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold bg-white dark:bg-slate-800 border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+                    >
+                        <Tag className="w-3.5 h-3.5" /> Etiquetar seleccionados
+                    </button>
+                    {canDelete ? (
+                        <button
+                            onClick={() => handleBulkDelete(selectedItems)}
+                            disabled={bulkDeleting}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/50 hover:bg-red-100 dark:hover:bg-red-950/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                            <Trash2 className="w-3.5 h-3.5" /> {bulkDeleting ? "Eliminando..." : "Eliminar seleccionados"}
+                        </button>
+                    ) : (
+                        <span className="px-3 py-1.5 rounded-md text-xs font-semibold bg-gray-100 dark:bg-slate-800 text-gray-400 dark:text-slate-500 border border-gray-200 dark:border-slate-700" title="La eliminación de recursos requiere el plan Enterprise">
+                            Eliminar — requiere Enterprise
+                        </span>
+                    )}
+                    <button onClick={() => setSelectedIds(new Set())} className="ml-auto text-xs text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 font-semibold">
+                        Limpiar selección
+                    </button>
+                </div>
+            )}
+
             {/* Table */}
             <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm">
                 <div className="px-4 py-3 border-b border-gray-100 dark:border-slate-800 flex items-center gap-2">
@@ -212,6 +327,22 @@ export default function NetworkingZombiesPanel() {
                             <table className="w-full text-sm text-left">
                                 <thead className="bg-gray-50 dark:bg-slate-800/50 text-xs text-slate-500 dark:text-slate-400">
                                     <tr>
+                                        <th className="px-4 py-3 w-8">
+                                            <input
+                                                type="checkbox"
+                                                checked={pageAllSelected}
+                                                ref={(el) => { if (el) el.indeterminate = pageSomeSelected; }}
+                                                onChange={() => {
+                                                    setSelectedIds((prev) => {
+                                                        const next = new Set(prev);
+                                                        if (pageAllSelected) pageItems.forEach((i) => next.delete(i.resourceId));
+                                                        else pageItems.forEach((i) => next.add(i.resourceId));
+                                                        return next;
+                                                    });
+                                                }}
+                                                className="cursor-pointer"
+                                            />
+                                        </th>
                                         <th className="px-4 py-3 font-semibold">Recurso</th>
                                         <th className="px-4 py-3 font-semibold">Tipo</th>
                                         <th className="px-4 py-3 font-semibold">Resource Group</th>
@@ -224,6 +355,14 @@ export default function NetworkingZombiesPanel() {
                                 <tbody className="divide-y divide-gray-100 dark:divide-slate-800/50">
                                     {pageItems.map((item) => (
                                         <tr key={item.resourceId} className="hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors">
+                                            <td className="px-4 py-3">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedIds.has(item.resourceId)}
+                                                    onChange={() => toggleSelected(item.resourceId)}
+                                                    className="cursor-pointer"
+                                                />
+                                            </td>
                                             <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-200 max-w-[220px] truncate" title={item.resourceName}>
                                                 {item.resourceName}
                                             </td>
@@ -295,6 +434,74 @@ export default function NetworkingZombiesPanel() {
                     </>
                 )}
             </div>
+
+            {/* Bulk tag modal */}
+            {taggingItems.length > 0 && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl p-6 w-[450px] animate-in zoom-in-95">
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-slate-100 mb-2">Fijar Etiquetas FinOps</h3>
+                        <p className="text-sm text-gray-500 dark:text-slate-400 mb-4">
+                            {taggingItems.length === 1 ? (
+                                <>Estás a punto de etiquetar el recurso <span className="font-mono font-semibold text-gray-700 dark:text-slate-300">{taggingItems[0].resourceName}</span>.</>
+                            ) : (
+                                <>Estás a punto de etiquetar <span className="font-semibold text-gray-700 dark:text-slate-300">{taggingItems.length} recursos</span> seleccionados con las mismas etiquetas.</>
+                            )}{" "}
+                            Las políticas FinOps requieren 3 etiquetas fundamentales: <b>CostCenter</b> (quién paga), <b>Environment</b> (producción/dev) y <b>Owner</b> (responsable técnico).
+                        </p>
+                        <div className="space-y-4 mb-6">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-700 dark:text-slate-300 mb-1">CostCenter</label>
+                                <input
+                                    type="text"
+                                    className="w-full border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-md px-3 py-2 text-sm text-gray-900 dark:text-slate-100 focus:outline-none focus:border-[#0054A6] focus:ring-1 focus:ring-[#0054A6]"
+                                    placeholder="Ej: Marketing, IT, HR..."
+                                    value={tagValues.CostCenter}
+                                    onChange={(e) => setTagValues({ ...tagValues, CostCenter: e.target.value })}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-700 dark:text-slate-300 mb-1">Environment</label>
+                                <select
+                                    className="w-full border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-md px-3 py-2 text-sm text-gray-900 dark:text-slate-100 focus:outline-none focus:border-[#0054A6] focus:ring-1 focus:ring-[#0054A6]"
+                                    value={tagValues.Environment}
+                                    onChange={(e) => setTagValues({ ...tagValues, Environment: e.target.value })}
+                                >
+                                    <option value="">Selecciona un entorno...</option>
+                                    <option value="Production">Production</option>
+                                    <option value="Staging">Staging</option>
+                                    <option value="Development">Development</option>
+                                    <option value="Testing">Testing</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-700 dark:text-slate-300 mb-1">Owner</label>
+                                <input
+                                    type="text"
+                                    className="w-full border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-md px-3 py-2 text-sm text-gray-900 dark:text-slate-100 focus:outline-none focus:border-[#0054A6] focus:ring-1 focus:ring-[#0054A6]"
+                                    placeholder="Ej: juan.perez@empresa.com"
+                                    value={tagValues.Owner}
+                                    onChange={(e) => setTagValues({ ...tagValues, Owner: e.target.value })}
+                                />
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={() => setTaggingItems([])}
+                                className="px-4 py-2 text-sm font-semibold text-gray-600 dark:text-slate-300 hover:text-gray-900 dark:hover:text-slate-100 bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 rounded-md transition-colors"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleTagSubmit}
+                                disabled={isTagging || !tagValues.CostCenter || !tagValues.Environment || !tagValues.Owner}
+                                className="px-4 py-2 text-sm font-semibold text-white bg-[#0054A6] hover:bg-[#00AEEF] rounded-md transition-colors disabled:opacity-50 flex items-center"
+                            >
+                                {isTagging ? "Aplicando..." : "Aplicar Etiquetas"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

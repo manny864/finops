@@ -50,22 +50,36 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
   const [sorting, setSorting] = useState<SortingState>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const [taggingItem, setTaggingItem] = useState<any | null>(null);
+  const [taggingItems, setTaggingItems] = useState<any[]>([]);
   const [tagValues, setTagValues] = useState({ CostCenter: '', Environment: '', Owner: '' });
   const [isTagging, setIsTagging] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
-  const handleDelete = async (item: any) => {
-      if (item.manualDelete) {
-          toast.error('Requisito Manual', { description: `La eliminación de [${item.type}] debe hacerse en el portal.` }); 
-          return;
-      }
+  // Poda ids seleccionados que ya no existen en `data` (ej. tras eliminarlos).
+  useEffect(() => {
+      setSelectedIds(prev => {
+          if (prev.size === 0) return prev;
+          const validIds = new Set(data.map(d => d.id));
+          const next = new Set(Array.from(prev).filter(id => validIds.has(id)));
+          return next.size === prev.size ? prev : next;
+      });
+  }, [data]);
 
-      if (!window.confirm(`¿Estás completamente seguro de ELIMINAR el recurso ${item.resourceName} permanentemente? Esto impactará los costos en Azure al instante.`)) return;
-      
+  const toggleSelected = (id: string) => {
+      setSelectedIds(prev => {
+          const next = new Set(prev);
+          if (next.has(id)) next.delete(id); else next.add(id);
+          return next;
+      });
+  };
+
+  // Ejecuta el DELETE contra /api/remediation para un único recurso; no
+  // muestra toasts (los llamadores single-item y bulk manejan su propio
+  // feedback agregado).
+  const deleteResourceItem = async (item: any): Promise<{ ok: boolean; error?: string }> => {
       try {
-          setDeletingId(item.id);
           const idToken = await getFreshIdToken(instance, accounts[0]);
-
           const res = await fetch('/api/remediation', {
               method: 'POST',
               headers: {
@@ -80,68 +94,113 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                   resourceType: item.armType
               })
           });
-          
           const json = await res.json();
-          if (!res.ok) {
-              if (json.error === "MISSING_CONTRIBUTOR_ROLE") {
-                  toast.error('¡Operación Denegada!', { description: 'La eliminación de recursos requiere el plan Enterprise (tu Service Principal no tiene el rol de Azure necesario).' });
-                  addAction({ message: `Fallo de permisos al borrar ${item.resourceName}. Requiere plan Enterprise.`, status: 'error' });
-                  setDeletingId(null);
-                  return;
-              }
-              throw new Error(json.error || "Fallo al eliminar");
-          }
+          if (!res.ok) return { ok: false, error: json.error || "Fallo al eliminar" };
+          return { ok: true };
+      } catch (err: any) {
+          return { ok: false, error: err.message };
+      }
+  };
 
+  const handleDelete = async (item: any) => {
+      if (item.manualDelete) {
+          toast.error('Requisito Manual', { description: `La eliminación de [${item.type}] debe hacerse en el portal.` });
+          return;
+      }
+
+      if (!window.confirm(`¿Estás completamente seguro de ELIMINAR el recurso ${item.resourceName} permanentemente? Esto impactará los costos en Azure al instante.`)) return;
+
+      setDeletingId(item.id);
+      const result = await deleteResourceItem(item);
+      if (result.ok) {
           setData(prev => prev.filter(r => r.id !== item.id));
           toast.success('Recurso Eliminado', { description: `${item.resourceName} fue destruido.` });
           addAction({ message: `Se eliminó el recurso zombi: ${item.resourceName} exitosamente.`, status: 'success' });
-      } catch (err: any) {
-          console.warn("Aviso de eliminación:", err.message);
-          if (err.message && err.message.startsWith("MISSING_CONTRIBUTOR_ROLE")) {
-              toast.error('¡Operación Denegada!', { description: 'La eliminación de recursos requiere el plan Enterprise.' });
-              addAction({ message: `Fallo de permisos al borrar ${item.resourceName}. Requiere plan Enterprise.`, status: 'error' });
+      } else if (result.error === "MISSING_CONTRIBUTOR_ROLE") {
+          toast.error('¡Operación Denegada!', { description: 'La eliminación de recursos requiere el plan Enterprise (tu Service Principal no tiene el rol de Azure necesario).' });
+          addAction({ message: `Fallo de permisos al borrar ${item.resourceName}. Requiere plan Enterprise.`, status: 'error' });
+      } else {
+          toast.error('Error al borrar', { description: result.error });
+          addAction({ message: `Error al borrar ${item.resourceName}: ${result.error}`, status: 'error' });
+      }
+      setDeletingId(null);
+  };
+
+  const handleBulkDelete = async () => {
+      const items = filteredData.filter(i => selectedIds.has(i.id) && !i.manualDelete);
+      if (items.length === 0) return;
+      if (!window.confirm(`¿Estás completamente seguro de ELIMINAR permanentemente ${items.length} recursos seleccionados? Esto impactará los costos en Azure al instante y no se puede deshacer.`)) return;
+
+      setBulkDeleting(true);
+      let ok = 0, missingRole = 0, failed = 0;
+      for (const item of items) {
+          setDeletingId(item.id);
+          const result = await deleteResourceItem(item);
+          if (result.ok) {
+              ok++;
+              setData(prev => prev.filter(r => r.id !== item.id));
+          } else if (result.error === "MISSING_CONTRIBUTOR_ROLE") {
+              missingRole++;
           } else {
-              toast.error('Error al borrar', { description: err.message });
-              addAction({ message: `Error al borrar ${item.resourceName}: ${err.message}`, status: 'error' });
+              failed++;
           }
-      } finally {
-          setDeletingId(null);
+      }
+      setDeletingId(null);
+      setBulkDeleting(false);
+      setSelectedIds(new Set());
+
+      if (ok > 0) {
+          toast.success(`${ok} recurso(s) eliminados`, { description: 'Eliminación en bulk completada.' });
+          addAction({ message: `Eliminación en bulk: ${ok} recurso(s) destruidos exitosamente.`, status: 'success' });
+      }
+      if (missingRole > 0) {
+          toast.error('¡Operación Denegada!', { description: `${missingRole} recurso(s) requieren el plan Enterprise para poder eliminarse.` });
+      }
+      if (failed > 0) {
+          toast.error('Error al eliminar', { description: `${failed} recurso(s) fallaron.` });
       }
   };
 
   const handleTagSubmit = async () => {
-      if (!taggingItem) return;
+      if (taggingItems.length === 0) return;
       setIsTagging(true);
-      try {
-          const idToken = await getFreshIdToken(instance, accounts[0]);
 
-          const res = await fetch('/api/tags/apply', {
-              method: 'POST',
-              headers: {
-                  'Authorization': `Bearer ${idToken}`,
-                  'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                  tenantId: selectedTenant.id,
-                  resourceId: taggingItem.id,
-                  tags: tagValues
-              })
-          });
+      let ok = 0, failed = 0;
+      for (const item of taggingItems) {
+          try {
+              const idToken = await getFreshIdToken(instance, accounts[0]);
+              const res = await fetch('/api/tags/apply', {
+                  method: 'POST',
+                  headers: {
+                      'Authorization': `Bearer ${idToken}`,
+                      'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({
+                      tenantId: selectedTenant.id,
+                      resourceId: item.id,
+                      tags: tagValues
+                  })
+              });
 
-          const json = await res.json();
-          if (!res.ok) throw new Error(json.details || json.error || "Fallo al aplicar etiquetas");
+              const json = await res.json();
+              if (!res.ok) throw new Error(json.details || json.error || "Fallo al aplicar etiquetas");
 
-          toast.success("Etiquetas aplicadas exitosamente.");
-          addAction({ message: `Etiquetas FinOps aplicadas a ${taggingItem.resourceName}`, status: 'success' });
-          setData(prev => prev.filter(r => r.id !== taggingItem.id));
-          setTaggingItem(null);
-      } catch (err: any) {
-          console.error("Error tagging:", err);
-          toast.error("Error al aplicar etiquetas", { description: err.message });
-          addAction({ message: `Error etiquetando ${taggingItem.resourceName}: ${err.message}`, status: 'error' });
-      } finally {
-          setIsTagging(false);
+              ok++;
+              setData(prev => prev.filter(r => r.id !== item.id));
+              addAction({ message: `Etiquetas FinOps aplicadas a ${item.resourceName}`, status: 'success' });
+          } catch (err: any) {
+              console.error("Error tagging:", err);
+              failed++;
+              addAction({ message: `Error etiquetando ${item.resourceName}: ${err.message}`, status: 'error' });
+          }
       }
+
+      setIsTagging(false);
+      setTaggingItems([]);
+      setSelectedIds(new Set());
+
+      if (ok > 0) toast.success(ok === 1 ? "Etiquetas aplicadas exitosamente." : `Etiquetas aplicadas a ${ok} recursos.`);
+      if (failed > 0) toast.error(`${failed} recurso(s) fallaron al etiquetar.`);
   };
 
   useEffect(() => {
@@ -308,6 +367,39 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
   const columns = useMemo<ColumnDef<any>[]>(() => {
     const cols: ColumnDef<any>[] = [
       {
+        id: 'select',
+        header: ({ table }) => {
+            const rows = table.getRowModel().rows;
+            const allSelected = rows.length > 0 && rows.every(r => selectedIds.has(r.original.id));
+            const someSelected = !allSelected && rows.some(r => selectedIds.has(r.original.id));
+            return (
+                <input
+                    type="checkbox"
+                    checked={allSelected}
+                    ref={el => { if (el) el.indeterminate = someSelected; }}
+                    onChange={() => {
+                        setSelectedIds(prev => {
+                            const next = new Set(prev);
+                            if (allSelected) rows.forEach(r => next.delete(r.original.id));
+                            else rows.forEach(r => next.add(r.original.id));
+                            return next;
+                        });
+                    }}
+                    className="cursor-pointer"
+                />
+            );
+        },
+        cell: ({ row }) => (
+            <input
+                type="checkbox"
+                checked={selectedIds.has(row.original.id)}
+                onChange={() => toggleSelected(row.original.id)}
+                className="cursor-pointer"
+            />
+        ),
+        size: 36,
+      },
+      {
         accessorKey: 'resourceName',
         header: 'Recurso',
         cell: ({ row }) => {
@@ -395,9 +487,9 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
             <div className="text-right flex items-center justify-end gap-2">
                 {item.issueType === 'governance' && item.issue === "Sin Etiquetas FinOps" && (
                     <>
-                        <button 
+                        <button
                             onClick={() => {
-                                setTaggingItem(item);
+                                setTaggingItems([item]);
                                 setTagValues({ CostCenter: '', Environment: '', Owner: '' });
                             }}
                             className="px-3 py-1 rounded-md text-xs font-semibold shadow-sm transition-colors bg-[#0054A6] text-white hover:bg-[#00AEEF]"
@@ -431,7 +523,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
     });
 
     return cols;
-  }, [viewMode, deletingId, canDelete]);
+  }, [viewMode, deletingId, canDelete, selectedIds]);
 
   const table = useReactTable({
     data: filteredData,
@@ -533,7 +625,38 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
             </div>
         </div>
       </div>
-      
+
+      {selectedIds.size > 0 && (
+          <div className="flex items-center gap-3 mb-4 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800/50">
+              <span className="text-sm font-semibold text-blue-800 dark:text-blue-300">{selectedIds.size} seleccionado(s)</span>
+              <button
+                  onClick={() => {
+                      setTaggingItems(filteredData.filter(i => selectedIds.has(i.id)));
+                      setTagValues({ CostCenter: '', Environment: '', Owner: '' });
+                  }}
+                  className="px-3 py-1.5 rounded-md text-xs font-semibold bg-white dark:bg-slate-800 border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+              >
+                  Etiquetar seleccionados
+              </button>
+              {canDelete ? (
+                  <button
+                      onClick={handleBulkDelete}
+                      disabled={bulkDeleting}
+                      className="px-3 py-1.5 rounded-md text-xs font-semibold bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/50 hover:bg-red-100 dark:hover:bg-red-950/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                      {bulkDeleting ? 'Eliminando...' : 'Eliminar seleccionados'}
+                  </button>
+              ) : (
+                  <span className="px-3 py-1.5 rounded-md text-xs font-semibold bg-gray-100 dark:bg-slate-800 text-gray-400 dark:text-slate-500 border border-gray-200 dark:border-slate-700" title="La eliminación de recursos requiere el plan Enterprise">
+                      Eliminar — requiere Enterprise
+                  </span>
+              )}
+              <button onClick={() => setSelectedIds(new Set())} className="ml-auto text-xs text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 font-semibold">
+                  Limpiar selección
+              </button>
+          </div>
+      )}
+
       {error === 'MISSING_RBAC_ROLE' ? <RoleAssignmentBanner /> : loading ? (
           <div className="empty animate-pulse">Escaneando Azure Resource Graph...</div>
       ) : (
@@ -641,12 +764,16 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
         </div>
       )}
 
-      {taggingItem && (
+      {taggingItems.length > 0 && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
             <div className="bg-white rounded-xl shadow-2xl p-6 w-[450px] animate-in zoom-in-95">
                 <h3 className="text-xl font-bold text-gray-900 mb-2">Fijar Etiquetas FinOps</h3>
                 <p className="text-sm text-gray-500 mb-4">
-                    Estás a punto de etiquetar el recurso <span className="font-mono font-semibold text-gray-700">{taggingItem.resourceName}</span>. 
+                    {taggingItems.length === 1 ? (
+                        <>Estás a punto de etiquetar el recurso <span className="font-mono font-semibold text-gray-700">{taggingItems[0].resourceName}</span>.</>
+                    ) : (
+                        <>Estás a punto de etiquetar <span className="font-semibold text-gray-700">{taggingItems.length} recursos</span> seleccionados con las mismas etiquetas.</>
+                    )}{' '}
                     Las políticas FinOps de la organización requieren 3 etiquetas fundamentales: <b>CostCenter</b> (quién paga), <b>Environment</b> (producción/dev) y <b>Owner</b> (responsable técnico).
                 </p>
                 <div className="space-y-4 mb-6">
@@ -686,8 +813,8 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                     </div>
                 </div>
                 <div className="flex justify-end gap-3">
-                    <button 
-                        onClick={() => setTaggingItem(null)} 
+                    <button
+                        onClick={() => setTaggingItems([])}
                         className="px-4 py-2 text-sm font-semibold text-gray-600 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
                     >
                         Cancelar
