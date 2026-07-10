@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+import Link from "next/link";
 import useSWR from "swr";
 import { useLocale, useTranslations } from "next-intl";
 import { useTenant } from "@/components/TenantProvider";
@@ -8,9 +9,10 @@ import {
     LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
     XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts";
-import { Loader2, AlertCircle, Info, TrendingUp, TrendingDown, MapPin, ShieldAlert, Lightbulb } from "lucide-react";
+import { Loader2, AlertCircle, Info, TrendingUp, TrendingDown, MapPin, ShieldAlert, Lightbulb, ChevronRight } from "lucide-react";
 import { isMockTenant } from "@/lib/mockData";
 import { getFreshIdToken } from "@/lib/msalToken";
+import { formatResourceType } from "@/lib/resourceTypeLabels";
 
 const COLORS = {
     high: "#dc2626",
@@ -90,16 +92,21 @@ export default function ExecutiveSummaryBoard() {
     const top3Services = (costs?.top3Services || []) as Array<{ name: string; cost: number }>;
     const servicesBarData = [
         ...top3Services.map((s) => ({ name: s.name, cost: s.cost })),
-        { name: "Total", cost: top3Services.reduce((sum, s) => sum + s.cost, 0) },
+        { name: t("total"), cost: top3Services.reduce((sum, s) => sum + s.cost, 0) },
     ];
     const costUp = (costs?.costChangePct || 0) >= 0;
+    const top5InventoryData = ((top5Inventory || []) as Array<{ name: string; count: number }>).map((r) => ({
+        label: formatResourceType(r.name),
+        fullName: r.name,
+        count: r.count,
+    }));
 
     return (
         <div className="w-full space-y-6">
             {data.mock && (
                 <div className="bg-amber-50 dark:bg-amber-900/20 p-3 flex gap-3 rounded-xl border border-amber-200 dark:border-amber-800/50 text-amber-800 dark:text-amber-300">
                     <Info className="w-5 h-5 shrink-0 mt-0.5" />
-                    <div className="text-sm">Estás viendo datos simulados de la versión demo.</div>
+                    <div className="text-sm">{t("mock_data_notice")}</div>
                 </div>
             )}
 
@@ -241,7 +248,7 @@ export default function ExecutiveSummaryBoard() {
                             </div>
                         ))}
                         {(!top3ThreatCategories || top3ThreatCategories.length === 0) && (
-                            <p className="text-sm text-slate-400 flex items-center gap-2"><ShieldAlert className="w-4 h-4" /> Sin hallazgos</p>
+                            <p className="text-sm text-slate-400 flex items-center gap-2"><ShieldAlert className="w-4 h-4" /> {t("no_findings")}</p>
                         )}
                     </div>
                 </Card>
@@ -266,10 +273,10 @@ export default function ExecutiveSummaryBoard() {
 
                 <Card title={t("top5_inventory")}>
                     <ResponsiveContainer width="100%" height={180}>
-                        <BarChart data={top5Inventory || []} layout="vertical" margin={{ left: 8, right: 16 }}>
+                        <BarChart data={top5InventoryData} layout="vertical" margin={{ left: 8, right: 16 }}>
                             <XAxis type="number" tick={{ fontSize: 10 }} />
-                            <YAxis type="category" dataKey="name" tick={{ fontSize: 9 }} width={130} tickFormatter={(v: any) => String(v).split("/").pop() || v} />
-                            <Tooltip />
+                            <YAxis type="category" dataKey="label" tick={{ fontSize: 9 }} width={130} />
+                            <Tooltip labelFormatter={(_: any, payload: any) => payload?.[0]?.payload?.fullName || ""} />
                             <Bar dataKey="count" fill={COLORS.blue} radius={[0, 4, 4, 0]} />
                         </BarChart>
                     </ResponsiveContainer>
@@ -279,9 +286,15 @@ export default function ExecutiveSummaryBoard() {
             {/* Row 4 */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 <Card>
-                    <div className="grid grid-cols-2 gap-3 h-full">
+                    <Link
+                        href={`/${locale}/advisor`}
+                        className="grid grid-cols-2 gap-3 h-full group -m-1 p-1 rounded-lg transition-colors hover:bg-gray-50 dark:hover:bg-slate-800/40"
+                    >
                         <div className="bg-gray-50 dark:bg-slate-800/50 rounded-lg p-3 flex flex-col justify-center">
-                            <p className="text-[10px] text-slate-400 mb-1">{t("open_recommendations")}</p>
+                            <p className="text-[10px] text-slate-400 mb-1 flex items-center gap-1">
+                                {t("open_recommendations")}
+                                <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </p>
                             <p className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 flex items-center gap-2">
                                 <Lightbulb className="w-5 h-5 text-amber-500" />{recommendations?.open}
                             </p>
@@ -290,7 +303,7 @@ export default function ExecutiveSummaryBoard() {
                             <p className="text-[10px] text-slate-400 mb-1">{t("potential_cost_savings")}</p>
                             <p className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400">{fmtUsd(recommendations?.potentialCostSavings)}</p>
                         </div>
-                    </div>
+                    </Link>
                 </Card>
 
                 <Card>

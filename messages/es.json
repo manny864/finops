@@ -1153,6 +1153,9 @@
     "cost_anomaly_trend": "Tendencia de Anomalías de Costo",
     "top5_cost_groups": "Top 5 Grupos de Costo",
     "of": "de",
-    "monthly_cost_pct": "% del costo mensual"
+    "monthly_cost_pct": "% del costo mensual",
+    "total": "Total",
+    "no_findings": "Sin hallazgos",
+    "mock_data_notice": "Estás viendo datos simulados de la versión demo."
   }
 }
