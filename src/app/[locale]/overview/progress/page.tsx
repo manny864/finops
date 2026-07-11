@@ -5,7 +5,7 @@ import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { useLocale } from 'next-intl';
 import { TrendingUp, Loader2, MapPin, BarChart3, Check, Ruler, Moon, Flag, AlertTriangle } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useAIContext } from '@/hooks/useAIContext';
 import { isMockTenant, getMockDataForRoute } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
@@ -121,8 +121,19 @@ export default function HistoricalProgressPage() {
         scoreImprovement = currentScore - (first.score || 0);
     }
 
-    const formatYAxis = (tickItem: any) => {
-        return `${tickItem}`;
+    const formatYAxis = (tickItem: any) => `${tickItem}%`;
+
+    // Fechas cortas y localizadas ("2 may" en vez de "2026-05-02"), evita que
+    // el eje X se sature de texto repetido y largo.
+    const formatXAxis = (value: string) => {
+        const d = new Date(`${value}T00:00:00`);
+        if (Number.isNaN(d.getTime())) return value;
+        return new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short' }).format(d);
+    };
+    const formatTooltipDate = (value: string) => {
+        const d = new Date(`${value}T00:00:00`);
+        if (Number.isNaN(d.getTime())) return value;
+        return new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'long', year: 'numeric' }).format(d);
     };
 
     const CustomDot = (props: any) => {
@@ -205,60 +216,91 @@ export default function HistoricalProgressPage() {
                                 {isDemo ? 'Datos de demostración' : 'Datos reales de Azure'}
                             </div>
                         </div>
-                        <div className="h-72 w-full font-sans relative">
+                        <div className="h-80 w-full font-sans relative">
                             <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                <AreaChart data={data} margin={{ top: 10, right: 10, left: -6, bottom: 0 }}>
                                     <defs>
                                         <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.15}/>
-                                            <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.35}/>
+                                            <stop offset="95%" stopColor="#10b981" stopOpacity={0.02}/>
                                         </linearGradient>
                                         <linearGradient id="colorImpacted" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.15}/>
-                                            <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
+                                            <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.35}/>
+                                            <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.02}/>
                                         </linearGradient>
                                     </defs>
-                                    <CartesianGrid vertical={false} stroke="#e2e8f0" strokeDasharray="3 3" />
-                                    <XAxis 
-                                        dataKey="scan_date" 
-                                        tick={{ fill: '#94a3b8', fontSize: 12 }}
+                                    <CartesianGrid vertical={false} stroke="var(--line)" strokeDasharray="3 3" />
+                                    <XAxis
+                                        dataKey="scan_date"
+                                        tickFormatter={formatXAxis}
+                                        tick={{ fill: 'var(--ink-soft)', fontSize: 12 }}
                                         tickMargin={10}
                                         axisLine={false}
                                         tickLine={false}
+                                        minTickGap={28}
                                     />
-                                    <YAxis 
-                                        tickFormatter={formatYAxis} 
-                                        tick={{ fill: '#94a3b8', fontSize: 12 }}
+                                    {/* Eje izquierdo: score 0-100% (dominio fijo, no auto-escala).
+                                        Eje derecho: cantidad de recursos afectados, escala propia —
+                                        antes compartían el mismo eje 0-100 y la serie de recursos
+                                        (típicamente 0-10) quedaba aplastada casi invisible contra el
+                                        piso del gráfico. */}
+                                    <YAxis
+                                        yAxisId="score"
+                                        domain={[0, 100]}
+                                        tickFormatter={formatYAxis}
+                                        tick={{ fill: '#10b981', fontSize: 12 }}
                                         axisLine={false}
                                         tickLine={false}
+                                        width={44}
                                     />
-                                    <Tooltip 
-                                        contentStyle={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                    <YAxis
+                                        yAxisId="impacted"
+                                        orientation="right"
+                                        allowDecimals={false}
+                                        tick={{ fill: '#f59e0b', fontSize: 12 }}
+                                        axisLine={false}
+                                        tickLine={false}
+                                        width={34}
+                                    />
+                                    <Tooltip
+                                        contentStyle={{ backgroundColor: 'var(--surface)', border: '1px solid var(--line-strong)', borderRadius: '10px', boxShadow: '0 8px 24px rgba(16,40,73,0.15)' }}
+                                        labelStyle={{ color: 'var(--ink)', fontWeight: 700, marginBottom: 4 }}
                                         itemStyle={{ fontWeight: 'bold' }}
+                                        labelFormatter={formatTooltipDate}
                                         formatter={(value: any, name: any) => {
                                             if (name === "score") return [`${Number(value).toFixed(1)}%`, "Score de Optimización"];
                                             return [`${value} rec.`, "Recursos Desoptimizados"];
                                         }}
                                     />
-                                    <Area 
-                                        type="monotone" 
-                                        dataKey="score" 
+                                    <Legend
+                                        verticalAlign="top"
+                                        align="right"
+                                        height={32}
+                                        iconType="circle"
+                                        formatter={(value: string) => value === 'score' ? 'Score de Optimización' : 'Recursos Desoptimizados'}
+                                        wrapperStyle={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-soft)' }}
+                                    />
+                                    <Area
+                                        yAxisId="score"
+                                        type="monotone"
+                                        dataKey="score"
                                         name="score"
-                                        stroke="#10b981" 
-                                        strokeWidth={3}
-                                        fillOpacity={1} 
-                                        fill="url(#colorScore)" 
+                                        stroke="#10b981"
+                                        strokeWidth={2.5}
+                                        fillOpacity={1}
+                                        fill="url(#colorScore)"
                                         activeDot={{ r: 6, strokeWidth: 0 }}
                                         dot={<CustomDot />}
                                     />
-                                    <Area 
-                                        type="monotone" 
-                                        dataKey="impacted_resources" 
+                                    <Area
+                                        yAxisId="impacted"
+                                        type="monotone"
+                                        dataKey="impacted_resources"
                                         name="impacted_resources"
-                                        stroke="#f59e0b" 
-                                        strokeWidth={3}
-                                        fillOpacity={1} 
-                                        fill="url(#colorImpacted)" 
+                                        stroke="#f59e0b"
+                                        strokeWidth={2.5}
+                                        fillOpacity={1}
+                                        fill="url(#colorImpacted)"
                                         activeDot={{ r: 6, strokeWidth: 0 }}
                                     />
                                 </AreaChart>
