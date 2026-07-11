@@ -458,6 +458,10 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               }
               if (url.includes('/api/cost-groups')) return new Response(JSON.stringify(getMockDataForRoute('cost_groups', tier)), {status: 200});
               if (url.includes('/api/intelligence/top-expenses')) return new Response(JSON.stringify(getMockDataForRoute('top_expenses', tier)), {status: 200});
+              if (url.includes('/api/resources/search')) return new Response(JSON.stringify(getMockDataForRoute('resources_search', tier)), {status: 200});
+              if (url.includes('/api/resources/inventory')) return new Response(JSON.stringify(getMockDataForRoute('resources_inventory', tier)), {status: 200});
+              if (url.includes('/api/resources/created-by')) return new Response(JSON.stringify(getMockDataForRoute('resources_created_by', tier)), {status: 200});
+              if (url.includes('/api/resources/costs-by-tag')) return new Response(JSON.stringify(getMockDataForRoute('resources_costs_by_tag', tier)), {status: 200});
               if (url.includes('/api/governance/ha')) {
                   const m = (selectedTenant?.tier?.toLowerCase()==='enterprise')?5:(selectedTenant?.tier?.toLowerCase()==='business')?2:1;
                   const baseItems = [

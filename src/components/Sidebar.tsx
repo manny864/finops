@@ -53,7 +53,8 @@ import {
     Network,
     LifeBuoy,
     HeartPulse,
-    Table2
+    Table2,
+    Boxes
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -94,6 +95,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/overview/maturity', label: t('finops_maturity'), icon: Target, requiredTier: 'Essential' },
                 { href: '/overview/progress', label: t('historical_progress'), icon: TrendingDown },
                 { href: '/overview/top-expenses', label: t('top_expenses', { fallback: 'TOP Expenses' }), icon: BarChart3 },
+                { href: '/overview/resources', label: t('resources', { fallback: 'Recursos' }), icon: Boxes, requiredTier: 'Professional' },
                 { href: '/overview/sustainability', label: 'Green FinOps', icon: Leaf }
             ]
         },

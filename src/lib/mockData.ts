@@ -1657,6 +1657,88 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
             ];
             return { success: true, mock: true, topCostGroups: groups, topSubscriptions, topResourceGroups, topResources };
         }
+        case 'resources_search': {
+            const round2 = (x: number) => Math.round(x * 100) / 100;
+            const owners = ['james.taylor@demo.com', 'cynthia.perez@demo.com', 'blake.gonzales@demo.com'];
+            const rgs = ['rg-data-platform-1', 'rg-engineering-3', 'rg-shared-services-1', 'rg-it-prod-007'];
+            const types = ['virtualMachines', 'storageAccounts', 'sqlServers/databases', 'disks', 'appServicePlans'];
+            const totalCount = Math.round(69 * multiplier);
+            const rows = Array.from({ length: 15 }, (_, i) => {
+                const cost = round2((1200 - i * 70) * multiplier * (0.6 + 0.4 * Math.abs(Math.sin(i))));
+                return {
+                    id: `/subscriptions/mock-sub/resourceGroups/${rgs[i % rgs.length]}/providers/Microsoft.Compute/${types[i % types.length]}/r-demo-${i}`,
+                    name: `r-demo-${100 + i}`,
+                    type: `Microsoft.Compute/${types[i % types.length]}`,
+                    subscriptionId: 'mock-sub',
+                    resourceGroup: rgs[i % rgs.length],
+                    tags: { Owner: owners[i % owners.length], CostCenter: `Application ${(i % 4) + 1}`, Environment: i % 2 === 0 ? 'Production' : 'Staging' },
+                    createdTime: new Date(Date.now() - (i + 5) * 86400000).toISOString(),
+                    periodCost: cost,
+                };
+            });
+            return {
+                success: true, mock: true, page: 1, pageSize: 15,
+                rows, total: totalCount,
+                kpis: { costGroups: Math.round(9 * multiplier), subscriptions: 1, resourceGroups: rgs.length, resources: totalCount },
+            };
+        }
+        case 'resources_inventory': {
+            const byType = [
+                { type: 'virtualMachines', count: Math.round(28 * multiplier) },
+                { type: 'disks', count: Math.round(24 * multiplier) },
+                { type: 'storageAccounts', count: Math.round(18 * multiplier) },
+                { type: 'networkInterfaces', count: Math.round(16 * multiplier) },
+                { type: 'databases', count: Math.round(9 * multiplier) },
+                { type: 'appServicePlans', count: Math.round(6 * multiplier) },
+            ];
+            return {
+                success: true, mock: true,
+                byType,
+                bySubscription: [{ subscriptionId: 'mock-sub', count: byType.reduce((s, t) => s + t.count, 0) }],
+                kpis: {
+                    costGroups: Math.round(10 * multiplier), subscriptions: 1, resourceGroups: Math.round(20 * multiplier),
+                    resources: byType.reduce((s, t) => s + t.count, 0), owners: 2,
+                },
+            };
+        }
+        case 'resources_created_by': {
+            const round2 = (x: number) => Math.round(x * 100) / 100;
+            const rows = [
+                { userName: 'james.taylor@demo.com', resources: Math.round(29 * multiplier), resourceGroups: 5, subscriptions: 1 },
+                { userName: 'cynthia.perez@demo.com', resources: Math.round(4 * multiplier), resourceGroups: 1, subscriptions: 1 },
+                { userName: 'blake.gonzales@demo.com', resources: Math.round(32 * multiplier), resourceGroups: 1, subscriptions: 1 },
+                { userName: 'sharon.woodward@demo.com', resources: Math.round(4 * multiplier), resourceGroups: 1, subscriptions: 1 },
+            ];
+            return {
+                success: true, mock: true, rows,
+                kpis: {
+                    createdBy: rows.length, costGroups: Math.round(11 * multiplier), subscriptions: 1,
+                    resourceGroups: 6, resources: rows.reduce((s, r) => s + r.resources, 0),
+                },
+            };
+        }
+        case 'resources_costs_by_tag': {
+            const round2 = (x: number) => Math.round(x * 100) / 100;
+            const tag = (key: string, values: Array<[string, number]>) => ({
+                key, totalCost: round2(values.reduce((s, [, c]) => s + c, 0) * multiplier),
+                values: values.map(([value, cost]) => ({ value, cost: round2(cost * multiplier) })),
+            });
+            const tags = [
+                tag('Department', [['Marketing', 1417.8], ['Corporate', 1394.1], ['IT', 895.5], ['Finance', 738.1], ['Engineering', 622.9], ['Accounting', 527.5]]),
+                tag('Purpose', [['Production', 4200.5], ['Testing', 1200.3], ['Development', 614.0]]),
+                tag('Environment', [['prod', 3800.2], ['staging', 900.4], ['dev', 314.2]]),
+                tag('Application', [['Application 001', 2100.0], ['Application 002', 1450.5], ['Application 003', 980.2]]),
+                tag('CreatedBy', [['james.taylor@demo.com', 3400.1], ['cynthia.perez@demo.com', 850.0]]),
+            ];
+            return {
+                success: true, mock: true, tags,
+                kpis: {
+                    resources: Math.round(1926 * multiplier), resourcesWithTags: Math.round(1065 * multiplier),
+                    resourcesWithoutTags: Math.round(861 * multiplier), tagNames: tags.length,
+                    tagValues: tags.reduce((s, t) => s + t.values.length, 0),
+                },
+            };
+        }
         case 'support': {
             // Sistema de soporte interno: tickets de demo escalados por tier.
             // Cada ticket incluye mockMessages para que la vista de hilo funcione
