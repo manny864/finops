@@ -56,6 +56,7 @@ export const ROUTE_TIERS: Record<string, 'Essential' | 'Professional' | 'Busines
     // Visibilidad
     '/overview/maturity': 'Essential',
     '/overview/resources': 'Professional',
+    '/overview/users-licenses': 'Business',
     // Admin
     '/admin/markup': 'Enterprise',
     '/admin/workbooks': 'Enterprise',

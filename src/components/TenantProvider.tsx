@@ -462,6 +462,8 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               if (url.includes('/api/resources/inventory')) return new Response(JSON.stringify(getMockDataForRoute('resources_inventory', tier)), {status: 200});
               if (url.includes('/api/resources/created-by')) return new Response(JSON.stringify(getMockDataForRoute('resources_created_by', tier)), {status: 200});
               if (url.includes('/api/resources/costs-by-tag')) return new Response(JSON.stringify(getMockDataForRoute('resources_costs_by_tag', tier)), {status: 200});
+              if (url.includes('/api/m365/overview')) return new Response(JSON.stringify(getMockDataForRoute('m365_overview', tier)), {status: 200});
+              if (url.includes('/api/m365/user-activity')) return new Response(JSON.stringify(getMockDataForRoute('m365_user_activity', tier)), {status: 200});
               if (url.includes('/api/governance/ha')) {
                   const m = (selectedTenant?.tier?.toLowerCase()==='enterprise')?5:(selectedTenant?.tier?.toLowerCase()==='business')?2:1;
                   const baseItems = [

@@ -1739,6 +1739,82 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                 },
             };
         }
+        case 'm365_overview': {
+            const round2 = (x: number) => Math.round(x * 100) / 100;
+            const totalUsers = Math.round(78 * multiplier);
+            const inactive = Math.max(1, Math.round(totalUsers * 0.013));
+            const blocked = Math.max(1, Math.round(totalUsers * 0.026));
+            const active = totalUsers - inactive;
+            const totalGroups = Math.round(66 * multiplier);
+            const inactiveGroups = Math.round(totalGroups * 0.21);
+            return {
+                success: true, mock: true,
+                kpis: {
+                    totalUsers, licensedUsers: Math.round(62 * multiplier),
+                    mfaEnforcedUsers: totalUsers, totalGroups,
+                },
+                userActivity: { active, inactive, blocked, total: totalUsers },
+                groupsActivity: { active: totalGroups - inactiveGroups, inactive: inactiveGroups, noOwner: 3, total: totalGroups },
+                productLicense: {
+                    productCount: 13, totalLicenses: Math.round(2040117 * multiplier),
+                    totalUnused: Math.round(2040117 * multiplier), unusedPct: 100, totalSpend: round2(11800 * multiplier),
+                },
+                topInactiveUsers: [
+                    { name: 'Timothy Bowman', days: null },
+                    { name: 'Thomas Ferguson', days: 196 },
+                    { name: 'Steve Price', days: 41 },
+                ],
+                topUnusedLicenses: [
+                    { name: 'Windows Store for Business', unused: Math.round(1000000 * multiplier) },
+                    { name: 'Power BI (Free)', unused: Math.round(1000000 * multiplier) },
+                    { name: 'Dynamics 365 Sales Enterprise', unused: Math.round(10000 * multiplier) },
+                ],
+                topInactiveGroups: [
+                    { name: 'AI Solutions', days: null }, { name: 'All Managers', days: null },
+                    { name: 'Corporate Culture', days: null }, { name: 'Employee Development', days: null },
+                    { name: 'Release Management', days: null },
+                ],
+                topLicenseSpend: [
+                    { name: 'Microsoft 365 Business Premium', spend: round2(10500 * multiplier) },
+                    { name: 'Power BI Premium Per User', spend: round2(820 * multiplier) },
+                    { name: 'Visio Online Plan 2', spend: round2(480 * multiplier) },
+                ],
+                authMethods: [
+                    { method: 'Password', count: Math.round(92 * multiplier) },
+                    { method: 'Microsoft Authenticator', count: Math.round(64 * multiplier) },
+                    { method: 'SMS / Phone', count: Math.round(38 * multiplier) },
+                    { method: 'Windows Hello', count: Math.round(21 * multiplier) },
+                ],
+                capabilities: { signInActivity: true, mfa: true },
+            };
+        }
+        case 'm365_user_activity': {
+            const products = [
+                'Microsoft 365 Business Premium', 'Microsoft 365 Business Basic',
+                'Microsoft 365 Business Premium, Microsoft Power Automate Free',
+                'Microsoft Power Automate Free, Microsoft 365 Business Premium, Power BI Premium Per User',
+            ];
+            const firstNames = ['Aaron', 'Adriana', 'Amanda', 'Amy', 'Angela', 'Annette', 'Ashley', 'Blake', 'Brian', 'Casey', 'Cassandra', 'Chelsea', 'Courtney', 'Cynthia'];
+            const lastNames = ['Sims', 'Alvarado', 'Brown', 'Bolton', 'Cox', 'Evans', 'Melton', 'Gonzales', 'Andrews', 'Smith', 'Miller', 'Gamble', 'Jackson', 'Perez'];
+            const total = Math.round(78 * multiplier);
+            const rows = firstNames.map((fn, i) => {
+                const enabled = i !== 12; // Courtney Jackson disabled, como en la captura
+                return {
+                    displayName: `${fn} ${lastNames[i]}`,
+                    accountEnabled: enabled,
+                    lastActivityDays: i % 4 === 1 ? 1 : 0,
+                    products: products[i % products.length].split(', '),
+                    licenseCount: products[i % products.length].split(', ').length,
+                    userPrincipalName: `${fn.toLowerCase()}.${lastNames[i].toLowerCase()}@demo.com`,
+                };
+            });
+            return {
+                success: true, mock: true,
+                kpis: { total, enabled: total - 2, blocked: 2, active: total - 1, inactive: 1 },
+                rows,
+                capabilities: { signInActivity: true },
+            };
+        }
         case 'support': {
             // Sistema de soporte interno: tickets de demo escalados por tier.
             // Cada ticket incluye mockMessages para que la vista de hilo funcione

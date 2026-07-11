@@ -96,6 +96,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/overview/progress', label: t('historical_progress'), icon: TrendingDown },
                 { href: '/overview/top-expenses', label: t('top_expenses', { fallback: 'TOP Expenses' }), icon: BarChart3 },
                 { href: '/overview/resources', label: t('resources', { fallback: 'Recursos' }), icon: Boxes, requiredTier: 'Professional' },
+                { href: '/overview/users-licenses', label: t('users_licenses', { fallback: 'Users & Licenses' }), icon: Users, requiredTier: 'Business' },
                 { href: '/overview/sustainability', label: 'Green FinOps', icon: Leaf }
             ]
         },
