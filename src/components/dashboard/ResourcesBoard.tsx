@@ -5,7 +5,8 @@ import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { useTranslations, useLocale } from "next-intl";
 import { getFreshIdToken } from "@/lib/msalToken";
-import Pagination from "@/components/Pagination";
+import Pagination, { usePagination } from "@/components/Pagination";
+import ResizableTh from "@/components/ResizableTh";
 import { isMockTenant } from "@/lib/mockData";
 import {
     Loader2, AlertCircle, Search, Boxes, Users, Tags,
@@ -80,24 +81,24 @@ function SearchResourcesTab() {
 
             <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
-                    <table className="w-full border-collapse text-sm">
+                    <table className="w-full border-collapse text-sm table-fixed min-w-[820px]">
                         <thead className="bg-gray-50 dark:bg-slate-800/60">
                             <tr>
                                 {["resource", "resource_group", "subscription", "owner", "cost_group", "created", "period_cost"].map(k => (
-                                    <th key={k} className="text-left text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 font-bold p-3 whitespace-nowrap">{t(`col_${k}`)}</th>
+                                    <ResizableTh key={k} className="bg-gray-50 dark:bg-slate-800/60 text-left text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 font-bold p-3">{t(`col_${k}`)}</ResizableTh>
                                 ))}
                             </tr>
                         </thead>
                         <tbody>
                             {(data.rows || []).map((r: any, i: number) => (
-                                <tr key={i} className="border-t border-gray-100 dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-800/40">
-                                    <td className="p-3 font-semibold text-gray-900 dark:text-white whitespace-nowrap">{r.name}</td>
-                                    <td className="p-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">{r.resourceGroup}</td>
-                                    <td className="p-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">{r.subscriptionId}</td>
-                                    <td className="p-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">{r.tags?.Owner || "—"}</td>
-                                    <td className="p-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">{r.tags?.CostCenter || "—"}</td>
-                                    <td className="p-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">{fmtDate(r.createdTime, locale)}</td>
-                                    <td className="p-3 font-bold text-gray-900 dark:text-white whitespace-nowrap">{fmtUsd(r.periodCost)}</td>
+                                <tr key={i} className="border-t border-gray-100 dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-800/40 align-top">
+                                    <td className="p-3 font-semibold text-gray-900 dark:text-white whitespace-normal break-words">{r.name}</td>
+                                    <td className="p-3 text-gray-600 dark:text-gray-300 whitespace-normal break-words">{r.resourceGroup}</td>
+                                    <td className="p-3 text-gray-600 dark:text-gray-300 whitespace-normal break-words">{r.subscriptionId}</td>
+                                    <td className="p-3 text-gray-600 dark:text-gray-300 whitespace-normal break-words">{r.tags?.Owner || "—"}</td>
+                                    <td className="p-3 text-gray-600 dark:text-gray-300 whitespace-normal break-words">{r.tags?.CostCenter || "—"}</td>
+                                    <td className="p-3 text-gray-600 dark:text-gray-300 whitespace-normal">{fmtDate(r.createdTime, locale)}</td>
+                                    <td className="p-3 font-bold text-gray-900 dark:text-white whitespace-normal">{fmtUsd(r.periodCost)}</td>
                                 </tr>
                             ))}
                             {(!data.rows || data.rows.length === 0) && (
@@ -179,6 +180,7 @@ function CreatedByTab() {
     const t = useTranslations("Resources");
     const key = useReadyKey("/api/resources/created-by");
     const { data, error, isLoading } = useAuthedSWR<any>(key);
+    const pg = usePagination<any>(data?.rows, 15);
 
     if (isLoading) return <LoadingBlock />;
     if (error) return <ErrorBlock message={error.message} />;
@@ -200,18 +202,18 @@ function CreatedByTab() {
 
             <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
-                    <table className="w-full border-collapse text-sm">
+                    <table className="w-full border-collapse text-sm table-fixed min-w-[560px]">
                         <thead className="bg-gray-50 dark:bg-slate-800/60">
                             <tr>
                                 {["user_name", "resources", "resource_groups", "subscriptions"].map(k => (
-                                    <th key={k} className="text-left text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 font-bold p-3 whitespace-nowrap">{t(`col_${k}`)}</th>
+                                    <ResizableTh key={k} className="bg-gray-50 dark:bg-slate-800/60 text-left text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 font-bold p-3">{t(`col_${k}`)}</ResizableTh>
                                 ))}
                             </tr>
                         </thead>
                         <tbody>
-                            {(data.rows || []).map((r: any, i: number) => (
-                                <tr key={i} className="border-t border-gray-100 dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-800/40">
-                                    <td className="p-3 font-semibold text-gray-900 dark:text-white whitespace-nowrap">{r.userName}</td>
+                            {pg.paged.map((r: any, i: number) => (
+                                <tr key={i} className="border-t border-gray-100 dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-800/40 align-top">
+                                    <td className="p-3 font-semibold text-gray-900 dark:text-white whitespace-normal break-words">{r.userName}</td>
                                     <td className="p-3 text-gray-600 dark:text-gray-300">{r.resources}</td>
                                     <td className="p-3 text-gray-600 dark:text-gray-300">{r.resourceGroups}</td>
                                     <td className="p-3 text-gray-600 dark:text-gray-300">{r.subscriptions}</td>
@@ -222,6 +224,9 @@ function CreatedByTab() {
                             )}
                         </tbody>
                     </table>
+                </div>
+                <div className="px-4 pb-4">
+                    <Pagination page={pg.page} setPage={pg.setPage} pageSize={pg.pageSize} setPageSize={pg.setPageSize} total={pg.total} totalPages={pg.totalPages} pageSizes={[15, 25, 50]} />
                 </div>
             </div>
         </div>
