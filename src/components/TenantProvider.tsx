@@ -193,7 +193,10 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               }
               const tier = selectedTenant?.tier?.toLowerCase() || demoSession?.tier?.toLowerCase() || 'essential';
               if (url.includes('/api/intelligence/billing')) return new Response(JSON.stringify(getMockDataForRoute('billing', tier)), {status: 200});
-              if (url.includes('/api/advisor')) return new Response(JSON.stringify(getMockDataForRoute('advisor', tier)), {status: 200});
+              if (url.includes('/api/advisor')) {
+                  const advLocale = (url.match(/[?&]locale=([^&]+)/)?.[1] && decodeURIComponent(url.match(/[?&]locale=([^&]+)/)![1])) || 'es';
+                  return new Response(JSON.stringify(getMockDataForRoute('advisor', tier, advLocale)), {status: 200});
+              }
               if (url.includes('/api/academy/content')) {
                   if (init?.method === 'POST') return new Response(JSON.stringify({ success: true, mock: true }), {status: 200});
                   return new Response(JSON.stringify(getMockDataForRoute('academy', tier)), {status: 200});

@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { useTenant } from '@/components/TenantProvider';
+import { useSubscription } from '@/components/SubscriptionProvider';
 import { isMockTenant } from '@/lib/mockData';
 import { useMsal } from '@azure/msal-react';
 import { fetchWithAuthRetry } from '@/lib/msalToken';
@@ -19,10 +21,21 @@ interface Progress {
     percent_complete: number;
 }
 
+// Lista completa de zonas horarias IANA. Intl.supportedValuesOf está disponible
+// en todos los navegadores modernos; si por alguna razón no lo estuviera, se cae
+// a un subconjunto representativo para no romper el <select>.
+const FALLBACK_TIMEZONES = [
+    'UTC', 'America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles',
+    'America/Sao_Paulo', 'America/Mexico_City', 'America/Argentina/Buenos_Aires',
+    'Europe/London', 'Europe/Madrid', 'Europe/Paris', 'Europe/Berlin', 'Asia/Tokyo', 'Asia/Kolkata',
+];
+
 export default function OnboardingPage() {
     const router = useRouter();
     const { locale } = useParams();
+    const t = useTranslations('OnboardingWizard');
     const { selectedTenant } = useTenant();
+    const { subscriptions } = useSubscription();
     const { instance, accounts } = useMsal();
 
     const [progress, setProgress] = useState<Progress | null>(null);
@@ -43,6 +56,21 @@ export default function OnboardingPage() {
     const [budgetName, setBudgetName] = useState('');
     const [budgetLimit, setBudgetLimit] = useState('');
     const [budgetAlertThreshold, setBudgetAlertThreshold] = useState('80');
+    const [budgetSubscription, setBudgetSubscription] = useState('All');
+
+    const timezones = useMemo<string[]>(() => {
+        let list = FALLBACK_TIMEZONES;
+        try {
+            const fn = (Intl as any).supportedValuesOf;
+            if (typeof fn === 'function') list = fn('timeZone') as string[];
+        } catch {
+            /* ignore */
+        }
+        // Intl.supportedValuesOf('timeZone') no incluye 'UTC' (usa 'Etc/UTC'),
+        // pero el valor por defecto del estado es 'UTC'; lo anteponemos para que
+        // el <select> tenga una opción que coincida con el valor inicial.
+        return list.includes('UTC') ? list : ['UTC', ...list];
+    }, []);
 
     useEffect(() => {
         if (!selectedTenant || !accounts.length) return;
@@ -138,6 +166,7 @@ export default function OnboardingPage() {
             setSpValidationResult(data);
             if (data.success || data.allPermissionsPresent) {
                 await updateStepStatus('step_azure_sp', 'completed');
+                setActiveStep(3);
             }
         } catch (error) {
             console.error('[Onboarding] Failed to validate SP:', error);
@@ -149,7 +178,7 @@ export default function OnboardingPage() {
     const handleRunFirstSync = async () => {
         setSyncRunning(true);
         try {
-            const response = await fetchWithAuthRetry(
+            await fetchWithAuthRetry(
                 instance,
                 accounts[0],
                 '/api/admin/sync/trigger',
@@ -163,6 +192,7 @@ export default function OnboardingPage() {
         } catch (error) {
             console.error('[Onboarding] Sync trigger failed:', error);
             await updateStepStatus('step_first_sync', 'completed');
+            setActiveStep(4);
         } finally {
             setSyncRunning(false);
         }
@@ -171,16 +201,21 @@ export default function OnboardingPage() {
     const handleCreateBudget = async () => {
         try {
             setSaving(true);
+            // El presupuesto se identifica por su Cost Center (cost_center_tag_value);
+            // usamos el nombre ingresado como valor de centro de costo. La suscripción
+            // seleccionada da contexto de a qué scope aplica el presupuesto.
             const response = await fetchWithAuthRetry(
                 instance,
                 accounts[0],
-                '/api/intelligence/budgets',
+                '/api/budgets',
                 {
                     method: 'POST',
                     body: JSON.stringify({
-                        name: budgetName,
-                        monthly_limit: budgetLimit,
-                        alert_threshold_percent: budgetAlertThreshold,
+                        tenantId: selectedTenant?.id,
+                        costCenter: budgetName,
+                        monthlyLimit: Number(budgetLimit),
+                        alertThreshold: Number(budgetAlertThreshold),
+                        subscriptionId: budgetSubscription,
                     }),
                 }
             );
@@ -230,16 +265,16 @@ export default function OnboardingPage() {
 
     return (
         <WizardLayout
-            title="Welcome to CSCloudSolutions FinOps"
-            description="Complete these steps to get started"
+            title={t('headerTitle')}
+            description={t('headerDescription')}
             progressPercent={progress.percent_complete}
             onSkipWizard={() => router.push(`/${locale}`)}
         >
             <div className="space-y-6">
                 <WizardStep
                     stepNumber={1}
-                    title="Welcome & Company Info"
-                    description="Confirm your company details and preferences"
+                    title={t('step1Title')}
+                    description={t('step1Desc')}
                     status={progress.step_welcome}
                     isActive={activeStep === 1}
                     onStart={() => setActiveStep(1)}
@@ -255,35 +290,35 @@ export default function OnboardingPage() {
                     <div className="space-y-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Company Name
+                                {t('companyName')}
                             </label>
                             <input
                                 type="text"
                                 value={companyName}
                                 onChange={(e) => setCompanyName(e.target.value)}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                                placeholder="Your company name"
+                                placeholder={t('companyNamePlaceholder')}
                             />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Primary Cloud Provider
+                                {t('primaryCloud')}
                             </label>
                             <select
                                 value={primaryCloud}
                                 onChange={(e) => setPrimaryCloud(e.target.value)}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                             >
-                                <option value="azure">Azure (Connected)</option>
+                                <option value="azure">{t('azureConnected')}</option>
                                 <option value="aws" disabled>
-                                    AWS (Coming soon)
+                                    {t('awsComingSoon')}
                                 </option>
                             </select>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Currency
+                                    {t('currency')}
                                 </label>
                                 <select
                                     value={currency}
@@ -297,17 +332,18 @@ export default function OnboardingPage() {
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Timezone
+                                    {t('timezone')}
                                 </label>
                                 <select
                                     value={timezone}
                                     onChange={(e) => setTimezone(e.target.value)}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                                 >
-                                    <option value="UTC">UTC</option>
-                                    <option value="EST">EST (US Eastern)</option>
-                                    <option value="CST">CST (US Central)</option>
-                                    <option value="PST">PST (US Pacific)</option>
+                                    {timezones.map((tz) => (
+                                        <option key={tz} value={tz}>
+                                            {tz}
+                                        </option>
+                                    ))}
                                 </select>
                             </div>
                         </div>
@@ -316,8 +352,8 @@ export default function OnboardingPage() {
 
                 <WizardStep
                     stepNumber={2}
-                    title="Connect Azure Subscription"
-                    description="Provide your Service Principal credentials"
+                    title={t('step2Title')}
+                    description={t('step2Desc')}
                     status={progress.step_azure_sp}
                     isActive={activeStep === 2}
                     onStart={() => setActiveStep(2)}
@@ -326,12 +362,12 @@ export default function OnboardingPage() {
                         await updateStepStatus('step_azure_sp', 'skipped');
                         setActiveStep(3);
                     }}
-                    actionLabel={spValidating ? 'Validating...' : 'Validate'}
+                    actionLabel={spValidating ? t('validating') : t('validate')}
                 >
                     <div className="space-y-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Client ID
+                                {t('clientId')}
                             </label>
                             <input
                                 type="text"
@@ -343,7 +379,7 @@ export default function OnboardingPage() {
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Client Secret
+                                {t('clientSecret')}
                             </label>
                             <input
                                 type="password"
@@ -355,7 +391,7 @@ export default function OnboardingPage() {
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Azure Tenant ID
+                                {t('azureTenantId')}
                             </label>
                             <input
                                 type="text"
@@ -378,10 +414,10 @@ export default function OnboardingPage() {
                                         <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
                                         <div>
                                             <p className="font-medium text-green-900">
-                                                Credentials validated successfully
+                                                {t('credsValidated')}
                                             </p>
                                             <p className="text-sm text-green-800 mt-1">
-                                                All required permissions present
+                                                {t('allPermsPresent')}
                                             </p>
                                         </div>
                                     </div>
@@ -390,7 +426,7 @@ export default function OnboardingPage() {
                                         <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
                                         <div>
                                             <p className="font-medium text-red-900">
-                                                {spValidationResult.error || 'Validation failed'}
+                                                {spValidationResult.error || t('validationFailed')}
                                             </p>
                                         </div>
                                     </div>
@@ -402,35 +438,36 @@ export default function OnboardingPage() {
 
                 <WizardStep
                     stepNumber={3}
-                    title="Run First Data Sync"
-                    description="Sync your first set of cost data from Azure"
+                    title={t('step3Title')}
+                    description={t('step3Desc')}
                     status={progress.step_first_sync}
                     isActive={activeStep === 3}
-                    onStart={handleRunFirstSync}
+                    onStart={() => setActiveStep(3)}
+                    onContinue={handleRunFirstSync}
                     onSkip={async () => {
                         await updateStepStatus('step_first_sync', 'skipped');
                         setActiveStep(4);
                     }}
-                    actionLabel={syncRunning ? 'Syncing...' : 'Run Sync'}
+                    actionLabel={syncRunning ? t('syncing') : t('runSync')}
                 >
                     {syncRunning ? (
                         <div className="flex items-center gap-3">
                             <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
                             <span className="text-sm text-gray-700">
-                                Syncing your data... this may take up to 60 seconds
+                                {t('syncingHint')}
                             </span>
                         </div>
                     ) : (
                         <p className="text-sm text-gray-700">
-                            Click "Run Sync" to import your initial cost data from Azure
+                            {t('syncClickHint')}
                         </p>
                     )}
                 </WizardStep>
 
                 <WizardStep
                     stepNumber={4}
-                    title="Create Your First Budget"
-                    description="Set up a budget to track spending"
+                    title={t('step4Title')}
+                    description={t('step4Desc')}
                     status={progress.step_first_budget}
                     isActive={activeStep === 4}
                     onStart={() => setActiveStep(4)}
@@ -439,24 +476,41 @@ export default function OnboardingPage() {
                         await updateStepStatus('step_first_budget', 'skipped');
                         setActiveStep(5);
                     }}
-                    actionLabel={saving ? 'Creating...' : 'Create Budget'}
+                    actionLabel={saving ? t('creating') : t('createBudget')}
                 >
                     <div className="space-y-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Budget Name
+                                {t('subscription')}
+                            </label>
+                            <select
+                                value={budgetSubscription}
+                                onChange={(e) => setBudgetSubscription(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                            >
+                                <option value="All">{t('allSubscriptions')}</option>
+                                {subscriptions.map((sub) => (
+                                    <option key={sub.id} value={sub.id}>
+                                        {sub.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                {t('budgetName')}
                             </label>
                             <input
                                 type="text"
                                 value={budgetName}
                                 onChange={(e) => setBudgetName(e.target.value)}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                                placeholder="e.g., Production Costs"
+                                placeholder={t('budgetNamePlaceholder')}
                             />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Monthly Limit ($)
+                                {t('monthlyLimit')}
                             </label>
                             <input
                                 type="number"
@@ -470,7 +524,7 @@ export default function OnboardingPage() {
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Alert Threshold (%)
+                                {t('alertThreshold')}
                             </label>
                             <input
                                 type="number"
@@ -487,27 +541,29 @@ export default function OnboardingPage() {
 
                 <WizardStep
                     stepNumber={5}
-                    title="Set Up Notifications"
-                    description="Configure how you want to receive alerts"
+                    title={t('step5Title')}
+                    description={t('step5Desc')}
                     status={progress.step_notifications}
                     isActive={activeStep === 5}
                     onStart={() => setActiveStep(5)}
-                    onContinue={() => setActiveStep(5)}
+                    onContinue={async () => {
+                        await updateStepStatus('step_notifications', 'completed');
+                    }}
                     onSkip={async () => {
                         await updateStepStatus('step_notifications', 'skipped');
                     }}
-                    actionLabel="Configure"
+                    actionLabel={t('markConfigured')}
                 >
                     <p className="text-sm text-gray-700 mb-4">
-                        Add at least one notification channel to receive budget alerts
+                        {t('notifHint')}
                     </p>
                     <a
-                        href={`/${locale}/admin/notifications`}
+                        href={`/${locale}/admin/config#notifications-config`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-blue-600 hover:text-blue-700 font-medium text-sm"
                     >
-                        Open Notifications Settings →
+                        {t('openNotifSettings')} →
                     </a>
                 </WizardStep>
 
@@ -518,13 +574,13 @@ export default function OnboardingPage() {
                         className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 text-white font-bold rounded-lg transition-all"
                     >
                         {saving ? <Loader2 className="w-5 h-5 animate-spin inline mr-2" /> : null}
-                        Finish Onboarding
+                        {t('finishOnboarding')}
                     </button>
                     <button
                         onClick={() => router.push(`/${locale}/admin/onboarding`)}
                         className="px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-900 font-medium rounded-lg transition-colors"
                     >
-                        Advanced Setup
+                        {t('advancedSetup')}
                     </button>
                 </div>
             </div>

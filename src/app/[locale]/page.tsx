@@ -19,7 +19,7 @@ import HABreakdownCard from "@/components/dashboard/HABreakdownCard";
 import AksChargebackCard from "@/components/dashboard/AksChargebackCard";
 import CostProjectionCard from "@/components/dashboard/CostProjectionCard";
 import { useActionLogStore } from "@/store/actionLogStore";
-import { Leaf } from "lucide-react";
+import { Leaf, Construction, AlertTriangle, Settings, AlertOctagon, Lightbulb, X } from "lucide-react";
 import { useTranslations } from 'next-intl';
 import { Responsive, WidthProvider } from 'react-grid-layout/legacy';
 import 'react-grid-layout/css/styles.css';
@@ -53,6 +53,8 @@ export default function Home() {
   const [complianceScore, setComplianceScore] = useState<number | null>(null);
   const [advisorSavings, setAdvisorSavings] = useState<number>(0);
   const [actualCost, setActualCost] = useState<number>(0);
+  const [usageCost, setUsageCost] = useState<number>(0);
+  const [purchaseCost, setPurchaseCost] = useState<number>(0);
   const [projectedCost, setProjectedCost] = useState<number>(0);
   const [zombieCount, setZombieCount] = useState<number>(0);
   const [summaryFailed, setSummaryFailed] = useState(false);
@@ -155,6 +157,8 @@ export default function Home() {
                   setDashboardData([]);
               }
               setActualCost(Number(summaryJson.actualCost || 0));
+              setUsageCost(Number(summaryJson.usageCost || 0));
+              setPurchaseCost(Number(summaryJson.purchaseCost || 0));
               setProjectedCost(Number(summaryJson.projectedCost || 0));
               setZombieCount(Number(summaryJson.zombieCount || 0));
               setAdvisorSavings(Number(summaryJson.totalSavings || 0));
@@ -303,7 +307,7 @@ export default function Home() {
       return (
           <div className="content">
               <div className="card h-96 flex flex-col items-center justify-center animate-in fade-in">
-                  <span className="text-6xl mb-4">🚧</span>
+                  <Construction className="w-14 h-14 mb-4 text-[var(--brand-deep)]" />
                   <h2 className="text-xl font-bold text-[var(--brand-deep)]">Módulo en Construcción</h2>
                   <p className="text-sm text-gray-500 mt-2">La sección de {activeTab === 'powerbi' ? 'Reportes Power BI' : 'Configuración'} estará disponible en la próxima fase.</p>
               </div>
@@ -318,7 +322,7 @@ export default function Home() {
       <MockBanner />
       {summaryFailed && !loading && (
         <div className="mb-3 flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-700/40 dark:bg-amber-900/20 dark:text-amber-200">
-          <span className="text-lg">⚠️</span>
+          <AlertTriangle className="w-5 h-5 shrink-0" />
           <span className="flex-1">No se pudieron cargar los datos del dashboard. Verifica tu sesión o la conectividad con Azure.</span>
           <button
             onClick={() => { setSummaryFailed(false); setSummaryDegraded(null); setRetryKey(k => k + 1); }}
@@ -330,7 +334,7 @@ export default function Home() {
       )}
       {(summaryDegraded || auditNoPerms) && !loading && !summaryFailed && (
         <div className="mb-3 flex items-center gap-3 rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800 dark:border-yellow-700/40 dark:bg-yellow-900/20 dark:text-yellow-200">
-          <span className="text-lg">{auditNoPerms && !summaryDegraded ? '⚙️' : '🔶'}</span>
+          {auditNoPerms && !summaryDegraded ? <Settings className="w-5 h-5 shrink-0" /> : <AlertOctagon className="w-5 h-5 shrink-0" />}
           <span className="flex-1">
             {auditNoPerms && !summaryDegraded ? (
               <>
@@ -354,7 +358,7 @@ export default function Home() {
       )}
       {azureNoAccess && !loading && !summaryFailed && (
         <div className="mb-3 flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-700/40 dark:bg-blue-900/20 dark:text-blue-200">
-          <span className="text-lg mt-0.5">💡</span>
+          <Lightbulb className="w-5 h-5 shrink-0 mt-0.5" />
           <span className="flex-1">
             <strong>Sin datos de costos Azure.</strong>{' '}
             El Service Principal no tiene el rol{' '}
@@ -388,7 +392,13 @@ export default function Home() {
                 <span className="text-2xl lg:text-3xl font-extrabold text-sky-600 w-full text-left sm:text-right truncate tabular-nums leading-tight">
                     {loading ? <span className="animate-pulse">…</span> : summaryFailed ? <span className="text-xl text-sky-400">—</span> : format(actualCost)}
                 </span>
-                <span className="text-[10px] text-sky-600 mt-1">acumulado del mes</span>
+                {!loading && !summaryFailed && purchaseCost > 0 ? (
+                    <span className="text-[10px] text-sky-600 mt-1 w-full text-left sm:text-right tabular-nums">
+                        {t('consumption')} {format(usageCost)} · {t('purchases')} {format(purchaseCost)}
+                    </span>
+                ) : (
+                    <span className="text-[10px] text-sky-600 mt-1">acumulado del mes</span>
+                )}
             </div>
             <div className="bg-purple-50 border border-purple-200 rounded-xl px-5 py-3 flex flex-col items-start sm:items-end shadow-sm w-full min-w-0">
                 <span className="text-[10px] font-bold text-purple-700 uppercase tracking-widest mb-1">Costo Proyectado</span>
@@ -541,8 +551,8 @@ export default function Home() {
                   <h3 className="text-xl font-bold text-[var(--brand-deep)]">
                       Recursos Afectados: <span className="text-[var(--brand)]">{selectedCategory}</span>
                   </h3>
-                  <button onClick={() => setSelectedCategory(null)} className="text-sm text-gray-500 hover:text-[var(--brand-deep)] transition-colors">
-                      ✕ Limpiar Filtro
+                  <button onClick={() => setSelectedCategory(null)} className="text-sm text-gray-500 hover:text-[var(--brand-deep)] transition-colors inline-flex items-center gap-1.5">
+                      <X className="w-4 h-4" /> Limpiar Filtro
                   </button>
               </div>
               <ZombieResourcesTable forceFilterType={selectedCategory} />

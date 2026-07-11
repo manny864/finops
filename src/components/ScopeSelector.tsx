@@ -1,6 +1,7 @@
 "use client";
 
 import React from 'react';
+import { Users, AlertTriangle } from 'lucide-react';
 import { useSubscription } from './SubscriptionProvider';
 import { useTenant } from './TenantProvider';
 import { useTranslations } from 'next-intl';
@@ -74,7 +75,7 @@ export default function ScopeSelector({ mobile = false }: { mobile?: boolean }) 
             </select>
             {userScope && (
                 <div className="ml-2 px-2 py-0.5 bg-brand-soft text-brand-deep text-[10px] font-bold rounded flex items-center gap-1">
-                    👥 Team Scope: {userScope.resourceGroup || userScope.tags?.Team || 'Restringido'}
+                    <Users className="w-3 h-3" /> Team Scope: {userScope.resourceGroup || userScope.tags?.Team || 'Restringido'}
                 </div>
             )}
             {limitInfo?.limitApplied && (
@@ -82,7 +83,7 @@ export default function ScopeSelector({ mobile = false }: { mobile?: boolean }) 
                     className="ml-2 px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-[10px] font-bold rounded flex items-center gap-1 cursor-help"
                     title={`Tu plan ${limitInfo.tier} monitorea hasta ${limitInfo.subscriptionLimit} suscripción(es). Hay ${limitInfo.totalAvailable} visibles en Azure — actualizá tu plan para verlas todas.`}
                 >
-                    ⚠️ {limitInfo.subscriptionLimit}/{limitInfo.totalAvailable} suscripciones
+                    <AlertTriangle className="w-3 h-3" /> {limitInfo.subscriptionLimit}/{limitInfo.totalAvailable} suscripciones
                 </div>
             )}
         </div>

@@ -111,7 +111,8 @@ export async function GET(request: NextRequest) {
         recommendations: filteredRecs,
         suppressedCount: suppressedSet.size,
         subscriptions: data.subscriptions,
-        scores: data.scores
+        scores: data.scores,
+        scoreUnits: (data as any).scoreUnits || {}
     });
   } catch (error: unknown) {
     if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });

@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import { useTenant } from "@/components/TenantProvider";
 import { useSubscription } from "@/components/SubscriptionProvider";
 import { useViewMode } from "@/context/ViewModeContext";
-import { Zap, AlertTriangle, ArrowRight, CheckCircle } from "lucide-react";
+import { Zap, AlertTriangle, ArrowRight, CheckCircle, Ruler, MapPin, TrendingDown } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useMsal } from "@azure/msal-react";
 import { getMockDataForRoute } from '@/lib/mockData';
@@ -133,14 +133,14 @@ export default function RightsizingPage() {
       <div className="vhead">
         <div>
           <div className="vt">
-             <span className="vico bg-gradient-to-br from-[#0054A6] to-[#00AEEF]">📐</span>
+             <span className="vico bg-gradient-to-br from-[#0054A6] to-[#00AEEF]"><Ruler className="w-5 h-5" /></span>
              {t("title")}
           </div>
           <div className="vs">{t("subtitle")}</div>
         </div>
         <div className="right">
           <HistoryButton domain="rightsizing" title={t("title")} />
-          <span className="scopechip">📍 {selectedTenant?.name || "Tenant"}</span>
+          <span className="scopechip inline-flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" /> {selectedTenant?.name || "Tenant"}</span>
         </div>
       </div>
       <MockBanner />
@@ -148,7 +148,7 @@ export default function RightsizingPage() {
       {error && (
         <div className="card">
             <div className="card-h">
-                <h3 className="text-danger">⚠️ {t("permissions_error")}</h3>
+                <h3 className="text-danger inline-flex items-center gap-2"><AlertTriangle className="w-4 h-4" /> {t("permissions_error")}</h3>
             </div>
             <div className="p-[18px]">
                 <div className="text-sm text-ink-soft">
@@ -183,7 +183,7 @@ export default function RightsizingPage() {
       {!loading && vms && vms.length > 0 && (
         <div className="card">
             <div className="card-h">
-                <h3>📉 {t("recommendations_title")}</h3>
+                <h3 className="inline-flex items-center gap-2"><TrendingDown className="w-4 h-4" /> {t("recommendations_title")}</h3>
             </div>
             <div className="overflow-x-auto">
                 <table className="tbl">

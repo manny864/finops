@@ -237,7 +237,7 @@ function WebhookConfig() {
     }
 
     return (
-        <div className="flex flex-col">
+        <div id="notifications-config" className="flex flex-col scroll-mt-24">
             <h4 className="font-semibold text-gray-900 dark:text-white">Alertas Proactivas (Teams/Slack)</h4>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 mb-4">Ingresa la URL del Webhook entrante para recibir notificaciones de anomalías y remediación en tu canal de mensajería.</p>
             

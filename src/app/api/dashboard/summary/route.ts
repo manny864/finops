@@ -120,6 +120,60 @@ async function fetchActualCostMTD(tenantId: string, subscriptionId: string): Pro
   }
 }
 
+/**
+ * Desglose del costo del mes en curso separando CONSUMO (ChargeType=Usage) de
+ * CARGOS ÚNICOS (Purchase de reservas/savings plans/marketplace, Refund, Tax…).
+ * El KPI "acumulado" suma ambos, pero el desglose se expone aparte y la
+ * proyección se hace solo sobre el consumo — así una compra puntual no infla la
+ * proyección ni se atribuye como gasto recurrente de una suscripción.
+ *
+ * Fuente autoritativa: getCurrentMonthAmortizedCosts (Azure live, trae
+ * ChargeCategory por fila). Se cachea el split en Redis hasta fin de día.
+ * Devuelve null si Azure no está disponible (el caller cae al total sin split).
+ */
+async function fetchMTDBreakdown(
+  tenantId: string,
+  subscriptionId: string
+): Promise<{ usageCost: number; purchaseCost: number } | null> {
+  const ym = new Date().toISOString().slice(0, 7);
+  const key = `cost:mtdsplit:v1:${tenantId}:${subscriptionId.toLowerCase()}:${ym}`;
+  try {
+    const cached = await redis.get(key);
+    if (cached) {
+      const p = JSON.parse(cached);
+      if (typeof p.usage === 'number' && typeof p.purchase === 'number') {
+        return { usageCost: p.usage, purchaseCost: p.purchase };
+      }
+    }
+  } catch { /* Redis miss/parse error — recompute below */ }
+
+  try {
+    const entries = await getCurrentMonthAmortizedCosts(tenantId, subscriptionId, 'ActualCost');
+    if (!entries || entries.length === 0) return null;
+    let usage = 0;
+    let purchase = 0;
+    for (const e of entries) {
+      const c = Number((e as any).EffectiveCost ?? (e as any).BilledCost ?? 0);
+      if (!Number.isFinite(c)) continue;
+      // ChargeCategory viene de la dimensión ChargeType de Azure; 'Usage' es
+      // consumo, cualquier otro valor (Purchase/Refund/Tax/…) es cargo único.
+      if (((e as any).ChargeCategory || 'Usage') === 'Usage') usage += c;
+      else purchase += c;
+    }
+    usage = Number(usage.toFixed(2));
+    purchase = Number(purchase.toFixed(2));
+    const secsUntilMidnight = Math.floor(
+      (new Date(new Date().toISOString().slice(0, 10) + 'T23:59:59Z').getTime() - Date.now()) / 1000
+    ) + 3600;
+    redis.set(key, JSON.stringify({ usage, purchase }), 'EX', Math.max(secsUntilMidnight, 3600))
+      .catch((e: any) => console.warn('[Summary] Redis MTD split write failed:', e?.message));
+    return { usageCost: usage, purchaseCost: purchase };
+  } catch (e: any) {
+    console.warn('[Summary] MTD breakdown failed (Azure unavailable):', e?.message);
+    return null;
+  }
+}
+
 async function fetchHistogramFromDb(tenantId: string, subscriptionId: string, days: number = 400): Promise<{ date: string; cost: number }[]> {
   try {
     const params: any[] = [tenantId];
@@ -331,18 +385,45 @@ export async function GET(request: NextRequest) {
         });
         if (actualCost === 0) actualCost = mtdActual;
 
-        // projectedCost: si tenemos forecast, actualCost + forecastSum.
-        // Si no, proyección lineal: MTD * (díasMes / díaActual).
+        // Desglose Consumo vs Compras (cargos únicos). El acumulado (actualCost)
+        // sigue siendo el TOTAL, pero exponemos ambos componentes por separado.
+        let usageCost = 0;
+        let purchaseCost = 0;
+        const mtdBreakdown = await fetchMTDBreakdown(tenantId, subscriptionId);
+        if (mtdBreakdown) {
+          usageCost = mtdBreakdown.usageCost;
+          purchaseCost = mtdBreakdown.purchaseCost;
+          const breakdownTotal = Number((usageCost + purchaseCost).toFixed(2));
+          // Fuente live autoritativa: reemplaza el total de Redis/DB/forecast.
+          if (breakdownTotal > 0) actualCost = breakdownTotal;
+        }
+        // Sin split disponible (Azure caído → total vino de DB/Redis/forecast, que
+        // no distinguen ChargeType): tratamos todo como consumo, compras = 0.
+        if (usageCost === 0 && purchaseCost === 0 && actualCost > 0) {
+          usageCost = Number(actualCost.toFixed(2));
+        }
+
+        // projectedCost: proyectar SOLO el consumo a fin de mes; los cargos
+        // únicos (purchaseCost) ya ocurridos se suman una vez, nunca se
+        // extrapolan como si se repitieran cada día.
+        //  - Con forecast de Azure: forecastSum cubre solo días futuros (hoy→fin
+        //    de mes) y no incluye la compra pasada, así que actualCost + forecastSum
+        //    ya cuenta la compra una sola vez.
+        //  - Sin forecast: run-rate lineal sobre el consumo + compras del mes.
         let projectedCost: number;
-        if (forecastSum > 0 || actualCost > 0) {
-          if (forecastSum > 0) {
-            projectedCost = actualCost + forecastSum;
-          } else {
-            const today = new Date();
-            const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-            const currentDay = Math.max(today.getDate(), 1);
-            projectedCost = actualCost * (daysInMonth / currentDay);
-          }
+        if (forecastSum > 0) {
+          projectedCost = Number((actualCost + forecastSum).toFixed(2));
+        } else if (usageCost > 0) {
+          const today = new Date();
+          const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+          const currentDay = Math.max(today.getDate(), 1);
+          const projectedUsage = usageCost * (daysInMonth / currentDay);
+          projectedCost = Number((projectedUsage + purchaseCost).toFixed(2));
+        } else if (actualCost > 0) {
+          const today = new Date();
+          const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+          const currentDay = Math.max(today.getDate(), 1);
+          projectedCost = Number((actualCost * (daysInMonth / currentDay)).toFixed(2));
         } else {
           projectedCost = 0;
         }
@@ -389,6 +470,8 @@ export async function GET(request: NextRequest) {
         if (actualCost === 0 && liveData && liveData.length > 0) {
           const currYM = new Date().toISOString().slice(0, 7); // YYYY-MM
           let liveActual = 0;
+          let liveUsage = 0;
+          let livePurchase = 0;
           for (const entry of liveData) {
             const rawStr = String(
               (entry as any).ChargePeriodStart ?? (entry as any).UsageDate ?? ''
@@ -398,17 +481,25 @@ export async function GET(request: NextRequest) {
             const compact = rawStr.match(/^(\d{4})(\d{2})(\d{2})$/);
             const normalizedDate = compact ? `${compact[1]}-${compact[2]}-${compact[3]}` : rawStr.slice(0, 10);
             if (normalizedDate.slice(0, 7) === currYM) {
-              liveActual += Number((entry as any).EffectiveCost ?? (entry as any).BilledCost ?? 0);
+              const c = Number((entry as any).EffectiveCost ?? (entry as any).BilledCost ?? 0);
+              liveActual += c;
+              if (((entry as any).ChargeCategory || 'Usage') === 'Usage') liveUsage += c;
+              else livePurchase += c;
             }
           }
           if (liveActual > 0) {
             console.log(`[Summary] actualCost computed from live Azure data: ${liveActual.toFixed(2)}`);
             actualCost = liveActual;
+            usageCost = Number(liveUsage.toFixed(2));
+            purchaseCost = Number(livePurchase.toFixed(2));
             if (projectedCost === 0) {
               const today = new Date();
               const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
               const currentDay = Math.max(today.getDate(), 1);
-              projectedCost = actualCost * (daysInMonth / currentDay);
+              // Run-rate solo sobre consumo; la compra puntual se suma una vez.
+              const base = usageCost > 0 ? usageCost : actualCost;
+              const oneTime = usageCost > 0 ? purchaseCost : 0;
+              projectedCost = Number((base * (daysInMonth / currentDay) + oneTime).toFixed(2));
             }
             // Cache computed MTD cost in Redis so the next request reads it directly
             // instead of going through Azure API again. TTL = rest of day + 1h buffer.
@@ -424,6 +515,8 @@ export async function GET(request: NextRequest) {
 
         return {
           actualCost,
+          usageCost,
+          purchaseCost,
           projectedCost,
           zombieCount,
           totalSavings,

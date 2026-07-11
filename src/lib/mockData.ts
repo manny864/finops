@@ -1,3 +1,5 @@
+import { getAdvisorMock } from './advisorMock';
+
 export const isMockTenant = (tenantId: string) => {
     return [
         "11111111-2222-3333-4444-555555555555",
@@ -104,7 +106,7 @@ export const getMockSnapshotHistory = (
 };
 
 
-export const getMockDataForRoute = (route: string, arg2: string): any => {
+export const getMockDataForRoute = (route: string, arg2: string, locale?: string): any => {
     // Arg2 can be either a tenantId (from backend) or a tier string (from frontend mock override)
     const isTenantId = arg2 && arg2.length > 20; // tenantIds are GUIDs
     if (isTenantId && !isMockTenant(arg2)) {
@@ -158,6 +160,8 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
             };
         }
         case 'advisor':
+            return { success: true, ...getAdvisorMock(multiplier, locale) };
+        case 'advisor_legacy_unused':
             return {
                 success: true,
                 recommendations: {
@@ -1248,6 +1252,10 @@ export const getMockDataForRoute = (route: string, arg2: string): any => {
                 success: true,
                 mock: true,
                 actualCost: Math.round(base),
+                // Desglose Consumo vs Compras (cargos únicos: reservas/marketplace).
+                // ~11% del acumulado simula una compra puntual del mes.
+                usageCost: Math.round(base * 0.89),
+                purchaseCost: Math.round(base * 0.11),
                 projectedCost: Math.round(proj),
                 zombieCount: Math.round(48 * tierMult),
                 totalSavings: Math.round(sav),
