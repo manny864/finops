@@ -41,6 +41,29 @@ const humanizeKey = (k: string): string =>
 
 const isCarbonKey = (k: string) => /carbon|emission|co2/i.test(k);
 
+// Extrae la reducción de carbono ANUAL desde extendedProperties. Azure trae
+// campos como "PotentialMonthlyCarbonSavings" / "...CarbonEmissions" — SIN
+// variante anual (a diferencia de savingsAmount/annualSavingsAmount). El
+// nombre del campo dice "Monthly" explícitamente: usarlo tal cual como si
+// fuera anual subestimaba ~12x la reducción real (0.32kg en vez de ~3.8kg).
+// Se prioriza "savings" sobre "emissions" (reducción neta, no emisión bruta),
+// y se multiplica x12 cuando el campo es mensual.
+function extractAnnualCarbon(ext: Record<string, any>): number {
+  let best: { value: number; isSavings: boolean } | null = null;
+  for (const [ek, ev] of Object.entries(ext)) {
+    if (!isCarbonKey(ek)) continue;
+    const raw = parseFloat(String(ev));
+    if (!Number.isFinite(raw)) continue;
+    const isSavings = /saving/i.test(ek);
+    const isMonthly = /month/i.test(ek);
+    const annual = isMonthly ? raw * 12 : raw;
+    if (!best || (isSavings && !best.isSavings)) {
+      best = { value: annual, isSavings };
+    }
+  }
+  return best?.value || 0;
+}
+
 function normalizeGroup(
   raw: any[],
   category: AdvisorCategory,
@@ -77,14 +100,13 @@ function normalizeGroup(
 
     // Ahorro y carbono desde extendedProperties (dinámico).
     let savings = 0;
-    let carbon = 0;
     for (const [ek, ev] of Object.entries(ext)) {
       const lk = ek.toLowerCase();
       if (lk === 'annualsavingsamount' || lk === 'savingsamount' || lk === 'costsavings') {
         savings = parseFloat(String(ev)) || savings;
       }
-      if (isCarbonKey(ek)) carbon = parseFloat(String(ev)) || carbon;
     }
+    const carbon = extractAnnualCarbon(ext);
 
     // "P3Y" -> "3 años", "P1Y" -> "1 año"; lookback en días.
     const commitmentLabel = commitment
