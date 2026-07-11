@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { useTenant } from './TenantProvider';
 import { useSubscription } from './SubscriptionProvider';
@@ -245,7 +245,10 @@ export default function AdvisorPanel() {
   }, [raw, selectedSub, locale, subMap]);
 
   const fmtUsd = (n: number) => new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n || 0);
-  const fmtCarbon = (n: number) => `${new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(n || 0)} kg CO₂e`;
+  // <10kg con 0 decimales redondeaba valores reales pequeños (p.ej. 0.3kg) a
+  // "0 kg CO₂e", indistinguible de "sin datos" — con decimales queda claro
+  // que es un valor real, chico, no un placeholder en cero.
+  const fmtCarbon = (n: number) => `${new Intl.NumberFormat(locale, { maximumFractionDigits: (n || 0) < 10 ? 2 : 0 }).format(n || 0)} kg CO₂e`;
 
   // Exporta a CSV todas las recomendaciones (todas las categorías) del alcance actual.
   const handleExport = () => {
@@ -547,6 +550,44 @@ export default function AdvisorPanel() {
   );
 }
 
+// Columna de tabla redimensionable a mano (drag del borde derecho). Debe vivir
+// a nivel de módulo (no definida inline dentro del render del modal): usa
+// useRef, y un componente redefinido en cada render pierde su identidad para
+// React y se remonta constantemente, reseteando el ancho arrastrado.
+function ResizableTh({ children, minWidth = 90 }: { children: React.ReactNode; minWidth?: number }) {
+  const thRef = useRef<HTMLTableCellElement>(null);
+  const onMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const th = thRef.current;
+    if (!th) return;
+    const startX = e.clientX;
+    const startWidth = th.getBoundingClientRect().width;
+    const onMove = (ev: MouseEvent) => {
+      th.style.width = `${Math.max(minWidth, startWidth + (ev.clientX - startX))}px`;
+    };
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+  return (
+    <th
+      ref={thRef}
+      style={{ minWidth }}
+      className="sticky top-0 z-10 bg-surface-2 relative text-left text-[10.5px] tracking-[0.5px] uppercase text-grey font-bold p-[9px_16px_9px_12px] border-b border-line whitespace-nowrap select-none"
+    >
+      {children}
+      <span
+        onMouseDown={onMouseDown}
+        title="Arrastrar para ajustar ancho"
+        className="absolute top-0 right-0 h-full w-2 cursor-col-resize hover:bg-brand-bright/50 active:bg-brand-bright"
+      />
+    </th>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Modal de detalle de recomendación de Costo, con 4 pestañas.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -581,14 +622,14 @@ function RecDetailModal({
     { id: 'dismissed', label: t('tab_dismissed') },
   ];
 
-  // sticky en <th> (no en <thead>): position:sticky sobre thead es poco
-  // fiable entre navegadores con border-collapse — el header terminaba
-  // renderizando encima de las filas al hacer scroll, superponiendo textos.
-  const Th = ({ children }: { children: React.ReactNode }) => (
-    <th className="sticky top-0 z-10 bg-surface-2 text-left text-[10.5px] tracking-[0.5px] uppercase text-grey font-bold p-[9px_12px] border-b border-line whitespace-nowrap">{children}</th>
-  );
+  // Th del modal = ResizableTh (nivel de módulo, ver arriba) para que el
+  // usuario pueda arrastrar y ajustar el ancho de cada columna a mano.
+  const Th = ResizableTh;
+  // whitespace-normal (no nowrap): con columnas redimensionables el texto
+  // debe poder envolver dentro del ancho elegido, en vez de desbordar y
+  // solaparse con la columna vecina.
   const Td = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-    <td className={`p-[10px_12px] text-[12px] text-ink align-top whitespace-nowrap ${className}`}>{children}</td>
+    <td className={`p-[10px_12px] text-[12px] text-ink align-top whitespace-normal break-words ${className}`}>{children}</td>
   );
 
   return (
@@ -649,7 +690,7 @@ function RecDetailModal({
           {rows.length === 0 ? (
             <div className="p-10 text-center text-grey text-[13px]">{t('no_items')}</div>
           ) : (
-            <table className="w-full border-collapse">
+            <table className="w-full border-collapse table-fixed">
               <thead>
                 <tr>
                   {isDynamic ? (
