@@ -14,8 +14,8 @@ const fmtUsd = (n: number | null | undefined) =>
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
     return (
-        <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm p-4 flex flex-col">
-            <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-3">{title}</h3>
+        <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-2xl shadow-sm p-7 flex flex-col">
+            <h3 className="text-base font-bold text-gray-900 dark:text-white mb-5">{title}</h3>
             {children}
         </div>
     );
@@ -23,28 +23,28 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 
 function TopBarChart({ data, color, costLabel, nameLabel }: { data: Array<{ name: string; cost: number }>; color: string; costLabel: string; nameLabel: string }) {
     if (!data || data.length === 0) {
-        return <div className="flex items-center justify-center h-44 text-sm text-gray-400 dark:text-gray-500">—</div>;
+        return <div className="flex items-center justify-center h-56 text-sm text-gray-400 dark:text-gray-500">—</div>;
     }
-    const height = Math.max(140, data.length * 56);
+    const height = Math.max(200, data.length * 76);
     return (
         <ResponsiveContainer width="100%" height={height}>
-            <BarChart data={data} layout="vertical" margin={{ top: 4, right: 48, left: 8, bottom: 20 }}>
+            <BarChart data={data} layout="vertical" margin={{ top: 4, right: 56, left: 12, bottom: 24 }}>
                 <XAxis
                     type="number"
-                    tick={{ fontSize: 10 }}
+                    tick={{ fontSize: 12 }}
                     domain={[0, "auto"]}
-                    label={{ value: costLabel, position: "insideBottom", offset: -8, fontSize: 10 }}
+                    label={{ value: costLabel, position: "insideBottom", offset: -10, fontSize: 11 }}
                 />
                 <YAxis
                     type="category"
                     dataKey="name"
-                    tick={{ fontSize: 11 }}
-                    width={150}
-                    label={{ value: nameLabel, angle: -90, position: "insideLeft", fontSize: 10 }}
+                    tick={{ fontSize: 13 }}
+                    width={170}
+                    label={{ value: nameLabel, angle: -90, position: "insideLeft", fontSize: 11 }}
                 />
                 <Tooltip formatter={(v: any) => fmtUsd(Number(v))} />
-                <Bar dataKey="cost" fill={color} radius={[0, 4, 4, 0]} barSize={26}>
-                    <LabelList dataKey="cost" position="right" formatter={(v: any) => fmtUsd(Number(v))} style={{ fontSize: 11, fontWeight: 700, fill: "currentColor" }} className="fill-gray-700 dark:fill-gray-200" />
+                <Bar dataKey="cost" fill={color} radius={[0, 4, 4, 0]} barSize={36}>
+                    <LabelList dataKey="cost" position="right" formatter={(v: any) => fmtUsd(Number(v))} style={{ fontSize: 12.5, fontWeight: 700, fill: "currentColor" }} className="fill-gray-700 dark:fill-gray-200" />
                 </Bar>
             </BarChart>
         </ResponsiveContainer>
