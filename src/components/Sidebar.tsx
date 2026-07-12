@@ -7,6 +7,7 @@ import { isSuperAdmin } from '@/lib/authGuard';
 import { useTenant } from '@/components/TenantProvider';
 import FeatureGuard from '@/components/FeatureGuard';
 import { hasAccess } from '@/lib/tierLogic';
+import { getTagsForRoute, tagForBusinessRole, ROLE_TAG_META } from '@/lib/pageRoleTags';
 import { 
     LayoutDashboard,
     Target,
@@ -231,7 +232,19 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
 
     // RBAC logic
     const { userRole } = useTenant();
+    // Rutas siempre visibles para los 4 roles de negocio (orientación mínima),
+    // independientemente de su etiqueta de dominio.
+    const ALWAYS_VISIBLE_HREFS = ['/', '/support'];
+    const businessRoleTag = tagForBusinessRole(userRole || '');
     const roleCategories = categories.map(cat => {
+        if (businessRoleTag) {
+            // Analista FinOps / Admin Cloud / Auditor de Seguridad / Product Owner:
+            // solo ven páginas etiquetadas con su dominio (+ Dashboard/Soporte).
+            const items = cat.items.filter(i =>
+                ALWAYS_VISIBLE_HREFS.includes(i.href) || getTagsForRoute(i.href).includes(businessRoleTag)
+            );
+            return items.length > 0 ? { ...cat, items } : null;
+        }
         if (userRole === 'Reader') {
             // Readers can only see visibility, and maybe reports
             if (cat.id === 'limpieza' || cat.id === 'gobernanza') return null;
@@ -289,11 +302,13 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                                 {category.items.map(item => {
                                     const isActive = pathname === item.href;
                                     const Icon = item.icon;
+                                    const itemTags = getTagsForRoute(item.href);
+                                    const primaryTag = itemTags[0];
                                     const renderedLink = (
-                                        <Link 
-                                            key={item.href} 
+                                        <Link
+                                            key={item.href}
                                             href={item.href}
-                                            title={sidebarOpen ? undefined : item.label}
+                                            title={sidebarOpen ? undefined : `${item.label} · ${itemTags.map(tg => ROLE_TAG_META[tg].label).join(', ')}`}
                                             onClick={(e) => {
                                                 if ((item as any).requiredTier && !hasAccess(tier, (item as any).requiredTier)) {
                                                     e.preventDefault();
@@ -310,7 +325,15 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                                             }`}
                                         >
                                             <Icon className={`flex-shrink-0 ${sidebarOpen ? 'w-5 h-5 mr-3' : 'w-6 h-6 mx-auto'}`} />
-                                            {sidebarOpen && <span className="text-sm truncate md:block">{item.label}</span>}
+                                            {sidebarOpen && <span className="text-sm truncate flex-1 md:block">{item.label}</span>}
+                                            {sidebarOpen && (
+                                                <span
+                                                    title={itemTags.map(tg => ROLE_TAG_META[tg].label).join(' + ')}
+                                                    className={`shrink-0 ml-2 text-[8.5px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded border ${isActive ? 'bg-white/15 text-white border-white/25' : ROLE_TAG_META[primaryTag].color}`}
+                                                >
+                                                    {ROLE_TAG_META[primaryTag].label}
+                                                </span>
+                                            )}
                                         </Link>
                                     );
 
