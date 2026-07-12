@@ -195,6 +195,18 @@ export async function initializeDatabase() {
             if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding system_role:", e);
         }
 
+        // cost_center: para el rol Product Owner ("Visibilidad restringida a su
+        // Centro de Costos"). Guarda a qué CostCenter/CostGroup queda asignado el
+        // usuario. HOY solo se persiste — ningún endpoint filtra datos por esta
+        // columna todavía; eso requiere tocar cada query de costos/recomendaciones
+        // uno por uno (trabajo de seguimiento, no incluido en este cambio). Ver
+        // docs/roles-y-permisos.md.
+        try {
+            await connection.query('ALTER TABLE Users ADD COLUMN cost_center VARCHAR(255) NULL;');
+        } catch (e: any) {
+            if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding cost_center:", e);
+        }
+
         try {
             await connection.query('ALTER TABLE Users DROP INDEX entra_oid;');
         } catch (e: any) {
