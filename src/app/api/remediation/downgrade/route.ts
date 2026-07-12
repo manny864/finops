@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
     const { tenantId, subscriptionId, resourceGroup, resourceName, newSku } = body;
 
     if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
-    const identity = await requireTenantRole(request, tenantId, ['Admin', 'Owner', 'Admin Cloud']);
+    const identity = await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
     const email = identity.email;
 
     await downgradeVirtualMachine(tenantId, email, subscriptionId, resourceGroup, resourceName, newSku);

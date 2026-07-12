@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Faltan parámetros requeridos: tenantId, subscriptionId" }, { status: 400 });
         }
 
-        await requireTenantRole(request, tenantId, ['Admin', 'Owner', 'Reader', 'Colaborador', 'Analista FinOps', 'Admin Cloud', 'Auditor de Seguridad', 'Product Owner']);
+        await requireTenantRole(request, tenantId, ['Admin', 'Owner', 'Reader', 'Colaborador']);
 
         const credential = await getAzureCredential(tenantId);
         const tokenResponse = await credential.getToken("https://management.azure.com/.default");

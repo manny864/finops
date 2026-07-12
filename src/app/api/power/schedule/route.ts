@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     const tenantId = searchParams.get("tenantId");
     if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
 
-    await requireTenantRole(request, tenantId, ["Owner", "Admin", "Operator", "Admin Cloud"]);
+    await requireTenantRole(request, tenantId, ["Owner", "Admin", "Operator"]);
 
     const schedules = await listPowerSchedules(tenantId);
     return NextResponse.json({ success: true, schedules });
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "gmtOffset inválido (formato +HH:MM o -HH:MM)" }, { status: 400 });
     }
 
-    const identity = await requireTenantRole(request, tenantId, ["Owner", "Admin", "Operator", "Admin Cloud"]);
+    const identity = await requireTenantRole(request, tenantId, ["Owner", "Admin", "Operator"]);
 
     await upsertPowerSchedule({
       tenantId,
@@ -92,7 +92,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "id inválido" }, { status: 400 });
     }
 
-    await requireTenantRole(request, tenantId, ["Owner", "Admin", "Operator", "Admin Cloud"]);
+    await requireTenantRole(request, tenantId, ["Owner", "Admin", "Operator"]);
 
     await deletePowerSchedule(tenantId, id);
     const schedules = await listPowerSchedules(tenantId);

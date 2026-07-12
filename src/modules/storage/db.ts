@@ -195,7 +195,7 @@ export async function initializeDatabase() {
             if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding system_role:", e);
         }
 
-        // cost_center: para el rol Product Owner ("Visibilidad restringida a su
+        // cost_center: para el permiso ProductOwner ("Visibilidad restringida a su
         // Centro de Costos"). Guarda a qué CostCenter/CostGroup queda asignado el
         // usuario. HOY solo se persiste — ningún endpoint filtra datos por esta
         // columna todavía; eso requiere tocar cada query de costos/recomendaciones
@@ -205,6 +205,19 @@ export async function initializeDatabase() {
             await connection.query('ALTER TABLE Users ADD COLUMN cost_center VARCHAR(255) NULL;');
         } catch (e: any) {
             if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding cost_center:", e);
+        }
+
+        // permissions: ETIQUETAS DE DOMINIO (FinOps/CloudAdmin/Security/ProductOwner),
+        // ortogonales a `role` (Reader/Colaborador/Admin/Owner = CAPACIDAD: qué
+        // acciones puede ejecutar). `role` dice SI puede modificar/eliminar algo;
+        // `permissions` dice QUÉ páginas puede ver (según pageRoleTags.ts). Un
+        // usuario puede tener rol Reader (solo lectura) Y permiso FinOps (ve las
+        // páginas de ese dominio) al mismo tiempo — ambos se aplican juntos, no
+        // son alternativos. Array JSON de RoleTag, ej. '["FinOps","Security"]'.
+        try {
+            await connection.query('ALTER TABLE Users ADD COLUMN permissions JSON NULL;');
+        } catch (e: any) {
+            if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding permissions:", e);
         }
 
         try {

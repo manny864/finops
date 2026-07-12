@@ -126,16 +126,31 @@ export function getTagsForRoute(href: string): RoleTag[] {
     return PAGE_ROLE_TAGS[href] || ["Platform"];
 }
 
-// Roles de negocio nuevos (además de Reader/Colaborador/Admin/Owner ya
-// existentes en Users.role). El string es el valor exacto guardado en DB.
-export const BUSINESS_ROLES = [
-    { value: "Analista FinOps", tag: "FinOps" as RoleTag },
-    { value: "Admin Cloud", tag: "CloudAdmin" as RoleTag },
-    { value: "Auditor de Seguridad", tag: "Security" as RoleTag },
-    { value: "Product Owner", tag: "ProductOwner" as RoleTag, label: "Líder de Proyecto / Product Owner" },
-] as const;
+// Permisos de dominio asignables a un usuario (Users.permissions, JSON array).
+// ORTOGONALES al rol (Users.role = Reader/Colaborador/Admin/Owner, que dice
+// qué acciones puede EJECUTAR). Un permiso dice qué páginas puede VER, según
+// PAGE_ROLE_TAGS de arriba. 'Platform' no es asignable acá — es implícito
+// para Admin/Owner (administración del propio SaaS), no un dominio de negocio
+// que un usuario elija.
+export const ASSIGNABLE_PERMISSIONS: Array<{ value: RoleTag; label: string }> = [
+    { value: "FinOps", label: "FinOps (Analista FinOps)" },
+    { value: "CloudAdmin", label: "Cloud Admin" },
+    { value: "Security", label: "Auditor de Seguridad" },
+    { value: "ProductOwner", label: "Product Owner / Líder de Proyecto" },
+];
 
-export function tagForBusinessRole(role: string): RoleTag | null {
-    const found = BUSINESS_ROLES.find(r => r.value.toLowerCase() === role.toLowerCase());
-    return found ? found.tag : null;
+// Normaliza lo que venga de DB (JSON string, array, null) a un array de RoleTag válidos.
+export function parsePermissions(raw: unknown): RoleTag[] {
+    let arr: unknown = raw;
+    if (typeof raw === "string") {
+        try { arr = JSON.parse(raw); } catch { arr = []; }
+    }
+    if (!Array.isArray(arr)) return [];
+    const valid = new Set(ASSIGNABLE_PERMISSIONS.map(p => p.value));
+    return arr.filter((t): t is RoleTag => valid.has(t as RoleTag));
+}
+
+// ¿Alguno de los permisos del usuario matchea alguna de las etiquetas de la página?
+export function hasAnyTag(userPermissions: RoleTag[], pageTags: RoleTag[]): boolean {
+    return pageTags.some(t => userPermissions.includes(t));
 }

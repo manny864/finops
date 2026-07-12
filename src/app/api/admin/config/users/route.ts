@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
         const connection = await pool.getConnection();
         try {
             const [rows] = await connection.execute(
-                `SELECT id, email, display_name, role, entra_oid, system_role, scope FROM Users WHERE tenant_id = ?`,
+                `SELECT id, email, display_name, role, entra_oid, system_role, scope, permissions FROM Users WHERE tenant_id = ?`,
                 [tenantId]
             );
             return NextResponse.json({ success: true, users: rows, isSuperAdmin });
@@ -94,9 +94,9 @@ export async function DELETE(request: NextRequest) {
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { tenantId, users, entraOid, email, role, displayName } = body;
+        const { tenantId, users, entraOid, email, role, displayName, permissions } = body;
 
-        const usersToProcess = users || [{ entraOid, email, displayName, role: role || 'Reader' }];
+        const usersToProcess = users || [{ entraOid, email, displayName, role: role || 'Reader', permissions }];
 
         if (!tenantId || usersToProcess.length === 0 || !usersToProcess[0].entraOid) {
             return NextResponse.json({ error: "Faltan parámetros obligatorios." }, { status: 400 });
@@ -166,10 +166,15 @@ export async function POST(request: NextRequest) {
                     systemRole = 'SUPERADMIN';
                 }
 
+                // permissions: array de RoleTag (FinOps/CloudAdmin/Security/ProductOwner),
+                // ortogonal al rol. Si no viene, no se toca (COALESCE conserva lo existente
+                // en un re-sync; en un alta nueva queda NULL = sin permisos asignados).
+                const permissionsJson = Array.isArray(user.permissions) ? JSON.stringify(user.permissions) : null;
                 await connection.execute(
-                    `INSERT INTO Users (entra_oid, tenant_id, email, display_name, role, system_role) VALUES (?, ?, ?, ?, ?, ?)
-                     ON DUPLICATE KEY UPDATE email = VALUES(email), display_name = VALUES(display_name), role = VALUES(role), system_role = VALUES(system_role)`,
-                    [user.entraOid, tenantId, user.email, user.displayName || null, effectiveRole === 'SuperAdmin' ? 'Admin' : effectiveRole, systemRole]
+                    `INSERT INTO Users (entra_oid, tenant_id, email, display_name, role, system_role, permissions) VALUES (?, ?, ?, ?, ?, ?, ?)
+                     ON DUPLICATE KEY UPDATE email = VALUES(email), display_name = VALUES(display_name), role = VALUES(role), system_role = VALUES(system_role),
+                                             permissions = COALESCE(VALUES(permissions), permissions)`,
+                    [user.entraOid, tenantId, user.email, user.displayName || null, effectiveRole === 'SuperAdmin' ? 'Admin' : effectiveRole, systemRole, permissionsJson]
                 );
                 if (isNewUser) {
                     existingOids.add(user.entraOid);
@@ -191,9 +196,11 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
     try {
         const body = await request.json();
-        const { tenantId, userId, role } = body;
+        const { tenantId, userId, role, permissions } = body;
 
-        if (!tenantId || !userId || !role) {
+        // role y permissions son independientes: se puede mandar solo uno de los
+        // dos (editar solo rol, o solo permisos) o ambos juntos.
+        if (!tenantId || !userId || (role === undefined && permissions === undefined)) {
             return NextResponse.json({ error: "Faltan parámetros obligatorios." }, { status: 400 });
         }
 
@@ -208,7 +215,7 @@ export async function PUT(request: NextRequest) {
                      [identity.claims.oid, tenantId]
                  );
                  if (!adminCheck || adminCheck.length === 0 || adminCheck[0].role !== 'Admin') {
-                     return NextResponse.json({ error: "Solo los administradores del tenant pueden cambiar roles." }, { status: 403 });
+                     return NextResponse.json({ error: "Solo los administradores del tenant pueden cambiar roles o permisos." }, { status: 403 });
                  }
             }
 
@@ -222,28 +229,46 @@ export async function PUT(request: NextRequest) {
             }
 
             const targetEmail = userRow[0].email;
-            let systemRole = 'USER';
 
-            if (role === 'SuperAdmin') {
-                if (tenantId !== '8b41364f-581a-4e43-b7cb-13138dac5517' || !targetEmail.toLowerCase().endsWith('@cscloudsolutions.com.ar')) {
-                    return NextResponse.json({ error: 'El rol SuperAdmin solo puede asignarse a usuarios de CSCloudSolutions en el tenant principal.' }, { status: 403 });
+            // Construcción dinámica: solo se actualizan las columnas cuya sección
+            // (rol o permisos) vino en el body, sin pisar la otra.
+            const setClauses: string[] = [];
+            const params: any[] = [];
+
+            if (role !== undefined) {
+                let systemRole = 'USER';
+                if (role === 'SuperAdmin') {
+                    if (tenantId !== '8b41364f-581a-4e43-b7cb-13138dac5517' || !targetEmail.toLowerCase().endsWith('@cscloudsolutions.com.ar')) {
+                        return NextResponse.json({ error: 'El rol SuperAdmin solo puede asignarse a usuarios de CSCloudSolutions en el tenant principal.' }, { status: 403 });
+                    }
+                    systemRole = 'SUPERADMIN';
+                } else if (targetEmail.toLowerCase().endsWith('@cscloudsolutions.com.ar') && tenantId === '8b41364f-581a-4e43-b7cb-13138dac5517' && targetEmail.toLowerCase().startsWith('mchavez')) {
+                    systemRole = 'SUPERADMIN';
                 }
-                systemRole = 'SUPERADMIN';
-            } else if (targetEmail.toLowerCase().endsWith('@cscloudsolutions.com.ar') && tenantId === '8b41364f-581a-4e43-b7cb-13138dac5517' && targetEmail.toLowerCase().startsWith('mchavez')) {
-                systemRole = 'SUPERADMIN';
+                const dbRole = role === 'SuperAdmin' ? 'Admin' : role;
+                setClauses.push('role = ?', 'system_role = ?');
+                params.push(dbRole, systemRole);
             }
 
-            const dbRole = role === 'SuperAdmin' ? 'Admin' : role;
+            if (permissions !== undefined) {
+                if (permissions !== null && !Array.isArray(permissions)) {
+                    return NextResponse.json({ error: "permissions debe ser un array." }, { status: 400 });
+                }
+                setClauses.push('permissions = ?');
+                params.push(permissions === null ? null : JSON.stringify(permissions));
+            }
 
+            params.push(userId, tenantId);
             const [result] = await connection.execute<any>(
-                `UPDATE Users SET role = ?, system_role = ? WHERE id = ? AND tenant_id = ?`,
-                [dbRole, systemRole, userId, tenantId]
+                `UPDATE Users SET ${setClauses.join(', ')} WHERE id = ? AND tenant_id = ?`,
+                params
             );
 
             if (result.affectedRows > 0) {
-                return NextResponse.json({ success: true, message: "Rol actualizado exitosamente." });
+                return NextResponse.json({ success: true, message: "Usuario actualizado exitosamente." });
             } else {
-                return NextResponse.json({ error: "No se pudo actualizar el usuario." }, { status: 500 });
+                // affectedRows=0 también ocurre si los valores no cambiaron (no es un error real).
+                return NextResponse.json({ success: true, message: "Sin cambios." });
             }
         } finally {
             connection.release();

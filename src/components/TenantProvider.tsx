@@ -5,6 +5,7 @@ import { getMockDataForRoute, getMockCostGroupDetail } from '@/lib/mockData';
 import { usePathname, useRouter } from 'next/navigation';
 import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
+import { parsePermissions, type RoleTag } from '@/lib/pageRoleTags';
 
 export interface Tenant {
   id: string;
@@ -26,6 +27,10 @@ interface TenantContextType {
   isAdmin: boolean;
   tenants: Tenant[];
   userRole: string;
+  // Permisos de dominio (FinOps/CloudAdmin/Security/ProductOwner), ortogonales
+  // a userRole — ver src/lib/pageRoleTags.ts. Admin/Owner/SuperAdmin ven todo
+  // sin necesidad de permisos asignados (ver Sidebar.tsx).
+  userPermissions: RoleTag[];
   systemRole: string;
   userScope?: any;
   requiresRbacUpdate?: boolean;
@@ -66,6 +71,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
   }, [selectedTenant]);
   const [isAdmin, setIsAdmin] = useState(!!demoSession?.isDemo);
   const [userRole, setUserRole] = useState<string>(demoSession?.isDemo ? 'Admin' : 'Reader'); // Default to lowest privilege
+  const [userPermissions, setUserPermissions] = useState<RoleTag[]>([]);
   const [systemRole, setSystemRole] = useState<string>('USER');
   const [userScope, setUserScope] = useState<any>(null);
 
@@ -792,6 +798,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                       const myUser = data.users?.find((u: any) => u.entra_oid === (accounts[0].idTokenClaims as any)?.oid || u.entra_oid === accounts[0].localAccountId);
                       if (myUser) {
                           if (myUser.role) setUserRole(myUser.role);
+                          setUserPermissions(parsePermissions(myUser.permissions));
                           if (myUser.scope) setUserScope(myUser.scope);
                           if (myUser.system_role && !data.isSuperAdmin) {
                               setSystemRole(myUser.system_role);
@@ -829,7 +836,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
   const requiresRbacUpdate = selectedTenant?.requires_rbac_update;
 
   return (
-    <TenantContext.Provider value={{ selectedTenant, setSelectedTenant, isAdmin, tenants: tenantsList, userRole, systemRole, userScope, requiresRbacUpdate }}>
+    <TenantContext.Provider value={{ selectedTenant, setSelectedTenant, isAdmin, tenants: tenantsList, userRole, userPermissions, systemRole, userScope, requiresRbacUpdate }}>
       {children}
     </TenantContext.Provider>
   );

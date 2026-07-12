@@ -7,7 +7,7 @@ import { isSuperAdmin } from '@/lib/authGuard';
 import { useTenant } from '@/components/TenantProvider';
 import FeatureGuard from '@/components/FeatureGuard';
 import { hasAccess } from '@/lib/tierLogic';
-import { getTagsForRoute, tagForBusinessRole } from '@/lib/pageRoleTags';
+import { getTagsForRoute, hasAnyTag } from '@/lib/pageRoleTags';
 import { 
     LayoutDashboard,
     Target,
@@ -230,33 +230,37 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [pathname]);
 
-    // RBAC logic
-    const { userRole } = useTenant();
-    // Rutas siempre visibles para los 4 roles de negocio (orientación mínima),
-    // independientemente de su etiqueta de dominio.
+    // RBAC logic. `role` (Reader/Colaborador/Admin/Owner) = CAPACIDAD: qué
+    // acciones puede ejecutar. `permissions` (FinOps/CloudAdmin/Security/
+    // ProductOwner) = DOMINIO: qué páginas puede ver — son independientes y
+    // se aplican JUNTAS, no una en lugar de la otra. Un usuario puede ser
+    // Reader (solo lectura) + permiso FinOps (solo ve páginas de ese dominio).
+    const { userRole, userPermissions } = useTenant();
+    // Rutas siempre visibles con cualquier combinación de rol/permisos (orientación mínima).
     const ALWAYS_VISIBLE_HREFS = ['/', '/support'];
-    const businessRoleTag = tagForBusinessRole(userRole || '');
+    // Admin/Owner no se acotan por permisos: gestionan la plataforma completa
+    // (dentro de lo que el tier permita). Los permisos son opt-in — si el
+    // usuario no tiene ninguno asignado, no se aplica ningún recorte adicional
+    // por dominio (compatibilidad con tenants que todavía no los asignaron).
+    const restrictByPermissions = userPermissions.length > 0 && userRole !== 'Admin' && userRole !== 'Owner';
     const roleCategories = categories.map(cat => {
-        if (businessRoleTag) {
-            // Analista FinOps / Admin Cloud / Auditor de Seguridad / Product Owner:
-            // solo ven páginas etiquetadas con su dominio (+ Dashboard/Soporte).
-            const items = cat.items.filter(i =>
-                ALWAYS_VISIBLE_HREFS.includes(i.href) || getTagsForRoute(i.href).includes(businessRoleTag)
-            );
-            return items.length > 0 ? { ...cat, items } : null;
+        let items = cat.items;
+        if (restrictByPermissions) {
+            items = items.filter(i => ALWAYS_VISIBLE_HREFS.includes(i.href) || hasAnyTag(userPermissions, getTagsForRoute(i.href)));
+            if (items.length === 0) return null;
         }
         if (userRole === 'Reader') {
             // Readers can only see visibility, and maybe reports
             if (cat.id === 'limpieza' || cat.id === 'gobernanza') return null;
-            if (cat.id === 'admin') return { ...cat, items: cat.items.filter(i => i.href.includes('report')) };
-            return cat;
+            if (cat.id === 'admin') return { ...cat, items: items.filter(i => i.href.includes('report')) };
+            return { ...cat, items };
         }
         if (userRole === 'Colaborador') {
             // Colaborador can't see users, config, billing
-            if (cat.id === 'admin') return { ...cat, items: cat.items.filter(i => !i.href.includes('users') && !i.href.includes('config') && !i.href.includes('pricing-units')) };
-            return cat;
+            if (cat.id === 'admin') return { ...cat, items: items.filter(i => !i.href.includes('users') && !i.href.includes('config') && !i.href.includes('pricing-units')) };
+            return { ...cat, items };
         }
-        return cat; // Admin sees what the tier allows
+        return { ...cat, items }; // Admin sees what the tier allows
     }).filter(Boolean) as typeof categories;
 
     return (

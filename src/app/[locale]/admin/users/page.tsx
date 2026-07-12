@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { Users, Shield, Plus, Trash2, RefreshCw, X, CheckSquare } from "lucide-react";
 import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
+import { ASSIGNABLE_PERMISSIONS, parsePermissions, type RoleTag } from '@/lib/pageRoleTags';
 
 
 export default function UsersPage() {
@@ -17,6 +18,7 @@ export default function UsersPage() {
     
     const [newEmail, setNewEmail] = useState('');
     const [newRole, setNewRole] = useState('Reader');
+    const [newPermissions, setNewPermissions] = useState<RoleTag[]>([]);
     const [newOid, setNewOid] = useState('');
     const [entraUsers, setEntraUsers] = useState<any[]>([]);
     const [syncingEntra, setSyncingEntra] = useState(false);
@@ -96,7 +98,8 @@ export default function UsersPage() {
                     tenantId: selectedTenant.id,
                     email: newEmail,
                     entraOid: newOid,
-                    role: newRole
+                    role: newRole,
+                    permissions: newPermissions
                 })
             });
             const json = await res.json();
@@ -106,6 +109,7 @@ export default function UsersPage() {
                 setNewEmail('');
                 setNewOid('');
                 setNewRole('Reader');
+                setNewPermissions([]);
                 loadUsers(); // Reload to get new user ID
             } else {
                 toast.error(json.error || "Error al agregar usuario.");
@@ -218,6 +222,30 @@ export default function UsersPage() {
         }
     };
 
+    // Permisos de dominio (FinOps/CloudAdmin/Security/ProductOwner) — INDEPENDIENTES
+    // del rol. Se persisten con el mismo endpoint PUT, mandando solo `permissions`
+    // (el backend no toca `role` si no viene en el body).
+    const handleTogglePermission = async (userId: number, current: RoleTag[], tag: RoleTag) => {
+        const next = current.includes(tag) ? current.filter(t => t !== tag) : [...current, tag];
+        try {
+            const tokenResponse = { idToken: await getFreshIdToken(instance, accounts[0]) };
+            const res = await fetch('/api/admin/config/users', {
+                method: 'PUT',
+                headers: { 'Authorization': `Bearer ${tokenResponse.idToken}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tenantId: selectedTenant.id, userId, permissions: next })
+            });
+            const json = await res.json();
+            if (res.ok) {
+                setUsers(prev => prev.map(u => u.id === userId ? { ...u, permissions: next } : u));
+            } else {
+                toast.error(json.error || "Error al actualizar permisos.");
+            }
+        } catch (e) {
+            console.error("Error updating permissions:", e);
+            toast.error("Error de conexión.");
+        }
+    };
+
     if (selectedTenant.id === 'default') {
         return (
             <div className="p-6 max-w-5xl mx-auto">
@@ -291,23 +319,43 @@ export default function UsersPage() {
                                     <option value="Reader">Reader (Lectura)</option>
                                     <option value="Colaborador">Colaborador</option>
                                     <option value="Admin">Admin</option>
-                                    <option value="Analista FinOps">Analista FinOps</option>
-                                    <option value="Admin Cloud">Admin Cloud</option>
-                                    <option value="Auditor de Seguridad">Auditor de Seguridad</option>
-                                    <option value="Product Owner">Líder de Proyecto / Product Owner</option>
                                     {isSuperAdmin && isMasterTenant && (
                                         <option value="SuperAdmin">🛡️ SuperAdmin (Global)</option>
                                     )}
                                 </select>
                             </div>
                             <div className="lg:col-span-2 w-full">
-                                <button 
+                                <button
                                     type="submit"
                                     disabled={inviting}
                                     className="w-full px-6 py-2 bg-[#0054A6] text-white rounded-md font-semibold hover:bg-[#004080] disabled:opacity-50"
                                 >
                                     {inviting ? 'Guardando...' : 'Agregar'}
                                 </button>
+                            </div>
+                            <div className="lg:col-span-12 w-full">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    Permisos (dominio de páginas — opcional, independiente del Rol)
+                                </label>
+                                <div className="flex flex-wrap gap-2">
+                                    {ASSIGNABLE_PERMISSIONS.map(p => {
+                                        const active = newPermissions.includes(p.value);
+                                        return (
+                                            <button
+                                                key={p.value}
+                                                type="button"
+                                                onClick={() => setNewPermissions(prev => active ? prev.filter(t => t !== p.value) : [...prev, p.value])}
+                                                className={`text-xs font-semibold px-2.5 py-1 rounded-full border transition-colors ${
+                                                    active
+                                                        ? 'bg-[#0054A6] text-white border-[#0054A6]'
+                                                        : 'bg-white dark:bg-slate-900 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-slate-700 hover:border-[#0054A6]'
+                                                }`}
+                                            >
+                                                {p.label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         </form>
                     </div>
@@ -335,6 +383,7 @@ export default function UsersPage() {
                                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
                                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entra ID</th>
                                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rol</th>
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Permisos</th>
                                         <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
                                     </tr>
                                 </thead>
@@ -355,10 +404,6 @@ export default function UsersPage() {
                                                     <option value="Reader">Reader</option>
                                                         <option value="Colaborador">Colaborador</option>
                                                         <option value="Admin">Admin</option>
-                                                        <option value="Analista FinOps">Analista FinOps</option>
-                                                        <option value="Admin Cloud">Admin Cloud</option>
-                                                        <option value="Auditor de Seguridad">Auditor de Seguridad</option>
-                                                        <option value="Product Owner">Líder de Proyecto / Product Owner</option>
                                                         {isSuperAdmin && isMasterTenant && (
                                                             <option value="SuperAdmin">🛡️ SuperAdmin</option>
                                                         )}
@@ -372,6 +417,34 @@ export default function UsersPage() {
                                                 ) : (
                                                     <span className="capitalize">{user.role}</span>
                                                 )}
+                                            </td>
+                                            <td className="px-6 py-4 text-sm">
+                                                {/* Permisos = dominio de páginas visible (FinOps/CloudAdmin/Security/
+                                                    ProductOwner), independiente del Rol de la columna anterior — ambos
+                                                    se aplican juntos, no son alternativos. Admin/Owner ven todo sin
+                                                    necesidad de permisos asignados. */}
+                                                <div className="flex flex-wrap gap-1 max-w-[220px]">
+                                                    {ASSIGNABLE_PERMISSIONS.map(p => {
+                                                        const current = parsePermissions(user.permissions);
+                                                        const active = current.includes(p.value);
+                                                        return (
+                                                            <button
+                                                                key={p.value}
+                                                                type="button"
+                                                                disabled={!isAdmin}
+                                                                onClick={() => handleTogglePermission(user.id, current, p.value)}
+                                                                title={p.label}
+                                                                className={`text-[10px] font-bold px-1.5 py-0.5 rounded border transition-colors ${!isAdmin ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'} ${
+                                                                    active
+                                                                        ? 'bg-[#0054A6] text-white border-[#0054A6]'
+                                                                        : 'bg-white dark:bg-slate-900 text-gray-500 dark:text-gray-400 border-gray-300 dark:border-slate-700 hover:border-[#0054A6]'
+                                                                }`}
+                                                            >
+                                                                {p.value}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                                 <button 
@@ -447,10 +520,6 @@ export default function UsersPage() {
                                                             <option value="Reader">Reader</option>
                                                             <option value="Colaborador">Colaborador</option>
                                                             <option value="Admin">Admin</option>
-                                                            <option value="Analista FinOps">Analista FinOps</option>
-                                                            <option value="Admin Cloud">Admin Cloud</option>
-                                                            <option value="Auditor de Seguridad">Auditor de Seguridad</option>
-                                                            <option value="Product Owner">Líder de Proyecto / Product Owner</option>
                                                             {isSuperAdmin && isMasterTenant && (
                                                                 <option value="SuperAdmin">🛡️ SuperAdmin</option>
                                                             )}
