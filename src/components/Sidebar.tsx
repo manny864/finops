@@ -7,7 +7,7 @@ import { isSuperAdmin } from '@/lib/authGuard';
 import { useTenant } from '@/components/TenantProvider';
 import FeatureGuard from '@/components/FeatureGuard';
 import { hasAccess } from '@/lib/tierLogic';
-import { getTagsForRoute, tagForBusinessRole, ROLE_TAG_META } from '@/lib/pageRoleTags';
+import { getTagsForRoute, tagForBusinessRole } from '@/lib/pageRoleTags';
 import { 
     LayoutDashboard,
     Target,
@@ -302,13 +302,14 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                                 {category.items.map(item => {
                                     const isActive = pathname === item.href;
                                     const Icon = item.icon;
-                                    const itemTags = getTagsForRoute(item.href);
-                                    const primaryTag = itemTags[0];
+                                    // Las etiquetas de rol (pageRoleTags.ts) son internas: se usan para
+                                    // filtrar la navegación por rol (ver roleCategories más abajo), pero
+                                    // no se muestran como badge — el usuario pidió que no sean visibles.
                                     const renderedLink = (
                                         <Link
                                             key={item.href}
                                             href={item.href}
-                                            title={sidebarOpen ? undefined : `${item.label} · ${itemTags.map(tg => ROLE_TAG_META[tg].label).join(', ')}`}
+                                            title={sidebarOpen ? undefined : item.label}
                                             onClick={(e) => {
                                                 if ((item as any).requiredTier && !hasAccess(tier, (item as any).requiredTier)) {
                                                     e.preventDefault();
@@ -326,14 +327,6 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                                         >
                                             <Icon className={`flex-shrink-0 ${sidebarOpen ? 'w-5 h-5 mr-3' : 'w-6 h-6 mx-auto'}`} />
                                             {sidebarOpen && <span className="text-sm truncate flex-1 md:block">{item.label}</span>}
-                                            {sidebarOpen && (
-                                                <span
-                                                    title={itemTags.map(tg => ROLE_TAG_META[tg].label).join(' + ')}
-                                                    className={`shrink-0 ml-2 text-[8.5px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded border ${isActive ? 'bg-white/15 text-white border-white/25' : ROLE_TAG_META[primaryTag].color}`}
-                                                >
-                                                    {ROLE_TAG_META[primaryTag].label}
-                                                </span>
-                                            )}
                                         </Link>
                                     );
 
