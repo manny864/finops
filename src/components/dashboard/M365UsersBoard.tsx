@@ -7,7 +7,9 @@ import { useTranslations, useLocale } from "next-intl";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { isMockTenant } from "@/lib/mockData";
 import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, LabelList, Tooltip } from "recharts";
-import { Loader2, AlertCircle, Users, KeyRound, ShieldCheck, Boxes, UserX, Package, DollarSign } from "lucide-react";
+import { Loader2, AlertCircle, Users, KeyRound, ShieldCheck, Boxes, UserX, Package, DollarSign, Cpu, ShieldQuestion } from "lucide-react";
+import Pagination, { usePagination } from "@/components/Pagination";
+import ResizableTh from "@/components/ResizableTh";
 
 const fmtUsd = (n: number | null | undefined) =>
     new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n || 0);
@@ -275,10 +277,165 @@ function UserActivityTab() {
     );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Tab: License Optimization (fusionado desde la antigua página "Licencias")
+// AHUB missing-benefit (Resource Graph) + métricas por SKU (Graph subscribedSkus).
+// ─────────────────────────────────────────────────────────────────────────────
+function useLicensesData() {
+    const { instance, accounts } = useMsal();
+    const { selectedTenant } = useTenant();
+    const [data, setData] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<{ message: string; needsConsent?: boolean } | null>(null);
+    const [graphError, setGraphError] = useState<{ message: string; needsConsent?: boolean } | null>(null);
+
+    React.useEffect(() => {
+        if (!selectedTenant || selectedTenant.id === "default") return;
+        let cancelled = false;
+        (async () => {
+            setLoading(true);
+            setError(null);
+            setGraphError(null);
+            try {
+                const idToken = accounts.length ? await getFreshIdToken(instance, accounts[0], ["User.Read"]) : null;
+                const res = await fetch("/api/intelligence/licenses", {
+                    headers: { "x-tenant-id": selectedTenant.id, ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}) },
+                });
+                const json = await res.json();
+                if (cancelled) return;
+                if (json.success) {
+                    setData(json.data);
+                    if (json.data.graphError) setGraphError({ message: json.data.graphError, needsConsent: json.data.needsConsent });
+                } else {
+                    setError({ message: json.error || "Error desconocido", needsConsent: json.needsConsent });
+                }
+            } catch (e: any) {
+                if (!cancelled) setError({ message: e.message || "Error de red" });
+            }
+            if (!cancelled) setLoading(false);
+        })();
+        return () => { cancelled = true; };
+    }, [selectedTenant, accounts, instance]);
+
+    return { data, loading, error, graphError };
+}
+
+function LicenseOptimizationTab() {
+    const t = useTranslations("M365Users");
+    const { data, loading, error, graphError } = useLicensesData();
+    const licenses = data?.licenses || [];
+    const missingAhub = data?.missingAhub || [];
+    const ahub = usePagination<any>(missingAhub, 15);
+    const skus = usePagination<any>(licenses, 15);
+
+    if (error) return <ErrorBlock message={error.message} />;
+
+    const total = licenses.reduce((s: number, l: any) => s + l.total, 0);
+    const consumed = licenses.reduce((s: number, l: any) => s + l.consumed, 0);
+    const available = licenses.reduce((s: number, l: any) => s + l.available, 0);
+    const underutilized = licenses.reduce((s: number, l: any) => s + l.underutilized, 0);
+    const ahubSavings = missingAhub.reduce((s: number, i: any) => s + i.potentialLicenseSavings, 0);
+
+    return (
+        <div className="space-y-4">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+                <BigKpi label={t("lic_total")} value={loading ? "…" : fmtNum(total)} icon={<KeyRound className="w-5 h-5" />} />
+                <BigKpi label={t("lic_assigned")} value={loading ? "…" : fmtNum(consumed)} icon={<Users className="w-5 h-5" />} />
+                <BigKpi label={t("lic_available")} value={loading ? "…" : fmtNum(available)} icon={<Package className="w-5 h-5" />} />
+                <BigKpi label={t("lic_underutilized")} value={loading ? "…" : fmtNum(underutilized)} icon={<UserX className="w-5 h-5" />} />
+                <BigKpi label={t("ahub_potential_savings")} value={loading ? "…" : fmtUsd(ahubSavings)} icon={<Cpu className="w-5 h-5" />} />
+            </div>
+
+            <Card title={t("ahub_title")}>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">{t("ahub_desc")}</p>
+                <div className="overflow-x-auto">
+                    <table className="w-full border-collapse text-sm table-fixed min-w-[760px]">
+                        <thead className="bg-gray-50 dark:bg-slate-800/60">
+                            <tr>
+                                {["resource", "type", "subscription", "resource_group", "location", "monthly_savings"].map(k => (
+                                    <ResizableTh key={k} className="bg-gray-50 dark:bg-slate-800/60 text-left text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 font-bold p-3">{t(`col_${k}`)}</ResizableTh>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {loading && <tr><td colSpan={6} className="p-8 text-center text-gray-400">{t("loading")}</td></tr>}
+                            {!loading && missingAhub.length === 0 && <tr><td colSpan={6} className="p-8 text-center text-gray-400 text-sm">{t("ahub_none")}</td></tr>}
+                            {!loading && ahub.paged.map((item: any, i: number) => {
+                                const isSqlPool = item.scope === "elasticPool";
+                                return (
+                                    <tr key={i} className="border-t border-gray-100 dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-800/40 align-top">
+                                        <td className="p-3 font-semibold text-gray-900 dark:text-white whitespace-normal break-words">
+                                            {item.name}
+                                            {isSqlPool && <div className="text-[10px] font-normal text-gray-400 mt-0.5">{t("ahub_pool_note")}</div>}
+                                        </td>
+                                        <td className="p-3 text-gray-600 dark:text-gray-300 whitespace-normal">{item.type === "microsoft.compute/virtualmachines" ? "Virtual Machine" : (isSqlPool ? "SQL Elastic Pool" : "SQL Database")}</td>
+                                        <td className="p-3 text-gray-600 dark:text-gray-300 whitespace-normal break-words">{item.subscriptionId}</td>
+                                        <td className="p-3 text-gray-600 dark:text-gray-300 whitespace-normal break-words">{item.resourceGroup}</td>
+                                        <td className="p-3 text-gray-600 dark:text-gray-300 whitespace-normal">{item.location}</td>
+                                        <td className="p-3 font-bold text-emerald-600 whitespace-normal">{fmtUsd(item.potentialLicenseSavings)}</td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+                {!loading && missingAhub.length > 15 && (
+                    <div className="pt-3"><Pagination page={ahub.page} setPage={ahub.setPage} pageSize={ahub.pageSize} setPageSize={ahub.setPageSize} total={ahub.total} totalPages={ahub.totalPages} pageSizes={[15, 25, 50]} /></div>
+                )}
+            </Card>
+
+            {graphError && (
+                <div className="bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 p-4 rounded-lg border border-amber-100 dark:border-amber-900/50">
+                    <h3 className="font-bold flex items-center gap-2"><ShieldQuestion className="w-4 h-4" /> {t("graph_permissions_title")}</h3>
+                    <p className="text-sm mt-1">{t("graph_permissions_desc")}</p>
+                </div>
+            )}
+
+            {!graphError && (
+                <Card title={t("sku_metrics_title")}>
+                    <div className="overflow-x-auto">
+                        <table className="w-full border-collapse text-sm table-fixed min-w-[680px]">
+                            <thead className="bg-gray-50 dark:bg-slate-800/60">
+                                <tr>
+                                    {["sku", "total", "in_use", "available", "underutil_risk", "wasted_spend"].map(k => (
+                                        <ResizableTh key={k} className="bg-gray-50 dark:bg-slate-800/60 text-left text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 font-bold p-3">{t(`col_${k}`)}</ResizableTh>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {loading && <tr><td colSpan={6} className="p-8 text-center text-gray-400">{t("loading")}</td></tr>}
+                                {!loading && licenses.length === 0 && <tr><td colSpan={6} className="p-8 text-center text-gray-400 text-sm">{t("no_data")}</td></tr>}
+                                {!loading && skus.paged.map((l: any) => (
+                                    <tr key={l.id} className={`border-t border-gray-100 dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-800/40 align-top ${l.isSystemSku ? "opacity-60" : ""}`}>
+                                        <td className="p-3 font-semibold text-gray-900 dark:text-white whitespace-normal break-words">
+                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                                {l.skuPartNumber}
+                                                {l.isSystemSku && <span className="text-[10px] font-semibold bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-gray-300 px-1.5 py-0.5 rounded">{t("sku_system")}</span>}
+                                            </div>
+                                        </td>
+                                        <td className="p-3 text-gray-600 dark:text-gray-300">{l.total}</td>
+                                        <td className="p-3 text-gray-600 dark:text-gray-300">{l.consumed}</td>
+                                        <td className="p-3 text-emerald-600 font-semibold">{l.available}</td>
+                                        <td className={`p-3 font-semibold ${l.isSystemSku ? "text-gray-400" : "text-rose-600"}`}>{l.underutilized}</td>
+                                        <td className={`p-3 font-bold ${l.isSystemSku ? "text-gray-400" : "text-rose-600"}`}>{fmtUsd(l.wastedCost)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                    {!loading && licenses.length > 15 && (
+                        <div className="pt-3"><Pagination page={skus.page} setPage={skus.setPage} pageSize={skus.pageSize} setPageSize={skus.setPageSize} total={skus.total} totalPages={skus.totalPages} pageSizes={[15, 25, 50]} /></div>
+                    )}
+                </Card>
+            )}
+        </div>
+    );
+}
+
 export default function M365UsersBoard() {
     const t = useTranslations("M365Users");
     const { selectedTenant } = useTenant();
-    const [tab, setTab] = useState<"dashboard" | "activity">("dashboard");
+    const [tab, setTab] = useState<"dashboard" | "activity" | "licenseopt">("dashboard");
     if (!selectedTenant || selectedTenant.id === "default") return null;
 
     return (
@@ -290,8 +447,9 @@ export default function M365UsersBoard() {
             <div className="flex gap-1 border-b border-gray-200 dark:border-slate-800">
                 <button onClick={() => setTab("dashboard")} className={`flex items-center gap-1.5 px-3.5 py-2 text-sm font-bold border-b-2 transition-colors ${tab === "dashboard" ? "border-brand-deep text-brand-deep dark:text-brand-bright" : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}><Package className="w-4 h-4" /> {t("tab_dashboard")}</button>
                 <button onClick={() => setTab("activity")} className={`flex items-center gap-1.5 px-3.5 py-2 text-sm font-bold border-b-2 transition-colors ${tab === "activity" ? "border-brand-deep text-brand-deep dark:text-brand-bright" : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}><Users className="w-4 h-4" /> {t("tab_user_activity")}</button>
+                <button onClick={() => setTab("licenseopt")} className={`flex items-center gap-1.5 px-3.5 py-2 text-sm font-bold border-b-2 transition-colors ${tab === "licenseopt" ? "border-brand-deep text-brand-deep dark:text-brand-bright" : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}><Cpu className="w-4 h-4" /> {t("tab_license_optimization")}</button>
             </div>
-            {tab === "dashboard" ? <DashboardTab /> : <UserActivityTab />}
+            {tab === "dashboard" ? <DashboardTab /> : tab === "activity" ? <UserActivityTab /> : <LicenseOptimizationTab />}
         </div>
     );
 }

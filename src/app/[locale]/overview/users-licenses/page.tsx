@@ -1,11 +1,14 @@
-import M365UsersBoard from "@/components/dashboard/M365UsersBoard";
-import MockBanner from "@/components/MockBanner";
+"use client";
+import { useEffect } from "react";
+import { useRouter } from "@/i18n/routing";
 
-export default function UsersLicensesPage() {
-    return (
-        <div className="p-6 max-w-[1320px] mx-auto flex flex-col gap-5">
-            <MockBanner />
-            <M365UsersBoard />
-        </div>
-    );
+// "Usuarios y Licencias" se fusionó con "Licencias" en /intelligence/licenses.
+// Este redirect preserva enlaces/bookmarks viejos a esta ruta. useRouter de
+// @/i18n/routing ya antepone el locale activo automáticamente.
+export default function UsersLicensesRedirect() {
+    const router = useRouter();
+    useEffect(() => {
+        router.replace("/intelligence/licenses");
+    }, [router]);
+    return null;
 }

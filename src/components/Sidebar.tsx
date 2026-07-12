@@ -96,7 +96,6 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/overview/progress', label: t('historical_progress'), icon: TrendingDown },
                 { href: '/overview/top-expenses', label: t('top_expenses', { fallback: 'TOP Expenses' }), icon: BarChart3 },
                 { href: '/overview/resources', label: t('resources', { fallback: 'Recursos' }), icon: Boxes, requiredTier: 'Professional' },
-                { href: '/overview/users-licenses', label: t('users_licenses', { fallback: 'Users & Licenses' }), icon: Users, requiredTier: 'Business' },
                 { href: '/overview/sustainability', label: 'Green FinOps', icon: Leaf }
             ]
         },
@@ -110,7 +109,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/intelligence/rightsizing', label: t('rightsizing'), icon: Zap, requiredTier: 'Professional' },
                 { href: '/intelligence/network', label: t('network_analytics'), icon: Activity, requiredTier: 'Professional' },
                 { href: '/intelligence/rates', label: t('rate_optimization'), icon: DollarSign, requiredTier: 'Business' },
-                { href: '/intelligence/licenses', label: t('licenses'), icon: Users, requiredTier: 'Professional' },
+                { href: '/intelligence/licenses', label: t('users_licenses', { fallback: 'Usuarios y Licencias' }), icon: Users, requiredTier: 'Professional' },
                 { href: '/intelligence/hybrid-benefit', label: 'Hybrid Benefit (AHB)', icon: Cpu, requiredTier: 'Professional' },
                 { href: '/intelligence/commitments', label: 'Reservas (RIs)', icon: ShieldCheck, requiredTier: 'Professional' },
                 { href: '/intelligence/zero-cost', label: 'Costo Cero', icon: Box },
