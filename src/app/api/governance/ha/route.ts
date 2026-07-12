@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
         if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
 
         try {
-            await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
+            await requireTenantRole(request, tenantId, ['Admin', 'Owner', 'Admin Cloud']);
         } catch (e) {
             if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
             throw e;

@@ -291,6 +291,10 @@ export default function UsersPage() {
                                     <option value="Reader">Reader (Lectura)</option>
                                     <option value="Colaborador">Colaborador</option>
                                     <option value="Admin">Admin</option>
+                                    <option value="Analista FinOps">Analista FinOps</option>
+                                    <option value="Admin Cloud">Admin Cloud</option>
+                                    <option value="Auditor de Seguridad">Auditor de Seguridad</option>
+                                    <option value="Product Owner">Líder de Proyecto / Product Owner</option>
                                     {isSuperAdmin && isMasterTenant && (
                                         <option value="SuperAdmin">🛡️ SuperAdmin (Global)</option>
                                     )}
@@ -351,6 +355,10 @@ export default function UsersPage() {
                                                     <option value="Reader">Reader</option>
                                                         <option value="Colaborador">Colaborador</option>
                                                         <option value="Admin">Admin</option>
+                                                        <option value="Analista FinOps">Analista FinOps</option>
+                                                        <option value="Admin Cloud">Admin Cloud</option>
+                                                        <option value="Auditor de Seguridad">Auditor de Seguridad</option>
+                                                        <option value="Product Owner">Líder de Proyecto / Product Owner</option>
                                                         {isSuperAdmin && isMasterTenant && (
                                                             <option value="SuperAdmin">🛡️ SuperAdmin</option>
                                                         )}
@@ -439,6 +447,10 @@ export default function UsersPage() {
                                                             <option value="Reader">Reader</option>
                                                             <option value="Colaborador">Colaborador</option>
                                                             <option value="Admin">Admin</option>
+                                                            <option value="Analista FinOps">Analista FinOps</option>
+                                                            <option value="Admin Cloud">Admin Cloud</option>
+                                                            <option value="Auditor de Seguridad">Auditor de Seguridad</option>
+                                                            <option value="Product Owner">Líder de Proyecto / Product Owner</option>
                                                             {isSuperAdmin && isMasterTenant && (
                                                                 <option value="SuperAdmin">🛡️ SuperAdmin</option>
                                                             )}

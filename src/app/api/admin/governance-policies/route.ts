@@ -137,7 +137,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
         }
 
-        await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
+        await requireTenantRole(request, tenantId, ['Admin', 'Owner', 'Admin Cloud']);
 
         if (isMockTenant(tenantId)) {
             // Simular delay de inyección de políticas ARM

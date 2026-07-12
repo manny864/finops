@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
         }
 
         // Validate JWT identity and assert caller belongs to this tenant.
-        await requireTenantRole(request, tenantId, ['Admin', 'Owner', 'Reader', 'Colaborador']);
+        await requireTenantRole(request, tenantId, ['Admin', 'Owner', 'Reader', 'Colaborador', 'Analista FinOps', 'Admin Cloud', 'Auditor de Seguridad', 'Product Owner']);
 
         // Ensure DB schema exists before querying
         await initializeDatabase();

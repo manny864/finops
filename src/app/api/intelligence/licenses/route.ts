@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Faltan credenciales del entorno' }, { status: 400 });
         }
 
-        await requireTenantRole(request, tenantId, ['Admin', 'Owner', 'Reader', 'Colaborador']);
+        await requireTenantRole(request, tenantId, ['Admin', 'Owner', 'Reader', 'Colaborador', 'Analista FinOps', 'Admin Cloud', 'Auditor de Seguridad', 'Product Owner']);
 
         // 1. Fetch M365 Licenses (Graph API) defensively
         let licenses: any[] = [];

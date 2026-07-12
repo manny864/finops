@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
             }
         } else {
             // JWT path: validate token and assert tenant membership.
-            await requireTenantRole(request, tenantId, ['Admin', 'Owner', 'Reader', 'Colaborador']);
+            await requireTenantRole(request, tenantId, ['Admin', 'Owner', 'Reader', 'Colaborador', 'Analista FinOps', 'Admin Cloud', 'Auditor de Seguridad', 'Product Owner']);
         }
 
         // Tier gate: Enterprise only.

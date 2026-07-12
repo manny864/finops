@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     // tags/apply y el GET de zombies/networking, que ya exige Admin/Owner
     // para siquiera ver la lista). requireTenantAccess (solo membresía)
     // permitía que cualquier Reader/Colaborador pudiera borrar recursos.
-    const identity = await requireTenantRole(request, tenantId, ["Admin", "Owner"]);
+    const identity = await requireTenantRole(request, tenantId, ["Admin", "Owner", "Admin Cloud"]);
     const email = identity.email;
 
     await deleteResource(tenantId, email, subscriptionId, resourceGroup, resourceName, resourceType, resourceId);

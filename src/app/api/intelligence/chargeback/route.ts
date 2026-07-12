@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
         }
 
         // Auth: validate JWT and assert caller belongs to this tenant.
-        await requireTenantRole(request, tenantId, ['Admin', 'Owner', 'Reader', 'Colaborador']);
+        await requireTenantRole(request, tenantId, ['Admin', 'Owner', 'Reader', 'Colaborador', 'Analista FinOps', 'Admin Cloud', 'Auditor de Seguridad', 'Product Owner']);
 
         const cacheKey = `intelligence:chargeback:${tenantId}:${subscriptionId}:${tagKey}`;
 
