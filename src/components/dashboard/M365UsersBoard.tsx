@@ -31,13 +31,14 @@ function useAuthedSWR<T = any>(path: string) {
     return useSWR<T>(ready ? `${path}?tenantId=${selectedTenant!.id}` : null, fetcher, { revalidateOnFocus: false });
 }
 
-function BigKpi({ label, value, icon }: { label: string; value: React.ReactNode; icon: React.ReactNode }) {
+function BigKpi({ label, value, icon, sub }: { label: string; value: React.ReactNode; icon: React.ReactNode; sub?: string }) {
     return (
         <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm p-5 flex items-center gap-4">
             <div className="w-11 h-11 rounded-xl bg-brand-soft/60 dark:bg-slate-800 flex items-center justify-center shrink-0 text-brand-deep dark:text-brand-bright">{icon}</div>
             <div className="min-w-0">
                 <p className="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">{label}</p>
                 <p className="text-2xl font-extrabold text-brand-deep dark:text-brand-bright leading-tight">{value}</p>
+                {sub && <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-0.5 leading-snug">{sub}</p>}
             </div>
         </div>
     );
@@ -124,7 +125,7 @@ function DashboardTab() {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 <BigKpi label={t("total_users")} value={fmtNum(data.kpis?.totalUsers)} icon={<Users className="w-5 h-5" />} />
                 <BigKpi label={t("licensed_users")} value={fmtNum(data.kpis?.licensedUsers)} icon={<KeyRound className="w-5 h-5" />} />
-                <BigKpi label={t("mfa_enforced_users")} value={data.kpis?.mfaEnforcedUsers != null ? fmtNum(data.kpis.mfaEnforcedUsers) : na} icon={<ShieldCheck className="w-5 h-5" />} />
+                <BigKpi label={t("mfa_enforced_users")} value={data.kpis?.mfaEnforcedUsers != null ? fmtNum(data.kpis.mfaEnforcedUsers) : na} icon={<ShieldCheck className="w-5 h-5" />} sub={data.kpis?.mfaEnforcedUsers == null ? t("requires_graph_perm") : undefined} />
                 <BigKpi label={t("total_groups")} value={fmtNum(data.kpis?.totalGroups)} icon={<Boxes className="w-5 h-5" />} />
             </div>
 
@@ -177,7 +178,14 @@ function DashboardTab() {
                     <HBar data={(data.topLicenseSpend || []).map((l: any) => ({ name: l.name, value: l.spend }))} color="#2f6fb3" valueFmt={(v) => fmtUsd(v)} />
                 </Card>
                 <Card title={t("auth_methods")}>
-                    <HBar data={(data.authMethods || []).map((a: any) => ({ name: a.method, value: a.count }))} color="#2f6fb3" valueFmt={(v) => fmtNum(v)} />
+                    {data.capabilities?.mfa === false ? (
+                        <p className="text-sm text-amber-600 dark:text-amber-400 py-6 text-center flex flex-col items-center gap-2">
+                            <ShieldQuestion className="w-6 h-6" />
+                            {t("requires_graph_perm")}
+                        </p>
+                    ) : (
+                        <HBar data={(data.authMethods || []).map((a: any) => ({ name: a.method, value: a.count }))} color="#2f6fb3" valueFmt={(v) => fmtNum(v)} />
+                    )}
                 </Card>
             </div>
         </div>
@@ -224,6 +232,12 @@ function UserActivityTab() {
                 <BigKpi label={t("active_users")} value={fmtNum(data.kpis?.active)} icon={<Users className="w-5 h-5" />} />
                 <BigKpi label={t("inactive_users")} value={data.kpis?.inactive != null ? fmtNum(data.kpis.inactive) : na} icon={<UserX className="w-5 h-5" />} />
             </div>
+
+            {data.capabilities?.signInActivity === false && (
+                <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/50 rounded-lg px-3 py-2">
+                    <ShieldQuestion className="w-3.5 h-3.5 shrink-0" /> {t("requires_graph_perm")}
+                </p>
+            )}
 
             <div className="flex flex-wrap gap-2 items-center">
                 <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t("search")} className="px-3 py-1.5 text-sm border border-gray-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 dark:text-white" />

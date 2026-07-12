@@ -1453,6 +1453,7 @@
     "no_activity": "Sin actividad",
     "days": "días",
     "requires_p1": "La actividad de inicio de sesión requiere Microsoft Entra ID P1.",
+    "requires_graph_perm": "Falta el permiso de Graph AuditLog.Read.All (con consentimiento de administrador) en el Service Principal — sin él, Microsoft Graph no expone esta información.",
     "search": "Buscar...",
     "account_status": "Estado de Cuenta",
     "has_license": "Tiene Licencia",

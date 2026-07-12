@@ -1453,6 +1453,7 @@
     "no_activity": "No Activity",
     "days": "days",
     "requires_p1": "Sign-in activity requires Microsoft Entra ID P1.",
+    "requires_graph_perm": "Missing the AuditLog.Read.All Graph permission (with admin consent) on the Service Principal — without it, Microsoft Graph doesn't expose this data.",
     "search": "Search...",
     "account_status": "Account Status",
     "has_license": "Has License",
