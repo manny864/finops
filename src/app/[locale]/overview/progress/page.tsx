@@ -130,7 +130,7 @@ export default function HistoricalProgressPage() {
         if (Number.isNaN(d.getTime())) return value;
         return new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short' }).format(d);
     };
-    const formatTooltipDate = (value: string) => {
+    const formatTooltipDate = (value: any) => {
         const d = new Date(`${value}T00:00:00`);
         if (Number.isNaN(d.getTime())) return value;
         return new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'long', year: 'numeric' }).format(d);
