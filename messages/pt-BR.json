@@ -1238,7 +1238,7 @@
     "resolvedOn": "Resolvida em {date}"
   },
   "WhiteBoard": {
-    "title": "Executive Summary - Current FY",
+    "title": "Resumo Executivo",
     "subtitle": "Obtenha uma visão geral do seu Cloud Estate por Unidade de Negócio (Grupos de Custo).",
     "costs": "Custos",
     "current_fy_cost": "Custo do FY Atual",
