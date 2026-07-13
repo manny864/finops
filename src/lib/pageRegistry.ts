@@ -52,6 +52,7 @@ export const PAGES: PageEntry[] = [
     { id: "int-billing", path: "/intelligence/billing", title: "Billing Engine (CSP)", description: "Motor de facturación Partner / CSP.", icon: "Receipt", category: "intelligence" },
     { id: "int-upload", path: "/intelligence/upload", title: "Carga de Datos", description: "Importación manual de facturación.", icon: "Upload", category: "intelligence" },
     { id: "int-allocation", path: "/intelligence/allocation", title: "Allocation", description: "Reglas de distribución de costos.", icon: "Layers", category: "intelligence" },
+    { id: "int-cost-centers", path: "/intelligence/cost-centers", title: "Presupuesto por Centro de Costos", description: "Gasto real vs. presupuesto asignado por CostCenter.", icon: "Wallet", category: "intelligence" },
 
     // Governance
     { id: "gov-power", path: "/governance/power", title: "Horario de Apagado", description: "Schedules de power on/off de recursos.", icon: "Power", category: "governance" },
@@ -60,6 +61,7 @@ export const PAGES: PageEntry[] = [
     { id: "gov-tags", path: "/governance/tags", title: "Gobernanza de Tags", description: "Coverage y consistencia de tagging.", icon: "Tags", category: "governance" },
     { id: "gov-ha", path: "/governance/ha", title: "Alta Disponibilidad", description: "Hallazgos HA por recurso, SLA risk.", icon: "ShieldAlert", category: "governance" },
     { id: "gov-credentials", path: "/governance/credentials", title: "Credenciales por Expirar", description: "Secrets y certs de App Registrations próximos a vencer.", icon: "KeyRound", category: "governance" },
+    { id: "gov-score", path: "/governance/score", title: "Estado de Gobernanza", description: "Score de seguridad financiera y cumplimiento de tags por política.", icon: "ShieldCheck", category: "governance" },
 
     // Cleanup
     { id: "clean-ttl", path: "/cleanup/ttl", title: "TTL & Lifecycle", description: "Reglas de expiración de recursos.", icon: "Timer", category: "cleanup" },
@@ -70,6 +72,9 @@ export const PAGES: PageEntry[] = [
     { id: "over-progress", path: "/overview/progress", title: "Progreso FinOps", description: "Avance del programa FinOps.", icon: "TrendingUp", category: "overview" },
     { id: "over-maturity", path: "/overview/maturity", title: "Madurez FinOps", description: "Nivel de madurez por capability.", icon: "Trophy", category: "overview" },
     { id: "over-sustainability", path: "/overview/sustainability", title: "Sustentabilidad", description: "Footprint de carbono y green ops.", icon: "Leaf", category: "overview" },
+    { id: "over-whiteboard", path: "/overview/whiteboard", title: "White Board", description: "Dashboard ejecutivo consolidado: costos, seguridad, gobernanza y recomendaciones.", icon: "LayoutDashboard", category: "overview" },
+    { id: "over-captured-savings", path: "/overview/captured-savings", title: "Ahorro Capturado", description: "Tendencia histórica del ahorro potencial detectado.", icon: "PiggyBank", category: "overview" },
+    { id: "over-financial-leaks", path: "/overview/financial-leaks", title: "Fugas Financieras", description: "Distribución del gasto desperdiciado por categoría de recurso.", icon: "Recycle", category: "overview" },
 
     // Remediation
     { id: "rem-approvals", path: "/remediation/approvals", title: "Cola de Aprobaciones", description: "Acciones automatizadas pendientes de aprobación.", icon: "CheckSquare", category: "remediation" },

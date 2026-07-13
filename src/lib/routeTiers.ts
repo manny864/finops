@@ -25,7 +25,7 @@ export const ROUTE_TIERS: Record<string, 'Essential' | 'Professional' | 'Busines
     '/intelligence/cost-groups': 'Business',
     '/intelligence/allocation': 'Enterprise',
     '/intelligence/scorecard': 'Enterprise',
-    '/intelligence/whiteboard': 'Enterprise',
+    '/intelligence/cost-centers': 'Business',
     '/intelligence/anomalies': 'Professional',
     '/intelligence/optimization-index': 'Professional',
     '/intelligence/tenant-health': 'Professional',
@@ -52,6 +52,7 @@ export const ROUTE_TIERS: Record<string, 'Essential' | 'Professional' | 'Busines
     '/governance/reporting': 'Enterprise',
     '/governance/ha': 'Business',
     '/governance/credentials': 'Business',
+    '/governance/score': 'Business',
     '/remediation/approvals': 'Professional',
     // Visibilidad
     '/overview/maturity': 'Essential',

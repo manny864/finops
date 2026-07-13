@@ -1065,6 +1065,66 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                 },
             };
         }
+        case 'cost_centers': {
+            const round2 = (x: number) => Math.round(x * 100) / 100;
+            const centers = [
+                { name: 'IT', budget: 8000 * multiplier },
+                { name: 'Data', budget: 6000 * multiplier },
+                { name: 'Marketing', budget: 3000 * multiplier },
+                { name: 'HR', budget: 1500 * multiplier },
+                { name: 'Sin asignar', budget: null as number | null },
+            ];
+            const costCenters = centers.map((c, i) => {
+                const currentMonthCost = round2((c.budget || 2000 * multiplier) * (0.6 + i * 0.15));
+                const previousMonthCost = round2(currentMonthCost * 0.92);
+                const changePct = round2(((currentMonthCost - previousMonthCost) / previousMonthCost) * 100);
+                const pctUsed = c.budget ? round2((currentMonthCost / c.budget) * 100) : null;
+                return {
+                    name: c.name,
+                    currentMonthCost,
+                    previousMonthCost,
+                    changePct,
+                    budget: c.budget,
+                    pctUsed,
+                    overBudget: c.budget !== null && currentMonthCost > c.budget,
+                };
+            });
+            return {
+                success: true,
+                mock: true,
+                costCenters,
+                totalSpend: round2(costCenters.reduce((s, c) => s + c.currentMonthCost, 0)),
+                totalBudget: round2(costCenters.reduce((s, c) => s + (c.budget || 0), 0)),
+                overBudgetCount: costCenters.filter(c => c.overBudget).length,
+            };
+        }
+        case 'captured_savings': {
+            const round2 = (x: number) => Math.round(x * 100) / 100;
+            const monthLabel = (offset: number) => {
+                const d = new Date();
+                d.setUTCDate(1);
+                d.setUTCMonth(d.getUTCMonth() - offset);
+                return d.toISOString().slice(0, 10);
+            };
+            const history = Array.from({ length: 6 }).map((_, i) => {
+                const offset = 5 - i;
+                const potentialSavings = round2(120 * multiplier * (0.7 + i * 0.08));
+                return {
+                    date: monthLabel(offset),
+                    totalWasted: round2(potentialSavings * 2.3),
+                    potentialSavings,
+                };
+            });
+            const latest = history[history.length - 1];
+            const previous = history[history.length - 2];
+            return {
+                success: true,
+                mock: true,
+                history,
+                current: { potentialSavings: latest.potentialSavings, totalWasted: latest.totalWasted, date: latest.date },
+                changePct: round2(((latest.potentialSavings - previous.potentialSavings) / previous.potentialSavings) * 100),
+            };
+        }
         case 'scorecard':
             return {
                 success: true,

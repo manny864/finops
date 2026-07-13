@@ -55,7 +55,9 @@ import {
     LifeBuoy,
     HeartPulse,
     Table2,
-    Boxes
+    Boxes,
+    Wallet,
+    Recycle
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -90,14 +92,16 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             id: 'visibilidad',
             title: t('visibilidad'),
             items: [
-                { href: '/', label: t('dashboard'), icon: LayoutDashboard },
+                { href: '/overview/whiteboard', label: t('white_board', { fallback: 'White Board' }), icon: LayoutDashboard },
                 { href: '/academy', label: 'Academia FinOps', icon: BookOpen },
                 { href: '/advisor', label: t('advisor'), icon: Lightbulb },
                 { href: '/overview/maturity', label: t('finops_maturity'), icon: Target, requiredTier: 'Essential' },
                 { href: '/overview/progress', label: t('historical_progress'), icon: TrendingDown },
                 { href: '/overview/top-expenses', label: t('top_expenses', { fallback: 'TOP Expenses' }), icon: BarChart3 },
                 { href: '/overview/resources', label: t('resources', { fallback: 'Recursos' }), icon: Boxes, requiredTier: 'Professional' },
-                { href: '/overview/sustainability', label: 'Green FinOps', icon: Leaf }
+                { href: '/overview/sustainability', label: 'Green FinOps', icon: Leaf },
+                { href: '/overview/captured-savings', label: t('captured_savings_page', { fallback: 'Ahorro Capturado' }), icon: PiggyBank },
+                { href: '/overview/financial-leaks', label: t('financial_leaks', { fallback: 'Fugas Financieras' }), icon: Recycle }
             ]
         },
         {
@@ -107,6 +111,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/intelligence/billing', label: t('billing'), icon: PieChart, requiredTier: 'Essential' },
                 { href: '/intelligence/budgets', label: t('budgets', { fallback: 'Tenant Budgets' }), icon: DollarSign, requiredTier: 'Essential' },
                 { href: '/intelligence/cost-groups', label: t('cost_groups', { fallback: 'Cost Groups' }), icon: Table2, requiredTier: 'Business' },
+                { href: '/intelligence/cost-centers', label: t('cost_centers', { fallback: 'Presupuesto por Centro de Costos' }), icon: Wallet, requiredTier: 'Business' },
                 { href: '/intelligence/rightsizing', label: t('rightsizing'), icon: Zap, requiredTier: 'Professional' },
                 { href: '/intelligence/network', label: t('network_analytics'), icon: Activity, requiredTier: 'Professional' },
                 { href: '/intelligence/rates', label: t('rate_optimization'), icon: DollarSign, requiredTier: 'Business' },
@@ -119,7 +124,6 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/intelligence/unit-economics', label: 'Unit Economics', icon: Activity, requiredTier: 'Business' },
                 { href: '/intelligence/allocation', label: 'Prorrateo (Allocation)', icon: PieChart, requiredTier: 'Enterprise' },
                 { href: '/intelligence/scorecard', label: 'Scorecard (Fama)', icon: Trophy, requiredTier: 'Enterprise' },
-                { href: '/intelligence/whiteboard', label: t('white_board', { fallback: 'White Board' }), icon: LayoutDashboard, requiredTier: 'Enterprise' },
                 { href: '/intelligence/anomalies', label: 'Detección Anomalías', icon: ShieldAlert, requiredTier: 'Professional' },
                 { href: '/intelligence/optimization-index', label: 'Índice de Optimización (COIN)', icon: Target, requiredTier: 'Professional' },
                 { href: '/intelligence/tenant-health', label: 'Salud del Tenant', icon: HeartPulse, requiredTier: 'Professional' },
@@ -154,6 +158,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/governance/reporting', label: t('governance_reporting', { fallback: 'Reporting de Gobernanza' }), icon: ShieldCheck, requiredTier: 'Enterprise' },
                 { href: '/governance/ha', label: t('ha_recommendations', { fallback: 'Alta Disponibilidad' }), icon: ShieldCheck, requiredTier: 'Business' },
                 { href: '/governance/credentials', label: t('expiring_credentials', { fallback: 'Credenciales por Expirar' }), icon: KeyRound, requiredTier: 'Business' },
+                { href: '/governance/score', label: t('governance_score', { fallback: 'Estado de Gobernanza' }), icon: Target, requiredTier: 'Business' },
                 { href: '/remediation/approvals', label: 'Aprobaciones', icon: CheckCircle, requiredTier: 'Professional' }
             ]
         },

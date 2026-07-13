@@ -52,6 +52,9 @@ export const PAGE_ROLE_TAGS: Record<string, RoleTag[]> = {
     "/overview/top-expenses": ["FinOps"],
     "/overview/resources": ["CloudAdmin", "FinOps"],
     "/overview/sustainability": ["FinOps"],
+    "/overview/whiteboard": ["FinOps"],
+    "/overview/captured-savings": ["FinOps"],
+    "/overview/financial-leaks": ["FinOps"],
 
     // Inteligencia Financiera
     "/intelligence/billing": ["FinOps"],
@@ -69,7 +72,7 @@ export const PAGE_ROLE_TAGS: Record<string, RoleTag[]> = {
     "/intelligence/unit-economics": ["FinOps"],
     "/intelligence/allocation": ["FinOps"],
     "/intelligence/scorecard": ["ProductOwner"],
-    "/intelligence/whiteboard": ["FinOps"],
+    "/intelligence/cost-centers": ["FinOps"],
     "/intelligence/anomalies": ["Security"],
     "/intelligence/optimization-index": ["FinOps"],
     "/intelligence/tenant-health": ["CloudAdmin"],
@@ -96,6 +99,7 @@ export const PAGE_ROLE_TAGS: Record<string, RoleTag[]> = {
     "/governance/reporting": ["Security"],
     "/governance/ha": ["CloudAdmin"],
     "/governance/credentials": ["Security"],
+    "/governance/score": ["Security"],
     "/remediation/approvals": ["CloudAdmin"],
 
     // Administración (plataforma del SaaS, no un dominio FinOps/Cloud/Seguridad)
