@@ -10,6 +10,7 @@ import {
     suggestGreenMigration,
     regionIntensity,
 } from "@/services/carbonService";
+import { getWithStaleWhileRevalidate } from "@/lib/cache";
 
 export async function GET(request: NextRequest) {
     try {
@@ -29,14 +30,37 @@ export async function GET(request: NextRequest) {
 
         await requireTenantAccess(request, tenantId);
 
+        const payload = await getWithStaleWhileRevalidate(
+            `intelligence:sustainability:v1:${tenantId}:${subscriptionId.toLowerCase()}`,
+            () => fetchSustainability(tenantId, subscriptionId),
+            1800,
+            600,
+            // Degradado (sin credenciales / ARG falló) no debe quedar cacheado 30 min.
+            (d: any) => (d.degraded ? 120 : 1800)
+        );
+        return NextResponse.json(payload);
+    } catch (error: any) {
+        if (error instanceof AuthError) {
+            return NextResponse.json({ success: false, error: error.message }, { status: error.status });
+        }
+        console.error("Sustainability Fetch Error:", error);
+        return NextResponse.json({
+            success: false,
+            error: error?.message || "Fallo al calcular emisiones.",
+        }, { status: 500 });
+    }
+}
+
+async function fetchSustainability(tenantId: string, subscriptionId: string) {
         let credential;
         try {
             credential = await getAzureCredential(tenantId);
         } catch {
-            return NextResponse.json({
+            return {
                 success: false,
+                degraded: true,
                 error: "No hay credenciales configuradas para este tenant.",
-            }, { status: 400 });
+            };
         }
 
         const client = new ResourceGraphClient(credential);
@@ -86,8 +110,9 @@ export async function GET(request: NextRequest) {
             storageAccts = (stRes.data as any[]) || [];
         } catch (e: any) {
             console.warn(`[Sustainability] No se pudo consultar ARG para ${tenantId}:`, e?.message);
-            return NextResponse.json({
+            return {
                 success: true,
+                degraded: true,
                 footprint: 0,
                 avoided: 0,
                 vmCount: 0,
@@ -96,7 +121,7 @@ export async function GET(request: NextRequest) {
                 byRegion: [],
                 recommendations: [],
                 equivalencies: { carKm: 0, treesYear: 0, phoneCharges: 0 },
-            });
+            };
         }
 
         // VM footprint (mes pasado, 730h)
@@ -152,7 +177,7 @@ export async function GET(request: NextRequest) {
 
         const equivalencies = emissionsEquivalencies(totalFootprint);
 
-        return NextResponse.json({
+        return {
             success: true,
             footprint: Math.round(totalFootprint * 100) / 100,
             avoided: Math.round(avoided * 100) / 100,
@@ -171,15 +196,5 @@ export async function GET(request: NextRequest) {
                 treesYear: Math.round(equivalencies.treesYear * 10) / 10,
                 phoneCharges: Math.round(equivalencies.phoneCharges),
             },
-        });
-    } catch (error: any) {
-        if (error instanceof AuthError) {
-            return NextResponse.json({ success: false, error: error.message }, { status: error.status });
-        }
-        console.error("Sustainability Fetch Error:", error);
-        return NextResponse.json({
-            success: false,
-            error: error?.message || "Fallo al calcular emisiones.",
-        }, { status: 500 });
-    }
+        };
 }

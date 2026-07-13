@@ -74,6 +74,7 @@ export const ROUTE_TIERS: Record<string, 'Essential' | 'Professional' | 'Busines
     // a la URL mientras la feature esté deshabilitada de la nav.
     '/admin/data-residency': 'Enterprise',
     '/admin/notifications': 'Professional',
+    '/admin/billing': 'Essential',
     // mcp-keys subido a Business (antes Professional).
     '/admin/mcp-keys': 'Business',
     '/admin/powerbi-templates': 'Professional',

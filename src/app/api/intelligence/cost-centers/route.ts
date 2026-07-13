@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { requireTenantRole, requireTenantTier, AuthError } from "@/lib/requestAuth";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
+import { getWithStaleWhileRevalidate } from "@/lib/cache";
+import { redis } from "@/lib/redis";
+
+const cacheKey = (tenantId: string) => `cost-centers:v1:${tenantId}`;
 
 // Presupuesto por Centro de Costos: agrupa el gasto real (CostSnapshots) por
 // el tag de Azure `CostCenter` (mismo tag que ya usa Gobernanza de Etiquetas
@@ -49,44 +53,48 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(getMockDataForRoute("cost_centers", tenantId));
         }
 
-        const [spend, budgets] = await Promise.all([
-            getCostCenterSpend(tenantId),
-            getBudgets(tenantId),
-        ]);
+        const payload = await getWithStaleWhileRevalidate(cacheKey(tenantId), async () => {
+            const [spend, budgets] = await Promise.all([
+                getCostCenterSpend(tenantId),
+                getBudgets(tenantId),
+            ]);
 
-        const costCenters = spend.map(s => {
-            const budget = budgets.has(s.name) ? budgets.get(s.name)! : null;
-            const pctUsed = budget && budget > 0 ? Number(((s.currentMonthCost / budget) * 100).toFixed(1)) : null;
-            const changePct = s.previousMonthCost > 0
-                ? Number((((s.currentMonthCost - s.previousMonthCost) / s.previousMonthCost) * 100).toFixed(1))
-                : 0;
+            const costCenters = spend.map(s => {
+                const budget = budgets.has(s.name) ? budgets.get(s.name)! : null;
+                const pctUsed = budget && budget > 0 ? Number(((s.currentMonthCost / budget) * 100).toFixed(1)) : null;
+                const changePct = s.previousMonthCost > 0
+                    ? Number((((s.currentMonthCost - s.previousMonthCost) / s.previousMonthCost) * 100).toFixed(1))
+                    : 0;
+                return {
+                    name: s.name,
+                    currentMonthCost: Number(s.currentMonthCost.toFixed(2)),
+                    previousMonthCost: Number(s.previousMonthCost.toFixed(2)),
+                    changePct,
+                    budget,
+                    pctUsed,
+                    overBudget: budget !== null && s.currentMonthCost > budget,
+                };
+            });
+            // Centros con presupuesto asignado pero sin gasto este mes (ej. recién creado) también deben verse.
+            budgets.forEach((budget, name) => {
+                if (!costCenters.some(c => c.name === name)) {
+                    costCenters.push({ name, currentMonthCost: 0, previousMonthCost: 0, changePct: 0, budget, pctUsed: 0, overBudget: false });
+                }
+            });
+
+            const totalSpend = costCenters.reduce((sum, c) => sum + c.currentMonthCost, 0);
+            const totalBudget = costCenters.reduce((sum, c) => sum + (c.budget || 0), 0);
+
             return {
-                name: s.name,
-                currentMonthCost: Number(s.currentMonthCost.toFixed(2)),
-                previousMonthCost: Number(s.previousMonthCost.toFixed(2)),
-                changePct,
-                budget,
-                pctUsed,
-                overBudget: budget !== null && s.currentMonthCost > budget,
+                success: true,
+                costCenters: costCenters.sort((a, b) => b.currentMonthCost - a.currentMonthCost),
+                totalSpend: Number(totalSpend.toFixed(2)),
+                totalBudget: Number(totalBudget.toFixed(2)),
+                overBudgetCount: costCenters.filter(c => c.overBudget).length,
             };
-        });
-        // Centros con presupuesto asignado pero sin gasto este mes (ej. recién creado) también deben verse.
-        budgets.forEach((budget, name) => {
-            if (!costCenters.some(c => c.name === name)) {
-                costCenters.push({ name, currentMonthCost: 0, previousMonthCost: 0, changePct: 0, budget, pctUsed: 0, overBudget: false });
-            }
-        });
+        }, 900, 300);
 
-        const totalSpend = costCenters.reduce((sum, c) => sum + c.currentMonthCost, 0);
-        const totalBudget = costCenters.reduce((sum, c) => sum + (c.budget || 0), 0);
-
-        return NextResponse.json({
-            success: true,
-            costCenters: costCenters.sort((a, b) => b.currentMonthCost - a.currentMonthCost),
-            totalSpend: Number(totalSpend.toFixed(2)),
-            totalBudget: Number(totalBudget.toFixed(2)),
-            overBudgetCount: costCenters.filter(c => c.overBudget).length,
-        });
+        return NextResponse.json(payload);
     } catch (err: unknown) {
         if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status });
         console.error("[cost-centers] GET error:", err instanceof Error ? err.message : err);
@@ -114,6 +122,7 @@ export async function PUT(request: NextRequest) {
              ON DUPLICATE KEY UPDATE monthly_budget_usd = VALUES(monthly_budget_usd)`,
             [tenantId, costCenterName, Number(monthlyBudgetUsd)]
         );
+        await redis.del(cacheKey(tenantId)).catch(() => {});
 
         return NextResponse.json({ success: true });
     } catch (err: unknown) {
@@ -136,6 +145,7 @@ export async function DELETE(request: NextRequest) {
             `DELETE FROM CostCenterBudgets WHERE tenant_id = ? AND cost_center_name = ?`,
             [tenantId, costCenterName]
         );
+        await redis.del(cacheKey(tenantId)).catch(() => {});
 
         return NextResponse.json({ success: true });
     } catch (err: unknown) {

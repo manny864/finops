@@ -2,6 +2,7 @@ import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { CostManagementClient } from "@azure/arm-costmanagement";
 import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
 import { resolveCostColumn, isCostUsdUnsupportedError, degradeCostColumn, type CostColumn } from "@/lib/azureCostColumn";
+import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Inventario de recursos (Resource Graph) + costo (Cost Management), en apoyo
@@ -16,6 +17,7 @@ export interface InventoryResourceRow {
     name: string;
     type: string;
     subscriptionId: string;
+    subscriptionName: string;
     resourceGroup: string;
     tags: Record<string, string>;
     createdTime: string | null; // best-effort desde properties.timeCreated (no todos los tipos lo exponen)
@@ -79,8 +81,12 @@ export async function searchResources(tenantId: string, filters: SearchResources
         (filters.page - 1) * filters.pageSize
     );
 
+    const credential = await getAzureCredential(tenantId);
+    const subMap = await getSubscriptionNameMap(tenantId, credential);
+
     const rows: InventoryResourceRow[] = pageRows.map(r => ({
         id: r.id, name: r.name, type: r.type, subscriptionId: r.subscriptionId,
+        subscriptionName: resolveSubscriptionName(r.subscriptionId, subMap),
         resourceGroup: r.resourceGroup, tags: r.tags || {}, createdTime: r.createdTime || null,
     }));
 
@@ -172,17 +178,23 @@ export async function getInventoryDistribution(tenantId: string) {
     const subs = await getSubscriptionsForTenant(tenantId);
     if (subs.length === 0) return { byType: [], bySubscription: [], kpis: { costGroups: 0, subscriptions: 0, resourceGroups: 0, resources: 0, owners: 0 } };
 
-    const [byType, bySub, rgRows, ownerRows, costGroupRows] = await Promise.all([
+    const [byType, bySub, rgRows, ownerRows, costGroupRows, credential] = await Promise.all([
         runResourceGraphQuery(tenantId, subs, `Resources | summarize count() by type | order by count_ desc | limit 15`),
         runResourceGraphQuery(tenantId, subs, `Resources | summarize count() by subscriptionId`),
         runResourceGraphQuery(tenantId, subs, `Resources | summarize by resourceGroup, subscriptionId`),
         runResourceGraphQuery(tenantId, subs, `Resources | project o = tostring(tags['Owner']) | where isnotempty(o) | summarize by o`),
         runResourceGraphQuery(tenantId, subs, `Resources | project cc = tostring(tags['CostCenter']) | where isnotempty(cc) | summarize by cc`),
+        getAzureCredential(tenantId),
     ]);
+    const subMap = await getSubscriptionNameMap(tenantId, credential);
 
     return {
         byType: byType.map(r => ({ type: String(r.type || "").split("/").pop(), count: Number(r.count_) || 0 })),
-        bySubscription: bySub.map(r => ({ subscriptionId: r.subscriptionId, count: Number(r.count_) || 0 })),
+        bySubscription: bySub.map(r => ({
+            subscriptionId: r.subscriptionId,
+            subscriptionName: resolveSubscriptionName(r.subscriptionId, subMap),
+            count: Number(r.count_) || 0,
+        })),
         kpis: {
             costGroups: costGroupRows.length,
             subscriptions: bySub.length,

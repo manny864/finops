@@ -4,6 +4,7 @@ import { getResourceGraphClient, getAzureCredential, getSubscriptionsForTenant }
 import { kqlCatalog } from '@/modules/core/kqlCatalog';
 import { getMonthlyCostEstimate } from '@/services/pricingService';
 import { requireTenantRole, AuthError } from '@/lib/requestAuth';
+import { getWithStaleWhileRevalidate } from '@/lib/cache';
 
 export async function GET(request: NextRequest) {
     try {
@@ -17,6 +18,24 @@ export async function GET(request: NextRequest) {
 
         await requireTenantRole(request, tenantId, ['Admin', 'Owner', 'Reader', 'Colaborador']);
 
+        const data = await getWithStaleWhileRevalidate(
+            `intelligence:licenses:v1:${tenantId}`,
+            () => fetchLicenses(tenantId),
+            1800,
+            600,
+            // Un fallo transitorio de Graph (permisos, throttling) no debe quedar
+            // cacheado media hora — se reintenta pronto en vez de "pegotear" el error.
+            (d: any) => (d.graphError ? 120 : 1800)
+        );
+        return NextResponse.json({ success: true, data });
+    } catch (error: any) {
+        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
+        console.error("License API error:", error);
+        return NextResponse.json({ success: false, error: error.message || 'Error del servidor' }, { status: 500 });
+    }
+}
+
+async function fetchLicenses(tenantId: string) {
         // 1. Fetch M365 Licenses (Graph API) defensively
         let licenses: any[] = [];
         let inactiveUsers: any[] = [];
@@ -117,20 +136,12 @@ export async function GET(request: NextRequest) {
             console.error("Azure Resource Graph AHUB query failed:", argError);
         }
 
-        return NextResponse.json({
-            success: true,
-            data: {
-                licenses,
-                inactiveUsers,
-                missingAhub,
-                graphError,
-                needsConsent
-            }
-        });
-    } catch (error: any) {
-        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
-        console.error("License API error:", error);
-        return NextResponse.json({ success: false, error: error.message || 'Error del servidor' }, { status: 500 });
-    }
+        return {
+            licenses,
+            inactiveUsers,
+            missingAhub,
+            graphError,
+            needsConsent
+        };
 }
 

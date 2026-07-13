@@ -18,6 +18,7 @@ import { useCurrency } from "@/components/CurrencyProvider";
 import CostProjectionCard from "@/components/dashboard/CostProjectionCard";
 import HABreakdownCard from "@/components/dashboard/HABreakdownCard";
 import BudgetBurnChart from "@/components/dashboard/BudgetBurnChart";
+import MyPinnedWidgets from "@/components/dashboard/MyPinnedWidgets";
 
 const COLORS = {
     high: "#dc2626",
@@ -182,6 +183,12 @@ export default function ExecutiveSummaryBoard() {
                     tone="bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400"
                 />
             </div>
+
+            {/* "Mi Dashboard" — pineo de tarjetas, vivía en el Dashboard General
+                (ruta "/", eliminada del Sidebar al pasar White Board a cumplir ese
+                rol). Mismo componente, sin cambios: cada usuario sigue viendo sus
+                propios pins acá. */}
+            <MyPinnedWidgets />
 
             {/* Presupuestos por Suscripción / Proyección de Gastos / Alta Disponibilidad */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

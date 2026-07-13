@@ -38,15 +38,17 @@ export async function GET(request: NextRequest) {
             }
         } catch (_) { /* Redis miss → continue */ }
 
-        // 1. Try to read cached data from MySQL CostSnapshots
+        // 1. Try to read cached data from MySQL CostSnapshots — acotado al mes en
+        //    curso: "Evolución del Gasto Mensual" es un gráfico de ESTE mes, no de
+        //    todo el histórico de CostSnapshots (que puede tener meses acumulados).
         let rows: any[] = [];
         try {
             if (subscriptionId.toLowerCase() === 'all') {
                 const [data] = await pool.query(
-                    `SELECT date, resource_group, service_name, cost_usd, subscription_id, 
+                    `SELECT date, resource_group, service_name, cost_usd, subscription_id,
                             ChargePeriodStart, ChargePeriodEnd, ProviderName, PublisherName, SubAccountId, BilledCost, EffectiveCost, CommitmentDiscountId, Tags
                      FROM CostSnapshots
-                     WHERE tenant_id = ?
+                     WHERE tenant_id = ? AND DATE(COALESCE(ChargePeriodStart, date)) >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
                      ORDER BY date ASC`,
                     [tenantId]
                 );
@@ -56,7 +58,7 @@ export async function GET(request: NextRequest) {
                     `SELECT date, resource_group, service_name, cost_usd, subscription_id,
                             ChargePeriodStart, ChargePeriodEnd, ProviderName, PublisherName, SubAccountId, BilledCost, EffectiveCost, CommitmentDiscountId, Tags
                      FROM CostSnapshots
-                     WHERE tenant_id = ? AND subscription_id = ?
+                     WHERE tenant_id = ? AND subscription_id = ? AND DATE(COALESCE(ChargePeriodStart, date)) >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
                      ORDER BY date ASC`,
                     [tenantId, subscriptionId]
                 );
@@ -67,10 +69,25 @@ export async function GET(request: NextRequest) {
             rows = [];
         }
 
-        // 2. If cache is empty, fallback to live Azure Cost Management query
-        //    (wrapped en Redis SWR para evitar pegarle a Azure en cada refresh).
-        if (rows.length === 0) {
-            console.log('[Billing] No cached data, querying Azure Cost Management live (Redis SWR)...');
+        // 2. El cron diario (cron/sync) sólo backfillea UN día ("ayer") por
+        //    corrida — un tenant recién onboardeado (o con un hueco de sync)
+        //    puede tener en CostSnapshots muchos menos días que los ya
+        //    transcurridos del mes, y el gráfico de evolución mensual se ve
+        //    con un solo punto en vez de la curva completa. `rows.length === 0`
+        //    solo cubre el caso "cero filas" — acá se exige cobertura de casi
+        //    todos los días transcurridos (con margen de 2 días por timing del
+        //    cron) antes de confiar en la caché MySQL; si no alcanza, se
+        //    completa con la consulta en vivo a Cost Management (MonthToDate +
+        //    granularidad Daily), que si trae todos los días del mes.
+        const distinctDays = new Set(rows.map((r: any) => {
+            const d = r.ChargePeriodStart ? new Date(r.ChargePeriodStart) : new Date(r.date);
+            return d.toISOString().slice(0, 10);
+        })).size;
+        const elapsedDaysInMonth = new Date().getDate();
+        const hasSufficientCoverage = distinctDays >= Math.max(1, elapsedDaysInMonth - 2);
+
+        if (rows.length === 0 || !hasSufficientCoverage) {
+            console.log(`[Billing] Cobertura insuficiente en MySQL (${distinctDays}/${elapsedDaysInMonth} días) — consultando Azure Cost Management en vivo (Redis SWR)...`);
             try {
                 const cacheKey = `billing:live:${tenantId}:${subscriptionId}:${metricType}`;
                 // ttl=30min, softTtl=10min → 10m de cache duro + 20m de stale-while-revalidate

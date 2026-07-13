@@ -94,7 +94,7 @@ function SearchResourcesTab() {
                                 <tr key={i} className="border-t border-gray-100 dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-800/40 align-top">
                                     <td className="p-3 font-semibold text-gray-900 dark:text-white whitespace-normal break-words">{r.name}</td>
                                     <td className="p-3 text-gray-600 dark:text-gray-300 whitespace-normal break-words">{r.resourceGroup}</td>
-                                    <td className="p-3 text-gray-600 dark:text-gray-300 whitespace-normal break-words">{r.subscriptionId}</td>
+                                    <td className="p-3 text-gray-600 dark:text-gray-300 whitespace-normal break-words">{r.subscriptionName || r.subscriptionId}</td>
                                     <td className="p-3 text-gray-600 dark:text-gray-300 whitespace-normal break-words">{r.tags?.Owner || "—"}</td>
                                     <td className="p-3 text-gray-600 dark:text-gray-300 whitespace-normal break-words">{r.tags?.CostCenter || "—"}</td>
                                     <td className="p-3 text-gray-600 dark:text-gray-300 whitespace-normal">{fmtDate(r.createdTime, locale)}</td>
@@ -161,7 +161,7 @@ function InventoryTab() {
                     <div className="space-y-2.5">
                         {(data.bySubscription || []).map((r: any) => (
                             <div key={r.subscriptionId} className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-slate-800/50">
-                                <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">{r.subscriptionId}</span>
+                                <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate" title={r.subscriptionId}>{r.subscriptionName || r.subscriptionId}</span>
                                 <span className="text-sm font-extrabold text-gray-900 dark:text-white">{r.count}</span>
                             </div>
                         ))}

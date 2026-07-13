@@ -5,6 +5,7 @@ import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { getAzureCredential } from "@/lib/azure";
 import { runGraphAudits } from "@/services/auditService";
 import { getMonthlyCostEstimate } from "@/services/pricingService";
+import { getWithStaleWhileRevalidate } from "@/lib/cache";
 
 export async function GET(request: NextRequest) {
     try {
@@ -36,6 +37,20 @@ export async function GET(request: NextRequest) {
         // Se cachea (auditService) junto con el resto del audit, así este
         // endpoint no dispara llamadas extra a Resource Graph.
         const subscriptionId = searchParams.get("subscriptionId") || undefined;
+        const cacheKey = `cleanup:zombies-networking:v1:${tenantId}:${subscriptionId || 'all'}`;
+        const payload = await getWithStaleWhileRevalidate(cacheKey, () => fetchNetworkingZombies(tenantId, subscriptionId), 1800, 600);
+        return NextResponse.json({ success: true, mock: false, ...payload });
+    } catch (err: unknown) {
+        console.error("[zombies/networking] error:", err instanceof Error ? err.message : err);
+        const code = (err as any)?.code;
+        if (code === "AccessDenied") {
+            return NextResponse.json({ error: "MISSING_RBAC_ROLE", details: "La aplicación no tiene permisos de Lector en las suscripciones." }, { status: 403 });
+        }
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    }
+}
+
+async function fetchNetworkingZombies(tenantId: string, subscriptionId: string | undefined) {
         const credential = await getAzureCredential(tenantId);
         const resourceGraphClient = new ResourceGraphClient(credential);
         const graphResults = await runGraphAudits(resourceGraphClient, credential, subscriptionId);
@@ -135,13 +150,5 @@ export async function GET(request: NextRequest) {
 
         const totalMonthlyWaste = Number(items.reduce((sum, i) => sum + i.monthlyCost, 0).toFixed(2));
 
-        return NextResponse.json({ success: true, mock: false, items, totalMonthlyWaste });
-    } catch (err: unknown) {
-        console.error("[zombies/networking] error:", err instanceof Error ? err.message : err);
-        const code = (err as any)?.code;
-        if (code === "AccessDenied") {
-            return NextResponse.json({ error: "MISSING_RBAC_ROLE", details: "La aplicación no tiene permisos de Lector en las suscripciones." }, { status: 403 });
-        }
-        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-    }
+        return { items, totalMonthlyWaste };
 }

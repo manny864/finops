@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getResourceGraphClient, getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
+import { getWithStaleWhileRevalidate } from "@/lib/cache";
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,50 +15,55 @@ export async function GET(request: NextRequest) {
 
     await requireTenantAccess(request, tenantId);
 
-    const resourceGraphClient = await getResourceGraphClient(tenantId);
+    const cacheKey = `recommendations:v1:${tenantId}:${subscriptionId || 'all'}`;
+    const { unattachedDisks, unusedIps } = await getWithStaleWhileRevalidate(cacheKey, async () => {
+        const resourceGraphClient = await getResourceGraphClient(tenantId);
 
-    const disksQuery = `Resources | where type =~ 'microsoft.compute/disks' | where properties.diskState == 'Unattached' | project id, name, location, resourceGroup, subscriptionId, sku=sku.name, diskSizeGB=properties.diskSizeGB`;
-    const ipsQuery = `Resources | where type =~ 'microsoft.network/publicipaddresses' | where properties.ipConfiguration == '' or isnull(properties.ipConfiguration) | project id, name, location, resourceGroup, subscriptionId`;
+        const disksQuery = `Resources | where type =~ 'microsoft.compute/disks' | where properties.diskState == 'Unattached' | project id, name, location, resourceGroup, subscriptionId, sku=sku.name, diskSizeGB=properties.diskSizeGB`;
+        const ipsQuery = `Resources | where type =~ 'microsoft.network/publicipaddresses' | where properties.ipConfiguration == '' or isnull(properties.ipConfiguration) | project id, name, location, resourceGroup, subscriptionId`;
 
-    const queryOptions: any = {};
-    if (subscriptionId && subscriptionId.toLowerCase() !== 'all') {
-        queryOptions.subscriptions = [subscriptionId];
-    } else {
-        const credential = await getAzureCredential(tenantId);
-        queryOptions.subscriptions = await getSubscriptionsForTenant(tenantId, credential);
-    }
+        const queryOptions: any = {};
+        if (subscriptionId && subscriptionId.toLowerCase() !== 'all') {
+            queryOptions.subscriptions = [subscriptionId];
+        } else {
+            const credential = await getAzureCredential(tenantId);
+            queryOptions.subscriptions = await getSubscriptionsForTenant(tenantId, credential);
+        }
 
-    let unattachedDisks = [];
-    let unusedIps = [];
+        let unattachedDisks = [];
+        let unusedIps = [];
 
-    try {
-      const diskResponse = await resourceGraphClient.resources({ 
-        query: disksQuery, 
-        ...queryOptions 
-      });
-      unattachedDisks = diskResponse.data || [];
-    } catch (e: any) {
-      console.error("Resource Graph Query Disks Error", e);
-      throw new Error(`Fallo en Query Disks: ${e.message}`);
-    }
+        try {
+          const diskResponse = await resourceGraphClient.resources({
+            query: disksQuery,
+            ...queryOptions
+          });
+          unattachedDisks = diskResponse.data || [];
+        } catch (e: any) {
+          console.error("Resource Graph Query Disks Error", e);
+          throw new Error(`Fallo en Query Disks: ${e.message}`);
+        }
 
-    try {
-      const ipResponse = await resourceGraphClient.resources({ 
-        query: ipsQuery, 
-        ...queryOptions 
-      });
-      unusedIps = ipResponse.data || [];
-    } catch (e: any) {
-      console.error("Resource Graph Query IPs Error", e);
-      throw new Error(`Fallo en Query IPs: ${e.message}`);
-    }
+        try {
+          const ipResponse = await resourceGraphClient.resources({
+            query: ipsQuery,
+            ...queryOptions
+          });
+          unusedIps = ipResponse.data || [];
+        } catch (e: any) {
+          console.error("Resource Graph Query IPs Error", e);
+          throw new Error(`Fallo en Query IPs: ${e.message}`);
+        }
 
-    return NextResponse.json({ 
-        success: true, 
-        tenantId, 
+        return { unattachedDisks, unusedIps };
+    }, 1800, 600);
+
+    return NextResponse.json({
+        success: true,
+        tenantId,
         mode: subscriptionId ? "single-subscription" : "tenant-wide",
-        unattachedDisks, 
-        unusedIps 
+        unattachedDisks,
+        unusedIps
     });
 
   } catch (error: unknown) {
