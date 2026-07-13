@@ -1,3 +1,5 @@
+import { hasAccess } from '@/lib/tierLogic';
+
 // Acciones del custom role de remediación por tier. Única fuente de verdad,
 // compartida entre el generador del script de onboarding y el verificador de
 // permisos (check-sp-roles), para no duplicar/desincronizar la lista.
@@ -100,6 +102,26 @@ export function generateOnboardingScript(clientTenantId: string, subscriptionIds
         baseRoles.push('Tag Contributor');
         baseRoles.push('Monitoring Contributor'); // workbooks deploy + métricas avanzadas
     }
+
+    // AuditLog.Read.All habilita signInActivity en la lectura de usuarios de
+    // Microsoft Graph (ver m365UsersService.ts), consumido únicamente por
+    // "Usuarios y Licencias" (/intelligence/licenses, requiredTier: Professional
+    // en Sidebar.tsx). Se otorga solo a los tiers con acceso a esa página —
+    // Essential no la ve, así que no necesita el permiso adicional.
+    const needsAuditLog = hasAccess(tier, 'Professional');
+    const graphPermsLabel = needsAuditLog
+        ? 'Directory.Read.All, Reports.Read.All, User.Read.All, AuditLog.Read.All'
+        : 'Directory.Read.All, Reports.Read.All, User.Read.All';
+    const auditLogRoleLookup = needsAuditLog
+        ? `$AuditRole = $GraphSp.AppRole | Where-Object { $_.Value -eq "AuditLog.Read.All" -and $_.AllowedMemberType -contains "Application" }\n`
+        : '';
+    const auditLogCondition = needsAuditLog ? ' -and $AuditRole' : '';
+    const auditLogAssignBlock = needsAuditLog
+        ? `\n    $bodyAudit = @{ principalId = $sp.Id; resourceId = $GraphSp.Id; appRoleId = $AuditRole.Id } | ConvertTo-Json -Depth 5\n    Invoke-AzRestMethod -Method Post -Uri "https://graph.microsoft.com/v1.0/servicePrincipals/$($sp.Id)/appRoleAssignments" -Payload $bodyAudit -ErrorAction SilentlyContinue | Out-Null`
+        : '';
+    const graphPermsManualHint = needsAuditLog
+        ? 'Directory.Read.All, Reports.Read.All, User.Read.All y AuditLog.Read.All'
+        : 'Directory.Read.All, Reports.Read.All y User.Read.All';
 
     const subList = subscriptions.map(s => `"${s}"`).join(", ");
 
@@ -263,23 +285,23 @@ $app = Get-AzADApplication -AppId $sp.AppId
 $secret = New-AzADAppCredential -ObjectId $app.Id -StartDate (Get-Date) -EndDate (Get-Date).AddYears(2)
 $ClientSecret = $secret.SecretText
 
-Write-Host "3. Asignando permisos de Microsoft Graph (Directory.Read.All, Reports.Read.All, User.Read.All)..." -ForegroundColor Cyan
+Write-Host "3. Asignando permisos de Microsoft Graph (${graphPermsLabel})..." -ForegroundColor Cyan
 $GraphSp = Get-AzADServicePrincipal -Filter "appId eq '00000003-0000-0000-c000-000000000000'"
 $DirRole = $GraphSp.AppRole | Where-Object { $_.Value -eq "Directory.Read.All" -and $_.AllowedMemberType -contains "Application" }
 $RepRole = $GraphSp.AppRole | Where-Object { $_.Value -eq "Reports.Read.All" -and $_.AllowedMemberType -contains "Application" }
 $UserRole = $GraphSp.AppRole | Where-Object { $_.Value -eq "User.Read.All" -and $_.AllowedMemberType -contains "Application" }
-
-if ($DirRole -and $RepRole -and $UserRole) {
+${auditLogRoleLookup}
+if ($DirRole -and $RepRole -and $UserRole${auditLogCondition}) {
     $bodyDir = @{ principalId = $sp.Id; resourceId = $GraphSp.Id; appRoleId = $DirRole.Id } | ConvertTo-Json -Depth 5
     $bodyRep = @{ principalId = $sp.Id; resourceId = $GraphSp.Id; appRoleId = $RepRole.Id } | ConvertTo-Json -Depth 5
     $bodyUser = @{ principalId = $sp.Id; resourceId = $GraphSp.Id; appRoleId = $UserRole.Id } | ConvertTo-Json -Depth 5
 
     Invoke-AzRestMethod -Method Post -Uri "https://graph.microsoft.com/v1.0/servicePrincipals/$($sp.Id)/appRoleAssignments" -Payload $bodyDir -ErrorAction SilentlyContinue | Out-Null
     Invoke-AzRestMethod -Method Post -Uri "https://graph.microsoft.com/v1.0/servicePrincipals/$($sp.Id)/appRoleAssignments" -Payload $bodyRep -ErrorAction SilentlyContinue | Out-Null
-    Invoke-AzRestMethod -Method Post -Uri "https://graph.microsoft.com/v1.0/servicePrincipals/$($sp.Id)/appRoleAssignments" -Payload $bodyUser -ErrorAction SilentlyContinue | Out-Null
+    Invoke-AzRestMethod -Method Post -Uri "https://graph.microsoft.com/v1.0/servicePrincipals/$($sp.Id)/appRoleAssignments" -Payload $bodyUser -ErrorAction SilentlyContinue | Out-Null${auditLogAssignBlock}
     Write-Host "   -> Permisos asignados. Requiere ADMIN CONSENT desde Azure Portal > App Registrations > $AppName > API Permissions" -ForegroundColor Green
 } else {
-    Write-Host "   -> No se localizaron roles de MS Graph. Asigne Directory.Read.All, Reports.Read.All y User.Read.All manualmente." -ForegroundColor Yellow
+    Write-Host "   -> No se localizaron roles de MS Graph. Asigne ${graphPermsManualHint} manualmente." -ForegroundColor Yellow
 }
 
 Write-Host "4. Intentando asignación a nivel MANAGEMENT GROUP raíz (opcional, mejora rendimiento)..." -ForegroundColor Cyan

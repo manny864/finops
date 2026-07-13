@@ -182,17 +182,17 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
         </span>
       </div>
 
-      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-in fade-in zoom-in-95 duration-700 delay-150">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 animate-in fade-in zoom-in-95 duration-700 delay-150">
         {/* Essential */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 flex flex-col hover:shadow-md transition-shadow">
-          <div className="mb-6 flex items-center justify-between">
-            <h3 className="text-lg font-medium text-gray-900">{t('essential.name')}</h3>
-            <span className="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded">
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+            <h3 className="text-lg font-medium text-gray-900 min-w-0">{t('essential.name')}</h3>
+            <span className="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded flex-shrink-0">
               {t('pro.trial')}
             </span>
           </div>
           <div className="mb-6">
-            <div className="mt-4 flex items-baseline text-5xl font-extrabold text-gray-900">
+            <div className="mt-4 flex flex-wrap items-baseline text-4xl sm:text-5xl font-extrabold text-gray-900 break-words">
               ${getPrice(49.99)}
               <span className="text-lg font-medium text-gray-500 ml-1">{t('perMonth')}</span>
             </div>
@@ -230,14 +230,14 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
 
         {/* Professional */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 flex flex-col hover:shadow-md transition-shadow">
-          <div className="mb-6 flex items-center justify-between">
-            <h3 className="text-xl font-bold text-gray-900">{t('pro.name')}</h3>
-            <span className="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded">
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+            <h3 className="text-xl font-bold text-gray-900 min-w-0">{t('pro.name')}</h3>
+            <span className="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded flex-shrink-0">
               {t('pro.trial')}
             </span>
           </div>
           <div className="mb-6">
-            <div className="flex items-baseline text-5xl font-extrabold text-gray-900">
+            <div className="flex flex-wrap items-baseline text-4xl sm:text-5xl font-extrabold text-gray-900 break-words">
               ${getPrice(249.99)}
               <span className="text-lg font-medium text-gray-500 ml-1">{t('perMonth')}</span>
             </div>
@@ -280,14 +280,14 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
               {t('business.badge')}
             </span>
           </div>
-          <div className="mb-6 flex items-center justify-between mt-2">
-            <h3 className="text-xl font-bold text-brand-deep">{t('business.name')}</h3>
-            <span className="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded">
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 mt-2">
+            <h3 className="text-xl font-bold text-brand-deep min-w-0">{t('business.name')}</h3>
+            <span className="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded flex-shrink-0">
               {t('pro.trial')}
             </span>
           </div>
           <div className="mb-6">
-            <div className="flex items-baseline text-5xl font-extrabold text-gray-900">
+            <div className="flex flex-wrap items-baseline text-4xl sm:text-5xl font-extrabold text-gray-900 break-words">
               ${getPrice(899.99)}
               <span className="text-lg font-medium text-gray-500 ml-1">{t('perMonth')}</span>
             </div>
@@ -324,15 +324,17 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
         </div>
 
         {/* Enterprise */}
-        <div className="bg-gray-900 rounded-2xl shadow-lg border border-gray-700 p-8 flex flex-col hover:shadow-xl transition-shadow relative overflow-hidden">
-          <div className="absolute top-0 right-0 -mr-8 -mt-8 w-24 h-24 bg-brand-deep rounded-full opacity-20 blur-xl"></div>
-          
-          <div className="mb-6 flex items-center justify-between relative z-10">
-            <h3 className="text-lg font-medium text-white">{t('enterprise.name')}</h3>
-            <span className="bg-brand-bright/20 text-brand-bright text-xs font-semibold px-2 py-1 rounded">{t('enterprise.badge')}</span>
+        <div className="bg-gray-900 rounded-2xl shadow-lg border border-gray-700 p-8 flex flex-col hover:shadow-xl transition-shadow relative">
+          <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
+            <div className="absolute top-0 right-0 -mr-8 -mt-8 w-24 h-24 bg-brand-deep rounded-full opacity-20 blur-xl"></div>
+          </div>
+
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 relative z-10">
+            <h3 className="text-lg font-medium text-white min-w-0">{t('enterprise.name')}</h3>
+            <span className="bg-brand-bright/20 text-brand-bright text-xs font-semibold px-2 py-1 rounded flex-shrink-0">{t('enterprise.badge')}</span>
           </div>
           <div className="mb-6 relative z-10">
-            <div className="flex items-baseline text-4xl font-extrabold text-white mt-2 mb-2">
+            <div className="flex flex-wrap items-baseline text-3xl sm:text-4xl font-extrabold text-white mt-2 mb-2 break-words">
               {t('customPrice')}
             </div>
           </div>

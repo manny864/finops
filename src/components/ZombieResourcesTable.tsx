@@ -25,7 +25,7 @@ import {
 
 export default function ZombieResourcesTable({ forceFilterType }: { forceFilterType?: string }) {
   const { instance, accounts } = useMsal();
-  const { selectedTenant } = useTenant();
+  const { selectedTenant, userRole, systemRole } = useTenant();
   const { viewMode } = useViewMode();
   const { addAction } = useActionLogStore();
   const triggerCopilotWithPrompt = useAIContext(state => state.triggerCopilotWithPrompt);
@@ -126,6 +126,42 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
       setDeletingId(null);
   };
 
+  // Colaborador no tiene permiso de borrado directo (requireTenantRole en
+  // /api/remediation exige Admin/Owner) — en vez de mostrarle un botón
+  // "Borrar" que siempre falla con 403, se le ofrece solicitar la
+  // eliminación: crea un pending en RemediationRequests (visible en
+  // /remediation/approvals) y notifica al Admin por los canales configurados
+  // (Slack/Teams/Email) para que sea él quien la ejecute.
+  const [requestingId, setRequestingId] = useState<string | null>(null);
+  const requestDeletion = async (item: any) => {
+      if (!window.confirm(`¿Solicitar al Administrador la eliminación de ${item.resourceName}?`)) return;
+      setRequestingId(item.id);
+      try {
+          const idToken = await getFreshIdToken(instance, accounts[0]);
+          const res = await fetch('/api/remediation/workflow', {
+              method: 'POST',
+              headers: {
+                  'Authorization': `Bearer ${idToken}`,
+                  'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                  tenantId: selectedTenant.id,
+                  resourceId: item.id,
+                  resourceName: item.resourceName,
+                  actionType: 'Eliminación de recurso zombi',
+                  estimatedSavings: item.potentialSavings || 0
+              })
+          });
+          const json = await res.json();
+          if (!res.ok) throw new Error(json.error || "No se pudo enviar la solicitud.");
+          toast.success('Solicitud enviada', { description: `El Administrador fue notificado para revisar y eliminar ${item.resourceName}.` });
+          addAction({ message: `Solicitud de eliminación enviada para ${item.resourceName}.`, status: 'success' });
+      } catch (err: any) {
+          toast.error('Error al enviar la solicitud', { description: err.message });
+      }
+      setRequestingId(null);
+  };
+
   const handleBulkDelete = async () => {
       const items = filteredData.filter(i => selectedIds.has(i.id) && !i.manualDelete);
       if (items.length === 0) return;
@@ -159,6 +195,41 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
       if (failed > 0) {
           toast.error('Error al eliminar', { description: `${failed} recurso(s) fallaron.` });
       }
+  };
+
+  const handleBulkRequestDeletion = async () => {
+      const items = filteredData.filter(i => selectedIds.has(i.id) && !i.manualDelete);
+      if (items.length === 0) return;
+      if (!window.confirm(`¿Solicitar al Administrador la eliminación de ${items.length} recurso(s) seleccionados?`)) return;
+
+      setBulkDeleting(true);
+      let ok = 0, failed = 0;
+      for (const item of items) {
+          setRequestingId(item.id);
+          try {
+              const idToken = await getFreshIdToken(instance, accounts[0]);
+              const res = await fetch('/api/remediation/workflow', {
+                  method: 'POST',
+                  headers: { 'Authorization': `Bearer ${idToken}`, 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                      tenantId: selectedTenant.id,
+                      resourceId: item.id,
+                      resourceName: item.resourceName,
+                      actionType: 'Eliminación de recurso zombi',
+                      estimatedSavings: item.potentialSavings || 0
+                  })
+              });
+              if (res.ok) ok++; else failed++;
+          } catch {
+              failed++;
+          }
+      }
+      setRequestingId(null);
+      setBulkDeleting(false);
+      setSelectedIds(new Set());
+
+      if (ok > 0) toast.success(`${ok} solicitud(es) enviadas`, { description: 'El Administrador fue notificado para revisar y ejecutar las eliminaciones.' });
+      if (failed > 0) toast.error('Error al enviar solicitudes', { description: `${failed} solicitud(es) fallaron.` });
   };
 
   const handleTagSubmit = async () => {
@@ -363,6 +434,11 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
 
   const hasLockedItems = useMemo(() => filteredData.some(item => item.isLocked), [filteredData]);
   const canDelete = canDeleteResources(selectedTenant.tier);
+  // Borrado directo: Admin/Owner/SuperAdmin. Colaborador (con tier habilitado)
+  // solo puede solicitar la eliminación — ver requestDeletion() — porque
+  // /api/remediation exige Admin/Owner server-side (403 si no).
+  const canDeleteDirect = canDelete && (userRole === 'Admin' || userRole === 'Owner' || systemRole === 'SUPERADMIN');
+  const canRequestDelete = canDelete && !canDeleteDirect;
 
   const columns = useMemo<ColumnDef<any>[]>(() => {
     const cols: ColumnDef<any>[] = [
@@ -504,13 +580,22 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                         </button>
                     </>
                 )}
-                {canDelete ? (
+                {canDeleteDirect ? (
                     <button
                         onClick={() => handleDelete(item)}
                         disabled={deletingId === item.id || (item.issueType === 'governance' && item.issue === "Sin Etiquetas FinOps")}
                         className={`px-3 py-1 rounded-md text-xs font-semibold shadow-sm transition-colors ${deletingId === item.id ? 'bg-gray-100 text-gray-400 cursor-wait' : (item.issueType === 'governance' && item.issue === "Sin Etiquetas FinOps") ? 'bg-gray-50 text-gray-300 cursor-not-allowed' : 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200'}`}
                     >
                         {deletingId === item.id ? 'Borrando...' : 'Borrar'}
+                    </button>
+                ) : canRequestDelete ? (
+                    <button
+                        onClick={() => requestDeletion(item)}
+                        disabled={requestingId === item.id || (item.issueType === 'governance' && item.issue === "Sin Etiquetas FinOps")}
+                        title="Tu rol no puede eliminar recursos directamente — se notificará a un Administrador para que la ejecute."
+                        className={`px-3 py-1 rounded-md text-xs font-semibold shadow-sm transition-colors ${requestingId === item.id ? 'bg-gray-100 text-gray-400 cursor-wait' : (item.issueType === 'governance' && item.issue === "Sin Etiquetas FinOps") ? 'bg-gray-50 text-gray-300 cursor-not-allowed' : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'}`}
+                    >
+                        {requestingId === item.id ? 'Enviando...' : 'Solicitar Eliminación'}
                     </button>
                 ) : (
                     <span className="px-3 py-1 rounded-md text-xs font-semibold bg-gray-50 text-gray-400 border border-gray-200" title="La eliminación de recursos requiere el plan Enterprise">
@@ -638,13 +723,22 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
               >
                   Etiquetar seleccionados
               </button>
-              {canDelete ? (
+              {canDeleteDirect ? (
                   <button
                       onClick={handleBulkDelete}
                       disabled={bulkDeleting}
                       className="px-3 py-1.5 rounded-md text-xs font-semibold bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/50 hover:bg-red-100 dark:hover:bg-red-950/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                       {bulkDeleting ? 'Eliminando...' : 'Eliminar seleccionados'}
+                  </button>
+              ) : canRequestDelete ? (
+                  <button
+                      onClick={handleBulkRequestDeletion}
+                      disabled={bulkDeleting}
+                      title="Tu rol no puede eliminar recursos directamente — se notificará a un Administrador para que los ejecute."
+                      className="px-3 py-1.5 rounded-md text-xs font-semibold bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50 hover:bg-amber-100 dark:hover:bg-amber-950/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                      {bulkDeleting ? 'Enviando...' : 'Solicitar eliminación de seleccionados'}
                   </button>
               ) : (
                   <span className="px-3 py-1.5 rounded-md text-xs font-semibold bg-gray-100 dark:bg-slate-800 text-gray-400 dark:text-slate-500 border border-gray-200 dark:border-slate-700" title="La eliminación de recursos requiere el plan Enterprise">

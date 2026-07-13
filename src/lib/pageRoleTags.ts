@@ -9,6 +9,8 @@
 // Un href sin entrada acá se trata como 'Platform' por defecto (visible solo
 // para Admin/Owner/SuperAdmin) — better fail-closed que fail-open.
 
+import { stripLocale } from "./routeTiers";
+
 export type RoleTag = "FinOps" | "CloudAdmin" | "Security" | "ProductOwner" | "Platform";
 
 export const ROLE_TAG_META: Record<RoleTag, { label: string; color: string; description: string }> = {
@@ -122,8 +124,19 @@ export const PAGE_ROLE_TAGS: Record<string, RoleTag[]> = {
     "/admin/pricing-units": ["Platform"],
 };
 
-export function getTagsForRoute(href: string): RoleTag[] {
-    return PAGE_ROLE_TAGS[href] || ["Platform"];
+// Match por prefijo más largo (igual criterio que getRequiredTierForPath en
+// routeTiers.ts) para que sub-rutas dinámicas no listadas (ej. detalle de un
+// item dentro de una página tageada) hereden la etiqueta de su ruta base en
+// vez de caer siempre a Platform por defecto.
+export function getTagsForRoute(pathname: string): RoleTag[] {
+    const clean = stripLocale(pathname);
+    let best: { route: string; tags: RoleTag[] } | null = null;
+    for (const [route, tags] of Object.entries(PAGE_ROLE_TAGS)) {
+        if (clean === route || clean.startsWith(route + "/")) {
+            if (!best || route.length > best.route.length) best = { route, tags };
+        }
+    }
+    return best ? best.tags : ["Platform"];
 }
 
 // Permisos de dominio asignables a un usuario (Users.permissions, JSON array).

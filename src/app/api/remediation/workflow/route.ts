@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool, { initializeDatabase } from "@/modules/storage/db";
 import { AuthError, requireRequestIdentity, requireTenantAccess } from "@/lib/requestAuth";
+import { notifyTenant } from "@/lib/notifications";
 
 export async function GET(request: NextRequest) {
     try {
@@ -42,6 +43,15 @@ export async function POST(request: NextRequest) {
              VALUES (?, ?, ?, ?, ?, ?)`,
             [tenantId, resourceId, resourceName, actionType, estimatedSavings || 0, identity.email]
         );
+
+        // Best-effort: si no hay canales configurados o falla el envío, la
+        // solicitud igual queda creada y visible en /remediation/approvals —
+        // no se debe fallar el POST por un error de notificación.
+        notifyTenant(tenantId, {
+            title: "Solicitud de eliminación de recurso",
+            message: `${identity.email} solicitó eliminar "${resourceName}" (${actionType}). Revisar y ejecutar en Aprobaciones de Remediación.`,
+            severity: "warning",
+        }).catch((e) => console.warn("[RemediationRequests] No se pudo notificar la solicitud:", e?.message));
 
         return NextResponse.json({ success: true, insertedId: (result as any).insertId });
     } catch (error: any) {

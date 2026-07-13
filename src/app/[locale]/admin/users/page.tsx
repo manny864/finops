@@ -1,12 +1,112 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { toast } from 'sonner';
-import { Users, Shield, Plus, Trash2, RefreshCw, X, CheckSquare } from "lucide-react";
+import { Users, Shield, Plus, Trash2, RefreshCw, X, CheckSquare, ChevronDown } from "lucide-react";
 import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
 import { ASSIGNABLE_PERMISSIONS, parsePermissions, type RoleTag } from '@/lib/pageRoleTags';
+import Pagination, { usePagination } from '@/components/Pagination';
+import ResizableTh from '@/components/ResizableTh';
+
+// Dropdown desplegable de selección múltiple para Permisos (dominio de
+// páginas). Cierra al hacer click afuera; cada instancia maneja su propio
+// estado abierto/cerrado (varias pueden coexistir, una por fila de tabla).
+// El panel usa position:fixed calculado desde el rect del botón (no
+// `absolute` dentro del <td>) porque la tabla vive en un contenedor con
+// `overflow-x-auto` (directiva de tablas responsive) — overflow-x distinto
+// de visible fuerza overflow-y a auto también, así que un panel absolute
+// quedaría recortado por el borde de la tabla en filas cercanas al final.
+function PermissionsMultiSelect({
+    value,
+    onChange,
+    disabled,
+}: {
+    value: RoleTag[];
+    onChange: (next: RoleTag[]) => void;
+    disabled?: boolean;
+}) {
+    const [open, setOpen] = useState(false);
+    const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
+    const btnRef = useRef<HTMLButtonElement>(null);
+    const panelRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!open) return;
+        const reposition = () => {
+            const rect = btnRef.current?.getBoundingClientRect();
+            if (rect) setCoords({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+        };
+        reposition();
+        const handleClickOutside = (e: MouseEvent) => {
+            if (
+                btnRef.current && !btnRef.current.contains(e.target as Node) &&
+                panelRef.current && !panelRef.current.contains(e.target as Node)
+            ) {
+                setOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        window.addEventListener('scroll', reposition, true);
+        window.addEventListener('resize', reposition);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            window.removeEventListener('scroll', reposition, true);
+            window.removeEventListener('resize', reposition);
+        };
+    }, [open]);
+
+    const toggle = (tag: RoleTag) => {
+        onChange(value.includes(tag) ? value.filter(t => t !== tag) : [...value, tag]);
+    };
+
+    const label = value.length === 0
+        ? 'Sin permisos'
+        : value.length === ASSIGNABLE_PERMISSIONS.length
+        ? 'Todos'
+        : ASSIGNABLE_PERMISSIONS.filter(p => value.includes(p.value)).map(p => p.value).join(', ');
+
+    return (
+        <>
+            <button
+                ref={btnRef}
+                type="button"
+                disabled={disabled}
+                onClick={() => setOpen(o => !o)}
+                className={`flex items-center justify-between gap-2 px-2.5 py-1.5 border rounded-md text-xs bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-700 text-gray-700 dark:text-gray-300 min-w-[150px] ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:border-[#0054A6]'}`}
+            >
+                <span className="truncate">{label}</span>
+                <ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+            </button>
+            {open && !disabled && (
+                <div
+                    ref={panelRef}
+                    style={{ position: 'fixed', top: coords.top, left: coords.left, width: Math.max(coords.width, 224) }}
+                    className="z-50 rounded-md border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg py-1"
+                >
+                    {ASSIGNABLE_PERMISSIONS.map(p => {
+                        const active = value.includes(p.value);
+                        return (
+                            <label
+                                key={p.value}
+                                className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-800 cursor-pointer"
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={active}
+                                    onChange={() => toggle(p.value)}
+                                    className="rounded border-gray-300 dark:border-slate-600 text-[#0054A6] focus:ring-[#0054A6]"
+                                />
+                                {p.label}
+                            </label>
+                        );
+                    })}
+                </div>
+            )}
+        </>
+    );
+}
 
 
 export default function UsersPage() {
@@ -29,6 +129,7 @@ export default function UsersPage() {
     const isAdmin = userRole === 'Admin' || systemRole === 'SUPERADMIN';
     const isSuperAdmin = systemRole === 'SUPERADMIN';
     const isMasterTenant = selectedTenant.id === '8b41364f-581a-4e43-b7cb-13138dac5517';
+    const { page, setPage, pageSize, setPageSize, total, totalPages, paged: pagedUsers } = usePagination(users, 15);
 
     const loadUsers = async () => {
         if (!selectedTenant || selectedTenant.id === 'default' || (accounts.length === 0 && !isMockTenant(selectedTenant?.id || ''))) return;
@@ -225,8 +326,7 @@ export default function UsersPage() {
     // Permisos de dominio (FinOps/CloudAdmin/Security/ProductOwner) — INDEPENDIENTES
     // del rol. Se persisten con el mismo endpoint PUT, mandando solo `permissions`
     // (el backend no toca `role` si no viene en el body).
-    const handleTogglePermission = async (userId: number, current: RoleTag[], tag: RoleTag) => {
-        const next = current.includes(tag) ? current.filter(t => t !== tag) : [...current, tag];
+    const handlePermissionsChange = async (userId: number, next: RoleTag[]) => {
         try {
             const tokenResponse = { idToken: await getFreshIdToken(instance, accounts[0]) };
             const res = await fetch('/api/admin/config/users', {
@@ -337,25 +437,7 @@ export default function UsersPage() {
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                     Permisos (dominio de páginas — opcional, independiente del Rol)
                                 </label>
-                                <div className="flex flex-wrap gap-2">
-                                    {ASSIGNABLE_PERMISSIONS.map(p => {
-                                        const active = newPermissions.includes(p.value);
-                                        return (
-                                            <button
-                                                key={p.value}
-                                                type="button"
-                                                onClick={() => setNewPermissions(prev => active ? prev.filter(t => t !== p.value) : [...prev, p.value])}
-                                                className={`text-xs font-semibold px-2.5 py-1 rounded-full border transition-colors ${
-                                                    active
-                                                        ? 'bg-[#0054A6] text-white border-[#0054A6]'
-                                                        : 'bg-white dark:bg-slate-900 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-slate-700 hover:border-[#0054A6]'
-                                                }`}
-                                            >
-                                                {p.label}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
+                                <PermissionsMultiSelect value={newPermissions} onChange={setNewPermissions} />
                             </div>
                         </form>
                     </div>
@@ -375,32 +457,32 @@ export default function UsersPage() {
                     ) : users.length === 0 ? (
                         <div className="text-sm text-gray-500 bg-gray-50 dark:bg-slate-800 p-4 rounded-md border border-gray-100 dark:border-slate-700">No hay usuarios locales registrados en esta cuenta.</div>
                     ) : (
-                        <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
+                        <div className="overflow-x-auto custom-scrollbar" style={{ scrollbarWidth: 'thin' }}>
+                            <table className="min-w-full table-fixed divide-y divide-gray-200 dark:divide-slate-700">
                                 <thead className="bg-gray-50 dark:bg-slate-900">
                                     <tr>
-                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
-                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entra ID</th>
-                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rol</th>
-                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Permisos</th>
-                                        <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                                        <ResizableTh minWidth={140} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</ResizableTh>
+                                        <ResizableTh minWidth={180} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</ResizableTh>
+                                        <ResizableTh minWidth={140} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entra ID</ResizableTh>
+                                        <ResizableTh minWidth={140} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rol</ResizableTh>
+                                        <ResizableTh minWidth={170} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Permisos</ResizableTh>
+                                        <ResizableTh minWidth={110} className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</ResizableTh>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-slate-700">
-                                    {users.map((user) => (
+                                    {pagedUsers.map((user) => (
                                         <tr key={user.id}>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">{user.display_name || '-'}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{user.email}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 font-mono text-xs">{user.entra_oid}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                            <td className="px-6 py-4 whitespace-normal break-words text-sm font-medium text-gray-900 dark:text-gray-100">{user.display_name || '-'}</td>
+                                            <td className="px-6 py-4 whitespace-normal break-words text-sm text-gray-500 dark:text-gray-400">{user.email}</td>
+                                            <td className="px-6 py-4 whitespace-normal break-words text-sm text-gray-500 dark:text-gray-400 font-mono text-xs">{user.entra_oid}</td>
+                                            <td className="px-6 py-4 whitespace-normal break-words text-sm text-gray-500 dark:text-gray-400">
                                                 {isAdmin ? (
-                                                    <div className="flex items-center gap-2">
-                                                        <select 
-                                                            value={user.system_role === 'SUPERADMIN' ? 'SuperAdmin' : user.role}
-                                                            onChange={(e) => handleRoleChange(user.id, e.target.value)}
-                                                            className="px-2 py-1 border border-gray-300 dark:border-slate-700 rounded bg-white dark:bg-slate-900 text-sm placeholder-gray-500 dark:placeholder-gray-400"
-                                                        >
+                                                    <select
+                                                        value={user.system_role === 'SUPERADMIN' ? 'SuperAdmin' : user.role}
+                                                        onChange={(e) => handleRoleChange(user.id, e.target.value)}
+                                                        title={user.system_role === 'SUPERADMIN' ? 'SuperAdmin (acceso global)' : undefined}
+                                                        className={`w-full px-2 py-1 border rounded bg-white dark:bg-slate-900 text-sm placeholder-gray-500 dark:placeholder-gray-400 ${user.system_role === 'SUPERADMIN' ? 'border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-400 font-semibold' : 'border-gray-300 dark:border-slate-700'}`}
+                                                    >
                                                     <option value="Reader">Reader</option>
                                                         <option value="Colaborador">Colaborador</option>
                                                         <option value="Admin">Admin</option>
@@ -408,12 +490,6 @@ export default function UsersPage() {
                                                             <option value="SuperAdmin">🛡️ SuperAdmin</option>
                                                         )}
                                                     </select>
-                                                        {user.system_role === 'SUPERADMIN' && (
-                                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
-                                                                🛡️ SUPERADMIN
-                                                            </span>
-                                                        )}
-                                                    </div>
                                                 ) : (
                                                     <span className="capitalize">{user.role}</span>
                                                 )}
@@ -423,28 +499,11 @@ export default function UsersPage() {
                                                     ProductOwner), independiente del Rol de la columna anterior — ambos
                                                     se aplican juntos, no son alternativos. Admin/Owner ven todo sin
                                                     necesidad de permisos asignados. */}
-                                                <div className="flex flex-wrap gap-1 max-w-[220px]">
-                                                    {ASSIGNABLE_PERMISSIONS.map(p => {
-                                                        const current = parsePermissions(user.permissions);
-                                                        const active = current.includes(p.value);
-                                                        return (
-                                                            <button
-                                                                key={p.value}
-                                                                type="button"
-                                                                disabled={!isAdmin}
-                                                                onClick={() => handleTogglePermission(user.id, current, p.value)}
-                                                                title={p.label}
-                                                                className={`text-[10px] font-bold px-1.5 py-0.5 rounded border transition-colors ${!isAdmin ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'} ${
-                                                                    active
-                                                                        ? 'bg-[#0054A6] text-white border-[#0054A6]'
-                                                                        : 'bg-white dark:bg-slate-900 text-gray-500 dark:text-gray-400 border-gray-300 dark:border-slate-700 hover:border-[#0054A6]'
-                                                                }`}
-                                                            >
-                                                                {p.value}
-                                                            </button>
-                                                        );
-                                                    })}
-                                                </div>
+                                                <PermissionsMultiSelect
+                                                    value={parsePermissions(user.permissions)}
+                                                    onChange={(next) => handlePermissionsChange(user.id, next)}
+                                                    disabled={!isAdmin}
+                                                />
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                                 <button 
@@ -460,6 +519,7 @@ export default function UsersPage() {
                                     ))}
                                 </tbody>
                             </table>
+                            <Pagination page={page} setPage={setPage} pageSize={pageSize} setPageSize={setPageSize} total={total} totalPages={totalPages} />
                         </div>
                     )}
                 </div>
