@@ -4,15 +4,20 @@ import Link from "next/link";
 import useSWR from "swr";
 import { useLocale, useTranslations } from "next-intl";
 import { useTenant } from "@/components/TenantProvider";
+import { useSubscription } from "@/components/SubscriptionProvider";
 import { useMsal } from "@azure/msal-react";
 import {
     LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
     XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts";
-import { Loader2, AlertCircle, Info, TrendingUp, TrendingDown, MapPin, ShieldAlert, Lightbulb, ChevronRight } from "lucide-react";
+import { Loader2, AlertCircle, Info, TrendingUp, TrendingDown, MapPin, ShieldAlert, Lightbulb, ChevronRight, DollarSign, Recycle, PiggyBank, Leaf } from "lucide-react";
 import { isMockTenant } from "@/lib/mockData";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { formatResourceType } from "@/lib/resourceTypeLabels";
+import { useCurrency } from "@/components/CurrencyProvider";
+import CostProjectionCard from "@/components/dashboard/CostProjectionCard";
+import HABreakdownCard from "@/components/dashboard/HABreakdownCard";
+import BudgetBurnChart from "@/components/dashboard/BudgetBurnChart";
 
 const COLORS = {
     high: "#dc2626",
@@ -35,11 +40,28 @@ function Card({ title, className = "", children }: { title?: string; className?:
     );
 }
 
+function KpiCard({ icon: Icon, label, value, sub, tone }: { icon: any; label: string; value: string; sub: string; tone: string }) {
+    return (
+        <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm p-4 flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${tone}`}>
+                <Icon className="w-5 h-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400 truncate">{label}</p>
+                <p className="text-xl font-extrabold text-slate-800 dark:text-slate-100 truncate">{value}</p>
+                <p className="text-[11px] text-slate-400 truncate">{sub}</p>
+            </div>
+        </div>
+    );
+}
+
 export default function ExecutiveSummaryBoard() {
     const t = useTranslations("WhiteBoard");
     const locale = useLocale();
     const { selectedTenant } = useTenant();
+    const { selectedSubscription } = useSubscription();
     const { instance, accounts } = useMsal();
+    const { format } = useCurrency();
 
     const fetcher = async (url: string) => {
         const idToken = await getFreshIdToken(instance, accounts[0]);
@@ -51,13 +73,25 @@ export default function ExecutiveSummaryBoard() {
         return res.json();
     };
 
+    const canFetch = !!selectedTenant && selectedTenant.id !== "default" && (accounts.length > 0 || isMockTenant(selectedTenant.id));
+
     const { data, error, isLoading } = useSWR(
-        selectedTenant && selectedTenant.id !== "default" && (accounts.length > 0 || isMockTenant(selectedTenant.id))
-            ? `/api/intelligence/whiteboard?tenantId=${selectedTenant.id}&locale=${locale}`
-            : null,
+        canFetch ? `/api/intelligence/whiteboard?tenantId=${selectedTenant.id}&locale=${locale}` : null,
         fetcher,
         { revalidateOnFocus: false }
     );
+
+    // KPIs (mismos 4 que el Dashboard General: costo actual, recursos
+    // zombies, ahorro potencial e impacto ambiental) — se reusa
+    // /api/dashboard/summary en vez de duplicar su lógica de auditoría.
+    const summarySub = selectedSubscription && selectedSubscription.toLowerCase() !== "all" ? selectedSubscription : "All";
+    const { data: summaryData, isLoading: summaryLoading } = useSWR(
+        canFetch ? `/api/dashboard/summary?tenantId=${selectedTenant!.id}&subscriptionId=${summarySub}` : null,
+        fetcher,
+        { revalidateOnFocus: false }
+    );
+    const calculateCO2Savings = (wastedUsd: number) => ((wastedUsd / 100) * 15).toFixed(1);
+    const totalSavings = (summaryData?.dashboardData || []).reduce((sum: number, item: any) => sum + (item.potentialSavings || 0), 0);
 
     if (!selectedTenant || selectedTenant.id === "default") return null;
 
@@ -109,6 +143,60 @@ export default function ExecutiveSummaryBoard() {
                     <div className="text-sm">{t("mock_data_notice")}</div>
                 </div>
             )}
+
+            {/* KPIs — mismos del Dashboard General */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+                <KpiCard
+                    icon={DollarSign}
+                    label="Costo Actual"
+                    value={summaryLoading ? "…" : format(Number(summaryData?.actualCost || 0))}
+                    sub="acumulado del mes"
+                    tone="bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400"
+                />
+                <KpiCard
+                    icon={TrendingUp}
+                    label="Costo Proyectado"
+                    value={summaryLoading ? "…" : format(Number(summaryData?.projectedCost || 0))}
+                    sub="al cierre de mes"
+                    tone="bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400"
+                />
+                <KpiCard
+                    icon={Recycle}
+                    label="Recursos Zombies"
+                    value={summaryLoading ? "…" : String(summaryData?.zombieCount ?? 0)}
+                    sub="detectados"
+                    tone="bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400"
+                />
+                <KpiCard
+                    icon={PiggyBank}
+                    label="Ahorro Potencial"
+                    value={summaryLoading ? "…" : format(totalSavings)}
+                    sub="proyectado mensual"
+                    tone="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400"
+                />
+                <KpiCard
+                    icon={Leaf}
+                    label="Impacto Ambiental"
+                    value={summaryLoading ? "…" : `${calculateCO2Savings(totalSavings)} kg`}
+                    sub="CO2 evitado"
+                    tone="bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400"
+                />
+            </div>
+
+            {/* Presupuestos por Suscripción / Proyección de Gastos / Alta Disponibilidad */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <div className="flex flex-col">
+                    <BudgetBurnChart />
+                </div>
+
+                <div className="lg:col-span-1">
+                    <CostProjectionCard showFullPageLink />
+                </div>
+
+                <div className="lg:col-span-1">
+                    <HABreakdownCard />
+                </div>
+            </div>
 
             {/* Row 1 */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

@@ -74,7 +74,11 @@
     "governance_reporting": "Governance Reporting",
     "support": "Support",
     "cost_projection": "Spend & Projection",
-    "white_board": "White Board"
+    "white_board": "White Board",
+    "captured_savings_page": "Captured Savings",
+    "financial_leaks": "Financial Leaks",
+    "cost_centers": "Cost Center Budgets",
+    "governance_score": "Governance Score"
   },
   "Dashboard": {
     "title": "General Dashboard",
@@ -521,8 +525,7 @@
         "M365 Copilot Cost Configuration",
         "SSO Federation (SAML)",
         "Azure Key Vault (platform-managed encryption)",
-        "Azure Marketplace SaaS Billing",
-        "Executive White Board (Executive Summary)"
+        "Azure Marketplace SaaS Billing"
       ]
     },
     "enterpriseModal": {
@@ -1237,7 +1240,6 @@
   "WhiteBoard": {
     "title": "Executive Summary - Current FY",
     "subtitle": "Get a high-level overview of your Cloud Estate by Business Unit (Cost Groups).",
-    "enterprise_required": "The White Board is an Enterprise plan exclusive capability.",
     "costs": "Costs",
     "current_fy_cost": "Current FY Cost",
     "cost_projected": "Cost Projected",
@@ -1267,7 +1269,9 @@
     "monthly_cost_pct": "% of monthly cost",
     "total": "Total",
     "no_findings": "No findings",
-    "mock_data_notice": "You're viewing simulated data from the demo version."
+    "mock_data_notice": "You're viewing simulated data from the demo version.",
+    "cost_center_budget": "Cost Center Budget",
+    "view_full_detail": "View full detail"
   },
   "CostGroups": {
     "title": "Cost Groups",

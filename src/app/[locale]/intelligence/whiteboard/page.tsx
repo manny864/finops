@@ -1,29 +1,15 @@
-import React from 'react';
-import { getTranslations } from 'next-intl/server';
-import MockBanner from '@/components/MockBanner';
-import ExecutiveSummaryBoard from '@/components/dashboard/ExecutiveSummaryBoard';
+"use client";
+import { useEffect } from "react";
+import { useRouter } from "@/i18n/routing";
 
-export default async function WhiteBoardPage() {
-    const t = await getTranslations('WhiteBoard');
-    return (
-        <div className="content animate-in fade-in">
-            <MockBanner />
-            <div className="vhead">
-                <div>
-                    <div className="vt">
-                        <span className="vico bg-gradient-to-br from-[#0054A6] to-[#00AEEF]">📋</span>
-                        {t('title')}
-                    </div>
-                    <div className="vs">{t('subtitle')}</div>
-                </div>
-                <div className="right">
-                    <span className="tag purple">Enterprise</span>
-                </div>
-            </div>
-
-            <div className="mt-6">
-                <ExecutiveSummaryBoard />
-            </div>
-        </div>
-    );
+// El White Board se convirtió en el Dashboard Ejecutivo y se movió a
+// Visibilidad (/overview/whiteboard). Este redirect preserva enlaces/
+// bookmarks viejos a esta ruta. useRouter de @/i18n/routing ya antepone el
+// locale activo automáticamente.
+export default function WhiteboardRedirect() {
+    const router = useRouter();
+    useEffect(() => {
+        router.replace("/overview/whiteboard");
+    }, [router]);
+    return null;
 }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { getAzureCredential } from "@/lib/azure";
-import { requireTenantTier, AuthError } from "@/lib/requestAuth";
+import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { collectAdvisorData } from "@/modules/collectors/azure/advisorCollector";
@@ -238,8 +238,8 @@ export async function GET(request: NextRequest) {
         const locale = request.nextUrl.searchParams.get("locale") || "es";
         if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
 
-        // White Board es exclusivo Enterprise (ver pricing.enterprise.features).
-        await requireTenantTier(request, tenantId, "Enterprise");
+        // White Board (Dashboard Ejecutivo) disponible para todos los tiers.
+        await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
 
         if (isMockTenant(tenantId)) {
             return NextResponse.json(getMockDataForRoute("white_board", tenantId));
