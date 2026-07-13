@@ -104,7 +104,8 @@ export default function AIAnalyticsDashboard() {
 
     if (!data) return null;
 
-    const { summary, byModel, byApplication, byTeam, trend, mock } = data;
+    const { summary, byModel, byApplication, byTeam, trend, mock, tokensAvailable } = data;
+    const showTokens = tokensAvailable !== false;
 
     if (!summary && !mock) {
         return <p className="text-slate-500 dark:text-slate-400 text-sm py-10 text-center">{t("noData")}</p>;
@@ -127,6 +128,12 @@ export default function AIAnalyticsDashboard() {
                     <span><strong>{tMock("badge")}</strong> — {tMock("description")}</span>
                 </div>
             )}
+            {!mock && !showTokens && (
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/50 text-blue-700 dark:text-blue-300 rounded-xl px-4 py-3 flex items-center gap-3 text-sm">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    <span>Costo real de Cognitive Services / Azure OpenAI desde Cost Management. No hay desglose de tokens por modelo — requiere integrar la API de uso de Azure OpenAI.</span>
+                </div>
+            )}
 
             {/* Days filter */}
             <div className="flex items-center gap-2 text-sm">
@@ -146,23 +153,48 @@ export default function AIAnalyticsDashboard() {
             {summary && (
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     <KpiCard label="Total Cost" value={`$${summary.totalCost.toLocaleString()}`} icon={<DollarSign className="w-5 h-5" />} />
-                    <KpiCard
-                        label="Total Tokens"
-                        value={`${((summary.totalInputTokens + summary.totalOutputTokens) / 1_000_000).toFixed(1)}M`}
-                        sub={`${t("inputTokens")}: ${(summary.totalInputTokens / 1_000_000).toFixed(1)}M`}
-                        icon={<Zap className="w-5 h-5" />}
-                    />
-                    <KpiCard
-                        label={t("costPer1k")}
-                        value={`$${summary.costPer1kTokens.toFixed(3)}`}
-                        icon={<TrendingUp className="w-5 h-5" />}
-                    />
-                    <KpiCard
-                        label="Modelos Activos"
-                        value={String(summary.activeModels)}
-                        sub={`${summary.activeApplications} aplicaciones`}
-                        icon={<Cpu className="w-5 h-5" />}
-                    />
+                    {showTokens ? (
+                        <>
+                            <KpiCard
+                                label="Total Tokens"
+                                value={`${((summary.totalInputTokens + summary.totalOutputTokens) / 1_000_000).toFixed(1)}M`}
+                                sub={`${t("inputTokens")}: ${(summary.totalInputTokens / 1_000_000).toFixed(1)}M`}
+                                icon={<Zap className="w-5 h-5" />}
+                            />
+                            <KpiCard
+                                label={t("costPer1k")}
+                                value={`$${summary.costPer1kTokens.toFixed(3)}`}
+                                icon={<TrendingUp className="w-5 h-5" />}
+                            />
+                            <KpiCard
+                                label="Modelos Activos"
+                                value={String(summary.activeModels)}
+                                sub={`${summary.activeApplications} aplicaciones`}
+                                icon={<Cpu className="w-5 h-5" />}
+                            />
+                        </>
+                    ) : (
+                        <>
+                            <KpiCard
+                                label="Costo Promedio Diario"
+                                value={`$${(summary.totalCost / days).toFixed(2)}`}
+                                sub={`últimos ${days} días`}
+                                icon={<TrendingUp className="w-5 h-5" />}
+                            />
+                            <KpiCard
+                                label="Tipos de Meter"
+                                value={String(summary.activeModels)}
+                                sub="proxy de modelo/servicio"
+                                icon={<Zap className="w-5 h-5" />}
+                            />
+                            <KpiCard
+                                label="Grupos de Recursos"
+                                value={String(summary.activeApplications)}
+                                sub="con costo de IA"
+                                icon={<Cpu className="w-5 h-5" />}
+                            />
+                        </>
+                    )}
                 </div>
             )}
 
@@ -172,15 +204,17 @@ export default function AIAnalyticsDashboard() {
                 <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-5">
                     <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2">
                         <BrainCircuit className="w-4 h-4 text-blue-500" />
-                        {t("byModel")}
+                        {showTokens ? t("byModel") : "Por tipo de meter (proxy de modelo)"}
                     </h3>
                     <div className="space-y-3">
                         {(byModel ?? []).map((m: any) => (
                             <div key={m.model}>
                                 <BarRow label={m.model} value={m.cost} max={maxModelCost} />
-                                <p className="text-xs text-slate-400 ml-48 -mt-0.5">
-                                    {t("costPer1k")}: ${m.costPer1k?.toFixed(3)} · {t("inputTokens")}: {(m.inputTokens / 1e6).toFixed(1)}M
-                                </p>
+                                {showTokens && (
+                                    <p className="text-xs text-slate-400 ml-48 -mt-0.5">
+                                        {t("costPer1k")}: ${m.costPer1k?.toFixed(3)} · {t("inputTokens")}: {(m.inputTokens / 1e6).toFixed(1)}M
+                                    </p>
+                                )}
                             </div>
                         ))}
                     </div>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
+import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import pool from "@/modules/storage/db";
 
 const MOCK_PAYLOAD = {
@@ -45,6 +46,129 @@ const MOCK_PAYLOAD = {
     ],
 };
 
+type AggRow = { model_name: string; application: string; team: string; date: string; cost: number; inputTokens: number; outputTokens: number };
+
+function aggregate(rows: AggRow[], tokensAvailable: boolean) {
+    const modelMap = new Map<string, { model: string; cost: number; inputTokens: number; outputTokens: number }>();
+    const appMap = new Map<string, { application: string; cost: number; model: string }>();
+    const teamMap = new Map<string, { team: string; cost: number }>();
+    const trendMap = new Map<string, { date: string; cost: number; inputTokens: number; outputTokens: number }>();
+
+    let totalCost = 0, totalInput = 0, totalOutput = 0;
+
+    for (const r of rows) {
+        const cost = Number(r.cost);
+        const inp = Number(r.inputTokens) || 0;
+        const out = Number(r.outputTokens) || 0;
+        totalCost += cost;
+        totalInput += inp;
+        totalOutput += out;
+
+        const mKey = r.model_name || "unknown";
+        const mEntry = modelMap.get(mKey) || { model: mKey, cost: 0, inputTokens: 0, outputTokens: 0 };
+        mEntry.cost += cost;
+        mEntry.inputTokens += inp;
+        mEntry.outputTokens += out;
+        modelMap.set(mKey, mEntry);
+
+        const aKey = r.application || "unknown";
+        const aEntry = appMap.get(aKey) || { application: aKey, cost: 0, model: mKey };
+        aEntry.cost += cost;
+        appMap.set(aKey, aEntry);
+
+        const tKey = r.team || "unknown";
+        const tEntry = teamMap.get(tKey) || { team: tKey, cost: 0 };
+        tEntry.cost += cost;
+        teamMap.set(tKey, tEntry);
+
+        const dKey = String(r.date).substring(0, 10);
+        const dEntry = trendMap.get(dKey) || { date: dKey, cost: 0, inputTokens: 0, outputTokens: 0 };
+        dEntry.cost += cost;
+        dEntry.inputTokens += inp;
+        dEntry.outputTokens += out;
+        trendMap.set(dKey, dEntry);
+    }
+
+    const byModel = Array.from(modelMap.values()).map(m => ({
+        ...m,
+        costPer1k: m.inputTokens + m.outputTokens > 0 ? (m.cost / (m.inputTokens + m.outputTokens)) * 1000 : 0,
+    })).sort((a, b) => b.cost - a.cost);
+
+    const totalTokens = totalInput + totalOutput;
+
+    return {
+        success: true,
+        mock: false,
+        tokensAvailable,
+        summary: {
+            totalCost,
+            totalInputTokens: totalInput,
+            totalOutputTokens: totalOutput,
+            costPer1kTokens: totalTokens > 0 ? (totalCost / totalTokens) * 1000 : 0,
+            activeModels: modelMap.size,
+            activeApplications: appMap.size,
+        },
+        byModel,
+        byApplication: Array.from(appMap.values()).sort((a, b) => b.cost - a.cost),
+        byTeam: Array.from(teamMap.values()).sort((a, b) => b.cost - a.cost),
+        trend: Array.from(trendMap.values()).sort((a, b) => a.date.localeCompare(b.date)),
+    };
+}
+
+const EMPTY_RESPONSE = { success: true, mock: false, tokensAvailable: false, summary: null, byModel: [], byApplication: [], byTeam: [], trend: [] };
+
+async function fetchAIAnalytics(tenantId: string, days: number) {
+    // 1) Fuente primaria: AICostSnapshots — uso real por modelo (tokens de
+    //    entrada/salida) sincronizado a diario desde Azure Monitor Metrics
+    //    (ver aiUsageCollector.ts). Puede estar vacía si el cron todavía no
+    //    corrió para este tenant, o si no tiene cuentas Cognitive Services.
+    const [aiRows]: any = await pool.query(
+        `SELECT
+            COALESCE(NULLIF(model_name, ''), 'unknown') AS model_name,
+            COALESCE(NULLIF(application, ''), NULLIF(resource_name, ''), 'unknown') AS application,
+            COALESCE(NULLIF(team, ''), 'Sin asignar') AS team,
+            date,
+            SUM(billed_cost) AS cost,
+            SUM(input_tokens) AS inputTokens,
+            SUM(output_tokens) AS outputTokens
+         FROM AICostSnapshots
+         WHERE tenant_id = ? AND date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+         GROUP BY model_name, application, team, date
+         ORDER BY date ASC`,
+        [tenantId, days]
+    );
+
+    if (aiRows && aiRows.length > 0) {
+        return aggregate(aiRows, true);
+    }
+
+    // 2) Fallback: costo real de Cognitive Services/OpenAI desde CostSnapshots
+    //    (ya sincronizado por el cron de costos vía Cost Management), sin
+    //    desglose de tokens — ver comentario de tokensAvailable más abajo.
+    const [costRows]: any = await pool.query(
+        `SELECT
+            COALESCE(NULLIF(MeterSubCategory, ''), NULLIF(MeterName, ''), service_name) AS model_name,
+            resource_group AS application,
+            COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(Tags, '$.Team')), 'null'), 'Sin asignar') AS team,
+            date,
+            SUM(cost_usd) AS cost,
+            0 AS inputTokens,
+            0 AS outputTokens
+         FROM CostSnapshots
+         WHERE tenant_id = ? AND date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+           AND (service_name LIKE '%Cognitive Services%' OR service_name LIKE '%OpenAI%' OR MeterCategory LIKE '%Cognitive Services%' OR MeterCategory LIKE '%OpenAI%')
+         GROUP BY model_name, application, team, date
+         ORDER BY date ASC`,
+        [tenantId, days]
+    );
+
+    if (!costRows || costRows.length === 0) {
+        return EMPTY_RESPONSE;
+    }
+
+    return aggregate(costRows, false);
+}
+
 export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
@@ -72,96 +196,19 @@ export async function GET(request: NextRequest) {
                 return NextResponse.json({ error: "Feature bloqueada. Requiere plan Enterprise." }, { status: 403 });
             }
 
-            const [rows]: any = await pool.query(
-                `SELECT
-                    model_name,
-                    application,
-                    team,
-                    date,
-                    SUM(billed_cost) AS cost,
-                    SUM(input_tokens) AS inputTokens,
-                    SUM(output_tokens) AS outputTokens
-                 FROM AICostSnapshots
-                 WHERE tenant_id = ? AND date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
-                 GROUP BY model_name, application, team, date
-                 ORDER BY date ASC`,
-                [tenantId, days]
+            const cacheKey = `ai-analytics:v2:${tenantId}:${days}`;
+            const payload = await getWithStaleWhileRevalidate(
+                cacheKey,
+                () => fetchAIAnalytics(tenantId, days),
+                3600,
+                900,
+                // No cachear una respuesta vacía por la hora completa: si el cron
+                // corre unos minutos después de esta request, no queremos que el
+                // usuario siga viendo "sin datos" por 55 min más.
+                (data) => (data.summary === null ? 120 : 3600)
             );
 
-            if (!rows || rows.length === 0) {
-                return NextResponse.json({ success: true, mock: false, summary: null, byModel: [], byApplication: [], byTeam: [], trend: [] });
-            }
-
-            // Aggregate byModel
-            const modelMap = new Map<string, { model: string; cost: number; inputTokens: number; outputTokens: number }>();
-            const appMap = new Map<string, { application: string; cost: number; model: string }>();
-            const teamMap = new Map<string, { team: string; cost: number }>();
-            const trendMap = new Map<string, { date: string; cost: number; inputTokens: number; outputTokens: number }>();
-
-            let totalCost = 0, totalInput = 0, totalOutput = 0;
-
-            for (const r of rows) {
-                const cost = Number(r.cost);
-                const inp = Number(r.inputTokens);
-                const out = Number(r.outputTokens);
-                totalCost += cost;
-                totalInput += inp;
-                totalOutput += out;
-
-                // byModel
-                const mKey = r.model_name || "unknown";
-                const mEntry = modelMap.get(mKey) || { model: mKey, cost: 0, inputTokens: 0, outputTokens: 0 };
-                mEntry.cost += cost;
-                mEntry.inputTokens += inp;
-                mEntry.outputTokens += out;
-                modelMap.set(mKey, mEntry);
-
-                // byApplication
-                const aKey = r.application || "unknown";
-                const aEntry = appMap.get(aKey) || { application: aKey, cost: 0, model: mKey };
-                aEntry.cost += cost;
-                appMap.set(aKey, aEntry);
-
-                // byTeam
-                const tKey = r.team || "unknown";
-                const tEntry = teamMap.get(tKey) || { team: tKey, cost: 0 };
-                tEntry.cost += cost;
-                teamMap.set(tKey, tEntry);
-
-                // trend
-                const dKey = String(r.date).substring(0, 10);
-                const dEntry = trendMap.get(dKey) || { date: dKey, cost: 0, inputTokens: 0, outputTokens: 0 };
-                dEntry.cost += cost;
-                dEntry.inputTokens += inp;
-                dEntry.outputTokens += out;
-                trendMap.set(dKey, dEntry);
-            }
-
-            const byModel = Array.from(modelMap.values()).map(m => ({
-                ...m,
-                costPer1k: m.inputTokens + m.outputTokens > 0
-                    ? (m.cost / (m.inputTokens + m.outputTokens)) * 1000
-                    : 0,
-            })).sort((a, b) => b.cost - a.cost);
-
-            const totalTokens = totalInput + totalOutput;
-
-            return NextResponse.json({
-                success: true,
-                mock: false,
-                summary: {
-                    totalCost,
-                    totalInputTokens: totalInput,
-                    totalOutputTokens: totalOutput,
-                    costPer1kTokens: totalTokens > 0 ? (totalCost / totalTokens) * 1000 : 0,
-                    activeModels: modelMap.size,
-                    activeApplications: appMap.size,
-                },
-                byModel,
-                byApplication: Array.from(appMap.values()).sort((a, b) => b.cost - a.cost),
-                byTeam: Array.from(teamMap.values()).sort((a, b) => b.cost - a.cost),
-                trend: Array.from(trendMap.values()).sort((a, b) => a.date.localeCompare(b.date)),
-            });
+            return NextResponse.json(payload);
         } catch (dbErr: any) {
             console.error("AI Analytics DB error for real tenant:", tenantId, dbErr?.message);
             return NextResponse.json({

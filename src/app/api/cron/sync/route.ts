@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import pool, { insertCostSnapshot, insertCostSnapshotRow, insertCostMeterSnapshotRow, insertCostCategorySnapshotRow, updateTenantHealth } from "@/modules/storage/db";
+import pool, { insertCostSnapshot, insertCostSnapshotRow, insertCostMeterSnapshotRow, insertCostCategorySnapshotRow, insertAICostSnapshotRow, updateTenantHealth } from "@/modules/storage/db";
 import { getYesterdaysCost, getYesterdaysDetailedCosts } from "@/modules/collectors/azure/billingService";
+import { getYesterdaysAIUsage } from "@/modules/collectors/azure/aiUsageCollector";
 import { getTenantCredentials } from "@/lib/secrets/tenantCredentials";
 
 export async function GET(request: NextRequest) {
@@ -74,7 +75,23 @@ async function runSync(request: NextRequest) {
                     console.error(`[cron-sync] detailed fetch failed for tenant ${tenant.id}:`, detailErr.message);
                 }
 
-                // c) Health OK
+                // c) Uso real de Azure OpenAI/Cognitive Services (tokens por modelo,
+                //    vía Azure Monitor Metrics) — powers AI Cost Analytics. Falla
+                //    aislada: si el SP no tiene Monitoring Reader o el tenant no
+                //    tiene cuentas Cognitive Services, no interrumpe el resto del sync.
+                try {
+                    const aiRows = await getYesterdaysAIUsage(tenant.id);
+                    for (const row of aiRows) {
+                        await insertAICostSnapshotRow(tenant.id, yesterdayStr, row);
+                    }
+                    if (aiRows.length > 0) {
+                        console.log(`[cron-sync] tenant=${tenant.id} AI usage rows inserted=${aiRows.length}`);
+                    }
+                } catch (aiErr: any) {
+                    console.error(`[cron-sync] AI usage fetch failed for tenant ${tenant.id}:`, aiErr.message);
+                }
+
+                // d) Health OK
                 await updateTenantHealth(tenant.id, 'OK');
                 tenantCount++;
             } catch (err: any) {

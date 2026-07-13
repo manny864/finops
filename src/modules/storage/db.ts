@@ -722,6 +722,17 @@ export async function initializeDatabase() {
             )
         `);
 
+        // Idempotente: en tablas creadas antes de que existiera el sync real de
+        // uso de Azure OpenAI (ver aiUsageCollector.ts) no había una clave única
+        // que evite duplicar filas al reprocesar el mismo día/recurso/modelo.
+        try {
+            await connection.query(
+                `ALTER TABLE AICostSnapshots ADD UNIQUE KEY unique_ai_snapshot (tenant_id, date, resource_name, model_name)`
+            );
+        } catch (e: any) {
+            if (e.code !== 'ER_DUP_KEYNAME') console.error('Error adding AICostSnapshots unique key:', e);
+        }
+
         // ===== IT-04: MACC Commitment Tracking =====
         await connection.query(`
             CREATE TABLE IF NOT EXISTS MACCCommitments (
@@ -1071,6 +1082,47 @@ export async function insertCostSnapshotRow(tenantId: string, date: string, row:
             row.cost,
             row.quantity ?? null,
             row.unitOfMeasure || null
+        ]
+    );
+}
+
+/**
+ * Inserts (or replaces) a daily AI usage row into AICostSnapshots (tokens por
+ * modelo, vía Azure Monitor Metrics — ver aiUsageCollector.ts). Idempotente
+ * vía UNIQUE KEY (tenant_id, date, resource_name, model_name); resource_name/
+ * model_name se normalizan a '' en vez de NULL por el mismo motivo que
+ * MeterSubCategory en insertCostMeterSnapshotRow (NULL rompe la unicidad).
+ */
+export async function insertAICostSnapshotRow(tenantId: string, date: string, row: {
+    subscriptionId?: string;
+    resourceName: string;
+    resourceGroup?: string;
+    modelName: string;
+    inputTokens: number;
+    outputTokens: number;
+    billedCost: number;
+}) {
+    await pool.query(
+        `INSERT INTO AICostSnapshots
+            (tenant_id, date, subscription_id, resource_name, resource_group, model_name,
+             input_tokens, output_tokens, billed_cost, effective_cost)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+             input_tokens = VALUES(input_tokens),
+             output_tokens = VALUES(output_tokens),
+             billed_cost = VALUES(billed_cost),
+             effective_cost = VALUES(effective_cost)`,
+        [
+            tenantId,
+            date,
+            row.subscriptionId || null,
+            row.resourceName || '',
+            row.resourceGroup || null,
+            row.modelName || '',
+            row.inputTokens,
+            row.outputTokens,
+            row.billedCost,
+            row.billedCost,
         ]
     );
 }
