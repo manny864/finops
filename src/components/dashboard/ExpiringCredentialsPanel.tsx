@@ -118,7 +118,17 @@ export default function ExpiringCredentialsPanel() {
                     reminderFrequencyHours: alertForm.recurrence === "once" ? null : Number(alertForm.recurrence),
                 }),
             });
-            const json = await res.json();
+            // Si el server devuelve algo que no es JSON (ej: "502 Bad Gateway"
+            // de Traefik durante un restart/deploy), res.json() tira un
+            // SyntaxError de parseo — antes eso se mostraba tal cual al
+            // usuario ("Unexpected non-whitespace character..."), confuso y
+            // sin pista de qué pasó realmente.
+            let json: any;
+            try {
+                json = await res.json();
+            } catch {
+                throw new Error('El servidor no está disponible en este momento. Probá de nuevo en unos segundos.');
+            }
             if (!res.ok || json.success === false) throw new Error(json.error);
             toast.success(t('alertCreated'));
             setShowAlertModal(false);
