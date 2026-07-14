@@ -257,6 +257,33 @@ export async function requireRequestIdentity(request: NextRequest): Promise<Requ
 }
 
 /**
+ * Autenticación máquina-a-máquina (client credentials, sin usuario/MFA) para
+ * el Service Principal dedicado a pruebas de carga externas (JMeter/k6) —
+ * ver docs/loadtest.md. El token se valida con el MISMO pipeline que un
+ * token de usuario (firma RS256, issuer del tenant, audience de esta app,
+ * vía validateRequestToken) — lo único que cambia es que en vez de resolver
+ * un email de usuario, se exige que el claim `appid` (Application ID del
+ * llamador, presente en todo token de client_credentials) coincida
+ * EXACTAMENTE con LOAD_TEST_SP_APP_ID. Cualquier otro Service Principal del
+ * mismo tenant de Entra ID —válido igual en términos de firma/issuer— es
+ * rechazado. Fail-closed: sin la env var configurada, nadie pasa.
+ */
+export async function requireLoadTestServicePrincipal(request: NextRequest): Promise<AuthClaims> {
+  const allowedAppId = process.env.LOAD_TEST_SP_APP_ID;
+  if (!allowedAppId) {
+    throw new AuthError("LOAD_TEST_SP_APP_ID no configurado.", 503);
+  }
+
+  const claims = await validateRequestToken(request);
+  const callerAppId = typeof claims.appid === "string" ? claims.appid : undefined;
+  if (!callerAppId || callerAppId.toLowerCase() !== allowedAppId.toLowerCase()) {
+    throw new AuthError("Service Principal no autorizado para pruebas de carga.", 403);
+  }
+
+  return claims;
+}
+
+/**
  * Internal-cron bypass: cuando una request trae el header `X-Cron-Auth`
  * con un valor que coincide exactamente con `CRON_SECRET`, se retorna una
  * identidad sintética del tenant solicitado. Útil para que pre-warmers
