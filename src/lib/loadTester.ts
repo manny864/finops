@@ -11,7 +11,7 @@ import { getCriticalSystemAlertEmailHtml } from '@/lib/emailHelper';
  * un self-DoS accidental contra producción.
  */
 
-export type LoadTestTarget = 'health' | 'status';
+export type LoadTestTarget = 'health' | 'status' | 'probe';
 
 const TARGET_PATHS: Record<LoadTestTarget, string> = {
     // /api/health: no toca DB/Redis — mide el techo puro del proceso Node.
@@ -19,6 +19,11 @@ const TARGET_PATHS: Record<LoadTestTarget, string> = {
     // /api/status: hace SELECT 1 + queries de agregación — mide el techo
     // real incluyendo el pool de conexiones MySQL bajo concurrencia.
     status: '/api/status',
+    // /api/loadtest/probe: mismo endpoint que usa el flujo externo con
+    // JMeter/k6 (ver docs/loadtest.md) — requiere el Bearer token del
+    // Service Principal (getLoadTestServicePrincipalToken), toca MySQL +
+    // Redis, y de paso ejercita el pipeline real de validación de JWT.
+    probe: '/api/loadtest/probe',
 };
 
 export const MAX_CONCURRENCY = 50;
@@ -56,11 +61,14 @@ export async function runLoadTest(opts: {
     target: LoadTestTarget;
     concurrency: number;
     durationMs: number;
+    /** Bearer token para target='probe' — ver getLoadTestServicePrincipalToken(). */
+    authToken?: string;
 }): Promise<LoadTestResult> {
     const target = TARGET_PATHS[opts.target] ? opts.target : 'health';
     const concurrency = Math.max(1, Math.min(MAX_CONCURRENCY, Math.floor(opts.concurrency)));
     const durationMs = Math.max(1000, Math.min(MAX_DURATION_MS, Math.floor(opts.durationMs)));
     const url = `${opts.origin}${TARGET_PATHS[target]}`;
+    const headers: Record<string, string> = opts.authToken ? { Authorization: `Bearer ${opts.authToken}` } : {};
 
     const latencies: number[] = [];
     let successCount = 0;
@@ -74,7 +82,7 @@ export async function runLoadTest(opts: {
             totalRequests++;
             const reqStart = Date.now();
             try {
-                const res = await fetch(url, { cache: 'no-store' });
+                const res = await fetch(url, { cache: 'no-store', headers });
                 latencies.push(Date.now() - reqStart);
                 if (res.ok) successCount++; else errorCount++;
             } catch {

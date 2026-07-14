@@ -39,7 +39,7 @@ export default function LoadTestPage() {
     const { instance, accounts } = useMsal();
     const account = accounts[0];
 
-    const [target, setTarget] = useState<"health" | "status">("health");
+    const [target, setTarget] = useState<"health" | "status" | "probe">("health");
     const [concurrency, setConcurrency] = useState(10);
     const [durationSeconds, setDurationSeconds] = useState(5);
     const [running, setRunning] = useState(false);
@@ -115,11 +115,12 @@ export default function LoadTestPage() {
                         <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Endpoint objetivo</label>
                         <select
                             value={target}
-                            onChange={(e) => setTarget(e.target.value as "health" | "status")}
+                            onChange={(e) => setTarget(e.target.value as "health" | "status" | "probe")}
                             className="w-full border border-slate-300 dark:border-slate-700 dark:bg-slate-800 rounded-lg px-3 py-2 text-sm"
                         >
                             <option value="health">/api/health (sin DB — techo del proceso)</option>
                             <option value="status">/api/status (con DB — techo real)</option>
+                            <option value="probe">/api/loadtest/probe (autenticado SP — DB + Redis)</option>
                         </select>
                     </div>
                     <div>
