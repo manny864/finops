@@ -153,9 +153,17 @@ export default function GlobalCopilot() {
             // de filas truncado, mandamos un resumen estructurado (totales,
             // top-N, conteos). Menos tokens de entrada => primer token más rápido.
             const compactedPayload = compactPayloadString(currentDataPayload);
+            // Timeout duro en el cliente: sin esto, si el proveedor de IA se
+            // cuelga (rate limit del free tier, etc.) el usuario ve el spinner
+            // girar indefinidamente sin ningún feedback ("tarda mucho / no
+            // funciona"). El backend ya corta a los 25s (ver abortSignal en
+            // route.ts) — 30s acá da margen y siempre termina en un error visible.
+            const abortController = new AbortController();
+            const timeoutId = setTimeout(() => abortController.abort(), 30_000);
             const res = await fetch('/api/intelligence/copilot', {
                 method: 'POST',
                 headers,
+                signal: abortController.signal,
                 body: JSON.stringify({
                     prompt: promptText,
                     pageContext: currentPage,
@@ -163,7 +171,7 @@ export default function GlobalCopilot() {
                     tenantId: selectedTenant.id,
                     locale
                 })
-            });
+            }).finally(() => clearTimeout(timeoutId));
 
             // Errores (no streaming): el backend devuelve JSON con error.
             if (!res.ok || !res.body) {
@@ -197,6 +205,14 @@ export default function GlobalCopilot() {
                 }
                 // flush final
                 acc += decoder.decode();
+                // El proveedor de IA puede fallar DESPUÉS de que el stream ya
+                // empezó (rate limit, timeout) — en modo text/plain esto no viaja
+                // como un error estructurado, el stream simplemente se corta sin
+                // contenido. Antes esto dejaba la burbuja vacía sin ninguna
+                // explicación (el bug reportado como "no funciona").
+                if (!acc.trim()) {
+                    acc = "⚠️ El asistente no pudo generar una respuesta (el servicio de IA puede estar saturado). Probá de nuevo en unos segundos.";
+                }
                 setMessages(prev => {
                     const copy = [...prev];
                     copy[copy.length - 1] = { role: 'ai', content: acc };
@@ -213,7 +229,21 @@ export default function GlobalCopilot() {
             }
         } catch(e: any) {
             console.error("[Copilot] Error:", e);
-            setMessages(prev => [...prev, { role: 'ai', content: "⚠️ Error de conexión con el servicio de IA." }]);
+            const errorText = e?.name === 'AbortError'
+                ? "⚠️ El asistente tardó demasiado en responder. Probá de nuevo."
+                : "⚠️ Error de conexión con el servicio de IA.";
+            // Si ya se había insertado la burbuja placeholder (vacía) antes de que
+            // el error ocurriera durante la lectura del stream, la reemplaza en
+            // vez de agregar una segunda burbuja de error.
+            setMessages(prev => {
+                const last = prev[prev.length - 1];
+                if (last?.role === 'ai' && last.content === '') {
+                    const copy = [...prev];
+                    copy[copy.length - 1] = { role: 'ai', content: errorText };
+                    return copy;
+                }
+                return [...prev, { role: 'ai', content: errorText }];
+            });
         }
         setLoading(false);
     };

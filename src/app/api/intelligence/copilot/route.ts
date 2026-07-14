@@ -94,6 +94,19 @@ ${prompt ?? ''}
             prompt: userMessage,
             temperature: 0.2,
             maxOutputTokens: 2500,
+            // Sin esto, un modelo colgado espera hasta maxDuration (60s) sin
+            // ninguna señal — el usuario ve "tarda mucho" sin explicación. 25s
+            // corta antes y el error queda logueado (ver onError abajo), aunque
+            // en modo text/plain el cliente solo ve el stream cortarse (la API
+            // del SDK no permite inyectar un mensaje de error en ese protocolo).
+            abortSignal: AbortSignal.timeout(25_000),
+            onError: (error) => {
+                // toTextStreamResponse() no tiene forma de mandarle este error al
+                // cliente (solo existe onError en el protocolo data-stream) — por
+                // eso este callback es SOLO para que quede logueado server-side y
+                // se pueda diagnosticar (rate limit del proveedor, key inválida, etc).
+                console.error("[Copilot] streamText error:", error instanceof Error ? error.message : error);
+            },
         });
 
         // Stream de texto plano (text/plain). El cliente lo lee con

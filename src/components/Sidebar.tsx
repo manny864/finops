@@ -5,7 +5,6 @@ import { useTranslations } from 'next-intl';
 import { useMsal } from '@azure/msal-react';
 import { isSuperAdmin } from '@/lib/authGuard';
 import { useTenant } from '@/components/TenantProvider';
-import FeatureGuard from '@/components/FeatureGuard';
 import { hasAccess } from '@/lib/tierLogic';
 import { getTagsForRoute, hasAnyTag } from '@/lib/pageRoleTags';
 import { 
@@ -335,15 +334,14 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                         ) : searchResults.map(item => {
                             const Icon = item.icon;
                             const isActive = pathname === item.href;
-                            const link = (
+                            // Mismo criterio que en roleCategories.map: navega igual, el
+                            // mensaje de plan lo muestra RouteTierGate en la página destino.
+                            const isLocked = (item as any).requiredTier && !hasAccess(tier, (item as any).requiredTier);
+                            return (
                                 <Link
                                     key={item.href}
                                     href={item.href}
-                                    onClick={(e) => {
-                                        if ((item as any).requiredTier && !hasAccess(tier, (item as any).requiredTier)) {
-                                            e.preventDefault();
-                                            return;
-                                        }
+                                    onClick={() => {
                                         setSearchQuery('');
                                         if (window.innerWidth <= 768) setSidebarOpen(false);
                                     }}
@@ -351,7 +349,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                                         isActive
                                             ? 'bg-gradient-to-br from-brand-deep to-[#1E88E5] text-white shadow-[0_6px_16px_rgba(0,84,166,0.4)]'
                                             : 'text-[var(--ink-soft)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]'
-                                    }`}
+                                    } ${isLocked ? 'opacity-40 grayscale' : ''}`}
                                 >
                                     <Icon className="flex-shrink-0 w-5 h-5 mr-3" />
                                     <span className="text-sm truncate flex-1">
@@ -360,14 +358,6 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                                     </span>
                                 </Link>
                             );
-                            if ((item as any).requiredTier) {
-                                return (
-                                    <FeatureGuard key={item.href} requiredTier={(item as any).requiredTier} featureName={item.label}>
-                                        {link}
-                                    </FeatureGuard>
-                                );
-                            }
-                            return link;
                         })}
                     </div>
                 ) : roleCategories.map(category => (
@@ -397,16 +387,20 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                                     // Las etiquetas de rol (pageRoleTags.ts) son internas: se usan para
                                     // filtrar la navegación por rol (ver roleCategories más abajo), pero
                                     // no se muestran como badge — el usuario pidió que no sean visibles.
+                                    // Los items bloqueados por tier SÍ navegan: el mensaje de
+                                    // "Función no disponible en tu plan" lo muestra RouteTierGate
+                                    // en la vista de página (a la derecha del sidebar), no un modal
+                                    // acá — por eso no usamos FeatureGuard (que es modal-click,
+                                    // pensado para tarjetas sueltas dentro de una página, no para
+                                    // rutas de navegación reales). Solo aplicamos el estilo
+                                    // blureado/sin-candado para dar la misma pista visual.
+                                    const isLocked = (item as any).requiredTier && !hasAccess(tier, (item as any).requiredTier);
                                     const renderedLink = (
                                         <Link
                                             key={item.href}
                                             href={item.href}
                                             title={sidebarOpen ? undefined : item.label}
-                                            onClick={(e) => {
-                                                if ((item as any).requiredTier && !hasAccess(tier, (item as any).requiredTier)) {
-                                                    e.preventDefault();
-                                                    return;
-                                                }
+                                            onClick={() => {
                                                 if (window.innerWidth <= 768) {
                                                     setSidebarOpen(false);
                                                 }
@@ -415,20 +409,12 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                                                 isActive
                                                     ? 'bg-gradient-to-br from-brand-deep to-[#1E88E5] text-white shadow-[0_6px_16px_rgba(0,84,166,0.4)]'
                                                     : 'text-[var(--ink-soft)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]'
-                                            }`}
+                                            } ${isLocked ? 'opacity-40 grayscale' : ''}`}
                                         >
                                             <Icon className={`flex-shrink-0 ${sidebarOpen ? 'w-5 h-5 mr-3' : 'w-6 h-6 mx-auto'}`} />
                                             {sidebarOpen && <span className="text-sm truncate flex-1 md:block">{item.label}</span>}
                                         </Link>
                                     );
-
-                                    if ((item as any).requiredTier) {
-                                        return (
-                                            <FeatureGuard key={item.href} requiredTier={(item as any).requiredTier} featureName={item.label}>
-                                                {renderedLink}
-                                            </FeatureGuard>
-                                        );
-                                    }
                                     return renderedLink;
                                 })}
                             </div>
