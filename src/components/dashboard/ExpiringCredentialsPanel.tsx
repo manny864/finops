@@ -4,7 +4,7 @@ import useSWR from 'swr';
 import { useTranslations } from 'next-intl';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
-import { Loader2, KeyRound, Info, BellPlus } from 'lucide-react';
+import { Loader2, KeyRound, Info, BellPlus, ListChecks, Send, Trash2 } from 'lucide-react';
 import Pagination, { usePagination } from '@/components/Pagination';
 import PinButton from '@/components/dashboard/PinButton';
 import { isMockTenant } from '@/lib/mockData';
@@ -73,6 +73,65 @@ export default function ExpiringCredentialsPanel() {
         fetcher,
         { revalidateOnFocus: false }
     );
+
+    const [activeTab, setActiveTab] = useState<'credentials' | 'rules'>('credentials');
+    const {
+        data: rulesData,
+        isLoading: rulesLoading,
+        mutate: mutateRules,
+    } = useSWR(
+        activeTab === 'rules' && selectedTenant?.id && selectedTenant.id !== 'default' && (accounts.length > 0 || isMockTenant(selectedTenant.id))
+            ? `/api/budgets/alerts?tenantId=${selectedTenant.id}`
+            : null,
+        fetcher,
+        { revalidateOnFocus: false }
+    );
+    const alertRules: any[] = (rulesData?.rules || []).filter((r: any) => r.ruleType === 'credential_expiry');
+    const [testingId, setTestingId] = useState<number | string | null>(null);
+    const [deletingId, setDeletingId] = useState<number | string | null>(null);
+
+    const testAlertRule = async (ruleId: number | string) => {
+        setTestingId(ruleId);
+        try {
+            if (isMockTenant(selectedTenant?.id || '')) {
+                toast.success('[SIMULACIÓN DEMO] Notificación de prueba enviada.');
+                return;
+            }
+            const tokenResponse = await instance.acquireTokenSilent({ scopes: ["User.Read"], account: accounts[0] });
+            const res = await fetch(`/api/budgets/alerts/${ruleId}/test?tenantId=${selectedTenant.id}`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` },
+            });
+            let json: any;
+            try { json = await res.json(); } catch { throw new Error('El servidor no está disponible en este momento.'); }
+            if (!res.ok || json.success === false) throw new Error(json.error || 'No se pudo enviar la prueba.');
+            toast.success(`Prueba enviada (${json.matchedCount ?? 0} credencial(es) incluida(s)).`);
+        } catch (e) {
+            toast.error(e instanceof Error && e.message ? e.message : 'No se pudo enviar la prueba.');
+        } finally {
+            setTestingId(null);
+        }
+    };
+
+    const deleteAlertRule = async (ruleId: number | string) => {
+        if (!window.confirm('¿Eliminar esta alerta?')) return;
+        setDeletingId(ruleId);
+        try {
+            if (!isMockTenant(selectedTenant?.id || '')) {
+                const tokenResponse = await instance.acquireTokenSilent({ scopes: ["User.Read"], account: accounts[0] });
+                await fetch(`/api/budgets/alerts/${ruleId}?tenantId=${selectedTenant.id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` },
+                });
+            }
+            toast.success('Alerta eliminada.');
+            mutateRules();
+        } catch (e) {
+            toast.error('No se pudo eliminar la alerta.');
+        } finally {
+            setDeletingId(null);
+        }
+    };
 
     const items: any[] = data?.items || [];
     const statusCounts = items.reduce(
@@ -153,16 +212,92 @@ export default function ExpiringCredentialsPanel() {
         <div className="space-y-4">
             {data?.mock && <MockBanner tMock={tMock} />}
 
-            <div className="flex items-center justify-end gap-2">
-                <button
-                    onClick={() => setShowAlertModal(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-deep text-white rounded-md text-xs font-bold hover:brightness-110"
-                >
-                    <BellPlus className="w-3.5 h-3.5" /> {t('createAlert')}
-                </button>
-                <PinButton widgetKey="governance.expiring-credentials" />
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
+                    <button
+                        onClick={() => setActiveTab('credentials')}
+                        className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors flex items-center gap-1.5 ${activeTab === 'credentials' ? 'bg-white dark:bg-slate-900 text-brand-deep dark:text-brand-bright shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                    >
+                        <KeyRound className="w-3.5 h-3.5" /> Credenciales
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('rules')}
+                        className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors flex items-center gap-1.5 ${activeTab === 'rules' ? 'bg-white dark:bg-slate-900 text-brand-deep dark:text-brand-bright shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                    >
+                        <ListChecks className="w-3.5 h-3.5" /> Alertas Configuradas
+                    </button>
+                </div>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => setShowAlertModal(true)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-deep text-white rounded-md text-xs font-bold hover:brightness-110"
+                    >
+                        <BellPlus className="w-3.5 h-3.5" /> {t('createAlert')}
+                    </button>
+                    <PinButton widgetKey="governance.expiring-credentials" />
+                </div>
             </div>
 
+            {activeTab === 'rules' ? (
+                <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm overflow-x-auto">
+                    {rulesLoading ? (
+                        <div className="flex items-center justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-brand-deep" /></div>
+                    ) : alertRules.length === 0 ? (
+                        <div className="px-4 py-10 text-center text-sm text-slate-500">
+                            Todavía no configuraste ninguna alerta de vencimiento de credenciales.
+                        </div>
+                    ) : (
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-gray-50 dark:bg-slate-800/50 text-xs text-slate-500 dark:text-slate-400">
+                                <tr>
+                                    <th className="px-4 py-3 font-semibold">Nombre</th>
+                                    <th className="px-4 py-3 font-semibold">Umbral</th>
+                                    <th className="px-4 py-3 font-semibold">Recurrencia</th>
+                                    <th className="px-4 py-3 font-semibold">Canal</th>
+                                    <th className="px-4 py-3 font-semibold">Destino</th>
+                                    <th className="px-4 py-3 font-semibold">Última vez disparada</th>
+                                    <th className="px-4 py-3 font-semibold text-right">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 dark:divide-slate-800/50">
+                                {alertRules.map((r: any) => (
+                                    <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/20">
+                                        <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-200">{r.ruleName}</td>
+                                        <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{r.thresholdValue} días</td>
+                                        <td className="px-4 py-3 text-slate-500 dark:text-slate-400">
+                                            {r.reminderFrequencyHours == null ? 'Solo una vez' : r.reminderFrequencyHours >= 168 ? 'Semanal' : r.reminderFrequencyHours >= 24 ? 'Diaria' : `Cada ${r.reminderFrequencyHours}h`}
+                                        </td>
+                                        <td className="px-4 py-3 text-slate-500 dark:text-slate-400 capitalize">{r.channel}</td>
+                                        <td className="px-4 py-3 text-slate-500 dark:text-slate-400 truncate max-w-[180px]" title={r.channelTarget}>{r.channelTarget}</td>
+                                        <td className="px-4 py-3 text-xs text-slate-400">{r.lastTriggeredAt ? new Date(r.lastTriggeredAt).toLocaleString() : 'Nunca'}</td>
+                                        <td className="px-4 py-3">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <button
+                                                    onClick={() => testAlertRule(r.id)}
+                                                    disabled={testingId === r.id}
+                                                    title="Enviar una notificación de prueba ahora"
+                                                    className="flex items-center gap-1 px-2.5 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded-md text-xs font-semibold hover:bg-blue-100 dark:hover:bg-blue-900/30 disabled:opacity-50"
+                                                >
+                                                    {testingId === r.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />} Probar
+                                                </button>
+                                                <button
+                                                    onClick={() => deleteAlertRule(r.id)}
+                                                    disabled={deletingId === r.id}
+                                                    title="Eliminar esta alerta"
+                                                    className="flex items-center gap-1 px-2.5 py-1 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-md text-xs font-semibold hover:bg-red-100 dark:hover:bg-red-900/30 disabled:opacity-50"
+                                                >
+                                                    {deletingId === r.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+            ) : (
+            <div className="space-y-4">
             <div className="grid grid-cols-3 gap-3">
                 <div className={`rounded-xl p-4 border ${STATUS_STYLES.expired}`}>
                     <p className="text-xs font-semibold uppercase tracking-wide opacity-75">{t('statusExpired')}</p>
@@ -231,6 +366,8 @@ export default function ExpiringCredentialsPanel() {
             </div>
 
             <Pagination {...paginationProps} />
+            </div>
+            )}
 
             {showAlertModal && (
                 <div className="fixed inset-0 bg-black/40 z-50 grid place-items-center p-4" onClick={() => !savingAlert && setShowAlertModal(false)}>

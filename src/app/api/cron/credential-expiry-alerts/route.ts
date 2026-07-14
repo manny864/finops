@@ -3,7 +3,7 @@ import pool, { initializeDatabase } from "@/modules/storage/db";
 import { serverError } from "@/lib/apiErrors";
 import { sendEmailAsync } from "@/lib/emailHelper";
 import { sendLegacyWebhookAlert } from "@/lib/notifications";
-import { getExpiringCredentials, type CredItem } from "@/services/credentialExpiryService";
+import { getExpiringCredentials, credLine, buildCredentialAlertEmailHtml, type CredItem } from "@/services/credentialExpiryService";
 import { createNotification } from "@/lib/notify";
 
 /**
@@ -16,38 +16,10 @@ import { createNotification } from "@/lib/notify";
  *
  * Anti-spam: una notificación por regla por día (last_triggered_at).
  * Agendado en el crontab del VPS (diario) con `Authorization: Bearer $CRON_SECRET`.
+ *
+ * credLine/buildCredentialAlertEmailHtml viven en credentialExpiryService.ts
+ * (compartidas con /api/budgets/alerts/[id]/test, el botón "Probar" del panel).
  */
-
-function credLine(c: CredItem): string {
-    const state = c.daysTillExpiry < 0 ? `VENCIDA hace ${Math.abs(c.daysTillExpiry)} días` : `vence en ${c.daysTillExpiry} días`;
-    return `${c.displayName} (${c.credentialType === "password" ? "secreto" : "certificado"}) — ${state} (${c.expiresAt.slice(0, 10)})`;
-}
-
-function buildEmailHtml(ruleName: string, thresholdDays: number, creds: CredItem[]): string {
-    const rows = creds.map(c => `<tr>
-        <td style="padding:6px 10px;border-bottom:1px solid #eee;">${c.displayName}</td>
-        <td style="padding:6px 10px;border-bottom:1px solid #eee;">${c.credentialType === "password" ? "Secreto" : "Certificado"}</td>
-        <td style="padding:6px 10px;border-bottom:1px solid #eee;">${c.expiresAt.slice(0, 10)}</td>
-        <td style="padding:6px 10px;border-bottom:1px solid #eee;color:${c.daysTillExpiry < 0 ? "#c00" : c.daysTillExpiry <= 7 ? "#d60" : "#333"};font-weight:bold;">
-            ${c.daysTillExpiry < 0 ? `Vencida (${Math.abs(c.daysTillExpiry)} días)` : `${c.daysTillExpiry} días`}
-        </td></tr>`).join("");
-    return `
-    <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;">
-        <h2 style="color:#0054A6;">🔑 Alerta de credenciales por expirar</h2>
-        <p>La regla <b>${ruleName}</b> detectó <b>${creds.length}</b> credencial(es) que vencen dentro de <b>${thresholdDays} días</b> (o ya vencidas):</p>
-        <table style="border-collapse:collapse;width:100%;font-size:14px;">
-            <tr style="background:#f4f7fb;text-align:left;">
-                <th style="padding:8px 10px;">Aplicación</th><th style="padding:8px 10px;">Tipo</th>
-                <th style="padding:8px 10px;">Vence</th><th style="padding:8px 10px;">Estado</th>
-            </tr>
-            ${rows}
-        </table>
-        <p style="color:#666;font-size:12px;margin-top:16px;">
-            Renová estas credenciales en Entra ID antes del vencimiento para evitar cortes de servicio.
-            Detalle completo en Gobernanza → Credenciales por Expirar.
-        </p>
-    </div>`;
-}
 
 export async function GET(request: NextRequest) {
     try {
@@ -112,7 +84,7 @@ export async function GET(request: NextRequest) {
                 const message = matching.slice(0, 10).map(credLine).join("\n");
                 try {
                     if (rule.channel === "email") {
-                        await sendEmailAsync(title, buildEmailHtml(rule.rule_name, thresholdDays, matching), rule.channel_target);
+                        await sendEmailAsync(title, buildCredentialAlertEmailHtml(rule.rule_name, thresholdDays, matching), rule.channel_target);
                     } else {
                         await sendLegacyWebhookAlert(rule.channel_target, { title, message, severity: "warning" });
                     }
