@@ -57,7 +57,9 @@ import {
     Table2,
     Boxes,
     Wallet,
-    Recycle
+    Recycle,
+    Search,
+    X
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -82,6 +84,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
         gobernanza: false,
         admin: false
     });
+    const [searchQuery, setSearchQuery] = useState('');
 
     const toggleGroup = (group: string) => {
         setOpenGroups(prev => ({ ...prev, [group]: !prev[group] }));
@@ -272,6 +275,16 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
         return { ...cat, items }; // Admin sees what the tier allows
     }).filter(Boolean) as typeof categories;
 
+    // Buscador de páginas: filtra por label (normalizado, sin acentos) sobre
+    // los items ya resueltos por rol/tier (roleCategories) — nunca expone una
+    // página que el usuario no vería igual navegando por las categorías.
+    const normalize = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    const searchResults = searchQuery.trim()
+        ? roleCategories.flatMap(cat => cat.items
+            .filter(i => normalize(i.label).includes(normalize(searchQuery.trim())))
+            .map(i => ({ ...i, categoryTitle: cat.title })))
+        : [];
+
     return (
         <aside className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 fixed inset-y-0 left-0 z-50 md:relative ${sidebarOpen ? 'w-[252px]' : 'w-[64px]'} bg-gradient-to-b from-[var(--surface-2)] to-[var(--surface)] text-[var(--ink-soft)] border-r border-[var(--line)] transition-all duration-300 flex flex-col h-full custom-scrollbar`}>
             <div className="flex items-center gap-3 p-[18px_18px_14px] shrink-0">
@@ -289,9 +302,75 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                     )}
                 </div>
             </div>
-            
+
+            {sidebarOpen && (
+                <div className="px-3 pb-2 shrink-0">
+                    <div className="relative">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--ink-soft)] pointer-events-none" />
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Buscar páginas..."
+                            className="w-full pl-8 pr-7 py-1.5 text-xs rounded-lg border border-[var(--line)] bg-[var(--surface)] text-[var(--ink)] placeholder:text-[var(--ink-soft)] focus:outline-none focus:ring-1 focus:ring-brand-bright"
+                        />
+                        {searchQuery && (
+                            <button
+                                onClick={() => setSearchQuery('')}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--ink-soft)] hover:text-[var(--ink)]"
+                                aria-label="Limpiar búsqueda"
+                            >
+                                <X className="w-3.5 h-3.5" />
+                            </button>
+                        )}
+                    </div>
+                </div>
+            )}
+
             <nav className="flex-1 py-4 px-2 space-y-4 overflow-y-auto overflow-x-hidden">
-                {roleCategories.map(category => (
+                {searchQuery.trim() ? (
+                    <div className="space-y-1">
+                        {searchResults.length === 0 ? (
+                            <p className="px-3 py-2 text-xs text-[var(--ink-soft)]">Sin resultados para &quot;{searchQuery}&quot;.</p>
+                        ) : searchResults.map(item => {
+                            const Icon = item.icon;
+                            const isActive = pathname === item.href;
+                            const link = (
+                                <Link
+                                    key={item.href}
+                                    href={item.href}
+                                    onClick={(e) => {
+                                        if ((item as any).requiredTier && !hasAccess(tier, (item as any).requiredTier)) {
+                                            e.preventDefault();
+                                            return;
+                                        }
+                                        setSearchQuery('');
+                                        if (window.innerWidth <= 768) setSidebarOpen(false);
+                                    }}
+                                    className={`w-full flex items-center px-[11px] py-[9px] rounded-[10px] font-semibold transition-all duration-200 text-[13.5px] mb-1 ${
+                                        isActive
+                                            ? 'bg-gradient-to-br from-brand-deep to-[#1E88E5] text-white shadow-[0_6px_16px_rgba(0,84,166,0.4)]'
+                                            : 'text-[var(--ink-soft)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]'
+                                    }`}
+                                >
+                                    <Icon className="flex-shrink-0 w-5 h-5 mr-3" />
+                                    <span className="text-sm truncate flex-1">
+                                        {item.label}
+                                        <span className="block text-[10px] font-normal opacity-70 truncate">{item.categoryTitle}</span>
+                                    </span>
+                                </Link>
+                            );
+                            if ((item as any).requiredTier) {
+                                return (
+                                    <FeatureGuard key={item.href} requiredTier={(item as any).requiredTier} featureName={item.label}>
+                                        {link}
+                                    </FeatureGuard>
+                                );
+                            }
+                            return link;
+                        })}
+                    </div>
+                ) : roleCategories.map(category => (
                     <div key={category.id} className="flex flex-col">
                         {sidebarOpen ? (
                             <button 

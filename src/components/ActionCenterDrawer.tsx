@@ -1,8 +1,9 @@
 "use client";
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useActionLogStore } from '@/store/actionLogStore';
 import { useRouter } from '@/i18n/routing';
-import { X, CheckCircle, AlertCircle, Info, Trash2, ChevronRight } from 'lucide-react';
+import { X, CheckCircle, AlertCircle, Info, Trash2, ChevronRight, BellRing } from 'lucide-react';
+import { getNotificationPermission, requestNotificationPermission } from '@/hooks/useBrowserNotifications';
 
 interface DrawerProps {
     open: boolean;
@@ -16,6 +17,16 @@ const MAX_VISIBLE = 5;
 export default function ActionCenterDrawer({ open, onClose }: DrawerProps) {
     const { actions, clearActions } = useActionLogStore();
     const router = useRouter();
+    const [notifPermission, setNotifPermission] = useState<NotificationPermission | null>(null);
+
+    useEffect(() => {
+        setNotifPermission(getNotificationPermission());
+    }, [open]);
+
+    const enableBrowserNotifications = async () => {
+        const result = await requestNotificationPermission();
+        setNotifPermission(result);
+    };
 
     const visible = actions.slice(0, MAX_VISIBLE);
 
@@ -36,6 +47,24 @@ export default function ActionCenterDrawer({ open, onClose }: DrawerProps) {
                         <X className="w-5 h-5" />
                     </button>
                 </div>
+
+                {notifPermission !== null && notifPermission !== 'granted' && (
+                    <div className="px-4 pt-3 shrink-0">
+                        <button
+                            onClick={enableBrowserNotifications}
+                            disabled={notifPermission === 'denied'}
+                            className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-md text-xs font-semibold bg-brand-soft text-brand-deep hover:bg-brand-deep hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            <BellRing className="w-3.5 h-3.5" />
+                            {notifPermission === 'denied' ? 'Notificaciones bloqueadas (revisá los permisos del navegador)' : 'Activar alertas del navegador'}
+                        </button>
+                    </div>
+                )}
+                {notifPermission === 'granted' && (
+                    <div className="px-4 pt-3 shrink-0 flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400">
+                        <BellRing className="w-3 h-3 text-green-600" /> Alertas del navegador activadas
+                    </div>
+                )}
 
                 <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
                     {visible.length === 0 ? (

@@ -1,7 +1,9 @@
 import pool from "@/modules/storage/db";
-import { deallocateVirtualMachine } from "@/services/remediationService";
+import { deallocateVirtualMachine, startVirtualMachine, restartVirtualMachine } from "@/services/remediationService";
 import { getAzureCredential } from "@/lib/azure";
 import { MonitorClient } from "@azure/arm-monitor";
+
+export type PowerScheduleAction = "shutdown" | "start" | "restart";
 
 /**
  * Power Schedules: apagado programado de VMs.
@@ -19,10 +21,16 @@ export interface PowerScheduleInput {
   subscriptionId: string;
   resourceGroup: string;
   vmName: string;
+  /** Acción a ejecutar. Default 'shutdown' (compatibilidad con schedules viejos). */
+  actionType?: PowerScheduleAction;
   /** "HH:MM" en hora local segun gmtOffset. */
   shutdownTime: string;
   /** Formato "+HH:MM" o "-HH:MM". */
   gmtOffset: string;
+  /** "YYYY-MM-DD" — si se define, ejecuta UNA sola vez en esa fecha local en
+   *  vez de todos los días (recurrente, el comportamiento por defecto). */
+  scheduleDate?: string | null;
+  /** Solo aplica a actionType='shutdown'. */
   smartShutdownEnabled?: boolean;
   maxCpuPercentage?: number;
   idleDurationMinutes?: number;
@@ -35,8 +43,10 @@ export interface PowerScheduleRow {
   subscription_id: string;
   resource_group: string;
   vm_name: string;
+  action_type: PowerScheduleAction;
   shutdown_time: string;
   gmt_offset: string;
+  schedule_date: string | null;
   enabled: number;
   smart_shutdown_enabled: number;
   max_cpu_percentage: number;
@@ -50,14 +60,16 @@ export interface PowerScheduleRow {
 }
 
 export async function upsertPowerSchedule(input: PowerScheduleInput): Promise<void> {
+  const actionType = input.actionType || "shutdown";
   await pool.query(
     `INSERT INTO PowerSchedules
-      (tenant_id, subscription_id, resource_group, vm_name, shutdown_time, gmt_offset,
+      (tenant_id, subscription_id, resource_group, vm_name, action_type, shutdown_time, gmt_offset, schedule_date,
        enabled, smart_shutdown_enabled, max_cpu_percentage, idle_duration_minutes, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)
      ON DUPLICATE KEY UPDATE
        shutdown_time = VALUES(shutdown_time),
        gmt_offset = VALUES(gmt_offset),
+       schedule_date = VALUES(schedule_date),
        enabled = 1,
        smart_shutdown_enabled = VALUES(smart_shutdown_enabled),
        max_cpu_percentage = VALUES(max_cpu_percentage),
@@ -70,9 +82,11 @@ export async function upsertPowerSchedule(input: PowerScheduleInput): Promise<vo
       input.subscriptionId,
       input.resourceGroup,
       input.vmName,
+      actionType,
       `${input.shutdownTime}:00`,
       input.gmtOffset,
-      input.smartShutdownEnabled ? 1 : 0,
+      input.scheduleDate || null,
+      actionType === "shutdown" && input.smartShutdownEnabled ? 1 : 0,
       input.maxCpuPercentage ?? 10,
       input.idleDurationMinutes ?? 60,
       input.createdBy ?? null,
@@ -172,6 +186,13 @@ export async function executeDueSchedules(
       continue; // Ya evaluado/ejecutado hoy (fecha local del schedule).
     }
 
+    // One-off: si schedule_date está seteado, solo corre ese día puntual (no
+    // recurrente). Si la fecha local todavía no llegó, o ya pasó (y por ende
+    // nunca se ejecutó — el cron estuvo caído, por ejemplo), no se ejecuta.
+    if (s.schedule_date && String(s.schedule_date).slice(0, 10) !== localDateStr) {
+      continue;
+    }
+
     const [hh, mm] = String(s.shutdown_time).split(":").map((n) => parseInt(n, 10));
     const scheduledLocal = new Date(localNow);
     scheduledLocal.setHours(hh || 0, mm || 0, 0, 0);
@@ -181,8 +202,10 @@ export async function executeDueSchedules(
     // (evita ejecutar horas después si el cron estuvo caído).
     if (diffMinutes < 0 || diffMinutes > windowMinutes) continue;
 
+    const actionType: PowerScheduleAction = s.action_type || "shutdown";
+
     try {
-      if (s.smart_shutdown_enabled) {
+      if (actionType === "shutdown" && s.smart_shutdown_enabled) {
         const belowThreshold = await isVmCpuBelowThreshold(
           s.tenant_id,
           s.subscription_id,
@@ -201,7 +224,13 @@ export async function executeDueSchedules(
         }
       }
 
-      await deallocateVirtualMachine(s.tenant_id, "cron@system", s.subscription_id, s.resource_group, s.vm_name);
+      if (actionType === "start") {
+        await startVirtualMachine(s.tenant_id, "cron@system", s.subscription_id, s.resource_group, s.vm_name);
+      } else if (actionType === "restart") {
+        await restartVirtualMachine(s.tenant_id, "cron@system", s.subscription_id, s.resource_group, s.vm_name);
+      } else {
+        await deallocateVirtualMachine(s.tenant_id, "cron@system", s.subscription_id, s.resource_group, s.vm_name);
+      }
       executed++;
       await pool.query(
         `UPDATE PowerSchedules SET last_executed_date = ?, last_execution_status = 'executed', last_execution_error = NULL WHERE id = ?`,
@@ -209,7 +238,7 @@ export async function executeDueSchedules(
       );
     } catch (e: any) {
       failed++;
-      console.error(`[PowerSchedule] Error apagando VM ${s.vm_name} (tenant ${s.tenant_id}):`, e?.message || e);
+      console.error(`[PowerSchedule] Error ejecutando ${actionType} en VM ${s.vm_name} (tenant ${s.tenant_id}):`, e?.message || e);
       await pool.query(
         `UPDATE PowerSchedules SET last_executed_date = ?, last_execution_status = 'failed', last_execution_error = ? WHERE id = ?`,
         [localDateStr, String(e?.message || e).slice(0, 500), s.id]

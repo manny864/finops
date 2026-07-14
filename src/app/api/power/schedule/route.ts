@@ -8,6 +8,8 @@ import {
 
 const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
 const OFFSET_RE = /^([+-])(\d{2}):(\d{2})$/;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const ACTION_TYPES = new Set(["shutdown", "start", "restart"]);
 
 export async function GET(request: NextRequest) {
   try {
@@ -36,8 +38,10 @@ export async function POST(request: NextRequest) {
       subscriptionId,
       resourceGroup,
       vmName,
+      actionType,
       shutdownTime,
       gmtOffset,
+      scheduleDate,
       smartShutdownEnabled,
       maxCpuPercentage,
       idleDurationMinutes,
@@ -47,10 +51,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Faltan parámetros requeridos" }, { status: 400 });
     }
     if (!TIME_RE.test(shutdownTime)) {
-      return NextResponse.json({ error: "shutdownTime inválido (formato HH:MM)" }, { status: 400 });
+      return NextResponse.json({ error: "Hora inválida (formato HH:MM)" }, { status: 400 });
     }
     if (!OFFSET_RE.test(gmtOffset)) {
       return NextResponse.json({ error: "gmtOffset inválido (formato +HH:MM o -HH:MM)" }, { status: 400 });
+    }
+    if (actionType && !ACTION_TYPES.has(actionType)) {
+      return NextResponse.json({ error: "actionType inválido (shutdown/start/restart)" }, { status: 400 });
+    }
+    if (scheduleDate && !DATE_RE.test(scheduleDate)) {
+      return NextResponse.json({ error: "scheduleDate inválida (formato YYYY-MM-DD)" }, { status: 400 });
     }
 
     const identity = await requireTenantRole(request, tenantId, ["Owner", "Admin", "Operator"]);
@@ -60,8 +70,10 @@ export async function POST(request: NextRequest) {
       subscriptionId,
       resourceGroup,
       vmName,
+      actionType: ACTION_TYPES.has(actionType) ? actionType : "shutdown",
       shutdownTime,
       gmtOffset,
+      scheduleDate: scheduleDate || null,
       smartShutdownEnabled: Boolean(smartShutdownEnabled),
       maxCpuPercentage: Number.isFinite(maxCpuPercentage) ? Number(maxCpuPercentage) : 10,
       idleDurationMinutes: Number.isFinite(idleDurationMinutes) ? Number(idleDurationMinutes) : 60,

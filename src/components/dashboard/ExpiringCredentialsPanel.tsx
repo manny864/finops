@@ -86,7 +86,7 @@ export default function ExpiringCredentialsPanel() {
     // Hooks ANTES de cualquier return (Rules of Hooks).
     const { paged, ...paginationProps } = usePagination(items, 10);
     const [showAlertModal, setShowAlertModal] = useState(false);
-    const [alertForm, setAlertForm] = useState({ days: "30", channel: "email", target: "" });
+    const [alertForm, setAlertForm] = useState({ days: "30", channel: "email", target: "", recurrence: "24" });
     const [savingAlert, setSavingAlert] = useState(false);
 
     const createExpiryAlert = async () => {
@@ -115,6 +115,7 @@ export default function ExpiringCredentialsPanel() {
                     thresholdUnit: 'days',
                     channel: alertForm.channel,
                     channelTarget: alertForm.target.trim(),
+                    reminderFrequencyHours: alertForm.recurrence === "once" ? null : Number(alertForm.recurrence),
                 }),
             });
             const json = await res.json();
@@ -235,6 +236,18 @@ export default function ExpiringCredentialsPanel() {
                                     onChange={(e) => setAlertForm({ ...alertForm, days: e.target.value })}
                                     className="w-full border border-gray-200 dark:border-slate-700 rounded-md p-2 text-sm mt-1 bg-transparent"
                                 />
+                            </div>
+                            <div>
+                                <label className="text-xs font-semibold text-gray-500">Recurrencia del recordatorio</label>
+                                <select
+                                    value={alertForm.recurrence}
+                                    onChange={(e) => setAlertForm({ ...alertForm, recurrence: e.target.value })}
+                                    className="w-full border border-gray-200 dark:border-slate-700 rounded-md p-2 text-sm mt-1 bg-white dark:bg-slate-800"
+                                >
+                                    <option value="24">Diaria (mientras siga venciendo)</option>
+                                    <option value="168">Semanal</option>
+                                    <option value="once">Solo una vez</option>
+                                </select>
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div>

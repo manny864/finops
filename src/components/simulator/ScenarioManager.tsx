@@ -131,6 +131,74 @@ function comparisonToCsv(scenarios: SavedScenario[]): string {
     return [header.map(csvCell).join(","), ...lines].join("\n");
 }
 
+/** Escapa un valor para una celda de tabla Markdown (pipes rompen la tabla). */
+function mdCell(value: string | number | boolean | null | undefined): string {
+    const s = value === null || value === undefined ? "" : String(value);
+    return s.replace(/\|/g, "\\|").replace(/\n/g, " ");
+}
+
+function mdTable(header: string[], rows: (string | number)[][]): string {
+    const headerLine = `| ${header.map(mdCell).join(" | ")} |`;
+    const sepLine = `| ${header.map(() => "---").join(" | ")} |`;
+    const bodyLines = rows.map((r) => `| ${r.map(mdCell).join(" | ")} |`);
+    return [headerLine, sepLine, ...bodyLines].join("\n");
+}
+
+/** Markdown de un único escenario (usa scenarioRows, mismas filas que el PDF). */
+function scenarioToMarkdown(s: SavedScenario): string {
+    return [
+        `# Escenario What-If: ${s.name}`,
+        "",
+        mdTable(["Campo", "Valor"], scenarioRows(s)),
+        "",
+        `_Generado el ${new Date().toLocaleString()}_`,
+    ].join("\n");
+}
+
+/** Markdown con todos los escenarios guardados, uno por sección. */
+function scenariosListToMarkdown(scenarios: SavedScenario[]): string {
+    return [
+        `# Escenarios What-If guardados`,
+        "",
+        `${scenarios.length} escenario(s).`,
+        "",
+        ...scenarios.map((s) => [`## ${s.name}`, "", mdTable(["Campo", "Valor"], scenarioRows(s)), ""].join("\n")),
+        `_Generado el ${new Date().toLocaleString()}_`,
+    ].join("\n");
+}
+
+/** Markdown de comparación lado-a-lado (escenarios en columnas). */
+function comparisonToMarkdown(scenarios: SavedScenario[]): string {
+    const baseline = scenarios[0];
+    const metricRows: [string, (s: SavedScenario) => string | number][] = [
+        ["Costo Base", (s) => fmt(s.baseCost, s.currency)],
+        ["Costo Proyectado", (s) => fmt(s.projectedCost, s.currency)],
+        ["Delta % vs propio base", (s) => `${s.deltaPct}%`],
+        ["Delta % vs línea base (" + baseline.name + ")", (s) => {
+            if (s.id === baseline.id) return "0%";
+            const dProj = s.projectedCost - baseline.projectedCost;
+            const pct = baseline.projectedCost > 0 ? Math.round((dProj / baseline.projectedCost) * 1000) / 10 : 0;
+            return `${pct}%`;
+        }],
+        ["Compute (proyectado)", (s) => fmt(s.breakdown.compute, s.currency)],
+        ["Storage (proyectado)", (s) => fmt(s.breakdown.storage, s.currency)],
+        ["Network (proyectado)", (s) => fmt(s.breakdown.network, s.currency)],
+        ["Compute ×", (s) => s.inputs.computeScale ?? 1],
+        ["Storage ×", (s) => s.inputs.storageScale ?? 1],
+        ["Network Δ (%)", (s) => s.inputs.networkIncrease ?? 0],
+        ["AHB", (s) => (s.inputs.applyAhb ? "ON" : "OFF")],
+    ];
+    const header = ["Métrica", ...scenarios.map((s) => s.name)];
+    const rows = metricRows.map(([label, fn]) => [label, ...scenarios.map((s) => fn(s))]);
+    return [
+        `# Comparación de Escenarios What-If`,
+        "",
+        mdTable(header, rows),
+        "",
+        `_Generado el ${new Date().toLocaleString()}_`,
+    ].join("\n");
+}
+
 /** Métricas de un escenario en [label, value] — reusadas por CSV y PDF. */
 function scenarioRows(s: SavedScenario): [string, string | number][] {
     return [
@@ -259,7 +327,7 @@ export default function ScenarioManager({ currentInputs, currentBaseCost, curren
     const [notes, setNotes] = useState("");
     const [selected, setSelected] = useState<Set<string>>(new Set());
     const [compareOpen, setCompareOpen] = useState(false);
-    const [exportFormat, setExportFormat] = useState<"csv" | "pdf">("csv");
+    const [exportFormat, setExportFormat] = useState<"csv" | "pdf" | "md">("csv");
 
     const authHeaders = useCallback(async (): Promise<Record<string, string>> => {
         if (isMockTenant(selectedTenant?.id || "") || accounts.length === 0) return {};
@@ -375,6 +443,8 @@ export default function ScenarioManager({ currentInputs, currentBaseCost, curren
         const slug = s.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
         if (exportFormat === "pdf") {
             scenarioToPdf(s).save(`escenario-${slug}.pdf`);
+        } else if (exportFormat === "md") {
+            downloadTextFile(`escenario-${slug}.md`, scenarioToMarkdown(s), "text/markdown;charset=utf-8;");
         } else {
             downloadTextFile(`escenario-${slug}.csv`, scenarioToCsv(s));
         }
@@ -383,6 +453,8 @@ export default function ScenarioManager({ currentInputs, currentBaseCost, curren
     const downloadAll = () => {
         if (exportFormat === "pdf") {
             scenariosListToPdf(scenarios).save(`escenarios-whatif-${dateSlug()}.pdf`);
+        } else if (exportFormat === "md") {
+            downloadTextFile(`escenarios-whatif-${dateSlug()}.md`, scenariosListToMarkdown(scenarios), "text/markdown;charset=utf-8;");
         } else {
             downloadTextFile(`escenarios-whatif-${dateSlug()}.csv`, scenariosListToCsv(scenarios));
         }
@@ -391,6 +463,8 @@ export default function ScenarioManager({ currentInputs, currentBaseCost, curren
     const downloadComparison = (list: SavedScenario[]) => {
         if (exportFormat === "pdf") {
             comparisonToPdf(list).save(`comparacion-whatif-${dateSlug()}.pdf`);
+        } else if (exportFormat === "md") {
+            downloadTextFile(`comparacion-whatif-${dateSlug()}.md`, comparisonToMarkdown(list), "text/markdown;charset=utf-8;");
         } else {
             downloadTextFile(`comparacion-whatif-${dateSlug()}.csv`, comparisonToCsv(list));
         }
@@ -408,12 +482,13 @@ export default function ScenarioManager({ currentInputs, currentBaseCost, curren
                         Formato
                         <select
                             value={exportFormat}
-                            onChange={(e) => setExportFormat(e.target.value as "csv" | "pdf")}
+                            onChange={(e) => setExportFormat(e.target.value as "csv" | "pdf" | "md")}
                             className="border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-md px-2 py-1 text-xs"
                             aria-label="Formato de descarga"
                         >
                             <option value="csv">CSV</option>
                             <option value="pdf">PDF</option>
+                            <option value="md">Markdown</option>
                         </select>
                     </label>
                     <button
@@ -573,7 +648,7 @@ function CompareModal({ scenarios, onClose, onDownload, exportFormat }: {
     scenarios: SavedScenario[];
     onClose: () => void;
     onDownload: () => void;
-    exportFormat: "csv" | "pdf";
+    exportFormat: "csv" | "pdf" | "md";
 }) {
     const baseline = scenarios[0];
     const gridCols = scenarios.length === 2 ? "md:grid-cols-2" : scenarios.length === 3 ? "md:grid-cols-3" : "md:grid-cols-4";

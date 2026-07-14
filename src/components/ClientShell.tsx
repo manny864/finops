@@ -13,6 +13,7 @@ import LanguageSwitcher from './LanguageSwitcher';
 import Sidebar from "./Sidebar";
 import RouteTierGate from './RouteTierGate';
 import ActionCenterDrawer from './ActionCenterDrawer';
+import { useBrowserNotifications } from '@/hooks/useBrowserNotifications';
 import CostToggle from './dashboard/CostToggle';
 import GlobalPagePinButton from './dashboard/GlobalPagePinButton';
 import SupportHeaderActions from './SupportHeaderActions';
@@ -59,6 +60,7 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
   const [activeTab, setActiveTab] = useState('dashboard');
   const [hasPendingUpgrade, setHasPendingUpgrade] = useState(false);
   const { selectedTenant, setSelectedTenant, isAdmin, tenants } = useTenant();
+  useBrowserNotifications(selectedTenant?.id);
   const { instance, accounts, inProgress } = useMsal();
   const { isInitializing } = useAuthLoading();
   

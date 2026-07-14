@@ -40,8 +40,10 @@ export default function PowerSchedules() {
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [refetchTick, setRefetchTick] = useState(0);
     const [scheduleVmName, setScheduleVmName] = useState('');
+    const [scheduleActionType, setScheduleActionType] = useState<'shutdown' | 'start' | 'restart'>('shutdown');
     const [shutdownTime, setShutdownTime] = useState('');
     const [gmtOffset, setGmtOffset] = useState('-05:00');
+    const [scheduleDate, setScheduleDate] = useState('');
     const [smartShutdownEnabled, setSmartShutdownEnabled] = useState(false);
     const [maxCpuPercentage, setMaxCpuPercentage] = useState(10);
     const [idleDurationMinutes, setIdleDurationMinutes] = useState(60);
@@ -112,10 +114,12 @@ export default function PowerSchedules() {
             toast.error('Máquina no encontrada. Refresca la lista de VMs e intenta de nuevo.');
             return;
         }
+        const actionLabel = scheduleActionType === 'start' ? 'encendido' : scheduleActionType === 'restart' ? 'reinicio' : 'apagado';
         if (isMockTenant(selectedTenant.id)) {
-            toast(`[SIMULACIÓN DEMO] Horario configurado para ${scheduleVmName} a las ${shutdownTime} (GMT ${gmtOffset}).`, { icon: '🧪' });
+            toast(`[SIMULACIÓN DEMO] Horario de ${actionLabel} configurado para ${scheduleVmName} a las ${shutdownTime} (GMT ${gmtOffset})${scheduleDate ? ` el ${scheduleDate}` : ' (diario)'}.`, { icon: '🧪' });
             setScheduleVmName('');
             setShutdownTime('');
+            setScheduleDate('');
             return;
         }
         setSavingSchedule(true);
@@ -129,8 +133,10 @@ export default function PowerSchedules() {
                     subscriptionId: vm.subscriptionId,
                     resourceGroup: vm.resourceGroup,
                     vmName: vm.name,
+                    actionType: scheduleActionType,
                     shutdownTime,
                     gmtOffset,
+                    scheduleDate: scheduleDate || null,
                     smartShutdownEnabled,
                     maxCpuPercentage,
                     idleDurationMinutes,
@@ -139,9 +145,10 @@ export default function PowerSchedules() {
             const json = await res.json();
             if (!res.ok) throw new Error(json.error || 'Error al guardar el horario');
             setSchedules(Array.isArray(json.schedules) ? json.schedules : []);
-            toast.success(`Horario de apagado guardado para ${scheduleVmName} a las ${shutdownTime} (GMT ${gmtOffset}).`);
+            toast.success(`Horario de ${actionLabel} guardado para ${scheduleVmName} a las ${shutdownTime} (GMT ${gmtOffset})${scheduleDate ? ` el ${scheduleDate}` : ' (diario)'}.`);
             setScheduleVmName('');
             setShutdownTime('');
+            setScheduleDate('');
         } catch (e: any) {
             toast.error(`No se pudo guardar el horario: ${e.message}`);
         }
@@ -423,12 +430,34 @@ export default function PowerSchedules() {
                                 ))}
                             </select>
                         </div>
-                        <div className="w-full md:w-1/4">
-                            <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px] block mb-2">Hora de Apagado</label>
-                            <input 
-                                type="time" 
+                        <div className="w-full md:w-1/6">
+                            <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px] block mb-2">Acción</label>
+                            <select
+                                value={scheduleActionType}
+                                onChange={(e) => setScheduleActionType(e.target.value as 'shutdown' | 'start' | 'restart')}
+                                className="w-full bg-surface border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2 outline-none placeholder-ink-soft"
+                            >
+                                <option value="shutdown">Apagar</option>
+                                <option value="start">Encender</option>
+                                <option value="restart">Reiniciar</option>
+                            </select>
+                        </div>
+                        <div className="w-full md:w-1/6">
+                            <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px] block mb-2">Hora</label>
+                            <input
+                                type="time"
                                 value={shutdownTime}
                                 onChange={(e) => setShutdownTime(e.target.value)}
+                                className="w-full bg-surface border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2 outline-none placeholder-ink-soft"
+                            />
+                        </div>
+                        <div className="w-full md:w-1/6">
+                            <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px] block mb-2">Fecha (opcional)</label>
+                            <input
+                                type="date"
+                                value={scheduleDate}
+                                onChange={(e) => setScheduleDate(e.target.value)}
+                                title="Dejar vacío para que se repita todos los días. Si elegís una fecha, corre una única vez ese día."
                                 className="w-full bg-surface border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2 outline-none placeholder-ink-soft"
                             />
                         </div>
@@ -491,7 +520,7 @@ export default function PowerSchedules() {
                     {(schedulesLoading || schedules.length > 0) && (
                         <div className="border border-line rounded-[14px] overflow-hidden bg-surface mb-6">
                             <div className="px-4 py-3 border-b border-line bg-surface-2">
-                                <h4 className="text-[13px] font-bold text-ink m-0">Horarios de Apagado Configurados</h4>
+                                <h4 className="text-[13px] font-bold text-ink m-0">Horarios Programados</h4>
                             </div>
                             {schedulesLoading ? (
                                 <div className="empty animate-pulse">Cargando horarios...</div>
@@ -501,7 +530,9 @@ export default function PowerSchedules() {
                                         <thead>
                                             <tr>
                                                 <th>Máquina Virtual</th>
-                                                <th>Hora de Apagado</th>
+                                                <th>Acción</th>
+                                                <th>Hora</th>
+                                                <th>Fecha</th>
                                                 <th>Zona Horaria</th>
                                                 <th>Smart Shutdown</th>
                                                 <th>Última Ejecución</th>
@@ -512,12 +543,16 @@ export default function PowerSchedules() {
                                             {schedules.map((s: any) => (
                                                 <tr key={s.id}>
                                                     <td className="text-sm font-semibold text-gray-900 dark:text-gray-100">{s.vm_name}</td>
+                                                    <td className="text-sm text-gray-500 dark:text-gray-400">
+                                                        {s.action_type === 'start' ? 'Encender' : s.action_type === 'restart' ? 'Reiniciar' : 'Apagar'}
+                                                    </td>
                                                     <td className="text-sm text-gray-500 dark:text-gray-400">{String(s.shutdown_time).slice(0, 5)}</td>
+                                                    <td className="text-sm text-gray-500 dark:text-gray-400">{s.schedule_date ? String(s.schedule_date).slice(0, 10) : 'Diario'}</td>
                                                     <td className="text-sm text-gray-500 dark:text-gray-400">GMT{s.gmt_offset}</td>
-                                                    <td className="text-sm text-gray-500 dark:text-gray-400">{s.smart_shutdown_enabled ? `Sí (≤${s.max_cpu_percentage}% CPU)` : 'No'}</td>
+                                                    <td className="text-sm text-gray-500 dark:text-gray-400">{s.action_type && s.action_type !== 'shutdown' ? '—' : (s.smart_shutdown_enabled ? `Sí (≤${s.max_cpu_percentage}% CPU)` : 'No')}</td>
                                                     <td className="text-sm text-gray-500 dark:text-gray-400">
                                                         {s.last_executed_date
-                                                            ? `${s.last_executed_date} — ${s.last_execution_status === 'executed' ? 'Apagada' : s.last_execution_status === 'skipped_cpu' ? 'Omitida (CPU activa)' : s.last_execution_status === 'failed' ? 'Falló' : s.last_execution_status || ''}`
+                                                            ? `${s.last_executed_date} — ${s.last_execution_status === 'executed' ? 'Ejecutado' : s.last_execution_status === 'skipped_cpu' ? 'Omitida (CPU activa)' : s.last_execution_status === 'failed' ? 'Falló' : s.last_execution_status || ''}`
                                                             : 'Aún no ejecutado'}
                                                     </td>
                                                     <td className="text-right">

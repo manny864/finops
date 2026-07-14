@@ -61,10 +61,16 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { ruleName, ruleType, thresholdValue, thresholdUnit, comparisonOperator, channel, channelTarget, scopeSubscriptionId, budgetId } = body;
+    const { ruleName, ruleType, thresholdValue, thresholdUnit, comparisonOperator, channel, channelTarget, scopeSubscriptionId, budgetId, reminderFrequencyHours } = body;
 
     if (!ruleName || !ruleType || thresholdValue == null || !channel || !channelTarget) {
         return NextResponse.json({ error: "Faltan campos obligatorios." }, { status: 400 });
+    }
+    // undefined = usar el default de la columna (24h); null explícito = alertar
+    // una sola vez; cualquier otro valor debe ser un entero positivo de horas.
+    if (reminderFrequencyHours !== undefined && reminderFrequencyHours !== null
+        && (!Number.isInteger(reminderFrequencyHours) || reminderFrequencyHours < 1)) {
+        return NextResponse.json({ error: "reminderFrequencyHours inválido." }, { status: 400 });
     }
 
     if (ruleType === "budget" && !budgetId) {
@@ -80,8 +86,8 @@ export async function POST(request: NextRequest) {
         const [result]: any = await pool.query(
             `INSERT INTO AlertRules
                 (tenant_id, rule_name, rule_type, scope_subscription_id, budget_id, threshold_value, threshold_unit,
-                 comparison_operator, channel, channel_target, enabled, trigger_count, created_by)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?)`,
+                 comparison_operator, channel, channel_target, reminder_frequency_hours, enabled, trigger_count, created_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?)`,
             [
                 tenantId,
                 ruleName,
@@ -93,6 +99,7 @@ export async function POST(request: NextRequest) {
                 comparisonOperator || "gt",
                 channel,
                 channelTarget,
+                reminderFrequencyHours === undefined ? 24 : reminderFrequencyHours,
                 "api",
             ]
         );

@@ -4,6 +4,7 @@ import { serverError } from "@/lib/apiErrors";
 import { sendEmailAsync } from "@/lib/emailHelper";
 import { sendLegacyWebhookAlert } from "@/lib/notifications";
 import { getExpiringCredentials, type CredItem } from "@/services/credentialExpiryService";
+import { createNotification } from "@/lib/notify";
 
 /**
  * Evaluador de reglas de alerta `credential_expiry` (AlertRules):
@@ -61,11 +62,18 @@ export async function GET(request: NextRequest) {
 
         await initializeDatabase();
 
+        // Recurrencia por-regla (reminder_frequency_hours): NULL = alertar una
+        // sola vez (nunca vuelve a matchear si last_triggered_at ya está seteado);
+        // si tiene un valor, re-alerta cada esa cantidad de horas mientras la
+        // condición se siga cumpliendo. Antes era un hardcode de 23h para todas.
         const [rules]: any = await pool.query(
-            `SELECT id, tenant_id, rule_name, threshold_value, channel, channel_target
+            `SELECT id, tenant_id, rule_name, threshold_value, channel, channel_target, reminder_frequency_hours
              FROM AlertRules
              WHERE rule_type = 'credential_expiry' AND enabled = TRUE
-               AND (last_triggered_at IS NULL OR last_triggered_at < DATE_SUB(NOW(), INTERVAL 23 HOUR))
+               AND (
+                 last_triggered_at IS NULL
+                 OR (reminder_frequency_hours IS NOT NULL AND last_triggered_at < DATE_SUB(NOW(), INTERVAL reminder_frequency_hours HOUR))
+               )
              LIMIT 200`
         );
 
@@ -112,6 +120,14 @@ export async function GET(request: NextRequest) {
                         "UPDATE AlertRules SET last_triggered_at = NOW(), trigger_count = trigger_count + 1 WHERE id = ?",
                         [rule.id]
                     );
+                    await createNotification({
+                        tenantId,
+                        title,
+                        message,
+                        href: "/governance/credentials",
+                        severity: matching.some(c => c.daysTillExpiry < 0) ? "critical" : "warning",
+                        source: "credential_expiry",
+                    });
                     notified++;
                 } catch (sendErr: any) {
                     errors.push(`rule ${rule.id}: ${sendErr?.message || "send error"}`);

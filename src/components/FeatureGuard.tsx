@@ -1,9 +1,8 @@
 "use client";
-import React from 'react';
-import { Lock } from 'lucide-react';
+import React, { useState } from 'react';
 import { useTenant } from './TenantProvider';
 import { hasAccess } from '@/lib/tierLogic';
-import { useTranslations } from 'next-intl';
+import TierLockedNotice from './TierLockedNotice';
 
 interface FeatureGuardProps {
     children: React.ReactNode;
@@ -14,8 +13,8 @@ interface FeatureGuardProps {
 
 export default function FeatureGuard({ children, requiredTier, featureName, className }: FeatureGuardProps) {
     const { selectedTenant, systemRole } = useTenant();
-    const t = useTranslations('Common');
     const currentTier = (selectedTenant as any).tier || 'Essential';
+    const [showNotice, setShowNotice] = useState(false);
 
     if (systemRole === 'SUPERADMIN' || hasAccess(currentTier, requiredTier)) {
         return (
@@ -26,20 +25,33 @@ export default function FeatureGuard({ children, requiredTier, featureName, clas
     }
 
     return (
-        // Borde + fondo crisp en el wrapper (NO en el hijo, que va borroso) para
-        // que la tarjeta bloqueada tenga un contenedor visible y no se funda con
-        // el fondo oscuro. overflow-hidden contiene el blur del contenido.
-        <div className={`relative group cursor-not-allowed rounded-[14px] border border-[var(--line)] bg-[var(--surface)] overflow-hidden ${className || 'mb-1'}`}>
-            <div className="opacity-40 grayscale pointer-events-none blur-[1px] transition-all h-full w-full">
-                {children}
+        <>
+            {/* Borde + fondo crisp en el wrapper (NO en el hijo, que va borroso) para
+                que la tarjeta bloqueada tenga un contenedor visible y no se funda con
+                el fondo oscuro. overflow-hidden contiene el blur del contenido. Clickeable
+                (sin candado) — al hacer click muestra el detalle de qué plan lo desbloquea. */}
+            <div
+                role="button"
+                tabIndex={0}
+                onClick={() => setShowNotice(true)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShowNotice(true); } }}
+                className={`relative group cursor-pointer rounded-[14px] border border-[var(--line)] bg-[var(--surface)] overflow-hidden ${className || 'mb-1'}`}
+            >
+                <div className="opacity-40 grayscale pointer-events-none blur-[1px] transition-all h-full w-full">
+                    {children}
+                </div>
             </div>
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <Lock className="w-5 h-5 text-gray-500/80 drop-shadow-md" />
-            </div>
-            <div className="absolute z-[100] bottom-full mb-2 right-0 w-48 px-3 py-2 text-xs font-medium text-white bg-gray-900 rounded-md shadow-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity text-center whitespace-normal leading-tight">
-                {t('tierRequired', { tier: requiredTier, feature: featureName || 'esta función' })}
-                <div className="absolute top-full right-4 transform border-4 border-transparent border-t-gray-900"></div>
-            </div>
-        </div>
+
+            {showNotice && (
+                <div
+                    className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in"
+                    onClick={() => setShowNotice(false)}
+                >
+                    <div className="max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+                        <TierLockedNotice requiredTier={requiredTier} currentTier={currentTier} featureName={featureName} />
+                    </div>
+                </div>
+            )}
+        </>
     );
 }
