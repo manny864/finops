@@ -19,11 +19,19 @@ export function decimalToCents(value: unknown): number {
 
   const [wholePart = "0", fractionPart = ""] = normalized.split(".");
   const whole = wholePart === "" ? 0 : Number(wholePart);
-  const centsText = `${fractionPart}00`.slice(0, 2);
-  const cents = Number(centsText);
+  // Redondea (no trunca) cuando hay más de 2 decimales de precisión en el
+  // input (ej. "10.995" -> 1100 centavos, no 1099) — antes se perdía hasta
+  // 1 centavo sistemáticamente vía slice() sobre el string sin redondear.
+  const thirdDigit = fractionPart.length > 2 ? Number(fractionPart[2]) : 0;
+  let cents = Number(`${fractionPart}00`.slice(0, 2) || "0");
+  if (thirdDigit >= 5) cents += 1;
 
   if (!Number.isSafeInteger(whole) || !Number.isSafeInteger(cents)) return 0;
-  return sign * (whole * 100 + cents);
+  // El carry de 99->100 centavos (ej. "10.995" con fractionPart "99"+1) suma
+  // un peso entero — normalizarlo antes de componer el resultado final.
+  const carry = Math.floor(cents / 100);
+  cents = cents % 100;
+  return sign * ((whole + carry) * 100 + cents);
 }
 
 export function centsToDecimal(cents: number): number {

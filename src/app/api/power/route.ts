@@ -102,13 +102,11 @@ export async function GET(request: NextRequest) {
             });
         }
 
+        // Error no reconocido (bug, fallo de DB, etc.): antes se enmascaraba
+        // igual como 200 degraded, ocultando fallos reales de monitoreo/alerting
+        // detrás de una respuesta "exitosa" con lista vacía.
         console.error("Power GET error:", e);
-        return NextResponse.json({
-            success: true,
-            auditResults: { allVirtualMachines: [] },
-            degraded: true,
-            message: "No se pudieron cargar VMs en este momento."
-        });
+        return NextResponse.json({ error: "No se pudieron cargar VMs en este momento." }, { status: 500 });
     }
 }
 

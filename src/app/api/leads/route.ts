@@ -1,10 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { escapeHtml } from "@/lib/htmlEscape";
+import rateLimiter from "@/lib/rateLimiter";
 
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
         const { fullName, email, company, spend, requirements } = body;
+
+        // Validación de campos + rate limit por IP: antes este endpoint no
+        // tenía ninguna, a diferencia de leads/demo/route.ts (que sí exige
+        // reCAPTCHA). Permitía spamear el buzón de ventas con requests vacíos/
+        // basura, cada uno disparando un envío real vía MS Graph.
+        if (!fullName || !email || !company) {
+            return NextResponse.json({ success: false, error: "Faltan campos obligatorios" }, { status: 400 });
+        }
+        if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(String(email))) {
+            return NextResponse.json({ success: false, error: "Email inválido" }, { status: 400 });
+        }
+        const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'unknown';
+        const rl = rateLimiter.checkByKey(`leads:enterprise:${ip}`, 5, 60 * 60 * 1000); // 5/hora por IP
+        if (!rl.allowed) {
+            return NextResponse.json({ success: false, error: "Demasiadas solicitudes. Intenta más tarde." }, { status: 429 });
+        }
 
         // 1. Fetch MS Graph Token
         const tokenResponse = await fetch(`https://login.microsoftonline.com/${process.env.AZURE_TENANT_ID}/oauth2/v2.0/token`, {

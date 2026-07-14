@@ -40,6 +40,11 @@ export async function POST(request: NextRequest) {
             ) as any;
 
             if (!tenants || tenants.length === 0) {
+                // Sin rollback acá, la transacción quedaba abierta cuando la
+                // conexión volvía al pool (finally sólo hace release, no commit
+                // ni rollback) — el próximo request que tomara esa conexión
+                // heredaba una transacción huérfana.
+                await connection.rollback();
                 return NextResponse.json(
                     { error: "Tenant not found" },
                     { status: 404 }

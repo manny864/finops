@@ -87,54 +87,76 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get user MFA data.
-    const [userRows] = await pool.query(
-      `SELECT mfa_secret_encrypted, mfa_recovery_codes_hash FROM Users 
-       WHERE email = ? AND tenant_id = ?`,
-      [email, tenantId]
-    );
+    // Get user MFA data. SELECT ... FOR UPDATE + transacción: sin esto, dos
+    // requests concurrentes con el mismo recovery code (doble-click, o un
+    // atacante reenviando la misma solicitud) podían leer el mismo array de
+    // hashes antes de que ninguno escribiera el "consumido", validando ambos
+    // — el código de un solo uso quedaba usable dos veces (TOCTOU).
+    const connection = await pool.getConnection();
+    let user: any;
+    let verified = false;
+    let userNotFound = false;
+    try {
+      await connection.beginTransaction();
+      const [userRows] = await connection.query(
+        `SELECT mfa_secret_encrypted, mfa_recovery_codes_hash FROM Users
+         WHERE email = ? AND tenant_id = ? FOR UPDATE`,
+        [email, tenantId]
+      );
 
-    if (!Array.isArray(userRows) || userRows.length === 0) {
+      if (!Array.isArray(userRows) || userRows.length === 0) {
+        userNotFound = true;
+        await connection.rollback();
+      } else {
+        user = userRows[0] as any;
+
+        // Try TOTP token.
+        if (token) {
+          if (user.mfa_secret_encrypted) {
+            try {
+              const encrypted = JSON.parse(user.mfa_secret_encrypted);
+              const secret = decryptSecret(encrypted.ciphertext, encrypted.iv, encrypted.authTag);
+              verified = await verifyToken(secret, token);
+            } catch (e) {
+              console.error('Error verifying TOTP token:', e);
+            }
+          }
+        }
+
+        // Try recovery code.
+        if (!verified && recovery_code) {
+          if (user.mfa_recovery_codes_hash) {
+            try {
+              const hashes = JSON.parse(user.mfa_recovery_codes_hash);
+              const result = await verifyRecoveryCode(recovery_code, hashes);
+              if (result.valid) {
+                verified = true;
+                // Consume the used recovery code immediately (misma fila bloqueada
+                // por FOR UPDATE hasta el commit).
+                await connection.query(
+                  `UPDATE Users SET mfa_recovery_codes_hash = ? WHERE email = ? AND tenant_id = ?`,
+                  [JSON.stringify(result.remaining), email, tenantId]
+                );
+              }
+            } catch (e) {
+              console.error('Error verifying recovery code:', e);
+            }
+          }
+        }
+        await connection.commit();
+      }
+    } catch (txnErr) {
+      await connection.rollback();
+      throw txnErr;
+    } finally {
+      connection.release();
+    }
+
+    if (userNotFound) {
       return NextResponse.json(
         { error: { code: 'user_not_found', message: 'User not found' } },
         { status: 404 }
       );
-    }
-
-    const user = userRows[0] as any;
-    let verified = false;
-
-    // Try TOTP token.
-    if (token) {
-      if (user.mfa_secret_encrypted) {
-        try {
-          const encrypted = JSON.parse(user.mfa_secret_encrypted);
-          const secret = decryptSecret(encrypted.ciphertext, encrypted.iv, encrypted.authTag);
-          verified = await verifyToken(secret, token);
-        } catch (e) {
-          console.error('Error verifying TOTP token:', e);
-        }
-      }
-    }
-
-    // Try recovery code.
-    if (!verified && recovery_code) {
-      if (user.mfa_recovery_codes_hash) {
-        try {
-          const hashes = JSON.parse(user.mfa_recovery_codes_hash);
-          const result = await verifyRecoveryCode(recovery_code, hashes);
-          if (result.valid) {
-            verified = true;
-            // Consume the used recovery code immediately.
-            await pool.query(
-              `UPDATE Users SET mfa_recovery_codes_hash = ? WHERE email = ? AND tenant_id = ?`,
-              [JSON.stringify(result.remaining), email, tenantId]
-            );
-          }
-        } catch (e) {
-          console.error('Error verifying recovery code:', e);
-        }
-      }
     }
 
     if (!verified) {

@@ -71,8 +71,12 @@ export async function GET(request: NextRequest) {
         const identity = await requireTenantAccess(request, tenantId);
         const oid = identity.claims.oid;
 
-        // Get user progress
-        let userId = 1; // Default for mock
+        // Get user progress. userId=1 (mock default) NUNCA debe usarse para un
+        // tenant real: si el usuario autenticado no tiene fila propia en Users
+        // todavía (race de sincronización, usuario recién agregado), leer/
+        // escribir con userId=1 mezclaría su progreso con el de otro usuario
+        // real que sí tenga ese id en el mismo tenant.
+        let userId: number | null = isMockTenant(tenantId) ? 1 : null;
         if (oid && !isMockTenant(tenantId)) {
             const [userRows]: any = await pool.query('SELECT id FROM Users WHERE entra_oid = ? AND tenant_id = ?', [oid, tenantId]);
             if (userRows && userRows.length > 0) {
@@ -81,7 +85,7 @@ export async function GET(request: NextRequest) {
         }
 
         let completedModules: string[] = [];
-        if (!isMockTenant(tenantId)) {
+        if (!isMockTenant(tenantId) && userId !== null) {
             const [progressRows]: any = await pool.query('SELECT module_id FROM AcademyProgress WHERE user_id = ? AND tenant_id = ?', [userId, tenantId]);
             completedModules = progressRows.map((row: any) => row.module_id);
         }
@@ -121,12 +125,18 @@ export async function POST(request: NextRequest) {
         const identity = await requireTenantAccess(request, tenantId);
         const oid = identity.claims.oid;
 
-        let userId = 1;
+        // Mismo motivo que en GET: sin fila propia en Users, no hay un userId
+        // legítimo al cual atribuir el progreso — se responde éxito sin
+        // persistir en vez de contaminar el progreso de otro usuario (id=1).
+        let userId: number | null = null;
         if (oid) {
             const [userRows]: any = await pool.query('SELECT id FROM Users WHERE entra_oid = ? AND tenant_id = ?', [oid, tenantId]);
             if (userRows && userRows.length > 0) {
                 userId = userRows[0].id;
             }
+        }
+        if (userId === null) {
+            return NextResponse.json({ success: true, message: "Progreso no persistido (usuario aún no sincronizado)" });
         }
 
         await pool.query(

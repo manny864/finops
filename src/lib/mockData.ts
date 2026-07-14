@@ -640,7 +640,11 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                 data: Array.from({length: 30}).map((_, i) => {
                     const services = ['Virtual Machines', 'Storage', 'SQL Database', 'App Service', 'Networking', 'AKS', 'Functions'];
                     const svc = services[i % services.length];
-                    const cost = (150 + Math.random() * 50) * multiplier;
+                    // Determinista (no Math.random): mismo motivo que unit_economics
+                    // más abajo — evita que cada request al mock devuelva totales
+                    // distintos (discrepancias visibles entre refreshes en demo).
+                    const pseudoRandom = (i * 7919) % 1000 / 1000;
+                    const cost = (150 + pseudoRandom * 50) * multiplier;
                     const isoDate = new Date(Date.now() - (29 - i) * 86400000).toISOString().split('T')[0];
                     return {
                         date: isoDate,
@@ -722,14 +726,6 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                     { date: '2026-06-22', cost: 295 * multiplier, inputTokens: 1490000 * multiplier, outputTokens: 640000 * multiplier },
                     { date: '2026-06-27', cost: 310 * multiplier, inputTokens: 1560000 * multiplier, outputTokens: 680000 * multiplier },
                 ],
-            };
-        case 'rates':
-            return {
-                success: true,
-                data: [
-                    { service: 'Virtual Machines', rate: 0.15, unit: '1 Hour' },
-                    { service: 'Storage', rate: 0.05, unit: '1 GB/Month' }
-                ]
             };
         case 'network':
             return {

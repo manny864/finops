@@ -9,6 +9,11 @@ import Pagination, { usePagination } from '@/components/Pagination';
 import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
 
+// Contador module-level para generar keys estables client-side (no persisten,
+// no se mandan al backend — sólo identidad de React entre renders).
+let ruleKeySeq = 0;
+const nextRuleKey = () => `rule-${++ruleKeySeq}`;
+
 export default function AllocationManager() {
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
@@ -46,6 +51,12 @@ export default function AllocationManager() {
             data.data.forEach((rule: any) => {
                 if (!grouped[rule.resourceName]) grouped[rule.resourceName] = [];
                 grouped[rule.resourceName].push({
+                    // _key: identidad estable para React (no se manda al backend,
+                    // ver handleSave). Sin esto, las filas usaban el índice de
+                    // paginación como key — al borrar una fila del medio, React
+                    // reconciliaba mal el foco/valor de los inputs no controlados
+                    // de las filas siguientes.
+                    _key: nextRuleKey(),
                     targetCostCenter: rule.targetCostCenter,
                     allocationPercentage: Number(rule.allocationPercentage)
                 });
@@ -77,7 +88,7 @@ export default function AllocationManager() {
         const newResName = `RecursoCompartido-${Object.keys(rulesByResource).length + 1}`;
         setRulesByResource(prev => ({
             ...prev,
-            [newResName]: [{ targetCostCenter: 'General', allocationPercentage: 100 }]
+            [newResName]: [{ _key: nextRuleKey(), targetCostCenter: 'General', allocationPercentage: 100 }]
         }));
     };
 
@@ -94,7 +105,7 @@ export default function AllocationManager() {
     const addAllocation = (resourceName: string) => {
         setRulesByResource(prev => {
             const current = [...prev[resourceName]];
-            current.push({ targetCostCenter: 'Nuevo Centro', allocationPercentage: 0 });
+            current.push({ _key: nextRuleKey(), targetCostCenter: 'Nuevo Centro', allocationPercentage: 0 });
             return { ...prev, [resourceName]: current };
         });
     };
@@ -200,10 +211,10 @@ export default function AllocationManager() {
                         const totalPct = rulesByResource[resName].reduce((acc, r) => acc + r.allocationPercentage, 0);
                         const isBalanced = Math.abs(totalPct - 100) < 0.01;
                         
-                        if (!paginationState[resName]) {
-                            setPaginationState(prev => ({ ...prev, [resName]: { page: 1, pageSize: 10 } }));
-                        }
-                        
+                        // Sin entrada en paginationState todavía (recurso recién
+                        // agregado): el fallback inline alcanza, no hace falta
+                        // setState acá — llamarlo durante el render (como antes)
+                        // fuerza un re-render extra en cada resource nuevo.
                         const { page, pageSize } = paginationState[resName] || { page: 1, pageSize: 10 };
                         const start = (page - 1) * pageSize;
                         const paged = rulesByResource[resName].slice(start, start + pageSize);
@@ -226,7 +237,7 @@ export default function AllocationManager() {
                                 
                                 <div className="p-4 space-y-3">
                                     {paged.map((rule, idx) => (
-                                        <div key={idx} className="flex gap-2 items-center">
+                                        <div key={rule._key ?? idx} className="flex gap-2 items-center">
                                             <input 
                                                 type="text" 
                                                 value={rule.targetCostCenter}
@@ -268,7 +279,7 @@ export default function AllocationManager() {
                                             </span>
                                             <div className="flex gap-1">
                                                 <button
-                                                    onClick={() => setPaginationState(prev => ({ ...prev, [resName]: { ...prev[resName], page: Math.max(1, page - 1) } }))}
+                                                    onClick={() => setPaginationState(prev => ({ ...prev, [resName]: { pageSize: prev[resName]?.pageSize ?? 10, page: Math.max(1, page - 1) } }))}
                                                     disabled={page <= 1}
                                                     className="px-2 py-1 rounded border border-gray-200 dark:border-slate-700 text-gray-700 dark:text-gray-300 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-slate-800"
                                                 >
@@ -276,7 +287,7 @@ export default function AllocationManager() {
                                                 </button>
                                                 <span className="px-2 py-1 text-gray-700 dark:text-gray-300 font-bold">{page}/{totalPages}</span>
                                                 <button
-                                                    onClick={() => setPaginationState(prev => ({ ...prev, [resName]: { ...prev[resName], page: Math.min(totalPages, page + 1) } }))}
+                                                    onClick={() => setPaginationState(prev => ({ ...prev, [resName]: { pageSize: prev[resName]?.pageSize ?? 10, page: Math.min(totalPages, page + 1) } }))}
                                                     disabled={page >= totalPages}
                                                     className="px-2 py-1 rounded border border-gray-200 dark:border-slate-700 text-gray-700 dark:text-gray-300 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-slate-800"
                                                 >

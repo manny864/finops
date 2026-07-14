@@ -16,61 +16,94 @@ export async function POST(request: NextRequest) {
     const body: DisableBody = await request.json();
     const { token, recoveryCode } = body;
 
-    // Get user MFA data
-    const [rows] = await pool.query(
-      `SELECT mfa_enabled, mfa_secret_encrypted, mfa_recovery_codes_hash FROM Users 
-       WHERE email = ? AND tenant_id = ?`,
-      [email, tenantId]
-    );
+    // Get user MFA data. SELECT ... FOR UPDATE + transacción evita el mismo
+    // TOCTOU que en verify-challenge: dos requests concurrentes con el mismo
+    // recovery code podían consumirlo dos veces antes de este fix.
+    const connection = await pool.getConnection();
+    let user: any;
+    let verified = false;
+    let userNotFound = false;
+    let mfaNotEnabled = false;
+    try {
+      await connection.beginTransaction();
+      const [rows] = await connection.query(
+        `SELECT mfa_enabled, mfa_secret_encrypted, mfa_recovery_codes_hash FROM Users
+         WHERE email = ? AND tenant_id = ? FOR UPDATE`,
+        [email, tenantId]
+      );
 
-    if (!Array.isArray(rows) || rows.length === 0) {
+      if (!Array.isArray(rows) || rows.length === 0) {
+        userNotFound = true;
+        await connection.rollback();
+      } else {
+        user = rows[0] as any;
+        if (!user.mfa_enabled) {
+          mfaNotEnabled = true;
+          await connection.rollback();
+        } else {
+          // Try TOTP token
+          if (token) {
+            if (user.mfa_secret_encrypted) {
+              try {
+                const encrypted = JSON.parse(user.mfa_secret_encrypted);
+                const secret = decryptSecret(encrypted.ciphertext, encrypted.iv, encrypted.authTag);
+                verified = await verifyToken(secret, token);
+              } catch (e) {
+                console.error('Error verifying TOTP token:', e);
+              }
+            }
+          }
+
+          // Try recovery code
+          if (!verified && recoveryCode) {
+            if (user.mfa_recovery_codes_hash) {
+              try {
+                const hashes = JSON.parse(user.mfa_recovery_codes_hash);
+                const result = await verifyRecoveryCode(recoveryCode, hashes);
+                if (result.valid) {
+                  verified = true;
+                  // Update remaining recovery codes (fila bloqueada por FOR UPDATE)
+                  await connection.query(
+                    `UPDATE Users SET mfa_recovery_codes_hash = ? WHERE email = ? AND tenant_id = ?`,
+                    [JSON.stringify(result.remaining), email, tenantId]
+                  );
+                }
+              } catch (e) {
+                console.error('Error verifying recovery code:', e);
+              }
+            }
+          }
+
+          if (verified) {
+            // Disable MFA en la misma transacción.
+            await connection.query(
+              `UPDATE Users SET mfa_enabled = FALSE, mfa_secret_encrypted = NULL,
+               mfa_recovery_codes_hash = NULL WHERE email = ? AND tenant_id = ?`,
+              [email, tenantId]
+            );
+          }
+          await connection.commit();
+        }
+      }
+    } catch (txnErr) {
+      await connection.rollback();
+      throw txnErr;
+    } finally {
+      connection.release();
+    }
+
+    if (userNotFound) {
       return NextResponse.json(
         { error: { code: 'user_not_found', message: 'User not found' } },
         { status: 404 }
       );
     }
 
-    const user = rows[0] as any;
-    if (!user.mfa_enabled) {
+    if (mfaNotEnabled) {
       return NextResponse.json(
         { error: { code: 'mfa_not_enabled', message: 'MFA is not enabled' } },
         { status: 400 }
       );
-    }
-
-    let verified = false;
-
-    // Try TOTP token
-    if (token) {
-      if (user.mfa_secret_encrypted) {
-        try {
-          const encrypted = JSON.parse(user.mfa_secret_encrypted);
-          const secret = decryptSecret(encrypted.ciphertext, encrypted.iv, encrypted.authTag);
-          verified = await verifyToken(secret, token);
-        } catch (e) {
-          console.error('Error verifying TOTP token:', e);
-        }
-      }
-    }
-
-    // Try recovery code
-    if (!verified && recoveryCode) {
-      if (user.mfa_recovery_codes_hash) {
-        try {
-          const hashes = JSON.parse(user.mfa_recovery_codes_hash);
-          const result = await verifyRecoveryCode(recoveryCode, hashes);
-          if (result.valid) {
-            verified = true;
-            // Update remaining recovery codes
-            await pool.query(
-              `UPDATE Users SET mfa_recovery_codes_hash = ? WHERE email = ? AND tenant_id = ?`,
-              [JSON.stringify(result.remaining), email, tenantId]
-            );
-          }
-        } catch (e) {
-          console.error('Error verifying recovery code:', e);
-        }
-      }
     }
 
     if (!verified) {
@@ -79,13 +112,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    // Disable MFA
-    await pool.query(
-      `UPDATE Users SET mfa_enabled = FALSE, mfa_secret_encrypted = NULL, 
-       mfa_recovery_codes_hash = NULL WHERE email = ? AND tenant_id = ?`,
-      [email, tenantId]
-    );
 
     // TODO: Audit log
 
