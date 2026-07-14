@@ -4,7 +4,15 @@
 // de Azure Entra ID y las env vars necesarias.
 //
 // Uso:
-//   k6 run -e TENANT_ID=... -e CLIENT_ID=... -e CLIENT_SECRET=... \
+//   El CLIENT_SECRET vive en Key Vault (secret "loadtest-sp-client-secret",
+//   NO en .env/scripts — ver docs/loadtest.md §1c), se trae recién al
+//   momento de correr la prueba:
+//
+//   export CLIENT_SECRET=$(az keyvault secret show \
+//     --vault-name cscs-kv-finops-saas-prod \
+//     --name loadtest-sp-client-secret --query value -o tsv)
+//
+//   k6 run -e TENANT_ID=... -e CLIENT_ID=... -e CLIENT_SECRET=$CLIENT_SECRET \
 //          -e APP_SCOPE=api://<client-id-de-la-app>/.default \
 //          -e TARGET_URL=https://finops.cscloudsolutions.com.ar/api/loadtest/probe \
 //          --vus 20 --duration 30s loadtest/k6-probe.js

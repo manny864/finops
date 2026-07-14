@@ -18,14 +18,53 @@ exige el token del Service Principal y hace un `SELECT 1` en MySQL + un
 ```bash
 # 1a. Crear el App Registration dedicado a load testing.
 az ad app create --display-name "FinOps-LoadTest-SP"
-# Anotar el "appId" (Client ID) que devuelve.
+# Anotar el "appId" (Client ID) que devuelve. Este valor es el que va en
+# LOAD_TEST_SP_APP_ID (no es sensible, es un identificador público — igual
+# que AZURE_CLIENT_ID ya vive en el .env plano del VPS).
 
 # 1b. Crear el Service Principal asociado y un secret.
 az ad sp create --id <APP_ID_DEL_PASO_1a>
 az ad app credential reset --id <APP_ID_DEL_PASO_1a> --display-name "loadtest-secret" --years 1
-# Anotar "password" (Client Secret) y "tenant" (Tenant ID) que devuelve —
-# el secret NO se puede volver a ver después, guardalo en un vault/1Password.
+# Esto devuelve "password" (Client Secret) y "tenant" (Tenant ID). El
+# secret NO se puede volver a ver después de este comando — subilo AL TOQUE
+# al Key Vault (paso 1c), no lo dejes en la terminal/portapapeles/chat.
 ```
+
+### 1c. Guardar el Client Secret en Key Vault (no en `.env`, no en el script)
+
+Este proyecto ya tiene Key Vault integrado (`cscs-kv-finops-saas-prod` — ver
+[key-vault-integration.md](key-vault-integration.md)). El secret del SP de
+load testing va ahí, bajo un nombre que lo distingue claramente de los
+`infra-*` (esos los hidrata la propia app en boot — este NO: nuestro
+backend nunca necesita el client secret, solo lo necesita quien CORRE k6/
+JMeter desde afuera, así que no tiene sentido que la app lo lea):
+
+```bash
+az keyvault secret set \
+  --vault-name cscs-kv-finops-saas-prod \
+  --name loadtest-sp-client-secret \
+  --value "<el 'password' devuelto en el paso 1b>"
+```
+
+RBAC necesario para correr esto: `Key Vault Secrets Officer` (o
+`Administrator`) sobre el vault — el mismo rol que ya tiene el humano admin
+según el runbook de key-vault-integration.md.
+
+Para consumirlo al momento de correr la prueba (en vez de tenerlo pegado en
+un script o env var persistente), quien ejecuta k6/JMeter lo trae recién en
+ese momento:
+
+```bash
+export CLIENT_SECRET=$(az keyvault secret show \
+  --vault-name cscs-kv-finops-saas-prod \
+  --name loadtest-sp-client-secret \
+  --query value -o tsv)
+```
+
+Esto requiere que esa persona/CI tenga el rol `Key Vault Secrets User`
+(mínimo, solo lectura) sobre el vault — pedilo por separado del rol
+`Secrets Officer` del paso anterior, no reuses el mismo principal con más
+permiso del que necesita cada quien.
 
 ## 2. Exponer la app FinOps como API y dar el permiso mínimo
 
