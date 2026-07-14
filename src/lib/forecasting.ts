@@ -211,9 +211,9 @@ export function holtWintersForecast(
     const seasonIndex = t % season;
     const sf = seasonalFactors[seasonIndex] || new Decimal(1);
 
-    // Update level
-    const newLevel = val
-      .dividedBy(sf)
+    // Update level. `sf` puede ser 0 en el mismo escenario que `level` (ver nota
+    // abajo) — sin guard, Decimal.js lanza en vez de dar Infinity.
+    const newLevel = (sf.greaterThan(0) ? val.dividedBy(sf) : val)
       .times(alphaDec)
       .plus(level.plus(trend).times(new Decimal(1).minus(alphaDec)));
 
@@ -223,11 +223,16 @@ export function holtWintersForecast(
       .times(betaDec)
       .plus(trend.times(new Decimal(1).minus(betaDec)));
 
-    // Update seasonal factor
-    const newSeasonalFactor = val
-      .dividedBy(level)
-      .times(gammaDec)
-      .plus(sf.times(new Decimal(1).minus(gammaDec)));
+    // Update seasonal factor. Decimal.js lanza excepción en división por cero
+    // (a diferencia de floats de JS que dan Infinity) — `level` puede ser 0 si
+    // los primeros `season` días de historial tienen costo $0 (tenant nuevo,
+    // gap de datos), reventando esta llamada con un 500 no manejado.
+    const newSeasonalFactor = level.greaterThan(0)
+      ? val
+          .dividedBy(level)
+          .times(gammaDec)
+          .plus(sf.times(new Decimal(1).minus(gammaDec)))
+      : sf;
 
     seasonalFactors[seasonIndex] = newSeasonalFactor;
     level = newLevel;

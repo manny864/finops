@@ -12,7 +12,12 @@ export default function ExpiredSandboxTable() {
 
     useEffect(() => {
         if (accounts.length === 0 || selectedTenant.id === 'default') return;
-        
+
+        // Sin este guard, si el usuario cambia de tenant mientras el fetch está
+        // en vuelo, una respuesta tardía puede pintar (y luego el botón Eliminar
+        // operar sobre) recursos de un tenant que ya no es el seleccionado.
+        let cancelled = false;
+
         const fetchTTL = async () => {
             setLoading(true);
             try {
@@ -20,20 +25,23 @@ export default function ExpiredSandboxTable() {
                     scopes: ["User.Read"],
                     account: accounts[0]
                 });
-                
+
                 const res = await fetch(`/api/audit/ttl?tenantId=${selectedTenant.id}`, {
                     headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
                 });
                 const json = await res.json();
+                if (cancelled) return;
                 if (json.expiredResources) {
                     setExpiredResources(json.expiredResources);
                 }
             } catch (e) {
                 console.error("Error fetching TTL data:", e);
             }
-            setLoading(false);
+            if (!cancelled) setLoading(false);
         };
         fetchTTL();
+
+        return () => { cancelled = true; };
     }, [accounts, instance, selectedTenant.id]);
 
     const handleDelete = async (resource: any) => {

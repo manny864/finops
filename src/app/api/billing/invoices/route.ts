@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireTenantRole } from "@/lib/requestAuth";
+import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";
 
 export async function GET(request: NextRequest) {
@@ -48,6 +48,7 @@ export async function GET(request: NextRequest) {
       count: invoices.length,
     });
   } catch (error: any) {
+    if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error("[Billing] GET /invoices error:", error);
     return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
   }

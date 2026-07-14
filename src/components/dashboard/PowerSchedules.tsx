@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
 import { useMsal } from '@azure/msal-react';
 import { useTenant } from '../TenantProvider';
@@ -48,7 +48,16 @@ export default function PowerSchedules() {
     const [schedules, setSchedules] = useState<any[]>([]);
     const [schedulesLoading, setSchedulesLoading] = useState(false);
     const [savingSchedule, setSavingSchedule] = useState(false);
-    
+
+    // Tenant "vivo" al momento de cada fetch — se actualiza en cada render
+    // (no en un efecto), así que un fetch de loadSchedules/fetchVms lanzado
+    // para el tenant anterior puede detectar, al resolver, que el usuario ya
+    // cambió de tenant y descartar su resultado en vez de pisar el estado con
+    // horarios/VMs que no pertenecen al tenant activo (riesgo real acá: los
+    // botones Start/Stop/Restart/Delete operan sobre lo que esta tabla muestra).
+    const activeTenantIdRef = useRef(selectedTenant.id);
+    activeTenantIdRef.current = selectedTenant.id;
+
     let t: any = (key: string) => key === 'prev' ? 'Anterior' : 'Siguiente';
     try {
       const nextIntl = require('next-intl');
@@ -64,6 +73,7 @@ export default function PowerSchedules() {
 
     const loadSchedules = async () => {
         if (!selectedTenant || selectedTenant.id === 'default' || (accounts.length === 0 && !isMockTenant(selectedTenant.id))) return;
+        const requestedTenantId = selectedTenant.id;
         if (isMockTenant(selectedTenant.id)) {
             setSchedules(MOCK_SCHEDULES);
             return;
@@ -71,13 +81,14 @@ export default function PowerSchedules() {
         setSchedulesLoading(true);
         try {
             const headers = await getAuthHeaders();
-            const res = await fetch(`/api/power/schedule?tenantId=${selectedTenant.id}`, { headers });
+            const res = await fetch(`/api/power/schedule?tenantId=${requestedTenantId}`, { headers });
             const json = await res.json();
+            if (activeTenantIdRef.current !== requestedTenantId) return;
             if (res.ok) setSchedules(Array.isArray(json.schedules) ? json.schedules : []);
         } catch (e) {
             console.error("Error cargando power schedules:", e);
         }
-        setSchedulesLoading(false);
+        if (activeTenantIdRef.current === requestedTenantId) setSchedulesLoading(false);
     };
 
     useEffect(() => {
@@ -157,11 +168,12 @@ export default function PowerSchedules() {
     useEffect(() => {
         if ((accounts.length === 0 && !isMockTenant(selectedTenant.id)) || selectedTenant.id === 'default') return;
         const fetchVms = async () => {
+            const requestedTenantId = selectedTenant.id;
             setLoading(true);
             try {
                 let json;
-                if (isMockTenant(selectedTenant.id)) {
-                    json = getMockDataForRoute('audit_full', selectedTenant.id);
+                if (isMockTenant(requestedTenantId)) {
+                    json = getMockDataForRoute('audit_full', requestedTenantId);
                 } else {
                     const tokenResponse = await instance.acquireTokenSilent({
                         scopes: ["User.Read"],
@@ -170,7 +182,7 @@ export default function PowerSchedules() {
                     const subParam = selectedSubscription && selectedSubscription.toLowerCase() !== 'all'
                         ? `&subscriptionId=${selectedSubscription}`
                         : '';
-                    const res = await fetch(`/api/power?tenantId=${selectedTenant.id}${subParam}`, {
+                    const res = await fetch(`/api/power?tenantId=${requestedTenantId}${subParam}`, {
                         headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
                     });
                     if (!res.ok) {
@@ -178,7 +190,9 @@ export default function PowerSchedules() {
                     }
                     json = await res.json();
                 }
-                
+
+                if (activeTenantIdRef.current !== requestedTenantId) return;
+
                 if (json?.auditResults && json.auditResults.allVirtualMachines) {
                     setVms(json.auditResults.allVirtualMachines);
                     setSelectedVmIds(json.auditResults.allVirtualMachines.map((vm: any) => vm.id));
@@ -189,7 +203,7 @@ export default function PowerSchedules() {
             } catch (e) {
                 console.error("Error fetching VMs:", e);
             }
-            setLoading(false);
+            if (activeTenantIdRef.current === requestedTenantId) setLoading(false);
         };
         fetchVms();
         // Mismo motivo que en loadSchedules: refrescar el powerState real de las

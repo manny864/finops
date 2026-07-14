@@ -18,7 +18,12 @@ export default function CostForecastChart() {
 
     useEffect(() => {
         if (accounts.length === 0 || selectedTenant.id === 'default' || !selectedSubscription) return;
-        
+
+        // Guard contra condición de carrera: si el usuario cambia de tenant/sub
+        // mientras este fetch sigue en vuelo, una respuesta tardía no debe pisar
+        // el estado con datos del tenant/sub ya abandonado.
+        let cancelled = false;
+
         const fetchForecast = async () => {
             setLoading(true);
             try {
@@ -27,12 +32,13 @@ export default function CostForecastChart() {
                     account: accounts[0]
                 });
                 const res = await fetch(`/api/intelligence/forecast?tenantId=${selectedTenant.id}&subscriptionId=${selectedSubscription}`, {
-                    headers: { 
+                    headers: {
                         'Authorization': `Bearer ${tokenResponse.idToken}`,
                         'x-metric-type': metricType
                     }
                 });
                 const json = await res.json();
+                if (cancelled) return;
                 if (json.data) {
                     setData(json.data);
                 }
@@ -45,6 +51,7 @@ export default function CostForecastChart() {
                         body: JSON.stringify({ tenantId: selectedTenant.id, monthlyBudget: 8000 })
                     });
                     const postJson = await postRes.json();
+                    if (cancelled) return;
                     if (postJson.success) {
                         setBreachInfo({
                             isBreachPredicted: postJson.isBreachPredicted,
@@ -58,9 +65,11 @@ export default function CostForecastChart() {
             } catch (e) {
                 console.error("Error fetching forecast:", e);
             }
-            setLoading(false);
+            if (!cancelled) setLoading(false);
         };
         fetchForecast();
+
+        return () => { cancelled = true; };
     }, [accounts, instance, selectedTenant.id, selectedSubscription, metricType]);
 
     if (accounts.length === 0 || selectedTenant.id === 'default') return null;

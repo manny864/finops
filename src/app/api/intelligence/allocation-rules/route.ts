@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { hasAccess } from "@/lib/tierLogic";
+import { tenants as mockTenants } from "@/lib/tenants";
 import pool from "@/modules/storage/db";
 import { randomUUID } from "crypto";
 import { requireTenantAccess, requireTenantRole, AuthError } from "@/lib/requestAuth";
@@ -11,12 +12,24 @@ import { serverError } from '@/lib/apiErrors';
 export async function GET(request: NextRequest) {
     try {
         const tenantId = request.nextUrl.searchParams.get('tenantId');
-        const userTier = request.nextUrl.searchParams.get('tier') || 'Essential';
 
         if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
 
         // Valida token JWT + pertenencia al tenant (evita IDOR cross-tenant).
         await requireTenantAccess(request, tenantId);
+
+        // Tier resuelto desde la fuente de verdad (DB / lista de mocks), nunca del
+        // query param del cliente — antes se aceptaba ?tier=Enterprise directo,
+        // permitiendo bypassear el paywall a cualquier usuario del tenant.
+        let userTier = 'Essential';
+        if (isMockTenant(tenantId)) {
+            userTier = mockTenants.find(t => t.id === tenantId)?.tier || 'Essential';
+        } else {
+            const [tierRows] = await pool.query("SELECT tier FROM Tenants WHERE tenant_id = ? LIMIT 1", [tenantId]);
+            if (Array.isArray(tierRows) && tierRows.length > 0) {
+                userTier = (tierRows[0] as { tier?: string }).tier || 'Essential';
+            }
+        }
 
         if (!hasAccess(userTier, 'Enterprise')) {
             return NextResponse.json({ error: "Funcionalidad requiere plan Enterprise o superior." }, { status: 403 });

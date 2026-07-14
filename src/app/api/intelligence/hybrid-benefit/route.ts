@@ -2,23 +2,36 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { hasAccess } from "@/lib/tierLogic";
+import { tenants as mockTenants } from "@/lib/tenants";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { getResourceGraphClient } from "@/lib/azure";
 import { getRetailPricing } from "@/services/pricingService";
+import pool from "@/modules/storage/db";
 
 export async function GET(request: NextRequest) {
     try {
         const tenantId = request.nextUrl.searchParams.get('tenantId');
-        const userTier = request.nextUrl.searchParams.get('tier') || 'Essential';
 
         if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
+
+        await requireTenantAccess(request, tenantId);
+
+        // Tier resuelto desde DB/lista de mocks, no del query param del cliente
+        // (antes ?tier=Professional en la URL bypasseaba el paywall).
+        let userTier = 'Essential';
+        if (isMockTenant(tenantId)) {
+            userTier = mockTenants.find(t => t.id === tenantId)?.tier || 'Essential';
+        } else {
+            const [tierRows] = await pool.query("SELECT tier FROM Tenants WHERE tenant_id = ? LIMIT 1", [tenantId]);
+            if (Array.isArray(tierRows) && tierRows.length > 0) {
+                userTier = (tierRows[0] as { tier?: string }).tier || 'Essential';
+            }
+        }
 
         // Feature Gating
         if (!hasAccess(userTier, 'Professional')) {
             return NextResponse.json({ error: "Funcionalidad requiere plan Professional o superior." }, { status: 403 });
         }
-
-        await requireTenantAccess(request, tenantId);
 
         if (isMockTenant(tenantId)) {
             return NextResponse.json(getMockDataForRoute('hybrid-benefit', tenantId));

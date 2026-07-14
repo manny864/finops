@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isMockTenant } from "@/lib/mockData";
 import pool from "@/modules/storage/db";
 import { renderShowbackPdf } from "@/lib/pdf/showbackInvoice";
-import { requireTenantRole } from "@/lib/requestAuth";
+import { requireTenantRole, hasSystemRole } from "@/lib/requestAuth";
 import JSZip from "jszip";
 import { serverError } from '@/lib/apiErrors';
 
@@ -198,7 +198,9 @@ export async function GET(request: NextRequest) {
                 return NextResponse.json({ error: "Tenant no encontrado." }, { status: 404 });
             }
             const tier = String(tenants[0].tier || "");
-            const isSuperAdmin = identity?.isCorporateDomain || false;
+            // isCorporateDomain no implica SuperAdmin: hay que verificar
+            // system_role='SUPERADMIN' en DB (mismo bug que en admin/config/users).
+            const isSuperAdmin = !!identity?.isCorporateDomain && await hasSystemRole(identity.email, "SUPERADMIN");
             if (tier.toLowerCase() !== "enterprise" && !isSuperAdmin) {
                 return NextResponse.json({ error: "Feature bloqueada. Requiere plan Enterprise." }, { status: 403 });
             }

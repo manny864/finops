@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { renderShowbackPdf } from "@/lib/pdf/showbackInvoice";
-import { requireTenantRole } from "@/lib/requestAuth";
+import { requireTenantRole, hasSystemRole } from "@/lib/requestAuth";
 import { notifyTenant } from "@/lib/notifications";
 import { serverError } from '@/lib/apiErrors';
 
@@ -39,11 +39,20 @@ export async function POST(request: NextRequest) {
 
         // Fetch tenant data and invoicing data
         const [tenants]: any = await pool.query(
-            "SELECT company_name, partner_markup_percent FROM Tenants WHERE tenant_id = ?",
+            "SELECT company_name, partner_markup_percent, tier FROM Tenants WHERE tenant_id = ?",
             [tenantId]
         );
         if (!tenants || tenants.length === 0) {
             return NextResponse.json({ error: "Tenant not found." }, { status: 404 });
+        }
+
+        // Feature gate: mismo requisito Enterprise que GET /admin/report/invoicing
+        // (antes este endpoint hermano no lo tenía, permitiendo bypassear el
+        // paywall enviando el showback por email en vez de descargarlo).
+        const tier = String(tenants[0].tier || "");
+        const isSuperAdmin = !!identity?.isCorporateDomain && await hasSystemRole(identity.email, "SUPERADMIN");
+        if (tier.toLowerCase() !== "enterprise" && !isSuperAdmin) {
+            return NextResponse.json({ error: "Feature bloqueada. Requiere plan Enterprise." }, { status: 403 });
         }
 
         const tenantName = tenants[0].company_name || "FinOps";
