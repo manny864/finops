@@ -587,6 +587,7 @@ Endpoints internos protegidos por `Authorization: Bearer ${CRON_SECRET}`. Se inv
 | `GET /api/cron/prewarm-dashboard`     | Cada 10 min            | Pre-calienta el cache SWR del Dashboard General (`/api/dashboard/summary`) por tenant activo.  |
 | `GET /api/cron/power-schedules`      | Cada 10 min            | Ejecuta los horarios de apagado programado de VMs (tabla `PowerSchedules`) cuyo horario local ya se cumplió. |
 | `GET /api/cron/open-data`            | Semanal (lunes 04:00)  | Sincroniza los Open Data Sets del Microsoft FinOps Toolkit (Regions/Services/ResourceTypes/PricingUnits/CommitmentEligibility) a las tablas `OpenData*`. Sin él, los lookups (nombre canónico de región, categoría de servicio, iconos) devuelven null. |
+| `GET /api/cron/anomaly-detection`    | Cada 5 min (mínimo)     | Corre Z-Score sobre `CostSnapshots` para todos los tenants Professional+, persiste en `Anomalies` y notifica (Slack/Teams/email + alerta de navegador) — antes la detección era 100% on-demand (solo calculaba si alguien abría `/intelligence/anomalies`), sin ningún monitoreo proactivo. |
 
 **Ejemplo crontab VPS:**
 ```cron
@@ -604,6 +605,10 @@ Endpoints internos protegidos por `Authorization: Bearer ${CRON_SECRET}`. Se inv
 
 # Open Data del FinOps Toolkit (Regions/Services/ResourceTypes/PricingUnits/CommitmentEligibility) — semanal
 0 4 * * 1 curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/open-data >> /var/log/finops-cron.log 2>&1
+
+# Detección de anomalías de gasto (Z-Score) — cada 5 min, comparte cache Redis
+# de 6h con el endpoint on-demand así que no multiplica llamadas a Azure
+*/5 * * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/anomaly-detection >> /var/log/finops-cron.log 2>&1
 ```
 
 **Backups de MySQL** (`scripts/backup-db.sh`, Fase 1 del [plan de infra](docs/vps-infra-improvement-plan.md)): dump diario comprimido con retención local 7 diarios + 4 semanales, y copia off-site a Azure Blob Storage vía SAS solo-escritura (`BACKUP_AZURE_SAS_URL` en el `.env` del VPS). Runbook completo de provisioning y restore en `docs/runbook-restore-mysql.md`.
