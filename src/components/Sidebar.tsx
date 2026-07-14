@@ -226,6 +226,11 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             label: 'Alertas del Sistema',
             icon: ShieldAlert
         } as any);
+        categories.find(c => c.id === 'admin')?.items.push({
+            href: '/admin/ai-config-global',
+            label: 'IA — Configuración Global',
+            icon: Sparkles
+        } as any);
     }
 
     // Auto-expandir solo la sección que contiene la página activa; el resto

@@ -1,0 +1,32 @@
+import { NextRequest, NextResponse } from "next/server";
+import { generateText } from "ai";
+import { AuthError, requireSuperAdmin } from "@/lib/requestAuth";
+import { AIProviderFactory, invalidateAIConfigCache } from "@/modules/core/aiProvider";
+
+/**
+ * Prueba de conexión real contra el proveedor de IA global (GlobalSettings)
+ * — un prompt trivial, sin tenantId (usa exclusivamente el fallback global,
+ * nunca una key BYOK de tenant), para confirmar que la key guardada
+ * realmente funciona antes de depender de ella en producción.
+ */
+export async function POST(request: NextRequest) {
+    try {
+        await requireSuperAdmin(request);
+        // Nunca servir un resultado cacheado de un intento anterior (con o
+        // sin key) — el test debe reflejar el estado guardado AHORA MISMO.
+        invalidateAIConfigCache();
+
+        const model = await AIProviderFactory.getGeminiModel(undefined);
+        const { text } = await generateText({
+            model,
+            prompt: "Respondé únicamente con la palabra: OK",
+        });
+
+        return NextResponse.json({ success: true, reply: text.trim().slice(0, 100) });
+    } catch (error: unknown) {
+        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
+        const message = error instanceof Error ? error.message : String(error);
+        console.error("[admin/config/ai-global/test] error:", message);
+        return NextResponse.json({ success: false, error: message }, { status: 200 });
+    }
+}
