@@ -8,6 +8,7 @@ import { useTenant } from './TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { hasAccess } from '@/lib/tierLogic';
 import { compactPayloadString } from '@/lib/copilotPayload';
+import { isMockTenant } from '@/lib/mockData';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -268,14 +269,18 @@ export default function GlobalCopilot() {
         );
     }, [isOpen, currentDataPayload, currentPage, messages.length, injectedPrompt]);
 
-    if (accounts.length === 0 || !selectedTenant || selectedTenant.id === 'default') {
+    // El demo público (/demo) es 100% anónimo — nunca hay cuenta MSAL
+    // (accounts.length === 0), así que el early-return de abajo escondía el
+    // Copilot por completo en demo. Se permite igual cuando el tenant
+    // seleccionado es uno de los mock/demo fijos (isMockTenant).
+    if ((accounts.length === 0 && !isMockTenant(selectedTenant?.id || '')) || !selectedTenant || selectedTenant.id === 'default') {
         return null;
     }
 
     return (
         <>
             <div className="fixed bottom-6 right-6 z-50">
-                <FeatureGuard requiredTier="Business" featureName="FinOps Copilot" className="w-16 h-16">
+                <FeatureGuard requiredTier="Professional" featureName="FinOps Copilot" className="w-16 h-16">
                     <div className="relative group w-full h-full">
                         {/* Halo animado periódico para llamar la atención */}
                         {!isOpen && (

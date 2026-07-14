@@ -125,6 +125,8 @@ export const PAGE_ROLE_TAGS: Record<string, RoleTag[]> = {
     "/superadmin/funnel": ["Platform"],
     "/superadmin/support": ["Platform"],
     "/admin/pricing-units": ["Platform"],
+    "/admin/load-test": ["Platform"],
+    "/admin/system-alerts": ["Platform"],
 };
 
 // Match por prefijo más largo (igual criterio que getRequiredTierForPath en

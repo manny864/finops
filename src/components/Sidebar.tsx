@@ -214,6 +214,16 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             label: 'Pricing Units',
             icon: Database
         } as any);
+        categories.find(c => c.id === 'admin')?.items.push({
+            href: '/admin/load-test',
+            label: 'Prueba de Carga',
+            icon: Zap
+        } as any);
+        categories.find(c => c.id === 'admin')?.items.push({
+            href: '/admin/system-alerts',
+            label: 'Alertas del Sistema',
+            icon: ShieldAlert
+        } as any);
     }
 
     // Auto-expandir solo la sección que contiene la página activa; el resto

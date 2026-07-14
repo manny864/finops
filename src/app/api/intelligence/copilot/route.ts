@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { streamText } from "ai";
 import { AIProviderFactory } from "@/modules/core/aiProvider";
 import { isMockTenant } from "@/lib/mockData";
-import { requireRequestIdentity, requireTenantTier, AuthError } from "@/lib/requestAuth";
+import { requireRequestIdentity, requireTenantTier, AuthError, type RequestIdentity } from "@/lib/requestAuth";
 import rateLimiter from "@/lib/rateLimiter";
 
 export const runtime = "nodejs";
@@ -15,17 +15,28 @@ const AI_RL_WINDOW_MS = 60_000;
 
 export async function POST(request: NextRequest) {
     try {
-        const identity = await requireRequestIdentity(request);
         const { prompt, pageContext, dataPayload, tenantId, locale = 'es' } = await request.json();
-
         const isDemoTenant = tenantId && isMockTenant(tenantId);
 
-        if (tenantId && !isDemoTenant) {
-            // FinOps Copilot (IA) es feature Professional (ver pricing.pro.features).
-            await requireTenantTier(request, tenantId, 'Professional');
+        // El demo público (/demo) es 100% anónimo (login demo/demo, sin cuenta
+        // MSAL real — ver setDemoSession) así que nunca hay un Bearer token
+        // real que mandar. Antes esto igual llamaba a requireRequestIdentity
+        // primero y tiraba 401 sin llegar nunca a la rama isDemoTenant de
+        // abajo, por eso el Copilot nunca respondía en demo. Identidad
+        // sintética SOLO para tenantIds mock reconocidos (isMockTenant, lista
+        // fija hardcodeada) — no abre la puerta a tenants reales sin auth.
+        let identity: RequestIdentity;
+        if (isDemoTenant) {
+            identity = { tenantId, email: `demo:${tenantId}`, isCorporateDomain: false, claims: { tid: tenantId } as any };
+        } else {
+            identity = await requireRequestIdentity(request);
+            if (tenantId) {
+                // FinOps Copilot (IA) es feature Professional (ver pricing.pro.features).
+                await requireTenantTier(request, tenantId, 'Professional');
+            }
         }
 
-        const effectiveTenantId = isDemoTenant ? identity.tenantId : (tenantId || identity.tenantId);
+        const effectiveTenantId = isDemoTenant ? tenantId : (tenantId || identity.tenantId);
 
         // Rate limit por (tenant, usuario) para evitar Denial-of-Wallet en el
         // proveedor de IA (IA-4).

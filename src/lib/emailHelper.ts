@@ -376,3 +376,55 @@ export function getInternalSignupAlertEmailHtml(params: {
     </html>
   `;
 }
+
+/**
+ * Alerta INTERNA de sistema (equipo CSCloudSolutions) cuando una prueba de
+ * carga (o el runtime) detecta latencia/tasa de error por encima del umbral
+ * — ver src/lib/loadTester.ts. Solo severidad 'critical' dispara email; los
+ * 'warning' quedan solo en la tabla SystemAlerts (ver /admin/system-alerts).
+ */
+export function getCriticalSystemAlertEmailHtml(params: {
+  message: string;
+  source: string;
+  detail?: Record<string, unknown>;
+}): string {
+  const { message, source, detail } = params;
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://finops.example.com';
+  const detailRows = detail
+    ? Object.entries(detail).map(([k, v]) => `<tr><td>${k}</td><td style="font-family:monospace;">${String(v)}</td></tr>`).join('')
+    : '';
+
+  return `
+    <html>
+      <head>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #b91c1c 0%, #7f1d1d 100%); color: white; padding: 32px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background: white; border: 1px solid #e0e0e0; border-radius: 0 0 8px 8px; padding: 32px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+          td { padding: 8px 0; border-bottom: 1px solid #eee; font-size: 14px; }
+          td:first-child { color: #666; width: 160px; }
+          .button { display: inline-block; padding: 10px 24px; background-color: #b91c1c; color: white; text-decoration: none; border-radius: 4px; font-weight: bold; margin-top: 20px; font-size: 14px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1 style="margin:0;font-size:20px;">🚨 Alerta crítica de sistema</h1>
+          </div>
+          <div class="content">
+            <p style="font-size:15px;"><strong>${message}</strong></p>
+            <table>
+              <tr><td>Origen</td><td>${source}</td></tr>
+              ${detailRows}
+            </table>
+            <p style="margin-top: 20px;">
+              <a href="${baseUrl}/admin/system-alerts" class="button">Ver Alertas del Sistema</a>
+            </p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+}
