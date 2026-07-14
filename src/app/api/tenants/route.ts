@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import pool, { initializeDatabase } from "@/modules/storage/db";
 import { tenants as mockTenants } from '@/lib/tenants';
 import { verifySubscription } from '@/lib/apiSecurity';
-import { AuthError, requireRequestIdentity, requireSuperAdmin } from "@/lib/requestAuth";
+import { AuthError, requireRequestIdentity, requireSuperAdmin, requireTenantRole, requireTenantAccess } from "@/lib/requestAuth";
 import { setTenantCredentials } from "@/lib/secrets/tenantCredentials";
 
 export async function GET(request: NextRequest) {
@@ -127,6 +127,10 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Falta tenantId' }, { status: 400 });
         }
 
+        // Cualquier usuario autenticado puede sincronizar SU PROPIO tenant (alta
+        // automática al primer login); no se permite sincronizar uno ajeno.
+        await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
+
         // INSERT IGNORE ensures we don't duplicate clients that already logged in
         await pool.query(
             'INSERT IGNORE INTO Tenants (tenant_id, company_name) VALUES (?, ?)',
@@ -135,6 +139,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ success: true, message: 'Tenant sincronizado exitosamente.' });
     } catch (error: any) {
+        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
         console.error('API POST /tenants error:', error);
         return NextResponse.json({ error: 'Fallo al sincronizar Tenant' }, { status: 500 });
     }
@@ -148,6 +153,11 @@ export async function PUT(request: NextRequest) {
         if (!tenantId || !name) {
             return NextResponse.json({ error: 'Faltan datos' }, { status: 400 });
         }
+
+        // Escribe credenciales del Service Principal de Azure: solo el Admin/Owner
+        // del propio tenant (o un SUPERADMIN real, vía requireTenantRole) puede
+        // hacerlo — antes este endpoint no tenía ningún check de auth.
+        await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
 
         // Sanitización: remover whitespace y comillas accidentales (común al pegar JSON del onboarding)
         const clean = (v: any) => (typeof v === 'string' ? v.trim().replace(/^["']+|["']+$/g, '') : v);

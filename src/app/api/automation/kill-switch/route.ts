@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Faltan parámetros requeridos: tenantId, subscriptionId, resourceGroupName" }, { status: 400 });
         }
 
-        await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
+        const identity = await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
 
         // Feature Gate Verification
         const [tenants] = await pool.query('SELECT tier FROM Tenants WHERE tenant_id = ?', [tenantId]);
@@ -40,35 +40,47 @@ export async function POST(request: NextRequest) {
         }
 
         const actions = [];
+        let failedCount = 0;
 
         // Forcefully deallocate all VMs
         for (const vm of vms) {
             if (vm.name) {
                 console.log(`[Kill Switch] Apagando VM ${vm.name} en RG ${resourceGroupName}`);
-                // In production, this would await the LRO or fire-and-forget
-                // await computeClient.virtualMachines.beginDeallocateAndWait(resourceGroupName, vm.name);
-                actions.push(`Deallocated VM: ${vm.name}`);
+                try {
+                    await computeClient.virtualMachines.beginDeallocateAndWait(resourceGroupName, vm.name);
+                    actions.push(`Deallocated VM: ${vm.name}`);
+                } catch (vmErr: any) {
+                    failedCount++;
+                    console.error(`[Kill Switch] Fallo al apagar VM ${vm.name}:`, vmErr?.message);
+                    actions.push(`FAILED to deallocate VM: ${vm.name} (${vmErr?.message || 'unknown error'})`);
+                }
             }
         }
 
-        // Log the destructive action
+        const allSucceeded = failedCount === 0;
+
+        // Log the destructive action — el status refleja si TODAS las VMs se
+        // apagaron realmente, no un 'Success' fijo (antes se logueaba éxito aun
+        // cuando la llamada de apagado estaba comentada / fallaba).
         await pool.query(
-            `INSERT INTO ActionLogs (tenant_id, action_type, resource_id, resource_type, status, details, user_email) 
+            `INSERT INTO ActionLogs (tenant_id, action_type, resource_id, resource_type, status, details, user_email)
              VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [
-                tenantId, 
-                'FinancialKillSwitch', 
-                `/subscriptions/${subscriptionId}/resourceGroups/${resourceGroupName}`, 
-                'ResourceGroup', 
-                'Success', 
-                JSON.stringify({ budgetName, thresholdBreached, actionsTaken: actions }), 
-                'system@killswitch'
+                tenantId,
+                'FinancialKillSwitch',
+                `/subscriptions/${subscriptionId}/resourceGroups/${resourceGroupName}`,
+                'ResourceGroup',
+                allSucceeded ? 'Success' : 'PartialFailure',
+                JSON.stringify({ budgetName, thresholdBreached, actionsTaken: actions, failedCount }),
+                identity.email || 'system@killswitch'
             ]
         );
 
-        return NextResponse.json({ 
-            success: true, 
-            message: `Kill Switch ejecutado. Se han detenido ${vms.length} recursos en ${resourceGroupName}.`,
+        return NextResponse.json({
+            success: allSucceeded,
+            message: allSucceeded
+                ? `Kill Switch ejecutado. Se han detenido ${vms.length} recursos en ${resourceGroupName}.`
+                : `Kill Switch ejecutado con errores: ${vms.length - failedCount}/${vms.length} recursos detenidos en ${resourceGroupName}.`,
             actions
         });
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool, { initializeDatabase } from "@/modules/storage/db";
-import { AuthError, requireRequestIdentity, requireSuperAdmin, requireTenantAccess } from "@/lib/requestAuth";
+import { AuthError, requireRequestIdentity, requireSuperAdmin, requireTenantAccess, hasSystemRole } from "@/lib/requestAuth";
 import { getUserLimit } from "@/lib/tierLogic";
 
 export async function GET(request: NextRequest) {
@@ -104,9 +104,12 @@ export async function POST(request: NextRequest) {
 
         const identity = await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
         const currentAdminEmail = identity.email;
-        const isSuperAdmin = identity.isCorporateDomain && identity.tenantId !== tenantId
-            ? true
-            : identity.isCorporateDomain; // SuperAdmin si el dominio corp coincide (verificado por gate)
+        // SuperAdmin real = dominio corporativo Y system_role='SUPERADMIN' en DB.
+        // `isCorporateDomain` solo indica el dominio del email — NO es equivalente
+        // a ser SuperAdmin (antes se confiaba solo en el dominio, permitiendo que
+        // cualquier empleado con email @cscloudsolutions.com.ar se auto-otorgara
+        // el bypass del chequeo de rol de abajo).
+        const isSuperAdmin = identity.isCorporateDomain && await hasSystemRole(identity.email, "SUPERADMIN");
 
         const connection = await pool.getConnection();
         try {
@@ -205,7 +208,10 @@ export async function PUT(request: NextRequest) {
         }
 
         const identity = await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
-        const isSuperAdmin = identity.isCorporateDomain;
+        // Ver nota en POST: `isCorporateDomain` no implica SuperAdmin, hay que
+        // verificar system_role='SUPERADMIN' en DB (antes cualquier empleado con
+        // email corporativo podía auto-promoverse a Admin en cualquier tenant).
+        const isSuperAdmin = identity.isCorporateDomain && await hasSystemRole(identity.email, "SUPERADMIN");
 
         const connection = await pool.getConnection();
         try {

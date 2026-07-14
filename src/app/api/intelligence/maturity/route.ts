@@ -183,6 +183,8 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Faltan parámetros requeridos: tenantId y assessmentData" }, { status: 400 });
         }
 
+        const identity = await requireTenantAccess(request, tenantId);
+
         let totalScore = 0;
         let maxScore = 0;
         
@@ -207,7 +209,7 @@ export async function POST(request: NextRequest) {
         await pool.query(
             `INSERT INTO ActionLogs (tenant_id, action_type, resource_id, resource_type, status, details, user_email) 
              VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [tenantId, 'MaturityAssessmentCompleted', 'Tenant', 'Assessment', 'Success', JSON.stringify({ finalScore, level }), 'system@maturity']
+            [tenantId, 'MaturityAssessmentCompleted', 'Tenant', 'Assessment', 'Success', JSON.stringify({ finalScore, level }), identity.email || 'system@maturity']
         );
 
         return NextResponse.json({ 

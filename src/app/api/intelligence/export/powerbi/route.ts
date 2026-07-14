@@ -22,9 +22,13 @@ export async function GET(request: NextRequest) {
 
         if (token) {
             // Legacy Power BI token path: validate against stored client_secret.
+            // Sin fallback: si el tenant no tiene clientSecret configurado, no hay
+            // token válido posible por esta vía (antes caía a base64(tenantId),
+            // un valor predecible por cualquiera que conociera el tenantId — que
+            // no es secreto, aparece en URLs/logs — permitiendo exfiltrar el
+            // export completo de costos sin credenciales reales).
             const creds = await getTenantCredentials(tenantId);
-            const validToken = creds?.clientSecret || Buffer.from(tenantId).toString('base64');
-            if (token !== validToken) {
+            if (!creds?.clientSecret || token !== creds.clientSecret) {
                 return NextResponse.json({ error: "Token inválido o no autorizado." }, { status: 403 });
             }
         } else {
