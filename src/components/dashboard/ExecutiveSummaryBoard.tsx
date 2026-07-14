@@ -20,6 +20,7 @@ import HABreakdownCard from "@/components/dashboard/HABreakdownCard";
 import BudgetBurnChart from "@/components/dashboard/BudgetBurnChart";
 import MyPinnedWidgets from "@/components/dashboard/MyPinnedWidgets";
 import FeatureGuard from "@/components/FeatureGuard";
+import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 import { Responsive, WidthProvider } from "react-grid-layout/legacy";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
@@ -240,6 +241,10 @@ export default function ExecutiveSummaryBoard() {
     }
 
     if (error) {
+        const requiredTier = parseTierRequiredError(error.message);
+        if (requiredTier) {
+            return <TierLockedNotice requiredTier={requiredTier} currentTier={(selectedTenant as any)?.tier} featureName="White Board Ejecutivo" />;
+        }
         return (
             <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg border border-red-100 dark:border-red-900/50">
                 <h3 className="font-bold flex items-center gap-2"><AlertCircle className="w-4 h-4" /> Error</h3>

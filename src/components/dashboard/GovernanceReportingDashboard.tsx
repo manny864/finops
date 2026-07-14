@@ -10,6 +10,7 @@ import { Loader2, AlertCircle, ShieldCheck, Boxes, Users, ChevronDown, ChevronUp
 import { isMockTenant } from '@/lib/mockData';
 import { formatResourceType } from '@/lib/resourceTypeLabels';
 import GovernanceScoreBoard from '@/components/dashboard/GovernanceScoreBoard';
+import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 
 function Bar({ label, fullName, count, max }: { label: string; fullName?: string; count: number; max: number }) {
     const pct = max > 0 ? Math.round((count / max) * 100) : 0;
@@ -74,6 +75,10 @@ export default function GovernanceReportingDashboard() {
         );
     }
     if (error) {
+        const requiredTier = parseTierRequiredError(error.message);
+        if (requiredTier) {
+            return <TierLockedNotice requiredTier={requiredTier} currentTier={(selectedTenant as any)?.tier} featureName="Reportes de Gobernanza" />;
+        }
         return (
             <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg border border-red-100 dark:border-red-900/50">
                 <h3 className="font-bold flex items-center gap-2"><AlertCircle className="w-4 h-4" /> Error</h3>

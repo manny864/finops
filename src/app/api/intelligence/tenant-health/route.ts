@@ -35,7 +35,11 @@ export async function GET(request: NextRequest) {
         if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
 
         // Dashboard de Salud del Tenant es feature Professional.
-        await requireTenantTier(request, tenantId, "Professional");
+        // Salud del Tenant es feature Business (ver Sidebar/routeTiers) — antes
+        // este gate pedía sólo Professional, más laxo que la página, así que un
+        // tenant Professional podía llamar la API directo bypasseando el gate
+        // de UI.
+        await requireTenantTier(request, tenantId, "Business");
 
         if (isMockTenant(tenantId)) {
             return NextResponse.json(getMockDataForRoute("tenant_health", tenantId));

@@ -9,6 +9,7 @@ import Pagination, { usePagination } from '@/components/Pagination';
 import PinButton from '@/components/dashboard/PinButton';
 import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
+import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 
 function MockBanner({ tMock }: { tMock: (k: string) => string }) {
     return (
@@ -53,7 +54,13 @@ export default function HARecommendationsPanel() {
 
     if (!selectedTenant || selectedTenant.id === 'default') return null;
     if (isLoading) return <div className="flex items-center justify-center py-16"><Loader2 className="w-7 h-7 animate-spin text-brand-deep mr-3" /><span className="text-gray-500">Cargando...</span></div>;
-    if (error) return <div className="bg-red-50 dark:bg-red-900/20 text-red-600 p-4 rounded-lg"><b>Error:</b> {error.message}</div>;
+    if (error) {
+        const requiredTier = parseTierRequiredError(error.message);
+        if (requiredTier) {
+            return <TierLockedNotice requiredTier={requiredTier} currentTier={(selectedTenant as any)?.tier} featureName="Recomendaciones de Alta Disponibilidad" />;
+        }
+        return <div className="bg-red-50 dark:bg-red-900/20 text-red-600 p-4 rounded-lg"><b>Error:</b> {error.message}</div>;
+    }
 
     return (
         <div className="space-y-4">

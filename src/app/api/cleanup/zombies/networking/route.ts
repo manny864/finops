@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
-import { requireTenantRole, requireTenantTier, AuthError } from "@/lib/requestAuth";
+import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { getAzureCredential } from "@/lib/azure";
 import { runGraphAudits } from "@/services/auditService";
@@ -17,8 +17,10 @@ export async function GET(request: NextRequest) {
         }
 
         try {
-            // Networking Zombies es feature Professional (ver Sidebar).
-            await requireTenantTier(request, tenantId, 'Professional');
+            // Networking Zombies es feature Essential (ver Sidebar/routeTiers) —
+            // sin gate de tier acá, sólo pertenencia al tenant. La remediación
+            // (borrado) sigue gateada por separado vía canDeleteResources
+            // (rol de Azure del onboarding), no por esta ruta de sólo lectura.
             await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
         } catch (e) {
             if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });

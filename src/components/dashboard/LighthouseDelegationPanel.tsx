@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { Loader2, Layers, Info } from 'lucide-react';
+import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 
 function MockBanner({ tMock }: { tMock: (k: string) => string }) {
     return (
@@ -70,7 +71,13 @@ export default function LighthouseDelegationPanel() {
 
     if (!selectedTenant || selectedTenant.id === 'default') return null;
     if (isLoading) return <div className="flex items-center justify-center py-16"><Loader2 className="w-7 h-7 animate-spin text-brand-deep mr-3" /></div>;
-    if (error) return <div className="bg-red-50 dark:bg-red-900/20 text-red-600 p-4 rounded-lg"><b>Error:</b> {error.message}</div>;
+    if (error) {
+        const requiredTier = parseTierRequiredError(error.message);
+        if (requiredTier) {
+            return <TierLockedNotice requiredTier={requiredTier} currentTier={(selectedTenant as any)?.tier} featureName="Delegación Lighthouse" />;
+        }
+        return <div className="bg-red-50 dark:bg-red-900/20 text-red-600 p-4 rounded-lg"><b>Error:</b> {error.message}</div>;
+    }
 
     const items: any[] = data?.delegations || [];
 

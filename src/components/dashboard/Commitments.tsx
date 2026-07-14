@@ -17,6 +17,7 @@ import ReservationRenewalModal, { type RenewReservation } from '@/components/das
 import ReservationUtilizationModal, { type UtilReservation } from '@/components/dashboard/ReservationUtilizationModal';
 import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
+import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 
 interface ReservationDetail {
     reservationId: string;
@@ -111,6 +112,10 @@ export default function Commitments() {
     }
 
     if (error) {
+        const requiredTier = parseTierRequiredError(error.message);
+        if (requiredTier) {
+            return <TierLockedNotice requiredTier={requiredTier} currentTier={(selectedTenant as any)?.tier} featureName="Descuentos por Compromiso" />;
+        }
         return (
             <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg border border-red-100 dark:border-red-900/50">
                 <h3 className="font-bold">Error de Procesamiento</h3>

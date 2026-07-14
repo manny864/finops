@@ -5,6 +5,7 @@ import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { Loader2, Database, TrendingDown, Info } from 'lucide-react';
 import Pagination, { usePagination } from '@/components/Pagination';
+import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 
 function MockBanner() {
     return (
@@ -52,11 +53,17 @@ export default function SqlDbRightsizingTab() {
         </div>
     );
 
-    if (error) return (
-        <div className="bg-red-50 dark:bg-red-900/20 text-red-600 p-4 rounded-lg border border-red-200">
-            <b>Error:</b> {error.message}
-        </div>
-    );
+    if (error) {
+        const requiredTier = parseTierRequiredError(error.message);
+        if (requiredTier) {
+            return <TierLockedNotice requiredTier={requiredTier} currentTier={(selectedTenant as any)?.tier} featureName="Rightsizing de SQL DB" />;
+        }
+        return (
+            <div className="bg-red-50 dark:bg-red-900/20 text-red-600 p-4 rounded-lg border border-red-200">
+                <b>Error:</b> {error.message}
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-4">

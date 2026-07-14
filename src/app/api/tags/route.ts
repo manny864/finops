@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
-import { AuthError, requireTenantAccess, requireTenantTier } from "@/lib/requestAuth";
+import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
 
 export async function GET(req: NextRequest) {
     try {
@@ -9,7 +9,6 @@ export async function GET(req: NextRequest) {
         if (!tenantId) return NextResponse.json({ error: "Missing tenantId" }, { status: 400 });
 
         await requireTenantAccess(req, tenantId, { allowSuperAdmin: true });
-        await requireTenantTier(req, tenantId, 'Professional');
 
         const [rows] = await pool.query("SELECT * FROM TaggingPolicies WHERE tenant_id = ?", [tenantId]);
         return NextResponse.json({ policies: rows });
@@ -29,7 +28,6 @@ export async function POST(req: NextRequest) {
         if (!tenantId || !tagKey) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
 
         await requireTenantAccess(req, tenantId, { allowSuperAdmin: true });
-        await requireTenantTier(req, tenantId, 'Professional');
 
         await pool.query(
             "INSERT INTO TaggingPolicies (tenant_id, tag_key, required) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE required = VALUES(required)",
@@ -64,7 +62,6 @@ export async function DELETE(req: NextRequest) {
         }
 
         await requireTenantAccess(req, tenantId, { allowSuperAdmin: true });
-        await requireTenantTier(req, tenantId, 'Professional');
         await pool.query("DELETE FROM TaggingPolicies WHERE id = ? AND tenant_id = ?", [id, tenantId]);
         return NextResponse.json({ success: true });
     } catch (e: unknown) {

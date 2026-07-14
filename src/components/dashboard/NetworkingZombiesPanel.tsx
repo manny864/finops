@@ -10,6 +10,7 @@ import { isMockTenant } from "@/lib/mockData";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { canDeleteResources } from "@/lib/tierLogic";
 import EnterpriseDeleteDisclaimer from "@/components/EnterpriseDeleteDisclaimer";
+import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 
 type ZombieItem = {
     resourceId: string;
@@ -217,6 +218,10 @@ export default function NetworkingZombiesPanel() {
     }
 
     if (error) {
+        const requiredTier = parseTierRequiredError(error.message);
+        if (requiredTier) {
+            return <TierLockedNotice requiredTier={requiredTier} currentTier={(selectedTenant as any)?.tier} featureName="Networking Zombies" />;
+        }
         return (
             <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg border border-red-100 dark:border-red-900/50">
                 <h3 className="font-bold flex items-center gap-2"><AlertCircle className="w-4 h-4" /> Error</h3>

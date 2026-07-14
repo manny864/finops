@@ -16,6 +16,7 @@ import {
 } from "recharts";
 import { isMockTenant } from "@/lib/mockData";
 import { getRegionCoords } from "@/lib/azureRegionCoords";
+import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 
 const PIE_COLORS = ["#0054A6", "#F2A900", "#10B981", "#EF4444", "#8B5CF6", "#F43F5E", "#0EA5E9"];
 
@@ -204,10 +205,14 @@ export default function CostGroupDetailModal({ name, tenantId, onClose }: { name
                         </div>
                     )}
                     {error && (
-                        <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg border border-red-100 dark:border-red-900/50">
-                            <h3 className="font-bold flex items-center gap-2"><AlertCircle className="w-4 h-4" /> Error</h3>
-                            <p className="text-sm">{error.message}</p>
-                        </div>
+                        parseTierRequiredError(error.message) ? (
+                            <TierLockedNotice requiredTier={parseTierRequiredError(error.message)!} featureName="Detalle de Grupo de Costos" />
+                        ) : (
+                            <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg border border-red-100 dark:border-red-900/50">
+                                <h3 className="font-bold flex items-center gap-2"><AlertCircle className="w-4 h-4" /> Error</h3>
+                                <p className="text-sm">{error.message}</p>
+                            </div>
+                        )
                     )}
 
                     {!isLoading && !error && data && tab === "current_fy" && (

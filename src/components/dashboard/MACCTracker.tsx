@@ -8,6 +8,7 @@ import { useCurrency } from "@/components/CurrencyProvider";
 import { Loader2, AlertTriangle, CheckCircle, TrendingDown, TrendingUp, DollarSign, Calendar } from "lucide-react";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { isMockTenant } from '@/lib/mockData';
+import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 
 type CommitmentStatus = "onTrack" | "atRisk" | "overConsumption";
 
@@ -136,6 +137,10 @@ export default function MACCTracker() {
     }
 
     if (error) {
+        const requiredTier = parseTierRequiredError(error.message);
+        if (requiredTier) {
+            return <TierLockedNotice requiredTier={requiredTier} currentTier={(selectedTenant as any)?.tier} featureName="MACC Tracker" />;
+        }
         return (
             <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg border border-red-100 dark:border-red-900/50">
                 <h3 className="font-bold flex items-center gap-2"><AlertTriangle className="w-4 h-4" /> Error</h3>

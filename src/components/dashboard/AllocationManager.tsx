@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import Pagination, { usePagination } from '@/components/Pagination';
 import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
+import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 
 // Contador module-level para generar keys estables client-side (no persisten,
 // no se mandan al backend — sólo identidad de React entre renders).
@@ -77,6 +78,10 @@ export default function AllocationManager() {
     }
 
     if (error) {
+        const requiredTier = parseTierRequiredError(error.message);
+        if (requiredTier) {
+            return <TierLockedNotice requiredTier={requiredTier} currentTier={tier} featureName="Motor de Asignación de Costos" />;
+        }
         return (
             <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg border border-red-100 dark:border-red-900/50">
                 <p className="text-sm font-bold">Error de Acceso: {error.message}</p>

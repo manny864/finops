@@ -19,6 +19,7 @@ import {
 import { useCurrency } from '@/components/CurrencyProvider';
 import { isMockTenant } from '@/lib/mockData';
 import { useTranslations } from 'next-intl';
+import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 
 export default function UnitEconomics() {
     const { selectedTenant } = useTenant();
@@ -121,6 +122,10 @@ export default function UnitEconomics() {
     }
 
     if (error) {
+        const requiredTier = parseTierRequiredError(error.message);
+        if (requiredTier) {
+            return <TierLockedNotice requiredTier={requiredTier} currentTier={(selectedTenant as any)?.tier} featureName="Unit Economics" />;
+        }
         return (
             <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg border border-red-100 dark:border-red-900/50">
                 <h3 className="font-bold">{t("processing_error_title")}</h3>

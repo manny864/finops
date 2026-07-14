@@ -11,6 +11,7 @@ import { hasAccess } from '@/lib/tierLogic';
 import PremiumBanner from '@/components/PremiumBanner';
 import { useCurrency } from '@/components/CurrencyProvider';
 import { isMockTenant } from '@/lib/mockData';
+import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 
 type AnomalyStatus = 'Open' | 'Postponed' | 'Dismissed' | 'Completed';
 
@@ -151,6 +152,10 @@ export default function AnomalyDashboard() {
     }
 
     if (error) {
+        const requiredTier = parseTierRequiredError(error.message);
+        if (requiredTier) {
+            return <TierLockedNotice requiredTier={requiredTier} currentTier={tier} featureName="Detección de Anomalías" />;
+        }
         return (
             <div className="bg-red-50 text-red-600 p-4 rounded-lg border border-red-100">
                 <p className="font-bold">Error: {error.message}</p>

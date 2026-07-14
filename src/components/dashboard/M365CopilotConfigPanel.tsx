@@ -5,6 +5,7 @@ import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { Loader2, CheckCircle2, AlertCircle, Clock, WifiOff, RefreshCw, Trash2, Zap, Send } from "lucide-react";
 import useSWR from "swr";
+import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -235,10 +236,14 @@ export default function M365CopilotConfigPanel() {
                 </div>
             )}
             {error && !isLoading && (
-                <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-xl border border-red-100 dark:border-red-900/50 text-sm">
-                    <p className="font-bold">Error</p>
-                    <p>{error.message}</p>
-                </div>
+                parseTierRequiredError(error.message) ? (
+                    <TierLockedNotice requiredTier={parseTierRequiredError(error.message)!} currentTier={(selectedTenant as any)?.tier} featureName="M365 Copilot" />
+                ) : (
+                    <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-xl border border-red-100 dark:border-red-900/50 text-sm">
+                        <p className="font-bold">Error</p>
+                        <p>{error.message}</p>
+                    </div>
+                )
             )}
 
             {/* Cards */}

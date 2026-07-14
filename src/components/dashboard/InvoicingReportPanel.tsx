@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { Loader2, AlertTriangle, Download, FileText, DollarSign, TrendingUp, Percent, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { getFreshIdToken } from "@/lib/msalToken";
+import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 
 function KpiCard({ label, value, sub, icon, accent = "blue" }: { label: string; value: string; sub?: string; icon: React.ReactNode; accent?: string }) {
     const bg = accent === "green" ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400" : accent === "amber" ? "bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400" : "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400";
@@ -173,6 +174,10 @@ export default function InvoicingReportPanel() {
     }
 
     if (error) {
+        const requiredTier = parseTierRequiredError(error.message);
+        if (requiredTier) {
+            return <TierLockedNotice requiredTier={requiredTier} currentTier={(selectedTenant as any)?.tier} featureName="Reporte de Facturación" />;
+        }
         return (
             <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg border border-red-100 dark:border-red-900/50">
                 <h3 className="font-bold flex items-center gap-2"><AlertTriangle className="w-4 h-4" /> Error</h3>

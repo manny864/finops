@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { Loader2, BrainCircuit, AlertTriangle, TrendingUp, Cpu, DollarSign, Zap } from "lucide-react";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { isMockTenant } from '@/lib/mockData';
+import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 
 // ── KPI card ──────────────────────────────────────────────────────────────────
 function KpiCard({ label, value, sub, icon }: { label: string; value: string; sub?: string; icon: React.ReactNode }) {
@@ -94,6 +95,10 @@ export default function AIAnalyticsDashboard() {
     }
 
     if (error) {
+        const requiredTier = parseTierRequiredError(error.message);
+        if (requiredTier) {
+            return <TierLockedNotice requiredTier={requiredTier} currentTier={(selectedTenant as any)?.tier} featureName="AI Analytics" />;
+        }
         return (
             <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg border border-red-100 dark:border-red-900/50">
                 <h3 className="font-bold flex items-center gap-2"><AlertTriangle className="w-4 h-4" /> {t("error_title")}</h3>

@@ -6,6 +6,7 @@ import { useMsal } from '@azure/msal-react';
 import { Loader2, Trophy, Medal, AlertTriangle, ChevronDown, ChevronUp, DollarSign } from 'lucide-react';
 import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
+import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 
 export default function FinOpsScorecard() {
     const { selectedTenant } = useTenant();
@@ -52,6 +53,10 @@ export default function FinOpsScorecard() {
     }
 
     if (error) {
+        const requiredTier = parseTierRequiredError(error.message);
+        if (requiredTier) {
+            return <TierLockedNotice requiredTier={requiredTier} currentTier={(selectedTenant as any)?.tier} featureName="FinOps Scorecard" />;
+        }
         return (
             <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg border border-red-100 dark:border-red-900/50">
                 <p className="text-sm font-bold">Error de Procesamiento: {error.message}</p>

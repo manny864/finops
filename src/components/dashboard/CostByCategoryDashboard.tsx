@@ -8,6 +8,7 @@ import { getFreshIdToken } from "@/lib/msalToken";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { Loader2, AlertCircle, Info, PieChart } from "lucide-react";
 import { isMockTenant } from '@/lib/mockData';
+import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 
 // Paleta por categoría FinOps (consistente en light/dark).
 const CATEGORY_COLORS: Record<string, string> = {
@@ -67,6 +68,10 @@ export default function CostByCategoryDashboard() {
     }
 
     if (error) {
+        const requiredTier = parseTierRequiredError(error.message);
+        if (requiredTier) {
+            return <TierLockedNotice requiredTier={requiredTier} currentTier={(selectedTenant as any)?.tier} featureName="Costo por Categoría" />;
+        }
         return (
             <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg border border-red-100 dark:border-red-900/50">
                 <h3 className="font-bold flex items-center gap-2"><AlertCircle className="w-4 h-4" /> Error</h3>

@@ -8,6 +8,7 @@ import { getFreshIdToken } from "@/lib/msalToken";
 import { Loader2, AlertCircle, Info } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, LabelList } from "recharts";
 import { isMockTenant } from "@/lib/mockData";
+import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 
 const fmtUsd = (n: number | null | undefined) =>
     new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n || 0);
@@ -91,10 +92,14 @@ export default function TopExpensesBoard() {
             )}
 
             {error && (
-                <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg border border-red-100 dark:border-red-900/50">
-                    <h3 className="font-bold flex items-center gap-2"><AlertCircle className="w-4 h-4" /> Error</h3>
-                    <p className="text-sm">{error.message}</p>
-                </div>
+                parseTierRequiredError(error.message) ? (
+                    <TierLockedNotice requiredTier={parseTierRequiredError(error.message)!} currentTier={(selectedTenant as any)?.tier} featureName="Top Gastos" />
+                ) : (
+                    <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg border border-red-100 dark:border-red-900/50">
+                        <h3 className="font-bold flex items-center gap-2"><AlertCircle className="w-4 h-4" /> Error</h3>
+                        <p className="text-sm">{error.message}</p>
+                    </div>
+                )
             )}
 
             {!isLoading && !error && data && (

@@ -6,6 +6,7 @@ import { useMsal } from '@azure/msal-react';
 import { Loader2, Server, DollarSign, Box } from 'lucide-react';
 import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
+import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 
 const currencyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 
@@ -52,6 +53,10 @@ export default function AksIntelligence() {
     }
 
     if (error) {
+        const requiredTier = parseTierRequiredError(error.message);
+        if (requiredTier) {
+            return <TierLockedNotice requiredTier={requiredTier} currentTier={(selectedTenant as any)?.tier} featureName="AKS Chargeback" />;
+        }
         return (
             <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg border border-red-100 dark:border-red-900/50">
                 <h3 className="font-bold">Error en la consulta de AKS</h3>

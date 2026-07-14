@@ -5,6 +5,7 @@ import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { Loader2, DollarSign, Percent, Save, Info } from 'lucide-react';
 import toast from 'react-hot-toast';
+import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 
 export default function PartnerMarkup() {
     const { selectedTenant } = useTenant();
@@ -86,6 +87,10 @@ export default function PartnerMarkup() {
     }
 
     if (error) {
+        const requiredTier = parseTierRequiredError(error.message);
+        if (requiredTier) {
+            return <TierLockedNotice requiredTier={requiredTier} currentTier={tier} featureName="Markup de Partner" />;
+        }
         return (
             <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg border border-red-100 dark:border-red-900/50">
                 <p className="text-sm font-bold">Error: {error.message}</p>
