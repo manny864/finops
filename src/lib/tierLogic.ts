@@ -27,16 +27,36 @@ export function hasAccess(currentTier: string, requiredTier: string): boolean {
 }
 
 /**
- * Eliminación de recursos de Azure (Recursos Zombis, Networking Zombies,
- * Expiraciones TTL, Azure Advisor Action Center): el Service Principal solo
- * tiene permisos `delete` en Azure vía el Custom Role de remediación que el
- * script de onboarding asigna, y ese rol solo se crea para tier Enterprise
- * (ver getCustomRoleActionsForTier en onboardingScriptTemplate.ts). Otros
- * tiers pueden VER/detectar zombis pero no tienen el rol de Azure para
+ * Eliminación de recursos de Azure: el Service Principal solo tiene permisos
+ * `delete` en Azure vía el Custom Role de remediación que el script de
+ * onboarding asigna (ver getCustomRoleActionsForTier en
+ * onboardingScriptTemplate.ts). El umbral difiere por dominio: Recursos
+ * Zombis y Networking Zombies habilitan remediación desde Business; TTL y
+ * Azure Advisor Action Center siguen siendo exclusivos de Enterprise. Otros
+ * tiers pueden VER/detectar recursos pero no tienen el rol de Azure para
  * borrarlos — se oculta el botón en vez de dejar que falle en el backend.
  */
-export function canDeleteResources(currentTier?: string | null): boolean {
-    return hasAccess(currentTier || '', 'Enterprise');
+export type DeleteResourceDomain = 'zombies' | 'networking' | 'ttl' | 'advisor';
+
+const DELETE_REMEDIATION_TIER: Record<DeleteResourceDomain, string> = {
+    zombies: 'Business',
+    networking: 'Business',
+    ttl: 'Enterprise',
+    advisor: 'Enterprise',
+};
+
+export function canDeleteResources(currentTier: string | null | undefined, domain: DeleteResourceDomain): boolean {
+    return hasAccess(currentTier || '', DELETE_REMEDIATION_TIER[domain]);
+}
+
+/**
+ * Auto-fix de Cumplimiento de Etiquetas (/governance/tags): el rol Tag
+ * Contributor solo se otorga desde tier Business (ver
+ * onboardingScriptTemplate.ts). Essential/Professional ven el score de
+ * cumplimiento pero no pueden disparar la remediación automática.
+ */
+export function canRemediateTags(currentTier?: string | null): boolean {
+    return hasAccess(currentTier || '', 'Business');
 }
 
 /**
@@ -68,3 +88,7 @@ export function getUserLimit(tier: string): number {
     const normalized = normalizeTier(tier);
     return normalized ? USER_LIMITS[normalized] : USER_LIMITS.Essential;
 }
+
+// Límite de tickets de soporte/mes: ya vive en src/lib/supportConfig.ts
+// (getSupportConfig), con enforcement en /api/support/tickets — no se
+// duplica acá.

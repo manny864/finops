@@ -1,19 +1,9 @@
-import GovernanceScoreBoard from "@/components/dashboard/GovernanceScoreBoard";
-import MockBanner from "@/components/MockBanner";
+import { redirect } from "next/navigation";
 
-export default function GovernanceScorePage() {
-    return (
-        <div className="content animate-in fade-in duration-500">
-            <div className="vhead">
-                <div className="title">
-                    <h1>Estado de Gobernanza</h1>
-                    <p>Score de seguridad financiera basado en el cumplimiento de las políticas de etiquetado obligatorias, con detalle por etiqueta.</p>
-                </div>
-            </div>
-            <div className="mt-6">
-                <MockBanner />
-                <GovernanceScoreBoard />
-            </div>
-        </div>
-    );
+// Fusionada con /governance/reporting: el KPI de "Estado de Gobernanza" ahora
+// vive dentro de GovernanceReportingDashboard. Se conserva este redirect para
+// no romper links/bookmarks existentes.
+export default async function GovernanceScorePage({ params }: { params: Promise<{ locale: string }> }) {
+    const { locale } = await params;
+    redirect(`/${locale}/governance/reporting`);
 }

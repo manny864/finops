@@ -8,6 +8,7 @@ import { useTranslations } from 'next-intl';
 import Pagination, { usePagination } from './Pagination';
 import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
+import FeatureGuard from './FeatureGuard';
 
 // Autorefresh: la auditoría escanea Azure Resource Graph (llamada con costo),
 // así que refrescamos cada 60s SÓLO con la pestaña visible para no malgastar
@@ -334,18 +335,20 @@ export default function TagManager() {
                                             </td>
                                             <td className="num">
                                                 {!item.isCompliant && (
-                                                    <button 
-                                                        onClick={() => {
-                                                            setEditingResource(item);
-                                                            setEditingScope('resource');
-                                                            const initVals: Record<string,string> = {};
-                                                            item.missingTags.forEach((t: string) => initVals[t] = "");
-                                                            setTagValues(initVals);
-                                                        }}
-                                                        className="bg-brand-soft text-brand-deep border border-brand-bright/20 hover:border-brand-bright hover:bg-brand-deep hover:text-white px-[11px] py-[7px] rounded-[10px] text-[12px] font-heading font-semibold transition-colors cursor-pointer"
-                                                    >
-                                                        Editar Etiquetas
-                                                    </button>
+                                                    <FeatureGuard requiredTier="Business" featureName="Remediación de Etiquetas" className="inline-block">
+                                                        <button
+                                                            onClick={() => {
+                                                                setEditingResource(item);
+                                                                setEditingScope('resource');
+                                                                const initVals: Record<string,string> = {};
+                                                                item.missingTags.forEach((t: string) => initVals[t] = "");
+                                                                setTagValues(initVals);
+                                                            }}
+                                                            className="bg-brand-soft text-brand-deep border border-brand-bright/20 hover:border-brand-bright hover:bg-brand-deep hover:text-white px-[11px] py-[7px] rounded-[10px] text-[12px] font-heading font-semibold transition-colors cursor-pointer"
+                                                        >
+                                                            Editar Etiquetas
+                                                        </button>
+                                                    </FeatureGuard>
                                                 )}
                                             </td>
                                         </tr>
@@ -435,18 +438,20 @@ export default function TagManager() {
                                             </td>
                                             <td className="num">
                                                 {!item.isCompliant && (
-                                                    <button
-                                                        onClick={() => {
-                                                            setEditingResource(item);
-                                                            setEditingScope('rg');
-                                                            const initVals: Record<string,string> = {};
-                                                            item.missingTags.forEach((t: string) => initVals[t] = "");
-                                                            setTagValues(initVals);
-                                                        }}
-                                                        className="bg-brand-soft text-brand-deep border border-brand-bright/20 hover:border-brand-bright hover:bg-brand-deep hover:text-white px-[11px] py-[7px] rounded-[10px] text-[12px] font-heading font-semibold transition-colors cursor-pointer"
-                                                    >
-                                                        Editar Etiquetas
-                                                    </button>
+                                                    <FeatureGuard requiredTier="Business" featureName="Remediación de Etiquetas" className="inline-block">
+                                                        <button
+                                                            onClick={() => {
+                                                                setEditingResource(item);
+                                                                setEditingScope('rg');
+                                                                const initVals: Record<string,string> = {};
+                                                                item.missingTags.forEach((t: string) => initVals[t] = "");
+                                                                setTagValues(initVals);
+                                                            }}
+                                                            className="bg-brand-soft text-brand-deep border border-brand-bright/20 hover:border-brand-bright hover:bg-brand-deep hover:text-white px-[11px] py-[7px] rounded-[10px] text-[12px] font-heading font-semibold transition-colors cursor-pointer"
+                                                        >
+                                                            Editar Etiquetas
+                                                        </button>
+                                                    </FeatureGuard>
                                                 )}
                                             </td>
                                         </tr>

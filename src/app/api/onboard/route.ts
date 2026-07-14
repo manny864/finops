@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool, { initializeDatabase } from "@/modules/storage/db";
 import { requireRequestIdentity } from "@/lib/requestAuth";
-import { sendEmailAsync, getWelcomeEmailHtml } from "@/lib/emailHelper";
+import { sendEmailAsync, getWelcomeEmailHtml, getInternalSignupAlertEmailHtml } from "@/lib/emailHelper";
 import { getUserLimit } from "@/lib/tierLogic";
 
 export async function POST(request: NextRequest) {
@@ -153,11 +153,24 @@ export async function POST(request: NextRequest) {
 
             await connection.commit();
 
-            // Send welcome email async (fire-and-forget)
+            // Send welcome email async (fire-and-forget) — solo al usuario que se registra.
             if (trialInterval > 0) {
                 const tierName = tier === 'Professional' ? 'Professional' : tier === 'Business' ? 'Business' : 'Essential';
                 const htmlContent = getWelcomeEmailHtml(email, companyName, tierName);
                 sendEmailAsync('Welcome to FinOps SaaS — Your 7-day trial has started', htmlContent, email);
+
+                // Alerta interna paralela a soporte@ — solo cuando se completa un
+                // signup real (nuevo tenant/usuario con trial), no en cada login.
+                if (isNewUser) {
+                    const internalHtml = getInternalSignupAlertEmailHtml({
+                        tenantId,
+                        companyName,
+                        tier: tierName,
+                        userEmail: email,
+                        trialEndsAt: trialEndsAtValue,
+                    });
+                    sendEmailAsync(`Nuevo signup: ${companyName} (${tierName})`, internalHtml, 'soporte@cscloudsolutions.com.ar');
+                }
             }
         } catch (dbError) {
             await connection.rollback();

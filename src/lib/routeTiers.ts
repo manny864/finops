@@ -6,57 +6,60 @@
 
 export const ROUTE_TIERS: Record<string, 'Essential' | 'Professional' | 'Business' | 'Enterprise'> = {
     // Inteligencia
-    // billing (Consumo Real) y budgets (Presupuestos) bajados a Essential —
-    // ver pricing.essential.features / Sidebar.tsx.
     '/intelligence/billing': 'Essential',
     '/intelligence/budgets': 'Essential',
-    '/intelligence/rightsizing': 'Professional',
-    '/intelligence/network': 'Professional',
-    '/intelligence/rates': 'Business',
-    '/intelligence/licenses': 'Professional',
-    '/intelligence/hybrid-benefit': 'Professional',
-    '/intelligence/commitments': 'Professional',
-    // AKS Chargeback bajado a Business ("Distribución de Costos (Chargeback)"
-    // está en pricing.business.features, no en enterprise).
-    '/intelligence/aks-chargeback': 'Business',
-    '/intelligence/aks': 'Business',
-    '/intelligence/unit-economics': 'Business',
+    '/intelligence/rightsizing': 'Enterprise',
+    '/intelligence/network': 'Business',
+    '/intelligence/rates': 'Enterprise',
+    '/intelligence/licenses': 'Enterprise',
+    '/intelligence/hybrid-benefit': 'Business',
+    '/intelligence/commitments': 'Enterprise',
+    '/intelligence/aks-chargeback': 'Enterprise',
+    '/intelligence/aks': 'Enterprise',
+    '/intelligence/unit-economics': 'Enterprise',
     // Cost Groups (Budget & Forecast por Business Unit) — Business y Enterprise.
     '/intelligence/cost-groups': 'Business',
     '/intelligence/allocation': 'Enterprise',
-    '/intelligence/scorecard': 'Enterprise',
-    '/intelligence/cost-centers': 'Business',
-    '/intelligence/anomalies': 'Professional',
-    '/intelligence/optimization-index': 'Professional',
-    '/intelligence/tenant-health': 'Professional',
-    // Simulador What-If bajado a Business ("Escenarios What-If (Simulador de
-    // Costos)" está en pricing.business.features, no en enterprise).
+    '/intelligence/scorecard': 'Business',
+    '/intelligence/cost-centers': 'Enterprise',
+    '/intelligence/anomalies': 'Enterprise',
+    '/intelligence/optimization-index': 'Enterprise',
+    '/intelligence/tenant-health': 'Business',
+    // Simulador What-If — Business.
     '/intelligence/simulator': 'Business',
-    '/intelligence/cost-projection': 'Professional',
-    // New (P2/P3/P4 — finops-toolkit gap analysis)
-    '/intelligence/storage-efficiency': 'Business',
-    '/intelligence/compute-efficiency': 'Professional',
+    '/intelligence/cost-projection': 'Enterprise',
+    '/intelligence/storage-efficiency': 'Enterprise',
+    '/intelligence/compute-efficiency': 'Enterprise',
     '/intelligence/cost-by-category': 'Business',
-    '/intelligence/commitment-simulator': 'Enterprise',
-    '/intelligence/alerts': 'Professional',
+    '/intelligence/commitment-simulator': 'Professional',
+    '/intelligence/alerts': 'Business',
     '/intelligence/ai-analytics': 'Enterprise',
     '/intelligence/macc': 'Enterprise',
-    '/intelligence/upload': 'Professional',
-    // Limpieza — TTL subido a Business, Networking Zombies nuevo (Professional).
+    '/intelligence/upload': 'Business',
+    // Limpieza — TTL Business (vista y remediación quedan separadas dentro de
+    // la página, ver canDeleteResources en tierLogic.ts). Networking Zombies
+    // gratis desde Essential (vista; remediación desde Business).
     '/cleanup/ttl': 'Business',
-    '/cleanup/zombies/networking': 'Professional',
-    // Gobernanza — Tags bajado de Business a Professional.
-    '/governance/tags': 'Professional',
+    '/cleanup/zombies/networking': 'Essential',
+    // Gobernanza — Tags gratis desde Essential (vista; remediación desde
+    // Business, ver canRemediateTags en tierLogic.ts).
+    '/governance/tags': 'Essential',
     '/governance/power': 'Business',
     '/governance/policies': 'Enterprise',
+    // Reporting de Gobernanza absorbe el KPI que antes vivía en
+    // /governance/score (fusionadas en una sola página).
     '/governance/reporting': 'Enterprise',
     '/governance/ha': 'Business',
     '/governance/credentials': 'Business',
-    '/governance/score': 'Business',
-    '/remediation/approvals': 'Professional',
+    '/remediation/approvals': 'Business',
     // Visibilidad
     '/overview/maturity': 'Essential',
-    '/overview/resources': 'Professional',
+    '/overview/resources': 'Business',
+    '/overview/progress': 'Professional',
+    '/overview/top-expenses': 'Professional',
+    '/overview/sustainability': 'Professional',
+    '/overview/captured-savings': 'Professional',
+    '/overview/financial-leaks': 'Professional',
     // Admin
     '/admin/markup': 'Enterprise',
     '/admin/workbooks': 'Enterprise',
@@ -65,9 +68,8 @@ export const ROUTE_TIERS: Record<string, 'Essential' | 'Professional' | 'Busines
     // (ver Sidebar.tsx) — el tier acá es irrelevante para clientes, pero se
     // deja Essential (piso) ya que el gate real es requireSuperAdmin server-side.
     '/admin/pricing-units': 'Essential',
-    '/admin/api-keys': 'Professional',
-    // focus-export subido a Enterprise (antes Professional).
-    '/admin/focus-export': 'Enterprise',
+    '/admin/api-keys': 'Enterprise',
+    '/admin/focus-export': 'Professional',
     '/admin/cloud-accounts': 'Professional',
     // Oculta del Sidebar (ver Sidebar.tsx): sólo un datacenter real (Brasil) hoy,
     // no ofrecemos multi-región. La entrada de tier queda por si se accede directo
@@ -75,9 +77,11 @@ export const ROUTE_TIERS: Record<string, 'Essential' | 'Professional' | 'Busines
     '/admin/data-residency': 'Enterprise',
     '/admin/notifications': 'Professional',
     '/admin/billing': 'Essential',
-    // mcp-keys subido a Business (antes Professional).
-    '/admin/mcp-keys': 'Business',
-    '/admin/powerbi-templates': 'Professional',
+    '/admin/ai-config': 'Professional',
+    '/admin/audit': 'Professional',
+    '/admin/report': 'Business',
+    '/admin/mcp-keys': 'Enterprise',
+    '/admin/powerbi-templates': 'Enterprise',
     '/admin/sso': 'Enterprise',
     // Lighthouse: página existía pero no estaba en el Sidebar ni acá — quedaba
     // sin gate real, accesible por URL directa a cualquier tier. La agregamos

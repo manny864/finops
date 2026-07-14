@@ -34,12 +34,11 @@ function getRequiredRoles(tier: string): RolesByTier {
     const customActions = getCustomRoleActionsForTier(tier);
 
     switch ((tier || 'Essential').toLowerCase()) {
-        case 'professional':
-            return { builtIn: [...essentialBuiltIn, 'Tag Contributor'], requireCustomRole: false, customActions };
         case 'business':
             return { builtIn: [...essentialBuiltIn, 'Tag Contributor'], requireCustomRole: true, customActions };
         case 'enterprise':
             return { builtIn: [...essentialBuiltIn, 'Tag Contributor'], requireCustomRole: true, customActions };
+        case 'professional':
         case 'essential':
         default:
             return { builtIn: essentialBuiltIn, requireCustomRole: false, customActions };

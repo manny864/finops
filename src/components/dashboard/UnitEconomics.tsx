@@ -18,11 +18,13 @@ import {
 } from 'recharts';
 import { useCurrency } from '@/components/CurrencyProvider';
 import { isMockTenant } from '@/lib/mockData';
+import { useTranslations } from 'next-intl';
 
 export default function UnitEconomics() {
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const { format } = useCurrency();
+    const t = useTranslations("UnitEconomics");
     const [dauInput, setDauInput] = useState('');
     const [savingDau, setSavingDau] = useState(false);
     const [showDauForm, setShowDauForm] = useState(false);
@@ -32,7 +34,7 @@ export default function UnitEconomics() {
         const res = await fetch(url, { headers: { Authorization: `Bearer ${idToken}` } });
         if (!res.ok) {
             const json = await res.json();
-            throw new Error(json.details || json.error || "Error al cargar métricas");
+            throw new Error(json.details || json.error || t("fetch_error"));
         }
         return res.json();
     };
@@ -113,7 +115,7 @@ export default function UnitEconomics() {
         return (
             <div className="flex flex-col items-center justify-center py-20">
                 <Loader2 className="w-8 h-8 animate-spin text-brand-deep mb-4" />
-                <p className="text-gray-500 dark:text-gray-400">Analizando economía unitaria...</p>
+                <p className="text-gray-500 dark:text-gray-400">{t("loading")}</p>
             </div>
         );
     }
@@ -121,7 +123,7 @@ export default function UnitEconomics() {
     if (error) {
         return (
             <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg border border-red-100 dark:border-red-900/50">
-                <h3 className="font-bold">Error de Procesamiento</h3>
+                <h3 className="font-bold">{t("processing_error_title")}</h3>
                 <p className="text-sm">{error.message}</p>
             </div>
         );
@@ -130,7 +132,7 @@ export default function UnitEconomics() {
     if (!metrics) {
         return (
             <div className="text-center py-10 bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800">
-                <p className="text-slate-500 dark:text-slate-400">No hay datos de costo para los últimos 30 días.</p>
+                <p className="text-slate-500 dark:text-slate-400">{t("no_data")}</p>
             </div>
         );
     }
@@ -145,31 +147,30 @@ export default function UnitEconomics() {
                 <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 flex items-start gap-3">
                     <Settings2 className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                     <div className="flex-1">
-                        <p className="font-semibold text-amber-800 dark:text-amber-300 text-sm">DAU no configurado</p>
+                        <p className="font-semibold text-amber-800 dark:text-amber-300 text-sm">{t("dau_not_configured_title")}</p>
                         <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
-                            Unit Economics requiere <strong>Usuarios Activos Diarios (DAU)</strong> para calcular el costo por usuario.
-                            Ingresa un estimado para activar la métrica.
+                            {t("dau_not_configured_desc")}
                         </p>
                         {!showDauForm ? (
                             <button onClick={() => setShowDauForm(true)} className="mt-2 text-xs font-bold text-amber-700 dark:text-amber-300 underline">
-                                Configurar DAU estimado →
+                                {t("configure_dau_cta")}
                             </button>
                         ) : (
                             <div className="mt-3 flex items-center gap-2 flex-wrap">
                                 <input
                                     type="number" min={1} value={dauInput}
                                     onChange={e => setDauInput(e.target.value)}
-                                    placeholder="Ej: 1500"
+                                    placeholder={t("dau_input_placeholder")}
                                     className="border border-amber-300 rounded-lg px-3 py-1.5 text-sm w-32 dark:bg-slate-800 dark:border-amber-700 dark:text-white"
                                 />
-                                <span className="text-xs text-amber-700 dark:text-amber-400">usuarios/día</span>
+                                <span className="text-xs text-amber-700 dark:text-amber-400">{t("users_per_day")}</span>
                                 <button
                                     onClick={saveDau} disabled={savingDau || !dauInput}
                                     className="bg-amber-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg disabled:opacity-50"
                                 >
-                                    {savingDau ? 'Guardando...' : 'Guardar'}
+                                    {savingDau ? t("saving") : t("save")}
                                 </button>
-                                <button onClick={() => setShowDauForm(false)} className="text-xs text-amber-600 underline">Cancelar</button>
+                                <button onClick={() => setShowDauForm(false)} className="text-xs text-amber-600 underline">{t("cancel")}</button>
                             </div>
                         )}
                     </div>
@@ -182,7 +183,7 @@ export default function UnitEconomics() {
                     <div className="absolute top-0 right-0 p-4 opacity-10">
                         <Users className="w-16 h-16 text-brand-deep" />
                     </div>
-                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Costo Promedio por Usuario (DAU)</p>
+                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">{t("avg_cost_per_user")}</p>
                     {metrics.hasDau ? (
                         <>
                             <p className="text-3xl font-black text-gray-900 dark:text-white z-10">{format(metrics.avgCostPerUser)}</p>
@@ -191,21 +192,21 @@ export default function UnitEconomics() {
                                     {isTrendGood ? <TrendingDown className="w-4 h-4 mr-1" /> : <TrendingUp className="w-4 h-4 mr-1" />}
                                     {Math.abs(metrics.trendPercent).toFixed(1)}%
                                 </span>
-                                <span className="ml-2 text-gray-500 dark:text-gray-400">{isTrendGood ? 'Tendencia eficiente' : 'Alerta de ineficiencia'}</span>
+                                <span className="ml-2 text-gray-500 dark:text-gray-400">{isTrendGood ? t("efficient_trend") : t("inefficient_alert")}</span>
                             </div>
                             <div className="mt-2 flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 z-10">
                                 <Settings2 className="w-3 h-3" />
-                                DAU estimado: {metrics.estimatedDau.toLocaleString()} usuarios/día
-                                <button onClick={() => setShowDauForm(true)} className="underline">Editar</button>
+                                {t("estimated_dau_label", { value: metrics.estimatedDau.toLocaleString() })}
+                                <button onClick={() => setShowDauForm(true)} className="underline">{t("edit")}</button>
                             </div>
                         </>
                     ) : (
-                        <p className="text-lg font-bold text-gray-400 mt-2">— Sin DAU configurado</p>
+                        <p className="text-lg font-bold text-gray-400 mt-2">{t("no_dau_configured")}</p>
                     )}
                 </div>
 
                 <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-6 shadow-sm">
-                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Costo Total (30 días)</p>
+                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">{t("total_cost_30d")}</p>
                     <p className="text-3xl font-black text-gray-900 dark:text-white">{format(metrics.totalCost)}</p>
                 </div>
             </div>
@@ -214,12 +215,12 @@ export default function UnitEconomics() {
             <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-6 shadow-sm">
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-2">
                     <Activity className="w-5 h-5 text-brand-deep" />
-                    Gasto Nube vs Costo por Usuario (30 días)
+                    {t("chart_title")}
                 </h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
                     {metrics.hasDau
-                        ? 'Las barras muestran el gasto diario. La línea muestra el costo por usuario activo en centavos.'
-                        : 'Configura el DAU estimado para activar la línea de costo por usuario.'}
+                        ? t("chart_desc_with_dau")
+                        : t("chart_desc_no_dau")}
                 </p>
                 <div className="h-[400px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
@@ -234,15 +235,15 @@ export default function UnitEconomics() {
                                 cursor={{ fill: 'rgba(0,0,0,0.05)' }}
                                 contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}
                                 formatter={(value: any, name: any) => {
-                                    if (name === 'Costo Nube') return [format(value), name];
-                                    if (name === 'CPU (centavos)') return [`${value}¢`, name];
+                                    if (name === t("series_cloud_cost")) return [format(value), name];
+                                    if (name === t("series_cost_per_user_cents")) return [`${value}¢`, name];
                                     return [value, name];
                                 }}
                             />
                             <Legend wrapperStyle={{ paddingTop: '20px' }} />
-                            <Bar yAxisId="left" dataKey="costDisplay" name="Costo Nube" fill="#E0E7FF" radius={[4, 4, 0, 0]} />
+                            <Bar yAxisId="left" dataKey="costDisplay" name={t("series_cloud_cost")} fill="#E0E7FF" radius={[4, 4, 0, 0]} />
                             {metrics.hasDau && (
-                                <Line yAxisId="right" type="monotone" dataKey="costPerUserCents" name="CPU (centavos)" stroke="#0054A6" strokeWidth={3} dot={{ r: 3, fill: '#0054A6', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6 }} connectNulls={false} />
+                                <Line yAxisId="right" type="monotone" dataKey="costPerUserCents" name={t("series_cost_per_user_cents")} stroke="#0054A6" strokeWidth={3} dot={{ r: 3, fill: '#0054A6', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6 }} connectNulls={false} />
                             )}
                         </ComposedChart>
                     </ResponsiveContainer>

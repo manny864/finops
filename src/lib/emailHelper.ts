@@ -320,3 +320,59 @@ export function getInternalCancellationAlertEmailHtml(params: {
     </html>
   `;
 }
+
+/**
+ * Alerta INTERNA (equipo CSCloudSolutions, no el cliente) cuando se completa
+ * un signup real — nuevo tenant/usuario provisionado con trial activo. El
+ * cliente recibe por separado el email de bienvenida (getWelcomeEmailHtml);
+ * esta es la notificación paralela para que soporte/ventas haga seguimiento.
+ */
+export function getInternalSignupAlertEmailHtml(params: {
+  tenantId: string;
+  companyName: string | null;
+  tier: string;
+  userEmail: string;
+  trialEndsAt: string | null;
+}): string {
+  const { tenantId, companyName, tier, userEmail, trialEndsAt } = params;
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://finops.example.com';
+  const trialEndsText = trialEndsAt
+    ? new Date(trialEndsAt).toLocaleDateString('es-AR', { year: 'numeric', month: 'long', day: 'numeric' })
+    : '(sin trial)';
+
+  return `
+    <html>
+      <head>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #0054A6 0%, #003d7a 100%); color: white; padding: 32px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background: white; border: 1px solid #e0e0e0; border-radius: 0 0 8px 8px; padding: 32px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+          td { padding: 8px 0; border-bottom: 1px solid #eee; font-size: 14px; }
+          td:first-child { color: #666; width: 160px; }
+          .button { display: inline-block; padding: 10px 24px; background-color: #0054A6; color: white; text-decoration: none; border-radius: 4px; font-weight: bold; margin-top: 20px; font-size: 14px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1 style="margin:0;font-size:20px;">🆕 Nuevo signup en FinOps SaaS</h1>
+          </div>
+          <div class="content">
+            <table>
+              <tr><td>Cliente</td><td><strong>${companyName || '(sin nombre)'}</strong></td></tr>
+              <tr><td>Tenant ID</td><td style="font-family:monospace;">${tenantId}</td></tr>
+              <tr><td>Usuario (Admin)</td><td>${userEmail}</td></tr>
+              <tr><td>Plan</td><td>${tier}</td></tr>
+              <tr><td>Trial termina</td><td><strong>${trialEndsText}</strong></td></tr>
+            </table>
+            <p style="margin-top: 20px;">
+              <a href="${baseUrl}/admin/tenants" class="button">Ver tenant en Admin</a>
+            </p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+}

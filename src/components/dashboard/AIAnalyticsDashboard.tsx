@@ -70,7 +70,7 @@ export default function AIAnalyticsDashboard() {
         const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
         if (!res.ok) {
             const j = await res.json();
-            throw new Error(j.error || "Error al cargar AI Analytics");
+            throw new Error(j.error || t("fetch_error"));
         }
         return res.json();
     };
@@ -88,7 +88,7 @@ export default function AIAnalyticsDashboard() {
         return (
             <div className="flex flex-col items-center justify-center py-20">
                 <Loader2 className="w-8 h-8 animate-spin text-blue-500 mb-4" />
-                <p className="text-gray-500 dark:text-gray-400">Cargando AI Analytics...</p>
+                <p className="text-gray-500 dark:text-gray-400">{t("loading")}</p>
             </div>
         );
     }
@@ -96,7 +96,7 @@ export default function AIAnalyticsDashboard() {
     if (error) {
         return (
             <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg border border-red-100 dark:border-red-900/50">
-                <h3 className="font-bold flex items-center gap-2"><AlertTriangle className="w-4 h-4" /> Error</h3>
+                <h3 className="font-bold flex items-center gap-2"><AlertTriangle className="w-4 h-4" /> {t("error_title")}</h3>
                 <p className="text-sm">{error.message}</p>
             </div>
         );
@@ -131,13 +131,13 @@ export default function AIAnalyticsDashboard() {
             {!mock && !showTokens && (
                 <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/50 text-blue-700 dark:text-blue-300 rounded-xl px-4 py-3 flex items-center gap-3 text-sm">
                     <AlertTriangle className="w-4 h-4 shrink-0" />
-                    <span>Costo real de Cognitive Services / Azure OpenAI desde Cost Management. No hay desglose de tokens por modelo — requiere integrar la API de uso de Azure OpenAI.</span>
+                    <span>{t("azure_openai_note")}</span>
                 </div>
             )}
 
             {/* Days filter */}
             <div className="flex items-center gap-2 text-sm">
-                <span className="text-slate-500 dark:text-slate-400">Período:</span>
+                <span className="text-slate-500 dark:text-slate-400">{t("period")}</span>
                 {[7, 30, 60, 90].map(d => (
                     <button
                         key={d}
@@ -152,7 +152,7 @@ export default function AIAnalyticsDashboard() {
             {/* KPI cards */}
             {summary && (
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    <KpiCard label="Total Cost" value={`$${summary.totalCost.toLocaleString()}`} icon={<DollarSign className="w-5 h-5" />} />
+                    <KpiCard label={t("total_cost")} value={`$${summary.totalCost.toLocaleString()}`} icon={<DollarSign className="w-5 h-5" />} />
                     {showTokens ? (
                         <>
                             <KpiCard
@@ -167,30 +167,30 @@ export default function AIAnalyticsDashboard() {
                                 icon={<TrendingUp className="w-5 h-5" />}
                             />
                             <KpiCard
-                                label="Modelos Activos"
+                                label={t("active_models")}
                                 value={String(summary.activeModels)}
-                                sub={`${summary.activeApplications} aplicaciones`}
+                                sub={t("applications_suffix", { count: summary.activeApplications })}
                                 icon={<Cpu className="w-5 h-5" />}
                             />
                         </>
                     ) : (
                         <>
                             <KpiCard
-                                label="Costo Promedio Diario"
+                                label={t("avg_daily_cost")}
                                 value={`$${(summary.totalCost / days).toFixed(2)}`}
-                                sub={`últimos ${days} días`}
+                                sub={t("last_days", { days })}
                                 icon={<TrendingUp className="w-5 h-5" />}
                             />
                             <KpiCard
-                                label="Tipos de Meter"
+                                label={t("meter_types")}
                                 value={String(summary.activeModels)}
-                                sub="proxy de modelo/servicio"
+                                sub={t("model_service_proxy")}
                                 icon={<Zap className="w-5 h-5" />}
                             />
                             <KpiCard
-                                label="Grupos de Recursos"
+                                label={t("resource_groups")}
                                 value={String(summary.activeApplications)}
-                                sub="con costo de IA"
+                                sub={t("ai_cost_suffix")}
                                 icon={<Cpu className="w-5 h-5" />}
                             />
                         </>
@@ -204,7 +204,7 @@ export default function AIAnalyticsDashboard() {
                 <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-5">
                     <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2">
                         <BrainCircuit className="w-4 h-4 text-blue-500" />
-                        {showTokens ? t("byModel") : "Por tipo de meter (proxy de modelo)"}
+                        {showTokens ? t("byModel") : t("by_meter_type")}
                     </h3>
                     <div className="space-y-3">
                         {(byModel ?? []).map((m: any) => (
@@ -232,8 +232,8 @@ export default function AIAnalyticsDashboard() {
                             onChange={e => setAppSort(e.target.value as "cost" | "application")}
                             className="text-xs px-2 py-1 rounded border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800"
                         >
-                            <option value="cost">Por costo</option>
-                            <option value="application">Por nombre</option>
+                            <option value="cost">{t("sort_by_cost")}</option>
+                            <option value="application">{t("sort_by_name")}</option>
                         </select>
                     </div>
                     <div className="overflow-auto max-h-64">
@@ -242,7 +242,7 @@ export default function AIAnalyticsDashboard() {
                                 <tr>
                                     <th className="text-left pb-2">{t("application")}</th>
                                     <th className="text-left pb-2">{t("model")}</th>
-                                    <th className="text-right pb-2">Cost</th>
+                                    <th className="text-right pb-2">{t("col_cost")}</th>
                                     <th className="text-right pb-2 w-24">%</th>
                                 </tr>
                             </thead>

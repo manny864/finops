@@ -3,8 +3,10 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
-import { CreditCard, AlertCircle, ChevronDown, Loader2, Trash2, ExternalLink } from "lucide-react";
+import { CreditCard, AlertCircle, ChevronDown, Loader2, Trash2, ExternalLink, Info } from "lucide-react";
 import { toast } from "sonner";
+import { getSubscriptionLimit, getUserLimit } from "@/lib/tierLogic";
+import { getSupportConfig } from "@/lib/supportConfig";
 
 interface BillingInfo {
   tier: string;
@@ -47,23 +49,6 @@ function formatMinorAmount(minor: string | null | undefined, currency: string): 
   const major = Number(minor) / Math.pow(10, digits);
   return fmt.format(major);
 }
-
-const TIER_FEATURES = {
-  Essential: ["Hasta 5 suscripciones Azure", "Análisis básico de costos", "Reportes mensuales"],
-  Professional: [
-    "Hasta 50 suscripciones Azure",
-    "Análisis avanzado de costos",
-    "Reportes diarios",
-    "Recomendaciones de optimización",
-  ],
-  Business: [
-    "Suscripciones ilimitadas",
-    "Análisis de costos en tiempo real",
-    "Reportes personalizados",
-    "Soporte prioritario",
-    "API de integración",
-  ],
-};
 
 export default function BillingPage() {
   const { selectedTenant } = useTenant();
@@ -295,18 +280,18 @@ export default function BillingPage() {
         </div>
 
         {billingInfo?.tier && (
-          <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-            <h3 className="mb-3 font-semibold">Características incluidas:</h3>
-            <ul className="grid grid-cols-1 gap-2 md:grid-cols-2">
-              {TIER_FEATURES[billingInfo.tier as keyof typeof TIER_FEATURES]?.map((feature, i) => (
-                <li key={i} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                  <div className="h-2 w-2 rounded-full bg-green-500" />
-                  {feature}
-                </li>
-              ))}
-            </ul>
+          <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700 flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400">
+            <Info className="h-4 w-4 mt-0.5 shrink-0 text-brand-deep" />
+            <p>
+              Tu plan <strong>{billingInfo.tier}</strong> incluye{" "}
+              {(() => { const l = getSubscriptionLimit(billingInfo.tier); return Number.isFinite(l) ? `hasta ${l} suscripción(es) de Azure` : "suscripciones de Azure ilimitadas"; })()},{" "}
+              {(() => { const l = getUserLimit(billingInfo.tier); return Number.isFinite(l) ? `hasta ${l} usuario(s)` : "usuarios ilimitados"; })()} y{" "}
+              {(() => { const q = getSupportConfig(billingInfo.tier).monthlyTicketQuota; return q === null ? "soporte ilimitado" : `${q} tickets/mes de soporte`; })()}{" "}
+              (respuesta en {getSupportConfig(billingInfo.tier).firstResponseSlaHours} h).
+            </p>
           </div>
         )}
+
       </div>
 
       {/* Marketplace Status Card */}

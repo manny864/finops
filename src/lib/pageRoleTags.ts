@@ -99,7 +99,6 @@ export const PAGE_ROLE_TAGS: Record<string, RoleTag[]> = {
     "/governance/reporting": ["Security"],
     "/governance/ha": ["CloudAdmin"],
     "/governance/credentials": ["Security"],
-    "/governance/score": ["Security"],
     "/remediation/approvals": ["CloudAdmin"],
 
     // Administración (plataforma del SaaS, no un dominio FinOps/Cloud/Seguridad)
@@ -121,7 +120,6 @@ export const PAGE_ROLE_TAGS: Record<string, RoleTag[]> = {
     "/admin/powerbi-templates": ["Platform"],
     "/admin/focus-export": ["FinOps", "Platform"],
     "/admin/sso": ["Security", "Platform"],
-    "/admin/payments": ["Platform"],
     "/admin/tenants": ["Platform"],
     "/superadmin/funnel": ["Platform"],
     "/superadmin/support": ["Platform"],
