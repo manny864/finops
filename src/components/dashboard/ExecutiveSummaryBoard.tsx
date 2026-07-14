@@ -23,31 +23,66 @@ import FeatureGuard from "@/components/FeatureGuard";
 import { Responsive, WidthProvider } from "react-grid-layout/legacy";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
+import { getCookie, setCookie } from "@/lib/clientCookie";
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
 // Layout persistido de las tarjetas resizeables/reubicables — separado del
 // (ya eliminado) key del viejo Dashboard General para no heredar un layout
-// con items que ya no existen.
+// con items que ya no existen. Se persiste por cookie (sobrevive a un
+// localStorage.clear() del usuario); localStorage queda como fallback de
+// lectura para migrar preferencias guardadas antes de este cambio.
 const LAYOUT_STORAGE_KEY = "finops_whiteboard_layout_v1";
+const GRID_COLS = { lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 };
+
+const LG_ITEMS = [
+    { i: "budget", x: 0, y: 0, w: 4, h: 5 },
+    { i: "projection", x: 4, y: 0, w: 4, h: 5 },
+    { i: "ha", x: 8, y: 0, w: 4, h: 5 },
+    { i: "costs", x: 0, y: 5, w: 4, h: 4 },
+    { i: "trend3m", x: 4, y: 5, w: 4, h: 4 },
+    { i: "top3services", x: 8, y: 5, w: 4, h: 4 },
+    { i: "security", x: 0, y: 9, w: 6, h: 5 },
+    { i: "governance", x: 6, y: 9, w: 6, h: 5 },
+    { i: "threats", x: 0, y: 14, w: 4, h: 4 },
+    { i: "locations", x: 4, y: 14, w: 4, h: 4 },
+    { i: "inventory", x: 8, y: 14, w: 4, h: 4 },
+    { i: "advisorRec", x: 0, y: 18, w: 4, h: 3 },
+    { i: "recTrend", x: 4, y: 18, w: 4, h: 3 },
+    { i: "costGroups", x: 8, y: 18, w: 4, h: 3 },
+];
+
+// Deriva un layout válido para un breakpoint angosto a partir del de `lg`
+// (12 columnas). Debajo de 6 columnas apilamos todo a ancho completo — con
+// tarjetas de hasta w:8 en el layout base, cualquier intento de conservar
+// varias columnas en pantallas chicas termina en overflow horizontal o
+// tarjetas amontonadas ilegibles; apilar es lo único que se ve bien en un
+// teléfono. De 6 columnas para arriba escalamos ancho/posición
+// proporcionalmente y dejamos que el compactado vertical de la librería
+// resuelva las colisiones que queden.
+function deriveLayoutForCols(baseItems: typeof LG_ITEMS, cols: number, baseCols = 12) {
+    if (cols <= 4) {
+        let y = 0;
+        return baseItems.map((item) => {
+            const laidOut = { ...item, x: 0, y, w: cols, h: item.h };
+            y += item.h;
+            return laidOut;
+        });
+    }
+    const scale = cols / baseCols;
+    return baseItems.map((item) => ({
+        ...item,
+        x: Math.max(0, Math.min(cols - 1, Math.round(item.x * scale))),
+        w: Math.max(1, Math.min(cols, Math.round(item.w * scale))),
+    }));
+}
 
 const DEFAULT_LAYOUT = {
-    lg: [
-        { i: "budget", x: 0, y: 0, w: 4, h: 5 },
-        { i: "projection", x: 4, y: 0, w: 4, h: 5 },
-        { i: "ha", x: 8, y: 0, w: 4, h: 5 },
-        { i: "costs", x: 0, y: 5, w: 4, h: 4 },
-        { i: "trend3m", x: 4, y: 5, w: 4, h: 4 },
-        { i: "top3services", x: 8, y: 5, w: 4, h: 4 },
-        { i: "security", x: 0, y: 9, w: 6, h: 5 },
-        { i: "governance", x: 6, y: 9, w: 6, h: 5 },
-        { i: "threats", x: 0, y: 14, w: 4, h: 4 },
-        { i: "locations", x: 4, y: 14, w: 4, h: 4 },
-        { i: "inventory", x: 8, y: 14, w: 4, h: 4 },
-        { i: "advisorRec", x: 0, y: 18, w: 4, h: 3 },
-        { i: "recTrend", x: 4, y: 18, w: 4, h: 3 },
-        { i: "costGroups", x: 8, y: 18, w: 4, h: 3 },
-    ],
+    lg: LG_ITEMS,
+    md: deriveLayoutForCols(LG_ITEMS, GRID_COLS.md),
+    sm: deriveLayoutForCols(LG_ITEMS, GRID_COLS.sm),
+    xs: deriveLayoutForCols(LG_ITEMS, GRID_COLS.xs),
+    xxs: deriveLayoutForCols(LG_ITEMS, GRID_COLS.xxs),
 };
 
 const COLORS = {
@@ -124,18 +159,24 @@ export default function ExecutiveSummaryBoard() {
     const calculateCO2Savings = (wastedUsd: number) => ((wastedUsd / 100) * 15).toFixed(1);
     const totalSavings = (summaryData?.dashboardData || []).reduce((sum: number, item: any) => sum + (item.potentialSavings || 0), 0);
 
-    // Layout de tarjetas resizeables/reubicables — persistido en localStorage,
-    // mismo patrón que el (ahora eliminado) Dashboard General.
+    // Layout de tarjetas resizeables/reubicables — persistido por cookie
+    // (Max-Age 1 año), con localStorage como fallback de lectura para migrar
+    // preferencias guardadas por la versión anterior de este componente.
     const [layouts, setLayouts] = useState<any>(null);
     useEffect(() => {
-        const saved = localStorage.getItem(LAYOUT_STORAGE_KEY);
-        if (saved) {
+        const raw = getCookie(LAYOUT_STORAGE_KEY) || localStorage.getItem(LAYOUT_STORAGE_KEY);
+        if (raw) {
             try {
-                const parsed = JSON.parse(saved);
-                // Migración: agregar tarjetas nuevas si el layout guardado no las incluye.
-                Object.keys(parsed).forEach((bp: string) => {
+                const parsed = JSON.parse(raw);
+                // Migración: agregar tarjetas nuevas (o breakpoints nuevos, ver
+                // fix de responsive) si el layout guardado no las incluye todavía.
+                Object.keys(DEFAULT_LAYOUT).forEach((bp: string) => {
+                    if (!parsed[bp]) {
+                        parsed[bp] = DEFAULT_LAYOUT[bp as keyof typeof DEFAULT_LAYOUT];
+                        return;
+                    }
                     const existing = new Set((parsed[bp] || []).map((l: any) => l.i));
-                    DEFAULT_LAYOUT.lg.forEach((item) => {
+                    LG_ITEMS.forEach((item) => {
                         if (!existing.has(item.i)) parsed[bp].push(item);
                     });
                 });
@@ -148,9 +189,24 @@ export default function ExecutiveSummaryBoard() {
         }
     }, []);
 
+    // Debounce de la escritura: onLayoutChange dispara en cada frame durante
+    // un drag/resize — escribir la cookie en cada uno sería ruidoso y
+    // costoso (la cookie viaja en cada request de la pestaña). El estado en
+    // memoria (setLayouts) sí se actualiza al instante para que el grid no
+    // se sienta con lag.
+    const persistTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    const persistLayouts = useCallback((allLayouts: any) => {
+        if (persistTimeoutRef.current) clearTimeout(persistTimeoutRef.current);
+        persistTimeoutRef.current = setTimeout(() => {
+            const serialized = JSON.stringify(allLayouts);
+            setCookie(LAYOUT_STORAGE_KEY, serialized);
+            localStorage.setItem(LAYOUT_STORAGE_KEY, serialized);
+        }, 400);
+    }, []);
+
     const onLayoutChange = (_layout: any, allLayouts: any) => {
         setLayouts(allLayouts);
-        localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(allLayouts));
+        persistLayouts(allLayouts);
     };
 
     const handleBudgetResize = useCallback((newH: number) => {
@@ -276,7 +332,7 @@ export default function ExecutiveSummaryBoard() {
                 className="layout"
                 layouts={layouts}
                 breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
-                cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
+                cols={GRID_COLS}
                 rowHeight={80}
                 onLayoutChange={onLayoutChange}
                 draggableHandle=".drag-handle"
