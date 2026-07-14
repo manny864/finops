@@ -76,9 +76,13 @@ export async function GET(request: NextRequest) {
         // todavía (race de sincronización, usuario recién agregado), leer/
         // escribir con userId=1 mezclaría su progreso con el de otro usuario
         // real que sí tenga ese id en el mismo tenant.
+        // Match por (entra_oid OR email) — mismo criterio que requireTenantRole
+        // en requestAuth.ts: el oid del token puede no coincidir con el
+        // guardado (usuario invitado antes de loguearse la primera vez), pero
+        // el email siempre identifica la fila real.
         let userId: number | null = isMockTenant(tenantId) ? 1 : null;
-        if (oid && !isMockTenant(tenantId)) {
-            const [userRows]: any = await pool.query('SELECT id FROM Users WHERE entra_oid = ? AND tenant_id = ?', [oid, tenantId]);
+        if (!isMockTenant(tenantId) && (oid || identity.email)) {
+            const [userRows]: any = await pool.query('SELECT id FROM Users WHERE tenant_id = ? AND (entra_oid = ? OR email = ?)', [tenantId, oid || '', identity.email || '']);
             if (userRows && userRows.length > 0) {
                 userId = userRows[0].id;
             }
@@ -125,30 +129,26 @@ export async function POST(request: NextRequest) {
         const identity = await requireTenantAccess(request, tenantId);
         const oid = identity.claims.oid;
 
-        // Mismo motivo que en GET: sin fila propia en Users, no hay un userId
-        // legítimo al cual atribuir el progreso — se responde éxito sin
-        // persistir en vez de contaminar el progreso de otro usuario (id=1).
+        // Mismo motivo que en GET: match por (entra_oid OR email). Si de
+        // verdad no hay fila propia en Users, no hay un userId legítimo al
+        // cual atribuir el progreso — se responde error explícito en vez de
+        // fingir éxito (antes esto hacía que el botón "funcionara" pero nunca
+        // persistiera nada, sin ningún indicio del problema).
         let userId: number | null = null;
-        if (oid) {
-            const [userRows]: any = await pool.query('SELECT id FROM Users WHERE entra_oid = ? AND tenant_id = ?', [oid, tenantId]);
+        if (oid || identity.email) {
+            const [userRows]: any = await pool.query('SELECT id FROM Users WHERE tenant_id = ? AND (entra_oid = ? OR email = ?)', [tenantId, oid || '', identity.email || '']);
             if (userRows && userRows.length > 0) {
                 userId = userRows[0].id;
             }
         }
         if (userId === null) {
-            return NextResponse.json({ success: true, message: "Progreso no persistido (usuario aún no sincronizado)" });
+            return NextResponse.json({ error: "No se pudo identificar tu usuario en este tenant. Recargá la página o contactá a soporte." }, { status: 409 });
         }
 
         await pool.query(
             'INSERT IGNORE INTO AcademyProgress (user_id, tenant_id, module_id) VALUES (?, ?, ?)',
             [userId, tenantId, moduleId]
         );
-
-        // Verify if all modules are completed to mark tenant as onboarded
-        const [progressRows]: any = await pool.query('SELECT module_id FROM AcademyProgress WHERE user_id = ? AND tenant_id = ?', [userId, tenantId]);
-        if (progressRows && progressRows.length >= ACADEMY_CONTENT.length) {
-            await pool.query('UPDATE Tenants SET is_onboarded = 1 WHERE tenant_id = ?', [tenantId]);
-        }
 
         return NextResponse.json({ success: true, message: "Módulo completado" });
     } catch (error: unknown) {

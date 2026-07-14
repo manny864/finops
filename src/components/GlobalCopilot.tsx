@@ -15,9 +15,8 @@ export default function GlobalCopilot() {
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const currentTier = (selectedTenant as any).tier || 'Essential';
-    // FinOps Copilot (IA) es feature Business (ver pricing.business.features),
-    // no Professional.
-    const canAccessCopilot = hasAccess(currentTier, 'Business');
+    // FinOps Copilot (IA) es feature Professional (ver pricing.pro.features).
+    const canAccessCopilot = hasAccess(currentTier, 'Professional');
     
     const { currentPage, currentDataPayload, isOpen, setIsOpen, injectedPrompt, triggerCopilotWithPrompt } = useAIContext();
     const [messages, setMessages] = useState<{role: 'user'|'ai', content: string}[]>([]);

@@ -19,6 +19,8 @@ export interface Tenant {
   is_onboarded?: boolean;
   client_id?: string | null;
   has_client_secret?: boolean;
+  partner_link_status?: string | null;
+  partner_link_detail?: string | null;
 }
 
 interface TenantContextType {
@@ -34,6 +36,11 @@ interface TenantContextType {
   systemRole: string;
   userScope?: any;
   requiresRbacUpdate?: boolean;
+  // Certificación de Academia FinOps del USUARIO actual (no del tenant — cada
+  // usuario nuevo de la organización debe completarla, sin importar si otros
+  // ya lo hicieron). null = todavía no se resolvió.
+  academyCertified: boolean | null;
+  setAcademyCertified: (certified: boolean) => void;
 }
 
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
@@ -75,13 +82,49 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
   const [systemRole, setSystemRole] = useState<string>('USER');
   const [userScope, setUserScope] = useState<any>(null);
 
-  // Enforce Academy completion
+  // Estado de certificación de Academia FinOps del USUARIO actual. Deliberadamente
+  // independiente de `selectedTenant.is_onboarded` (que es una columna a nivel
+  // Tenant, compartida por toda la organización) — si se usara esa columna,
+  // que un solo usuario complete la Academia (o el onboarding técnico de Azure,
+  // que también la toca) marcaría a TODOS los usuarios del tenant como
+  // certificados. Se resuelve consultando el progreso propio vía
+  // /api/academy/content, que ya está scopeado por usuario en el backend.
+  const [academyCertified, setAcademyCertified] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (demoSession?.isDemo || selectedTenant.id === 'default' || isMockTenant(selectedTenant.id)) {
+        setAcademyCertified(null);
+        return;
+    }
+    if (accounts.length === 0) return;
+    let cancelled = false;
+    (async () => {
+        try {
+            const idToken = await getFreshIdToken(instance, accounts[0]);
+            const res = await fetch(`/api/academy/content?tenantId=${selectedTenant.id}`, {
+                headers: { Authorization: `Bearer ${idToken}` }
+            });
+            if (!res.ok) return;
+            const data = await res.json();
+            if (!cancelled) setAcademyCertified(!!data.isCertified);
+        } catch (e) {
+            console.error('[TenantProvider] Failed to check Academy status:', e);
+        }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedTenant.id, accounts.length, instance, demoSession]);
+
+  // Enforce Academy completion: debe ser la primera página que ve un usuario
+  // nuevo de la organización — si no la completó, no puede acceder al resto
+  // de features. SUPERADMIN nunca es forzado (no es parte de la ruta de
+  // aprendizaje del cliente).
   useEffect(() => {
     if (selectedTenant.id !== 'default' && typeof window !== 'undefined') {
         // Skip redirect for demo/mock tenants
         if (isMockTenant(selectedTenant.id) || demoSession?.isDemo) return;
+        if (systemRole === 'SUPERADMIN') return;
 
-        if ((selectedTenant.is_onboarded as any) === 0 || selectedTenant.is_onboarded === false) {
+        if (academyCertified === false) {
             if (!pathname?.includes('/academy')) {
                 // Keep the current locale
                 const localeMatch = pathname?.match(/^\/([a-z]{2}(-[A-Z]{2})?)\//);
@@ -90,7 +133,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
             }
         }
     }
-  }, [selectedTenant, pathname, router, demoSession]);
+  }, [selectedTenant, pathname, router, demoSession, academyCertified, systemRole]);
 
   // Leer Base de Datos MySQL de forma segura con token
   useEffect(() => {
@@ -838,7 +881,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
   const requiresRbacUpdate = selectedTenant?.requires_rbac_update;
 
   return (
-    <TenantContext.Provider value={{ selectedTenant, setSelectedTenant, isAdmin, tenants: tenantsList, userRole, userPermissions, systemRole, userScope, requiresRbacUpdate }}>
+    <TenantContext.Provider value={{ selectedTenant, setSelectedTenant, isAdmin, tenants: tenantsList, userRole, userPermissions, systemRole, userScope, requiresRbacUpdate, academyCertified, setAcademyCertified }}>
       {children}
     </TenantContext.Provider>
   );

@@ -488,7 +488,8 @@
         "Supressão de Recomendações (Snooze)",
         "Canais de Notificação (Slack/Teams/Email/Webhook)",
         "Autenticação Multi-Fator (MFA)",
-        "Suporte na plataforma (20 tickets/mês, resposta em 24 h)"
+        "Suporte na plataforma (20 tickets/mês, resposta em 24 h)",
+        "FinOps Copilot (IA)"
       ]
     },
     "business": {
@@ -512,7 +513,6 @@
         "Networking Zombies (com Remediação)",
         "Expirações TTL (sem Remediação)",
         "Ligar/Desligar Automático (Schedules)",
-        "FinOps Copilot (IA)",
         "Alta Disponibilidade de VMs",
         "Credenciais a Expirar (Entra ID)",
         "Delegações Multi-Tenant (cross-account)",

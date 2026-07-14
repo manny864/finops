@@ -10,7 +10,7 @@ import { useMsal } from '@azure/msal-react';
 import { fetchWithAuthRetry } from '@/lib/msalToken';
 import WizardLayout from '@/components/onboarding/WizardLayout';
 import WizardStep, { StepStatus } from '@/components/onboarding/WizardStep';
-import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertCircle, Handshake } from 'lucide-react';
 
 interface Progress {
     step_welcome: StepStatus;
@@ -34,7 +34,7 @@ export default function OnboardingPage() {
     const router = useRouter();
     const { locale } = useParams();
     const t = useTranslations('OnboardingWizard');
-    const { selectedTenant } = useTenant();
+    const { selectedTenant, setSelectedTenant } = useTenant();
     const { subscriptions } = useSubscription();
     const { instance, accounts } = useMsal();
 
@@ -53,6 +53,7 @@ export default function OnboardingPage() {
     const [spValidating, setSpValidating] = useState(false);
     const [spValidationResult, setSpValidationResult] = useState<any>(null);
     const [syncRunning, setSyncRunning] = useState(false);
+    const [partnerLinkBusy, setPartnerLinkBusy] = useState(false);
     const [budgetName, setBudgetName] = useState('');
     const [budgetLimit, setBudgetLimit] = useState('');
     const [budgetAlertThreshold, setBudgetAlertThreshold] = useState('80');
@@ -172,6 +173,32 @@ export default function OnboardingPage() {
             console.error('[Onboarding] Failed to validate SP:', error);
         } finally {
             setSpValidating(false);
+        }
+    };
+
+    const handlePartnerLink = async (approve: boolean) => {
+        if (!selectedTenant?.id) return;
+        setPartnerLinkBusy(true);
+        try {
+            const response = await fetchWithAuthRetry(
+                instance,
+                accounts[0],
+                '/api/tenants/partner-link',
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ tenantId: selectedTenant.id, approve }),
+                }
+            );
+            const data = await response.json();
+            if (!response.ok) {
+                alert(data.error || 'No se pudo procesar la asociación de partner');
+                return;
+            }
+            setSelectedTenant({ ...selectedTenant, partner_link_status: data.status, partner_link_detail: data.detail || null });
+        } catch (error) {
+            console.error('[Onboarding] Partner link failed:', error);
+        } finally {
+            setPartnerLinkBusy(false);
         }
     };
 
@@ -432,6 +459,55 @@ export default function OnboardingPage() {
                                     </div>
                                 )}
                             </div>
+                        )}
+
+                        {selectedTenant?.has_client_secret && (!selectedTenant.partner_link_status || selectedTenant.partner_link_status === 'NONE') && (
+                            <div className="p-4 rounded-lg bg-blue-50 border border-blue-200 space-y-3">
+                                <p className="text-xs font-semibold text-gray-700 flex items-center gap-2">
+                                    <Handshake className="w-4 h-4 text-blue-600" /> Asociación de partner (PAL / CPOR)
+                                </p>
+                                <p className="text-xs text-gray-600">
+                                    CS Cloud Solutions es partner de Microsoft. Si lo aprobás, asociaremos nuestro
+                                    Partner ID a las credenciales que configuraste vía PAL
+                                    (Partner Admin Link) y podremos registrar la relación de partner (CPOR) en
+                                    Partner Center. Esto no otorga acceso adicional a tus datos ni tiene costo: solo le
+                                    indica a Microsoft que somos tu partner de servicios de FinOps. Microsoft puede
+                                    notificarte del reclamo CPOR y podés desasociarlo cuando quieras desde Azure.
+                                </p>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => handlePartnerLink(true)}
+                                        disabled={partnerLinkBusy}
+                                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg disabled:opacity-50"
+                                    >
+                                        {partnerLinkBusy ? 'Asociando…' : 'Aprobar asociación'}
+                                    </button>
+                                    <button
+                                        onClick={() => handlePartnerLink(false)}
+                                        disabled={partnerLinkBusy}
+                                        className="px-3 py-1.5 border border-gray-300 text-gray-700 text-xs font-semibold rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                                    >
+                                        No, gracias
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                        {selectedTenant?.partner_link_status && selectedTenant.partner_link_status !== 'NONE' && (
+                            <p className="text-xs text-gray-500">
+                                Asociación de partner:{" "}
+                                <span className={
+                                    selectedTenant.partner_link_status === 'LINKED' ? 'text-green-600 font-semibold'
+                                    : selectedTenant.partner_link_status === 'FAILED' ? 'text-red-600 font-semibold'
+                                    : 'text-gray-700 font-semibold'
+                                }>
+                                    {selectedTenant.partner_link_status === 'LINKED' ? 'vinculada (PAL)'
+                                        : selectedTenant.partner_link_status === 'APPROVED' ? 'aprobada'
+                                        : selectedTenant.partner_link_status === 'FAILED' ? 'aprobada, link con error'
+                                        : selectedTenant.partner_link_status === 'DECLINED' ? 'rechazada'
+                                        : selectedTenant.partner_link_status}
+                                </span>
+                                {selectedTenant.partner_link_detail ? ` — ${selectedTenant.partner_link_detail}` : ""}
+                            </p>
                         )}
                     </div>
                 </WizardStep>

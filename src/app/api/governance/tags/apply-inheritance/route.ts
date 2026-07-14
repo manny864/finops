@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { AuthError, requireTenantRole } from "@/lib/requestAuth";
+import { AuthError, requireTenantRole, requireTenantTier } from "@/lib/requestAuth";
 import { getAzureCredential } from "@/lib/azure";
 import { applyTagInheritance, ApplyOp } from "@/services/tagInheritanceService";
 
@@ -35,6 +35,12 @@ export async function POST(request: NextRequest) {
 
         // Solo Admin / Owner pueden aplicar tags (mutación en Azure)
         await requireTenantRole(request, tenantId, ["Admin", "Owner"]);
+        // Remediación de tags (misma feature/tier que "Editar Etiquetas" en
+        // TagManager.tsx, ver canRemediateTags en tierLogic.ts): habilitada
+        // desde Business. El dry-run no muta Azure, así que no se gatea.
+        if (!dryRun) {
+            await requireTenantTier(request, tenantId, "Business");
+        }
 
         let credential;
         try {

@@ -6,6 +6,7 @@ import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { Tag, Play, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
 import Pagination, { usePagination } from "@/components/Pagination";
+import FeatureGuard from "@/components/FeatureGuard";
 
 interface PreviewRow {
     resourceId: string;
@@ -186,14 +187,16 @@ export default function TagInheritancePanel() {
                             >
                                 Dry-run
                             </button>
-                            <button
-                                onClick={() => applyAll(false)}
-                                disabled={applying || selected.size === 0}
-                                className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded text-sm flex items-center gap-2 disabled:opacity-50"
-                            >
-                                {applying ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                                Aplicar a Azure
-                            </button>
+                            <FeatureGuard requiredTier="Business" featureName="Remediación de Etiquetas" className="inline-block">
+                                <button
+                                    onClick={() => applyAll(false)}
+                                    disabled={applying || selected.size === 0}
+                                    className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded text-sm flex items-center gap-2 disabled:opacity-50"
+                                >
+                                    {applying ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                                    Aplicar a Azure
+                                </button>
+                            </FeatureGuard>
                         </div>
                     </div>
 

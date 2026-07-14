@@ -21,8 +21,8 @@ export async function POST(request: NextRequest) {
         const isDemoTenant = tenantId && isMockTenant(tenantId);
 
         if (tenantId && !isDemoTenant) {
-            // FinOps Copilot (IA) es feature Business (ver pricing.business.features).
-            await requireTenantTier(request, tenantId, 'Business');
+            // FinOps Copilot (IA) es feature Professional (ver pricing.pro.features).
+            await requireTenantTier(request, tenantId, 'Professional');
         }
 
         const effectiveTenantId = isDemoTenant ? identity.tenantId : (tenantId || identity.tenantId);

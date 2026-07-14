@@ -13,7 +13,7 @@ import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
 
 export default function FinOpsAcademy() {
-    const { selectedTenant, setSelectedTenant } = useTenant();
+    const { selectedTenant, setAcademyCertified } = useTenant();
     const { instance, accounts } = useMsal();
     const router = useRouter();
     const { locale } = useParams() as { locale: string };
@@ -52,7 +52,10 @@ export default function FinOpsAcademy() {
                 body: JSON.stringify({ tenantId: selectedTenant?.id, moduleId })
             });
 
-            if (!response.ok) throw new Error("Fallo al guardar progreso");
+            if (!response.ok) {
+                const body = await response.json().catch(() => null);
+                throw new Error(body?.error || "Fallo al guardar progreso");
+            }
             
             toast.success("¡Lección completada!");
             mutate(); // Refresh progress
@@ -100,6 +103,16 @@ export default function FinOpsAcademy() {
 
     return (
         <div className="max-w-4xl space-y-6">
+            {!isCertified && (
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-xl p-4 flex items-start gap-3">
+                    <GraduationCap className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                    <p className="text-sm text-amber-800 dark:text-amber-300">
+                        <strong>Completar la Academia FinOps es obligatorio.</strong> Es el primer paso para todo usuario nuevo de tu organización:
+                        hasta que completes los {modules.length} módulos no vas a poder acceder al resto de las funciones de la plataforma.
+                        Este requisito es individual — aplica aunque otros usuarios de tu empresa ya la hayan completado.
+                    </p>
+                </div>
+            )}
             {/* Progress Header */}
             <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-6 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
@@ -116,11 +129,13 @@ export default function FinOpsAcademy() {
                         <div className="flex flex-col items-center animate-in zoom-in">
                             <Trophy className="w-10 h-10 text-yellow-500 mb-1 drop-shadow-md" />
                             <span className="text-xs font-bold text-yellow-600 uppercase tracking-widest">FinOps Certified</span>
-                            <button 
+                            <button
                                 onClick={() => {
-                                    // Mark is_onboarded in React state + localStorage BEFORE navigating
-                                    // to avoid TenantProvider's academy-redirect loop on remount.
-                                    setSelectedTenant({ ...selectedTenant, is_onboarded: true });
+                                    // Marca la certificación en el contexto ANTES de navegar, para
+                                    // que el efecto de TenantProvider que fuerza el redirect a
+                                    // /academy no dispare un loop mientras el remount todavía no
+                                    // hizo el refetch de /api/academy/content.
+                                    setAcademyCertified(true);
                                     router.push(`/${locale}`);
                                 }}
                                 className="mt-2 px-3 py-1.5 bg-brand-deep text-white text-xs font-bold rounded hover:bg-brand-bright shadow-sm transition-colors"

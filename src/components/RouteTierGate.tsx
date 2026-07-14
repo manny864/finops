@@ -10,7 +10,10 @@ import TierLockedNotice from './TierLockedNotice';
 
 // Rutas siempre accesibles con cualquier combinación de rol/permisos
 // (mismo criterio que Sidebar.tsx — orientación mínima).
-const ALWAYS_VISIBLE_ROUTES = ['/', '/support'];
+// '/academy' incluida a propósito: la Academia FinOps debe verse para
+// cualquier combinación de rol/permiso (excepto SUPERADMIN, que está
+// exento del gate de certificación en TenantProvider).
+const ALWAYS_VISIBLE_ROUTES = ['/', '/support', '/academy'];
 
 /**
  * Bloquea acceso directo (por URL) a páginas que requieren un tier mayor al

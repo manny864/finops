@@ -45,7 +45,8 @@ export const ROLE_TAG_META: Record<RoleTag, { label: string; color: string; desc
 export const PAGE_ROLE_TAGS: Record<string, RoleTag[]> = {
     // Visibilidad
     "/": ["FinOps"],
-    "/academy": ["ProductOwner", "FinOps"],
+    // "/academy" deliberadamente ausente: siempre visible para todo rol/permiso
+    // (ver ALWAYS_VISIBLE_HREFS en Sidebar.tsx / ALWAYS_VISIBLE_ROUTES en RouteTierGate.tsx).
     "/advisor": ["FinOps", "CloudAdmin", "Security"],
     "/overview/maturity": ["FinOps"],
     "/overview/progress": ["FinOps"],

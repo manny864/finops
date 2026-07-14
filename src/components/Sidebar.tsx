@@ -236,7 +236,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
     // Reader (solo lectura) + permiso FinOps (solo ve páginas de ese dominio).
     const { userRole, userPermissions } = useTenant();
     // Rutas siempre visibles con cualquier combinación de rol/permisos (orientación mínima).
-    const ALWAYS_VISIBLE_HREFS = ['/', '/support'];
+    const ALWAYS_VISIBLE_HREFS = ['/', '/support', '/academy'];
     // Admin/Owner no se acotan por permisos: gestionan la plataforma completa
     // (dentro de lo que el tier permita). Los permisos son opt-in — si el
     // usuario no tiene ninguno asignado, no se aplica ningún recorte adicional
