@@ -1294,6 +1294,7 @@
   "WhiteBoard": {
     "title": "Resumen Ejecutivo",
     "subtitle": "Obtén una visión general de tu Cloud Estate por Unidad de Negocio (Grupos de Costo).",
+    "drag_resize_hint": "Arrastrá una tarjeta para reubicarla, o su esquina inferior derecha para redimensionarla.",
     "costs": "Costos",
     "current_fy_cost": "Costo del FY Actual",
     "cost_projected": "Costo Proyectado",

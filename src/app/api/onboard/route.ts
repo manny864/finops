@@ -153,24 +153,26 @@ export async function POST(request: NextRequest) {
 
             await connection.commit();
 
-            // Send welcome email async (fire-and-forget) — solo al usuario que se registra.
-            if (trialInterval > 0) {
+            // Send welcome email async (fire-and-forget) — SOLO en el signup real
+            // del usuario (primera vez que se crea su fila en Users), no en cada
+            // login. Este endpoint se llama en /api/onboard en cada LOGIN_SUCCESS
+            // de MSAL (ver AuthProvider.tsx), así que sin el guard `isNewUser` el
+            // email se reenviaba cada vez que el usuario iniciaba sesión.
+            if (trialInterval > 0 && isNewUser) {
                 const tierName = tier === 'Professional' ? 'Professional' : tier === 'Business' ? 'Business' : 'Essential';
                 const htmlContent = getWelcomeEmailHtml(email, companyName, tierName);
                 sendEmailAsync('Welcome to FinOps SaaS — Your 7-day trial has started', htmlContent, email);
 
                 // Alerta interna paralela a soporte@ — solo cuando se completa un
                 // signup real (nuevo tenant/usuario con trial), no en cada login.
-                if (isNewUser) {
-                    const internalHtml = getInternalSignupAlertEmailHtml({
-                        tenantId,
-                        companyName,
-                        tier: tierName,
-                        userEmail: email,
-                        trialEndsAt: trialEndsAtValue,
-                    });
-                    sendEmailAsync(`Nuevo signup: ${companyName} (${tierName})`, internalHtml, 'soporte@cscloudsolutions.com.ar');
-                }
+                const internalHtml = getInternalSignupAlertEmailHtml({
+                    tenantId,
+                    companyName,
+                    tier: tierName,
+                    userEmail: email,
+                    trialEndsAt: trialEndsAtValue,
+                });
+                sendEmailAsync(`Nuevo signup: ${companyName} (${tierName})`, internalHtml, 'soporte@cscloudsolutions.com.ar');
             }
         } catch (dbError) {
             await connection.rollback();

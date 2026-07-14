@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, createContext, useEffect } from 'react';
+import React, { useState, createContext, useEffect, useRef } from 'react';
 import { Link } from '@/i18n/routing';
 import AuthProvider, { AuthButton, useAuthLoading } from "./AuthProvider";
 import { TenantProvider, useTenant } from './TenantProvider';
@@ -29,6 +29,8 @@ import { useMsal, useIsAuthenticated } from "@azure/msal-react";
 
 import { MetricProvider } from './MetricProvider';
 import { CurrencyProvider } from './CurrencyProvider';
+import { isMockTenant } from '@/lib/mockData';
+import { getFreshIdToken } from '@/lib/msalToken';
 
 export const TabContext = createContext({ activeTab: 'dashboard', setActiveTab: (t: string) => {} });
 
@@ -150,6 +152,47 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
           router.replace('/upgrade');
       }
   }, [isAuthenticated, isTrialExpired, isPendingPayment, pathname, router]);
+
+  // Auto-redirect a /onboarding si el tenant no tiene credenciales Azure
+  // configuradas. Migrado del viejo Dashboard General (src/app/[locale]/
+  // page.tsx, ahora un simple redirect a White Board) para que el chequeo
+  // siga aplicando sin importar en qué página caiga el usuario tras login.
+  const onboardingRedirectRef = useRef(false);
+  useEffect(() => {
+    if (onboardingRedirectRef.current) return;
+    if (!isMsalAuthenticated || !selectedTenant || selectedTenant.id === 'default' || accounts.length === 0) return;
+    if (pathname === '/onboarding') return;
+    // Tenants demo/mock nunca pasan por el wizard real: no tienen fila en la
+    // DB, así que /api/onboarding/progress respondería is_onboarded=false y
+    // esto redirigiría en loop.
+    if (isMockTenant(selectedTenant.id)) return;
+
+    const checkOnboarding = async () => {
+      try {
+        const token = await getFreshIdToken(instance, accounts[0]).catch(() => '');
+        const response = await fetch('/api/onboarding/progress', {
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+        });
+        if (response.ok) {
+          const data = await response.json();
+          // El funnel de onboarding sólo aplica a entornos recién creados que
+          // aún NO tienen credenciales Azure (client_id + secret). Si el
+          // entorno ya está configurado, no lo forzamos al wizard aunque
+          // is_onboarded sea false (p.ej. onboarding técnico hecho pero flag
+          // no seteado).
+          const hasCredentials = !!(selectedTenant.client_id && selectedTenant.has_client_secret);
+          if (!selectedTenant.is_onboarded && !hasCredentials) {
+            onboardingRedirectRef.current = true;
+            router.push('/onboarding');
+          }
+        }
+      } catch (error) {
+        console.error('[ClientShell] Failed to check onboarding:', error);
+      }
+    };
+
+    checkOnboarding();
+  }, [selectedTenant?.id, isMsalAuthenticated, accounts.length, instance, pathname, router]);
 
   useEffect(() => {
       const paymentStatus = searchParams?.get('payment');

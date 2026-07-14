@@ -1,5 +1,5 @@
 "use client";
-import React from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import { useLocale, useTranslations } from "next-intl";
@@ -20,6 +20,35 @@ import HABreakdownCard from "@/components/dashboard/HABreakdownCard";
 import BudgetBurnChart from "@/components/dashboard/BudgetBurnChart";
 import MyPinnedWidgets from "@/components/dashboard/MyPinnedWidgets";
 import FeatureGuard from "@/components/FeatureGuard";
+import { Responsive, WidthProvider } from "react-grid-layout/legacy";
+import "react-grid-layout/css/styles.css";
+import "react-resizable/css/styles.css";
+
+const ResponsiveGridLayout = WidthProvider(Responsive);
+
+// Layout persistido de las tarjetas resizeables/reubicables — separado del
+// (ya eliminado) key del viejo Dashboard General para no heredar un layout
+// con items que ya no existen.
+const LAYOUT_STORAGE_KEY = "finops_whiteboard_layout_v1";
+
+const DEFAULT_LAYOUT = {
+    lg: [
+        { i: "budget", x: 0, y: 0, w: 4, h: 5 },
+        { i: "projection", x: 4, y: 0, w: 4, h: 5 },
+        { i: "ha", x: 8, y: 0, w: 4, h: 5 },
+        { i: "costs", x: 0, y: 5, w: 4, h: 4 },
+        { i: "trend3m", x: 4, y: 5, w: 4, h: 4 },
+        { i: "top3services", x: 8, y: 5, w: 4, h: 4 },
+        { i: "security", x: 0, y: 9, w: 6, h: 5 },
+        { i: "governance", x: 6, y: 9, w: 6, h: 5 },
+        { i: "threats", x: 0, y: 14, w: 4, h: 4 },
+        { i: "locations", x: 4, y: 14, w: 4, h: 4 },
+        { i: "inventory", x: 8, y: 14, w: 4, h: 4 },
+        { i: "advisorRec", x: 0, y: 18, w: 4, h: 3 },
+        { i: "recTrend", x: 4, y: 18, w: 4, h: 3 },
+        { i: "costGroups", x: 8, y: 18, w: 4, h: 3 },
+    ],
+};
 
 const COLORS = {
     high: "#dc2626",
@@ -35,7 +64,7 @@ const fmtUsd = (n: number) =>
 
 function Card({ title, className = "", children }: { title?: string; className?: string; children: React.ReactNode }) {
     return (
-        <div className={`bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm p-4 flex flex-col ${className}`}>
+        <div className={`drag-handle cursor-move bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm p-4 flex flex-col h-full overflow-auto ${className}`}>
             {title && <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-3">{title}</h3>}
             {children}
         </div>
@@ -95,6 +124,54 @@ export default function ExecutiveSummaryBoard() {
     const calculateCO2Savings = (wastedUsd: number) => ((wastedUsd / 100) * 15).toFixed(1);
     const totalSavings = (summaryData?.dashboardData || []).reduce((sum: number, item: any) => sum + (item.potentialSavings || 0), 0);
 
+    // Layout de tarjetas resizeables/reubicables — persistido en localStorage,
+    // mismo patrón que el (ahora eliminado) Dashboard General.
+    const [layouts, setLayouts] = useState<any>(null);
+    useEffect(() => {
+        const saved = localStorage.getItem(LAYOUT_STORAGE_KEY);
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                // Migración: agregar tarjetas nuevas si el layout guardado no las incluye.
+                Object.keys(parsed).forEach((bp: string) => {
+                    const existing = new Set((parsed[bp] || []).map((l: any) => l.i));
+                    DEFAULT_LAYOUT.lg.forEach((item) => {
+                        if (!existing.has(item.i)) parsed[bp].push(item);
+                    });
+                });
+                setLayouts(parsed);
+            } catch {
+                setLayouts(DEFAULT_LAYOUT);
+            }
+        } else {
+            setLayouts(DEFAULT_LAYOUT);
+        }
+    }, []);
+
+    const onLayoutChange = (_layout: any, allLayouts: any) => {
+        setLayouts(allLayouts);
+        localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(allLayouts));
+    };
+
+    const handleBudgetResize = useCallback((newH: number) => {
+        setLayouts((prev: any) => {
+            if (!prev || !prev.lg) return prev;
+            let changed = false;
+            const nextLayouts = { ...prev };
+            Object.keys(nextLayouts).forEach((bp) => {
+                nextLayouts[bp] = nextLayouts[bp].map((l: any) => {
+                    if (l.i === "budget" && l.h !== newH) {
+                        changed = true;
+                        return { ...l, h: newH };
+                    }
+                    return l;
+                });
+            });
+            if (!changed) return prev;
+            return nextLayouts;
+        });
+    }, []);
+
     if (!selectedTenant || selectedTenant.id === "default") return null;
 
     if (isLoading) {
@@ -115,7 +192,7 @@ export default function ExecutiveSummaryBoard() {
         );
     }
 
-    if (!data) return null;
+    if (!data || !layouts) return null;
 
     const { costs, security, vulnerabilities, governance, top3ThreatCategories, top5Locations, top5Inventory, recommendations, costAnomalyTrend, top5CostGroups } = data;
     const untagged = governance?.untagged || {};
@@ -191,254 +268,277 @@ export default function ExecutiveSummaryBoard() {
                 propios pins acá. */}
             <MyPinnedWidgets />
 
-            {/* Presupuestos por Suscripción / Proyección de Gastos / Alta Disponibilidad */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <div className="flex flex-col">
-                    <BudgetBurnChart />
+            {/* Tarjetas resizeables/reubicables (arrastrar desde el título,
+                redimensionar desde la esquina inferior derecha) — mismo patrón
+                react-grid-layout que tenía el viejo Dashboard General. */}
+            <p className="text-[11px] text-slate-400 -mb-2">{t("drag_resize_hint")}</p>
+            <ResponsiveGridLayout
+                className="layout"
+                layouts={layouts}
+                breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
+                cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
+                rowHeight={80}
+                onLayoutChange={onLayoutChange}
+                draggableHandle=".drag-handle"
+            >
+                <div key="budget">
+                    <div className="drag-handle cursor-move h-full w-full">
+                        <BudgetBurnChart onHeightChange={handleBudgetResize} />
+                    </div>
                 </div>
 
-                <div className="lg:col-span-1">
-                    <FeatureGuard requiredTier="Enterprise" featureName="Proyección de Gastos">
+                <div key="projection">
+                    <FeatureGuard requiredTier="Enterprise" featureName="Proyección de Gastos" className="h-full w-full drag-handle cursor-move">
                         <CostProjectionCard showFullPageLink />
                     </FeatureGuard>
                 </div>
 
-                <div className="lg:col-span-1">
-                    <FeatureGuard requiredTier="Business" featureName="Alta Disponibilidad">
+                <div key="ha">
+                    <FeatureGuard requiredTier="Business" featureName="Alta Disponibilidad" className="h-full w-full drag-handle cursor-move">
                         <HABreakdownCard />
                     </FeatureGuard>
                 </div>
-            </div>
 
-            {/* Row 1 */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <Card title={t("costs")}>
-                    <p className="text-[11px] text-slate-400 mb-1">{t("current_fy_cost")}</p>
-                    <p className="text-2xl font-extrabold text-slate-800 dark:text-slate-100">{fmtUsd(costs?.currentFYCost)}</p>
+                <div key="costs">
+                    <Card title={t("costs")}>
+                        <p className="text-[11px] text-slate-400 mb-1">{t("current_fy_cost")}</p>
+                        <p className="text-2xl font-extrabold text-slate-800 dark:text-slate-100">{fmtUsd(costs?.currentFYCost)}</p>
 
-                    <p className="text-[11px] text-slate-400 mt-4 mb-1">{t("cost_projected")}</p>
-                    <div className="flex items-center gap-2">
-                        <p className="text-lg font-bold text-slate-700 dark:text-slate-200">{fmtUsd(costs?.costProjected)}</p>
-                        <span className={`inline-flex items-center gap-1 text-xs font-bold ${costUp ? "text-red-600" : "text-emerald-600"}`}>
-                            {costUp ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-                            {Math.abs(costs?.costChangePct || 0)}%
-                        </span>
-                    </div>
-
-                    <div className="mt-4 pt-3 border-t border-gray-100 dark:border-slate-800">
-                        <p className="text-[11px] text-slate-400 mb-1">{t("previous_fy")}</p>
-                        <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">{fmtUsd(costs?.previousFYCost)}</p>
-                    </div>
-                </Card>
-
-                <Card title={t("last_3_months_trend")}>
-                    <ResponsiveContainer width="100%" height={160}>
-                        <LineChart data={costs?.last3MonthsTrend || []}>
-                            <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                            <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                            <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} width={45} />
-                            <Tooltip formatter={(v: any) => fmtUsd(Number(v))} />
-                            <Line type="monotone" dataKey="cost" stroke={COLORS.blue} strokeWidth={2} dot={{ r: 3 }} />
-                        </LineChart>
-                    </ResponsiveContainer>
-                </Card>
-
-                <Card title={t("top3_services")}>
-                    <ResponsiveContainer width="100%" height={160}>
-                        <BarChart data={servicesBarData} layout="vertical" margin={{ left: 8, right: 16 }}>
-                            <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
-                            <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={100} />
-                            <Tooltip formatter={(v: any) => fmtUsd(Number(v))} />
-                            <Bar dataKey="cost" radius={[0, 4, 4, 0]}>
-                                {servicesBarData.map((entry, i) => (
-                                    <Cell key={i} fill={i === servicesBarData.length - 1 ? COLORS.cyan : COLORS.blue} />
-                                ))}
-                            </Bar>
-                        </BarChart>
-                    </ResponsiveContainer>
-                </Card>
-            </div>
-
-            {/* Row 2 */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <Card title={t("security_vulnerabilities")}>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <p className="text-[11px] text-slate-400 mb-1">{t("security")}</p>
-                            <p className="text-2xl font-extrabold text-slate-800 dark:text-slate-100">{security?.pct}%</p>
-                            <div className="mt-3 pt-3 border-t border-gray-100 dark:border-slate-800">
-                                <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">{security?.withMfa} {t("of")} {security?.total}</p>
-                            </div>
+                        <p className="text-[11px] text-slate-400 mt-4 mb-1">{t("cost_projected")}</p>
+                        <div className="flex items-center gap-2">
+                            <p className="text-lg font-bold text-slate-700 dark:text-slate-200">{fmtUsd(costs?.costProjected)}</p>
+                            <span className={`inline-flex items-center gap-1 text-xs font-bold ${costUp ? "text-red-600" : "text-emerald-600"}`}>
+                                {costUp ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                                {Math.abs(costs?.costChangePct || 0)}%
+                            </span>
                         </div>
-                        <div>
-                            <p className="text-[11px] text-slate-400 mb-1">{t("vulnerabilities")}</p>
-                            <ResponsiveContainer width="100%" height={130}>
-                                <PieChart>
-                                    <Pie data={vulnData} dataKey="value" nameKey="name" innerRadius={28} outerRadius={50}>
-                                        {vulnData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                                    </Pie>
-                                    <Tooltip />
-                                </PieChart>
-                            </ResponsiveContainer>
-                            <div className="flex justify-center gap-3 text-[10px] mt-1">
-                                {vulnData.map((v) => (
-                                    <span key={v.name} className="flex items-center gap-1">
-                                        <span className="w-2 h-2 rounded-full inline-block" style={{ background: v.color }} />
-                                        {v.name} {v.value}
-                                    </span>
-                                ))}
-                            </div>
+
+                        <div className="mt-4 pt-3 border-t border-gray-100 dark:border-slate-800">
+                            <p className="text-[11px] text-slate-400 mb-1">{t("previous_fy")}</p>
+                            <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">{fmtUsd(costs?.previousFYCost)}</p>
                         </div>
-                    </div>
-                </Card>
+                    </Card>
+                </div>
 
-                <Card title={t("governance")}>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                            <p className="text-[11px] text-slate-400 mb-2">{t("untagged_resources_trend")}</p>
-                            <ResponsiveContainer width="100%" height={100}>
-                                <LineChart data={untagged.trend || []}>
-                                    <XAxis dataKey="month" tick={{ fontSize: 10 }} />
-                                    <Tooltip formatter={(v: any) => fmtUsd(Number(v))} />
-                                    <Line type="monotone" dataKey="cost" stroke={COLORS.violet} strokeWidth={2} dot={{ r: 2 }} />
-                                </LineChart>
-                            </ResponsiveContainer>
-                        </div>
-                        <div className="grid grid-rows-2 gap-3">
-                            <div className="bg-gray-50 dark:bg-slate-800/50 rounded-lg p-3">
-                                <p className="text-[10px] text-slate-400 mb-1">{t("untagged_resources_count")}</p>
-                                <p className="text-lg font-extrabold text-slate-800 dark:text-slate-100">{untagged.count}</p>
-                                <p className="text-[11px] text-slate-500">{untagged.countPct}%</p>
-                            </div>
-                            <div className="bg-gray-50 dark:bg-slate-800/50 rounded-lg p-3">
-                                <p className="text-[10px] text-slate-400 mb-1">{t("untagged_resources_cost")}</p>
-                                <p className="text-lg font-extrabold text-slate-800 dark:text-slate-100">{fmtUsd(untagged.cost)}</p>
-                                <p className="text-[11px] text-slate-500">{untagged.costPct}% {t("monthly_cost_pct")}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="mt-4 pt-3 border-t border-gray-100 dark:border-slate-800">
-                        <p className="text-[11px] text-slate-400 mb-2">{t("top3_compliance_wins")}</p>
-                        <ResponsiveContainer width="100%" height={110}>
-                            <BarChart data={complianceWins}>
-                                <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                                <YAxis hide domain={[0, 100]} />
-                                <Tooltip formatter={(v: any) => `${v}%`} />
-                                <Bar dataKey="pct" fill={COLORS.blue} radius={[4, 4, 0, 0]} label={{ position: "top", fontSize: 11, formatter: (v: any) => `${v}%` }} />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-                </Card>
-            </div>
-
-            {/* Row 3 */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <Card title={t("top3_threat_categories")}>
-                    <div className="flex flex-col gap-3">
-                        {(top3ThreatCategories || []).map((cat: any, i: number) => (
-                            <div key={i}>
-                                <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate mb-1" title={cat.name}>{cat.name}</p>
-                                <div className="flex h-3 rounded-full overflow-hidden bg-gray-100 dark:bg-slate-800">
-                                    {cat.high > 0 && <div style={{ width: `${(cat.high / cat.total) * 100}%`, background: COLORS.high }} title={`High: ${cat.high}`} />}
-                                    {cat.medium > 0 && <div style={{ width: `${(cat.medium / cat.total) * 100}%`, background: COLORS.medium }} title={`Medium: ${cat.medium}`} />}
-                                    {cat.low > 0 && <div style={{ width: `${(cat.low / cat.total) * 100}%`, background: COLORS.low }} title={`Low: ${cat.low}`} />}
-                                </div>
-                                <p className="text-[10px] text-slate-400 mt-1">{cat.total} total</p>
-                            </div>
-                        ))}
-                        {(!top3ThreatCategories || top3ThreatCategories.length === 0) && (
-                            <p className="text-sm text-slate-400 flex items-center gap-2"><ShieldAlert className="w-4 h-4" /> {t("no_findings")}</p>
-                        )}
-                    </div>
-                </Card>
-
-                <Card title={t("top5_locations")}>
-                    <div className="flex flex-col gap-2">
-                        {(top5Locations || []).map((loc: any, i: number) => {
-                            const max = Math.max(...(top5Locations || []).map((l: any) => l.count), 1);
-                            return (
-                                <div key={i} className="flex items-center gap-2">
-                                    <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                                    <span className="text-xs text-slate-600 dark:text-slate-300 w-24 truncate">{loc.name}</span>
-                                    <div className="flex-1 bg-gray-100 dark:bg-slate-800 rounded-full h-2.5">
-                                        <div className="h-2.5 rounded-full bg-cyan-500" style={{ width: `${(loc.count / max) * 100}%` }} />
-                                    </div>
-                                    <span className="text-xs font-semibold text-slate-500 w-10 text-right">{loc.count}</span>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </Card>
-
-                <Card title={t("top5_inventory")}>
-                    <ResponsiveContainer width="100%" height={180}>
-                        <BarChart data={top5InventoryData} layout="vertical" margin={{ left: 8, right: 16 }}>
-                            <XAxis type="number" tick={{ fontSize: 10 }} />
-                            <YAxis type="category" dataKey="label" tick={{ fontSize: 9 }} width={130} />
-                            <Tooltip labelFormatter={(_: any, payload: any) => payload?.[0]?.payload?.fullName || ""} />
-                            <Bar dataKey="count" fill={COLORS.blue} radius={[0, 4, 4, 0]} />
-                        </BarChart>
-                    </ResponsiveContainer>
-                </Card>
-            </div>
-
-            {/* Row 4 */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <Card>
-                    <Link
-                        href={`/${locale}/advisor`}
-                        className="grid grid-cols-2 gap-3 h-full group -m-1 p-1 rounded-lg transition-colors hover:bg-gray-50 dark:hover:bg-slate-800/40"
-                    >
-                        <div className="bg-gray-50 dark:bg-slate-800/50 rounded-lg p-3 flex flex-col justify-center">
-                            <p className="text-[10px] text-slate-400 mb-1 flex items-center gap-1">
-                                {t("open_recommendations")}
-                                <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                            </p>
-                            <p className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                                <Lightbulb className="w-5 h-5 text-amber-500" />{recommendations?.open}
-                            </p>
-                        </div>
-                        <div className="bg-gray-50 dark:bg-slate-800/50 rounded-lg p-3 flex flex-col justify-center">
-                            <p className="text-[10px] text-slate-400 mb-1">{t("potential_cost_savings")}</p>
-                            <p className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400">{fmtUsd(recommendations?.potentialCostSavings)}</p>
-                        </div>
-                    </Link>
-                </Card>
-
-                <Card>
-                    <p className="text-[11px] text-slate-400 mb-1">{t("recommendation_trend")}</p>
-                    <ResponsiveContainer width="100%" height={90}>
-                        <LineChart data={recommendations?.trend || []}>
-                            <XAxis dataKey="month" tick={{ fontSize: 10 }} />
-                            <Tooltip />
-                            <Line type="monotone" dataKey="count" stroke={COLORS.blue} strokeWidth={2} dot={{ r: 2 }} />
-                        </LineChart>
-                    </ResponsiveContainer>
-                    <p className="text-[11px] text-slate-400 mt-3 mb-1">{t("cost_anomaly_trend")}</p>
-                    <ResponsiveContainer width="100%" height={90}>
-                        <LineChart data={costAnomalyTrend || []}>
-                            <XAxis dataKey="month" tick={{ fontSize: 10 }} />
-                            <Tooltip />
-                            <Line type="monotone" dataKey="count" stroke={COLORS.high} strokeWidth={2} dot={{ r: 2 }} />
-                        </LineChart>
-                    </ResponsiveContainer>
-                </Card>
-
-                <FeatureGuard requiredTier="Business" featureName="Cost Groups">
-                    <Card title={t("top5_cost_groups")}>
-                        <p className="text-lg font-extrabold text-slate-800 dark:text-slate-100 mb-2">{fmtUsd(top5CostGroups?.totalCost)}</p>
-                        <ResponsiveContainer width="100%" height={140}>
-                            <BarChart data={top5CostGroups?.groups || []}>
-                                <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                                <YAxis tick={{ fontSize: 9 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} width={40} />
+                <div key="trend3m">
+                    <Card title={t("last_3_months_trend")}>
+                        <ResponsiveContainer width="100%" height="100%" minHeight={120}>
+                            <LineChart data={costs?.last3MonthsTrend || []}>
+                                <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                                <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                                <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} width={45} />
                                 <Tooltip formatter={(v: any) => fmtUsd(Number(v))} />
-                                <Bar dataKey="cost" fill={COLORS.cyan} radius={[4, 4, 0, 0]} />
+                                <Line type="monotone" dataKey="cost" stroke={COLORS.blue} strokeWidth={2} dot={{ r: 3 }} />
+                            </LineChart>
+                        </ResponsiveContainer>
+                    </Card>
+                </div>
+
+                <div key="top3services">
+                    <Card title={t("top3_services")}>
+                        <ResponsiveContainer width="100%" height="100%" minHeight={120}>
+                            <BarChart data={servicesBarData} layout="vertical" margin={{ left: 8, right: 16 }}>
+                                <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
+                                <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={100} />
+                                <Tooltip formatter={(v: any) => fmtUsd(Number(v))} />
+                                <Bar dataKey="cost" radius={[0, 4, 4, 0]}>
+                                    {servicesBarData.map((entry, i) => (
+                                        <Cell key={i} fill={i === servicesBarData.length - 1 ? COLORS.cyan : COLORS.blue} />
+                                    ))}
+                                </Bar>
                             </BarChart>
                         </ResponsiveContainer>
                     </Card>
-                </FeatureGuard>
-            </div>
+                </div>
+
+                <div key="security">
+                    <Card title={t("security_vulnerabilities")}>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <p className="text-[11px] text-slate-400 mb-1">{t("security")}</p>
+                                <p className="text-2xl font-extrabold text-slate-800 dark:text-slate-100">{security?.pct}%</p>
+                                <div className="mt-3 pt-3 border-t border-gray-100 dark:border-slate-800">
+                                    <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">{security?.withMfa} {t("of")} {security?.total}</p>
+                                </div>
+                            </div>
+                            <div>
+                                <p className="text-[11px] text-slate-400 mb-1">{t("vulnerabilities")}</p>
+                                <ResponsiveContainer width="100%" height={130}>
+                                    <PieChart>
+                                        <Pie data={vulnData} dataKey="value" nameKey="name" innerRadius={28} outerRadius={50}>
+                                            {vulnData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                                        </Pie>
+                                        <Tooltip />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                                <div className="flex justify-center gap-3 text-[10px] mt-1">
+                                    {vulnData.map((v) => (
+                                        <span key={v.name} className="flex items-center gap-1">
+                                            <span className="w-2 h-2 rounded-full inline-block" style={{ background: v.color }} />
+                                            {v.name} {v.value}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </Card>
+                </div>
+
+                <div key="governance">
+                    <Card title={t("governance")}>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <p className="text-[11px] text-slate-400 mb-2">{t("untagged_resources_trend")}</p>
+                                <ResponsiveContainer width="100%" height={100}>
+                                    <LineChart data={untagged.trend || []}>
+                                        <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                                        <Tooltip formatter={(v: any) => fmtUsd(Number(v))} />
+                                        <Line type="monotone" dataKey="cost" stroke={COLORS.violet} strokeWidth={2} dot={{ r: 2 }} />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </div>
+                            <div className="grid grid-rows-2 gap-3">
+                                <div className="bg-gray-50 dark:bg-slate-800/50 rounded-lg p-3">
+                                    <p className="text-[10px] text-slate-400 mb-1">{t("untagged_resources_count")}</p>
+                                    <p className="text-lg font-extrabold text-slate-800 dark:text-slate-100">{untagged.count}</p>
+                                    <p className="text-[11px] text-slate-500">{untagged.countPct}%</p>
+                                </div>
+                                <div className="bg-gray-50 dark:bg-slate-800/50 rounded-lg p-3">
+                                    <p className="text-[10px] text-slate-400 mb-1">{t("untagged_resources_cost")}</p>
+                                    <p className="text-lg font-extrabold text-slate-800 dark:text-slate-100">{fmtUsd(untagged.cost)}</p>
+                                    <p className="text-[11px] text-slate-500">{untagged.costPct}% {t("monthly_cost_pct")}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mt-4 pt-3 border-t border-gray-100 dark:border-slate-800">
+                            <p className="text-[11px] text-slate-400 mb-2">{t("top3_compliance_wins")}</p>
+                            <ResponsiveContainer width="100%" height={110}>
+                                <BarChart data={complianceWins}>
+                                    <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                                    <YAxis hide domain={[0, 100]} />
+                                    <Tooltip formatter={(v: any) => `${v}%`} />
+                                    <Bar dataKey="pct" fill={COLORS.blue} radius={[4, 4, 0, 0]} label={{ position: "top", fontSize: 11, formatter: (v: any) => `${v}%` }} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </Card>
+                </div>
+
+                <div key="threats">
+                    <Card title={t("top3_threat_categories")}>
+                        <div className="flex flex-col gap-3">
+                            {(top3ThreatCategories || []).map((cat: any, i: number) => (
+                                <div key={i}>
+                                    <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate mb-1" title={cat.name}>{cat.name}</p>
+                                    <div className="flex h-3 rounded-full overflow-hidden bg-gray-100 dark:bg-slate-800">
+                                        {cat.high > 0 && <div style={{ width: `${(cat.high / cat.total) * 100}%`, background: COLORS.high }} title={`High: ${cat.high}`} />}
+                                        {cat.medium > 0 && <div style={{ width: `${(cat.medium / cat.total) * 100}%`, background: COLORS.medium }} title={`Medium: ${cat.medium}`} />}
+                                        {cat.low > 0 && <div style={{ width: `${(cat.low / cat.total) * 100}%`, background: COLORS.low }} title={`Low: ${cat.low}`} />}
+                                    </div>
+                                    <p className="text-[10px] text-slate-400 mt-1">{cat.total} total</p>
+                                </div>
+                            ))}
+                            {(!top3ThreatCategories || top3ThreatCategories.length === 0) && (
+                                <p className="text-sm text-slate-400 flex items-center gap-2"><ShieldAlert className="w-4 h-4" /> {t("no_findings")}</p>
+                            )}
+                        </div>
+                    </Card>
+                </div>
+
+                <div key="locations">
+                    <Card title={t("top5_locations")}>
+                        <div className="flex flex-col gap-2">
+                            {(top5Locations || []).map((loc: any, i: number) => {
+                                const max = Math.max(...(top5Locations || []).map((l: any) => l.count), 1);
+                                return (
+                                    <div key={i} className="flex items-center gap-2">
+                                        <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                        <span className="text-xs text-slate-600 dark:text-slate-300 w-24 truncate">{loc.name}</span>
+                                        <div className="flex-1 bg-gray-100 dark:bg-slate-800 rounded-full h-2.5">
+                                            <div className="h-2.5 rounded-full bg-cyan-500" style={{ width: `${(loc.count / max) * 100}%` }} />
+                                        </div>
+                                        <span className="text-xs font-semibold text-slate-500 w-10 text-right">{loc.count}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </Card>
+                </div>
+
+                <div key="inventory">
+                    <Card title={t("top5_inventory")}>
+                        <ResponsiveContainer width="100%" height="100%" minHeight={140}>
+                            <BarChart data={top5InventoryData} layout="vertical" margin={{ left: 8, right: 16 }}>
+                                <XAxis type="number" tick={{ fontSize: 10 }} />
+                                <YAxis type="category" dataKey="label" tick={{ fontSize: 9 }} width={130} />
+                                <Tooltip labelFormatter={(_: any, payload: any) => payload?.[0]?.payload?.fullName || ""} />
+                                <Bar dataKey="count" fill={COLORS.blue} radius={[0, 4, 4, 0]} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </Card>
+                </div>
+
+                <div key="advisorRec">
+                    <Card>
+                        <Link
+                            href={`/${locale}/advisor`}
+                            className="grid grid-cols-2 gap-3 h-full group -m-1 p-1 rounded-lg transition-colors hover:bg-gray-50 dark:hover:bg-slate-800/40"
+                        >
+                            <div className="bg-gray-50 dark:bg-slate-800/50 rounded-lg p-3 flex flex-col justify-center">
+                                <p className="text-[10px] text-slate-400 mb-1 flex items-center gap-1">
+                                    {t("open_recommendations")}
+                                    <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </p>
+                                <p className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                                    <Lightbulb className="w-5 h-5 text-amber-500" />{recommendations?.open}
+                                </p>
+                            </div>
+                            <div className="bg-gray-50 dark:bg-slate-800/50 rounded-lg p-3 flex flex-col justify-center">
+                                <p className="text-[10px] text-slate-400 mb-1">{t("potential_cost_savings")}</p>
+                                <p className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400">{fmtUsd(recommendations?.potentialCostSavings)}</p>
+                            </div>
+                        </Link>
+                    </Card>
+                </div>
+
+                <div key="recTrend">
+                    <Card>
+                        <p className="text-[11px] text-slate-400 mb-1">{t("recommendation_trend")}</p>
+                        <ResponsiveContainer width="100%" height={90}>
+                            <LineChart data={recommendations?.trend || []}>
+                                <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                                <Tooltip />
+                                <Line type="monotone" dataKey="count" stroke={COLORS.blue} strokeWidth={2} dot={{ r: 2 }} />
+                            </LineChart>
+                        </ResponsiveContainer>
+                        <p className="text-[11px] text-slate-400 mt-3 mb-1">{t("cost_anomaly_trend")}</p>
+                        <ResponsiveContainer width="100%" height={90}>
+                            <LineChart data={costAnomalyTrend || []}>
+                                <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                                <Tooltip />
+                                <Line type="monotone" dataKey="count" stroke={COLORS.high} strokeWidth={2} dot={{ r: 2 }} />
+                            </LineChart>
+                        </ResponsiveContainer>
+                    </Card>
+                </div>
+
+                <div key="costGroups">
+                    <FeatureGuard requiredTier="Business" featureName="Cost Groups" className="h-full w-full drag-handle cursor-move">
+                        <Card title={t("top5_cost_groups")}>
+                            <p className="text-lg font-extrabold text-slate-800 dark:text-slate-100 mb-2">{fmtUsd(top5CostGroups?.totalCost)}</p>
+                            <ResponsiveContainer width="100%" height="100%" minHeight={100}>
+                                <BarChart data={top5CostGroups?.groups || []}>
+                                    <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                                    <YAxis tick={{ fontSize: 9 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} width={40} />
+                                    <Tooltip formatter={(v: any) => fmtUsd(Number(v))} />
+                                    <Bar dataKey="cost" fill={COLORS.cyan} radius={[4, 4, 0, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </Card>
+                    </FeatureGuard>
+                </div>
+            </ResponsiveGridLayout>
         </div>
     );
 }

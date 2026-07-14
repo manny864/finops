@@ -1294,6 +1294,7 @@
   "WhiteBoard": {
     "title": "Executive Summary",
     "subtitle": "Get a high-level overview of your Cloud Estate by Business Unit (Cost Groups).",
+    "drag_resize_hint": "Drag a card to reposition it, or its bottom-right corner to resize it.",
     "costs": "Costs",
     "current_fy_cost": "Current FY Cost",
     "cost_projected": "Cost Projected",
