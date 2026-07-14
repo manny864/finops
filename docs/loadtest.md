@@ -74,9 +74,17 @@ hace vía "Expose an API" + un App Role de tipo Application, NO vía permisos
 de Microsoft Graph (el SP de load testing no necesita leer nada de Graph,
 solo necesita poder autenticarse contra NUESTRA API).
 
-En el Azure Portal, sobre el **App Registration de la app FinOps** (la que
-ya usan los usuarios para loguearse — el mismo `AZURE_CLIENT_ID` que ya está
-configurado en el `.env` del VPS):
+En el Azure Portal, sobre el **App Registration de la app FinOps** — el que
+usan los usuarios para loguearse, cuyo Client ID es el valor de
+**`NEXT_PUBLIC_CLIENT_ID`** en el `.env` del VPS (es el que `AuthProvider.tsx`
+usa para inicializar MSAL en el frontend).
+
+> ⚠️ **NO es `AZURE_CLIENT_ID`.** En este VPS `AZURE_CLIENT_ID` es un App
+> Registration DISTINTO, usado solo para el envío de correos vía Microsoft
+> Graph (`emailHelper.ts`). Usarlo acá por error da
+> `AADSTS500011: The resource principal ... was not found in the tenant`
+> al pedir el token (ya nos pasó una vez — el App Registration de correos
+> no tiene "Expose an API"/App Role configurado, ni tiene por qué tenerlo).
 
 1. **Expose an API** → si no tiene un Application ID URI, generarlo (default
    `api://<client-id-de-finops>` está bien).

@@ -24,10 +24,20 @@ export async function getLoadTestServicePrincipalToken(): Promise<string> {
 
     const tenantId = process.env.AZURE_TENANT_ID;
     const spClientId = process.env.LOAD_TEST_SP_APP_ID;
-    const appClientId = process.env.AZURE_CLIENT_ID;
+    // OJO: NO usar solo AZURE_CLIENT_ID acá — en este VPS esa variable
+    // apunta al Service Principal de ENVÍO DE CORREOS (Graph sendMail), no
+    // al App Registration donde loguean los usuarios de la app (el que
+    // realmente tiene Service Principal creado en el tenant y es el que
+    // debe tener "Expose an API" + el App Role configurados — ver
+    // docs/loadtest.md §2). El frontend (AuthProvider.tsx) usa
+    // NEXT_PUBLIC_CLIENT_ID para MSAL — ese es el valor correcto acá,
+    // mismo criterio de prioridad que getAudienceAllowList() en
+    // requestAuth.ts (que ya acepta cualquiera de estos 4 como audience
+    // válida de un token de usuario).
+    const appClientId = process.env.NEXT_PUBLIC_CLIENT_ID || process.env.NEXT_PUBLIC_AZURE_CLIENT_ID || process.env.AZURE_CLIENT_ID || process.env.AZURE_AD_CLIENT_ID;
     if (!tenantId || !spClientId || !appClientId) {
         throw new Error(
-            "Faltan AZURE_TENANT_ID / LOAD_TEST_SP_APP_ID / AZURE_CLIENT_ID en el entorno."
+            "Faltan AZURE_TENANT_ID / LOAD_TEST_SP_APP_ID / NEXT_PUBLIC_CLIENT_ID en el entorno."
         );
     }
 

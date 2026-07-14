@@ -13,9 +13,13 @@
 //     --name loadtest-sp-client-secret --query value -o tsv)
 //
 //   k6 run -e TENANT_ID=... -e CLIENT_ID=... -e CLIENT_SECRET=$CLIENT_SECRET \
-//          -e APP_SCOPE=api://<client-id-de-la-app>/.default \
+//          -e APP_SCOPE=api://<NEXT_PUBLIC_CLIENT_ID>/.default \
 //          -e TARGET_URL=https://finops.cscloudsolutions.com.ar/api/loadtest/probe \
 //          --vus 20 --duration 30s loadtest/k6-probe.js
+//
+//   ⚠️ APP_SCOPE va con el Client ID de NEXT_PUBLIC_CLIENT_ID (el App
+//   Registration donde loguean los usuarios), NO con AZURE_CLIENT_ID (ese
+//   es el SP de envío de correos en este VPS — ver docs/loadtest.md §2).
 
 import http from 'k6/http';
 import { check, sleep } from 'k6';
@@ -23,7 +27,7 @@ import { check, sleep } from 'k6';
 const TENANT_ID = __ENV.TENANT_ID;
 const CLIENT_ID = __ENV.CLIENT_ID;
 const CLIENT_SECRET = __ENV.CLIENT_SECRET;
-const APP_SCOPE = __ENV.APP_SCOPE; // ej: api://<client-id-de-la-app-finops>/.default
+const APP_SCOPE = __ENV.APP_SCOPE; // ej: api://<NEXT_PUBLIC_CLIENT_ID>/.default (NO AZURE_CLIENT_ID)
 const TARGET_URL = __ENV.TARGET_URL || 'https://finops.cscloudsolutions.com.ar/api/loadtest/probe';
 
 // setup() corre UNA vez (no por VU/iteración) — obtiene un único token y lo
