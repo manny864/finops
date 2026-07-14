@@ -96,12 +96,12 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/academy', label: 'Academia FinOps', icon: BookOpen },
                 { href: '/advisor', label: t('advisor'), icon: Lightbulb },
                 { href: '/overview/maturity', label: t('finops_maturity'), icon: Target, requiredTier: 'Essential' },
-                { href: '/overview/progress', label: t('historical_progress'), icon: TrendingDown },
-                { href: '/overview/top-expenses', label: t('top_expenses', { fallback: 'TOP Expenses' }), icon: BarChart3 },
-                { href: '/overview/resources', label: t('resources', { fallback: 'Recursos' }), icon: Boxes, requiredTier: 'Professional' },
-                { href: '/overview/sustainability', label: 'Green FinOps', icon: Leaf },
-                { href: '/overview/captured-savings', label: t('captured_savings_page', { fallback: 'Ahorro Capturado' }), icon: PiggyBank },
-                { href: '/overview/financial-leaks', label: t('financial_leaks', { fallback: 'Fugas Financieras' }), icon: Recycle }
+                { href: '/overview/progress', label: t('historical_progress'), icon: TrendingDown, requiredTier: 'Professional' },
+                { href: '/overview/top-expenses', label: t('top_expenses', { fallback: 'TOP Expenses' }), icon: BarChart3, requiredTier: 'Professional' },
+                { href: '/overview/resources', label: t('resources', { fallback: 'Recursos' }), icon: Boxes, requiredTier: 'Business' },
+                { href: '/overview/sustainability', label: 'Green FinOps', icon: Leaf, requiredTier: 'Professional' },
+                { href: '/overview/captured-savings', label: t('captured_savings_page', { fallback: 'Ahorro Capturado' }), icon: PiggyBank, requiredTier: 'Professional' },
+                { href: '/overview/financial-leaks', label: t('financial_leaks', { fallback: 'Fugas Financieras' }), icon: Recycle, requiredTier: 'Professional' }
             ]
         },
         {
@@ -111,32 +111,32 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/intelligence/billing', label: t('billing'), icon: PieChart, requiredTier: 'Essential' },
                 { href: '/intelligence/budgets', label: t('budgets', { fallback: 'Tenant Budgets' }), icon: DollarSign, requiredTier: 'Essential' },
                 { href: '/intelligence/cost-groups', label: t('cost_groups', { fallback: 'Cost Groups' }), icon: Table2, requiredTier: 'Business' },
-                { href: '/intelligence/cost-centers', label: t('cost_centers', { fallback: 'Presupuesto por Centro de Costos' }), icon: Wallet, requiredTier: 'Business' },
-                { href: '/intelligence/rightsizing', label: t('rightsizing'), icon: Zap, requiredTier: 'Professional' },
-                { href: '/intelligence/network', label: t('network_analytics'), icon: Activity, requiredTier: 'Professional' },
-                { href: '/intelligence/rates', label: t('rate_optimization'), icon: DollarSign, requiredTier: 'Business' },
-                { href: '/intelligence/licenses', label: t('users_licenses', { fallback: 'Usuarios y Licencias' }), icon: Users, requiredTier: 'Professional' },
-                { href: '/intelligence/hybrid-benefit', label: 'Hybrid Benefit (AHB)', icon: Cpu, requiredTier: 'Professional' },
-                { href: '/intelligence/commitments', label: 'Reservas (RIs)', icon: ShieldCheck, requiredTier: 'Professional' },
+                { href: '/intelligence/cost-centers', label: t('cost_centers', { fallback: 'Presupuesto por Centro de Costos' }), icon: Wallet, requiredTier: 'Enterprise' },
+                { href: '/intelligence/rightsizing', label: t('rightsizing'), icon: Zap, requiredTier: 'Enterprise' },
+                { href: '/intelligence/network', label: t('network_analytics'), icon: Activity, requiredTier: 'Business' },
+                { href: '/intelligence/rates', label: t('rate_optimization'), icon: DollarSign, requiredTier: 'Enterprise' },
+                { href: '/intelligence/licenses', label: t('users_licenses', { fallback: 'Usuarios y Licencias' }), icon: Users, requiredTier: 'Enterprise' },
+                { href: '/intelligence/hybrid-benefit', label: 'Hybrid Benefit (AHB)', icon: Cpu, requiredTier: 'Business' },
+                { href: '/intelligence/commitments', label: 'Reservas (RIs)', icon: ShieldCheck, requiredTier: 'Enterprise' },
                 { href: '/intelligence/zero-cost', label: 'Costo Cero', icon: Box },
-                { href: '/intelligence/aks', label: 'Control AKS', icon: Server, requiredTier: 'Business' },
-                { href: '/intelligence/aks-chargeback', label: 'AKS Chargeback', icon: Layers, requiredTier: 'Business' },
-                { href: '/intelligence/unit-economics', label: 'Unit Economics', icon: Activity, requiredTier: 'Business' },
+                { href: '/intelligence/aks', label: 'Control AKS', icon: Server, requiredTier: 'Enterprise' },
+                { href: '/intelligence/aks-chargeback', label: 'AKS Chargeback', icon: Layers, requiredTier: 'Enterprise' },
+                { href: '/intelligence/unit-economics', label: 'Unit Economics', icon: Activity, requiredTier: 'Enterprise' },
                 { href: '/intelligence/allocation', label: 'Prorrateo (Allocation)', icon: PieChart, requiredTier: 'Enterprise' },
-                { href: '/intelligence/scorecard', label: 'Scorecard (Fama)', icon: Trophy, requiredTier: 'Enterprise' },
-                { href: '/intelligence/anomalies', label: 'Detección Anomalías', icon: ShieldAlert, requiredTier: 'Professional' },
-                { href: '/intelligence/optimization-index', label: 'Índice de Optimización (COIN)', icon: Target, requiredTier: 'Professional' },
-                { href: '/intelligence/tenant-health', label: 'Salud del Tenant', icon: HeartPulse, requiredTier: 'Professional' },
+                { href: '/intelligence/scorecard', label: 'Scorecard (Fama)', icon: Trophy, requiredTier: 'Business' },
+                { href: '/intelligence/anomalies', label: 'Detección Anomalías', icon: ShieldAlert, requiredTier: 'Enterprise' },
+                { href: '/intelligence/optimization-index', label: 'Índice de Optimización (COIN)', icon: Target, requiredTier: 'Enterprise' },
+                { href: '/intelligence/tenant-health', label: 'Salud del Tenant', icon: HeartPulse, requiredTier: 'Business' },
                 { href: '/intelligence/simulator', label: 'Simulador (What-If)', icon: Activity, requiredTier: 'Business' },
-                { href: '/intelligence/cost-projection', label: t('cost_projection', { fallback: 'Proyección de Gastos' }), icon: TrendingUp, requiredTier: 'Professional' },
-                { href: '/intelligence/storage-efficiency', label: t('storage_efficiency', { fallback: 'Eficiencia de Storage' }), icon: HardDrive, requiredTier: 'Business' },
+                { href: '/intelligence/cost-projection', label: t('cost_projection', { fallback: 'Proyección de Gastos' }), icon: TrendingUp, requiredTier: 'Enterprise' },
+                { href: '/intelligence/storage-efficiency', label: t('storage_efficiency', { fallback: 'Eficiencia de Storage' }), icon: HardDrive, requiredTier: 'Enterprise' },
                 { href: '/intelligence/cost-by-category', label: t('cost_by_category', { fallback: 'Costo por Categoría' }), icon: PieChart, requiredTier: 'Business' },
-                { href: '/intelligence/commitment-simulator', label: t('commitment_simulator', { fallback: 'Savings Plan vs Reserva' }), icon: PiggyBank, requiredTier: 'Enterprise' },
-                { href: '/intelligence/compute-efficiency', label: t('compute_efficiency', { fallback: 'Eficiencia de Cómputo' }), icon: Cpu, requiredTier: 'Professional' },
-                { href: '/intelligence/alerts', label: t('alerts_self_service', { fallback: 'Alertas (Self-Service)' }), icon: BellRing, requiredTier: 'Professional' },
+                { href: '/intelligence/commitment-simulator', label: t('commitment_simulator', { fallback: 'Savings Plan vs Reserva' }), icon: PiggyBank, requiredTier: 'Professional' },
+                { href: '/intelligence/compute-efficiency', label: t('compute_efficiency', { fallback: 'Eficiencia de Cómputo' }), icon: Cpu, requiredTier: 'Enterprise' },
+                { href: '/intelligence/alerts', label: t('alerts_self_service', { fallback: 'Alertas (Self-Service)' }), icon: BellRing, requiredTier: 'Business' },
                 { href: '/intelligence/ai-analytics', label: t('ai_analytics', { fallback: 'AI Cost Analytics' }), icon: Sparkles, requiredTier: 'Enterprise' },
                 { href: '/intelligence/macc', label: t('macc', { fallback: 'MACC Tracking' }), icon: Briefcase, requiredTier: 'Enterprise' },
-                { href: '/intelligence/upload', label: 'Ingesta CSV', icon: FileText, requiredTier: 'Professional' }
+                { href: '/intelligence/upload', label: 'Ingesta CSV', icon: FileText, requiredTier: 'Business' }
             ]
         },
         {
@@ -144,7 +144,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             title: t('cleanup'),
             items: [
                 { href: '/cleanup/zombies', label: t('zombie_resources'), icon: Trash2 },
-                { href: '/cleanup/zombies/networking', label: 'Networking Zombies', icon: Network, requiredTier: 'Professional' },
+                { href: '/cleanup/zombies/networking', label: 'Networking Zombies', icon: Network, requiredTier: 'Essential' },
                 { href: '/cleanup/ttl', label: t('ttl_expirations'), icon: Clock, requiredTier: 'Business' }
             ]
         },
@@ -152,14 +152,13 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             id: 'gobernanza',
             title: t('governance'),
             items: [
-                { href: '/governance/tags', label: t('tag_compliance'), icon: Tags, requiredTier: 'Professional' },
+                { href: '/governance/tags', label: t('tag_compliance'), icon: Tags, requiredTier: 'Essential' },
                 { href: '/governance/power', label: t('power_schedules'), icon: Power, requiredTier: 'Business' },
                 { href: '/governance/policies', label: 'Políticas (Auto-Block)', icon: ShieldAlert, requiredTier: 'Enterprise' },
                 { href: '/governance/reporting', label: t('governance_reporting', { fallback: 'Reporting de Gobernanza' }), icon: ShieldCheck, requiredTier: 'Enterprise' },
                 { href: '/governance/ha', label: t('ha_recommendations', { fallback: 'Alta Disponibilidad' }), icon: ShieldCheck, requiredTier: 'Business' },
                 { href: '/governance/credentials', label: t('expiring_credentials', { fallback: 'Credenciales por Expirar' }), icon: KeyRound, requiredTier: 'Business' },
-                { href: '/governance/score', label: t('governance_score', { fallback: 'Estado de Gobernanza' }), icon: Target, requiredTier: 'Business' },
-                { href: '/remediation/approvals', label: 'Aprobaciones', icon: CheckCircle, requiredTier: 'Professional' }
+                { href: '/remediation/approvals', label: 'Aprobaciones', icon: CheckCircle, requiredTier: 'Business' }
             ]
         },
         {
@@ -172,17 +171,17 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/admin/onboarding/lighthouse', label: 'Azure Lighthouse Onboarding', icon: Network, requiredTier: 'Enterprise' },
                 { href: '/admin/config', label: t('configuration'), icon: Settings },
                 { href: '/admin/markup', label: 'Partner Markup (CSP)', icon: DollarSign, requiredTier: 'Enterprise' },
-                { href: '/admin/ai-config', label: 'Configuración de IA', icon: Cpu },
-                { href: '/admin/report', label: t('executive_report'), icon: FileText },
+                { href: '/admin/ai-config', label: 'Configuración de IA', icon: Cpu, requiredTier: 'Professional' },
+                { href: '/admin/report', label: t('executive_report'), icon: FileText, requiredTier: 'Business' },
                 { href: '/admin/workbooks', label: t('workbooks'), icon: BookOpen, requiredTier: 'Enterprise' },
                 { href: '/admin/notifications', label: 'Notificaciones', icon: Bell, requiredTier: 'Professional' },
                 { href: '/admin/billing', label: 'Facturación', icon: CreditCard, requiredTier: 'Essential' },
                 { href: '/admin/copilot-m365', label: t('copilot_m365', { fallback: 'Copilot M365' }), icon: Bot, requiredTier: 'Enterprise' },
-                { href: '/admin/audit', label: t('audit_trail'), icon: Activity },
-                { href: '/admin/mcp-keys', label: 'MCP API Keys', icon: KeyRound, requiredTier: 'Business' },
-                { href: '/admin/api-keys', label: 'API Pública', icon: Unlock, requiredTier: 'Professional' },
-                { href: '/admin/powerbi-templates', label: 'Power BI Templates', icon: BarChart3, requiredTier: 'Professional' },
-                { href: '/admin/focus-export', label: 'FOCUS 1.1 Export', icon: FileSpreadsheet, requiredTier: 'Enterprise' },
+                { href: '/admin/audit', label: t('audit_trail'), icon: Activity, requiredTier: 'Professional' },
+                { href: '/admin/mcp-keys', label: 'MCP API Keys', icon: KeyRound, requiredTier: 'Enterprise' },
+                { href: '/admin/api-keys', label: 'API Pública', icon: Unlock, requiredTier: 'Enterprise' },
+                { href: '/admin/powerbi-templates', label: 'Power BI Templates', icon: BarChart3, requiredTier: 'Enterprise' },
+                { href: '/admin/focus-export', label: 'FOCUS 1.1 Export', icon: FileSpreadsheet, requiredTier: 'Professional' },
                 // Cloud Accounts (AWS) oculto: no hacemos referencia a AWS por ahora (2026-07-05).
                 // Página y API quedan implementadas, sin uso, para cuando se retome soporte AWS.
                 { href: '/admin/sso', label: 'SSO SAML', icon: ShieldCheck, requiredTier: 'Enterprise' }
@@ -195,11 +194,6 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
     ];
 
     if (isSuperAdmin(accounts[0]?.username)) {
-        categories.find(c => c.id === 'admin')?.items.push({
-            href: '/admin/payments',
-            label: 'Configuración de Pagos',
-            icon: CreditCard
-        } as any);
         categories.find(c => c.id === 'admin')?.items.push({
             href: '/admin/tenants',
             label: 'Gestión de Tenants',

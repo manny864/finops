@@ -229,7 +229,7 @@ export default function NetworkingZombiesPanel() {
 
     const items: ZombieItem[] = data.items || [];
     const totalWaste: number = data.totalMonthlyWaste || 0;
-    const canDelete = canDeleteResources(selectedTenant.tier);
+    const canDelete = canDeleteResources(selectedTenant.tier, 'networking');
 
     const pageCount = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
     const safePageIndex = Math.min(pageIndex, pageCount - 1);
@@ -251,7 +251,7 @@ export default function NetworkingZombiesPanel() {
                 </div>
             )}
 
-            {!canDelete && <EnterpriseDeleteDisclaimer />}
+            {!canDelete && <EnterpriseDeleteDisclaimer domain="networking" />}
 
             {/* Summary KPI */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

@@ -9,6 +9,7 @@ import Pagination, { usePagination } from "@/components/Pagination";
 import { Loader2, AlertCircle, ShieldCheck, Boxes, Users, ChevronDown, ChevronUp } from "lucide-react";
 import { isMockTenant } from '@/lib/mockData';
 import { formatResourceType } from '@/lib/resourceTypeLabels';
+import GovernanceScoreBoard from '@/components/dashboard/GovernanceScoreBoard';
 
 function Bar({ label, fullName, count, max }: { label: string; fullName?: string; count: number; max: number }) {
     const pct = max > 0 ? Math.round((count / max) * 100) : 0;
@@ -110,6 +111,9 @@ export default function GovernanceReportingDashboard() {
 
     return (
         <div className="space-y-6">
+            {/* Estado de Gobernanza (ex /governance/score, fusionada acá) */}
+            <GovernanceScoreBoard />
+
             {/* Policy compliance */}
             <Card icon={<ShieldCheck className="w-4 h-4" />} title={t("policyTitle")}>
                 {pc.available ? (

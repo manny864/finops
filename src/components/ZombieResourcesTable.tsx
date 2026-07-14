@@ -433,7 +433,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
   }, [data, filterType, filterGroup, filterIssue, searchQuery]);
 
   const hasLockedItems = useMemo(() => filteredData.some(item => item.isLocked), [filteredData]);
-  const canDelete = canDeleteResources(selectedTenant.tier);
+  const canDelete = canDeleteResources(selectedTenant.tier, 'zombies');
   // Borrado directo: Admin/Owner/SuperAdmin. Colaborador (con tier habilitado)
   // solo puede solicitar la eliminación — ver requestDeletion() — porque
   // /api/remediation exige Admin/Owner server-side (403 si no).
@@ -635,7 +635,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
 
   return (
     <div className="card">
-      {!canDelete && <div className="mb-4"><EnterpriseDeleteDisclaimer /></div>}
+      {!canDelete && <div className="mb-4"><EnterpriseDeleteDisclaimer domain="zombies" /></div>}
       <div className="card-h flex-col sm:flex-row items-start sm:items-center gap-4 border-b border-line pb-4 mb-4">
         <div>
             <h3 className="text-brand-deep dark:text-white m-0">

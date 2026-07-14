@@ -11,8 +11,10 @@ import Pagination, { usePagination } from '@/components/Pagination';
 import PinButton from '@/components/dashboard/PinButton';
 import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
+import { useTranslations } from 'next-intl';
 
 export default function AksChargebackPage() {
+    const t = useTranslations("AksChargeback");
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const isEnterprise = hasAccess(selectedTenant.tier || 'Essential', 'Enterprise');
@@ -47,12 +49,12 @@ export default function AksChargebackPage() {
                         setSelectedCluster(json.availableClusters[0].name);
                     }
                 } else {
-                    toast.error(json.error || "Fallo al cargar datos de AKS.");
+                    toast.error(json.error || t("toast_load_error"));
                 }
             } catch (e: any) {
                 if (cancelled) return;
                 console.error(e);
-                toast.error("Error de red al conectar con AKS API.");
+                toast.error(t("toast_network_error"));
             } finally {
                 if (!cancelled) setLoading(false);
             }
@@ -68,13 +70,12 @@ export default function AksChargebackPage() {
             <div className="p-6">
                 <div className="bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-900/50 rounded-xl p-8 text-center max-w-2xl mx-auto shadow-sm">
                     <Server className="w-12 h-12 text-amber-500 mx-auto mb-4" />
-                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Kubernetes Chargeback (OpenCost)</h2>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{t("gate_title")}</h2>
                     <p className="text-gray-600 dark:text-gray-400 mb-6">
-                        Desglosa los costos de tus clústeres de AKS por Namespace, Pods y Deployments.
-                        Disponible exclusivamente en plan <b>Enterprise</b>.
+                        {t("gate_desc", { plan: "Enterprise" })}
                     </p>
                     <button className="px-6 py-3 bg-brand-deep text-white font-bold rounded-lg shadow hover:bg-brand-bright transition-colors">
-                        Actualizar a Enterprise
+                        {t("gate_upgrade_btn")}
                     </button>
                 </div>
             </div>
@@ -86,22 +87,22 @@ export default function AksChargebackPage() {
             <div className="p-6 max-w-6xl mx-auto flex items-center justify-center min-h-[400px]">
                 <div className="animate-pulse flex flex-col items-center">
                     <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
-                    <p className="text-gray-500 font-semibold">Analizando métricas del Clúster...</p>
+                    <p className="text-gray-500 font-semibold">{t("loading")}</p>
                 </div>
             </div>
         );
     }
 
-    if (!data) return <div className="p-6 text-center text-red-500">Error al cargar datos.</div>;
+    if (!data) return <div className="p-6 text-center text-red-500">{t("load_error")}</div>;
 
     if (data.empty) {
         return (
             <div className="p-6">
                 <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-8 text-center max-w-2xl mx-auto shadow-sm">
                     <Layers className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">No se detectaron recursos AKS</h2>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{t("empty_title")}</h2>
                     <p className="text-gray-600 dark:text-gray-400 mb-6">
-                        No hemos encontrado ningún clúster de Azure Kubernetes Service (AKS) aprovisionado en las suscripciones vinculadas a este Tenant.
+                        {t("empty_desc")}
                     </p>
                 </div>
             </div>
@@ -126,16 +127,16 @@ export default function AksChargebackPage() {
                 <div>
                     <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white flex items-center gap-3">
                         <Layers className="w-8 h-8 text-indigo-500" />
-                        Distribución de Costos AKS
+                        {t("page_title")}
                         <PinButton widgetKey="intelligence.aks-chargeback" />
                     </h1>
                     <p className="text-gray-500 dark:text-gray-400 mt-2 flex items-center gap-2">
-                        <Server className="w-4 h-4" /> <b>Clúster:</b> {data.clusterName}
+                        <Server className="w-4 h-4" /> <b>{t("cluster_label")}</b> {data.clusterName}
                     </p>
                 </div>
                 {availableClusters.length > 1 && (
                     <div className="flex items-center gap-2">
-                        <label className="text-xs text-gray-500 dark:text-gray-400">Clúster:</label>
+                        <label className="text-xs text-gray-500 dark:text-gray-400">{t("cluster_label")}</label>
                         <select
                             value={selectedCluster}
                             onChange={(e) => setSelectedCluster(e.target.value)}
@@ -153,11 +154,9 @@ export default function AksChargebackPage() {
                 <div className="mb-6 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/40 rounded-xl p-4 flex gap-3 text-amber-800 dark:text-amber-300">
                     <Info className="w-5 h-5 shrink-0 mt-0.5" />
                     <div className="text-sm">
-                        <p className="font-bold mb-1">Desglose por namespace no disponible</p>
+                        <p className="font-bold mb-1">{t("namespace_breakdown_unavailable_title")}</p>
                         <p>
-                            El chargeback granular (por namespace/deployment) requiere métricas del propio clúster vía OpenCost o Prometheus
-                            (no expuestas por la Azure Management API). Mostramos el costo agregado del clúster (Node RG) y la capacidad de cómputo.
-                            Para activar el desglose granular, instalá OpenCost en el clúster y configurá la integración.
+                            {t("namespace_breakdown_unavailable_desc")}
                         </p>
                     </div>
                 </div>
@@ -165,18 +164,18 @@ export default function AksChargebackPage() {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
                 <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-6">
-                    <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Costo Total del Clúster</h3>
+                    <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">{t("total_cluster_cost")}</h3>
                     <p className="text-3xl font-black text-gray-900 dark:text-white">{formatter.format(data.totalClusterCost || 0)}</p>
                 </div>
                 <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-6">
-                    <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Capacidad Cómputo (Nodos)</h3>
+                    <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">{t("compute_capacity")}</h3>
                     <p className="text-3xl font-black text-gray-900 dark:text-white flex items-center gap-2">
-                        <Cpu className="w-6 h-6 text-brand-deep" /> {data.totalClusterCpuCores || 0} Cores
+                        <Cpu className="w-6 h-6 text-brand-deep" /> {data.totalClusterCpuCores || 0} {t("cores_suffix")}
                     </p>
                 </div>
                 <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-6">
                     <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-                        {hasNamespaceBreakdown ? 'Namespaces Activos' : 'Agregado'}
+                        {hasNamespaceBreakdown ? t("active_namespaces") : t("aggregated")}
                     </h3>
                     <p className="text-3xl font-black text-gray-900 dark:text-white">{(data.chargebackData || []).length}</p>
                 </div>
@@ -185,7 +184,7 @@ export default function AksChargebackPage() {
             {hasNamespaceBreakdown && (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <div className="lg:col-span-1 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-6 flex flex-col items-center">
-                        <h3 className="text-lg font-bold text-gray-900 dark:text-white w-full border-b border-gray-100 dark:border-slate-800 pb-3 mb-4">Chargeback</h3>
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white w-full border-b border-gray-100 dark:border-slate-800 pb-3 mb-4">{t("chargeback_title")}</h3>
                         <div className="w-full h-[300px]">
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
@@ -202,16 +201,16 @@ export default function AksChargebackPage() {
                     </div>
 
                     <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-6">
-                        <h3 className="text-lg font-bold text-gray-900 dark:text-white w-full border-b border-gray-100 dark:border-slate-800 pb-3 mb-4">Desglose por Namespace</h3>
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white w-full border-b border-gray-100 dark:border-slate-800 pb-3 mb-4">{t("namespace_breakdown_title")}</h3>
                         <div className="overflow-x-auto">
                             <table className="w-full text-left border-collapse">
                                 <thead>
                                     <tr>
-                                        <th className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase">Namespace</th>
-                                        <th className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase text-right">CPU (Cores)</th>
-                                        <th className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase text-right">Costo Compute</th>
-                                        <th className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase text-right">Costo Storage</th>
-                                        <th className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase text-right">Costo Total</th>
+                                        <th className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase">{t("col_namespace")}</th>
+                                        <th className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase text-right">{t("col_cpu_cores")}</th>
+                                        <th className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase text-right">{t("col_compute_cost")}</th>
+                                        <th className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase text-right">{t("col_storage_cost")}</th>
+                                        <th className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase text-right">{t("col_total_cost")}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -221,7 +220,7 @@ export default function AksChargebackPage() {
                                                 <div className="flex items-center gap-2">
                                                     <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }}></div>
                                                     {ns.namespace}
-                                                    {ns.namespace === 'idle-capacity' && <span className="text-[10px] bg-amber-100 text-amber-800 px-1 rounded">No Asignado</span>}
+                                                    {ns.namespace === 'idle-capacity' && <span className="text-[10px] bg-amber-100 text-amber-800 px-1 rounded">{t("unallocated_tag")}</span>}
                                                 </div>
                                             </td>
                                             <td className="py-3 px-4 border-b border-gray-100 dark:border-slate-800 text-sm text-gray-600 dark:text-gray-400 text-right">{ns.cpuCores}</td>

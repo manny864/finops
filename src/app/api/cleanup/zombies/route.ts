@@ -5,6 +5,7 @@ import { runGraphAudits } from "@/services/auditService";
 import { getMonthlyCostEstimate } from "@/services/pricingService";
 import { tenants } from "@/lib/tenants";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
+import { getWithStaleWhileRevalidate } from "@/lib/cache";
 
 async function queryResourceGraphWithRetry(client: any, query: string, subscriptions: string[], retries = 3, initialDelay = 3000): Promise<any> {
     let currentDelay = initialDelay;
@@ -36,6 +37,19 @@ export async function GET(request: NextRequest) {
 
     await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
 
+    const cacheKey = `cleanup:zombies:v1:${tenantId}:${subscriptionId || 'all'}`;
+    const allZombies = await getWithStaleWhileRevalidate(cacheKey, () => fetchZombies(tenantId, subscriptionId), 1800, 600);
+
+    return NextResponse.json({ success: true, data: allZombies });
+
+  } catch (error: unknown) {
+    if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
+    console.error(`[Zombies API] ERROR:`, error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
+async function fetchZombies(tenantId: string, subscriptionId: string | null): Promise<any[]> {
     // 2. Obtener Cliente Autenticado
     const credential = await getAzureCredential(tenantId);
     const resourceGraphClient = new ResourceGraphClient(credential);
@@ -49,7 +63,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (subs.length === 0) {
-        return NextResponse.json({ success: true, data: [] });
+        return [];
     }
 
     // 4. Ejecutar Auditoría Graph y consulta de Discos en paralelo
@@ -233,11 +247,5 @@ export async function GET(request: NextRequest) {
     // Lógica Freemium Teaser (Removido el enmascaramiento por solicitud)
     // El nombre real ahora se enviará como texto plano.
 
-    return NextResponse.json({ success: true, data: allZombies });
-
-  } catch (error: unknown) {
-    if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
-    console.error(`[Zombies API] ERROR:`, error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
+    return allZombies;
 }

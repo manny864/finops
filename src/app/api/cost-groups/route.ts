@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantTier, AuthError } from "@/lib/requestAuth";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import pool from "@/modules/storage/db";
+import { getWithStaleWhileRevalidate } from "@/lib/cache";
 
 function periodRange(period: string): { start: string; end: string } {
     const now = new Date();
@@ -41,6 +42,22 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(getMockDataForRoute("cost_groups", tenantId));
         }
 
+        const groups = await getWithStaleWhileRevalidate(
+            `cost-groups:v1:${tenantId}:${period}`,
+            () => fetchCostGroups(tenantId, period),
+            1800,
+            600
+        );
+
+        return NextResponse.json({ success: true, mock: false, groups });
+    } catch (e: unknown) {
+        if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
+        console.error("[cost-groups] GET error:", e);
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    }
+}
+
+async function fetchCostGroups(tenantId: string, period: string) {
         const { start, end } = periodRange(period);
         const days = Math.max(1, Math.round((new Date(end).getTime() - new Date(start).getTime()) / 86400000) || 30);
 
@@ -100,10 +117,5 @@ export async function GET(request: NextRequest) {
             };
         }).sort((a, b) => b.periodCost - a.periodCost);
 
-        return NextResponse.json({ success: true, mock: false, groups });
-    } catch (e: unknown) {
-        if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
-        console.error("[cost-groups] GET error:", e);
-        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-    }
+        return groups;
 }

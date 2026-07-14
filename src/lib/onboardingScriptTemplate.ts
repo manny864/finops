@@ -12,11 +12,10 @@ export const BUSINESS_CUSTOM_ACTIONS: string[] = [
     "Microsoft.Consumption/budgets/read",
     "Microsoft.Consumption/budgets/write",
     "Microsoft.Consumption/budgets/delete",
-];
-
-export const ENTERPRISE_CUSTOM_ACTIONS: string[] = [
-    ...BUSINESS_CUSTOM_ACTIONS,
-    "Microsoft.Resources/subscriptions/resourceGroups/write",
+    // Remediación de Recursos Zombis y Networking Zombies: habilitada desde
+    // Business (ver canDeleteResources en src/lib/tierLogic.ts) — sin estas
+    // acciones, el DELETE contra Azure devuelve AuthorizationFailed (403)
+    // aunque el tenant sea Business/Enterprise.
     "Microsoft.Compute/virtualMachines/delete",
     "Microsoft.Compute/disks/delete",
     "Microsoft.Compute/snapshots/delete",
@@ -26,10 +25,7 @@ export const ENTERPRISE_CUSTOM_ACTIONS: string[] = [
     "Microsoft.Network/networkSecurityGroups/delete",
     // Networking Zombies (expansión): resto de tipos de red con soporte de
     // eliminación en la plataforma (ver armType en
-    // src/app/api/cleanup/zombies/networking/route.ts). La eliminación de
-    // recursos es exclusiva de Enterprise (ver canDeleteResources en
-    // src/lib/tierLogic.ts) — sin estas acciones, el DELETE contra Azure
-    // devuelve AuthorizationFailed (403) aunque el tenant sea Enterprise.
+    // src/app/api/cleanup/zombies/networking/route.ts).
     "Microsoft.Network/loadBalancers/delete",
     "Microsoft.Network/applicationGateways/delete",
     "Microsoft.Network/virtualNetworkGateways/delete",
@@ -53,6 +49,11 @@ export const ENTERPRISE_CUSTOM_ACTIONS: string[] = [
     "Microsoft.Network/dnsZones/delete",
     "Microsoft.Network/networkWatchers/delete",
     "Microsoft.Network/networkWatchers/flowLogs/delete",
+];
+
+export const ENTERPRISE_CUSTOM_ACTIONS: string[] = [
+    ...BUSINESS_CUSTOM_ACTIONS,
+    "Microsoft.Resources/subscriptions/resourceGroups/write",
 ];
 
 // Nombre canónico del custom role creado por el script de onboarding.
@@ -94,9 +95,10 @@ export function generateOnboardingScript(clientTenantId: string, subscriptionIds
     const baseRoles = [...essentialRoles];
     const customActions: string[] = getCustomRoleActionsForTier(tier);
 
-    if (tier === 'Professional') {
-        baseRoles.push('Tag Contributor'); // auto-tagging
-    } else if (tier === 'Business') {
+    // Tag Contributor (auto-fix de Cumplimiento de Etiquetas): remediación
+    // habilitada desde Business (ver canRemediateTags en tierLogic.ts) —
+    // Essential/Professional solo ven el score de cumplimiento.
+    if (tier === 'Business') {
         baseRoles.push('Tag Contributor'); // auto-tagging + custom role (power mgmt + budgets)
     } else if (tier === 'Enterprise') {
         baseRoles.push('Tag Contributor');
@@ -105,10 +107,9 @@ export function generateOnboardingScript(clientTenantId: string, subscriptionIds
 
     // AuditLog.Read.All habilita signInActivity en la lectura de usuarios de
     // Microsoft Graph (ver m365UsersService.ts), consumido únicamente por
-    // "Usuarios y Licencias" (/intelligence/licenses, requiredTier: Professional
-    // en Sidebar.tsx). Se otorga solo a los tiers con acceso a esa página —
-    // Essential no la ve, así que no necesita el permiso adicional.
-    const needsAuditLog = hasAccess(tier, 'Professional');
+    // "Usuarios y Licencias" (/intelligence/licenses, requiredTier: Enterprise
+    // en Sidebar.tsx). Se otorga solo a los tiers con acceso a esa página.
+    const needsAuditLog = hasAccess(tier, 'Enterprise');
     const graphPermsLabel = needsAuditLog
         ? 'Directory.Read.All, Reports.Read.All, User.Read.All, AuditLog.Read.All'
         : 'Directory.Read.All, Reports.Read.All, User.Read.All';

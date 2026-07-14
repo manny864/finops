@@ -147,24 +147,25 @@ export default function HistoricalProgressPage() {
     };
 
     return (
-        <div className="max-w-6xl mx-auto animate-in fade-in duration-500">
+        <div className="content animate-in fade-in duration-500">
             <MockBanner />
-            {/* Header */}
-            <div className="flex justify-between items-start mb-6">
+            <div className="vhead">
                 <div>
-                    <div className="flex items-center">
-                        <div className="bg-blue-600 rounded-lg p-2 mr-3 text-white">
-                            <TrendingUp className="w-5 h-5" />
-                        </div>
-                        <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Progreso Histórico</h1>
+                    <div className="vt">
+                        <span className="vico bg-gradient-to-br from-[#0054A6] to-[#00AEEF]"><TrendingUp className="w-4 h-4" /></span>
+                        Progreso Histórico
                     </div>
-                    <p className="text-sm text-slate-500 mt-1 ml-12">Evolución histórica del gasto y del ahorro capturado en el tenant.</p>
+                    <div className="vs">Evolución histórica del gasto y del ahorro capturado en el tenant.</div>
                 </div>
-                <div className="bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full text-xs font-semibold flex items-center shadow-sm">
-                    <MapPin className="w-3 h-3 mr-1 text-red-500 fill-red-500" />
-                    Tenant completo
+                <div className="right">
+                    <span className="bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full text-xs font-semibold flex items-center shadow-sm">
+                        <MapPin className="w-3 h-3 mr-1 text-red-500 fill-red-500" />
+                        Tenant completo
+                    </span>
                 </div>
             </div>
+
+            <div className="mt-6">
 
             {loading ? (
                 <div className="flex flex-col items-center justify-center h-64 text-gray-400">
@@ -183,22 +184,22 @@ export default function HistoricalProgressPage() {
                 <>
                     {/* Summary Metric Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 p-5 flex flex-col justify-center">
-                            <h3 className="text-slate-400 dark:text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">Puntuación de Costo Actual</h3>
+                        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-4 flex flex-col justify-center">
+                            <h3 className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wide mb-3">Puntuación de Costo Actual</h3>
                             <div className="text-3xl font-extrabold text-emerald-500">
                                 {currentScore.toFixed(1)}%
                             </div>
                         </div>
                         
-                        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 p-5 flex flex-col justify-center">
-                            <h3 className="text-slate-400 dark:text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">Mejora en Score Histórico</h3>
+                        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-4 flex flex-col justify-center">
+                            <h3 className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wide mb-3">Mejora en Score Histórico</h3>
                             <div className={`text-3xl font-extrabold ${scoreImprovement >= 0 ? 'text-blue-600' : 'text-rose-500'}`}>
                                 {scoreImprovement >= 0 ? `+${scoreImprovement.toFixed(1)}%` : `${scoreImprovement.toFixed(1)}%`}
                             </div>
                         </div>
                         
-                        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 p-5 flex flex-col justify-center">
-                            <h3 className="text-slate-400 dark:text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">Recursos Afectados Críticos</h3>
+                        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-4 flex flex-col justify-center">
+                            <h3 className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wide mb-3">Recursos Afectados Críticos</h3>
                             <div className="text-3xl font-extrabold text-amber-500">
                                 {currentImpacted}
                             </div>
@@ -206,7 +207,7 @@ export default function HistoricalProgressPage() {
                     </div>
 
                     {/* Chart */}
-                    <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 p-6 mb-6">
+                    <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-6 mb-6">
                         <div className="flex justify-between items-center mb-6">
                             <div className="flex items-center text-slate-700 dark:text-slate-300 font-semibold text-sm">
                                 <BarChart3 className="w-4 h-4 mr-2 text-slate-400" />
@@ -310,8 +311,8 @@ export default function HistoricalProgressPage() {
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                         {/* Recursos Afectados */}
-                        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 overflow-hidden">
-                            <div className="px-6 py-4 border-b border-gray-100 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900">
+                        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 overflow-hidden">
+                            <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900">
                                 <div className="flex items-center text-slate-700 dark:text-slate-300 font-bold text-sm">
                                     <AlertTriangle className="w-4 h-4 mr-2 text-amber-500" />
                                     Recursos Afectados
@@ -379,8 +380,8 @@ export default function HistoricalProgressPage() {
                         </div>
 
                         {/* Hitos */}
-                        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 overflow-hidden">
-                            <div className="px-6 py-4 border-b border-gray-100 dark:border-slate-800 flex items-center text-slate-700 dark:text-slate-300 font-bold text-sm bg-white dark:bg-slate-900">
+                        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 overflow-hidden">
+                            <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-800 flex items-center text-slate-700 dark:text-slate-300 font-bold text-sm bg-white dark:bg-slate-900">
                                 <Flag className="w-4 h-4 mr-2 text-slate-500" />
                                 Hitos
                             </div>
@@ -420,6 +421,7 @@ export default function HistoricalProgressPage() {
                     </div>
                 </>
             )}
+            </div>
         </div>
     );
 }

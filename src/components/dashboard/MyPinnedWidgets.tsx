@@ -5,6 +5,8 @@ import { useMsal } from "@azure/msal-react";
 import { useTenant } from "@/components/TenantProvider";
 import { LayoutDashboard, Loader2, PinOff, ChevronUp, ChevronDown } from "lucide-react";
 import { getWidget } from "./widgetRegistry";
+import { getRequiredTierForPath } from "@/lib/routeTiers";
+import FeatureGuard from "@/components/FeatureGuard";
 
 interface PinRow {
     widgetKey: string;
@@ -99,6 +101,7 @@ export default function MyPinnedWidgets() {
                             const def = getWidget(pin.widgetKey);
                             if (!def) return null;
                             const W = def.Component;
+                            const requiredTier = getRequiredTierForPath(def.sourcePage);
                             return (
                                 <div key={pin.widgetKey} className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm overflow-hidden">
                                     <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/30">
@@ -116,7 +119,11 @@ export default function MyPinnedWidgets() {
                                         </button>
                                     </div>
                                     <div className="p-3" style={{ minHeight: `${def.minHeightRem || 20}rem` }}>
-                                        <W />
+                                        {requiredTier ? (
+                                            <FeatureGuard requiredTier={requiredTier} featureName={def.title}>
+                                                <W />
+                                            </FeatureGuard>
+                                        ) : <W />}
                                     </div>
                                 </div>
                             );

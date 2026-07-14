@@ -18,6 +18,8 @@ import { useCurrency } from "@/components/CurrencyProvider";
 import CostProjectionCard from "@/components/dashboard/CostProjectionCard";
 import HABreakdownCard from "@/components/dashboard/HABreakdownCard";
 import BudgetBurnChart from "@/components/dashboard/BudgetBurnChart";
+import MyPinnedWidgets from "@/components/dashboard/MyPinnedWidgets";
+import FeatureGuard from "@/components/FeatureGuard";
 
 const COLORS = {
     high: "#dc2626",
@@ -183,6 +185,12 @@ export default function ExecutiveSummaryBoard() {
                 />
             </div>
 
+            {/* "Mi Dashboard" — pineo de tarjetas, vivía en el Dashboard General
+                (ruta "/", eliminada del Sidebar al pasar White Board a cumplir ese
+                rol). Mismo componente, sin cambios: cada usuario sigue viendo sus
+                propios pins acá. */}
+            <MyPinnedWidgets />
+
             {/* Presupuestos por Suscripción / Proyección de Gastos / Alta Disponibilidad */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 <div className="flex flex-col">
@@ -190,11 +198,15 @@ export default function ExecutiveSummaryBoard() {
                 </div>
 
                 <div className="lg:col-span-1">
-                    <CostProjectionCard showFullPageLink />
+                    <FeatureGuard requiredTier="Enterprise" featureName="Proyección de Gastos">
+                        <CostProjectionCard showFullPageLink />
+                    </FeatureGuard>
                 </div>
 
                 <div className="lg:col-span-1">
-                    <HABreakdownCard />
+                    <FeatureGuard requiredTier="Business" featureName="Alta Disponibilidad">
+                        <HABreakdownCard />
+                    </FeatureGuard>
                 </div>
             </div>
 
@@ -413,17 +425,19 @@ export default function ExecutiveSummaryBoard() {
                     </ResponsiveContainer>
                 </Card>
 
-                <Card title={t("top5_cost_groups")}>
-                    <p className="text-lg font-extrabold text-slate-800 dark:text-slate-100 mb-2">{fmtUsd(top5CostGroups?.totalCost)}</p>
-                    <ResponsiveContainer width="100%" height={140}>
-                        <BarChart data={top5CostGroups?.groups || []}>
-                            <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                            <YAxis tick={{ fontSize: 9 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} width={40} />
-                            <Tooltip formatter={(v: any) => fmtUsd(Number(v))} />
-                            <Bar dataKey="cost" fill={COLORS.cyan} radius={[4, 4, 0, 0]} />
-                        </BarChart>
-                    </ResponsiveContainer>
-                </Card>
+                <FeatureGuard requiredTier="Business" featureName="Cost Groups">
+                    <Card title={t("top5_cost_groups")}>
+                        <p className="text-lg font-extrabold text-slate-800 dark:text-slate-100 mb-2">{fmtUsd(top5CostGroups?.totalCost)}</p>
+                        <ResponsiveContainer width="100%" height={140}>
+                            <BarChart data={top5CostGroups?.groups || []}>
+                                <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                                <YAxis tick={{ fontSize: 9 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} width={40} />
+                                <Tooltip formatter={(v: any) => fmtUsd(Number(v))} />
+                                <Bar dataKey="cost" fill={COLORS.cyan} radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </Card>
+                </FeatureGuard>
             </div>
         </div>
     );

@@ -89,7 +89,7 @@ export default function TtlCleanupPage() {
 
   if (selectedTenant.id === 'default') return null;
 
-  const canDelete = canDeleteResources(selectedTenant.tier);
+  const canDelete = canDeleteResources(selectedTenant.tier, 'ttl');
 
   return (
     <div className="content animate-in fade-in duration-500">
@@ -106,7 +106,7 @@ export default function TtlCleanupPage() {
         </div>
       </div>
       <MockBanner />
-      {!canDelete && <div className="mb-4"><EnterpriseDeleteDisclaimer /></div>}
+      {!canDelete && <div className="mb-4"><EnterpriseDeleteDisclaimer domain="ttl" /></div>}
 
       {error && (
         <div className="card">

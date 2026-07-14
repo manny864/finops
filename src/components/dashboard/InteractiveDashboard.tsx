@@ -238,14 +238,14 @@ export default function InteractiveDashboard({
 
     if (loading || billingData === null) {
         return (
-            <div className="max-w-[1400px] mx-auto p-6 rounded-2xl bg-slate-50 animate-pulse">
-                <div className="h-10 bg-slate-200 rounded w-1/4 mb-6"></div>
+            <div className="max-w-[1400px] mx-auto p-6 rounded-2xl bg-slate-50 dark:bg-slate-900/40 animate-pulse">
+                <div className="h-10 bg-slate-200 dark:bg-slate-800 rounded w-1/4 mb-6"></div>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-                    {[1,2,3,4,5,6].map(i => <div key={i} className="h-24 bg-slate-200 rounded-xl"></div>)}
+                    {[1,2,3,4,5,6].map(i => <div key={i} className="h-24 bg-slate-200 dark:bg-slate-800 rounded-xl"></div>)}
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-                    <div className="h-72 bg-slate-200 rounded-xl lg:col-span-2"></div>
-                    <div className="h-72 bg-slate-200 rounded-xl"></div>
+                    <div className="h-72 bg-slate-200 dark:bg-slate-800 rounded-xl lg:col-span-2"></div>
+                    <div className="h-72 bg-slate-200 dark:bg-slate-800 rounded-xl"></div>
                 </div>
             </div>
         );
@@ -253,12 +253,12 @@ export default function InteractiveDashboard({
 
     if (billingData.length === 0) {
         return (
-            <div className="max-w-[1400px] mx-auto p-12 rounded-2xl bg-slate-50 flex flex-col items-center justify-center border border-dashed border-slate-300">
-                <div className="text-slate-400 mb-2">
+            <div className="max-w-[1400px] mx-auto p-12 rounded-2xl bg-slate-50 dark:bg-slate-900/40 flex flex-col items-center justify-center border border-dashed border-slate-300 dark:border-slate-700">
+                <div className="text-slate-400 dark:text-slate-500 mb-2">
                     <svg className="w-12 h-12 mx-auto opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
                 </div>
-                <h3 className="text-lg font-bold text-slate-700">Sin datos de facturación</h3>
-                <p className="text-sm text-slate-500 mt-1">No se encontraron registros de costos para la suscripción o periodo seleccionado.</p>
+                <h3 className="text-lg font-bold text-slate-700 dark:text-slate-200">Sin datos de facturación</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">No se encontraron registros de costos para la suscripción o periodo seleccionado.</p>
             </div>
         );
     }
@@ -302,7 +302,7 @@ export default function InteractiveDashboard({
     const CustomDot = (props: any) => {
         const { cx, cy, index } = props;
         if (index === evolutionData.length - 1) {
-            return <circle cx={cx} cy={cy} r={6} stroke="#0ea5e9" strokeWidth={3} fill="#ffffff" />;
+            return <circle cx={cx} cy={cy} r={6} stroke="#0ea5e9" strokeWidth={3} fill="var(--surface)" />;
         }
         return null;
     };
@@ -313,21 +313,21 @@ export default function InteractiveDashboard({
         .filter(item => item.value > 0)
         .sort((a, b) => b.value - a.value);
     return (
-        <div className="max-w-[1400px] mx-auto animate-in fade-in duration-500 bg-slate-50 p-6 rounded-2xl">
+        <div className="max-w-[1400px] mx-auto animate-in fade-in duration-500 bg-slate-50 dark:bg-slate-900/40 p-6 rounded-2xl">
             {/* Header */}
             <div className="flex justify-between items-start mb-6">
                 <div>
                     <div className="flex gap-4">
-                    <div className="bg-white px-5 py-3 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
-                        <div className="bg-slate-100 p-2 rounded-lg"><MapPin className="w-5 h-5 text-slate-600" /></div>
+                    <div className="bg-white dark:bg-slate-900 px-5 py-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3">
+                        <div className="bg-slate-100 dark:bg-slate-800 p-2 rounded-lg"><MapPin className="w-5 h-5 text-slate-600 dark:text-slate-300" /></div>
                         <div>
-                            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('synced_tenant')}</div>
-                            <div className="text-sm font-bold text-slate-800">{t('mins_ago')}</div>
+                            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{t('synced_tenant')}</div>
+                            <div className="text-sm font-bold text-slate-800 dark:text-slate-100">{t('mins_ago')}</div>
                         </div>
                     </div>
                 </div>
                 </div>
-                <div className="bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full text-xs font-semibold flex items-center shadow-sm">
+                <div className="bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 px-3 py-1.5 rounded-full text-xs font-semibold flex items-center shadow-sm">
                     <MapPin className="w-3 h-3 mr-1 text-red-500 fill-red-500" />
                     {t('full_tenant')}
                 </div>
@@ -335,91 +335,91 @@ export default function InteractiveDashboard({
 
             {/* Top Cards */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4 mb-6">
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                    <div className="flex items-center text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                        <DollarSign className="w-3.5 h-3.5 mr-1 text-slate-400" />
+                <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 p-4">
+                    <div className="flex items-center text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">
+                        <DollarSign className="w-3.5 h-3.5 mr-1 text-slate-400 dark:text-slate-500" />
                         {t('mtd_spend')}
                     </div>
-                    <div className="text-2xl font-extrabold text-slate-800 truncate" title={format(totalCost)}>{format(totalCost)}</div>
+                    <div className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 truncate" title={format(totalCost)}>{format(totalCost)}</div>
                 </div>
-                <div className="bg-white rounded-xl shadow-sm border-gray-100 p-4 border-[2px] border-amber-200 relative overflow-hidden group">
+                <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border-gray-100 dark:border-slate-800 p-4 border-[2px] border-amber-200 dark:border-amber-800/60 relative overflow-hidden group">
                     <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-amber-200 to-amber-500 rounded-bl-full opacity-20 group-hover:opacity-30 transition-opacity"></div>
-                    <div className="flex items-center text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 relative z-10">
+                    <div className="flex items-center text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2 relative z-10">
                         <TrendingDown className="w-3.5 h-3.5 mr-1 text-amber-500" />
                         {t('potentialSavingsTitle', { fallback: 'Ahorro potencial' })}
                     </div>
-                    <div className="text-2xl font-extrabold text-slate-800 relative z-10 truncate" title={format(totalPotentialSavings)}>
+                    <div className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 relative z-10 truncate" title={format(totalPotentialSavings)}>
                         {format(totalPotentialSavings)}
                     </div>
-                    <div className="text-[11px] text-slate-500 font-medium mt-1 mb-3 relative z-10">
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-1 mb-3 relative z-10">
                         {t('potentialSavingsDesc', { fallback: 'Fugas y redimensionamiento' })}
                     </div>
                     <div className="relative z-10">
                         <FeatureGuard featureName="Optimization Details" requiredTier="Professional" className="mb-0">
-                            <button onClick={() => router.push(`/${locale}/advisor`)} className="w-full bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-bold py-1.5 rounded-lg shadow-sm transition-colors">
+                            <button onClick={() => router.push(`/${locale}/advisor`)} className="w-full bg-slate-900 hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 text-white text-[11px] font-bold py-1.5 rounded-lg shadow-sm transition-colors">
                                 {t('viewDetails', { fallback: 'Ver Detalles' })}
                             </button>
                         </FeatureGuard>
                     </div>
                 </div>
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                    <div className="flex items-center text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 p-4">
+                    <div className="flex items-center text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">
                         <CheckSquare className="w-3.5 h-3.5 mr-1 text-emerald-500 fill-emerald-500/20" />
                         {t('applied_savings')}
                     </div>
                     <div className="text-2xl font-extrabold text-emerald-500 truncate" title={format(computedAppliedSavings)}>
                         {format(computedAppliedSavings)}
                     </div>
-                    <div className="text-[11px] text-slate-500 font-medium mt-1">{t('captured_percent')}</div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-1">{t('captured_percent')}</div>
                 </div>
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                    <div className="flex items-center text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 p-4">
+                    <div className="flex items-center text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">
                         <Calendar className="w-3.5 h-3.5 mr-1 text-rose-400" />
                         {t('annual_projection')}
                     </div>
-                    <div className="text-2xl font-extrabold text-slate-800 truncate" title={format(annualProjection)}>
+                    <div className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 truncate" title={format(annualProjection)}>
                         {format(annualProjection)}
                     </div>
                 </div>
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                    <div className="flex items-center text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 p-4">
+                    <div className="flex items-center text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">
                         <Skull className="w-3.5 h-3.5 mr-1 text-slate-500" />
                         {t('zombie_resources')}
                     </div>
-                    <div className="text-2xl font-extrabold text-slate-800 truncate">
+                    <div className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 truncate">
                         {computedZombies}
                     </div>
-                    <div className="text-[11px] text-slate-500 font-medium mt-1">{t('inactive_resources')}</div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-1">{t('inactive_resources')}</div>
                 </div>
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                    <div className="flex items-center text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 p-4">
+                    <div className="flex items-center text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">
                         <Tag className="w-3.5 h-3.5 mr-1 text-amber-500 fill-amber-500/20" />
                         {t('tag_compliance')}
                     </div>
-                    <div className="text-2xl font-extrabold text-slate-800 truncate">
+                    <div className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 truncate">
                         {computedUntagged !== undefined ? computedUntagged : '--'}
                     </div>
-                    <div className="text-[11px] text-slate-500 font-medium mt-1">{t('untagged_resources')}</div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-1">{t('untagged_resources')}</div>
                 </div>
                 {/* 4. Carbon Footprint Card */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                    <div className="flex items-center text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 p-4">
+                    <div className="flex items-center text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">
                         <Zap className="w-3.5 h-3.5 mr-1 text-green-500" />
                         {t('environmental_impact')}
                     </div>
-                    <div className="text-2xl font-extrabold text-slate-800 truncate">
+                    <div className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 truncate">
                         {(totalCost * 0.35).toLocaleString(undefined, {maximumFractionDigits:1})}
                     </div>
-                    <div className="text-[11px] text-slate-500 font-medium mt-1">{t('estimated_co2e')}</div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-1">{t('estimated_co2e')}</div>
                 </div>
             </div>
 
             {/* Middle Charts */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-6">
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 md:col-span-2 lg:col-span-2 xl:col-span-2 overflow-hidden">
+                <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 p-5 md:col-span-2 lg:col-span-2 xl:col-span-2 overflow-hidden">
                     <div className="flex justify-between items-center mb-6">
-                        <div className="flex items-center text-sm font-bold text-slate-700">
-                            <BarChart3 className="w-4 h-4 mr-2 text-rose-800" />
+                        <div className="flex items-center text-sm font-bold text-slate-700 dark:text-slate-200">
+                            <BarChart3 className="w-4 h-4 mr-2 text-rose-800 dark:text-rose-400" />
                             {t('monthly_spend_evolution')}
                         </div>
                     </div>
@@ -432,24 +432,24 @@ export default function InteractiveDashboard({
                                         <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0}/>
                                     </linearGradient>
                                 </defs>
-                                <CartesianGrid vertical={false} stroke="#f1f5f9" />
+                                <CartesianGrid vertical={false} stroke="var(--line)" />
                                 <XAxis dataKey="date" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} tickMargin={10} />
                                 <YAxis tickFormatter={formatYAxis} tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} domain={['auto', 'auto']} />
-                                <RechartsTooltip 
-                                    contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                <RechartsTooltip
+                                    contentStyle={{ borderRadius: '8px', border: '1px solid var(--line)', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', background: 'var(--surface)', color: 'inherit' }}
                                 formatter={(value: any) => [format(value), t('spend_label')]}
                                 />
                                 <Area type="monotone" dataKey="cost" stroke="#0ea5e9" strokeWidth={4} fillOpacity={1} fill="url(#colorGasto)" activeDot={{ r: 8, strokeWidth: 0 }} dot={<CustomDot />} />
                             </AreaChart>
                         </ResponsiveContainer>
-                        <div className="absolute bottom-[35px] left-[55px] right-[25px] border-t-2 border-dashed border-slate-300"></div>
-                        <div className="absolute bottom-[40px] right-[25px] text-[10px] font-bold text-slate-400 bg-white px-1">{t('potential_label')} $38.5k</div>
+                        <div className="absolute bottom-[35px] left-[55px] right-[25px] border-t-2 border-dashed border-slate-300 dark:border-slate-700"></div>
+                        <div className="absolute bottom-[40px] right-[25px] text-[10px] font-bold text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-900 px-1">{t('potential_label')} $38.5k</div>
                     </div>
                 </div>
 
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 md:col-span-1 lg:col-span-1 xl:col-span-1 overflow-hidden">
-                    <div className="flex items-center text-sm font-bold text-slate-700 mb-6">
-                        <PieChart className="w-4 h-4 mr-2 text-rose-800 fill-rose-800" />
+                <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 p-5 md:col-span-1 lg:col-span-1 xl:col-span-1 overflow-hidden">
+                    <div className="flex items-center text-sm font-bold text-slate-700 dark:text-slate-200 mb-6">
+                        <PieChart className="w-4 h-4 mr-2 text-rose-800 dark:text-rose-400 fill-rose-800 dark:fill-rose-400" />
                         {t('spend_by_subscription')}
                     </div>
                     <div className="h-64 w-full relative flex items-center justify-center">
@@ -457,8 +457,8 @@ export default function InteractiveDashboard({
                     </div>
                 </div>
 
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 md:col-span-1 lg:col-span-3 xl:col-span-1 overflow-hidden">
-                    <div className="flex items-center text-sm font-bold text-slate-700 mb-6">
+                <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 p-5 md:col-span-1 lg:col-span-3 xl:col-span-1 overflow-hidden">
+                    <div className="flex items-center text-sm font-bold text-slate-700 dark:text-slate-200 mb-6">
                         <Skull className="w-4 h-4 mr-2 text-amber-500" />
                         Distribución de fugas financieras
                     </div>
@@ -471,63 +471,63 @@ export default function InteractiveDashboard({
                                             <Pie data={leakagePieData} cx="50%" cy="50%" innerRadius={40} outerRadius={65} paddingAngle={5} dataKey="value">
                                                 {leakagePieData.map((e, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                                             </Pie>
-                                            <RechartsTooltip formatter={(v: any) => format(Number(v))} wrapperStyle={{ zIndex: 9999 }} />
+                                            <RechartsTooltip formatter={(v: any) => format(Number(v))} wrapperStyle={{ zIndex: 9999 }} contentStyle={{ background: 'var(--surface)', border: '1px solid var(--line)', color: 'inherit' }} />
                                         </RechartsPieChart>
                                     </ResponsiveContainer>
                                 </div>
                                 <div className="flex-1 overflow-y-auto mt-2 px-2 custom-scrollbar">
                                     <div className="flex flex-col gap-1.5">
                                         {leakagePieData.map((item, i) => (
-                                            <div key={i} className="flex justify-between items-center text-[11px] bg-slate-50 p-1.5 rounded">
+                                            <div key={i} className="flex justify-between items-center text-[11px] bg-slate-50 dark:bg-slate-800/50 p-1.5 rounded">
                                                 <div className="flex items-center gap-2">
                                                     <div className="w-2.5 h-2.5 rounded-full shadow-sm" style={{ backgroundColor: COLORS[i % COLORS.length] }}></div>
-                                                    <span className="text-slate-600 font-bold truncate max-w-[120px]">{item.name}</span>
+                                                    <span className="text-slate-600 dark:text-slate-300 font-bold truncate max-w-[120px]">{item.name}</span>
                                                 </div>
-                                                <span className="font-extrabold text-slate-800">{format(item.value)}</span>
+                                                <span className="font-extrabold text-slate-800 dark:text-slate-100">{format(item.value)}</span>
                                             </div>
                                         ))}
                                     </div>
                                 </div>
                             </div>
                         ) : (
-                            <div className="text-sm text-slate-400">Sin datos de fugas</div>
+                            <div className="text-sm text-slate-400 dark:text-slate-500">Sin datos de fugas</div>
                         )}
                     </div>
                 </div>
             </div>
 
             {/* Bottom List */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-white">
-                    <div className="flex items-center text-sm font-bold text-slate-800">
+            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-100 dark:border-slate-800 flex justify-between items-center bg-white dark:bg-slate-900">
+                    <div className="flex items-center text-sm font-bold text-slate-800 dark:text-slate-100">
                         <Zap className="w-4 h-4 mr-2 text-amber-500 fill-amber-500" />
                         {t('top_saving_opportunities')}
                     </div>
                 </div>
-                <div className="divide-y divide-gray-50">
+                <div className="divide-y divide-gray-50 dark:divide-slate-800">
                     {topOpportunities.length === 0 ? (
-                        <div className="p-8 text-center text-slate-400 text-sm font-medium">
+                        <div className="p-8 text-center text-slate-400 dark:text-slate-500 text-sm font-medium">
                             No se encontraron oportunidades de ahorro destacadas en este momento.
                         </div>
                     ) : topOpportunities.map((opp, idx) => (
-                        <div key={idx} className="p-4 px-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                        <div key={idx} className="p-4 px-6 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                             <div className="flex items-center">
-                                <div className={`p-2.5 rounded-lg mr-4 ${opp.type === 'advisor' ? 'bg-[#FFF4E5]' : 'bg-[#FFF8E6]'}`}>
+                                <div className={`p-2.5 rounded-lg mr-4 ${opp.type === 'advisor' ? 'bg-[#FFF4E5] dark:bg-amber-900/20' : 'bg-[#FFF8E6] dark:bg-amber-900/20'}`}>
                                     {opp.type === 'advisor' ? (
-                                        <Tag className="w-5 h-5 text-amber-700 fill-amber-700/20" />
+                                        <Tag className="w-5 h-5 text-amber-700 dark:text-amber-400 fill-amber-700/20 dark:fill-amber-400/20" />
                                     ) : (
                                         <Skull className="w-5 h-5 text-amber-500" />
                                     )}
                                 </div>
                                 <div>
                                     <div className="flex items-center gap-2">
-                                        <h4 className="text-sm font-bold text-slate-800" title={opp.title}>{opp.title}</h4>
+                                        <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100" title={opp.title}>{opp.title}</h4>
                                     </div>
-                                    <p className="text-[11px] text-slate-500 mt-1 font-medium">{opp.category}</p>
+                                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 font-medium">{opp.category}</p>
                                 </div>
                             </div>
                             <div className="flex flex-col items-end shrink-0">
-                                <div className="text-emerald-600 font-extrabold text-sm">{format(opp.savings)} <span className="text-[10px] font-medium text-slate-400">/mes</span></div>
+                                <div className="text-emerald-600 dark:text-emerald-400 font-extrabold text-sm">{format(opp.savings)} <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500">/mes</span></div>
                             </div>
                         </div>
                     ))}

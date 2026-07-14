@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantTier, AuthError } from "@/lib/requestAuth";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { getCreatedByAggregation } from "@/modules/collectors/azure/resourceInventoryService";
+import { getWithStaleWhileRevalidate } from "@/lib/cache";
 
 export async function GET(request: NextRequest) {
     try {
@@ -15,7 +16,11 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(getMockDataForRoute("resources_created_by", tenantId));
         }
 
-        const data = await getCreatedByAggregation(tenantId);
+        const data = await getWithStaleWhileRevalidate(
+            `resources:created-by:v1:${tenantId}`,
+            () => getCreatedByAggregation(tenantId),
+            3600
+        );
         return NextResponse.json({ success: true, mock: false, ...data });
     } catch (error: unknown) {
         if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });

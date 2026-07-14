@@ -50,11 +50,11 @@ export default function RightsizingPage() {
             if (json.success) {
                 setVms(json.data || []);
             } else {
-                setError(json.error || "Error");
+                setError(json.error || t("generic_error"));
             }
         }
       } catch(e) {
-          setError("Error");
+          setError(t("generic_error"));
       }
       setLoading(false);
     };
@@ -63,11 +63,11 @@ export default function RightsizingPage() {
   }, [selectedTenant, selectedSubscription]);
 
   const handleDowngrade = async (vm: any) => {
-      if (!window.confirm(`¿Estás seguro de hacer downgrade de la máquina ${vm.name} al tamaño ${vm.recommendedSku}? Esto podría reiniciar la máquina.`)) return;
+      if (!window.confirm(t("confirm_downgrade", { name: vm.name, sku: vm.recommendedSku }))) return;
       try {
           const account = accounts[0];
           const tokenResponse = { idToken: await getFreshIdToken(instance, account) };
-          
+
           const res = await fetch('/api/remediation/downgrade', {
               method: 'POST',
               headers: {
@@ -84,22 +84,22 @@ export default function RightsizingPage() {
           });
           const json = await res.json();
           if (json.success) {
-              alert(`Downgrade iniciado para ${vm.name}`);
+              alert(t("downgrade_started", { name: vm.name }));
               setVms(prev => prev.filter(v => v.id !== vm.id));
           } else {
-              alert(`Error: ${json.error}`);
+              alert(t("error_prefix", { error: json.error }));
           }
       } catch (e) {
-          alert(`Error al aplicar downgrade: ${e}`);
+          alert(t("downgrade_error", { error: String(e) }));
       }
   };
 
   const handleDeleteStoppedVm = async (vm: any) => {
-      if (!window.confirm(`¿Estás seguro de ELIMINAR la máquina virtual deallocated ${vm.name} permanentemente? Se recomienda realizar un snapshot de sus discos en Azure Portal antes de continuar.`)) return;
+      if (!window.confirm(t("confirm_delete_stopped", { name: vm.name }))) return;
       try {
           const account = accounts[0];
           const tokenResponse = { idToken: await getFreshIdToken(instance, account) };
-          
+
           const res = await fetch('/api/remediation', {
               method: 'POST',
               headers: {
@@ -116,13 +116,13 @@ export default function RightsizingPage() {
           });
           const json = await res.json();
           if (json.success) {
-              alert(`Eliminación iniciada para la VM ${vm.name}`);
+              alert(t("delete_started", { name: vm.name }));
               setVms(prev => prev.filter(v => v.id !== vm.id));
           } else {
-              alert(`Error: ${json.error}`);
+              alert(t("error_prefix", { error: json.error }));
           }
       } catch (e) {
-          alert(`Error al eliminar la VM: ${e}`);
+          alert(t("delete_error", { error: String(e) }));
       }
   };
 
@@ -191,7 +191,7 @@ export default function RightsizingPage() {
                         <tr>
                             <th>{t("col_vm_name")}</th>
                             <th>{t("col_subscription")}</th>
-                            {viewMode === 'engineer' && <th>Raw ARM ID</th>}
+                            {viewMode === 'engineer' && <th>{t("col_arm_id")}</th>}
                             <th>{t("col_current_sku")}</th>
                             <th>{t("col_peak_cpu")}</th>
                             <th>{t("col_recommended_sku")}</th>
@@ -208,7 +208,7 @@ export default function RightsizingPage() {
                                     </div>
                                     {vm.reason === 'Deallocated VM with attached Storage' && (
                                         <span className="text-[10px] text-rose-500 font-bold block ml-[23px]">
-                                            Deallocated VM (Falso Ahorro)
+                                            {t("deallocated_false_savings")}
                                         </span>
                                     )}
                                 </td>
@@ -221,7 +221,7 @@ export default function RightsizingPage() {
                                 <td><span className="tag grey font-mono">{vm.currentSku}</span></td>
                                 <td>
                                     {vm.reason === 'Deallocated VM with attached Storage' ? (
-                                        <span className="text-xs font-semibold text-gray-400">VM Apagada</span>
+                                        <span className="text-xs font-semibold text-gray-400">{t("vm_stopped")}</span>
                                     ) : (
                                         <div className="flex items-center gap-2">
                                             <div className="w-full bg-surface-2 rounded-full h-2 mr-2 max-w-[4rem] border border-line">
@@ -238,8 +238,8 @@ export default function RightsizingPage() {
                                             <span className={`tag font-mono ${vm.reason === 'Deallocated VM with attached Storage' ? 'bg-rose-50 text-rose-600 border border-rose-200' : 'green'}`}>{vm.recommendedSku}</span>
                                         </div>
                                         {vm.hiddenCost > 0 && (
-                                            <span className="text-xs text-rose-500 font-bold ml-6" title="Gasto oculto por almacenamiento adjunto activo">
-                                                Costo Oculto: {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(vm.hiddenCost)}/mes
+                                            <span className="text-xs text-rose-500 font-bold ml-6" title={t("hidden_cost_tooltip")}>
+                                                {t("hidden_cost_label")} {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(vm.hiddenCost)}{t("per_month")}
                                             </span>
                                         )}
                                     </div>
@@ -250,7 +250,7 @@ export default function RightsizingPage() {
                                             onClick={() => handleDeleteStoppedVm(vm)}
                                             className="font-heading font-semibold text-[12px] rounded-[10px] bg-rose-600 text-white p-[7px_11px] cursor-pointer hover:bg-rose-700 active:scale-95 transition-all shadow-sm"
                                         >
-                                            Snapshot & Delete
+                                            {t("btn_snapshot_delete")}
                                         </button>
                                     ) : (
                                         <button
