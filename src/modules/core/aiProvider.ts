@@ -99,7 +99,11 @@ export class AIProviderFactory {
             case 'azure_openai': {
                 const { createAzure } = await import('@ai-sdk/azure');
                 const azure = createAzure({ apiKey: config.apiKey, resourceName: process.env.AZURE_OPENAI_RESOURCE_NAME });
-                return azure('gpt-4o');
+                // azure(...) sin .chat usa por defecto la Responses API, que requiere
+                // una apiVersion reciente + deployment habilitado (muchos recursos no
+                // lo tienen). .chat apunta al deployment de Chat Completions estándar
+                // ('gpt-4o' acá es el nombre del deployment), el camino universal.
+                return azure.chat('gpt-4o');
             }
             case 'anthropic': {
                 const { createAnthropic } = await import('@ai-sdk/anthropic');

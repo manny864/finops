@@ -57,7 +57,11 @@ export async function generateFinOpsReport(tenantId: string, metricsData: any, l
             break;
         case 'azure_openai':
             const azure = createAzure({ apiKey: config.apiKey, resourceName: process.env.AZURE_OPENAI_RESOURCE_NAME });
-            model = azure('gpt-4o');
+            // azure(...) sin .chat usa por defecto la Responses API, que requiere
+            // una apiVersion reciente + deployment habilitado (muchos recursos no
+            // lo tienen). .chat apunta al deployment de Chat Completions estándar
+            // ('gpt-4o' acá es el nombre del deployment), el camino universal.
+            model = azure.chat('gpt-4o');
             break;
         case 'deepseek':
             const deepseek = createOpenAI({ apiKey: config.apiKey, baseURL: 'https://api.deepseek.com/v1' });
