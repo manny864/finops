@@ -61,7 +61,10 @@ export async function generateFinOpsReport(tenantId: string, metricsData: any, l
             break;
         case 'deepseek':
             const deepseek = createOpenAI({ apiKey: config.apiKey, baseURL: 'https://api.deepseek.com/v1' });
-            model = deepseek('deepseek-chat');
+            // deepseek(...) sin .chat usa por defecto la Responses API de OpenAI
+            // (/responses), que DeepSeek no implementa — 404 Not Found. DeepSeek
+            // solo soporta Chat Completions (/chat/completions), hay que pedirlo explícito.
+            model = deepseek.chat('deepseek-chat');
             break;
         case 'openai':
         default:

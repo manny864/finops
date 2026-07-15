@@ -109,7 +109,10 @@ export class AIProviderFactory {
             case 'deepseek': {
                 const { createOpenAI } = await import('@ai-sdk/openai');
                 const deepseek = createOpenAI({ apiKey: config.apiKey, baseURL: 'https://api.deepseek.com/v1' });
-                return deepseek('deepseek-chat');
+                // deepseek(...) sin .chat usa por defecto la Responses API de OpenAI
+                // (/responses), que DeepSeek no implementa — 404 Not Found. DeepSeek
+                // solo soporta Chat Completions (/chat/completions), hay que pedirlo explícito.
+                return deepseek.chat('deepseek-chat');
             }
             case 'google':
             default: {
