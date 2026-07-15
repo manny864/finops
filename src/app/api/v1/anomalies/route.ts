@@ -47,8 +47,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { allowed, remaining, resetAt } = rateLimiter.check(
-      authResult.keyId,
+    const { allowed, remaining, resetAt } = await rateLimiter.checkByKeyDistributed(
+      `apikey:${authResult.keyId}`,
       authResult.rateLimitPerMin
     );
 

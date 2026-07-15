@@ -30,6 +30,11 @@ vi.mock("@/lib/rateLimiter", () => ({
       remaining: 59,
       resetAt: new Date(),
     })),
+    checkByKeyDistributed: vi.fn(async () => ({
+      allowed: true,
+      remaining: 59,
+      resetAt: new Date(),
+    })),
   },
 }));
 
@@ -253,7 +258,7 @@ describe("API v1 endpoints", () => {
         rateLimitPerMin: 60,
       });
 
-      vi.mocked(rateLimiter.default.check).mockReturnValue({
+      vi.mocked(rateLimiter.default.checkByKeyDistributed).mockResolvedValue({
         allowed: false,
         remaining: 0,
         resetAt: new Date(),

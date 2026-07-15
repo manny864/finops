@@ -38,8 +38,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { allowed, remaining, resetAt } = rateLimiter.check(
-      authResult.keyId,
+    // Rate limit distribuido (Redis) — antes en memoria (per-proceso), lo que
+    // permitía saltear el límite escalando horizontalmente o tras un restart
+    // del contenedor. checkByKeyDistributed ya degrada a memoria si Redis
+    // no responde (ver rateLimiter.ts).
+    const { allowed, remaining, resetAt } = await rateLimiter.checkByKeyDistributed(
+      `apikey:${authResult.keyId}`,
       authResult.rateLimitPerMin
     );
 

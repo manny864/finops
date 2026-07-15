@@ -18,7 +18,10 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ success: false, error: "Email inválido" }, { status: 400 });
         }
         const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'unknown';
-        const rl = rateLimiter.checkByKey(`leads:enterprise:${ip}`, 5, 60 * 60 * 1000); // 5/hora por IP
+        // Distribuido (Redis) en vez de en memoria: per-proceso permitía
+        // saltear el límite escalando horizontalmente o reiniciando el
+        // contenedor (degrada a memoria si Redis no responde, ver rateLimiter.ts).
+        const rl = await rateLimiter.checkByKeyDistributed(`leads:enterprise:${ip}`, 5, 60 * 60 * 1000); // 5/hora por IP
         if (!rl.allowed) {
             return NextResponse.json({ success: false, error: "Demasiadas solicitudes. Intenta más tarde." }, { status: 429 });
         }
