@@ -92,7 +92,12 @@ ${prompt ?? ''}
             model,
             system: systemPrompt,
             prompt: userMessage,
-            temperature: 0.2,
+            // Sin `temperature`: los modelos Claude recientes (Sonnet 5, Opus
+            // 4.7+) rechazan con 400 ("temperature is deprecated for this
+            // model") cualquier valor no-default — como este endpoint es
+            // provider-agnóstico (google/openai/deepseek/azure/anthropic según
+            // config del tenant), no hay un valor universal que sirva para
+            // todos. Omitirlo usa el default de cada proveedor.
             maxOutputTokens: 2500,
             // Sin esto, un modelo colgado espera hasta maxDuration (60s) sin
             // ninguna señal — el usuario ve "tarda mucho" sin explicación. 25s
