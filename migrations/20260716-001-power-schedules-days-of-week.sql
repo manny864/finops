@@ -1,0 +1,17 @@
+-- 20260716-001-power-schedules-days-of-week.sql
+-- Recurrencia por día de semana para Power Schedules (además de la ya
+-- existente: diario cuando schedule_date es NULL, o una única vez cuando
+-- schedule_date está seteado).
+--
+-- days_of_week: CSV de días ISO (1=Lunes .. 7=Domingo), ej. "1,2,3,4,5" para
+-- Lunes a Viernes. NULL = comportamiento anterior sin cambios (todos los días
+-- si schedule_date es NULL, o el día puntual si schedule_date está seteado).
+--
+-- El patrón "desde -- hasta" de la UI (horario de encendido/apagado por rango)
+-- se modela como DOS filas independientes (una action_type='start' a la hora
+-- "desde", otra action_type='shutdown' a la hora "hasta") que comparten el
+-- mismo days_of_week — no se necesita una columna de "hora fin" separada,
+-- reusa el motor existente de una-fila-por-acción.
+--
+-- Idempotente (el runner ya tolera ER_DUP_FIELDNAME en ALTER ADD COLUMN).
+ALTER TABLE PowerSchedules ADD COLUMN days_of_week VARCHAR(20) NULL DEFAULT NULL;

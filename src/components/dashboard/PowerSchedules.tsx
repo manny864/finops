@@ -9,6 +9,89 @@ import { getMockDataForRoute, isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
 import { hasAccess } from '@/lib/tierLogic';
 
+const GMT_OFFSETS: { value: string; label: string }[] = [
+    { value: '-12:00', label: 'GMT-12:00' },
+    { value: '-11:00', label: 'GMT-11:00' },
+    { value: '-10:00', label: 'GMT-10:00' },
+    { value: '-09:00', label: 'GMT-09:00' },
+    { value: '-08:00', label: 'GMT-08:00 (PST)' },
+    { value: '-07:00', label: 'GMT-07:00 (MST)' },
+    { value: '-06:00', label: 'GMT-06:00 (CST)' },
+    { value: '-05:00', label: 'GMT-05:00 (EST/COT)' },
+    { value: '-04:00', label: 'GMT-04:00 (AST)' },
+    { value: '-03:30', label: 'GMT-03:30' },
+    { value: '-03:00', label: 'GMT-03:00 (ART/BRT)' },
+    { value: '-02:00', label: 'GMT-02:00' },
+    { value: '-01:00', label: 'GMT-01:00' },
+    { value: '+00:00', label: 'GMT+00:00 (UTC)' },
+    { value: '+01:00', label: 'GMT+01:00 (CET)' },
+    { value: '+02:00', label: 'GMT+02:00' },
+    { value: '+03:00', label: 'GMT+03:00' },
+    { value: '+03:30', label: 'GMT+03:30' },
+    { value: '+04:00', label: 'GMT+04:00' },
+    { value: '+04:30', label: 'GMT+04:30' },
+    { value: '+05:00', label: 'GMT+05:00' },
+    { value: '+05:30', label: 'GMT+05:30' },
+    { value: '+05:45', label: 'GMT+05:45' },
+    { value: '+06:00', label: 'GMT+06:00' },
+    { value: '+06:30', label: 'GMT+06:30' },
+    { value: '+07:00', label: 'GMT+07:00' },
+    { value: '+08:00', label: 'GMT+08:00' },
+    { value: '+08:45', label: 'GMT+08:45' },
+    { value: '+09:00', label: 'GMT+09:00 (JST)' },
+    { value: '+09:30', label: 'GMT+09:30' },
+    { value: '+10:00', label: 'GMT+10:00 (AEST)' },
+    { value: '+10:30', label: 'GMT+10:30' },
+    { value: '+11:00', label: 'GMT+11:00' },
+    { value: '+12:00', label: 'GMT+12:00' },
+    { value: '+13:00', label: 'GMT+13:00' },
+    { value: '+14:00', label: 'GMT+14:00' },
+];
+
+const DAYS_OF_WEEK_OPTIONS: { iso: number; short: string; label: string }[] = [
+    { iso: 1, short: 'L', label: 'Lunes' },
+    { iso: 2, short: 'M', label: 'Martes' },
+    { iso: 3, short: 'X', label: 'Miércoles' },
+    { iso: 4, short: 'J', label: 'Jueves' },
+    { iso: 5, short: 'V', label: 'Viernes' },
+    { iso: 6, short: 'S', label: 'Sábado' },
+    { iso: 7, short: 'D', label: 'Domingo' },
+];
+
+/** Zona horaria del navegador del cliente, formateada como "+HH:MM"/"-HH:MM"
+ *  para preseleccionar el combo de Zona Horaria — antes quedaba hardcodeado
+ *  en GMT-05:00 sin importar desde dónde accediera el usuario. Se calcula a
+ *  partir de `Date.prototype.getTimezoneOffset()` (minutos que el reloj LOCAL
+ *  del browser está detrás de UTC, con el signo invertido respecto al que
+ *  usamos acá) en vez de mapear el nombre IANA (`Intl...timeZone`) — así
+ *  refleja el offset real vigente en este momento (contempla horario de
+ *  verano/DST automáticamente) sin necesitar una tabla de conversión aparte.
+ *  Si el offset resultante no está entre las opciones soportadas (caso raro,
+ *  ej. +12:45 Chatham), cae al `fallback` para no dejar el combo en un valor
+ *  que no matchea ninguna opción visible. */
+function getBrowserGmtOffset(fallback: string): string {
+    if (typeof Date === 'undefined') return fallback;
+    const offsetMin = -new Date().getTimezoneOffset();
+    const sign = offsetMin >= 0 ? '+' : '-';
+    const abs = Math.abs(offsetMin);
+    const hh = String(Math.floor(abs / 60)).padStart(2, '0');
+    const mm = String(abs % 60).padStart(2, '0');
+    const computed = `${sign}${hh}:${mm}`;
+    return GMT_OFFSETS.some(o => o.value === computed) ? computed : fallback;
+}
+
+/** Texto de la columna "Fecha / Días" de la tabla de horarios: fecha puntual
+ *  (one-off), días de la semana (recurrencia semanal) o "Diario" (todos los
+ *  días, comportamiento original sin cambios). */
+function formatScheduleRecurrence(s: { schedule_date?: string | null; days_of_week?: string | null }): string {
+    if (s.schedule_date) return String(s.schedule_date).slice(0, 10);
+    if (s.days_of_week) {
+        const isoDays = String(s.days_of_week).split(',').map(d => parseInt(d.trim(), 10));
+        return DAYS_OF_WEEK_OPTIONS.filter(d => isoDays.includes(d.iso)).map(d => d.short).join(' ');
+    }
+    return 'Diario';
+}
+
 const MOCK_SCHEDULES = [
     {
         id: 'mock-sched-1', vm_name: 'dev-vm-loadtest-01', shutdown_time: '20:00:00', gmt_offset: '-05:00',
@@ -42,8 +125,20 @@ export default function PowerSchedules() {
     const [scheduleVmName, setScheduleVmName] = useState('');
     const [scheduleActionType, setScheduleActionType] = useState<'shutdown' | 'start' | 'restart'>('shutdown');
     const [shutdownTime, setShutdownTime] = useState('');
-    const [gmtOffset, setGmtOffset] = useState('-05:00');
+    // Lazy initializer: corre una sola vez al montar, ya en el cliente (el
+    // componente es "use client" y el guard de auth de más abajo hace que el
+    // SSR no llegue a renderizar este formulario, así que no hay riesgo de
+    // hydration mismatch por usar la TZ del browser acá).
+    const [gmtOffset, setGmtOffset] = useState(() => getBrowserGmtOffset('-05:00'));
     const [scheduleDate, setScheduleDate] = useState('');
+    // Modo "recurrente por rango": en vez de una sola hora+acción, el usuario
+    // elige días de la semana + "Desde"/"Hasta" — se traduce a DOS schedules
+    // (start a la hora "desde", shutdown a la hora "hasta") compartiendo el
+    // mismo days_of_week (ver handleSetSchedule).
+    const [scheduleMode, setScheduleMode] = useState<'single' | 'range'>('single');
+    const [rangeDays, setRangeDays] = useState<number[]>([]);
+    const [rangeFrom, setRangeFrom] = useState('');
+    const [rangeTo, setRangeTo] = useState('');
     const [smartShutdownEnabled, setSmartShutdownEnabled] = useState(false);
     const [maxCpuPercentage, setMaxCpuPercentage] = useState(10);
     const [idleDurationMinutes, setIdleDurationMinutes] = useState(60);
@@ -107,7 +202,7 @@ export default function PowerSchedules() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [accounts, instance, selectedTenant.id]);
 
-    const handleSetSchedule = async () => {
+    const handleSetSingleSchedule = async () => {
         if (!scheduleVmName || !shutdownTime) return;
         const vm = vms.find(v => v.name === scheduleVmName);
         if (!vm) {
@@ -168,6 +263,74 @@ export default function PowerSchedules() {
             toast.error(`No se pudo guardar el horario: ${e.message}`);
         }
         setSavingSchedule(false);
+    };
+
+    const handleSetRangeSchedule = async () => {
+        if (!scheduleVmName || !rangeFrom || !rangeTo || rangeDays.length === 0) return;
+        const vm = vms.find(v => v.name === scheduleVmName);
+        if (!vm) {
+            toast.error('Máquina no encontrada. Refresca la lista de VMs e intenta de nuevo.');
+            return;
+        }
+        const daysOfWeekCsv = [...rangeDays].sort((a, b) => a - b).join(',');
+        const daysLabel = DAYS_OF_WEEK_OPTIONS.filter(d => rangeDays.includes(d.iso)).map(d => d.short).join('');
+
+        if (isMockTenant(selectedTenant.id)) {
+            toast(`[SIMULACIÓN DEMO] Horario recurrente para ${scheduleVmName}: encendido ${rangeFrom} / apagado ${rangeTo} (GMT ${gmtOffset}) los días ${daysLabel}.`, { icon: '🧪' });
+            setScheduleVmName('');
+            setRangeFrom('');
+            setRangeTo('');
+            setRangeDays([]);
+            return;
+        }
+
+        setSavingSchedule(true);
+        try {
+            const headers = await getAuthHeaders();
+            const basePayload = {
+                tenantId: selectedTenant.id,
+                subscriptionId: vm.subscriptionId,
+                resourceGroup: vm.resourceGroup,
+                vmName: vm.name,
+                gmtOffset,
+                daysOfWeek: daysOfWeekCsv,
+            };
+            // Dos filas independientes (la unique key incluye action_type, así
+            // que "start" y "shutdown" nunca colisionan): una a la hora
+            // "Desde" (encender) y otra a la hora "Hasta" (apagar), ambas con
+            // el mismo days_of_week — reusa el motor existente de
+            // una-fila-por-acción en vez de modelar un "rango" nuevo en la DB.
+            const [resStart, resStop] = await Promise.all([
+                fetch('/api/power/schedule', {
+                    method: 'POST',
+                    headers: { ...headers, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...basePayload, actionType: 'start', shutdownTime: rangeFrom }),
+                }),
+                fetch('/api/power/schedule', {
+                    method: 'POST',
+                    headers: { ...headers, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...basePayload, actionType: 'shutdown', shutdownTime: rangeTo, smartShutdownEnabled, maxCpuPercentage, idleDurationMinutes }),
+                }),
+            ]);
+            const [jsonStart, jsonStop] = await Promise.all([resStart.json(), resStop.json()]);
+            if (!resStart.ok) throw new Error(jsonStart.error || 'Error al guardar el encendido ("Desde")');
+            if (!resStop.ok) throw new Error(jsonStop.error || 'Error al guardar el apagado ("Hasta")');
+            setSchedules(Array.isArray(jsonStop.schedules) ? jsonStop.schedules : []);
+            toast.success(`Horario recurrente guardado para ${scheduleVmName}: encendido ${rangeFrom} / apagado ${rangeTo} (GMT ${gmtOffset}) los días ${daysLabel}.`);
+            setScheduleVmName('');
+            setRangeFrom('');
+            setRangeTo('');
+            setRangeDays([]);
+        } catch (e: any) {
+            toast.error(`No se pudo guardar el horario recurrente: ${e.message}`);
+        }
+        setSavingSchedule(false);
+    };
+
+    const handleSetSchedule = () => (scheduleMode === 'range' ? handleSetRangeSchedule() : handleSetSingleSchedule());
+
+    const toggleRangeDay = (iso: number) => {
+        setRangeDays(prev => prev.includes(iso) ? prev.filter(d => d !== iso) : [...prev, iso].sort((a, b) => a - b));
     };
 
     const handleDeleteSchedule = async (id: number, vmName: string) => {
@@ -432,104 +595,133 @@ export default function PowerSchedules() {
                 </div>
                 
                 <div className="p-[18px] flex-1 overflow-y-auto custom-scrollbar">
-                    <div className="bg-surface-2 p-[18px] rounded-[10px] border border-line mb-6 flex flex-col md:flex-row items-end gap-4">
-                        <div className="w-full md:w-1/3">
-                            <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px] block mb-2">Nombre de la Máquina</label>
-                            <select
-                                value={scheduleVmName}
-                                onChange={(e) => setScheduleVmName(e.target.value)}
-                                className="w-full bg-surface border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2 outline-none placeholder-ink-soft"
+                    <div className="bg-surface-2 p-[18px] rounded-[10px] border border-line mb-6 flex flex-col gap-4">
+                        <div className="flex gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setScheduleMode('single')}
+                                className={`px-3 py-1.5 rounded-[8px] text-[12px] font-bold transition-colors ${scheduleMode === 'single' ? 'bg-brand-deep text-white' : 'bg-surface border border-line text-ink-soft hover:text-ink'}`}
                             >
-                                <option value="">-- Seleccionar Máquina --</option>
-                                {vms.map(vm => (
-                                    <option key={vm.id} value={vm.name}>{vm.name} ({vm.resourceGroup})</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div className="w-full md:w-1/6">
-                            <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px] block mb-2">Acción</label>
-                            <select
-                                value={scheduleActionType}
-                                onChange={(e) => setScheduleActionType(e.target.value as 'shutdown' | 'start' | 'restart')}
-                                className="w-full bg-surface border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2 outline-none placeholder-ink-soft"
-                            >
-                                <option value="shutdown">Apagar</option>
-                                <option value="start">Encender</option>
-                                <option value="restart">Reiniciar</option>
-                            </select>
-                        </div>
-                        <div className="w-full md:w-1/6">
-                            <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px] block mb-2">Hora</label>
-                            <input
-                                type="time"
-                                value={shutdownTime}
-                                onChange={(e) => setShutdownTime(e.target.value)}
-                                className="w-full bg-surface border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2 outline-none placeholder-ink-soft"
-                            />
-                        </div>
-                        <div className="w-full md:w-1/6">
-                            <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px] block mb-2">Fecha (opcional)</label>
-                            <input
-                                type="date"
-                                value={scheduleDate}
-                                onChange={(e) => setScheduleDate(e.target.value)}
-                                title="Dejar vacío para que se repita todos los días. Si elegís una fecha, corre una única vez ese día."
-                                className="w-full bg-surface border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2 outline-none placeholder-ink-soft"
-                            />
-                        </div>
-                        <div className="w-full md:w-1/4">
-                            <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px] block mb-2">Zona Horaria</label>
-                            <select 
-                                value={gmtOffset}
-                                onChange={(e) => setGmtOffset(e.target.value)}
-                                className="w-full bg-surface border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2 outline-none placeholder-ink-soft"
-                            >
-                                <option value="-12:00">GMT-12:00</option>
-                                <option value="-11:00">GMT-11:00</option>
-                                <option value="-10:00">GMT-10:00</option>
-                                <option value="-09:00">GMT-09:00</option>
-                                <option value="-08:00">GMT-08:00 (PST)</option>
-                                <option value="-07:00">GMT-07:00 (MST)</option>
-                                <option value="-06:00">GMT-06:00 (CST)</option>
-                                <option value="-05:00">GMT-05:00 (EST/COT)</option>
-                                <option value="-04:00">GMT-04:00 (AST)</option>
-                                <option value="-03:30">GMT-03:30</option>
-                                <option value="-03:00">GMT-03:00 (ART/BRT)</option>
-                                <option value="-02:00">GMT-02:00</option>
-                                <option value="-01:00">GMT-01:00</option>
-                                <option value="+00:00">GMT+00:00 (UTC)</option>
-                                <option value="+01:00">GMT+01:00 (CET)</option>
-                                <option value="+02:00">GMT+02:00</option>
-                                <option value="+03:00">GMT+03:00</option>
-                                <option value="+03:30">GMT+03:30</option>
-                                <option value="+04:00">GMT+04:00</option>
-                                <option value="+04:30">GMT+04:30</option>
-                                <option value="+05:00">GMT+05:00</option>
-                                <option value="+05:30">GMT+05:30</option>
-                                <option value="+05:45">GMT+05:45</option>
-                                <option value="+06:00">GMT+06:00</option>
-                                <option value="+06:30">GMT+06:30</option>
-                                <option value="+07:00">GMT+07:00</option>
-                                <option value="+08:00">GMT+08:00</option>
-                                <option value="+08:45">GMT+08:45</option>
-                                <option value="+09:00">GMT+09:00 (JST)</option>
-                                <option value="+09:30">GMT+09:30</option>
-                                <option value="+10:00">GMT+10:00 (AEST)</option>
-                                <option value="+10:30">GMT+10:30</option>
-                                <option value="+11:00">GMT+11:00</option>
-                                <option value="+12:00">GMT+12:00</option>
-                                <option value="+13:00">GMT+13:00</option>
-                                <option value="+14:00">GMT+14:00</option>
-                            </select>
-                        </div>
-                        <div className="w-full md:w-auto">
-                            <button 
-                                onClick={handleSetSchedule}
-                                className="w-full bg-brand-deep text-white px-[11px] py-[7px] rounded-[10px] font-heading font-bold text-[12px] hover:brightness-110 shadow-sm transition-colors cursor-pointer disabled:opacity-50"
-                                disabled={!scheduleVmName || !shutdownTime || savingSchedule}
-                            >
-                                {savingSchedule ? 'Guardando...' : 'Establecer'}
+                                Hora única
                             </button>
+                            <button
+                                type="button"
+                                onClick={() => setScheduleMode('range')}
+                                className={`px-3 py-1.5 rounded-[8px] text-[12px] font-bold transition-colors ${scheduleMode === 'range' ? 'bg-brand-deep text-white' : 'bg-surface border border-line text-ink-soft hover:text-ink'}`}
+                            >
+                                Recurrente (días + rango)
+                            </button>
+                        </div>
+
+                        <div className="flex flex-col md:flex-row items-end gap-4 flex-wrap">
+                            <div className="w-full md:w-1/4">
+                                <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px] block mb-2">Nombre de la Máquina</label>
+                                <select
+                                    value={scheduleVmName}
+                                    onChange={(e) => setScheduleVmName(e.target.value)}
+                                    className="w-full bg-surface border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2 outline-none placeholder-ink-soft"
+                                >
+                                    <option value="">-- Seleccionar Máquina --</option>
+                                    {vms.map(vm => (
+                                        <option key={vm.id} value={vm.name}>{vm.name} ({vm.resourceGroup})</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {scheduleMode === 'single' ? (
+                                <>
+                                    <div className="w-full md:w-1/6">
+                                        <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px] block mb-2">Acción</label>
+                                        <select
+                                            value={scheduleActionType}
+                                            onChange={(e) => setScheduleActionType(e.target.value as 'shutdown' | 'start' | 'restart')}
+                                            className="w-full bg-surface border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2 outline-none placeholder-ink-soft"
+                                        >
+                                            <option value="shutdown">Apagar</option>
+                                            <option value="start">Encender</option>
+                                            <option value="restart">Reiniciar</option>
+                                        </select>
+                                    </div>
+                                    <div className="w-full md:w-1/6">
+                                        <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px] block mb-2">Hora</label>
+                                        <input
+                                            type="time"
+                                            value={shutdownTime}
+                                            onChange={(e) => setShutdownTime(e.target.value)}
+                                            className="w-full bg-surface border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2 outline-none placeholder-ink-soft"
+                                        />
+                                    </div>
+                                    <div className="w-full md:w-1/6">
+                                        <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px] block mb-2">Fecha (opcional)</label>
+                                        <input
+                                            type="date"
+                                            value={scheduleDate}
+                                            onChange={(e) => setScheduleDate(e.target.value)}
+                                            title="Dejar vacío para que se repita todos los días. Si elegís una fecha, corre una única vez ese día."
+                                            className="w-full bg-surface border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2 outline-none placeholder-ink-soft"
+                                        />
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="w-full md:w-auto">
+                                        <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px] block mb-2">Días de la semana</label>
+                                        <div className="flex gap-1">
+                                            {DAYS_OF_WEEK_OPTIONS.map(d => (
+                                                <button
+                                                    key={d.iso}
+                                                    type="button"
+                                                    title={d.label}
+                                                    onClick={() => toggleRangeDay(d.iso)}
+                                                    className={`w-8 h-8 rounded-full text-[12px] font-bold transition-colors ${rangeDays.includes(d.iso) ? 'bg-brand-deep text-white' : 'bg-surface border border-line text-ink-soft hover:text-ink'}`}
+                                                >
+                                                    {d.short}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div className="w-full md:w-1/6">
+                                        <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px] block mb-2">Desde (encender)</label>
+                                        <input
+                                            type="time"
+                                            value={rangeFrom}
+                                            onChange={(e) => setRangeFrom(e.target.value)}
+                                            className="w-full bg-surface border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2 outline-none placeholder-ink-soft"
+                                        />
+                                    </div>
+                                    <div className="w-full md:w-1/6">
+                                        <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px] block mb-2">Hasta (apagar)</label>
+                                        <input
+                                            type="time"
+                                            value={rangeTo}
+                                            onChange={(e) => setRangeTo(e.target.value)}
+                                            className="w-full bg-surface border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2 outline-none placeholder-ink-soft"
+                                        />
+                                    </div>
+                                </>
+                            )}
+
+                            <div className="w-full md:w-1/4">
+                                <label className="text-[11px] font-bold text-grey uppercase tracking-[0.5px] block mb-2">Zona Horaria</label>
+                                <select
+                                    value={gmtOffset}
+                                    onChange={(e) => setGmtOffset(e.target.value)}
+                                    className="w-full bg-surface border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2 outline-none placeholder-ink-soft"
+                                >
+                                    {GMT_OFFSETS.map(o => (
+                                        <option key={o.value} value={o.value}>{o.label}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="w-full md:w-auto">
+                                <button
+                                    onClick={handleSetSchedule}
+                                    className="w-full bg-brand-deep text-white px-[11px] py-[7px] rounded-[10px] font-heading font-bold text-[12px] hover:brightness-110 shadow-sm transition-colors cursor-pointer disabled:opacity-50"
+                                    disabled={savingSchedule || (scheduleMode === 'single' ? (!scheduleVmName || !shutdownTime) : (!scheduleVmName || !rangeFrom || !rangeTo || rangeDays.length === 0))}
+                                >
+                                    {savingSchedule ? 'Guardando...' : 'Establecer'}
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -548,7 +740,7 @@ export default function PowerSchedules() {
                                                 <th>Máquina Virtual</th>
                                                 <th>Acción</th>
                                                 <th>Hora</th>
-                                                <th>Fecha</th>
+                                                <th>Fecha / Días</th>
                                                 <th>Zona Horaria</th>
                                                 <th>Smart Shutdown</th>
                                                 <th>Última Ejecución</th>
@@ -563,7 +755,7 @@ export default function PowerSchedules() {
                                                         {s.action_type === 'start' ? 'Encender' : s.action_type === 'restart' ? 'Reiniciar' : 'Apagar'}
                                                     </td>
                                                     <td className="text-sm text-gray-500 dark:text-gray-400">{String(s.shutdown_time).slice(0, 5)}</td>
-                                                    <td className="text-sm text-gray-500 dark:text-gray-400">{s.schedule_date ? String(s.schedule_date).slice(0, 10) : 'Diario'}</td>
+                                                    <td className="text-sm text-gray-500 dark:text-gray-400">{formatScheduleRecurrence(s)}</td>
                                                     <td className="text-sm text-gray-500 dark:text-gray-400">GMT{s.gmt_offset}</td>
                                                     <td className="text-sm text-gray-500 dark:text-gray-400">{s.action_type && s.action_type !== 'shutdown' ? '—' : (s.smart_shutdown_enabled ? `Sí (≤${s.max_cpu_percentage}% CPU)` : 'No')}</td>
                                                     <td className="text-sm text-gray-500 dark:text-gray-400">

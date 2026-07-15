@@ -11,6 +11,8 @@ const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
 const OFFSET_RE = /^([+-])(\d{2}):(\d{2})$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const ACTION_TYPES = new Set(["shutdown", "start", "restart"]);
+// CSV de días ISO (1=Lunes..7=Domingo), sin espacios, ej. "1,2,3,4,5".
+const DAYS_OF_WEEK_RE = /^[1-7](,[1-7]){0,6}$/;
 
 export async function GET(request: NextRequest) {
   try {
@@ -43,6 +45,7 @@ export async function POST(request: NextRequest) {
       shutdownTime,
       gmtOffset,
       scheduleDate,
+      daysOfWeek,
       smartShutdownEnabled,
       maxCpuPercentage,
       idleDurationMinutes,
@@ -62,6 +65,9 @@ export async function POST(request: NextRequest) {
     }
     if (scheduleDate && !DATE_RE.test(scheduleDate)) {
       return NextResponse.json({ error: "scheduleDate inválida (formato YYYY-MM-DD)" }, { status: 400 });
+    }
+    if (daysOfWeek && !DAYS_OF_WEEK_RE.test(daysOfWeek)) {
+      return NextResponse.json({ error: "daysOfWeek inválido (CSV de días 1-7, ej. \"1,2,3,4,5\")" }, { status: 400 });
     }
 
     // Horario "one-off" (fecha específica, no recurrente): si la fecha+hora
@@ -94,6 +100,7 @@ export async function POST(request: NextRequest) {
       shutdownTime,
       gmtOffset,
       scheduleDate: scheduleDate || null,
+      daysOfWeek: daysOfWeek || null,
       smartShutdownEnabled: Boolean(smartShutdownEnabled),
       maxCpuPercentage: Number.isFinite(maxCpuPercentage) ? Number(maxCpuPercentage) : 10,
       idleDurationMinutes: Number.isFinite(idleDurationMinutes) ? Number(idleDurationMinutes) : 60,

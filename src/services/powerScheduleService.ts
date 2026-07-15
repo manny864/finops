@@ -30,6 +30,10 @@ export interface PowerScheduleInput {
   /** "YYYY-MM-DD" — si se define, ejecuta UNA sola vez en esa fecha local en
    *  vez de todos los días (recurrente, el comportamiento por defecto). */
   scheduleDate?: string | null;
+  /** CSV de días ISO (1=Lunes..7=Domingo), ej. "1,2,3,4,5". Ignorado si
+   *  scheduleDate está seteado (una fecha puntual ya define el día). NULL =
+   *  todos los días (comportamiento anterior). */
+  daysOfWeek?: string | null;
   /** Solo aplica a actionType='shutdown'. */
   smartShutdownEnabled?: boolean;
   maxCpuPercentage?: number;
@@ -47,6 +51,7 @@ export interface PowerScheduleRow {
   shutdown_time: string;
   gmt_offset: string;
   schedule_date: string | null;
+  days_of_week: string | null;
   enabled: number;
   smart_shutdown_enabled: number;
   max_cpu_percentage: number;
@@ -61,15 +66,20 @@ export interface PowerScheduleRow {
 
 export async function upsertPowerSchedule(input: PowerScheduleInput): Promise<void> {
   const actionType = input.actionType || "shutdown";
+  // scheduleDate (fecha puntual) y daysOfWeek (recurrencia semanal) son
+  // mutuamente excluyentes — una fecha específica ya define un único día, no
+  // tiene sentido filtrar además por día de semana. scheduleDate gana.
+  const daysOfWeek = input.scheduleDate ? null : (input.daysOfWeek || null);
   await pool.query(
     `INSERT INTO PowerSchedules
       (tenant_id, subscription_id, resource_group, vm_name, action_type, shutdown_time, gmt_offset, schedule_date,
-       enabled, smart_shutdown_enabled, max_cpu_percentage, idle_duration_minutes, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)
+       days_of_week, enabled, smart_shutdown_enabled, max_cpu_percentage, idle_duration_minutes, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)
      ON DUPLICATE KEY UPDATE
        shutdown_time = VALUES(shutdown_time),
        gmt_offset = VALUES(gmt_offset),
        schedule_date = VALUES(schedule_date),
+       days_of_week = VALUES(days_of_week),
        enabled = 1,
        smart_shutdown_enabled = VALUES(smart_shutdown_enabled),
        max_cpu_percentage = VALUES(max_cpu_percentage),
@@ -86,6 +96,7 @@ export async function upsertPowerSchedule(input: PowerScheduleInput): Promise<vo
       `${input.shutdownTime}:00`,
       input.gmtOffset,
       input.scheduleDate || null,
+      daysOfWeek,
       actionType === "shutdown" && input.smartShutdownEnabled ? 1 : 0,
       input.maxCpuPercentage ?? 10,
       input.idleDurationMinutes ?? 60,
@@ -216,6 +227,21 @@ export async function executeDueSchedules(
     const scheduleDateStr = toDateOnlyString(s.schedule_date);
     if (scheduleDateStr && scheduleDateStr !== localDateStr) {
       continue;
+    }
+
+    // Recurrencia por día de semana (solo aplica cuando no es one-off — ver
+    // el "gana scheduleDate" en upsertPowerSchedule). getUTCDay() por el
+    // mismo motivo que setUTCHours más abajo: `localNow` es un epoch
+    // "shifteado" pensado para leerse siempre con métodos UTC, sea cual sea
+    // la TZ del proceso. getUTCDay() da 0=Domingo..6=Sábado (convención JS);
+    // se convierte a ISO (1=Lunes..7=Domingo) para comparar contra el CSV.
+    if (!scheduleDateStr && s.days_of_week) {
+      const jsDay = localNow.getUTCDay();
+      const isoDay = jsDay === 0 ? 7 : jsDay;
+      const allowedDays = String(s.days_of_week).split(",").map((d) => parseInt(d.trim(), 10));
+      if (!allowedDays.includes(isoDay)) {
+        continue;
+      }
     }
 
     const [hh, mm] = String(s.shutdown_time).split(":").map((n) => parseInt(n, 10));
