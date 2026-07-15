@@ -108,7 +108,9 @@ export class AIProviderFactory {
             case 'anthropic': {
                 const { createAnthropic } = await import('@ai-sdk/anthropic');
                 const anthropic = createAnthropic({ apiKey: config.apiKey });
-                return anthropic('claude-3-opus-20240229');
+                // claude-3-opus-20240229 fue retirado por Anthropic (2026-01-05) y
+                // ahora da 404. claude-opus-4-8 es el reemplazo directo (tier Opus).
+                return anthropic('claude-opus-4-8');
             }
             case 'deepseek': {
                 const { createOpenAI } = await import('@ai-sdk/openai');

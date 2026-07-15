@@ -53,7 +53,9 @@ export async function generateFinOpsReport(tenantId: string, metricsData: any, l
             break;
         case 'anthropic':
             const anthropic = createAnthropic({ apiKey: config.apiKey });
-            model = anthropic('claude-3-opus-20240229');
+            // claude-3-opus-20240229 fue retirado por Anthropic (2026-01-05) y
+            // ahora da 404. claude-opus-4-8 es el reemplazo directo (tier Opus).
+            model = anthropic('claude-opus-4-8');
             break;
         case 'azure_openai':
             const azure = createAzure({ apiKey: config.apiKey, resourceName: process.env.AZURE_OPENAI_RESOURCE_NAME });

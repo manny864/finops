@@ -87,7 +87,7 @@ export default function AiConfigPage() {
                             <option value="system">Sistema (Compartido - Con límites de cuota)</option>
                             <option value="openai">OpenAI (Trae tu propia API Key)</option>
                             <option value="azure_openai">Azure OpenAI (Privado y Seguro)</option>
-                            <option value="anthropic">Anthropic (Claude 3.5 Sonnet / Opus)</option>
+                            <option value="anthropic">Anthropic (Claude Opus 4.8)</option>
                             <option value="google">Google (Gemini Flash · última versión gratis)</option>
                             <option value="deepseek">DeepSeek (DeepSeek Chat)</option>
                         </select>
