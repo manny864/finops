@@ -4,6 +4,8 @@ import { AIProviderFactory } from "@/modules/core/aiProvider";
 import { isMockTenant } from "@/lib/mockData";
 import { requireRequestIdentity, requireTenantTier, AuthError, type RequestIdentity } from "@/lib/requestAuth";
 import rateLimiter from "@/lib/rateLimiter";
+import pool, { initializeDatabase } from "@/modules/storage/db";
+import { getCopilotConfig } from "@/lib/copilotConfig";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -45,6 +47,44 @@ export async function POST(request: NextRequest) {
             return NextResponse.json(
                 { error: `Límite de mensajes alcanzado (${AI_RL_LIMIT}/min). Reintentá después de ${rl.resetAt.toISOString()}.` },
                 { status: 429 }
+            );
+        }
+
+        // Cuota mensual de consultas por tier (ver src/lib/copilotConfig.ts).
+        // Los tenants demo/mock no tienen fila en Tenants (romperían el FK de
+        // CopilotUsage) ni deben estar sujetos a cuota — se saltea por completo.
+        if (!isDemoTenant) {
+            await initializeDatabase();
+            const [tenantRows] = await pool.query(
+                "SELECT tier FROM Tenants WHERE tenant_id = ? LIMIT 1",
+                [effectiveTenantId]
+            );
+            const tenantRow = Array.isArray(tenantRows) && tenantRows.length > 0 ? (tenantRows[0] as { tier?: string }) : null;
+            const tier = tenantRow?.tier || "Essential";
+            const copilotConfig = getCopilotConfig(tier);
+
+            if (copilotConfig.monthlyQueryQuota !== null) {
+                const [used] = await pool.query(
+                    `SELECT COUNT(*) AS c FROM CopilotUsage
+                     WHERE tenant_id = ?
+                       AND created_at >= DATE_FORMAT(UTC_TIMESTAMP(), '%Y-%m-01')`,
+                    [effectiveTenantId]
+                );
+                const usedRows = used as Array<{ c: number }>;
+                if (Number(usedRows[0]?.c || 0) >= copilotConfig.monthlyQueryQuota) {
+                    return NextResponse.json({
+                        error: `Alcanzaste el límite de ${copilotConfig.monthlyQueryQuota} consultas mensuales de IA incluidas en tu plan (${tier}). El resto de la plataforma sigue disponible con normalidad — para más consultas, considerá actualizar tu tier.`,
+                        quotaExceeded: true,
+                    }, { status: 403 });
+                }
+            }
+
+            // Se registra ANTES de llamar al modelo (cuenta el intento, no solo
+            // las respuestas exitosas) — mismo criterio que la cuota de tickets
+            // de soporte (ver /api/support/tickets).
+            await pool.query(
+                "INSERT INTO CopilotUsage (tenant_id, user_email) VALUES (?, ?)",
+                [effectiveTenantId, identity.email]
             );
         }
 

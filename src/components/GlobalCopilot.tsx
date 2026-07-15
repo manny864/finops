@@ -229,11 +229,17 @@ export default function GlobalCopilot() {
             // Errores (no streaming): el backend devuelve JSON con error.
             if (!res.ok || !res.body) {
                 let detail = `HTTP ${res.status}`;
+                let quotaExceeded = false;
                 try {
                     const json = await res.json();
                     detail = json.details || json.error || detail;
+                    quotaExceeded = json.quotaExceeded === true;
                 } catch (_) {}
-                setMessages(prev => [...prev, { role: 'ai', content: `⚠️ Error: ${detail}` }]);
+                // Cuota mensual agotada: no es un error del sistema (nada está
+                // roto), así que se muestra como aviso informativo en vez de con
+                // el prefijo "⚠️ Error:" que sugeriría una falla técnica.
+                const content = quotaExceeded ? `ℹ️ ${detail}` : `⚠️ Error: ${detail}`;
+                setMessages(prev => [...prev, { role: 'ai', content }]);
                 setLoading(false);
                 return;
             }
