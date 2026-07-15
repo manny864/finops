@@ -13,6 +13,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
+    "test:e2e:demo": "playwright test --project=demo-setup --project=demo",
+    "test:e2e:report": "playwright show-report",
     "typecheck": "tsc --noEmit",
     "db:delete-admin": "node scripts/delete-admin-user.js",
     "migrate": "tsx scripts/migrate.ts",
@@ -85,6 +87,7 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",

@@ -78,3 +78,33 @@ expect(res.status).toBe(200);
 ## Coverage thresholds
 
 Currently no enforced thresholds — coverage is reported as informational. Once we cross ~30 % on `src/lib` we will enable thresholds in `vitest.config.ts` (`coverage.thresholds.lines: 30`).
+
+## E2E (Playwright)
+
+Dos formas de "estar logueado" en los tests, cada una con su propio setup project y `storageState` (ver `playwright.config.ts`):
+
+| Project | Login | Cubre | Requiere |
+|---|---|---|---|
+| `demo` | `/es/demo` (demo/demo), sin Azure AD | UI/render de casi todas las páginas (datos mock) | Nada — corre siempre |
+| `authenticated` | `loginRedirect` real contra Entra ID | Auth real + backend tenant-scoped | `TEST_USER_EMAIL`/`TEST_USER_PASSWORD` en el entorno |
+
+```bash
+npm run test:e2e:demo      # solo demo (rápido, sin credenciales)
+npm run test:e2e           # demo + authenticated (si las env vars están seteadas)
+npm run test:e2e:report    # abre el último HTML report
+PLAYWRIGHT_BASE_URL=https://finops.cscloudsolutions.com.ar npm run test:e2e:demo  # contra un deploy real en vez de localhost
+```
+
+### Suite actual
+
+- `__tests__/e2e/smoke.demo.spec.ts` — recorre TODAS las rutas de `ROUTE_TIERS` (`src/lib/routeTiers.ts`) más un puñado de rutas libres, en tier `enterprise` vía modo demo, y falla si hay un error de consola/React o un status HTTP no-OK. Barato y de alto impacto: no reemplaza pruebas funcionales por feature, pero atrapa páginas rotas de entrada.
+
+### Setup de "authenticated" (pendiente — requiere un usuario de test en Entra ID)
+
+`__tests__/e2e/setup/msal.setup.ts` hace un `loginRedirect` real contra `login.microsoftonline.com`. Para que funcione:
+
+1. Crear (o pedirle a un admin) un usuario de test en el tenant de Entra ID de la app, **excluido de cualquier política de Conditional Access que exija MFA** — igual que se hizo para el Service Principal de load-testing (`docs/loadtest.md`), pero acá es un usuario real, no un SP.
+2. Setear `TEST_USER_EMAIL`/`TEST_USER_PASSWORD` en un `.env.test` local (gitignoreado, nunca commitear valores reales).
+3. **Caveat conocido**: `AuthProvider.tsx` no fija `cacheLocation` en la config de MSAL, así que usa el default de `@azure/msal-browser` = `sessionStorage`. El `storageState()` de Playwright no persiste `sessionStorage` (solo cookies + `localStorage`), así que el login capturado en el setup puede no sobrevivir a un nuevo browser context. Si los specs `*.auth.spec.ts` arrancan deslogueados, evaluar cambiar `AuthProvider.tsx` a `cacheLocation: "localStorage"` (revisar impacto de seguridad — mayor superficie XSS que sessionStorage) antes de aplicarlo.
+
+Una vez resuelto esto, los tests que necesiten auth/backend real van en archivos `*.auth.spec.ts` (el sufijo determina el project vía `testMatch` en `playwright.config.ts`).
