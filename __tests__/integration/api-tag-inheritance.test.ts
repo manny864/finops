@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => {
     return {
         mockRequireTenantAccess: vi.fn(),
         mockRequireTenantRole: vi.fn(),
+        mockRequireTenantTier: vi.fn(),
         mockGetAzureCredential: vi.fn(),
         mockAnalyzeMissingTags: vi.fn(),
         mockApplyTagInheritance: vi.fn(),
@@ -25,6 +26,7 @@ vi.mock("@/lib/requestAuth", async () => {
         ...actual,
         requireTenantAccess: mocks.mockRequireTenantAccess,
         requireTenantRole: mocks.mockRequireTenantRole,
+        requireTenantTier: mocks.mockRequireTenantTier,
         AuthError: actual.AuthError,
     };
 });
@@ -149,6 +151,7 @@ describe("POST /api/governance/tags/apply-inheritance", () => {
             claims: { oid: "oid-123", tid: "t-123" },
             isCorporateDomain: false,
         });
+        mocks.mockRequireTenantTier.mockResolvedValue(undefined);
     });
 
     it("returns 400 without tenantId", async () => {

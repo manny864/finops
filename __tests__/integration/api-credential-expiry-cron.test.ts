@@ -15,9 +15,13 @@ vi.mock("@/modules/storage/db", () => ({
     initializeDatabase: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock("@/services/credentialExpiryService", () => ({
-    getExpiringCredentials: mocks.mockGetExpiringCredentials,
-}));
+vi.mock("@/services/credentialExpiryService", async () => {
+    const actual = await vi.importActual<typeof import("@/services/credentialExpiryService")>("@/services/credentialExpiryService");
+    return {
+        ...actual,
+        getExpiringCredentials: mocks.mockGetExpiringCredentials,
+    };
+});
 
 vi.mock("@/lib/emailHelper", () => ({
     sendEmailAsync: mocks.mockSendEmail,
