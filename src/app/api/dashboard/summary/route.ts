@@ -10,6 +10,41 @@ import { getInternalBaseUrl } from "@/lib/internalBaseUrl";
 
 type AuditResults = Record<string, unknown[]>;
 
+/**
+ * Claves del catálogo KQL que NO representan "recursos zombies/huérfanos"
+ * borrables y por lo tanto NO deben contarse en el KPI "Recursos Zombies" del
+ * dashboard/whiteboard. Sin este filtro, `zombieCount` sumaba las ~60 claves
+ * del audit completo (inventario, gobernanza de tags, licencias, higiene de
+ * red), inflando el número y contradiciendo la página de Recursos Zombies —
+ * ej. un Network Watcher sin Flow Logs aparecía como "1 recurso zombie" en el
+ * KPI pero no en la página de limpieza (bug reportado: KPI muestra 1, la
+ * página no muestra nada).
+ *
+ * Criterio de exclusión:
+ *  - Inventario ("todos los X", usados por otras vistas, no son zombies).
+ *  - Gobernanza de etiquetas (falta de tags no es un recurso huérfano borrable).
+ *  - Optimización de licencias (recomendación de ahorro, no un recurso a borrar).
+ *  - Higiene de red / certificados ($0 de ahorro: es "activá esta feature", no
+ *    "eliminá este recurso").
+ */
+const NON_ZOMBIE_AUDIT_KEYS = new Set<string>([
+  // Inventario
+  "allVirtualMachines",
+  "devVirtualMachines",
+  "allBastionHosts",
+  // Gobernanza de etiquetas
+  "taggingNonCompliance",
+  "completelyUntaggedResources",
+  "missingMandatoryTags",
+  // Optimización de licencias
+  "missingAhubSql",
+  "missingAhubWindowsVMs",
+  // Higiene de red / certificados
+  "networkWatchersNoFlowLogs",
+  "flowLogsWithoutTrafficAnalytics",
+  "expiredCerts",
+]);
+
 function mapAuditData(auditResults: AuditResults) {
   const resourceConfig: Record<string, { type: string; savings: number; issueType: string }> = {
     unattachedDisks: { type: "Disk", savings: 15.0, issueType: "cost" },
@@ -73,8 +108,9 @@ function mapAuditData(auditResults: AuditResults) {
     );
   }
 
-  const zombieCount = Object.values(auditResults).reduce(
-    (acc, arr) => acc + (Array.isArray(arr) ? arr.length : 0),
+  const zombieCount = Object.entries(auditResults).reduce(
+    (acc, [key, arr]) =>
+      acc + (!NON_ZOMBIE_AUDIT_KEYS.has(key) && Array.isArray(arr) ? arr.length : 0),
     0
   );
 
