@@ -1,3 +1,8 @@
+# syntax=docker/dockerfile:1
+# La directiva de arriba habilita los `RUN --mount=type=cache` de BuildKit
+# (Compose v2 usa BuildKit por default). Los cache mounts persisten entre
+# deploys en el mismo VPS, así que npm ci no re-descarga y next build reusa
+# su caché incremental — recorta varios minutos de cada deploy.
 FROM node:22-alpine AS base
 
 # Install dependencies only when needed
@@ -5,14 +10,19 @@ FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 COPY package.json package-lock.json* ./
-RUN npm ci
+# Caché del store de npm: en un rebuild con package-lock sin cambios, las
+# tarballs ya descargadas se reusan en vez de bajarse de nuevo.
+RUN --mount=type=cache,target=/root/.npm npm ci
 
 # Rebuild the source code only when needed
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npm run build
+# Caché incremental de Next (.next/cache): NO forma parte del output standalone
+# (solo se copian .next/standalone y .next/static al runner), así que montarla
+# como caché de build es seguro y acelera la recompilación entre deploys.
+RUN --mount=type=cache,target=/app/.next/cache npm run build
 
 # Production image, copy all the files and run next
 FROM base AS runner

@@ -1,4 +1,35 @@
+# Dependencias y builds — se instalan/generan dentro de la imagen.
 node_modules
 .next
+# .next-<port>: distDir del dev server (next.config.ts usa `.next-${PORT}` con
+# PORT numérico). Puede pesar decenas de GB de caché de dev; sin esta línea el
+# contexto de build se infla enormemente y cada deploy transfiere de más.
+.next-*
+.swc
+
+# VCS
 .git
+.gitignore
+
+# Artefactos de test/cobertura — no se necesitan para el build de producción.
+coverage
+playwright-report
+test-results
+playwright/.auth
+
+# Datos de runtime (adjuntos de soporte, logos): se persisten en volúmenes
+# Docker, no deben entrar a la imagen ni al contexto de build.
+data
+
+# Docs y material que no forma parte del bundle (verificado: no se importan
+# desde src/).
+docs
+directivas
+*.md
+
+# Editor / OS
+.DS_Store
+.vscode
+.idea
+
 # Se remueve .env* para que Next.js pueda leer las variables NEXT_PUBLIC_ durante el build
