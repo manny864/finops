@@ -119,7 +119,10 @@ El sistema está dividido en cinco (5) pilares estratégicos en el menú lateral
 - **Cumplimiento de Etiquetas:** Auditoría de la infraestructura contra las políticas de etiquetado corporativas (Ej. CostCenter, Owner, Environment).
 - **HA Recommendations (Business):** VMs en producción sin Availability Zone o Availability Set (`/governance/ha`).
 - **Credenciales AAD por Expirar (Business):** alerta proactiva de App Registrations / Service Principals cuyos secretos o certificados expiran en los próximos 30/60/90 días (`/governance/credentials`). Cada credencial muestra su estado: **Vencida**, **Próxima a vencer** (≤ 30 días) o **Habilitada**. Con **"Crear alerta de vencimiento"** defines cuántos días antes quieres el aviso (1–365) y el canal (email, Slack o Teams vía webhook); el sistema evalúa a diario y envía como máximo una notificación por día mientras haya credenciales dentro del umbral (incluye vencidas). Las reglas también se administran en **Alertas (Self-Service)** con el tipo "Vencimiento de credenciales".
-- **Horarios de Apagado (Power Schedules):** Creación de rutinas automáticas para el encendido y apagado de flotas de Máquinas Virtuales durante horarios no productivos (Ej. Apagar a las 8 PM, encender a las 6 AM).
+- **Horarios de Apagado (Power Schedules):** Creación de rutinas automáticas para el encendido y apagado de flotas de Máquinas Virtuales durante horarios no productivos (Ej. Apagar a las 8 PM, encender a las 6 AM). Dos modos:
+  - **Fecha puntual (single):** ejecuta la acción (encender/apagar/reiniciar) una única vez en la fecha y hora indicada.
+  - **Recurrente (range):** define un rango horario **"Desde – Hasta"** y los **días de la semana** en que se repite (ej. Lun–Vie, 08:00–20:00); crea automáticamente un horario de encendido a la hora "Desde" y uno de apagado a la hora "Hasta", ambos con los mismos días seleccionados.
+  - La **zona horaria (GMT)** se detecta automáticamente según el navegador del usuario al abrir el formulario (se puede cambiar manualmente si se necesita otro huso).
 
 ### 3.5. Administración
 - **Usuarios y Permisos:** Visualización del personal de la organización importado desde Entra ID.
