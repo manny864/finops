@@ -106,7 +106,7 @@ export async function deletePowerSchedule(tenantId: string, id: number): Promise
   await pool.query(`DELETE FROM PowerSchedules WHERE tenant_id = ? AND id = ?`, [tenantId, id]);
 }
 
-function parseOffsetMinutes(offset: string): number {
+export function parseOffsetMinutes(offset: string): number {
   const m = /^([+-])(\d{2}):(\d{2})$/.exec(String(offset).trim());
   if (!m) return 0;
   const sign = m[1] === "-" ? -1 : 1;

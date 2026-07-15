@@ -114,6 +114,21 @@ export default function PowerSchedules() {
             toast.error('Máquina no encontrada. Refresca la lista de VMs e intenta de nuevo.');
             return;
         }
+        // Horario "one-off" (fecha específica, no diario): si ya pasó, el cron
+        // nunca lo va a considerar "debido" y queda inválido para siempre sin
+        // ningún aviso — se avisa acá antes de guardarlo (el backend también
+        // lo rechaza, esto es solo para feedback inmediato sin round-trip).
+        if (scheduleDate) {
+            const [hh, mm] = shutdownTime.split(':').map(Number);
+            const [y, mo, d] = scheduleDate.split('-').map(Number);
+            const offMatch = /^([+-])(\d{2}):(\d{2})$/.exec(gmtOffset);
+            const offsetMin = offMatch ? (offMatch[1] === '-' ? -1 : 1) * (parseInt(offMatch[2], 10) * 60 + parseInt(offMatch[3], 10)) : 0;
+            const scheduledUtcMs = Date.UTC(y, mo - 1, d, hh, mm) - offsetMin * 60000;
+            if (scheduledUtcMs <= Date.now()) {
+                toast.error('La fecha y hora elegidas ya pasaron. Como es un horario de fecha específica (no diario), nunca se va a ejecutar — elegí una fecha/hora futura.');
+                return;
+            }
+        }
         const actionLabel = scheduleActionType === 'start' ? 'encendido' : scheduleActionType === 'restart' ? 'reinicio' : 'apagado';
         if (isMockTenant(selectedTenant.id)) {
             toast(`[SIMULACIÓN DEMO] Horario de ${actionLabel} configurado para ${scheduleVmName} a las ${shutdownTime} (GMT ${gmtOffset})${scheduleDate ? ` el ${scheduleDate}` : ' (diario)'}.`, { icon: '🧪' });

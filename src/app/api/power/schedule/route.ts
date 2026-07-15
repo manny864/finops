@@ -4,6 +4,7 @@ import {
   upsertPowerSchedule,
   listPowerSchedules,
   deletePowerSchedule,
+  parseOffsetMinutes,
 } from "@/services/powerScheduleService";
 
 const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -61,6 +62,25 @@ export async function POST(request: NextRequest) {
     }
     if (scheduleDate && !DATE_RE.test(scheduleDate)) {
       return NextResponse.json({ error: "scheduleDate inválida (formato YYYY-MM-DD)" }, { status: 400 });
+    }
+
+    // Horario "one-off" (fecha específica, no recurrente): si la fecha+hora
+    // local ya pasó, `executeDueSchedules` nunca lo va a considerar "debido"
+    // (solo mira hacia adelante desde `nowUtc`, nunca hacia atrás) — antes
+    // esto se guardaba en silencio y quedaba inválido para siempre, sin
+    // ningún aviso (bug reportado: "el apagado/encendido calendarizado no
+    // funciona"). Se rechaza acá con un mensaje claro en vez de aceptar un
+    // horario que ya nació vencido.
+    if (scheduleDate) {
+      const [hh, mm] = String(shutdownTime).split(":").map((n: string) => parseInt(n, 10));
+      const [y, mo, d] = scheduleDate.split("-").map((n: string) => parseInt(n, 10));
+      const offsetMin = parseOffsetMinutes(gmtOffset);
+      const scheduledUtcMs = Date.UTC(y, mo - 1, d, hh, mm) - offsetMin * 60000;
+      if (scheduledUtcMs <= Date.now()) {
+        return NextResponse.json({
+          error: "La fecha y hora elegidas ya pasaron. Como es un horario de fecha específica (no diario), nunca se va a ejecutar — elegí una fecha/hora futura.",
+        }, { status: 400 });
+      }
     }
 
     const identity = await requireTenantRole(request, tenantId, ["Owner", "Admin", "Operator"]);
