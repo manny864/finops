@@ -167,7 +167,8 @@ Haciendo clic en tu **avatar** (círculo con tu inicial, arriba a la derecha) se
 
 La plataforma cuenta con un asistente inteligente integrado (**FinOps Copilot**), accesible a través de un ícono flotante en la esquina inferior de la pantalla.
 
-- **Conciencia de Contexto:** El Copilot sabe en qué página te encuentras. Si estás en la vista de *Presupuestos*, puedes pedirle directamente: *"Resume el estado actual de nuestros presupuestos"*.
+- **Conciencia de Contexto (automática):** El Copilot lee automáticamente el contenido de la página donde te encontrás — no importa cuál sea, sin necesidad de que esa vista lo declare de antemano. Al abrir el widget, genera solo (sin que escribas nada) un **reporte ejecutivo** de lo que se está mostrando: contexto del módulo, hallazgos clave, oportunidades de ahorro priorizadas por impacto, riesgos y un plan de acción a 7 días.
+- **Preguntas dirigidas:** Además del reporte automático, podés preguntarle directamente sobre lo que ves. Ej.: en *Presupuestos*: *"Resume el estado actual de nuestros presupuestos"*.
 - **Acciones Correctivas:** El Copilot no solo provee información; también puede, previa autorización, guiarte en el borrado de recursos zombis o la aplicación de etiquetas faltantes mediante scripts automatizados.
 
 ---

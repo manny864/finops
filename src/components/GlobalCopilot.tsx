@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 import { MessageSquare, X, Send, Loader2 } from 'lucide-react';
 import { useAIContext } from '@/hooks/useAIContext';
 import { useTranslations, useLocale } from 'next-intl';
@@ -8,9 +9,15 @@ import { useTenant } from './TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { hasAccess } from '@/lib/tierLogic';
 import { compactPayloadString } from '@/lib/copilotPayload';
+import { captureAutoPageSnapshot, deriveLabelFromPathname } from '@/lib/autoPageContext';
 import { isMockTenant } from '@/lib/mockData';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+
+/** Nombre por defecto de `useAIContext` cuando ninguna página llamó a
+ *  `setPageContext` — usado para saber cuándo pisarlo con la etiqueta
+ *  derivada automáticamente del pathname. */
+const DEFAULT_PAGE_LABEL = 'Dashboard';
 
 export default function GlobalCopilot() {
     const { selectedTenant } = useTenant();
@@ -25,6 +32,48 @@ export default function GlobalCopilot() {
     const [loading, setLoading] = useState(false);
     const t = useTranslations('Copilot');
     const locale = useLocale();
+    const pathname = usePathname();
+
+    // Fallback automático: si la página activa nunca llamó a
+    // `setPageContext` (la gran mayoría no lo hace), capturamos su contenido
+    // renderizado desde el DOM (<main>) para que el Copilot pueda leerla y
+    // generar el reporte igual, sin wiring manual por página.
+    const [autoPayload, setAutoPayload] = useState<string | null>(null);
+    const [autoPageLabel, setAutoPageLabel] = useState<string | null>(null);
+    // El auto-reporte espera a que la captura automática "asiente" (páginas
+    // con fetch async al montar pueden tardar en pintar datos reales) antes
+    // de dispararse — si no, el primer reporte podría analizar solo
+    // skeletons/loaders. El contexto manual (`currentDataPayload`) ya trae
+    // datos completos de entrada, así que ese camino no espera.
+    const [autoContentSettled, setAutoContentSettled] = useState(false);
+    const effectiveDataPayload = currentDataPayload ?? autoPayload;
+    const effectivePageLabel = (currentPage && currentPage !== DEFAULT_PAGE_LABEL)
+        ? currentPage
+        : (autoPageLabel || currentPage);
+
+    React.useEffect(() => {
+        if (!isOpen || currentDataPayload) return; // ya hay contexto manual real, no lo pisamos
+        setAutoPayload(null);
+        setAutoPageLabel(deriveLabelFromPathname(pathname));
+        setAutoContentSettled(false);
+
+        // La página puede seguir cargando datos async (fetch al montar) — se
+        // reintenta la captura para no quedarnos con un snapshot vacío o de
+        // solo skeletons/loaders. Se marca "settled" recién después del
+        // último intento, para no disparar el auto-reporte con datos a medio
+        // cargar.
+        const captureDelays = [800, 2200];
+        const attempts = captureDelays.map((delay) =>
+            setTimeout(() => {
+                const snapshot = captureAutoPageSnapshot();
+                if (snapshot) {
+                    setAutoPayload((prev) => (snapshot.length > (prev?.length || 0) ? snapshot : prev));
+                }
+            }, delay)
+        );
+        const settledTimer = setTimeout(() => setAutoContentSettled(true), Math.max(...captureDelays) + 300);
+        return () => { attempts.forEach(clearTimeout); clearTimeout(settledTimer); };
+    }, [isOpen, pathname, currentDataPayload]);
     
     // Drag state
     const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -152,7 +201,11 @@ export default function GlobalCopilot() {
             // Compactamos el payload: en vez de mandar un array crudo de cientos
             // de filas truncado, mandamos un resumen estructurado (totales,
             // top-N, conteos). Menos tokens de entrada => primer token más rápido.
-            const compactedPayload = compactPayloadString(currentDataPayload);
+            // `effectiveDataPayload` cae al snapshot automático del DOM cuando la
+            // página no cableó `setPageContext` manualmente (ver efecto arriba).
+            const compactedPayload = typeof effectiveDataPayload === 'string'
+                ? effectiveDataPayload
+                : compactPayloadString(effectiveDataPayload);
             // Timeout duro en el cliente: sin esto, si el proveedor de IA se
             // cuelga (rate limit del free tier, etc.) el usuario ve el spinner
             // girar indefinidamente sin ningún feedback ("tarda mucho / no
@@ -166,7 +219,7 @@ export default function GlobalCopilot() {
                 signal: abortController.signal,
                 body: JSON.stringify({
                     prompt: promptText,
-                    pageContext: currentPage,
+                    pageContext: effectivePageLabel,
                     dataPayload: compactedPayload,
                     tenantId: selectedTenant.id,
                     locale
@@ -258,22 +311,28 @@ export default function GlobalCopilot() {
     // Reset chat history when page context changes
     React.useEffect(() => {
         setMessages([]);
-    }, [currentPage]);
+    }, [currentPage, pathname]);
 
     // Auto-reporte al abrir: dispara automáticamente un análisis de la página
     // activa en streaming. Reemplaza el saludo estático anterior — el usuario
     // ve el reporte materializándose token a token sin tener que escribir.
     // Tenants DEMO siguen el mismo flujo: tienen dataPayload sintético cargado
     // y el backend acepta el análisis sobre estos IDs de prueba.
+    // `effectiveDataPayload` incluye el fallback automático (snapshot del DOM)
+    // para páginas que no llaman a `setPageContext` manualmente — así el
+    // Copilot "lee" cualquier página y genera el reporte sin wiring extra.
     React.useEffect(() => {
-        if (!isOpen || !canAccessCopilot || messages.length > 0 || !currentDataPayload || injectedPrompt) return;
+        if (!isOpen || !canAccessCopilot || messages.length > 0 || !effectiveDataPayload || injectedPrompt) return;
+        // Camino automático (sin setPageContext manual): esperamos a que el
+        // snapshot del DOM "asiente" para no reportar sobre datos a medio cargar.
+        if (!currentDataPayload && !autoContentSettled) return;
 
         // Dispara el reporte ejecutivo en streaming. Aspiramos a un documento
         // accionable que el usuario pueda usar para tomar decisiones reales:
         // contexto, hallazgos cuantificados, ahorros priorizados, riesgos y
         // próximos pasos con responsable/esfuerzo estimado.
         handleSend(
-            `Generá un **REPORTE EJECUTIVO DETALLADO** del módulo "${currentPage}" basado estrictamente en los datos provistos en el contexto. ` +
+            `Generá un **REPORTE EJECUTIVO DETALLADO** del módulo "${effectivePageLabel}" basado estrictamente en los datos provistos en el contexto. ` +
             `Debe servirle a un decisor (CFO/Cloud Lead/FinOps) para tomar acción esta semana. Usá Markdown con esta estructura EXACTA:\n\n` +
             `### 🎯 Contexto del módulo\n` +
             `1 párrafo (3-4 líneas) explicando qué se está analizando, alcance (suscripciones/recursos cubiertos) y la "lectura general" del estado actual.\n\n` +
@@ -297,7 +356,7 @@ export default function GlobalCopilot() {
             `- Sé concreto: nada de "considerar revisar"; usá verbos accionables (eliminar, redimensionar, migrar, programar apagado).\n` +
             `- Extensión objetivo: 600-900 palabras. Profesional, ejecutivo, sin relleno.`
         );
-    }, [isOpen, currentDataPayload, currentPage, messages.length, injectedPrompt]);
+    }, [isOpen, effectiveDataPayload, effectivePageLabel, messages.length, injectedPrompt, currentDataPayload, autoContentSettled]);
 
     // El demo público (/demo) es 100% anónimo — nunca hay cuenta MSAL
     // (accounts.length === 0), así que el early-return de abajo escondía el
@@ -419,7 +478,7 @@ export default function GlobalCopilot() {
                                 )}
                             </div>
                         ))}
-                        {loading && <div className="text-sm text-ink-soft flex items-center"><Loader2 className="w-4 h-4 animate-spin mr-2"/> Analizando datos de {currentPage}…</div>}
+                        {loading && <div className="text-sm text-ink-soft flex items-center"><Loader2 className="w-4 h-4 animate-spin mr-2"/> Analizando datos de {effectivePageLabel}…</div>}
                     </div>
 
                     <div className="p-3 border-t border-line bg-surface flex gap-2 relative">
