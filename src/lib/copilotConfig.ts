@@ -15,8 +15,8 @@ export interface CopilotTierConfig {
 
 const COPILOT_TIERS: Record<string, CopilotTierConfig> = {
     Essential: { monthlyQueryQuota: 0 },
-    Professional: { monthlyQueryQuota: 100 },
-    Business: { monthlyQueryQuota: 300 },
+    Professional: { monthlyQueryQuota: 50 },
+    Business: { monthlyQueryQuota: 150 },
     Enterprise: { monthlyQueryQuota: null },
 };
 
