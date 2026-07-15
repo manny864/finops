@@ -53,9 +53,10 @@ export async function generateFinOpsReport(tenantId: string, metricsData: any, l
             break;
         case 'anthropic':
             const anthropic = createAnthropic({ apiKey: config.apiKey });
-            // claude-3-opus-20240229 fue retirado por Anthropic (2026-01-05) y
-            // ahora da 404. claude-opus-4-8 es el reemplazo directo (tier Opus).
-            model = anthropic('claude-opus-4-8');
+            // claude-3-opus-20240229 fue retirado por Anthropic (2026-01-05).
+            // claude-sonnet-5 es el modelo Sonnet actual (calidad casi-Opus en
+            // tareas de análisis a menor costo que Opus).
+            model = anthropic('claude-sonnet-5');
             break;
         case 'azure_openai':
             const azure = createAzure({ apiKey: config.apiKey, resourceName: process.env.AZURE_OPENAI_RESOURCE_NAME });

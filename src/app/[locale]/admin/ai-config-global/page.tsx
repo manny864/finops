@@ -8,7 +8,7 @@ const PROVIDERS = [
     { value: "google", label: "Google Gemini (Flash — gratis en free tier)" },
     { value: "openai", label: "OpenAI (GPT-4o)" },
     { value: "azure_openai", label: "Azure OpenAI (GPT-4o)" },
-    { value: "anthropic", label: "Anthropic (Claude Opus 4.8)" },
+    { value: "anthropic", label: "Anthropic (Claude Sonnet 5)" },
     { value: "deepseek", label: "DeepSeek" },
 ];
 

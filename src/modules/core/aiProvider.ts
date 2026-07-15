@@ -108,9 +108,10 @@ export class AIProviderFactory {
             case 'anthropic': {
                 const { createAnthropic } = await import('@ai-sdk/anthropic');
                 const anthropic = createAnthropic({ apiKey: config.apiKey });
-                // claude-3-opus-20240229 fue retirado por Anthropic (2026-01-05) y
-                // ahora da 404. claude-opus-4-8 es el reemplazo directo (tier Opus).
-                return anthropic('claude-opus-4-8');
+                // claude-3-opus-20240229 fue retirado por Anthropic (2026-01-05).
+                // claude-sonnet-5 es el modelo Sonnet actual (calidad casi-Opus en
+                // tareas de análisis a menor costo que Opus).
+                return anthropic('claude-sonnet-5');
             }
             case 'deepseek': {
                 const { createOpenAI } = await import('@ai-sdk/openai');

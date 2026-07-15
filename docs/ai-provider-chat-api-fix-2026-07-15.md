@@ -64,3 +64,10 @@ URL de destino sin necesitar una key real:
 
 - `de226fb` — fix DeepSeek
 - `3119fd2` — fix Azure OpenAI (misma clase de bug, aplicado defensivamente)
+
+## Nota — modelo Anthropic
+
+`claude-3-opus-20240229` fue retirado por Anthropic (2026-01-05) → daba 404. Se
+reemplazó por **`claude-sonnet-5`** (modelo Sonnet actual; calidad casi-Opus en
+análisis a menor costo que Opus) en `aiProvider.ts` y `aiService.ts`, más los
+labels de UI.
