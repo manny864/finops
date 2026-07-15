@@ -5,7 +5,8 @@ import { executeDueSchedules } from "@/services/powerScheduleService";
  * Cron de ejecución de Power Schedules (apagado programado de VMs).
  *
  * Se invoca desde el crontab del VPS (o cualquier scheduler externo) cada
- * ~10 min, mismo patrón que /api/cron/sync y /api/cron/prewarm-dashboard.
+ * ~2 min (antes 10 min — reducido para bajar la latencia máxima percibida),
+ * mismo patrón que /api/cron/sync y /api/cron/prewarm-dashboard.
  * Auth: Authorization: Bearer CRON_SECRET.
  *
  * Ejemplo crontab (ver README.md, sección Cron Jobs, para el comando completo):
@@ -32,7 +33,9 @@ async function runPowerSchedules(request: NextRequest) {
             return NextResponse.json({ error: "No autorizado." }, { status: 401 });
         }
 
-        const result = await executeDueSchedules(15);
+        // Ventana de 8 min: > 4x la cadencia del cron (2 min) para tolerar
+        // ticks perdidos/downtime puntual sin dejar de ejecutar el horario.
+        const result = await executeDueSchedules(8);
 
         console.log(
             `[cron-power-schedules] evaluated=${result.evaluated} executed=${result.executed} skipped=${result.skipped} failed=${result.failed}`

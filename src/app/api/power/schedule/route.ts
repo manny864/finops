@@ -5,6 +5,7 @@ import {
   listPowerSchedules,
   deletePowerSchedule,
   parseOffsetMinutes,
+  executeDueSchedules,
 } from "@/services/powerScheduleService";
 
 const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -108,6 +109,19 @@ export async function POST(request: NextRequest) {
     });
 
     const schedules = await listPowerSchedules(tenantId);
+
+    // Disparo oportunista: si el horario recién creado/editado ya está
+    // "vencido" (dentro de la ventana de ejecución) en el momento de guardarlo
+    // — ej. el usuario programó "dentro de 2 minutos" — no tiene sentido
+    // esperar hasta el próximo tick del cron externo (cada pocos minutos, ver
+    // crontab del VPS) para que se ejecute. No se espera esta llamada (no se
+    // bloquea la respuesta al cliente): corre en background sobre el mismo
+    // proceso Node persistente (no serverless), y cualquier error queda
+    // logueado para que lo levante el próximo tick normal igual.
+    executeDueSchedules().catch((err) => {
+      console.error("[/api/power/schedule] Error en disparo inmediato post-guardado:", err);
+    });
+
     return NextResponse.json({ success: true, schedules });
   } catch (e: unknown) {
     if (e instanceof AuthError) {

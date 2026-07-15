@@ -195,9 +195,10 @@ function toDateOnlyString(value: unknown): string | null {
  * dentro de la ventana [scheduled, scheduled + windowMinutes] y que todavía
  * no fueron ejecutados hoy (según la fecha local del schedule).
  *
- * Diseñado para ser invocado por un cron externo cada ~10 min (mismo patrón
- * que /api/cron/prewarm-dashboard). windowMinutes > cadencia del cron para
- * no dejar huecos entre invocaciones.
+ * Diseñado para ser invocado por un cron externo cada ~2 min (mismo patrón
+ * que /api/cron/prewarm-dashboard), y además al instante desde
+ * `/api/power/schedule` (POST) apenas se crea/edita un horario.
+ * windowMinutes > cadencia del cron para no dejar huecos entre invocaciones.
  */
 export async function executeDueSchedules(
   windowMinutes = 15
