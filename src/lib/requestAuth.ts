@@ -307,13 +307,15 @@ function tryCronAuth(request: NextRequest, tenantId: string): RequestIdentity | 
   const secret = process.env.CRON_SECRET;
   if (!secret || secret.length < 16) return null;
 
-  // Comparación constante en longitud para evitar timing attacks.
-  if (provided.length !== secret.length) return null;
-  let mismatch = 0;
-  for (let i = 0; i < provided.length; i++) {
-    mismatch |= provided.charCodeAt(i) ^ secret.charCodeAt(i);
-  }
-  if (mismatch !== 0) return null;
+  // Comparación timing-safe que no depende de la longitud real del secreto:
+  // comparar los strings crudos con `timingSafeEqual` requiere igual longitud
+  // de antemano, y ese chequeo de longitud (`provided.length !== secret.length`)
+  // es en sí mismo un side-channel de timing que revela cuántos caracteres
+  // tiene CRON_SECRET. Se comparan hashes SHA-256 (longitud fija, 32 bytes)
+  // en su lugar, así timingSafeEqual nunca necesita ver la longitud original.
+  const providedHash = crypto.createHash("sha256").update(provided).digest();
+  const secretHash = crypto.createHash("sha256").update(secret).digest();
+  if (!crypto.timingSafeEqual(providedHash, secretHash)) return null;
 
   return {
     claims: { tid: tenantId, preferred_username: "cron@system", email: "cron@system" } as AuthClaims,

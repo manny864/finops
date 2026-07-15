@@ -53,9 +53,12 @@ export async function POST(request: NextRequest) {
     console.error("Delete error:", e);
     const err = e as { code?: string; statusCode?: number; message?: string };
     if (err.code === "AuthorizationFailed" || err.statusCode === 403 || (err.message && err.message.includes("AuthorizationFailed"))) {
-      return NextResponse.json({ 
-          error: "MISSING_CONTRIBUTOR_ROLE", 
-          clientId: process.env.AZURE_CLIENT_ID 
+      // No se expone AZURE_CLIENT_ID en la respuesta: aunque coincide con
+      // NEXT_PUBLIC_CLIENT_ID (ya público, ver .env.example), es disclosure
+      // de infra innecesario y ningún componente del frontend lo consumía.
+      return NextResponse.json({
+          error: "MISSING_CONTRIBUTOR_ROLE",
+          details: "La aplicación no tiene permisos de Contributor para eliminar este recurso en Azure." 
       }, { status: 403 });
     }
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
