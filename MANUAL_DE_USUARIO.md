@@ -123,6 +123,7 @@ El sistema está dividido en cinco (5) pilares estratégicos en el menú lateral
   - **Fecha puntual (single):** ejecuta la acción (encender/apagar/reiniciar) una única vez en la fecha y hora indicada.
   - **Recurrente (range):** define un rango horario **"Desde – Hasta"** y los **días de la semana** en que se repite (ej. Lun–Vie, 08:00–20:00); crea automáticamente un horario de encendido a la hora "Desde" y uno de apagado a la hora "Hasta", ambos con los mismos días seleccionados.
   - La **zona horaria (GMT)** se detecta automáticamente según el navegador del usuario al abrir el formulario (se puede cambiar manualmente si se necesita otro huso).
+  - **Tiempo de ejecución:** el sistema revisa los horarios pendientes cada **2 minutos** y, además, hace una verificación inmediata apenas guardás el horario. En condiciones normales la acción se ejecuta al instante o dentro de los 2 minutos siguientes a la hora programada; cada acción sobre la VM (encender/apagar/reiniciar) puede tardar entre 20 y 40 segundos adicionales en confirmarse contra Azure antes de reflejarse como completada.
 
 ### 3.5. Administración
 - **Usuarios y Permisos:** Visualización del personal de la organización importado desde Entra ID.

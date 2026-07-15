@@ -205,6 +205,13 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
 
 ## 📈 Recent Major Updates
 
+### 2026-07-15 — Power Schedules: recurrencia semanal, timezone del navegador, fix crítico de ejecución y reducción de latencia
+
+- **Fix crítico "apagado/reinicio no ejecuta"**: `executeDueSchedules()` usaba `setHours` (reloj local del proceso) en vez de `setUTCHours` sobre el epoch ya desplazado por `gmt_offset` — si el proceso no corría en GMT-3 el matching de fecha/hora fallaba silenciosamente para cualquier acción que no fuera la primera evaluada. También se corrigió `String(date)` de una columna `Date` de mysql2 (no da formato ISO, rompía la comparación "ya ejecutado hoy"). Verificado end-to-end contra Azure real (start/restart/shutdown, los 3 `SUCCESS` en `ActionLogs`) tanto en local como con el crontab real de producción.
+- **Recurrencia semanal + rango horario:** nuevo modo "range" en `PowerSchedules.tsx` — se define un rango **"Desde–Hasta"** y los **días de la semana**; crea automáticamente un horario de encendido y uno de apagado con los mismos días (columna `days_of_week`, migración `20260716-001`).
+- **Timezone por defecto = navegador:** el selector de GMT ahora detecta automáticamente el offset del navegador del usuario (`getTimezoneOffset()`) en vez de forzar GMT-3.
+- **Reducción de latencia de ejecución:** `POST /api/power/schedule` dispara `executeDueSchedules()` de inmediato en background al crear/editar un horario (no espera al próximo tick); el cron externo pasó de cada 10 min a cada **2 min** (ventana 15→8 min). Latencia máxima esperable: ~2 min (o instantánea si el horario ya venció al guardarlo), más ~20-40s por acción de VM (tiempo real de la API de Azure).
+
 ### 2026-07-09 — Dashboard: histórico extendido, proyección de gastos, descarga What-If, tags de venta
 
 Seis pedidos consecutivos sobre el dashboard, la Simulación (What-If) y el panel superadmin. Ver `docs/dashboard-improvements-2026-07-09.md` para el detalle técnico completo.
