@@ -466,7 +466,11 @@ export default function UsersPage() {
                                         <ResizableTh minWidth={140} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entra ID</ResizableTh>
                                         <ResizableTh minWidth={140} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rol</ResizableTh>
                                         <ResizableTh minWidth={170} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Permisos</ResizableTh>
-                                        <ResizableTh minWidth={110} className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</ResizableTh>
+                                        {/* sticky: la suma de minWidths de las columnas anteriores supera el
+                                            ancho del contenedor (max-w-5xl) en viewports normales, y el botón de
+                                            eliminar quedaba fuera de vista sin ningún indicio de que había que
+                                            scrollear — lo fijamos al borde derecho del scroll container. */}
+                                        <ResizableTh minWidth={130} className="sticky right-0 z-10 bg-gray-50 dark:bg-slate-900 px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider shadow-[-4px_0_4px_-4px_rgba(0,0,0,0.15)]">Acciones</ResizableTh>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-slate-700">
@@ -505,7 +509,7 @@ export default function UsersPage() {
                                                     disabled={!isAdmin}
                                                 />
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                            <td className="sticky right-0 z-10 bg-white dark:bg-slate-800 px-6 py-4 whitespace-nowrap text-right text-sm font-medium shadow-[-4px_0_4px_-4px_rgba(0,0,0,0.15)]">
                                                 <button 
                                                     onClick={() => handleDelete(user.id, user.email)}
                                                     disabled={!isAdmin}
