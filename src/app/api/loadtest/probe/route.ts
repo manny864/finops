@@ -30,7 +30,13 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({ status: "ok", dbMs, redisMs }, { status: 200 });
     } catch (error: unknown) {
-        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
+        if (error instanceof AuthError) {
+            // Loguear también los AuthError (401/403): antes se devolvían en
+            // silencio sin rastro en logs, lo que hizo indiagnosticable un
+            // 100% de error real bajo carga en esta ruta (ver /admin/load-test).
+            console.error(`[loadtest/probe] AuthError ${error.status}: ${error.message}`);
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        }
         console.error("[loadtest/probe] error:", error);
         return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
