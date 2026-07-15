@@ -91,7 +91,8 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                   subscriptionId: item.subscriptionId,
                   resourceGroup: item.resourceGroup,
                   resourceName: item.resourceName,
-                  resourceType: item.armType
+                  resourceType: item.armType,
+                  domain: 'zombies'
               })
           });
           const json = await res.json();

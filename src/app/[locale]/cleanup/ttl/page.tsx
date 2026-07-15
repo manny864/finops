@@ -64,7 +64,8 @@ export default function TtlCleanupPage() {
                   action: 'delete',
                   resourceId,
                   subscriptionId,
-                  resourceType: type
+                  resourceType: type,
+                  domain: 'ttl'
               })
           });
           

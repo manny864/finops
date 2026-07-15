@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ResourceManagementClient } from "@azure/arm-resources";
 import { getAzureCredential } from "@/lib/azure";
-import { requireTenantRole, AuthError } from "@/lib/requestAuth";
+import { requireTenantRole, requireTenantTier, AuthError } from "@/lib/requestAuth";
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,6 +13,12 @@ export async function POST(request: NextRequest) {
     }
 
     await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
+    // Remediación de tags (mutación real en Azure vía tagsOperations.beginUpdateAtScope):
+    // misma feature/tier que apply-inheritance y canRemediateTags en tierLogic.ts
+    // (habilitada desde Business). Antes solo se validaba el rol y el candado de
+    // tier era client-only (Sidebar/FeatureGuard) — un Admin de un tenant
+    // Essential/Professional podía pegarle directo a esta ruta y saltearlo.
+    await requireTenantTier(request, tenantId, "Business");
 
     const credential = await getAzureCredential(tenantId);
     

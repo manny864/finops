@@ -65,7 +65,8 @@ export default function ExpiredSandboxTable() {
                     subscriptionId: resource.subscriptionId,
                     resourceGroup: resource.resourceGroup,
                     resourceName: resource.name,
-                    resourceType: resource.type
+                    resourceType: resource.type,
+                    domain: 'ttl'
                 })
             });
             

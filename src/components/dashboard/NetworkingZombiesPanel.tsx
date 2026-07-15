@@ -119,6 +119,7 @@ export default function NetworkingZombiesPanel() {
                     resourceName: item.resourceName,
                     resourceType: item.armType,
                     resourceId: item.resourceId,
+                    domain: 'networking',
                 }),
             });
             const json = await res.json();

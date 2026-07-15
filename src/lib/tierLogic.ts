@@ -50,6 +50,16 @@ export function canDeleteResources(currentTier: string | null | undefined, domai
 }
 
 /**
+ * Tier mínimo requerido para borrar recursos del dominio dado. Usado por el
+ * enforcement server-side de /api/remediation (ver requireTenantTier), que
+ * necesita el string de tier (no un booleano) para reusar el mismo helper de
+ * auth que ya valida membresía + SuperAdmin + fetch de tier del tenant.
+ */
+export function getDeleteRemediationTier(domain: DeleteResourceDomain): string {
+    return DELETE_REMEDIATION_TIER[domain];
+}
+
+/**
  * Auto-fix de Cumplimiento de Etiquetas (/governance/tags): el rol Tag
  * Contributor solo se otorga desde tier Business (ver
  * onboardingScriptTemplate.ts). Essential/Professional ven el score de
