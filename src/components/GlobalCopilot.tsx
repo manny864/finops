@@ -332,29 +332,24 @@ export default function GlobalCopilot() {
         // contexto, hallazgos cuantificados, ahorros priorizados, riesgos y
         // próximos pasos con responsable/esfuerzo estimado.
         handleSend(
-            `Generá un **REPORTE EJECUTIVO DETALLADO** del módulo "${effectivePageLabel}" basado estrictamente en los datos provistos en el contexto. ` +
-            `Debe servirle a un decisor (CFO/Cloud Lead/FinOps) para tomar acción esta semana. Usá Markdown con esta estructura EXACTA:\n\n` +
-            `### 🎯 Contexto del módulo\n` +
-            `1 párrafo (3-4 líneas) explicando qué se está analizando, alcance (suscripciones/recursos cubiertos) y la "lectura general" del estado actual.\n\n` +
+            `Generá un resumen **ACOTADO y ESCANEABLE** del módulo "${effectivePageLabel}" basado estrictamente en los datos del contexto, para que un decisor (CFO/Cloud Lead/FinOps) capte el estado en 15 segundos. ` +
+            `Usá Markdown con esta estructura EXACTA (sin agregar secciones extra):\n\n` +
+            `### 🎯 Estado general\n` +
+            `1 sola línea con la lectura general (ej: "Gasto estable, 3 oportunidades de ahorro detectadas por $X/mes").\n\n` +
             `### 📊 Hallazgos clave\n` +
-            `Tabla Markdown con las 5-8 métricas/insights más relevantes del payload. Columnas: **Métrica | Valor actual | Benchmark/Esperado | Variación | Implicancia**.\n\n` +
-            `### 💰 Oportunidades de optimización\n` +
-            `Lista priorizada (top 5) en formato:\n` +
-            `- **#1 [Nombre]** — Ahorro estimado: **$X/mes** · Esfuerzo: bajo/medio/alto · Riesgo: bajo/medio/alto\n` +
-            `  - Hallazgo concreto (cifras del payload)\n` +
-            `  - Acción recomendada (1 línea ejecutable)\n` +
-            `Sumá el total al final: **Ahorro mensual potencial total: $X · Anualizado: $Y**.\n\n` +
-            `### ⚠️ Riesgos y alertas\n` +
-            `Bullets con riesgos detectados (HA, gobierno, compliance, sobre-aprovisionamiento). Si no hay → "Sin riesgos críticos detectados".\n\n` +
-            `### 🚀 Plan de acción (próximos 7 días)\n` +
-            `Checklist numerado de 3-5 pasos concretos. Cada paso: qué hacer, quién (rol) y resultado esperado.\n\n` +
-            `### 📈 Métricas a monitorear\n` +
-            `2-4 KPIs específicos con valores objetivo para la próxima revisión.\n\n` +
+            `Tabla Markdown de MÁXIMO 5 filas con las métricas más relevantes. Columnas: **Métrica | Valor | Implicancia**.\n\n` +
+            `### 💰 Top oportunidades\n` +
+            `Máximo 3 ítems, una línea cada uno:\n` +
+            `- **[Nombre]** — **$X/mes** · Esfuerzo: bajo/medio/alto — acción concreta en pocas palabras.\n` +
+            `Si aplica, cerrá con: **Ahorro potencial total: $X/mes**.\n\n` +
+            `### ⚠️ Riesgos\n` +
+            `Máximo 2 bullets. Si no hay riesgos relevantes, omití esta sección por completo.\n\n` +
+            `Al final, en una línea aparte (sin heading): *💬 Pedime "profundizá" o "reporte completo" para el análisis extendido con plan de acción paso a paso.*\n\n` +
             `**Reglas estrictas**:\n` +
             `- Cifras SIEMPRE del payload (USD, %, conteos). NUNCA inventes valores.\n` +
-            `- Si un dato falta, escribí "n/d" y aclarálo en Riesgos.\n` +
+            `- Si un dato falta, escribí "n/d".\n` +
             `- Sé concreto: nada de "considerar revisar"; usá verbos accionables (eliminar, redimensionar, migrar, programar apagado).\n` +
-            `- Extensión objetivo: 600-900 palabras. Profesional, ejecutivo, sin relleno.`
+            `- Extensión objetivo: 120-180 palabras en total (sin contar la tabla). Nada de relleno ni párrafos largos.`
         );
     }, [isOpen, effectiveDataPayload, effectivePageLabel, messages.length, injectedPrompt, currentDataPayload, autoContentSettled]);
 
@@ -455,9 +450,16 @@ export default function GlobalCopilot() {
                                                 ul: ({node, ...props}) => <ul className="list-disc ml-5 mb-2 space-y-1" {...props} />,
                                                 ol: ({node, ...props}) => <ol className="list-decimal ml-5 mb-2 space-y-1" {...props} />,
                                                 li: ({node, ...props}) => <li className="pl-1" {...props} />,
-                                                h3: ({node, ...props}) => <h3 className="font-bold text-[15px] mt-3 mb-1" {...props} />,
+                                                // mt-4 (en vez de mt-3) + borde superior sutil: separa visualmente cada
+                                                // sección del reporte cuando hay varios headings seguidos — evita que
+                                                // se lea como un bloque de texto continuo.
+                                                h3: ({node, ...props}) => <h3 className="font-bold text-[15px] mt-4 mb-1.5 pt-2 border-t border-line first:mt-0 first:pt-0 first:border-t-0" {...props} />,
                                                 h4: ({node, ...props}) => <h4 className="font-semibold text-[14px] mt-2 mb-1" {...props} />,
-                                                strong: ({node, ...props}) => <strong className="font-bold" {...props} />,
+                                                strong: ({node, ...props}) => <strong className="font-bold text-brand-deep dark:text-brand-bright" {...props} />,
+                                                // El prompt del sistema usa "---" para separar secciones cuando no
+                                                // corresponde un heading nuevo (ej. el CTA final del auto-reporte).
+                                                hr: ({node, ...props}) => <hr className="my-3 border-line" {...props} />,
+                                                em: ({node, ...props}) => <em className="text-ink-soft" {...props} />,
                                                 table: ({node, ...props}) => <div className="overflow-x-auto my-2"><table className="min-w-full text-[12px] border-collapse" {...props} /></div>,
                                                 thead: ({node, ...props}) => <thead className="bg-surface-2" {...props} />,
                                                 th: ({node, ...props}) => <th className="border border-line px-2 py-1 text-left font-semibold" {...props} />,
