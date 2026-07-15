@@ -19,7 +19,8 @@
     "db:delete-admin": "node scripts/delete-admin-user.js",
     "migrate": "tsx scripts/migrate.ts",
     "seed:pricing-units": "tsx scripts/seed-pricing-units.ts",
-    "migrate:infra-secrets": "tsx scripts/migrate-infra-secrets-to-kv.ts"
+    "migrate:infra-secrets": "tsx scripts/migrate-infra-secrets-to-kv.ts",
+    "cron:power-schedules": "bash -c 'set -a; source .env.development; set +a; curl -fsS -H \"Authorization: Bearer $CRON_SECRET\" http://localhost:3000/api/cron/power-schedules'"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.81",

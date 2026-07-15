@@ -156,6 +156,30 @@ async function isVmCpuBelowThreshold(
 }
 
 /**
+ * mysql2 devuelve columnas DATE como objetos `Date` de JS (no strings), salvo
+ * que el pool se configure con `dateStrings: true` (no es el caso acá). Sobre
+ * ese objeto, `String(date)` invoca `Date.prototype.toString()` — el formato
+ * "Wed Jul 15 2026 00:00:00 GMT-0300 (...)", NO el ISO — así que comparar
+ * `String(schedule_date).slice(0, 10)` contra un "YYYY-MM-DD" NUNCA matcheaba,
+ * dejando cualquier horario "one-off" (fecha específica) permanentemente
+ * inejecutable, en cualquier entorno (no depende de la TZ del proceso — a
+ * diferencia del bug de `setHours` de más abajo). Se normaliza con los
+ * componentes LOCALES del objeto (mismos con los que mysql2 lo construyó en
+ * este mismo proceso), no con `toISOString()` (que podría cruzar de día
+ * según el offset).
+ */
+function toDateOnlyString(value: unknown): string | null {
+  if (value == null) return null;
+  if (value instanceof Date) {
+    const y = value.getFullYear();
+    const m = String(value.getMonth() + 1).padStart(2, "0");
+    const d = String(value.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+  return String(value).slice(0, 10);
+}
+
+/**
  * Ejecuta los schedules cuyo horario local (shutdown_time + gmt_offset) cayó
  * dentro de la ventana [scheduled, scheduled + windowMinutes] y que todavía
  * no fueron ejecutados hoy (según la fecha local del schedule).
@@ -182,20 +206,32 @@ export async function executeDueSchedules(
     const localNow = new Date(nowUtc.getTime() + offsetMin * 60000);
     const localDateStr = localNow.toISOString().slice(0, 10);
 
-    if (s.last_executed_date && String(s.last_executed_date).slice(0, 10) === localDateStr) {
+    if (toDateOnlyString(s.last_executed_date) === localDateStr) {
       continue; // Ya evaluado/ejecutado hoy (fecha local del schedule).
     }
 
     // One-off: si schedule_date está seteado, solo corre ese día puntual (no
     // recurrente). Si la fecha local todavía no llegó, o ya pasó (y por ende
     // nunca se ejecutó — el cron estuvo caído, por ejemplo), no se ejecuta.
-    if (s.schedule_date && String(s.schedule_date).slice(0, 10) !== localDateStr) {
+    const scheduleDateStr = toDateOnlyString(s.schedule_date);
+    if (scheduleDateStr && scheduleDateStr !== localDateStr) {
       continue;
     }
 
     const [hh, mm] = String(s.shutdown_time).split(":").map((n) => parseInt(n, 10));
     const scheduledLocal = new Date(localNow);
-    scheduledLocal.setHours(hh || 0, mm || 0, 0, 0);
+    // setUTCHours (NO setHours): `localNow`/`scheduledLocal` son un truco —
+    // epoch = UTC real + offset del schedule, pensado para leerse/escribirse
+    // SIEMPRE con métodos UTC (independiente de en qué TZ corre el proceso
+    // Node). `setHours` usa la TZ del sistema operativo/proceso; si el
+    // servidor no corre en UTC (ej. una máquina de desarrollo en
+    // America/Buenos_Aires), aplica un segundo desplazamiento de zona
+    // horaria encima del ya calculado arriba, rompiendo por completo el
+    // cálculo de "horario debido" — los schedules nunca se ejecutan. En el
+    // VPS de producción no se nota porque el contenedor corre en UTC
+    // (setHours == setUTCHours ahí), pero es un bug real, no solo un
+    // problema de "nada dispara el cron en local".
+    scheduledLocal.setUTCHours(hh || 0, mm || 0, 0, 0);
 
     const diffMinutes = (localNow.getTime() - scheduledLocal.getTime()) / 60000;
     // El horario ya debe haber pasado (>=0) pero no hace más de `windowMinutes`
