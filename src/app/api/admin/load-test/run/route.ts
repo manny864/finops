@@ -38,8 +38,18 @@ export async function POST(request: NextRequest) {
             }
         }
 
+        // Loopback, NO request.nextUrl.origin (dominio público): un self-fetch
+        // del propio proceso contra su dominio público sale por Traefik/Internet
+        // y vuelve a entrar por la misma IP del VPS — hairpin NAT que muchos
+        // proveedores no soportan, y que produce fallos instantáneos (con
+        // latencias de pocos ms, no de un round-trip real) leídos como 100% de
+        // error. El healthcheck de Docker (docker-compose.yml) ya usa loopback
+        // por esta misma razón; acá medimos el techo puro del proceso Node, no
+        // el del proxy/red.
+        const origin = `http://127.0.0.1:${process.env.PORT || 3000}`;
+
         const result = await runLoadTest({
-            origin: request.nextUrl.origin,
+            origin,
             target,
             concurrency,
             durationMs: durationSeconds * 1000,

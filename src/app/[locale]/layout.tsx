@@ -33,6 +33,10 @@ export const metadata: Metadata = {
     title: "FinOps",
   },
   icons: {
+    // Explícito porque el `icons` de metadata pisa la convención de archivo
+    // (src/app/icon.png) en vez de fusionarse con ella — sin esto, agregar
+    // solo `apple` acá borra el favicon normal (bug real: pasó en d13fabd).
+    icon: [{ url: "/icon.png", type: "image/png" }],
     apple: "/icons/apple-touch-icon.png",
   },
 };
