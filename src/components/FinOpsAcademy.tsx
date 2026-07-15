@@ -13,11 +13,21 @@ import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
 
 export default function FinOpsAcademy() {
-    const { selectedTenant, setAcademyCertified } = useTenant();
+    const { selectedTenant, setAcademyCertified, systemRole } = useTenant();
     const { instance, accounts } = useMsal();
     const router = useRouter();
     const { locale } = useParams() as { locale: string };
     const [markingComplete, setMarkingComplete] = useState<string | null>(null);
+    // Un SuperAdmin de CSCloudSolutions viendo el tenant de un cliente nunca
+    // tiene fila propia en Users de ESE tenant (su cuenta pertenece a su
+    // propio dominio corporativo) — el backend correctamente rechaza con 409
+    // cualquier intento de completar un módulo porque no hay a quién
+    // atribuirle el progreso. Antes el botón quedaba activo igual y fallaba
+    // en silencio (bug reportado: "los botones no completan el paso").
+    // La Academia es un requisito para usuarios reales del tenant, no para
+    // staff que solo está inspeccionando la cuenta — se deshabilita la
+    // interacción y se explica por qué en vez de dejar un botón roto.
+    const isSuperAdminViewing = systemRole === 'SUPERADMIN';
 
     const fetcher = async (url: string) => {
         const idToken = await getFreshIdToken(instance, accounts[0]);
@@ -103,7 +113,16 @@ export default function FinOpsAcademy() {
 
     return (
         <div className="max-w-4xl space-y-6">
-            {!isCertified && (
+            {isSuperAdminViewing ? (
+                <div className="bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-800/50 rounded-xl p-4 flex items-start gap-3">
+                    <GraduationCap className="w-5 h-5 text-sky-600 dark:text-sky-400 shrink-0 mt-0.5" />
+                    <p className="text-sm text-sky-800 dark:text-sky-300">
+                        <strong>Estás viendo este tenant como Super Administrador.</strong> La Academia FinOps es un requisito
+                        individual para los usuarios del cliente — tu cuenta no tiene progreso propio en este tenant, así que
+                        los botones de completado están deshabilitados. Podés leer el contenido de cada módulo igual.
+                    </p>
+                </div>
+            ) : !isCertified && (
                 <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-xl p-4 flex items-start gap-3">
                     <GraduationCap className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                     <p className="text-sm text-amber-800 dark:text-amber-300">
@@ -179,10 +198,11 @@ export default function FinOpsAcademy() {
                                         </div>
                                     </div>
                                     {!mod.isCompleted && (
-                                        <button 
+                                        <button
                                             onClick={() => handleMarkComplete(mod.id)}
-                                            disabled={markingComplete === mod.id}
-                                            className="px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-sm font-bold rounded-lg hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors disabled:opacity-50"
+                                            disabled={markingComplete === mod.id || isSuperAdminViewing}
+                                            title={isSuperAdminViewing ? "No disponible: tu cuenta de Super Administrador no tiene progreso propio en este tenant" : undefined}
+                                            className="px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-sm font-bold rounded-lg hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
                                             {markingComplete === mod.id ? 'Guardando...' : 'Marcar Completado'}
                                         </button>
