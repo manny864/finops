@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import pool, { initializeDatabase } from "@/modules/storage/db";
 import { AuthError, requireRequestIdentity, requireSuperAdmin, requireTenantAccess, hasSystemRole } from "@/lib/requestAuth";
 import { getUserLimit } from "@/lib/tierLogic";
+import { SUPERADMIN_BOOTSTRAP_TENANT_ID, isSuperAdminBootstrapEmail } from "@/lib/superAdminBootstrap";
 
 export async function GET(request: NextRequest) {
     try {
@@ -161,11 +162,11 @@ export async function POST(request: NextRequest) {
                 const effectiveRole = user.role || 'Reader';
 
                 if (effectiveRole === 'SuperAdmin') {
-                    if (tenantId !== '8b41364f-581a-4e43-b7cb-13138dac5517' || !user.email.toLowerCase().endsWith('@cscloudsolutions.com.ar')) {
+                    if (tenantId !== SUPERADMIN_BOOTSTRAP_TENANT_ID || !user.email.toLowerCase().endsWith('@cscloudsolutions.com.ar')) {
                         return NextResponse.json({ error: `El rol SuperAdmin solo puede asignarse a usuarios de CSCloudSolutions en el tenant principal.` }, { status: 403 });
                     }
                     systemRole = 'SUPERADMIN';
-                } else if (user.email.toLowerCase().endsWith('@cscloudsolutions.com.ar') && tenantId === '8b41364f-581a-4e43-b7cb-13138dac5517' && user.email.toLowerCase().startsWith('mchavez')) {
+                } else if (isSuperAdminBootstrapEmail(user.email, tenantId)) {
                     systemRole = 'SUPERADMIN';
                 }
 
@@ -244,11 +245,11 @@ export async function PUT(request: NextRequest) {
             if (role !== undefined) {
                 let systemRole = 'USER';
                 if (role === 'SuperAdmin') {
-                    if (tenantId !== '8b41364f-581a-4e43-b7cb-13138dac5517' || !targetEmail.toLowerCase().endsWith('@cscloudsolutions.com.ar')) {
+                    if (tenantId !== SUPERADMIN_BOOTSTRAP_TENANT_ID || !targetEmail.toLowerCase().endsWith('@cscloudsolutions.com.ar')) {
                         return NextResponse.json({ error: 'El rol SuperAdmin solo puede asignarse a usuarios de CSCloudSolutions en el tenant principal.' }, { status: 403 });
                     }
                     systemRole = 'SUPERADMIN';
-                } else if (targetEmail.toLowerCase().endsWith('@cscloudsolutions.com.ar') && tenantId === '8b41364f-581a-4e43-b7cb-13138dac5517' && targetEmail.toLowerCase().startsWith('mchavez')) {
+                } else if (isSuperAdminBootstrapEmail(targetEmail, tenantId)) {
                     systemRole = 'SUPERADMIN';
                 }
                 const dbRole = role === 'SuperAdmin' ? 'Admin' : role;

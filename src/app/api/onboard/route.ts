@@ -3,6 +3,7 @@ import pool, { initializeDatabase } from "@/modules/storage/db";
 import { requireRequestIdentity } from "@/lib/requestAuth";
 import { sendEmailAsync, getWelcomeEmailHtml, getInternalSignupAlertEmailHtml } from "@/lib/emailHelper";
 import { getUserLimit } from "@/lib/tierLogic";
+import { SUPERADMIN_BOOTSTRAP_TENANT_ID } from "@/lib/superAdminBootstrap";
 
 export async function POST(request: NextRequest) {
     try {
@@ -109,7 +110,7 @@ export async function POST(request: NextRequest) {
             let systemRole = 'USER';
 
             // Auto-promote CSCloudSolutions master tenant admins to SUPERADMIN
-            if (email.toLowerCase().endsWith('@cscloudsolutions.com.ar') && tenantId === '8b41364f-581a-4e43-b7cb-13138dac5517') {
+            if (email.toLowerCase().endsWith('@cscloudsolutions.com.ar') && tenantId === SUPERADMIN_BOOTSTRAP_TENANT_ID) {
                 systemRole = 'SUPERADMIN';
             }
 
