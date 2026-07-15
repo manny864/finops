@@ -2,7 +2,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useMsal } from "@azure/msal-react";
 import { fetchWithAuthRetry } from "@/lib/msalToken";
-import { Loader2, Sparkles, CheckCircle2, XCircle, KeyRound } from "lucide-react";
+import { Loader2, Sparkles, CheckCircle2, XCircle, KeyRound, Trash2 } from "lucide-react";
 
 const PROVIDERS = [
     { value: "google", label: "Google Gemini (Flash — gratis en free tier)" },
@@ -21,6 +21,7 @@ export default function AiConfigGlobalPage() {
     const [apiKeyInput, setApiKeyInput] = useState("");
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [deleting, setDeleting] = useState(false);
     const [testing, setTesting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
@@ -60,6 +61,35 @@ export default function AiConfigGlobalPage() {
             setError(e?.message || "Error de red.");
         } finally {
             setSaving(false);
+        }
+    };
+
+    const deleteApiKey = async () => {
+        // Acción destructiva e irreversible (no queda backup de la key cifrada
+        // borrada) que además afecta a CUALQUIER tenant sin su propia key BYOK
+        // (queda sin fallback de IA hasta que se cargue una nueva) — se pide
+        // confirmación explícita antes de mandar el DELETE.
+        const confirmed = window.confirm(
+            "¿Eliminar la API key global? Los tenants que no configuraron su propia key (BYOK) se quedarán sin IA hasta que cargues una nueva."
+        );
+        if (!confirmed) return;
+
+        setDeleting(true);
+        setError(null);
+        setTestResult(null);
+        try {
+            const res = await fetchWithAuthRetry(instance, account, "/api/admin/config/ai-global", {
+                method: "PATCH",
+                body: JSON.stringify({ provider, apiKey: null }),
+            });
+            const json = await res.json();
+            if (!json.success) throw new Error(json.error || "No se pudo eliminar la key.");
+            setApiKeyInput("");
+            await load();
+        } catch (e: any) {
+            setError(e?.message || "Error de red.");
+        } finally {
+            setDeleting(false);
         }
     };
 
@@ -161,6 +191,14 @@ export default function AiConfigGlobalPage() {
                             className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold rounded-lg disabled:opacity-50 flex items-center gap-2"
                         >
                             {testing && <Loader2 className="w-4 h-4 animate-spin" />} Probar conexión
+                        </button>
+                        <button
+                            onClick={deleteApiKey}
+                            disabled={deleting || !hasApiKey}
+                            title={!hasApiKey ? "No hay ninguna key guardada" : "Eliminar la API key guardada (afecta a tenants sin BYOK)"}
+                            className="ml-auto px-4 py-2 bg-rose-50 dark:bg-rose-900/20 hover:bg-rose-100 dark:hover:bg-rose-900/40 text-rose-700 dark:text-rose-300 text-sm font-bold rounded-lg disabled:opacity-50 flex items-center gap-2"
+                        >
+                            {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />} Eliminar API Key
                         </button>
                     </div>
                 </div>
