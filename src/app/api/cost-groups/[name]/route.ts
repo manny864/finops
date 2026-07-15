@@ -18,7 +18,13 @@ import { getSubscriptionNameMap, resolveSubscriptionName, isUnattributedSubscrip
 import pool from "@/modules/storage/db";
 
 function escapeKql(s: string): string {
-    return s.replace(/'/g, "\\'");
+    // Orden importa: escapar `\` primero (el propio carácter de escape KQL)
+    // y recién después `'` — si se hiciera al revés, un valor terminado en
+    // `\` podría "consumir" la comilla de escape recién insertada y romper
+    // el string literal, permitiendo inyección KQL. Blast radius era bajo
+    // (KQL scopeado al management group del propio tenant, no cruza
+    // tenants) pero igual corresponde el escape robusto.
+    return s.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }
 
 
