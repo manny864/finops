@@ -275,15 +275,14 @@ export async function requireLoadTestServicePrincipal(request: NextRequest): Pro
   }
 
   const claims = await validateRequestToken(request);
-  const callerAppId = typeof claims.appid === "string" ? claims.appid : undefined;
+  // Los tokens v2.0 de client_credentials de este tenant no traen `appid`
+  // (viene ausente) — el Application ID del caller viaja en `azp` ("authorized
+  // party", el claim estándar OIDC para app-only). Se acepta cualquiera de
+  // los dos por robustez ante ambas variantes de token.
+  const callerAppId = typeof claims.appid === "string" ? claims.appid
+    : typeof claims.azp === "string" ? claims.azp
+    : undefined;
   if (!callerAppId || callerAppId.toLowerCase() !== allowedAppId.toLowerCase()) {
-    // Diagnóstico temporal (ver /admin/load-test, target "probe" con 100% de
-    // error): callerAppId/allowedAppId son Client IDs públicos (GUIDs), no
-    // secretos — loguearlos no expone nada sensible, y sin esto es imposible
-    // saber a distancia si el claim `appid` viene vacío/distinto del esperado.
-    console.error(
-      `[auth] appid mismatch: caller=${callerAppId ?? "(ausente)"} allowed=${allowedAppId} azp=${typeof (claims as any).azp === "string" ? (claims as any).azp : "(ausente)"} sub=${typeof claims.sub === "string" ? claims.sub : "(ausente)"}`
-    );
     throw new AuthError("Service Principal no autorizado para pruebas de carga.", 403);
   }
 
