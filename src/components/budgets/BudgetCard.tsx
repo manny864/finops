@@ -6,6 +6,7 @@ import { Loader2, DollarSign, Bell } from 'lucide-react';
 import { useSubscription } from '@/components/SubscriptionProvider';
 import { useMsal } from '@azure/msal-react';
 import CreateBudgetModal from '@/components/CreateBudgetModal';
+import BudgetMonthlyChart, { type BudgetMonthlyChartPoint } from '@/components/budgets/BudgetMonthlyChart';
 import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
 
@@ -18,7 +19,9 @@ export default function BudgetCard() {
     const [loading, setLoading] = useState(false);
     const [budgetData, setBudgetData] = useState<any>(null);
     const [budgetsBySub, setBudgetsBySub] = useState<Record<string, { budget: number, actual: number }>>({});
-    
+    const [monthlyHistoryBySub, setMonthlyHistoryBySub] = useState<Record<string, BudgetMonthlyChartPoint[]>>({});
+    const [monthlyHistoryLoading, setMonthlyHistoryLoading] = useState(false);
+
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [activeSubscriptionForModal, setActiveSubscriptionForModal] = useState<string>('');
 
@@ -89,6 +92,51 @@ export default function BudgetCard() {
             isMounted = false;
         };
     }, [selectedTenant, selectedSubscription, subscriptions, accounts, instance]);
+
+    // Historial de gasto mensual por suscripción (últimos 6 meses), para el
+    // gráfico tipo Azure "View Monthly Cost Data" junto a cada tarjeta.
+    // Reutiliza /api/intelligence/cost-projection (ya cacheado en Redis).
+    useEffect(() => {
+        if (!selectedTenant || selectedTenant.id === 'default' || (accounts.length === 0 && !isMockTenant(selectedTenant.id)) || subscriptions.length === 0) {
+            setMonthlyHistoryBySub({});
+            return;
+        }
+
+        let isMounted = true;
+        setMonthlyHistoryLoading(true);
+
+        const fetchMonthly = async () => {
+            try {
+                const idToken = await getFreshIdToken(instance, accounts[0]);
+                const results = await Promise.all(subscriptions.map(async (sub) => {
+                    try {
+                        const res = await fetch(`/api/intelligence/cost-projection?tenantId=${selectedTenant.id}&subscriptionId=${sub.id}`, {
+                            headers: { 'Authorization': `Bearer ${idToken}` }
+                        });
+                        const json = await res.json();
+                        const history: BudgetMonthlyChartPoint[] = (json.monthlyHistory || []).slice(-6);
+                        return [sub.id, history] as const;
+                    } catch {
+                        return [sub.id, []] as const;
+                    }
+                }));
+
+                if (isMounted) {
+                    setMonthlyHistoryBySub(Object.fromEntries(results));
+                }
+            } catch (e) {
+                console.error("Error fetching monthly cost history for budget cards:", e);
+            } finally {
+                if (isMounted) setMonthlyHistoryLoading(false);
+            }
+        };
+
+        fetchMonthly();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [selectedTenant, subscriptions, accounts, instance]);
 
     if (!selectedTenant || selectedTenant.id === 'default') {
         return null;
@@ -178,14 +226,26 @@ export default function BudgetCard() {
                                 </div>
 
                                 <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-1.5 mb-4">
-                                    <div 
+                                    <div
                                         className={`h-1.5 rounded-full ${spendPercentage >= 90 ? 'bg-red-500' : spendPercentage >= 75 ? 'bg-amber-500' : 'bg-emerald-500'}`}
                                         style={{ width: `${Math.min(spendPercentage, 100)}%` }}
                                     ></div>
                                 </div>
+
+                                {realBudget > 0 && (
+                                    <div className="mb-2 border-t border-gray-100 dark:border-slate-800 pt-2">
+                                        <p className="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 mb-1">Gasto Mensual</p>
+                                        <BudgetMonthlyChart
+                                            data={monthlyHistoryBySub[sub.id] || []}
+                                            budgetAmount={realBudget}
+                                            loading={monthlyHistoryLoading && !monthlyHistoryBySub[sub.id]}
+                                            height={120}
+                                        />
+                                    </div>
+                                )}
                             </div>
-                            
-                            <button 
+
+                            <button
                                 onClick={() => {
                                     setActiveSubscriptionForModal(sub.id);
                                     setIsModalOpen(true);

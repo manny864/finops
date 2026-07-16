@@ -127,6 +127,72 @@ export async function getBudgetConsumption(tenantId: string, subscriptionId: str
     }
 }
 
+/**
+ * Historial de gasto real mensual (últimos `months` meses) para un Centro de
+ * Costos (tag CostCenter), equivalente al gráfico "View Monthly Cost Data"
+ * de Azure Cost Management > Budgets, usado en las tarjetas de Presupuestos
+ * de Plataforma para mostrar tendencia + línea de presupuesto.
+ */
+export async function getBudgetCostCenterMonthlyHistory(
+    tenantId: string,
+    subscriptionId: string,
+    costCenterName: string,
+    months = 6
+): Promise<{ month: string; cost: number }[]> {
+    try {
+        const credential = await getAzureCredential(tenantId);
+        const client = new CostManagementClient(credential);
+        const scope = subscriptionId === 'All'
+            ? `/providers/Microsoft.Management/managementGroups/${tenantId}`
+            : `/subscriptions/${subscriptionId}`;
+
+        const clampedMonths = Math.min(Math.max(1, Math.round(months)), 12);
+        const to = new Date();
+        const from = new Date();
+        from.setMonth(from.getMonth() - (clampedMonths - 1));
+        from.setDate(1);
+
+        const res = await withCostColumn(tenantId, (col) => client.query.usage(scope, {
+            type: "Usage",
+            timeframe: "Custom",
+            timePeriod: { from, to } as any,
+            dataset: {
+                granularity: "Monthly",
+                aggregation: {
+                    totalCost: { name: col, function: "Sum" }
+                },
+                grouping: [],
+                filter: {
+                    tags: { name: "CostCenter", operator: "In", values: [costCenterName] }
+                }
+            }
+        }));
+
+        if (!res.rows || res.rows.length === 0 || !res.columns) return [];
+
+        const costIdx = findCostColumnIndex(res.columns);
+        const dateIdx = res.columns.findIndex((c: any) => /usagedate|date/i.test(c?.name || ''));
+
+        const byMonth = new Map<string, number>();
+        for (const row of res.rows) {
+            const rawDate = String(row[dateIdx >= 0 ? dateIdx : 0]);
+            const month = /^\d{8}$/.test(rawDate)
+                ? `${rawDate.slice(0, 4)}-${rawDate.slice(4, 6)}`
+                : rawDate.slice(0, 7);
+            if (!/^\d{4}-\d{2}$/.test(month)) continue;
+            const cost = parseFloat(String(row[costIdx >= 0 ? costIdx : 0])) || 0;
+            byMonth.set(month, (byMonth.get(month) || 0) + cost);
+        }
+
+        return Array.from(byMonth.entries())
+            .map(([month, cost]) => ({ month, cost: Number(cost.toFixed(2)) }))
+            .sort((a, b) => a.month.localeCompare(b.month));
+    } catch (e) {
+        console.error(`Error fetching monthly history for ${costCenterName}:`, e);
+        return [];
+    }
+}
+
 export async function createSubscriptionBudget(credential: any, subscriptionId: string, budgetDetails: { budgetName: string, amount: number, contactEmails: string[], alertThreshold?: number, timeGrain?: string }) {
     const client = new ConsumptionManagementClient(credential, subscriptionId);
     const scope = `/subscriptions/${subscriptionId}`;

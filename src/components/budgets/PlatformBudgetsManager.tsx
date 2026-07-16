@@ -15,6 +15,34 @@ import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { Link } from "@/i18n/routing";
 import { Loader2, Pencil, BellPlus, Plus, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
+import BudgetMonthlyChart, { type BudgetMonthlyChartPoint } from "@/components/budgets/BudgetMonthlyChart";
+
+/** Hash simple y determinístico de un string, para generar datos mock estables entre renders. */
+function seededRandom(seed: string): () => number {
+    let h = 0;
+    for (let i = 0; i < seed.length; i++) h = (Math.imul(31, h) + seed.charCodeAt(i)) | 0;
+    return () => {
+        h = (Math.imul(1103515245, h) + 12345) | 0;
+        return ((h >>> 0) % 1000) / 1000;
+    };
+}
+
+/** Genera 6 meses de historial mensual sintético terminando en `currentSpend`, para tenants demo. */
+function generateMockMonthlyHistory(costCenter: string, currentSpend: number): BudgetMonthlyChartPoint[] {
+    const rand = seededRandom(costCenter);
+    const now = new Date();
+    const points: BudgetMonthlyChartPoint[] = [];
+    for (let i = 5; i >= 0; i--) {
+        const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+        const month = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+        const isLast = i === 0;
+        const drift = 0.7 + (5 - i) * 0.06;
+        const noise = 0.9 + rand() * 0.2;
+        const cost = isLast ? currentSpend : Number((currentSpend * drift * noise).toFixed(2));
+        points.push({ month, cost: Math.max(0, cost) });
+    }
+    return points;
+}
 
 interface PlatformBudget {
     id: number;
@@ -34,6 +62,8 @@ export default function PlatformBudgetsManager() {
 
     const [budgets, setBudgets] = useState<PlatformBudget[]>([]);
     const [loading, setLoading] = useState(true);
+    const [monthlyHistory, setMonthlyHistory] = useState<Record<number, BudgetMonthlyChartPoint[]>>({});
+    const [monthlyLoading, setMonthlyLoading] = useState<Record<number, boolean>>({});
     const [editing, setEditing] = useState<PlatformBudget | null>(null);
     const [creating, setCreating] = useState(false);
     const [editForm, setEditForm] = useState({ costCenter: "", monthlyLimit: "", alertThreshold: "80" });
@@ -78,6 +108,47 @@ export default function PlatformBudgetsManager() {
     useEffect(() => {
         load();
     }, [load]);
+
+    // Historial de gasto mensual por budget (últimos 6 meses), para el
+    // gráfico tipo Azure "View Monthly Cost Data" junto a cada tarjeta.
+    // Mock: se genera client-side (determinístico por costCenter), sin red.
+    useEffect(() => {
+        if (budgets.length === 0 || !selectedTenant?.id) return;
+
+        if (isMock) {
+            const mockHistory: Record<number, BudgetMonthlyChartPoint[]> = {};
+            budgets.forEach((b) => {
+                mockHistory[b.id] = generateMockMonthlyHistory(b.costCenter, b.currentSpend);
+            });
+            setMonthlyHistory(mockHistory);
+            return;
+        }
+
+        let isMounted = true;
+        setMonthlyLoading(Object.fromEntries(budgets.map((b) => [b.id, true])));
+
+        (async () => {
+            const headers = await authHeaders();
+            const results = await Promise.all(budgets.map(async (b) => {
+                try {
+                    const res = await fetch(`/api/budgets/monthly-history?tenantId=${selectedTenant.id}&costCenter=${encodeURIComponent(b.costCenter)}`, { headers });
+                    const json = await res.json();
+                    return [b.id, (json.monthlyHistory || []) as BudgetMonthlyChartPoint[]] as const;
+                } catch {
+                    return [b.id, [] as BudgetMonthlyChartPoint[]] as const;
+                }
+            }));
+            if (isMounted) {
+                setMonthlyHistory(Object.fromEntries(results));
+                setMonthlyLoading({});
+            }
+        })();
+
+        return () => {
+            isMounted = false;
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- solo re-fetch cuando cambia la lista de budgets (ids), no en cada render de authHeaders
+    }, [budgets.map((b) => b.id).join(","), selectedTenant?.id, isMock]);
 
     const openEdit = (b: PlatformBudget | null) => {
         setCreating(!b);
@@ -194,47 +265,54 @@ export default function PlatformBudgetsManager() {
             ) : budgets.length === 0 ? (
                 <p className="text-sm text-gray-400 py-6 text-center border-2 border-dashed border-gray-100 dark:border-slate-800 rounded-lg">{t("platformEmpty")}</p>
             ) : (
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
-                        <thead className="text-xs text-slate-500 dark:text-slate-400 border-b border-gray-100 dark:border-slate-800">
-                            <tr>
-                                <th className="py-2 pr-4 font-semibold">{t("platformCostCenter")}</th>
-                                <th className="py-2 pr-4 font-semibold text-right">{t("platformLimit")}</th>
-                                <th className="py-2 pr-4 font-semibold text-right">{t("platformSpend")}</th>
-                                <th className="py-2 pr-4 font-semibold">{t("platformUtilization")}</th>
-                                <th className="py-2 font-semibold text-right">{t("platformActions")}</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100 dark:divide-slate-800/60">
-                            {budgets.map((b) => {
-                                const pct = Math.min(100, Math.round(b.utilization));
-                                const over = b.utilization >= b.alertThreshold;
-                                return (
-                                    <tr key={b.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/20">
-                                        <td className="py-3 pr-4 font-medium text-slate-800 dark:text-slate-200">{b.costCenter}</td>
-                                        <td className="py-3 pr-4 text-right">{fmt.format(b.monthlyLimit)}</td>
-                                        <td className="py-3 pr-4 text-right">{fmt.format(b.currentSpend)}</td>
-                                        <td className="py-3 pr-4 min-w-[140px]">
-                                            <div className="flex items-center gap-2">
-                                                <div className="flex-1 h-1.5 rounded-full bg-gray-100 dark:bg-slate-800 overflow-hidden">
-                                                    <div className={`h-full ${over ? "bg-red-500" : pct >= 75 ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${pct}%` }} />
-                                                </div>
-                                                <span className={`text-xs font-semibold ${over ? "text-red-600" : "text-slate-600 dark:text-slate-300"}`}>{b.utilization.toFixed(0)}%</span>
-                                            </div>
-                                        </td>
-                                        <td className="py-3 text-right whitespace-nowrap">
-                                            <button onClick={() => openEdit(b)} title={t("platformEdit")} className="p-1.5 text-slate-500 hover:text-brand-deep">
-                                                <Pencil className="w-4 h-4" />
-                                            </button>
-                                            <button onClick={() => openAlert(b)} title={t("platformCreateAlert")} className="p-1.5 text-slate-500 hover:text-brand-deep">
-                                                <BellPlus className="w-4 h-4" />
-                                            </button>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {budgets.map((b) => {
+                        const pct = Math.min(100, Math.round(b.utilization));
+                        const over = b.utilization >= b.alertThreshold;
+                        return (
+                            <div key={b.id} className="border border-gray-200 dark:border-slate-800 rounded-lg p-4 flex flex-col">
+                                <div className="flex items-start justify-between gap-2 mb-3">
+                                    <h4 className="font-bold text-sm text-slate-800 dark:text-slate-200 truncate" title={b.costCenter}>{b.costCenter}</h4>
+                                    <div className="flex items-center gap-0.5 shrink-0">
+                                        <button onClick={() => openEdit(b)} title={t("platformEdit")} className="p-1.5 text-slate-500 hover:text-brand-deep">
+                                            <Pencil className="w-3.5 h-3.5" />
+                                        </button>
+                                        <button onClick={() => openAlert(b)} title={t("platformCreateAlert")} className="p-1.5 text-slate-500 hover:text-brand-deep">
+                                            <BellPlus className="w-3.5 h-3.5" />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="flex justify-between items-end mb-2">
+                                    <div>
+                                        <p className="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500">{t("platformLimit")}</p>
+                                        <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{fmt.format(b.monthlyLimit)}</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500">{t("platformSpend")}</p>
+                                        <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{fmt.format(b.currentSpend)}</p>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-2 mb-3">
+                                    <div className="flex-1 h-1.5 rounded-full bg-gray-100 dark:bg-slate-800 overflow-hidden">
+                                        <div className={`h-full ${over ? "bg-red-500" : pct >= 75 ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${pct}%` }} />
+                                    </div>
+                                    <span className={`text-xs font-semibold ${over ? "text-red-600" : "text-slate-600 dark:text-slate-300"}`}>{b.utilization.toFixed(0)}%</span>
+                                </div>
+
+                                <div className="border-t border-gray-100 dark:border-slate-800 pt-2">
+                                    <p className="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 mb-1">Gasto Mensual</p>
+                                    <BudgetMonthlyChart
+                                        data={monthlyHistory[b.id] || []}
+                                        budgetAmount={b.monthlyLimit}
+                                        loading={!!monthlyLoading[b.id]}
+                                        height={120}
+                                    />
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
             )}
 
