@@ -6,8 +6,8 @@ import { TenantProvider, useTenant } from './TenantProvider';
 import { SubscriptionProvider } from './SubscriptionProvider';
 import ScopeSelector from './ScopeSelector';
 import { ViewModeProvider, useViewMode } from '../context/ViewModeContext';
-import { LayoutTemplate, Code2, Bell } from 'lucide-react';
-import { useTranslations } from 'next-intl';
+import { LayoutTemplate, Code2, Bell, HelpCircle } from 'lucide-react';
+import { useTranslations, useLocale } from 'next-intl';
 import AuthSync from './AuthSync';
 import LanguageSwitcher from './LanguageSwitcher';
 import Sidebar from "./Sidebar";
@@ -72,7 +72,14 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
   const tc = useTranslations('Common');
   const tAuth = useTranslations('auth');
   const tPricing = useTranslations('pricing');
+  const locale = useLocale();
   const actions = useActionLogStore(state => state.actions);
+
+  const userManualHref = locale === 'pt-BR'
+    ? '/manual/MANUAL_USUARIO_PT-BR.pdf'
+    : locale === 'en'
+      ? '/manual/MANUAL_USUARIO_EN.pdf'
+      : '/manual/MANUAL_USUARIO_ES.pdf';
 
   const router = useRouter();
   const pathname = usePathname() || '';
@@ -386,6 +393,16 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
                         </span>
                     )}
                 </button>
+                <a
+                    href={userManualHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={tc('user_manual', { fallback: 'Ver manual de usuario' })}
+                    aria-label={tc('user_manual', { fallback: 'Ver manual de usuario' })}
+                    className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+                >
+                    <HelpCircle className="w-5 h-5" />
+                </a>
                 <AuthButton />
             </div>
           </div>

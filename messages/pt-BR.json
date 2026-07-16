@@ -130,6 +130,7 @@
     "cost_histogram_cost_label": "Custo"
   },
   "Common": {
+    "user_manual": "Ver manual do usuário",
     "add_your_logo": "Seu logo aqui",
     "save": "Salvar",
     "deploy": "Implantar",
