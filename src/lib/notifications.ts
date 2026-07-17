@@ -184,7 +184,6 @@ export async function notifyTenant(tenantId: string, payload: NotificationPayloa
         const sendPromises = channelList.map(async (channel) => {
             const channelId = channel.id;
             const channelType = channel.type;
-            const config = JSON.parse(channel.config_json);
             const severityFilter = channel.severity_filter || "info,warning,error";
 
             // Check if severity matches filter
@@ -198,6 +197,13 @@ export async function notifyTenant(tenantId: string, payload: NotificationPayloa
             }
 
             try {
+                // mysql2 auto-parsea columnas JSON a objetos JS; config_json
+                // llega ya parseado, no como string. JSON.parse(objeto) tira
+                // SyntaxError y quedaba fuera de este try, perdiéndose sin loguear.
+                const config = typeof channel.config_json === "string"
+                    ? JSON.parse(channel.config_json)
+                    : channel.config_json;
+
                 if (channelType === "slack") {
                     await sendToSlack(config, payload);
                 } else if (channelType === "teams") {
