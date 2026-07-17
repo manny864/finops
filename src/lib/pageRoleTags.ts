@@ -111,6 +111,7 @@ export const PAGE_ROLE_TAGS: Record<string, RoleTag[]> = {
     "/admin/markup": ["Platform"],
     "/admin/ai-config": ["Platform"],
     "/admin/report": ["FinOps", "Platform"],
+    "/admin/report/invoicing": ["FinOps", "Platform"],
     "/admin/workbooks": ["Platform"],
     "/admin/notifications": ["Platform"],
     "/admin/billing": ["Platform"],

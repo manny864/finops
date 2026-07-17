@@ -58,7 +58,8 @@ import {
     Wallet,
     Recycle,
     Search,
-    X
+    X,
+    Receipt
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -175,6 +176,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/admin/markup', label: 'Partner Markup (CSP)', icon: DollarSign, requiredTier: 'Enterprise' },
                 { href: '/admin/ai-config', label: 'Configuración de IA', icon: Cpu, requiredTier: 'Professional' },
                 { href: '/admin/report', label: t('executive_report'), icon: FileText, requiredTier: 'Business' },
+                { href: '/admin/report/invoicing', label: 'Invoicing Report', icon: Receipt, requiredTier: 'Business' },
                 { href: '/admin/workbooks', label: t('workbooks'), icon: BookOpen, requiredTier: 'Enterprise' },
                 { href: '/admin/notifications', label: 'Notificaciones', icon: Bell, requiredTier: 'Professional' },
                 { href: '/admin/billing', label: 'Facturación', icon: CreditCard, requiredTier: 'Essential' },

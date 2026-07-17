@@ -80,6 +80,7 @@ export const ROUTE_TIERS: Record<string, 'Essential' | 'Professional' | 'Busines
     '/admin/ai-config': 'Professional',
     '/admin/audit': 'Professional',
     '/admin/report': 'Business',
+    '/admin/report/invoicing': 'Business',
     '/admin/mcp-keys': 'Enterprise',
     '/admin/powerbi-templates': 'Enterprise',
     '/admin/sso': 'Enterprise',

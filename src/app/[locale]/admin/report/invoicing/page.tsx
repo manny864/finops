@@ -15,7 +15,7 @@ export default async function InvoicingReportPage() {
                         <span className="vico bg-gradient-to-br from-[#0054A6] to-[#00AEEF]">🧾</span>
                         Invoicing Report
                     </div>
-                    <div className="vs">Reporte de facturación con markup para clientes PBI (Enterprise)</div>
+                    <div className="vs">Reporte de facturación con markup para clientes PBI (Business+)</div>
                 </div>
             </div>
 
