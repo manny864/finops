@@ -6,6 +6,7 @@ import { requireRequestIdentity, requireTenantTier, AuthError, type RequestIdent
 import rateLimiter from "@/lib/rateLimiter";
 import pool, { initializeDatabase } from "@/modules/storage/db";
 import { getCopilotConfig } from "@/lib/copilotConfig";
+import { isAiGloballyEnabled } from "@/services/aiService";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -19,6 +20,17 @@ export async function POST(request: NextRequest) {
     try {
         const { prompt, pageContext, dataPayload, tenantId, locale = 'es' } = await request.json();
         const isDemoTenant = tenantId && isMockTenant(tenantId);
+
+        // Interruptor maestro de plataforma (Configuración de IA Global) —
+        // apaga la IA para TODOS los tenants, incluidos los demo, sin
+        // importar el toggle per-tenant. Pensado para incidentes/costos
+        // fuera de control con el proveedor de IA.
+        if (!(await isAiGloballyEnabled())) {
+            return NextResponse.json({
+                error: "Las funciones de IA están deshabilitadas a nivel plataforma por un Super Administrador.",
+                aiDisabled: true,
+            }, { status: 403 });
+        }
 
         // El demo público (/demo) es 100% anónimo (login demo/demo, sin cuenta
         // MSAL real — ver setDemoSession) así que nunca hay un Bearer token
@@ -56,10 +68,20 @@ export async function POST(request: NextRequest) {
         if (!isDemoTenant) {
             await initializeDatabase();
             const [tenantRows] = await pool.query(
-                "SELECT tier FROM Tenants WHERE tenant_id = ? LIMIT 1",
+                "SELECT tier, ai_enabled FROM Tenants WHERE tenant_id = ? LIMIT 1",
                 [effectiveTenantId]
             );
-            const tenantRow = Array.isArray(tenantRows) && tenantRows.length > 0 ? (tenantRows[0] as { tier?: string }) : null;
+            const tenantRow = Array.isArray(tenantRows) && tenantRows.length > 0 ? (tenantRows[0] as { tier?: string; ai_enabled?: number | boolean }) : null;
+
+            // Toggle "Habilitar funciones de IA" en /admin/ai-config — apaga el
+            // Copilot para este tenant sin afectar al resto de la plataforma.
+            if (tenantRow && !tenantRow.ai_enabled) {
+                return NextResponse.json({
+                    error: "Las funciones de IA están deshabilitadas para este tenant. Un administrador puede reactivarlas en Configuración de IA.",
+                    aiDisabled: true,
+                }, { status: 403 });
+            }
+
             const tier = tenantRow?.tier || "Essential";
             const copilotConfig = getCopilotConfig(tier);
 

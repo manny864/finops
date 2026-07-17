@@ -26,6 +26,28 @@ import { getHistoricalDailyCosts, AZURE_COST_HISTORY_MAX_MONTHS } from "@/module
 export const DETECTION_WINDOW_DAYS = 30;
 const Z_SCORE_THRESHOLD = 2.5;
 
+// Sensibilidad configurable por tenant (Configuración de IA → "Sensibilidad
+// de detección de anomalías"). low = menos falsos positivos, solo picos
+// grandes; high = más sensible, detecta desvíos más chicos.
+export const SENSITIVITY_Z_SCORE: Record<string, number> = {
+    low: 3.5,
+    medium: Z_SCORE_THRESHOLD,
+    high: 1.5,
+};
+
+async function getAnomalySensitivityThreshold(tenantId: string): Promise<number> {
+    try {
+        const [rows] = await pool.query(
+            "SELECT ai_anomaly_sensitivity FROM Tenants WHERE tenant_id = ? LIMIT 1",
+            [tenantId]
+        );
+        const sensitivity = (rows as any[])[0]?.ai_anomaly_sensitivity as string | undefined;
+        return SENSITIVITY_Z_SCORE[sensitivity || "medium"] ?? Z_SCORE_THRESHOLD;
+    } catch {
+        return Z_SCORE_THRESHOLD;
+    }
+}
+
 export interface DailyCost {
     date: string;
     amount: number;
@@ -268,7 +290,8 @@ export async function runAnomalyDetection(tenantId: string, subscriptionId = "Al
 
     const { mean, stdDev } = computeStats(baseline);
     const recentWindow = dailyCosts.slice(-DETECTION_WINDOW_DAYS);
-    const anomalies = detectAnomalies(recentWindow, mean, stdDev, subscriptionId);
+    const threshold = await getAnomalySensitivityThreshold(tenantId);
+    const anomalies = detectAnomalies(recentWindow, mean, stdDev, subscriptionId, threshold);
 
     recordDailySnapshotAsync(tenantId, "anomalies", {
         anomaliesCount: anomalies.length,

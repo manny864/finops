@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
         }
 
         const connection = await pool.getConnection();
-        
+
         try {
             await connection.beginTransaction();
 
@@ -70,11 +70,25 @@ export async function POST(request: NextRequest) {
                 trialEndsAtValue = now.toISOString().slice(0, 19).replace('T', ' ');
             }
 
+            // Defaults de IA para tenants nuevos (Configuración de IA Global,
+            // Super Admin) — cada tenant puede después ajustarlos en su propia
+            // Configuración de IA. Si no hay override global, se usan los
+            // mismos defaults que la columna (medium/true/true).
+            const [aiDefaultRows] = await connection.query(
+                `SELECT setting_key, setting_value FROM GlobalSettings
+                 WHERE setting_key IN ('ai_anomaly_sensitivity', 'ai_share_resource_names', 'ai_share_tags')`
+            );
+            const aiDefaults: Record<string, string> = {};
+            for (const row of aiDefaultRows as any[]) aiDefaults[row.setting_key] = row.setting_value;
+            const defaultSensitivity = aiDefaults.ai_anomaly_sensitivity || 'medium';
+            const defaultShareResourceNames = aiDefaults.ai_share_resource_names !== 'false';
+            const defaultShareTags = aiDefaults.ai_share_tags !== 'false';
+
             const insertTenantQuery = `
-                INSERT IGNORE INTO Tenants (tenant_id, company_name, tier, subscription_status, trial_ends_at) 
-                VALUES (?, ?, ?, ?, ?) 
+                INSERT IGNORE INTO Tenants (tenant_id, company_name, tier, subscription_status, trial_ends_at, ai_anomaly_sensitivity, ai_share_resource_names, ai_share_tags)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             `;
-            await connection.query(insertTenantQuery, [tenantId, companyName, tier, subStatus, trialEndsAtValue]);
+            await connection.query(insertTenantQuery, [tenantId, companyName, tier, subStatus, trialEndsAtValue, defaultSensitivity, defaultShareResourceNames, defaultShareTags]);
 
             // Insert SignupEvents for tracking
             if (plan === 'pro' || plan === 'business' || plan === 'essential') {

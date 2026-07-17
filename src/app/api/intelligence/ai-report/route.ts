@@ -4,6 +4,7 @@ import pool from '@/modules/storage/db';
 import { RowDataPacket } from 'mysql2';
 import { requireTenantAccess, AuthError } from '@/lib/requestAuth';
 import rateLimiter from '@/lib/rateLimiter';
+import { isAiGloballyEnabled } from '@/services/aiService';
 
 /** Reportes de IA: 5 por (tenant, usuario) cada 5 min — son costosos (IA-4). */
 const AI_RL_LIMIT = 5;
@@ -15,6 +16,13 @@ export async function POST(request: NextRequest) {
 
         if (!tenantId) {
             return NextResponse.json({ error: "Tenant ID is required" }, { status: 400 });
+        }
+
+        if (!(await isAiGloballyEnabled())) {
+            return NextResponse.json({
+                error: "Las funciones de IA están deshabilitadas a nivel plataforma por un Super Administrador.",
+                aiDisabled: true,
+            }, { status: 403 });
         }
 
         const identity = await requireTenantAccess(request, tenantId);
@@ -32,6 +40,14 @@ export async function POST(request: NextRequest) {
         const [rows] = await pool.query<RowDataPacket[]>('SELECT * FROM Tenants WHERE tenant_id = ?', [tenantId]);
         if (rows.length === 0) {
             return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
+        }
+
+        // Toggle "Habilitar funciones de IA" en /admin/ai-config.
+        if (!rows[0].ai_enabled) {
+            return NextResponse.json({
+                error: "Las funciones de IA están deshabilitadas para este tenant. Un administrador puede reactivarlas en Configuración de IA.",
+                aiDisabled: true,
+            }, { status: 403 });
         }
 
         // Consultaremos recomendaciones de ahorro

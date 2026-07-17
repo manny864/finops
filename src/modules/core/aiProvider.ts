@@ -27,6 +27,56 @@ export function invalidateAIConfigCache(tenantId?: string) {
     else _configCache.clear();
 }
 
+// Claves que identifican nombres de recurso / tags en los payloads que arma
+// cada página del dashboard antes de mandarlos a generateFinOpsReport/
+// getAssessment. No hay un schema único (cada página compone su propio
+// metricsData), así que se redacta por nombre de clave en todo el árbol.
+const RESOURCE_NAME_KEYS = new Set([
+    'resourcename', 'resource_name', 'displayname', 'display_name',
+    'resourcegroup', 'resource_group', 'subscriptionname', 'subscription_name',
+    'vmname', 'vm_name', 'name',
+]);
+const TAG_KEYS = new Set(['tags', 'tag']);
+
+interface DataSharingPrefs {
+    shareResourceNames: boolean;
+    shareTags: boolean;
+}
+
+/**
+ * Redacta nombres de recursos y/o tags de un payload antes de mandarlo a un
+ * proveedor de IA externo, según lo que el tenant eligió compartir en
+ * Configuración de IA (ver IA-5 / docs/security/audit-2026-07-05.md). No
+ * toca números, fechas ni el resto de las métricas — solo strings/objetos
+ * bajo las claves de RESOURCE_NAME_KEYS / TAG_KEYS.
+ */
+export function redactForDataSharing<T>(data: T, prefs: DataSharingPrefs): T {
+    if (prefs.shareResourceNames && prefs.shareTags) return data;
+
+    const walk = (value: any): any => {
+        if (Array.isArray(value)) return value.map(walk);
+        if (value && typeof value === 'object') {
+            const out: Record<string, any> = {};
+            for (const [key, val] of Object.entries(value)) {
+                const lowerKey = key.toLowerCase();
+                if (!prefs.shareTags && TAG_KEYS.has(lowerKey) && val && typeof val === 'object') {
+                    out[key] = { _redacted: true, tagCount: Object.keys(val as object).length };
+                    continue;
+                }
+                if (!prefs.shareResourceNames && RESOURCE_NAME_KEYS.has(lowerKey) && typeof val === 'string') {
+                    out[key] = '[REDACTED]';
+                    continue;
+                }
+                out[key] = walk(val);
+            }
+            return out;
+        }
+        return value;
+    };
+
+    return walk(data);
+}
+
 class RequestQueue {
     private queue: (() => Promise<void>)[] = [];
     private isProcessing = false;
@@ -141,11 +191,20 @@ export async function getAssessment(metricsData: any, tenantId: string): Promise
         throw new Error("getAssessment requires a tenantId for cache/config isolation.");
     }
     // DLP (IA-5): metricsData se envía a un proveedor de IA EXTERNO. Puede
-    // contener nombres de recursos y tags con potencial PII. Para clientes
-    // Enterprise con requisitos de residencia/no-retención, evaluar redactar/
-    // tokenizar identificadores sensibles antes del envío y/o restringir el
-    // provider a uno con garantía de no-entrenamiento. Ver docs/security/audit-2026-07-05.md.
-    const dataString = JSON.stringify(metricsData);
+    // contener nombres de recursos y tags con potencial PII. El tenant elige
+    // en Configuración de IA ("Qué datos se comparten") si esos campos van
+    // redactados antes del envío — ver redactForDataSharing. Ver
+    // docs/security/audit-2026-07-05.md.
+    const [sharingRows] = await pool.query<RowDataPacket[]>(
+        'SELECT ai_share_resource_names, ai_share_tags FROM Tenants WHERE tenant_id = ? LIMIT 1',
+        [tenantId]
+    );
+    const sharingPrefs = {
+        shareResourceNames: Boolean(sharingRows[0]?.ai_share_resource_names ?? true),
+        shareTags: Boolean(sharingRows[0]?.ai_share_tags ?? true),
+    };
+    const redactedMetrics = redactForDataSharing(metricsData, sharingPrefs);
+    const dataString = JSON.stringify(redactedMetrics);
     // El hash incluye el tenantId para que dos tenants con el mismo payload
     // NO compartan la misma entrada de caché (fuga cross-tenant IA-1).
     const hashPrompt = crypto.createHash('sha256').update(`${tenantId}:${dataString}`).digest('hex');

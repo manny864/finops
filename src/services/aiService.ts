@@ -7,6 +7,19 @@ import pool from '@/modules/storage/db';
 import { RowDataPacket } from 'mysql2';
 import { decryptSecret } from '@/lib/secretCrypto';
 
+/**
+ * Interruptor maestro de plataforma (Configuración de IA Global →
+ * "Habilitar funciones de IA"). Si está apagado, ningún tenant puede usar
+ * IA sin importar su propio toggle — pensado para apagar la IA de todo el
+ * SaaS de una sola vez (incidente con el proveedor, costos fuera de control, etc).
+ */
+export async function isAiGloballyEnabled(): Promise<boolean> {
+    const [rows] = await pool.query<RowDataPacket[]>(
+        `SELECT setting_value FROM GlobalSettings WHERE setting_key = 'ai_enabled' LIMIT 1`
+    );
+    return rows[0]?.setting_value !== 'false';
+}
+
 export async function getAIConfig(tenantId?: string) {
     let tenantProvider = null;
     let tenantApiKey = null;
