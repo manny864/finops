@@ -106,15 +106,28 @@ export const getMockSnapshotHistory = (
 };
 
 
+// Tier fijo de cada tenant de demo (ver TenantProvider.tsx, misma fuente de
+// verdad). Antes, cuando getMockDataForRoute recibía un tenantId (caller
+// server-side) en vez de un tier (caller client-side), se forzaba 'essential'
+// sin importar el tenant real — cualquier ruta backend sin interceptor mock
+// en TenantProvider.tsx (ej. /api/support/tickets) mostraba datos escalados
+// a Essential incluso para tenants Business/Enterprise.
+const MOCK_TENANT_TIER: Record<string, string> = {
+    "11111111-2222-3333-4444-555555555555": "essential",
+    "22222222-3333-4444-5555-666666666666": "pro",
+    "44444444-5555-6666-7777-888888888888": "business",
+    "33333333-4444-5555-6666-777777777777": "enterprise",
+};
+
 export const getMockDataForRoute = (route: string, arg2: string, locale?: string): any => {
     // Arg2 can be either a tenantId (from backend) or a tier string (from frontend mock override)
     const isTenantId = arg2 && arg2.length > 20; // tenantIds are GUIDs
     if (isTenantId && !isMockTenant(arg2)) {
         return null; // Return real data if it's not a mock tenant
     }
-    
-    const tier = (isTenantId ? 'essential' : arg2) || 'essential';
-    
+
+    const tier = (isTenantId ? MOCK_TENANT_TIER[arg2] : arg2) || 'essential';
+
     let multiplier = 1;
     if (tier.toLowerCase() === 'pro') multiplier = 3;
     if (tier.toLowerCase() === 'business') multiplier = 10;
@@ -1313,10 +1326,13 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
             };
         }
         case 'dashboard_summary': {
-            const tierMult = (arg2 || '').toLowerCase() === 'enterprise' ? 5
-                : (arg2 || '').toLowerCase() === 'business' ? 2.5
-                : (arg2 || '').toLowerCase().startsWith('pro') ? 1.5 : 1;
-            const base = 12500 * tierMult;
+            // Antes usaba una escala propia (1x/1.5x/2.5x/5x) distinta del
+            // `multiplier` general (1x/3x/10x/50x) que usan Cost Groups, Top
+            // Expenses, Budgets, etc. — el "Costo Actual" del dashboard no
+            // guardaba proporción con el resto de la demo por tier (ej.
+            // Enterprise mostraba $62,500 mientras Cost Groups sumaba
+            // ~$185,500 para el mismo tenant). Unificado a `multiplier`.
+            const base = 12500 * multiplier;
             const proj = base * 1.18;
             const sav = base * 0.22;
             // Histograma diario de los últimos 13 meses (~400 días) para que el
@@ -1345,16 +1361,16 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                 usageCost: Math.round(base * 0.89),
                 purchaseCost: Math.round(base * 0.11),
                 projectedCost: Math.round(proj),
-                zombieCount: Math.round(48 * tierMult),
+                zombieCount: Math.round(48 * multiplier),
                 totalSavings: Math.round(sav),
                 environmentalImpact: Number(((sav / 100) * 15).toFixed(1)),
                 // Score de gobernanza pre-calculado: el frontend lo prefiere sobre
                 // el cálculo por-recurso cuando viene presente (ver page.tsx). Sin
                 // esto, el cálculo sobre los recursos zombie —que legítimamente no
                 // tienen tags— arrojaba ~0%, dando la impresión de "sin datos".
-                complianceScore: (arg2 || '').toLowerCase() === 'enterprise' ? 86
-                    : (arg2 || '').toLowerCase() === 'business' ? 78
-                    : (arg2 || '').toLowerCase().startsWith('pro') ? 71 : 64,
+                complianceScore: tier === 'enterprise' ? 86
+                    : tier === 'business' ? 78
+                    : tier.startsWith('pro') ? 71 : 64,
                 histogram,
                 dashboardData: [
                     { type: 'Disk', name: 'orphan-disk-01', issueType: 'cost', potentialSavings: 78, sizeGB: 512 },

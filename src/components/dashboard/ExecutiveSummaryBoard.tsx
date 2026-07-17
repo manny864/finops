@@ -158,7 +158,10 @@ export default function ExecutiveSummaryBoard() {
         { revalidateOnFocus: false }
     );
     const calculateCO2Savings = (wastedUsd: number) => ((wastedUsd / 100) * 15).toFixed(1);
-    const totalSavings = (summaryData?.dashboardData || []).reduce((sum: number, item: any) => sum + (item.potentialSavings || 0), 0);
+    // totalSavings viene directo del backend (mismo valor que sum(dashboardData.potentialSavings)
+    // en datos reales — ver /api/dashboard/summary — pero en mock dashboardData es una lista de
+    // ejemplo fija que no escala por tier, mientras que este campo sí).
+    const totalSavings = Number(summaryData?.totalSavings || 0);
 
     // Layout de tarjetas resizeables/reubicables — persistido por cookie
     // (Max-Age 1 año), con localStorage como fallback de lectura para migrar
