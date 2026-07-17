@@ -24,6 +24,7 @@ describe("notifyTenant", () => {
   });
 
   it("should return empty results when no channels are configured", async () => {
+    (pool.query as any).mockResolvedValueOnce([[{ notifications_enabled: 1 }], []]);
     (pool.query as any).mockResolvedValueOnce([[], []]);
     (pool.query as any).mockResolvedValueOnce([[], []]);
 
@@ -48,6 +49,7 @@ describe("notifyTenant", () => {
       },
     ];
 
+    (pool.query as any).mockResolvedValueOnce([[{ notifications_enabled: 1 }], []]);
     (pool.query as any).mockResolvedValueOnce([channels, []]);
 
     const result = await notifyTenant("tenant123", {
@@ -79,6 +81,7 @@ describe("notifyTenant", () => {
       },
     ];
 
+    (pool.query as any).mockResolvedValueOnce([[{ notifications_enabled: 1 }], []]);
     (pool.query as any).mockResolvedValueOnce([channels, []]);
     (pool.query as any).mockResolvedValueOnce(undefined);
     (pool.query as any).mockResolvedValueOnce(undefined);
@@ -111,6 +114,7 @@ describe("notifyTenant", () => {
       },
     ];
 
+    (pool.query as any).mockResolvedValueOnce([[{ notifications_enabled: 1 }], []]);
     (pool.query as any).mockResolvedValueOnce([channels, []]);
     (pool.query as any).mockResolvedValueOnce(undefined);
     (pool.query as any).mockResolvedValueOnce(undefined);
@@ -136,6 +140,7 @@ describe("sendWebhookAlert (backward compatibility)", () => {
   });
 
   it("should still work via legacy signature", async () => {
+    (pool.query as any).mockResolvedValueOnce([[{ notifications_enabled: 1 }], []]);
     (pool.query as any).mockResolvedValueOnce([[], []]);
     (pool.query as any).mockResolvedValueOnce([[], []]);
 
@@ -150,6 +155,7 @@ describe("sendWebhookAlert (backward compatibility)", () => {
     const tenants = [{ webhook_url: "https://hooks.slack.com/services/..." }];
 
     (pool.query as any)
+      .mockResolvedValueOnce([[{ notifications_enabled: 1 }], []]) // Master toggle ON
       .mockResolvedValueOnce([[], []]) // No channels
       .mockResolvedValueOnce([tenants, []]) // Webhook URL fallback
       .mockResolvedValueOnce(undefined); // Log insert

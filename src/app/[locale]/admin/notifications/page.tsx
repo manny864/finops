@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
-import { Bell, Plus, Trash2, Loader2, MessageCircle, Mail, CheckCircle, AlertCircle, Zap } from "lucide-react";
+import { Bell, Plus, Trash2, Loader2, MessageCircle, Mail, CheckCircle, AlertCircle, Zap, X } from "lucide-react";
 import { toast } from "sonner";
 
 interface Channel {
@@ -32,6 +32,8 @@ export default function NotificationsPage() {
     }>({ name: "", severityFilter: "info,warning,error" });
     const [creating, setCreating] = useState(false);
     const [testing, setTesting] = useState<number | null>(null);
+    const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+    const [togglingMaster, setTogglingMaster] = useState(false);
 
     const authHeaders = useCallback(async (): Promise<Record<string, string>> => {
         if (!accounts || accounts.length === 0) return {};
@@ -51,7 +53,10 @@ export default function NotificationsPage() {
             const res = await fetch(`/api/admin/notifications/channels?tenantId=${selectedTenant.id}`, { headers });
             const json = await res.json();
             if (!json.success) setError(json.error || "Error loading channels");
-            else setChannels(json.channels || []);
+            else {
+                setChannels(json.channels || []);
+                setNotificationsEnabled(json.notificationsEnabled ?? true);
+            }
         } catch (e: any) {
             setError(e?.message);
         } finally {
@@ -144,6 +149,13 @@ export default function NotificationsPage() {
         }
     };
 
+    const closeModal = () => {
+        setShowModal(false);
+        setSelectedType(null);
+        setFormData({ name: "", severityFilter: "info,warning,error" });
+        setError(null);
+    };
+
     const testChannel = async (id: number) => {
         if (!selectedTenant?.id) return;
 
@@ -187,6 +199,31 @@ export default function NotificationsPage() {
             }
         } catch (e: any) {
             toast.error(e?.message);
+        }
+    };
+
+    const toggleMasterSwitch = async () => {
+        if (!selectedTenant?.id) return;
+        const next = !notificationsEnabled;
+        setTogglingMaster(true);
+        try {
+            const headers = { "Content-Type": "application/json", ...(await authHeaders()) };
+            const res = await fetch(`/api/admin/notifications/channels`, {
+                method: "PATCH",
+                headers,
+                body: JSON.stringify({ tenantId: selectedTenant.id, notificationsEnabled: next }),
+            });
+            const json = await res.json();
+            if (json.success) {
+                setNotificationsEnabled(next);
+                toast.success(next ? "Notificaciones habilitadas" : "Notificaciones deshabilitadas");
+            } else {
+                toast.error(json.error || "No se pudo cambiar el estado");
+            }
+        } catch (e: any) {
+            toast.error(e?.message);
+        } finally {
+            setTogglingMaster(false);
         }
     };
 
@@ -239,6 +276,33 @@ export default function NotificationsPage() {
             {error && <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">{error}</div>}
 
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                <label className="flex items-center justify-between cursor-pointer">
+                    <div>
+                        <div className="text-sm font-medium text-gray-800 dark:text-gray-100">Habilitar notificaciones</div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            Interruptor maestro: apaga todos los canales (Slack, Teams, Email) de una vez sin perder su configuración individual.
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        role="switch"
+                        aria-checked={notificationsEnabled}
+                        disabled={togglingMaster}
+                        onClick={toggleMasterSwitch}
+                        className={`ml-4 shrink-0 relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-50 ${
+                            notificationsEnabled ? "bg-blue-600" : "bg-gray-300 dark:bg-gray-600"
+                        }`}
+                    >
+                        <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                notificationsEnabled ? "translate-x-6" : "translate-x-1"
+                            }`}
+                        />
+                    </button>
+                </label>
+            </div>
+
+            <div className={`bg-white dark:bg-gray-800 rounded-lg shadow p-6 ${!notificationsEnabled ? "opacity-50" : ""}`}>
                 <h2 className="font-semibold mb-3">Active Channels</h2>
                 {channels.length === 0 ? (
                     <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">No channels configured yet.</p>
@@ -320,7 +384,16 @@ export default function NotificationsPage() {
             {showModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-md w-full mx-4 p-6">
-                        <h3 className="text-lg font-semibold mb-4">Add Notification Channel</h3>
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-semibold">Add Notification Channel</h3>
+                            <button
+                                onClick={closeModal}
+                                aria-label="Close"
+                                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded p-1 -m-1"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
 
                         {!selectedType ? (
                             <div className="space-y-3">
@@ -439,7 +512,7 @@ export default function NotificationsPage() {
 
                                 <div className="flex gap-2 pt-2">
                                     <button
-                                        onClick={() => setShowModal(false)}
+                                        onClick={closeModal}
                                         className="flex-1 border rounded px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700"
                                     >
                                         Cancel

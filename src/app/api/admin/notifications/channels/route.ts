@@ -22,7 +22,39 @@ export async function GET(request: NextRequest) {
              FROM NotificationChannels WHERE tenant_id=? ORDER BY created_at DESC LIMIT 200`,
             [tenantId]
         );
-        return NextResponse.json({ success: true, channels: rows });
+
+        const [tenantRows] = await pool.query(
+            "SELECT notifications_enabled FROM Tenants WHERE tenant_id = ? LIMIT 1",
+            [tenantId]
+        );
+        const notificationsEnabled = Boolean((tenantRows as any[])[0]?.notifications_enabled ?? true);
+
+        return NextResponse.json({ success: true, channels: rows, notificationsEnabled });
+    } catch (err: any) {
+        if (err instanceof AuthError) {
+            return NextResponse.json({ success: false, error: err.message }, { status: err.status });
+        }
+        return NextResponse.json({ success: false, error: err?.message }, { status: 500 });
+    }
+}
+
+export async function PATCH(request: NextRequest) {
+    try {
+        const body = await request.json().catch(() => ({}));
+        const { tenantId, notificationsEnabled } = body as { tenantId?: string; notificationsEnabled?: boolean };
+
+        if (!tenantId) {
+            return NextResponse.json({ success: false, error: "Falta tenantId" }, { status: 400 });
+        }
+
+        await requireTenantRole(request, tenantId, ["Admin", "Owner"]);
+
+        await pool.query(
+            "UPDATE Tenants SET notifications_enabled = ? WHERE tenant_id = ?",
+            [Boolean(notificationsEnabled), tenantId]
+        );
+
+        return NextResponse.json({ success: true });
     } catch (err: any) {
         if (err instanceof AuthError) {
             return NextResponse.json({ success: false, error: err.message }, { status: err.status });

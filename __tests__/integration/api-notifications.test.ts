@@ -55,6 +55,7 @@ describe("GET /api/admin/notifications/channels", () => {
     ];
 
     (pool.query as any).mockResolvedValueOnce([channels, []]);
+    (pool.query as any).mockResolvedValueOnce([[{ notifications_enabled: 1 }], []]);
 
     const request = new NextRequest("http://localhost/api/admin/notifications/channels?tenantId=tenant123");
     const response = await GET(request);

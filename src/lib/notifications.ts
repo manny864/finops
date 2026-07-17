@@ -170,6 +170,18 @@ export async function notifyTenant(tenantId: string, payload: NotificationPayloa
     const results: Array<{ channelId: number; type: string; success: boolean; error?: string }> = [];
 
     try {
+        // Interruptor maestro (Notificaciones → "Habilitar notificaciones"):
+        // apaga TODOS los canales de un saque sin tocar el enabled de cada
+        // uno (se conserva esa config para cuando se reactive).
+        const [tenantRows] = await pool.query(
+            "SELECT notifications_enabled FROM Tenants WHERE tenant_id = ? LIMIT 1",
+            [tenantId]
+        );
+        const notificationsEnabled = Boolean((tenantRows as any[])[0]?.notifications_enabled ?? true);
+        if (!notificationsEnabled) {
+            return { sent: 0, failed: 0, results: [] };
+        }
+
         // Fetch enabled notification channels
         const [channels] = await pool.query(
             `SELECT id, type, name, config_json, severity_filter FROM NotificationChannels
