@@ -6,10 +6,142 @@ import { useMsal } from "@azure/msal-react";
 import { useTranslations, useLocale } from "next-intl";
 import { getFreshIdToken } from "@/lib/msalToken";
 import Pagination, { usePagination } from "@/components/Pagination";
-import { Loader2, AlertCircle, DollarSign, MousePointerClick } from "lucide-react";
+import { Loader2, AlertCircle, DollarSign, MousePointerClick, Plus } from "lucide-react";
+import { toast } from "sonner";
 import { isMockTenant } from "@/lib/mockData";
 import CostGroupDetailModal from "@/components/dashboard/CostGroupDetailModal";
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
+
+type MatchType = "tag" | "name_pattern";
+
+function CreateCostGroupModal({
+    tenantId, onClose, onCreated,
+}: { tenantId: string; onClose: () => void; onCreated: () => void }) {
+    const t = useTranslations("CostGroups");
+    const { instance, accounts } = useMsal();
+    const [name, setName] = useState("");
+    const [description, setDescription] = useState("");
+    const [matchType, setMatchType] = useState<MatchType>("name_pattern");
+    const [rgPattern, setRgPattern] = useState("");
+    const [tagKey, setTagKey] = useState("");
+    const [tagValue, setTagValue] = useState("");
+    const [saving, setSaving] = useState(false);
+
+    const save = async () => {
+        if (!name.trim()) { toast.error(t("create_error_name_required")); return; }
+        if (matchType === "name_pattern" && !rgPattern.trim()) { toast.error(t("create_error_pattern_required")); return; }
+        if (matchType === "tag" && (!tagKey.trim() || !tagValue.trim())) { toast.error(t("create_error_tag_required")); return; }
+
+        setSaving(true);
+        try {
+            const idToken = await getFreshIdToken(instance, accounts[0], ["User.Read"]);
+            const res = await fetch("/api/cost-groups", {
+                method: "POST",
+                headers: { Authorization: `Bearer ${idToken}`, "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    tenantId,
+                    name: name.trim(),
+                    description: description.trim() || undefined,
+                    matchType,
+                    ...(matchType === "name_pattern" ? { rgPattern: rgPattern.trim() } : { tagKey: tagKey.trim(), tagValue: tagValue.trim() }),
+                }),
+            });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.error || "Error");
+            toast.success(t("create_success"));
+            onCreated();
+            onClose();
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : t("create_error_generic"));
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/40 z-50 grid place-items-center p-4" onClick={() => !saving && onClose()}>
+            <div className="bg-white dark:bg-slate-900 rounded-xl w-full max-w-md p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+                <h4 className="font-bold text-[15px] text-gray-900 dark:text-white mb-1">{t("create_title")}</h4>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">{t("create_subtitle")}</p>
+
+                <div className="flex flex-col gap-3">
+                    <div>
+                        <label className="text-xs font-semibold text-gray-500">{t("create_name")}</label>
+                        <input
+                            value={name} onChange={(e) => setName(e.target.value)} maxLength={255}
+                            className="w-full border border-gray-200 dark:border-slate-700 rounded-md p-2 text-sm mt-1 bg-transparent"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-xs font-semibold text-gray-500">{t("create_description")}</label>
+                        <input
+                            value={description} onChange={(e) => setDescription(e.target.value)} maxLength={1000}
+                            className="w-full border border-gray-200 dark:border-slate-700 rounded-md p-2 text-sm mt-1 bg-transparent"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="text-xs font-semibold text-gray-500 mb-1.5 block">{t("create_rule_type")}</label>
+                        <div className="flex gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setMatchType("name_pattern")}
+                                className={`flex-1 px-3 py-2 rounded-md text-xs font-bold border transition-colors ${matchType === "name_pattern" ? "bg-brand-deep text-white border-brand-deep" : "border-gray-200 dark:border-slate-700 text-gray-600 dark:text-gray-300"}`}
+                            >
+                                {t("create_rule_pattern")}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setMatchType("tag")}
+                                className={`flex-1 px-3 py-2 rounded-md text-xs font-bold border transition-colors ${matchType === "tag" ? "bg-brand-deep text-white border-brand-deep" : "border-gray-200 dark:border-slate-700 text-gray-600 dark:text-gray-300"}`}
+                            >
+                                {t("create_rule_tag")}
+                            </button>
+                        </div>
+                    </div>
+
+                    {matchType === "name_pattern" ? (
+                        <div>
+                            <label className="text-xs font-semibold text-gray-500">{t("create_rg_pattern")}</label>
+                            <input
+                                value={rgPattern} onChange={(e) => setRgPattern(e.target.value)}
+                                placeholder="rg-prod-%"
+                                className="w-full border border-gray-200 dark:border-slate-700 rounded-md p-2 text-sm mt-1 bg-transparent font-mono"
+                            />
+                            <p className="text-[11px] text-gray-400 mt-1">{t("create_rg_pattern_hint")}</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="text-xs font-semibold text-gray-500">{t("create_tag_key")}</label>
+                                <input
+                                    value={tagKey} onChange={(e) => setTagKey(e.target.value)} placeholder="Team"
+                                    className="w-full border border-gray-200 dark:border-slate-700 rounded-md p-2 text-sm mt-1 bg-transparent"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs font-semibold text-gray-500">{t("create_tag_value")}</label>
+                                <input
+                                    value={tagValue} onChange={(e) => setTagValue(e.target.value)} placeholder="platform"
+                                    className="w-full border border-gray-200 dark:border-slate-700 rounded-md p-2 text-sm mt-1 bg-transparent"
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="flex justify-end gap-2 mt-2">
+                        <button onClick={onClose} disabled={saving} className="px-4 py-2 text-sm font-semibold text-gray-500 hover:text-gray-800 dark:hover:text-gray-200">
+                            {t("create_cancel")}
+                        </button>
+                        <button onClick={save} disabled={saving} className="px-4 py-2 bg-brand-deep text-white rounded-md text-sm font-bold flex items-center gap-2 disabled:opacity-50 hover:brightness-110">
+                            {saving && <Loader2 className="w-4 h-4 animate-spin" />} {t("create_submit")}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
 
 const fmtUsd = (n: number | null | undefined) =>
     new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n || 0);
@@ -49,6 +181,7 @@ export default function CostGroupsBoard() {
     const [period, setPeriod] = useState("30d");
     const [groupFilter, setGroupFilter] = useState("all");
     const [openGroup, setOpenGroup] = useState<string | null>(null);
+    const [creating, setCreating] = useState(false);
 
     const fetcher = async (url: string) => {
         const idToken = await getFreshIdToken(instance, accounts[0], ["User.Read"]);
@@ -57,7 +190,7 @@ export default function CostGroupsBoard() {
         return res.json();
     };
 
-    const { data, error, isLoading } = useSWR(
+    const { data, error, isLoading, mutate } = useSWR(
         selectedTenant && selectedTenant.id !== "default" && (accounts.length > 0 || isMockTenant(selectedTenant.id))
             ? `/api/cost-groups?tenantId=${selectedTenant.id}&period=${period}`
             : null,
@@ -106,6 +239,12 @@ export default function CostGroupsBoard() {
                         <option value="90d">{t("period_90d")}</option>
                         <option value="fy">{t("period_fy")}</option>
                     </select>
+                    <button
+                        onClick={() => setCreating(true)}
+                        className="px-3 py-2 bg-brand-deep text-white rounded-lg text-sm font-bold hover:brightness-110 flex items-center gap-1.5 shrink-0"
+                    >
+                        <Plus className="w-3.5 h-3.5" /> {t("create_group_btn")}
+                    </button>
                 </div>
             </div>
 
@@ -202,6 +341,14 @@ export default function CostGroupsBoard() {
                     name={openGroup}
                     tenantId={selectedTenant.id}
                     onClose={() => setOpenGroup(null)}
+                />
+            )}
+
+            {creating && (
+                <CreateCostGroupModal
+                    tenantId={selectedTenant.id}
+                    onClose={() => setCreating(false)}
+                    onCreated={() => mutate()}
                 />
             )}
         </div>

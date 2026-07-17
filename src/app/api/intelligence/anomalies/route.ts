@@ -38,6 +38,17 @@ export async function GET(request: NextRequest) {
 
             const STATUS_CYCLE = ['Open', 'Postponed', 'Dismissed', 'Completed', 'Completed', 'Open', 'Dismissed'];
             const SUBS = ['sub-prod-eastus', 'sub-dev-westeurope', 'sub-shared-services', 'sub-prod-brazilsouth'];
+            // Causas plausibles para el demo — un servicio+RG por anomalía, con el
+            // resto del delta repartido entre 1-2 contribuyentes menores.
+            const MOCK_CAUSES: { service_name: string; resource_group: string }[] = [
+                { service_name: 'Virtual Machines', resource_group: 'rg-prod-compute' },
+                { service_name: 'Azure SQL Database', resource_group: 'rg-data-platform' },
+                { service_name: 'Storage Accounts', resource_group: 'rg-shared-services' },
+                { service_name: 'Azure Kubernetes Service', resource_group: 'rg-prod-aks' },
+                { service_name: 'Bandwidth', resource_group: 'rg-networking' },
+                { service_name: 'Azure OpenAI', resource_group: 'rg-ai-workloads' },
+                { service_name: 'App Service', resource_group: 'rg-prod-web' },
+            ];
             const anomalies = [...spikeIndices].sort((a, b) => b - a).map((idx, i) => {
                 const d = dailyCosts[idx];
                 const detectedAt = new Date(new Date(d.date).getTime() + 6 * 60 * 60 * 1000);
@@ -45,6 +56,28 @@ export async function GET(request: NextRequest) {
                 const resolvedAt = status !== 'Open'
                     ? new Date(detectedAt.getTime() + (4 + Math.random() * 36) * 60 * 60 * 1000)
                     : null;
+                const totalDelta = Math.max(0, d.amount - mean);
+                const primary = MOCK_CAUSES[i % MOCK_CAUSES.length];
+                const secondary = MOCK_CAUSES[(i + 3) % MOCK_CAUSES.length];
+                const primaryPct = 55 + Math.round(Math.random() * 20); // 55-75%
+                const top_contributors = totalDelta > 0 ? [
+                    {
+                        resource_group: primary.resource_group,
+                        service_name: primary.service_name,
+                        cost: Number((mean * 0.3 + totalDelta * (primaryPct / 100)).toFixed(2)),
+                        baseline_avg: Number((mean * 0.3).toFixed(2)),
+                        delta: Number((totalDelta * (primaryPct / 100)).toFixed(2)),
+                        delta_pct_of_total: primaryPct,
+                    },
+                    {
+                        resource_group: secondary.resource_group,
+                        service_name: secondary.service_name,
+                        cost: Number((mean * 0.15 + totalDelta * ((100 - primaryPct) / 100)).toFixed(2)),
+                        baseline_avg: Number((mean * 0.15).toFixed(2)),
+                        delta: Number((totalDelta * ((100 - primaryPct) / 100)).toFixed(2)),
+                        delta_pct_of_total: 100 - primaryPct,
+                    },
+                ] : [];
                 return {
                     id: i + 1,
                     date: d.date,
@@ -55,6 +88,7 @@ export async function GET(request: NextRequest) {
                     subscription_id: SUBS[i % SUBS.length],
                     detected_at: detectedAt.toISOString(),
                     resolved_at: resolvedAt ? resolvedAt.toISOString() : null,
+                    top_contributors,
                 };
             });
             if (anomalies.length > 0) {
@@ -95,14 +129,22 @@ export async function GET(request: NextRequest) {
         // dentro de la ventana de 30 días.
         const { dailyCosts, anomalies: rawAnomalies, mean, stdDev, message } = await runAnomalyDetection(tenantId, subscriptionId);
 
+        // enrichedAnomalies trae top_contributors (atribución de causa raíz,
+        // ver getAnomalyTopContributors) ya calculado por persistAndNotifyAnomalies
+        // — si esa llamada falla (DB caída, etc.) se degrada a rawAnomalies sin
+        // contribuyentes en vez de romper la página.
+        let enrichedAnomalies: (typeof rawAnomalies[number] & { top_contributors?: import("@/services/anomalyDetectionService").AnomalyContributor[] })[] = rawAnomalies;
         if (rawAnomalies.length > 0) {
             const dashboardUrl = `${request.nextUrl.origin}/intelligence/anomalies`;
-            await persistAndNotifyAnomalies(tenantId, rawAnomalies, dashboardUrl).catch((e) => {
+            try {
+                const result = await persistAndNotifyAnomalies(tenantId, rawAnomalies, dashboardUrl);
+                enrichedAnomalies = result.anomalies;
+            } catch (e: any) {
                 console.warn("[anomalies] persistAndNotifyAnomalies failed:", e?.message);
-            });
+            }
         }
 
-        const anomalies = rawAnomalies.map((a, i) => ({
+        const anomalies = enrichedAnomalies.map((a, i) => ({
             id: i + 1,
             ...a,
             status: 'Open' as const,

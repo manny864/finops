@@ -39,17 +39,11 @@ function lastNMonths(n: number): Array<{ start: Date; end: Date; label: string }
     return out;
 }
 
-async function getCurrentFY(tenantId: string, name: string, budget: number) {
+async function getCurrentFY(tenantId: string, name: string, budget: number, tagFilter: string, params: any[]) {
     const now = new Date();
     const fyStart = `${now.getUTCFullYear()}-01-01`;
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString().slice(0, 10);
     const today = now.toISOString().slice(0, 10);
-
-    const isUntagged = name === "Untagged/Unknown";
-    const tagFilter = isUntagged
-        ? `(JSON_EXTRACT(Tags, '$.CostCenter') IS NULL OR JSON_UNQUOTE(JSON_EXTRACT(Tags, '$.CostCenter')) = 'null')`
-        : `JSON_UNQUOTE(JSON_EXTRACT(Tags, '$.CostCenter')) = ?`;
-    const params = isUntagged ? [tenantId] : [tenantId, name];
 
     const [rows]: any = await pool.query(
         `SELECT
@@ -90,8 +84,6 @@ async function getCurrentFY(tenantId: string, name: string, budget: number) {
         unattributedSubscriptionCost,
         subscriptionsCount: Number(r.subscriptions) || 0,
         resourceGroupsCount: Number(r.resourceGroups) || 0,
-        _tagFilter: tagFilter,
-        _params: params,
     };
 }
 
@@ -326,6 +318,62 @@ async function getAuditLogs(tenantId: string, resourceGroupSet: Set<string>) {
     }));
 }
 
+/**
+ * Resuelve el predicado de membresía de un Cost Group, tanto para
+ * CostSnapshots (SQL) como para Resource Graph (KQL) — legacy (tag
+ * CostCenter) o custom (regla propia + asignación manual, ver
+ * migrations/20260717-001-cost-groups-custom-rules.sql).
+ *
+ * Para grupos custom, ambos motores (SQL y KQL) matchean contra el MISMO
+ * conjunto resuelto de resource_group — CostSnapshots no tiene ResourceId
+ * poblado para tenants Azure, así que ese es el grano más fino que se puede
+ * agregar de forma confiable, y usar el mismo conjunto en los dos lados
+ * evita que "costo" y "recursos mostrados" cuenten cosas distintas.
+ */
+async function resolveGroupFilters(tenantId: string, name: string, meta: any) {
+    if (meta?.match_type == null) {
+        const isUntagged = name === "Untagged/Unknown";
+        const tagFilter = isUntagged
+            ? `(JSON_EXTRACT(Tags, '$.CostCenter') IS NULL OR JSON_UNQUOTE(JSON_EXTRACT(Tags, '$.CostCenter')) = 'null')`
+            : `JSON_UNQUOTE(JSON_EXTRACT(Tags, '$.CostCenter')) = ?`;
+        const tagParams = isUntagged ? [tenantId] : [tenantId, name];
+        const escapedName = escapeKql(name);
+        const kqlTagFilter = isUntagged
+            ? `isempty(tostring(tags.CostCenter))`
+            : `tostring(tags.CostCenter) =~ '${escapedName}'`;
+        return { tagFilter, tagParams, kqlTagFilter, isCustom: false, matchType: null as string | null, resourceGroups: [] as string[] };
+    }
+
+    const patternPredicate = meta.match_type === "name_pattern"
+        ? "resource_group LIKE ?"
+        : "JSON_UNQUOTE(JSON_EXTRACT(Tags, CONCAT('$.', ?))) = ?";
+    const patternParams = meta.match_type === "name_pattern"
+        ? [meta.match_rg_pattern]
+        : [meta.match_tag_key, meta.match_tag_value];
+
+    const [matchedRows]: any = await pool.query(
+        `SELECT DISTINCT resource_group FROM CostSnapshots WHERE tenant_id = ? AND (${patternPredicate})`,
+        [tenantId, ...patternParams]
+    );
+    const [manualRows]: any = await pool.query(
+        `SELECT resource_group FROM CostGroupResourceGroups WHERE tenant_id = ? AND group_name = ?`,
+        [tenantId, name]
+    );
+    const resourceGroups = Array.from(new Set([
+        ...(matchedRows as any[]).map(r => r.resource_group),
+        ...(manualRows as any[]).map(r => r.resource_group),
+    ]));
+
+    const tagFilter = resourceGroups.length > 0
+        ? `resource_group IN (${resourceGroups.map(() => "?").join(",")})`
+        : "1=0";
+    const kqlTagFilter = resourceGroups.length > 0
+        ? `resourceGroup in~ (${resourceGroups.map(rg => `'${escapeKql(rg)}'`).join(",")})`
+        : "false";
+
+    return { tagFilter, tagParams: [tenantId, ...resourceGroups], kqlTagFilter, isCustom: true, matchType: meta.match_type as string, resourceGroups };
+}
+
 export async function GET(request: NextRequest, { params }: { params: Promise<{ name: string }> }) {
     try {
         const { name: rawName } = await params;
@@ -349,23 +397,24 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         const budget = Number(budgetRows?.[0]?.monthly_limit_usd) || 0;
 
         const [metaRows]: any = await pool.query(
-            `SELECT cg.description, cg.created_by, cg.created_at, u.display_name AS ownerName, u.email AS ownerEmail
+            `SELECT cg.description, cg.match_type, cg.match_tag_key, cg.match_tag_value, cg.match_rg_pattern,
+                    cg.created_by, cg.created_at, u.display_name AS ownerName, u.email AS ownerEmail
              FROM CostGroups cg LEFT JOIN Users u ON u.id = cg.owner_user_id
              WHERE cg.tenant_id = ? AND cg.name = ?`,
             [tenantId, name]
         );
         const meta = metaRows?.[0] || {};
 
-        const currentFYRaw = await getCurrentFY(tenantId, name, budget).catch(e => {
-            console.warn("[cost-groups/detail] currentFY:", e.message);
-            return { actualCostToDateFY: 0, currentMonthActualCost: 0, monthlyBudget: budget, currentMonthForecast: 0, subscriptionBreakdown: [], subscriptionsCount: 0, resourceGroupsCount: 0, _tagFilter: "1=0", _params: [] as any[] };
-        });
-        const { _tagFilter: tagFilter, _params: tagParams, ...currentFY } = currentFYRaw;
+        const { tagFilter, tagParams, kqlTagFilter, isCustom, matchType, resourceGroups: matchedResourceGroups } =
+            await resolveGroupFilters(tenantId, name, meta).catch(e => {
+                console.warn("[cost-groups/detail] resolveGroupFilters:", e.message);
+                return { tagFilter: "1=0", tagParams: [] as any[], kqlTagFilter: "false", isCustom: false, matchType: null as string | null, resourceGroups: [] as string[] };
+            });
 
-        const escapedName = escapeKql(name);
-        const kqlTagFilter = name === "Untagged/Unknown"
-            ? `isempty(tostring(tags.CostCenter))`
-            : `tostring(tags.CostCenter) =~ '${escapedName}'`;
+        const currentFY = await getCurrentFY(tenantId, name, budget, tagFilter, tagParams).catch(e => {
+            console.warn("[cost-groups/detail] currentFY:", e.message);
+            return { actualCostToDateFY: 0, currentMonthActualCost: 0, monthlyBudget: budget, currentMonthForecast: 0, subscriptionBreakdown: [], unattributedSubscriptionCost: 0, subscriptionsCount: 0, resourceGroupsCount: 0 };
+        });
 
         let resourcesResult: any[] = [];
         let locations: Array<{ region: string; resources: number }> = [];
@@ -480,6 +529,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             createdBy: meta.created_by || null,
             createdAt: meta.created_at || null,
             lastUpdated: new Date().toISOString(),
+            isCustom,
+            matchType,
+            matchedResourceGroups,
             currentFY: {
                 ...currentFY,
                 monthlySaving,

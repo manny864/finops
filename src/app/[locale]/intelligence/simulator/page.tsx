@@ -1,27 +1,67 @@
 "use client";
 import MockBanner from '@/components/MockBanner';
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Calculator, Play, Network, HardDrive, Cpu, ShieldCheck } from 'lucide-react';
+import { Calculator, Play, Network, HardDrive, Cpu, ShieldCheck, DollarSign, RotateCcw, Loader2 } from 'lucide-react';
 import { hasAccess } from '@/lib/tierLogic';
 import { toast } from 'sonner';
 import { getFreshIdToken } from '@/lib/msalToken';
 import ScenarioManager from '@/components/simulator/ScenarioManager';
+import { isMockTenant } from '@/lib/mockData';
 
 export default function SimulatorPage() {
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const isEnterprise = hasAccess(selectedTenant.tier || 'Essential', 'Enterprise');
-    
+
     const [networkIncrease, setNetworkIncrease] = useState(0);
     const [computeScale, setComputeScale] = useState(100);
     const [storageScale, setStorageScale] = useState(100);
     const [applyAhb, setApplyAhb] = useState(false);
-    
+
+    // Costo Base: se precarga con el gasto real del tenant (GET al mismo
+    // endpoint que usa la simulación) pero es editable — el usuario puede
+    // sobrescribirlo para simular un escenario hipotético ("¿y si arrancara
+    // desde $50k?"). baseCostEdited distingue "valor real sin tocar" de
+    // "el usuario lo cambió a mano", para que el backend sepa cuándo respetar
+    // la edición y cuándo seguir usando el gasto real (ver overrideBaseCost
+    // en /api/intelligence/simulator).
+    const [baseCost, setBaseCost] = useState<number | null>(null);
+    const [realBaseCost, setRealBaseCost] = useState<number | null>(null);
+    const [baseCostEdited, setBaseCostEdited] = useState(false);
+    const [baseCostLoading, setBaseCostLoading] = useState(false);
+
     const [loading, setLoading] = useState(false);
     const [simulationData, setSimulationData] = useState<any>(null);
+
+    const fetchRealBaseCost = useCallback(async () => {
+        if (selectedTenant.id === 'default') return;
+        if (!accounts[0] && !isMockTenant(selectedTenant.id)) return;
+        setBaseCostLoading(true);
+        try {
+            const idToken = await getFreshIdToken(instance, accounts[0]);
+            const res = await fetch(`/api/intelligence/simulator?tenantId=${selectedTenant.id}`, {
+                headers: { 'Authorization': `Bearer ${idToken}` }
+            });
+            const json = await res.json();
+            if (res.ok && typeof json.baseCost === 'number') {
+                setRealBaseCost(json.baseCost);
+                setBaseCost(json.baseCost);
+                setBaseCostEdited(false);
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setBaseCostLoading(false);
+        }
+    }, [instance, accounts, selectedTenant.id]);
+
+    useEffect(() => {
+        fetchRealBaseCost();
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- solo re-fetch al cambiar de tenant, no en cada render de fetchRealBaseCost
+    }, [selectedTenant.id]);
 
     const handleSimulate = async () => {
         if (!isEnterprise) return;
@@ -30,6 +70,10 @@ export default function SimulatorPage() {
             const account = accounts[0];
             const tokenResponse = { idToken: await getFreshIdToken(instance, account) };
 
+            // El costo base default es el gasto real del tenant (precargado por
+            // fetchRealBaseCost). Si el usuario lo editó a mano, overrideBaseCost
+            // le indica al backend que respete ese valor tal cual en vez de
+            // recalcular el real — ver /api/intelligence/simulator (POST).
             const res = await fetch('/api/intelligence/simulator', {
                 method: 'POST',
                 headers: {
@@ -39,7 +83,7 @@ export default function SimulatorPage() {
                 body: JSON.stringify({
                     tenantId: selectedTenant.id,
                     scenario: {
-                        baseCost: 25000, // starting mock baseline
+                        ...(baseCost ? { baseCost, overrideBaseCost: baseCostEdited } : {}),
                         networkIncrease,
                         computeScale: computeScale / 100,
                         storageScale: storageScale / 100,
@@ -86,9 +130,9 @@ export default function SimulatorPage() {
     const chartData = simulationData ? [
         {
             name: 'Actual',
-            Compute: 25000 * 0.6,
-            Storage: 25000 * 0.25,
-            Network: 25000 * 0.15,
+            Compute: simulationData.baseCost * 0.6,
+            Storage: simulationData.baseCost * 0.25,
+            Network: simulationData.baseCost * 0.15,
         },
         {
             name: 'Proyectado',
@@ -120,6 +164,52 @@ export default function SimulatorPage() {
                         </h3>
 
                         <div className="flex flex-col gap-6">
+                            {/* Costo Base */}
+                            <div className="flex flex-col gap-2">
+                                <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                                    <DollarSign className="w-4 h-4 text-emerald-600" />
+                                    Costo Base
+                                </label>
+                                <div className="flex items-center gap-2">
+                                    <div className="relative flex-1">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
+                                        {baseCostLoading ? (
+                                            <div className="w-full pl-7 pr-3 py-2 rounded-lg border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 flex items-center">
+                                                <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+                                            </div>
+                                        ) : (
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                step="100"
+                                                value={baseCost ?? ''}
+                                                onChange={(e) => {
+                                                    const v = parseFloat(e.target.value);
+                                                    setBaseCost(Number.isFinite(v) ? v : null);
+                                                    setBaseCostEdited(true);
+                                                }}
+                                                className="w-full pl-7 pr-3 py-2 rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-semibold"
+                                            />
+                                        )}
+                                    </div>
+                                    {baseCostEdited && realBaseCost != null && (
+                                        <button
+                                            type="button"
+                                            onClick={() => { setBaseCost(realBaseCost); setBaseCostEdited(false); }}
+                                            title="Restaurar costo real del tenant"
+                                            className="p-2 text-gray-400 hover:text-brand-deep rounded-lg border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800"
+                                        >
+                                            <RotateCcw className="w-4 h-4" />
+                                        </button>
+                                    )}
+                                </div>
+                                <p className="text-[11px] text-gray-400">
+                                    {baseCostEdited
+                                        ? "Valor personalizado — no es el gasto real del tenant."
+                                        : "Gasto real de los últimos 30 días. Editalo para simular otro punto de partida."}
+                                </p>
+                            </div>
+
                             {/* Compute */}
                             <div className="flex flex-col gap-2">
                                 <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
@@ -183,9 +273,9 @@ export default function SimulatorPage() {
                                 </label>
                             </div>
 
-                            <button 
+                            <button
                                 onClick={handleSimulate}
-                                disabled={loading}
+                                disabled={loading || baseCostLoading || !baseCost}
                                 className="mt-4 w-full py-3 bg-brand-deep hover:bg-brand-bright text-white font-bold rounded-lg shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                             >
                                 {loading ? <span className="animate-pulse">Calculando...</span> : <><Play className="w-4 h-4" /> Ejecutar Simulación</>}

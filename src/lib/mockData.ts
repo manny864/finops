@@ -523,6 +523,15 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
             const spikes = dailyCosts.filter(d => d.amount > upperBound);
             const services = ['Virtual Machines', 'Storage', 'SQL Database', 'App Service', 'Cosmos DB'];
             const subs = ['sub-prod-eastus', 'sub-prod-westus', 'sub-staging', 'sub-data-analytics', 'sub-dev'];
+            // Causas plausibles (atribución de causa raíz) para el demo — un
+            // resource group por servicio, consistente con el nombre del servicio.
+            const CAUSE_RGS: Record<string, string> = {
+                'Virtual Machines': 'rg-prod-compute',
+                'Storage': 'rg-shared-services',
+                'SQL Database': 'rg-data-platform',
+                'App Service': 'rg-prod-web',
+                'Cosmos DB': 'rg-data-platform',
+            };
             // Estados del ciclo de vida de la anomalía (Open/Postponed/Dismissed/Completed)
             // repartidos de forma determinística para que las pestañas del dashboard
             // (Detección de Anomalías) muestren datos en todas las categorías.
@@ -533,18 +542,41 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                 const resolvedAt = status !== 'Open'
                     ? new Date(detectedAt.getTime() + (4 + rand(i + 200) * 36) * 60 * 60 * 1000)
                     : null;
+                const primaryService = services[i % services.length];
+                const secondaryService = services[(i + 2) % services.length];
+                const totalDelta = Math.max(0, s.amount - baseMean);
+                const primaryPct = 55 + Math.round(rand(i + 300) * 20); // 55-75%
+                const top_contributors = totalDelta > 0 ? [
+                    {
+                        resource_group: CAUSE_RGS[primaryService],
+                        service_name: primaryService,
+                        cost: Number((baseMean * 0.3 + totalDelta * (primaryPct / 100)).toFixed(2)),
+                        baseline_avg: Number((baseMean * 0.3).toFixed(2)),
+                        delta: Number((totalDelta * (primaryPct / 100)).toFixed(2)),
+                        delta_pct_of_total: primaryPct,
+                    },
+                    {
+                        resource_group: CAUSE_RGS[secondaryService],
+                        service_name: secondaryService,
+                        cost: Number((baseMean * 0.15 + totalDelta * ((100 - primaryPct) / 100)).toFixed(2)),
+                        baseline_avg: Number((baseMean * 0.15).toFixed(2)),
+                        delta: Number((totalDelta * ((100 - primaryPct) / 100)).toFixed(2)),
+                        delta_pct_of_total: 100 - primaryPct,
+                    },
+                ] : [];
                 return {
                     id: i + 1,
                     date: s.date,
                     status,
-                    service: services[i % services.length],
+                    service: primaryService,
                     subscription_id: subs[i % subs.length],
                     amount: s.amount,
                     expected_amount: baseMean,
                     z_score: (s.amount - baseMean) / std,
                     metric: ['Bandwidth', 'Compute Hours', 'DTU', 'RU/s', 'GB-month'][i % 5],
                     severity: s.amount > baseMean + 5 * std ? 'Critical' : 'High',
-                    description: `Pico inusual detectado en ${services[i % services.length]} — desviación de +$${(s.amount - baseMean).toFixed(0)} vs media móvil.`,
+                    description: `Pico inusual detectado en ${primaryService} — desviación de +$${(s.amount - baseMean).toFixed(0)} vs media móvil.`,
+                    top_contributors,
                     detected_at: detectedAt.toISOString(),
                     resolved_at: resolvedAt ? resolvedAt.toISOString() : null,
                 };

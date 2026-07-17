@@ -39,6 +39,19 @@ export interface DetectedAnomaly {
     subscription_id: string;
 }
 
+export interface AnomalyContributor {
+    resource_group: string;
+    service_name: string;
+    /** Costo real de este grupo en el día de la anomalía. */
+    cost: number;
+    /** Promedio diario de este mismo grupo en la ventana previa (baseline). */
+    baseline_avg: number;
+    /** cost - baseline_avg. Solo se incluyen contribuyentes con delta > 0. */
+    delta: number;
+    /** % del delta TOTAL del día (suma de todos los deltas positivos) que explica este grupo. */
+    delta_pct_of_total: number;
+}
+
 export function computeStats(values: number[]): { mean: number; stdDev: number } {
     if (values.length === 0) return { mean: 0, stdDev: 0 };
     const mean = values.reduce((a, b) => a + b, 0) / values.length;
@@ -63,6 +76,86 @@ export function detectAnomalies(
             z_score: (d.amount - mean) / stdDev,
             subscription_id: subscriptionId,
         }));
+}
+
+const CONTRIBUTORS_BASELINE_DAYS = 30;
+const CONTRIBUTORS_LIMIT = 5;
+
+/**
+ * Atribución de causa raíz de una anomalía ya detectada: compara, por
+ * resource_group + service_name, el gasto del día de la anomalía contra el
+ * promedio diario de ese mismo grupo en los `baselineDays` previos (misma
+ * fuente que la detección: CostSnapshots). Devuelve los grupos que más
+ * explican el delta (cost - baseline_avg), ordenados de mayor a menor, con
+ * el % del delta total del día que representa cada uno.
+ *
+ * Grupos sin gasto en el día de la anomalía pero con baseline > 0 (algo que
+ * bajó, no que subió) no aportan al pico y se excluyen — solo interesan los
+ * que EMPUJARON el gasto hacia arriba.
+ */
+export async function getAnomalyTopContributors(
+    tenantId: string,
+    subscriptionId: string,
+    date: string,
+    baselineDays = CONTRIBUTORS_BASELINE_DAYS,
+    limit = CONTRIBUTORS_LIMIT
+): Promise<AnomalyContributor[]> {
+    const isAll = !subscriptionId || subscriptionId.toLowerCase() === "all";
+    const subFilter = isAll ? "" : `AND LOWER(subscription_id) IN (${subscriptionId.split(",").map(() => "?").join(",")})`;
+    const subParams: string[] = isAll ? [] : subscriptionId.split(",").map(s => s.trim().toLowerCase());
+
+    try {
+        const [dayRows]: any = await pool.query(
+            `SELECT resource_group, service_name, SUM(COALESCE(EffectiveCost, cost_usd, 0)) AS cost
+             FROM CostSnapshots
+             WHERE tenant_id = ? AND DATE(COALESCE(ChargePeriodStart, date)) = ? ${subFilter}
+             GROUP BY resource_group, service_name`,
+            [tenantId, date, ...subParams]
+        );
+
+        const [baseRows]: any = await pool.query(
+            `SELECT resource_group, service_name,
+                    SUM(COALESCE(EffectiveCost, cost_usd, 0)) / GREATEST(COUNT(DISTINCT DATE(COALESCE(ChargePeriodStart, date))), 1) AS avg_cost
+             FROM CostSnapshots
+             WHERE tenant_id = ?
+               AND DATE(COALESCE(ChargePeriodStart, date)) >= DATE_SUB(?, INTERVAL ? DAY)
+               AND DATE(COALESCE(ChargePeriodStart, date)) < ?
+               ${subFilter}
+             GROUP BY resource_group, service_name`,
+            [tenantId, date, baselineDays, date, ...subParams]
+        );
+
+        const baseMap = new Map<string, number>();
+        (baseRows || []).forEach((r: any) => {
+            baseMap.set(`${r.resource_group}::${r.service_name}`, Number(r.avg_cost) || 0);
+        });
+
+        const withDelta = (dayRows || [])
+            .map((r: any) => {
+                const key = `${r.resource_group}::${r.service_name}`;
+                const cost = Number(r.cost) || 0;
+                const baseline_avg = baseMap.get(key) || 0;
+                return { resource_group: r.resource_group, service_name: r.service_name, cost, baseline_avg, delta: cost - baseline_avg };
+            })
+            .filter((c: any) => c.delta > 0);
+
+        const totalDelta = withDelta.reduce((sum: number, c: any) => sum + c.delta, 0);
+
+        return withDelta
+            .sort((a: any, b: any) => b.delta - a.delta)
+            .slice(0, limit)
+            .map((c: any) => ({
+                resource_group: c.resource_group,
+                service_name: c.service_name,
+                cost: Number(c.cost.toFixed(2)),
+                baseline_avg: Number(c.baseline_avg.toFixed(2)),
+                delta: Number(c.delta.toFixed(2)),
+                delta_pct_of_total: totalDelta > 0 ? Number(((c.delta / totalDelta) * 100).toFixed(1)) : 0,
+            }));
+    } catch (e: any) {
+        console.warn(`[anomalyDetectionService] getAnomalyTopContributors failed for ${tenantId} ${date}:`, e?.message);
+        return [];
+    }
 }
 
 /**
@@ -186,24 +279,36 @@ export async function runAnomalyDetection(tenantId: string, subscriptionId = "Al
     return { dailyCosts, anomalies, mean, stdDev };
 }
 
+export interface AnomalyWithContributors extends DetectedAnomaly {
+    top_contributors: AnomalyContributor[];
+}
+
 /**
- * Persiste cada anomalía (upsert idempotente por tenant+sub+fecha) y notifica
- * SOLO la primera vez que se detecta (notified_at IS NULL) — así correr esto
- * cada 5 min mientras la anomalía siga dentro de la ventana de 30 días no
- * reenvía el mismo aviso una y otra vez.
+ * Persiste cada anomalía (upsert idempotente por tenant+sub+fecha) junto con
+ * su atribución de causa raíz (top_contributors — ver getAnomalyTopContributors)
+ * y notifica SOLO la primera vez que se detecta (notified_at IS NULL) — así
+ * correr esto cada 5 min mientras la anomalía siga dentro de la ventana de
+ * 30 días no reenvía el mismo aviso una y otra vez. Devuelve las anomalías
+ * enriquecidas con sus contribuyentes para que el caller (endpoint on-demand)
+ * no tenga que volver a calcularlos.
  */
 export async function persistAndNotifyAnomalies(
     tenantId: string,
     anomalies: DetectedAnomaly[],
     dashboardUrl: string
-): Promise<{ persisted: number; notified: number }> {
+): Promise<{ persisted: number; notified: number; anomalies: AnomalyWithContributors[] }> {
     let notified = 0;
+    const enriched: AnomalyWithContributors[] = [];
+
     for (const a of anomalies) {
+        const topContributors = await getAnomalyTopContributors(tenantId, a.subscription_id, a.date);
+        enriched.push({ ...a, top_contributors: topContributors });
+
         await pool.query(
-            `INSERT INTO Anomalies (tenant_id, subscription_id, date, amount, expected_amount, z_score, status)
-             VALUES (?, ?, ?, ?, ?, ?, 'New')
-             ON DUPLICATE KEY UPDATE amount = VALUES(amount), expected_amount = VALUES(expected_amount), z_score = VALUES(z_score)`,
-            [tenantId, a.subscription_id, a.date, a.amount, a.expected_amount, a.z_score]
+            `INSERT INTO Anomalies (tenant_id, subscription_id, date, amount, expected_amount, z_score, top_contributors, status)
+             VALUES (?, ?, ?, ?, ?, ?, ?, 'New')
+             ON DUPLICATE KEY UPDATE amount = VALUES(amount), expected_amount = VALUES(expected_amount), z_score = VALUES(z_score), top_contributors = VALUES(top_contributors)`,
+            [tenantId, a.subscription_id, a.date, a.amount, a.expected_amount, a.z_score, JSON.stringify(topContributors)]
         );
 
         const [rows]: any = await pool.query(
@@ -213,7 +318,10 @@ export async function persistAndNotifyAnomalies(
         const row = rows?.[0];
         if (!row || row.notified_at) continue;
 
-        const message = `Gasto anormal de **$${a.amount.toFixed(2)}** el ${a.date} (sub: *${a.subscription_id}*). Promedio esperado: $${a.expected_amount.toFixed(2)} | Z-Score: ${a.z_score.toFixed(2)}.\n\n<a href="${dashboardUrl}">🔍 Investigar</a>`;
+        const topLine = topContributors.length > 0
+            ? `\n\n**Principal causa:** ${topContributors[0].service_name} en *${topContributors[0].resource_group}* — ${topContributors[0].delta_pct_of_total}% del pico (+$${topContributors[0].delta.toFixed(2)} vs. su promedio habitual).`
+            : "";
+        const message = `Gasto anormal de **$${a.amount.toFixed(2)}** el ${a.date} (sub: *${a.subscription_id}*). Promedio esperado: $${a.expected_amount.toFixed(2)} | Z-Score: ${a.z_score.toFixed(2)}.${topLine}\n\n<a href="${dashboardUrl}">🔍 Investigar</a>`;
         try {
             await sendWebhookAlert(tenantId, "🚨 Anomalía de Gasto Detectada", message, "warning");
             await createNotification({
@@ -230,5 +338,5 @@ export async function persistAndNotifyAnomalies(
             console.warn(`[anomalyDetectionService] notify failed for tenant ${tenantId} anomaly ${row.id}:`, e?.message);
         }
     }
-    return { persisted: anomalies.length, notified };
+    return { persisted: anomalies.length, notified, anomalies: enriched };
 }

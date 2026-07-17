@@ -11,7 +11,7 @@
  * period: "30d" | "90d" | "fy" (default "30d").
  */
 import { NextRequest, NextResponse } from "next/server";
-import { requireTenantTier, AuthError } from "@/lib/requestAuth";
+import { requireTenantTier, requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import pool from "@/modules/storage/db";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
@@ -86,14 +86,48 @@ async function fetchCostGroups(tenantId: string, period: string) {
         const budgetByName = new Map<string, number>((budgetRows as any[]).map(b => [b.name, Number(b.budget) || 0]));
 
         const [metaRows]: any = await pool.query(
-            `SELECT cg.name, cg.description, cg.created_by, cg.created_at, u.display_name AS ownerName, u.email AS ownerEmail
+            `SELECT cg.name, cg.description, cg.match_type, cg.match_tag_key, cg.match_tag_value, cg.match_rg_pattern,
+                    cg.created_by, cg.created_at, u.display_name AS ownerName, u.email AS ownerEmail
              FROM CostGroups cg LEFT JOIN Users u ON u.id = cg.owner_user_id
              WHERE cg.tenant_id = ?`,
             [tenantId]
         );
         const metaByName = new Map<string, any>((metaRows as any[]).map(m => [m.name, m]));
+        const customGroupMetas = (metaRows as any[]).filter(m => m.match_type != null);
+        const customNames = new Set(customGroupMetas.map(m => m.name));
 
-        const groups = (rows as any[]).map(r => {
+        // Los grupos custom (con regla propia) reemplazan por completo a
+        // cualquier grupo auto-descubierto que casualmente comparta nombre
+        // con el valor de un tag CostCenter — la definición explícita gana.
+        const tagBasedRows = (rows as any[]).filter(r => !customNames.has(r.name));
+
+        const customRowsResults = await Promise.all(customGroupMetas.map(async (m) => {
+            const patternPredicate = m.match_type === "name_pattern"
+                ? "resource_group LIKE ?"
+                : "JSON_UNQUOTE(JSON_EXTRACT(Tags, CONCAT('$.', ?))) = ?";
+            const patternParams = m.match_type === "name_pattern"
+                ? [m.match_rg_pattern]
+                : [m.match_tag_key, m.match_tag_value];
+
+            const [customRows]: any = await pool.query(
+                `SELECT
+                    SUM(COALESCE(EffectiveCost, BilledCost, cost_usd, 0)) AS periodCost,
+                    COUNT(DISTINCT CASE WHEN subscription_id NOT IN ('mg-aggregated', 'default') THEN subscription_id END) AS subscriptions,
+                    COUNT(DISTINCT resource_group) AS resourceGroups,
+                    COUNT(DISTINCT ResourceId) AS resources,
+                    MAX(COALESCE(ChargePeriodStart, date)) AS lastUpdated
+                 FROM CostSnapshots
+                 WHERE tenant_id = ? AND DATE(COALESCE(ChargePeriodStart, date)) BETWEEN ? AND ?
+                   AND (
+                     resource_group IN (SELECT resource_group FROM CostGroupResourceGroups WHERE tenant_id = ? AND group_name = ?)
+                     OR ${patternPredicate}
+                   )`,
+                [tenantId, start, end, tenantId, m.name, ...patternParams]
+            );
+            return { name: m.name, ...(customRows?.[0] || {}) };
+        }));
+
+        const groups = ([...tagBasedRows, ...customRowsResults]).map(r => {
             const periodCost = Number(r.periodCost) || 0;
             const avgDailyCost = periodCost / days;
             const budget = budgetByName.get(r.name) || 0;
@@ -118,4 +152,90 @@ async function fetchCostGroups(tenantId: string, period: string) {
         }).sort((a, b) => b.periodCost - a.periodCost);
 
         return groups;
+}
+
+const NAME_MAX_LEN = 255;
+const RESERVED_NAME = "Untagged/Unknown";
+
+/**
+ * POST /api/cost-groups — crea un Cost Group con una regla de membresía
+ * propia (por tag arbitrario, o por patrón de nombre de Resource Group).
+ * A diferencia de los grupos "legacy" (auto-descubiertos por el tag
+ * CostCenter, sin fila en esta tabla hasta ahora), un grupo creado acá SÍ
+ * vive en `CostGroups` con `match_type` seteado — así el GET de listado y
+ * detalle saben que deben resolver su costo vía la regla en vez de por
+ * igualdad de tag CostCenter.
+ *
+ * No hay concepto de "por resource individual" acá: CostSnapshots no trae
+ * ResourceId poblado para tenants Azure (solo AWS), así que la regla de
+ * patrón de nombre matchea contra `resource_group` — el grano más fino que
+ * se puede filtrar de forma confiable al agregar costo. Ver
+ * /api/cost-groups/[name]/resource-groups para el ajuste manual.
+ */
+export async function POST(request: NextRequest) {
+    try {
+        const body = await request.json();
+        const { tenantId, name, description, matchType, tagKey, tagValue, rgPattern } = body;
+
+        if (!tenantId || !name || typeof name !== "string" || !name.trim()) {
+            return NextResponse.json({ error: "Faltan tenantId o name" }, { status: 400 });
+        }
+        if (name.trim().length > NAME_MAX_LEN) {
+            return NextResponse.json({ error: `El nombre no puede superar ${NAME_MAX_LEN} caracteres` }, { status: 400 });
+        }
+        if (name.trim() === RESERVED_NAME) {
+            return NextResponse.json({ error: `"${RESERVED_NAME}" es un nombre reservado` }, { status: 400 });
+        }
+        if (matchType !== "tag" && matchType !== "name_pattern") {
+            return NextResponse.json({ error: "matchType debe ser 'tag' o 'name_pattern'" }, { status: 400 });
+        }
+        if (matchType === "tag" && (!tagKey || !String(tagKey).trim() || !tagValue || !String(tagValue).trim())) {
+            return NextResponse.json({ error: "tagKey y tagValue son requeridos para matchType='tag'" }, { status: 400 });
+        }
+        if (matchType === "name_pattern" && (!rgPattern || !String(rgPattern).trim())) {
+            return NextResponse.json({ error: "rgPattern es requerido para matchType='name_pattern'" }, { status: 400 });
+        }
+
+        // Creación de grupos es una acción de gobernanza financiera — mismo
+        // nivel que crear/editar un presupuesto (Admin/Owner).
+        const identity = await requireTenantRole(request, tenantId, ["Admin", "Owner"]);
+
+        if (isMockTenant(tenantId)) {
+            return NextResponse.json({ success: true, mock: true, name: name.trim() });
+        }
+
+        // Cost Groups es exclusivo de Business+ (mismo tier que el GET) — el
+        // check de tier en el frontend (Sidebar/FeatureGuard) es client-only,
+        // sin esto un Admin de un tenant Essential/Professional podría crear
+        // grupos pegándole directo a la API.
+        await requireTenantTier(request, tenantId, "Business");
+
+        try {
+            await pool.query(
+                `INSERT INTO CostGroups (tenant_id, name, description, match_type, match_tag_key, match_tag_value, match_rg_pattern, created_by)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    tenantId,
+                    name.trim(),
+                    description ? String(description).trim().slice(0, 1000) : null,
+                    matchType,
+                    matchType === "tag" ? String(tagKey).trim().slice(0, 255) : null,
+                    matchType === "tag" ? String(tagValue).trim().slice(0, 255) : null,
+                    matchType === "name_pattern" ? String(rgPattern).trim().slice(0, 255) : null,
+                    identity.email,
+                ]
+            );
+        } catch (e: any) {
+            if (e?.code === "ER_DUP_ENTRY") {
+                return NextResponse.json({ error: `Ya existe un Cost Group llamado "${name.trim()}"` }, { status: 409 });
+            }
+            throw e;
+        }
+
+        return NextResponse.json({ success: true, name: name.trim() }, { status: 201 });
+    } catch (e: unknown) {
+        if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
+        console.error("[cost-groups] POST error:", e);
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    }
 }

@@ -8,8 +8,9 @@ import { getFreshIdToken } from "@/lib/msalToken";
 import Pagination, { usePagination } from "@/components/Pagination";
 import {
     X, Loader2, AlertCircle, DollarSign, Users, Lightbulb, Boxes, ShieldAlert,
-    ChevronRight, TrendingUp, TrendingDown, ScrollText, Info,
+    ChevronRight, TrendingUp, TrendingDown, ScrollText, Info, Plus, Trash2,
 } from "lucide-react";
+import { toast } from "sonner";
 import {
     ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, ComposedChart, Line,
     ReferenceLine, CartesianGrid, PieChart, Pie, Cell, LineChart, Legend,
@@ -129,6 +130,95 @@ function TrendBadge({ pct }: { pct: number }) {
     );
 }
 
+function ManualResourceGroupsPanel({
+    groupName, tenantId, matchedResourceGroups, onChanged,
+}: { groupName: string; tenantId: string; matchedResourceGroups: string[]; onChanged: () => void }) {
+    const t = useTranslations("CostGroups");
+    const { instance, accounts } = useMsal();
+    const [newRg, setNewRg] = useState("");
+    const [saving, setSaving] = useState(false);
+
+    const authHeaders = async () => {
+        const idToken = await getFreshIdToken(instance, accounts[0], ["User.Read"]);
+        return { Authorization: `Bearer ${idToken}`, "Content-Type": "application/json" };
+    };
+
+    const addRg = async () => {
+        if (!newRg.trim()) return;
+        setSaving(true);
+        try {
+            const headers = await authHeaders();
+            const res = await fetch(`/api/cost-groups/${encodeURIComponent(groupName)}/resource-groups`, {
+                method: "POST",
+                headers,
+                body: JSON.stringify({ tenantId, resourceGroup: newRg.trim() }),
+            });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.error || "Error");
+            toast.success(t("assign_rg_success"));
+            setNewRg("");
+            onChanged();
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : t("assign_rg_error"));
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const removeRg = async (rg: string) => {
+        setSaving(true);
+        try {
+            const idToken = await getFreshIdToken(instance, accounts[0], ["User.Read"]);
+            const res = await fetch(
+                `/api/cost-groups/${encodeURIComponent(groupName)}/resource-groups?tenantId=${encodeURIComponent(tenantId)}&resourceGroup=${encodeURIComponent(rg)}`,
+                { method: "DELETE", headers: { Authorization: `Bearer ${idToken}` } }
+            );
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.error || "Error");
+            onChanged();
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : t("assign_rg_error"));
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <div className="rounded-xl border border-brand-deep/30 dark:border-brand-bright/30 bg-brand-soft/20 dark:bg-slate-900 p-4">
+            <h3 className="text-xs font-bold uppercase tracking-wide text-brand-deep dark:text-brand-bright mb-1">{t("assign_rg_title")}</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">{t("assign_rg_subtitle")}</p>
+            <div className="flex gap-2 mb-3">
+                <input
+                    value={newRg}
+                    onChange={(e) => setNewRg(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") addRg(); }}
+                    placeholder={t("assign_rg_placeholder")}
+                    className="flex-1 border border-gray-200 dark:border-slate-700 rounded-md px-3 py-1.5 text-sm bg-white dark:bg-slate-800"
+                />
+                <button
+                    onClick={addRg}
+                    disabled={saving || !newRg.trim()}
+                    className="px-3 py-1.5 bg-brand-deep text-white rounded-md text-xs font-bold flex items-center gap-1.5 disabled:opacity-50 hover:brightness-110"
+                >
+                    <Plus className="w-3.5 h-3.5" /> {t("assign_rg_add")}
+                </button>
+            </div>
+            {matchedResourceGroups.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                    {matchedResourceGroups.map(rg => (
+                        <span key={rg} className="inline-flex items-center gap-1 text-xs font-mono bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-full pl-2.5 pr-1 py-1">
+                            {rg}
+                            <button onClick={() => removeRg(rg)} disabled={saving} className="p-0.5 text-gray-400 hover:text-red-500 rounded-full">
+                                <Trash2 className="w-3 h-3" />
+                            </button>
+                        </span>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
 export default function CostGroupDetailModal({ name, tenantId, onClose }: { name: string; tenantId: string; onClose: () => void }) {
     const t = useTranslations("CostGroups");
     const locale = useLocale();
@@ -142,7 +232,7 @@ export default function CostGroupDetailModal({ name, tenantId, onClose }: { name
         return res.json();
     };
 
-    const { data, error, isLoading } = useSWR(
+    const { data, error, isLoading, mutate } = useSWR(
         tenantId && tenantId !== "default" && (accounts.length > 0 || isMockTenant(tenantId))
             ? `/api/cost-groups/${encodeURIComponent(name)}?tenantId=${tenantId}&locale=${encodeURIComponent(locale)}`
             : null,
@@ -453,6 +543,14 @@ export default function CostGroupDetailModal({ name, tenantId, onClose }: { name
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                 <KpiTile icon={<Boxes className="w-4 h-4 text-brand-deep dark:text-brand-bright" />} label={t("tab_resources")} value={String(data.resources?.resourceGroupsCount ?? 0)} />
                             </div>
+                            {data.isCustom && (
+                                <ManualResourceGroupsPanel
+                                    groupName={name}
+                                    tenantId={tenantId}
+                                    matchedResourceGroups={data.matchedResourceGroups || []}
+                                    onChanged={() => mutate()}
+                                />
+                            )}
                             <div className="rounded-xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
                                 <table className="w-full text-sm">
                                     <thead>

@@ -424,6 +424,16 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                   return new Response(JSON.stringify({ success: true, scenarios: [] }), { status: 200 });
               }
               if (url.includes('/api/intelligence/simulator')) {
+                  // GET precarga el campo editable "Costo Base" del simulador —
+                  // usa el mismo "Costo Actual" que ya muestra el Dashboard
+                  // (dashboard_summary) para que la demo sea consistente entre
+                  // pantallas. Sin este branch, un GET (sin body) caía en la
+                  // rama POST de abajo con baseCost hardcodeado en 25000.
+                  const method = (init?.method || 'GET').toUpperCase();
+                  if (method === 'GET') {
+                      const summary = getMockDataForRoute('dashboard_summary', tier) as { actualCost?: number };
+                      return new Response(JSON.stringify({ success: true, baseCost: summary?.actualCost ?? 25000 }), { status: 200 });
+                  }
                   let parsedBody: any = {};
                   try { parsedBody = init?.body ? JSON.parse(init.body as string) : {}; } catch {}
                   const scenario = parsedBody.scenario || {};

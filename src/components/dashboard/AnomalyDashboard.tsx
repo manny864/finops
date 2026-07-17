@@ -15,6 +15,15 @@ import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLocke
 
 type AnomalyStatus = 'Open' | 'Postponed' | 'Dismissed' | 'Completed';
 
+interface AnomalyContributor {
+    resource_group: string;
+    service_name: string;
+    cost: number;
+    baseline_avg: number;
+    delta: number;
+    delta_pct_of_total: number;
+}
+
 interface Anomaly {
     id: number;
     date: string;
@@ -25,6 +34,7 @@ interface Anomaly {
     subscription_id: string;
     detected_at: string;
     resolved_at: string | null;
+    top_contributors?: AnomalyContributor[];
 }
 
 const TAB_ORDER: { key: AnomalyStatus | 'All'; labelKey: string }[] = [
@@ -436,6 +446,22 @@ export default function AnomalyDashboard() {
                                     <p className="text-sm font-semibold text-gray-900 dark:text-white mt-2">
                                         Pico de costo en <span className="font-mono text-brand-deep dark:text-brand-bright bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 rounded">{anomaly.subscription_id}</span>
                                     </p>
+                                    {anomaly.top_contributors && anomaly.top_contributors.length > 0 && (
+                                        <div className="mt-2.5 flex flex-col gap-1">
+                                            <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500">Qué lo generó</p>
+                                            {anomaly.top_contributors.map((c, ci) => (
+                                                <div key={`${c.resource_group}-${c.service_name}-${ci}`} className="flex items-center gap-2 text-xs">
+                                                    <span className={`font-bold px-1.5 py-0.5 rounded ${ci === 0 ? 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400' : 'bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-gray-400'}`}>
+                                                        {c.delta_pct_of_total}%
+                                                    </span>
+                                                    <span className="text-gray-700 dark:text-gray-300">
+                                                        <span className="font-semibold">{c.service_name}</span> en <span className="font-mono">{c.resource_group}</span>
+                                                    </span>
+                                                    <span className="text-gray-400">(+{format(c.delta)})</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="text-right space-y-2">
                                     <div>
