@@ -678,7 +678,13 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                     }
                 ]
             };
-        case 'billing':
+        case 'billing': {
+            // dailyBilledTarget calibrado para que sum(EffectiveCost) de los 30
+            // días ronde el mismo "Costo Actual" que dashboard_summary (base =
+            // 12500*multiplier): antes esta página usaba 150-200 fijo sin
+            // relación con esa base, mostrando ~39% del total del White Board
+            // para el mismo tenant.
+            const dailyBilledTarget = (12500 * multiplier / 30) / 0.92;
             return {
                 success: true,
                 mock: true,
@@ -689,7 +695,7 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                     // más abajo — evita que cada request al mock devuelva totales
                     // distintos (discrepancias visibles entre refreshes en demo).
                     const pseudoRandom = (i * 7919) % 1000 / 1000;
-                    const cost = (150 + pseudoRandom * 50) * multiplier;
+                    const cost = dailyBilledTarget * (0.85 + pseudoRandom * 0.3);
                     const isoDate = new Date(Date.now() - (29 - i) * 86400000).toISOString().split('T')[0];
                     return {
                         date: isoDate,
@@ -707,6 +713,7 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                     };
                 })
             };
+        }
         case 'tags_compliance': {
             const mkRes = (id: string, name: string, missing: string[], type?: string, sub?: string) => ({
                 resourceId: id, id, name,
