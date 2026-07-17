@@ -3,12 +3,13 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useTenant } from './TenantProvider';
 import { useSubscription } from './SubscriptionProvider';
 import { useMsal } from '@azure/msal-react';
-import { Info, ShieldAlert, Tag, CheckCircle2 } from 'lucide-react';
+import { Info, ShieldAlert, Tag, CheckCircle2, Download } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import Pagination, { usePagination } from './Pagination';
 import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
 import FeatureGuard from './FeatureGuard';
+import { csvEscape } from '@/lib/csvExport';
 
 // Autorefresh: la auditoría escanea Azure Resource Graph (llamada con costo),
 // así que refrescamos cada 60s SÓLO con la pestaña visible para no malgastar
@@ -83,6 +84,50 @@ export default function TagManager() {
     // Paginación de ambas tablas (recursos y grupos de recursos).
     const resPage = usePagination(resources, 10);
     const rgPage = usePagination(resourceGroups, 10);
+
+    // Reporte descargable para auditoría externa (compliance/seguridad):
+    // combina recursos + resource groups auditados en un solo CSV, con el
+    // mismo detalle que ya se ve en pantalla (estado + etiquetas faltantes).
+    const downloadComplianceReport = () => {
+        const rows: string[] = [
+            ["Ambito", "Nombre", "Tipo", "Suscripcion", "Grupo de Recursos", "Region", "Estado de Cumplimiento", "Etiquetas Faltantes"].map(csvEscape).join(","),
+        ];
+        const subName = (id: string) => subscriptions.find(s => s.id === id)?.name || id;
+        resources.forEach(item => {
+            rows.push([
+                "Recurso",
+                item.name || "Unknown",
+                item.type ? item.type.split("/").pop() : "Resource",
+                subName(item.subscriptionId),
+                item.resourceGroup || "",
+                "",
+                item.isCompliant ? "Conforme" : "No Conforme",
+                item.isCompliant ? "" : (item.missingTags || []).join("; "),
+            ].map(csvEscape).join(","));
+        });
+        resourceGroups.forEach(item => {
+            rows.push([
+                "Grupo de Recursos",
+                item.name || "Unknown",
+                "",
+                subName(item.subscriptionId),
+                item.name || "",
+                item.location || "",
+                item.isCompliant ? "Conforme" : "No Conforme",
+                item.isCompliant ? "" : (item.missingTags || []).join("; "),
+            ].map(csvEscape).join(","));
+        });
+        const csv = rows.join("\n");
+        const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `cumplimiento-etiquetas-${selectedTenant.name || selectedTenant.id}-${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    };
 
     const applyTags = async () => {
         if (!editingResource) return;
@@ -260,9 +305,19 @@ export default function TagManager() {
 
             {/* Listado de Infracciones */}
             <div className="card overflow-hidden">
-                <div className="card-h flex justify-between items-center">
+                <div className="card-h flex justify-between items-center gap-3">
                     <h3 className="m-0">Auditoría de Etiquetas de Recursos</h3>
-                    {isAnalyzing && <span className="text-[11px] font-bold text-brand-deep animate-pulse">Escaneando infraestructura...</span>}
+                    <div className="flex items-center gap-3">
+                        {isAnalyzing && <span className="text-[11px] font-bold text-brand-deep animate-pulse">Escaneando infraestructura...</span>}
+                        <button
+                            onClick={downloadComplianceReport}
+                            disabled={isAnalyzing || (resources.length === 0 && resourceGroups.length === 0)}
+                            className="flex items-center gap-[6px] bg-brand-soft text-brand-deep border border-brand-bright/20 hover:border-brand-bright hover:bg-brand-deep hover:text-white px-[11px] py-[7px] rounded-[10px] text-[12px] font-heading font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            <Download className="w-3.5 h-3.5" />
+                            Descargar Reporte (CSV)
+                        </button>
+                    </div>
                 </div>
                 
                 {!isAnalyzing && resources.length === 0 ? (
