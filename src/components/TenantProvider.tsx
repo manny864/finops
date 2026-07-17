@@ -691,6 +691,12 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                   // AI config (guardar) — evita 401 en PATCH
                   if (url.includes('/api/admin/config/ai')) return new Response(JSON.stringify({ success: true, mock: true }), { status: 200 });
 
+                  // FOCUS export: programación diaria
+                  if (url.includes('/api/admin/focus-export/schedule')) {
+                      if (init?.method && init.method !== 'GET') return new Response(JSON.stringify({ success: true, mock: true }), { status: 200 });
+                      return new Response(JSON.stringify({ success: true, enabled: false, format: 'csv', subscriptionId: '', recipientEmail: '', lastRunAt: null }), { status: 200 });
+                  }
+
                   // Pricing units
                   if (url.includes('/api/admin/pricing-units')) {
                       if (url.includes('test=')) return new Response(JSON.stringify({ success: true, input: { uom: 'demo', qty: '1' }, output: { baseUnit: 'Hour', normalizedQty: '1', display: '1 Hour', category: 'Compute', inferred: false } }), { status: 200 });

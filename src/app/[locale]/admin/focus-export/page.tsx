@@ -1,13 +1,14 @@
 "use client";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { isMockTenant } from "@/lib/mockData";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { toast } from "sonner";
-import { Download, Loader2, FileSpreadsheet, ExternalLink } from "lucide-react";
+import { Download, Loader2, FileSpreadsheet, ExternalLink, Clock, Save } from "lucide-react";
 
 type Format = "csv" | "json" | "ndjson";
+type ScheduleFormat = "csv" | "json";
 
 export default function FocusExportPage() {
     const { selectedTenant } = useTenant();
@@ -21,6 +22,81 @@ export default function FocusExportPage() {
     const [subscriptionId, setSubscriptionId] = useState("");
     const [format, setFormat] = useState<Format>("csv");
     const [loading, setLoading] = useState(false);
+
+    const [scheduleEnabled, setScheduleEnabled] = useState(false);
+    const [scheduleFormat, setScheduleFormat] = useState<ScheduleFormat>("csv");
+    const [scheduleSubscriptionId, setScheduleSubscriptionId] = useState("");
+    const [scheduleEmail, setScheduleEmail] = useState("");
+    const [scheduleLastRun, setScheduleLastRun] = useState<string | null>(null);
+    const [scheduleLoading, setScheduleLoading] = useState(true);
+    const [scheduleSaving, setScheduleSaving] = useState(false);
+
+    async function authHeaders(): Promise<Record<string, string>> {
+        if (!selectedTenant || isMockTenant(selectedTenant.id) || accounts.length === 0) return {};
+        const idToken = await getFreshIdToken(instance, accounts[0]);
+        return idToken ? { Authorization: `Bearer ${idToken}` } : {};
+    }
+
+    useEffect(() => {
+        const loadSchedule = async () => {
+            if (!selectedTenant || selectedTenant.id === "default") {
+                setScheduleLoading(false);
+                return;
+            }
+            setScheduleLoading(true);
+            try {
+                const headers = await authHeaders();
+                const res = await fetch(`/api/admin/focus-export/schedule?tenantId=${selectedTenant.id}`, { headers });
+                if (res.ok) {
+                    const data = await res.json();
+                    setScheduleEnabled(Boolean(data.enabled));
+                    setScheduleFormat((data.format as ScheduleFormat) || "csv");
+                    setScheduleSubscriptionId(data.subscriptionId || "");
+                    setScheduleEmail(data.recipientEmail || "");
+                    setScheduleLastRun(data.lastRunAt || null);
+                }
+            } catch (e) {
+                console.error("Error loading FOCUS export schedule:", e);
+            }
+            setScheduleLoading(false);
+        };
+        loadSchedule();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedTenant?.id]);
+
+    async function handleSaveSchedule() {
+        if (!selectedTenant || selectedTenant.id === "default") return;
+        if (scheduleEnabled && !scheduleEmail.trim()) {
+            toast.error("Ingresá un email destinatario para habilitar la programación.");
+            return;
+        }
+
+        setScheduleSaving(true);
+        try {
+            const headers = { "Content-Type": "application/json", ...(await authHeaders()) };
+            const res = await fetch("/api/admin/focus-export/schedule", {
+                method: "PATCH",
+                headers,
+                body: JSON.stringify({
+                    tenantId: selectedTenant.id,
+                    enabled: scheduleEnabled,
+                    format: scheduleFormat,
+                    subscriptionId: scheduleSubscriptionId.trim() || undefined,
+                    recipientEmail: scheduleEmail.trim(),
+                }),
+            });
+            if (res.ok) {
+                toast.success("Programación guardada.");
+            } else {
+                const j = await res.json().catch(() => ({ error: "Error al guardar." }));
+                toast.error(j.error || "Error al guardar.");
+            }
+        } catch (e: any) {
+            toast.error(e?.message || "Error inesperado.");
+        } finally {
+            setScheduleSaving(false);
+        }
+    }
 
     async function handleDownload() {
         if (!selectedTenant || selectedTenant.id === "default") {
@@ -156,6 +232,87 @@ export default function FocusExportPage() {
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                 Descargar FOCUS 1.1
             </button>
+
+            <div className="mt-8 pt-6 border-t border-gray-200 dark:border-slate-800">
+                <h2 className="text-sm font-bold flex items-center gap-2 mb-1">
+                    <Clock className="w-4 h-4 text-indigo-600" /> Programación diaria automática
+                </h2>
+                <p className="text-xs text-gray-500 mb-4">
+                    Genera y envía por email el export del día anterior automáticamente, todos los días.
+                </p>
+
+                {scheduleLoading ? (
+                    <div className="text-xs text-gray-500">Cargando programación...</div>
+                ) : (
+                    <div className="space-y-4">
+                        <label className="flex items-center justify-between max-w-md cursor-pointer">
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Habilitar generación diaria automática</span>
+                            <button
+                                type="button"
+                                role="switch"
+                                aria-checked={scheduleEnabled}
+                                onClick={() => setScheduleEnabled(!scheduleEnabled)}
+                                className={`ml-4 shrink-0 relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                    scheduleEnabled ? "bg-indigo-600" : "bg-gray-300 dark:bg-slate-700"
+                                }`}
+                            >
+                                <span
+                                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                        scheduleEnabled ? "translate-x-6" : "translate-x-1"
+                                    }`}
+                                />
+                            </button>
+                        </label>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">Email destinatario</label>
+                                <input
+                                    type="email"
+                                    value={scheduleEmail}
+                                    onChange={(e) => setScheduleEmail(e.target.value)}
+                                    placeholder="finops@tuempresa.com"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">Formato</label>
+                                <select
+                                    value={scheduleFormat}
+                                    onChange={(e) => setScheduleFormat(e.target.value as ScheduleFormat)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                >
+                                    <option value="csv">CSV (FOCUS estándar)</option>
+                                    <option value="json">JSON</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">Subscription ID (opcional)</label>
+                                <input
+                                    type="text"
+                                    value={scheduleSubscriptionId}
+                                    onChange={(e) => setScheduleSubscriptionId(e.target.value)}
+                                    placeholder="dejar vacío para todas"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                />
+                            </div>
+                        </div>
+
+                        {scheduleLastRun && (
+                            <p className="text-xs text-gray-500">Última ejecución: {new Date(scheduleLastRun).toLocaleString()}</p>
+                        )}
+
+                        <button
+                            onClick={handleSaveSchedule}
+                            disabled={scheduleSaving}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-gray-800 dark:bg-slate-700 text-white text-sm font-medium rounded-lg hover:bg-gray-900 dark:hover:bg-slate-600 disabled:opacity-50 transition"
+                        >
+                            {scheduleSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                            Guardar Programación
+                        </button>
+                    </div>
+                )}
+            </div>
 
             <div className="mt-6 text-xs text-gray-500 border-t pt-4">
                 <p className="mb-1"><strong>Acceso programático:</strong></p>

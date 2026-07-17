@@ -3,10 +3,20 @@
  * Fire-and-forget pattern - never blocks the main request
  */
 
+export interface EmailAttachment {
+  /** Nombre de archivo mostrado en el mail, ej. "focus-2026-07-19.csv" */
+  name: string;
+  /** MIME type, ej. "text/csv" */
+  contentType: string;
+  /** Contenido en base64 (Graph exige base64 para fileAttachment). */
+  contentBase64: string;
+}
+
 export async function sendEmailAsync(
   subject: string,
   htmlContent: string,
-  recipientEmail: string
+  recipientEmail: string,
+  attachments?: EmailAttachment[]
 ): Promise<void> {
   try {
     const senderEmail = process.env.AZURE_SENDER_EMAIL;
@@ -45,6 +55,12 @@ export async function sendEmailAsync(
             subject,
             body: { contentType: 'HTML', content: htmlContent },
             toRecipients: [{ emailAddress: { address: recipientEmail } }],
+            attachments: attachments?.map((a) => ({
+              '@odata.type': '#microsoft.graph.fileAttachment',
+              name: a.name,
+              contentType: a.contentType,
+              contentBytes: a.contentBase64,
+            })),
           },
           saveToSentItems: 'false',
         };
