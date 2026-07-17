@@ -10,6 +10,13 @@ const ALLOWED_WEBHOOK_HOST_PATTERNS: RegExp[] = [
   /^([a-z0-9-]+\.)*webhook\.office\.com$/i,
   /^([a-z0-9-]+\.)*office365\.com$/i,
   /^([a-z0-9-]+\.)*microsoft\.com$/i,
+  // Microsoft retiró los conectores clásicos de Teams (webhook.office.com);
+  // los webhooks de Teams creados hoy vía Workflows/Power Automate resuelven
+  // a estos dominios en lugar de webhook.office.com.
+  /^([a-z0-9-]+\.)*logic\.azure\.com$/i,
+  /^([a-z0-9-]+\.)*azure-apihub\.net$/i,
+  /^([a-z0-9-]+\.)*flow\.microsoft\.com$/i,
+  /^([a-z0-9-]+\.)*powerplatform\.com$/i,
   /^discord(app)?\.com$/i,
   /^([a-z0-9-]+\.)*pagerduty\.com$/i,
   /^([a-z0-9-]+\.)*opsgenie\.com$/i,
