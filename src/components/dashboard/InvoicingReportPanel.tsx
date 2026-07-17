@@ -4,10 +4,12 @@ import useSWR from "swr";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { useTranslations } from "next-intl";
-import { Loader2, AlertTriangle, Download, FileText, DollarSign, TrendingUp, Percent, Mail } from "lucide-react";
+import { isMockTenant } from "@/lib/mockData";
+import { Loader2, AlertTriangle, Download, FileText, DollarSign, TrendingUp, Percent, Mail, FileSpreadsheet, Receipt, Layers } from "lucide-react";
 import { toast } from "sonner";
 import { getFreshIdToken } from "@/lib/msalToken";
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
+import Pagination, { usePagination } from "@/components/Pagination";
 
 function KpiCard({ label, value, sub, icon, accent = "blue" }: { label: string; value: string; sub?: string; icon: React.ReactNode; accent?: string }) {
     const bg = accent === "green" ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400" : accent === "amber" ? "bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400" : "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400";
@@ -24,7 +26,9 @@ function KpiCard({ label, value, sub, icon, accent = "blue" }: { label: string; 
 }
 
 function getPeriodOptions(): { value: string; label: string }[] {
-    const opts = [];
+    const opts: { value: string; label: string }[] = [
+        { value: "last3m", label: "Últimos 3 meses" },
+    ];
     const now = new Date();
     for (let i = 0; i < 3; i++) {
         const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
@@ -42,14 +46,22 @@ export default function InvoicingReportPanel() {
 
     const periodOptions = getPeriodOptions();
     const [period, setPeriod] = useState(periodOptions[0].value);
+    const [subscriptionId, setSubscriptionId] = useState("");
     const [downloadingPdf, setDownloadingPdf] = useState<string | null>(null);
     const [sendingEmail, setSendingEmail] = useState<string | null>(null);
 
     const fetcher = async (url: string) => {
-        const account = accounts[0];
-        if (!account) throw new Error("No hay cuenta autenticada");
-        const token = await getFreshIdToken(instance, account);
-        const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+        let headers: Record<string, string> = {};
+        // Tenants demo/mock no tienen cuenta MSAL real (login demo/demo,
+        // ver setDemoSession) — la API server-side ya salta requireTenantRole
+        // para isMockTenant, así que acá alcanza con no mandar Authorization.
+        if (!isMockTenant(selectedTenant?.id || "")) {
+            const account = accounts[0];
+            if (!account) throw new Error("No hay cuenta autenticada");
+            const token = await getFreshIdToken(instance, account);
+            headers = { Authorization: `Bearer ${token}` };
+        }
+        const res = await fetch(url, { headers });
         if (!res.ok) {
             const j = await res.json();
             throw new Error(j.error || "Error al cargar reporte de facturación");
@@ -58,20 +70,30 @@ export default function InvoicingReportPanel() {
     };
 
     const apiUrl =
-        selectedTenant && selectedTenant.id !== "default" && accounts.length > 0
-            ? `/api/admin/report/invoicing?tenantId=${selectedTenant.id}&period=${period}&format=json`
+        selectedTenant && selectedTenant.id !== "default" && (isMockTenant(selectedTenant.id) || accounts.length > 0)
+            ? `/api/admin/report/invoicing?tenantId=${selectedTenant.id}&period=${period}&format=json${subscriptionId ? `&subscriptionId=${encodeURIComponent(subscriptionId)}` : ""}`
             : null;
 
     const { data, error, isLoading } = useSWR(apiUrl, fetcher, { revalidateOnFocus: false });
 
+    const sectionsPagination = usePagination(data?.byInvoiceSection, 10);
+    const subscriptionsPagination = usePagination(data?.bySubscription, 10);
+    const linesPagination = usePagination(data?.lines, 25);
+
+    const handleExportPbit = () => {
+        toast.info("Export PBIT: próximamente. Mientras tanto usá JSON/CSV con Power BI (Obtener datos → JSON/CSV).");
+    };
+
+    const subParam = subscriptionId ? `&subscriptionId=${encodeURIComponent(subscriptionId)}` : "";
+
     const handleDownloadCsv = () => {
-        if (!selectedTenant || !accounts[0]) return;
-        window.open(`/api/admin/report/invoicing?tenantId=${selectedTenant.id}&period=${period}&format=csv`, "_blank");
+        if (!selectedTenant || (!isMockTenant(selectedTenant.id) && !accounts[0])) return;
+        window.open(`/api/admin/report/invoicing?tenantId=${selectedTenant.id}&period=${period}&format=csv${subParam}`, "_blank");
     };
 
     const handleDownloadJson = () => {
-        if (!selectedTenant || !accounts[0]) return;
-        window.open(`/api/admin/report/invoicing?tenantId=${selectedTenant.id}&period=${period}&format=json`, "_blank");
+        if (!selectedTenant || (!isMockTenant(selectedTenant.id) && !accounts[0])) return;
+        window.open(`/api/admin/report/invoicing?tenantId=${selectedTenant.id}&period=${period}&format=json${subParam}`, "_blank");
     };
 
     const handleDownloadZip = async () => {
@@ -188,7 +210,7 @@ export default function InvoicingReportPanel() {
 
     if (!data) return null;
 
-    const { totals, byCustomer, mock, markupPercent, currency } = data;
+    const { totals, byCustomer, byInvoiceSection, bySubscription, availableSubscriptions, lines, mock, markupPercent, currency } = data;
 
     return (
         <div className="w-full space-y-6">
@@ -214,6 +236,21 @@ export default function InvoicingReportPanel() {
                         ))}
                     </select>
                 </div>
+                {availableSubscriptions && availableSubscriptions.length > 1 && (
+                    <div className="flex items-center gap-2">
+                        <label className="text-sm text-slate-500 dark:text-slate-400">Suscripción:</label>
+                        <select
+                            value={subscriptionId}
+                            onChange={e => setSubscriptionId(e.target.value)}
+                            className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+                        >
+                            <option value="">Todas las suscripciones</option>
+                            {availableSubscriptions.map((s: { id: string; name: string }) => (
+                                <option key={s.id} value={s.id}>{s.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                )}
                 {markupPercent != null && (
                     <div className="flex items-center gap-1.5 text-xs bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/50 px-3 py-1.5 rounded-lg">
                         <Percent className="w-3 h-3" />
@@ -240,6 +277,13 @@ export default function InvoicingReportPanel() {
                         className="flex items-center gap-2 px-3 py-1.5 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
                     >
                         <Download className="w-4 h-4" /> JSON
+                    </button>
+                    <button
+                        onClick={handleExportPbit}
+                        className="flex items-center gap-2 px-3 py-1.5 text-sm bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-gray-400 rounded-lg hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors"
+                        title="Power BI Template — próximamente"
+                    >
+                        <FileSpreadsheet className="w-4 h-4" /> PBIT (próximamente)
                     </button>
                 </div>
             </div>
@@ -309,6 +353,136 @@ export default function InvoicingReportPanel() {
                         </tbody>
                     </table>
                 </div>
+            </div>
+
+            {/* By Invoice Section table */}
+            <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm">
+                <div className="px-4 py-3 border-b border-gray-100 dark:border-slate-800 flex items-center gap-2">
+                    <Receipt className="w-4 h-4 text-blue-500" />
+                    <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">Facturación por Invoice Section</h3>
+                </div>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                        <thead className="bg-gray-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 text-xs">
+                            <tr>
+                                <th className="px-4 py-3 text-left font-semibold">Invoice Section ID</th>
+                                <th className="px-4 py-3 text-left font-semibold">Customer ID</th>
+                                <th className="px-4 py-3 text-right font-semibold">Costo</th>
+                                <th className="px-4 py-3 text-right font-semibold">Ajustado</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
+                            {sectionsPagination.paged.map((s: any) => (
+                                <tr key={s.invoiceSectionId} className="hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors">
+                                    <td className="px-4 py-3 font-mono text-xs text-slate-600 dark:text-slate-300">{s.invoiceSectionId}</td>
+                                    <td className="px-4 py-3 font-mono text-xs text-slate-500">{s.customerId}</td>
+                                    <td className="px-4 py-3 text-right font-mono text-slate-700 dark:text-slate-300">${s.cost.toLocaleString()}</td>
+                                    <td className="px-4 py-3 text-right font-mono font-semibold text-emerald-700 dark:text-emerald-400">${s.adjusted.toLocaleString()}</td>
+                                </tr>
+                            ))}
+                            {(!byInvoiceSection || byInvoiceSection.length === 0) && (
+                                <tr>
+                                    <td colSpan={4} className="px-4 py-10 text-center text-sm text-slate-500">No hay datos para el período seleccionado.</td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+                {byInvoiceSection && byInvoiceSection.length > 10 && (
+                    <div className="px-4 py-2 border-t border-gray-100 dark:border-slate-800">
+                        <Pagination {...sectionsPagination} />
+                    </div>
+                )}
+            </div>
+
+            {/* By Subscription table */}
+            {bySubscription && bySubscription.length > 0 && (
+                <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm">
+                    <div className="px-4 py-3 border-b border-gray-100 dark:border-slate-800 flex items-center gap-2">
+                        <Layers className="w-4 h-4 text-blue-500" />
+                        <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">Facturación por Suscripción</h3>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead className="bg-gray-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 text-xs">
+                                <tr>
+                                    <th className="px-4 py-3 text-left font-semibold">Suscripción</th>
+                                    <th className="px-4 py-3 text-right font-semibold">Costo Original</th>
+                                    <th className="px-4 py-3 text-right font-semibold">Costo Ajustado</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
+                                {subscriptionsPagination.paged.map((s: any) => (
+                                    <tr key={s.subscriptionId} className="hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors">
+                                        <td className="px-4 py-3 text-slate-700 dark:text-slate-200" title={s.subscriptionId}>{s.subscriptionName || s.subscriptionId}</td>
+                                        <td className="px-4 py-3 text-right font-mono text-slate-700 dark:text-slate-300">${s.originalCost.toLocaleString()}</td>
+                                        <td className="px-4 py-3 text-right font-mono font-semibold text-emerald-700 dark:text-emerald-400">${s.adjustedCost.toLocaleString()}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                            <tfoot className="bg-gray-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-200 font-semibold border-t-2 border-gray-200 dark:border-slate-700">
+                                <tr>
+                                    <td className="px-4 py-3 text-left">Total ({bySubscription.length} suscripciones)</td>
+                                    <td className="px-4 py-3 text-right font-mono">${bySubscription.reduce((sum: number, s: any) => sum + s.originalCost, 0).toLocaleString()}</td>
+                                    <td className="px-4 py-3 text-right font-mono text-emerald-700 dark:text-emerald-400">${bySubscription.reduce((sum: number, s: any) => sum + s.adjustedCost, 0).toLocaleString()}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    {bySubscription.length > 10 && (
+                        <div className="px-4 py-2 border-t border-gray-100 dark:border-slate-800">
+                            <Pagination {...subscriptionsPagination} />
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Line-level detail table (billing profile + invoice section + customer) */}
+            <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm">
+                <div className="px-4 py-3 border-b border-gray-100 dark:border-slate-800 flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-blue-500" />
+                    <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">Detalle de Líneas (Billing Profile / Invoice Section / Customer)</h3>
+                </div>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                        <thead className="bg-gray-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 text-xs">
+                            <tr>
+                                <th className="px-4 py-3 text-left font-semibold">Fecha</th>
+                                <th className="px-4 py-3 text-left font-semibold">Customer</th>
+                                <th className="px-4 py-3 text-left font-semibold">Billing Profile</th>
+                                <th className="px-4 py-3 text-left font-semibold">Invoice Section</th>
+                                <th className="px-4 py-3 text-left font-semibold">Servicio</th>
+                                <th className="px-4 py-3 text-left font-semibold">Resource Group</th>
+                                <th className="px-4 py-3 text-right font-semibold">Costo Original</th>
+                                <th className="px-4 py-3 text-right font-semibold">Costo Ajustado</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
+                            {linesPagination.paged.map((l: any, idx: number) => (
+                                <tr key={`${l.date}-${l.customerId}-${idx}`} className="hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors">
+                                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{l.date}</td>
+                                    <td className="px-4 py-3 font-mono text-xs text-slate-500">{l.customerName || l.customerId}</td>
+                                    <td className="px-4 py-3 font-mono text-xs text-slate-500">{l.billingProfileId || "—"}</td>
+                                    <td className="px-4 py-3 font-mono text-xs text-slate-500">{l.invoiceSectionId || "—"}</td>
+                                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{l.service}</td>
+                                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{l.resourceGroup}</td>
+                                    <td className="px-4 py-3 text-right font-mono text-slate-700 dark:text-slate-300">${l.originalCost.toLocaleString()}</td>
+                                    <td className="px-4 py-3 text-right font-mono font-semibold text-emerald-700 dark:text-emerald-400">${l.adjustedCost.toLocaleString()}</td>
+                                </tr>
+                            ))}
+                            {(!lines || lines.length === 0) && (
+                                <tr>
+                                    <td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-500">No hay líneas para el período seleccionado.</td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+                {lines && lines.length > 0 && (
+                    <div className="px-4 py-2 border-t border-gray-100 dark:border-slate-800">
+                        <Pagination {...linesPagination} />
+                    </div>
+                )}
             </div>
         </div>
     );

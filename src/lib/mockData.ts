@@ -318,6 +318,59 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                     missingTags: []
                 }
             };
+        case 'invoicing_report': {
+            const round2 = (x: number) => Math.round(x * 100) / 100;
+            const markupPercent = 15;
+            const lines = [
+                { date: '2026-07-01', customerId: 'cust-001', customerName: 'ACME Corp', subscriptionId: 'sub-prod-eastus', billingProfileId: 'bp-acme-01', invoiceSectionId: 'inv-001', service: 'Virtual Machines', resourceGroup: 'rg-prod-acme', originalCost: round2(1230.5 * multiplier / 10) },
+                { date: '2026-07-01', customerId: 'cust-001', customerName: 'ACME Corp', subscriptionId: 'sub-prod-eastus', billingProfileId: 'bp-acme-01', invoiceSectionId: 'inv-001', service: 'SQL Database', resourceGroup: 'rg-prod-acme', originalCost: round2(850 * multiplier / 10) },
+                { date: '2026-07-02', customerId: 'cust-002', customerName: 'Globex Ltd', subscriptionId: 'sub-staging-westeu', billingProfileId: 'bp-globex-01', invoiceSectionId: 'inv-002', service: 'Storage', resourceGroup: 'rg-prod-globex', originalCost: round2(420.3 * multiplier / 10) },
+                { date: '2026-07-03', customerId: 'cust-003', customerName: 'Initech', subscriptionId: 'sub-prod-eastus', billingProfileId: 'bp-initech-01', invoiceSectionId: 'inv-003', service: 'AKS', resourceGroup: 'rg-prod-initech', originalCost: round2(980 * multiplier / 10) },
+                { date: '2026-07-04', customerId: 'cust-003', customerName: 'Initech', subscriptionId: 'sub-dev-sandbox', billingProfileId: 'bp-initech-01', invoiceSectionId: 'inv-003', service: 'App Service', resourceGroup: 'rg-dev-initech', originalCost: round2(210 * multiplier / 10) },
+            ].map(l => ({ ...l, adjustedCost: round2(l.originalCost * (1 + markupPercent / 100)) }));
+
+            const custMap = new Map<string, { customerId: string; customerName: string; originalCost: number; adjustedCost: number }>();
+            const invMap = new Map<string, { invoiceSectionId: string; customerId: string; cost: number; adjusted: number }>();
+            const subMap = new Map<string, { subscriptionId: string; subscriptionName: string; originalCost: number; adjustedCost: number }>();
+            const subNames: Record<string, string> = {
+                'sub-prod-eastus': 'Producción (East US)',
+                'sub-staging-westeu': 'Staging (West Europe)',
+                'sub-dev-sandbox': 'Dev Sandbox',
+            };
+            for (const l of lines) {
+                const ce = custMap.get(l.customerId) || { customerId: l.customerId, customerName: l.customerName, originalCost: 0, adjustedCost: 0 };
+                ce.originalCost += l.originalCost;
+                ce.adjustedCost += l.adjustedCost;
+                custMap.set(l.customerId, ce);
+                const ie = invMap.get(l.invoiceSectionId) || { invoiceSectionId: l.invoiceSectionId, customerId: l.customerId, cost: 0, adjusted: 0 };
+                ie.cost += l.originalCost;
+                ie.adjusted += l.adjustedCost;
+                invMap.set(l.invoiceSectionId, ie);
+                const se = subMap.get(l.subscriptionId) || { subscriptionId: l.subscriptionId, subscriptionName: subNames[l.subscriptionId] || l.subscriptionId, originalCost: 0, adjustedCost: 0 };
+                se.originalCost += l.originalCost;
+                se.adjustedCost += l.adjustedCost;
+                subMap.set(l.subscriptionId, se);
+            }
+            const byCustomer = Array.from(custMap.values());
+            const byInvoiceSection = Array.from(invMap.values());
+            const bySubscription = Array.from(subMap.values());
+            const totalOriginal = round2(byCustomer.reduce((s, c) => s + c.originalCost, 0));
+            const totalAdjusted = round2(byCustomer.reduce((s, c) => s + c.adjustedCost, 0));
+
+            return {
+                success: true,
+                mock: true,
+                period: '2026-07',
+                markupPercent,
+                currency: 'USD',
+                totals: { originalCost: totalOriginal, adjustedCost: totalAdjusted, markupAmount: round2(totalAdjusted - totalOriginal) },
+                byCustomer,
+                byInvoiceSection,
+                bySubscription,
+                availableSubscriptions: bySubscription.map(s => ({ id: s.subscriptionId, name: s.subscriptionName })),
+                lines,
+            };
+        }
         case 'ttl_policies': {
             const now = Date.now();
             const day = 86400000;

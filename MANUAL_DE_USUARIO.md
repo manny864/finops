@@ -130,7 +130,7 @@ El sistema está dividido en cinco (5) pilares estratégicos en el menú lateral
 - **Configuración:** Administración general del perfil del Tenant y preferencias de suscripciones.
 - **Facturación (Cambio de Plan):** En `/admin/billing` el rol **Owner** puede cambiar de plan (Essential / Professional / Business) de forma autogestionada. Al seleccionar el nuevo plan, frecuencia (mensual/anual) y modo de prorrateo, el sistema muestra un **resumen previo** con el monto real calculado por Paddle antes de confirmar: **"Se cobrará ahora $X"** (upgrade) o **"Recibirás un crédito de $X"** (downgrade), el nuevo total recurrente y la fecha de próxima facturación. El cambio sólo se aplica al presionar **Confirmar cambio**.
 - **Reporte Ejecutivo:** Generación automatizada de reportes periódicos en formato de alto nivel.
-- **Invoicing Report (Enterprise):** export JSON / CSV / PBIT stub con detalle por `billing_profile`, `invoice_section` y `customer` en `/admin/report`.
+- **Invoicing Report (Business+):** export JSON / CSV / PBIT stub con detalle por `billing_profile`, `invoice_section` y `customer` en `/admin/report`. Incluye selector de período (mes puntual o **Últimos 3 meses**, opción por defecto) y selector de **suscripción por nombre** (no GUID); la tabla "Facturación por Suscripción" muestra una fila de **total** con la sumatoria de todas las suscripciones.
 - **Azure Lighthouse Onboarding (Enterprise):** generación de ARM template para delegación cross-tenant en `/admin/onboarding/lighthouse`.
 - **M365 Copilot (Enterprise):** configuración del tenant + chat asistido sobre datos FinOps en `/admin/copilot-m365`.
 

@@ -2,14 +2,51 @@ import { NextRequest, NextResponse } from "next/server";
 import { isMockTenant } from "@/lib/mockData";
 import pool from "@/modules/storage/db";
 import { renderShowbackPdf } from "@/lib/pdf/showbackInvoice";
-import { requireTenantRole, hasSystemRole } from "@/lib/requestAuth";
+import { requireTenantRole } from "@/lib/requestAuth";
+import { hasAccess } from "@/lib/tierLogic";
+import { getAzureCredential } from "@/lib/azure";
+import { getSubscriptionNameMap, resolveSubscriptionName, isUnattributedSubscriptionId } from "@/lib/azureSubscriptionNames";
 import JSZip from "jszip";
 import { serverError } from '@/lib/apiErrors';
 
+const UNATTRIBUTED_LABEL = "No atribuido a una suscripción";
+
+function pad2(n: number): string {
+    return String(n).padStart(2, "0");
+}
+
+/**
+ * Resuelve el rango de fechas [start, end] (inclusive) a consultar.
+ * Acepta un mes puntual `YYYY-MM` o el valor especial `last3m` (mes actual
+ * más los 2 anteriores). Se usa DATE(COALESCE(ChargePeriodStart, date)) para
+ * cubrir tanto filas Azure (date) como el formato FOCUS/AWS (ChargePeriodStart).
+ */
+function resolvePeriodRange(period: string): { start: string; end: string } {
+    const now = new Date();
+    if (period === "last3m") {
+        const startD = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 2, 1));
+        const endD = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0));
+        return {
+            start: `${startD.getUTCFullYear()}-${pad2(startD.getUTCMonth() + 1)}-01`,
+            end: `${endD.getUTCFullYear()}-${pad2(endD.getUTCMonth() + 1)}-${pad2(endD.getUTCDate())}`,
+        };
+    }
+    const m = /^(\d{4})-(\d{2})$/.exec(period);
+    if (m) {
+        const y = Number(m[1]);
+        const mo = Number(m[2]);
+        const endD = new Date(Date.UTC(y, mo, 0));
+        return { start: `${period}-01`, end: `${period}-${pad2(endD.getUTCDate())}` };
+    }
+    const endD = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0));
+    const cur = `${now.getUTCFullYear()}-${pad2(now.getUTCMonth() + 1)}`;
+    return { start: `${cur}-01`, end: `${cur}-${pad2(endD.getUTCDate())}` };
+}
+
 const MOCK_LINES = [
-    { date: "2026-06-01", customerId: "cust-001", customerName: "ACME Corp", service: "Virtual Machines", resourceGroup: "rg-prod-acme", originalCost: 1230.50, adjustedCost: 1415.08 },
-    { date: "2026-06-01", customerId: "cust-001", customerName: "ACME Corp", service: "SQL Database", resourceGroup: "rg-prod-acme", originalCost: 850, adjustedCost: 977.50 },
-    { date: "2026-06-02", customerId: "cust-002", customerName: "Globex Ltd", service: "Storage", resourceGroup: "rg-prod-globex", originalCost: 420.30, adjustedCost: 483.35 },
+    { date: "2026-06-01", customerId: "cust-001", customerName: "ACME Corp", subscriptionId: "sub-prod-001", service: "Virtual Machines", resourceGroup: "rg-prod-acme", originalCost: 1230.50, adjustedCost: 1415.08 },
+    { date: "2026-06-01", customerId: "cust-001", customerName: "ACME Corp", subscriptionId: "sub-prod-001", service: "SQL Database", resourceGroup: "rg-prod-acme", originalCost: 850, adjustedCost: 977.50 },
+    { date: "2026-06-02", customerId: "cust-002", customerName: "Globex Ltd", subscriptionId: "sub-prod-002", service: "Storage", resourceGroup: "rg-prod-globex", originalCost: 420.30, adjustedCost: 483.35 },
 ];
 
 const MOCK_PAYLOAD = {
@@ -29,13 +66,18 @@ const MOCK_PAYLOAD = {
         { invoiceSectionId: "inv-002", customerId: "cust-002", cost: 15230.50, adjusted: 17514.08 },
         { invoiceSectionId: "inv-003", customerId: "cust-003", cost: 11500, adjusted: 13225 },
     ],
+    bySubscription: [
+        { subscriptionId: "sub-prod-001", subscriptionName: "Producción 001", originalCost: 18500, adjustedCost: 21275 },
+        { subscriptionId: "sub-prod-002", subscriptionName: "Producción 002", originalCost: 15230.50, adjustedCost: 17514.08 },
+        { subscriptionId: "sub-prod-003", subscriptionName: "Producción 003", originalCost: 11500, adjustedCost: 13225 },
+    ],
     lines: MOCK_LINES,
 };
 
 function serializeCSV(lines: any[], period: string): string {
-    const header = "date,customerId,customerName,service,resourceGroup,originalCost,adjustedCost\r\n";
+    const header = "date,customerId,customerName,subscriptionId,service,resourceGroup,originalCost,adjustedCost\r\n";
     const rows = lines.map(l =>
-        [l.date, l.customerId, l.customerName ?? "", l.service, l.resourceGroup, l.originalCost, l.adjustedCost]
+        [l.date, l.customerId, l.customerName ?? "", l.subscriptionId ?? "", l.service, l.resourceGroup, l.originalCost, l.adjustedCost]
             .map(v => `"${String(v).replace(/"/g, '""')}"`)
             .join(",")
     );
@@ -147,9 +189,10 @@ export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
         const tenantId = searchParams.get("tenantId");
-        const period = searchParams.get("period") || new Date().toISOString().substring(0, 7);
+        const period = searchParams.get("period") || "last3m";
         const format = searchParams.get("format") || "json";
         const customerId = searchParams.get("customerId");
+        const subscriptionId = searchParams.get("subscriptionId");
 
         if (!tenantId) {
             return NextResponse.json({ error: "Falta parámetro: tenantId" }, { status: 400 });
@@ -186,54 +229,90 @@ export async function GET(request: NextRequest) {
             if (format === "pdf") {
                 return await handlePdfGeneration(MOCK_PAYLOAD, period, customerId, tenantId, "Mock Tenant");
             }
-            return NextResponse.json({ ...MOCK_PAYLOAD, period });
+            return NextResponse.json({
+                ...MOCK_PAYLOAD,
+                period,
+                availableSubscriptions: MOCK_PAYLOAD.bySubscription.map(s => ({ id: s.subscriptionId, name: s.subscriptionName })),
+            });
         }
 
         try {
             const [tenants]: any = await pool.query(
-                "SELECT tier, partner_markup_percent, company_name FROM Tenants WHERE tenant_id = ?",
+                "SELECT tier, markup_percentage, company_name FROM Tenants WHERE tenant_id = ?",
                 [tenantId]
             );
             if (!tenants || tenants.length === 0) {
                 return NextResponse.json({ error: "Tenant no encontrado." }, { status: 404 });
             }
             const tier = String(tenants[0].tier || "");
-            // isCorporateDomain no implica SuperAdmin: hay que verificar
-            // system_role='SUPERADMIN' en DB (mismo bug que en admin/config/users).
-            const isSuperAdmin = !!identity?.isCorporateDomain && await hasSystemRole(identity.email, "SUPERADMIN");
-            if (tier.toLowerCase() !== "enterprise" && !isSuperAdmin) {
-                return NextResponse.json({ error: "Feature bloqueada. Requiere plan Enterprise." }, { status: 403 });
+            if (!hasAccess(tier, "Business")) {
+                return NextResponse.json({ error: "Feature bloqueada. Requiere plan Business o superior." }, { status: 403 });
             }
-            const markupPercent = tenants[0].partner_markup_percent != null
-                ? Number(tenants[0].partner_markup_percent)
+            const markupPercent = tenants[0].markup_percentage != null
+                ? Number(tenants[0].markup_percentage)
                 : 15;
             const tenantName = tenants[0].company_name || "Unknown Tenant";
 
+            const { start, end } = resolvePeriodRange(period);
+
+            // Lista completa de suscripciones con datos en el rango, SIN aplicar
+            // el filtro subscriptionId — así el selector del frontend siempre
+            // muestra todas las opciones disponibles, no solo la elegida.
+            const [subRows]: any = await pool.query(
+                `SELECT DISTINCT cs.subscription_id AS subscriptionId
+                 FROM CostSnapshots cs
+                 WHERE cs.tenant_id = ?
+                   AND DATE(COALESCE(cs.ChargePeriodStart, cs.date)) BETWEEN ? AND ?
+                   AND cs.subscription_id IS NOT NULL
+                 ORDER BY cs.subscription_id`,
+                [tenantId, start, end]
+            );
+
+            // CostSnapshots sólo guarda el GUID de la suscripción; resolvemos el
+            // nombre real vía Azure Management (mismo patrón que top-expenses /
+            // cost-groups). Si falla, el selector cae al GUID sin romperse.
+            let subNameMap = new Map<string, string>();
+            try {
+                const credential = await getAzureCredential(tenantId);
+                subNameMap = await getSubscriptionNameMap(tenantId, credential);
+            } catch (e: any) {
+                console.warn("[invoicing] subscriptionNames:", e?.message);
+            }
+            const availableSubscriptions = (subRows as any[])
+                .map(r => r.subscriptionId as string)
+                .filter(id => !isUnattributedSubscriptionId(id))
+                .map(id => ({ id, name: resolveSubscriptionName(id, subNameMap) }));
+
+            const subFilter = subscriptionId ? " AND cs.subscription_id = ?" : "";
+            const queryParams = subscriptionId ? [tenantId, start, end, subscriptionId] : [tenantId, start, end];
+
             const [rows]: any = await pool.query(
                 `SELECT
-                    DATE(cs.date) AS date,
+                    DATE(COALESCE(cs.ChargePeriodStart, cs.date)) AS date,
                     cs.customer_id AS customerId,
+                    cs.subscription_id AS subscriptionId,
                     cs.billing_profile_id AS billingProfileId,
                     cs.invoice_section_id AS invoiceSectionId,
                     cs.service_name AS service,
                     cs.resource_group AS resourceGroup,
-                    SUM(cs.billed_cost) AS originalCost
+                    SUM(COALESCE(cs.EffectiveCost, cs.BilledCost, cs.cost_usd, 0)) AS originalCost
                  FROM CostSnapshots cs
                  WHERE cs.tenant_id = ?
-                   AND DATE_FORMAT(cs.date, '%Y-%m') = ?
-                 GROUP BY DATE(cs.date), cs.customer_id, cs.billing_profile_id, cs.invoice_section_id, cs.service_name, cs.resource_group
-                 ORDER BY cs.customer_id, DATE(cs.date)`,
-                [tenantId, period]
+                   AND DATE(COALESCE(cs.ChargePeriodStart, cs.date)) BETWEEN ? AND ?${subFilter}
+                 GROUP BY DATE(COALESCE(cs.ChargePeriodStart, cs.date)), cs.customer_id, cs.subscription_id, cs.billing_profile_id, cs.invoice_section_id, cs.service_name, cs.resource_group
+                 ORDER BY cs.customer_id, DATE(COALESCE(cs.ChargePeriodStart, cs.date))`,
+                queryParams
             );
 
             if (!rows || rows.length === 0) {
-                return NextResponse.json({ success: true, mock: false, period, markupPercent, totals: null, byCustomer: [], byInvoiceSection: [], lines: [] });
+                return NextResponse.json({ success: true, mock: false, period, markupPercent, totals: null, byCustomer: [], byInvoiceSection: [], bySubscription: [], availableSubscriptions, lines: [] });
             }
 
             const multiplier = 1 + markupPercent / 100;
             const lines = rows.map((r: any) => ({
                 date: String(r.date).substring(0, 10),
                 customerId: r.customerId,
+                subscriptionId: r.subscriptionId,
                 service: r.service,
                 resourceGroup: r.resourceGroup,
                 billingProfileId: r.billingProfileId,
@@ -242,9 +321,10 @@ export async function GET(request: NextRequest) {
                 adjustedCost: Math.round(Number(r.originalCost) * multiplier * 100) / 100,
             }));
 
-            // byCustomer aggregation
+            // byCustomer / bySubscription aggregation
             const custMap = new Map<string, { customerId: string; originalCost: number; adjustedCost: number }>();
             const invMap = new Map<string, { invoiceSectionId: string; customerId: string; cost: number; adjusted: number }>();
+            const subMap = new Map<string, { subscriptionId: string; subscriptionName: string; originalCost: number; adjustedCost: number }>();
 
             for (const l of lines) {
                 const ce = custMap.get(l.customerId) || { customerId: l.customerId, originalCost: 0, adjustedCost: 0 };
@@ -258,10 +338,21 @@ export async function GET(request: NextRequest) {
                     ie.adjusted += l.adjustedCost;
                     invMap.set(l.invoiceSectionId, ie);
                 }
+
+                if (l.subscriptionId) {
+                    const name = isUnattributedSubscriptionId(l.subscriptionId)
+                        ? UNATTRIBUTED_LABEL
+                        : resolveSubscriptionName(l.subscriptionId, subNameMap);
+                    const se = subMap.get(l.subscriptionId) || { subscriptionId: l.subscriptionId, subscriptionName: name, originalCost: 0, adjustedCost: 0 };
+                    se.originalCost += l.originalCost;
+                    se.adjustedCost += l.adjustedCost;
+                    subMap.set(l.subscriptionId, se);
+                }
             }
 
             const byCustomer = Array.from(custMap.values()).sort((a, b) => b.originalCost - a.originalCost);
             const byInvoiceSection = Array.from(invMap.values()).sort((a, b) => b.cost - a.cost);
+            const bySubscription = Array.from(subMap.values()).sort((a, b) => b.originalCost - a.originalCost);
             const totalOriginal = byCustomer.reduce((s, c) => s + c.originalCost, 0);
             const totalAdjusted = byCustomer.reduce((s, c) => s + c.adjustedCost, 0);
 
@@ -278,6 +369,8 @@ export async function GET(request: NextRequest) {
                 },
                 byCustomer,
                 byInvoiceSection,
+                bySubscription,
+                availableSubscriptions,
                 lines,
             };
 

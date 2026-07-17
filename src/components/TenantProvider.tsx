@@ -805,7 +805,47 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                   }
               }
 
-              if (url.includes('/api/rightsizing/') || url.includes('/api/admin/report/invoicing')) {
+              if (url.includes('/api/admin/report/invoicing')) {
+                  const invoicingMethod = (init?.method || 'GET').toUpperCase();
+                  if (invoicingMethod !== 'GET') return new Response(JSON.stringify({ success: true, mock: true }), { status: 200 });
+
+                  const invoicingData = getMockDataForRoute('invoicing_report', tier) as any;
+                  const subFilter = new URL(url, window.location.origin).searchParams.get('subscriptionId');
+                  if (subFilter && invoicingData?.lines) {
+                      // Recalcula agregados/totales sobre las líneas filtradas —
+                      // mismo criterio que el backend real (ver /api/admin/report/invoicing).
+                      const filteredLines = invoicingData.lines.filter((l: any) => l.subscriptionId === subFilter);
+                      const custMap = new Map<string, any>();
+                      const invMap = new Map<string, any>();
+                      const subMap = new Map<string, any>();
+                      const subNameOf = (id: string) => (invoicingData.bySubscription || []).find((s: any) => s.subscriptionId === id)?.subscriptionName || id;
+                      for (const l of filteredLines) {
+                          const ce = custMap.get(l.customerId) || { customerId: l.customerId, customerName: l.customerName, originalCost: 0, adjustedCost: 0 };
+                          ce.originalCost += l.originalCost; ce.adjustedCost += l.adjustedCost;
+                          custMap.set(l.customerId, ce);
+                          const ie = invMap.get(l.invoiceSectionId) || { invoiceSectionId: l.invoiceSectionId, customerId: l.customerId, cost: 0, adjusted: 0 };
+                          ie.cost += l.originalCost; ie.adjusted += l.adjustedCost;
+                          invMap.set(l.invoiceSectionId, ie);
+                          const se = subMap.get(l.subscriptionId) || { subscriptionId: l.subscriptionId, subscriptionName: subNameOf(l.subscriptionId), originalCost: 0, adjustedCost: 0 };
+                          se.originalCost += l.originalCost; se.adjustedCost += l.adjustedCost;
+                          subMap.set(l.subscriptionId, se);
+                      }
+                      const byCustomer = Array.from(custMap.values());
+                      const totalOriginal = byCustomer.reduce((s: number, c: any) => s + c.originalCost, 0);
+                      const totalAdjusted = byCustomer.reduce((s: number, c: any) => s + c.adjustedCost, 0);
+                      return new Response(JSON.stringify({
+                          ...invoicingData,
+                          lines: filteredLines,
+                          byCustomer,
+                          byInvoiceSection: Array.from(invMap.values()),
+                          bySubscription: Array.from(subMap.values()),
+                          totals: { originalCost: totalOriginal, adjustedCost: totalAdjusted, markupAmount: totalAdjusted - totalOriginal },
+                      }), { status: 200 });
+                  }
+                  return new Response(JSON.stringify(invoicingData), { status: 200 });
+              }
+
+              if (url.includes('/api/rightsizing/')) {
                   return new Response(JSON.stringify({ mock: true, items: [], data: [], success: true }), {status: 200});
               }
               if (url.includes('/api/remediation') && !url.includes('/workflow')) return new Response(JSON.stringify({ mock: true, success: true }), {status: 200});
