@@ -489,13 +489,17 @@ export async function getCostForecast(
     return forecastData;
 }
 
-export async function getYesterdaysCost(tenantId: string): Promise<number> {
+/**
+ * `targetDate` opcional (default: ayer) — permite al cron de sync rellenar
+ * días que quedaron sin datos por throttling 429 de Cost Management, sin
+ * duplicar esta función. Ver backfillMissingDays en /api/cron/sync.
+ */
+export async function getYesterdaysCost(tenantId: string, targetDate?: Date): Promise<number> {
     const credential = await getAzureCredential(tenantId);
     const client = new CostManagementClient(credential);
 
-    // Calculate yesterday's date range
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
+    // Calculate target date's range (yesterday by default)
+    const yesterday = targetDate ?? (() => { const d = new Date(); d.setDate(d.getDate() - 1); return d; })();
     const yyyy = yesterday.getFullYear();
     const mm = yesterday.getMonth();
     const dd = yesterday.getDate();
@@ -622,12 +626,12 @@ export type DetailedCostRow = {
     unitOfMeasure: string;
 };
 
-export async function getYesterdaysDetailedCosts(tenantId: string): Promise<DetailedCostRow[]> {
+/** `targetDate` opcional (default: ayer) — ver nota en getYesterdaysCost. */
+export async function getYesterdaysDetailedCosts(tenantId: string, targetDate?: Date): Promise<DetailedCostRow[]> {
     const credential = await getAzureCredential(tenantId);
     const client = new CostManagementClient(credential);
 
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterday = targetDate ?? (() => { const d = new Date(); d.setDate(d.getDate() - 1); return d; })();
     const yyyy = yesterday.getFullYear();
     const mm = yesterday.getMonth();
     const dd = yesterday.getDate();
