@@ -264,6 +264,15 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               if (url.includes('/api/intelligence/maturity')) return new Response(JSON.stringify(getMockDataForRoute('maturity', tier)), {status: 200});
               if (url.includes('/api/cleanup/zombies/networking')) return new Response(JSON.stringify(getMockDataForRoute('networking_zombies', tier)), {status: 200});
               if (url.includes('/api/cleanup/zombies')) return new Response(JSON.stringify(getMockDataForRoute('audit_full', tier)), {status: 200});
+              if (url.includes('/api/cleanup/ttl/policies')) {
+                  const method = (init?.method || 'GET').toUpperCase();
+                  if (method === 'GET') return new Response(JSON.stringify(getMockDataForRoute('ttl_policies', tier)), {status: 200});
+                  if (method === 'POST') return new Response(JSON.stringify({ success: true, mock: true }), {status: 201});
+                  if (method === 'DELETE') return new Response(JSON.stringify({ success: true, mock: true }), {status: 200});
+              }
+              if (url.includes('/api/cleanup/ttl/unlabeled')) return new Response(JSON.stringify(getMockDataForRoute('ttl_unlabeled', tier)), {status: 200});
+              if (url.includes('/api/cleanup/ttl/history')) return new Response(JSON.stringify(getMockDataForRoute('ttl_history', tier)), {status: 200});
+              if (url.includes('/api/tags/apply')) return new Response(JSON.stringify({ success: true, mock: true }), {status: 200});
               if (url.includes('/api/cleanup/ttl')) {
                   const m = (selectedTenant?.tier?.toLowerCase()==='enterprise')?50:(selectedTenant?.tier?.toLowerCase()==='business')?10:(selectedTenant?.tier?.toLowerCase()==='pro')?3:1;
                   const now = Date.now();

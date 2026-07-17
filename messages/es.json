@@ -769,7 +769,8 @@
       "anomaly": "Anomalía",
       "forecast": "Forecast",
       "threshold": "Umbral",
-      "credential_expiry": "Vencimiento de credenciales"
+      "credential_expiry": "Vencimiento de credenciales",
+      "ttl_expiry": "Expiración TTL"
     },
     "channels": {
       "email": "Email",

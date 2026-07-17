@@ -318,6 +318,41 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                     missingTags: []
                 }
             };
+        case 'ttl_policies': {
+            const now = Date.now();
+            const day = 86400000;
+            return {
+                success: true,
+                policies: [
+                    { id: 1, name: 'VMs de desarrollo', resourceType: 'microsoft.compute/virtualmachines', daysToLive: 14, description: 'Máquinas virtuales de sandboxes/POCs — se etiquetan al crearse en el pipeline de onboarding.', enabled: true, createdBy: 'demo@company.com', createdAt: new Date(now - 40 * day).toISOString() },
+                    { id: 2, name: 'Clusters AKS de prueba', resourceType: 'microsoft.containerservice/managedclusters', daysToLive: 30, description: 'Clusters de laboratorio para pruebas de carga y capacitaciones.', enabled: true, createdBy: 'demo@company.com', createdAt: new Date(now - 25 * day).toISOString() },
+                    { id: 3, name: 'Bases de datos efímeras', resourceType: 'microsoft.dbforpostgresql/flexibleservers', daysToLive: 7, description: 'Postgres flexible servers usados en pipelines de QA.', enabled: true, createdBy: 'demo@company.com', createdAt: new Date(now - 10 * day).toISOString() },
+                ]
+            };
+        }
+        case 'ttl_unlabeled': {
+            const now = new Date();
+            const suggested = (days: number) => { const d = new Date(now); d.setUTCDate(d.getUTCDate() + days); return d.toISOString().slice(0, 10); };
+            return {
+                success: true,
+                resources: [
+                    { id: '/subscriptions/mock-sub-1/resourceGroups/qa-loadtest-rg/providers/microsoft.compute/virtualMachines/dev-vm-loadtest-02', name: 'dev-vm-loadtest-02', type: 'microsoft.compute/virtualmachines', resourceGroup: 'qa-loadtest-rg', subscriptionId: 'mock-sub-1', tags: { Environment: 'Sandbox' }, suggestedExpiration: suggested(14) },
+                    { id: '/subscriptions/mock-sub-2/resourceGroups/aks-lab-rg/providers/microsoft.containerservice/managedClusters/tmp-aks-experiment-2', name: 'tmp-aks-experiment-2', type: 'microsoft.containerservice/managedclusters', resourceGroup: 'aks-lab-rg', subscriptionId: 'mock-sub-2', tags: { Environment: 'Lab' }, suggestedExpiration: suggested(30) },
+                    { id: '/subscriptions/mock-sub-1/resourceGroups/db-sandbox-rg/providers/microsoft.dbforpostgresql/flexibleServers/pgsql-test-flex-02', name: 'pgsql-test-flex-02', type: 'microsoft.dbforpostgresql/flexibleservers', resourceGroup: 'db-sandbox-rg', subscriptionId: 'mock-sub-1', tags: {}, suggestedExpiration: suggested(7) },
+                ]
+            };
+        }
+        case 'ttl_history': {
+            const now = Date.now();
+            const day = 86400000;
+            return {
+                success: true,
+                deletions: [
+                    { id: 1, resourceId: '/subscriptions/mock-sub-3/resourceGroups/sandbox-poc-billing/providers/microsoft.compute/virtualMachines/poc-billing-vm', resourceName: 'poc-billing-vm', resourceType: 'microsoft.compute/virtualmachines', resourceGroup: 'sandbox-poc-billing', expirationDate: new Date(now - 45 * day).toISOString().slice(0, 10), deletedBy: 'admin@demo.com', deletedAt: new Date(now - 40 * day).toISOString() },
+                    { id: 2, resourceId: '/subscriptions/mock-sub-1/resourceGroups/training-rg-old/providers/microsoft.network/virtualNetworks/training-workshop-vnet-old', resourceName: 'training-workshop-vnet-old', resourceType: 'microsoft.network/virtualnetworks', resourceGroup: 'training-rg-old', expirationDate: new Date(now - 60 * day).toISOString().slice(0, 10), deletedBy: 'admin@demo.com', deletedAt: new Date(now - 55 * day).toISOString() },
+                ]
+            };
+        }
         case 'audit_full':
             return {
                 success: true,

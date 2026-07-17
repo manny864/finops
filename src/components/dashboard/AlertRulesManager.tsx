@@ -26,7 +26,10 @@ type Rule = {
 
 type Budget = { id: number; costCenter: string; monthlyLimit: number };
 
-const RULE_TYPES = ["budget", "anomaly", "forecast", "threshold", "credential_expiry"] as const;
+const RULE_TYPES = ["budget", "anomaly", "forecast", "threshold", "credential_expiry", "ttl_expiry"] as const;
+// Tipos con umbral fijo en días (no editable, sin unidad %/USD) — comparten
+// la misma UI condicional del formulario.
+const DAYS_ONLY_TYPES = new Set(["credential_expiry", "ttl_expiry"]);
 const CHANNELS = ["email", "webhook", "teams", "slack", "servicenow"] as const;
 
 const CHANNEL_BADGE: Record<string, string> = {
@@ -42,6 +45,7 @@ const TYPE_BADGE: Record<string, string> = {
     forecast:  "bg-cyan-100 dark:bg-cyan-950/40 text-cyan-700 dark:text-cyan-400",
     threshold: "bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-400",
     credential_expiry: "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400",
+    ttl_expiry: "bg-teal-100 dark:bg-teal-950/40 text-teal-700 dark:text-teal-400",
 };
 
 export default function AlertRulesManager() {
@@ -137,7 +141,7 @@ export default function AlertRulesManager() {
                     ruleName: form.ruleName,
                     ruleType: form.ruleType,
                     thresholdValue: parseFloat(form.thresholdValue),
-                    thresholdUnit: form.ruleType === "credential_expiry" ? "days" : form.thresholdUnit,
+                    thresholdUnit: DAYS_ONLY_TYPES.has(form.ruleType) ? "days" : form.thresholdUnit,
                     channel: form.channel,
                     channelTarget: form.channelTarget,
                     budgetId: form.ruleType === "budget" && form.budgetId ? Number(form.budgetId) : null,
@@ -333,12 +337,12 @@ export default function AlertRulesManager() {
                                             className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                                         />
                                         <select
-                                            value={form.ruleType === "credential_expiry" ? "days" : form.thresholdUnit}
+                                            value={DAYS_ONLY_TYPES.has(form.ruleType) ? "days" : form.thresholdUnit}
                                             onChange={(e) => setForm((f) => ({ ...f, thresholdUnit: e.target.value }))}
-                                            disabled={form.ruleType === "credential_expiry"}
+                                            disabled={DAYS_ONLY_TYPES.has(form.ruleType)}
                                             className="px-2 py-2 text-sm rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 disabled:opacity-70"
                                         >
-                                            {form.ruleType === "credential_expiry" ? (
+                                            {DAYS_ONLY_TYPES.has(form.ruleType) ? (
                                                 <option value="days">{t("daysUnit")}</option>
                                             ) : (
                                                 <>

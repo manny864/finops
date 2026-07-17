@@ -3,13 +3,15 @@ import { deleteResource } from "@/services/remediationService";
 import { requireTenantRole, requireTenantTier, AuthError } from "@/lib/requestAuth";
 import { getDeleteRemediationTier, DeleteResourceDomain } from "@/lib/tierLogic";
 import { redis } from "@/lib/redis";
+import { isMockTenant } from "@/lib/mockData";
+import pool from "@/modules/storage/db";
 
 const DELETE_DOMAINS = new Set<DeleteResourceDomain>(["zombies", "networking", "ttl", "advisor"]);
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { tenantId, subscriptionId, resourceGroup, resourceName, resourceType, resourceId, domain } = body;
+    const { tenantId, subscriptionId, resourceGroup, resourceName, resourceType, resourceId, domain, expirationDate } = body;
 
     if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
     // Dominio de la feature que originó el borrado (zombies/networking/ttl/
@@ -37,6 +39,21 @@ export async function POST(request: NextRequest) {
     await requireTenantTier(request, tenantId, getDeleteRemediationTier(domain as DeleteResourceDomain));
 
     await deleteResource(tenantId, email, subscriptionId, resourceGroup, resourceName, resourceType, resourceId);
+
+    // Histórico dedicado de eliminaciones TTL (paso 4 del manual: "Consultás
+    // el histórico de qué se eliminó y cuándo") — ActionLogs ya registra el
+    // borrado genéricamente pero sin resource_name/expiration_date.
+    if (domain === "ttl" && !isMockTenant(tenantId)) {
+      try {
+        await pool.query(
+          `INSERT INTO TtlDeletions (tenant_id, resource_id, resource_name, resource_type, resource_group, expiration_date, deleted_by)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [tenantId, resourceId || null, resourceName || null, resourceType || null, resourceGroup || null, expirationDate || null, email]
+        );
+      } catch (e) {
+        console.error("[Remediation] No se pudo registrar TtlDeletions:", e);
+      }
+    }
 
     // Invalidar cache de auditoría (Redis SWR) para que el recurso recién
     // borrado no siga apareciendo como zombie hasta que expire el TTL.
