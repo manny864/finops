@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import pool from "@/modules/storage/db";
+import { resolvePeriodRange } from "@/lib/invoicingPeriod";
 
 function hashKey(plain: string): string {
     return crypto.createHash("sha256").update(plain).digest("hex");
@@ -39,6 +40,29 @@ async function feedCosts(tenantId: string, days: number) {
          WHERE tenant_id=? AND sync_date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
          ORDER BY sync_date ASC`,
         [tenantId, days]
+    );
+    return rows;
+}
+
+async function feedInvoicing(tenantId: string, period: string) {
+    const { start, end } = resolvePeriodRange(period);
+    // Mismo shape/columnas que /api/admin/report/invoicing — el key ya trae
+    // el tenant_id resuelto server-side (authenticate()), así que no hay
+    // forma de que un caller pida datos de otro tenant vía este endpoint.
+    const [rows] = await pool.query(
+        `SELECT
+            DATE(COALESCE(cs.ChargePeriodStart, cs.date)) AS date,
+            cs.customer_id AS customerId,
+            cs.subscription_id AS subscriptionId,
+            cs.service_name AS service,
+            cs.resource_group AS resourceGroup,
+            SUM(COALESCE(cs.EffectiveCost, cs.BilledCost, cs.cost_usd, 0)) AS originalCost
+         FROM CostSnapshots cs
+         WHERE cs.tenant_id = ?
+           AND DATE(COALESCE(cs.ChargePeriodStart, cs.date)) BETWEEN ? AND ?
+         GROUP BY DATE(COALESCE(cs.ChargePeriodStart, cs.date)), cs.customer_id, cs.subscription_id, cs.service_name, cs.resource_group
+         ORDER BY date ASC`,
+        [tenantId, start, end]
     );
     return rows;
 }
@@ -89,6 +113,11 @@ export async function GET(request: NextRequest) {
         if (type === "costs") {
             const data = await feedCosts(tenantId, days);
             return NextResponse.json({ success: true, type, days, data });
+        }
+        if (type === "invoicing") {
+            const period = searchParams.get("period") || "last3m";
+            const data = await feedInvoicing(tenantId, period);
+            return NextResponse.json({ success: true, type, period, data });
         }
         if (type === "zombies") {
             const data = await feedZombies(tenantId);
