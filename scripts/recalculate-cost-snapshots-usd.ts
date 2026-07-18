@@ -79,39 +79,40 @@ async function getTargetTenants(tenantId?: string): Promise<TenantRow[]> {
 
 /** Suma actual en DB de las 3 tablas detalladas + la legacy, para el rango dado. */
 async function getCurrentDbTotals(tenantId: string, fromDate: string, toDate: string) {
+    // `rows` es palabra reservada desde MySQL 8.0.19 (window functions) —
+    // como alias de columna revienta con ER_PARSE_ERROR. rowCount evita el choque.
     const [snap]: any = await pool.query(
-        `SELECT COALESCE(SUM(cost_usd), 0) AS total, COUNT(*) AS rows
+        `SELECT COALESCE(SUM(cost_usd), 0) AS total, COUNT(*) AS rowCount
          FROM CostSnapshots WHERE tenant_id = ? AND date BETWEEN ? AND ?`,
         [tenantId, fromDate, toDate]
     );
     const [meter]: any = await pool.query(
-        `SELECT COALESCE(SUM(cost_usd), 0) AS total, COUNT(*) AS rows
+        `SELECT COALESCE(SUM(cost_usd), 0) AS total, COUNT(*) AS rowCount
          FROM CostMeterSnapshots WHERE tenant_id = ? AND date BETWEEN ? AND ?`,
         [tenantId, fromDate, toDate]
     );
     const [cat]: any = await pool.query(
-        `SELECT COALESCE(SUM(cost_usd), 0) AS total, COUNT(*) AS rows
+        `SELECT COALESCE(SUM(cost_usd), 0) AS total, COUNT(*) AS rowCount
          FROM CostCategorySnapshots WHERE tenant_id = ? AND date BETWEEN ? AND ?`,
         [tenantId, fromDate, toDate]
     );
     const [legacy]: any = await pool.query(
-        `SELECT COALESCE(SUM(total_cost_usd), 0) AS total, COUNT(*) AS rows
+        `SELECT COALESCE(SUM(total_cost_usd), 0) AS total, COUNT(*) AS rowCount
          FROM cost_snapshots WHERE tenant_id = ? AND sync_date BETWEEN ? AND ?`,
         [tenantId, fromDate, toDate]
     );
     return {
-        chargeback: { total: Number(snap[0]?.total || 0), rows: Number(snap[0]?.rows || 0) },
-        meter: { total: Number(meter[0]?.total || 0), rows: Number(meter[0]?.rows || 0) },
-        category: { total: Number(cat[0]?.total || 0), rows: Number(cat[0]?.rows || 0) },
-        legacy: { total: Number(legacy[0]?.total || 0), rows: Number(legacy[0]?.rows || 0) },
+        chargeback: { total: Number(snap[0]?.total || 0), rows: Number(snap[0]?.rowCount || 0) },
+        meter: { total: Number(meter[0]?.total || 0), rows: Number(meter[0]?.rowCount || 0) },
+        category: { total: Number(cat[0]?.total || 0), rows: Number(cat[0]?.rowCount || 0) },
+        legacy: { total: Number(legacy[0]?.total || 0), rows: Number(legacy[0]?.rowCount || 0) },
     };
 }
 
-async function deleteExistingRows(tenantId: string, fromDate: string, toDate: string) {
-    await pool.query(`DELETE FROM CostSnapshots WHERE tenant_id = ? AND date BETWEEN ? AND ?`, [tenantId, fromDate, toDate]);
-    await pool.query(`DELETE FROM CostMeterSnapshots WHERE tenant_id = ? AND date BETWEEN ? AND ?`, [tenantId, fromDate, toDate]);
-    await pool.query(`DELETE FROM CostCategorySnapshots WHERE tenant_id = ? AND date BETWEEN ? AND ?`, [tenantId, fromDate, toDate]);
-    await pool.query(`DELETE FROM cost_snapshots WHERE tenant_id = ? AND sync_date BETWEEN ? AND ?`, [tenantId, fromDate, toDate]);
+/** Borra SOLO una tabla puntual — ver guarda anti-vaciado en processTenant(). */
+async function deleteTable(table: 'CostSnapshots' | 'CostMeterSnapshots' | 'CostCategorySnapshots' | 'cost_snapshots', tenantId: string, fromDate: string, toDate: string) {
+    const dateCol = table === 'cost_snapshots' ? 'sync_date' : 'date';
+    await pool.query(`DELETE FROM ${table} WHERE tenant_id = ? AND ${dateCol} BETWEEN ? AND ?`, [tenantId, fromDate, toDate]);
 }
 
 async function insertDetailedRows(tenantId: string, rows: HistoricalDetailedCostRow[]) {
@@ -189,9 +190,35 @@ async function processTenant(tenant: TenantRow, months: number, dryRun: boolean)
         return;
     }
 
-    await deleteExistingRows(tenant.id, fromDate, toDate);
-    await insertDetailedRows(tenant.id, detailedRows);
-    await insertLegacyDailyTotals(tenant.id, dailyTotals);
+    // Guarda anti-vaciado: bajo throttling 429 fuerte, un tipo de query puede
+    // agotar reintentos y volver completamente vacío mientras los otros sí
+    // funcionan (visto en vivo: legacy=0 con chargeback/meter/category OK).
+    // Si eso pasa y la tabla YA tenía filas, NO se borra — un array vacío acá
+    // es "no pude consultarlo", no "el gasto real es cero". Solo se toca una
+    // tabla si hay algo nuevo para reemplazarla, o si ya estaba vacía (nada que perder).
+    const chargebackRows = detailedRows.filter((r) => r.kind === "chargeback");
+    const meterRows = detailedRows.filter((r) => r.kind === "meter");
+    const categoryRows = detailedRows.filter((r) => r.kind === "category");
+
+    const maybeReplace = async (
+        table: 'CostSnapshots' | 'CostMeterSnapshots' | 'CostCategorySnapshots' | 'cost_snapshots',
+        newRows: unknown[],
+        existingCount: number,
+        insertFn: () => Promise<void>
+    ) => {
+        if (newRows.length === 0 && existingCount > 0) {
+            console.warn(`  SKIP ${table}: recalculado vino vacío pero había ${existingCount} filas — se preserva lo existente (probable 429 agotó reintentos, no gasto real cero).`);
+            return;
+        }
+        if (newRows.length === 0) return; // nada nuevo, nada que borrar
+        await deleteTable(table, tenant.id, fromDate, toDate);
+        await insertFn();
+    };
+
+    await maybeReplace('CostSnapshots', chargebackRows, before.chargeback.rows, () => insertDetailedRows(tenant.id, chargebackRows));
+    await maybeReplace('CostMeterSnapshots', meterRows, before.meter.rows, () => insertDetailedRows(tenant.id, meterRows));
+    await maybeReplace('CostCategorySnapshots', categoryRows, before.category.rows, () => insertDetailedRows(tenant.id, categoryRows));
+    await maybeReplace('cost_snapshots', dailyTotals, before.legacy.rows, () => insertLegacyDailyTotals(tenant.id, dailyTotals));
 
     const after = await getCurrentDbTotals(tenant.id, fromDate, toDate);
     console.log(`  DB después — chargeback: $${after.chargeback.total.toFixed(2)} (${after.chargeback.rows} filas), meter: $${after.meter.total.toFixed(2)} (${after.meter.rows}), category: $${after.category.total.toFixed(2)} (${after.category.rows}), legacy: $${after.legacy.total.toFixed(2)} (${after.legacy.rows})`);
