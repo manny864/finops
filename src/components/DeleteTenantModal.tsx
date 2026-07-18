@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { AlertTriangle, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { useMfaChallenge } from '@/hooks/useMfaChallenge';
 
 interface DeleteTenantModalProps {
     tenantId: string;
@@ -14,6 +15,7 @@ export default function DeleteTenantModal({ tenantId, tenantName }: DeleteTenant
     const [confirmationName, setConfirmationName] = useState('');
     const [isDeleting, setIsDeleting] = useState(false);
     const { instance, accounts } = useMsal();
+    const { requestChallenge, mfaModal } = useMfaChallenge();
 
     const isUnlocked = confirmationName === tenantName;
 
@@ -22,6 +24,13 @@ export default function DeleteTenantModal({ tenantId, tenantName }: DeleteTenant
         setIsDeleting(true);
 
         try {
+            // Operación sensible: solicitar MFA si el usuario tiene 2FA activado.
+            const { challengeId, cancelled } = await requestChallenge('delete_tenant', { tenantId });
+            if (cancelled) {
+                setIsDeleting(false);
+                return;
+            }
+
             const tokenResponse = await instance.acquireTokenSilent({
                 scopes: ["User.Read"],
                 account: accounts[0]
@@ -31,7 +40,8 @@ export default function DeleteTenantModal({ tenantId, tenantName }: DeleteTenant
                 method: 'POST',
                 headers: { 
                     'Authorization': `Bearer ${tokenResponse.idToken}`,
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    ...(challengeId ? { 'X-MFA-Challenge-Id': challengeId } : {})
                 },
                 body: JSON.stringify({ tenantId })
             });
@@ -144,6 +154,7 @@ export default function DeleteTenantModal({ tenantId, tenantName }: DeleteTenant
                     </button>
                 </div>
             </div>
+            {mfaModal}
         </div>
     );
 }

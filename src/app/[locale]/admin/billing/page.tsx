@@ -7,6 +7,7 @@ import { CreditCard, AlertCircle, ChevronDown, Loader2, Trash2, ExternalLink, In
 import { toast } from "sonner";
 import { getSubscriptionLimit, getUserLimit } from "@/lib/tierLogic";
 import { getSupportConfig } from "@/lib/supportConfig";
+import { useMfaChallenge } from "@/hooks/useMfaChallenge";
 
 interface BillingInfo {
   tier: string;
@@ -53,6 +54,7 @@ function formatMinorAmount(minor: string | null | undefined, currency: string): 
 export default function BillingPage() {
   const { selectedTenant } = useTenant();
   const { instance, accounts } = useMsal();
+  const { requestChallenge, mfaModal } = useMfaChallenge();
   const [billingInfo, setBillingInfo] = useState<BillingInfo | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -176,7 +178,17 @@ export default function BillingPage() {
     if (!selectedTenant?.id || !selectedNewTier) return;
     setUpdatingSubscription(true);
     try {
-      const headers = { ...(await authHeaders()), "Content-Type": "application/json" };
+      // Operación sensible (cambio de plan): solicitar MFA si el usuario tiene 2FA activado.
+      const { challengeId, cancelled } = await requestChallenge("change_plan", { tenantId: selectedTenant.id });
+      if (cancelled) {
+        setUpdatingSubscription(false);
+        return;
+      }
+      const headers = {
+        ...(await authHeaders()),
+        "Content-Type": "application/json",
+        ...(challengeId ? { "X-MFA-Challenge-Id": challengeId } : {}),
+      };
       const res = await fetch(`/api/billing/subscription?tenantId=${selectedTenant.id}`, {
         method: "PATCH",
         headers,
@@ -205,7 +217,16 @@ export default function BillingPage() {
     if (!selectedTenant?.id) return;
     setUpdatingSubscription(true);
     try {
-      const headers = await authHeaders();
+      // Operación sensible (cancelar suscripción): solicitar MFA si el usuario tiene 2FA activado.
+      const { challengeId, cancelled } = await requestChallenge("cancel_subscription", { tenantId: selectedTenant.id });
+      if (cancelled) {
+        setUpdatingSubscription(false);
+        return;
+      }
+      const headers = {
+        ...(await authHeaders()),
+        ...(challengeId ? { "X-MFA-Challenge-Id": challengeId } : {}),
+      };
       const res = await fetch(`/api/billing/subscription?tenantId=${selectedTenant.id}`, {
         method: "DELETE",
         headers,
@@ -252,6 +273,7 @@ export default function BillingPage() {
 
   return (
     <div className="space-y-6 p-6">
+      {mfaModal}
       <div className="flex items-center gap-3">
         <CreditCard className="h-6 w-6 text-brand-deep" />
         <h1 className="text-3xl font-bold">Facturación</h1>

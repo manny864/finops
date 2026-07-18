@@ -6,10 +6,12 @@ import { useMsal } from '@azure/msal-react';
 import { Loader2, DollarSign, Percent, Save, Info } from 'lucide-react';
 import toast from 'react-hot-toast';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
+import { useMfaChallenge } from "@/hooks/useMfaChallenge";
 
 export default function PartnerMarkup() {
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
+    const { requestChallenge, mfaModal } = useMfaChallenge();
     const tier = (selectedTenant as any)?.tier || 'Essential';
 
     const [markup, setMarkup] = useState<number>(0);
@@ -52,6 +54,13 @@ export default function PartnerMarkup() {
     const handleSave = async () => {
         setIsSaving(true);
         try {
+            // Operación sensible (config de facturación): solicitar MFA si el usuario tiene 2FA activado.
+            const { challengeId, cancelled } = await requestChallenge('change_billing_config', { tenantId: selectedTenant.id });
+            if (cancelled) {
+                setIsSaving(false);
+                return;
+            }
+
             const account = accounts[0];
             const tokenResponse = await instance.acquireTokenSilent({ scopes: ["User.Read"], account });
 
@@ -59,7 +68,8 @@ export default function PartnerMarkup() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${tokenResponse.idToken}`
+                    'Authorization': `Bearer ${tokenResponse.idToken}`,
+                    ...(challengeId ? { 'X-MFA-Challenge-Id': challengeId } : {})
                 },
                 body: JSON.stringify({ tenantId: selectedTenant.id, markupPercentage: markup })
             });
@@ -124,6 +134,7 @@ export default function PartnerMarkup() {
 
     return (
         <div className="max-w-2xl">
+            {mfaModal}
             <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 overflow-hidden shadow-sm">
                 <div className="p-6 border-b border-gray-200 dark:border-slate-800">
                     <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
