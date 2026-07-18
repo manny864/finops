@@ -20,10 +20,13 @@ export async function POST(request: NextRequest) {
         const body = await request.json() as EmailRequest;
         const { tenantId, period, customerId, recipientEmail, recipientName } = body;
 
-        // Validate required fields
-        if (!tenantId || !period || !customerId || !recipientEmail) {
+        // Validate required fields. customerId=="null" (string) llega cuando
+        // el frontend tiene un byCustomer stale de antes de este fix (ver
+        // NO_CUSTOMER_ID en route.ts) — se corta con el mismo mensaje que
+        // "faltante" para que el usuario sepa que tiene que recargar.
+        if (!tenantId || !period || !customerId || customerId === "null" || !recipientEmail) {
             return NextResponse.json(
-                { error: "Missing required fields: tenantId, period, customerId, recipientEmail" },
+                { error: "Faltan datos o están desactualizados. Recargá la página (Ctrl+Shift+R) e intentá de nuevo." },
                 { status: 400 }
             );
         }

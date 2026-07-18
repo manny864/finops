@@ -62,7 +62,15 @@ async function handlePdfGeneration(
 ): Promise<NextResponse> {
     try {
         const isMock = payload.mock === true;
-        
+
+        // Un customerId literal "null"/"undefined" solo puede venir de un
+        // frontend con datos stale (byCustomer cacheado de antes de este fix,
+        // cuando el campo todavía podía ser JS null) — se corta acá con un
+        // mensaje claro en vez de un 404 sin contexto.
+        if (customerId === "null" || customerId === "undefined") {
+            return NextResponse.json({ error: "Datos desactualizados en el navegador. Recargá la página (Ctrl+Shift+R) e intentá de nuevo." }, { status: 400 });
+        }
+
         // Get customer details for single PDF
         if (customerId) {
             const customer = payload.byCustomer?.find((c: any) => c.customerId === customerId);
@@ -71,12 +79,12 @@ async function handlePdfGeneration(
             }
 
             const customerLines = payload.lines.filter((l: any) => l.customerId === customerId);
-            
+
             const pdfData = {
                 tenantName: tenantName || "Unknown Tenant",
                 period,
                 generatedDate: new Date().toISOString(),
-                customerName: customer.customerId,
+                customerName: customer.customerName || customer.customerId,
                 customerId: customer.customerId,
                 billingPeriod: period,
                 originalCost: customer.originalCost,
@@ -115,7 +123,7 @@ async function handlePdfGeneration(
                 tenantName: tenantName || "Unknown Tenant",
                 period,
                 generatedDate: new Date().toISOString(),
-                customerName: customer.customerId,
+                customerName: customer.customerName || customer.customerId,
                 customerId: customer.customerId,
                 billingPeriod: period,
                 originalCost: customer.originalCost,
@@ -304,6 +312,12 @@ export async function GET(request: NextRequest) {
 
             const multiplier = 1 + markupPercent / 100;
             const round2 = (n: number) => Math.round(n * 100) / 100;
+            // customer_id puede venir NULL en billing EA/MCA sin cliente CSP
+            // asociado. Se usa un sentinel corto y estable como customerId
+            // (nunca el label largo) — el customerId viaja en URLs/query
+            // params (descarga de PDF, email), y un valor largo/no-ASCII ahí
+            // es fragil. El texto legible va aparte, en customerName.
+            const NO_CUSTOMER_ID = "unassigned";
             const NO_CUSTOMER_LABEL = "Sin identificar (facturación EA/MCA sin cliente CSP)";
             // adjustedCost se mantiene SIN redondear acá — redondear por línea
             // y después sumar los redondeos introducía un drift acumulado
@@ -352,10 +366,15 @@ export async function GET(request: NextRequest) {
             }
 
             const byCustomer = Array.from(custMap.values())
-                .map(c => ({ customerId: c.customerId || NO_CUSTOMER_LABEL, originalCost: round2(c.originalCost), adjustedCost: round2(c.adjustedCost) }))
+                .map(c => ({
+                    customerId: c.customerId || NO_CUSTOMER_ID,
+                    customerName: c.customerId ? undefined : NO_CUSTOMER_LABEL,
+                    originalCost: round2(c.originalCost),
+                    adjustedCost: round2(c.adjustedCost),
+                }))
                 .sort((a, b) => b.originalCost - a.originalCost);
             const byInvoiceSection = Array.from(invMap.values())
-                .map(i => ({ ...i, customerId: i.customerId || NO_CUSTOMER_LABEL, cost: round2(i.cost), adjusted: round2(i.adjusted) }))
+                .map(i => ({ ...i, customerId: i.customerId || NO_CUSTOMER_ID, cost: round2(i.cost), adjusted: round2(i.adjusted) }))
                 .sort((a, b) => b.cost - a.cost);
             const bySubscription = Array.from(subMap.values())
                 .map(s => ({ ...s, originalCost: round2(s.originalCost), adjustedCost: round2(s.adjustedCost) }))
@@ -368,7 +387,8 @@ export async function GET(request: NextRequest) {
             // para que el filtro por cliente en el PDF siga matcheando.
             const displayLines = lines.map((l: any) => ({
                 date: l.date,
-                customerId: l.customerId || NO_CUSTOMER_LABEL,
+                customerId: l.customerId || NO_CUSTOMER_ID,
+                customerName: l.customerId ? undefined : NO_CUSTOMER_LABEL,
                 subscriptionId: l.subscriptionId,
                 service: l.service,
                 resourceGroup: l.resourceGroup,
