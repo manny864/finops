@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
+import { enforceMfaIfEnabled } from "@/lib/requireMfaChallenge";
 import pool from "@/modules/storage/db";
 import { tierToPriceId, getPaddleBaseUrl } from "@/lib/paddleTierMap";
 
@@ -14,7 +15,10 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "tenantId es requerido" }, { status: 400 });
     }
 
-    await requireTenantRole(request, tenantId, ["Admin"]);
+    const identity = await requireTenantRole(request, tenantId, ["Admin"]);
+
+    // Operación sensible (cambio de plan): exige MFA si el usuario tiene 2FA activado.
+    await enforceMfaIfEnabled(request, identity.email, identity.tenantId, "change_plan", { tenantId });
 
     const body = await request.json();
     const { newTier, billing, prorationBillingMode } = body;
@@ -118,7 +122,10 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "tenantId es requerido" }, { status: 400 });
     }
 
-    await requireTenantRole(request, tenantId, ["Admin"]);
+    const identity = await requireTenantRole(request, tenantId, ["Admin"]);
+
+    // Operación sensible (cancelar suscripción): exige MFA si el usuario tiene 2FA activado.
+    await enforceMfaIfEnabled(request, identity.email, identity.tenantId, "cancel_subscription", { tenantId });
 
     const body = await request.json();
     const { effective } = body;

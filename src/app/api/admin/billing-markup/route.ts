@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import pool from "@/modules/storage/db";
 import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
+import { enforceMfaIfEnabled } from "@/lib/requireMfaChallenge";
 
 /**
  * Heurística: un tenant está "conectado a CSP" cuando sus snapshots FOCUS traen
@@ -79,7 +80,10 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
         }
 
-        await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
+        const identity = await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
+
+        // Operación sensible (config de facturación): exige MFA si el usuario tiene 2FA activado.
+        await enforceMfaIfEnabled(request, identity.email, identity.tenantId, "change_billing_config", { tenantId });
 
         if (isMockTenant(tenantId)) {
             return NextResponse.json({ success: true, message: "Margen actualizado exitosamente (Mock)" });

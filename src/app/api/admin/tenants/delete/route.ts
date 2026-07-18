@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { teardownTenant } from "@/services/tenantTeardownService";
 import { AuthError, requireSuperAdmin } from "@/lib/requestAuth";
+import { enforceMfaIfEnabled } from "@/lib/requireMfaChallenge";
 
 export async function DELETE(request: NextRequest) {
     try {
@@ -21,7 +22,10 @@ export async function DELETE(request: NextRequest) {
             return NextResponse.json({ error: "El parámetro tenantId es obligatorio." }, { status: 400 });
         }
 
-        await requireSuperAdmin(request);
+        const identity = await requireSuperAdmin(request);
+
+        // Operación sensible: exige MFA verificado si el super admin tiene 2FA activado.
+        await enforceMfaIfEnabled(request, identity.email, identity.tenantId, "delete_tenant", { tenantId });
 
         // Execute teardown
         await teardownTenant(tenantId);
