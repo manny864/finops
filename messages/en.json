@@ -1661,5 +1661,18 @@
     "step2": "Paste the script above.",
     "step3": "Replace <YOUR_BASE_URL> with the SaaS URL and <YOUR_MCP_KEY> with your key.",
     "step4": "Done → Refresh and build your visualizations."
+  },
+  "Mfa": {
+    "title": "Two-Factor Authentication",
+    "description": "Enter your 6-digit authenticator code or a recovery code to confirm this sensitive action.",
+    "codeLabel": "Authenticator or recovery code",
+    "cancel": "Cancel",
+    "verify": "Verify",
+    "verified": "Identity verified",
+    "verifyFailed": "Could not verify the code",
+    "startFailed": "Could not start the MFA challenge",
+    "invalidCode": "Invalid code",
+    "enterCode": "Enter your 6-digit code or a recovery code",
+    "enrollmentRequired": "2FA is required but not enabled. Enable it from Security settings first."
   }
 }
