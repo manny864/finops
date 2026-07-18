@@ -20,10 +20,13 @@ export async function POST(request: NextRequest) {
         const body = await request.json() as EmailRequest;
         const { tenantId, period, customerId, recipientEmail, recipientName } = body;
 
-        // Validate required fields
-        if (!tenantId || !period || !customerId || !recipientEmail) {
+        // Validate required fields. customerId=="null" (string) llega cuando
+        // el frontend tiene un byCustomer stale de antes de este fix (ver
+        // NO_CUSTOMER_ID en route.ts) — se corta con el mismo mensaje que
+        // "faltante" para que el usuario sepa que tiene que recargar.
+        if (!tenantId || !period || !customerId || customerId === "null" || !recipientEmail) {
             return NextResponse.json(
-                { error: "Missing required fields: tenantId, period, customerId, recipientEmail" },
+                { error: "Faltan datos o están desactualizados. Recargá la página (Ctrl+Shift+R) e intentá de nuevo." },
                 { status: 400 }
             );
         }
@@ -92,17 +95,23 @@ export async function POST(request: NextRequest) {
         }
 
         const multiplier = 1 + markupPercent / 100;
-        const lines = rows.map((r: any) => ({
+        // adjustedCost sin redondear hasta el final — redondear por línea y
+        // sumar después arrastraba un drift (ver mismo fix en route.ts).
+        const rawLines = rows.map((r: any) => ({
             date: String(r.date).substring(0, 10),
             customerId: r.customerId,
             service: r.service,
             resourceGroup: r.resourceGroup,
             originalCost: Number(r.originalCost),
-            adjustedCost: Math.round(Number(r.originalCost) * multiplier * 100) / 100,
+            adjustedCostRaw: Number(r.originalCost) * multiplier,
+        }));
+        const lines = rawLines.map((l: any) => ({
+            ...l,
+            adjustedCost: Math.round(l.adjustedCostRaw * 100) / 100,
         }));
 
-        const totalOriginal = lines.reduce((sum: number, l: any) => sum + l.originalCost, 0);
-        const totalAdjusted = lines.reduce((sum: number, l: any) => sum + l.adjustedCost, 0);
+        const totalOriginal = rawLines.reduce((sum: number, l: any) => sum + l.originalCost, 0);
+        const totalAdjusted = rawLines.reduce((sum: number, l: any) => sum + l.adjustedCostRaw, 0);
 
         const pdfData = {
             tenantName,

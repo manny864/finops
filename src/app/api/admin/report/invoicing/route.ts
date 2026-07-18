@@ -62,7 +62,15 @@ async function handlePdfGeneration(
 ): Promise<NextResponse> {
     try {
         const isMock = payload.mock === true;
-        
+
+        // Un customerId literal "null"/"undefined" solo puede venir de un
+        // frontend con datos stale (byCustomer cacheado de antes de este fix,
+        // cuando el campo todavía podía ser JS null) — se corta acá con un
+        // mensaje claro en vez de un 404 sin contexto.
+        if (customerId === "null" || customerId === "undefined") {
+            return NextResponse.json({ error: "Datos desactualizados en el navegador. Recargá la página (Ctrl+Shift+R) e intentá de nuevo." }, { status: 400 });
+        }
+
         // Get customer details for single PDF
         if (customerId) {
             const customer = payload.byCustomer?.find((c: any) => c.customerId === customerId);
@@ -71,12 +79,12 @@ async function handlePdfGeneration(
             }
 
             const customerLines = payload.lines.filter((l: any) => l.customerId === customerId);
-            
+
             const pdfData = {
                 tenantName: tenantName || "Unknown Tenant",
                 period,
                 generatedDate: new Date().toISOString(),
-                customerName: customer.customerId,
+                customerName: customer.customerName || customer.customerId,
                 customerId: customer.customerId,
                 billingPeriod: period,
                 originalCost: customer.originalCost,
@@ -115,7 +123,7 @@ async function handlePdfGeneration(
                 tenantName: tenantName || "Unknown Tenant",
                 period,
                 generatedDate: new Date().toISOString(),
-                customerName: customer.customerId,
+                customerName: customer.customerName || customer.customerId,
                 customerId: customer.customerId,
                 billingPeriod: period,
                 originalCost: customer.originalCost,
@@ -303,33 +311,46 @@ export async function GET(request: NextRequest) {
             }
 
             const multiplier = 1 + markupPercent / 100;
+            const round2 = (n: number) => Math.round(n * 100) / 100;
+            // customer_id puede venir NULL en billing EA/MCA sin cliente CSP
+            // asociado. Se usa un sentinel corto y estable como customerId
+            // (nunca el label largo) — el customerId viaja en URLs/query
+            // params (descarga de PDF, email), y un valor largo/no-ASCII ahí
+            // es fragil. El texto legible va aparte, en customerName.
+            const NO_CUSTOMER_ID = "unassigned";
+            const NO_CUSTOMER_LABEL = "Sin identificar (facturación EA/MCA sin cliente CSP)";
+            // adjustedCost se mantiene SIN redondear acá — redondear por línea
+            // y después sumar los redondeos introducía un drift acumulado
+            // (ej. markup 0% mostraba "Monto Markup: -$0.06" en vez de $0).
+            // El redondeo se aplica una sola vez, al final, sobre cada total.
             const lines = rows.map((r: any) => ({
                 date: String(r.date).substring(0, 10),
-                customerId: r.customerId,
+                customerId: r.customerId || null,
                 subscriptionId: r.subscriptionId,
                 service: r.service,
                 resourceGroup: r.resourceGroup,
                 billingProfileId: r.billingProfileId,
                 invoiceSectionId: r.invoiceSectionId,
                 originalCost: Number(r.originalCost),
-                adjustedCost: Math.round(Number(r.originalCost) * multiplier * 100) / 100,
+                adjustedCostRaw: Number(r.originalCost) * multiplier,
             }));
 
             // byCustomer / bySubscription aggregation
-            const custMap = new Map<string, { customerId: string; originalCost: number; adjustedCost: number }>();
-            const invMap = new Map<string, { invoiceSectionId: string; customerId: string; cost: number; adjusted: number }>();
+            const custMap = new Map<string, { customerId: string | null; originalCost: number; adjustedCost: number }>();
+            const invMap = new Map<string, { invoiceSectionId: string; customerId: string | null; cost: number; adjusted: number }>();
             const subMap = new Map<string, { subscriptionId: string; subscriptionName: string; originalCost: number; adjustedCost: number }>();
 
             for (const l of lines) {
-                const ce = custMap.get(l.customerId) || { customerId: l.customerId, originalCost: 0, adjustedCost: 0 };
+                const custKey = l.customerId ?? "__none__";
+                const ce = custMap.get(custKey) || { customerId: l.customerId, originalCost: 0, adjustedCost: 0 };
                 ce.originalCost += l.originalCost;
-                ce.adjustedCost += l.adjustedCost;
-                custMap.set(l.customerId, ce);
+                ce.adjustedCost += l.adjustedCostRaw;
+                custMap.set(custKey, ce);
 
                 if (l.invoiceSectionId) {
                     const ie = invMap.get(l.invoiceSectionId) || { invoiceSectionId: l.invoiceSectionId, customerId: l.customerId, cost: 0, adjusted: 0 };
                     ie.cost += l.originalCost;
-                    ie.adjusted += l.adjustedCost;
+                    ie.adjusted += l.adjustedCostRaw;
                     invMap.set(l.invoiceSectionId, ie);
                 }
 
@@ -339,16 +360,43 @@ export async function GET(request: NextRequest) {
                         : resolveSubscriptionName(l.subscriptionId, subNameMap);
                     const se = subMap.get(l.subscriptionId) || { subscriptionId: l.subscriptionId, subscriptionName: name, originalCost: 0, adjustedCost: 0 };
                     se.originalCost += l.originalCost;
-                    se.adjustedCost += l.adjustedCost;
+                    se.adjustedCost += l.adjustedCostRaw;
                     subMap.set(l.subscriptionId, se);
                 }
             }
 
-            const byCustomer = Array.from(custMap.values()).sort((a, b) => b.originalCost - a.originalCost);
-            const byInvoiceSection = Array.from(invMap.values()).sort((a, b) => b.cost - a.cost);
-            const bySubscription = Array.from(subMap.values()).sort((a, b) => b.originalCost - a.originalCost);
-            const totalOriginal = byCustomer.reduce((s, c) => s + c.originalCost, 0);
-            const totalAdjusted = byCustomer.reduce((s, c) => s + c.adjustedCost, 0);
+            const byCustomer = Array.from(custMap.values())
+                .map(c => ({
+                    customerId: c.customerId || NO_CUSTOMER_ID,
+                    customerName: c.customerId ? undefined : NO_CUSTOMER_LABEL,
+                    originalCost: round2(c.originalCost),
+                    adjustedCost: round2(c.adjustedCost),
+                }))
+                .sort((a, b) => b.originalCost - a.originalCost);
+            const byInvoiceSection = Array.from(invMap.values())
+                .map(i => ({ ...i, customerId: i.customerId || NO_CUSTOMER_ID, cost: round2(i.cost), adjusted: round2(i.adjusted) }))
+                .sort((a, b) => b.cost - a.cost);
+            const bySubscription = Array.from(subMap.values())
+                .map(s => ({ ...s, originalCost: round2(s.originalCost), adjustedCost: round2(s.adjustedCost) }))
+                .sort((a, b) => b.originalCost - a.originalCost);
+            const totalOriginal = lines.reduce((s: number, l: any) => s + l.originalCost, 0);
+            const totalAdjusted = lines.reduce((s: number, l: any) => s + l.adjustedCostRaw, 0);
+
+            // Lines de salida (CSV/JSON/PDF): redondeadas a 2 decimales recién
+            // acá, y con el mismo fallback de customerId que byCustomer/byInvoiceSection
+            // para que el filtro por cliente en el PDF siga matcheando.
+            const displayLines = lines.map((l: any) => ({
+                date: l.date,
+                customerId: l.customerId || NO_CUSTOMER_ID,
+                customerName: l.customerId ? undefined : NO_CUSTOMER_LABEL,
+                subscriptionId: l.subscriptionId,
+                service: l.service,
+                resourceGroup: l.resourceGroup,
+                billingProfileId: l.billingProfileId,
+                invoiceSectionId: l.invoiceSectionId,
+                originalCost: round2(l.originalCost),
+                adjustedCost: round2(l.adjustedCostRaw),
+            }));
 
             const payload = {
                 success: true,
@@ -365,11 +413,11 @@ export async function GET(request: NextRequest) {
                 byInvoiceSection,
                 bySubscription,
                 availableSubscriptions,
-                lines,
+                lines: displayLines,
             };
 
             if (format === "csv") {
-                const csv = serializeCSV(lines, period);
+                const csv = serializeCSV(displayLines, period);
                 return new NextResponse(csv, {
                     headers: {
                         "Content-Type": "text/csv",

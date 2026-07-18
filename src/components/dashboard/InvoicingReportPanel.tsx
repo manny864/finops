@@ -186,6 +186,15 @@ export default function InvoicingReportPanel() {
     const handleDownloadPdf = async (customerId: string) => {
         try {
             if (!selectedTenant || !accounts[0]) return;
+            // customerId puede llegar null/undefined si el navegador tiene un
+            // fetch stale de antes de que el backend empezara a devolver
+            // siempre un customerId (ver NO_CUSTOMER_ID en route.ts) — sin
+            // este guard se mandaba "customerId=null" literal y el backend
+            // respondía 404/400 sin contexto.
+            if (!customerId) {
+                toast.error("Datos desactualizados: recargá la página e intentá de nuevo.");
+                return;
+            }
             setDownloadingPdf(customerId);
             const account = accounts[0];
             const token = await getFreshIdToken(instance, account);
@@ -210,6 +219,10 @@ export default function InvoicingReportPanel() {
     };
 
     const handleEmailPdf = async (customerId: string) => {
+        if (!customerId) {
+            toast.error("Datos desactualizados: recargá la página e intentá de nuevo.");
+            return;
+        }
         try {
             setSendingEmail(customerId);
             const account = accounts[0];
