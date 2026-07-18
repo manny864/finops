@@ -109,9 +109,34 @@ async function getCurrentDbTotals(tenantId: string, fromDate: string, toDate: st
     };
 }
 
-/** Borra SOLO una tabla puntual — ver guarda anti-vaciado en processTenant(). */
-async function deleteTable(table: 'CostSnapshots' | 'CostMeterSnapshots' | 'CostCategorySnapshots' | 'cost_snapshots', tenantId: string, fromDate: string, toDate: string) {
+/**
+ * Borra SOLO una tabla puntual — ver guarda anti-vaciado en processTenant().
+ * `subscriptionIds`, si se pasa, acota el DELETE a esas suscripciones
+ * específicas en vez de todo el tenant+rango: así, si una corrida trae datos
+ * frescos de la suscripción A pero la B falló por 429, se reemplaza SOLO A
+ * y B conserva lo que ya tenía persistido de una corrida anterior — antes
+ * se borraba el rango completo (todas las suscripciones) apenas newRows
+ * tenía algo de A, perdiendo el histórico de B aunque nunca se haya vuelto
+ * a traer (visto en vivo: RPA365 2026-07, ver incidente documentado).
+ * cost_snapshots (legacy) no tiene columna subscription_id — es un agregado
+ * por tenant, no admite este acotamiento.
+ */
+async function deleteTable(
+    table: 'CostSnapshots' | 'CostMeterSnapshots' | 'CostCategorySnapshots' | 'cost_snapshots',
+    tenantId: string,
+    fromDate: string,
+    toDate: string,
+    subscriptionIds?: string[]
+) {
     const dateCol = table === 'cost_snapshots' ? 'sync_date' : 'date';
+    if (table !== 'cost_snapshots' && subscriptionIds && subscriptionIds.length > 0) {
+        const placeholders = subscriptionIds.map(() => '?').join(',');
+        await pool.query(
+            `DELETE FROM ${table} WHERE tenant_id = ? AND ${dateCol} BETWEEN ? AND ? AND subscription_id IN (${placeholders})`,
+            [tenantId, fromDate, toDate, ...subscriptionIds]
+        );
+        return;
+    }
     await pool.query(`DELETE FROM ${table} WHERE tenant_id = ? AND ${dateCol} BETWEEN ? AND ?`, [tenantId, fromDate, toDate]);
 }
 
@@ -202,7 +227,7 @@ async function processTenant(tenant: TenantRow, months: number, dryRun: boolean)
 
     const maybeReplace = async (
         table: 'CostSnapshots' | 'CostMeterSnapshots' | 'CostCategorySnapshots' | 'cost_snapshots',
-        newRows: unknown[],
+        newRows: Array<{ subscriptionId?: string }>,
         existingCount: number,
         insertFn: () => Promise<void>
     ) => {
@@ -211,7 +236,13 @@ async function processTenant(tenant: TenantRow, months: number, dryRun: boolean)
             return;
         }
         if (newRows.length === 0) return; // nada nuevo, nada que borrar
-        await deleteTable(table, tenant.id, fromDate, toDate);
+        // Acota el borrado a las suscripciones que SÍ trajeron datos frescos
+        // esta corrida — cualquier otra suscripción con datos previos en el
+        // mismo rango queda intacta (ver deleteTable()).
+        const subs = table === 'cost_snapshots'
+            ? undefined
+            : Array.from(new Set(newRows.map(r => r.subscriptionId).filter((s): s is string => !!s)));
+        await deleteTable(table, tenant.id, fromDate, toDate, subs);
         await insertFn();
     };
 
