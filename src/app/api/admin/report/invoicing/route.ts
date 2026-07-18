@@ -7,6 +7,7 @@ import { hasAccess } from "@/lib/tierLogic";
 import { getAzureCredential } from "@/lib/azure";
 import { getSubscriptionNameMap, resolveSubscriptionName, isUnattributedSubscriptionId } from "@/lib/azureSubscriptionNames";
 import { resolvePeriodRange } from "@/lib/invoicingPeriod";
+import { triggerBackfillIfStale } from "@/lib/historicalGapBackfill";
 import JSZip from "jszip";
 import { serverError } from '@/lib/apiErrors';
 
@@ -254,6 +255,14 @@ export async function GET(request: NextRequest) {
                 ? Number(tenants[0].markup_percentage)
                 : 15;
             const tenantName = tenants[0].company_name || "Unknown Tenant";
+
+            // Fire-and-forget: si los datos de este tenant están stale (sin
+            // filas recientes en CostSnapshots), dispara en background el
+            // mismo backfill histórico que corre el cron — así el hueco se
+            // autocura la próxima vez que alguien mira el reporte, sin
+            // esperar a la corrida diaria. Debounced por Redis (6h) para no
+            // pegarle a Cost Management en cada carga de página.
+            triggerBackfillIfStale(tenantId);
 
             const { start, end } = resolvePeriodRange(period);
 

@@ -1,14 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import pool, {
-    insertCostSnapshot,
-    insertCostSnapshotRow,
-    insertCostMeterSnapshotRow,
-    insertCostCategorySnapshotRow,
-} from "@/modules/storage/db";
-import {
-    getHistoricalDailyCosts,
-    getHistoricalDetailedCosts,
-} from "@/modules/collectors/azure/billingService";
+import pool from "@/modules/storage/db";
+import { backfillTenantHistoricalGaps } from "@/lib/historicalGapBackfill";
 
 export async function GET(request: NextRequest) {
     return runBackfill(request);
@@ -17,18 +9,6 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     return runBackfill(request);
 }
-
-// Ventana que cubre este job: suficiente para cerrar huecos que el backfill
-// liviano del cron diario (findGapDays en /api/cron/sync, ventana de 7 días)
-// nunca llega a ver — como el caso real de RPA365 (2026-07), donde 2 de 3
-// suscripciones perdieron el sync diario por 429 sostenido durante 45 días.
-// No es un recálculo completo (eso es scripts/recalculate-cost-snapshots-usd.ts,
-// manual, para fixes de moneda/histórico completo) — este job solo UPSERTEA
-// (insertCostSnapshotRow/insertCostMeterSnapshotRow/insertCostCategorySnapshotRow
-// usan ON DUPLICATE KEY UPDATE, nunca DELETE), así que nunca puede perder datos
-// ya persistidos: en el peor caso, un día no se actualiza este ciclo y se
-// reintenta el próximo.
-const HISTORICAL_GAP_BACKFILL_MONTHS = 2;
 
 async function runBackfill(request: NextRequest) {
     try {
@@ -42,6 +22,8 @@ async function runBackfill(request: NextRequest) {
             return NextResponse.json({ error: "No autorizado." }, { status: 401 });
         }
 
+        // Todos los tenants activos — incluye automáticamente los que se
+        // sumen al SaaS a futuro, misma query que /api/cron/sync.
         const [tenants] = await pool.query<any[]>(
             'SELECT tenant_id as id FROM Tenants WHERE status = "active"'
         );
@@ -56,26 +38,10 @@ async function runBackfill(request: NextRequest) {
         // Management en vez de evitarlo.
         for (const tenant of tenants) {
             try {
-                const detailedRows = await getHistoricalDetailedCosts(tenant.id, HISTORICAL_GAP_BACKFILL_MONTHS);
-                for (const row of detailedRows) {
-                    if (row.kind === "meter") {
-                        await insertCostMeterSnapshotRow(tenant.id, row.date, row);
-                    } else if (row.kind === "category") {
-                        await insertCostCategorySnapshotRow(tenant.id, row.date, row);
-                    } else {
-                        await insertCostSnapshotRow(tenant.id, row.date, row);
-                    }
-                    detailedRowsUpserted++;
-                }
-
-                const dailySeries = await getHistoricalDailyCosts(tenant.id, undefined, HISTORICAL_GAP_BACKFILL_MONTHS);
-                for (const day of dailySeries) {
-                    await insertCostSnapshot(tenant.id, day.date, day.cost, "USD");
-                    dailyRowsUpserted++;
-                }
-
+                const result = await backfillTenantHistoricalGaps(tenant.id);
+                detailedRowsUpserted += result.detailedRowsUpserted;
+                dailyRowsUpserted += result.dailyRowsUpserted;
                 tenantsProcessed++;
-                console.log(`[historical-gap-backfill] tenant=${tenant.id} detailedRows=${detailedRows.length} dailyRows=${dailySeries.length}`);
             } catch (err: any) {
                 console.error(`[historical-gap-backfill] tenant=${tenant.id} failed:`, err.message);
                 tenantErrors[tenant.id] = err.message;
