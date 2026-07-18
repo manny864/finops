@@ -78,7 +78,8 @@
     "captured_savings_page": "Ahorro Capturado",
     "financial_leaks": "Fugas Financieras",
     "cost_centers": "Presupuesto por Centro de Costos",
-    "governance_score": "Estado de Gobernanza"
+    "governance_score": "Estado de Gobernanza",
+    "account_security": "Seguridad (2FA)"
   },
   "Dashboard": {
     "title": "Dashboard General",

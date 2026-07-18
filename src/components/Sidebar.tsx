@@ -43,6 +43,7 @@ import {
     Sparkles,
     Briefcase,
     KeyRound,
+    Lock,
     Unlock,
     Database,
     BarChart3,
@@ -170,6 +171,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             items: [
                 { href: '/support', label: t('support', { fallback: 'Soporte' }), icon: LifeBuoy },
                 { href: '/admin/users', label: 'Usuarios y Permisos', icon: Users },
+                { href: '/admin/security', label: t('account_security', { fallback: 'Seguridad (2FA)' }), icon: Lock },
                 { href: '/admin/onboarding', label: t('client_onboarding'), icon: Users },
                 { href: '/admin/onboarding/lighthouse', label: 'Azure Lighthouse Onboarding', icon: Network, requiredTier: 'Enterprise' },
                 { href: '/admin/config', label: t('configuration'), icon: Settings },

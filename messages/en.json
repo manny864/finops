@@ -78,7 +78,8 @@
     "captured_savings_page": "Captured Savings",
     "financial_leaks": "Financial Leaks",
     "cost_centers": "Cost Center Budgets",
-    "governance_score": "Governance Score"
+    "governance_score": "Governance Score",
+    "account_security": "Account Security (2FA)"
   },
   "Dashboard": {
     "title": "General Dashboard",
