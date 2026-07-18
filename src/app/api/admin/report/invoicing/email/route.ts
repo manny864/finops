@@ -92,17 +92,23 @@ export async function POST(request: NextRequest) {
         }
 
         const multiplier = 1 + markupPercent / 100;
-        const lines = rows.map((r: any) => ({
+        // adjustedCost sin redondear hasta el final — redondear por línea y
+        // sumar después arrastraba un drift (ver mismo fix en route.ts).
+        const rawLines = rows.map((r: any) => ({
             date: String(r.date).substring(0, 10),
             customerId: r.customerId,
             service: r.service,
             resourceGroup: r.resourceGroup,
             originalCost: Number(r.originalCost),
-            adjustedCost: Math.round(Number(r.originalCost) * multiplier * 100) / 100,
+            adjustedCostRaw: Number(r.originalCost) * multiplier,
+        }));
+        const lines = rawLines.map((l: any) => ({
+            ...l,
+            adjustedCost: Math.round(l.adjustedCostRaw * 100) / 100,
         }));
 
-        const totalOriginal = lines.reduce((sum: number, l: any) => sum + l.originalCost, 0);
-        const totalAdjusted = lines.reduce((sum: number, l: any) => sum + l.adjustedCost, 0);
+        const totalOriginal = rawLines.reduce((sum: number, l: any) => sum + l.originalCost, 0);
+        const totalAdjusted = rawLines.reduce((sum: number, l: any) => sum + l.adjustedCostRaw, 0);
 
         const pdfData = {
             tenantName,
