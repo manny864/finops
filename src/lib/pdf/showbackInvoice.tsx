@@ -323,7 +323,9 @@ interface RenderShowbackPdfOptions {
 export async function renderShowbackPdf(options: RenderShowbackPdfOptions): Promise<Buffer> {
   const { data } = options;
 
-  const totalPages = Math.ceil(data.lines.length / 15);
+  // Math.max(1, ...): react-pdf exige al menos una <Page>; un cliente sin
+  // líneas en el período (0/15 = 0 páginas) hacía crashear el ZIP completo.
+  const totalPages = Math.max(1, Math.ceil(data.lines.length / 15));
   const pages = Array.from({ length: totalPages }, (_, i) => i + 1);
 
   const doc = (

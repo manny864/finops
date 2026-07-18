@@ -4,6 +4,8 @@ import { renderShowbackPdf } from "@/lib/pdf/showbackInvoice";
 import { requireTenantRole, hasSystemRole } from "@/lib/requestAuth";
 import { notifyTenant } from "@/lib/notifications";
 import { serverError } from '@/lib/apiErrors';
+import { hasAccess } from "@/lib/tierLogic";
+import { resolvePeriodRange } from "@/lib/invoicingPeriod";
 
 interface EmailRequest {
     tenantId: string;
@@ -39,42 +41,50 @@ export async function POST(request: NextRequest) {
 
         // Fetch tenant data and invoicing data
         const [tenants]: any = await pool.query(
-            "SELECT company_name, partner_markup_percent, tier FROM Tenants WHERE tenant_id = ?",
+            "SELECT company_name, markup_percentage, tier FROM Tenants WHERE tenant_id = ?",
             [tenantId]
         );
         if (!tenants || tenants.length === 0) {
             return NextResponse.json({ error: "Tenant not found." }, { status: 404 });
         }
 
-        // Feature gate: mismo requisito Enterprise que GET /admin/report/invoicing
-        // (antes este endpoint hermano no lo tenía, permitiendo bypassear el
-        // paywall enviando el showback por email en vez de descargarlo).
+        // Feature gate: mismo requisito Business+ que GET /admin/report/invoicing
+        // (antes este endpoint hermano exigía Enterprise, dejando a un tenant
+        // Business ver el reporte pero recibir 403 al mandarlo por email).
         const tier = String(tenants[0].tier || "");
         const isSuperAdmin = !!identity?.isCorporateDomain && await hasSystemRole(identity.email, "SUPERADMIN");
-        if (tier.toLowerCase() !== "enterprise" && !isSuperAdmin) {
-            return NextResponse.json({ error: "Feature bloqueada. Requiere plan Enterprise." }, { status: 403 });
+        if (!hasAccess(tier, "Business") && !isSuperAdmin) {
+            return NextResponse.json({ error: "Feature bloqueada. Requiere plan Business o superior." }, { status: 403 });
         }
 
         const tenantName = tenants[0].company_name || "FinOps";
-        const markupPercent = tenants[0].partner_markup_percent != null
-            ? Number(tenants[0].partner_markup_percent)
+        const markupPercent = tenants[0].markup_percentage != null
+            ? Number(tenants[0].markup_percentage)
             : 15;
 
-        // Fetch cost data for the specific customer and period
+        // Mismo resolvePeriodRange que el GET principal — soporta tanto
+        // "last3m" (default de la UI) como un mes puntual "YYYY-MM". Antes
+        // esta query esperaba únicamente "YYYY-MM" vía DATE_FORMAT, así que
+        // con la vista default el email siempre devolvía "No data found".
+        const { start, end } = resolvePeriodRange(period);
+
+        // Fetch cost data for the specific customer and period — tenant_id +
+        // customer_id en el WHERE garantizan que nunca se puede pedir el
+        // showback de un cliente de otro tenant.
         const [rows]: any = await pool.query(
             `SELECT
-                DATE(cs.date) AS date,
+                DATE(COALESCE(cs.ChargePeriodStart, cs.date)) AS date,
                 cs.customer_id AS customerId,
                 cs.service_name AS service,
                 cs.resource_group AS resourceGroup,
-                SUM(cs.billed_cost) AS originalCost
+                SUM(COALESCE(cs.EffectiveCost, cs.BilledCost, cs.cost_usd, 0)) AS originalCost
              FROM CostSnapshots cs
              WHERE cs.tenant_id = ?
                AND cs.customer_id = ?
-               AND DATE_FORMAT(cs.date, '%Y-%m') = ?
-             GROUP BY DATE(cs.date), cs.customer_id, cs.service_name, cs.resource_group
-             ORDER BY DATE(cs.date)`,
-            [tenantId, customerId, period]
+               AND DATE(COALESCE(cs.ChargePeriodStart, cs.date)) BETWEEN ? AND ?
+             GROUP BY DATE(COALESCE(cs.ChargePeriodStart, cs.date)), cs.customer_id, cs.service_name, cs.resource_group
+             ORDER BY DATE(COALESCE(cs.ChargePeriodStart, cs.date))`,
+            [tenantId, customerId, start, end]
         );
 
         if (!rows || rows.length === 0) {

@@ -6,42 +6,11 @@ import { requireTenantRole } from "@/lib/requestAuth";
 import { hasAccess } from "@/lib/tierLogic";
 import { getAzureCredential } from "@/lib/azure";
 import { getSubscriptionNameMap, resolveSubscriptionName, isUnattributedSubscriptionId } from "@/lib/azureSubscriptionNames";
+import { resolvePeriodRange } from "@/lib/invoicingPeriod";
 import JSZip from "jszip";
 import { serverError } from '@/lib/apiErrors';
 
 const UNATTRIBUTED_LABEL = "No atribuido a una suscripción";
-
-function pad2(n: number): string {
-    return String(n).padStart(2, "0");
-}
-
-/**
- * Resuelve el rango de fechas [start, end] (inclusive) a consultar.
- * Acepta un mes puntual `YYYY-MM` o el valor especial `last3m` (mes actual
- * más los 2 anteriores). Se usa DATE(COALESCE(ChargePeriodStart, date)) para
- * cubrir tanto filas Azure (date) como el formato FOCUS/AWS (ChargePeriodStart).
- */
-function resolvePeriodRange(period: string): { start: string; end: string } {
-    const now = new Date();
-    if (period === "last3m") {
-        const startD = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 2, 1));
-        const endD = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0));
-        return {
-            start: `${startD.getUTCFullYear()}-${pad2(startD.getUTCMonth() + 1)}-01`,
-            end: `${endD.getUTCFullYear()}-${pad2(endD.getUTCMonth() + 1)}-${pad2(endD.getUTCDate())}`,
-        };
-    }
-    const m = /^(\d{4})-(\d{2})$/.exec(period);
-    if (m) {
-        const y = Number(m[1]);
-        const mo = Number(m[2]);
-        const endD = new Date(Date.UTC(y, mo, 0));
-        return { start: `${period}-01`, end: `${period}-${pad2(endD.getUTCDate())}` };
-    }
-    const endD = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0));
-    const cur = `${now.getUTCFullYear()}-${pad2(now.getUTCMonth() + 1)}`;
-    return { start: `${cur}-01`, end: `${cur}-${pad2(endD.getUTCDate())}` };
-}
 
 const MOCK_LINES = [
     { date: "2026-06-01", customerId: "cust-001", customerName: "ACME Corp", subscriptionId: "sub-prod-001", service: "Virtual Machines", resourceGroup: "rg-prod-acme", originalCost: 1230.50, adjustedCost: 1415.08 },
@@ -211,9 +180,34 @@ export async function GET(request: NextRequest) {
             }
         }
 
-        // PBIT: not implemented yet
+        // Power BI: en vez de intentar armar a mano el binario .pbit (ZIP con
+        // varias partes internas de Power BI Desktop — modelo, layout, etc.
+        // — muy fácil de dejar corrupto), generamos un .pbids (Power BI Data
+        // Source, formato JSON documentado por Microsoft) que abre Power BI
+        // Desktop y autoconfigura el conector Web apuntando al feed de
+        // /api/exports/powerbi-feed. Ese feed se autentica con una MCP API
+        // Key (no con el JWT de MSAL, que expira y Power BI no puede
+        // refrescar) — el usuario la pega una sola vez como credencial "Web
+        // API" en Power BI Desktop. Las keys se generan en Configuración > API Keys.
         if (format === "pbit") {
-            return NextResponse.json({ success: false, error: "PBIT export coming soon", mock: true });
+            const origin = request.nextUrl.origin;
+            const feedUrl = `${origin}/api/exports/powerbi-feed?type=invoicing&period=${encodeURIComponent(period)}`;
+            const pbids = {
+                version: "0.1",
+                connections: [
+                    {
+                        details: { protocol: "https", address: { url: feedUrl } },
+                        options: {},
+                        mode: "Import",
+                    },
+                ],
+            };
+            return new NextResponse(JSON.stringify(pbids, null, 2), {
+                headers: {
+                    "Content-Type": "application/json",
+                    "Content-Disposition": `attachment; filename="invoicing-${period}.pbids"`,
+                },
+            });
         }
 
         if (isMockTenant(tenantId)) {

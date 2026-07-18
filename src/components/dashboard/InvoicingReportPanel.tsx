@@ -46,27 +46,62 @@ export default function InvoicingReportPanel() {
 
     const periodOptions = getPeriodOptions();
     const [period, setPeriod] = useState(periodOptions[0].value);
+    const [customMonth, setCustomMonth] = useState("");
     const [subscriptionId, setSubscriptionId] = useState("");
     const [downloadingPdf, setDownloadingPdf] = useState<string | null>(null);
     const [sendingEmail, setSendingEmail] = useState<string | null>(null);
+    const [downloadingPbit, setDownloadingPbit] = useState(false);
 
-    const fetcher = async (url: string) => {
-        let headers: Record<string, string> = {};
+    // Ventana de retención de Azure Cost Management — más atrás que esto no
+    // hay datos para traer aunque se elija el mes en el picker.
+    const MIN_MONTH = (() => {
+        const d = new Date();
+        d.setMonth(d.getMonth() - 13);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    })();
+    const MAX_MONTH = (() => {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    })();
+
+    const authHeaders = async (): Promise<Record<string, string>> => {
         // Tenants demo/mock no tienen cuenta MSAL real (login demo/demo,
         // ver setDemoSession) — la API server-side ya salta requireTenantRole
         // para isMockTenant, así que acá alcanza con no mandar Authorization.
-        if (!isMockTenant(selectedTenant?.id || "")) {
-            const account = accounts[0];
-            if (!account) throw new Error("No hay cuenta autenticada");
-            const token = await getFreshIdToken(instance, account);
-            headers = { Authorization: `Bearer ${token}` };
-        }
+        if (isMockTenant(selectedTenant?.id || "")) return {};
+        const account = accounts[0];
+        if (!account) throw new Error("No hay cuenta autenticada");
+        const token = await getFreshIdToken(instance, account);
+        return { Authorization: `Bearer ${token}` };
+    };
+
+    const fetcher = async (url: string) => {
+        const headers = await authHeaders();
         const res = await fetch(url, { headers });
         if (!res.ok) {
             const j = await res.json();
             throw new Error(j.error || "Error al cargar reporte de facturación");
         }
         return res.json();
+    };
+
+    // Descarga un archivo autenticado vía fetch+blob. window.open() no puede
+    // adjuntar el header Authorization, así que en tenants reales (no mock)
+    // esas descargas devolvían 401 en silencio — con fetch se ve el error.
+    const downloadFile = async (url: string, filename: string) => {
+        const headers = await authHeaders();
+        const res = await fetch(url, { headers });
+        if (!res.ok) {
+            const j = await res.json().catch(() => ({}));
+            throw new Error(j.error || `Error al descargar ${filename}`);
+        }
+        const blob = await res.blob();
+        const objectUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = objectUrl;
+        a.download = filename;
+        a.click();
+        window.URL.revokeObjectURL(objectUrl);
     };
 
     const apiUrl =
@@ -80,20 +115,46 @@ export default function InvoicingReportPanel() {
     const subscriptionsPagination = usePagination(data?.bySubscription, 10);
     const linesPagination = usePagination(data?.lines, 25);
 
-    const handleExportPbit = () => {
-        toast.info("Export PBIT: próximamente. Mientras tanto usá JSON/CSV con Power BI (Obtener datos → JSON/CSV).");
+    const handleExportPbit = async () => {
+        try {
+            if (!selectedTenant) return;
+            setDownloadingPbit(true);
+            await downloadFile(
+                `/api/admin/report/invoicing?tenantId=${selectedTenant.id}&period=${period}&format=pbit`,
+                `invoicing-${period}.pbids`
+            );
+            toast.success("Plantilla Power BI (.pbids) descargada. Abrila con Power BI Desktop: te va a pedir una API Key (Configuración → API Keys) como credencial Web.");
+        } catch (err: any) {
+            toast.error(err.message || "Error al generar la plantilla Power BI");
+        } finally {
+            setDownloadingPbit(false);
+        }
     };
 
     const subParam = subscriptionId ? `&subscriptionId=${encodeURIComponent(subscriptionId)}` : "";
 
-    const handleDownloadCsv = () => {
-        if (!selectedTenant || (!isMockTenant(selectedTenant.id) && !accounts[0])) return;
-        window.open(`/api/admin/report/invoicing?tenantId=${selectedTenant.id}&period=${period}&format=csv${subParam}`, "_blank");
+    const handleDownloadCsv = async () => {
+        if (!selectedTenant) return;
+        try {
+            await downloadFile(
+                `/api/admin/report/invoicing?tenantId=${selectedTenant.id}&period=${period}&format=csv${subParam}`,
+                `invoicing-${period}.csv`
+            );
+        } catch (err: any) {
+            toast.error(err.message || "Error al descargar CSV");
+        }
     };
 
-    const handleDownloadJson = () => {
-        if (!selectedTenant || (!isMockTenant(selectedTenant.id) && !accounts[0])) return;
-        window.open(`/api/admin/report/invoicing?tenantId=${selectedTenant.id}&period=${period}&format=json${subParam}`, "_blank");
+    const handleDownloadJson = async () => {
+        if (!selectedTenant) return;
+        try {
+            await downloadFile(
+                `/api/admin/report/invoicing?tenantId=${selectedTenant.id}&period=${period}&format=json${subParam}`,
+                `invoicing-${period}.json`
+            );
+        } catch (err: any) {
+            toast.error(err.message || "Error al descargar JSON");
+        }
     };
 
     const handleDownloadZip = async () => {
@@ -227,14 +288,33 @@ export default function InvoicingReportPanel() {
                 <div className="flex items-center gap-2">
                     <label className="text-sm text-slate-500 dark:text-slate-400">Período:</label>
                     <select
-                        value={period}
-                        onChange={e => setPeriod(e.target.value)}
+                        value={customMonth ? "" : period}
+                        onChange={e => {
+                            setCustomMonth("");
+                            setPeriod(e.target.value);
+                        }}
                         className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300"
                     >
                         {periodOptions.map(o => (
                             <option key={o.value} value={o.value}>{o.label}</option>
                         ))}
                     </select>
+                </div>
+                <div className="flex items-center gap-2">
+                    <label className="text-sm text-slate-500 dark:text-slate-400">Mes específico:</label>
+                    <input
+                        type="month"
+                        value={customMonth}
+                        min={MIN_MONTH}
+                        max={MAX_MONTH}
+                        onChange={e => {
+                            const v = e.target.value;
+                            setCustomMonth(v);
+                            if (v) setPeriod(v);
+                        }}
+                        title="Elegí cualquier mes dentro de los últimos 13 (ventana de retención de Azure)"
+                        className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+                    />
                 </div>
                 {availableSubscriptions && availableSubscriptions.length > 1 && (
                     <div className="flex items-center gap-2">
@@ -280,10 +360,12 @@ export default function InvoicingReportPanel() {
                     </button>
                     <button
                         onClick={handleExportPbit}
-                        className="flex items-center gap-2 px-3 py-1.5 text-sm bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-gray-400 rounded-lg hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors"
-                        title="Power BI Template — próximamente"
+                        disabled={downloadingPbit}
+                        className="flex items-center gap-2 px-3 py-1.5 text-sm bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
+                        title="Descarga un .pbids que conecta Power BI Desktop al feed de este tenant (requiere API Key)"
                     >
-                        <FileSpreadsheet className="w-4 h-4" /> PBIT (próximamente)
+                        {downloadingPbit ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileSpreadsheet className="w-4 h-4" />}
+                        Power BI (.pbids)
                     </button>
                 </div>
             </div>
