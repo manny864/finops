@@ -591,6 +591,7 @@ Endpoints internos protegidos por `Authorization: Bearer ${CRON_SECRET}`. Se inv
 | Endpoint                              | Frecuencia recomendada | Propósito                                                                                       |
 | ------------------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------- |
 | `GET /api/cron/sync`                  | Diaria 06:00 UTC       | Snapshot diario de costos por tenant (CostManagement / CUR).                                    |
+| `GET /api/cron/historical-gap-backfill` | Diaria 03:00 UTC     | Re-consulta los últimos 2 meses de `getHistoricalDetailedCosts`/`getHistoricalDailyCosts` para todos los tenants activos y upsertea (`ON DUPLICATE KEY UPDATE`, nunca `DELETE`) — cierra huecos que el backfill liviano de `/api/cron/sync` (ventana de 7 días) no alcanza a ver, típicamente una suscripción que pierde el sync diario por 429 sostenido durante semanas (ver incidente RPA365 2026-07 abajo). También se dispara on-demand (fire-and-forget, debounced 6h por Redis) al abrir el Invoicing Report si el tenant tiene datos stale — `src/lib/historicalGapBackfill.ts`. |
 | `GET /api/cron/prewarm-dashboard`     | Cada 10 min            | Pre-calienta el cache SWR del Dashboard General (`/api/dashboard/summary`) por tenant activo.  |
 | `GET /api/cron/power-schedules`      | Cada 2 min              | Ejecuta los horarios de apagado programado de VMs (tabla `PowerSchedules`) cuyo horario local ya se cumplió (ventana de 8 min). También se dispara al instante desde `/api/power/schedule` (POST) al crear/editar un horario, sin esperar al próximo tick, para minimizar la latencia percibida. |
 | `GET /api/cron/open-data`            | Semanal (lunes 04:00)  | Sincroniza los Open Data Sets del Microsoft FinOps Toolkit (Regions/Services/ResourceTypes/PricingUnits/CommitmentEligibility) a las tablas `OpenData*`. Sin él, los lookups (nombre canónico de región, categoría de servicio, iconos) devuelven null. |
@@ -630,6 +631,12 @@ Endpoints internos protegidos por `Authorization: Bearer ${CRON_SECRET}`. Se inv
 
 # Export FOCUS 1.1 diario por email (tenants con programación habilitada)
 0 7 * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/focus-export-daily >> /var/log/finops-cron.log 2>&1
+
+# Backfill de huecos históricos (upsert-only) — todos los tenants activos, 03:00 UTC,
+# horario elegido por ser el único slot diario libre entre 00-09h en el crontab real
+# (no compite con support-attachments-cleanup 05h, sync 06h, credential-expiry-alerts
+# 07h, ni ttl-expiry-alerts 09h).
+0 3 * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/historical-gap-backfill >> /var/log/finops-cron.log 2>&1
 ```
 
 **Backups de MySQL** (`scripts/backup-db.sh`, Fase 1 del [plan de infra](docs/vps-infra-improvement-plan.md)): dump diario comprimido con retención local 7 diarios + 4 semanales, y copia off-site a Azure Blob Storage vía SAS solo-escritura (`BACKUP_AZURE_SAS_URL` en el `.env` del VPS). Runbook completo de provisioning y restore en `docs/runbook-restore-mysql.md`.
