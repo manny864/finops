@@ -40,6 +40,33 @@ When a user attempts a sensitive operation (e.g., delete tenant, cancel subscrip
 7. **Client** retries original request with `X-MFA-Challenge-Id` header
 8. **Server** middleware (`requireMfaChallenge`) verifies the header, then proceeds
 
+### Enforcement wiring (opt-in, live)
+
+MFA is **opt-in per user**, so enforcement is gated by the user's own `mfa_enabled`
+flag via the helper `enforceMfaIfEnabled(request, email, tenantId, operation, payload)`
+in `src/lib/requireMfaChallenge.ts`:
+
+- If the acting user does **not** have 2FA enabled → the operation proceeds normally.
+- If the user **has** 2FA enabled → a freshly verified challenge (matching `operation`
+  and `payload` hash, consumed < 60s ago) is required, otherwise the route returns 403.
+
+Server routes wired (each captures the caller identity from its existing auth guard and
+passes `identity.email` / `identity.tenantId` — the challenge creator, not the target tenant):
+
+| Operation | Route | Guard | Payload bound |
+|-----------|-------|-------|---------------|
+| `delete_tenant` | `POST/DELETE /api/admin/tenants/delete` | `requireSuperAdmin` | `{ tenantId }` (target) |
+| `change_plan` | `PATCH /api/billing/subscription` | `requireTenantRole(['Admin'])` | `{ tenantId }` |
+| `cancel_subscription` | `DELETE /api/billing/subscription` | `requireTenantRole(['Admin'])` | `{ tenantId }` |
+| `change_billing_config` | `POST /api/admin/billing-markup` | `requireTenantAccess(allowSuperAdmin)` | `{ tenantId }` |
+
+Client side, the reusable hook `useMfaChallenge()` (`src/hooks/useMfaChallenge.tsx`)
+orchestrates the flow: it checks `/api/mfa/status`, returns `{ challengeId: null }` when
+2FA is off (proceed), or opens `MfaPromptModal` and resolves `{ challengeId }` after the
+user verifies. Callers attach `X-MFA-Challenge-Id: <challengeId>` to the operation request.
+Wired into: `DeleteTenantModal`, `admin/billing/page.tsx` (upgrade + cancel), `PartnerMarkup`.
+
+
 ### Security Details
 
 - **Secret storage**: TOTP secrets encrypted with AES-256-GCM, key from `MFA_ENCRYPTION_KEY` env

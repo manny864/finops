@@ -205,6 +205,14 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
 
 ## 📈 Recent Major Updates
 
+### 2026-07-18 — MFA: enforcement cableado a operaciones sensibles (opt-in por usuario)
+
+- El enrollment 2FA (TOTP + QR + recovery codes) ya existía y funcionaba, pero la **exigencia del challenge en operaciones sensibles nunca estuvo cableada** (`requireMfaChallenge` y `MfaPromptModal` estaban definidos pero no se usaban en ningún lado). Ahora sí.
+- Nuevo helper `enforceMfaIfEnabled(request, email, tenantId, operation, payload)` (`src/lib/requireMfaChallenge.ts`): respeta que **el 2FA es opcional por usuario** — si el usuario no lo tiene activado, la operación procede normal; si lo tiene activado, exige un challenge verificado (< 60s, con hash de payload) o devuelve 403.
+- **Operaciones cableadas** (server): `delete_tenant` (`/api/admin/tenants/delete`), `change_plan` + `cancel_subscription` (`/api/billing/subscription` PATCH/DELETE), `change_billing_config` (`/api/admin/billing-markup`). Cada ruta captura la identidad de su guard existente (`requireSuperAdmin` / `requireTenantRole` / `requireTenantAccess`) y usa el email/tenant del **llamador** (creador del challenge), no el tenant objetivo.
+- **Cliente**: nuevo hook reutilizable `useMfaChallenge()` (`src/hooks/useMfaChallenge.tsx`) que chequea `/api/mfa/status`, y si el 2FA está activo abre `MfaPromptModal` y adjunta el header `X-MFA-Challenge-Id` a la request. Cableado en `DeleteTenantModal`, `admin/billing` (upgrade + cancelar) y `PartnerMarkup`.
+- Fix: `MfaPromptModal` enviaba `fetch` sin header `Authorization` (habría dado 401 contra `/api/mfa/challenge`); ahora usa MSAL (`getFreshIdToken`). Strings del modal i18n en `Mfa` (en/es/pt-BR). Ver `docs/mfa.md` → "Enforcement wiring".
+
 ### 2026-07-15 — Power Schedules: recurrencia semanal, timezone del navegador, fix crítico de ejecución y reducción de latencia
 
 - **Fix crítico "apagado/reinicio no ejecuta"**: `executeDueSchedules()` usaba `setHours` (reloj local del proceso) en vez de `setUTCHours` sobre el epoch ya desplazado por `gmt_offset` — si el proceso no corría en GMT-3 el matching de fecha/hora fallaba silenciosamente para cualquier acción que no fuera la primera evaluada. También se corrigió `String(date)` de una columna `Date` de mysql2 (no da formato ISO, rompía la comparación "ya ejecutado hoy"). Verificado end-to-end contra Azure real (start/restart/shutdown, los 3 `SUCCESS` en `ActionLogs`) tanto en local como con el crontab real de producción.
