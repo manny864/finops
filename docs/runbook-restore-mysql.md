@@ -90,7 +90,7 @@ chmod +x ~/cscloud/finops/scripts/backup-db.sh
 
 # 5. Instalar el cron (idempotente: no duplica si ya existe)
 ( crontab -l 2>/dev/null | grep -v 'backup-db.sh'; \
-  echo '0 3 * * * /home/manny/cscloud/finops/scripts/backup-db.sh >> /var/log/finops-backup.log 2>&1' ) | crontab -
+  echo '0 2 * * * /home/manny/cscloud/finops/scripts/backup-db.sh >> /var/log/finops-backup.log 2>&1' ) | crontab -
 
 # 6. Verificar
 crontab -l

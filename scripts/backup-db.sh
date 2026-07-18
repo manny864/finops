@@ -8,7 +8,7 @@
 # via SAS URL (sin az CLI: solo curl).
 #
 # Uso (cron en el VPS, ver docs/runbook-restore-mysql.md):
-#   0 3 * * * /home/manny/cscloud/finops/scripts/backup-db.sh >> /var/log/finops-backup.log 2>&1
+#   0 2 * * * /home/manny/cscloud/finops/scripts/backup-db.sh >> /var/log/finops-backup.log 2>&1
 #
 # Variables opcionales en el .env del proyecto:
 #   BACKUP_AZURE_SAS_URL   SAS URL del contenedor de Azure Blob (permisos cw).
