@@ -34,6 +34,15 @@ export default function GlobalCopilot() {
     const locale = useLocale();
     const pathname = usePathname();
 
+    // La página de login del demo (/es/demo, /en/demo, /pt-BR/demo, ...) es
+    // pre-autenticación: el Copilot nunca debe aparecer ahí. Un tenant mock
+    // que quedó en localStorage de una sesión demo previa hace que
+    // isMockTenant() sea true, lo cual (sin este check) burlaba el
+    // early-return de abajo y auto-abría el Copilot sobre el formulario de
+    // login del demo. El demo YA autenticado redirige a "/" (ver
+    // setDemoSession), nunca a "/demo", así que acotar por esta ruta es seguro.
+    const isDemoLoginRoute = /^\/[^/]+\/demo(\/|$)/.test(pathname || '');
+
     // Fallback automático: si la página activa nunca llamó a
     // `setPageContext` (la gran mayoría no lo hace), capturamos su contenido
     // renderizado desde el DOM (<main>) para que el Copilot pueda leerla y
@@ -171,7 +180,7 @@ export default function GlobalCopilot() {
     };
 
     React.useEffect(() => {
-        if (!canAccessCopilot) return;
+        if (!canAccessCopilot || isDemoLoginRoute) return;
         // Mostrar UNA SOLA VEZ por sesión: si el usuario lo minimiza, queda así
         // hasta que reabra manualmente o inicie nueva sesión.
         try {
@@ -183,7 +192,7 @@ export default function GlobalCopilot() {
         } catch {
             // sessionStorage no disponible (SSR/privacy mode): no auto-abrir
         }
-    }, [setIsOpen, canAccessCopilot]);
+    }, [setIsOpen, canAccessCopilot, isDemoLoginRoute]);
 
     const handleSend = async (overridePrompt?: string) => {
         const promptText = overridePrompt || input;
@@ -358,6 +367,11 @@ export default function GlobalCopilot() {
             `- Extensión objetivo: 120-180 palabras en total (sin contar la tabla). Nada de relleno ni párrafos largos.`
         );
     }, [isOpen, effectiveDataPayload, effectivePageLabel, messages.length, injectedPrompt, currentDataPayload, autoContentSettled]);
+
+    // Página de login del demo: pre-auth, sin Copilot (ver isDemoLoginRoute arriba).
+    if (isDemoLoginRoute) {
+        return null;
+    }
 
     // El demo público (/demo) es 100% anónimo — nunca hay cuenta MSAL
     // (accounts.length === 0), así que el early-return de abajo escondía el
