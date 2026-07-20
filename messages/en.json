@@ -1222,7 +1222,8 @@
     "avatarRemove": "Remove photo",
     "avatarSaved": "Profile photo updated.",
     "avatarRemoved": "Profile photo removed.",
-    "avatarTooLarge": "The image exceeds the 2 MB limit."
+    "avatarTooLarge": "The image exceeds the 2 MB limit.",
+    "language": "Language"
   },
   "Mobile": {
     "tabSummary": "Summary",

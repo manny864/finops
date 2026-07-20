@@ -1222,7 +1222,8 @@
     "avatarRemove": "Quitar foto",
     "avatarSaved": "Foto de perfil actualizada.",
     "avatarRemoved": "Foto de perfil eliminada.",
-    "avatarTooLarge": "La imagen supera el máximo de 2 MB."
+    "avatarTooLarge": "La imagen supera el máximo de 2 MB.",
+    "language": "Idioma"
   },
   "Mobile": {
     "tabSummary": "Resumen",

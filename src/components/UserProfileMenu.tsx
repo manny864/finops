@@ -12,6 +12,7 @@ import { useTheme } from "next-themes";
 import { getFreshIdToken, getGraphAccessToken } from "@/lib/msalToken";
 import { useTenant } from "@/components/TenantProvider";
 import { CurrencySelector } from "@/components/CurrencyProvider";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { Pencil, Check, X, LogOut, Sun, Moon, Monitor, Loader2, Camera, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -324,6 +325,15 @@ export default function UserProfileMenu() {
                     <div className="px-4 py-3 border-b border-gray-100 dark:border-slate-800">
                         <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">{t("currency")}</label>
                         <CurrencySelector className="w-full border border-gray-200 dark:border-slate-700 rounded-md px-2 py-1.5 text-sm bg-white dark:bg-slate-800 dark:text-gray-100" />
+                    </div>
+
+                    {/* Idioma */}
+                    <div className="px-4 py-3 border-b border-gray-100 dark:border-slate-800">
+                        <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">{t("language")}</label>
+                        <LanguageSwitcher
+                            className="flex items-center gap-1.5 w-full border border-gray-200 dark:border-slate-700 rounded-md px-2 py-1.5 text-sm bg-white dark:bg-slate-800"
+                            selectClassName="flex-1 bg-transparent border-none text-sm text-gray-900 dark:text-gray-100 focus:ring-0 cursor-pointer outline-none font-medium"
+                        />
                     </div>
 
                     {/* Aspecto */}
