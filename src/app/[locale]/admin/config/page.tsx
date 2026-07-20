@@ -270,7 +270,7 @@ function WebhookConfig() {
 function TenantDeletionManager() {
     const { selectedTenant, userRole } = useTenant();
 
-    if (userRole !== 'Admin') return null;
+    if (userRole !== 'Admin' && userRole !== 'Owner') return null;
 
     return (
       <div className="bg-white dark:bg-slate-900 border border-red-200 dark:border-red-900/30 rounded-xl shadow-sm overflow-hidden mb-8">

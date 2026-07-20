@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
             const [expired] = await connection.query(
                 `SELECT t.tenant_id, t.company_name, u.email, t.access_until
                  FROM Tenants t
-                 LEFT JOIN Users u ON t.tenant_id = u.tenant_id AND u.role = 'Admin'
+                 LEFT JOIN Users u ON t.tenant_id = u.tenant_id AND u.role IN ('Admin','Owner')
                  WHERE t.subscription_status = 'CANCELED'
                    AND t.access_until IS NOT NULL
                    AND t.access_until < NOW()

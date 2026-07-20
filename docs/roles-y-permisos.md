@@ -68,11 +68,36 @@ permiso.
 
 ## 3. Rol (capacidad) — `Users.role`
 
-Columna de texto libre, sin constraint. Valores existentes: `Reader`,
-`Colaborador`, `Admin`, `Owner` (además de `Operator`/`SuperAdmin` internos).
-Determina **qué puede hacer** el usuario (ver vs. modificar/eliminar),
-independientemente de qué páginas puede ver. Gestionado en
-`requireTenantRole(...)` en cada endpoint de escritura.
+Columna de texto libre, sin constraint. Jerarquía (de menor a mayor
+capacidad): `Reader` < `Colaborador` < `Admin` < `Owner` (además de
+`Operator`/`SuperAdmin` internos). Determina **qué puede hacer** el usuario
+(ver vs. modificar/eliminar), independientemente de qué páginas puede ver.
+Gestionado en `requireTenantRole(...)` en cada endpoint de escritura.
+
+| Rol | Capacidad |
+|---|---|
+| `Reader` | Solo lectura de dashboards y reportes. No aplica cambios ni ve configuración sensible. |
+| `Colaborador` | Ve inteligencia financiera y visibilidad; puede sugerir cambios, pero no administra facturación ni usuarios. |
+| `Admin` | Visibilidad financiera completa, modificación de configuraciones, acciones correctivas (apagar VMs, eliminar recursos) y gestión de usuarios. |
+| `Owner` | **Dueño del tenant.** Superset de Admin: acceso completo incluyendo cambio de plan y facturación. Es el contacto de billing/trial. |
+
+**Asignación del rol `Owner`:**
+- El **creador del tenant** (primer usuario, vía `/api/onboard`) recibe
+  `Owner` automáticamente. Los usuarios siguientes entran como `Reader`.
+- Promover a otro usuario a `Owner` (transferencia de propiedad) solo lo
+  puede hacer un `Owner` existente o un `SuperAdmin` — un `Admin` no puede
+  autopromoverse. Enforced en `/api/admin/config/users` (POST y PATCH) y en
+  la UI (`/admin/users`, opción deshabilitada si `!canAssignOwner`).
+- `Owner` se acepta en TODO gate donde se acepta `Admin`
+  (`requireTenantRole([..., 'Admin', 'Owner'])`, chequeos `role === 'Admin'
+  || role === 'Owner'`, y los JOINs SQL `role IN ('Admin','Owner')` de las
+  alertas de billing/trial y la métrica de MFA de admins).
+
+> **Nota de migración**: los tenants creados ANTES de este cambio tienen a su
+> creador con rol `Admin` (no `Owner`) — siguen funcionando porque `Admin`
+> conserva todas sus capacidades previas. Para que un tenant existente tenga
+> un `Owner` real, un `SuperAdmin` (o el propio flujo de transferencia) debe
+> promoverlo desde `/admin/users`.
 
 ## 4. Permisos (dominio) — `Users.permissions`
 

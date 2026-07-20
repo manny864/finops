@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
         // Auth: Require ADMIN role
         let identity;
         try {
-            identity = await requireTenantRole(request, tenantId, ["ADMIN"]);
+            identity = await requireTenantRole(request, tenantId, ["ADMIN", "Owner"]);
         } catch (authErr: any) {
             return NextResponse.json(
                 { error: authErr.message || "Unauthorized" },

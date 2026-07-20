@@ -179,8 +179,8 @@ async function getTop5(argClient: ResourceGraphClient, tenantId: string, dimensi
 async function getSecurityScore(tenantId: string) {
     const [rows]: any = await pool.query(
         `SELECT
-            SUM(CASE WHEN role = 'Admin' THEN 1 ELSE 0 END) AS totalAdmins,
-            SUM(CASE WHEN role = 'Admin' AND mfa_enabled = 1 THEN 1 ELSE 0 END) AS mfaAdmins
+            SUM(CASE WHEN role IN ('Admin','Owner') THEN 1 ELSE 0 END) AS totalAdmins,
+            SUM(CASE WHEN role IN ('Admin','Owner') AND mfa_enabled = 1 THEN 1 ELSE 0 END) AS mfaAdmins
          FROM Users WHERE tenant_id = ?`,
         [tenantId]
     );

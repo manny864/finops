@@ -110,9 +110,14 @@ export async function POST(request: NextRequest) {
                 ]);
             }
 
-            // Determine role for this user
-            // First user in tenant gets Admin (owner). Subsequent users get Viewer
-            // and must be promoted by an existing Admin or SUPERADMIN.
+            // Determine role for this user.
+            // El PRIMER usuario del tenant es su creador -> Owner (dueño del
+            // tenant: acceso completo, incluye cambio de plan y facturación —
+            // ver jerarquía Reader < Colaborador < Admin < Owner en el manual
+            // de usuario y docs/roles-y-permisos.md). Los usuarios siguientes
+            // entran como Reader (solo lectura) y un Admin/Owner los promueve
+            // desde /admin/users. (Antes el creador quedaba Admin y nadie
+            // recibía nunca Owner, aunque medio código ya lo chequeaba.)
             const [existingUsers] = await connection.query(
                 'SELECT COUNT(*) as cnt FROM Users WHERE tenant_id = ? AND (entra_oid IS NULL OR entra_oid <> ?)',
                 [tenantId, entraOid]
@@ -120,7 +125,7 @@ export async function POST(request: NextRequest) {
             const existingCount = Array.isArray(existingUsers) && existingUsers.length > 0
                 ? Number((existingUsers[0] as { cnt: number }).cnt)
                 : 0;
-            const userRole = existingCount === 0 ? 'Admin' : 'Viewer';
+            const userRole = existingCount === 0 ? 'Owner' : 'Reader';
             let systemRole = 'USER';
 
             // Auto-promote CSCloudSolutions master tenant admins to SUPERADMIN

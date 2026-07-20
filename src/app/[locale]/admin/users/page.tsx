@@ -126,8 +126,14 @@ export default function UsersPage() {
     const [selectedEntraUsers, setSelectedEntraUsers] = useState<{ [id: string]: { selected: boolean, role: string, user: any } }>({});
     const [provisioning, setProvisioning] = useState(false);
 
-    const isAdmin = userRole === 'Admin' || systemRole === 'SUPERADMIN';
+    // Owner (dueño del tenant) es superset de Admin — también gestiona
+    // usuarios. Sin incluirlo acá, el creador del tenant (ahora Owner) quedaba
+    // bloqueado de esta misma página.
+    const isAdmin = userRole === 'Admin' || userRole === 'Owner' || systemRole === 'SUPERADMIN';
     const isSuperAdmin = systemRole === 'SUPERADMIN';
+    // Solo un Owner existente (o SuperAdmin) puede otorgar el rol Owner —
+    // transferencia de propiedad. Evita que un Admin se autopromocione a dueño.
+    const canAssignOwner = userRole === 'Owner' || systemRole === 'SUPERADMIN';
     const isMasterTenant = selectedTenant.id === '8b41364f-581a-4e43-b7cb-13138dac5517';
     const { page, setPage, pageSize, setPageSize, total, totalPages, paged: pagedUsers } = usePagination(users, 15);
 
@@ -419,6 +425,7 @@ export default function UsersPage() {
                                     <option value="Reader">Reader (Lectura)</option>
                                     <option value="Colaborador">Colaborador</option>
                                     <option value="Admin">Admin</option>
+                                    <option value="Owner" disabled={!canAssignOwner}>Owner (Dueño)</option>
                                     {isSuperAdmin && isMasterTenant && (
                                         <option value="SuperAdmin">🛡️ SuperAdmin (Global)</option>
                                     )}
@@ -490,6 +497,7 @@ export default function UsersPage() {
                                                     <option value="Reader">Reader</option>
                                                         <option value="Colaborador">Colaborador</option>
                                                         <option value="Admin">Admin</option>
+                                                        <option value="Owner" disabled={!canAssignOwner}>Owner (Dueño)</option>
                                                         {isSuperAdmin && isMasterTenant && (
                                                             <option value="SuperAdmin">🛡️ SuperAdmin</option>
                                                         )}
@@ -584,6 +592,7 @@ export default function UsersPage() {
                                                             <option value="Reader">Reader</option>
                                                             <option value="Colaborador">Colaborador</option>
                                                             <option value="Admin">Admin</option>
+                                                            <option value="Owner" disabled={!canAssignOwner}>Owner (Dueño)</option>
                                                             {isSuperAdmin && isMasterTenant && (
                                                                 <option value="SuperAdmin">🛡️ SuperAdmin</option>
                                                             )}

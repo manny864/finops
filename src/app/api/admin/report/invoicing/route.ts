@@ -180,7 +180,7 @@ export async function GET(request: NextRequest) {
         let identity;
         if (!isMockTenant(tenantId)) {
             try {
-                identity = await requireTenantRole(request, tenantId, ["ADMIN"]);
+                identity = await requireTenantRole(request, tenantId, ["ADMIN", "Owner"]);
             } catch (authErr: any) {
                 return NextResponse.json(
                     { error: authErr.message || "Unauthorized" },

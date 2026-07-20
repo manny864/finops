@@ -114,15 +114,20 @@ export async function POST(request: NextRequest) {
 
         const connection = await pool.getConnection();
         try {
-            // RBAC: si NO es SuperAdmin, debe ser Admin del tenant.
+            // RBAC: si NO es SuperAdmin, debe ser Admin u Owner del tenant.
+            // Guardamos si el actor es Owner para gatear la asignación del rol
+            // Owner (solo un Owner o SuperAdmin puede otorgarlo — transferencia
+            // de propiedad; un Admin no puede autopromocionarse a dueño).
+            let actorCanAssignOwner = isSuperAdmin;
             if (!isSuperAdmin) {
                 const [adminCheck] = await connection.execute<any>(
                     `SELECT role FROM Users WHERE entra_oid = ? AND tenant_id = ?`,
                     [identity.claims.oid, tenantId]
                 );
-                if (!adminCheck || adminCheck.length === 0 || adminCheck[0].role !== 'Admin') {
+                if (!adminCheck || adminCheck.length === 0 || (adminCheck[0].role !== 'Admin' && adminCheck[0].role !== 'Owner')) {
                     return NextResponse.json({ error: "Solo los administradores del tenant pueden agregar usuarios." }, { status: 403 });
                 }
+                actorCanAssignOwner = adminCheck[0].role === 'Owner';
             }
 
             const [tenantRows] = await connection.execute<any>(
@@ -160,6 +165,13 @@ export async function POST(request: NextRequest) {
 
                 let systemRole = 'USER';
                 const effectiveRole = user.role || 'Reader';
+
+                // Owner solo puede otorgarlo un Owner existente o un SuperAdmin
+                // (transferencia de propiedad). Un Admin no puede crear/promover
+                // a Owner.
+                if (effectiveRole === 'Owner' && !actorCanAssignOwner) {
+                    return NextResponse.json({ error: "Solo el Owner del tenant (o un SuperAdmin) puede asignar el rol Owner." }, { status: 403 });
+                }
 
                 if (effectiveRole === 'SuperAdmin') {
                     if (tenantId !== SUPERADMIN_BOOTSTRAP_TENANT_ID || !user.email.toLowerCase().endsWith('@cscloudsolutions.com.ar')) {
@@ -216,14 +228,22 @@ export async function PUT(request: NextRequest) {
 
         const connection = await pool.getConnection();
         try {
+            let actorCanAssignOwner = isSuperAdmin;
             if (!isSuperAdmin) {
                  const [adminCheck] = await connection.execute<any>(
                      `SELECT role FROM Users WHERE entra_oid = ? AND tenant_id = ?`,
                      [identity.claims.oid, tenantId]
                  );
-                 if (!adminCheck || adminCheck.length === 0 || adminCheck[0].role !== 'Admin') {
+                 if (!adminCheck || adminCheck.length === 0 || (adminCheck[0].role !== 'Admin' && adminCheck[0].role !== 'Owner')) {
                      return NextResponse.json({ error: "Solo los administradores del tenant pueden cambiar roles o permisos." }, { status: 403 });
                  }
+                 actorCanAssignOwner = adminCheck[0].role === 'Owner';
+            }
+
+            // Promover a Owner (transferencia de propiedad) solo lo puede hacer
+            // un Owner existente o un SuperAdmin — no un Admin común.
+            if (role === 'Owner' && !actorCanAssignOwner) {
+                return NextResponse.json({ error: "Solo el Owner del tenant (o un SuperAdmin) puede asignar el rol Owner." }, { status: 403 });
             }
 
             const [userRow] = await connection.execute<any>(

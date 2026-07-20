@@ -20,7 +20,7 @@ export async function DELETE(
     }
 
     // Verify tenant access and ADMIN role
-    await requireTenantRole(request, tenantId, ["Admin", "ADMIN"]);
+    await requireTenantRole(request, tenantId, ["Admin", "ADMIN", "Owner"]);
 
     // Verify the key belongs to this tenant
     const [rows] = await pool.query(
@@ -72,7 +72,7 @@ export async function PUT(
     }
 
     // Verify tenant access and ADMIN role
-    await requireTenantRole(request, tenantId, ["Admin", "ADMIN"]);
+    await requireTenantRole(request, tenantId, ["Admin", "ADMIN", "Owner"]);
 
     // Verify the key belongs to this tenant
     const [rows] = await pool.query(
