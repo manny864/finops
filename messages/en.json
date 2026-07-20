@@ -1217,7 +1217,12 @@
     "themeDark": "Dark",
     "themeAuto": "Auto",
     "logout": "Sign out",
-    "errorGeneric": "Something went wrong. Please try again."
+    "errorGeneric": "Something went wrong. Please try again.",
+    "avatarChange": "Change profile photo",
+    "avatarRemove": "Remove photo",
+    "avatarSaved": "Profile photo updated.",
+    "avatarRemoved": "Profile photo removed.",
+    "avatarTooLarge": "The image exceeds the 2 MB limit."
   },
   "Mobile": {
     "tabSummary": "Summary",

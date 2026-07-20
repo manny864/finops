@@ -195,6 +195,15 @@ export async function initializeDatabase() {
             if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding system_role:", e);
         }
 
+        // avatar_stored_name: foto de perfil subida por el usuario, usada solo
+        // como fallback cuando Microsoft Graph (Entra ID) no trae foto para la
+        // cuenta (ver UserProfileMenu.tsx + src/lib/userAvatar.ts).
+        try {
+            await connection.query('ALTER TABLE Users ADD COLUMN avatar_stored_name VARCHAR(255);');
+        } catch (e: any) {
+            if (e.code !== 'ER_DUP_FIELDNAME') console.error("Error adding avatar_stored_name:", e);
+        }
+
         // cost_center: para el permiso ProductOwner ("Visibilidad restringida a su
         // Centro de Costos"). Guarda a qué CostCenter/CostGroup queda asignado el
         // usuario. HOY solo se persiste — ningún endpoint filtra datos por esta

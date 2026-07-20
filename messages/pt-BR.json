@@ -1217,7 +1217,12 @@
     "themeDark": "Escuro",
     "themeAuto": "Automático",
     "logout": "Sair",
-    "errorGeneric": "Algo deu errado. Tente novamente."
+    "errorGeneric": "Algo deu errado. Tente novamente.",
+    "avatarChange": "Alterar foto de perfil",
+    "avatarRemove": "Remover foto",
+    "avatarSaved": "Foto de perfil atualizada.",
+    "avatarRemoved": "Foto de perfil removida.",
+    "avatarTooLarge": "A imagem excede o limite de 2 MB."
   },
   "Mobile": {
     "tabSummary": "Resumo",
