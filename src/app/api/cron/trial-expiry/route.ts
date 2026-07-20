@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
             const [expiredTrials] = await connection.query(
                 `SELECT t.tenant_id, t.company_name, u.email, t.trial_ends_at
                  FROM Tenants t
-                 LEFT JOIN Users u ON t.tenant_id = u.tenant_id AND u.role = 'Admin'
+                 LEFT JOIN Users u ON t.tenant_id = u.tenant_id AND u.role IN ('Admin','Owner')
                  WHERE t.subscription_status = 'TRIAL' AND t.trial_ends_at < NOW()
                  LIMIT 100`
             ) as any;
@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
             const [reminderTrials] = await connection.query(
                 `SELECT t.tenant_id, t.company_name, u.email, t.trial_ends_at, t.last_trial_reminder_at
                  FROM Tenants t
-                 LEFT JOIN Users u ON t.tenant_id = u.tenant_id AND u.role = 'Admin'
+                 LEFT JOIN Users u ON t.tenant_id = u.tenant_id AND u.role IN ('Admin','Owner')
                  WHERE t.subscription_status = 'TRIAL'
                    AND t.trial_ends_at BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 2 DAY)
                    AND (t.last_trial_reminder_at IS NULL OR t.last_trial_reminder_at < DATE_SUB(NOW(), INTERVAL 24 HOUR))

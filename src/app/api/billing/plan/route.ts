@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "tenantId es requerido" }, { status: 400 });
     }
 
-    await requireTenantRole(request, tenantId, ["Admin"]);
+    await requireTenantRole(request, tenantId, ["Admin", "Owner"]);
 
     const [rows]: any = await pool.query(
       `SELECT tier, subscription_status, trial_ends_at, paddle_subscription_id,

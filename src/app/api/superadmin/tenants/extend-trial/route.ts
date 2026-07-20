@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
 
             // Get user email from Users table
             const [users] = await connection.query(
-                'SELECT email FROM Users WHERE tenant_id = ? AND role = "Admin" LIMIT 1',
+                'SELECT email FROM Users WHERE tenant_id = ? AND role IN ("Admin","Owner") LIMIT 1',
                 [tenantId]
             ) as any;
             const userEmail = users && users.length > 0 ? users[0].email : 'unknown';

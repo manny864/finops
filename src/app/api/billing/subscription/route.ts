@@ -15,7 +15,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "tenantId es requerido" }, { status: 400 });
     }
 
-    const identity = await requireTenantRole(request, tenantId, ["Admin"]);
+    const identity = await requireTenantRole(request, tenantId, ["Admin", "Owner"]);
 
     // Operación sensible (cambio de plan): exige MFA si el usuario tiene 2FA activado.
     await enforceMfaIfEnabled(request, identity.email, identity.tenantId, "change_plan", { tenantId });
@@ -122,7 +122,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "tenantId es requerido" }, { status: 400 });
     }
 
-    const identity = await requireTenantRole(request, tenantId, ["Admin"]);
+    const identity = await requireTenantRole(request, tenantId, ["Admin", "Owner"]);
 
     // Operación sensible (cancelar suscripción): exige MFA si el usuario tiene 2FA activado.
     await enforceMfaIfEnabled(request, identity.email, identity.tenantId, "cancel_subscription", { tenantId });

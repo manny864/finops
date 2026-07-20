@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Verify tenant access and ADMIN role
-    await requireTenantRole(request, tenantId, ["Admin", "ADMIN"]);
+    await requireTenantRole(request, tenantId, ["Admin", "ADMIN", "Owner"]);
 
     const [rows] = await pool.query(
       `SELECT id, name, key_prefix, scopes, rate_limit_per_min, enabled, last_used_at, created_by, created_at
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify tenant access and ADMIN role
-    const identity = await requireTenantRole(request, tenantId, ["Admin", "ADMIN"]);
+    const identity = await requireTenantRole(request, tenantId, ["Admin", "ADMIN", "Owner"]);
 
     const body = await request.json();
     const { name, scopes, rate_limit_per_min } = body;

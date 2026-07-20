@@ -20,7 +20,7 @@ export async function notifyInternalCancellation(
     const [rows]: any = await pool.query(
       `SELECT t.company_name, t.tier, u.email AS admin_email
        FROM Tenants t
-       LEFT JOIN Users u ON t.tenant_id = u.tenant_id AND u.role = 'Admin'
+       LEFT JOIN Users u ON t.tenant_id = u.tenant_id AND u.role IN ('Admin','Owner')
        WHERE t.tenant_id = ?
        LIMIT 1`,
       [tenantId]

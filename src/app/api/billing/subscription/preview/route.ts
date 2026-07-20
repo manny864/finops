@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "tenantId es requerido" }, { status: 400 });
     }
 
-    await requireTenantRole(request, tenantId, ["Admin"]);
+    await requireTenantRole(request, tenantId, ["Admin", "Owner"]);
 
     const body = await request.json();
     const { newTier, billing, prorationBillingMode } = body;
