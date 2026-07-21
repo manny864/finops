@@ -231,7 +231,7 @@
     "badgeAzureTitle": "Certificado en Azure",
     "badgeAzureSubtitle": "Infraestructura",
     "badgeIsoTitle": "ISO 27001",
-    "badgeIsoSubtitle": "Planificado para 2026",
+    "badgeIsoSubtitle": "Planificado para 2028",
     "encryptionTitle": "Cifrado",
     "encryptionTransitTitle": "En Tránsito",
     "encryptionTransitBody": "Todos los datos en tránsito se cifran con TLS 1.2 o superior. Las conexiones HTTP se redirigen automáticamente a HTTPS.",

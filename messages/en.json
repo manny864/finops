@@ -231,7 +231,7 @@
     "badgeAzureTitle": "Azure Certified",
     "badgeAzureSubtitle": "Infrastructure",
     "badgeIsoTitle": "ISO 27001",
-    "badgeIsoSubtitle": "Planned 2026",
+    "badgeIsoSubtitle": "Planned 2028",
     "encryptionTitle": "Encryption",
     "encryptionTransitTitle": "In Transit",
     "encryptionTransitBody": "All data in transit is encrypted using TLS 1.2 or higher. HTTP connections are automatically redirected to HTTPS.",

@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { LEGAL_VERSIONS } from '@/lib/legalVersions';
+import { getLegalVersionDate } from '@/lib/legalVersions';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { CheckCircle2, Loader2 } from 'lucide-react';
@@ -86,7 +86,7 @@ export default function DPAPage() {
           <h1 className="text-4xl font-bold text-ink mb-2">{t('title')}</h1>
           <p className="text-gray-600 mb-4">{t('subtitle')}</p>
           <p className="text-gray-600">
-            {t('lastUpdated', { date: new Date(LEGAL_VERSIONS.dpa).toLocaleDateString() })}
+            {t('lastUpdated', { date: getLegalVersionDate('dpa').toLocaleDateString() })}
           </p>
         </div>
       </div>
@@ -258,7 +258,7 @@ export default function DPAPage() {
 
         <div className="mt-8 p-4 bg-gray-50 rounded-lg border border-line">
           <p className="text-sm text-gray-700">
-            {t('footerLastUpdated', { date: new Date(LEGAL_VERSIONS.dpa).toLocaleDateString() })} |
+            {t('footerLastUpdated', { date: getLegalVersionDate('dpa').toLocaleDateString() })} |
             <Link href="/legal/terms" className="text-brand-deep hover:underline ml-2">{t('footerTermsLink')}</Link> |
             <Link href="/legal/privacy" className="text-brand-deep hover:underline ml-2">{t('footerPrivacyLink')}</Link>
           </p>
