@@ -30,9 +30,6 @@ export default function PrivacyPage() {
           <p className="text-gray-600">
             {t('lastUpdated', { date: new Date(LEGAL_VERSIONS.privacy).toLocaleDateString() })}
           </p>
-          <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-900">
-            {t('reviewPending')}
-          </div>
         </div>
       </div>
 

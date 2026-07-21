@@ -3,18 +3,79 @@
 import { useTranslations } from 'next-intl';
 import { LEGAL_VERSIONS } from '@/lib/legalVersions';
 import Link from 'next/link';
-import { useState } from 'react';
-import { CheckCircle2 } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { CheckCircle2, Loader2 } from 'lucide-react';
+import { useMsal } from '@azure/msal-react';
+import { useTenant } from '@/components/TenantProvider';
+import { getFreshIdToken } from '@/lib/msalToken';
+import { toast } from 'sonner';
+
+function formatSigner(email: string | null, name: string | null): string {
+  if (!email) return '';
+  return name ? `${name} (${email})` : email;
+}
 
 export default function DPAPage() {
   const t = useTranslations('LegalDpa');
+  const { instance, accounts } = useMsal();
+  const { selectedTenant } = useTenant();
   const [signed, setSigned] = useState(false);
   const [signingUser, setSigningUser] = useState<string | null>(null);
+  const [signedAt, setSignedAt] = useState<string | null>(null);
+  const [signing, setSigning] = useState(false);
+
+  const account = accounts[0];
+  const tenantId = selectedTenant && selectedTenant.id !== 'default' ? selectedTenant.id : null;
+
+  const authHeaders = useCallback(async (): Promise<Record<string, string>> => {
+    if (!account) return {};
+    const token = await getFreshIdToken(instance, account);
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }, [instance, account]);
+
+  useEffect(() => {
+    if (!account || !tenantId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const headers = await authHeaders();
+        const res = await fetch(`/api/legal/sign?tenantId=${tenantId}&documentType=dpa`, { headers });
+        const json = await res.json();
+        if (!cancelled && res.ok && json.accepted) {
+          setSigned(true);
+          setSigningUser(formatSigner(json.signedByEmail, json.signedByName));
+          setSignedAt(json.accepted_at);
+        }
+      } catch {
+        // Sin firma previa o sin acceso: se deja el estado "no firmado".
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [account, tenantId, authHeaders]);
 
   const handleSign = async () => {
-    // In a real implementation, this would call /api/legal/sign
-    setSigned(true);
-    setSigningUser('John Doe (john@company.com)');
+    if (!account || !tenantId) {
+      toast.error(t('signRequiresLogin'));
+      return;
+    }
+    setSigning(true);
+    try {
+      const headers = await authHeaders();
+      const res = await fetch(`/api/legal/sign?tenantId=${tenantId}`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ documentType: 'dpa' }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+      setSigned(true);
+      setSigningUser(formatSigner(json.signedByEmail, json.signedByName));
+      setSignedAt(json.accepted_at);
+    } catch (e) {
+      toast.error(e instanceof Error && e.message ? e.message : t('signError'));
+    } finally {
+      setSigning(false);
+    }
   };
 
   return (
@@ -27,9 +88,6 @@ export default function DPAPage() {
           <p className="text-gray-600">
             {t('lastUpdated', { date: new Date(LEGAL_VERSIONS.dpa).toLocaleDateString() })}
           </p>
-          <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-900">
-            {t('reviewPending')}
-          </div>
         </div>
       </div>
 
@@ -41,7 +99,12 @@ export default function DPAPage() {
               <CheckCircle2 className="w-6 h-6" />
               <div>
                 <p className="font-semibold">{t('signedTitle')}</p>
-                <p className="text-sm">{t('signedBy', { user: signingUser ?? '', date: new Date().toLocaleDateString() })}</p>
+                <p className="text-sm">
+                  {t('signedBy', {
+                    user: signingUser ?? '',
+                    date: signedAt ? new Date(signedAt).toLocaleDateString() : new Date().toLocaleDateString(),
+                  })}
+                </p>
               </div>
             </div>
           ) : (
@@ -49,8 +112,10 @@ export default function DPAPage() {
               <p className="text-gray-700 mb-4">{t('unsignedIntro')}</p>
               <button
                 onClick={handleSign}
-                className="px-6 py-2 bg-brand-deep text-white rounded-lg hover:brightness-110 transition-all font-semibold"
+                disabled={signing}
+                className="px-6 py-2 bg-brand-deep text-white rounded-lg hover:brightness-110 transition-all font-semibold disabled:opacity-50 inline-flex items-center gap-2"
               >
+                {signing && <Loader2 className="w-4 h-4 animate-spin" />}
                 {t('signButton')}
               </button>
             </div>

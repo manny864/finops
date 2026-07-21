@@ -51,10 +51,6 @@ export default function SecurityPage() {
 
       {/* Content */}
       <div className="max-w-6xl mx-auto px-6 py-12 space-y-12">
-        <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-900">
-          {t('reviewPending')}
-        </div>
-
         {/* Encryption */}
         <section className="space-y-4">
           <div className="flex items-center gap-3 mb-6">

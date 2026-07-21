@@ -50,7 +50,6 @@
   "LegalTerms": {
     "title": "Términos de Servicio",
     "lastUpdated": "Última actualización: {date}",
-    "reviewPending": "[REVISIÓN LEGAL PENDIENTE] Contenido de referencia sujeto a revisión legal. No es vinculante hasta su aprobación.",
     "s1Title": "1. Aceptación de los Términos",
     "s1Body": "Al acceder y utilizar la plataforma FinOps de CSCloudSolutions (el \"Servicio\"), el usuario acepta quedar sujeto a estos Términos de Servicio. Si no está de acuerdo con estos términos, no debe utilizar el Servicio.",
     "s2Title": "2. Descripción del Servicio",
@@ -93,7 +92,6 @@
   "LegalPrivacy": {
     "title": "Política de Privacidad",
     "lastUpdated": "Última actualización: {date}",
-    "reviewPending": "[REVISIÓN LEGAL PENDIENTE] Contenido de referencia sujeto a revisión por parte de asesoría legal. No es vinculante hasta su aprobación.",
     "tocTitle": "Tabla de Contenidos",
     "navDataCollection": "Datos que Recopilamos",
     "navUsage": "Cómo los Usamos",
@@ -160,7 +158,6 @@
     "title": "Acuerdo de Tratamiento de Datos (DPA)",
     "subtitle": "Acuerdo de Tratamiento de Datos conforme al Artículo 28 del RGPD",
     "lastUpdated": "Última actualización: {date}",
-    "reviewPending": "[REVISIÓN LEGAL PENDIENTE] Contenido de referencia sujeto a revisión legal. No es vinculante hasta su aprobación.",
     "signedTitle": "✓ DPA Firmado",
     "signedBy": "Firmado por {user} el {date}",
     "unsignedIntro": "Los clientes Enterprise deben firmar este DPA antes de acceder al Servicio.",
@@ -219,7 +216,9 @@
     "annex2Details": "Detalles disponibles en el informe SOC 2 Tipo II a pedido.",
     "footerLastUpdated": "Última actualización: {date}",
     "footerTermsLink": "Términos",
-    "footerPrivacyLink": "Privacidad"
+    "footerPrivacyLink": "Privacidad",
+    "signRequiresLogin": "Iniciá sesión con una cuenta que tenga acceso a un tenant para firmar el DPA.",
+    "signError": "No se pudo registrar la firma. Intentá de nuevo."
   },
   "LegalSecurity": {
     "heroTitle": "Centro de Confianza",
@@ -233,7 +232,6 @@
     "badgeAzureSubtitle": "Infraestructura",
     "badgeIsoTitle": "ISO 27001",
     "badgeIsoSubtitle": "Planificado para 2026",
-    "reviewPending": "[REVISIÓN LEGAL PENDIENTE] Contenido de referencia sujeto a revisión legal. No es vinculante hasta su aprobación.",
     "encryptionTitle": "Cifrado",
     "encryptionTransitTitle": "En Tránsito",
     "encryptionTransitBody": "Todos los datos en tránsito se cifran con TLS 1.2 o superior. Las conexiones HTTP se redirigen automáticamente a HTTPS.",
@@ -3874,5 +3872,14 @@
     "expand": "Expandir",
     "empty_hint": "Aún no pineaste ningún tablero. Navegá a cualquier página de Intelligence, Governance o Costos y hacé click en el ícono 📌 al lado del título para agregarlo acá.",
     "unpin_tooltip": "Quitar de mi dashboard"
+  },
+  "Footer": {
+    "privacy": "Privacidad",
+    "terms": "Términos",
+    "dpa": "DPA",
+    "security": "Seguridad",
+    "subprocessors": "Subprocesadores",
+    "status": "Estado",
+    "copyright": "© {year} CSCloudSolutions. Todos los derechos reservados."
   }
 }

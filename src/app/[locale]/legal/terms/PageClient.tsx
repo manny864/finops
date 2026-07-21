@@ -15,9 +15,6 @@ export default function TermsPage() {
         <div className="max-w-4xl mx-auto px-6">
           <h1 className="text-4xl font-bold text-ink mb-2">{t('title')}</h1>
           <p className="text-gray-600">{t('lastUpdated', { date: lastUpdated })}</p>
-          <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-900">
-            {t('reviewPending')}
-          </div>
         </div>
       </div>
 
