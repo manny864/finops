@@ -352,12 +352,34 @@ export default function CostGroupDetailModal({ name, tenantId, onClose, onUpdate
     const { instance, accounts } = useMsal();
     const [tab, setTab] = useState<Tab>("current_fy");
     const [editing, setEditing] = useState(false);
+    const [deleting, setDeleting] = useState(false);
 
     const fetcher = async (url: string) => {
         const idToken = await getFreshIdToken(instance, accounts[0], ["User.Read"]);
         const res = await fetch(url, { headers: { Authorization: `Bearer ${idToken}`, "x-tenant-id": tenantId } });
         if (!res.ok) { const j = await res.json(); throw new Error(j.details || j.error || "Error"); }
         return res.json();
+    };
+
+    const handleDelete = async () => {
+        if (!confirm(t("delete_confirm", { name }))) return;
+        setDeleting(true);
+        try {
+            const idToken = await getFreshIdToken(instance, accounts[0], ["User.Read"]);
+            const res = await fetch(`/api/cost-groups/${encodeURIComponent(name)}?tenantId=${tenantId}`, {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${idToken}` },
+            });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.error || "Error");
+            toast.success(t("delete_success"));
+            onUpdated?.();
+            onClose();
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : t("create_error_generic"));
+        } finally {
+            setDeleting(false);
+        }
     };
 
     const { data, error, isLoading, mutate } = useSWR(
@@ -395,13 +417,23 @@ export default function CostGroupDetailModal({ name, tenantId, onClose, onUpdate
                             {data?.description && <p className="text-sm text-gray-500 dark:text-gray-400">{data.description}</p>}
                         </div>
                         {data?.isCustom && (
-                            <button
-                                onClick={() => setEditing(true)}
-                                title={t("edit_button")}
-                                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-400 hover:text-brand-deep dark:hover:text-brand-bright cursor-pointer shrink-0"
-                            >
-                                <Pencil className="w-4 h-4" />
-                            </button>
+                            <>
+                                <button
+                                    onClick={() => setEditing(true)}
+                                    title={t("edit_button")}
+                                    className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-400 hover:text-brand-deep dark:hover:text-brand-bright cursor-pointer shrink-0"
+                                >
+                                    <Pencil className="w-4 h-4" />
+                                </button>
+                                <button
+                                    onClick={handleDelete}
+                                    disabled={deleting}
+                                    title={t("delete_button")}
+                                    className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-600 dark:hover:text-red-400 cursor-pointer shrink-0 disabled:opacity-50"
+                                >
+                                    {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                                </button>
+                            </>
                         )}
                     </div>
                     <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-500 dark:text-gray-400 cursor-pointer">

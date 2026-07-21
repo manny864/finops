@@ -641,3 +641,58 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }
+
+/**
+ * DELETE /api/cost-groups/[name] — elimina un Cost Group creado por el
+ * usuario, junto con sus asignaciones manuales de Resource Group
+ * (CostGroupResourceGroups). El budget en `Budgets` (keyed por
+ * cost_center_tag_value) NO se toca acá — es una tabla compartida con el
+ * resto de la app (alertas, MCP, Power BI) y un Cost Group sin metadata
+ * propia sigue funcionando como grupo legacy derivado del tag CostCenter
+ * si ese tag sigue existiendo en CostSnapshots.
+ *
+ * Solo aplica a grupos "custom" (match_type NOT NULL) — un grupo legacy
+ * no tiene fila propia que borrar; volvería a aparecer solo en el próximo
+ * sync mientras el tag CostCenter siga presente en los costos.
+ */
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ name: string }> }) {
+    try {
+        const { name: rawName } = await params;
+        const name = decodeURIComponent(rawName);
+        const url = new URL(request.url);
+        const tenantId = url.searchParams.get("tenantId");
+        if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
+
+        // Misma sensibilidad que crear/editar un grupo (gobernanza financiera).
+        await requireTenantRole(request, tenantId, ["Admin", "Owner"]);
+
+        if (isMockTenant(tenantId)) {
+            return NextResponse.json({ success: true, mock: true, name });
+        }
+
+        await requireTenantTier(request, tenantId, "Business");
+
+        const [result]: any = await pool.query(
+            `DELETE FROM CostGroups WHERE tenant_id = ? AND name = ? AND match_type IS NOT NULL`,
+            [tenantId, name]
+        );
+
+        if (result.affectedRows === 0) {
+            return NextResponse.json(
+                { error: `"${name}" no es un Cost Group eliminable (no existe o es un grupo legacy sin regla propia)` },
+                { status: 404 }
+            );
+        }
+
+        await pool.query(
+            `DELETE FROM CostGroupResourceGroups WHERE tenant_id = ? AND group_name = ?`,
+            [tenantId, name]
+        );
+
+        return NextResponse.json({ success: true, name });
+    } catch (e: unknown) {
+        if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
+        console.error("[cost-groups] DELETE error:", e);
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    }
+}
