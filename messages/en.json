@@ -3078,7 +3078,25 @@
     "attachError": "Could not upload the attachment.",
     "attachDemoNote": "Download not available in demo mode.",
     "notifNewReply": "Support replied to your ticket: {subject}",
-    "notifNewCustomerMsg": "New customer message in support: {subject}"
+    "notifNewCustomerMsg": "New customer message in support: {subject}",
+    "troubleshootingTitle": "Troubleshooting",
+    "troubleshootingSubtitle": "Common problems users run into during daily use, with their solution.",
+    "troubleshootingDisclaimer": "Before opening a ticket, please check this section — most questions are already answered here, and you'll resolve it without waiting on the support SLA.",
+    "troubleshootingToggleShow": "Show troubleshooting",
+    "troubleshootingToggleHide": "Hide troubleshooting",
+    "troubleshooting_items": [
+      { "q": "Costs on the Dashboard show $0 or don't appear", "a": "Most often the daily sync hasn't run yet for your tenant (it runs once a day), or the Service Principal is missing the Cost Management Reader role on one or more subscriptions. Check Administration → Client Onboarding → \"Verify Permissions\" to confirm the Service Principal has every role required for your tier, on each subscription. If you just connected Azure, wait for the next daily sync before reporting this." },
+      { "q": "I don't see my Azure subscription connected", "a": "Confirm you ran the onboarding script (PowerShell) generated in Administration → Onboarding, in the correct subscription via Azure Cloud Shell. If you already ran it, it can take a few minutes to show up — reload the page. If it's still missing after a while, the app most likely needs Admin Consent granted in Azure AD." },
+      { "q": "I can't edit my role or another user's permissions", "a": "Only users with the Admin or Owner role can manage users and permissions. If you have the Reader or Collaborator role, ask an Admin/Owner in your organization to make the change, or to upgrade your role if appropriate." },
+      { "q": "I'm not receiving notifications (Slack, Teams, or Email)", "a": "Check Administration → Notification Channels to confirm the channel is enabled and that the master \"Enable notifications\" switch is also on — turning off the master switch disables every channel without deleting its configuration. Use each channel's \"Test\" button to confirm the integration actually works." },
+      { "q": "I lost access to my authenticator app (2FA)", "a": "Use one of the recovery codes saved when you enabled two-factor authentication (Security Settings → View Recovery Codes, if you saved them earlier). If you don't have them, you'll need support to verify your identity to disable 2FA on your account — open a ticket under the \"Account\" category." },
+      { "q": "The AI Executive Report isn't generating or is very slow", "a": "If your tenant uses the \"System\" (shared) provider, it can be subject to quota limits during peak hours. Configure your own API key in Administration → AI Configuration (BYOK) to avoid the shared limit and get faster responses. If the error persists with your own key, test the connection from that same screen." },
+      { "q": "I can't create or edit a Cost Group", "a": "Cost Groups is exclusive to Business and Enterprise plans, and requires the Admin or Owner role. Also, only Cost Groups you created manually with their own rule (by tag or Resource Group pattern) can be edited — groups auto-derived from the CostCenter tag don't have a rule of their own to edit." },
+      { "q": "Single sign-on (SSO/SAML) isn't working for my organization", "a": "SSO is configured jointly by your admin and CSCloudSolutions — if your organization hasn't finished that setup yet, you'll keep using standard Microsoft Entra ID login in the meantime. If it's already configured and failing, check with your identity team that the provider (Okta, Auth0, AD FS, etc.) is correctly connected in the WorkOS panel." },
+      { "q": "The cost history has gaps or missing dates", "a": "It's normal to see an occasional gap when Azure Cost Management returns temporary errors (throttling) during the daily sync — a backfill job runs every night and automatically fills in the last 2 months. If the gap is more than a few days old and hasn't filled in on its own, open a ticket." },
+      { "q": "I can't invite more users / hit my plan's limit", "a": "Each subscription tier has a user limit (Essential: 1, Professional: 5, Business: 20, Enterprise: unlimited). If you need more users than your current plan allows, upgrade from Administration → Billing." },
+      { "q": "The Dashboard is slow to load the first time", "a": "The first load of the day can take longer because live data is being calculated against Azure (resource audit + cost projection). Subsequent loads are nearly instant since they're served from cache for 15 minutes. If it consistently takes more than 30 seconds, there may be a permissions issue on one of your subscriptions — check for a \"degraded mode\" banner if one appears." }
+    ]
   },
   "SuperAdminSupport": {
     "title": "Support (Global)",

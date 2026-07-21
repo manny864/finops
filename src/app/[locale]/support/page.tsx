@@ -6,7 +6,7 @@ import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
-import { LifeBuoy, Plus, Loader2, ArrowLeft, Send, MessageSquare, Clock, Paperclip, Download } from "lucide-react";
+import { LifeBuoy, Plus, Loader2, ArrowLeft, Send, MessageSquare, Clock, Paperclip, Download, HelpCircle, AlertTriangle, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 
 interface TicketMessage {
@@ -438,6 +438,8 @@ export default function SupportPage() {
                 </button>
             </div>
 
+            <TroubleshootingSection t={t} />
+
             {loading ? (
                 <div className="flex items-center gap-2 text-ink-soft text-[13px]"><Loader2 className="w-4 h-4 animate-spin" /> {t("loading")}</div>
             ) : tickets.length === 0 ? (
@@ -529,6 +531,48 @@ export default function SupportPage() {
                                 </button>
                             </div>
                         </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function TroubleshootingSection({ t }: { t: ReturnType<typeof useTranslations> }) {
+    const [open, setOpen] = useState(false);
+    const items = t.raw("troubleshooting_items") as { q: string; a: string }[];
+
+    return (
+        <div className="bg-white border border-line rounded-[10px] mb-4 overflow-hidden">
+            <button
+                onClick={() => setOpen(!open)}
+                className="w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-surface/50 transition-colors"
+            >
+                <span className="flex items-center gap-2 font-semibold text-[14px] text-ink">
+                    <HelpCircle className="w-4 h-4 text-brand-deep" /> {t("troubleshootingTitle")}
+                </span>
+                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`} />
+            </button>
+
+            {open && (
+                <div className="px-4 pb-4 border-t border-line pt-3">
+                    <p className="text-[12px] text-gray-500 mb-3">{t("troubleshootingSubtitle")}</p>
+
+                    <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-[8px] px-3 py-2.5 mb-4">
+                        <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                        <p className="text-[12px] text-amber-800">{t("troubleshootingDisclaimer")}</p>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                        {items.map((item, i) => (
+                            <details key={i} className="group border border-line rounded-[8px] px-3 py-2">
+                                <summary className="cursor-pointer text-[13px] font-medium text-ink list-none flex items-center justify-between gap-2">
+                                    {item.q}
+                                    <ChevronDown className="w-3.5 h-3.5 text-gray-400 flex-shrink-0 transition-transform group-open:rotate-180" />
+                                </summary>
+                                <p className="text-[12.5px] text-gray-600 mt-2 leading-relaxed">{item.a}</p>
+                            </details>
+                        ))}
                     </div>
                 </div>
             )}
