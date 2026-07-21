@@ -3685,6 +3685,21 @@
     "enterCode": "Enter your 6-digit code or a recovery code",
     "enrollmentRequired": "2FA is required but not enabled. Enable it from Security settings first."
   },
+  "TagInheritance": {
+    "errorSelectTenant": "Select a valid tenant.",
+    "errorPreview": "Error fetching preview.",
+    "errorNetworkGeneric": "Network error.",
+    "errorSelectResource": "Select at least one resource.",
+    "errorApply": "Error applying tags."
+  },
+  "ClientShellFooter": {
+    "privacy": "Privacy",
+    "terms": "Terms",
+    "dpa": "DPA",
+    "security": "Security",
+    "subprocessors": "Subprocessors",
+    "status": "Status"
+  },
   "NetworkingZombies": {
     "loadError": "Failed to load data",
     "deleteFailed": "Deletion failed",

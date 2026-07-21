@@ -3685,6 +3685,21 @@
     "enterCode": "Digite seu código de 6 dígitos ou um código de recuperação",
     "enrollmentRequired": "O 2FA é obrigatório, mas não está ativado. Ative-o primeiro nas Configurações de Segurança."
   },
+  "TagInheritance": {
+    "errorSelectTenant": "Selecione um tenant válido.",
+    "errorPreview": "Erro ao obter pré-visualização.",
+    "errorNetworkGeneric": "Erro de rede.",
+    "errorSelectResource": "Selecione ao menos um recurso.",
+    "errorApply": "Erro ao aplicar etiquetas."
+  },
+  "ClientShellFooter": {
+    "privacy": "Privacidade",
+    "terms": "Termos",
+    "dpa": "DPA",
+    "security": "Segurança",
+    "subprocessors": "Subprocessadores",
+    "status": "Status"
+  },
   "NetworkingZombies": {
     "loadError": "Falha ao carregar dados",
     "deleteFailed": "Falha ao excluir",
