@@ -467,7 +467,7 @@ export default function OnboardingPage() {
                                     <Handshake className="w-4 h-4 text-blue-600" /> Asociación de partner (PAL / CPOR)
                                 </p>
                                 <p className="text-xs text-gray-600">
-                                    CS Cloud Solutions es partner de Microsoft. Si lo aprobás, asociaremos nuestro
+                                    CSCloudSolutions es partner de Microsoft. Si lo aprobás, asociaremos nuestro
                                     Partner ID a las credenciales que configuraste vía PAL
                                     (Partner Admin Link) y podremos registrar la relación de partner (CPOR) en
                                     Partner Center. Esto no otorga acceso adicional a tus datos ni tiene costo: solo le

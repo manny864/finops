@@ -2003,7 +2003,7 @@
     "saving": "Saving...",
     "save": "Save",
     "partnerLinkTitle": "Partner association (PAL / CPOR)",
-    "partnerLinkDescription": "CS Cloud Solutions is a Microsoft partner. If you approve this, we'll associate our Partner ID with our Service Principal's credentials <b>inside your tenant</b> (Partner Admin Link) and register the partner relationship (CPOR) in Microsoft Partner Center. This <b>does not grant any additional permissions</b> over your data and has no cost — it just tells Microsoft that we are your FinOps services partner. Microsoft may notify you of the CPOR claim and you can dispute or revoke it at any time. <b>Nothing happens until you approve it.</b>",
+    "partnerLinkDescription": "CSCloudSolutions is a Microsoft partner. If you approve this, we'll associate our Partner ID with our Service Principal's credentials <b>inside your tenant</b> (Partner Admin Link) and register the partner relationship (CPOR) in Microsoft Partner Center. This <b>does not grant any additional permissions</b> over your data and has no cost — it just tells Microsoft that we are your FinOps services partner. Microsoft may notify you of the CPOR claim and you can dispute or revoke it at any time. <b>Nothing happens until you approve it.</b>",
     "partnerLinking": "Linking…",
     "partnerApprove": "Approve association",
     "partnerDecline": "No, thanks",

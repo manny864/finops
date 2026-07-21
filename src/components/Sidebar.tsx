@@ -434,7 +434,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
 
             <div className={`shrink-0 border-t border-[var(--line)] py-3 ${sidebarOpen ? 'px-4' : 'px-2'}`}>
                 <div className={`flex items-center gap-2 text-[var(--ink-soft)] ${sidebarOpen ? 'justify-start' : 'justify-center'}`}>
-                    <img src="/logo_29k.png" alt="CS Cloud Solutions" className="w-4 h-4 object-contain shrink-0 opacity-70" />
+                    <img src="/logo_29k.png" alt="CSCloudSolutions" className="w-4 h-4 object-contain shrink-0 opacity-70" />
                     {sidebarOpen && (
                         <span className="text-[10px] font-semibold tracking-[0.5px] truncate">
                             Powered by CSCloudSolutions
