@@ -1687,10 +1687,22 @@
     "pageTitle": "Madurez FinOps",
     "pageSubtitle": "Modelo de madurez FinOps (Gatear · Caminar · Correr) por capacidad.",
     "reasons": {
-      "noSubscriptions": { "title": "Sin suscripciones activas", "desc": "Este tenant no tiene suscripciones de Azure. Creá una suscripción para empezar a evaluar la madurez FinOps." },
-      "missingAdminConsent": { "title": "Falta Admin Consent", "desc": "La aplicación CSCloudSolutions no fue consentida en este tenant. Ejecutá: az ad sp create --id 876d8a5b-6023-4484-b3ba-73c186e4a72b" },
-      "noCredential": { "title": "Sin credenciales configuradas", "desc": "No se encontraron credenciales de Azure para acceder a este tenant." },
-      "azureError": { "title": "Error de conexión con Azure", "desc": "No se pudo conectar con Azure para evaluar la madurez. Probá de nuevo más tarde." }
+      "noSubscriptions": {
+        "title": "Sin suscripciones activas",
+        "desc": "Este tenant no tiene suscripciones de Azure. Creá una suscripción para empezar a evaluar la madurez FinOps."
+      },
+      "missingAdminConsent": {
+        "title": "Falta Admin Consent",
+        "desc": "La aplicación CSCloudSolutions no fue consentida en este tenant. Ejecutá: az ad sp create --id 876d8a5b-6023-4484-b3ba-73c186e4a72b"
+      },
+      "noCredential": {
+        "title": "Sin credenciales configuradas",
+        "desc": "No se encontraron credenciales de Azure para acceder a este tenant."
+      },
+      "azureError": {
+        "title": "Error de conexión con Azure",
+        "desc": "No se pudo conectar con Azure para evaluar la madurez. Probá de nuevo más tarde."
+      }
     },
     "takeAssessment": "Tomar Evaluación Manual",
     "wizardTitle": "Evaluación FinOps",
@@ -1713,7 +1725,11 @@
     "radarTitle": "Radar de madurez",
     "levelPerCapability": "Nivel por capacidad",
     "levelUpTitle": "Para subir de nivel",
-    "levels": { "crawl": "Gatear", "walk": "Caminar", "run": "Correr" },
+    "levels": {
+      "crawl": "Gatear",
+      "walk": "Caminar",
+      "run": "Correr"
+    },
     "domains": {
       "visibility": "Visibilidad e info.",
       "rateOpt": "Optimización de tasa",
@@ -1723,12 +1739,30 @@
       "culture": "Cultura FinOps"
     },
     "recommendations": {
-      "automation": { "title": "Automatización", "desc": "Programá la limpieza de zombis y los apagados con runbooks en vez de acciones manuales." },
-      "governance": { "title": "Gobernanza", "desc": "Llevá el compliance de etiquetas por encima del 95% para habilitar chargeback automático." },
-      "visibility": { "title": "Visibilidad", "desc": "Implementá la jerarquía de Management Groups y cost allocation por centro de costos." },
-      "rateOptimization": { "title": "Optimización de tasa", "desc": "Aumentá la cobertura de Savings Plans al 80% del compute baseline." },
-      "usageOptimization": { "title": "Optimización de uso", "desc": "Aplicá políticas de rightsizing automático a VMs con CPU < 10%." },
-      "culture": { "title": "Cultura FinOps", "desc": "Creá un Cloud Center of Excellence (CCoE) interdepartamental." }
+      "automation": {
+        "title": "Automatización",
+        "desc": "Programá la limpieza de zombis y los apagados con runbooks en vez de acciones manuales."
+      },
+      "governance": {
+        "title": "Gobernanza",
+        "desc": "Llevá el compliance de etiquetas por encima del 95% para habilitar chargeback automático."
+      },
+      "visibility": {
+        "title": "Visibilidad",
+        "desc": "Implementá la jerarquía de Management Groups y cost allocation por centro de costos."
+      },
+      "rateOptimization": {
+        "title": "Optimización de tasa",
+        "desc": "Aumentá la cobertura de Savings Plans al 80% del compute baseline."
+      },
+      "usageOptimization": {
+        "title": "Optimización de uso",
+        "desc": "Aplicá políticas de rightsizing automático a VMs con CPU < 10%."
+      },
+      "culture": {
+        "title": "Cultura FinOps",
+        "desc": "Creá un Cloud Center of Excellence (CCoE) interdepartamental."
+      }
     }
   },
   "OverviewProgress": {
@@ -1738,7 +1772,10 @@
     "pageSubtitle": "Evolución histórica del gasto y del ahorro capturado en el tenant.",
     "fullTenant": "Tenant completo",
     "loadingData": "Cargando datos...",
-    "noData": { "title": "Sin datos históricos", "desc": "Todavía no hay datos para mostrar." },
+    "noData": {
+      "title": "Sin datos históricos",
+      "desc": "Todavía no hay datos para mostrar."
+    },
     "metrics": {
       "currentScore": "Puntuación de Costo Actual",
       "scoreImprovement": "Mejora en Score Histórico",
@@ -1762,9 +1799,18 @@
     },
     "milestones": {
       "title": "Hitos",
-      "onboarding": { "title": "Onboarding del tenant", "desc": "Conexión vía Entra ID y primera línea base de gasto establecida." },
-      "rightsizing": { "title": "Programa de rightsizing", "desc": "Revisión continua de SKUs sobre métricas P95." },
-      "autoShutdown": { "title": "Apagado automático en no productivos", "desc": "Power schedules activos en QA y DEV." }
+      "onboarding": {
+        "title": "Onboarding del tenant",
+        "desc": "Conexión vía Entra ID y primera línea base de gasto establecida."
+      },
+      "rightsizing": {
+        "title": "Programa de rightsizing",
+        "desc": "Revisión continua de SKUs sobre métricas P95."
+      },
+      "autoShutdown": {
+        "title": "Apagado automático en no productivos",
+        "desc": "Power schedules activos en QA y DEV."
+      }
     }
   },
   "RightsizingAppService": {
@@ -2355,9 +2401,18 @@
       "severityFilterHint": "Separados por coma: info, warning, error",
       "cancel": "Cancelar",
       "create": "Crear",
-      "slack": { "name": "Slack", "description": "Enviar vía Webhook de Slack" },
-      "teams": { "name": "Microsoft Teams", "description": "Enviar vía Webhook de Teams" },
-      "email": { "name": "Email", "description": "Enviar vía SMTP" }
+      "slack": {
+        "name": "Slack",
+        "description": "Enviar vía Webhook de Slack"
+      },
+      "teams": {
+        "name": "Microsoft Teams",
+        "description": "Enviar vía Webhook de Teams"
+      },
+      "email": {
+        "name": "Email",
+        "description": "Enviar vía SMTP"
+      }
     }
   },
   "Academy": {
@@ -3160,17 +3215,50 @@
     "troubleshootingToggleShow": "Mostrar solución de problemas",
     "troubleshootingToggleHide": "Ocultar solución de problemas",
     "troubleshooting_items": [
-      { "q": "Los costos en el Dashboard muestran $0 o no aparecen", "a": "Lo más común es que el sync diario todavía no corrió para tu tenant (corre una vez por día) o que el Service Principal no tiene el rol Cost Management Reader asignado en todas las suscripciones. Verificá en Administración → Onboarding de Clientes → \"Verificar Permisos\" que el Service Principal tenga todos los roles requeridos para tu tier, en cada suscripción. Si acabás de conectar Azure, esperá hasta el próximo sync diario antes de reportarlo." },
-      { "q": "No veo mi suscripción de Azure conectada", "a": "Confirmá que ejecutaste el script de onboarding (PowerShell) generado en Administración → Onboarding, y que lo corriste en la suscripción correcta desde Azure Cloud Shell. Si ya lo corriste, puede tardar unos minutos en reflejarse — recargá la página. Si sigue sin aparecer después de un rato, es probable que falte el Admin Consent de la aplicación en Azure AD." },
-      { "q": "No puedo editar mi rol o los permisos de otro usuario", "a": "Solo los usuarios con rol Admin u Owner pueden gestionar usuarios y permisos. Si tenés rol Reader o Colaborador, pedile a un Admin/Owner de tu organización que haga el cambio, o que te suba de rol si corresponde." },
-      { "q": "No me llegan notificaciones (Slack, Teams o Email)", "a": "Revisá en Administración → Canales de Notificación que el canal esté habilitado y que el interruptor maestro \"Habilitar notificaciones\" también esté activo — apagar el maestro desactiva todos los canales sin borrar su configuración. Probá el botón \"Probar\" de cada canal para confirmar que la integración funciona." },
-      { "q": "Perdí acceso a mi app de autenticación (2FA)", "a": "Usá uno de tus códigos de recuperación guardados al activar la autenticación de dos factores (Configuración de Seguridad → Ver códigos de recuperación, si los guardaste antes). Si no los tenés, vas a necesitar que soporte verifique tu identidad para desactivar el 2FA de tu cuenta — creá un ticket con la categoría \"Cuenta\"." },
-      { "q": "El Reporte Ejecutivo con IA no se genera o tarda mucho", "a": "Si tu tenant usa el proveedor \"Sistema\" (compartido), puede estar sujeto a límites de cuota en horas pico. Configurá tu propia API key en Administración → Configuración de IA (BYOK) para evitar el límite compartido y obtener respuestas más rápidas. Si el error persiste con tu propia key, probá la conexión desde esa misma pantalla." },
-      { "q": "No puedo crear ni editar un Cost Group", "a": "Cost Groups es una función exclusiva de los planes Business y Enterprise, y requiere rol Admin u Owner. Además, solo los Cost Groups creados manualmente con una regla propia (por tag o patrón de Resource Group) se pueden editar — los grupos derivados automáticamente del tag CostCenter no tienen una regla propia que editar." },
-      { "q": "El inicio de sesión único (SSO/SAML) no funciona para mi organización", "a": "El SSO se configura entre tu administrador y CSCloudSolutions — si tu organización todavía no completó ese proceso, vas a seguir usando el login estándar de Microsoft Entra ID mientras tanto. Si ya lo configuraron y falla, verificá con tu equipo de identidad que el proveedor (Okta, Auth0, AD FS, etc.) esté correctamente conectado en el panel de WorkOS." },
-      { "q": "El historial de costos tiene huecos o fechas faltantes", "a": "Es normal ver algún hueco puntual cuando Azure Cost Management devuelve errores temporales (throttling) durante el sync diario — un proceso de backfill corre todas las noches y rellena automáticamente los últimos 2 meses. Si el hueco tiene más de unos días de antigüedad y no se completó solo, creá un ticket." },
-      { "q": "No puedo invitar más usuarios / llegué al límite de mi plan", "a": "Cada tier de suscripción tiene un límite de usuarios (Essential: 1, Professional: 5, Business: 20, Enterprise: sin límite). Si necesitás más usuarios de los que permite tu plan actual, hacé un upgrade desde Administración → Facturación." },
-      { "q": "El Dashboard tarda mucho en cargar la primera vez", "a": "La primera carga del día puede tardar más porque se están calculando datos en vivo contra Azure (auditoría de recursos + proyección de costos). Las cargas siguientes son casi instantáneas porque se sirven desde caché durante 15 minutos. Si tarda sistemáticamente más de 30 segundos, puede haber un problema de permisos en alguna suscripción — revisá el banner de \"modo degradado\" si aparece." }
+      {
+        "q": "Los costos en el Dashboard muestran $0 o no aparecen",
+        "a": "Lo más común es que el sync diario todavía no corrió para tu tenant (corre una vez por día) o que el Service Principal no tiene el rol Cost Management Reader asignado en todas las suscripciones. Verificá en Administración → Onboarding de Clientes → \"Verificar Permisos\" que el Service Principal tenga todos los roles requeridos para tu tier, en cada suscripción. Si acabás de conectar Azure, esperá hasta el próximo sync diario antes de reportarlo."
+      },
+      {
+        "q": "No veo mi suscripción de Azure conectada",
+        "a": "Confirmá que ejecutaste el script de onboarding (PowerShell) generado en Administración → Onboarding, y que lo corriste en la suscripción correcta desde Azure Cloud Shell. Si ya lo corriste, puede tardar unos minutos en reflejarse — recargá la página. Si sigue sin aparecer después de un rato, es probable que falte el Admin Consent de la aplicación en Azure AD."
+      },
+      {
+        "q": "No puedo editar mi rol o los permisos de otro usuario",
+        "a": "Solo los usuarios con rol Admin u Owner pueden gestionar usuarios y permisos. Si tenés rol Reader o Colaborador, pedile a un Admin/Owner de tu organización que haga el cambio, o que te suba de rol si corresponde."
+      },
+      {
+        "q": "No me llegan notificaciones (Slack, Teams o Email)",
+        "a": "Revisá en Administración → Canales de Notificación que el canal esté habilitado y que el interruptor maestro \"Habilitar notificaciones\" también esté activo — apagar el maestro desactiva todos los canales sin borrar su configuración. Probá el botón \"Probar\" de cada canal para confirmar que la integración funciona."
+      },
+      {
+        "q": "Perdí acceso a mi app de autenticación (2FA)",
+        "a": "Usá uno de tus códigos de recuperación guardados al activar la autenticación de dos factores (Configuración de Seguridad → Ver códigos de recuperación, si los guardaste antes). Si no los tenés, vas a necesitar que soporte verifique tu identidad para desactivar el 2FA de tu cuenta — creá un ticket con la categoría \"Cuenta\"."
+      },
+      {
+        "q": "El Reporte Ejecutivo con IA no se genera o tarda mucho",
+        "a": "Si tu tenant usa el proveedor \"Sistema\" (compartido), puede estar sujeto a límites de cuota en horas pico. Configurá tu propia API key en Administración → Configuración de IA (BYOK) para evitar el límite compartido y obtener respuestas más rápidas. Si el error persiste con tu propia key, probá la conexión desde esa misma pantalla."
+      },
+      {
+        "q": "No puedo crear ni editar un Cost Group",
+        "a": "Cost Groups es una función exclusiva de los planes Business y Enterprise, y requiere rol Admin u Owner. Además, solo los Cost Groups creados manualmente con una regla propia (por tag o patrón de Resource Group) se pueden editar — los grupos derivados automáticamente del tag CostCenter no tienen una regla propia que editar."
+      },
+      {
+        "q": "El inicio de sesión único (SSO/SAML) no funciona para mi organización",
+        "a": "El SSO se configura entre tu administrador y CSCloudSolutions — si tu organización todavía no completó ese proceso, vas a seguir usando el login estándar de Microsoft Entra ID mientras tanto. Si ya lo configuraron y falla, verificá con tu equipo de identidad que el proveedor (Okta, Auth0, AD FS, etc.) esté correctamente conectado en el panel de WorkOS."
+      },
+      {
+        "q": "El historial de costos tiene huecos o fechas faltantes",
+        "a": "Es normal ver algún hueco puntual cuando Azure Cost Management devuelve errores temporales (throttling) durante el sync diario — un proceso de backfill corre todas las noches y rellena automáticamente los últimos 2 meses. Si el hueco tiene más de unos días de antigüedad y no se completó solo, creá un ticket."
+      },
+      {
+        "q": "No puedo invitar más usuarios / llegué al límite de mi plan",
+        "a": "Cada tier de suscripción tiene un límite de usuarios (Essential: 1, Professional: 5, Business: 20, Enterprise: sin límite). Si necesitás más usuarios de los que permite tu plan actual, hacé un upgrade desde Administración → Facturación."
+      },
+      {
+        "q": "El Dashboard tarda mucho en cargar la primera vez",
+        "a": "La primera carga del día puede tardar más porque se están calculando datos en vivo contra Azure (auditoría de recursos + proyección de costos). Las cargas siguientes son casi instantáneas porque se sirven desde caché durante 15 minutos. Si tarda sistemáticamente más de 30 segundos, puede haber un problema de permisos en alguna suscripción — revisá el banner de \"modo degradado\" si aparece."
+      }
     ]
   },
   "SuperAdminSupport": {
@@ -3333,7 +3421,24 @@
     "no_findings": "Sin hallazgos",
     "mock_data_notice": "Estás viendo datos simulados de la versión demo.",
     "cost_center_budget": "Presupuesto por Centro de Costos",
-    "view_full_detail": "Ver detalle completo"
+    "view_full_detail": "Ver detalle completo",
+    "kpi_current_cost": "Costo Actual",
+    "kpi_current_cost_sub": "acumulado del mes",
+    "kpi_projected_cost": "Costo Proyectado",
+    "kpi_projected_cost_sub": "al cierre de mes",
+    "kpi_zombie_resources": "Recursos Zombies",
+    "kpi_zombie_resources_sub": "detectados",
+    "kpi_potential_savings": "Ahorro Potencial",
+    "kpi_potential_savings_sub": "proyectado mensual",
+    "kpi_environmental_impact": "Impacto Ambiental",
+    "kpi_environmental_impact_sub": "CO2 evitado",
+    "ha_feature_name": "Alta Disponibilidad",
+    "cost_projection_feature_name": "Proyección de Gastos",
+    "ha_title": "Alta Disponibilidad",
+    "ha_resources_at_risk": "{count} recursos con riesgos detectados",
+    "ha_no_resources_at_risk": "Sin recursos en riesgo",
+    "ha_no_data": "Sin datos",
+    "ha_tooltip_resources": "recursos"
   },
   "CostGroups": {
     "title": "Cost Groups",
@@ -3759,5 +3864,15 @@
     "cancel": "Cancelar",
     "applying": "Aplicando...",
     "applyTags": "Aplicar Etiquetas"
+  },
+  "MyDashboard": {
+    "title": "Mi Dashboard",
+    "widget": "widget",
+    "widgets": "widgets",
+    "loading": "Cargando tu dashboard...",
+    "collapse": "Colapsar",
+    "expand": "Expandir",
+    "empty_hint": "Aún no pineaste ningún tablero. Navegá a cualquier página de Intelligence, Governance o Costos y hacé click en el ícono 📌 al lado del título para agregarlo acá.",
+    "unpin_tooltip": "Quitar de mi dashboard"
   }
 }

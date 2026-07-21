@@ -291,37 +291,37 @@ export default function ExecutiveSummaryBoard() {
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
                 <KpiCard
                     icon={DollarSign}
-                    label="Costo Actual"
+                    label={t("kpi_current_cost")}
                     value={summaryLoading ? "…" : format(Number(summaryData?.actualCost || 0))}
-                    sub="acumulado del mes"
+                    sub={t("kpi_current_cost_sub")}
                     tone="bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400"
                 />
                 <KpiCard
                     icon={TrendingUp}
-                    label="Costo Proyectado"
+                    label={t("kpi_projected_cost")}
                     value={summaryLoading ? "…" : format(Number(summaryData?.projectedCost || 0))}
-                    sub="al cierre de mes"
+                    sub={t("kpi_projected_cost_sub")}
                     tone="bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400"
                 />
                 <KpiCard
                     icon={Recycle}
-                    label="Recursos Zombies"
+                    label={t("kpi_zombie_resources")}
                     value={summaryLoading ? "…" : String(summaryData?.zombieCount ?? 0)}
-                    sub="detectados"
+                    sub={t("kpi_zombie_resources_sub")}
                     tone="bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400"
                 />
                 <KpiCard
                     icon={PiggyBank}
-                    label="Ahorro Potencial"
+                    label={t("kpi_potential_savings")}
                     value={summaryLoading ? "…" : format(totalSavings)}
-                    sub="proyectado mensual"
+                    sub={t("kpi_potential_savings_sub")}
                     tone="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400"
                 />
                 <KpiCard
                     icon={Leaf}
-                    label="Impacto Ambiental"
+                    label={t("kpi_environmental_impact")}
                     value={summaryLoading ? "…" : `${calculateCO2Savings(totalSavings)} kg`}
-                    sub="CO2 evitado"
+                    sub={t("kpi_environmental_impact_sub")}
                     tone="bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400"
                 />
             </div>
@@ -352,13 +352,13 @@ export default function ExecutiveSummaryBoard() {
                 </div>
 
                 <div key="projection">
-                    <FeatureGuard requiredTier="Enterprise" featureName="Proyección de Gastos" className="h-full w-full drag-handle cursor-move">
+                    <FeatureGuard requiredTier="Enterprise" featureName={t("cost_projection_feature_name")} className="h-full w-full drag-handle cursor-move">
                         <CostProjectionCard showFullPageLink />
                     </FeatureGuard>
                 </div>
 
                 <div key="ha">
-                    <FeatureGuard requiredTier="Business" featureName="Alta Disponibilidad" className="h-full w-full drag-handle cursor-move">
+                    <FeatureGuard requiredTier="Business" featureName={t("ha_feature_name")} className="h-full w-full drag-handle cursor-move">
                         <HABreakdownCard />
                     </FeatureGuard>
                 </div>

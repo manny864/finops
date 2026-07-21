@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { getFreshIdToken } from '@/lib/msalToken';
@@ -18,6 +19,7 @@ function shortType(t: string): string {
 }
 
 export default function HABreakdownCard() {
+    const t = useTranslations('WhiteBoard');
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const [data, setData] = useState<any>(null);
@@ -69,12 +71,12 @@ export default function HABreakdownCard() {
                 <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                         <ShieldAlert className="w-5 h-5 text-amber-500" />
-                        <h3 className="m-0 text-[var(--brand-deep)]">Alta Disponibilidad</h3>
+                        <h3 className="m-0 text-[var(--brand-deep)]">{t('ha_title')}</h3>
                     </div>
                     <PinButton widgetKey="governance.ha-breakdown" compact />
                 </div>
                 <p className="text-[13px] text-ink-soft m-0 mt-1 font-normal">
-                    {total > 0 ? `${total} recursos con riesgos detectados` : 'Sin recursos en riesgo'}
+                    {total > 0 ? t('ha_resources_at_risk', { count: total }) : t('ha_no_resources_at_risk')}
                 </p>
             </div>
             <div className="p-[18px] flex-1 overflow-hidden flex items-center justify-center min-h-[220px]">
@@ -83,7 +85,7 @@ export default function HABreakdownCard() {
                 ) : error ? (
                     <p className="text-xs text-red-500 text-center">{error}</p>
                 ) : chartData.length === 0 ? (
-                    <p className="text-sm text-gray-400">Sin datos</p>
+                    <p className="text-sm text-gray-400">{t('ha_no_data')}</p>
                 ) : (
                     <ResponsiveContainer width="100%" height="100%" minHeight={220}>
                         <PieChart>
@@ -101,7 +103,7 @@ export default function HABreakdownCard() {
                                     <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
                                 ))}
                             </Pie>
-                            <RechartsTooltip formatter={(v: any, n: any) => [`${v} recursos`, n]} />
+                            <RechartsTooltip formatter={(v: any, n: any) => [`${v} ${t('ha_tooltip_resources')}`, n]} />
                             <Legend
                                 verticalAlign="bottom"
                                 height={36}
