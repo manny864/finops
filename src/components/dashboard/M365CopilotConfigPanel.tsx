@@ -232,7 +232,7 @@ export default function M365CopilotConfigPanel() {
             {isLoading && (
                 <div className="flex items-center gap-3 py-10 justify-center text-slate-500">
                     <Loader2 className="w-6 h-6 animate-spin" />
-                    <span className="text-sm">Cargando configuración M365 Copilot...</span>
+                    <span className="text-sm">{t("loading")}</span>
                 </div>
             )}
             {error && !isLoading && (
@@ -240,7 +240,7 @@ export default function M365CopilotConfigPanel() {
                     <TierLockedNotice requiredTier={parseTierRequiredError(error.message)!} currentTier={(selectedTenant as any)?.tier} featureName="M365 Copilot" />
                 ) : (
                     <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-xl border border-red-100 dark:border-red-900/50 text-sm">
-                        <p className="font-bold">Error</p>
+                        <p className="font-bold">{t("errorLabel")}</p>
                         <p>{error.message}</p>
                     </div>
                 )
@@ -394,7 +394,7 @@ export default function M365CopilotConfigPanel() {
 
                         {askResult && (
                             <div className="space-y-2">
-                                <p className="text-xs font-semibold text-slate-600 dark:text-slate-400">Respuesta:</p>
+                                <p className="text-xs font-semibold text-slate-600 dark:text-slate-400">{t("answerLabel")}</p>
                                 <p className="text-sm text-slate-800 dark:text-slate-200 bg-gray-50 dark:bg-slate-800/60 rounded-xl px-4 py-3 leading-relaxed">
                                     {askResult.answer}
                                 </p>

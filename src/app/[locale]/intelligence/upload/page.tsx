@@ -6,8 +6,10 @@ import Papa from 'papaparse';
 import { UploadCloud, FileText, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
+import { useTranslations } from 'next-intl';
 
 export default function CSVUploadPage() {
+    const t = useTranslations('IntelligenceUpload');
     const [isDragging, setIsDragging] = useState(false);
     const [file, setFile] = useState<File | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -41,7 +43,7 @@ export default function CSVUploadPage() {
 
     const handleFileSelect = (selectedFile: File) => {
         if (!selectedFile.name.endsWith('.csv')) {
-            toast.error("Solo se permiten archivos .csv");
+            toast.error(t('csvOnly'));
             return;
         }
         setFile(selectedFile);
@@ -51,7 +53,7 @@ export default function CSVUploadPage() {
     const processFile = () => {
         if (!file) return;
         setIsProcessing(true);
-        toast.info("Analizando estructura del archivo...");
+        toast.info(t('analyzingStructure'));
 
         Papa.parse(file, {
             header: true,
@@ -59,13 +61,13 @@ export default function CSVUploadPage() {
             complete: async (results) => {
                 if (results.errors.length > 0) {
                     console.error("CSV Parse Errors:", results.errors);
-                    toast.error("Error al leer el archivo CSV.");
+                    toast.error(t('csvReadError'));
                     setIsProcessing(false);
                     return;
                 }
 
-                toast.success(`Archivo parseado: ${results.data.length} filas. Generando insights...`);
-                
+                toast.success(t('parsedSuccess', { count: results.data.length }));
+
                 try {
                     const res = await fetch('/api/intelligence/upload', {
                         method: 'POST',
@@ -78,21 +80,21 @@ export default function CSVUploadPage() {
                     const json = await res.json();
 
                     if (res.ok && json.assessment) {
-                        toast.success("Análisis completado.");
+                        toast.success(t('analysisComplete'));
                         setAssessmentResult(json.assessment);
                     } else {
-                        toast.error(json.error || "Fallo al procesar los datos con Gemini.");
+                        toast.error(json.error || t('processFailed'));
                     }
                 } catch (error) {
                     console.error("Upload API Error:", error);
-                    toast.error("Error de red al conectar con la API.");
+                    toast.error(t('networkError'));
                 } finally {
                     setIsProcessing(false);
                 }
             },
             error: (error) => {
                 console.error("PapaParse Error:", error);
-                toast.error("Error crítico al procesar el archivo localmente.");
+                toast.error(t('criticalParseError'));
                 setIsProcessing(false);
             }
         });
@@ -110,10 +112,10 @@ export default function CSVUploadPage() {
             <div className="mb-8">
                 <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight flex items-center">
                     <UploadCloud className="w-8 h-8 mr-3 text-[#0054A6] dark:text-[#00AEEF]" />
-                    Ingestión Manual de Costos (CSV)
+                    {t('title')}
                 </h1>
                 <p className="text-gray-500 dark:text-gray-400 mt-2">
-                    Carga archivos de facturación exportados de Azure, AWS o GCP. El sistema mapeará las columnas al estándar FOCUS y generará una evaluación de IA instantánea.
+                    {t('subtitle')}
                 </p>
             </div>
 
@@ -138,15 +140,15 @@ export default function CSVUploadPage() {
                             <div className="w-16 h-16 bg-[#0054A6]/10 dark:bg-[#00AEEF]/10 rounded-full flex items-center justify-center mb-4">
                                 <UploadCloud className="w-8 h-8 text-[#0054A6] dark:text-[#00AEEF]" />
                             </div>
-                            <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-2">Arrastra tu archivo CSV aquí</h3>
+                            <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-2">{t('dropzoneTitle')}</h3>
                             <p className="text-gray-500 dark:text-gray-400 text-sm mb-6 text-center max-w-md">
-                                Soporta archivos de facturación estándar (Amortized/Actual Cost). El procesamiento se realiza localmente en tu navegador.
+                                {t('dropzoneSubtitle')}
                             </p>
-                            <button 
+                            <button
                                 onClick={() => fileInputRef.current?.click()}
                                 className="px-6 py-2.5 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 rounded-lg shadow-sm font-semibold hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
                             >
-                                Seleccionar Archivo
+                                {t('selectFileButton')}
                             </button>
                         </>
                     ) : (
@@ -156,18 +158,18 @@ export default function CSVUploadPage() {
                             </div>
                             <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-2">{file.name}</h3>
                             <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">
-                                Tamaño: {(file.size / 1024 / 1024).toFixed(2)} MB
+                                {t('fileSizeLabel', { size: (file.size / 1024 / 1024).toFixed(2) })}
                             </p>
-                            
+
                             <div className="flex gap-4">
-                                <button 
+                                <button
                                     onClick={resetState}
                                     disabled={isProcessing}
                                     className="px-6 py-2.5 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 rounded-lg shadow-sm font-semibold hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
                                 >
-                                    Cancelar
+                                    {t('cancelButton')}
                                 </button>
-                                <button 
+                                <button
                                     onClick={processFile}
                                     disabled={isProcessing}
                                     className="flex items-center px-6 py-2.5 bg-[#0054A6] hover:bg-[#004080] text-white rounded-lg shadow-sm font-semibold transition-colors disabled:opacity-50"
@@ -175,12 +177,12 @@ export default function CSVUploadPage() {
                                     {isProcessing ? (
                                         <>
                                             <RefreshCw className="w-5 h-5 mr-2 animate-spin" />
-                                            Procesando y Analizando...
+                                            {t('processingButton')}
                                         </>
                                     ) : (
                                         <>
                                             <CheckCircle2 className="w-5 h-5 mr-2" />
-                                            Analizar con Gemini
+                                            {t('analyzeButton')}
                                         </>
                                     )}
                                 </button>
@@ -195,13 +197,13 @@ export default function CSVUploadPage() {
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
                             <CheckCircle2 className="w-6 h-6 mr-2 text-green-500" />
-                            Reporte de Evaluación (FOCUS)
+                            {t('reportTitle')}
                         </h2>
-                        <button 
+                        <button
                             onClick={resetState}
                             className="text-sm font-medium text-[#0054A6] hover:text-[#004080] dark:text-[#00AEEF] dark:hover:text-[#66CFFF]"
                         >
-                            Cargar otro archivo
+                            {t('uploadAnotherButton')}
                         </button>
                     </div>
                     

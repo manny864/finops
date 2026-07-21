@@ -1,5 +1,6 @@
 "use client";
 import React, { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useMsal } from "@azure/msal-react";
 import { fetchWithAuthRetry } from "@/lib/msalToken";
 import { Loader2, Zap, AlertTriangle, TrendingUp } from "lucide-react";
@@ -36,6 +37,7 @@ interface LoadTestRun {
 }
 
 export default function LoadTestPage() {
+    const t = useTranslations("AdminLoadTest");
     const { instance, accounts } = useMsal();
     const account = accounts[0];
 
@@ -76,14 +78,14 @@ export default function LoadTestPage() {
             });
             const json = await res.json();
             if (!json.success) {
-                setError(json.error || "Error al ejecutar la prueba de carga.");
+                setError(json.error || t("errorRunningTest"));
             } else {
                 setLastResult(json.result);
                 setLastAlert(json.alert);
                 loadRuns();
             }
         } catch (e: any) {
-            setError(e?.message || "Error de red.");
+            setError(e?.message || t("networkError"));
         } finally {
             setRunning(false);
         }
@@ -93,38 +95,36 @@ export default function LoadTestPage() {
         <div className="content animate-in fade-in max-w-4xl space-y-6">
             <div>
                 <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                    <Zap className="w-6 h-6 text-brand-deep dark:text-brand-bright" /> Prueba de Carga
+                    <Zap className="w-6 h-6 text-brand-deep dark:text-brand-bright" /> {t("pageTitle")}
                 </h1>
                 <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                    Genera concurrencia real contra el propio servidor para evaluar su comportamiento bajo carga.
-                    Solo visible para Super Administradores.
+                    {t("pageSubtitle")}
                 </p>
             </div>
 
             <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-xl p-4 flex items-start gap-3">
                 <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                 <p className="text-sm text-amber-800 dark:text-amber-300">
-                    Esto ejecuta tráfico real contra el servidor en producción (no un simulador aislado). Usá valores
-                    conservadores primero. Los límites duros son concurrencia máxima 50 y duración máxima 15s.
+                    {t("warningBanner")}
                 </p>
             </div>
 
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
-                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Endpoint objetivo</label>
+                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">{t("targetEndpointLabel")}</label>
                         <select
                             value={target}
                             onChange={(e) => setTarget(e.target.value as "health" | "status" | "probe")}
                             className="w-full border border-slate-300 dark:border-slate-700 dark:bg-slate-800 rounded-lg px-3 py-2 text-sm"
                         >
-                            <option value="health">/api/health (sin DB — techo del proceso)</option>
-                            <option value="status">/api/status (con DB — techo real)</option>
-                            <option value="probe">/api/loadtest/probe (autenticado SP — DB + Redis)</option>
+                            <option value="health">{t("targetOptionHealth")}</option>
+                            <option value="status">{t("targetOptionStatus")}</option>
+                            <option value="probe">{t("targetOptionProbe")}</option>
                         </select>
                     </div>
                     <div>
-                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Concurrencia (1-50)</label>
+                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">{t("concurrencyLabel")}</label>
                         <input
                             type="number" min={1} max={50} value={concurrency}
                             onChange={(e) => setConcurrency(Number(e.target.value))}
@@ -132,7 +132,7 @@ export default function LoadTestPage() {
                         />
                     </div>
                     <div>
-                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Duración (segundos, máx 15)</label>
+                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">{t("durationLabel")}</label>
                         <input
                             type="number" min={1} max={15} value={durationSeconds}
                             onChange={(e) => setDurationSeconds(Number(e.target.value))}
@@ -146,7 +146,7 @@ export default function LoadTestPage() {
                     className="px-4 py-2 bg-brand-deep hover:bg-brand-bright text-white text-sm font-bold rounded-lg disabled:opacity-50 flex items-center gap-2"
                 >
                     {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-                    {running ? "Ejecutando..." : "Ejecutar Prueba de Carga"}
+                    {running ? t("runningLabel") : t("runButtonLabel")}
                 </button>
 
                 {error && (
@@ -159,45 +159,45 @@ export default function LoadTestPage() {
                     <div className={`text-sm px-3 py-2 rounded-lg border ${lastAlert.severity === 'critical'
                         ? 'bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800/50 text-rose-700 dark:text-rose-300'
                         : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800/50 text-amber-700 dark:text-amber-300'}`}>
-                        <strong>Alerta {lastAlert.severity === 'critical' ? 'crítica' : 'de warning'} generada:</strong> {lastAlert.message}
+                        <strong>{lastAlert.severity === 'critical' ? t("alertGeneratedCritical") : t("alertGeneratedWarning")}</strong> {lastAlert.message}
                     </div>
                 )}
 
                 {lastResult && (
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-                        <Metric label="Requests" value={lastResult.totalRequests} />
-                        <Metric label="Errores" value={lastResult.errorCount} />
-                        <Metric label="Throughput" value={`${lastResult.throughputRps} req/s`} />
+                        <Metric label={t("metricRequests")} value={lastResult.totalRequests} />
+                        <Metric label={t("metricErrors")} value={lastResult.errorCount} />
+                        <Metric label={t("metricThroughput")} value={`${lastResult.throughputRps} req/s`} />
                         <Metric label="p50" value={`${lastResult.p50Ms} ms`} />
                         <Metric label="p95" value={`${lastResult.p95Ms} ms`} />
                         <Metric label="p99" value={`${lastResult.p99Ms} ms`} />
-                        <Metric label="Máx" value={`${lastResult.maxMs} ms`} />
-                        <Metric label="Éxito" value={`${lastResult.successCount}/${lastResult.totalRequests}`} />
+                        <Metric label={t("metricMax")} value={`${lastResult.maxMs} ms`} />
+                        <Metric label={t("metricSuccess")} value={`${lastResult.successCount}/${lastResult.totalRequests}`} />
                     </div>
                 )}
             </div>
 
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
                 <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2 mb-4">
-                    <TrendingUp className="w-5 h-5" /> Historial
+                    <TrendingUp className="w-5 h-5" /> {t("historyTitle")}
                 </h2>
                 {loadingRuns ? (
                     <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
                 ) : runs.length === 0 ? (
-                    <p className="text-sm text-slate-500">Todavía no se ejecutó ninguna prueba.</p>
+                    <p className="text-sm text-slate-500">{t("noRunsYet")}</p>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead>
                                 <tr className="text-left text-xs uppercase text-slate-500 border-b border-slate-200 dark:border-slate-800">
-                                    <th className="py-2 pr-3">Fecha</th>
-                                    <th className="py-2 pr-3">Target</th>
-                                    <th className="py-2 pr-3">Conc.</th>
-                                    <th className="py-2 pr-3">Requests</th>
-                                    <th className="py-2 pr-3">Errores</th>
+                                    <th className="py-2 pr-3">{t("tableDate")}</th>
+                                    <th className="py-2 pr-3">{t("tableTarget")}</th>
+                                    <th className="py-2 pr-3">{t("tableConcurrency")}</th>
+                                    <th className="py-2 pr-3">{t("tableRequests")}</th>
+                                    <th className="py-2 pr-3">{t("tableErrors")}</th>
                                     <th className="py-2 pr-3">p95</th>
-                                    <th className="py-2 pr-3">Throughput</th>
-                                    <th className="py-2 pr-3">Por</th>
+                                    <th className="py-2 pr-3">{t("tableThroughput")}</th>
+                                    <th className="py-2 pr-3">{t("tableTriggeredBy")}</th>
                                 </tr>
                             </thead>
                             <tbody>

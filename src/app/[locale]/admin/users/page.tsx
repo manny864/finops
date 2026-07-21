@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { toast } from 'sonner';
@@ -27,6 +28,7 @@ function PermissionsMultiSelect({
     onChange: (next: RoleTag[]) => void;
     disabled?: boolean;
 }) {
+    const t = useTranslations("AdminUsers");
     const [open, setOpen] = useState(false);
     const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
     const btnRef = useRef<HTMLButtonElement>(null);
@@ -62,9 +64,9 @@ function PermissionsMultiSelect({
     };
 
     const label = value.length === 0
-        ? 'Sin permisos'
+        ? t('noPermissionsLabel')
         : value.length === ASSIGNABLE_PERMISSIONS.length
-        ? 'Todos'
+        ? t('allPermissionsLabel')
         : ASSIGNABLE_PERMISSIONS.filter(p => value.includes(p.value)).map(p => p.value).join(', ');
 
     return (
@@ -74,9 +76,9 @@ function PermissionsMultiSelect({
                 type="button"
                 disabled={disabled}
                 onClick={() => setOpen(o => !o)}
-                className={`flex items-center justify-between gap-2 px-2.5 py-1.5 border rounded-md text-xs bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-700 text-gray-700 dark:text-gray-300 min-w-[150px] ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:border-[#0054A6]'}`}
+                className={`flex items-center justify-between gap-2 px-2.5 py-1.5 border rounded-md text-xs bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-700 text-gray-700 dark:text-gray-300 w-full min-w-[150px] ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:border-[#0054A6]'}`}
             >
-                <span className="truncate">{label}</span>
+                <span className="whitespace-normal break-words text-left">{label}</span>
                 <ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
             </button>
             {open && !disabled && (
@@ -110,6 +112,7 @@ function PermissionsMultiSelect({
 
 
 export default function UsersPage() {
+    const t = useTranslations("AdminUsers");
     const { selectedTenant, userRole, systemRole } = useTenant();
     const { instance, accounts } = useMsal();
     const [users, setUsers] = useState<any[]>([]);
@@ -161,11 +164,11 @@ export default function UsersPage() {
     }, [selectedTenant.id, accounts, instance]);
 
     const handleDelete = async (userId: number, email: string) => {
-        if (!confirm(`¿Estás seguro que deseas revocar el acceso local de ${email}?`)) return;
+        if (!confirm(t('confirmRevokeAccess', { email }))) return;
 
         try {
             const tokenResponse = { idToken: await getFreshIdToken(instance, accounts[0]) };
-            
+
             const res = await fetch(`/api/admin/config/users?tenantId=${selectedTenant.id}&userId=${userId}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` }
@@ -173,21 +176,21 @@ export default function UsersPage() {
             const json = await res.json();
 
             if (res.ok) {
-                toast.success(json.message || "Usuario eliminado.");
+                toast.success(json.message || t('defaultUserDeletedMessage'));
                 setUsers(users.filter(u => u.id !== userId));
             } else {
-                toast.error(json.error || "Error al eliminar usuario.");
+                toast.error(json.error || t('errorDeletingUser'));
             }
         } catch (e) {
             console.error("Error deleting user:", e);
-            toast.error("Error de conexión.");
+            toast.error(t('errorConnection'));
         }
     };
 
     const handleInvite = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!newEmail || !newOid) {
-            toast.error("El email y el ID de Entra (OID) son requeridos para invitar a un usuario.");
+            toast.error(t('errorEmailOidRequired'));
             return;
         }
 
@@ -212,18 +215,18 @@ export default function UsersPage() {
             const json = await res.json();
 
             if (res.ok) {
-                toast.success("Usuario agregado exitosamente.");
+                toast.success(t('successUserAdded'));
                 setNewEmail('');
                 setNewOid('');
                 setNewRole('Reader');
                 setNewPermissions([]);
                 loadUsers(); // Reload to get new user ID
             } else {
-                toast.error(json.error || "Error al agregar usuario.");
+                toast.error(json.error || t('errorAddingUser'));
             }
         } catch (e) {
             console.error("Error adding user:", e);
-            toast.error("Error de conexión.");
+            toast.error(t('errorConnection'));
         }
         setInviting(false);
     };
@@ -245,11 +248,11 @@ export default function UsersPage() {
                 });
                 setSelectedEntraUsers(initialSelected);
             } else {
-                toast.error(json.error || "Error al sincronizar con Entra ID");
+                toast.error(json.error || t('errorSyncingEntra'));
             }
         } catch(e) {
             console.error("Error syncing Entra:", e);
-            toast.error("Error de conexión al sincronizar.");
+            toast.error(t('errorConnectionSyncing'));
         }
         setSyncingEntra(false);
     };
@@ -265,7 +268,7 @@ export default function UsersPage() {
             }));
 
         if (usersToProvision.length === 0) {
-            toast.error("Selecciona al menos un usuario para provisionar.");
+            toast.error(t('errorSelectAtLeastOneUser'));
             return;
         }
 
@@ -286,15 +289,15 @@ export default function UsersPage() {
             const json = await res.json();
 
             if (res.ok) {
-                toast.success(json.message || "Usuarios provisionados.");
+                toast.success(json.message || t('defaultUsersProvisionedMessage'));
                 setShowEntraModal(false);
                 loadUsers();
             } else {
-                toast.error(json.error || "Error al provisionar usuarios.");
+                toast.error(json.error || t('errorProvisioningUsers'));
             }
         } catch (e) {
             console.error("Error bulk provisioning:", e);
-            toast.error("Error de conexión.");
+            toast.error(t('errorConnection'));
         }
         setProvisioning(false);
     };
@@ -318,14 +321,14 @@ export default function UsersPage() {
             const json = await res.json();
 
             if (res.ok) {
-                toast.success("Rol actualizado exitosamente.");
+                toast.success(t('successRoleUpdated'));
                 loadUsers();
             } else {
-                toast.error(json.error || "Error al actualizar rol.");
+                toast.error(json.error || t('errorUpdatingRole'));
             }
         } catch (e) {
             console.error("Error updating role:", e);
-            toast.error("Error de conexión.");
+            toast.error(t('errorConnection'));
         }
     };
 
@@ -344,18 +347,18 @@ export default function UsersPage() {
             if (res.ok) {
                 setUsers(prev => prev.map(u => u.id === userId ? { ...u, permissions: next } : u));
             } else {
-                toast.error(json.error || "Error al actualizar permisos.");
+                toast.error(json.error || t('errorUpdatingPermissions'));
             }
         } catch (e) {
             console.error("Error updating permissions:", e);
-            toast.error("Error de conexión.");
+            toast.error(t('errorConnection'));
         }
     };
 
     if (selectedTenant.id === 'default') {
         return (
             <div className="p-6 max-w-5xl mx-auto">
-                <div className="text-sm text-gray-500">Selecciona un Tenant en el selector principal para ver los usuarios.</div>
+                <div className="text-sm text-gray-500">{t('selectTenantPrompt')}</div>
             </div>
         );
     }
@@ -365,14 +368,15 @@ export default function UsersPage() {
             <div className="mb-8 border-b border-gray-200 dark:border-gray-800 pb-4">
                 <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight flex items-center">
                     <Users className="w-8 h-8 mr-3 text-[#0054A6] dark:text-[#00AEEF]" />
-                    Usuarios y Permisos
+                    {t('pageTitle')}
                 </h1>
                 <p className="text-gray-500 dark:text-gray-400 mt-2">
-                    Gestiona el acceso de tu equipo a FinOpsProyect. El límite de usuarios está determinado por tu suscripción 
-                    ({selectedTenant.tier === 'Enterprise' ? 'Enterprise: Sin límites' : 
-                      selectedTenant.tier === 'Business' ? 'Business: Máx 20 usuarios' : 
-                      selectedTenant.tier === 'Professional' ? 'Professional: Máx 5 usuarios' : 
-                      'Essential: Máx 1 usuario'}).
+                    {t('pageSubtitle', {
+                        tier: selectedTenant.tier === 'Enterprise' ? t('tierEnterprise') :
+                          selectedTenant.tier === 'Business' ? t('tierBusiness') :
+                          selectedTenant.tier === 'Professional' ? t('tierProfessional') :
+                          t('tierEssential')
+                    })}
                 </p>
             </div>
 
@@ -381,53 +385,53 @@ export default function UsersPage() {
                     <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50 flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <Plus className="w-5 h-5 text-gray-500" />
-                            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">Agregar Usuario Manualmente</h3>
+                            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">{t('addUserSectionTitle')}</h3>
                         </div>
-                        <button 
+                        <button
                             onClick={handleSyncEntra}
                             className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-md text-sm font-medium transition-colors"
                         >
                             <RefreshCw className={`w-4 h-4 ${syncingEntra ? 'animate-spin' : ''}`} />
-                            Sincronizar desde Entra ID
+                            {t('syncFromEntraButton')}
                         </button>
                     </div>
                     <div className="p-6">
                         <form onSubmit={handleInvite} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4 items-end">
                             <div className="lg:col-span-4 w-full">
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email del Usuario (debe ser del dominio de la empresa)</label>
-                                <input 
-                                    type="email" 
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('emailLabel')}</label>
+                                <input
+                                    type="email"
                                     required
                                     value={newEmail}
                                     onChange={e => setNewEmail(e.target.value)}
-                                    placeholder="usuario@tu-dominio.com"
+                                    placeholder={t('emailPlaceholder')}
                                     className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md focus:ring-[#0054A6] focus:border-[#0054A6] bg-white dark:bg-slate-800 placeholder-gray-500 dark:placeholder-gray-400"
                                 />
                             </div>
                             <div className="lg:col-span-4 w-full">
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Entra ID (OID) del usuario</label>
-                                <input 
-                                    type="text" 
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('entraIdLabel')}</label>
+                                <input
+                                    type="text"
                                     required
                                     value={newOid}
                                     onChange={e => setNewOid(e.target.value)}
-                                    placeholder="00000000-0000-0000-0000-000000000000"
+                                    placeholder={t('entraIdPlaceholder')}
                                     className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md focus:ring-[#0054A6] focus:border-[#0054A6] bg-white dark:bg-slate-800 placeholder-gray-500 dark:placeholder-gray-400"
                                 />
                             </div>
                             <div className="lg:col-span-2 w-full">
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Rol</label>
-                                <select 
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('roleLabel')}</label>
+                                <select
                                     value={newRole}
                                     onChange={e => setNewRole(e.target.value)}
                                     className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-800 placeholder-gray-500 dark:placeholder-gray-400"
                                 >
-                                    <option value="Reader">Reader (Lectura)</option>
-                                    <option value="Colaborador">Colaborador</option>
-                                    <option value="Admin">Admin</option>
-                                    <option value="Owner" disabled={!canAssignOwner}>Owner (Dueño)</option>
+                                    <option value="Reader">{t('roleReaderFull')}</option>
+                                    <option value="Colaborador">{t('roleCollaborator')}</option>
+                                    <option value="Admin">{t('roleAdmin')}</option>
+                                    <option value="Owner" disabled={!canAssignOwner}>{t('roleOwner')}</option>
                                     {isSuperAdmin && isMasterTenant && (
-                                        <option value="SuperAdmin">🛡️ SuperAdmin (Global)</option>
+                                        <option value="SuperAdmin">{t('roleSuperAdminGlobal')}</option>
                                     )}
                                 </select>
                             </div>
@@ -437,12 +441,12 @@ export default function UsersPage() {
                                     disabled={inviting}
                                     className="w-full px-6 py-2 bg-[#0054A6] text-white rounded-md font-semibold hover:bg-[#004080] disabled:opacity-50"
                                 >
-                                    {inviting ? 'Guardando...' : 'Agregar'}
+                                    {inviting ? t('savingButton') : t('addButton')}
                                 </button>
                             </div>
                             <div className="lg:col-span-12 w-full">
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    Permisos (dominio de páginas — opcional, independiente del Rol)
+                                    {t('permissionsLabel')}
                                 </label>
                                 <PermissionsMultiSelect value={newPermissions} onChange={setNewPermissions} />
                             </div>
@@ -455,29 +459,29 @@ export default function UsersPage() {
                 <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <Shield className="w-5 h-5 text-gray-500" />
-                        <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">Usuarios Registrados ({users.length})</h3>
+                        <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">{t('registeredUsersTitle', { count: users.length })}</h3>
                     </div>
                 </div>
                 <div className="p-6">
                     {loading ? (
-                        <div className="text-sm text-gray-400">Cargando usuarios...</div>
+                        <div className="text-sm text-gray-400">{t('loadingUsers')}</div>
                     ) : users.length === 0 ? (
-                        <div className="text-sm text-gray-500 bg-gray-50 dark:bg-slate-800 p-4 rounded-md border border-gray-100 dark:border-slate-700">No hay usuarios locales registrados en esta cuenta.</div>
+                        <div className="text-sm text-gray-500 bg-gray-50 dark:bg-slate-800 p-4 rounded-md border border-gray-100 dark:border-slate-700">{t('noUsersMessage')}</div>
                     ) : (
                         <div className="overflow-x-auto custom-scrollbar" style={{ scrollbarWidth: 'thin' }}>
                             <table className="min-w-full table-fixed divide-y divide-gray-200 dark:divide-slate-700">
                                 <thead className="bg-gray-50 dark:bg-slate-900">
                                     <tr>
-                                        <ResizableTh minWidth={140} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</ResizableTh>
-                                        <ResizableTh minWidth={180} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</ResizableTh>
-                                        <ResizableTh minWidth={140} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entra ID</ResizableTh>
-                                        <ResizableTh minWidth={140} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rol</ResizableTh>
-                                        <ResizableTh minWidth={170} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Permisos</ResizableTh>
+                                        <ResizableTh minWidth={140} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('colName')}</ResizableTh>
+                                        <ResizableTh minWidth={180} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('colEmail')}</ResizableTh>
+                                        <ResizableTh minWidth={140} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('colEntraId')}</ResizableTh>
+                                        <ResizableTh minWidth={140} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('colRole')}</ResizableTh>
+                                        <ResizableTh minWidth={220} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('colPermissions')}</ResizableTh>
                                         {/* sticky: la suma de minWidths de las columnas anteriores supera el
                                             ancho del contenedor (max-w-5xl) en viewports normales, y el botón de
                                             eliminar quedaba fuera de vista sin ningún indicio de que había que
                                             scrollear — lo fijamos al borde derecho del scroll container. */}
-                                        <ResizableTh minWidth={130} className="sticky right-0 z-10 bg-gray-50 dark:bg-slate-900 px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider shadow-[-4px_0_4px_-4px_rgba(0,0,0,0.15)]">Acciones</ResizableTh>
+                                        <ResizableTh minWidth={130} className="sticky right-0 z-10 bg-gray-50 dark:bg-slate-900 px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider shadow-[-4px_0_4px_-4px_rgba(0,0,0,0.15)]">{t('colActions')}</ResizableTh>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-slate-700">
@@ -491,15 +495,15 @@ export default function UsersPage() {
                                                     <select
                                                         value={user.system_role === 'SUPERADMIN' ? 'SuperAdmin' : user.role}
                                                         onChange={(e) => handleRoleChange(user.id, e.target.value)}
-                                                        title={user.system_role === 'SUPERADMIN' ? 'SuperAdmin (acceso global)' : undefined}
+                                                        title={user.system_role === 'SUPERADMIN' ? t('superAdminAccessTitle') : undefined}
                                                         className={`w-full px-2 py-1 border rounded bg-white dark:bg-slate-900 text-sm placeholder-gray-500 dark:placeholder-gray-400 ${user.system_role === 'SUPERADMIN' ? 'border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-400 font-semibold' : 'border-gray-300 dark:border-slate-700'}`}
                                                     >
-                                                    <option value="Reader">Reader</option>
-                                                        <option value="Colaborador">Colaborador</option>
-                                                        <option value="Admin">Admin</option>
-                                                        <option value="Owner" disabled={!canAssignOwner}>Owner (Dueño)</option>
+                                                    <option value="Reader">{t('roleReader')}</option>
+                                                        <option value="Colaborador">{t('roleCollaborator')}</option>
+                                                        <option value="Admin">{t('roleAdmin')}</option>
+                                                        <option value="Owner" disabled={!canAssignOwner}>{t('roleOwner')}</option>
                                                         {isSuperAdmin && isMasterTenant && (
-                                                            <option value="SuperAdmin">🛡️ SuperAdmin</option>
+                                                            <option value="SuperAdmin">{t('roleSuperAdmin')}</option>
                                                         )}
                                                     </select>
                                                 ) : (
@@ -518,13 +522,13 @@ export default function UsersPage() {
                                                 />
                                             </td>
                                             <td className="sticky right-0 z-10 bg-white dark:bg-slate-800 px-6 py-4 whitespace-nowrap text-right text-sm font-medium shadow-[-4px_0_4px_-4px_rgba(0,0,0,0.15)]">
-                                                <button 
+                                                <button
                                                     onClick={() => handleDelete(user.id, user.email)}
                                                     disabled={!isAdmin}
                                                     className={`text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 flex items-center justify-end w-full gap-1 ${!isAdmin ? 'opacity-30 cursor-not-allowed' : ''}`}
-                                                    title={!isAdmin ? "Solo Administradores pueden borrar usuarios" : "Eliminar"}
+                                                    title={!isAdmin ? t('adminOnlyDeleteTitle') : t('deleteButtonLabel')}
                                                 >
-                                                    <Trash2 className="w-4 h-4" /> Eliminar
+                                                    <Trash2 className="w-4 h-4" /> {t('deleteButtonLabel')}
                                                 </button>
                                             </td>
                                         </tr>
@@ -543,7 +547,7 @@ export default function UsersPage() {
                     <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
                         <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-800 flex justify-between items-center">
                             <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                                <Users className="w-5 h-5" /> Importar desde Microsoft Entra ID
+                                <Users className="w-5 h-5" /> {t('importFromEntraTitle')}
                             </h3>
                             <button onClick={() => setShowEntraModal(false)} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
                                 <X className="w-6 h-6" />
@@ -555,15 +559,15 @@ export default function UsersPage() {
                                     <RefreshCw className="w-8 h-8 text-[#0054A6] animate-spin" />
                                 </div>
                             ) : entraUsers.length === 0 ? (
-                                <div className="text-center text-gray-500 py-8">No se encontraron usuarios o hubo un error de conexión con Microsoft Graph. Asegúrate de haber otorgado el Admin Consent en el Portal de Azure.</div>
+                                <div className="text-center text-gray-500 py-8">{t('entraNoUsersMessage')}</div>
                             ) : (
                                 <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
                                     <thead className="bg-gray-50 dark:bg-slate-800">
                                         <tr>
-                                            <th className="px-4 py-3 text-left">Seleccionar</th>
-                                            <th className="px-4 py-3 text-left">Nombre</th>
-                                            <th className="px-4 py-3 text-left">Email</th>
-                                            <th className="px-4 py-3 text-left">Rol a asignar</th>
+                                            <th className="px-4 py-3 text-left">{t('colSelect')}</th>
+                                            <th className="px-4 py-3 text-left">{t('colName')}</th>
+                                            <th className="px-4 py-3 text-left">{t('colEmail')}</th>
+                                            <th className="px-4 py-3 text-left">{t('colRoleToAssign')}</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-200 dark:divide-slate-700">
@@ -589,12 +593,12 @@ export default function UsersPage() {
                                                             disabled={!state.selected}
                                                             className="text-sm border border-gray-300 dark:border-slate-700 rounded bg-white dark:bg-slate-900 disabled:opacity-50 px-2 py-1"
                                                         >
-                                                            <option value="Reader">Reader</option>
-                                                            <option value="Colaborador">Colaborador</option>
-                                                            <option value="Admin">Admin</option>
-                                                            <option value="Owner" disabled={!canAssignOwner}>Owner (Dueño)</option>
+                                                            <option value="Reader">{t('roleReader')}</option>
+                                                            <option value="Colaborador">{t('roleCollaborator')}</option>
+                                                            <option value="Admin">{t('roleAdmin')}</option>
+                                                            <option value="Owner" disabled={!canAssignOwner}>{t('roleOwner')}</option>
                                                             {isSuperAdmin && isMasterTenant && (
-                                                                <option value="SuperAdmin">🛡️ SuperAdmin</option>
+                                                                <option value="SuperAdmin">{t('roleSuperAdmin')}</option>
                                                             )}
                                                         </select>
                                                     </td>
@@ -606,14 +610,14 @@ export default function UsersPage() {
                             )}
                         </div>
                         <div className="px-6 py-4 border-t border-gray-200 dark:border-slate-800 flex justify-end gap-3 bg-gray-50 dark:bg-slate-900/50">
-                            <button onClick={() => setShowEntraModal(false)} className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 font-medium">Cancelar</button>
-                            <button 
+                            <button onClick={() => setShowEntraModal(false)} className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 font-medium">{t('cancelButton')}</button>
+                            <button
                                 onClick={handleBulkProvision}
                                 disabled={provisioning || Object.values(selectedEntraUsers).filter(i => i.selected).length === 0}
                                 className="px-6 py-2 bg-[#0054A6] hover:bg-[#004080] text-white rounded-md font-medium disabled:opacity-50 flex items-center gap-2"
                             >
                                 {provisioning && <RefreshCw className="w-4 h-4 animate-spin" />}
-                                Provisionar Seleccionados
+                                {t('provisionSelectedButton')}
                             </button>
                         </div>
                     </div>

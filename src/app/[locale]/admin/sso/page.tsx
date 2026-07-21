@@ -1,5 +1,6 @@
 "use client";
 import React, { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
@@ -23,6 +24,7 @@ interface SsoConfig {
 }
 
 export default function SsoPage() {
+    const t = useTranslations('AdminSso');
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const [config, setConfig] = useState<SsoConfig | null>(null);
@@ -58,7 +60,7 @@ export default function SsoPage() {
             });
             const json = await res.json();
             if (!json.success) {
-                setError(json.error || "Error");
+                setError(json.error || t('errors.generic'));
             } else {
                 setConfig(json.config || null);
                 setDomain(json.config?.domain || "");
@@ -71,7 +73,7 @@ export default function SsoPage() {
         } finally {
             setLoading(false);
         }
-    }, [selectedTenant?.id, authHeaders]);
+    }, [selectedTenant?.id, authHeaders, t]);
 
     useEffect(() => {
         load();
@@ -99,7 +101,7 @@ export default function SsoPage() {
             });
             const json = await res.json();
             if (!json.success) {
-                setError(json.error || "Error saving config");
+                setError(json.error || t('errors.saveFailed'));
             } else {
                 await load();
             }
@@ -127,7 +129,7 @@ export default function SsoPage() {
             });
             const json = await res.json();
             if (!json.success) {
-                setError(json.error || "Error generating link");
+                setError(json.error || t('errors.linkFailed'));
             } else {
                 setPortalLink(json.link);
                 // Auto-open link in new tab
@@ -152,10 +154,10 @@ export default function SsoPage() {
         <div className="p-6 space-y-6">
             <div>
                 <h1 className="text-2xl font-bold flex items-center gap-2">
-                    <ShieldCheck className="w-6 h-6" /> SAML SSO (WorkOS)
+                    <ShieldCheck className="w-6 h-6" /> {t('title')}
                 </h1>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 text-justify">
-                    Configure enterprise Single Sign-On (SAML) so your organization can authenticate via their IdP (Okta, Auth0, AD FS, etc.) using WorkOS as the broker.
+                    {t('subtitle')}
                 </p>
             </div>
 
@@ -167,16 +169,16 @@ export default function SsoPage() {
 
             {loading ? (
                 <div className="flex items-center gap-2 text-sm text-gray-500">
-                    <Loader2 className="w-4 h-4 animate-spin" /> Cargando…
+                    <Loader2 className="w-4 h-4 animate-spin" /> {t('loading')}
                 </div>
             ) : (
                 <>
                     <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                        <h2 className="font-semibold mb-4">Configuración SSO</h2>
+                        <h2 className="font-semibold mb-4">{t('configSection.heading')}</h2>
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium mb-1">
-                                    Domain (e.g., acme.com)
+                                    {t('configSection.domainLabel')}
                                 </label>
                                 <input
                                     type="text"
@@ -189,7 +191,7 @@ export default function SsoPage() {
 
                             <div>
                                 <label className="block text-sm font-medium mb-1">
-                                    WorkOS Organization ID
+                                    {t('configSection.workosOrgIdLabel')}
                                 </label>
                                 <input
                                     type="text"
@@ -202,7 +204,7 @@ export default function SsoPage() {
 
                             <div>
                                 <label className="block text-sm font-medium mb-1">
-                                    WorkOS Connection ID
+                                    {t('configSection.workosConnectionIdLabel')}
                                 </label>
                                 <input
                                     type="text"
@@ -222,7 +224,7 @@ export default function SsoPage() {
                                     id="sso-enabled"
                                 />
                                 <label htmlFor="sso-enabled" className="text-sm font-medium">
-                                    Habilitar SSO
+                                    {t('configSection.enableSsoLabel')}
                                 </label>
                             </div>
 
@@ -237,14 +239,14 @@ export default function SsoPage() {
                                     ) : (
                                         <Check className="w-4 h-4" />
                                     )}
-                                    Guardar
+                                    {t('actions.save')}
                                 </button>
                             </div>
                         </div>
                     </div>
 
                     <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                        <h2 className="font-semibold mb-4">Acciones</h2>
+                        <h2 className="font-semibold mb-4">{t('actionsSection.heading')}</h2>
                         <div className="flex flex-wrap gap-3">
                             <button
                                 onClick={generatePortalLink}
@@ -256,7 +258,7 @@ export default function SsoPage() {
                                 ) : (
                                     <ExternalLink className="w-4 h-4" />
                                 )}
-                                Generar Admin Portal
+                                {t('actions.generateAdminPortal')}
                             </button>
 
                             <button
@@ -265,7 +267,7 @@ export default function SsoPage() {
                                 className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded text-sm flex items-center gap-2 disabled:opacity-50"
                             >
                                 <ExternalLink className="w-4 h-4" />
-                                Probar SSO
+                                {t('actions.testSso')}
                             </button>
                         </div>
 
@@ -274,8 +276,8 @@ export default function SsoPage() {
                                 <div className="flex items-start gap-2 text-green-700 dark:text-green-300 mb-2">
                                     <Check className="w-5 h-5 mt-0.5" />
                                     <div>
-                                        <p className="font-semibold">Admin Portal link generado</p>
-                                        <p className="text-xs">Se abrió en una nueva pestaña.</p>
+                                        <p className="font-semibold">{t('actionsSection.portalLinkGenerated')}</p>
+                                        <p className="text-xs">{t('actionsSection.portalLinkOpened')}</p>
                                     </div>
                                 </div>
                             </div>
@@ -283,16 +285,16 @@ export default function SsoPage() {
                     </div>
 
                     <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 rounded-lg p-4 text-sm">
-                        <p className="font-semibold mb-2">¿Cómo usar?</p>
+                        <p className="font-semibold mb-2">{t('howTo.heading')}</p>
                         <ul className="list-disc ml-5 space-y-1 text-xs">
                             <li>
-                                Completa el domain, WorkOS Org ID y Connection ID (obtenible del WorkOS dashboard).
+                                {t('howTo.step1')}
                             </li>
                             <li>
-                                Habilita SSO y guarda. Luego haz clic en "Generar Admin Portal" para que tu cliente configure su IdP.
+                                {t('howTo.step2', { portalButton: t('actions.generateAdminPortal') })}
                             </li>
-                            <li>El cliente recibe un link por email y configura su proveedor de identidad (Okta, Auth0, AD FS).</li>
-                            <li>Una vez configurado, los usuarios pueden hacer login con SAML.</li>
+                            <li>{t('howTo.step3')}</li>
+                            <li>{t('howTo.step4')}</li>
                         </ul>
                     </div>
                 </>

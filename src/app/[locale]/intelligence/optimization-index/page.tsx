@@ -1,9 +1,12 @@
 import React from "react";
+import { getTranslations } from 'next-intl/server';
 import MockBanner from '@/components/MockBanner';
 import CoinDashboard from "@/components/dashboard/CoinDashboard";
 import { Target } from "lucide-react";
 
-export default function OptimizationIndexPage() {
+export default async function OptimizationIndexPage() {
+    const t = await getTranslations('IntelligenceOptimizationIndex');
+
     return (
         <div className="content animate-in fade-in">
             <MockBanner />
@@ -13,9 +16,9 @@ export default function OptimizationIndexPage() {
                         <span className="vico bg-gradient-to-br from-sky-500 to-blue-700 text-white p-2 rounded-xl">
                             <Target className="w-5 h-5" />
                         </span>
-                        Índice de Optimización (COIN)
+                        {t('title')}
                     </div>
-                    <div className="vs">Qué porcentaje de las recomendaciones de ahorro y eficiencia detectadas realmente terminás implementando — tu tasa de ejecución FinOps.</div>
+                    <div className="vs">{t('subtitle')}</div>
                 </div>
             </div>
 

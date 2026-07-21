@@ -164,7 +164,7 @@ export default function AnomalyDashboard() {
     if (error) {
         const requiredTier = parseTierRequiredError(error.message);
         if (requiredTier) {
-            return <TierLockedNotice requiredTier={requiredTier} currentTier={tier} featureName="Detección de Anomalías" />;
+            return <TierLockedNotice requiredTier={requiredTier} currentTier={tier} featureName={t('tierLockedFeatureName')} />;
         }
         return (
             <div className="bg-red-50 text-red-600 p-4 rounded-lg border border-red-100">

@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import { useTenant } from "@/components/TenantProvider";
 import { useSubscription } from "@/components/SubscriptionProvider";
 import { useMsal } from "@azure/msal-react";
@@ -20,6 +21,7 @@ interface PreviewRow {
 }
 
 export default function TagInheritancePanel() {
+    const t = useTranslations("TagInheritance");
     const { selectedTenant } = useTenant();
     const { selectedSubscription } = useSubscription();
     const { instance, accounts } = useMsal();
@@ -40,7 +42,7 @@ export default function TagInheritancePanel() {
 
     const runPreview = useCallback(async () => {
         if (!selectedTenant?.id || selectedTenant.id === "default") {
-            setError("Selecciona un tenant válido.");
+            setError(t("errorSelectTenant"));
             return;
         }
         setLoading(true); setError(null); setApplyResult(null);
@@ -57,7 +59,7 @@ export default function TagInheritancePanel() {
             });
             const json = await res.json();
             if (!json.success) {
-                setError(json.error || "Error al obtener preview.");
+                setError(json.error || t("errorPreview"));
                 setRows([]);
             } else {
                 // Dedupe defensivo por resourceId: aunque el join del backend ya se
@@ -72,11 +74,11 @@ export default function TagInheritancePanel() {
                 setSelected(new Set(unique.map((r) => r.resourceId)));
             }
         } catch (e: any) {
-            setError(e?.message || "Error de red.");
+            setError(e?.message || t("errorNetworkGeneric"));
         } finally {
             setLoading(false);
         }
-    }, [selectedTenant, selectedSubscription, tagKeys]);
+    }, [selectedTenant, selectedSubscription, tagKeys, t]);
 
     const toggle = (id: string) => {
         const next = new Set(selected);
@@ -89,7 +91,7 @@ export default function TagInheritancePanel() {
         const ops = rows
             .filter(r => selected.has(r.resourceId))
             .map(r => ({ resourceId: r.resourceId, tagsToMerge: r.missingTags }));
-        if (ops.length === 0) { setError("Selecciona al menos un recurso."); return; }
+        if (ops.length === 0) { setError(t("errorSelectResource")); return; }
 
         setApplying(true); setError(null);
         try {
@@ -107,7 +109,7 @@ export default function TagInheritancePanel() {
                 });
                 const json = await res.json();
                 if (!json.success) {
-                    setError(json.error || "Error al aplicar tags.");
+                    setError(json.error || t("errorApply"));
                     setApplying(false); return;
                 }
                 applied += json.applied || 0;
@@ -119,11 +121,11 @@ export default function TagInheritancePanel() {
                 await runPreview();
             }
         } catch (e: any) {
-            setError(e?.message || "Error de red.");
+            setError(e?.message || t("errorNetworkGeneric"));
         } finally {
             setApplying(false);
         }
-    }, [rows, selected, selectedTenant, runPreview]);
+    }, [rows, selected, selectedTenant, runPreview, t]);
 
     // Paginación del resultado de "Analizar".
     const preview = usePagination(rows, 10);

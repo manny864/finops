@@ -1,8 +1,11 @@
 import React from 'react';
+import { getTranslations } from 'next-intl/server';
 import HybridBenefitCard from '@/components/dashboard/HybridBenefitCard';
 import MockBanner from '@/components/MockBanner';
 
-export default function HybridBenefitPage() {
+export default async function HybridBenefitPage() {
+    const t = await getTranslations('IntelligenceHybridBenefit');
+
     return (
         <div className="content animate-in fade-in">
             <MockBanner />
@@ -10,9 +13,9 @@ export default function HybridBenefitPage() {
                 <div>
                     <div className="vt">
                         <span className="vico bg-gradient-to-br from-green-500 to-emerald-600">🏷️</span>
-                        Azure Hybrid Benefit Scanner
+                        {t('title')}
                     </div>
-                    <div className="vs">Identifica instancias pagando precio de lista y simula tu ahorro al reutilizar licencias on-premise con Software Assurance.</div>
+                    <div className="vs">{t('subtitle')}</div>
                 </div>
             </div>
 

@@ -4,7 +4,7 @@ import { requireTenantAccess, requireTenantRole, AuthError } from "@/lib/request
 import { getBudgetConsumption } from "@/services/budgetService";
 // RBAC: GET requiere pertenencia al tenant (read). POST (crear/actualizar budget)
 // requiere rol Admin/Owner — es un control de gobernanza financiera.
-import { getWithStaleWhileRevalidate } from "@/lib/cache";
+import { getWithStaleWhileRevalidate, invalidateCachePattern } from "@/lib/cache";
 
 export async function GET(request: NextRequest) {
     try {
@@ -74,6 +74,8 @@ export async function POST(request: NextRequest) {
              ON DUPLICATE KEY UPDATE monthly_limit_usd = ?, alert_threshold = ?`,
             [tenantId, costCenter, monthlyLimit, alertThreshold, monthlyLimit, alertThreshold]
         );
+
+        await invalidateCachePattern(`budgets:${tenantId}:*`);
 
         return NextResponse.json({ success: true, message: "Presupuesto guardado" });
 

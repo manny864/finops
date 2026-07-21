@@ -1,6 +1,7 @@
 "use client";
 import React, { useState } from 'react';
 import useSWR from 'swr';
+import { useTranslations } from 'next-intl';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { useRouter, useParams } from 'next/navigation';
@@ -13,6 +14,7 @@ import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
 
 export default function FinOpsAcademy() {
+    const t = useTranslations('Academy');
     const { selectedTenant, setAcademyCertified, systemRole } = useTenant();
     const { instance, accounts } = useMsal();
     const router = useRouter();
@@ -36,7 +38,7 @@ export default function FinOpsAcademy() {
             headers: { 'Authorization': `Bearer ${idToken}` }
         });
 
-        if (!res.ok) throw new Error("Error al cargar la Academia");
+        if (!res.ok) throw new Error(t("errors.loadFailed"));
         return res.json();
     };
 
@@ -64,10 +66,10 @@ export default function FinOpsAcademy() {
 
             if (!response.ok) {
                 const body = await response.json().catch(() => null);
-                throw new Error(body?.error || "Fallo al guardar progreso");
+                throw new Error(body?.error || t("errors.saveProgressFailed"));
             }
-            
-            toast.success("¡Lección completada!");
+
+            toast.success(t("toasts.lessonCompleted"));
             mutate(); // Refresh progress
         } catch (err: any) {
             toast.error(err.message);
@@ -93,7 +95,7 @@ export default function FinOpsAcademy() {
         return (
             <div className="flex flex-col items-center justify-center py-20">
                 <Loader2 className="w-8 h-8 animate-spin text-brand-deep mb-4" />
-                <p className="text-gray-500">Cargando módulos de la Academia FinOps...</p>
+                <p className="text-gray-500">{t("loading")}</p>
             </div>
         );
     }
@@ -101,7 +103,7 @@ export default function FinOpsAcademy() {
     if (error) {
         return (
             <div className="bg-red-50 text-red-600 p-4 rounded-lg border border-red-100">
-                <p className="font-bold">Error: {error.message}</p>
+                <p className="font-bold">{t("errorPrefix", { message: error.message })}</p>
             </div>
         );
     }
@@ -117,18 +119,14 @@ export default function FinOpsAcademy() {
                 <div className="bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-800/50 rounded-xl p-4 flex items-start gap-3">
                     <GraduationCap className="w-5 h-5 text-sky-600 dark:text-sky-400 shrink-0 mt-0.5" />
                     <p className="text-sm text-sky-800 dark:text-sky-300">
-                        <strong>Estás viendo este tenant como Super Administrador.</strong> La Academia FinOps es un requisito
-                        individual para los usuarios del cliente — tu cuenta no tiene progreso propio en este tenant, así que
-                        los botones de completado están deshabilitados. Podés leer el contenido de cada módulo igual.
+                        <strong>{t("superAdminBanner.title")}</strong> {t("superAdminBanner.body")}
                     </p>
                 </div>
             ) : !isCertified && (
                 <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-xl p-4 flex items-start gap-3">
                     <GraduationCap className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                     <p className="text-sm text-amber-800 dark:text-amber-300">
-                        <strong>Completar la Academia FinOps es obligatorio.</strong> Es el primer paso para todo usuario nuevo de tu organización:
-                        hasta que completes los {modules.length} módulos no vas a poder acceder al resto de las funciones de la plataforma.
-                        Este requisito es individual — aplica aunque otros usuarios de tu empresa ya la hayan completado.
+                        <strong>{t("requiredBanner.title")}</strong> {t("requiredBanner.body", { count: modules.length })}
                     </p>
                 </div>
             )}
@@ -138,16 +136,16 @@ export default function FinOpsAcademy() {
                     <div>
                         <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                             <GraduationCap className="w-6 h-6 text-brand-deep dark:text-brand-bright" />
-                            Tu Ruta de Aprendizaje FinOps
+                            {t("header.title")}
                         </h2>
                         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                            Comprende la nube antes de optimizarla. Completado {totalCompleted} de {modules.length} módulos.
+                            {t("header.subtitle", { completed: totalCompleted, total: modules.length })}
                         </p>
                     </div>
                     {isCertified && (
                         <div className="flex flex-col items-center animate-in zoom-in">
                             <Trophy className="w-10 h-10 text-yellow-500 mb-1 drop-shadow-md" />
-                            <span className="text-xs font-bold text-yellow-600 uppercase tracking-widest">FinOps Certified</span>
+                            <span className="text-xs font-bold text-yellow-600 uppercase tracking-widest">{t("certified")}</span>
                             <button
                                 onClick={() => {
                                     // Marca la certificación en el contexto ANTES de navegar, para
@@ -159,7 +157,7 @@ export default function FinOpsAcademy() {
                                 }}
                                 className="mt-2 px-3 py-1.5 bg-brand-deep text-white text-xs font-bold rounded hover:bg-brand-bright shadow-sm transition-colors"
                             >
-                                Ingresar al SaaS
+                                {t("enterSaaS")}
                             </button>
                         </div>
                     )}
@@ -188,7 +186,7 @@ export default function FinOpsAcademy() {
                                         </div>
                                         <div>
                                             <div className="flex items-center gap-2 mb-1">
-                                                <span className="text-xs font-bold uppercase tracking-wider text-gray-500">Módulo {index + 1}</span>
+                                                <span className="text-xs font-bold uppercase tracking-wider text-gray-500">{t("moduleLabel", { number: index + 1 })}</span>
                                                 <span className="text-xs font-semibold px-2 py-0.5 bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-300 rounded-full flex items-center gap-1">
                                                     <PlayCircle className="w-3 h-3" /> {mod.duration}
                                                 </span>
@@ -201,10 +199,10 @@ export default function FinOpsAcademy() {
                                         <button
                                             onClick={() => handleMarkComplete(mod.id)}
                                             disabled={markingComplete === mod.id || isSuperAdminViewing}
-                                            title={isSuperAdminViewing ? "No disponible: tu cuenta de Super Administrador no tiene progreso propio en este tenant" : undefined}
+                                            title={isSuperAdminViewing ? t("superAdminTooltip") : undefined}
                                             className="px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-sm font-bold rounded-lg hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
-                                            {markingComplete === mod.id ? 'Guardando...' : 'Marcar Completado'}
+                                            {markingComplete === mod.id ? t("saving") : t("markComplete")}
                                         </button>
                                     )}
                                 </div>
@@ -220,10 +218,10 @@ export default function FinOpsAcademy() {
                                     <div className="mt-6 bg-brand-deep/5 dark:bg-brand-deep/10 border border-brand-deep/20 rounded-lg p-5 animate-in fade-in">
                                         <div className="flex items-center gap-3 mb-2">
                                             <Terminal className="w-5 h-5 text-brand-deep dark:text-brand-bright" />
-                                            <h4 className="font-bold text-gray-900 dark:text-white">¡Estás listo para conectar Azure!</h4>
+                                            <h4 className="font-bold text-gray-900 dark:text-white">{t("onboardingSuggestion.title")}</h4>
                                         </div>
                                         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                                            Ya que entiendes la importancia de la visibilidad, ejecuta tu script de Onboarding seguro (Read-Only) en Azure Cloud Shell para empezar a jalar datos reales.
+                                            {t("onboardingSuggestion.body")}
                                         </p>
                                         <pre className="bg-gray-900 p-4 rounded-lg overflow-x-auto text-xs font-mono text-green-400 shadow-inner">
                                             {(() => {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { useMsal } from '@azure/msal-react';
 import { getFreshIdToken } from '@/lib/msalToken';
@@ -35,6 +35,7 @@ interface FunnelData {
 }
 
 export default function FunnelPage() {
+  const t = useTranslations('SuperAdminFunnel');
   const locale = useLocale();
   const router = useRouter();
   const { instance, accounts } = useMsal();
@@ -60,20 +61,20 @@ export default function FunnelPage() {
         }
 
         if (!response.ok) {
-          throw new Error('Failed to fetch funnel data');
+          throw new Error(t('errorFetchFailed'));
         }
 
         const result = await response.json();
         setData(result);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Unknown error');
+        setError(err instanceof Error ? err.message : t('errorUnknown'));
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchData();
-  }, [locale, router, instance, accounts]);
+  }, [locale, router, instance, accounts, t]);
 
   if (isLoading) {
     return (
@@ -86,7 +87,7 @@ export default function FunnelPage() {
   if (error) {
     return (
       <div className="p-8 bg-red-50 border border-red-200 rounded-lg text-red-700">
-        <p className="font-semibold">Error loading funnel data</p>
+        <p className="font-semibold">{t('errorLoadingTitle')}</p>
         <p className="text-sm">{error}</p>
       </div>
     );
@@ -96,41 +97,32 @@ export default function FunnelPage() {
     return null;
   }
 
+  const stageLabels: Record<string, string> = {
+    signup_started: t('stageSignupStarted'),
+    trial_started: t('stageTrialStarted'),
+    onboarding_completed: t('stageOnboardingCompleted'),
+    converted_to_paid: t('stageConvertedToPaid'),
+  };
+
   return (
     <div className="space-y-8 p-8">
       <div>
-        <h1 className="text-4xl font-bold text-gray-900">
-          {locale === 'en' ? 'Signup Funnel Analytics' : 'Análisis de Embudo de Inscripción'}
-        </h1>
-        <p className="text-gray-600 mt-2">
-          {locale === 'en' ? 'Track signup conversion and trial metrics' : 'Rastrear la conversión de inscripciones y métricas de prueba'}
-        </p>
+        <h1 className="text-4xl font-bold text-gray-900">{t('title')}</h1>
+        <p className="text-gray-600 mt-2">{t('subtitle')}</p>
       </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+        <KPICard label={t('kpiSignups30d')} value={data.kpis.signups_30d} suffix="" />
+        <KPICard label={t('kpiActiveTrials')} value={data.kpis.trials_active} suffix="" />
+        <KPICard label={t('kpiConverted')} value={data.kpis.converted} suffix="" />
         <KPICard
-          label={locale === 'en' ? 'Signups (30d)' : 'Inscripciones (30d)'}
-          value={data.kpis.signups_30d}
-          suffix=""
-        />
-        <KPICard
-          label={locale === 'en' ? 'Active Trials' : 'Pruebas Activas'}
-          value={data.kpis.trials_active}
-          suffix=""
-        />
-        <KPICard
-          label={locale === 'en' ? 'Converted' : 'Convertido'}
-          value={data.kpis.converted}
-          suffix=""
-        />
-        <KPICard
-          label={locale === 'en' ? 'Conversion Rate' : 'Tasa de Conversión'}
+          label={t('kpiConversionRate')}
           value={parseFloat(data.kpis.conversion_pct)}
           suffix="%"
         />
         <KPICard
-          label={locale === 'en' ? 'Churn Rate' : 'Tasa de Rotación'}
+          label={t('kpiChurnRate')}
           value={parseFloat(data.kpis.churn_pct)}
           suffix="%"
           isNegative
@@ -139,28 +131,12 @@ export default function FunnelPage() {
 
       {/* Funnel Chart */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">
-          {locale === 'en' ? 'Conversion Funnel' : 'Embudo de Conversión'}
-        </h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">{t('funnelTitle')}</h2>
         <div className="space-y-4">
           {data.funnel.map((stage, idx) => {
             const maxCount = Math.max(...data.funnel.map(s => s.count), 1);
             const percentage = (stage.count / maxCount) * 100;
-            const labels: Record<string, Record<string, string>> = {
-              en: {
-                'signup_started': 'Signups Started',
-                'trial_started': 'Trial Started',
-                'onboarding_completed': 'Onboarding Completed',
-                'converted_to_paid': 'Converted to Paid',
-              },
-              es: {
-                'signup_started': 'Inscripciones Iniciadas',
-                'trial_started': 'Prueba Iniciada',
-                'onboarding_completed': 'Incorporación Completada',
-                'converted_to_paid': 'Convertido a Pagado',
-              },
-            };
-            const label = labels[locale]?.[stage.stage] || stage.stage;
+            const label = stageLabels[stage.stage] || stage.stage;
 
             return (
               <div key={idx}>
@@ -185,28 +161,26 @@ export default function FunnelPage() {
       {/* Recent Signups Table */}
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div className="p-6 border-b border-gray-200">
-          <h2 className="text-2xl font-bold text-gray-900">
-            {locale === 'en' ? 'Recent Signups' : 'Inscripciones Recientes'}
-          </h2>
+          <h2 className="text-2xl font-bold text-gray-900">{t('recentSignupsTitle')}</h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                  {locale === 'en' ? 'Email' : 'Correo Electrónico'}
+                  {t('colEmail')}
                 </th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                  {locale === 'en' ? 'Plan' : 'Plan'}
+                  {t('colPlan')}
                 </th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                  {locale === 'en' ? 'Status' : 'Estado'}
+                  {t('colStatus')}
                 </th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                  {locale === 'en' ? 'Trial Days Left' : 'Días de Prueba Restantes'}
+                  {t('colTrialDaysLeft')}
                 </th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                  {locale === 'en' ? 'Signup Date' : 'Fecha de Inscripción'}
+                  {t('colSignupDate')}
                 </th>
               </tr>
             </thead>

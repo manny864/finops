@@ -1,5 +1,6 @@
 "use client";
 import React, { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
@@ -17,6 +18,7 @@ interface Channel {
 }
 
 export default function NotificationsPage() {
+    const t = useTranslations("AdminNotifications");
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const [channels, setChannels] = useState<Channel[]>([]);
@@ -52,7 +54,7 @@ export default function NotificationsPage() {
             const headers = await authHeaders();
             const res = await fetch(`/api/admin/notifications/channels?tenantId=${selectedTenant.id}`, { headers });
             const json = await res.json();
-            if (!json.success) setError(json.error || "Error loading channels");
+            if (!json.success) setError(json.error || t("errors.loadFailed"));
             else {
                 setChannels(json.channels || []);
                 setNotificationsEnabled(json.notificationsEnabled ?? true);
@@ -70,7 +72,7 @@ export default function NotificationsPage() {
 
     const createChannel = async () => {
         if (!selectedType || !formData.name.trim()) {
-            setError("Name required");
+            setError(t("errors.nameRequired"));
             return;
         }
 
@@ -80,14 +82,14 @@ export default function NotificationsPage() {
 
         if (selectedType === "slack" || selectedType === "teams") {
             if (!formData.webhookUrl?.trim()) {
-                setError("Webhook URL required");
+                setError(t("errors.webhookUrlRequired"));
                 return;
             }
             config_json = { webhook_url: formData.webhookUrl.trim() };
         } else if (selectedType === "email") {
             const recipientList = formData.recipients?.filter((r) => r.trim()) || [];
             if (recipientList.length === 0) {
-                setError("At least one recipient email required");
+                setError(t("errors.recipientRequired"));
                 return;
             }
             config_json = { recipients: recipientList };
@@ -112,9 +114,9 @@ export default function NotificationsPage() {
 
             const json = await res.json();
             if (!json.success) {
-                setError(json.error || "Failed to create channel");
+                setError(json.error || t("errors.createFailed"));
             } else {
-                toast.success("Channel created successfully");
+                toast.success(t("toasts.channelCreated"));
                 setShowModal(false);
                 setSelectedType(null);
                 setFormData({ name: "", severityFilter: "info,warning,error" });
@@ -128,7 +130,7 @@ export default function NotificationsPage() {
     };
 
     const deleteChannel = async (id: number) => {
-        if (!confirm("Are you sure? This channel will stop receiving notifications.")) return;
+        if (!confirm(t("deleteConfirm"))) return;
 
         try {
             const headers = await authHeaders();
@@ -139,9 +141,9 @@ export default function NotificationsPage() {
 
             const json = await res.json();
             if (!json.success) {
-                toast.error(json.error || "Failed to delete channel");
+                toast.error(json.error || t("errors.deleteFailed"));
             } else {
-                toast.success("Channel deleted");
+                toast.success(t("toasts.channelDeleted"));
                 await loadChannels();
             }
         } catch (e: any) {
@@ -170,9 +172,9 @@ export default function NotificationsPage() {
 
             const json = await res.json();
             if (json.success) {
-                toast.success("Test notification sent!");
+                toast.success(t("toasts.testSent"));
             } else {
-                toast.error(json.error || "Failed to send test");
+                toast.error(json.error || t("errors.testFailed"));
             }
         } catch (e: any) {
             toast.error(e?.message);
@@ -192,10 +194,10 @@ export default function NotificationsPage() {
 
             const json = await res.json();
             if (json.success) {
-                toast.success(channel.enabled ? "Channel disabled" : "Channel enabled");
+                toast.success(channel.enabled ? t("toasts.channelDisabled") : t("toasts.channelEnabled"));
                 await loadChannels();
             } else {
-                toast.error(json.error || "Failed to toggle");
+                toast.error(json.error || t("errors.toggleFailed"));
             }
         } catch (e: any) {
             toast.error(e?.message);
@@ -216,9 +218,9 @@ export default function NotificationsPage() {
             const json = await res.json();
             if (json.success) {
                 setNotificationsEnabled(next);
-                toast.success(next ? "Notificaciones habilitadas" : "Notificaciones deshabilitadas");
+                toast.success(next ? t("toasts.notificationsEnabled") : t("toasts.notificationsDisabled"));
             } else {
-                toast.error(json.error || "No se pudo cambiar el estado");
+                toast.error(json.error || t("errors.toggleMasterFailed"));
             }
         } catch (e: any) {
             toast.error(e?.message);
@@ -266,10 +268,10 @@ export default function NotificationsPage() {
             <div>
                 <h1 className="text-2xl font-bold flex items-center gap-2">
                     <Bell className="w-6 h-6" />
-                    Notification Channels
+                    {t("title")}
                 </h1>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                    Configure where alerts are sent: Slack, Microsoft Teams, or Email.
+                    {t("subtitle")}
                 </p>
             </div>
 
@@ -278,9 +280,9 @@ export default function NotificationsPage() {
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
                 <label className="flex items-center justify-between cursor-pointer">
                     <div>
-                        <div className="text-sm font-medium text-gray-800 dark:text-gray-100">Habilitar notificaciones</div>
+                        <div className="text-sm font-medium text-gray-800 dark:text-gray-100">{t("masterSwitch.label")}</div>
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            Interruptor maestro: apaga todos los canales (Slack, Teams, Email) de una vez sin perder su configuración individual.
+                            {t("masterSwitch.description")}
                         </p>
                     </div>
                     <button
@@ -303,19 +305,19 @@ export default function NotificationsPage() {
             </div>
 
             <div className={`bg-white dark:bg-gray-800 rounded-lg shadow p-6 ${!notificationsEnabled ? "opacity-50" : ""}`}>
-                <h2 className="font-semibold mb-3">Active Channels</h2>
+                <h2 className="font-semibold mb-3">{t("activeChannels.title")}</h2>
                 {channels.length === 0 ? (
-                    <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">No channels configured yet.</p>
+                    <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">{t("activeChannels.empty")}</p>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead className="border-b">
                                 <tr className="text-left">
-                                    <th className="py-2 px-2">Name</th>
-                                    <th className="py-2 px-2">Type</th>
-                                    <th className="py-2 px-2">Severity Filter</th>
-                                    <th className="py-2 px-2">Status</th>
-                                    <th className="py-2 px-2">Actions</th>
+                                    <th className="py-2 px-2">{t("activeChannels.columns.name")}</th>
+                                    <th className="py-2 px-2">{t("activeChannels.columns.type")}</th>
+                                    <th className="py-2 px-2">{t("activeChannels.columns.severityFilter")}</th>
+                                    <th className="py-2 px-2">{t("activeChannels.columns.status")}</th>
+                                    <th className="py-2 px-2">{t("activeChannels.columns.actions")}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -342,7 +344,7 @@ export default function NotificationsPage() {
                                                         : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
                                                 }`}
                                             >
-                                                {ch.enabled ? "Enabled" : "Disabled"}
+                                                {ch.enabled ? t("activeChannels.statusEnabled") : t("activeChannels.statusDisabled")}
                                             </button>
                                         </td>
                                         <td className="py-3 px-2 flex gap-2">
@@ -356,7 +358,7 @@ export default function NotificationsPage() {
                                                 ) : (
                                                     <Zap className="w-3 h-3" />
                                                 )}
-                                                Test
+                                                {t("activeChannels.test")}
                                             </button>
                                             <button
                                                 onClick={() => deleteChannel(ch.id)}
@@ -378,17 +380,17 @@ export default function NotificationsPage() {
                 className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm flex items-center gap-2"
             >
                 <Plus className="w-4 h-4" />
-                Add Channel
+                {t("addChannel")}
             </button>
 
             {showModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-md w-full mx-4 p-6">
                         <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-lg font-semibold">Add Notification Channel</h3>
+                            <h3 className="text-lg font-semibold">{t("modal.title")}</h3>
                             <button
                                 onClick={closeModal}
-                                aria-label="Close"
+                                aria-label={t("modal.close")}
                                 className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded p-1 -m-1"
                             >
                                 <X className="w-5 h-5" />
@@ -397,7 +399,7 @@ export default function NotificationsPage() {
 
                         {!selectedType ? (
                             <div className="space-y-3">
-                                <p className="text-sm text-gray-600 dark:text-gray-400">Select channel type:</p>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">{t("modal.selectType")}</p>
                                 <button
                                     onClick={() => {
                                         setSelectedType("slack");
@@ -407,8 +409,8 @@ export default function NotificationsPage() {
                                 >
                                     <MessageCircle className="w-5 h-5 text-purple-600" />
                                     <div>
-                                        <div className="font-medium">Slack</div>
-                                        <div className="text-xs text-gray-600 dark:text-gray-400">Send via Slack Webhook</div>
+                                        <div className="font-medium">{t("modal.slack.name")}</div>
+                                        <div className="text-xs text-gray-600 dark:text-gray-400">{t("modal.slack.description")}</div>
                                     </div>
                                 </button>
                                 <button
@@ -420,8 +422,8 @@ export default function NotificationsPage() {
                                 >
                                     <MessageCircle className="w-5 h-5 text-blue-600" />
                                     <div>
-                                        <div className="font-medium">Microsoft Teams</div>
-                                        <div className="text-xs text-gray-600 dark:text-gray-400">Send via Teams Webhook</div>
+                                        <div className="font-medium">{t("modal.teams.name")}</div>
+                                        <div className="text-xs text-gray-600 dark:text-gray-400">{t("modal.teams.description")}</div>
                                     </div>
                                 </button>
                                 <button
@@ -433,8 +435,8 @@ export default function NotificationsPage() {
                                 >
                                     <Mail className="w-5 h-5 text-orange-600" />
                                     <div>
-                                        <div className="font-medium">Email</div>
-                                        <div className="text-xs text-gray-600 dark:text-gray-400">Send via SMTP</div>
+                                        <div className="font-medium">{t("modal.email.name")}</div>
+                                        <div className="text-xs text-gray-600 dark:text-gray-400">{t("modal.email.description")}</div>
                                     </div>
                                 </button>
                             </div>
@@ -444,23 +446,23 @@ export default function NotificationsPage() {
                                     onClick={() => setSelectedType(null)}
                                     className="text-sm text-blue-600 hover:text-blue-800 mb-2"
                                 >
-                                    ← Back
+                                    {t("modal.back")}
                                 </button>
 
                                 <div>
-                                    <label className="block text-xs font-medium mb-1">Channel Name</label>
+                                    <label className="block text-xs font-medium mb-1">{t("modal.channelNameLabel")}</label>
                                     <input
                                         type="text"
                                         value={formData.name}
                                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                        placeholder="e.g., Platform Alerts"
+                                        placeholder={t("modal.channelNamePlaceholder")}
                                         className="w-full border rounded px-3 py-2 text-sm dark:bg-gray-900"
                                     />
                                 </div>
 
                                 {(selectedType === "slack" || selectedType === "teams") && (
                                     <div>
-                                        <label className="block text-xs font-medium mb-1">Webhook URL</label>
+                                        <label className="block text-xs font-medium mb-1">{t("modal.webhookUrlLabel")}</label>
                                         <input
                                             type="text"
                                             value={formData.webhookUrl || ""}
@@ -473,7 +475,7 @@ export default function NotificationsPage() {
 
                                 {selectedType === "email" && (
                                     <div>
-                                        <label className="block text-xs font-medium mb-1">Recipient Emails</label>
+                                        <label className="block text-xs font-medium mb-1">{t("modal.recipientEmailsLabel")}</label>
                                         {(formData.recipients || []).map((email, idx) => (
                                             <div key={idx} className="mb-2">
                                                 <input
@@ -493,13 +495,13 @@ export default function NotificationsPage() {
                                             onClick={() => setFormData({ ...formData, recipients: [...(formData.recipients || []), ""] })}
                                             className="text-xs text-blue-600 hover:text-blue-800"
                                         >
-                                            + Add another email
+                                            {t("modal.addAnotherEmail")}
                                         </button>
                                     </div>
                                 )}
 
                                 <div>
-                                    <label className="block text-xs font-medium mb-1">Severity Filter</label>
+                                    <label className="block text-xs font-medium mb-1">{t("modal.severityFilterLabel")}</label>
                                     <input
                                         type="text"
                                         value={formData.severityFilter}
@@ -507,7 +509,7 @@ export default function NotificationsPage() {
                                         placeholder="info,warning,error"
                                         className="w-full border rounded px-3 py-2 text-sm dark:bg-gray-900"
                                     />
-                                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Comma-separated: info, warning, error</p>
+                                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{t("modal.severityFilterHint")}</p>
                                 </div>
 
                                 <div className="flex gap-2 pt-2">
@@ -515,7 +517,7 @@ export default function NotificationsPage() {
                                         onClick={closeModal}
                                         className="flex-1 border rounded px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700"
                                     >
-                                        Cancel
+                                        {t("modal.cancel")}
                                     </button>
                                     <button
                                         onClick={createChannel}
@@ -523,7 +525,7 @@ export default function NotificationsPage() {
                                         className="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded px-3 py-2 text-sm disabled:opacity-50 flex items-center justify-center gap-2"
                                     >
                                         {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                                        Create
+                                        {t("modal.create")}
                                     </button>
                                 </div>
                             </div>

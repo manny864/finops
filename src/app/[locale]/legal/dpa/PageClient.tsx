@@ -1,11 +1,13 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { LEGAL_VERSIONS } from '@/lib/legalVersions';
 import Link from 'next/link';
 import { useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 
 export default function DPAPage() {
+  const t = useTranslations('LegalDpa');
   const [signed, setSigned] = useState(false);
   const [signingUser, setSigningUser] = useState<string | null>(null);
 
@@ -20,13 +22,13 @@ export default function DPAPage() {
       {/* Header */}
       <div className="bg-gradient-to-r from-brand-deep/10 to-brand-bright/10 border-b border-line py-8">
         <div className="max-w-4xl mx-auto px-6">
-          <h1 className="text-4xl font-bold text-ink mb-2">Data Processing Agreement (DPA)</h1>
-          <p className="text-gray-600 mb-4">GDPR Article 28 Compliant Data Processing Agreement</p>
+          <h1 className="text-4xl font-bold text-ink mb-2">{t('title')}</h1>
+          <p className="text-gray-600 mb-4">{t('subtitle')}</p>
           <p className="text-gray-600">
-            Last updated: {new Date(LEGAL_VERSIONS.dpa).toLocaleDateString()}
+            {t('lastUpdated', { date: new Date(LEGAL_VERSIONS.dpa).toLocaleDateString() })}
           </p>
           <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-900">
-            <strong>[LEGAL REVIEW PENDING]</strong> Placeholder content for legal review. Not binding until approved.
+            {t('reviewPending')}
           </div>
         </div>
       </div>
@@ -38,67 +40,65 @@ export default function DPAPage() {
             <div className="flex items-center gap-3 text-green-700">
               <CheckCircle2 className="w-6 h-6" />
               <div>
-                <p className="font-semibold">✓ DPA Signed</p>
-                <p className="text-sm">Signed by {signingUser} on {new Date().toLocaleDateString()}</p>
+                <p className="font-semibold">{t('signedTitle')}</p>
+                <p className="text-sm">{t('signedBy', { user: signingUser ?? '', date: new Date().toLocaleDateString() })}</p>
               </div>
             </div>
           ) : (
             <div>
-              <p className="text-gray-700 mb-4">Enterprise customers must sign this DPA before accessing the Service.</p>
+              <p className="text-gray-700 mb-4">{t('unsignedIntro')}</p>
               <button
                 onClick={handleSign}
                 className="px-6 py-2 bg-brand-deep text-white rounded-lg hover:brightness-110 transition-all font-semibold"
               >
-                Sign DPA
+                {t('signButton')}
               </button>
             </div>
           )}
         </div>
 
         <section className="space-y-4">
-          <h2 className="text-2xl font-bold text-ink">1. Definitions (Art. 4, GDPR)</h2>
+          <h2 className="text-2xl font-bold text-ink">{t('s1Title')}</h2>
           <div className="space-y-3 text-gray-700">
-            <p><strong>Controller:</strong> Your organization, which determines the purposes and means of processing personal data.</p>
-            <p><strong>Processor:</strong> CSCloudSolutions, which processes personal data on your behalf.</p>
-            <p><strong>Personal Data:</strong> Any information relating to an identified or identifiable natural person.</p>
-            <p><strong>Processing:</strong> Any operation performed on personal data (collection, recording, analysis, erasure, etc.).</p>
+            <p>{t('s1Controller')}</p>
+            <p>{t('s1Processor')}</p>
+            <p>{t('s1PersonalData')}</p>
+            <p>{t('s1Processing')}</p>
           </div>
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-2xl font-bold text-ink">2. Subject Matter & Duration (Art. 28(3))</h2>
+          <h2 className="text-2xl font-bold text-ink">{t('s2Title')}</h2>
           <div className="space-y-3 text-gray-700">
-            <p><strong>Subject Matter:</strong> Processing of Azure cost data and associated metadata.</p>
-            <p><strong>Duration:</strong> For the term of your subscription with CSCloudSolutions. Processing ceases upon termination unless required by law.</p>
-            <p><strong>Nature:</strong> Storage, analysis, and reporting of customer billing and governance data.</p>
-            <p><strong>Purpose:</strong> To deliver FinOps optimization, cost analysis, and governance services.</p>
+            <p>{t('s2SubjectMatter')}</p>
+            <p>{t('s2Duration')}</p>
+            <p>{t('s2Nature')}</p>
+            <p>{t('s2Purpose')}</p>
           </div>
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-2xl font-bold text-ink">3. Categories of Data Subjects & Personal Data (Art. 28(3)(a))</h2>
+          <h2 className="text-2xl font-bold text-ink">{t('s3Title')}</h2>
           <div className="space-y-3 text-gray-700">
-            <p><strong>Data Subjects:</strong></p>
+            <p><strong>{t('s3SubjectsLabel')}</strong></p>
             <ul className="list-disc list-inside ml-4">
-              <li>Your employees with Azure subscriptions</li>
-              <li>Resource owners and administrators</li>
-              <li>Your end users whose costs are attributed</li>
+              <li>{t('s3Subject1')}</li>
+              <li>{t('s3Subject2')}</li>
+              <li>{t('s3Subject3')}</li>
             </ul>
-            <p className="mt-3"><strong>Personal Data Categories:</strong></p>
+            <p className="mt-3"><strong>{t('s3CategoriesLabel')}</strong></p>
             <ul className="list-disc list-inside ml-4">
-              <li>Email addresses and display names</li>
-              <li>Azure AD object IDs (OID)</li>
-              <li>Resource tags containing user identifiers</li>
-              <li>Usage patterns and cost attribution</li>
+              <li>{t('s3Category1')}</li>
+              <li>{t('s3Category2')}</li>
+              <li>{t('s3Category3')}</li>
+              <li>{t('s3Category4')}</li>
             </ul>
           </div>
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-2xl font-bold text-ink">4. Subprocessors (Art. 28(2) & (4))</h2>
-          <p className="text-gray-700">
-            CSCloudSolutions engages the following subprocessors. You are notified of changes and may object within 30 days.
-          </p>
+          <h2 className="text-2xl font-bold text-ink">{t('s4Title')}</h2>
+          <p className="text-gray-700">{t('s4Intro')}</p>
           <div className="overflow-x-auto">
             <table className="w-full text-sm border-collapse">
               <thead>
@@ -111,91 +111,91 @@ export default function DPAPage() {
               <tbody>
                 <tr className="border-b border-line hover:bg-gray-50">
                   <td className="p-3">Microsoft Azure</td>
-                  <td className="p-3">Compute & Storage</td>
+                  <td className="p-3">{t('s4Row1Purpose')}</td>
                   <td className="p-3">US, EU, LATAM</td>
                 </tr>
                 <tr className="border-b border-line hover:bg-gray-50">
                   <td className="p-3">MySQL Provider</td>
-                  <td className="p-3">Database Hosting</td>
+                  <td className="p-3">{t('s4Row2Purpose')}</td>
                   <td className="p-3">Configurable</td>
                 </tr>
                 <tr className="border-b border-line hover:bg-gray-50">
                   <td className="p-3">Paddle</td>
-                  <td className="p-3">Payment Processing</td>
+                  <td className="p-3">{t('s4Row3Purpose')}</td>
                   <td className="p-3">US/UK</td>
                 </tr>
                 <tr className="border-b border-line hover:bg-gray-50">
                   <td className="p-3">WorkOS</td>
-                  <td className="p-3">Authentication/SSO</td>
+                  <td className="p-3">{t('s4Row4Purpose')}</td>
                   <td className="p-3">US</td>
                 </tr>
               </tbody>
             </table>
           </div>
           <p className="text-sm text-gray-600 mt-4">
-            Full list: See <Link href="/legal/subprocessors" className="text-brand-deep hover:underline">Subprocessors Page</Link>
+            {t('s4FooterBefore')}
+            <Link href="/legal/subprocessors" className="text-brand-deep hover:underline">{t('s4FooterLinkText')}</Link>
           </p>
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-2xl font-bold text-ink">5. Data Subject Rights (Art. 28(3)(e))</h2>
+          <h2 className="text-2xl font-bold text-ink">{t('s5Title')}</h2>
           <p className="text-gray-700">
-            We assist you in fulfilling data subject requests under GDPR Articles 15–22 (access, rectification, erasure, restriction, portability, objection). Requests should be submitted to <a href="mailto:privacy@cscloudsolutions.com.ar" className="text-brand-deep hover:underline">privacy@cscloudsolutions.com.ar</a> within 10 business days.
+            {t('s5BodyBefore')}
+            <a href="mailto:privacy@cscloudsolutions.com.ar" className="text-brand-deep hover:underline">privacy@cscloudsolutions.com.ar</a>
+            {t('s5BodyAfter')}
           </p>
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-2xl font-bold text-ink">6. Security Measures (Art. 28(3)(c) & 32)</h2>
-          <p className="text-gray-700">CSCloudSolutions implements:</p>
+          <h2 className="text-2xl font-bold text-ink">{t('s6Title')}</h2>
+          <p className="text-gray-700">{t('s6Intro')}</p>
           <ul className="list-disc list-inside space-y-2 text-gray-700">
-            <li><strong>Encryption:</strong> TLS 1.2+ in transit; AES-256 at rest</li>
-            <li><strong>Access Control:</strong> RBAC, MSAL/Entra ID integration, MFA mandatory</li>
-            <li><strong>Monitoring:</strong> Continuous security monitoring and intrusion detection</li>
-            <li><strong>Audit Logs:</strong> All access logged and retained for 7 years</li>
-            <li><strong>Disaster Recovery:</strong> Geo-redundant backups; RTO &lt; 4 hours</li>
+            <li>{t('s6Bullet1')}</li>
+            <li>{t('s6Bullet2')}</li>
+            <li>{t('s6Bullet3')}</li>
+            <li>{t('s6Bullet4')}</li>
+            <li>{t('s6Bullet5')}</li>
           </ul>
           <p className="text-sm text-gray-600 mt-3">
-            See <Link href="/legal/security" className="text-brand-deep hover:underline">Security & Trust Center</Link> for full details.
+            {t('s6FooterBefore')}
+            <Link href="/legal/security" className="text-brand-deep hover:underline">{t('s6FooterLinkText')}</Link>
+            {t('s6FooterAfter')}
           </p>
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-2xl font-bold text-ink">7. Audit Rights (Art. 28(3)(h))</h2>
+          <h2 className="text-2xl font-bold text-ink">{t('s7Title')}</h2>
+          <p className="text-gray-700">{t('s7Body')}</p>
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="text-2xl font-bold text-ink">{t('s8Title')}</h2>
+          <p className="text-gray-700">{t('s8Body')}</p>
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="text-2xl font-bold text-ink">{t('annex1Title')}</h2>
           <p className="text-gray-700">
-            You (or an independent auditor) may conduct audits of CSCloudSolutions' security and compliance practices. Annual SOC 2 Type II audit reports are available upon request for Enterprise customers.
+            {t('annex1Before')}
+            <Link href="/legal/subprocessors" className="text-brand-deep hover:underline">{t('annex1LinkText')}</Link>.
           </p>
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-2xl font-bold text-ink">8. Return/Deletion of Data (Art. 28(3)(g))</h2>
-          <p className="text-gray-700">
-            Upon subscription termination, you may request data deletion within 30 days. All data will be permanently deleted using cryptographic erasure. Backups are retained for disaster recovery and deleted after 90 days.
-          </p>
-        </section>
-
-        <section className="space-y-4">
-          <h2 className="text-2xl font-bold text-ink">Annex 1: Subprocessor Table</h2>
-          <p className="text-gray-700">
-            See <Link href="/legal/subprocessors" className="text-brand-deep hover:underline">full Subprocessors list</Link>.
-          </p>
-        </section>
-
-        <section className="space-y-4">
-          <h2 className="text-2xl font-bold text-ink">Annex 2: Technical & Organizational Measures (TOMs)</h2>
+          <h2 className="text-2xl font-bold text-ink">{t('annex2Title')}</h2>
           <div className="space-y-3 text-gray-700">
-            <p><strong>Technical Measures:</strong> Encryption, firewalls, IDS/IPS, SIEM, secure coding practices</p>
-            <p><strong>Organizational Measures:</strong> Access controls, employee training, incident response plan, vendor vetting</p>
-            <p className="text-sm">
-              Details available in SOC 2 Type II report upon request.
-            </p>
+            <p>{t('annex2Technical')}</p>
+            <p>{t('annex2Organizational')}</p>
+            <p className="text-sm">{t('annex2Details')}</p>
           </div>
         </section>
 
         <div className="mt-8 p-4 bg-gray-50 rounded-lg border border-line">
           <p className="text-sm text-gray-700">
-            Last updated: {new Date(LEGAL_VERSIONS.dpa).toLocaleDateString()} | 
-            <Link href="/legal/terms" className="text-brand-deep hover:underline ml-2">Terms</Link> | 
-            <Link href="/legal/privacy" className="text-brand-deep hover:underline ml-2">Privacy</Link>
+            {t('footerLastUpdated', { date: new Date(LEGAL_VERSIONS.dpa).toLocaleDateString() })} |
+            <Link href="/legal/terms" className="text-brand-deep hover:underline ml-2">{t('footerTermsLink')}</Link> |
+            <Link href="/legal/privacy" className="text-brand-deep hover:underline ml-2">{t('footerPrivacyLink')}</Link>
           </p>
         </div>
       </div>

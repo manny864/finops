@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useMsal } from "@azure/msal-react";
 import { fetchWithAuthRetry } from "@/lib/msalToken";
 import { Loader2, ShieldAlert, CheckCircle2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 interface SystemAlert {
     id: number;
@@ -17,6 +18,7 @@ interface SystemAlert {
 }
 
 export default function SystemAlertsPage() {
+    const t = useTranslations('AdminSystemAlerts');
     const { instance, accounts } = useMsal();
     const account = accounts[0];
 
@@ -35,10 +37,10 @@ export default function SystemAlertsPage() {
                 `/api/admin/system-alerts${onlyUnacknowledged ? '?unacknowledged=true' : ''}`
             );
             const json = await res.json();
-            if (!json.success) setError(json.error || "Error al cargar alertas.");
+            if (!json.success) setError(json.error || t('loadError'));
             else setAlerts(json.alerts || []);
         } catch (e: any) {
-            setError(e?.message || "Error de red.");
+            setError(e?.message || t('networkError'));
         } finally {
             setLoading(false);
         }
@@ -63,11 +65,10 @@ export default function SystemAlertsPage() {
             <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                        <ShieldAlert className="w-6 h-6 text-brand-deep dark:text-brand-bright" /> Alertas del Sistema
+                        <ShieldAlert className="w-6 h-6 text-brand-deep dark:text-brand-bright" /> {t('pageTitle')}
                     </h1>
                     <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                        Alertas de latencia/errores por alta concurrencia, generadas automáticamente por Pruebas de Carga.
-                        Solo visible para Super Administradores.
+                        {t('pageSubtitle')}
                     </p>
                 </div>
                 <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
@@ -76,7 +77,7 @@ export default function SystemAlertsPage() {
                         checked={onlyUnacknowledged}
                         onChange={(e) => setOnlyUnacknowledged(e.target.checked)}
                     />
-                    Solo pendientes
+                    {t('onlyPendingLabel')}
                 </label>
             </div>
 
@@ -90,7 +91,7 @@ export default function SystemAlertsPage() {
                 <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
             ) : alerts.length === 0 ? (
                 <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 text-center text-sm text-slate-500">
-                    {onlyUnacknowledged ? "No hay alertas pendientes." : "No hay alertas registradas."}
+                    {onlyUnacknowledged ? t('noPendingAlerts') : t('noAlerts')}
                 </div>
             ) : (
                 <div className="space-y-3">
@@ -110,7 +111,7 @@ export default function SystemAlertsPage() {
                                             ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300'
                                             : 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300'
                                     }`}>
-                                        {a.severity === 'critical' ? 'Crítica' : 'Warning'}
+                                        {a.severity === 'critical' ? t('severityCritical') : t('severityWarning')}
                                     </span>
                                     <span className="text-xs text-slate-500">{a.source}</span>
                                     <span className="text-xs text-slate-400">{new Date(a.created_at).toLocaleString('es-AR')}</span>
@@ -118,7 +119,7 @@ export default function SystemAlertsPage() {
                                 <p className="text-sm text-slate-800 dark:text-slate-200">{a.message}</p>
                                 {a.acknowledged_at && (
                                     <p className="text-xs text-slate-500 mt-1">
-                                        Reconocida por {a.acknowledged_by} el {new Date(a.acknowledged_at).toLocaleString('es-AR')}
+                                        {t('acknowledgedBy', { user: a.acknowledged_by || '', date: new Date(a.acknowledged_at).toLocaleString() })}
                                     </p>
                                 )}
                             </div>
@@ -129,7 +130,7 @@ export default function SystemAlertsPage() {
                                     className="shrink-0 px-3 py-1.5 bg-slate-800 dark:bg-slate-700 hover:bg-slate-700 dark:hover:bg-slate-600 text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 disabled:opacity-50"
                                 >
                                     {ackingId === a.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                                    Reconocer
+                                    {t('acknowledgeButton')}
                                 </button>
                             )}
                         </div>

@@ -12,7 +12,7 @@ import { getFreshIdToken } from '@/lib/msalToken';
 export default function MaturityPage() {
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
-    const t = useTranslations("Maturity");
+    const t = useTranslations("OverviewMaturity");
     const [loading, setLoading] = useState(false);
     const [scoreData, setScoreData] = useState<any>(null);
     const [reason, setReason] = useState<string | null>(null);
@@ -21,11 +21,11 @@ export default function MaturityPage() {
     const [answers, setAnswers] = useState<any[]>([]);
 
     const questions = [
-        { id: 'q1', text: '¿Se asigna el 100% de los costos compartidos a los equipos responsables?', domain: 'VisibilityAndAllocation' },
-        { id: 'q2', text: '¿Existen políticas de rightsizing automático aplicadas a sus recursos?', domain: 'UsageOptimization' },
-        { id: 'q3', text: '¿Utiliza planes de ahorro (Savings Plans) o instancias reservadas?', domain: 'RateOptimization' },
-        { id: 'q4', text: '¿Tiene configurados presupuestos con alertas predictivas?', domain: 'ForecastingAndBudgeting' },
-        { id: 'q5', text: '¿Se exige el cumplimiento de etiquetas (tags) en todos los grupos de recursos?', domain: 'GovernanceAndAutomation' }
+        { id: 'q1', domain: 'VisibilityAndAllocation' },
+        { id: 'q2', domain: 'UsageOptimization' },
+        { id: 'q3', domain: 'RateOptimization' },
+        { id: 'q4', domain: 'ForecastingAndBudgeting' },
+        { id: 'q5', domain: 'GovernanceAndAutomation' }
     ];
 
     const handleAnswer = (score: number) => {
@@ -123,9 +123,9 @@ export default function MaturityPage() {
   };
 
   const getLevelName = (lvl: number) => {
-      if (lvl === 1) return 'Gatear';
-      if (lvl === 2) return 'Caminar';
-      return 'Correr';
+      if (lvl === 1) return t('levels.crawl');
+      if (lvl === 2) return t('levels.walk');
+      return t('levels.run');
   };
 
   const getLevelColor = (lvl: number) => {
@@ -138,8 +138,8 @@ export default function MaturityPage() {
       return (
           <div className="flex flex-col items-center justify-center h-96 bg-surface rounded-[14px] border border-line shadow-[0_1px_2px_rgba(16,40,73,0.06),0_8px_24px_rgba(16,40,73,0.07)]">
               <span className="text-4xl mb-4">🔐</span>
-              <h2 className="text-xl font-bold text-ink">Selecciona un Tenant</h2>
-              <p className="text-sm text-ink-soft mt-2">Debes seleccionar una organización para evaluar su madurez.</p>
+              <h2 className="text-xl font-bold text-ink">{t('selectTenantTitle')}</h2>
+              <p className="text-sm text-ink-soft mt-2">{t('selectTenantDesc')}</p>
           </div>
       );
   }
@@ -147,10 +147,10 @@ export default function MaturityPage() {
   // Handle no-data states
   if (!loading && !scoreData && reason && !showWizard) {
       const messages: Record<string, { icon: string; title: string; desc: string }> = {
-          NO_SUBSCRIPTIONS: { icon: "📭", title: "Sin suscripciones activas", desc: "Este Tenant no tiene suscripciones de Azure. Crea una suscripción para comenzar a evaluar la madurez FinOps." },
-          MISSING_ADMIN_CONSENT: { icon: "⚠️", title: "Falta Admin Consent", desc: "La aplicación CSCloudSolutions no ha sido consentida en este Tenant. Ejecuta: az ad sp create --id 876d8a5b-6023-4484-b3ba-73c186e4a72b" },
-          NO_CREDENTIAL: { icon: "🔑", title: "Sin credenciales configuradas", desc: "No se encontraron credenciales de Azure para acceder a este Tenant." },
-          AZURE_ERROR: { icon: "☁️", title: "Error de conexión con Azure", desc: "No se pudo conectar con Azure para evaluar la madurez. Intenta de nuevo más tarde." },
+          NO_SUBSCRIPTIONS: { icon: "📭", title: t('reasons.noSubscriptions.title'), desc: t('reasons.noSubscriptions.desc') },
+          MISSING_ADMIN_CONSENT: { icon: "⚠️", title: t('reasons.missingAdminConsent.title'), desc: t('reasons.missingAdminConsent.desc') },
+          NO_CREDENTIAL: { icon: "🔑", title: t('reasons.noCredential.title'), desc: t('reasons.noCredential.desc') },
+          AZURE_ERROR: { icon: "☁️", title: t('reasons.azureError.title'), desc: t('reasons.azureError.desc') },
       };
       const msg = messages[reason] || messages.AZURE_ERROR;
       return (
@@ -161,9 +161,9 @@ export default function MaturityPage() {
                           <span className="w-9 h-9 rounded-[10px] flex items-center justify-center bg-gradient-to-br from-brand-deep to-brand-bright text-white shadow-sm">
                               <Target className="w-5 h-5" />
                           </span>
-                          Madurez FinOps
+                          {t('pageTitle')}
                       </div>
-                      <div className="text-[13px] text-ink-soft mt-[3px]">Modelo de madurez FinOps (Gatear · Caminar · Correr) por capacidad.</div>
+                      <div className="text-[13px] text-ink-soft mt-[3px]">{t('pageSubtitle')}</div>
                   </div>
               </div>
               <div className="flex flex-col items-center justify-center h-96 bg-surface rounded-[14px] border border-line shadow-[0_1px_2px_rgba(16,40,73,0.06),0_8px_24px_rgba(16,40,73,0.07)]">
@@ -171,7 +171,7 @@ export default function MaturityPage() {
                   <h2 className="text-xl font-bold text-ink mb-2">{msg.title}</h2>
                   <p className="text-sm text-ink-soft text-center max-w-md mb-6">{msg.desc}</p>
                   <button onClick={() => setShowWizard(true)} className="px-6 py-2 bg-brand-deep text-white rounded-lg font-bold hover:bg-brand-bright transition-colors shadow-sm">
-                      Tomar Evaluación Manual
+                      {t('takeAssessment')}
                   </button>
               </div>
           </div>
@@ -184,18 +184,18 @@ export default function MaturityPage() {
               <div className="bg-surface border border-line rounded-[14px] p-8 w-full max-w-2xl shadow-xl">
                   <div className="mb-8">
                       <div className="flex justify-between items-center mb-2">
-                          <h2 className="text-xl font-bold text-ink">Evaluación FinOps</h2>
-                          <span className="text-sm font-bold text-brand-deep">Paso {wizardStep + 1} de {questions.length}</span>
+                          <h2 className="text-xl font-bold text-ink">{t('wizardTitle')}</h2>
+                          <span className="text-sm font-bold text-brand-deep">{t('wizardStep', { current: wizardStep + 1, total: questions.length })}</span>
                       </div>
                       <div className="w-full bg-surface-2 rounded-full h-2">
                           <div className="bg-gradient-to-r from-brand-deep to-brand-bright h-2 rounded-full transition-all duration-300" style={{ width: `${((wizardStep) / questions.length) * 100}%` }}></div>
                       </div>
                   </div>
-                  <h3 className="text-2xl font-semibold text-ink text-center mb-10">{questions[wizardStep].text}</h3>
+                  <h3 className="text-2xl font-semibold text-ink text-center mb-10">{t(`questions.${questions[wizardStep].id}` as any)}</h3>
                   <div className="flex flex-col gap-4">
-                      <button onClick={() => handleAnswer(10)} className="w-full py-3 px-4 bg-[#EAF3FB] hover:bg-[#D5E8F8] text-brand-deep border border-[#B3D4F0] rounded-lg font-bold transition-colors">Sí, completamente implementado (10 pts)</button>
-                      <button onClick={() => handleAnswer(5)} className="w-full py-3 px-4 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg font-bold transition-colors">Parcialmente / En progreso (5 pts)</button>
-                      <button onClick={() => handleAnswer(0)} className="w-full py-3 px-4 bg-red-50 hover:bg-red-100 text-red-800 border border-red-200 rounded-lg font-bold transition-colors">No, no lo hacemos (0 pts)</button>
+                      <button onClick={() => handleAnswer(10)} className="w-full py-3 px-4 bg-[#EAF3FB] hover:bg-[#D5E8F8] text-brand-deep border border-[#B3D4F0] rounded-lg font-bold transition-colors">{t('answers.full')}</button>
+                      <button onClick={() => handleAnswer(5)} className="w-full py-3 px-4 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg font-bold transition-colors">{t('answers.partial')}</button>
+                      <button onClick={() => handleAnswer(0)} className="w-full py-3 px-4 bg-red-50 hover:bg-red-100 text-red-800 border border-red-200 rounded-lg font-bold transition-colors">{t('answers.none')}</button>
                   </div>
               </div>
           </div>
@@ -204,17 +204,18 @@ export default function MaturityPage() {
 
   // Map backend scores to the 6 domains for the radar
   const domainData = [
-      { key: "Visibility", name: "Visibilidad e info.", score: scoreData?.pillars?.VisibilityAndAllocation || 0 },
-      { key: "RateOpt", name: "Optimización de tasa", score: scoreData?.pillars?.RateOptimization || 0 },
-      { key: "UsageOpt", name: "Optimización de uso", score: scoreData?.pillars?.UsageOptimization || 0 },
-      { key: "Gov", name: "Gobernanza", score: scoreData?.pillars?.GovernanceAndAutomation || 0 },
-      { key: "Auto", name: "Automatización", score: scoreData?.pillars?.ForecastingAndBudgeting || 0 }, // fallback proxy
-      { key: "Culture", name: "Cultura FinOps", score: scoreData?.overallScore || 0 } // fallback proxy
+      { key: "Visibility", name: t('domains.visibility'), score: scoreData?.pillars?.VisibilityAndAllocation || 0 },
+      { key: "RateOpt", name: t('domains.rateOpt'), score: scoreData?.pillars?.RateOptimization || 0 },
+      { key: "UsageOpt", name: t('domains.usageOpt'), score: scoreData?.pillars?.UsageOptimization || 0 },
+      { key: "Gov", name: t('domains.governance'), score: scoreData?.pillars?.GovernanceAndAutomation || 0 },
+      { key: "Auto", name: t('domains.automation'), score: scoreData?.pillars?.ForecastingAndBudgeting || 0 }, // fallback proxy
+      { key: "Culture", name: t('domains.culture'), score: scoreData?.overallScore || 0 } // fallback proxy
   ].map(d => ({ ...d, lvl: getLevel(d.score) }));
 
   const avg = domainData.reduce((a, d) => a + d.lvl, 0) / domainData.length;
-  const overall = avg < 1.7 ? 'Gatear' : avg < 2.4 ? 'Caminar' : 'Correr';
-  const overallPillColor = overall === 'Correr' ? 'bg-green-soft text-green' : overall === 'Caminar' ? 'bg-[#E6F2FB] text-brand-deep' : 'bg-amber-soft text-amber';
+  const overallLevelKey = avg < 1.7 ? 'crawl' : avg < 2.4 ? 'walk' : 'run';
+  const overall = t(`levels.${overallLevelKey}` as any);
+  const overallPillColor = overallLevelKey === 'run' ? 'bg-green-soft text-green' : overallLevelKey === 'walk' ? 'bg-[#E6F2FB] text-brand-deep' : 'bg-amber-soft text-amber';
 
   // Radar SVG Math
   const N = domainData.length;
@@ -243,13 +244,15 @@ export default function MaturityPage() {
 
   // Actionable recommendations based on lowest levels
   const lowestDomains = [...domainData].sort((a, b) => a.lvl - b.lvl).slice(0, 2);
+  const crawlToWalk = `${t('levels.crawl')} → ${t('levels.walk')}`;
+  const walkToRun = `${t('levels.walk')} → ${t('levels.run')}`;
   const recsMock = {
-      "Auto": { title: "Automatización", action: "Gatear → Caminar", desc: "Programar la limpieza de zombis y los apagados con runbooks en vez de acciones manuales.", icon: "🤖", bg: "bg-amber-soft text-amber" },
-      "Gov": { title: "Gobernanza", action: "Caminar → Correr", desc: "Llevar el compliance de etiquetas por encima del 95% para habilitar chargeback automático.", icon: "🏷️", bg: "bg-[#E6F2FB] text-brand-deep" },
-      "Visibility": { title: "Visibilidad", action: "Gatear → Caminar", desc: "Implementar jerarquía de Management Groups y cost allocation por centro de costos.", icon: "👁️", bg: "bg-amber-soft text-amber" },
-      "RateOpt": { title: "Optimización de tasa", action: "Gatear → Caminar", desc: "Aumentar cobertura de Savings Plans al 80% del compute baseline.", icon: "💸", bg: "bg-[#E6F2FB] text-brand-deep" },
-      "UsageOpt": { title: "Optimización de uso", action: "Caminar → Correr", desc: "Aplicar políticas de rightsizing automático a VMs con CPU < 10%.", icon: "📉", bg: "bg-amber-soft text-amber" },
-      "Culture": { title: "Cultura FinOps", action: "Gatear → Caminar", desc: "Crear un Cloud Center of Excellence (CCoE) interdepartamental.", icon: "👥", bg: "bg-green-soft text-green" },
+      "Auto": { title: t('recommendations.automation.title'), action: crawlToWalk, desc: t('recommendations.automation.desc'), icon: "🤖", bg: "bg-amber-soft text-amber" },
+      "Gov": { title: t('recommendations.governance.title'), action: walkToRun, desc: t('recommendations.governance.desc'), icon: "🏷️", bg: "bg-[#E6F2FB] text-brand-deep" },
+      "Visibility": { title: t('recommendations.visibility.title'), action: crawlToWalk, desc: t('recommendations.visibility.desc'), icon: "👁️", bg: "bg-amber-soft text-amber" },
+      "RateOpt": { title: t('recommendations.rateOptimization.title'), action: crawlToWalk, desc: t('recommendations.rateOptimization.desc'), icon: "💸", bg: "bg-[#E6F2FB] text-brand-deep" },
+      "UsageOpt": { title: t('recommendations.usageOptimization.title'), action: walkToRun, desc: t('recommendations.usageOptimization.desc'), icon: "📉", bg: "bg-amber-soft text-amber" },
+      "Culture": { title: t('recommendations.culture.title'), action: crawlToWalk, desc: t('recommendations.culture.desc'), icon: "👥", bg: "bg-green-soft text-green" },
   };
 
   return (
@@ -259,7 +262,7 @@ export default function MaturityPage() {
               {(loading || !scoreData) && (
                   <div className="absolute inset-0 bg-surface/60 z-50 flex flex-col items-center justify-center rounded-[14px] backdrop-blur-sm">
                       <Loader2 className="w-10 h-10 text-brand-deep animate-spin mb-4" />
-                      <span className="text-[14px] font-bold text-ink">Procesando telemetría...</span>
+                      <span className="text-[14px] font-bold text-ink">{t('processingTelemetry')}</span>
                   </div>
               )}
               
@@ -268,19 +271,19 @@ export default function MaturityPage() {
                       <span className="w-9 h-9 rounded-[10px] flex items-center justify-center bg-gradient-to-br from-brand-deep to-brand-bright text-white shadow-sm">
                           <Target className="w-5 h-5" />
                       </span>
-                      Madurez FinOps
+                      {t('pageTitle')}
                   </div>
-                  <div className="text-[13px] text-ink-soft mt-[3px]">Modelo de madurez FinOps (Gatear · Caminar · Correr) por capacidad.</div>
+                  <div className="text-[13px] text-ink-soft mt-[3px]">{t('pageSubtitle')}</div>
               </div>
               <div className="ml-auto flex gap-[9px] items-center">
                   <button onClick={() => setShowWizard(true)} className="text-[12px] font-bold tracking-[0.4px] bg-white border border-brand text-brand hover:bg-brand-soft px-[12px] py-[6px] rounded-lg transition-colors mr-2">
-                      Retomar Evaluación
+                      {t('retakeAssessment')}
                   </button>
                   <span className="text-[11px] font-bold tracking-[0.4px] bg-[#E6F2FB] text-brand-deep px-[11px] py-[5px] rounded-lg">
                       📍 {selectedTenant.name}
                   </span>
                   <span className={`text-[10px] font-bold tracking-[0.5px] uppercase px-[8px] py-[3px] rounded-[6px] ${overallPillColor}`}>
-                      Nivel global: {overall}
+                      {t('levelGlobal', { level: overall })}
                   </span>
               </div>
           </div>
@@ -291,7 +294,7 @@ export default function MaturityPage() {
                   <div className="bg-surface border border-line rounded-[14px] shadow-[0_1px_2px_rgba(16,40,73,0.06),0_8px_24px_rgba(16,40,73,0.07)]">
                       <div className="flex items-center justify-between p-[15px_18px] border-b border-line">
                           <h3 className="text-[14px] font-bold text-ink flex items-center gap-[9px]">
-                              🎯 Radar de madurez
+                              🎯 {t('radarTitle')}
                           </h3>
                       </div>
                       <div className="p-[16px_18px] grid place-items-center">
@@ -314,7 +317,7 @@ export default function MaturityPage() {
                   <div className="bg-surface border border-line rounded-[14px] shadow-[0_1px_2px_rgba(16,40,73,0.06),0_8px_24px_rgba(16,40,73,0.07)]">
                       <div className="flex items-center justify-between p-[15px_18px] border-b border-line">
                           <h3 className="text-[14px] font-bold text-ink flex items-center gap-[9px]">
-                              📋 Nivel por capacidad
+                              📋 {t('levelPerCapability')}
                           </h3>
                       </div>
                       <div className="flex flex-col gap-[14px] p-[18px]">
@@ -339,7 +342,7 @@ export default function MaturityPage() {
               <div className="bg-surface border border-line rounded-[14px] shadow-[0_1px_2px_rgba(16,40,73,0.06),0_8px_24px_rgba(16,40,73,0.07)]">
                   <div className="flex items-center justify-between p-[15px_18px] border-b border-line">
                       <h3 className="text-[14px] font-bold text-ink flex items-center gap-[9px]">
-                          🚀 Para subir de nivel
+                          🚀 {t('levelUpTitle')}
                       </h3>
                   </div>
                   <div className="flex flex-col">

@@ -1,8 +1,11 @@
 import React from 'react';
+import { getTranslations } from 'next-intl/server';
 import MockBanner from '@/components/MockBanner';
 import AllocationManager from '@/components/dashboard/AllocationManager';
 
-export default function AllocationPage() {
+export default async function AllocationPage() {
+    const t = await getTranslations('IntelligenceAllocation');
+
     return (
         <div className="content animate-in fade-in">
             <MockBanner />
@@ -10,9 +13,9 @@ export default function AllocationPage() {
                 <div>
                     <div className="vt">
                         <span className="vico bg-gradient-to-br from-indigo-500 to-purple-600">🍕</span>
-                        Shared Cost Allocation
+                        {t('title')}
                     </div>
-                    <div className="vs">Define reglas de distribución para recursos compartidos y prorratea su costo exacto entre múltiples departamentos.</div>
+                    <div className="vs">{t('subtitle')}</div>
                 </div>
             </div>
 

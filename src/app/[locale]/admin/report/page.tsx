@@ -1,6 +1,7 @@
 "use client";
 import MockBanner from '@/components/MockBanner';
 import React, { useEffect, useState, useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import CostPieChart from '@/components/CostPieChart';
@@ -47,6 +48,7 @@ function fmtUSD(n: number) {
 }
 
 export default function ReportGeneratorPage() {
+    const t = useTranslations('AdminReport');
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
 
@@ -134,13 +136,13 @@ export default function ReportGeneratorPage() {
     const groupedIssues = useMemo(() => {
         const acc: Record<string, any> = {};
         mappedFindings.forEach((curr: any) => {
-            const k = curr.issue || 'Sin clasificar';
+            const k = curr.issue || t('unclassifiedIssue');
             if (!acc[k]) acc[k] = { count: 0, potentialSavings: 0, type: curr.type, issueType: curr.issueType };
             acc[k].count += 1;
             acc[k].potentialSavings += curr.potentialSavings;
         });
         return Object.entries(acc).sort((a: any, b: any) => b[1].potentialSavings - a[1].potentialSavings);
-    }, [mappedFindings]);
+    }, [mappedFindings, t]);
 
     const haItems = ha?.items || [];
     const haCounts = ha?.counts || { critical: 0, high: 0, medium: 0, low: 0 };
@@ -316,7 +318,7 @@ export default function ReportGeneratorPage() {
             acc += decoder.decode();
             setAiReport(acc);
         } catch (e: any) {
-            setAiError(e?.message || 'Error al generar el reporte IA');
+            setAiError(e?.message || t('aiGenerationError'));
         } finally {
             setAiLoading(false);
         }
@@ -334,8 +336,8 @@ export default function ReportGeneratorPage() {
         return (
             <div className="flex flex-col items-center justify-center h-96 bg-white rounded-lg border border-gray-200 shadow-sm">
                 <span className="text-4xl mb-4">🔐</span>
-                <h2 className="text-xl font-bold text-gray-700">Selecciona un Tenant</h2>
-                <p className="text-sm text-gray-500 mt-2">Debes seleccionar una organización para exportar el reporte.</p>
+                <h2 className="text-xl font-bold text-gray-700">{t('selectTenantTitle')}</h2>
+                <p className="text-sm text-gray-500 mt-2">{t('selectTenantSubtitle')}</p>
             </div>
         );
     }
@@ -347,10 +349,10 @@ export default function ReportGeneratorPage() {
                 <div>
                     <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight flex items-center">
                         <FileText className="w-8 h-8 mr-3 text-indigo-600 dark:text-indigo-400" />
-                        Reporte Ejecutivo
+                        {t('pageTitle')}
                     </h1>
                     <p className="text-gray-500 dark:text-gray-400 mt-2">
-                        Documento integral generado por IA con datos en vivo: costos, ahorros, alta disponibilidad y plan de acción.
+                        {t('pageSubtitle')}
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -360,7 +362,7 @@ export default function ReportGeneratorPage() {
                         className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold disabled:opacity-50"
                     >
                         {aiLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                        {aiLoading ? 'Generando…' : 'Regenerar IA'}
+                        {aiLoading ? t('generatingButton') : t('regenerateButton')}
                     </button>
                     <PdfExportButton targetId="pdf-export-area" tenantName={selectedTenant.name} />
                 </div>
@@ -368,49 +370,49 @@ export default function ReportGeneratorPage() {
 
             <div className="bg-gray-100 dark:bg-slate-800 p-8 rounded-xl border border-gray-200 dark:border-slate-700">
                 <div className="mb-4 flex items-center text-sm font-bold text-gray-500 uppercase tracking-wider">
-                    <AlertCircle className="w-4 h-4 mr-2" /> Document Preview
+                    <AlertCircle className="w-4 h-4 mr-2" /> {t('documentPreview')}
                 </div>
 
                 <div id="pdf-export-area" className="bg-white p-8 rounded-lg shadow-lg border border-gray-200 text-gray-900" style={{ width: '100%', minHeight: '800px' }}>
                     {/* HEADER */}
                     <div className="text-center mb-8 border-b border-gray-200 pb-6">
-                        <h2 className="text-3xl font-extrabold text-[#0054A6]">FinOps Audit Executive Summary</h2>
-                        <p className="text-gray-500 mt-2 text-lg">Organization: {selectedTenant.name}</p>
-                        <p className="text-gray-400 mt-1 text-sm">Generado: {new Date().toLocaleString('es-AR')}</p>
+                        <h2 className="text-3xl font-extrabold text-[#0054A6]">{t('reportTitle')}</h2>
+                        <p className="text-gray-500 mt-2 text-lg">{t('organizationLabel', { name: selectedTenant.name })}</p>
+                        <p className="text-gray-400 mt-1 text-sm">{t('generatedLabel', { date: new Date().toLocaleString('es-AR') })}</p>
                     </div>
 
                     {/* KPI STRIP (10 indicadores en 2 filas) */}
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-                        <KPI icon={<DollarSign className="w-4 h-4" />} label="Gasto MTD" value={fmtUSD(actualCost)} sub={historyKpi.deltaPct ? `${historyKpi.deltaPct > 0 ? '+' : ''}${historyKpi.deltaPct.toFixed(1)}% vs mes ant.` : undefined} color="text-blue-700 bg-blue-50 border-blue-200" />
-                        <KPI icon={<TrendingUp className="w-4 h-4" />} label="Proyección mes" value={fmtUSD(projectedCost)} color="text-indigo-700 bg-indigo-50 border-indigo-200" />
-                        <KPI icon={<TrendingDown className="w-4 h-4" />} label="Ahorro mensual" value={fmtUSD(totalSavings)} sub={`Anualizado ${fmtUSD(annualSavings)}`} color="text-emerald-700 bg-emerald-50 border-emerald-200" />
-                        <KPI icon={<ShieldAlert className="w-4 h-4" />} label="HA Críticos+Altos" value={String(haCritical)} sub={`${haItems.length} total`} color="text-rose-700 bg-rose-50 border-rose-200" />
-                        <KPI icon={<Leaf className="w-4 h-4" />} label="Impacto CO₂" value={`${envImpact} kg`} color="text-green-700 bg-green-50 border-green-200" />
+                        <KPI icon={<DollarSign className="w-4 h-4" />} label={t('kpiMtdSpend')} value={fmtUSD(actualCost)} sub={historyKpi.deltaPct ? t('kpiVsLastMonth', { value: `${historyKpi.deltaPct > 0 ? '+' : ''}${historyKpi.deltaPct.toFixed(1)}` }) : undefined} color="text-blue-700 bg-blue-50 border-blue-200" />
+                        <KPI icon={<TrendingUp className="w-4 h-4" />} label={t('kpiMonthProjection')} value={fmtUSD(projectedCost)} color="text-indigo-700 bg-indigo-50 border-indigo-200" />
+                        <KPI icon={<TrendingDown className="w-4 h-4" />} label={t('kpiMonthlySavings')} value={fmtUSD(totalSavings)} sub={t('kpiAnnualized', { value: fmtUSD(annualSavings) })} color="text-emerald-700 bg-emerald-50 border-emerald-200" />
+                        <KPI icon={<ShieldAlert className="w-4 h-4" />} label={t('kpiHaCriticalHigh')} value={String(haCritical)} sub={t('kpiTotalCount', { count: haItems.length })} color="text-rose-700 bg-rose-50 border-rose-200" />
+                        <KPI icon={<Leaf className="w-4 h-4" />} label={t('kpiCo2Impact')} value={`${envImpact} kg`} color="text-green-700 bg-green-50 border-green-200" />
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-10">
-                        <KPI icon={<DollarSign className="w-4 h-4" />} label="Tagging cobertura" value={`${tagging.pct.toFixed(0)}%`} sub={tagging.total ? `${tagging.tagged}/${tagging.total}` : 'n/d'} color="text-cyan-700 bg-cyan-50 border-cyan-200" />
-                        <KPI icon={<TrendingUp className="w-4 h-4" />} label="Commitments" value={`${commitmentsKpi.coverage.toFixed(0)}%`} sub={commitmentsKpi.annualSav ? `Ahorro ${fmtUSD(commitmentsKpi.annualSav)}/año` : undefined} color="text-purple-700 bg-purple-50 border-purple-200" />
-                        <KPI icon={<Cpu className="w-4 h-4" />} label="Right-sizing" value={String(rightsizingKpi.count)} sub={rightsizingKpi.monthlySav ? `${fmtUSD(rightsizingKpi.monthlySav)}/mes` : 'n/d'} color="text-orange-700 bg-orange-50 border-orange-200" />
-                        <KPI icon={<AlertCircle className="w-4 h-4" />} label="Anomalías" value={String(anomaliesKpi.count)} sub={anomaliesKpi.totalImpact ? `Impacto ${fmtUSD(anomaliesKpi.totalImpact)}` : 'sin alertas'} color="text-yellow-700 bg-yellow-50 border-yellow-200" />
-                        <KPI icon={<DollarSign className="w-4 h-4" />} label="Budget burn" value={budgetsKpi.totalBudget > 0 ? `${budgetsKpi.burnPct.toFixed(0)}%` : 'n/d'} sub={budgetsKpi.exceeding ? `${budgetsKpi.exceeding} excedidos` : `${budgetsKpi.count} configurados`} color={budgetsKpi.burnPct > 90 ? "text-rose-700 bg-rose-50 border-rose-200" : "text-slate-700 bg-slate-50 border-slate-200"} />
+                        <KPI icon={<DollarSign className="w-4 h-4" />} label={t('kpiTaggingCoverage')} value={`${tagging.pct.toFixed(0)}%`} sub={tagging.total ? `${tagging.tagged}/${tagging.total}` : t('notAvailable')} color="text-cyan-700 bg-cyan-50 border-cyan-200" />
+                        <KPI icon={<TrendingUp className="w-4 h-4" />} label={t('kpiCommitments')} value={`${commitmentsKpi.coverage.toFixed(0)}%`} sub={commitmentsKpi.annualSav ? t('kpiSavingsPerYear', { value: fmtUSD(commitmentsKpi.annualSav) }) : undefined} color="text-purple-700 bg-purple-50 border-purple-200" />
+                        <KPI icon={<Cpu className="w-4 h-4" />} label={t('kpiRightSizing')} value={String(rightsizingKpi.count)} sub={rightsizingKpi.monthlySav ? t('kpiPerMonth', { value: fmtUSD(rightsizingKpi.monthlySav) }) : t('notAvailable')} color="text-orange-700 bg-orange-50 border-orange-200" />
+                        <KPI icon={<AlertCircle className="w-4 h-4" />} label={t('kpiAnomalies')} value={String(anomaliesKpi.count)} sub={anomaliesKpi.totalImpact ? t('kpiImpactValue', { value: fmtUSD(anomaliesKpi.totalImpact) }) : t('kpiNoAlerts')} color="text-yellow-700 bg-yellow-50 border-yellow-200" />
+                        <KPI icon={<DollarSign className="w-4 h-4" />} label={t('kpiBudgetBurn')} value={budgetsKpi.totalBudget > 0 ? `${budgetsKpi.burnPct.toFixed(0)}%` : t('notAvailable')} sub={budgetsKpi.exceeding ? t('kpiExceededCount', { count: budgetsKpi.exceeding }) : t('kpiConfiguredCount', { count: budgetsKpi.count })} color={budgetsKpi.burnPct > 90 ? "text-rose-700 bg-rose-50 border-rose-200" : "text-slate-700 bg-slate-50 border-slate-200"} />
                     </div>
 
                     {/* AI NARRATIVE */}
                     <div className="mb-10">
                         <h3 className="text-2xl font-extrabold text-[#0054A6] mb-4 flex items-center">
                             <Sparkles className="w-6 h-6 mr-2 text-indigo-600" />
-                            Análisis Ejecutivo Generado por IA
+                            {t('aiAnalysisTitle')}
                         </h3>
                         <div className="bg-gradient-to-br from-indigo-50 to-blue-50 border border-indigo-100 rounded-xl p-6 overflow-hidden">
                             {aiLoading && !aiReport && (
                                 <div className="flex items-center gap-2 text-indigo-600 text-sm py-8 justify-center">
                                     <RefreshCw className="w-4 h-4 animate-spin" />
-                                    Generando análisis ejecutivo con IA sobre {findingsCount} hallazgos y {haItems.length} ítems de HA…
+                                    {t('generatingAnalysis', { findings: findingsCount, ha: haItems.length })}
                                 </div>
                             )}
                             {aiError && (
                                 <div className="text-rose-700 text-sm bg-rose-50 border border-rose-200 rounded p-3">
-                                    <strong>Error al generar el reporte IA:</strong> {aiError}
+                                    <strong>{t('aiErrorPrefix')}</strong> {aiError}
                                 </div>
                             )}
                             {aiReport && (
@@ -441,21 +443,21 @@ export default function ReportGeneratorPage() {
 
                     {/* PIE CHART */}
                     <div className="max-w-2xl mx-auto mt-8 mb-10">
-                        <h3 className="text-xl font-bold text-gray-800 mb-4 text-center border-b border-gray-100 pb-2">Distribución de Ineficiencias</h3>
+                        <h3 className="text-xl font-bold text-gray-800 mb-4 text-center border-b border-gray-100 pb-2">{t('inefficiencyDistribution')}</h3>
                         {loadingData ? (
-                            <div className="h-64 flex items-center justify-center text-gray-400 animate-pulse">Calculando gráficas…</div>
+                            <div className="h-64 flex items-center justify-center text-gray-400 animate-pulse">{t('calculatingCharts')}</div>
                         ) : mappedFindings.length > 0 ? (
                             <div className="h-80"><CostPieChart data={mappedFindings} onSegmentClick={() => {}} /></div>
                         ) : (
-                            <div className="text-center text-gray-500 py-10">Entorno 100% optimizado.</div>
+                            <div className="text-center text-gray-500 py-10">{t('optimizedEnvironment')}</div>
                         )}
                     </div>
 
                     {/* HALLAZGOS DETALLADOS */}
                     <div className="mt-12 pt-8 border-t border-gray-200" style={{ pageBreakBefore: groupedIssues.length > 0 ? "always" : "auto" }}>
-                        <h3 className="text-2xl font-extrabold text-[#0054A6] mb-6">Hallazgos y Plan de Remediación</h3>
+                        <h3 className="text-2xl font-extrabold text-[#0054A6] mb-6">{t('findingsTitle')}</h3>
                         {groupedIssues.length === 0 ? (
-                            <p className="text-gray-500 text-center py-4">No hay hallazgos críticos detectados en este escaneo.</p>
+                            <p className="text-gray-500 text-center py-4">{t('noFindings')}</p>
                         ) : (
                             <div className="space-y-4">
                                 {groupedIssues.map(([issueName, data]: any, idx: number) => (
@@ -467,20 +469,20 @@ export default function ReportGeneratorPage() {
                                                     {issueName}
                                                 </h4>
                                                 <p className="text-sm text-gray-500 mt-1">
-                                                    <span className="font-semibold text-gray-700">{data.count}</span> recurso(s) · Tipo: {data.type}
+                                                    <span className="font-semibold text-gray-700">{data.count}</span> {t('resourceCountLabel')} · {t('typeLabel')} {data.type}
                                                 </p>
                                             </div>
                                             <div className="text-right">
                                                 <span className={`text-lg font-extrabold ${data.potentialSavings > 0 ? 'text-green-600' : 'text-gray-400'}`}>
                                                     {data.potentialSavings > 0 ? fmtUSD(data.potentialSavings) : '-'}
                                                 </span>
-                                                <p className="text-xs text-gray-400 uppercase tracking-widest mt-1">Impacto / Mes</p>
+                                                <p className="text-xs text-gray-400 uppercase tracking-widest mt-1">{t('impactPerMonth')}</p>
                                             </div>
                                         </div>
                                         <div>
-                                            <h5 className="text-sm font-bold text-gray-700 mb-1">Sugerencia de Mejora:</h5>
+                                            <h5 className="text-sm font-bold text-gray-700 mb-1">{t('improvementSuggestion')}</h5>
                                             <p className="text-sm text-gray-600 bg-white p-3 rounded border border-gray-200 shadow-sm leading-relaxed">
-                                                {SUGGESTIONS[issueName] || "Revisar y auditar estos recursos manualmente para determinar si son necesarios en la arquitectura actual."}
+                                                {SUGGESTIONS[issueName] || t('defaultSuggestion')}
                                             </p>
                                         </div>
                                     </div>
@@ -494,19 +496,19 @@ export default function ReportGeneratorPage() {
                         <div className="mt-12 pt-8 border-t border-gray-200" style={{ pageBreakBefore: "always" }}>
                             <h3 className="text-2xl font-extrabold text-[#0054A6] mb-2 flex items-center">
                                 <Cpu className="w-6 h-6 mr-2" />
-                                Riesgos de Alta Disponibilidad
+                                {t('haRisksTitle')}
                             </h3>
                             <p className="text-sm text-gray-500 mb-4">
-                                {haCounts.critical} críticos · {haCounts.high} altos · {haCounts.medium} medios · {haCounts.low} bajos
+                                {t('haSummary', { critical: haCounts.critical, high: haCounts.high, medium: haCounts.medium, low: haCounts.low })}
                             </p>
                             <div className="overflow-x-auto">
                                 <table className="min-w-full text-xs border-collapse border border-gray-200">
                                     <thead className="bg-gray-100">
                                         <tr>
-                                            <th className="border border-gray-200 px-3 py-2 text-left">Recurso</th>
-                                            <th className="border border-gray-200 px-3 py-2 text-left">Tipo</th>
-                                            <th className="border border-gray-200 px-3 py-2 text-left">Severidad</th>
-                                            <th className="border border-gray-200 px-3 py-2 text-left">Riesgo</th>
+                                            <th className="border border-gray-200 px-3 py-2 text-left">{t('tableResource')}</th>
+                                            <th className="border border-gray-200 px-3 py-2 text-left">{t('tableType')}</th>
+                                            <th className="border border-gray-200 px-3 py-2 text-left">{t('tableSeverity')}</th>
+                                            <th className="border border-gray-200 px-3 py-2 text-left">{t('tableRisk')}</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -534,12 +536,12 @@ export default function ReportGeneratorPage() {
                     {/* SECCIÓN: TOP CENTROS DE COSTO (Chargeback) */}
                     {chargebackKpi.top.length > 0 && (
                         <div className="mt-12 pt-8 border-t border-gray-200">
-                            <h3 className="text-2xl font-extrabold text-[#0054A6] mb-4 flex items-center"><DollarSign className="w-6 h-6 mr-2" />Top Centros de Costo</h3>
+                            <h3 className="text-2xl font-extrabold text-[#0054A6] mb-4 flex items-center"><DollarSign className="w-6 h-6 mr-2" />{t('topCostCentersTitle')}</h3>
                             <table className="min-w-full text-xs border-collapse border border-gray-200">
                                 <thead className="bg-gray-100"><tr>
-                                    <th className="border border-gray-200 px-3 py-2 text-left">Centro</th>
-                                    <th className="border border-gray-200 px-3 py-2 text-right">Gasto</th>
-                                    <th className="border border-gray-200 px-3 py-2 text-right">% del total</th>
+                                    <th className="border border-gray-200 px-3 py-2 text-left">{t('tableCenter')}</th>
+                                    <th className="border border-gray-200 px-3 py-2 text-right">{t('tableSpend')}</th>
+                                    <th className="border border-gray-200 px-3 py-2 text-right">{t('tablePercentOfTotal')}</th>
                                 </tr></thead>
                                 <tbody>
                                     {(() => {
@@ -564,14 +566,14 @@ export default function ReportGeneratorPage() {
                     {/* SECCIÓN: ANOMALÍAS */}
                     {anomaliesKpi.items.length > 0 && (
                         <div className="mt-12 pt-8 border-t border-gray-200">
-                            <h3 className="text-2xl font-extrabold text-[#0054A6] mb-2 flex items-center"><AlertCircle className="w-6 h-6 mr-2" />Anomalías de Costo Detectadas</h3>
-                            <p className="text-sm text-gray-500 mb-4">{anomaliesKpi.count} eventos · Impacto agregado {fmtUSD(anomaliesKpi.totalImpact)}</p>
+                            <h3 className="text-2xl font-extrabold text-[#0054A6] mb-2 flex items-center"><AlertCircle className="w-6 h-6 mr-2" />{t('anomaliesTitle')}</h3>
+                            <p className="text-sm text-gray-500 mb-4">{t('anomaliesSummary', { count: anomaliesKpi.count, impact: fmtUSD(anomaliesKpi.totalImpact) })}</p>
                             <table className="min-w-full text-xs border-collapse border border-gray-200">
                                 <thead className="bg-gray-100"><tr>
-                                    <th className="border border-gray-200 px-3 py-2 text-left">Fecha</th>
-                                    <th className="border border-gray-200 px-3 py-2 text-left">Recurso / Servicio</th>
-                                    <th className="border border-gray-200 px-3 py-2 text-right">Impacto</th>
-                                    <th className="border border-gray-200 px-3 py-2 text-left">Severidad</th>
+                                    <th className="border border-gray-200 px-3 py-2 text-left">{t('tableDate')}</th>
+                                    <th className="border border-gray-200 px-3 py-2 text-left">{t('tableResourceService')}</th>
+                                    <th className="border border-gray-200 px-3 py-2 text-right">{t('tableImpact')}</th>
+                                    <th className="border border-gray-200 px-3 py-2 text-left">{t('tableSeverity')}</th>
                                 </tr></thead>
                                 <tbody>
                                     {anomaliesKpi.items.map((a: any, i: number) => (
@@ -590,14 +592,14 @@ export default function ReportGeneratorPage() {
                     {/* SECCIÓN: RIGHT-SIZING */}
                     {rightsizingKpi.items.length > 0 && (
                         <div className="mt-12 pt-8 border-t border-gray-200">
-                            <h3 className="text-2xl font-extrabold text-[#0054A6] mb-2 flex items-center"><Cpu className="w-6 h-6 mr-2" />Top Recomendaciones de Right-Sizing</h3>
-                            <p className="text-sm text-gray-500 mb-4">{rightsizingKpi.count} recursos · Ahorro potencial {fmtUSD(rightsizingKpi.monthlySav)}/mes</p>
+                            <h3 className="text-2xl font-extrabold text-[#0054A6] mb-2 flex items-center"><Cpu className="w-6 h-6 mr-2" />{t('rightsizingTitle')}</h3>
+                            <p className="text-sm text-gray-500 mb-4">{t('rightsizingSummary', { count: rightsizingKpi.count, savings: fmtUSD(rightsizingKpi.monthlySav) })}</p>
                             <table className="min-w-full text-xs border-collapse border border-gray-200">
                                 <thead className="bg-gray-100"><tr>
-                                    <th className="border border-gray-200 px-3 py-2 text-left">Recurso</th>
-                                    <th className="border border-gray-200 px-3 py-2 text-left">SKU actual</th>
-                                    <th className="border border-gray-200 px-3 py-2 text-left">SKU recomendado</th>
-                                    <th className="border border-gray-200 px-3 py-2 text-right">Ahorro $/mes</th>
+                                    <th className="border border-gray-200 px-3 py-2 text-left">{t('tableResource')}</th>
+                                    <th className="border border-gray-200 px-3 py-2 text-left">{t('tableCurrentSku')}</th>
+                                    <th className="border border-gray-200 px-3 py-2 text-left">{t('tableRecommendedSku')}</th>
+                                    <th className="border border-gray-200 px-3 py-2 text-right">{t('tableSavingsPerMonth')}</th>
                                 </tr></thead>
                                 <tbody>
                                     {rightsizingKpi.items.map((r: any, i: number) => (
@@ -616,10 +618,10 @@ export default function ReportGeneratorPage() {
                     {/* SECCIÓN: BUDGETS */}
                     {budgetsKpi.count > 0 && (
                         <div className="mt-12 pt-8 border-t border-gray-200">
-                            <h3 className="text-2xl font-extrabold text-[#0054A6] mb-2">Ejecución Presupuestaria</h3>
+                            <h3 className="text-2xl font-extrabold text-[#0054A6] mb-2">{t('budgetExecutionTitle')}</h3>
                             <p className="text-sm text-gray-500 mb-4">
-                                {budgetsKpi.count} presupuestos configurados · {fmtUSD(budgetsKpi.totalConsumed)} de {fmtUSD(budgetsKpi.totalBudget)} consumido ({budgetsKpi.burnPct.toFixed(1)}%)
-                                {budgetsKpi.exceeding > 0 && <span className="text-rose-600 font-bold"> · {budgetsKpi.exceeding} excedidos</span>}
+                                {t('budgetSummary', { count: budgetsKpi.count, consumed: fmtUSD(budgetsKpi.totalConsumed), total: fmtUSD(budgetsKpi.totalBudget), pct: budgetsKpi.burnPct.toFixed(1) })}
+                                {budgetsKpi.exceeding > 0 && <span className="text-rose-600 font-bold">{t('exceededSuffix', { count: budgetsKpi.exceeding })}</span>}
                             </p>
                             <div className="w-full bg-gray-200 rounded h-4">
                                 <div className={`h-4 rounded ${budgetsKpi.burnPct > 100 ? 'bg-rose-600' : budgetsKpi.burnPct > 80 ? 'bg-amber-500' : 'bg-emerald-500'}`}
@@ -629,7 +631,7 @@ export default function ReportGeneratorPage() {
                     )}
 
                     <div className="mt-12 pt-4 border-t border-gray-200 text-center text-xs text-gray-400">
-                        Documento generado automáticamente por <strong>CSCloudSolutions FinOps</strong>. La sección de análisis IA puede contener interpretaciones; valide cifras antes de tomar decisiones operativas.
+                        {t('footerGeneratedBy')} <strong>CSCloudSolutions FinOps</strong>. {t('footerDisclaimer')}
                     </div>
                 </div>
             </div>

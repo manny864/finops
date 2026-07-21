@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantRole, requireTenantAccess, requireTenantTier, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
 import pool from "@/modules/storage/db";
+import { invalidateCache, costGroupsCacheKeys } from "@/lib/cache";
 
 async function assertCustomGroup(tenantId: string, name: string): Promise<void> {
     const [rows]: any = await pool.query(
@@ -52,6 +53,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             [tenantId, name, String(resourceGroup).trim(), identity.email]
         );
 
+        await invalidateCache(...costGroupsCacheKeys(tenantId));
+
         return NextResponse.json({ success: true }, { status: 201 });
     } catch (e: unknown) {
         if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
@@ -84,6 +87,8 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
             `DELETE FROM CostGroupResourceGroups WHERE tenant_id = ? AND group_name = ? AND resource_group = ?`,
             [tenantId, name, resourceGroup]
         );
+
+        await invalidateCache(...costGroupsCacheKeys(tenantId));
 
         return NextResponse.json({ success: true });
     } catch (e: unknown) {

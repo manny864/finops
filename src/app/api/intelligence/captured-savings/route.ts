@@ -1,13 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
-import pool from "@/modules/storage/db";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
+import { getSnapshotHistory } from "@/services/snapshotService";
 
 // Detalle de "Ahorro Capturado" (tarjeta `exec` del Dashboard General).
-// SavingsHistory ya se puebla a diario (POST /api/intelligence/history, vía
-// el scanner automatizado) pero hasta ahora ningún endpoint la leía — el
-// dashboard solo mostraba el ahorro potencial del momento, sin tendencia real.
+//
+// Originalmente leía de `SavingsHistory`, poblada por un POST
+// (/api/intelligence/history) que en la práctica nunca tuvo caller (ni cron
+// ni trigger de UI) — la tabla estaba 100% vacía para todos los tenants, así
+// que esta tarjeta siempre mostraba $0. El historial real de `totalSavings`
+// ya existe y se puebla solo: cada hit no-degradado a /api/dashboard/summary
+// hace write-through a `DailySnapshots` (domain='dashboard_summary', via
+// snapshotService) — la misma fuente que alimenta el gráfico de progreso.
+// Reusamos esa tabla en vez de depender de un segundo pipeline muerto.
+//
+// No existe un campo "wasted" distinto de "potential savings" en el payload
+// de dashboard_summary (el motor de zombies calcula un solo número: lo que
+// se ahorraría eliminando el desperdicio detectado) — se expone el mismo
+// valor en ambos campos hasta que exista una métrica de "gasto actual en
+// recursos zombie" genuinamente distinta.
 export async function GET(request: NextRequest) {
     try {
         const tenantId = request.nextUrl.searchParams.get("tenantId");
@@ -19,20 +31,25 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(getMockDataForRoute("captured_savings", tenantId));
         }
 
-        const payload = await getWithStaleWhileRevalidate(`captured-savings:v1:${tenantId}`, async () => {
-            const [rows]: any = await pool.query(
-                `SELECT scan_date, total_wasted_usd, potential_savings_usd
-                 FROM SavingsHistory
-                 WHERE tenant_id = ? AND scan_date >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
-                 ORDER BY scan_date ASC`,
-                [tenantId]
+        const payload = await getWithStaleWhileRevalidate(`captured-savings:v2:${tenantId}`, async () => {
+            const twelveMonthsAgo = new Date();
+            twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+            const points = await getSnapshotHistory(
+                tenantId,
+                "dashboard_summary",
+                twelveMonthsAgo.toISOString().slice(0, 10),
+                undefined,
+                "All",
             );
 
-            const history = (rows as any[]).map(r => ({
-                date: typeof r.scan_date === "string" ? r.scan_date : new Date(r.scan_date).toISOString().slice(0, 10),
-                totalWasted: Number(r.total_wasted_usd) || 0,
-                potentialSavings: Number(r.potential_savings_usd) || 0,
-            }));
+            const history = points.map(p => {
+                const savings = Number((p.payload as any)?.totalSavings) || 0;
+                return {
+                    date: p.date,
+                    totalWasted: savings,
+                    potentialSavings: savings,
+                };
+            });
 
             const latest = history[history.length - 1] || null;
             const previous = history.length > 1 ? history[history.length - 2] : null;

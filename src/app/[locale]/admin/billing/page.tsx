@@ -1,5 +1,6 @@
 "use client";
 import React, { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
@@ -52,6 +53,7 @@ function formatMinorAmount(minor: string | null | undefined, currency: string): 
 }
 
 export default function BillingPage() {
+  const t = useTranslations("AdminBilling");
   const { selectedTenant } = useTenant();
   const { instance, accounts } = useMsal();
   const { requestChallenge, mfaModal } = useMfaChallenge();
@@ -128,13 +130,13 @@ export default function BillingPage() {
         const data = await res.json();
         if (data.url) {
           window.open(data.url, "_blank");
-          toast.success("Abriendo portal de pago de Paddle");
+          toast.success(t("toastOpeningPaddlePortal"));
         }
       } else {
-        toast.error("No se pudo obtener URL de pago");
+        toast.error(t("toastNoPaymentUrl"));
       }
     } catch (error: any) {
-      toast.error("Error al actualizar método de pago");
+      toast.error(t("toastPaymentMethodUpdateError"));
     }
   };
 
@@ -165,10 +167,10 @@ export default function BillingPage() {
         setPreviewData(data as ChangePreview);
         setModalStep("confirm");
       } else {
-        toast.error(data.error || "No se pudo obtener el resumen del cambio");
+        toast.error(data.error || t("toastPreviewError"));
       }
     } catch {
-      toast.error("Error al calcular el resumen del cambio");
+      toast.error(t("toastPreviewCalcError"));
     } finally {
       setLoadingPreview(false);
     }
@@ -199,15 +201,15 @@ export default function BillingPage() {
         }),
       });
       if (res.ok) {
-        toast.success("Suscripción actualizada correctamente");
+        toast.success(t("toastSubscriptionUpdated"));
         resetUpgradeModal();
         await loadBillingInfo();
       } else {
         const error = await res.json();
-        toast.error(error.error || "Error al actualizar suscripción");
+        toast.error(error.error || t("toastSubscriptionUpdateError"));
       }
     } catch (error: any) {
-      toast.error("Error al procesar upgrade");
+      toast.error(t("toastUpgradeProcessError"));
     } finally {
       setUpdatingSubscription(false);
     }
@@ -233,15 +235,15 @@ export default function BillingPage() {
         body: JSON.stringify({ effective: "immediately" }),
       });
       if (res.ok) {
-        toast.success("Suscripción cancelada");
+        toast.success(t("toastSubscriptionCanceled"));
         setShowCancelModal(false);
         await loadBillingInfo();
       } else {
         const error = await res.json();
-        toast.error(error.error || "Error al cancelar");
+        toast.error(error.error || t("toastCancelError"));
       }
     } catch (error: any) {
-      toast.error("Error al cancelar suscripción");
+      toast.error(t("toastCancelSubscriptionError"));
     } finally {
       setUpdatingSubscription(false);
     }
@@ -251,7 +253,7 @@ export default function BillingPage() {
     return (
       <div className="p-6 text-center">
         <AlertCircle className="mx-auto mb-3 h-8 w-8 text-yellow-500" />
-        <p>Selecciona un tenant para ver su información de facturación</p>
+        <p>{t("selectTenantPrompt")}</p>
       </div>
     );
   }
@@ -276,26 +278,26 @@ export default function BillingPage() {
       {mfaModal}
       <div className="flex items-center gap-3">
         <CreditCard className="h-6 w-6 text-brand-deep" />
-        <h1 className="text-3xl font-bold">Facturación</h1>
+        <h1 className="text-3xl font-bold">{t("title")}</h1>
       </div>
 
       {/* Current Plan Card */}
       <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-        <h2 className="mb-4 text-xl font-semibold">Plan Actual</h2>
+        <h2 className="mb-4 text-xl font-semibold">{t("currentPlan")}</h2>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <div>
-            <p className="text-sm text-gray-500">Tier</p>
-            <p className="text-2xl font-bold">{billingInfo?.tier || "N/A"}</p>
+            <p className="text-sm text-gray-500">{t("tier")}</p>
+            <p className="text-2xl font-bold">{billingInfo?.tier || t("notAvailable")}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-500">Estado</p>
+            <p className="text-sm text-gray-500">{t("status")}</p>
             <p className={`inline-block rounded-full px-3 py-1 text-sm font-medium ${statusColors[billingInfo?.status as keyof typeof statusColors] || "text-gray-600"}`}>
-              {billingInfo?.status || "N/A"}
+              {billingInfo?.status || t("notAvailable")}
             </p>
           </div>
           {billingInfo?.status === "TRIAL" && billingInfo.trialEndsAt && (
             <div>
-              <p className="text-sm text-gray-500">Trial termina</p>
+              <p className="text-sm text-gray-500">{t("trialEnds")}</p>
               <p className="font-semibold">{new Date(billingInfo.trialEndsAt).toLocaleDateString()}</p>
             </div>
           )}
@@ -305,11 +307,14 @@ export default function BillingPage() {
           <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700 flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400">
             <Info className="h-4 w-4 mt-0.5 shrink-0 text-brand-deep" />
             <p>
-              Tu plan <strong>{billingInfo.tier}</strong> incluye{" "}
-              {(() => { const l = getSubscriptionLimit(billingInfo.tier); return Number.isFinite(l) ? `hasta ${l} suscripción(es) de Azure` : "suscripciones de Azure ilimitadas"; })()},{" "}
-              {(() => { const l = getUserLimit(billingInfo.tier); return Number.isFinite(l) ? `hasta ${l} usuario(s)` : "usuarios ilimitados"; })()} y{" "}
-              {(() => { const q = getSupportConfig(billingInfo.tier).monthlyTicketQuota; return q === null ? "soporte ilimitado" : `${q} tickets/mes de soporte`; })()}{" "}
-              (respuesta en {getSupportConfig(billingInfo.tier).firstResponseSlaHours} h).
+              {t.rich("planIncludes", {
+                tier: billingInfo.tier,
+                strong: (chunks) => <strong>{chunks}</strong>,
+                subscriptions: (() => { const l = getSubscriptionLimit(billingInfo.tier); return Number.isFinite(l) ? t("subscriptionsLimited", { count: l as number }) : t("subscriptionsUnlimited"); })(),
+                users: (() => { const l = getUserLimit(billingInfo.tier); return Number.isFinite(l) ? t("usersLimited", { count: l as number }) : t("usersUnlimited"); })(),
+                support: (() => { const q = getSupportConfig(billingInfo.tier).monthlyTicketQuota; return q === null ? t("supportUnlimited") : t("supportLimited", { count: q }); })(),
+                slaHours: getSupportConfig(billingInfo.tier).firstResponseSlaHours,
+              })}
             </p>
           </div>
         )}
@@ -327,21 +332,19 @@ export default function BillingPage() {
             </div>
             <div className="flex-1">
               <h2 className="mb-2 text-lg font-semibold text-blue-900 dark:text-blue-100">
-                {billingInfo.marketplaceSource === 'azure_marketplace' 
-                  ? '🔷 Suscripción via Azure Marketplace' 
-                  : '🟠 Suscripción via AWS Marketplace'}
+                {billingInfo.marketplaceSource === 'azure_marketplace'
+                  ? `🔷 ${t("marketplaceSubscriptionAzure")}`
+                  : `🟠 ${t("marketplaceSubscriptionAws")}`}
               </h2>
               <p className="mb-4 text-sm text-blue-800 dark:text-blue-200">
-                Tu suscripción está gestionada a través de{' '}
-                {billingInfo.marketplaceSource === 'azure_marketplace' ? 'Azure' : 'AWS'}{' '}
-                Marketplace. Los cambios de plan deben realizarse en el portal del marketplace.
+                {t("marketplaceManagedVia", { marketplace: billingInfo.marketplaceSource === 'azure_marketplace' ? 'Azure' : 'AWS' })}
               </p>
               <div className="mb-4 space-y-1 text-sm">
                 <p className="text-blue-800 dark:text-blue-200">
-                  <span className="font-medium">ID de Suscripción:</span> {billingInfo.marketplaceSubscriptionId}
+                  <span className="font-medium">{t("marketplaceSubscriptionId")}:</span> {billingInfo.marketplaceSubscriptionId}
                 </p>
                 <p className="text-blue-800 dark:text-blue-200">
-                  <span className="font-medium">Plan:</span> {billingInfo.marketplacePlanId}
+                  <span className="font-medium">{t("plan")}:</span> {billingInfo.marketplacePlanId}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -353,7 +356,7 @@ export default function BillingPage() {
                     className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600"
                   >
                     <ExternalLink className="h-4 w-4" />
-                    Ir a Azure Portal
+                    {t("goToAzurePortal")}
                   </a>
                 )}
                 {billingInfo.marketplaceSource === 'aws_marketplace' && (
@@ -364,7 +367,7 @@ export default function BillingPage() {
                     className="inline-flex items-center gap-2 rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700 dark:bg-orange-700 dark:hover:bg-orange-600"
                   >
                     <ExternalLink className="h-4 w-4" />
-                    Ir a AWS Console
+                    {t("goToAwsConsole")}
                   </a>
                 )}
               </div>
@@ -377,7 +380,7 @@ export default function BillingPage() {
       {!billingInfo?.marketplaceSource || billingInfo.marketplaceSource === 'direct' ? (
         <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-xl font-semibold">Cambiar Plan</h2>
+            <h2 className="text-xl font-semibold">{t("changePlan")}</h2>
             {/* Enterprise usa pricing negociado: no aplica el flujo self-service de
                 Paddle (tierToPriceId(Enterprise) = null → daría 502). Mostramos un
                 aviso para contactar al equipo comercial. Business es el tope de los
@@ -388,19 +391,21 @@ export default function BillingPage() {
                 className="rounded-lg bg-brand-deep px-4 py-2 text-sm font-semibold text-white hover:bg-blue-900 disabled:opacity-50"
                 disabled={updatingSubscription}
             >
-              {updatingSubscription ? <Loader2 className="inline h-4 w-4 animate-spin" /> : "Actualizar"}
+              {updatingSubscription ? <Loader2 className="inline h-4 w-4 animate-spin" /> : t("update")}
             </button>
           )}
         </div>
 
         {billingInfo?.isEnterprise && (
           <div className="rounded-md border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-200">
-            Tu organización está en el plan <span className="font-semibold">Enterprise</span>, con condiciones y
-            precios personalizados. Para modificar tu plan, contactá a nuestro equipo comercial en{" "}
-            <a href="mailto:ventas@cscloudsolutions.com.ar" className="font-semibold underline">
-              ventas@cscloudsolutions.com.ar
-            </a>
-            .
+            {t.rich("enterpriseNotice", {
+              span: (chunks) => <span className="font-semibold">{chunks}</span>,
+              email: (chunks) => (
+                <a href="mailto:ventas@cscloudsolutions.com.ar" className="font-semibold underline">
+                  {chunks}
+                </a>
+              ),
+            })}
           </div>
         )}
 
@@ -409,7 +414,7 @@ export default function BillingPage() {
             <div className="w-96 rounded-lg bg-white p-6 shadow-lg dark:bg-gray-800">
               {modalStep === "select" ? (
                 <>
-                  <h3 className="mb-4 text-lg font-semibold">Selecciona nuevo plan</h3>
+                  <h3 className="mb-4 text-lg font-semibold">{t("selectNewPlan")}</h3>
 
                   <div className="mb-4 space-y-2">
                     <label className="flex items-center gap-2">
@@ -427,90 +432,90 @@ export default function BillingPage() {
                   </div>
 
                   <div className="mb-4 space-y-2">
-                    <p className="text-sm font-medium">Frecuencia de facturación:</p>
+                    <p className="text-sm font-medium">{t("billingFrequency")}:</p>
                     <label className="flex items-center gap-2">
                       <input type="radio" value="monthly" checked={selectedBilling === "monthly"} onChange={(e) => setSelectedBilling(e.target.value as any)} />
-                      <span>Mensual</span>
+                      <span>{t("monthly")}</span>
                     </label>
                     <label className="flex items-center gap-2">
                       <input type="radio" value="yearly" checked={selectedBilling === "yearly"} onChange={(e) => setSelectedBilling(e.target.value as any)} />
-                      <span>Anual</span>
+                      <span>{t("yearly")}</span>
                     </label>
                   </div>
 
                   <div className="mb-4 space-y-2">
-                    <p className="text-sm font-medium">Modo de prorrateo:</p>
+                    <p className="text-sm font-medium">{t("prorationMode")}:</p>
                     <select
                       value={prorationType}
                       onChange={(e) => setProrationType(e.target.value as any)}
                       className="w-full rounded border border-gray-300 px-3 py-2 dark:border-gray-600 dark:bg-gray-700"
                     >
-                      <option value="prorated_immediately">Inmediato</option>
-                      <option value="prorated_next_billing_period">Siguiente ciclo</option>
-                      <option value="do_not_bill">Sin cobro</option>
+                      <option value="prorated_immediately">{t("prorationImmediate")}</option>
+                      <option value="prorated_next_billing_period">{t("prorationNextCycle")}</option>
+                      <option value="do_not_bill">{t("prorationNone")}</option>
                     </select>
                   </div>
 
                   <div className="flex gap-2">
                     <button onClick={resetUpgradeModal} className="flex-1 rounded border border-gray-300 px-4 py-2 font-semibold dark:border-gray-600">
-                      Cancelar
+                      {t("cancel")}
                     </button>
                     <button onClick={handlePreviewChange} disabled={!selectedNewTier || loadingPreview} className="flex-1 rounded bg-brand-deep px-4 py-2 font-semibold text-white disabled:opacity-50">
-                      {loadingPreview ? <Loader2 className="inline h-4 w-4 animate-spin" /> : "Ver resumen"}
+                      {loadingPreview ? <Loader2 className="inline h-4 w-4 animate-spin" /> : t("viewSummary")}
                     </button>
                   </div>
                 </>
               ) : (
                 <>
-                  <h3 className="mb-4 text-lg font-semibold">Confirmar cambio de plan</h3>
+                  <h3 className="mb-4 text-lg font-semibold">{t("confirmPlanChange")}</h3>
 
                   <div className="mb-4 rounded-md bg-gray-50 p-4 text-sm dark:bg-gray-700/50">
                     <p className="mb-2">
-                      Plan nuevo: <span className="font-semibold">{selectedNewTier}</span> ({selectedBilling === "monthly" ? "Mensual" : "Anual"})
+                      {t("newPlanLabel")}: <span className="font-semibold">{selectedNewTier}</span> ({selectedBilling === "monthly" ? t("monthly") : t("yearly")})
                     </p>
 
                     {previewData?.previewAvailable ? (
                       <>
                         {previewData.result?.action === "charge" && (
                           <p className="font-semibold text-amber-700 dark:text-amber-400">
-                            Se cobrará ahora: {formatMinorAmount(previewData.result.amount, previewData.currencyCode || "USD")}
+                            {t("chargeNowLabel")}: {formatMinorAmount(previewData.result.amount, previewData.currencyCode || "USD")}
                           </p>
                         )}
                         {previewData.result?.action === "credit" && (
                           <p className="font-semibold text-green-700 dark:text-green-400">
-                            Recibirás un crédito de: {formatMinorAmount(previewData.result.amount, previewData.currencyCode || "USD")}
+                            {t("creditReceivedLabel")}: {formatMinorAmount(previewData.result.amount, previewData.currencyCode || "USD")}
                           </p>
                         )}
                         {previewData.result?.action === "none" && (
-                          <p className="font-semibold text-gray-700 dark:text-gray-300">Sin cargo ni crédito inmediato.</p>
+                          <p className="font-semibold text-gray-700 dark:text-gray-300">{t("noImmediateChargeOrCredit")}</p>
                         )}
 
                         {previewData.recurringTotal && (
                           <p className="mt-2 text-gray-600 dark:text-gray-400">
-                            Nuevo total recurrente: {formatMinorAmount(previewData.recurringTotal, previewData.currencyCode || "USD")}
-                            {selectedBilling === "monthly" ? " / mes" : " / año"}
+                            {t("newRecurringTotal")}: {formatMinorAmount(previewData.recurringTotal, previewData.currencyCode || "USD")}
+                            {selectedBilling === "monthly" ? t("perMonth") : t("perYear")}
                           </p>
                         )}
                         {previewData.nextBillDate && (
                           <p className="text-gray-600 dark:text-gray-400">
-                            Próxima facturación: {new Date(previewData.nextBillDate).toLocaleDateString("es-AR")}
+                            {t("nextBillingDate")}: {new Date(previewData.nextBillDate).toLocaleDateString("es-AR")}
                             {previewData.nextBillTotal ? ` — ${formatMinorAmount(previewData.nextBillTotal, previewData.currencyCode || "USD")}` : ""}
                           </p>
                         )}
                       </>
                     ) : (
                       <p className="text-gray-600 dark:text-gray-400">
-                        No se pudo calcular el prorrateo (Paddle no disponible). Se aplicará el prorrateo estándar del proveedor al confirmar.
+                        {t("prorationUnavailable")}
                       </p>
                     )}
                   </div>
 
                   <div className="flex gap-2">
                     <button onClick={() => setModalStep("select")} className="flex-1 rounded border border-gray-300 px-4 py-2 font-semibold dark:border-gray-600">
-                      Volver
+                      {t("back")}
                     </button>
                     <button onClick={handleUpgradeSubscription} disabled={updatingSubscription} className="flex-1 rounded bg-brand-deep px-4 py-2 font-semibold text-white disabled:opacity-50">
-                      {updatingSubscription ? <Loader2 className="inline h-4 w-4 animate-spin" /> : "Confirmar cambio"}
+                      {updatingSubscription ? <Loader2 className="inline h-4 w-4 animate-spin" /> : t("confirmChange")}
                     </button>
                   </div>
                 </>
@@ -524,25 +529,25 @@ export default function BillingPage() {
       {/* Payment Method Card */}
       <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Método de Pago</h2>
+          <h2 className="text-xl font-semibold">{t("paymentMethod")}</h2>
           <button
             onClick={handleUpdatePaymentMethod}
             className="rounded-lg bg-gray-600 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-700 disabled:opacity-50"
             disabled={updatingSubscription || !billingInfo?.paddleSubscriptionId}
           >
-            Actualizar
+            {t("update")}
             <ExternalLink className="ml-2 inline h-4 w-4" />
           </button>
         </div>
-        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Accede al portal de pago de Paddle para actualizar tu método de pago</p>
+        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">{t("paymentMethodHint")}</p>
       </div>
 
       {/* Cancel Subscription Card */}
       <div className="rounded-lg border border-red-200 bg-red-50 p-6 dark:border-red-900 dark:bg-red-900/20">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-semibold text-red-900 dark:text-red-300">Cancelar Suscripción</h2>
-            <p className="mt-1 text-sm text-red-800 dark:text-red-400">Esta acción no se puede deshacer</p>
+            <h2 className="text-xl font-semibold text-red-900 dark:text-red-300">{t("cancelSubscription")}</h2>
+            <p className="mt-1 text-sm text-red-800 dark:text-red-400">{t("cancelSubscriptionIrreversible")}</p>
           </div>
           {billingInfo?.status !== "CANCELED" && (
             <button
@@ -551,7 +556,7 @@ export default function BillingPage() {
               disabled={updatingSubscription}
             >
               <Trash2 className="inline mr-2 h-4 w-4" />
-              Cancelar
+              {t("cancel")}
             </button>
           )}
         </div>
@@ -559,14 +564,14 @@ export default function BillingPage() {
         {showCancelModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
             <div className="w-96 rounded-lg bg-white p-6 shadow-lg dark:bg-gray-800">
-              <h3 className="mb-4 text-lg font-semibold text-red-900 dark:text-red-300">¿Cancelar suscripción?</h3>
-              <p className="mb-6 text-gray-700 dark:text-gray-300">Se perderán todos los beneficios del plan. Esta acción es irreversible.</p>
+              <h3 className="mb-4 text-lg font-semibold text-red-900 dark:text-red-300">{t("cancelSubscriptionConfirmTitle")}</h3>
+              <p className="mb-6 text-gray-700 dark:text-gray-300">{t("cancelSubscriptionConfirmBody")}</p>
               <div className="flex gap-2">
                 <button onClick={() => setShowCancelModal(false)} className="flex-1 rounded border border-gray-300 px-4 py-2 font-semibold dark:border-gray-600">
-                  No, cancelar
+                  {t("cancelSubscriptionKeepIt")}
                 </button>
                 <button onClick={handleCancelSubscription} disabled={updatingSubscription} className="flex-1 rounded bg-red-600 px-4 py-2 font-semibold text-white disabled:opacity-50">
-                  {updatingSubscription ? <Loader2 className="inline h-4 w-4 animate-spin" /> : "Sí, cancelar suscripción"}
+                  {updatingSubscription ? <Loader2 className="inline h-4 w-4 animate-spin" /> : t("cancelSubscriptionConfirmButton")}
                 </button>
               </div>
             </div>
@@ -576,16 +581,16 @@ export default function BillingPage() {
 
       {/* Invoice History */}
       <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-        <h2 className="mb-4 text-xl font-semibold">Historial de Facturas</h2>
+        <h2 className="mb-4 text-xl font-semibold">{t("invoiceHistory")}</h2>
         {invoices.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-200 dark:border-gray-700">
-                  <th className="px-4 py-3 text-left font-semibold">Fecha</th>
-                  <th className="px-4 py-3 text-left font-semibold">Monto</th>
-                  <th className="px-4 py-3 text-left font-semibold">Estado</th>
-                  <th className="px-4 py-3 text-left font-semibold">Transacción</th>
+                  <th className="px-4 py-3 text-left font-semibold">{t("colDate")}</th>
+                  <th className="px-4 py-3 text-left font-semibold">{t("colAmount")}</th>
+                  <th className="px-4 py-3 text-left font-semibold">{t("colStatus")}</th>
+                  <th className="px-4 py-3 text-left font-semibold">{t("colTransaction")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -613,7 +618,7 @@ export default function BillingPage() {
             </table>
           </div>
         ) : (
-          <p className="text-gray-600 dark:text-gray-400">No hay facturas disponibles</p>
+          <p className="text-gray-600 dark:text-gray-400">{t("noInvoices")}</p>
         )}
       </div>
     </div>

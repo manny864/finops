@@ -1,6 +1,7 @@
 "use client";
 import React, { useMemo, useState } from 'react';
 import useSWR from 'swr';
+import { useTranslations } from 'next-intl';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { Loader2, Box, Info, Search, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -11,6 +12,7 @@ import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLocke
 const PAGE_SIZES = [10, 25, 50, 100] as const;
 
 export default function ZeroCostInventory() {
+    const t = useTranslations('IntelligenceZeroCost');
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
 
@@ -23,7 +25,7 @@ export default function ZeroCostInventory() {
 
         if (!res.ok) {
             const json = await res.json();
-            throw new Error(json.details || json.error || "Error al cargar inventario");
+            throw new Error(json.details || json.error || t('fetchError'));
         }
         return res.json();
     };
@@ -93,7 +95,7 @@ export default function ZeroCostInventory() {
         return (
             <div className="flex flex-col items-center justify-center py-20">
                 <Loader2 className="w-8 h-8 animate-spin text-brand-deep mb-4" />
-                <p className="text-gray-500 dark:text-gray-400">Escaneando inventario de costo cero en Azure...</p>
+                <p className="text-gray-500 dark:text-gray-400">{t('scanning')}</p>
             </div>
         );
     }
@@ -101,11 +103,11 @@ export default function ZeroCostInventory() {
     if (error) {
         const requiredTier = parseTierRequiredError(error.message);
         if (requiredTier) {
-            return <TierLockedNotice requiredTier={requiredTier} currentTier={(selectedTenant as any)?.tier} featureName="Inventario de Costo Cero" />;
+            return <TierLockedNotice requiredTier={requiredTier} currentTier={(selectedTenant as any)?.tier} featureName={t('title')} />;
         }
         return (
             <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg border border-red-100 dark:border-red-900/50">
-                <h3 className="font-bold">Error en la consulta KQL</h3>
+                <h3 className="font-bold">{t('queryErrorTitle')}</h3>
                 <p className="text-sm">{error.message}</p>
             </div>
         );
@@ -116,8 +118,8 @@ export default function ZeroCostInventory() {
             <div className="bg-blue-50 dark:bg-blue-900/20 p-4 flex gap-3 rounded-xl border border-blue-100 dark:border-blue-900/50 text-blue-800 dark:text-blue-300">
                 <Info className="w-5 h-5 shrink-0 mt-0.5" />
                 <div className="text-sm">
-                    <p className="font-bold mb-1">Inventario de Costo Cero (Zero-Cost FinOps)</p>
-                    <p>Recursos sin cargos en tu facturación, por capa gratuita o por ser servicios de red/arquitectura sin costo base. Mantener visibilidad es clave para gestión completa.</p>
+                    <p className="font-bold mb-1">{t('infoTitle')}</p>
+                    <p>{t('infoBody')}</p>
                 </div>
             </div>
 
@@ -129,31 +131,31 @@ export default function ZeroCostInventory() {
                         type="text"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Buscar nombre, RG, tipo, SKU..."
+                        placeholder={t('searchPlaceholder')}
                         className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                     />
                 </div>
                 <div className="md:col-span-2">
                     <select value={motivoFilter} onChange={(e) => setMotivoFilter(e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-                        <option value="all">Todos los motivos</option>
+                        <option value="all">{t('allReasons')}</option>
                         {motivos.map(m => <option key={m} value={m}>{m}</option>)}
                     </select>
                 </div>
                 <div className="md:col-span-2">
                     <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-                        <option value="all">Todos los tipos</option>
-                        {types.map(t => <option key={t} value={t}>{t}</option>)}
+                        <option value="all">{t('allTypes')}</option>
+                        {types.map(ty => <option key={ty} value={ty}>{ty}</option>)}
                     </select>
                 </div>
                 <div className="md:col-span-2">
                     <select value={rgFilter} onChange={(e) => setRgFilter(e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-                        <option value="all">Todos los Resource Groups</option>
+                        <option value="all">{t('allResourceGroups')}</option>
                         {resourceGroups.map(rg => <option key={rg} value={rg}>{rg}</option>)}
                     </select>
                 </div>
                 <div className="md:col-span-2">
                     <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-                        {PAGE_SIZES.map(n => <option key={n} value={n}>{n} por página</option>)}
+                        {PAGE_SIZES.map(n => <option key={n} value={n}>{t('perPage', { n })}</option>)}
                     </select>
                 </div>
             </div>
@@ -163,9 +165,9 @@ export default function ZeroCostInventory() {
                 <div className="px-4 py-3 border-b border-gray-100 dark:border-slate-800 flex items-center justify-between">
                     <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
                         <Box className="w-4 h-4 text-emerald-500" />
-                        Recursos de Costo Cero
+                        {t('tableTitle')}
                         <span className="text-xs font-medium px-2 py-0.5 bg-gray-100 dark:bg-slate-800 text-gray-500 rounded-full">
-                            {total.toLocaleString()} de {resources.length.toLocaleString()}
+                            {t('countBadge', { shown: total.toLocaleString(), total: resources.length.toLocaleString() })}
                         </span>
                     </h2>
                 </div>
@@ -174,11 +176,11 @@ export default function ZeroCostInventory() {
                     <table className="w-full text-left text-sm">
                         <thead className="bg-gray-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 text-xs">
                             <tr>
-                                <th className="px-4 py-3 font-semibold">Recurso</th>
-                                <th className="px-4 py-3 font-semibold">Tipo</th>
-                                <th className="px-4 py-3 font-semibold">Resource Group</th>
-                                <th className="px-4 py-3 font-semibold">SKU</th>
-                                <th className="px-4 py-3 font-semibold">Motivo</th>
+                                <th className="px-4 py-3 font-semibold">{t('resourceCol')}</th>
+                                <th className="px-4 py-3 font-semibold">{t('typeCol')}</th>
+                                <th className="px-4 py-3 font-semibold">{t('rgCol')}</th>
+                                <th className="px-4 py-3 font-semibold">{t('skuCol')}</th>
+                                <th className="px-4 py-3 font-semibold">{t('reasonCol')}</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 dark:divide-slate-800/50">
@@ -205,7 +207,7 @@ export default function ZeroCostInventory() {
                             {pageItems.length === 0 && (
                                 <tr>
                                     <td colSpan={5} className="px-4 py-10 text-center text-sm text-slate-500">
-                                        {resources.length === 0 ? 'No se han detectado recursos de costo cero.' : 'No hay recursos que coincidan con los filtros.'}
+                                        {resources.length === 0 ? t('emptyNoResources') : t('emptyNoMatches')}
                                     </td>
                                 </tr>
                             )}
@@ -217,25 +219,25 @@ export default function ZeroCostInventory() {
                 {total > 0 && (
                     <div className="px-4 py-3 border-t border-gray-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
                         <div>
-                            Mostrando <b>{start + 1}</b>–<b>{Math.min(start + pageSize, total)}</b> de <b>{total}</b>
+                            {t('showingRange', { from: start + 1, to: Math.min(start + pageSize, total), total })}
                         </div>
                         <div className="flex items-center gap-1">
                             <button
                                 onClick={() => setPage(p => Math.max(1, p - 1))}
                                 disabled={safePage <= 1}
                                 className="p-1.5 rounded border border-gray-200 dark:border-slate-700 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-slate-800"
-                                aria-label="Anterior"
+                                aria-label={t('ariaPrevious')}
                             >
                                 <ChevronLeft className="w-4 h-4" />
                             </button>
                             <span className="px-2">
-                                Página <b>{safePage}</b> / {totalPages}
+                                {t('pageOf', { current: safePage, total: totalPages })}
                             </span>
                             <button
                                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                                 disabled={safePage >= totalPages}
                                 className="p-1.5 rounded border border-gray-200 dark:border-slate-700 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-slate-800"
-                                aria-label="Siguiente"
+                                aria-label={t('ariaNext')}
                             >
                                 <ChevronRight className="w-4 h-4" />
                             </button>

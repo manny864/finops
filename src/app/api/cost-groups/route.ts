@@ -14,7 +14,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantTier, requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import pool from "@/modules/storage/db";
-import { getWithStaleWhileRevalidate } from "@/lib/cache";
+import { getWithStaleWhileRevalidate, invalidateCache, costGroupsCacheKeys } from "@/lib/cache";
 
 function periodRange(period: string): { start: string; end: string } {
     const now = new Date();
@@ -231,6 +231,8 @@ export async function POST(request: NextRequest) {
             }
             throw e;
         }
+
+        await invalidateCache(...costGroupsCacheKeys(tenantId));
 
         return NextResponse.json({ success: true, name: name.trim() }, { status: 201 });
     } catch (e: unknown) {

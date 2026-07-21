@@ -191,7 +191,7 @@ export default function OnboardingPage() {
             );
             const data = await response.json();
             if (!response.ok) {
-                alert(data.error || 'No se pudo procesar la asociación de partner');
+                alert(data.error || t('partnerLinkError'));
                 return;
             }
             setSelectedTenant({ ...selectedTenant, partner_link_status: data.status, partner_link_detail: data.detail || null });

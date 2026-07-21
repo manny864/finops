@@ -1,6 +1,7 @@
 "use client";
 import React from 'react';
 import useSWR from 'swr';
+import { useTranslations } from 'next-intl';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { getFreshIdToken } from '@/lib/msalToken';
@@ -23,6 +24,7 @@ function scoreBarColor(score: number): string {
 }
 
 export default function TenantHealthDashboard() {
+    const t = useTranslations('IntelligenceTenantHealth');
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const tier = (selectedTenant as any)?.tier || 'Essential';
@@ -33,7 +35,7 @@ export default function TenantHealthDashboard() {
         const res = await fetch(url, { headers: { Authorization: `Bearer ${idToken}` } });
         if (!res.ok) {
             const json = await res.json();
-            throw new Error(json.error || 'Error al cargar el estado de salud del tenant');
+            throw new Error(json.error || t('errors.loadFailed'));
         }
         return res.json();
     };
@@ -51,8 +53,8 @@ export default function TenantHealthDashboard() {
     if (!isPro) {
         return (
             <PremiumBanner
-                title="Dashboard de Salud del Tenant"
-                description="Score compuesto que combina presupuesto, credenciales por expirar, optimización de recomendaciones y postura de seguridad en un solo número accionable."
+                title={t('title')}
+                description={t('subtitle')}
                 requiredTier="Professional"
                 icon="shield"
             />
@@ -63,7 +65,7 @@ export default function TenantHealthDashboard() {
         return (
             <div className="flex flex-col items-center justify-center py-20">
                 <Loader2 className="w-8 h-8 animate-spin text-brand-deep mb-4" />
-                <p className="text-gray-500">Calculando salud del tenant...</p>
+                <p className="text-gray-500">{t('loading')}</p>
             </div>
         );
     }
@@ -71,7 +73,7 @@ export default function TenantHealthDashboard() {
     if (error) {
         return (
             <div className="bg-red-50 text-red-600 p-4 rounded-lg border border-red-100">
-                <p className="font-bold">Error: {error.message}</p>
+                <p className="font-bold">{t('errors.errorLabel', { message: error.message })}</p>
             </div>
         );
     }
@@ -94,20 +96,20 @@ export default function TenantHealthDashboard() {
                         className="mt-3 px-3 py-1 rounded-full text-sm font-bold text-white"
                         style={{ backgroundColor: gradeColor(data.grade) }}
                     >
-                        Grado {data.grade}
+                        {t('gradeLabel', { grade: data.grade })}
                     </span>
-                    <p className="text-xs text-gray-400 mt-3 text-center">Score compuesto ponderado de las 4 señales de la derecha</p>
+                    <p className="text-xs text-gray-400 mt-3 text-center">{t('overallScoreDescription')}</p>
                 </div>
 
                 {/* Señales */}
                 <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-6 shadow-sm">
-                    <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Señales de Salud</h3>
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">{t('healthSignals')}</h3>
                     <div className="space-y-4">
                         {(data.signals || []).map((s: any) => (
                             <div key={s.key}>
                                 <div className="flex items-center justify-between mb-1">
                                     <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{s.label}</span>
-                                    <span className="text-sm font-bold text-gray-900 dark:text-white">{s.score}/100 <span className="text-gray-400 font-normal">(peso {s.weight}%)</span></span>
+                                    <span className="text-sm font-bold text-gray-900 dark:text-white">{s.score}/100 <span className="text-gray-400 font-normal">{t('weight', { weight: s.weight })}</span></span>
                                 </div>
                                 <div className="w-full h-2 rounded-full bg-gray-100 dark:bg-slate-800 overflow-hidden">
                                     <div className={`h-full rounded-full ${scoreBarColor(s.score)}`} style={{ width: `${Math.max(2, s.score)}%` }} />
@@ -121,12 +123,12 @@ export default function TenantHealthDashboard() {
 
             {data.trend && (
                 <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-6 shadow-sm">
-                    <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Tendencia (Demo)</h3>
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">{t('trendDemo')}</h3>
                     <div className="flex items-end gap-3 h-24">
-                        {data.trend.map((t: any) => (
-                            <div key={t.month} className="flex-1 flex flex-col items-center gap-1">
-                                <div className="w-full rounded-t bg-brand-deep/70" style={{ height: `${Math.max(4, t.score)}%` }} />
-                                <span className="text-[10px] text-gray-400">{t.month.slice(5)}</span>
+                        {data.trend.map((tr: any) => (
+                            <div key={tr.month} className="flex-1 flex flex-col items-center gap-1">
+                                <div className="w-full rounded-t bg-brand-deep/70" style={{ height: `${Math.max(4, tr.score)}%` }} />
+                                <span className="text-[10px] text-gray-400">{tr.month.slice(5)}</span>
                             </div>
                         ))}
                     </div>

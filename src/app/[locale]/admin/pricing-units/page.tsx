@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import { Database, Loader2, RefreshCw, Play, Search } from "lucide-react";
 import { useMsal } from "@azure/msal-react";
 import { fetchWithAuthRetry } from "@/lib/msalToken";
@@ -13,6 +14,7 @@ interface UnitRow {
 }
 
 export default function PricingUnitsPage() {
+    const t = useTranslations("AdminPricingUnits");
     const { instance, accounts } = useMsal();
     const account = accounts[0];
     const [units, setUnits] = useState<UnitRow[]>([]);
@@ -30,11 +32,11 @@ export default function PricingUnitsPage() {
         try {
             const res = await fetchWithAuthRetry(instance, account, "/api/admin/pricing-units");
             const json = await res.json();
-            if (!json.success) setError(json.error || "Error");
+            if (!json.success) setError(json.error || t("errorGeneric"));
             else setUnits(json.items || []);
         } catch (e: any) { setError(e?.message); }
         finally { setLoading(false); }
-    }, [instance, account]);
+    }, [instance, account, t]);
 
     useEffect(() => { load(); }, [load]);
 
@@ -43,8 +45,8 @@ export default function PricingUnitsPage() {
         try {
             const res = await fetchWithAuthRetry(instance, account, "/api/admin/pricing-units", { method: "POST" });
             const json = await res.json();
-            if (!json.success) setError(json.error || "Error al reseed");
-            else { setInfo(`Reseed: ${json.inserted ?? "?"} inserted, ${json.skipped ?? "?"} skipped`); await load(); }
+            if (!json.success) setError(json.error || t("errorReseed"));
+            else { setInfo(t("reseedResult", { inserted: json.inserted ?? "?", skipped: json.skipped ?? "?" })); await load(); }
         } catch (e: any) { setError(e?.message); }
         finally { setReseeding(false); }
     };
@@ -55,7 +57,7 @@ export default function PricingUnitsPage() {
             const url = `/api/admin/pricing-units?test=${encodeURIComponent(testUom)}&qty=${encodeURIComponent(testQty)}`;
             const res = await fetchWithAuthRetry(instance, account, url);
             const json = await res.json();
-            if (!json.success) setError(json.error || "Error");
+            if (!json.success) setError(json.error || t("errorGeneric"));
             else setTestResult(json.output || json);
         } catch (e: any) { setError(e?.message); }
     };
@@ -70,9 +72,9 @@ export default function PricingUnitsPage() {
         <div className="p-6 space-y-6">
             <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div>
-                    <h1 className="text-2xl font-bold flex items-center gap-2"><Database className="w-6 h-6" /> Pricing Unit Normalizer</h1>
+                    <h1 className="text-2xl font-bold flex items-center gap-2"><Database className="w-6 h-6" /> {t("title")}</h1>
                     <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                        Tabla curada de Units of Measure de Azure Billing para normalizar agregados (Hours, GB, Transactions, Tokens, etc.).
+                        {t("subtitle")}
                     </p>
                 </div>
                 <button
@@ -81,7 +83,7 @@ export default function PricingUnitsPage() {
                     className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm flex items-center gap-2 disabled:opacity-50"
                 >
                     {reseeding ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                    Reseed
+                    {t("reseed")}
                 </button>
             </div>
 
@@ -89,20 +91,20 @@ export default function PricingUnitsPage() {
             {info && <div className="bg-green-50 border border-green-200 text-green-700 px-3 py-2 rounded text-sm">{info}</div>}
 
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                <h2 className="font-semibold mb-3 flex items-center gap-2"><Play className="w-4 h-4" /> Probar normalización</h2>
+                <h2 className="font-semibold mb-3 flex items-center gap-2"><Play className="w-4 h-4" /> {t("testNormalization")}</h2>
                 <div className="flex flex-wrap gap-3 items-end">
                     <div>
-                        <label className="block text-xs font-medium mb-1">Unit of Measure</label>
+                        <label className="block text-xs font-medium mb-1">{t("unitOfMeasure")}</label>
                         <input value={testUom} onChange={e => setTestUom(e.target.value)}
                             className="border rounded px-3 py-2 text-sm dark:bg-gray-900 w-56" placeholder="100 Hours" />
                     </div>
                     <div>
-                        <label className="block text-xs font-medium mb-1">Quantity</label>
+                        <label className="block text-xs font-medium mb-1">{t("quantity")}</label>
                         <input value={testQty} onChange={e => setTestQty(e.target.value)}
                             className="border rounded px-3 py-2 text-sm dark:bg-gray-900 w-32" />
                     </div>
                     <button onClick={runTest} className="bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded text-sm">
-                        Test
+                        {t("test")}
                     </button>
                 </div>
                 {testResult && (
@@ -114,24 +116,24 @@ export default function PricingUnitsPage() {
 
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
                 <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                    <h2 className="font-semibold">Catálogo ({units.length} UoMs)</h2>
+                    <h2 className="font-semibold">{t("catalog", { count: units.length })}</h2>
                     <div className="flex items-center gap-2">
                         <Search className="w-4 h-4 text-gray-400" />
                         <input value={filter} onChange={e => setFilter(e.target.value)}
-                            placeholder="Filtrar…" className="border rounded px-3 py-1.5 text-sm dark:bg-gray-900 w-56" />
+                            placeholder={t("filterPlaceholder")} className="border rounded px-3 py-1.5 text-sm dark:bg-gray-900 w-56" />
                     </div>
                 </div>
                 {loading ? (
-                    <div className="flex items-center gap-2 text-sm text-gray-500"><Loader2 className="w-4 h-4 animate-spin" /> Cargando…</div>
+                    <div className="flex items-center gap-2 text-sm text-gray-500"><Loader2 className="w-4 h-4 animate-spin" /> {t("loading")}</div>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead><tr className="border-b text-left text-xs uppercase text-gray-500">
-                                <th className="py-2 pr-3">UoM crudo</th>
-                                <th className="py-2 pr-3">Block size</th>
-                                <th className="py-2 pr-3">Base unit</th>
-                                <th className="py-2 pr-3">Display</th>
-                                <th className="py-2 pr-3">Categoría</th>
+                                <th className="py-2 pr-3">{t("colRawUom")}</th>
+                                <th className="py-2 pr-3">{t("colBlockSize")}</th>
+                                <th className="py-2 pr-3">{t("colBaseUnit")}</th>
+                                <th className="py-2 pr-3">{t("colDisplay")}</th>
+                                <th className="py-2 pr-3">{t("colCategory")}</th>
                             </tr></thead>
                             <tbody>
                                 {filtered.map(u => (
@@ -148,7 +150,7 @@ export default function PricingUnitsPage() {
                                     </tr>
                                 ))}
                                 {filtered.length === 0 && (
-                                    <tr><td colSpan={5} className="py-4 text-center text-gray-500 italic">Sin resultados</td></tr>
+                                    <tr><td colSpan={5} className="py-4 text-center text-gray-500 italic">{t("noResults")}</td></tr>
                                 )}
                             </tbody>
                         </table>

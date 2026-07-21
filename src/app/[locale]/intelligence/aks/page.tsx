@@ -1,8 +1,11 @@
 import React from 'react';
+import { getTranslations } from 'next-intl/server';
 import MockBanner from '@/components/MockBanner';
 import AksIntelligence from '@/components/dashboard/AksIntelligence';
 
-export default function AksPage() {
+export default async function AksPage() {
+    const t = await getTranslations('IntelligenceAks');
+
     return (
         <div className="content animate-in fade-in">
             <MockBanner />
@@ -10,9 +13,9 @@ export default function AksPage() {
                 <div>
                     <div className="vt">
                         <span className="vico bg-gradient-to-br from-[#0054A6] to-[#00AEEF]">⚙️</span>
-                        Inteligencia de AKS
+                        {t('title')}
                     </div>
-                    <div className="vs">Auditoría de gasto estructural y visibilidad de clústeres de Kubernetes (AKS)</div>
+                    <div className="vs">{t('subtitle')}</div>
                 </div>
             </div>
 

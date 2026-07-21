@@ -53,6 +53,7 @@ const TYPE_BADGE: Record<string, string> = {
 const PAGE_SIZE = 15;
 
 export default function NetworkingZombiesPanel() {
+    const t = useTranslations("NetworkingZombies");
     const tm = useTranslations("Mock");
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
@@ -71,7 +72,7 @@ export default function NetworkingZombiesPanel() {
         });
         if (!res.ok) {
             const json = await res.json();
-            throw new Error(json.error || "Error al cargar datos");
+            throw new Error(json.error || t("loadError"));
         }
         return res.json();
     };
@@ -123,7 +124,7 @@ export default function NetworkingZombiesPanel() {
                 }),
             });
             const json = await res.json();
-            if (!res.ok) return { ok: false, error: json.error || "Fallo al eliminar" };
+            if (!res.ok) return { ok: false, error: json.error || t("deleteFailed") };
             return { ok: true };
         } catch (err: any) {
             return { ok: false, error: err.message };
@@ -132,24 +133,24 @@ export default function NetworkingZombiesPanel() {
 
     const handleDelete = async (item: ZombieItem) => {
         if (!selectedTenant) return;
-        if (!window.confirm(`¿Estás completamente seguro de ELIMINAR el recurso ${item.resourceName} (${item.resourceType}) permanentemente? Esto impactará los costos en Azure al instante.`)) return;
+        if (!window.confirm(t("confirmDeleteSingle", { name: item.resourceName, type: item.resourceType }))) return;
 
         setDeletingId(item.resourceId);
         const result = await deleteResourceItem(item);
         if (result.ok) {
             removeFromCache(new Set([item.resourceId]));
-            toast.success("Recurso Eliminado", { description: `${item.resourceName} fue destruido.` });
+            toast.success(t("deletedToastTitle"), { description: t("deletedToastDescription", { name: item.resourceName }) });
         } else if (result.error === "MISSING_CONTRIBUTOR_ROLE") {
-            toast.error("¡Operación Denegada!", { description: "La eliminación de recursos requiere el plan Enterprise (tu Service Principal no tiene el rol de Azure necesario)." });
+            toast.error(t("deniedToastTitle"), { description: t("deniedToastDescriptionSingle") });
         } else {
-            toast.error("Error al borrar", { description: result.error });
+            toast.error(t("deleteErrorToastTitle"), { description: result.error });
         }
         setDeletingId(null);
     };
 
     const handleBulkDelete = async (items: ZombieItem[]) => {
         if (!selectedTenant || items.length === 0) return;
-        if (!window.confirm(`¿Estás completamente seguro de ELIMINAR permanentemente ${items.length} recursos seleccionados? Esto impactará los costos en Azure al instante y no se puede deshacer.`)) return;
+        if (!window.confirm(t("confirmDeleteBulk", { count: items.length }))) return;
 
         setBulkDeleting(true);
         const removed = new Set<string>();
@@ -166,9 +167,9 @@ export default function NetworkingZombiesPanel() {
         setBulkDeleting(false);
         setSelectedIds(new Set());
 
-        if (ok > 0) toast.success(`${ok} recurso(s) eliminados`, { description: "Eliminación en bulk completada." });
-        if (missingRole > 0) toast.error("¡Operación Denegada!", { description: `${missingRole} recurso(s) requieren el plan Enterprise para poder eliminarse.` });
-        if (failed > 0) toast.error("Error al eliminar", { description: `${failed} recurso(s) fallaron.` });
+        if (ok > 0) toast.success(t("bulkDeletedToastTitle", { count: ok }), { description: t("bulkDeletedToastDescription") });
+        if (missingRole > 0) toast.error(t("deniedToastTitle"), { description: t("deniedToastDescriptionBulk", { count: missingRole }) });
+        if (failed > 0) toast.error(t("bulkDeleteErrorToastTitle"), { description: t("bulkDeleteErrorToastDescription", { count: failed }) });
     };
 
     const handleTagSubmit = async () => {
@@ -192,7 +193,7 @@ export default function NetworkingZombiesPanel() {
                     }),
                 });
                 const json = await res.json();
-                if (!res.ok) throw new Error(json.details || json.error || "Fallo al aplicar etiquetas");
+                if (!res.ok) throw new Error(json.details || json.error || t("tagApplyFailed"));
                 ok++;
             } catch {
                 failed++;
@@ -203,8 +204,8 @@ export default function NetworkingZombiesPanel() {
         setTaggingItems([]);
         setSelectedIds(new Set());
 
-        if (ok > 0) toast.success(ok === 1 ? "Etiquetas aplicadas exitosamente." : `Etiquetas aplicadas a ${ok} recursos.`);
-        if (failed > 0) toast.error(`${failed} recurso(s) fallaron al etiquetar.`);
+        if (ok > 0) toast.success(ok === 1 ? t("tagsAppliedSingle") : t("tagsAppliedMultiple", { count: ok }));
+        if (failed > 0) toast.error(t("tagsFailedToast", { count: failed }));
     };
 
     if (!selectedTenant || selectedTenant.id === "default") return null;
@@ -213,7 +214,7 @@ export default function NetworkingZombiesPanel() {
         return (
             <div className="flex flex-col items-center justify-center py-20">
                 <Loader2 className="w-8 h-8 animate-spin text-brand-deep mb-4" />
-                <p className="text-gray-500 dark:text-gray-400">Detectando recursos de red zombies...</p>
+                <p className="text-gray-500 dark:text-gray-400">{t("loadingMessage")}</p>
             </div>
         );
     }
@@ -221,11 +222,11 @@ export default function NetworkingZombiesPanel() {
     if (error) {
         const requiredTier = parseTierRequiredError(error.message);
         if (requiredTier) {
-            return <TierLockedNotice requiredTier={requiredTier} currentTier={(selectedTenant as any)?.tier} featureName="Networking Zombies" />;
+            return <TierLockedNotice requiredTier={requiredTier} currentTier={(selectedTenant as any)?.tier} featureName={t("featureName")} />;
         }
         return (
             <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg border border-red-100 dark:border-red-900/50">
-                <h3 className="font-bold flex items-center gap-2"><AlertCircle className="w-4 h-4" /> Error</h3>
+                <h3 className="font-bold flex items-center gap-2"><AlertCircle className="w-4 h-4" /> {t("errorHeading")}</h3>
                 <p className="text-sm">{error.message}</p>
             </div>
         );
@@ -262,53 +263,53 @@ export default function NetworkingZombiesPanel() {
             {/* Summary KPI */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-5">
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Recursos Detectados</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t("kpiDetectedLabel")}</p>
                     <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">{items.length}</p>
-                    <p className="text-xs text-slate-400 mt-1">VNet, vWAN, ExpressRoute, Firewall, Bastion, Front Door, DNS y más</p>
+                    <p className="text-xs text-slate-400 mt-1">{t("kpiDetectedSub")}</p>
                 </div>
                 <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-5">
                     <p className="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
                         <DollarSign className="w-3 h-3" />
-                        Desperdicio Mensual
+                        {t("kpiWasteLabel")}
                     </p>
                     <p className="text-2xl font-bold text-red-600 dark:text-red-400">${totalWaste.toFixed(2)}</p>
-                    <p className="text-xs text-slate-400 mt-1">costo mensual acumulado</p>
+                    <p className="text-xs text-slate-400 mt-1">{t("kpiWasteSub")}</p>
                 </div>
                 <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-5">
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Ahorro Anual Estimado</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t("kpiSavingsLabel")}</p>
                     <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">${(totalWaste * 12).toFixed(2)}</p>
-                    <p className="text-xs text-slate-400 mt-1">si se eliminan todos</p>
+                    <p className="text-xs text-slate-400 mt-1">{t("kpiSavingsSub")}</p>
                 </div>
             </div>
 
             {/* Bulk action bar */}
             {selectedIds.size > 0 && (
                 <div className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-xl border border-blue-200 dark:border-blue-800/50">
-                    <span className="text-sm font-semibold text-blue-800 dark:text-blue-300">{selectedIds.size} seleccionado(s)</span>
+                    <span className="text-sm font-semibold text-blue-800 dark:text-blue-300">{t("selectedCount", { count: selectedIds.size })}</span>
                     <button
                         onClick={() => {
                             setTaggingItems(selectedItems);
                             setTagValues({ CostCenter: "", Environment: "", Owner: "" });
                         }}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold bg-white dark:bg-slate-800 border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+                        className="flex items-center gap-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-100 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-blue-200 dark:border-blue-800/50 transition-colors"
                     >
-                        <Tag className="w-3.5 h-3.5" /> Etiquetar seleccionados
+                        <Tag className="w-3.5 h-3.5" /> {t("tagSelected")}
                     </button>
                     {canDelete ? (
                         <button
                             onClick={() => handleBulkDelete(selectedItems)}
                             disabled={bulkDeleting}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/50 hover:bg-red-100 dark:hover:bg-red-950/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            className="flex items-center gap-1.5 text-xs font-semibold text-red-700 dark:text-red-300 hover:text-red-900 dark:hover:text-red-100 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-red-200 dark:border-red-800/50 transition-colors disabled:opacity-50"
                         >
-                            <Trash2 className="w-3.5 h-3.5" /> {bulkDeleting ? "Eliminando..." : "Eliminar seleccionados"}
+                            <Trash2 className="w-3.5 h-3.5" /> {bulkDeleting ? t("deleting") : t("deleteSelected")}
                         </button>
                     ) : (
-                        <span className="px-3 py-1.5 rounded-md text-xs font-semibold bg-gray-100 dark:bg-slate-800 text-gray-400 dark:text-slate-500 border border-gray-200 dark:border-slate-700" title="La eliminación de recursos requiere el plan Enterprise">
-                            Eliminar — requiere Enterprise
+                        <span className="text-xs font-medium text-gray-400 dark:text-slate-500 px-3 py-1.5">
+                            {t("deleteRequiresEnterprise")}
                         </span>
                     )}
                     <button onClick={() => setSelectedIds(new Set())} className="ml-auto text-xs text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 font-semibold">
-                        Limpiar selección
+                        {t("clearSelection")}
                     </button>
                 </div>
             )}
@@ -317,7 +318,7 @@ export default function NetworkingZombiesPanel() {
             <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm">
                 <div className="px-4 py-3 border-b border-gray-100 dark:border-slate-800 flex items-center gap-2">
                     <Network className="w-4 h-4 text-cyan-500" />
-                    <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">Recursos de Red Zombies</h3>
+                    <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">{t("tableTitle")}</h3>
                     <span className="ml-auto text-xs font-medium px-2 py-0.5 bg-gray-100 dark:bg-slate-800 text-gray-500 rounded-full">
                         {items.length}
                     </span>
@@ -325,7 +326,7 @@ export default function NetworkingZombiesPanel() {
                 {items.length === 0 ? (
                     <div className="py-16 text-center text-slate-500 dark:text-slate-400">
                         <Network className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                        <p className="font-medium">No se detectaron recursos de red zombies</p>
+                        <p className="font-medium">{t("emptyState")}</p>
                     </div>
                 ) : (
                     <>
@@ -349,13 +350,13 @@ export default function NetworkingZombiesPanel() {
                                                 className="cursor-pointer"
                                             />
                                         </th>
-                                        <th className="px-4 py-3 font-semibold">Recurso</th>
-                                        <th className="px-4 py-3 font-semibold">Tipo</th>
-                                        <th className="px-4 py-3 font-semibold">Resource Group</th>
-                                        <th className="px-4 py-3 font-semibold">Motivo</th>
-                                        <th className="px-4 py-3 font-semibold text-right">Días Idle</th>
-                                        <th className="px-4 py-3 font-semibold text-right">Costo/Mes</th>
-                                        {canDelete && <th className="px-4 py-3 font-semibold text-right">Acción</th>}
+                                        <th className="px-4 py-3 font-semibold">{t("colResource")}</th>
+                                        <th className="px-4 py-3 font-semibold">{t("colType")}</th>
+                                        <th className="px-4 py-3 font-semibold">{t("colResourceGroup")}</th>
+                                        <th className="px-4 py-3 font-semibold">{t("colReason")}</th>
+                                        <th className="px-4 py-3 font-semibold text-right">{t("colDaysIdle")}</th>
+                                        <th className="px-4 py-3 font-semibold text-right">{t("colMonthlyCost")}</th>
+                                        {canDelete && <th className="px-4 py-3 font-semibold text-right">{t("colAction")}</th>}
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 dark:divide-slate-800/50">
@@ -382,7 +383,7 @@ export default function NetworkingZombiesPanel() {
                                                 {item.reason}
                                             </td>
                                             <td className="px-4 py-3 text-right">
-                                                <span className={`px-2 py-0.5 rounded text-xs font-bold ${item.daysIdle >= 30 ? "bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-400" : "bg-yellow-100 dark:bg-yellow-950/40 text-yellow-700 dark:text-yellow-400"}`}>
+                                                <span className="text-slate-600 dark:text-slate-300">
                                                     {item.daysIdle}d
                                                 </span>
                                             </td>
@@ -394,15 +395,15 @@ export default function NetworkingZombiesPanel() {
                                                     <button
                                                         onClick={() => handleDelete(item)}
                                                         disabled={deletingId === item.resourceId}
-                                                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-950/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                                        title={`Eliminar ${item.resourceName}`}
+                                                        className="inline-flex items-center gap-1 text-xs font-semibold text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 disabled:opacity-50"
+                                                        title={t("deleteTitle", { name: item.resourceName })}
                                                     >
                                                         {deletingId === item.resourceId ? (
                                                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
                                                         ) : (
                                                             <Trash2 className="w-3.5 h-3.5" />
                                                         )}
-                                                        Eliminar
+                                                        {t("delete")}
                                                     </button>
                                                 </td>
                                             )}
@@ -415,25 +416,25 @@ export default function NetworkingZombiesPanel() {
                         {/* Pagination */}
                         <div className="px-4 py-3 border-t border-gray-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
                             <span>
-                                Mostrando {safePageIndex * PAGE_SIZE + 1}–{Math.min(items.length, safePageIndex * PAGE_SIZE + PAGE_SIZE)} de {items.length}
+                                {t("paginationShowing", { from: safePageIndex * PAGE_SIZE + 1, to: Math.min(items.length, safePageIndex * PAGE_SIZE + PAGE_SIZE), total: items.length })}
                             </span>
                             <div className="flex items-center gap-2">
                                 <button
                                     onClick={() => setPageIndex((p) => Math.max(0, p - 1))}
                                     disabled={safePageIndex === 0}
-                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg font-semibold bg-gray-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                    className="flex items-center gap-1 px-2 py-1 rounded-md border border-gray-200 dark:border-slate-700 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-slate-800"
                                 >
-                                    <ChevronLeft className="w-3.5 h-3.5" /> Anterior
+                                    <ChevronLeft className="w-3.5 h-3.5" /> {t("previous")}
                                 </button>
                                 <span className="px-2 font-medium text-slate-700 dark:text-slate-200">
-                                    Página {safePageIndex + 1} de {pageCount}
+                                    {t("paginationPage", { page: safePageIndex + 1, total: pageCount })}
                                 </span>
                                 <button
                                     onClick={() => setPageIndex((p) => Math.min(pageCount - 1, p + 1))}
                                     disabled={safePageIndex >= pageCount - 1}
-                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg font-semibold bg-gray-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                    className="flex items-center gap-1 px-2 py-1 rounded-md border border-gray-200 dark:border-slate-700 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-slate-800"
                                 >
-                                    Siguiente <ChevronRight className="w-3.5 h-3.5" />
+                                    {t("next")} <ChevronRight className="w-3.5 h-3.5" />
                                 </button>
                             </div>
                         </div>
@@ -445,22 +446,30 @@ export default function NetworkingZombiesPanel() {
             {taggingItems.length > 0 && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
                     <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl p-6 w-[450px] animate-in zoom-in-95">
-                        <h3 className="text-xl font-bold text-gray-900 dark:text-slate-100 mb-2">Fijar Etiquetas FinOps</h3>
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-slate-100 mb-2">{t("tagModalTitle")}</h3>
                         <p className="text-sm text-gray-500 dark:text-slate-400 mb-4">
                             {taggingItems.length === 1 ? (
-                                <>Estás a punto de etiquetar el recurso <span className="font-mono font-semibold text-gray-700 dark:text-slate-300">{taggingItems[0].resourceName}</span>.</>
+                                t.rich("tagModalDescSingle", {
+                                    name: taggingItems[0].resourceName,
+                                    mono: (chunks) => <span className="font-mono font-semibold text-gray-700 dark:text-slate-300">{chunks}</span>,
+                                })
                             ) : (
-                                <>Estás a punto de etiquetar <span className="font-semibold text-gray-700 dark:text-slate-300">{taggingItems.length} recursos</span> seleccionados con las mismas etiquetas.</>
+                                t.rich("tagModalDescMultiple", {
+                                    count: taggingItems.length,
+                                    strong: (chunks) => <span className="font-semibold text-gray-700 dark:text-slate-300">{chunks}</span>,
+                                })
                             )}{" "}
-                            Las políticas FinOps requieren 3 etiquetas fundamentales: <b>CostCenter</b> (quién paga), <b>Environment</b> (producción/dev) y <b>Owner</b> (responsable técnico).
+                            {t.rich("tagModalPolicyNote", {
+                                b: (chunks) => <b>{chunks}</b>,
+                            })}
                         </p>
                         <div className="space-y-4 mb-6">
                             <div>
                                 <label className="block text-xs font-bold text-gray-700 dark:text-slate-300 mb-1">CostCenter</label>
                                 <input
                                     type="text"
-                                    className="w-full border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-md px-3 py-2 text-sm text-gray-900 dark:text-slate-100 focus:outline-none focus:border-[#0054A6] focus:ring-1 focus:ring-[#0054A6]"
-                                    placeholder="Ej: Marketing, IT, HR..."
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-700 dark:bg-slate-800 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-deep"
+                                    placeholder={t("costCenterPlaceholder")}
                                     value={tagValues.CostCenter}
                                     onChange={(e) => setTagValues({ ...tagValues, CostCenter: e.target.value })}
                                 />
@@ -468,11 +477,11 @@ export default function NetworkingZombiesPanel() {
                             <div>
                                 <label className="block text-xs font-bold text-gray-700 dark:text-slate-300 mb-1">Environment</label>
                                 <select
-                                    className="w-full border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-md px-3 py-2 text-sm text-gray-900 dark:text-slate-100 focus:outline-none focus:border-[#0054A6] focus:ring-1 focus:ring-[#0054A6]"
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-700 dark:bg-slate-800 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-deep"
                                     value={tagValues.Environment}
                                     onChange={(e) => setTagValues({ ...tagValues, Environment: e.target.value })}
                                 >
-                                    <option value="">Selecciona un entorno...</option>
+                                    <option value="">{t("environmentPlaceholder")}</option>
                                     <option value="Production">Production</option>
                                     <option value="Staging">Staging</option>
                                     <option value="Development">Development</option>
@@ -483,8 +492,8 @@ export default function NetworkingZombiesPanel() {
                                 <label className="block text-xs font-bold text-gray-700 dark:text-slate-300 mb-1">Owner</label>
                                 <input
                                     type="text"
-                                    className="w-full border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-md px-3 py-2 text-sm text-gray-900 dark:text-slate-100 focus:outline-none focus:border-[#0054A6] focus:ring-1 focus:ring-[#0054A6]"
-                                    placeholder="Ej: juan.perez@empresa.com"
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-700 dark:bg-slate-800 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-deep"
+                                    placeholder={t("ownerPlaceholder")}
                                     value={tagValues.Owner}
                                     onChange={(e) => setTagValues({ ...tagValues, Owner: e.target.value })}
                                 />
@@ -495,14 +504,14 @@ export default function NetworkingZombiesPanel() {
                                 onClick={() => setTaggingItems([])}
                                 className="px-4 py-2 text-sm font-semibold text-gray-600 dark:text-slate-300 hover:text-gray-900 dark:hover:text-slate-100 bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 rounded-md transition-colors"
                             >
-                                Cancelar
+                                {t("cancel")}
                             </button>
                             <button
                                 onClick={handleTagSubmit}
                                 disabled={isTagging || !tagValues.CostCenter || !tagValues.Environment || !tagValues.Owner}
                                 className="px-4 py-2 text-sm font-semibold text-white bg-[#0054A6] hover:bg-[#00AEEF] rounded-md transition-colors disabled:opacity-50 flex items-center"
                             >
-                                {isTagging ? "Aplicando..." : "Aplicar Etiquetas"}
+                                {isTagging ? t("applying") : t("applyTags")}
                             </button>
                         </div>
                     </div>

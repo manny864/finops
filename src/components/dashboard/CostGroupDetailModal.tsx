@@ -8,7 +8,7 @@ import { getFreshIdToken } from "@/lib/msalToken";
 import Pagination, { usePagination } from "@/components/Pagination";
 import {
     X, Loader2, AlertCircle, DollarSign, Users, Lightbulb, Boxes, ShieldAlert,
-    ChevronRight, TrendingUp, TrendingDown, ScrollText, Info, Plus, Trash2,
+    ChevronRight, TrendingUp, TrendingDown, ScrollText, Info, Plus, Trash2, Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -219,17 +219,167 @@ function ManualResourceGroupsPanel({
     );
 }
 
-export default function CostGroupDetailModal({ name, tenantId, onClose }: { name: string; tenantId: string; onClose: () => void }) {
+type MatchType = "tag" | "name_pattern";
+
+function EditCostGroupModal({
+    name, tenantId, initial, onClose, onSaved,
+}: {
+    name: string;
+    tenantId: string;
+    initial: { description: string | null; matchType: MatchType; matchTagKey: string | null; matchTagValue: string | null; matchRgPattern: string | null };
+    onClose: () => void;
+    onSaved: () => void;
+}) {
+    const t = useTranslations("CostGroups");
+    const { instance, accounts } = useMsal();
+    const [description, setDescription] = useState(initial.description || "");
+    const [matchType, setMatchType] = useState<MatchType>(initial.matchType);
+    const [rgPattern, setRgPattern] = useState(initial.matchRgPattern || "");
+    const [tagKey, setTagKey] = useState(initial.matchTagKey || "");
+    const [tagValue, setTagValue] = useState(initial.matchTagValue || "");
+    const [saving, setSaving] = useState(false);
+
+    const save = async () => {
+        if (matchType === "name_pattern" && !rgPattern.trim()) { toast.error(t("create_error_pattern_required")); return; }
+        if (matchType === "tag" && (!tagKey.trim() || !tagValue.trim())) { toast.error(t("create_error_tag_required")); return; }
+
+        setSaving(true);
+        try {
+            const idToken = await getFreshIdToken(instance, accounts[0], ["User.Read"]);
+            const res = await fetch(`/api/cost-groups/${encodeURIComponent(name)}`, {
+                method: "PATCH",
+                headers: { Authorization: `Bearer ${idToken}`, "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    tenantId,
+                    description: description.trim() || undefined,
+                    matchType,
+                    ...(matchType === "name_pattern" ? { rgPattern: rgPattern.trim() } : { tagKey: tagKey.trim(), tagValue: tagValue.trim() }),
+                }),
+            });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.error || "Error");
+            toast.success(t("edit_success"));
+            onSaved();
+            onClose();
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : t("create_error_generic"));
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/40 z-[10000] grid place-items-center p-4" onClick={() => !saving && onClose()}>
+            <div className="bg-white dark:bg-slate-900 rounded-xl w-full max-w-md p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+                <h4 className="font-bold text-[15px] text-gray-900 dark:text-white mb-1">{t("edit_title", { name })}</h4>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">{t("edit_subtitle")}</p>
+
+                <div className="flex flex-col gap-3">
+                    <div>
+                        <label className="text-xs font-semibold text-gray-500">{t("create_description")}</label>
+                        <input
+                            value={description} onChange={(e) => setDescription(e.target.value)} maxLength={1000}
+                            className="w-full border border-gray-200 dark:border-slate-700 rounded-md p-2 text-sm mt-1 bg-transparent"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="text-xs font-semibold text-gray-500 mb-1.5 block">{t("create_rule_type")}</label>
+                        <div className="flex gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setMatchType("name_pattern")}
+                                className={`flex-1 px-3 py-2 rounded-md text-xs font-bold border transition-colors ${matchType === "name_pattern" ? "bg-brand-deep text-white border-brand-deep" : "border-gray-200 dark:border-slate-700 text-gray-600 dark:text-gray-300"}`}
+                            >
+                                {t("create_rule_pattern")}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setMatchType("tag")}
+                                className={`flex-1 px-3 py-2 rounded-md text-xs font-bold border transition-colors ${matchType === "tag" ? "bg-brand-deep text-white border-brand-deep" : "border-gray-200 dark:border-slate-700 text-gray-600 dark:text-gray-300"}`}
+                            >
+                                {t("create_rule_tag")}
+                            </button>
+                        </div>
+                    </div>
+
+                    {matchType === "name_pattern" ? (
+                        <div>
+                            <label className="text-xs font-semibold text-gray-500">{t("create_rg_pattern")}</label>
+                            <input
+                                value={rgPattern} onChange={(e) => setRgPattern(e.target.value)}
+                                placeholder="rg-prod-%"
+                                className="w-full border border-gray-200 dark:border-slate-700 rounded-md p-2 text-sm mt-1 bg-transparent font-mono"
+                            />
+                            <p className="text-[11px] text-gray-400 mt-1">{t("create_rg_pattern_hint")}</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="text-xs font-semibold text-gray-500">{t("create_tag_key")}</label>
+                                <input
+                                    value={tagKey} onChange={(e) => setTagKey(e.target.value)} placeholder="Team"
+                                    className="w-full border border-gray-200 dark:border-slate-700 rounded-md p-2 text-sm mt-1 bg-transparent"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs font-semibold text-gray-500">{t("create_tag_value")}</label>
+                                <input
+                                    value={tagValue} onChange={(e) => setTagValue(e.target.value)} placeholder="platform"
+                                    className="w-full border border-gray-200 dark:border-slate-700 rounded-md p-2 text-sm mt-1 bg-transparent"
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="flex justify-end gap-2 mt-2">
+                        <button onClick={onClose} disabled={saving} className="px-4 py-2 text-sm font-semibold text-gray-500 hover:text-gray-800 dark:hover:text-gray-200">
+                            {t("create_cancel")}
+                        </button>
+                        <button onClick={save} disabled={saving} className="px-4 py-2 bg-brand-deep text-white rounded-md text-sm font-bold flex items-center gap-2 disabled:opacity-50 hover:brightness-110">
+                            {saving && <Loader2 className="w-4 h-4 animate-spin" />} {t("edit_submit")}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+export default function CostGroupDetailModal({ name, tenantId, onClose, onUpdated }: { name: string; tenantId: string; onClose: () => void; onUpdated?: () => void }) {
     const t = useTranslations("CostGroups");
     const locale = useLocale();
     const { instance, accounts } = useMsal();
     const [tab, setTab] = useState<Tab>("current_fy");
+    const [editing, setEditing] = useState(false);
+    const [deleting, setDeleting] = useState(false);
 
     const fetcher = async (url: string) => {
         const idToken = await getFreshIdToken(instance, accounts[0], ["User.Read"]);
         const res = await fetch(url, { headers: { Authorization: `Bearer ${idToken}`, "x-tenant-id": tenantId } });
         if (!res.ok) { const j = await res.json(); throw new Error(j.details || j.error || "Error"); }
         return res.json();
+    };
+
+    const handleDelete = async () => {
+        if (!confirm(t("delete_confirm", { name }))) return;
+        setDeleting(true);
+        try {
+            const idToken = await getFreshIdToken(instance, accounts[0], ["User.Read"]);
+            const res = await fetch(`/api/cost-groups/${encodeURIComponent(name)}?tenantId=${tenantId}`, {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${idToken}` },
+            });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.error || "Error");
+            toast.success(t("delete_success"));
+            onUpdated?.();
+            onClose();
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : t("create_error_generic"));
+        } finally {
+            setDeleting(false);
+        }
     };
 
     const { data, error, isLoading, mutate } = useSWR(
@@ -261,9 +411,30 @@ export default function CostGroupDetailModal({ name, tenantId, onClose }: { name
             <div className="bg-gray-50 dark:bg-slate-950 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[92vh] overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200">
                 {/* Header */}
                 <div className="flex items-start justify-between px-6 py-4 border-b border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-                    <div>
-                        <h2 className="text-lg font-bold text-gray-900 dark:text-white">{name}</h2>
-                        {data?.description && <p className="text-sm text-gray-500 dark:text-gray-400">{data.description}</p>}
+                    <div className="flex items-center gap-2">
+                        <div>
+                            <h2 className="text-lg font-bold text-gray-900 dark:text-white">{name}</h2>
+                            {data?.description && <p className="text-sm text-gray-500 dark:text-gray-400">{data.description}</p>}
+                        </div>
+                        {data?.isCustom && (
+                            <>
+                                <button
+                                    onClick={() => setEditing(true)}
+                                    title={t("edit_button")}
+                                    className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-400 hover:text-brand-deep dark:hover:text-brand-bright cursor-pointer shrink-0"
+                                >
+                                    <Pencil className="w-4 h-4" />
+                                </button>
+                                <button
+                                    onClick={handleDelete}
+                                    disabled={deleting}
+                                    title={t("delete_button")}
+                                    className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-600 dark:hover:text-red-400 cursor-pointer shrink-0 disabled:opacity-50"
+                                >
+                                    {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                                </button>
+                            </>
+                        )}
                     </div>
                     <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-500 dark:text-gray-400 cursor-pointer">
                         <X className="w-5 h-5" />
@@ -631,6 +802,22 @@ export default function CostGroupDetailModal({ name, tenantId, onClose }: { name
                     )}
                 </div>
             </div>
+
+            {editing && data?.isCustom && (
+                <EditCostGroupModal
+                    name={name}
+                    tenantId={tenantId}
+                    initial={{
+                        description: data.description,
+                        matchType: (data.matchType || "name_pattern") as MatchType,
+                        matchTagKey: data.matchTagKey,
+                        matchTagValue: data.matchTagValue,
+                        matchRgPattern: data.matchRgPattern,
+                    }}
+                    onClose={() => setEditing(false)}
+                    onSaved={() => { mutate(); onUpdated?.(); }}
+                />
+            )}
         </div>
     );
 }

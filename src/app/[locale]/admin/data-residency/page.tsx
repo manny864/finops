@@ -1,18 +1,11 @@
 "use client";
 import React, { useState, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { Globe, Lock, Unlock, Copy, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { getFreshIdToken } from '@/lib/msalToken';
-
-const REGIONS = [
-    { code: 'EU', flag: '🇪🇺', label: 'Europe (GDPR)' },
-    { code: 'US', flag: '🇺🇸', label: 'United States' },
-    { code: 'LATAM', flag: '🌎', label: 'Latin America' },
-    { code: 'APAC', flag: '🌏', label: 'Asia Pacific' },
-    { code: 'GLOBAL', flag: '🌐', label: 'Global (Default)' },
-];
 
 const REGION_SUBPROCESSORS: Record<string, string[]> = {
     EU: ['AWS (Frankfurt)', 'Google Cloud (Belgium)', 'Azure (Netherlands)'],
@@ -39,8 +32,17 @@ interface ResidencyChange {
 }
 
 export default function DataResidencyPage() {
+    const t = useTranslations('AdminDataResidency');
     const { selectedTenant, userRole, systemRole } = useTenant();
     const { instance, accounts } = useMsal();
+
+    const REGIONS = [
+        { code: 'EU', flag: '🇪🇺', label: t('regions.eu') },
+        { code: 'US', flag: '🇺🇸', label: t('regions.us') },
+        { code: 'LATAM', flag: '🌎', label: t('regions.latam') },
+        { code: 'APAC', flag: '🌏', label: t('regions.apac') },
+        { code: 'GLOBAL', flag: '🌐', label: t('regions.global') },
+    ];
 
     const [residencyInfo, setResidencyInfo] = useState<DataResidencyInfo | null>(null);
     const [selectedRegion, setSelectedRegion] = useState<string>('');
@@ -84,11 +86,11 @@ export default function DataResidencyPage() {
                 loadChangeHistory();
             } else {
                 const data = await res.json();
-                toast.error(data.error || 'Failed to load data residency info');
+                toast.error(data.error || t('toasts.loadInfoFailed'));
             }
         } catch (e) {
             console.error('Error loading residency info:', e);
-            toast.error('Error loading data residency information');
+            toast.error(t('toasts.loadInfoError'));
         } finally {
             setLoading(false);
         }
@@ -106,17 +108,17 @@ export default function DataResidencyPage() {
 
     const handleRegionChange = async () => {
         if (!selectedTenant || selectedTenant.id === 'default') {
-            toast.error('Select a valid tenant first');
+            toast.error(t('toasts.selectTenantFirst'));
             return;
         }
 
         if (selectedRegion === residencyInfo?.region && !reason) {
-            toast.error('Please select a different region or provide a reason');
+            toast.error(t('toasts.selectDifferentRegion'));
             return;
         }
 
         if (isLocked && selectedRegion !== residencyInfo?.region) {
-            toast.error('Data residency is locked. Contact support to unlock.');
+            toast.error(t('toasts.lockedContactSupport'));
             return;
         }
 
@@ -138,17 +140,17 @@ export default function DataResidencyPage() {
             });
 
             if (res.ok) {
-                toast.success(`Data residency changed to ${selectedRegion}`);
+                toast.success(t('toasts.changedSuccess', { region: selectedRegion }));
                 await loadResidencyInfo();
                 setReason('');
                 setLockConfirm(false);
             } else {
                 const data = await res.json();
-                toast.error(data.error || 'Failed to change data residency');
+                toast.error(data.error || t('toasts.changeFailed'));
             }
         } catch (e) {
             console.error('Error changing residency:', e);
-            toast.error('Error saving changes');
+            toast.error(t('toasts.saveError'));
         } finally {
             setSaving(false);
         }
@@ -156,12 +158,12 @@ export default function DataResidencyPage() {
 
     const handleLockRegion = async () => {
         if (!selectedTenant || selectedTenant.id === 'default') {
-            toast.error('Select a valid tenant first');
+            toast.error(t('toasts.selectTenantFirst'));
             return;
         }
 
         if (!isOwner) {
-            toast.error('Only tenant owners can lock data residency');
+            toast.error(t('toasts.ownerOnly'));
             return;
         }
 
@@ -179,16 +181,16 @@ export default function DataResidencyPage() {
             });
 
             if (res.ok) {
-                toast.success('Data residency region locked');
+                toast.success(t('toasts.lockSuccess'));
                 await loadResidencyInfo();
                 setLockConfirm(false);
             } else {
                 const data = await res.json();
-                toast.error(data.error || 'Failed to lock region');
+                toast.error(data.error || t('toasts.lockFailed'));
             }
         } catch (e) {
             console.error('Error locking region:', e);
-            toast.error('Error locking region');
+            toast.error(t('toasts.lockError'));
         } finally {
             setSaving(false);
         }
@@ -198,7 +200,7 @@ export default function DataResidencyPage() {
         return (
             <div className="p-6">
                 <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4">
-                    <p className="text-yellow-800">Please select a tenant to view data residency settings.</p>
+                    <p className="text-yellow-800">{t('selectTenantPrompt')}</p>
                 </div>
             </div>
         );
@@ -219,7 +221,7 @@ export default function DataResidencyPage() {
         return (
             <div className="p-6">
                 <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-                    <p className="text-red-800">Failed to load data residency information.</p>
+                    <p className="text-red-800">{t('loadFailed')}</p>
                 </div>
             </div>
         );
@@ -231,8 +233,8 @@ export default function DataResidencyPage() {
             <div className="flex items-center gap-3">
                 <Globe className="h-8 w-8 text-blue-600" />
                 <div>
-                    <h1 className="text-3xl font-bold">Data Residency</h1>
-                    <p className="text-gray-600">Declare your preferred data storage region</p>
+                    <h1 className="text-3xl font-bold">{t('pageTitle')}</h1>
+                    <p className="text-gray-600">{t('pageSubtitle')}</p>
                 </div>
             </div>
 
@@ -240,7 +242,7 @@ export default function DataResidencyPage() {
             <div className="rounded-lg border border-blue-200 bg-blue-50 p-6">
                 <div className="flex items-start justify-between">
                     <div>
-                        <p className="text-sm font-medium text-blue-600">Current Region</p>
+                        <p className="text-sm font-medium text-blue-600">{t('currentRegion')}</p>
                         <div className="mt-2 flex items-center gap-2">
                             <span className="text-4xl">
                                 {REGIONS.find(r => r.code === residencyInfo.region)?.flag}
@@ -250,7 +252,7 @@ export default function DataResidencyPage() {
                                     {REGIONS.find(r => r.code === residencyInfo.region)?.label}
                                 </p>
                                 <p className="text-sm text-gray-600">
-                                    Code: <code className="font-mono">{residencyInfo.region}</code>
+                                    {t('codeLabel')} <code className="font-mono">{residencyInfo.region}</code>
                                 </p>
                             </div>
                         </div>
@@ -258,13 +260,13 @@ export default function DataResidencyPage() {
                     {isLocked && (
                         <div className="flex items-center gap-2 rounded bg-amber-100 px-3 py-2 text-amber-700">
                             <Lock className="h-4 w-4" />
-                            <span className="text-sm font-medium">Locked</span>
+                            <span className="text-sm font-medium">{t('locked')}</span>
                         </div>
                     )}
                 </div>
                 {isLocked && (
                     <p className="mt-4 text-xs text-gray-600">
-                        Locked since {new Date(residencyInfo.locked_at!).toLocaleDateString()}. Contact support to unlock.
+                        {t('lockedSince', { date: new Date(residencyInfo.locked_at!).toLocaleDateString() })}
                     </p>
                 )}
             </div>
@@ -272,7 +274,7 @@ export default function DataResidencyPage() {
             {/* Region Selector */}
             {!isLocked && isOwner && (
                 <div className="rounded-lg border p-6">
-                    <h2 className="mb-4 text-lg font-semibold">Select New Region</h2>
+                    <h2 className="mb-4 text-lg font-semibold">{t('selectNewRegion')}</h2>
                     <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
                         {REGIONS.map((region) => (
                             <button
@@ -294,12 +296,12 @@ export default function DataResidencyPage() {
                     {/* Reason Field */}
                     <div className="mt-6">
                         <label className="block text-sm font-medium">
-                            Reason for Change (Optional)
+                            {t('reasonLabel')}
                         </label>
                         <textarea
                             value={reason}
                             onChange={(e) => setReason(e.target.value)}
-                            placeholder="Explain why you're changing the data residency region..."
+                            placeholder={t('reasonPlaceholder')}
                             rows={3}
                             className="mt-2 w-full rounded border border-gray-300 p-3 text-sm"
                         />
@@ -312,7 +314,7 @@ export default function DataResidencyPage() {
                             disabled={saving || selectedRegion === residencyInfo.region}
                             className="rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-50"
                         >
-                            {saving ? 'Saving...' : 'Save Region Change'}
+                            {saving ? t('saving') : t('saveRegionChange')}
                         </button>
                     </div>
                 </div>
@@ -321,14 +323,14 @@ export default function DataResidencyPage() {
             {isLocked && isOwner && (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-800">
                     <p className="text-sm">
-                        Your data residency region is locked. Only support can unlock it. Please contact support to change your region.
+                        {t('lockedNotice')}
                     </p>
                 </div>
             )}
 
             {/* Region Information */}
             <div className="rounded-lg border p-6">
-                <h2 className="mb-4 text-lg font-semibold">Subprocessors by Region</h2>
+                <h2 className="mb-4 text-lg font-semibold">{t('subprocessorsByRegion')}</h2>
                 <div className="space-y-4">
                     {REGIONS.map((region) => (
                         <div
@@ -342,7 +344,7 @@ export default function DataResidencyPage() {
                                 <div className="flex-1">
                                     <p className="font-medium">{region.label}</p>
                                     <p className="text-sm text-gray-600 mt-1">
-                                        Subprocessors: {REGION_SUBPROCESSORS[region.code].join(', ')}
+                                        {t('subprocessorsLabel')} {REGION_SUBPROCESSORS[region.code].join(', ')}
                                     </p>
                                 </div>
                             </div>
@@ -350,9 +352,9 @@ export default function DataResidencyPage() {
                     ))}
                 </div>
                 <p className="mt-4 text-xs text-gray-600">
-                    For complete subprocessor information, see{' '}
+                    {t('subprocessorsFooter')}{' '}
                     <a href="/legal/subprocessors" className="text-blue-600 hover:underline">
-                        our subprocessors page
+                        {t('subprocessorsLinkText')}
                     </a>
                 </p>
             </div>
@@ -360,9 +362,9 @@ export default function DataResidencyPage() {
             {/* Lock Section */}
             {isOwner && !isLocked && (
                 <div className="rounded-lg border border-gray-200 p-6">
-                    <h2 className="mb-2 text-lg font-semibold">Lock Region Permanently</h2>
+                    <h2 className="mb-2 text-lg font-semibold">{t('lockRegionPermanently')}</h2>
                     <p className="mb-4 text-sm text-gray-600">
-                        Once locked, your data residency region can only be changed by CSCloudSolutions support.
+                        {t('lockRegionDescription')}
                     </p>
                     {!lockConfirm ? (
                         <button
@@ -370,13 +372,13 @@ export default function DataResidencyPage() {
                             className="rounded border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-700 hover:bg-amber-100"
                         >
                             <Lock className="mr-2 inline h-4 w-4" />
-                            Lock My Region
+                            {t('lockMyRegion')}
                         </button>
                     ) : (
                         <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-                            <p className="mb-4 font-medium text-amber-900">Are you sure?</p>
+                            <p className="mb-4 font-medium text-amber-900">{t('areYouSure')}</p>
                             <p className="mb-4 text-sm text-amber-800">
-                                Locking will prevent future region changes without support intervention.
+                                {t('lockConfirmDescription')}
                             </p>
                             <div className="flex gap-3">
                                 <button
@@ -384,14 +386,14 @@ export default function DataResidencyPage() {
                                     disabled={saving}
                                     className="rounded bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
                                 >
-                                    {saving ? 'Locking...' : 'Confirm Lock'}
+                                    {saving ? t('locking') : t('confirmLock')}
                                 </button>
                                 <button
                                     onClick={() => setLockConfirm(false)}
                                     disabled={saving}
                                     className="rounded border border-amber-300 px-4 py-2 text-sm font-medium text-amber-700 hover:bg-amber-50"
                                 >
-                                    Cancel
+                                    {t('cancel')}
                                 </button>
                             </div>
                         </div>
@@ -401,11 +403,9 @@ export default function DataResidencyPage() {
 
             {/* Info Box */}
             <div className="rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
-                <p className="font-medium mb-2">About Data Residency</p>
+                <p className="font-medium mb-2">{t('aboutTitle')}</p>
                 <p>
-                    Your selected region indicates where your data is preferentially stored. Currently, we maintain a single
-                    physical database deployment, so this is a declarative preference. As we expand, data will be routed
-                    according to your chosen region. This helps us comply with regulatory requirements like GDPR.
+                    {t('aboutDescription')}
                 </p>
             </div>
         </div>

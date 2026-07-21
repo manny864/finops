@@ -1,17 +1,19 @@
 import React from 'react';
+import { getTranslations } from 'next-intl/server';
 import RemediationApprovals from '@/components/dashboard/RemediationApprovals';
 import MockBanner from '@/components/MockBanner';
 
-export default function ApprovalsPage() {
+export default async function ApprovalsPage() {
+    const t = await getTranslations('RemediationApprovals');
     return (
         <div className="content animate-in fade-in">
             <div className="vhead">
                 <div>
                     <div className="vt">
                         <span className="vico bg-gradient-to-br from-[#F59E0B] to-[#D97706]">🛡️</span>
-                        Aprobaciones de Remediación
+                        {t('pageTitle')}
                     </div>
-                    <div className="vs">Flujo de autorización para la aplicación segura de cambios destructivos o de redimensionamiento (Rightsizing & Cleanup).</div>
+                    <div className="vs">{t('pageSubtitle')}</div>
                 </div>
             </div>
 
