@@ -1,13 +1,16 @@
+import { getTranslations } from "next-intl/server";
 import CapturedSavingsBoard from "@/components/dashboard/CapturedSavingsBoard";
 import MockBanner from "@/components/MockBanner";
 
-export default function CapturedSavingsPage() {
+export default async function CapturedSavingsPage() {
+    const t = await getTranslations("OverviewCapturedSavings");
+
     return (
         <div className="content animate-in fade-in duration-500">
             <div className="vhead">
                 <div className="title">
-                    <h1>Ahorro Capturado</h1>
-                    <p>Tendencia histórica del ahorro potencial detectado y del desperdicio identificado en cada escaneo automatizado.</p>
+                    <h1>{t("title")}</h1>
+                    <p>{t("subtitle")}</p>
                 </div>
             </div>
             <div className="mt-6">

@@ -4,7 +4,7 @@ import MockBanner from '@/components/MockBanner';
 import ZeroCostInventory from '@/components/dashboard/ZeroCostInventory';
 
 export default async function ZeroCostPage() {
-    const t = await getTranslations('Navigation'); // Or any other namespace if available
+    const t = await getTranslations('IntelligenceZeroCost');
 
     return (
         <div className="content animate-in fade-in">
@@ -13,9 +13,9 @@ export default async function ZeroCostPage() {
                 <div>
                     <div className="vt">
                         <span className="vico bg-gradient-to-br from-[#0054A6] to-[#00AEEF]">📦</span>
-                        Inventario de Costo Cero
+                        {t('title')}
                     </div>
-                    <div className="vs">Recursos sin costo base detectados en tu infraestructura</div>
+                    <div className="vs">{t('subtitle')}</div>
                 </div>
             </div>
 

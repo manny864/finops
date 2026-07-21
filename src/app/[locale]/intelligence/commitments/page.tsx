@@ -1,9 +1,11 @@
 import React from 'react';
+import { getTranslations } from 'next-intl/server';
 import Commitments from '@/components/dashboard/Commitments';
 import MockBanner from '@/components/MockBanner';
 import HistoryButton from '@/components/history/HistoryButton';
 
-export default function CommitmentsPage() {
+export default async function CommitmentsPage() {
+    const t = await getTranslations('Commitments');
     return (
         <div className="content animate-in fade-in">
             <MockBanner />
@@ -11,12 +13,12 @@ export default function CommitmentsPage() {
                 <div>
                     <div className="vt">
                         <span className="vico bg-gradient-to-br from-[#10B981] to-[#047857]">🔖</span>
-                        Descuentos por Compromiso (RIs)
+                        {t('pageTitle')}
                     </div>
-                    <div className="vs">Analiza la cobertura y utilización financiera de las reservas en tu infraestructura.</div>
+                    <div className="vs">{t('pageSubtitle')}</div>
                 </div>
                 <div className="right">
-                    <HistoryButton domain="commitments" title="Descuentos por Compromiso (RIs)" />
+                    <HistoryButton domain="commitments" title={t('pageTitle')} />
                 </div>
             </div>
 

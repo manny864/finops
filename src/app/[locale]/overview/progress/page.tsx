@@ -3,7 +3,7 @@ import MockBanner from '@/components/MockBanner';
 import React, { useEffect, useState } from 'react';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { TrendingUp, Loader2, MapPin, BarChart3, Check, Ruler, Moon, Flag, AlertTriangle } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useAIContext } from '@/hooks/useAIContext';
@@ -15,6 +15,7 @@ export default function HistoricalProgressPage() {
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const locale = useLocale();
+    const t = useTranslations("OverviewProgress");
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState<any[]>([]);
     const [advisorRecs, setAdvisorRecs] = useState<any[]>([]);
@@ -24,7 +25,7 @@ export default function HistoricalProgressPage() {
 
     useEffect(() => {
         if (data.length > 0 || advisorRecs.length > 0) {
-            setPageContext('Progreso Histórico', {
+            setPageContext(t('pageTitle'), {
                 scoreHistory: data,
                 recursosAfectados: advisorRecs
             });
@@ -103,8 +104,8 @@ export default function HistoricalProgressPage() {
         return (
             <div className="flex flex-col items-center justify-center h-96 bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-slate-800 shadow-sm">
                 <span className="text-4xl mb-4">🔐</span>
-                <h2 className="text-xl font-bold text-gray-700 dark:text-gray-300">Selecciona un Tenant</h2>
-                <p className="text-sm text-gray-500 mt-2">Debes seleccionar una organización para ver su progreso.</p>
+                <h2 className="text-xl font-bold text-gray-700 dark:text-gray-300">{t('selectTenantTitle')}</h2>
+                <p className="text-sm text-gray-500 mt-2">{t('selectTenantDesc')}</p>
             </div>
         );
     }
@@ -153,14 +154,14 @@ export default function HistoricalProgressPage() {
                 <div>
                     <div className="vt">
                         <span className="vico bg-gradient-to-br from-[#0054A6] to-[#00AEEF]"><TrendingUp className="w-4 h-4" /></span>
-                        Progreso Histórico
+                        {t('pageTitle')}
                     </div>
-                    <div className="vs">Evolución histórica del gasto y del ahorro capturado en el tenant.</div>
+                    <div className="vs">{t('pageSubtitle')}</div>
                 </div>
                 <div className="right">
                     <span className="bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full text-xs font-semibold flex items-center shadow-sm">
                         <MapPin className="w-3 h-3 mr-1 text-red-500 fill-red-500" />
-                        Tenant completo
+                        {t('fullTenant')}
                     </span>
                 </div>
             </div>
@@ -170,14 +171,14 @@ export default function HistoricalProgressPage() {
             {loading ? (
                 <div className="flex flex-col items-center justify-center h-64 text-gray-400">
                     <Loader2 className="w-8 h-8 animate-spin mb-4 text-emerald-500" />
-                    Cargando datos...
+                    {t('loadingData')}
                 </div>
             ) : data.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-64 bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm">
                     <BarChart3 className="w-12 h-12 text-slate-300 dark:text-slate-600 mb-3" />
-                    <h2 className="text-lg font-bold text-slate-500 dark:text-slate-400">Sin datos históricos</h2>
+                    <h2 className="text-lg font-bold text-slate-500 dark:text-slate-400">{t('noData.title')}</h2>
                     <p className="text-sm text-slate-400 text-center max-w-md">
-                        Aún no hay datos para mostrar.
+                        {t('noData.desc')}
                     </p>
                 </div>
             ) : (
@@ -185,21 +186,21 @@ export default function HistoricalProgressPage() {
                     {/* Summary Metric Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                         <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-4 flex flex-col justify-center">
-                            <h3 className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wide mb-3">Puntuación de Costo Actual</h3>
+                            <h3 className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wide mb-3">{t('metrics.currentScore')}</h3>
                             <div className="text-3xl font-extrabold text-emerald-500">
                                 {currentScore.toFixed(1)}%
                             </div>
                         </div>
-                        
+
                         <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-4 flex flex-col justify-center">
-                            <h3 className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wide mb-3">Mejora en Score Histórico</h3>
+                            <h3 className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wide mb-3">{t('metrics.scoreImprovement')}</h3>
                             <div className={`text-3xl font-extrabold ${scoreImprovement >= 0 ? 'text-blue-600' : 'text-rose-500'}`}>
                                 {scoreImprovement >= 0 ? `+${scoreImprovement.toFixed(1)}%` : `${scoreImprovement.toFixed(1)}%`}
                             </div>
                         </div>
-                        
+
                         <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-4 flex flex-col justify-center">
-                            <h3 className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wide mb-3">Recursos Afectados Críticos</h3>
+                            <h3 className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wide mb-3">{t('metrics.criticalResources')}</h3>
                             <div className="text-3xl font-extrabold text-amber-500">
                                 {currentImpacted}
                             </div>
@@ -211,10 +212,10 @@ export default function HistoricalProgressPage() {
                         <div className="flex justify-between items-center mb-6">
                             <div className="flex items-center text-slate-700 dark:text-slate-300 font-semibold text-sm">
                                 <BarChart3 className="w-4 h-4 mr-2 text-slate-400" />
-                                Historial de Optimización de Costos (Azure Advisor)
+                                {t('chart.title')}
                             </div>
                             <div className={`text-xs font-medium ${isDemo ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400'}`}>
-                                {isDemo ? 'Datos de demostración' : 'Datos reales de Azure'}
+                                {isDemo ? t('chart.demoData') : t('chart.realData')}
                             </div>
                         </div>
                         <div className="h-80 w-full font-sans relative">
@@ -269,8 +270,8 @@ export default function HistoricalProgressPage() {
                                         itemStyle={{ fontWeight: 'bold' }}
                                         labelFormatter={formatTooltipDate}
                                         formatter={(value: any, name: any) => {
-                                            if (name === "score") return [`${Number(value).toFixed(1)}%`, "Score de Optimización"];
-                                            return [`${value} rec.`, "Recursos Desoptimizados"];
+                                            if (name === "score") return [`${Number(value).toFixed(1)}%`, t('chart.optimizationScore')];
+                                            return [t('chart.resourceCount', { count: value }), t('chart.unoptimizedResources')];
                                         }}
                                     />
                                     <Legend
@@ -278,7 +279,7 @@ export default function HistoricalProgressPage() {
                                         align="right"
                                         height={32}
                                         iconType="circle"
-                                        formatter={(value: string) => value === 'score' ? 'Score de Optimización' : 'Recursos Desoptimizados'}
+                                        formatter={(value: string) => value === 'score' ? t('chart.optimizationScore') : t('chart.unoptimizedResources')}
                                         wrapperStyle={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-soft)' }}
                                     />
                                     <Area
@@ -315,21 +316,21 @@ export default function HistoricalProgressPage() {
                             <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900">
                                 <div className="flex items-center text-slate-700 dark:text-slate-300 font-bold text-sm">
                                     <AlertTriangle className="w-4 h-4 mr-2 text-amber-500" />
-                                    Recursos Afectados
+                                    {t('affectedResources.title')}
                                 </div>
                                 <span className="text-[10px] font-bold uppercase py-1 px-2 rounded-md bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
                                     Azure Advisor
                                 </span>
                             </div>
-                            
+
                             {advisorLoading ? (
                                 <div className="p-8 text-center text-slate-400 text-sm flex justify-center items-center gap-2">
                                     <Loader2 className="w-4 h-4 animate-spin text-amber-500" />
-                                    Cargando recomendaciones...
+                                    {t('affectedResources.loading')}
                                 </div>
                             ) : advisorRecs.length === 0 ? (
                                 <div className="p-8 text-center text-slate-400 text-sm">
-                                    Sin recursos afectados detectados por Advisor 🎉
+                                    {t('affectedResources.empty')}
                                 </div>
                             ) : (
                                 <div className="divide-y divide-gray-50 dark:divide-slate-800 max-h-96 overflow-y-auto">
@@ -354,7 +355,7 @@ export default function HistoricalProgressPage() {
                                                             if (field === 'Microsoft.Subscriptions/subscriptions' || rawId === rec.subscriptionId) {
                                                                 return subName;
                                                             }
-                                                            return rawId || field || "Recurso";
+                                                            return rawId || field || t('affectedResources.fallbackResource');
                                                         })()}
                                                     </div>
                                                     <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${catBadge}`}>
@@ -362,13 +363,13 @@ export default function HistoricalProgressPage() {
                                                     </span>
                                                 </div>
                                                 <div className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
-                                                    {rec.shortDescription?.problem || rec.shortDescription?.solution || "Recomendación de Advisor"}
+                                                    {rec.shortDescription?.problem || rec.shortDescription?.solution || t('affectedResources.fallbackDescription')}
                                                 </div>
                                                 <div className="flex flex-wrap justify-between items-center mt-3 pt-2 border-t border-slate-100 dark:border-slate-800/50 gap-2 text-[10px] text-slate-450 dark:text-slate-400">
                                                     <span className="font-medium break-all">{subName}</span>
                                                     {savings > 0 && (
                                                         <span className="font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap bg-emerald-50 dark:bg-emerald-950/30 px-2 py-0.5 rounded">
-                                                            -${savings.toFixed(0)}/mes
+                                                            -${savings.toFixed(0)}{t('affectedResources.perMonth')}
                                                         </span>
                                                     )}
                                                 </div>
@@ -383,37 +384,37 @@ export default function HistoricalProgressPage() {
                         <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 overflow-hidden">
                             <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-800 flex items-center text-slate-700 dark:text-slate-300 font-bold text-sm bg-white dark:bg-slate-900">
                                 <Flag className="w-4 h-4 mr-2 text-slate-500" />
-                                Hitos
+                                {t('milestones.title')}
                             </div>
                             <div className="divide-y divide-gray-50 dark:divide-slate-800">
-                                {/* Hito 1 */}
+                                {/* Milestone 1 */}
                                 <div className="p-4 flex items-start hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                     <div className="bg-emerald-100 dark:bg-emerald-900/30 p-2 rounded-lg mr-4 mt-1">
                                         <Check className="w-5 h-5 text-emerald-600 dark:text-emerald-400 stroke-[3]" />
                                     </div>
                                     <div>
-                                        <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">Onboarding del tenant</h4>
-                                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Conexión vía Entra ID y primera línea base de gasto establecida.</p>
+                                        <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">{t('milestones.onboarding.title')}</h4>
+                                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{t('milestones.onboarding.desc')}</p>
                                     </div>
                                 </div>
-                                {/* Hito 2 */}
+                                {/* Milestone 2 */}
                                 <div className="p-4 flex items-start hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                     <div className="bg-blue-50 dark:bg-blue-900/30 p-2 rounded-lg mr-4 mt-1 border border-blue-100 dark:border-blue-800/50">
                                         <Ruler className="w-5 h-5 text-blue-500 dark:text-blue-400" />
                                     </div>
                                     <div>
-                                        <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">Programa de rightsizing</h4>
-                                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Revisión continua de SKUs sobre métricas P95.</p>
+                                        <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">{t('milestones.rightsizing.title')}</h4>
+                                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{t('milestones.rightsizing.desc')}</p>
                                     </div>
                                 </div>
-                                {/* Hito 3 */}
+                                {/* Milestone 3 */}
                                 <div className="p-4 flex items-start hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                     <div className="bg-amber-50 dark:bg-amber-900/30 p-2 rounded-lg mr-4 mt-1 border border-amber-100 dark:border-amber-800/50">
                                         <Moon className="w-5 h-5 text-amber-500 dark:text-amber-400 fill-amber-500 dark:fill-amber-400" />
                                     </div>
                                     <div>
-                                        <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">Apagado automático en no-productivos</h4>
-                                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Power schedules activos en QA y DEV.</p>
+                                        <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">{t('milestones.autoShutdown.title')}</h4>
+                                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{t('milestones.autoShutdown.desc')}</p>
                                     </div>
                                 </div>
                             </div>

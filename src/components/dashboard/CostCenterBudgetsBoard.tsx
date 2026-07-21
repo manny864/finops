@@ -3,6 +3,7 @@ import React, { useMemo, useState } from "react";
 import useSWR from "swr";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Loader2, AlertCircle, Wallet, AlertTriangle, Pencil, Check, X } from "lucide-react";
 import { getFreshIdToken } from "@/lib/msalToken";
@@ -28,7 +29,7 @@ function Kpi({ label, value, icon: Icon, tone }: { label: string; value: string;
     );
 }
 
-function BudgetCell({ costCenter, isAdmin, onSaved }: { costCenter: any; isAdmin: boolean; onSaved: (name: string, value: number) => void }) {
+function BudgetCell({ costCenter, isAdmin, onSaved, t }: { costCenter: any; isAdmin: boolean; onSaved: (name: string, value: number) => void; t: ReturnType<typeof useTranslations> }) {
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const [editing, setEditing] = useState(false);
@@ -38,7 +39,7 @@ function BudgetCell({ costCenter, isAdmin, onSaved }: { costCenter: any; isAdmin
     const save = async () => {
         const num = Number(value);
         if (!Number.isFinite(num) || num < 0) {
-            toast.error("Ingresá un presupuesto válido (>= 0).");
+            toast.error(t("invalidBudget"));
             return;
         }
         setSaving(true);
@@ -50,12 +51,12 @@ function BudgetCell({ costCenter, isAdmin, onSaved }: { costCenter: any; isAdmin
                 body: JSON.stringify({ tenantId: selectedTenant.id, costCenterName: costCenter.name, monthlyBudgetUsd: num }),
             });
             const json = await res.json();
-            if (!res.ok) throw new Error(json.error || "Error al guardar");
-            toast.success("Presupuesto actualizado.");
+            if (!res.ok) throw new Error(json.error || t("saveError"));
+            toast.success(t("saveSuccess"));
             onSaved(costCenter.name, num);
             setEditing(false);
         } catch (e: any) {
-            toast.error(e.message || "Error al guardar");
+            toast.error(e.message || t("saveError"));
         }
         setSaving(false);
     };
@@ -64,10 +65,10 @@ function BudgetCell({ costCenter, isAdmin, onSaved }: { costCenter: any; isAdmin
         return (
             <div className="flex items-center gap-2">
                 <span className={costCenter.budget === null ? "text-gray-400 italic" : "text-gray-700 dark:text-gray-300"}>
-                    {costCenter.budget === null ? "Sin definir" : fmtUsd(costCenter.budget)}
+                    {costCenter.budget === null ? t("budgetNotSet") : fmtUsd(costCenter.budget)}
                 </span>
                 {isAdmin && (
-                    <button onClick={() => setEditing(true)} className="text-gray-400 hover:text-brand-deep" title="Editar presupuesto">
+                    <button onClick={() => setEditing(true)} className="text-gray-400 hover:text-brand-deep" title={t("editBudgetTooltip")}>
                         <Pencil className="w-3.5 h-3.5" />
                     </button>
                 )}
@@ -85,10 +86,10 @@ function BudgetCell({ costCenter, isAdmin, onSaved }: { costCenter: any; isAdmin
                 autoFocus
                 className="w-24 px-2 py-1 border border-gray-300 dark:border-slate-700 rounded-md text-sm bg-white dark:bg-slate-900"
             />
-            <button onClick={save} disabled={saving} className="text-emerald-600 hover:text-emerald-700 disabled:opacity-50" title="Guardar">
+            <button onClick={save} disabled={saving} className="text-emerald-600 hover:text-emerald-700 disabled:opacity-50" title={t("saveTooltip")}>
                 <Check className="w-4 h-4" />
             </button>
-            <button onClick={() => setEditing(false)} disabled={saving} className="text-gray-400 hover:text-gray-600" title="Cancelar">
+            <button onClick={() => setEditing(false)} disabled={saving} className="text-gray-400 hover:text-gray-600" title={t("cancelTooltip")}>
                 <X className="w-4 h-4" />
             </button>
         </div>
@@ -96,6 +97,7 @@ function BudgetCell({ costCenter, isAdmin, onSaved }: { costCenter: any; isAdmin
 }
 
 export default function CostCenterBudgetsBoard() {
+    const t = useTranslations("IntelligenceCostCenters");
     const { selectedTenant, userRole, systemRole } = useTenant();
     const { instance, accounts } = useMsal();
     const isAdmin = userRole === "Admin" || userRole === "Owner" || systemRole === "SUPERADMIN";
@@ -103,7 +105,7 @@ export default function CostCenterBudgetsBoard() {
     const fetcher = async (url: string) => {
         const idToken = await getFreshIdToken(instance, accounts[0]);
         const res = await fetch(url, { headers: { Authorization: `Bearer ${idToken}` } });
-        if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || "Error al cargar datos"); }
+        if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || t("loadError")); }
         return res.json();
     };
 
@@ -133,7 +135,7 @@ export default function CostCenterBudgetsBoard() {
         return (
             <div className="flex flex-col items-center justify-center py-24">
                 <Loader2 className="w-8 h-8 animate-spin text-brand-deep mb-4" />
-                <p className="text-gray-500 dark:text-gray-400">Cargando presupuesto por centro de costos...</p>
+                <p className="text-gray-500 dark:text-gray-400">{t("loading")}</p>
             </div>
         );
     }
@@ -141,11 +143,11 @@ export default function CostCenterBudgetsBoard() {
     if (error) {
         const requiredTier = parseTierRequiredError(error.message);
         if (requiredTier) {
-            return <TierLockedNotice requiredTier={requiredTier} currentTier={(selectedTenant as any)?.tier} featureName="Presupuestos por Centro de Costos" />;
+            return <TierLockedNotice requiredTier={requiredTier} currentTier={(selectedTenant as any)?.tier} featureName={t("errorFeatureName")} />;
         }
         return (
             <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg border border-red-100 dark:border-red-900/50">
-                <h3 className="font-bold flex items-center gap-2"><AlertCircle className="w-4 h-4" /> Error</h3>
+                <h3 className="font-bold flex items-center gap-2"><AlertCircle className="w-4 h-4" /> {t("errorTitle")}</h3>
                 <p className="text-sm">{error.message}</p>
             </div>
         );
@@ -154,34 +156,34 @@ export default function CostCenterBudgetsBoard() {
     return (
         <div className="w-full space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <Kpi label="Gasto del Mes" value={fmtUsd(data?.totalSpend)} icon={Wallet} tone="bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400" />
-                <Kpi label="Presupuesto Total Asignado" value={fmtUsd(data?.totalBudget)} icon={Wallet} tone="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400" />
-                <Kpi label="Centros sobre Presupuesto" value={String(data?.overBudgetCount ?? 0)} icon={AlertTriangle} tone="bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400" />
+                <Kpi label={t("kpiSpend")} value={fmtUsd(data?.totalSpend)} icon={Wallet} tone="bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400" />
+                <Kpi label={t("kpiBudget")} value={fmtUsd(data?.totalBudget)} icon={Wallet} tone="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400" />
+                <Kpi label={t("kpiOverBudget")} value={String(data?.overBudgetCount ?? 0)} icon={AlertTriangle} tone="bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400" />
             </div>
 
             <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50">
-                    <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">Centros de Costo ({costCenters.length})</h3>
+                    <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">{t("tableTitle", { count: costCenters.length })}</h3>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        Agrupado por el tag de Azure <code className="bg-gray-100 dark:bg-slate-800 px-1 rounded">CostCenter</code>.
-                        {isAdmin ? " Hacé clic en el lápiz para asignar o editar un presupuesto mensual." : " Solo un Administrador puede editar los presupuestos."}
+                        {t("groupedByTagPrefix")} <code className="bg-gray-100 dark:bg-slate-800 px-1 rounded">CostCenter</code>{t("groupedByTagSuffix")}
+                        {isAdmin ? t("editHintAdmin") : t("editHintReadonly")}
                     </p>
                 </div>
                 <div className="p-6">
                     {costCenters.length === 0 ? (
                         <div className="text-sm text-gray-500 bg-gray-50 dark:bg-slate-800 p-4 rounded-md border border-gray-100 dark:border-slate-700">
-                            No hay datos de costo agrupados por centro de costos todavía.
+                            {t("emptyState")}
                         </div>
                     ) : (
                         <div className="overflow-x-auto custom-scrollbar" style={{ scrollbarWidth: "thin" }}>
                             <table className="min-w-full table-fixed divide-y divide-gray-200 dark:divide-slate-700">
                                 <thead className="bg-gray-50 dark:bg-slate-900">
                                     <tr>
-                                        <ResizableTh minWidth={160} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Centro de Costos</ResizableTh>
-                                        <ResizableTh minWidth={130} className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Gasto del Mes</ResizableTh>
-                                        <ResizableTh minWidth={110} className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">vs. Mes Anterior</ResizableTh>
-                                        <ResizableTh minWidth={150} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Presupuesto Mensual</ResizableTh>
-                                        <ResizableTh minWidth={140} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Uso</ResizableTh>
+                                        <ResizableTh minWidth={160} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t("colCostCenter")}</ResizableTh>
+                                        <ResizableTh minWidth={130} className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{t("kpiSpend")}</ResizableTh>
+                                        <ResizableTh minWidth={110} className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{t("colChangeVsPrevMonth")}</ResizableTh>
+                                        <ResizableTh minWidth={150} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t("colMonthlyBudget")}</ResizableTh>
+                                        <ResizableTh minWidth={140} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t("colUsage")}</ResizableTh>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-slate-700">
@@ -193,7 +195,7 @@ export default function CostCenterBudgetsBoard() {
                                                 {c.changePct > 0 ? "+" : ""}{c.changePct}%
                                             </td>
                                             <td className="px-6 py-4 whitespace-normal break-words text-sm">
-                                                <BudgetCell costCenter={c} isAdmin={isAdmin} onSaved={handleBudgetSaved} />
+                                                <BudgetCell costCenter={c} isAdmin={isAdmin} onSaved={handleBudgetSaved} t={t} />
                                             </td>
                                             <td className="px-6 py-4 whitespace-normal break-words text-sm">
                                                 {c.pctUsed === null ? (

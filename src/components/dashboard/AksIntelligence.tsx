@@ -1,6 +1,7 @@
 "use client";
 import React from 'react';
 import useSWR from 'swr';
+import { useTranslations } from 'next-intl';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { Loader2, Server, DollarSign, Box } from 'lucide-react';
@@ -11,6 +12,7 @@ import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLocke
 const currencyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 
 export default function AksIntelligence() {
+    const t = useTranslations('IntelligenceAks');
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
 
@@ -25,7 +27,7 @@ export default function AksIntelligence() {
 
         if (!res.ok) {
             const json = await res.json();
-            throw new Error(json.details || json.error || "Error al cargar datos de AKS");
+            throw new Error(json.details || json.error || t('fetchError'));
         }
 
         return res.json();
@@ -47,7 +49,7 @@ export default function AksIntelligence() {
         return (
             <div className="flex flex-col items-center justify-center py-20">
                 <Loader2 className="w-8 h-8 animate-spin text-brand-deep mb-4" />
-                <p className="text-gray-500 dark:text-gray-400">Calculando gasto oculto de AKS en Azure...</p>
+                <p className="text-gray-500 dark:text-gray-400">{t('loading')}</p>
             </div>
         );
     }
@@ -59,7 +61,7 @@ export default function AksIntelligence() {
         }
         return (
             <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg border border-red-100 dark:border-red-900/50">
-                <h3 className="font-bold">Error en la consulta de AKS</h3>
+                <h3 className="font-bold">{t('queryErrorTitle')}</h3>
                 <p className="text-sm">{error.message}</p>
             </div>
         );
@@ -77,7 +79,7 @@ export default function AksIntelligence() {
                         <DollarSign className="w-6 h-6" />
                     </div>
                     <div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Gasto Total en AKS (Mes Actual)</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">{t('totalSpendLabel')}</p>
                         <p className="text-2xl font-bold text-gray-900 dark:text-white">
                             {currencyFormatter.format(totalAksSpend)}
                         </p>
@@ -89,7 +91,7 @@ export default function AksIntelligence() {
                         <Server className="w-6 h-6" />
                     </div>
                     <div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Clústeres Gestionados</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">{t('managedClustersLabel')}</p>
                         <p className="text-2xl font-bold text-gray-900 dark:text-white">
                             {clusters.length}
                         </p>
@@ -101,26 +103,26 @@ export default function AksIntelligence() {
             {clusters.length === 0 ? (
                 <div className="text-center py-12 bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm">
                     <Box className="w-12 h-12 mx-auto text-slate-300 dark:text-slate-600 mb-3" />
-                    <p className="text-slate-500 dark:text-slate-400 text-lg">No se detectaron clústeres de AKS en las suscripciones seleccionadas.</p>
+                    <p className="text-slate-500 dark:text-slate-400 text-lg">{t('emptyState')}</p>
                 </div>
             ) : (
                 <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
                     <div className="p-5 border-b border-gray-100 dark:border-slate-800">
-                        <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">Desglose por Clúster</h3>
+                        <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">{t('breakdownTitle')}</h3>
                         <p className="text-xs text-gray-500 mt-1">
-                            El costo incluye los recursos subyacentes (VMSS, Discos, Load Balancers) ubicados en el Resource Group automático de cada clúster.
+                            {t('breakdownSubtitle')}
                         </p>
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full text-left text-sm">
                             <thead className="bg-gray-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">
                                 <tr>
-                                    <th className="px-5 py-4 font-semibold">Clúster AKS</th>
-                                    <th className="px-5 py-4 font-semibold">Grupo de Recursos Principal</th>
-                                    <th className="px-5 py-4 font-semibold">Grupo de Infraestructura (Nodos)</th>
-                                    <th className="px-5 py-4 font-semibold text-right">Nodos (MTD)</th>
-                                    <th className="px-5 py-4 font-semibold text-right">Control Plane</th>
-                                    <th className="px-5 py-4 font-semibold text-right">Costo Total MTD</th>
+                                    <th className="px-5 py-4 font-semibold">{t('clusterCol')}</th>
+                                    <th className="px-5 py-4 font-semibold">{t('resourceGroupCol')}</th>
+                                    <th className="px-5 py-4 font-semibold">{t('nodeResourceGroupCol')}</th>
+                                    <th className="px-5 py-4 font-semibold text-right">{t('nodesCol')}</th>
+                                    <th className="px-5 py-4 font-semibold text-right">{t('controlPlaneCol')}</th>
+                                    <th className="px-5 py-4 font-semibold text-right">{t('totalCostCol')}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 dark:divide-slate-800/50">
@@ -132,7 +134,7 @@ export default function AksIntelligence() {
                                         </td>
                                         <td className="px-5 py-4 text-slate-600 dark:text-slate-300">{cluster.resourceGroup}</td>
                                         <td className="px-5 py-4 text-slate-600 dark:text-slate-300 font-mono text-xs">
-                                            {cluster.nodeResourceGroup || <span className="text-gray-400 italic">Desconocido</span>}
+                                            {cluster.nodeResourceGroup || <span className="text-gray-400 italic">{t('unknown')}</span>}
                                         </td>
                                         <td className="px-5 py-4 text-right text-slate-700 dark:text-slate-300 tabular-nums">
                                             {currencyFormatter.format(cluster.nodeRgCost || 0)}

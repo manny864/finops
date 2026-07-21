@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useTenant } from "@/components/TenantProvider";
 import { useSubscription } from "@/components/SubscriptionProvider";
 import { useMsal } from "@azure/msal-react";
@@ -11,6 +12,7 @@ import CostPieChart from "@/components/CostPieChart";
 import ZombieResourcesTable from "@/components/ZombieResourcesTable";
 
 export default function FinancialLeaksBoard() {
+    const t = useTranslations("OverviewFinancialLeaks");
     const { selectedTenant } = useTenant();
     const { selectedSubscription } = useSubscription();
     const { instance, accounts } = useMsal();
@@ -36,10 +38,10 @@ export default function FinancialLeaksBoard() {
                     headers: { Authorization: `Bearer ${idToken}` },
                 });
                 const json = await res.json();
-                if (!res.ok) throw new Error(json.error || "Error al cargar datos");
+                if (!res.ok) throw new Error(json.error || t("errorLoading"));
                 if (!cancelled) setDashboardData(json.dashboardData || []);
             } catch (e: any) {
-                if (!cancelled) setError(e.message || "Error al cargar datos");
+                if (!cancelled) setError(e.message || t("errorLoading"));
             }
             if (!cancelled) setLoading(false);
         })();
@@ -67,7 +69,7 @@ export default function FinancialLeaksBoard() {
         return (
             <div className="flex flex-col items-center justify-center py-24">
                 <Loader2 className="w-8 h-8 animate-spin text-brand-deep mb-4" />
-                <p className="text-gray-500 dark:text-gray-400">Calculando fugas financieras...</p>
+                <p className="text-gray-500 dark:text-gray-400">{t("calculatingLeaks")}</p>
             </div>
         );
     }
@@ -75,7 +77,7 @@ export default function FinancialLeaksBoard() {
     if (error) {
         return (
             <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg border border-red-100 dark:border-red-900/50">
-                <h3 className="font-bold flex items-center gap-2"><AlertCircle className="w-4 h-4" /> Error</h3>
+                <h3 className="font-bold flex items-center gap-2"><AlertCircle className="w-4 h-4" /> {t("error")}</h3>
                 <p className="text-sm">{error}</p>
             </div>
         );
@@ -85,21 +87,21 @@ export default function FinancialLeaksBoard() {
         <div className="w-full space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm p-4 flex flex-col">
-                    <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-3">Distribución por Categoría</h3>
-                    <p className="text-sm text-ink-soft mb-2">Hacé clic en un segmento para ver los recursos afectados.</p>
+                    <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-3">{t("distributionByCategory")}</h3>
+                    <p className="text-sm text-ink-soft mb-2">{t("clickSegmentHint")}</p>
                     <CostPieChart data={dashboardData} onSegmentClick={(cat) => setSelectedCategory(cat)} />
                 </div>
 
                 <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm p-4 flex flex-col">
-                    <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-3">Desglose por Tipo de Recurso</h3>
-                    <p className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 mb-3">{format(totalLeak)} <span className="text-xs font-normal text-slate-400">fuga total detectada</span></p>
+                    <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-3">{t("breakdownByResourceType")}</h3>
+                    <p className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 mb-3">{format(totalLeak)} <span className="text-xs font-normal text-slate-400">{t("totalLeakDetected")}</span></p>
                     <div className="flex-1 overflow-y-auto max-h-[280px] custom-scrollbar">
                         <table className="min-w-full text-sm">
                             <thead>
                                 <tr className="text-left text-[11px] text-slate-400 uppercase">
-                                    <th className="py-1.5 pr-2">Tipo</th>
-                                    <th className="py-1.5 pr-2 text-right">Recursos</th>
-                                    <th className="py-1.5 text-right">Ahorro Potencial</th>
+                                    <th className="py-1.5 pr-2">{t("type")}</th>
+                                    <th className="py-1.5 pr-2 text-right">{t("resources")}</th>
+                                    <th className="py-1.5 text-right">{t("potentialSavings")}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
@@ -111,7 +113,7 @@ export default function FinancialLeaksBoard() {
                                     </tr>
                                 ))}
                                 {breakdown.length === 0 && (
-                                    <tr><td colSpan={3} className="py-6 text-center text-slate-400">Sin fugas detectadas.</td></tr>
+                                    <tr><td colSpan={3} className="py-6 text-center text-slate-400">{t("noLeaksDetected")}</td></tr>
                                 )}
                             </tbody>
                         </table>
@@ -123,10 +125,10 @@ export default function FinancialLeaksBoard() {
                 <div className="animate-in slide-in-from-bottom-4 duration-500 card">
                     <div className="flex items-center justify-between mb-4">
                         <h3 className="text-xl font-bold text-[var(--brand-deep)]">
-                            Recursos Afectados: <span className="text-[var(--brand)]">{selectedCategory}</span>
+                            {t("affectedResources")}: <span className="text-[var(--brand)]">{selectedCategory}</span>
                         </h3>
                         <button onClick={() => setSelectedCategory(null)} className="text-sm text-gray-500 hover:text-[var(--brand-deep)] transition-colors inline-flex items-center gap-1.5">
-                            <X className="w-4 h-4" /> Limpiar Filtro
+                            <X className="w-4 h-4" /> {t("clearFilter")}
                         </button>
                     </div>
                     <ZombieResourcesTable forceFilterType={selectedCategory} />

@@ -1,9 +1,12 @@
 import React from "react";
+import { getTranslations } from "next-intl/server";
 import MockBanner from '@/components/MockBanner';
 import TenantHealthDashboard from "@/components/dashboard/TenantHealthDashboard";
 import { HeartPulse } from "lucide-react";
 
-export default function TenantHealthPage() {
+export default async function TenantHealthPage() {
+    const t = await getTranslations("IntelligenceTenantHealth");
+
     return (
         <div className="content animate-in fade-in">
             <MockBanner />
@@ -13,9 +16,9 @@ export default function TenantHealthPage() {
                         <span className="vico bg-gradient-to-br from-rose-500 to-pink-700 text-white p-2 rounded-xl">
                             <HeartPulse className="w-5 h-5" />
                         </span>
-                        Dashboard de Salud del Tenant
+                        {t("title")}
                     </div>
-                    <div className="vs">Score compuesto que combina presupuesto, credenciales por expirar, optimización de recomendaciones y postura de seguridad en un solo número accionable.</div>
+                    <div className="vs">{t("subtitle")}</div>
                 </div>
             </div>
 

@@ -1,8 +1,11 @@
 import React from 'react';
+import { getTranslations } from 'next-intl/server';
 import MockBanner from '@/components/MockBanner';
 import FinOpsScorecard from '@/components/dashboard/FinOpsScorecard';
 
-export default function ScorecardPage() {
+export default async function ScorecardPage() {
+    const t = await getTranslations('IntelligenceScorecard');
+
     return (
         <div className="content animate-in fade-in">
             <MockBanner />
@@ -10,9 +13,9 @@ export default function ScorecardPage() {
                 <div>
                     <div className="vt">
                         <span className="vico bg-gradient-to-br from-[#F59E0B] to-[#D97706]">🏆</span>
-                        FinOps Scorecard & Leaderboard
+                        {t('title')}
                     </div>
-                    <div className="vs">Muro de la Fama. Fomenta la responsabilidad financiera comparando la eficiencia y limpieza de recursos entre tus equipos.</div>
+                    <div className="vs">{t('subtitle')}</div>
                 </div>
             </div>
 

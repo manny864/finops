@@ -106,7 +106,7 @@ export default function Commitments() {
         return (
             <div className="flex flex-col items-center justify-center py-20">
                 <Loader2 className="w-8 h-8 animate-spin text-brand-deep mb-4" />
-                <p className="text-gray-500 dark:text-gray-400">Analizando Descuentos por Compromiso...</p>
+                <p className="text-gray-500 dark:text-gray-400">{t('loading')}</p>
             </div>
         );
     }
@@ -114,11 +114,11 @@ export default function Commitments() {
     if (error) {
         const requiredTier = parseTierRequiredError(error.message);
         if (requiredTier) {
-            return <TierLockedNotice requiredTier={requiredTier} currentTier={(selectedTenant as any)?.tier} featureName="Descuentos por Compromiso" />;
+            return <TierLockedNotice requiredTier={requiredTier} currentTier={(selectedTenant as any)?.tier} featureName={t('pageTitle')} />;
         }
         return (
             <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg border border-red-100 dark:border-red-900/50">
-                <h3 className="font-bold">Error de Procesamiento</h3>
+                <h3 className="font-bold">{t('errorProcessingTitle')}</h3>
                 <p className="text-sm">{error.message}</p>
             </div>
         );
@@ -135,15 +135,15 @@ export default function Commitments() {
         : utilizationValue >= 80 ? '#10B981' : (utilizationValue >= 70 ? '#F59E0B' : '#EF4444');
     const utilizationData = utilizationKnown
         ? [
-            { name: 'Utilizado', value: utilizationValue },
-            { name: 'Desperdicio', value: 100 - utilizationValue }
+            { name: t('utilizationLabelUsed'), value: utilizationValue },
+            { name: t('utilizationLabelWaste'), value: 100 - utilizationValue }
           ]
-        : [{ name: 'Sin datos', value: 100 }];
+        : [{ name: t('utilizationLabelNoData'), value: 100 }];
 
     const coverageColor = metrics.coverage >= 60 ? '#3B82F6' : '#6366F1';
     const coverageData = [
-        { name: 'Cubierto por Reserva', value: metrics.coverage },
-        { name: 'Pago por Uso (On-Demand)', value: 100 - metrics.coverage }
+        { name: t('coverageLabelCovered'), value: metrics.coverage },
+        { name: t('coverageLabelOnDemand'), value: 100 - metrics.coverage }
     ];
 
     return (
@@ -158,9 +158,9 @@ export default function Commitments() {
                         <div>
                             <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
                                 <ShieldCheck className="w-5 h-5 text-green-500" />
-                                Utilización de Reservas
+                                {t('utilizationCardTitle')}
                             </h3>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">Target &gt;80%. Porcentaje de la reserva pagada que realmente estás usando.</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{t('utilizationCardSubtitle')}</p>
                         </div>
                     </div>
                     
@@ -186,21 +186,21 @@ export default function Commitments() {
                         </ResponsiveContainer>
                         <div className="absolute inset-0 flex items-center justify-center flex-col">
                             <span className="text-3xl font-black text-gray-900 dark:text-white" style={{ color: utilizationColor }}>
-                                {utilizationKnown ? `${utilizationValue.toFixed(1)}%` : 'N/D'}
+                                {utilizationKnown ? `${utilizationValue.toFixed(1)}%` : t('na')}
                             </span>
                         </div>
                     </div>
                     {!hasReservations ? (
                         <div className="mt-2 w-full flex items-center gap-2 bg-gray-50 dark:bg-slate-800 text-gray-600 dark:text-gray-400 p-2 rounded text-sm">
-                            <AlertCircle className="w-4 h-4" /> Sin reservas activas en este tenant.
+                            <AlertCircle className="w-4 h-4" /> {t('utilizationEmptyState')}
                         </div>
                     ) : !utilizationKnown ? (
                         <div className="mt-2 w-full flex items-center gap-2 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 p-2 rounded text-sm">
-                            <AlertCircle className="w-4 h-4" /> Utilización no disponible: requiere permiso Billing Reader (EA/MCA).
+                            <AlertCircle className="w-4 h-4" /> {t('utilizationUnavailableState')}
                         </div>
                     ) : utilizationValue < 70 ? (
                         <div className="mt-2 w-full flex items-center gap-2 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 p-2 rounded text-sm font-medium">
-                            <AlertCircle className="w-4 h-4" /> Alerta: Estás perdiendo dinero en reservas ociosas.
+                            <AlertCircle className="w-4 h-4" /> {t('utilizationAlertState')}
                         </div>
                     ) : null}
                 </div>
@@ -211,9 +211,9 @@ export default function Commitments() {
                         <div>
                             <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
                                 <TrendingUp className="w-5 h-5 text-blue-500" />
-                                Cobertura de Cómputo
+                                {t('coverageCardTitle')}
                             </h3>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">Porcentaje de infraestructura total corriendo bajo tarifas con descuento.</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{t('coverageCardSubtitle')}</p>
                         </div>
                     </div>
                     
@@ -334,12 +334,12 @@ export default function Commitments() {
 
             {/* ── Oportunidades de Compra ───────────────────────────────────────── */}
             <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-6 shadow-sm">
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">Oportunidades de Compra</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Recomendaciones sugeridas por Azure basadas en tu consumo de los últimos 30 días.</p>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">{t('recommendationsTitle')}</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">{t('recommendationsSubtitle')}</p>
 
                 {metrics.recommendations.length === 0 ? (
                     <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                        No hay recomendaciones de compra disponibles actualmente.
+                        {t('recommendationsEmpty')}
                     </div>
                 ) : (
                     <>
@@ -347,11 +347,11 @@ export default function Commitments() {
                         <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
                             <thead className="bg-gray-50 dark:bg-slate-800/50">
                                 <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Servicio</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">SKU</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Plazo</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Cantidad Sugerida</th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Ahorro Mensual</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('recColService')}</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('recColSku')}</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('recColTerm')}</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('recColQuantity')}</th>
+                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('recColSavings')}</th>
                                 </tr>
                             </thead>
                             <tbody className="bg-white dark:bg-slate-900 divide-y divide-gray-200 dark:divide-slate-800">
@@ -376,16 +376,16 @@ export default function Commitments() {
                         return (
                             <div className="flex items-center justify-between mt-4 px-1 text-sm">
                                 <div className="flex items-center gap-3 text-gray-500 dark:text-gray-400">
-                                    <span>Mostrando <strong className="text-gray-900 dark:text-white">{from}-{to}</strong> de <strong className="text-gray-900 dark:text-white">{total}</strong></span>
+                                    <span>{t('paginationShowing', { from, to, total })}</span>
                                     <select
                                         value={pageSize}
                                         onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
                                         className="border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg px-2 py-1 text-xs font-semibold cursor-pointer"
                                     >
-                                        <option value={5}>5 / pág</option>
-                                        <option value={10}>10 / pág</option>
-                                        <option value={20}>20 / pág</option>
-                                        <option value={50}>50 / pág</option>
+                                        <option value={5}>{t('perPageOption', { n: 5 })}</option>
+                                        <option value={10}>{t('perPageOption', { n: 10 })}</option>
+                                        <option value={20}>{t('perPageOption', { n: 20 })}</option>
+                                        <option value={50}>{t('perPageOption', { n: 50 })}</option>
                                     </select>
                                 </div>
                                 <div className="flex items-center gap-2">
@@ -394,15 +394,15 @@ export default function Commitments() {
                                         disabled={safePage <= 1}
                                         className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 font-semibold text-xs disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors cursor-pointer"
                                     >
-                                        <ChevronLeft className="w-3.5 h-3.5" /> Anterior
+                                        <ChevronLeft className="w-3.5 h-3.5" /> {t('paginationPrevious')}
                                     </button>
-                                    <span className="text-gray-700 dark:text-gray-300 font-bold px-2">Página {safePage} de {totalPages}</span>
+                                    <span className="text-gray-700 dark:text-gray-300 font-bold px-2">{t('paginationPageOf', { page: safePage, total: totalPages })}</span>
                                     <button
                                         onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                                         disabled={safePage >= totalPages}
                                         className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 font-semibold text-xs disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors cursor-pointer"
                                     >
-                                        Siguiente <ChevronRight className="w-3.5 h-3.5" />
+                                        {t('paginationNext')} <ChevronRight className="w-3.5 h-3.5" />
                                     </button>
                                 </div>
                             </div>
