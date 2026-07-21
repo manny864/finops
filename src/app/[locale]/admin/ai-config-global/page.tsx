@@ -3,20 +3,22 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useMsal } from "@azure/msal-react";
 import { fetchWithAuthRetry } from "@/lib/msalToken";
 import { Loader2, Sparkles, CheckCircle2, XCircle, KeyRound, Trash2, ShieldAlert } from "lucide-react";
-
-const PROVIDERS = [
-    { value: "google", label: "Google Gemini (Flash — gratis en free tier)" },
-    { value: "openai", label: "OpenAI (GPT-4o)" },
-    { value: "azure_openai", label: "Azure OpenAI (GPT-4o)" },
-    { value: "anthropic", label: "Anthropic (Claude Sonnet 5)" },
-    { value: "deepseek", label: "DeepSeek" },
-];
+import { useTranslations } from "next-intl";
 
 type Sensitivity = "low" | "medium" | "high";
 
 export default function AiConfigGlobalPage() {
+    const t = useTranslations("AdminAiConfigGlobal");
     const { instance, accounts } = useMsal();
     const account = accounts[0];
+
+    const PROVIDERS = [
+        { value: "google", label: t("providers.google") },
+        { value: "openai", label: t("providers.openai") },
+        { value: "azure_openai", label: t("providers.azureOpenai") },
+        { value: "anthropic", label: t("providers.anthropic") },
+        { value: "deepseek", label: t("providers.deepseek") },
+    ];
 
     const [provider, setProvider] = useState("google");
     const [hasApiKey, setHasApiKey] = useState(false);
@@ -38,7 +40,7 @@ export default function AiConfigGlobalPage() {
         try {
             const res = await fetchWithAuthRetry(instance, account, "/api/admin/config/ai-global");
             const json = await res.json();
-            if (!json.success) throw new Error(json.error || "Error al cargar la configuración.");
+            if (!json.success) throw new Error(json.error || t("errors.loadFailed"));
             setProvider(json.provider);
             setHasApiKey(json.hasApiKey);
             setAiEnabled(json.aiEnabled ?? true);
@@ -46,10 +48,11 @@ export default function AiConfigGlobalPage() {
             setShareResourceNames(json.shareResourceNames ?? true);
             setShareTags(json.shareTags ?? true);
         } catch (e: any) {
-            setError(e?.message || "Error de red.");
+            setError(e?.message || t("errors.networkError"));
         } finally {
             setLoading(false);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [instance, account]);
 
     useEffect(() => { if (account) load(); }, [account, load]);
@@ -71,11 +74,11 @@ export default function AiConfigGlobalPage() {
                 }),
             });
             const json = await res.json();
-            if (!json.success) throw new Error(json.error || "No se pudo guardar.");
+            if (!json.success) throw new Error(json.error || t("errors.saveFailed"));
             setApiKeyInput("");
             await load();
         } catch (e: any) {
-            setError(e?.message || "Error de red.");
+            setError(e?.message || t("errors.networkError"));
         } finally {
             setSaving(false);
         }
@@ -86,9 +89,7 @@ export default function AiConfigGlobalPage() {
         // borrada) que además afecta a CUALQUIER tenant sin su propia key BYOK
         // (queda sin fallback de IA hasta que se cargue una nueva) — se pide
         // confirmación explícita antes de mandar el DELETE.
-        const confirmed = window.confirm(
-            "¿Eliminar la API key global? Los tenants que no configuraron su propia key (BYOK) se quedarán sin IA hasta que cargues una nueva."
-        );
+        const confirmed = window.confirm(t("confirmDeleteKey"));
         if (!confirmed) return;
 
         setDeleting(true);
@@ -100,11 +101,11 @@ export default function AiConfigGlobalPage() {
                 body: JSON.stringify({ provider, apiKey: null }),
             });
             const json = await res.json();
-            if (!json.success) throw new Error(json.error || "No se pudo eliminar la key.");
+            if (!json.success) throw new Error(json.error || t("errors.deleteFailed"));
             setApiKeyInput("");
             await load();
         } catch (e: any) {
-            setError(e?.message || "Error de red.");
+            setError(e?.message || t("errors.networkError"));
         } finally {
             setDeleting(false);
         }
@@ -117,10 +118,10 @@ export default function AiConfigGlobalPage() {
             const res = await fetchWithAuthRetry(instance, account, "/api/admin/config/ai-global/test", { method: "POST" });
             const json = await res.json();
             setTestResult(json.success
-                ? { ok: true, message: `Conexión OK — el modelo respondió: "${json.reply}"` }
-                : { ok: false, message: json.error || "Falló la prueba de conexión." });
+                ? { ok: true, message: t("testResult.success", { reply: json.reply }) }
+                : { ok: false, message: json.error || t("errors.testFailed") });
         } catch (e: any) {
-            setTestResult({ ok: false, message: e?.message || "Error de red." });
+            setTestResult({ ok: false, message: e?.message || t("errors.networkError") });
         } finally {
             setTesting(false);
         }
@@ -130,11 +131,10 @@ export default function AiConfigGlobalPage() {
         <div className="content animate-in fade-in max-w-2xl space-y-6">
             <div>
                 <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                    <Sparkles className="w-6 h-6 text-brand-deep dark:text-brand-bright" /> IA — Configuración Global
+                    <Sparkles className="w-6 h-6 text-brand-deep dark:text-brand-bright" /> {t("title")}
                 </h1>
                 <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                    Proveedor/key de IA usado como fallback para cualquier tenant que no configuró su propia key en
-                    Administración → Configuración de IA (BYOK per-tenant). Solo visible para Super Administradores.
+                    {t("subtitle")}
                 </p>
             </div>
 
@@ -145,9 +145,9 @@ export default function AiConfigGlobalPage() {
                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
                         <label className="flex items-center justify-between cursor-pointer">
                             <div>
-                                <div className="text-sm font-semibold text-slate-700 dark:text-slate-200">Habilitar funciones de IA (plataforma)</div>
+                                <div className="text-sm font-semibold text-slate-700 dark:text-slate-200">{t("aiFeatures.toggleLabel")}</div>
                                 <p className="text-xs text-slate-500 mt-1">
-                                    Interruptor maestro: si se apaga, la IA queda inhabilitada para TODOS los tenants (Copilot y Reporte Ejecutivo con IA), sin importar su propio toggle per-tenant. Pensado para incidentes con el proveedor o costos fuera de control.
+                                    {t("aiFeatures.toggleDescription")}
                                 </p>
                             </div>
                             <button
@@ -170,7 +170,7 @@ export default function AiConfigGlobalPage() {
 
                     <div className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-4 ${!aiEnabled ? "opacity-50" : ""}`}>
                         <div>
-                            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Proveedor</label>
+                            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">{t("provider.label")}</label>
                             <select
                                 value={provider}
                                 onChange={(e) => setProvider(e.target.value)}
@@ -184,18 +184,18 @@ export default function AiConfigGlobalPage() {
 
                         <div>
                             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 flex items-center gap-1.5">
-                                <KeyRound className="w-3.5 h-3.5" /> API Key
+                                <KeyRound className="w-3.5 h-3.5" /> {t("apiKey.label")}
                             </label>
                             <input
                                 type="password"
                                 value={apiKeyInput}
                                 onChange={(e) => setApiKeyInput(e.target.value)}
-                                placeholder={hasApiKey ? "•••••••••••••••• (ya hay una key guardada — dejar vacío para no cambiarla)" : "Pegar API key..."}
+                                placeholder={hasApiKey ? t("apiKey.placeholderSaved") : t("apiKey.placeholderEmpty")}
                                 className="w-full border border-slate-300 dark:border-slate-700 dark:bg-slate-800 rounded-lg px-3 py-2 text-sm font-mono"
                             />
                             <p className="text-xs text-slate-500 mt-1">
-                                {hasApiKey ? "✓ Hay una key configurada (cifrada en la base)." : "⚠ No hay ninguna key configurada todavía."}
-                                {provider === "google" && " Conseguí una gratis en "}
+                                {hasApiKey ? t("apiKey.configuredNotice") : t("apiKey.missingNotice")}
+                                {provider === "google" && " " + t("apiKey.getFreeKeyPrefix") + " "}
                                 {provider === "google" && (
                                     <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" className="text-brand-deep dark:text-brand-bright underline">
                                         Google AI Studio
@@ -226,49 +226,49 @@ export default function AiConfigGlobalPage() {
                                 disabled={saving}
                                 className="px-4 py-2 bg-brand-deep hover:bg-brand-bright text-white text-sm font-bold rounded-lg disabled:opacity-50 flex items-center gap-2"
                             >
-                                {saving && <Loader2 className="w-4 h-4 animate-spin" />} Guardar
+                                {saving && <Loader2 className="w-4 h-4 animate-spin" />} {t("save")}
                             </button>
                             <button
                                 onClick={testConnection}
                                 disabled={testing || !hasApiKey}
-                                title={!hasApiKey ? "Guardá una key primero" : "Probar conexión real con el proveedor guardado"}
+                                title={!hasApiKey ? t("apiKey.saveKeyFirst") : t("apiKey.testConnectionTitle")}
                                 className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold rounded-lg disabled:opacity-50 flex items-center gap-2"
                             >
-                                {testing && <Loader2 className="w-4 h-4 animate-spin" />} Probar conexión
+                                {testing && <Loader2 className="w-4 h-4 animate-spin" />} {t("testConnection")}
                             </button>
                             <button
                                 onClick={deleteApiKey}
                                 disabled={deleting || !hasApiKey}
-                                title={!hasApiKey ? "No hay ninguna key guardada" : "Eliminar la API key guardada (afecta a tenants sin BYOK)"}
+                                title={!hasApiKey ? t("apiKey.noKeySaved") : t("apiKey.deleteKeyTitle")}
                                 className="ml-auto px-4 py-2 bg-rose-50 dark:bg-rose-900/20 hover:bg-rose-100 dark:hover:bg-rose-900/40 text-rose-700 dark:text-rose-300 text-sm font-bold rounded-lg disabled:opacity-50 flex items-center gap-2"
                             >
-                                {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />} Eliminar API Key
+                                {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />} {t("apiKey.deleteApiKey")}
                             </button>
                         </div>
                     </div>
 
                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
                         <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                            Sensibilidad de detección de anomalías (default para tenants nuevos)
+                            {t("sensitivity.label")}
                         </label>
                         <select
                             value={sensitivity}
                             onChange={(e) => setSensitivity(e.target.value as Sensitivity)}
                             className="w-full border border-slate-300 dark:border-slate-700 dark:bg-slate-800 rounded-lg px-3 py-2 text-sm"
                         >
-                            <option value="low">Baja — solo picos de gasto grandes (menos alertas)</option>
-                            <option value="medium">Media — balance recomendado (default)</option>
-                            <option value="high">Alta — detecta desvíos más chicos (más alertas)</option>
+                            <option value="low">{t("sensitivity.options.low")}</option>
+                            <option value="medium">{t("sensitivity.options.medium")}</option>
+                            <option value="high">{t("sensitivity.options.high")}</option>
                         </select>
                         <p className="text-xs text-slate-500 mt-2">
-                            Se asigna a cada tenant al darse de alta. Cada tenant puede después cambiarla en su propia Configuración de IA.
+                            {t("sensitivity.description")}
                         </p>
                     </div>
 
                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
                         <div className="text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2">
                             <ShieldAlert className="w-4 h-4 text-amber-500" />
-                            Qué datos se comparten (default para tenants nuevos)
+                            {t("dataSharing.heading")}
                         </div>
                         <label className="flex items-start gap-3 cursor-pointer">
                             <input
@@ -278,8 +278,8 @@ export default function AiConfigGlobalPage() {
                                 className="mt-1 h-4 w-4 rounded border-slate-300 text-brand-deep focus:ring-brand-deep"
                             />
                             <div>
-                                <div className="text-sm font-medium text-slate-700 dark:text-slate-200">Nombres de recursos y grupos de recursos</div>
-                                <p className="text-xs text-slate-500">Default al dar de alta un tenant nuevo. Cada tenant puede ajustarlo después.</p>
+                                <div className="text-sm font-medium text-slate-700 dark:text-slate-200">{t("dataSharing.resourceNames.label")}</div>
+                                <p className="text-xs text-slate-500">{t("dataSharing.resourceNames.description")}</p>
                             </div>
                         </label>
                         <label className="flex items-start gap-3 cursor-pointer">
@@ -290,8 +290,8 @@ export default function AiConfigGlobalPage() {
                                 className="mt-1 h-4 w-4 rounded border-slate-300 text-brand-deep focus:ring-brand-deep"
                             />
                             <div>
-                                <div className="text-sm font-medium text-slate-700 dark:text-slate-200">Etiquetas (tags) de recursos</div>
-                                <p className="text-xs text-slate-500">Default al dar de alta un tenant nuevo. Cada tenant puede ajustarlo después.</p>
+                                <div className="text-sm font-medium text-slate-700 dark:text-slate-200">{t("dataSharing.tags.label")}</div>
+                                <p className="text-xs text-slate-500">{t("dataSharing.tags.description")}</p>
                             </div>
                         </label>
                     </div>

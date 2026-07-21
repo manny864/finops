@@ -5,10 +5,12 @@ import { useMsal } from '@azure/msal-react';
 import { Cpu, Save, Lock, ShieldAlert, Loader2, CheckCircle2, XCircle, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { getFreshIdToken } from '@/lib/msalToken';
+import { useTranslations } from 'next-intl';
 
 type Sensitivity = 'low' | 'medium' | 'high';
 
 export default function AiConfigPage() {
+    const t = useTranslations('AdminAiConfig');
     const { selectedTenant, userRole, systemRole } = useTenant();
     const { instance, accounts } = useMsal();
 
@@ -62,7 +64,7 @@ export default function AiConfigPage() {
 
     const handleSave = async () => {
         if (!selectedTenant || selectedTenant.id === 'default') {
-            toast.error("Selecciona un tenant válido primero.");
+            toast.error(t('errors.selectTenantFirst'));
             return;
         }
 
@@ -99,7 +101,7 @@ export default function AiConfigPage() {
             });
 
             if (res.ok) {
-                toast.success("Configuración de IA actualizada exitosamente.");
+                toast.success(t('toasts.saveSuccess'));
                 if (provider === 'system') {
                     setHasApiKey(false);
                 } else if (apiKeyDirty) {
@@ -109,11 +111,11 @@ export default function AiConfigPage() {
                 setApiKey('');
             } else {
                 const data = await res.json();
-                toast.error(data.error || "Error al guardar la configuración.");
+                toast.error(data.error || t('errors.saveFailed'));
             }
         } catch (e) {
             console.error("Error saving AI config:", e);
-            toast.error("Error al conectar con el servidor.");
+            toast.error(t('errors.connectionFailed'));
         }
         setSaving(false);
     };
@@ -121,9 +123,7 @@ export default function AiConfigPage() {
     const deleteApiKey = async () => {
         if (!selectedTenant || selectedTenant.id === 'default') return;
 
-        const confirmed = window.confirm(
-            "¿Eliminar la API key de este tenant? Se volverá a usar el proveedor Sistema (compartido, con límites de cuota) hasta que cargues una nueva."
-        );
+        const confirmed = window.confirm(t('confirmDeleteKey'));
         if (!confirmed) return;
 
         setDeleting(true);
@@ -148,18 +148,18 @@ export default function AiConfigPage() {
             });
 
             if (res.ok) {
-                toast.success("API key eliminada.");
+                toast.success(t('toasts.keyDeleted'));
                 setProvider('system');
                 setHasApiKey(false);
                 setApiKey('');
                 setApiKeyDirty(false);
             } else {
                 const data = await res.json();
-                toast.error(data.error || "No se pudo eliminar la key.");
+                toast.error(data.error || t('errors.deleteFailed'));
             }
         } catch (e) {
             console.error("Error deleting AI key:", e);
-            toast.error("Error al conectar con el servidor.");
+            toast.error(t('errors.connectionFailed'));
         }
         setDeleting(false);
     };
@@ -181,10 +181,10 @@ export default function AiConfigPage() {
             });
             const json = await res.json();
             setTestResult(json.success
-                ? { ok: true, message: `Conexión OK — el modelo respondió: "${json.reply}"` }
-                : { ok: false, message: json.error || "Falló la prueba de conexión." });
+                ? { ok: true, message: t('testResult.success', { reply: json.reply }) }
+                : { ok: false, message: json.error || t('errors.testFailed') });
         } catch (e: any) {
-            setTestResult({ ok: false, message: e?.message || "Error de red." });
+            setTestResult({ ok: false, message: e?.message || t('errors.networkError') });
         }
         setTesting(false);
     };
@@ -193,8 +193,8 @@ export default function AiConfigPage() {
         return (
             <div className="flex flex-col items-center justify-center h-96">
                 <Lock className="w-12 h-12 text-gray-400 mb-4" />
-                <h2 className="text-xl font-bold text-gray-700 dark:text-gray-300">Acceso Denegado</h2>
-                <p className="text-sm text-gray-500 mt-2">Solo los administradores pueden configurar la IA.</p>
+                <h2 className="text-xl font-bold text-gray-700 dark:text-gray-300">{t('accessDenied.title')}</h2>
+                <p className="text-sm text-gray-500 mt-2">{t('accessDenied.description')}</p>
             </div>
         );
     }
@@ -204,28 +204,28 @@ export default function AiConfigPage() {
             <div className="mb-8 border-b border-gray-200 dark:border-gray-800 pb-4">
                 <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight flex items-center">
                     <Cpu className="w-8 h-8 mr-3 text-[#0054A6] dark:text-[#00AEEF]" />
-                    Configuración de Inteligencia Artificial
+                    {t('title')}
                 </h1>
                 <p className="text-gray-500 dark:text-gray-400 mt-2">
-                    Habilitá o deshabilitá las funciones de IA, elegí el modelo, ajustá la sensibilidad de detección de anomalías y qué datos se comparten con el proveedor.
+                    {t('subtitle')}
                 </p>
             </div>
 
             {loading ? (
-                <div className="text-sm text-gray-500 dark:text-gray-400">Cargando configuración...</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">{t('loading')}</div>
             ) : (
                 <div className="space-y-8">
                     {/* Habilitar/deshabilitar funciones de IA */}
                     <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden">
                         <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50">
-                            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">Funciones de IA</h3>
+                            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">{t('aiFeatures.heading')}</h3>
                         </div>
                         <div className="p-6">
                             <label className="flex items-center justify-between max-w-md cursor-pointer">
                                 <div>
-                                    <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Habilitar funciones de IA</div>
+                                    <div className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('aiFeatures.toggleLabel')}</div>
                                     <p className="text-xs text-gray-500 mt-1">
-                                        Apaga el Copilot FinOps y el Reporte Ejecutivo con IA para este tenant. El resto de la plataforma sigue funcionando con normalidad.
+                                        {t('aiFeatures.toggleDescription')}
                                     </p>
                                 </div>
                                 <button
@@ -250,40 +250,40 @@ export default function AiConfigPage() {
                     {/* Proveedor de IA (BYOK) */}
                     <div className={`bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden ${!aiEnabled ? 'opacity-50 pointer-events-none' : ''}`}>
                         <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50">
-                            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">Proveedor de IA (BYOK)</h3>
+                            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">{t('provider.heading')}</h3>
                         </div>
                         <div className="p-6">
                             <div className="flex flex-col mb-6">
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Selecciona el motor de LLM</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('provider.selectLabel')}</label>
                                 <select
                                     value={provider}
                                     onChange={(e) => setProvider(e.target.value)}
                                     className="w-full max-w-md px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-md focus:ring-[#0054A6] focus:border-[#0054A6] sm:text-sm"
                                 >
-                                    <option value="system">Sistema (Compartido - Con límites de cuota)</option>
-                                    <option value="openai">OpenAI (Trae tu propia API Key)</option>
-                                    <option value="azure_openai">Azure OpenAI (Privado y Seguro)</option>
-                                    <option value="anthropic">Anthropic (Claude Sonnet 5)</option>
-                                    <option value="google">Google (Gemini Flash · última versión gratis)</option>
-                                    <option value="deepseek">DeepSeek (DeepSeek Chat)</option>
+                                    <option value="system">{t('provider.options.system')}</option>
+                                    <option value="openai">{t('provider.options.openai')}</option>
+                                    <option value="azure_openai">{t('provider.options.azureOpenai')}</option>
+                                    <option value="anthropic">{t('provider.options.anthropic')}</option>
+                                    <option value="google">{t('provider.options.google')}</option>
+                                    <option value="deepseek">{t('provider.options.deepseek')}</option>
                                 </select>
                                 <p className="text-xs text-gray-500 mt-2">
-                                    Recomendamos usar tu propia llave para garantizar que tus datos no sean utilizados para entrenamiento de modelos públicos y para obtener respuestas más rápidas sin throttling.
+                                    {t('provider.recommendation')}
                                 </p>
                             </div>
 
                             {provider !== 'system' && (
                                 <div className="flex flex-col mb-2">
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">API Key</label>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('provider.apiKeyLabel')}</label>
                                     <input
                                         type="password"
                                         value={apiKey}
                                         onChange={(e) => { setApiKey(e.target.value); setApiKeyDirty(true); }}
-                                        placeholder={hasApiKey ? "•••••••••••••••• (ya guardada, dejá vacío para conservarla)" : "sk-..."}
+                                        placeholder={hasApiKey ? t('provider.apiKeyPlaceholderSaved') : "sk-..."}
                                         className="w-full max-w-md px-4 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-md focus:ring-[#0054A6] focus:border-[#0054A6] sm:text-sm"
                                     />
                                     {hasApiKey && !apiKeyDirty && (
-                                        <p className="text-xs text-green-600 dark:text-green-400 mt-1">Ya hay una API key guardada para este proveedor.</p>
+                                        <p className="text-xs text-green-600 dark:text-green-400 mt-1">{t('provider.apiKeySavedNotice')}</p>
                                     )}
                                 </div>
                             )}
@@ -301,18 +301,18 @@ export default function AiConfigPage() {
                                 <button
                                     onClick={testConnection}
                                     disabled={testing || (provider !== 'system' && !hasApiKey)}
-                                    title={provider !== 'system' && !hasApiKey ? "Guardá una key primero" : "Probar conexión real con el proveedor guardado"}
+                                    title={provider !== 'system' && !hasApiKey ? t('provider.saveKeyFirst') : t('provider.testConnectionTitle')}
                                     className="px-4 py-2 bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-700 dark:text-gray-200 text-sm font-semibold rounded-md disabled:opacity-50 flex items-center gap-2"
                                 >
-                                    {testing && <Loader2 className="w-4 h-4 animate-spin" />} Probar conexión
+                                    {testing && <Loader2 className="w-4 h-4 animate-spin" />} {t('provider.testConnection')}
                                 </button>
                                 <button
                                     onClick={deleteApiKey}
                                     disabled={deleting || !hasApiKey}
-                                    title={!hasApiKey ? "No hay ninguna key guardada" : "Eliminar la API key de este tenant"}
+                                    title={!hasApiKey ? t('provider.noKeySaved') : t('provider.deleteKeyTitle')}
                                     className="px-4 py-2 bg-rose-50 dark:bg-rose-900/20 hover:bg-rose-100 dark:hover:bg-rose-900/40 text-rose-700 dark:text-rose-300 text-sm font-semibold rounded-md disabled:opacity-50 flex items-center gap-2"
                                 >
-                                    {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />} Eliminar API Key
+                                    {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />} {t('provider.deleteApiKey')}
                                 </button>
                             </div>
                         </div>
@@ -321,23 +321,23 @@ export default function AiConfigPage() {
                     {/* Sensibilidad de detección de anomalías */}
                     <div className={`bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden ${!aiEnabled ? 'opacity-50 pointer-events-none' : ''}`}>
                         <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50">
-                            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">Sensibilidad de Detección de Anomalías</h3>
+                            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">{t('sensitivity.heading')}</h3>
                         </div>
                         <div className="p-6">
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                Nivel de sensibilidad
+                                {t('sensitivity.levelLabel')}
                             </label>
                             <select
                                 value={sensitivity}
                                 onChange={(e) => setSensitivity(e.target.value as Sensitivity)}
                                 className="w-full max-w-md px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-md focus:ring-[#0054A6] focus:border-[#0054A6] sm:text-sm"
                             >
-                                <option value="low">Baja — solo picos de gasto grandes (menos alertas)</option>
-                                <option value="medium">Media — balance recomendado (default)</option>
-                                <option value="high">Alta — detecta desvíos más chicos (más alertas)</option>
+                                <option value="low">{t('sensitivity.options.low')}</option>
+                                <option value="medium">{t('sensitivity.options.medium')}</option>
+                                <option value="high">{t('sensitivity.options.high')}</option>
                             </select>
                             <p className="text-xs text-gray-500 mt-2">
-                                Afecta la detección automática de anomalías de gasto (Análisis de Anomalías) para este tenant.
+                                {t('sensitivity.description')}
                             </p>
                         </div>
                     </div>
@@ -347,12 +347,12 @@ export default function AiConfigPage() {
                         <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50">
                             <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center">
                                 <ShieldAlert className="w-5 h-5 mr-2 text-amber-500" />
-                                Qué Datos se Comparten
+                                {t('dataSharing.heading')}
                             </h3>
                         </div>
                         <div className="p-6 space-y-4">
                             <p className="text-xs text-gray-500 mb-2">
-                                Al generar el Reporte Ejecutivo con IA, estos campos se envían al proveedor de IA que hayas elegido arriba. Desactivalos si preferís que no viajen fuera de la plataforma.
+                                {t('dataSharing.description')}
                             </p>
                             <label className="flex items-start gap-3 cursor-pointer">
                                 <input
@@ -362,8 +362,8 @@ export default function AiConfigPage() {
                                     className="mt-1 h-4 w-4 rounded border-gray-300 text-[#0054A6] focus:ring-[#0054A6]"
                                 />
                                 <div>
-                                    <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Nombres de recursos y grupos de recursos</div>
-                                    <p className="text-xs text-gray-500">Si se desactiva, esos campos se reemplazan por "[REDACTED]" antes de enviarse.</p>
+                                    <div className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('dataSharing.resourceNames.label')}</div>
+                                    <p className="text-xs text-gray-500">{t('dataSharing.resourceNames.description')}</p>
                                 </div>
                             </label>
                             <label className="flex items-start gap-3 cursor-pointer">
@@ -374,8 +374,8 @@ export default function AiConfigPage() {
                                     className="mt-1 h-4 w-4 rounded border-gray-300 text-[#0054A6] focus:ring-[#0054A6]"
                                 />
                                 <div>
-                                    <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Etiquetas (tags) de recursos</div>
-                                    <p className="text-xs text-gray-500">Si se desactiva, se envía solo la cantidad de etiquetas, no su contenido.</p>
+                                    <div className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('dataSharing.tags.label')}</div>
+                                    <p className="text-xs text-gray-500">{t('dataSharing.tags.description')}</p>
                                 </div>
                             </label>
                         </div>
@@ -388,7 +388,7 @@ export default function AiConfigPage() {
                             className="flex items-center px-4 py-2 bg-[#0054A6] text-white rounded-md shadow-sm text-sm font-semibold hover:bg-[#004080] disabled:opacity-50 transition-colors"
                         >
                             <Save className="w-4 h-4 mr-2" />
-                            {saving ? 'Guardando...' : 'Guardar Configuración'}
+                            {saving ? t('saving') : t('saveConfiguration')}
                         </button>
                     </div>
                 </div>

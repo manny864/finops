@@ -1,16 +1,18 @@
 import React from 'react';
+import { getTranslations } from 'next-intl/server';
 import PartnerMarkup from '@/components/dashboard/PartnerMarkup';
 
-export default function MarkupPage() {
+export default async function MarkupPage() {
+    const t = await getTranslations('AdminMarkup');
     return (
         <div className="content animate-in fade-in">
             <div className="vhead">
                 <div>
                     <div className="vt">
                         <span className="vico bg-gradient-to-br from-green-600 to-emerald-700">💲</span>
-                        Partner Billing Engine (CSP)
+                        {t('pageTitle')}
                     </div>
-                    <div className="vs">Configura los márgenes de rentabilidad que se añadirán de forma invisible al costo final de la nube de tu cliente.</div>
+                    <div className="vs">{t('pageSubtitle')}</div>
                 </div>
             </div>
 

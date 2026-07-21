@@ -2,6 +2,7 @@
 import MockBanner from '@/components/MockBanner';
 import { isMockTenant } from '@/lib/mockData';
 import React, { useState, useEffect, useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { toast } from 'sonner';
@@ -35,6 +36,7 @@ type ApiResponse = {
 const columnHelper = createColumnHelper<ActionLog>();
 
 export default function AuditTrailPage() {
+    const t = useTranslations('AdminAudit');
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const [logs, setLogs] = useState<ActionLog[]>([]);
@@ -101,13 +103,13 @@ export default function AuditTrailPage() {
                 setLogs(json.logs);
                 setTotal(json.total);
             } else {
-                toast.error(json.error || "Error al cargar registros de auditoría");
+                toast.error(json.error || t('errorLoading'));
                 setLogs([]);
                 setTotal(0);
             }
         } catch (e) {
             console.error("Audit Trail error:", e);
-            toast.error("Error al conectar con el servidor.");
+            toast.error(t('errorConnecting'));
             setLogs([]);
             setTotal(0);
         }
@@ -147,7 +149,7 @@ export default function AuditTrailPage() {
 
     const handleExport = async (format: "csv" | "json" | "ndjson", isFull: boolean = false) => {
         if (!selectedTenant || selectedTenant.id === 'default') {
-            toast.error("Selecciona un tenant primero");
+            toast.error(t('errorSelectTenantFirst'));
             return;
         }
 
@@ -173,7 +175,7 @@ export default function AuditTrailPage() {
 
             if (!res.ok) {
                 const errorData = await res.json();
-                toast.error(errorData.error || "Error al exportar");
+                toast.error(errorData.error || t('errorExporting'));
                 return;
             }
 
@@ -191,27 +193,27 @@ export default function AuditTrailPage() {
             link.click();
             document.body.removeChild(link);
             
-            toast.success(`Exportación completada: ${filename}`);
+            toast.success(t('exportCompleted', { filename }));
         } catch (e) {
             console.error("Export error:", e);
-            toast.error("Error al exportar registros");
+            toast.error(t('errorExportingLogs'));
         }
         setExporting(false);
     };
 
     const columns = useMemo(() => [
         columnHelper.accessor('timestamp', {
-            header: 'Fecha',
+            header: t('columnDate'),
             cell: info => new Date(info.getValue()).toLocaleString(),
         }),
         columnHelper.accessor('user_email', {
-            header: 'Usuario (Email)',
+            header: t('columnUserEmail'),
         }),
         columnHelper.accessor('action_type', {
-            header: 'Acción',
+            header: t('columnAction'),
         }),
         columnHelper.accessor('resource_id', {
-            header: 'Recurso',
+            header: t('columnResource'),
             cell: info => {
                 const val = info.getValue();
                 const parts = val.split('/');
@@ -219,7 +221,7 @@ export default function AuditTrailPage() {
             }
         }),
         columnHelper.accessor('status', {
-            header: 'Estado',
+            header: t('columnStatus'),
             cell: info => {
                 const val = info.getValue();
                 return (
@@ -231,7 +233,7 @@ export default function AuditTrailPage() {
                 )
             }
         })
-    ], []);
+    ], [t]);
 
     const table = useReactTable({
         data: logs,
@@ -247,8 +249,8 @@ export default function AuditTrailPage() {
         return (
             <div className="flex flex-col items-center justify-center h-96 bg-white dark:bg-slate-900 rounded-lg border border-gray-200 shadow-sm">
                 <span className="text-4xl mb-4">🔐</span>
-                <h2 className="text-xl font-bold text-gray-700">Selecciona un Tenant</h2>
-                <p className="text-sm text-gray-500 mt-2">Debes seleccionar un cliente para ver su auditoría.</p>
+                <h2 className="text-xl font-bold text-gray-700">{t('selectTenantTitle')}</h2>
+                <p className="text-sm text-gray-500 mt-2">{t('selectTenantBody')}</p>
             </div>
         );
     }
@@ -260,52 +262,52 @@ export default function AuditTrailPage() {
             {/* Header */}
             <div className="mb-6">
                 <h1 className="text-2xl font-bold flex items-center gap-2">
-                    <FileText className="text-indigo-600 w-6 h-6" /> Registro de Auditoría
+                    <FileText className="text-indigo-600 w-6 h-6" /> {t('pageTitle')}
                 </h1>
-                <p className="text-sm text-gray-500 mt-1">Historial de acciones de remediación y cambios en recursos de Azure.</p>
+                <p className="text-sm text-gray-500 mt-1">{t('pageSubtitle')}</p>
             </div>
 
             {/* Filters */}
             <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                <h3 className="text-sm font-semibold text-gray-700 mb-4">Filtros</h3>
+                <h3 className="text-sm font-semibold text-gray-700 mb-4">{t('filtersTitle')}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
                     <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Email de Usuario</label>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">{t('filterUserEmail')}</label>
                         <input
                             type="text"
                             value={userEmail}
                             onChange={(e) => setUserEmail(e.target.value)}
-                            placeholder="ej: user@example.com"
+                            placeholder={t('filterUserEmailPlaceholder')}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         />
                     </div>
                     <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Tipo de Acción</label>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">{t('filterActionType')}</label>
                         <select
                             value={actionType}
                             onChange={(e) => setActionType(e.target.value)}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         >
-                            <option value="">Todas</option>
+                            <option value="">{t('filterAll')}</option>
                             {actionTypes.map(type => (
                                 <option key={type} value={type}>{type}</option>
                             ))}
                         </select>
                     </div>
                     <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Estado</label>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">{t('filterStatus')}</label>
                         <select
                             value={status}
                             onChange={(e) => setStatus(e.target.value)}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         >
-                            <option value="">Todos</option>
+                            <option value="">{t('filterAllMasculine')}</option>
                             <option value="SUCCESS">SUCCESS</option>
                             <option value="FAILURE">FAILURE</option>
                         </select>
                     </div>
                     <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Desde</label>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">{t('filterFrom')}</label>
                         <input
                             type="date"
                             value={fromDate}
@@ -314,7 +316,7 @@ export default function AuditTrailPage() {
                         />
                     </div>
                     <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Hasta</label>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">{t('filterTo')}</label>
                         <input
                             type="date"
                             value={toDate}
@@ -331,48 +333,48 @@ export default function AuditTrailPage() {
                         disabled={loading}
                         className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition"
                     >
-                        Aplicar filtros
+                        {t('applyFilters')}
                     </button>
                     <button
                         onClick={handleClearFilters}
                         className="px-4 py-2 bg-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-400 transition"
                     >
-                        Limpiar
+                        {t('clearFilters')}
                     </button>
                 </div>
             </div>
 
             {/* Export Buttons */}
             <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3">Exportar</h3>
+                <h3 className="text-sm font-semibold text-gray-700 mb-3">{t('exportTitle')}</h3>
                 <div className="flex flex-wrap gap-2">
                     <button
                         onClick={() => handleExport("csv", false)}
                         disabled={logs.length === 0 || loading || exporting}
                         className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
                     >
-                        <Download className="w-4 h-4" /> CSV (página actual)
+                        <Download className="w-4 h-4" /> {t('exportCsvCurrentPage')}
                     </button>
                     <button
                         onClick={() => handleExport("csv", true)}
                         disabled={loading || exporting}
                         className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
                     >
-                        <Download className="w-4 h-4" /> CSV (filtrado completo)
+                        <Download className="w-4 h-4" /> {t('exportCsvFullFiltered')}
                     </button>
                     <button
                         onClick={() => handleExport("json", false)}
                         disabled={logs.length === 0 || loading || exporting}
                         className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 transition"
                     >
-                        <Download className="w-4 h-4" /> JSON
+                        <Download className="w-4 h-4" /> {t('exportJson')}
                     </button>
                     <button
                         onClick={() => handleExport("ndjson", false)}
                         disabled={logs.length === 0 || loading || exporting}
                         className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50 transition"
                     >
-                        <Download className="w-4 h-4" /> NDJSON
+                        <Download className="w-4 h-4" /> {t('exportNdjson')}
                     </button>
                 </div>
             </div>
@@ -381,12 +383,12 @@ export default function AuditTrailPage() {
             {loading ? (
                 <div className="flex flex-col items-center justify-center h-64 text-gray-400">
                     <Loader2 className="w-8 h-8 animate-spin mb-4 text-indigo-500" />
-                    Cargando registros...
+                    {t('loadingLogs')}
                 </div>
             ) : logs.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-64 border-2 border-dashed border-gray-300 rounded-lg text-gray-500">
                     <FileText className="w-12 h-12 mb-2 text-gray-300" />
-                    No hay acciones registradas para este tenant.
+                    {t('noLogs')}
                 </div>
             ) : (
                 <>
@@ -422,7 +424,7 @@ export default function AuditTrailPage() {
                     {/* Pagination */}
                     <div className="flex items-center justify-between border-t pt-4">
                         <div className="text-sm text-gray-600">
-                            {total > 0 && `${startRow}-${endRow} de ${total} resultados`}
+                            {total > 0 && t('resultsRange', { startRow, endRow, total })}
                         </div>
                         <div className="flex gap-2">
                             <button
@@ -430,17 +432,17 @@ export default function AuditTrailPage() {
                                 disabled={pageIndex === 0 || loading}
                                 className="px-3 py-1 border rounded text-sm disabled:opacity-50 hover:bg-gray-50"
                             >
-                                Anterior
+                                {t('previous')}
                             </button>
                             <span className="px-3 py-1 text-sm text-gray-600">
-                                Página {pageIndex + 1} de {pageCount || 1}
+                                {t('pageOf', { current: pageIndex + 1, total: pageCount || 1 })}
                             </span>
                             <button
                                 onClick={() => setPageIndex(p => (p + 1 < pageCount ? p + 1 : p))}
                                 disabled={pageIndex + 1 >= pageCount || loading}
                                 className="px-3 py-1 border rounded text-sm disabled:opacity-50 hover:bg-gray-50"
                             >
-                                Siguiente
+                                {t('next')}
                             </button>
                         </div>
                     </div>

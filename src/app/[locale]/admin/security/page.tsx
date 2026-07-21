@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { getFreshIdToken } from '@/lib/msalToken';
@@ -23,6 +24,7 @@ interface MFAStatus {
 }
 
 export default function SecurityPage() {
+  const t = useTranslations('AdminSecurity');
   const { selectedTenant } = useTenant();
   const { instance, accounts } = useMsal();
   const [mfaStatus, setMfaStatus] = useState<MFAStatus | null>(null);
@@ -85,7 +87,7 @@ export default function SecurityPage() {
 
       if (!res.ok) {
         const err = await res.json();
-        toast.error(err.error?.message || 'Failed to start MFA enrollment');
+        toast.error(err.error?.message || t('errors.enrollStartFailed'));
         return;
       }
 
@@ -96,15 +98,15 @@ export default function SecurityPage() {
       setShowEnrollmentModal(true);
     } catch (error: any) {
       console.error('Error starting MFA enrollment:', error);
-      toast.error('Failed to start MFA enrollment');
+      toast.error(t('errors.enrollStartFailed'));
     } finally {
       setEnrolling(false);
     }
-  }, [authHeaders]);
+  }, [authHeaders, t]);
 
   const handleEnrollVerify = useCallback(async () => {
     if (!totp) {
-      toast.error('Please enter your 6-digit code');
+      toast.error(t('errors.enterCode'));
       return;
     }
 
@@ -119,25 +121,25 @@ export default function SecurityPage() {
 
       if (!res.ok) {
         const err = await res.json();
-        toast.error(err.error?.message || 'Invalid code');
+        toast.error(err.error?.message || t('errors.invalidCode'));
         return;
       }
 
-      toast.success('2FA enabled successfully');
+      toast.success(t('toasts.enabled'));
       setShowEnrollmentModal(false);
       setTotp('');
       setMfaStatus({ enabled: true, lastUsedAt: null, recoveryCodesRemaining: recoveryCodes.length });
     } catch (error: any) {
       console.error('Error verifying MFA:', error);
-      toast.error('Failed to verify code');
+      toast.error(t('errors.verifyFailed'));
     } finally {
       setVerifying(false);
     }
-  }, [totp, authHeaders]);
+  }, [totp, authHeaders, t]);
 
   const handleDisableMFA = useCallback(async () => {
     if (!disableToken || disableToken.length !== 6) {
-      toast.error('Enter your current 6-digit code to disable 2FA');
+      toast.error(t('errors.enterCodeToDisable'));
       return;
     }
 
@@ -152,21 +154,21 @@ export default function SecurityPage() {
 
       if (!res.ok) {
         const err = await res.json();
-        toast.error(err.error?.message || 'Failed to disable 2FA');
+        toast.error(err.error?.message || t('errors.disableFailed'));
         return;
       }
 
-      toast.success('2FA disabled');
+      toast.success(t('toasts.disabled'));
       setMfaStatus({ enabled: false, lastUsedAt: null, recoveryCodesRemaining: 0 });
       setShowDisableModal(false);
       setDisableToken('');
     } catch (error) {
       console.error('Error disabling MFA:', error);
-      toast.error('Failed to disable 2FA');
+      toast.error(t('errors.disableFailed'));
     } finally {
       setDisabling(false);
     }
-  }, [authHeaders, disableToken]);
+  }, [authHeaders, disableToken, t]);
 
   const handleDownloadRecoveryCodes = useCallback(() => {
     const text = recoveryCodes.join('\n');
@@ -177,8 +179,8 @@ export default function SecurityPage() {
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
-    toast.success('Recovery codes downloaded');
-  }, [recoveryCodes]);
+    toast.success(t('toasts.codesDownloaded'));
+  }, [recoveryCodes, t]);
 
   const handleCopyCode = useCallback((code: string, index: number) => {
     navigator.clipboard.writeText(code);
@@ -199,24 +201,24 @@ export default function SecurityPage() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold flex items-center gap-2">
           <ShieldCheck className="h-8 w-8" />
-          Security Settings
+          {t('title')}
         </h1>
-        <p className="text-gray-600 mt-2">Manage your account security and two-factor authentication</p>
+        <p className="text-gray-600 mt-2">{t('subtitle')}</p>
       </div>
 
       {/* 2FA Card */}
       <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
         <div className="flex items-start justify-between mb-4">
           <div>
-            <h2 className="text-xl font-semibold mb-2">Two-Factor Authentication</h2>
+            <h2 className="text-xl font-semibold mb-2">{t('twoFactor.heading')}</h2>
             <p className="text-gray-600 text-sm">
               {mfaStatus?.enabled
-                ? 'Two-factor authentication is enabled for your account.'
-                : 'Protect your account with an additional security layer.'}
+                ? t('twoFactor.enabledDescription')
+                : t('twoFactor.disabledDescription')}
             </p>
             {mfaStatus?.enabled && mfaStatus?.lastUsedAt && (
               <p className="text-gray-500 text-xs mt-2">
-                Last used: {new Date(mfaStatus.lastUsedAt).toLocaleString()}
+                {t('twoFactor.lastUsed', { date: new Date(mfaStatus.lastUsedAt).toLocaleString() })}
               </p>
             )}
           </div>
@@ -227,7 +229,7 @@ export default function SecurityPage() {
                 : 'bg-gray-100 text-gray-800'
             }`}
           >
-            {mfaStatus?.enabled ? 'Active' : 'Inactive'}
+            {mfaStatus?.enabled ? t('status.active') : t('status.inactive')}
           </div>
         </div>
 
@@ -240,10 +242,10 @@ export default function SecurityPage() {
                 className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center"
               >
                 {enrolling && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Enable 2FA
+                {t('actions.enable')}
               </button>
               <p className="text-xs text-gray-500">
-                You'll be guided through setting up an authenticator app.
+                {t('twoFactor.enrollHint')}
               </p>
             </>
           ) : (
@@ -254,11 +256,11 @@ export default function SecurityPage() {
                 className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 flex items-center"
               >
                 {disabling && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Disable 2FA
+                {t('actions.disable')}
               </button>
               {mfaStatus?.recoveryCodesRemaining !== undefined && (
                 <p className="text-xs text-gray-500">
-                  Recovery codes remaining: {mfaStatus.recoveryCodesRemaining}
+                  {t('twoFactor.recoveryCodesRemaining', { count: mfaStatus.recoveryCodesRemaining })}
                 </p>
               )}
               {recoveryCodes.length > 0 && (
@@ -266,7 +268,7 @@ export default function SecurityPage() {
                   onClick={() => setShowRecoveryCodesModal(true)}
                   className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
                 >
-                  View Recovery Codes
+                  {t('actions.viewRecoveryCodes')}
                 </button>
               )}
             </>
@@ -278,26 +280,26 @@ export default function SecurityPage() {
       {showEnrollmentModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-lg p-6 sm:max-w-[600px] w-full max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-semibold mb-2">Set Up Two-Factor Authentication</h2>
+            <h2 className="text-xl font-semibold mb-2">{t('enrollModal.title')}</h2>
             <p className="text-gray-600 text-sm mb-6">
-              Scan the QR code with your authenticator app, then enter the 6-digit code to confirm.
+              {t('enrollModal.instructions')}
             </p>
 
             <div className="space-y-6">
               {/* QR Code */}
               <div className="flex flex-col items-center">
-                {qrCode && <img src={qrCode} alt="QR Code" className="w-64 h-64" />}
+                {qrCode && <img src={qrCode} alt={t('enrollModal.qrCodeAlt')} className="w-64 h-64" />}
               </div>
 
               {/* Manual Entry */}
               <div className="bg-gray-100 p-4 rounded-lg">
-                <p className="text-sm text-gray-600 mb-2">Can't scan? Enter manually:</p>
+                <p className="text-sm text-gray-600 mb-2">{t('enrollModal.manualEntryPrompt')}</p>
                 <code className="text-sm font-mono break-all">{manualSecret}</code>
               </div>
 
               {/* Recovery Codes */}
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                <p className="text-sm font-semibold text-amber-900 mb-3">Save your recovery codes</p>
+                <p className="text-sm font-semibold text-amber-900 mb-3">{t('enrollModal.saveRecoveryCodes')}</p>
                 <div className="space-y-2">
                   {recoveryCodes.map((code, i) => (
                     <div key={i} className="flex items-center justify-between bg-white p-2 rounded">
@@ -320,14 +322,14 @@ export default function SecurityPage() {
                   className="mt-3 w-full px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center justify-center"
                 >
                   <Download className="mr-2 h-4 w-4" />
-                  Download as Text
+                  {t('actions.downloadAsText')}
                 </button>
               </div>
 
               {/* TOTP Verification */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Enter 6-digit code from your app
+                  {t('enrollModal.enterCodeLabel')}
                 </label>
                 <input
                   type="text"
@@ -346,7 +348,7 @@ export default function SecurityPage() {
                   disabled={verifying}
                   className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                 >
-                  Cancel
+                  {t('actions.cancel')}
                 </button>
                 <button
                   onClick={handleEnrollVerify}
@@ -354,7 +356,7 @@ export default function SecurityPage() {
                   className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center"
                 >
                   {verifying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Verify & Enable
+                  {t('actions.verifyAndEnable')}
                 </button>
               </div>
             </div>
@@ -366,9 +368,9 @@ export default function SecurityPage() {
       {showRecoveryCodesModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-lg p-6 sm:max-w-[500px] w-full">
-            <h2 className="text-lg font-semibold mb-2">Recovery Codes</h2>
+            <h2 className="text-lg font-semibold mb-2">{t('recoveryModal.title')}</h2>
             <p className="text-gray-600 text-sm mb-6">
-              Keep these codes in a safe place. Use them to access your account if you lose access to your authenticator app.
+              {t('recoveryModal.description')}
             </p>
 
             <div className="space-y-3">
@@ -379,12 +381,12 @@ export default function SecurityPage() {
                 {showCodes ? (
                   <>
                     <EyeOff className="mr-2 h-4 w-4" />
-                    Hide Codes
+                    {t('actions.hideCodes')}
                   </>
                 ) : (
                   <>
                     <Eye className="mr-2 h-4 w-4" />
-                    Show Codes
+                    {t('actions.showCodes')}
                   </>
                 )}
               </button>
@@ -414,14 +416,14 @@ export default function SecurityPage() {
                 className="w-full px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center justify-center"
               >
                 <Download className="mr-2 h-4 w-4" />
-                Download
+                {t('actions.download')}
               </button>
 
               <button
                 onClick={() => setShowRecoveryCodesModal(false)}
                 className="w-full px-4 py-2 bg-gray-200 text-gray-800 rounded-md text-sm font-medium hover:bg-gray-300"
               >
-                Close
+                {t('actions.close')}
               </button>
             </div>
           </div>
@@ -434,10 +436,10 @@ export default function SecurityPage() {
           <div className="bg-white rounded-lg shadow-lg p-6 sm:max-w-[450px] w-full">
             <h2 className="text-lg font-semibold mb-2 flex items-center gap-2">
               <AlertCircle className="h-5 w-5 text-red-600" />
-              Disable Two-Factor Authentication
+              {t('disableModal.title')}
             </h2>
             <p className="text-gray-600 text-sm mb-4">
-              For your security, enter your current 6-digit code from your authenticator app to confirm.
+              {t('disableModal.description')}
             </p>
             <input
               type="text"
@@ -454,7 +456,7 @@ export default function SecurityPage() {
                 disabled={disabling}
                 className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
               >
-                Cancel
+                {t('actions.cancel')}
               </button>
               <button
                 onClick={handleDisableMFA}
@@ -462,7 +464,7 @@ export default function SecurityPage() {
                 className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 disabled:opacity-50 flex items-center justify-center"
               >
                 {disabling && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Disable 2FA
+                {t('actions.disable')}
               </button>
             </div>
           </div>

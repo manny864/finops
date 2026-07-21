@@ -1,5 +1,6 @@
 "use client";
 import React, { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
@@ -12,6 +13,7 @@ interface KeyRow {
 }
 
 export default function MCPKeysPage() {
+    const t = useTranslations("AdminMcpKeys");
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const [keys, setKeys] = useState<KeyRow[]>([]);
@@ -35,7 +37,7 @@ export default function MCPKeysPage() {
             const headers = await authHeaders();
             const res = await fetch(`/api/admin/mcp-keys?tenantId=${selectedTenant.id}`, { headers });
             const json = await res.json();
-            if (!json.success) setError(json.error || "Error");
+            if (!json.success) setError(json.error || t("errorGeneric"));
             else setKeys(json.keys || []);
         } catch (e: any) { setError(e?.message); }
         finally { setLoading(false); }
@@ -44,7 +46,7 @@ export default function MCPKeysPage() {
     useEffect(() => { load(); }, [load]);
 
     const createKey = async () => {
-        if (!label.trim()) { setError("Etiqueta requerida"); return; }
+        if (!label.trim()) { setError(t("errorLabelRequired")); return; }
         if (!selectedTenant?.id) return;
         setCreating(true); setError(null); setNewKey(null);
         try {
@@ -54,14 +56,14 @@ export default function MCPKeysPage() {
                 body: JSON.stringify({ tenantId: selectedTenant.id, label: label.trim() }),
             });
             const json = await res.json();
-            if (!json.success) setError(json.error || "Error al crear key");
+            if (!json.success) setError(json.error || t("errorCreatingKey"));
             else { setNewKey({ plaintext: json.key, prefix: json.prefix }); setLabel(""); await load(); }
         } catch (e: any) { setError(e?.message); }
         finally { setCreating(false); }
     };
 
     const revoke = async (id: number) => {
-        if (!confirm("¿Revocar este key? Las integraciones que lo usen dejarán de funcionar.")) return;
+        if (!confirm(t("confirmRevokeKey"))) return;
         try {
             const headers = await authHeaders();
             await fetch(`/api/admin/mcp-keys?tenantId=${selectedTenant.id}&keyId=${id}`, { method: "DELETE", headers });
@@ -79,26 +81,26 @@ export default function MCPKeysPage() {
     return (
         <div className="p-6 space-y-6">
             <div>
-                <h1 className="text-2xl font-bold flex items-center gap-2"><KeyRound className="w-6 h-6" /> MCP API Keys</h1>
+                <h1 className="text-2xl font-bold flex items-center gap-2"><KeyRound className="w-6 h-6" /> {t("pageTitle")}</h1>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 text-justify">
-                    Keys de acceso al bridge MCP (<code>/api/mcp</code>) y al feed Power BI. Permite que agentes IA (Claude Desktop, Copilot, GPTs) o Power BI consulten datos del tenant en modo solo-lectura.
+                    {t.rich("description", { code: (chunks) => <code>{chunks}</code> })}
                 </p>
             </div>
 
             {error && <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">{error}</div>}
 
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                <h2 className="font-semibold mb-3">Crear nuevo key</h2>
+                <h2 className="font-semibold mb-3">{t("createNewKeyTitle")}</h2>
                 <div className="flex flex-wrap gap-3 items-end">
                     <div className="flex-1 min-w-[200px]">
-                        <label className="block text-xs font-medium mb-1">Etiqueta (ej: "Claude Desktop Juan")</label>
+                        <label className="block text-xs font-medium mb-1">{t("labelFieldLabel")}</label>
                         <input value={label} onChange={e => setLabel(e.target.value)}
-                            className="w-full border rounded px-3 py-2 text-sm dark:bg-gray-900" placeholder="Etiqueta descriptiva" />
+                            className="w-full border rounded px-3 py-2 text-sm dark:bg-gray-900" placeholder={t("labelPlaceholder")} />
                     </div>
                     <button onClick={createKey} disabled={creating || !label.trim()}
                         className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm flex items-center gap-2 disabled:opacity-50">
                         {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                        Crear key
+                        {t("createKeyButton")}
                     </button>
                 </div>
 
@@ -107,15 +109,15 @@ export default function MCPKeysPage() {
                         <div className="flex items-start gap-2 text-amber-700 dark:text-amber-300 mb-2">
                             <ShieldAlert className="w-5 h-5 mt-0.5" />
                             <div>
-                                <p className="font-semibold">Guarda este key ahora.</p>
-                                <p className="text-xs">No se puede recuperar después. Solo se almacena el hash.</p>
+                                <p className="font-semibold">{t("saveKeyNowTitle")}</p>
+                                <p className="text-xs">{t("saveKeyNowDescription")}</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-2 bg-white dark:bg-gray-900 rounded px-3 py-2">
                             <code className="font-mono text-xs flex-1 break-all">{newKey.plaintext}</code>
                             <button onClick={copyKey} className="text-blue-600 hover:text-blue-700 flex items-center gap-1 text-xs">
                                 {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                                {copied ? "Copiado" : "Copiar"}
+                                {copied ? t("copiedButton") : t("copyButton")}
                             </button>
                         </div>
                     </div>
@@ -123,21 +125,21 @@ export default function MCPKeysPage() {
             </div>
 
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                <h2 className="font-semibold mb-3">Keys existentes ({keys.length})</h2>
+                <h2 className="font-semibold mb-3">{t("existingKeysTitle", { count: keys.length })}</h2>
                 {loading ? (
-                    <div className="flex items-center gap-2 text-sm text-gray-500"><Loader2 className="w-4 h-4 animate-spin" /> Cargando…</div>
+                    <div className="flex items-center gap-2 text-sm text-gray-500"><Loader2 className="w-4 h-4 animate-spin" /> {t("loadingLabel")}</div>
                 ) : keys.length === 0 ? (
-                    <p className="text-sm text-gray-500 italic">Sin keys. Crea uno arriba.</p>
+                    <p className="text-sm text-gray-500 italic">{t("noKeysMessage")}</p>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead><tr className="border-b text-left text-xs uppercase text-gray-500">
-                                <th className="py-2 pr-3">Prefix</th>
-                                <th className="py-2 pr-3">Etiqueta</th>
-                                <th className="py-2 pr-3">Creada por</th>
-                                <th className="py-2 pr-3">Creada</th>
-                                <th className="py-2 pr-3">Último uso</th>
-                                <th className="py-2 pr-3">Estado</th>
+                                <th className="py-2 pr-3">{t("colPrefix")}</th>
+                                <th className="py-2 pr-3">{t("colLabel")}</th>
+                                <th className="py-2 pr-3">{t("colCreatedBy")}</th>
+                                <th className="py-2 pr-3">{t("colCreatedAt")}</th>
+                                <th className="py-2 pr-3">{t("colLastUsed")}</th>
+                                <th className="py-2 pr-3">{t("colStatus")}</th>
                                 <th className="py-2"></th>
                             </tr></thead>
                             <tbody>
@@ -147,11 +149,11 @@ export default function MCPKeysPage() {
                                         <td className="py-2 pr-3 font-medium">{k.label}</td>
                                         <td className="py-2 pr-3 text-xs">{k.created_by_email}</td>
                                         <td className="py-2 pr-3 text-xs">{new Date(k.created_at).toLocaleDateString()}</td>
-                                        <td className="py-2 pr-3 text-xs">{k.last_used_at ? new Date(k.last_used_at).toLocaleString() : "Nunca"}</td>
+                                        <td className="py-2 pr-3 text-xs">{k.last_used_at ? new Date(k.last_used_at).toLocaleString() : t("neverUsedLabel")}</td>
                                         <td className="py-2 pr-3">
                                             {k.revoked_at
-                                                ? <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded text-xs">Revocada</span>
-                                                : <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs">Activa</span>}
+                                                ? <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded text-xs">{t("revokedStatus")}</span>
+                                                : <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs">{t("activeStatus")}</span>}
                                         </td>
                                         <td className="py-2">
                                             {!k.revoked_at && (
@@ -169,11 +171,11 @@ export default function MCPKeysPage() {
             </div>
 
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 rounded-lg p-4 text-sm">
-                <p className="font-semibold mb-2">¿Cómo usar?</p>
+                <p className="font-semibold mb-2">{t("howToUseTitle")}</p>
                 <ul className="list-disc ml-5 space-y-1 text-xs">
-                    <li><code>GET /api/mcp</code> — descubrir capabilities (público).</li>
-                    <li><code>POST /api/mcp</code> con <code>Authorization: Bearer mcp_…</code> — JSON-RPC con <code>tools/list</code> o <code>tools/call</code>.</li>
-                    <li><code>GET /api/exports/powerbi-feed?type=costs</code> — feed Power BI con el mismo key.</li>
+                    <li>{t.rich("howToUseItem1", { code: (chunks) => <code>{chunks}</code> })}</li>
+                    <li>{t.rich("howToUseItem2", { code: (chunks) => <code>{chunks}</code> })}</li>
+                    <li>{t.rich("howToUseItem3", { code: (chunks) => <code>{chunks}</code> })}</li>
                 </ul>
             </div>
         </div>

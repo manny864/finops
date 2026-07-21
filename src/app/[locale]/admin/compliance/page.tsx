@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { useTenant } from '@/components/TenantProvider';
 import { Shield, FileText, Download, CheckCircle, Clock } from 'lucide-react';
 import { LEGAL_VERSIONS } from '@/lib/legalVersions';
@@ -14,6 +15,7 @@ interface ComplianceStatus {
 }
 
 export default function AdminCompliancePage() {
+  const t = useTranslations('AdminCompliance');
   const { selectedTenant } = useTenant();
   const [statuses, setStatuses] = useState<ComplianceStatus[]>([
     { documentType: 'dpa', version: LEGAL_VERSIONS.dpa, accepted: false },
@@ -71,13 +73,13 @@ export default function AdminCompliancePage() {
       });
 
       if (response.ok) {
-        alert('SOC 2 report request submitted. Our team will contact you within 48 hours.');
+        alert(t('soc2RequestSuccess'));
       } else {
-        alert('Failed to submit request. Please try again.');
+        alert(t('soc2RequestFailure'));
       }
     } catch (err) {
       console.error('Error requesting SOC 2 report:', err);
-      alert('An error occurred. Please try again.');
+      alert(t('soc2RequestError'));
     } finally {
       setRequestingSoc2(false);
     }
@@ -88,16 +90,16 @@ export default function AdminCompliancePage() {
       {/* Header */}
       <div className="flex items-center gap-3 mb-8">
         <Shield className="w-8 h-8 text-brand-deep" />
-        <h1 className="text-3xl font-bold text-ink">Legal & Compliance</h1>
+        <h1 className="text-3xl font-bold text-ink">{t('pageTitle')}</h1>
       </div>
 
       {/* Compliance Status Card */}
       <div className="bg-white rounded-lg border border-line p-6 space-y-6">
-        <h2 className="text-xl font-bold text-ink">Document Acceptance Status</h2>
+        <h2 className="text-xl font-bold text-ink">{t('acceptanceStatusTitle')}</h2>
 
         {loading ? (
           <div className="text-center py-8">
-            <p className="text-gray-600">Loading compliance status...</p>
+            <p className="text-gray-600">{t('loadingStatus')}</p>
           </div>
         ) : (
           <div className="grid gap-4">
@@ -113,26 +115,26 @@ export default function AdminCompliancePage() {
                     ) : (
                       <Clock className="w-5 h-5 text-yellow-600" />
                     )}
-                    <h3 className="font-semibold text-ink capitalize">{status.documentType}</h3>
+                    <h3 className="font-semibold text-ink capitalize">{t(`docType_${status.documentType}`)}</h3>
                   </div>
                   <p className="text-sm text-gray-600">
-                    Version {status.version}
+                    {t('versionLabel', { version: status.version })}
                     {status.accepted_at && (
-                      <> · Accepted {new Date(status.accepted_at).toLocaleDateString()}</>
+                      <> · {t('acceptedOn', { date: new Date(status.accepted_at).toLocaleDateString() })}</>
                     )}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
                   {status.accepted && (
                     <span className="text-xs font-semibold text-green-700 bg-green-50 px-2 py-1 rounded">
-                      SIGNED
+                      {t('signedBadge')}
                     </span>
                   )}
                   <Link
                     href={`/legal/${status.documentType}`}
                     className="px-3 py-2 text-sm font-semibold text-brand-deep border border-brand-deep rounded-lg hover:bg-brand-deep/5 transition-colors"
                   >
-                    View
+                    {t('viewLink')}
                   </Link>
                 </div>
               </div>
@@ -143,7 +145,7 @@ export default function AdminCompliancePage() {
 
       {/* Download Documents */}
       <div className="bg-white rounded-lg border border-line p-6 space-y-4">
-        <h2 className="text-xl font-bold text-ink">Download Documents</h2>
+        <h2 className="text-xl font-bold text-ink">{t('downloadDocumentsTitle')}</h2>
         <div className="grid md:grid-cols-2 gap-4">
           <a
             href="#"
@@ -151,8 +153,8 @@ export default function AdminCompliancePage() {
           >
             <Download className="w-5 h-5 text-gray-400" />
             <div>
-              <p className="font-semibold text-ink">DPA Signed Receipt (PDF)</p>
-              <p className="text-xs text-gray-600">Coming soon</p>
+              <p className="font-semibold text-ink">{t('dpaReceiptTitle')}</p>
+              <p className="text-xs text-gray-600">{t('comingSoon')}</p>
             </div>
           </a>
           <Link
@@ -161,8 +163,8 @@ export default function AdminCompliancePage() {
           >
             <Download className="w-5 h-5 text-brand-deep" />
             <div>
-              <p className="font-semibold text-ink">Audit Log Export</p>
-              <p className="text-xs text-gray-600">All user actions & access logs</p>
+              <p className="font-semibold text-ink">{t('auditLogExportTitle')}</p>
+              <p className="text-xs text-gray-600">{t('auditLogExportSubtitle')}</p>
             </div>
           </Link>
           <Link
@@ -171,8 +173,8 @@ export default function AdminCompliancePage() {
           >
             <Download className="w-5 h-5 text-brand-deep" />
             <div>
-              <p className="font-semibold text-ink">Subprocessor List</p>
-              <p className="text-xs text-gray-600">GDPR Art. 28 compliant</p>
+              <p className="font-semibold text-ink">{t('subprocessorListTitle')}</p>
+              <p className="text-xs text-gray-600">{t('subprocessorListSubtitle')}</p>
             </div>
           </Link>
         </div>
@@ -180,43 +182,42 @@ export default function AdminCompliancePage() {
 
       {/* SOC 2 Request */}
       <div className="bg-gradient-to-r from-brand-deep/10 to-brand-bright/10 rounded-lg border border-brand-deep/20 p-6 space-y-4">
-        <h2 className="text-xl font-bold text-ink">Request SOC 2 Report</h2>
+        <h2 className="text-xl font-bold text-ink">{t('soc2RequestTitle')}</h2>
         <p className="text-gray-700">
-          Enterprise customers can request our SOC 2 Type II audit report (in progress, target Q4 2026). 
-          Reports are shared under NDA.
+          {t('soc2RequestBody')}
         </p>
         <button
           onClick={handleRequestSoc2}
           disabled={requestingSoc2}
           className="px-6 py-2 font-semibold text-white bg-brand-deep rounded-lg hover:brightness-110 disabled:opacity-50 transition-all"
         >
-          {requestingSoc2 ? 'Submitting...' : 'Request SOC 2 Report'}
+          {requestingSoc2 ? t('soc2Submitting') : t('soc2RequestButton')}
         </button>
       </div>
 
       {/* Compliance Roadmap */}
       <div className="bg-white rounded-lg border border-line p-6 space-y-4">
-        <h2 className="text-xl font-bold text-ink">Compliance Roadmap</h2>
+        <h2 className="text-xl font-bold text-ink">{t('roadmapTitle')}</h2>
         <div className="space-y-3">
           <div className="flex items-start gap-4">
             <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="font-semibold text-ink">GDPR Compliant</p>
-              <p className="text-sm text-gray-600">Privacy Policy, DPA, and data subject rights implemented</p>
+              <p className="font-semibold text-ink">{t('roadmapGdprTitle')}</p>
+              <p className="text-sm text-gray-600">{t('roadmapGdprBody')}</p>
             </div>
           </div>
           <div className="flex items-start gap-4">
             <Clock className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="font-semibold text-ink">SOC 2 Type II</p>
-              <p className="text-sm text-gray-600">Target: Q4 2026. Annual audit in progress.</p>
+              <p className="font-semibold text-ink">{t('roadmapSoc2Title')}</p>
+              <p className="text-sm text-gray-600">{t('roadmapSoc2Body')}</p>
             </div>
           </div>
           <div className="flex items-start gap-4">
             <Clock className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="font-semibold text-ink">ISO 27001</p>
-              <p className="text-sm text-gray-600">Planned: 2026. Information security management.</p>
+              <p className="font-semibold text-ink">{t('roadmapIsoTitle')}</p>
+              <p className="text-sm text-gray-600">{t('roadmapIsoBody')}</p>
             </div>
           </div>
         </div>

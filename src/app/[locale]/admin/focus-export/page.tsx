@@ -6,11 +6,13 @@ import { isMockTenant } from "@/lib/mockData";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { toast } from "sonner";
 import { Download, Loader2, FileSpreadsheet, ExternalLink, Clock, Save } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 type Format = "csv" | "json" | "ndjson";
 type ScheduleFormat = "csv" | "json";
 
 export default function FocusExportPage() {
+    const t = useTranslations("AdminFocusExport");
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
 
@@ -67,7 +69,7 @@ export default function FocusExportPage() {
     async function handleSaveSchedule() {
         if (!selectedTenant || selectedTenant.id === "default") return;
         if (scheduleEnabled && !scheduleEmail.trim()) {
-            toast.error("Ingresá un email destinatario para habilitar la programación.");
+            toast.error(t("errors.recipientEmailRequired"));
             return;
         }
 
@@ -86,13 +88,13 @@ export default function FocusExportPage() {
                 }),
             });
             if (res.ok) {
-                toast.success("Programación guardada.");
+                toast.success(t("toasts.scheduleSaved"));
             } else {
-                const j = await res.json().catch(() => ({ error: "Error al guardar." }));
-                toast.error(j.error || "Error al guardar.");
+                const j = await res.json().catch(() => ({ error: t("errors.saveFailed") }));
+                toast.error(j.error || t("errors.saveFailed"));
             }
         } catch (e: any) {
-            toast.error(e?.message || "Error inesperado.");
+            toast.error(e?.message || t("errors.unexpectedError"));
         } finally {
             setScheduleSaving(false);
         }
@@ -100,11 +102,11 @@ export default function FocusExportPage() {
 
     async function handleDownload() {
         if (!selectedTenant || selectedTenant.id === "default") {
-            toast.error("Seleccioná un tenant primero.");
+            toast.error(t("errors.selectTenantFirst"));
             return;
         }
         if (from > to) {
-            toast.error("La fecha 'desde' no puede ser posterior a 'hasta'.");
+            toast.error(t("errors.invalidDateRange"));
             return;
         }
 
@@ -127,7 +129,7 @@ export default function FocusExportPage() {
             const res = await fetch(`/api/exports/focus?${params}`, { headers });
             if (!res.ok) {
                 const j = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-                toast.error(j.error || "Error al exportar.");
+                toast.error(j.error || t("errors.exportFailed"));
                 return;
             }
 
@@ -140,9 +142,9 @@ export default function FocusExportPage() {
             a.click();
             a.remove();
             URL.revokeObjectURL(url);
-            toast.success("Export FOCUS 1.1 generado.");
+            toast.success(t("toasts.exportGenerated"));
         } catch (e: any) {
-            toast.error(e?.message || "Error inesperado.");
+            toast.error(e?.message || t("errors.unexpectedError"));
         } finally {
             setLoading(false);
         }
@@ -152,8 +154,8 @@ export default function FocusExportPage() {
         return (
             <div className="flex flex-col items-center justify-center h-96 bg-white dark:bg-slate-900 rounded-lg border border-gray-200 shadow-sm">
                 <span className="text-4xl mb-4">📊</span>
-                <h2 className="text-xl font-bold text-gray-700">Seleccioná un Tenant</h2>
-                <p className="text-sm text-gray-500 mt-2">Necesitás un tenant para exportar su billing en formato FOCUS.</p>
+                <h2 className="text-xl font-bold text-gray-700">{t("selectTenant.title")}</h2>
+                <p className="text-sm text-gray-500 mt-2">{t("selectTenant.description")}</p>
             </div>
         );
     }
@@ -162,11 +164,10 @@ export default function FocusExportPage() {
         <div className="max-w-3xl mx-auto p-6 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 animate-in fade-in duration-500">
             <div className="mb-6">
                 <h1 className="text-2xl font-bold flex items-center gap-2">
-                    <FileSpreadsheet className="text-indigo-600 w-6 h-6" /> FOCUS 1.1 Export
+                    <FileSpreadsheet className="text-indigo-600 w-6 h-6" /> {t("title")}
                 </h1>
                 <p className="text-sm text-gray-500 mt-1">
-                    Exportá tu billing en el formato estándar <strong>FinOps Open Cost &amp; Usage Specification 1.1</strong>.
-                    Compatible con FOCUS Validator, CCAF, Power BI, OpenCost y la mayoría de herramientas FinOps.
+                    {t.rich("subtitle", { strong: (chunks) => <strong>{chunks}</strong> })}
                 </p>
                 <a
                     href="https://focus.finops.org/"
@@ -174,13 +175,13 @@ export default function FocusExportPage() {
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline mt-2"
                 >
-                    Ver especificación FOCUS <ExternalLink className="w-3 h-3" />
+                    {t("viewSpecLink")} <ExternalLink className="w-3 h-3" />
                 </a>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                 <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Desde</label>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">{t("dateFrom")}</label>
                     <input
                         type="date"
                         value={from}
@@ -190,7 +191,7 @@ export default function FocusExportPage() {
                     />
                 </div>
                 <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Hasta</label>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">{t("dateTo")}</label>
                     <input
                         type="date"
                         value={to}
@@ -201,25 +202,25 @@ export default function FocusExportPage() {
                     />
                 </div>
                 <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Subscription ID (opcional)</label>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">{t("subscriptionIdOptional")}</label>
                     <input
                         type="text"
                         value={subscriptionId}
                         onChange={(e) => setSubscriptionId(e.target.value)}
-                        placeholder="dejar vacío para todas"
+                        placeholder={t("subscriptionIdPlaceholder")}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                 </div>
                 <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Formato</label>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">{t("format")}</label>
                     <select
                         value={format}
                         onChange={(e) => setFormat(e.target.value as Format)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     >
-                        <option value="csv">CSV (FOCUS estándar)</option>
-                        <option value="json">JSON</option>
-                        <option value="ndjson">NDJSON (streaming)</option>
+                        <option value="csv">{t("formatOptions.csv")}</option>
+                        <option value="json">{t("formatOptions.json")}</option>
+                        <option value="ndjson">{t("formatOptions.ndjson")}</option>
                     </select>
                 </div>
             </div>
@@ -230,23 +231,23 @@ export default function FocusExportPage() {
                 className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition"
             >
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                Descargar FOCUS 1.1
+                {t("downloadButton")}
             </button>
 
             <div className="mt-8 pt-6 border-t border-gray-200 dark:border-slate-800">
                 <h2 className="text-sm font-bold flex items-center gap-2 mb-1">
-                    <Clock className="w-4 h-4 text-indigo-600" /> Programación diaria automática
+                    <Clock className="w-4 h-4 text-indigo-600" /> {t("schedule.heading")}
                 </h2>
                 <p className="text-xs text-gray-500 mb-4">
-                    Genera y envía por email el export del día anterior automáticamente, todos los días.
+                    {t("schedule.description")}
                 </p>
 
                 {scheduleLoading ? (
-                    <div className="text-xs text-gray-500">Cargando programación...</div>
+                    <div className="text-xs text-gray-500">{t("schedule.loading")}</div>
                 ) : (
                     <div className="space-y-4">
                         <label className="flex items-center justify-between max-w-md cursor-pointer">
-                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Habilitar generación diaria automática</span>
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t("schedule.toggleLabel")}</span>
                             <button
                                 type="button"
                                 role="switch"
@@ -266,7 +267,7 @@ export default function FocusExportPage() {
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">Email destinatario</label>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">{t("schedule.recipientEmail")}</label>
                                 <input
                                     type="email"
                                     value={scheduleEmail}
@@ -276,30 +277,30 @@ export default function FocusExportPage() {
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">Formato</label>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">{t("format")}</label>
                                 <select
                                     value={scheduleFormat}
                                     onChange={(e) => setScheduleFormat(e.target.value as ScheduleFormat)}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                 >
-                                    <option value="csv">CSV (FOCUS estándar)</option>
-                                    <option value="json">JSON</option>
+                                    <option value="csv">{t("formatOptions.csv")}</option>
+                                    <option value="json">{t("formatOptions.json")}</option>
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">Subscription ID (opcional)</label>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">{t("subscriptionIdOptional")}</label>
                                 <input
                                     type="text"
                                     value={scheduleSubscriptionId}
                                     onChange={(e) => setScheduleSubscriptionId(e.target.value)}
-                                    placeholder="dejar vacío para todas"
+                                    placeholder={t("subscriptionIdPlaceholder")}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                 />
                             </div>
                         </div>
 
                         {scheduleLastRun && (
-                            <p className="text-xs text-gray-500">Última ejecución: {new Date(scheduleLastRun).toLocaleString()}</p>
+                            <p className="text-xs text-gray-500">{t("schedule.lastRun", { datetime: new Date(scheduleLastRun).toLocaleString() })}</p>
                         )}
 
                         <button
@@ -308,18 +309,18 @@ export default function FocusExportPage() {
                             className="inline-flex items-center gap-2 px-4 py-2 bg-gray-800 dark:bg-slate-700 text-white text-sm font-medium rounded-lg hover:bg-gray-900 dark:hover:bg-slate-600 disabled:opacity-50 transition"
                         >
                             {scheduleSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                            Guardar Programación
+                            {t("schedule.saveButton")}
                         </button>
                     </div>
                 )}
             </div>
 
             <div className="mt-6 text-xs text-gray-500 border-t pt-4">
-                <p className="mb-1"><strong>Acceso programático:</strong></p>
+                <p className="mb-1"><strong>{t("apiAccess.heading")}</strong></p>
                 <code className="block bg-gray-100 dark:bg-slate-800 p-2 rounded text-[11px] overflow-x-auto">
                     GET /api/exports/focus?tenantId=...&amp;from=YYYY-MM-DD&amp;to=YYYY-MM-DD&amp;format=csv
                 </code>
-                <p className="mt-2">Autenticación: <code>Authorization: Bearer mcp_...</code> con MCP API key del tenant.</p>
+                <p className="mt-2">{t.rich("apiAccess.authDescription", { code: (chunks) => <code>{chunks}</code> })}</p>
             </div>
         </div>
     );

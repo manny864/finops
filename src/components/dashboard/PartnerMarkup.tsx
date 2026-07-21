@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import useSWR from 'swr';
+import { useTranslations } from 'next-intl';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { Loader2, DollarSign, Percent, Save, Info } from 'lucide-react';
@@ -9,6 +10,7 @@ import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLocke
 import { useMfaChallenge } from "@/hooks/useMfaChallenge";
 
 export default function PartnerMarkup() {
+    const t = useTranslations('AdminMarkup');
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const { requestChallenge, mfaModal } = useMfaChallenge();
@@ -19,7 +21,7 @@ export default function PartnerMarkup() {
 
     const fetcher = async (url: string) => {
         const account = accounts[0];
-        if (!account) throw new Error("No hay cuenta autenticada");
+        if (!account) throw new Error(t('errorNoAccount'));
 
         const tokenResponse = await instance.acquireTokenSilent({
             scopes: ["User.Read"],
@@ -32,7 +34,7 @@ export default function PartnerMarkup() {
 
         if (!res.ok) {
             const json = await res.json();
-            throw new Error(json.error || "Error al cargar configuración de precios");
+            throw new Error(json.error || t('errorLoadingPricing'));
         }
         return res.json();
     };
@@ -74,9 +76,9 @@ export default function PartnerMarkup() {
                 body: JSON.stringify({ tenantId: selectedTenant.id, markupPercentage: markup })
             });
 
-            if (!response.ok) throw new Error("Fallo al guardar margen");
-            
-            toast.success("Margen de ganancia actualizado");
+            if (!response.ok) throw new Error(t('saveFailedError'));
+
+            toast.success(t('saveSuccessToast'));
             mutate({ success: true, markupPercentage: markup }, false);
         } catch (err: any) {
             toast.error(err.message);
@@ -91,7 +93,7 @@ export default function PartnerMarkup() {
         return (
             <div className="flex flex-col items-center justify-center py-20">
                 <Loader2 className="w-8 h-8 animate-spin text-brand-deep mb-4" />
-                <p className="text-gray-500 dark:text-gray-400">Cargando motor de facturación MSP...</p>
+                <p className="text-gray-500 dark:text-gray-400">{t('loadingBillingEngine')}</p>
             </div>
         );
     }
@@ -99,11 +101,11 @@ export default function PartnerMarkup() {
     if (error) {
         const requiredTier = parseTierRequiredError(error.message);
         if (requiredTier) {
-            return <TierLockedNotice requiredTier={requiredTier} currentTier={tier} featureName="Markup de Partner" />;
+            return <TierLockedNotice requiredTier={requiredTier} currentTier={tier} featureName={t('tierLockedFeatureName')} />;
         }
         return (
             <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg border border-red-100 dark:border-red-900/50">
-                <p className="text-sm font-bold">Error: {error.message}</p>
+                <p className="text-sm font-bold">{t('errorPrefix', { message: error.message })}</p>
             </div>
         );
     }
@@ -118,13 +120,12 @@ export default function PartnerMarkup() {
                 <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-xl p-5 flex gap-3">
                     <Info className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                     <div className="text-sm text-amber-900 dark:text-amber-200 space-y-2">
-                        <p className="font-bold">Tenant sin conexión CSP detectada</p>
+                        <p className="font-bold">{t('cspNotDetectedTitle')}</p>
                         <p>
-                            {data?.message ||
-                                "El motor de Partner Billing requiere snapshots con contexto Partner Center (billing_profile_id en CostSnapshots). Asegúrate de tener una suscripción Microsoft Customer Agreement / Partner Center activa y de ejecutar el sync de costos al menos una vez."}
+                            {data?.message || t('cspNotDetectedDefaultMessage')}
                         </p>
                         <p className="text-xs text-amber-700 dark:text-amber-300 mt-2">
-                            Puedes igualmente configurar un margen base, pero no se reflejará en facturas hasta que llegue el contexto CSP.
+                            {t('cspNotDetectedNote')}
                         </p>
                     </div>
                 </div>
@@ -139,16 +140,16 @@ export default function PartnerMarkup() {
                 <div className="p-6 border-b border-gray-200 dark:border-slate-800">
                     <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
                         <DollarSign className="w-5 h-5 text-brand-deep dark:text-brand-bright" />
-                        Ajuste de Margen Global (Markup)
+                        {t('sectionTitle')}
                     </h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                        Como proveedor de servicios (MSP), puedes definir un porcentaje de ganancia. Este margen se sumará automáticamente al costo base de Azure en todos los reportes de facturación, exportaciones PDF y dashboards visibles para tu cliente final.
+                        {t('sectionDescription')}
                     </p>
                 </div>
-                
+
                 <div className="p-6 space-y-6">
                     <div>
-                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Margen de Ganancia (Porcentaje %)</label>
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">{t('markupLabel')}</label>
                         <div className="relative max-w-xs">
                             <input 
                                 type="number" 
@@ -164,18 +165,18 @@ export default function PartnerMarkup() {
                     </div>
 
                     <div className="bg-gray-50 dark:bg-slate-800/50 p-4 rounded-lg border border-gray-100 dark:border-slate-700">
-                        <h4 className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-2">Simulación de Facturación</h4>
+                        <h4 className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-2">{t('simulationTitle')}</h4>
                         <div className="flex items-center justify-between text-sm">
-                            <span className="text-gray-600 dark:text-gray-400">Costo Base Azure (Ejemplo):</span>
+                            <span className="text-gray-600 dark:text-gray-400">{t('baseCostLabel')}</span>
                             <span className="font-medium text-gray-900 dark:text-white">$10,000.00</span>
                         </div>
                         <div className="flex items-center justify-between text-sm mt-1">
-                            <span className="text-gray-600 dark:text-gray-400">Tu Margen (+{markup}%):</span>
+                            <span className="text-gray-600 dark:text-gray-400">{t('yourMarkupLabel', { markup })}</span>
                             <span className="font-medium text-green-600 dark:text-green-400">+${((10000 * markup) / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                         </div>
                         <div className="h-px bg-gray-200 dark:bg-slate-700 my-2"></div>
                         <div className="flex items-center justify-between font-bold">
-                            <span className="text-gray-900 dark:text-white">Costo Final Cobrado al Cliente:</span>
+                            <span className="text-gray-900 dark:text-white">{t('finalCostLabel')}</span>
                             <span className="text-brand-deep dark:text-brand-bright">${(10000 * (1 + markup / 100)).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                         </div>
                     </div>
@@ -188,7 +189,7 @@ export default function PartnerMarkup() {
                         className="px-6 py-2 bg-brand-deep hover:bg-brand-bright text-white font-bold rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
                     >
                         {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                        Aplicar Margen a Todo el Tenant
+                        {t('applyButton')}
                     </button>
                 </div>
             </div>
