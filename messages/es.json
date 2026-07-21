@@ -484,7 +484,9 @@
     "governance_score": "Estado de Gobernanza",
     "account_security": "Seguridad (2FA)",
     "searchPlaceholder": "Buscar páginas...",
-    "clearSearch": "Limpiar búsqueda"
+    "clearSearch": "Limpiar búsqueda",
+    "hybrid_benefit": "Hybrid Benefit (AHB)",
+    "anomaly_detection": "Detección de Anomalías"
   },
   "Dashboard": {
     "title": "Dashboard General",
@@ -838,7 +840,30 @@
     "col_term": "Plazo",
     "col_payg_cost": "Pago por Uso",
     "col_reserved_cost": "Costo con Reserva",
-    "col_net_savings": "Ahorro Neto"
+    "col_net_savings": "Ahorro Neto",
+    "tab_resources": "Recomendaciones por Recurso",
+    "tab_reservations": "Reservas Recomendadas (Smart)",
+    "all_subscriptions": "Todas las Suscripciones (Tenant-wide)",
+    "col_resource_name": "Nombre del Recurso",
+    "col_type": "Tipo",
+    "col_sku": "SKU",
+    "col_region": "Región",
+    "col_monthly_license": "Costo Mensual (Licencia Incluida)",
+    "col_monthly_ahb": "Costo Mensual (AHB)",
+    "col_monthly_ahb_tooltip": "Ahorra hasta 50% sobre la tarifa estándar de pago por uso aplicando Azure Hybrid Benefit.",
+    "col_annual_payg": "Costo Anual (PAYG)",
+    "col_annual_1y": "Costo Anual (1A RI)",
+    "col_annual_3y": "Costo Anual (3A RI)",
+    "col_savings_1y": "Ahorro 1 Año ($)",
+    "col_savings_3y": "Ahorro 3 Años ($)",
+    "res_col_sku": "Recurso / SKU",
+    "res_col_type": "Tipo",
+    "res_col_qty": "Cantidad Recomendada",
+    "res_col_payg": "Costo Actual (PAYG)",
+    "res_col_savings_1y": "Ahorro a 1 Año ($)",
+    "res_col_savings_3y": "Ahorro a 3 Años ($)",
+    "no_reservations_title": "Sin recomendaciones de reservas",
+    "no_reservations_desc": "No se encontraron oportunidades de reservas inteligentes basadas en el consumo real del tenant."
   },
   "TTL": {
     "title": "TTL y Expiraciones",
@@ -1582,7 +1607,7 @@
     "saveSuccess": "Presupuesto actualizado."
   },
   "IntelligenceHybridBenefit": {
-    "title": "Azure Hybrid Benefit Scanner",
+    "title": "Escáner de Azure Hybrid Benefit",
     "subtitle": "Identifica instancias pagando precio de lista y simula tu ahorro al reutilizar licencias on-premise con Software Assurance.",
     "errorLoading": "Error al cargar reporte de Hybrid Benefit",
     "scanning": "Escaneando infraestructura de cómputo y SQL...",
@@ -1620,7 +1645,7 @@
     "monthlyTrend": "Tendencia Mensual"
   },
   "IntelligenceScorecard": {
-    "title": "FinOps Scorecard & Leaderboard",
+    "title": "FinOps Scorecard y Tabla de Posiciones",
     "subtitle": "Muro de la Fama. Fomenta la responsabilidad financiera comparando la eficiencia y limpieza de recursos entre tus equipos.",
     "loading": "Calculando puntajes de eficiencia...",
     "emptyState": "No hay datos de etiquetas suficientes para armar el Scorecard.",
@@ -3436,7 +3461,27 @@
     "incidentLog": "Registro de Incidentes Z-Score",
     "vsExpected": "vs Esperado",
     "detectedOn": "Detectada el {date}",
-    "resolvedOn": "Resuelta el {date}"
+    "resolvedOn": "Resuelta el {date}",
+    "pageTitle": "Detección de Anomalías (AI)",
+    "pageSubtitle": "Monitoreo 24/7 estadístico (Z-Score) que dispara alertas automáticamente al detectar desviaciones financieras anómalas.",
+    "premiumTitle": "Detección de Anomalías (ML Z-Score)",
+    "premiumDesc": "Caza picos de gasto inusuales mediante Machine Learning (Z-Score) antes de que impacten tu presupuesto mensual.",
+    "loadingText": "Cazando anomalías mediante Machine Learning (Z-Score)...",
+    "fetchError": "Error al cargar anomalías",
+    "noDataTitle": "Sin datos suficientes",
+    "noDataDesc": "El motor requiere al menos 60 días de historial de facturación de Azure para establecer una línea base estadística confiable.",
+    "baselineSpend": "Gasto Base (Media)",
+    "baselineSpendDesc": "Promedio móvil de 60 días",
+    "zScoreTolerance": "Tolerancia Z-Score (3σ)",
+    "alertLimit": "Límite de alerta",
+    "activeAnomaly": "¡Anomalía Activa!",
+    "normalBehavior": "Comportamiento Normal",
+    "normalBehaviorDesc": "No hay anomalías abiertas pendientes de revisión.",
+    "chartLimitLabel": "Límite (3σ)",
+    "spikeIn": "Pico de costo en",
+    "whatCausedIt": "Qué lo generó",
+    "criticalDeviation": "¡Desviación Crítica!",
+    "inRg": "en"
   },
   "WhiteBoard": {
     "title": "Resumen Ejecutivo",
@@ -3988,5 +4033,13 @@
     "csvColRegion": "Region",
     "csvColComplianceStatus": "Estado de Cumplimiento",
     "csvColMissingTags": "Etiquetas Faltantes"
+  },
+  "TierLockedNotice": {
+    "featureLockedTitle": "{feature} está en el plan {tier}",
+    "notAvailableTitle": "Función no disponible en tu plan",
+    "descAvailableFrom": "Esta función está disponible a partir del plan",
+    "descCurrentPlan": "tu plan actual es",
+    "descUpgradePrompt": "Actualizá tu suscripción para desbloquearla.",
+    "viewPlansCta": "Ver planes y precios"
   }
 }

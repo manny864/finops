@@ -484,7 +484,9 @@
     "governance_score": "Governance Score",
     "account_security": "Account Security (2FA)",
     "searchPlaceholder": "Search pages...",
-    "clearSearch": "Clear search"
+    "clearSearch": "Clear search",
+    "hybrid_benefit": "Hybrid Benefit (AHB)",
+    "anomaly_detection": "Anomaly Detection"
   },
   "Dashboard": {
     "title": "General Dashboard",
@@ -838,7 +840,30 @@
     "col_term": "Term",
     "col_payg_cost": "Pay-As-You-Go Cost",
     "col_reserved_cost": "Reserved Cost",
-    "col_net_savings": "Net Savings"
+    "col_net_savings": "Net Savings",
+    "tab_resources": "Recommendations by Resource",
+    "tab_reservations": "Smart Reservation Recommendations",
+    "all_subscriptions": "All Subscriptions (Tenant-wide)",
+    "col_resource_name": "Resource Name",
+    "col_type": "Type",
+    "col_sku": "SKU",
+    "col_region": "Region",
+    "col_monthly_license": "Monthly Cost (License Included)",
+    "col_monthly_ahb": "Monthly Cost (AHB)",
+    "col_monthly_ahb_tooltip": "Save up to 50% over the standard pay-as-you-go rate by applying Azure Hybrid Benefit.",
+    "col_annual_payg": "Annual Cost (PAYG)",
+    "col_annual_1y": "Annual Cost (1Y RI)",
+    "col_annual_3y": "Annual Cost (3Y RI)",
+    "col_savings_1y": "1 Year Savings ($)",
+    "col_savings_3y": "3 Year Savings ($)",
+    "res_col_sku": "Resource / SKU",
+    "res_col_type": "Type",
+    "res_col_qty": "Recommended Quantity",
+    "res_col_payg": "Current Cost (PAYG)",
+    "res_col_savings_1y": "1 Year Savings ($)",
+    "res_col_savings_3y": "3 Year Savings ($)",
+    "no_reservations_title": "No reservation recommendations",
+    "no_reservations_desc": "No smart reservation opportunities found based on the tenant's actual consumption."
   },
   "TTL": {
     "title": "TTL & Expirations",
@@ -3436,7 +3461,27 @@
     "incidentLog": "Z-Score Incident Log",
     "vsExpected": "vs Expected",
     "detectedOn": "Detected on {date}",
-    "resolvedOn": "Resolved on {date}"
+    "resolvedOn": "Resolved on {date}",
+    "pageTitle": "Anomaly Detection (AI)",
+    "pageSubtitle": "24/7 statistical monitoring (Z-Score) that automatically triggers alerts when abnormal financial deviations are detected.",
+    "premiumTitle": "Anomaly Detection (ML Z-Score)",
+    "premiumDesc": "Catch unusual spending spikes via Machine Learning (Z-Score) before they hit your monthly budget.",
+    "loadingText": "Hunting anomalies via Machine Learning (Z-Score)...",
+    "fetchError": "Error loading anomalies",
+    "noDataTitle": "Not enough data",
+    "noDataDesc": "The engine requires at least 60 days of Azure billing history to establish a reliable statistical baseline.",
+    "baselineSpend": "Baseline Spend (Mean)",
+    "baselineSpendDesc": "60-day moving average",
+    "zScoreTolerance": "Z-Score Tolerance (3σ)",
+    "alertLimit": "Alert threshold",
+    "activeAnomaly": "Active Anomaly!",
+    "normalBehavior": "Normal Behavior",
+    "normalBehaviorDesc": "No open anomalies pending review.",
+    "chartLimitLabel": "Limit (3σ)",
+    "spikeIn": "Cost spike in",
+    "whatCausedIt": "What caused it",
+    "criticalDeviation": "Critical Deviation!",
+    "inRg": "in"
   },
   "WhiteBoard": {
     "title": "Executive Summary",
@@ -3988,5 +4033,13 @@
     "csvColRegion": "Region",
     "csvColComplianceStatus": "Compliance Status",
     "csvColMissingTags": "Missing Tags"
+  },
+  "TierLockedNotice": {
+    "featureLockedTitle": "{feature} is on the {tier} plan",
+    "notAvailableTitle": "Feature not available on your plan",
+    "descAvailableFrom": "This feature is available starting with the",
+    "descCurrentPlan": "your current plan is",
+    "descUpgradePrompt": "Upgrade your subscription to unlock it.",
+    "viewPlansCta": "View plans and pricing"
   }
 }

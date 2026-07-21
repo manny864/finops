@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/routing";
 import { Lock, Sparkles } from "lucide-react";
 
@@ -22,6 +23,7 @@ export default function TierLockedNotice({
     featureName?: string;
     compact?: boolean;
 }) {
+    const t = useTranslations("TierLockedNotice");
     return (
         <div
             className={`bg-gradient-to-br from-brand-deep/5 to-brand-bright/5 dark:from-brand-deep/10 dark:to-brand-bright/10 border border-brand-deep/15 dark:border-brand-bright/20 rounded-2xl ${compact ? "p-5" : "p-8"} animate-in fade-in`}
@@ -32,21 +34,21 @@ export default function TierLockedNotice({
                 </div>
                 <div className="flex-1 min-w-0">
                     <h3 className={`font-bold text-slate-800 dark:text-slate-100 ${compact ? "text-base" : "text-xl"} mb-1`}>
-                        {featureName ? `${featureName} está en el plan ${requiredTier}` : "Función no disponible en tu plan"}
+                        {featureName ? t("featureLockedTitle", { feature: featureName, tier: requiredTier }) : t("notAvailableTitle")}
                     </h3>
                     <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-                        Esta función está disponible a partir del plan <strong className="text-slate-800 dark:text-slate-200">{requiredTier}</strong>
+                        {t("descAvailableFrom")} <strong className="text-slate-800 dark:text-slate-200">{requiredTier}</strong>
                         {currentTier ? (
-                            <> — tu plan actual es <strong className="text-slate-800 dark:text-slate-200">{currentTier}</strong>.</>
+                            <> — {t("descCurrentPlan")} <strong className="text-slate-800 dark:text-slate-200">{currentTier}</strong>.</>
                         ) : "."}
-                        {" "}Actualizá tu suscripción para desbloquearla.
+                        {" "}{t("descUpgradePrompt")}
                     </p>
                     <Link
                         href="/upgrade"
                         className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-deep hover:bg-brand-bright text-white text-sm font-semibold transition-colors shadow-sm"
                     >
                         <Sparkles className="w-4 h-4" />
-                        Ver planes y precios
+                        {t("viewPlansCta")}
                     </Link>
                 </div>
             </div>

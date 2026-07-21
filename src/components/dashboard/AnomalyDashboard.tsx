@@ -80,7 +80,7 @@ export default function AnomalyDashboard() {
         const res = await fetch(url, { headers: { Authorization: `Bearer ${idToken}` } });
         if (!res.ok) {
             const json = await res.json();
-            throw new Error(json.error || "Error al cargar anomalías");
+            throw new Error(json.error || t('fetchError'));
         }
         return res.json();
     };
@@ -144,8 +144,8 @@ export default function AnomalyDashboard() {
     if (!isPro) {
         return (
             <PremiumBanner
-                title="Detección de Anomalías (ML Z-Score)"
-                description="Caza picos de gasto inusuales mediante Machine Learning (Z-Score) antes de que impacten tu presupuesto mensual."
+                title={t('premiumTitle')}
+                description={t('premiumDesc')}
                 requiredTier="Professional"
                 icon="zap"
             />
@@ -156,7 +156,7 @@ export default function AnomalyDashboard() {
         return (
             <div className="flex flex-col items-center justify-center py-20">
                 <Loader2 className="w-8 h-8 animate-spin text-brand-deep mb-4" />
-                <p className="text-gray-500">Cazando anomalías mediante Machine Learning (Z-Score)...</p>
+                <p className="text-gray-500">{t('loadingText')}</p>
             </div>
         );
     }
@@ -177,8 +177,8 @@ export default function AnomalyDashboard() {
         return (
             <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-8 text-center">
                 <Activity className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Sin datos suficientes</h3>
-                <p className="text-gray-500 mt-2">El motor requiere al menos 60 días de historial de facturación de Azure para establecer una línea base estadística confiable.</p>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">{t('noDataTitle')}</h3>
+                <p className="text-gray-500 mt-2">{t('noDataDesc')}</p>
             </div>
         );
     }
@@ -203,7 +203,7 @@ export default function AnomalyDashboard() {
                     <p className={`font-mono text-lg ${isSpike ? 'text-red-500' : 'text-brand-deep dark:text-brand-bright'}`}>
                         {format(val)}
                     </p>
-                    {isSpike && <p className="text-xs text-red-500 font-bold mt-1">¡Desviación Crítica!</p>}
+                    {isSpike && <p className="text-xs text-red-500 font-bold mt-1">{t('criticalDeviation')}</p>}
                 </div>
             );
         }
@@ -296,10 +296,10 @@ export default function AnomalyDashboard() {
                             <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-blue-600 dark:text-blue-400">
                                 <Activity className="w-5 h-5" />
                             </div>
-                            <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400">Gasto Base (Media)</h3>
+                            <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400">{t('baselineSpend')}</h3>
                         </div>
                         <p className="text-3xl font-bold text-gray-900 dark:text-white">{format(mean)}</p>
-                        <p className="text-xs text-gray-500 mt-1">Promedio móvil de 60 días</p>
+                        <p className="text-xs text-gray-500 mt-1">{t('baselineSpendDesc')}</p>
                     </div>
 
                     <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-5 shadow-sm">
@@ -307,10 +307,10 @@ export default function AnomalyDashboard() {
                             <div className="p-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg text-purple-600 dark:text-purple-400">
                                 <TrendingUp className="w-5 h-5" />
                             </div>
-                            <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400">Tolerancia Z-Score (3σ)</h3>
+                            <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400">{t('zScoreTolerance')}</h3>
                         </div>
                         <p className="text-3xl font-bold text-gray-900 dark:text-white">±{format(3 * stdDev)}</p>
-                        <p className="text-xs text-gray-500 mt-1">Límite de alerta: {format(upperBound)}</p>
+                        <p className="text-xs text-gray-500 mt-1">{t('alertLimit')}: {format(upperBound)}</p>
                     </div>
 
                     {counts.Open > 0 ? (
@@ -319,7 +319,7 @@ export default function AnomalyDashboard() {
                                 <div className="p-2 bg-red-100 dark:bg-red-900/40 rounded-lg text-red-600 dark:text-red-400 animate-pulse">
                                     <AlertTriangle className="w-5 h-5" />
                                 </div>
-                                <h3 className="text-sm font-bold text-red-700 dark:text-red-400">¡Anomalía Activa!</h3>
+                                <h3 className="text-sm font-bold text-red-700 dark:text-red-400">{t('activeAnomaly')}</h3>
                             </div>
                             <p className="text-2xl font-bold text-red-800 dark:text-red-300">
                                 {format((localAnomalies || []).find(a => a.status === 'Open')!.amount)}
@@ -334,9 +334,9 @@ export default function AnomalyDashboard() {
                                 <div className="p-2 bg-emerald-100 dark:bg-emerald-900/40 rounded-lg text-emerald-600 dark:text-emerald-400">
                                     <CheckCircle className="w-5 h-5" />
                                 </div>
-                                <h3 className="text-sm font-bold text-emerald-700 dark:text-emerald-400">Comportamiento Normal</h3>
+                                <h3 className="text-sm font-bold text-emerald-700 dark:text-emerald-400">{t('normalBehavior')}</h3>
                             </div>
-                            <p className="text-sm text-emerald-600 dark:text-emerald-400 mt-1">No hay anomalías abiertas pendientes de revisión.</p>
+                            <p className="text-sm text-emerald-600 dark:text-emerald-400 mt-1">{t('normalBehaviorDesc')}</p>
                         </div>
                     )}
                 </div>
@@ -361,7 +361,7 @@ export default function AnomalyDashboard() {
 
                                 {/* Base Expected Band */}
                                 <ReferenceArea y1={Math.max(0, mean - (3 * stdDev))} y2={upperBound} fill="#3b82f6" fillOpacity={0.05} />
-                                <ReferenceLine y={upperBound} stroke="#ef4444" strokeDasharray="3 3" label={{ position: 'top', value: 'Límite (3σ)', fill: '#ef4444', fontSize: 10 }} />
+                                <ReferenceLine y={upperBound} stroke="#ef4444" strokeDasharray="3 3" label={{ position: 'top', value: t('chartLimitLabel'), fill: '#ef4444', fontSize: 10 }} />
 
                                 <Line
                                     type="monotone"
@@ -444,18 +444,18 @@ export default function AnomalyDashboard() {
                                         <span className="text-sm font-medium text-gray-500 dark:text-gray-400">{anomaly.date}</span>
                                     </div>
                                     <p className="text-sm font-semibold text-gray-900 dark:text-white mt-2">
-                                        Pico de costo en <span className="font-mono text-brand-deep dark:text-brand-bright bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 rounded">{anomaly.subscription_id}</span>
+                                        {t('spikeIn')} <span className="font-mono text-brand-deep dark:text-brand-bright bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 rounded">{anomaly.subscription_id}</span>
                                     </p>
                                     {anomaly.top_contributors && anomaly.top_contributors.length > 0 && (
                                         <div className="mt-2.5 flex flex-col gap-1">
-                                            <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500">Qué lo generó</p>
+                                            <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500">{t('whatCausedIt')}</p>
                                             {anomaly.top_contributors.map((c, ci) => (
                                                 <div key={`${c.resource_group}-${c.service_name}-${ci}`} className="flex items-center gap-2 text-xs">
                                                     <span className={`font-bold px-1.5 py-0.5 rounded ${ci === 0 ? 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400' : 'bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-gray-400'}`}>
                                                         {c.delta_pct_of_total}%
                                                     </span>
                                                     <span className="text-gray-700 dark:text-gray-300">
-                                                        <span className="font-semibold">{c.service_name}</span> en <span className="font-mono">{c.resource_group}</span>
+                                                        <span className="font-semibold">{c.service_name}</span> {t('inRg')} <span className="font-mono">{c.resource_group}</span>
                                                     </span>
                                                     <span className="text-gray-400">(+{format(c.delta)})</span>
                                                 </div>

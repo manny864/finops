@@ -57,11 +57,11 @@ export default function RateOptimizationPage() {
 
     const columns = useMemo(() => [
       columnHelper.accessor('resourceName', {
-        header: 'Resource Name',
+        header: t('col_resource_name'),
         cell: info => <span className="font-medium text-ink">{info.getValue()}</span>,
       }),
       columnHelper.accessor('resourceType', {
-        header: 'Type',
+        header: t('col_type'),
         cell: info => {
             const val = info.getValue();
             let color = 'grey';
@@ -72,58 +72,58 @@ export default function RateOptimizationPage() {
         },
       }),
       columnHelper.accessor('sku', {
-        header: 'SKU',
+        header: t('col_sku'),
         cell: info => <span className="text-ink-soft">{info.getValue()}</span>,
       }),
       columnHelper.accessor('region', {
-        header: 'Region',
+        header: t('col_region'),
         cell: info => <span className="tag blue">{info.getValue()}</span>,
       }),
       columnHelper.accessor('monthlyCostLicenseIncluded', {
-        header: 'Costo Mensual (Licencia Incluida)',
+        header: t('col_monthly_license'),
         cell: info => currencyFormatter.format(info.getValue()),
       }),
       columnHelper.accessor('monthlyCost', {
         header: () => (
             <div className="flex items-center gap-1 group relative">
-                Costo Mensual (AHB)
+                {t('col_monthly_ahb')}
                 <Info className="w-3.5 h-3.5 text-brand-bright" />
                 <div className="absolute top-full mt-2 hidden group-hover:block bg-black text-white text-[10px] px-2 py-1 rounded w-64 whitespace-normal text-center z-50 left-1/2 -translate-x-1/2">
-                    Save up to 50% over standard pay-as-you-go rate by applying Azure Hybrid Benefit.
+                    {t('col_monthly_ahb_tooltip')}
                 </div>
             </div>
         ),
         cell: info => currencyFormatter.format(info.getValue()),
       }),
       columnHelper.accessor('annualCost', {
-        header: 'Costo Anual (PAYG)',
+        header: t('col_annual_payg'),
         cell: info => currencyFormatter.format(info.getValue()),
       }),
       columnHelper.accessor('annualCost1Y', {
-        header: 'Costo Anual (1Y RI)',
+        header: t('col_annual_1y'),
         cell: info => currencyFormatter.format(info.getValue()),
       }),
       columnHelper.accessor('annualCost3Y', {
-        header: 'Costo Anual (3Y RI)',
+        header: t('col_annual_3y'),
         cell: info => currencyFormatter.format(info.getValue()),
       }),
       columnHelper.accessor('savings1Y', {
-        header: 'Ahorro 1 Año ($)',
+        header: t('col_savings_1y'),
         cell: info => <span className="text-green font-bold">+{currencyFormatter.format(info.getValue())}</span>,
       }),
       columnHelper.accessor('savings3Y', {
-        header: 'Ahorro 3 Años ($)',
+        header: t('col_savings_3y'),
         cell: info => <span className="text-green font-bold">+{currencyFormatter.format(info.getValue())}</span>,
       }),
     ], [t]);
 
     const reservationColumns = useMemo(() => [
       reservationColumnHelper.accessor('skuName', {
-        header: 'Recurso / SKU',
+        header: t('res_col_sku'),
         cell: info => <span className="font-bold text-ink">{info.getValue()}</span>,
       }),
       reservationColumnHelper.accessor('resourceType', {
-        header: 'Tipo',
+        header: t('res_col_type'),
         cell: info => {
             const val = info.getValue();
             let color = 'grey';
@@ -133,22 +133,22 @@ export default function RateOptimizationPage() {
         },
       }),
       reservationColumnHelper.accessor('recommendedQuantity', {
-        header: 'Cantidad Recomendada',
+        header: t('res_col_qty'),
         cell: info => <span className="font-semibold text-ink-soft">{info.getValue()}</span>,
       }),
       reservationColumnHelper.accessor('totalMonthlyPAYGCost', {
-        header: 'Costo Actual (PAYG)',
+        header: t('res_col_payg'),
         cell: info => currencyFormatter.format(info.getValue()),
       }),
       reservationColumnHelper.accessor('netSavings1Y', {
-        header: 'Ahorro a 1 Año ($)',
+        header: t('res_col_savings_1y'),
         cell: info => <span className="text-emerald-600 font-bold">+{currencyFormatter.format(info.getValue())}</span>,
       }),
       reservationColumnHelper.accessor('netSavings3Y', {
-        header: 'Ahorro a 3 Años ($)',
+        header: t('res_col_savings_3y'),
         cell: info => <span className="text-emerald-600 font-bold">+{currencyFormatter.format(info.getValue())}</span>,
       }),
-    ], []);
+    ], [t]);
 
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState<Recommendation[]>([]);
@@ -190,7 +190,7 @@ export default function RateOptimizationPage() {
                }
 
                if (json.subscriptions) {
-                   setSubscriptions([{ id: 'All', name: 'Todas las Suscripciones (Tenant-wide)' }, ...json.subscriptions]);
+                   setSubscriptions([{ id: 'All', name: t('all_subscriptions') }, ...json.subscriptions]);
                    setSubscriptionId('All');
                }
            } catch (e) {
@@ -202,7 +202,7 @@ export default function RateOptimizationPage() {
        };
 
        fetchSubscriptions();
-    }, [selectedTenant, instance, accounts]);
+    }, [selectedTenant, instance, accounts, t]);
 
     // Auto-trigger analysis when subscriptionId is set to 'All' or any other and hasn't analyzed
     useEffect(() => {
@@ -358,13 +358,13 @@ export default function RateOptimizationPage() {
                             onClick={() => setActiveTab('resources')}
                             className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${activeTab === 'resources' ? 'bg-white text-brand-deep shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
                         >
-                            Recomendaciones por Recurso
+                            {t('tab_resources')}
                         </button>
                         <button
                             onClick={() => setActiveTab('reservations')}
                             className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${activeTab === 'reservations' ? 'bg-white text-brand-deep shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
                         >
-                            Reservas Recomendadas (Smart)
+                            {t('tab_reservations')}
                         </button>
                     </div>
 
@@ -456,8 +456,8 @@ export default function RateOptimizationPage() {
                         ) : (
                             <div className="empty border border-line rounded-[14px]">
                                 <DollarSign className="w-12 h-12 text-grey mx-auto mb-4" />
-                                <h3 className="text-lg font-bold text-ink mb-2">Sin recomendaciones de reservas</h3>
-                                <p className="text-ink-soft">No se encontraron oportunidades de reservas inteligentes basadas en el consumo real del tenant.</p>
+                                <h3 className="text-lg font-bold text-ink mb-2">{t('no_reservations_title')}</h3>
+                                <p className="text-ink-soft">{t('no_reservations_desc')}</p>
                             </div>
                         )
                     )}
