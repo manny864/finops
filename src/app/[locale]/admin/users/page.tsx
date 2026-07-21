@@ -76,9 +76,9 @@ function PermissionsMultiSelect({
                 type="button"
                 disabled={disabled}
                 onClick={() => setOpen(o => !o)}
-                className={`flex items-center justify-between gap-2 px-2.5 py-1.5 border rounded-md text-xs bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-700 text-gray-700 dark:text-gray-300 min-w-[150px] ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:border-[#0054A6]'}`}
+                className={`flex items-center justify-between gap-2 px-2.5 py-1.5 border rounded-md text-xs bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-700 text-gray-700 dark:text-gray-300 w-full min-w-[150px] ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:border-[#0054A6]'}`}
             >
-                <span className="truncate">{label}</span>
+                <span className="whitespace-normal break-words text-left">{label}</span>
                 <ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
             </button>
             {open && !disabled && (
@@ -476,7 +476,7 @@ export default function UsersPage() {
                                         <ResizableTh minWidth={180} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('colEmail')}</ResizableTh>
                                         <ResizableTh minWidth={140} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('colEntraId')}</ResizableTh>
                                         <ResizableTh minWidth={140} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('colRole')}</ResizableTh>
-                                        <ResizableTh minWidth={170} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('colPermissions')}</ResizableTh>
+                                        <ResizableTh minWidth={220} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('colPermissions')}</ResizableTh>
                                         {/* sticky: la suma de minWidths de las columnas anteriores supera el
                                             ancho del contenedor (max-w-5xl) en viewports normales, y el botón de
                                             eliminar quedaba fuera de vista sin ningún indicio de que había que
