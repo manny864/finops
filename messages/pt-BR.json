@@ -1328,6 +1328,8 @@
     "requirements": "Requer licença Microsoft 365 Copilot e permissão ExternalConnection.ReadWrite.OwnedBy."
   },
   "Lighthouse": {
+    "error": "Erro",
+    "subscription": "Assinatura",
     "title": "Onboarding via Azure Lighthouse",
     "subtitle": "Para parceiros MSP que gerenciam múltiplos tenants sem credenciais diretas",
     "deployTemplate": "Implantar Template",

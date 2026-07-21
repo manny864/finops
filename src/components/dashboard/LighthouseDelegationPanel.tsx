@@ -76,7 +76,7 @@ export default function LighthouseDelegationPanel() {
         if (requiredTier) {
             return <TierLockedNotice requiredTier={requiredTier} currentTier={(selectedTenant as any)?.tier} featureName="Delegación Lighthouse" />;
         }
-        return <div className="bg-red-50 dark:bg-red-900/20 text-red-600 p-4 rounded-lg"><b>Error:</b> {error.message}</div>;
+        return <div className="bg-red-50 dark:bg-red-900/20 text-red-600 p-4 rounded-lg"><b>{t('error')}:</b> {error.message}</div>;
     }
 
     const items: any[] = data?.delegations || [];
@@ -90,7 +90,7 @@ export default function LighthouseDelegationPanel() {
                     <thead className="bg-gray-50 dark:bg-slate-800/50 text-xs text-slate-500 dark:text-slate-400">
                         <tr>
                             <th className="px-4 py-3 font-semibold">{t('managedTenant')}</th>
-                            <th className="px-4 py-3 font-semibold">Subscription</th>
+                            <th className="px-4 py-3 font-semibold">{t('subscription')}</th>
                             <th className="px-4 py-3 font-semibold">{t('roles')}</th>
                             <th className="px-4 py-3 font-semibold">{t('status')}</th>
                         </tr>
