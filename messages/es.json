@@ -482,7 +482,9 @@
     "financial_leaks": "Fugas Financieras",
     "cost_centers": "Presupuesto por Centro de Costos",
     "governance_score": "Estado de Gobernanza",
-    "account_security": "Seguridad (2FA)"
+    "account_security": "Seguridad (2FA)",
+    "searchPlaceholder": "Buscar páginas...",
+    "clearSearch": "Limpiar búsqueda"
   },
   "Dashboard": {
     "title": "Dashboard General",

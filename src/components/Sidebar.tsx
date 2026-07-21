@@ -319,14 +319,14 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                             type="text"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Buscar páginas..."
+                            placeholder={t('searchPlaceholder')}
                             className="w-full pl-8 pr-7 py-1.5 text-xs rounded-lg border border-[var(--line)] bg-[var(--surface)] text-[var(--ink)] placeholder:text-[var(--ink-soft)] focus:outline-none focus:ring-1 focus:ring-brand-bright"
                         />
                         {searchQuery && (
                             <button
                                 onClick={() => setSearchQuery('')}
                                 className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--ink-soft)] hover:text-[var(--ink)]"
-                                aria-label="Limpiar búsqueda"
+                                aria-label={t('clearSearch')}
                             >
                                 <X className="w-3.5 h-3.5" />
                             </button>

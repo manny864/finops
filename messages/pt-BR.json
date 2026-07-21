@@ -482,7 +482,9 @@
     "financial_leaks": "Vazamentos Financeiros",
     "cost_centers": "Orçamento por Centro de Custo",
     "governance_score": "Estado de Governança",
-    "account_security": "Segurança (2FA)"
+    "account_security": "Segurança (2FA)",
+    "searchPlaceholder": "Buscar páginas...",
+    "clearSearch": "Limpar busca"
   },
   "Dashboard": {
     "title": "Dashboard Geral",

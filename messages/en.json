@@ -482,7 +482,9 @@
     "financial_leaks": "Financial Leaks",
     "cost_centers": "Cost Center Budgets",
     "governance_score": "Governance Score",
-    "account_security": "Account Security (2FA)"
+    "account_security": "Account Security (2FA)",
+    "searchPlaceholder": "Search pages...",
+    "clearSearch": "Clear search"
   },
   "Dashboard": {
     "title": "General Dashboard",
