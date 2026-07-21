@@ -1,11 +1,17 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import Link from 'next/link';
 import { Shield, Lock, Eye, Server, AlertCircle, CheckCircle } from 'lucide-react';
 
+// Sufijo de archivo por locale para los PDF generados en
+// scripts/generate-trust-center-docs.js (docs/trust-center -> public/trust-center).
+const TRUST_CENTER_LANG_SUFFIX: Record<string, string> = { es: 'ES', en: 'EN', 'pt-BR': 'PT-BR' };
+
 export default function SecurityPage() {
   const t = useTranslations('LegalSecurity');
+  const locale = useLocale();
+  const langSuffix = TRUST_CENTER_LANG_SUFFIX[locale] || 'ES';
 
   return (
     <div className="min-h-screen bg-white">
@@ -107,7 +113,9 @@ export default function SecurityPage() {
             <p>{t('auditLogs')}</p>
             <p>{t('auditMonitoring')}</p>
             <p>{t('auditIntrusion')}</p>
-            <p>{t('auditPentest')}</p>
+            {/* Oculto momentáneamente a pedido — sin fecha de última prueba
+                confirmada todavía. Restaurar cuando haya un dato real. */}
+            {/* <p>{t('auditPentest')}</p> */}
           </div>
         </section>
 
@@ -171,28 +179,28 @@ export default function SecurityPage() {
         <section className="space-y-4 bg-gray-50 p-8 rounded-lg border border-line">
           <h2 className="text-2xl font-bold text-ink mb-6">{t('downloadTitle')}</h2>
           <div className="grid md:grid-cols-2 gap-6">
-            <a href="#" className="flex items-center gap-4 p-4 bg-white rounded-lg border border-line hover:border-brand-deep transition-colors">
+            <a href={`/trust-center/DPA_${langSuffix}.pdf`} download className="flex items-center gap-4 p-4 bg-white rounded-lg border border-line hover:border-brand-deep transition-colors">
               <CheckCircle className="w-6 h-6 text-brand-deep flex-shrink-0" />
               <div>
                 <p className="font-semibold text-ink">{t('downloadDpaTitle')}</p>
                 <p className="text-xs text-gray-600">{t('downloadDpaSize')}</p>
               </div>
             </a>
-            <a href="#" className="flex items-center gap-4 p-4 bg-white rounded-lg border border-line hover:border-brand-deep transition-colors">
+            <a href={`/trust-center/SECURITY_WHITEPAPER_${langSuffix}.pdf`} download className="flex items-center gap-4 p-4 bg-white rounded-lg border border-line hover:border-brand-deep transition-colors">
               <CheckCircle className="w-6 h-6 text-brand-deep flex-shrink-0" />
               <div>
                 <p className="font-semibold text-ink">{t('downloadWhitepaperTitle')}</p>
                 <p className="text-xs text-gray-600">{t('downloadWhitepaperSize')}</p>
               </div>
             </a>
-            <a href="#" className="flex items-center gap-4 p-4 bg-white rounded-lg border border-line hover:border-brand-deep transition-colors">
+            <a href={`/trust-center/SOC2_REPORT_${langSuffix}.pdf`} download className="flex items-center gap-4 p-4 bg-white rounded-lg border border-line hover:border-brand-deep transition-colors">
               <CheckCircle className="w-6 h-6 text-brand-deep flex-shrink-0" />
               <div>
                 <p className="font-semibold text-ink">{t('downloadSoc2Title')}</p>
                 <p className="text-xs text-gray-600">{t('downloadSoc2Size')}</p>
               </div>
             </a>
-            <a href="/legal/subprocessors" className="flex items-center gap-4 p-4 bg-white rounded-lg border border-line hover:border-brand-deep transition-colors">
+            <a href={`/trust-center/SUBPROCESSORS_${langSuffix}.pdf`} download className="flex items-center gap-4 p-4 bg-white rounded-lg border border-line hover:border-brand-deep transition-colors">
               <CheckCircle className="w-6 h-6 text-brand-deep flex-shrink-0" />
               <div>
                 <p className="font-semibold text-ink">{t('downloadSubprocessorsTitle')}</p>
