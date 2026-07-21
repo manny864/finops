@@ -304,7 +304,7 @@ export default function AdvisorPanel() {
     link.download = `azure-advisor-${selectedTenant.id}.csv`;
     document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
+    link.remove();
   };
 
   // Score por categoría (exacto para una suscripción; promedio para "all").

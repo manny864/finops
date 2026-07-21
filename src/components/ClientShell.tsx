@@ -362,7 +362,7 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
                     {/* eslint-disable-next-line @next/next/no-img-element -- asset estático local, no requiere optimización de next/image */}
                     <img src="/logo_29k.png" alt="" className="h-8 w-8 object-contain shrink-0" />
                     <div className="flex flex-col items-start leading-tight">
-                        <h1 className="text-xl font-bold text-ink tracking-tight">Cloud FinOps</h1>
+                        <h1 className="text-xl font-bold text-ink tracking-tight">CSCloudSolutions</h1>
                         <span className="text-[11px] font-bold text-brand-deep group-hover:underline">{tc('add_your_logo')}</span>
                     </div>
                 </Link>
