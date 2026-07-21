@@ -366,6 +366,48 @@
     "subscribeButton": "Subscribe via Email",
     "footer": "CSCloudSolutions FinOps Platform • Last snapshot at {time}"
   },
+  "MarketplaceAwsLanding": {
+    "errorConfigMissing": "AWS Marketplace not configured (missing PRODUCT_CODE)",
+    "errorTitle": "Setup Error",
+    "returnHome": "Return Home",
+    "welcomeTitle": "Welcome to FinOps SaaS Platform",
+    "welcomeSubtitle": "From AWS Marketplace",
+    "subscriptionDetails": "Subscription Details",
+    "selectedPlan": "Selected Plan",
+    "autoDetected": "auto-detected",
+    "awsAccount": "AWS Account",
+    "customerId": "Customer ID:",
+    "productCode": "Product Code:",
+    "activateButton": "Complete Setup",
+    "nextStepLabel": "Next Step:",
+    "nextStepText": "After setup is complete, you'll create your account. Your AWS Marketplace subscription is already activated.",
+    "errorMissingToken": "Missing marketplace token. Please return to AWS Marketplace and try again.",
+    "loading": "Loading subscription details…"
+  },
+  "MarketplaceAzureLanding": {
+    "errorConfigMissing": "Azure Marketplace not configured (missing AAD_APP_ID)",
+    "errorTitle": "Setup Error",
+    "returnHome": "Return Home",
+    "welcomeTitle": "Welcome to FinOps SaaS Platform",
+    "welcomeSubtitle": "From Azure Marketplace",
+    "subscriptionDetails": "Subscription Details",
+    "selectedPlan": "Selected Plan",
+    "accountEmail": "Account Email",
+    "subscriptionId": "Subscription ID:",
+    "activateButton": "Activate Subscription",
+    "nextStepLabel": "Next Step:",
+    "nextStepText": "After activation, you'll complete signup. Your Azure Marketplace subscription is already linked to your account.",
+    "errorMissingToken": "Missing marketplace token. Please return to Azure Marketplace and try again.",
+    "loading": "Loading subscription details…"
+  },
+  "RemediationApprovals": {
+    "pageTitle": "Remediation Approvals",
+    "pageSubtitle": "Authorization workflow for safely applying destructive or rightsizing changes (Rightsizing & Cleanup).",
+    "loadError": "Failed to load requests",
+    "actionFailed": "Could not apply the action.",
+    "actionApprovedToast": "Remediation action approved successfully.",
+    "actionRejectedToast": "Remediation action rejected successfully."
+  },
   "Navigation": {
     "dashboard": "Dashboard",
     "advisor": "Azure Advisor",
@@ -1072,6 +1114,7 @@
     "sustainabilityDesc": "Your carbon intensity factor is automatically mapped to your active Azure regions. Moving workloads to regions like northeurope or francecentral can significantly reduce your footprint."
   },
   "StorageEfficiency": {
+    "tierLockedFeatureName": "Storage Efficiency",
     "title": "Storage Efficiency",
     "subtitle": "Storage tier distribution and cost per GB",
     "distribution": "Tier Distribution",
@@ -1086,6 +1129,7 @@
     "description": "Move infrequently-accessed blobs to Cool or Archive to reduce cost."
   },
   "ComputeEfficiency": {
+    "tierLockedFeatureName": "Compute Efficiency",
     "title": "Compute Efficiency",
     "subtitle": "Cost per vCore and SKU efficiency",
     "costPerCore": "Cost per Core/month",
@@ -1097,6 +1141,7 @@
     "benchmark": "Market Benchmark"
   },
   "AlertsSelfService": {
+    "tierLockedFeatureName": "Alert Rules",
     "title": "Alerts (Self-Service)",
     "subtitle": "Configure budget, anomaly and forecast alert rules",
     "newRule": "New Rule",
@@ -1163,6 +1208,7 @@
     "col_cost": "Cost"
   },
   "MACC": {
+    "tierLockedFeatureName": "MACC Tracker",
     "title": "MACC — Microsoft Azure Consumption Commitment",
     "subtitle": "Track MACC commitment and consumption projection",
     "commitment": "Total Commitment",
@@ -1179,6 +1225,7 @@
     "currency": "Currency"
   },
   "HA": {
+    "tierLockedFeatureName": "High Availability Recommendations",
     "title": "High Availability Recommendations",
     "subtitle": "Detect VMs and resources without redundancy or backup",
     "resource": "Resource",
@@ -1203,6 +1250,7 @@
     "noIssues": "No high availability issues detected."
   },
   "Credentials": {
+    "tierLockedFeatureName": "Expiring Credentials",
     "title": "Expiring Credentials (Entra ID)",
     "subtitle": "Service Principals and Applications with secrets or certificates close to expiry",
     "app": "Application",
@@ -1235,6 +1283,9 @@
     "alertError": "Could not create the alert."
   },
   "CopilotM365": {
+    "loading": "Loading M365 Copilot configuration...",
+    "errorLabel": "Error",
+    "answerLabel": "Answer:",
     "title": "Copilot M365 — FinOps Integration",
     "subtitle": "Connect your FinOps data to Microsoft 365 Copilot and Copilot Studio",
     "status": "Status",
@@ -3003,6 +3054,7 @@
     "source": "Source: Azure Reservation & Benefit Recommendations APIs · {subs} subscription(s) evaluated."
   },
   "GovernanceReporting": {
+    "tierLockedFeatureName": "Governance Reporting",
     "title": "Governance Reporting",
     "subtitle": "Policy compliance, resource inventory and access (RBAC) at a glance",
     "loading": "Loading governance report...",
@@ -3192,6 +3244,7 @@
     "scope": "Scope (tenant / subscription)"
   },
   "Anomalies": {
+    "tierLockedFeatureName": "Anomaly Detection",
     "kpiOpenAnomalies": "Open Anomalies",
     "kpiUnresolvedImpact": "Unresolved Impact",
     "kpiCompleted": "Completed",
@@ -3286,6 +3339,7 @@
     "edit_subtitle": "The name can't be changed. Adjust the description or the membership rule.",
     "edit_submit": "Save changes",
     "edit_success": "Cost Group updated.",
+    "tier_locked_feature_name": "Cost Groups",
     "delete_button": "Delete Cost Group",
     "delete_confirm": "Delete Cost Group \"{name}\"? This action cannot be undone. This group's manual Resource Group assignments will also be deleted.",
     "delete_success": "Cost Group deleted.",

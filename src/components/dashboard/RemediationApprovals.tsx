@@ -1,5 +1,6 @@
 "use client";
 import React from 'react';
+import { useTranslations } from 'next-intl';
 import useSWR from 'swr';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
@@ -11,6 +12,7 @@ import { getFreshIdToken } from '@/lib/msalToken';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 
 export default function RemediationApprovals() {
+    const t = useTranslations('RemediationApprovals');
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
 
@@ -23,7 +25,7 @@ export default function RemediationApprovals() {
 
         if (!res.ok) {
             const json = await res.json();
-            throw new Error(json.error || "Error al cargar peticiones");
+            throw new Error(json.error || t('loadError'));
         }
         return res.json();
     };
@@ -62,10 +64,10 @@ export default function RemediationApprovals() {
             });
 
             if (!res.ok) {
-                throw new Error("No se pudo aplicar la acción.");
+                throw new Error(t('actionFailed'));
             }
 
-            toast.success(`Acción de remediación ${action === 'Approved' ? 'Aprobada' : 'Rechazada'} exitosamente.`);
+            toast.success(action === 'Approved' ? t('actionApprovedToast') : t('actionRejectedToast'));
             mutate(); // Re-fetch to sync
         } catch (e: any) {
             toast.error(e.message);

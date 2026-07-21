@@ -366,6 +366,48 @@
     "subscribeButton": "Suscribirse por Correo",
     "footer": "Plataforma CSCloudSolutions FinOps • Última captura a las {time}"
   },
+  "MarketplaceAwsLanding": {
+    "errorConfigMissing": "AWS Marketplace no está configurado (falta PRODUCT_CODE)",
+    "errorTitle": "Error de Configuración",
+    "returnHome": "Volver al Inicio",
+    "welcomeTitle": "Bienvenido a la Plataforma FinOps SaaS",
+    "welcomeSubtitle": "Desde AWS Marketplace",
+    "subscriptionDetails": "Detalles de la Suscripción",
+    "selectedPlan": "Plan Seleccionado",
+    "autoDetected": "detectado automáticamente",
+    "awsAccount": "Cuenta de AWS",
+    "customerId": "Customer ID:",
+    "productCode": "Código de Producto:",
+    "activateButton": "Completar Configuración",
+    "nextStepLabel": "Próximo Paso:",
+    "nextStepText": "Una vez completada la configuración, vas a crear tu cuenta. Tu suscripción de AWS Marketplace ya está activada.",
+    "errorMissingToken": "Falta el token del marketplace. Volvé a AWS Marketplace e intentá de nuevo.",
+    "loading": "Cargando detalles de la suscripción…"
+  },
+  "MarketplaceAzureLanding": {
+    "errorConfigMissing": "Azure Marketplace no está configurado (falta AAD_APP_ID)",
+    "errorTitle": "Error de Configuración",
+    "returnHome": "Volver al Inicio",
+    "welcomeTitle": "Bienvenido a la Plataforma FinOps SaaS",
+    "welcomeSubtitle": "Desde Azure Marketplace",
+    "subscriptionDetails": "Detalles de la Suscripción",
+    "selectedPlan": "Plan Seleccionado",
+    "accountEmail": "Email de la Cuenta",
+    "subscriptionId": "Subscription ID:",
+    "activateButton": "Activar Suscripción",
+    "nextStepLabel": "Próximo Paso:",
+    "nextStepText": "Después de la activación, vas a completar el registro. Tu suscripción de Azure Marketplace ya está vinculada a tu cuenta.",
+    "errorMissingToken": "Falta el token del marketplace. Volvé a Azure Marketplace e intentá de nuevo.",
+    "loading": "Cargando detalles de la suscripción…"
+  },
+  "RemediationApprovals": {
+    "pageTitle": "Aprobaciones de Remediación",
+    "pageSubtitle": "Flujo de autorización para la aplicación segura de cambios destructivos o de redimensionamiento (Rightsizing & Cleanup).",
+    "loadError": "Error al cargar peticiones",
+    "actionFailed": "No se pudo aplicar la acción.",
+    "actionApprovedToast": "Acción de remediación aprobada exitosamente.",
+    "actionRejectedToast": "Acción de remediación rechazada exitosamente."
+  },
   "Navigation": {
     "dashboard": "Dashboard",
     "advisor": "Azure Advisor",
@@ -1072,6 +1114,7 @@
     "sustainabilityDesc": "El factor de intensidad de carbono se asigna automáticamente según tus regiones activas en Azure. Mover cargas de trabajo a regiones como northeurope o francecentral puede reducir significativamente tu huella."
   },
   "StorageEfficiency": {
+    "tierLockedFeatureName": "Eficiencia de Storage",
     "title": "Eficiencia de Storage",
     "subtitle": "Distribución de almacenamiento por tier y costo por GB",
     "distribution": "Distribución por Tier",
@@ -1086,6 +1129,7 @@
     "description": "Migra blobs de acceso esporádico a Cool o Archive para reducir costos."
   },
   "ComputeEfficiency": {
+    "tierLockedFeatureName": "Eficiencia de Cómputo",
     "title": "Eficiencia de Cómputo",
     "subtitle": "Costo por vCore y eficiencia por SKU",
     "costPerCore": "Costo por Core/mes",
@@ -1097,6 +1141,7 @@
     "benchmark": "Benchmark del Mercado"
   },
   "AlertsSelfService": {
+    "tierLockedFeatureName": "Reglas de Alertas",
     "title": "Alertas (Self-Service)",
     "subtitle": "Configura reglas de alerta de presupuestos, anomalías y forecast",
     "newRule": "Nueva Regla",
@@ -1163,6 +1208,7 @@
     "col_cost": "Costo"
   },
   "MACC": {
+    "tierLockedFeatureName": "MACC Tracker",
     "title": "MACC — Microsoft Azure Consumption Commitment",
     "subtitle": "Seguimiento del compromiso MACC y proyección de consumo",
     "commitment": "Compromiso Total",
@@ -1179,6 +1225,7 @@
     "currency": "Moneda"
   },
   "HA": {
+    "tierLockedFeatureName": "Recomendaciones de Alta Disponibilidad",
     "title": "Recomendaciones de Alta Disponibilidad",
     "subtitle": "Detecta VMs y recursos sin redundancia ni respaldo",
     "resource": "Recurso",
@@ -1203,6 +1250,7 @@
     "noIssues": "No se detectaron problemas de alta disponibilidad."
   },
   "Credentials": {
+    "tierLockedFeatureName": "Credenciales por Vencer",
     "title": "Credenciales por Expirar (Entra ID)",
     "subtitle": "Service Principals y Applications con secretos o certificados próximos a vencer",
     "app": "Aplicación",
@@ -1235,6 +1283,9 @@
     "alertError": "No se pudo crear la alerta."
   },
   "CopilotM365": {
+    "loading": "Cargando configuración M365 Copilot...",
+    "errorLabel": "Error",
+    "answerLabel": "Respuesta:",
     "title": "Copilot M365 — Integración FinOps",
     "subtitle": "Conecta tus datos de FinOps a Microsoft 365 Copilot y a Copilot Studio",
     "status": "Estado",
@@ -3003,6 +3054,7 @@
     "source": "Fuente: APIs de Reservation y Benefit Recommendations de Azure · {subs} suscripción(es) evaluadas."
   },
   "GovernanceReporting": {
+    "tierLockedFeatureName": "Reportes de Gobernanza",
     "title": "Reporting de Gobernanza",
     "subtitle": "Cumplimiento de políticas, inventario de recursos y acceso (RBAC) de un vistazo",
     "loading": "Cargando reporte de gobernanza...",
@@ -3192,6 +3244,7 @@
     "scope": "Ámbito (tenant / suscripción)"
   },
   "Anomalies": {
+    "tierLockedFeatureName": "Detección de Anomalías",
     "kpiOpenAnomalies": "Anomalías Abiertas",
     "kpiUnresolvedImpact": "Impacto sin Resolver",
     "kpiCompleted": "Completadas",
@@ -3286,6 +3339,7 @@
     "edit_subtitle": "El nombre no se puede modificar. Ajustá la descripción o la regla de membresía.",
     "edit_submit": "Guardar cambios",
     "edit_success": "Cost Group actualizado.",
+    "tier_locked_feature_name": "Grupos de Costos",
     "delete_button": "Eliminar Cost Group",
     "delete_confirm": "¿Eliminar el Cost Group \"{name}\"? Esta acción no se puede deshacer. Las asignaciones manuales de Resource Group de este grupo también se eliminan.",
     "delete_success": "Cost Group eliminado.",
