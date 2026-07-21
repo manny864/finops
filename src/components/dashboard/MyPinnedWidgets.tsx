@@ -1,6 +1,7 @@
 "use client";
 import React, { useCallback } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
+import { useTranslations } from "next-intl";
 import { useMsal } from "@azure/msal-react";
 import { useTenant } from "@/components/TenantProvider";
 import { LayoutDashboard, Loader2, PinOff, ChevronUp, ChevronDown } from "lucide-react";
@@ -22,6 +23,7 @@ interface PinRow {
  * Es totalmente opcional — si no se monta, la página sigue funcionando igual.
  */
 export default function MyPinnedWidgets() {
+    const t = useTranslations("MyDashboard");
     const { instance, accounts } = useMsal();
     const { selectedTenant } = useTenant();
     const [collapsed, setCollapsed] = React.useState(false);
@@ -60,7 +62,7 @@ export default function MyPinnedWidgets() {
         return (
             <div className="mb-6 p-6 bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm flex items-center gap-3">
                 <Loader2 className="w-5 h-5 animate-spin text-brand-deep" />
-                <span className="text-sm text-slate-500">Cargando tu dashboard...</span>
+                <span className="text-sm text-slate-500">{t("loading")}</span>
             </div>
         );
     }
@@ -70,9 +72,9 @@ export default function MyPinnedWidgets() {
             <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                     <LayoutDashboard className="w-5 h-5 text-brand-deep" />
-                    <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">Mi Dashboard</h2>
+                    <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">{t("title")}</h2>
                     <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded-full text-xs font-semibold text-slate-500">
-                        {pins.length} {pins.length === 1 ? "widget" : "widgets"}
+                        {pins.length} {pins.length === 1 ? t("widget") : t("widgets")}
                     </span>
                 </div>
                 <button
@@ -80,7 +82,7 @@ export default function MyPinnedWidgets() {
                     onClick={() => setCollapsed(c => !c)}
                     className="text-xs font-semibold text-slate-500 hover:text-brand-deep flex items-center gap-1 px-2 py-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
                 >
-                    {collapsed ? <><ChevronDown className="w-3.5 h-3.5" /> Expandir</> : <><ChevronUp className="w-3.5 h-3.5" /> Colapsar</>}
+                    {collapsed ? <><ChevronDown className="w-3.5 h-3.5" /> {t("expand")}</> : <><ChevronUp className="w-3.5 h-3.5" /> {t("collapse")}</>}
                 </button>
             </div>
 
@@ -88,8 +90,7 @@ export default function MyPinnedWidgets() {
                 <div className="p-8 bg-white dark:bg-slate-900 rounded-xl border border-dashed border-gray-300 dark:border-slate-700 text-center">
                     <LayoutDashboard className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
                     <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-                        Aún no pineaste ningún tablero. Navegá a cualquier página de Intelligence, Governance o Costos
-                        y hacé click en el ícono <span className="inline-block px-1 bg-slate-100 dark:bg-slate-800 rounded text-brand-deep">📌</span> al lado del título para agregarlo acá.
+                        {t("empty_hint")}
                     </p>
                 </div>
             ) : (
@@ -112,7 +113,7 @@ export default function MyPinnedWidgets() {
                                         <button
                                             type="button"
                                             onClick={() => unpin(pin.widgetKey)}
-                                            title="Quitar de mi dashboard"
+                                            title={t("unpin_tooltip")}
                                             className="ml-2 p-1.5 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors cursor-pointer"
                                         >
                                             <PinOff className="w-4 h-4" />

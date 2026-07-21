@@ -50,7 +50,6 @@
   "LegalTerms": {
     "title": "Terms of Service",
     "lastUpdated": "Last updated: {date}",
-    "reviewPending": "[LEGAL REVIEW PENDING] Placeholder content for legal review. Not binding until approved.",
     "s1Title": "1. Acceptance of Terms",
     "s1Body": "By accessing and using the CSCloudSolutions FinOps platform (\"Service\"), you accept and agree to be bound by these Terms of Service. If you do not agree to these terms, you must not use the Service.",
     "s2Title": "2. Service Description",
@@ -93,7 +92,6 @@
   "LegalPrivacy": {
     "title": "Privacy Policy",
     "lastUpdated": "Last updated: {date}",
-    "reviewPending": "[LEGAL REVIEW PENDING] This is placeholder content for review by legal counsel. Not binding until approved.",
     "tocTitle": "Table of Contents",
     "navDataCollection": "Data We Collect",
     "navUsage": "How We Use It",
@@ -160,7 +158,6 @@
     "title": "Data Processing Agreement (DPA)",
     "subtitle": "GDPR Article 28 Compliant Data Processing Agreement",
     "lastUpdated": "Last updated: {date}",
-    "reviewPending": "[LEGAL REVIEW PENDING] Placeholder content for legal review. Not binding until approved.",
     "signedTitle": "✓ DPA Signed",
     "signedBy": "Signed by {user} on {date}",
     "unsignedIntro": "Enterprise customers must sign this DPA before accessing the Service.",
@@ -219,7 +216,9 @@
     "annex2Details": "Details available in SOC 2 Type II report upon request.",
     "footerLastUpdated": "Last updated: {date}",
     "footerTermsLink": "Terms",
-    "footerPrivacyLink": "Privacy"
+    "footerPrivacyLink": "Privacy",
+    "signRequiresLogin": "Sign in with an account that has access to a tenant to sign the DPA.",
+    "signError": "Could not register the signature. Please try again."
   },
   "LegalSecurity": {
     "heroTitle": "Trust Center",
@@ -228,12 +227,11 @@
     "badgeGdprTitle": "GDPR Compliant",
     "badgeGdprSubtitle": "Data privacy",
     "badgeSoc2Title": "SOC 2 Type II",
-    "badgeSoc2Subtitle": "Target Q4 2026",
+    "badgeSoc2Subtitle": "Target Q3 2027",
     "badgeAzureTitle": "Azure Certified",
     "badgeAzureSubtitle": "Infrastructure",
     "badgeIsoTitle": "ISO 27001",
-    "badgeIsoSubtitle": "Planned 2026",
-    "reviewPending": "[LEGAL REVIEW PENDING] Placeholder content for legal review. Not binding until approved.",
+    "badgeIsoSubtitle": "Planned 2028",
     "encryptionTitle": "Encryption",
     "encryptionTransitTitle": "In Transit",
     "encryptionTransitBody": "All data in transit is encrypted using TLS 1.2 or higher. HTTP connections are automatically redirected to HTTPS.",
@@ -280,9 +278,9 @@
     "downloadSubprocessorsSize": "Always up-to-date",
     "faqTitle": "Frequently Asked Questions",
     "faq1Q": "Is CSCloudSolutions SOC 2 certified?",
-    "faq1A": "We are targeting SOC 2 Type II certification by Q4 2026. Contact us for our current audit status.",
+    "faq1A": "We are targeting SOC 2 Type II certification by Q3 2027. Contact us for our current audit status.",
     "faq2Q": "Where is my data stored?",
-    "faq2A": "Data is stored in Microsoft Azure, in regions you select during onboarding (US, EU, or LATAM options available).",
+    "faq2A": "Data is currently stored exclusively in Microsoft Azure, Brazil South region (Latin America). Expansion to US and EU regions is planned; there is no regional residency selection during onboarding yet.",
     "faq3Q": "Do you perform penetration testing?",
     "faq3A": "Yes, we conduct annual third-party penetration tests. Results are available to Enterprise customers under NDA.",
     "faq4Q": "How long do you retain audit logs?",
@@ -484,7 +482,9 @@
     "financial_leaks": "Financial Leaks",
     "cost_centers": "Cost Center Budgets",
     "governance_score": "Governance Score",
-    "account_security": "Account Security (2FA)"
+    "account_security": "Account Security (2FA)",
+    "searchPlaceholder": "Search pages...",
+    "clearSearch": "Clear search"
   },
   "Dashboard": {
     "title": "General Dashboard",
@@ -1041,7 +1041,46 @@
     "platformAlertDefaultName": "Budget {costCenter} exceeded",
     "platformAlertCreate": "Create alert",
     "platformAlertCreated": "Alert created and linked to the budget.",
-    "platformGoToAlerts": "See all rules in Alerts (Self-Service)"
+    "platformGoToAlerts": "See all rules in Alerts (Self-Service)",
+    "consolidated_title": "Consolidated Tenant Budget",
+    "current_consumption": "Current Total Consumption",
+    "breakdown_by_subscription": "Breakdown by Subscription",
+    "assigned": "Assigned",
+    "consumed": "Consumed",
+    "monthly_spend": "Monthly Spend",
+    "configure_edit_budget": "Configure / Edit Budget",
+    "emailLabel": "Email",
+    "createModalTitle": "Create Budget in Azure",
+    "createModalNameLabel": "Budget Name",
+    "createModalNamePlaceholder": "E.g. IT-Budget",
+    "createModalAmountLabel": "Monthly Amount (USD)",
+    "createModalAmountPlaceholder": "E.g. 1500",
+    "createModalEmailLabel": "Alert Email",
+    "createModalEmailPlaceholder": "E.g. admin@cscloudsolutions.com",
+    "createModalThresholdLabel": "Alert Threshold (%)",
+    "createModalThresholdPlaceholder": "E.g. 80",
+    "createModalFrequencyLabel": "Frequency",
+    "createModalFreqMonthly": "Monthly (Billing)",
+    "createModalFreqQuarterly": "Quarterly (Billing)",
+    "createModalFreqAnnual": "Annual (Billing)",
+    "createModalCreating": "Creating...",
+    "createModalCreate": "Create",
+    "createModalMissingFields": "Please fill in all fields.",
+    "createModalSuccess": "Budget successfully created in Azure and local database.",
+    "createModalFailed": "Failed to create budget.",
+    "createModalConnError": "Error connecting to server: {message}",
+    "killSwitchTitle": "Kill Switch (Auto-Suspend)",
+    "killSwitchRequiresPro": "Requires Pro",
+    "killSwitchUpgradeNotice": "Upgrade to Pro or Enterprise to enable automatic shutdown of non-production resources when the budget is exceeded.",
+    "killSwitchDisabledToast": "Kill Switch disabled",
+    "killSwitchSelectRgError": "You must select a target Resource Group",
+    "killSwitchEnabledToast": "Kill Switch enabled for {rg}",
+    "killSwitchDescription": "Configure a safe destructive action. If the budget is exceeded by 100%, all resources in the selected Resource Group will be automatically shut down (Deallocated) to stop spending.",
+    "killSwitchWarning": "WARNING: This action is destructive and will cause downtime. Only use it for Dev/Test environments.",
+    "killSwitchTargetRgLabel": "Target Resource Group",
+    "killSwitchSelectRgPlaceholder": "Select an RG...",
+    "killSwitchSaving": "Saving...",
+    "killSwitchApply": "Apply Kill Switch"
   },
   "onboarding": {
     "leastPrivilegeBanner": "As your current plan is {tier}, this script has been custom-tailored to request only the strictly necessary RBAC permissions for your features.",
@@ -1687,10 +1726,22 @@
     "pageTitle": "FinOps Maturity",
     "pageSubtitle": "FinOps maturity model (Crawl · Walk · Run) by capability.",
     "reasons": {
-      "noSubscriptions": { "title": "No active subscriptions", "desc": "This tenant has no Azure subscriptions. Create a subscription to start assessing FinOps maturity." },
-      "missingAdminConsent": { "title": "Admin consent missing", "desc": "The CSCloudSolutions application has not been consented on this tenant. Run: az ad sp create --id 876d8a5b-6023-4484-b3ba-73c186e4a72b" },
-      "noCredential": { "title": "No credentials configured", "desc": "No Azure credentials were found to access this tenant." },
-      "azureError": { "title": "Azure connection error", "desc": "Could not connect to Azure to assess maturity. Please try again later." }
+      "noSubscriptions": {
+        "title": "No active subscriptions",
+        "desc": "This tenant has no Azure subscriptions. Create a subscription to start assessing FinOps maturity."
+      },
+      "missingAdminConsent": {
+        "title": "Admin consent missing",
+        "desc": "The CSCloudSolutions application has not been consented on this tenant. Run: az ad sp create --id 876d8a5b-6023-4484-b3ba-73c186e4a72b"
+      },
+      "noCredential": {
+        "title": "No credentials configured",
+        "desc": "No Azure credentials were found to access this tenant."
+      },
+      "azureError": {
+        "title": "Azure connection error",
+        "desc": "Could not connect to Azure to assess maturity. Please try again later."
+      }
     },
     "takeAssessment": "Take Manual Assessment",
     "wizardTitle": "FinOps Assessment",
@@ -1713,7 +1764,11 @@
     "radarTitle": "Maturity radar",
     "levelPerCapability": "Level by capability",
     "levelUpTitle": "To level up",
-    "levels": { "crawl": "Crawl", "walk": "Walk", "run": "Run" },
+    "levels": {
+      "crawl": "Crawl",
+      "walk": "Walk",
+      "run": "Run"
+    },
     "domains": {
       "visibility": "Visibility & info.",
       "rateOpt": "Rate optimization",
@@ -1723,12 +1778,30 @@
       "culture": "FinOps culture"
     },
     "recommendations": {
-      "automation": { "title": "Automation", "desc": "Schedule zombie cleanup and shutdowns with runbooks instead of manual actions." },
-      "governance": { "title": "Governance", "desc": "Get tag compliance above 95% to enable automatic chargeback." },
-      "visibility": { "title": "Visibility", "desc": "Implement a Management Group hierarchy and cost allocation by cost center." },
-      "rateOptimization": { "title": "Rate optimization", "desc": "Increase Savings Plans coverage to 80% of the compute baseline." },
-      "usageOptimization": { "title": "Usage optimization", "desc": "Apply automated rightsizing policies to VMs with CPU < 10%." },
-      "culture": { "title": "FinOps culture", "desc": "Create a cross-departmental Cloud Center of Excellence (CCoE)." }
+      "automation": {
+        "title": "Automation",
+        "desc": "Schedule zombie cleanup and shutdowns with runbooks instead of manual actions."
+      },
+      "governance": {
+        "title": "Governance",
+        "desc": "Get tag compliance above 95% to enable automatic chargeback."
+      },
+      "visibility": {
+        "title": "Visibility",
+        "desc": "Implement a Management Group hierarchy and cost allocation by cost center."
+      },
+      "rateOptimization": {
+        "title": "Rate optimization",
+        "desc": "Increase Savings Plans coverage to 80% of the compute baseline."
+      },
+      "usageOptimization": {
+        "title": "Usage optimization",
+        "desc": "Apply automated rightsizing policies to VMs with CPU < 10%."
+      },
+      "culture": {
+        "title": "FinOps culture",
+        "desc": "Create a cross-departmental Cloud Center of Excellence (CCoE)."
+      }
     }
   },
   "OverviewProgress": {
@@ -1738,7 +1811,10 @@
     "pageSubtitle": "Historical evolution of spend and captured savings for the tenant.",
     "fullTenant": "Full tenant",
     "loadingData": "Loading data...",
-    "noData": { "title": "No historical data", "desc": "There is no data to display yet." },
+    "noData": {
+      "title": "No historical data",
+      "desc": "There is no data to display yet."
+    },
     "metrics": {
       "currentScore": "Current Cost Score",
       "scoreImprovement": "Historical Score Improvement",
@@ -1762,9 +1838,18 @@
     },
     "milestones": {
       "title": "Milestones",
-      "onboarding": { "title": "Tenant onboarding", "desc": "Connected via Entra ID and first spend baseline established." },
-      "rightsizing": { "title": "Rightsizing program", "desc": "Continuous SKU review based on P95 metrics." },
-      "autoShutdown": { "title": "Automatic shutdown for non-production", "desc": "Power schedules active in QA and DEV." }
+      "onboarding": {
+        "title": "Tenant onboarding",
+        "desc": "Connected via Entra ID and first spend baseline established."
+      },
+      "rightsizing": {
+        "title": "Rightsizing program",
+        "desc": "Continuous SKU review based on P95 metrics."
+      },
+      "autoShutdown": {
+        "title": "Automatic shutdown for non-production",
+        "desc": "Power schedules active in QA and DEV."
+      }
     }
   },
   "RightsizingAppService": {
@@ -1957,7 +2042,7 @@
     "saving": "Saving...",
     "save": "Save",
     "partnerLinkTitle": "Partner association (PAL / CPOR)",
-    "partnerLinkDescription": "CS Cloud Solutions is a Microsoft partner. If you approve this, we'll associate our Partner ID with our Service Principal's credentials <b>inside your tenant</b> (Partner Admin Link) and register the partner relationship (CPOR) in Microsoft Partner Center. This <b>does not grant any additional permissions</b> over your data and has no cost — it just tells Microsoft that we are your FinOps services partner. Microsoft may notify you of the CPOR claim and you can dispute or revoke it at any time. <b>Nothing happens until you approve it.</b>",
+    "partnerLinkDescription": "CSCloudSolutions is a Microsoft partner. If you approve this, we'll associate our Partner ID with our Service Principal's credentials <b>inside your tenant</b> (Partner Admin Link) and register the partner relationship (CPOR) in Microsoft Partner Center. This <b>does not grant any additional permissions</b> over your data and has no cost — it just tells Microsoft that we are your FinOps services partner. Microsoft may notify you of the CPOR claim and you can dispute or revoke it at any time. <b>Nothing happens until you approve it.</b>",
     "partnerLinking": "Linking…",
     "partnerApprove": "Approve association",
     "partnerDecline": "No, thanks",
@@ -2355,9 +2440,18 @@
       "severityFilterHint": "Comma-separated: info, warning, error",
       "cancel": "Cancel",
       "create": "Create",
-      "slack": { "name": "Slack", "description": "Send via Slack Webhook" },
-      "teams": { "name": "Microsoft Teams", "description": "Send via Teams Webhook" },
-      "email": { "name": "Email", "description": "Send via SMTP" }
+      "slack": {
+        "name": "Slack",
+        "description": "Send via Slack Webhook"
+      },
+      "teams": {
+        "name": "Microsoft Teams",
+        "description": "Send via Teams Webhook"
+      },
+      "email": {
+        "name": "Email",
+        "description": "Send via SMTP"
+      }
     }
   },
   "Academy": {
@@ -3160,17 +3254,50 @@
     "troubleshootingToggleShow": "Show troubleshooting",
     "troubleshootingToggleHide": "Hide troubleshooting",
     "troubleshooting_items": [
-      { "q": "Costs on the Dashboard show $0 or don't appear", "a": "Most often the daily sync hasn't run yet for your tenant (it runs once a day), or the Service Principal is missing the Cost Management Reader role on one or more subscriptions. Check Administration → Client Onboarding → \"Verify Permissions\" to confirm the Service Principal has every role required for your tier, on each subscription. If you just connected Azure, wait for the next daily sync before reporting this." },
-      { "q": "I don't see my Azure subscription connected", "a": "Confirm you ran the onboarding script (PowerShell) generated in Administration → Onboarding, in the correct subscription via Azure Cloud Shell. If you already ran it, it can take a few minutes to show up — reload the page. If it's still missing after a while, the app most likely needs Admin Consent granted in Azure AD." },
-      { "q": "I can't edit my role or another user's permissions", "a": "Only users with the Admin or Owner role can manage users and permissions. If you have the Reader or Collaborator role, ask an Admin/Owner in your organization to make the change, or to upgrade your role if appropriate." },
-      { "q": "I'm not receiving notifications (Slack, Teams, or Email)", "a": "Check Administration → Notification Channels to confirm the channel is enabled and that the master \"Enable notifications\" switch is also on — turning off the master switch disables every channel without deleting its configuration. Use each channel's \"Test\" button to confirm the integration actually works." },
-      { "q": "I lost access to my authenticator app (2FA)", "a": "Use one of the recovery codes saved when you enabled two-factor authentication (Security Settings → View Recovery Codes, if you saved them earlier). If you don't have them, you'll need support to verify your identity to disable 2FA on your account — open a ticket under the \"Account\" category." },
-      { "q": "The AI Executive Report isn't generating or is very slow", "a": "If your tenant uses the \"System\" (shared) provider, it can be subject to quota limits during peak hours. Configure your own API key in Administration → AI Configuration (BYOK) to avoid the shared limit and get faster responses. If the error persists with your own key, test the connection from that same screen." },
-      { "q": "I can't create or edit a Cost Group", "a": "Cost Groups is exclusive to Business and Enterprise plans, and requires the Admin or Owner role. Also, only Cost Groups you created manually with their own rule (by tag or Resource Group pattern) can be edited — groups auto-derived from the CostCenter tag don't have a rule of their own to edit." },
-      { "q": "Single sign-on (SSO/SAML) isn't working for my organization", "a": "SSO is configured jointly by your admin and CSCloudSolutions — if your organization hasn't finished that setup yet, you'll keep using standard Microsoft Entra ID login in the meantime. If it's already configured and failing, check with your identity team that the provider (Okta, Auth0, AD FS, etc.) is correctly connected in the WorkOS panel." },
-      { "q": "The cost history has gaps or missing dates", "a": "It's normal to see an occasional gap when Azure Cost Management returns temporary errors (throttling) during the daily sync — a backfill job runs every night and automatically fills in the last 2 months. If the gap is more than a few days old and hasn't filled in on its own, open a ticket." },
-      { "q": "I can't invite more users / hit my plan's limit", "a": "Each subscription tier has a user limit (Essential: 1, Professional: 5, Business: 20, Enterprise: unlimited). If you need more users than your current plan allows, upgrade from Administration → Billing." },
-      { "q": "The Dashboard is slow to load the first time", "a": "The first load of the day can take longer because live data is being calculated against Azure (resource audit + cost projection). Subsequent loads are nearly instant since they're served from cache for 15 minutes. If it consistently takes more than 30 seconds, there may be a permissions issue on one of your subscriptions — check for a \"degraded mode\" banner if one appears." }
+      {
+        "q": "Costs on the Dashboard show $0 or don't appear",
+        "a": "Most often the daily sync hasn't run yet for your tenant (it runs once a day), or the Service Principal is missing the Cost Management Reader role on one or more subscriptions. Check Administration → Client Onboarding → \"Verify Permissions\" to confirm the Service Principal has every role required for your tier, on each subscription. If you just connected Azure, wait for the next daily sync before reporting this."
+      },
+      {
+        "q": "I don't see my Azure subscription connected",
+        "a": "Confirm you ran the onboarding script (PowerShell) generated in Administration → Onboarding, in the correct subscription via Azure Cloud Shell. If you already ran it, it can take a few minutes to show up — reload the page. If it's still missing after a while, the app most likely needs Admin Consent granted in Azure AD."
+      },
+      {
+        "q": "I can't edit my role or another user's permissions",
+        "a": "Only users with the Admin or Owner role can manage users and permissions. If you have the Reader or Collaborator role, ask an Admin/Owner in your organization to make the change, or to upgrade your role if appropriate."
+      },
+      {
+        "q": "I'm not receiving notifications (Slack, Teams, or Email)",
+        "a": "Check Administration → Notification Channels to confirm the channel is enabled and that the master \"Enable notifications\" switch is also on — turning off the master switch disables every channel without deleting its configuration. Use each channel's \"Test\" button to confirm the integration actually works."
+      },
+      {
+        "q": "I lost access to my authenticator app (2FA)",
+        "a": "Use one of the recovery codes saved when you enabled two-factor authentication (Security Settings → View Recovery Codes, if you saved them earlier). If you don't have them, you'll need support to verify your identity to disable 2FA on your account — open a ticket under the \"Account\" category."
+      },
+      {
+        "q": "The AI Executive Report isn't generating or is very slow",
+        "a": "If your tenant uses the \"System\" (shared) provider, it can be subject to quota limits during peak hours. Configure your own API key in Administration → AI Configuration (BYOK) to avoid the shared limit and get faster responses. If the error persists with your own key, test the connection from that same screen."
+      },
+      {
+        "q": "I can't create or edit a Cost Group",
+        "a": "Cost Groups is exclusive to Business and Enterprise plans, and requires the Admin or Owner role. Also, only Cost Groups you created manually with their own rule (by tag or Resource Group pattern) can be edited — groups auto-derived from the CostCenter tag don't have a rule of their own to edit."
+      },
+      {
+        "q": "Single sign-on (SSO/SAML) isn't working for my organization",
+        "a": "SSO is configured jointly by your admin and CSCloudSolutions — if your organization hasn't finished that setup yet, you'll keep using standard Microsoft Entra ID login in the meantime. If it's already configured and failing, check with your identity team that the provider (Okta, Auth0, AD FS, etc.) is correctly connected in the WorkOS panel."
+      },
+      {
+        "q": "The cost history has gaps or missing dates",
+        "a": "It's normal to see an occasional gap when Azure Cost Management returns temporary errors (throttling) during the daily sync — a backfill job runs every night and automatically fills in the last 2 months. If the gap is more than a few days old and hasn't filled in on its own, open a ticket."
+      },
+      {
+        "q": "I can't invite more users / hit my plan's limit",
+        "a": "Each subscription tier has a user limit (Essential: 1, Professional: 5, Business: 20, Enterprise: unlimited). If you need more users than your current plan allows, upgrade from Administration → Billing."
+      },
+      {
+        "q": "The Dashboard is slow to load the first time",
+        "a": "The first load of the day can take longer because live data is being calculated against Azure (resource audit + cost projection). Subsequent loads are nearly instant since they're served from cache for 15 minutes. If it consistently takes more than 30 seconds, there may be a permissions issue on one of your subscriptions — check for a \"degraded mode\" banner if one appears."
+      }
     ]
   },
   "SuperAdminSupport": {
@@ -3333,7 +3460,24 @@
     "no_findings": "No findings",
     "mock_data_notice": "You're viewing simulated data from the demo version.",
     "cost_center_budget": "Cost Center Budget",
-    "view_full_detail": "View full detail"
+    "view_full_detail": "View full detail",
+    "kpi_current_cost": "Current Cost",
+    "kpi_current_cost_sub": "month to date",
+    "kpi_projected_cost": "Projected Cost",
+    "kpi_projected_cost_sub": "at month end",
+    "kpi_zombie_resources": "Zombie Resources",
+    "kpi_zombie_resources_sub": "detected",
+    "kpi_potential_savings": "Potential Savings",
+    "kpi_potential_savings_sub": "projected monthly",
+    "kpi_environmental_impact": "Environmental Impact",
+    "kpi_environmental_impact_sub": "CO2 avoided",
+    "ha_feature_name": "High Availability",
+    "cost_projection_feature_name": "Cost Projection",
+    "ha_title": "High Availability",
+    "ha_resources_at_risk": "{count} resources with detected risks",
+    "ha_no_resources_at_risk": "No resources at risk",
+    "ha_no_data": "No data",
+    "ha_tooltip_resources": "resources"
   },
   "CostGroups": {
     "title": "Cost Groups",
@@ -3759,5 +3903,24 @@
     "cancel": "Cancel",
     "applying": "Applying...",
     "applyTags": "Apply Tags"
+  },
+  "MyDashboard": {
+    "title": "My Dashboard",
+    "widget": "widget",
+    "widgets": "widgets",
+    "loading": "Loading your dashboard...",
+    "collapse": "Collapse",
+    "expand": "Expand",
+    "empty_hint": "You haven't pinned any widgets yet. Go to any Intelligence, Governance or Cost page and click the 📌 icon next to the title to add it here.",
+    "unpin_tooltip": "Remove from my dashboard"
+  },
+  "Footer": {
+    "privacy": "Privacy",
+    "terms": "Terms",
+    "dpa": "DPA",
+    "security": "Security",
+    "subprocessors": "Subprocessors",
+    "status": "Status",
+    "copyright": "© {year} CSCloudSolutions. All rights reserved."
   }
 }

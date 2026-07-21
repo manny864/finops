@@ -191,7 +191,7 @@ export default function AuditTrailPage() {
             link.setAttribute("download", filename);
             document.body.appendChild(link);
             link.click();
-            document.body.removeChild(link);
+            link.remove();
             
             toast.success(t('exportCompleted', { filename }));
         } catch (e) {

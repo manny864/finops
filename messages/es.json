@@ -50,7 +50,6 @@
   "LegalTerms": {
     "title": "Términos de Servicio",
     "lastUpdated": "Última actualización: {date}",
-    "reviewPending": "[REVISIÓN LEGAL PENDIENTE] Contenido de referencia sujeto a revisión legal. No es vinculante hasta su aprobación.",
     "s1Title": "1. Aceptación de los Términos",
     "s1Body": "Al acceder y utilizar la plataforma FinOps de CSCloudSolutions (el \"Servicio\"), el usuario acepta quedar sujeto a estos Términos de Servicio. Si no está de acuerdo con estos términos, no debe utilizar el Servicio.",
     "s2Title": "2. Descripción del Servicio",
@@ -93,7 +92,6 @@
   "LegalPrivacy": {
     "title": "Política de Privacidad",
     "lastUpdated": "Última actualización: {date}",
-    "reviewPending": "[REVISIÓN LEGAL PENDIENTE] Contenido de referencia sujeto a revisión por parte de asesoría legal. No es vinculante hasta su aprobación.",
     "tocTitle": "Tabla de Contenidos",
     "navDataCollection": "Datos que Recopilamos",
     "navUsage": "Cómo los Usamos",
@@ -160,7 +158,6 @@
     "title": "Acuerdo de Tratamiento de Datos (DPA)",
     "subtitle": "Acuerdo de Tratamiento de Datos conforme al Artículo 28 del RGPD",
     "lastUpdated": "Última actualización: {date}",
-    "reviewPending": "[REVISIÓN LEGAL PENDIENTE] Contenido de referencia sujeto a revisión legal. No es vinculante hasta su aprobación.",
     "signedTitle": "✓ DPA Firmado",
     "signedBy": "Firmado por {user} el {date}",
     "unsignedIntro": "Los clientes Enterprise deben firmar este DPA antes de acceder al Servicio.",
@@ -219,7 +216,9 @@
     "annex2Details": "Detalles disponibles en el informe SOC 2 Tipo II a pedido.",
     "footerLastUpdated": "Última actualización: {date}",
     "footerTermsLink": "Términos",
-    "footerPrivacyLink": "Privacidad"
+    "footerPrivacyLink": "Privacidad",
+    "signRequiresLogin": "Iniciá sesión con una cuenta que tenga acceso a un tenant para firmar el DPA.",
+    "signError": "No se pudo registrar la firma. Intentá de nuevo."
   },
   "LegalSecurity": {
     "heroTitle": "Centro de Confianza",
@@ -228,12 +227,11 @@
     "badgeGdprTitle": "Cumple con el RGPD",
     "badgeGdprSubtitle": "Privacidad de datos",
     "badgeSoc2Title": "SOC 2 Tipo II",
-    "badgeSoc2Subtitle": "Meta Q4 2026",
+    "badgeSoc2Subtitle": "Meta Q3 2027",
     "badgeAzureTitle": "Certificado en Azure",
     "badgeAzureSubtitle": "Infraestructura",
     "badgeIsoTitle": "ISO 27001",
-    "badgeIsoSubtitle": "Planificado para 2026",
-    "reviewPending": "[REVISIÓN LEGAL PENDIENTE] Contenido de referencia sujeto a revisión legal. No es vinculante hasta su aprobación.",
+    "badgeIsoSubtitle": "Planificado para 2028",
     "encryptionTitle": "Cifrado",
     "encryptionTransitTitle": "En Tránsito",
     "encryptionTransitBody": "Todos los datos en tránsito se cifran con TLS 1.2 o superior. Las conexiones HTTP se redirigen automáticamente a HTTPS.",
@@ -280,9 +278,9 @@
     "downloadSubprocessorsSize": "Siempre actualizado",
     "faqTitle": "Preguntas Frecuentes",
     "faq1Q": "¿CSCloudSolutions está certificada en SOC 2?",
-    "faq1A": "Estamos apuntando a la certificación SOC 2 Tipo II para el Q4 de 2026. Contactanos para conocer el estado actual de la auditoría.",
+    "faq1A": "Estamos apuntando a la certificación SOC 2 Tipo II para el Q3 de 2027. Contactanos para conocer el estado actual de la auditoría.",
     "faq2Q": "¿Dónde se almacenan mis datos?",
-    "faq2A": "Los datos se almacenan en Microsoft Azure, en las regiones que elijas durante el onboarding (opciones disponibles en EE. UU., UE o LATAM).",
+    "faq2A": "Actualmente los datos se almacenan exclusivamente en Microsoft Azure, región Brazil South (Latinoamérica). Está planificada la extensión a regiones de EE. UU. y la UE; por ahora no hay selección de residencia regional en el onboarding.",
     "faq3Q": "¿Realizan pruebas de penetración?",
     "faq3A": "Sí, realizamos pruebas de penetración anuales por parte de terceros. Los resultados están disponibles para clientes Enterprise bajo NDA.",
     "faq4Q": "¿Cuánto tiempo conservan los registros de auditoría?",
@@ -484,7 +482,9 @@
     "financial_leaks": "Fugas Financieras",
     "cost_centers": "Presupuesto por Centro de Costos",
     "governance_score": "Estado de Gobernanza",
-    "account_security": "Seguridad (2FA)"
+    "account_security": "Seguridad (2FA)",
+    "searchPlaceholder": "Buscar páginas...",
+    "clearSearch": "Limpiar búsqueda"
   },
   "Dashboard": {
     "title": "Dashboard General",
@@ -1041,7 +1041,46 @@
     "platformAlertDefaultName": "Presupuesto {costCenter} superado",
     "platformAlertCreate": "Crear alerta",
     "platformAlertCreated": "Alerta creada y vinculada al presupuesto.",
-    "platformGoToAlerts": "Ver todas las reglas en Alertas (Self-Service)"
+    "platformGoToAlerts": "Ver todas las reglas en Alertas (Self-Service)",
+    "consolidated_title": "Presupuesto Consolidado del Tenant",
+    "current_consumption": "Consumo Total Actual",
+    "breakdown_by_subscription": "Desglose por Suscripción",
+    "assigned": "Asignado",
+    "consumed": "Consumido",
+    "monthly_spend": "Gasto Mensual",
+    "configure_edit_budget": "Configurar / Editar Presupuesto",
+    "emailLabel": "Email",
+    "createModalTitle": "Crear Presupuesto en Azure",
+    "createModalNameLabel": "Nombre del Presupuesto",
+    "createModalNamePlaceholder": "Ej. IT-Budget",
+    "createModalAmountLabel": "Monto Mensual (USD)",
+    "createModalAmountPlaceholder": "Ej. 1500",
+    "createModalEmailLabel": "Email de Alerta",
+    "createModalEmailPlaceholder": "Ej. admin@cscloudsolutions.com",
+    "createModalThresholdLabel": "Umbral de Alerta (%)",
+    "createModalThresholdPlaceholder": "Ej. 80",
+    "createModalFrequencyLabel": "Frecuencia",
+    "createModalFreqMonthly": "Mensual (Facturación)",
+    "createModalFreqQuarterly": "Trimestral (Facturación)",
+    "createModalFreqAnnual": "Anual (Facturación)",
+    "createModalCreating": "Creando...",
+    "createModalCreate": "Crear",
+    "createModalMissingFields": "Por favor, rellene todos los campos.",
+    "createModalSuccess": "Presupuesto creado con éxito en Azure y base de datos local.",
+    "createModalFailed": "Fallo al crear el presupuesto.",
+    "createModalConnError": "Error al conectar con el servidor: {message}",
+    "killSwitchTitle": "Kill Switch (Auto-Suspensión)",
+    "killSwitchRequiresPro": "Requiere Pro",
+    "killSwitchUpgradeNotice": "Actualiza a Pro o Enterprise para habilitar el apagado automático de recursos no productivos al exceder el presupuesto.",
+    "killSwitchDisabledToast": "Kill Switch deshabilitado",
+    "killSwitchSelectRgError": "Debes seleccionar un Resource Group objetivo",
+    "killSwitchEnabledToast": "Kill Switch habilitado para {rg}",
+    "killSwitchDescription": "Configura una acción destructiva segura. Si el presupuesto se excede al 100%, todos los recursos en el Resource Group seleccionado serán apagados (Deallocate) automáticamente para frenar el gasto.",
+    "killSwitchWarning": "ADVERTENCIA: Esta acción es destructiva y causará tiempo de inactividad. Solo utilícelo para entornos Dev/Test.",
+    "killSwitchTargetRgLabel": "Resource Group Objetivo",
+    "killSwitchSelectRgPlaceholder": "Seleccione un RG...",
+    "killSwitchSaving": "Guardando...",
+    "killSwitchApply": "Aplicar Kill Switch"
   },
   "onboarding": {
     "leastPrivilegeBanner": "Dado que tu plan actual es {tier}, este script ha sido personalizado para solicitar únicamente los permisos RBAC estrictamente necesarios para tus funciones.",
@@ -1687,10 +1726,22 @@
     "pageTitle": "Madurez FinOps",
     "pageSubtitle": "Modelo de madurez FinOps (Gatear · Caminar · Correr) por capacidad.",
     "reasons": {
-      "noSubscriptions": { "title": "Sin suscripciones activas", "desc": "Este tenant no tiene suscripciones de Azure. Creá una suscripción para empezar a evaluar la madurez FinOps." },
-      "missingAdminConsent": { "title": "Falta Admin Consent", "desc": "La aplicación CSCloudSolutions no fue consentida en este tenant. Ejecutá: az ad sp create --id 876d8a5b-6023-4484-b3ba-73c186e4a72b" },
-      "noCredential": { "title": "Sin credenciales configuradas", "desc": "No se encontraron credenciales de Azure para acceder a este tenant." },
-      "azureError": { "title": "Error de conexión con Azure", "desc": "No se pudo conectar con Azure para evaluar la madurez. Probá de nuevo más tarde." }
+      "noSubscriptions": {
+        "title": "Sin suscripciones activas",
+        "desc": "Este tenant no tiene suscripciones de Azure. Creá una suscripción para empezar a evaluar la madurez FinOps."
+      },
+      "missingAdminConsent": {
+        "title": "Falta Admin Consent",
+        "desc": "La aplicación CSCloudSolutions no fue consentida en este tenant. Ejecutá: az ad sp create --id 876d8a5b-6023-4484-b3ba-73c186e4a72b"
+      },
+      "noCredential": {
+        "title": "Sin credenciales configuradas",
+        "desc": "No se encontraron credenciales de Azure para acceder a este tenant."
+      },
+      "azureError": {
+        "title": "Error de conexión con Azure",
+        "desc": "No se pudo conectar con Azure para evaluar la madurez. Probá de nuevo más tarde."
+      }
     },
     "takeAssessment": "Tomar Evaluación Manual",
     "wizardTitle": "Evaluación FinOps",
@@ -1713,7 +1764,11 @@
     "radarTitle": "Radar de madurez",
     "levelPerCapability": "Nivel por capacidad",
     "levelUpTitle": "Para subir de nivel",
-    "levels": { "crawl": "Gatear", "walk": "Caminar", "run": "Correr" },
+    "levels": {
+      "crawl": "Gatear",
+      "walk": "Caminar",
+      "run": "Correr"
+    },
     "domains": {
       "visibility": "Visibilidad e info.",
       "rateOpt": "Optimización de tasa",
@@ -1723,12 +1778,30 @@
       "culture": "Cultura FinOps"
     },
     "recommendations": {
-      "automation": { "title": "Automatización", "desc": "Programá la limpieza de zombis y los apagados con runbooks en vez de acciones manuales." },
-      "governance": { "title": "Gobernanza", "desc": "Llevá el compliance de etiquetas por encima del 95% para habilitar chargeback automático." },
-      "visibility": { "title": "Visibilidad", "desc": "Implementá la jerarquía de Management Groups y cost allocation por centro de costos." },
-      "rateOptimization": { "title": "Optimización de tasa", "desc": "Aumentá la cobertura de Savings Plans al 80% del compute baseline." },
-      "usageOptimization": { "title": "Optimización de uso", "desc": "Aplicá políticas de rightsizing automático a VMs con CPU < 10%." },
-      "culture": { "title": "Cultura FinOps", "desc": "Creá un Cloud Center of Excellence (CCoE) interdepartamental." }
+      "automation": {
+        "title": "Automatización",
+        "desc": "Programá la limpieza de zombis y los apagados con runbooks en vez de acciones manuales."
+      },
+      "governance": {
+        "title": "Gobernanza",
+        "desc": "Llevá el compliance de etiquetas por encima del 95% para habilitar chargeback automático."
+      },
+      "visibility": {
+        "title": "Visibilidad",
+        "desc": "Implementá la jerarquía de Management Groups y cost allocation por centro de costos."
+      },
+      "rateOptimization": {
+        "title": "Optimización de tasa",
+        "desc": "Aumentá la cobertura de Savings Plans al 80% del compute baseline."
+      },
+      "usageOptimization": {
+        "title": "Optimización de uso",
+        "desc": "Aplicá políticas de rightsizing automático a VMs con CPU < 10%."
+      },
+      "culture": {
+        "title": "Cultura FinOps",
+        "desc": "Creá un Cloud Center of Excellence (CCoE) interdepartamental."
+      }
     }
   },
   "OverviewProgress": {
@@ -1738,7 +1811,10 @@
     "pageSubtitle": "Evolución histórica del gasto y del ahorro capturado en el tenant.",
     "fullTenant": "Tenant completo",
     "loadingData": "Cargando datos...",
-    "noData": { "title": "Sin datos históricos", "desc": "Todavía no hay datos para mostrar." },
+    "noData": {
+      "title": "Sin datos históricos",
+      "desc": "Todavía no hay datos para mostrar."
+    },
     "metrics": {
       "currentScore": "Puntuación de Costo Actual",
       "scoreImprovement": "Mejora en Score Histórico",
@@ -1762,9 +1838,18 @@
     },
     "milestones": {
       "title": "Hitos",
-      "onboarding": { "title": "Onboarding del tenant", "desc": "Conexión vía Entra ID y primera línea base de gasto establecida." },
-      "rightsizing": { "title": "Programa de rightsizing", "desc": "Revisión continua de SKUs sobre métricas P95." },
-      "autoShutdown": { "title": "Apagado automático en no productivos", "desc": "Power schedules activos en QA y DEV." }
+      "onboarding": {
+        "title": "Onboarding del tenant",
+        "desc": "Conexión vía Entra ID y primera línea base de gasto establecida."
+      },
+      "rightsizing": {
+        "title": "Programa de rightsizing",
+        "desc": "Revisión continua de SKUs sobre métricas P95."
+      },
+      "autoShutdown": {
+        "title": "Apagado automático en no productivos",
+        "desc": "Power schedules activos en QA y DEV."
+      }
     }
   },
   "RightsizingAppService": {
@@ -1957,7 +2042,7 @@
     "saving": "Guardando...",
     "save": "Guardar",
     "partnerLinkTitle": "Asociación de partner (PAL / CPOR)",
-    "partnerLinkDescription": "CS Cloud Solutions es partner de Microsoft. Si lo aprobás, asociaremos nuestro Partner ID a las credenciales de nuestro Service Principal <b>dentro de tu tenant</b> (Partner Admin Link) y podremos registrar la relación de partner (CPOR) en Microsoft Partner Center. Esto <b>no otorga permisos adicionales</b> sobre tus datos ni tiene costo: solo le indica a Microsoft que somos tu partner de servicios de FinOps. Microsoft puede notificarte del reclamo CPOR y podés disputarlo o revocarlo cuando quieras. <b>No se hace nada hasta tu aprobación.</b>",
+    "partnerLinkDescription": "CSCloudSolutions es partner de Microsoft. Si lo aprobás, asociaremos nuestro Partner ID a las credenciales de nuestro Service Principal <b>dentro de tu tenant</b> (Partner Admin Link) y podremos registrar la relación de partner (CPOR) en Microsoft Partner Center. Esto <b>no otorga permisos adicionales</b> sobre tus datos ni tiene costo: solo le indica a Microsoft que somos tu partner de servicios de FinOps. Microsoft puede notificarte del reclamo CPOR y podés disputarlo o revocarlo cuando quieras. <b>No se hace nada hasta tu aprobación.</b>",
     "partnerLinking": "Asociando…",
     "partnerApprove": "Aprobar asociación",
     "partnerDecline": "No, gracias",
@@ -2355,9 +2440,18 @@
       "severityFilterHint": "Separados por coma: info, warning, error",
       "cancel": "Cancelar",
       "create": "Crear",
-      "slack": { "name": "Slack", "description": "Enviar vía Webhook de Slack" },
-      "teams": { "name": "Microsoft Teams", "description": "Enviar vía Webhook de Teams" },
-      "email": { "name": "Email", "description": "Enviar vía SMTP" }
+      "slack": {
+        "name": "Slack",
+        "description": "Enviar vía Webhook de Slack"
+      },
+      "teams": {
+        "name": "Microsoft Teams",
+        "description": "Enviar vía Webhook de Teams"
+      },
+      "email": {
+        "name": "Email",
+        "description": "Enviar vía SMTP"
+      }
     }
   },
   "Academy": {
@@ -3160,17 +3254,50 @@
     "troubleshootingToggleShow": "Mostrar solución de problemas",
     "troubleshootingToggleHide": "Ocultar solución de problemas",
     "troubleshooting_items": [
-      { "q": "Los costos en el Dashboard muestran $0 o no aparecen", "a": "Lo más común es que el sync diario todavía no corrió para tu tenant (corre una vez por día) o que el Service Principal no tiene el rol Cost Management Reader asignado en todas las suscripciones. Verificá en Administración → Onboarding de Clientes → \"Verificar Permisos\" que el Service Principal tenga todos los roles requeridos para tu tier, en cada suscripción. Si acabás de conectar Azure, esperá hasta el próximo sync diario antes de reportarlo." },
-      { "q": "No veo mi suscripción de Azure conectada", "a": "Confirmá que ejecutaste el script de onboarding (PowerShell) generado en Administración → Onboarding, y que lo corriste en la suscripción correcta desde Azure Cloud Shell. Si ya lo corriste, puede tardar unos minutos en reflejarse — recargá la página. Si sigue sin aparecer después de un rato, es probable que falte el Admin Consent de la aplicación en Azure AD." },
-      { "q": "No puedo editar mi rol o los permisos de otro usuario", "a": "Solo los usuarios con rol Admin u Owner pueden gestionar usuarios y permisos. Si tenés rol Reader o Colaborador, pedile a un Admin/Owner de tu organización que haga el cambio, o que te suba de rol si corresponde." },
-      { "q": "No me llegan notificaciones (Slack, Teams o Email)", "a": "Revisá en Administración → Canales de Notificación que el canal esté habilitado y que el interruptor maestro \"Habilitar notificaciones\" también esté activo — apagar el maestro desactiva todos los canales sin borrar su configuración. Probá el botón \"Probar\" de cada canal para confirmar que la integración funciona." },
-      { "q": "Perdí acceso a mi app de autenticación (2FA)", "a": "Usá uno de tus códigos de recuperación guardados al activar la autenticación de dos factores (Configuración de Seguridad → Ver códigos de recuperación, si los guardaste antes). Si no los tenés, vas a necesitar que soporte verifique tu identidad para desactivar el 2FA de tu cuenta — creá un ticket con la categoría \"Cuenta\"." },
-      { "q": "El Reporte Ejecutivo con IA no se genera o tarda mucho", "a": "Si tu tenant usa el proveedor \"Sistema\" (compartido), puede estar sujeto a límites de cuota en horas pico. Configurá tu propia API key en Administración → Configuración de IA (BYOK) para evitar el límite compartido y obtener respuestas más rápidas. Si el error persiste con tu propia key, probá la conexión desde esa misma pantalla." },
-      { "q": "No puedo crear ni editar un Cost Group", "a": "Cost Groups es una función exclusiva de los planes Business y Enterprise, y requiere rol Admin u Owner. Además, solo los Cost Groups creados manualmente con una regla propia (por tag o patrón de Resource Group) se pueden editar — los grupos derivados automáticamente del tag CostCenter no tienen una regla propia que editar." },
-      { "q": "El inicio de sesión único (SSO/SAML) no funciona para mi organización", "a": "El SSO se configura entre tu administrador y CSCloudSolutions — si tu organización todavía no completó ese proceso, vas a seguir usando el login estándar de Microsoft Entra ID mientras tanto. Si ya lo configuraron y falla, verificá con tu equipo de identidad que el proveedor (Okta, Auth0, AD FS, etc.) esté correctamente conectado en el panel de WorkOS." },
-      { "q": "El historial de costos tiene huecos o fechas faltantes", "a": "Es normal ver algún hueco puntual cuando Azure Cost Management devuelve errores temporales (throttling) durante el sync diario — un proceso de backfill corre todas las noches y rellena automáticamente los últimos 2 meses. Si el hueco tiene más de unos días de antigüedad y no se completó solo, creá un ticket." },
-      { "q": "No puedo invitar más usuarios / llegué al límite de mi plan", "a": "Cada tier de suscripción tiene un límite de usuarios (Essential: 1, Professional: 5, Business: 20, Enterprise: sin límite). Si necesitás más usuarios de los que permite tu plan actual, hacé un upgrade desde Administración → Facturación." },
-      { "q": "El Dashboard tarda mucho en cargar la primera vez", "a": "La primera carga del día puede tardar más porque se están calculando datos en vivo contra Azure (auditoría de recursos + proyección de costos). Las cargas siguientes son casi instantáneas porque se sirven desde caché durante 15 minutos. Si tarda sistemáticamente más de 30 segundos, puede haber un problema de permisos en alguna suscripción — revisá el banner de \"modo degradado\" si aparece." }
+      {
+        "q": "Los costos en el Dashboard muestran $0 o no aparecen",
+        "a": "Lo más común es que el sync diario todavía no corrió para tu tenant (corre una vez por día) o que el Service Principal no tiene el rol Cost Management Reader asignado en todas las suscripciones. Verificá en Administración → Onboarding de Clientes → \"Verificar Permisos\" que el Service Principal tenga todos los roles requeridos para tu tier, en cada suscripción. Si acabás de conectar Azure, esperá hasta el próximo sync diario antes de reportarlo."
+      },
+      {
+        "q": "No veo mi suscripción de Azure conectada",
+        "a": "Confirmá que ejecutaste el script de onboarding (PowerShell) generado en Administración → Onboarding, y que lo corriste en la suscripción correcta desde Azure Cloud Shell. Si ya lo corriste, puede tardar unos minutos en reflejarse — recargá la página. Si sigue sin aparecer después de un rato, es probable que falte el Admin Consent de la aplicación en Azure AD."
+      },
+      {
+        "q": "No puedo editar mi rol o los permisos de otro usuario",
+        "a": "Solo los usuarios con rol Admin u Owner pueden gestionar usuarios y permisos. Si tenés rol Reader o Colaborador, pedile a un Admin/Owner de tu organización que haga el cambio, o que te suba de rol si corresponde."
+      },
+      {
+        "q": "No me llegan notificaciones (Slack, Teams o Email)",
+        "a": "Revisá en Administración → Canales de Notificación que el canal esté habilitado y que el interruptor maestro \"Habilitar notificaciones\" también esté activo — apagar el maestro desactiva todos los canales sin borrar su configuración. Probá el botón \"Probar\" de cada canal para confirmar que la integración funciona."
+      },
+      {
+        "q": "Perdí acceso a mi app de autenticación (2FA)",
+        "a": "Usá uno de tus códigos de recuperación guardados al activar la autenticación de dos factores (Configuración de Seguridad → Ver códigos de recuperación, si los guardaste antes). Si no los tenés, vas a necesitar que soporte verifique tu identidad para desactivar el 2FA de tu cuenta — creá un ticket con la categoría \"Cuenta\"."
+      },
+      {
+        "q": "El Reporte Ejecutivo con IA no se genera o tarda mucho",
+        "a": "Si tu tenant usa el proveedor \"Sistema\" (compartido), puede estar sujeto a límites de cuota en horas pico. Configurá tu propia API key en Administración → Configuración de IA (BYOK) para evitar el límite compartido y obtener respuestas más rápidas. Si el error persiste con tu propia key, probá la conexión desde esa misma pantalla."
+      },
+      {
+        "q": "No puedo crear ni editar un Cost Group",
+        "a": "Cost Groups es una función exclusiva de los planes Business y Enterprise, y requiere rol Admin u Owner. Además, solo los Cost Groups creados manualmente con una regla propia (por tag o patrón de Resource Group) se pueden editar — los grupos derivados automáticamente del tag CostCenter no tienen una regla propia que editar."
+      },
+      {
+        "q": "El inicio de sesión único (SSO/SAML) no funciona para mi organización",
+        "a": "El SSO se configura entre tu administrador y CSCloudSolutions — si tu organización todavía no completó ese proceso, vas a seguir usando el login estándar de Microsoft Entra ID mientras tanto. Si ya lo configuraron y falla, verificá con tu equipo de identidad que el proveedor (Okta, Auth0, AD FS, etc.) esté correctamente conectado en el panel de WorkOS."
+      },
+      {
+        "q": "El historial de costos tiene huecos o fechas faltantes",
+        "a": "Es normal ver algún hueco puntual cuando Azure Cost Management devuelve errores temporales (throttling) durante el sync diario — un proceso de backfill corre todas las noches y rellena automáticamente los últimos 2 meses. Si el hueco tiene más de unos días de antigüedad y no se completó solo, creá un ticket."
+      },
+      {
+        "q": "No puedo invitar más usuarios / llegué al límite de mi plan",
+        "a": "Cada tier de suscripción tiene un límite de usuarios (Essential: 1, Professional: 5, Business: 20, Enterprise: sin límite). Si necesitás más usuarios de los que permite tu plan actual, hacé un upgrade desde Administración → Facturación."
+      },
+      {
+        "q": "El Dashboard tarda mucho en cargar la primera vez",
+        "a": "La primera carga del día puede tardar más porque se están calculando datos en vivo contra Azure (auditoría de recursos + proyección de costos). Las cargas siguientes son casi instantáneas porque se sirven desde caché durante 15 minutos. Si tarda sistemáticamente más de 30 segundos, puede haber un problema de permisos en alguna suscripción — revisá el banner de \"modo degradado\" si aparece."
+      }
     ]
   },
   "SuperAdminSupport": {
@@ -3333,7 +3460,24 @@
     "no_findings": "Sin hallazgos",
     "mock_data_notice": "Estás viendo datos simulados de la versión demo.",
     "cost_center_budget": "Presupuesto por Centro de Costos",
-    "view_full_detail": "Ver detalle completo"
+    "view_full_detail": "Ver detalle completo",
+    "kpi_current_cost": "Costo Actual",
+    "kpi_current_cost_sub": "acumulado del mes",
+    "kpi_projected_cost": "Costo Proyectado",
+    "kpi_projected_cost_sub": "al cierre de mes",
+    "kpi_zombie_resources": "Recursos Zombies",
+    "kpi_zombie_resources_sub": "detectados",
+    "kpi_potential_savings": "Ahorro Potencial",
+    "kpi_potential_savings_sub": "proyectado mensual",
+    "kpi_environmental_impact": "Impacto Ambiental",
+    "kpi_environmental_impact_sub": "CO2 evitado",
+    "ha_feature_name": "Alta Disponibilidad",
+    "cost_projection_feature_name": "Proyección de Gastos",
+    "ha_title": "Alta Disponibilidad",
+    "ha_resources_at_risk": "{count} recursos con riesgos detectados",
+    "ha_no_resources_at_risk": "Sin recursos en riesgo",
+    "ha_no_data": "Sin datos",
+    "ha_tooltip_resources": "recursos"
   },
   "CostGroups": {
     "title": "Cost Groups",
@@ -3759,5 +3903,24 @@
     "cancel": "Cancelar",
     "applying": "Aplicando...",
     "applyTags": "Aplicar Etiquetas"
+  },
+  "MyDashboard": {
+    "title": "Mi Dashboard",
+    "widget": "widget",
+    "widgets": "widgets",
+    "loading": "Cargando tu dashboard...",
+    "collapse": "Colapsar",
+    "expand": "Expandir",
+    "empty_hint": "Aún no pineaste ningún tablero. Navegá a cualquier página de Intelligence, Governance o Costos y hacé click en el ícono 📌 al lado del título para agregarlo acá.",
+    "unpin_tooltip": "Quitar de mi dashboard"
+  },
+  "Footer": {
+    "privacy": "Privacidad",
+    "terms": "Términos",
+    "dpa": "DPA",
+    "security": "Seguridad",
+    "subprocessors": "Subprocesadores",
+    "status": "Estado",
+    "copyright": "© {year} CSCloudSolutions. Todos los derechos reservados."
   }
 }

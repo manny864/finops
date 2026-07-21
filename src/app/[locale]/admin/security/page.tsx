@@ -178,7 +178,7 @@ export default function SecurityPage() {
     element.style.display = 'none';
     document.body.appendChild(element);
     element.click();
-    document.body.removeChild(element);
+    element.remove();
     toast.success(t('toasts.codesDownloaded'));
   }, [recoveryCodes, t]);
 

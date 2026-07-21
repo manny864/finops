@@ -31,7 +31,9 @@ export async function POST(request: NextRequest) {
     const ipAddress = request.headers.get("x-forwarded-for") || request.headers.get("x-client-ip") || "unknown";
     const userAgent = request.headers.get("user-agent") || "";
 
-    // Insert or update legal acceptance record
+    // Insert or update legal acceptance record. Firma siempre con el email
+    // real del token verificado (identity.email) — nunca con un valor que
+    // mande el cliente — para que el registro legal sea confiable.
     await pool.query(
       `
       INSERT INTO LegalAcceptances (tenant_id, user_email, document_type, document_version, ip_address, user_agent)
@@ -41,10 +43,20 @@ export async function POST(request: NextRequest) {
       [tenantId, identity.email, documentType, documentVersion, ipAddress, userAgent]
     );
 
+    const [userRows] = await pool.query(
+      `SELECT display_name FROM Users WHERE tenant_id = ? AND email = ? LIMIT 1`,
+      [tenantId, identity.email]
+    );
+    const signedByName = (Array.isArray(userRows) && userRows.length > 0)
+      ? (userRows[0] as { display_name: string | null }).display_name
+      : null;
+
     return NextResponse.json({
       accepted_at: new Date().toISOString(),
       documentType,
       documentVersion,
+      signedByEmail: identity.email,
+      signedByName,
     });
   } catch (error) {
     if (error instanceof AuthError) {
@@ -85,23 +97,28 @@ export async function GET(request: NextRequest) {
 
     const documentVersion = LEGAL_VERSIONS[documentType as LegalDocumentType];
 
-    // Check if document is accepted
+    // Check if document is accepted — join a Users para mostrar el nombre
+    // del firmante además de su email (LegalAcceptances solo persiste email).
     const [rows] = await pool.query(
       `
-      SELECT accepted_at FROM LegalAcceptances
-      WHERE tenant_id = ? AND document_type = ? AND document_version = ?
+      SELECT la.accepted_at, la.user_email, u.display_name
+      FROM LegalAcceptances la
+      LEFT JOIN Users u ON u.tenant_id = la.tenant_id AND u.email = la.user_email
+      WHERE la.tenant_id = ? AND la.document_type = ? AND la.document_version = ?
       LIMIT 1
       `,
       [tenantId, documentType, documentVersion]
     );
 
     if (Array.isArray(rows) && rows.length > 0) {
-      const row = rows[0] as { accepted_at: Date };
+      const row = rows[0] as { accepted_at: Date; user_email: string; display_name: string | null };
       return NextResponse.json({
         accepted: true,
         accepted_at: row.accepted_at.toISOString(),
         documentType,
         documentVersion,
+        signedByEmail: row.user_email,
+        signedByName: row.display_name,
       });
     }
 

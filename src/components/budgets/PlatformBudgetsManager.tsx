@@ -302,7 +302,7 @@ export default function PlatformBudgetsManager() {
                                 </div>
 
                                 <div className="border-t border-gray-100 dark:border-slate-800 pt-2">
-                                    <p className="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 mb-1">Gasto Mensual</p>
+                                    <p className="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 mb-1">{t('monthly_spend')}</p>
                                     <BudgetMonthlyChart
                                         data={monthlyHistory[b.id] || []}
                                         budgetAmount={b.monthlyLimit}
@@ -378,7 +378,7 @@ export default function PlatformBudgetsManager() {
                                     <input type="number" min={1} max={100} value={alertForm.thresholdValue} onChange={(e) => setAlertForm({ ...alertForm, thresholdValue: e.target.value })} className="w-full border border-gray-200 dark:border-slate-700 rounded-md p-2 text-sm mt-1 bg-transparent" />
                                 </div>
                                 <div>
-                                    <label className="text-xs font-semibold text-gray-500">Email</label>
+                                    <label className="text-xs font-semibold text-gray-500">{t('emailLabel')}</label>
                                     <input type="email" value={alertForm.channelTarget} onChange={(e) => setAlertForm({ ...alertForm, channelTarget: e.target.value })} className="w-full border border-gray-200 dark:border-slate-700 rounded-md p-2 text-sm mt-1 bg-transparent" />
                                 </div>
                             </div>

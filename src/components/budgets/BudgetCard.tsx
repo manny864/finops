@@ -146,7 +146,7 @@ export default function BudgetCard() {
         <div className="w-full">
             {/* Global Tenant Budget Summary */}
             <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-lg shadow-sm p-6 mb-6">
-                <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-2">Presupuesto Consolidado del Tenant</h3>
+                <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-2">{t('consolidated_title')}</h3>
                 
                 {loading ? (
                     <div className="animate-pulse flex flex-col gap-4 mt-6">
@@ -170,7 +170,7 @@ export default function BudgetCard() {
                         
                         <div className="mt-4">
                             <div className="flex justify-between text-xs mb-1">
-                                <span className="font-semibold text-gray-600 dark:text-gray-300">Consumo Total Actual</span>
+                                <span className="font-semibold text-gray-600 dark:text-gray-300">{t('current_consumption')}</span>
                                 <span className="font-bold text-gray-800 dark:text-white">
                                     {((budgetData.actual_spend / budgetData.budget_usd) * 100).toFixed(1)}%
                                 </span>
@@ -200,7 +200,7 @@ export default function BudgetCard() {
             </div>
 
             {/* Subscriptions Grid */}
-            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4">Desglose por Suscripción</h3>
+            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4">{t('breakdown_by_subscription')}</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {subscriptions.map(sub => {
                     const subData = budgetsBySub[sub.id] || { budget: 0, actual: 0 };
@@ -216,11 +216,11 @@ export default function BudgetCard() {
                                 
                                 <div className="flex justify-between items-end mb-2">
                                     <div>
-                                        <p className="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500">Asignado</p>
+                                        <p className="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500">{t('assigned')}</p>
                                         <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{currencyFormatter.format(realBudget)}</p>
                                     </div>
                                     <div className="text-right">
-                                        <p className="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500">Consumido</p>
+                                        <p className="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500">{t('consumed')}</p>
                                         <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{currencyFormatter.format(realSpend)}</p>
                                     </div>
                                 </div>
@@ -234,7 +234,7 @@ export default function BudgetCard() {
 
                                 {realBudget > 0 && (
                                     <div className="mb-2 border-t border-gray-100 dark:border-slate-800 pt-2">
-                                        <p className="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 mb-1">Gasto Mensual</p>
+                                        <p className="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 mb-1">{t('monthly_spend')}</p>
                                         <BudgetMonthlyChart
                                             data={monthlyHistoryBySub[sub.id] || []}
                                             budgetAmount={realBudget}
@@ -252,7 +252,7 @@ export default function BudgetCard() {
                                 }}
                                 className="w-full py-2 bg-gray-50 dark:bg-slate-800 hover:bg-gray-100 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-700 rounded-md text-xs font-bold text-brand-deep transition-colors"
                             >
-                                Configurar / Editar Presupuesto
+                                {t('configure_edit_budget')}
                             </button>
                         </div>
                     );

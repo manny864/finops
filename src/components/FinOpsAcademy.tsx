@@ -44,7 +44,7 @@ export default function FinOpsAcademy() {
 
     const { data, error, isLoading, mutate } = useSWR(
         (selectedTenant && selectedTenant.id !== 'default' && (accounts.length > 0 || isMockTenant(selectedTenant.id)))
-            ? `/api/academy/content?tenantId=${selectedTenant.id}`
+            ? `/api/academy/content?tenantId=${selectedTenant.id}&locale=${locale}`
             : null,
         fetcher,
         { revalidateOnFocus: false }

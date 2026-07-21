@@ -152,9 +152,31 @@ export default function TagManager() {
                 alert(`Error: ${json.details || json.error}`);
             } else {
                 alert("¡Etiquetas aplicadas correctamente en Azure!");
+
+                // Actualización optimista: Azure Resource Graph (de donde sale el
+                // estado de cumplimiento) tarda varios segundos en reindexar tras
+                // un write de tags vía ARM — pedir analyzeCompliance() ahora mismo
+                // seguido devuelve el estado viejo, y la pantalla parece no
+                // refrescarse. Marcamos localmente el recurso/grupo editado como
+                // conforme (ya se completaron todas sus missingTags) para dar
+                // feedback inmediato, y reconciliamos con el dato real de Azure
+                // unos segundos después.
+                const matchesEdited = (item: any) =>
+                    editingScope === 'rg' ? item.name === editingResource.name : item.id === editingResource.id;
+                const scoreSetter = editingScope === 'rg' ? setRgComplianceScore : setComplianceScore;
+                const setter = editingScope === 'rg' ? setResourceGroups : setResources;
+                setter((prev: any[]) => {
+                    const updated = prev.map(item => matchesEdited(item) ? { ...item, isCompliant: true, missingTags: [] } : item);
+                    if (updated.length > 0) {
+                        const compliantCount = updated.filter(item => item.isCompliant).length;
+                        scoreSetter(Math.round((compliantCount / updated.length) * 100));
+                    }
+                    return updated;
+                });
+
                 setEditingResource(null);
                 setTagValues({});
-                analyzeCompliance(); // Refrescar compliance
+                setTimeout(() => analyzeCompliance(), 8000); // Reconciliar con Azure Resource Graph
             }
         } catch (e: any) {
             alert(`Error al aplicar etiquetas: ${e.message}`);

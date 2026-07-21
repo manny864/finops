@@ -1,12 +1,12 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { LEGAL_VERSIONS } from '@/lib/legalVersions';
+import { getLegalVersionDate } from '@/lib/legalVersions';
 import Link from 'next/link';
 
 export default function TermsPage() {
   const t = useTranslations('LegalTerms');
-  const lastUpdated = new Date(LEGAL_VERSIONS.terms).toLocaleDateString();
+  const lastUpdated = getLegalVersionDate('terms').toLocaleDateString();
 
   return (
     <div className="min-h-screen bg-white">
@@ -15,9 +15,6 @@ export default function TermsPage() {
         <div className="max-w-4xl mx-auto px-6">
           <h1 className="text-4xl font-bold text-ink mb-2">{t('title')}</h1>
           <p className="text-gray-600">{t('lastUpdated', { date: lastUpdated })}</p>
-          <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-900">
-            {t('reviewPending')}
-          </div>
         </div>
       </div>
 
