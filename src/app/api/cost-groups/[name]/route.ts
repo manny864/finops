@@ -11,7 +11,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { getAzureCredential } from "@/lib/azure";
-import { requireTenantTier, AuthError } from "@/lib/requestAuth";
+import { requireTenantTier, requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { isMockTenant, getMockCostGroupDetail } from "@/lib/mockData";
 import { collectAdvisorData } from "@/modules/collectors/azure/advisorCollector";
 import { getSubscriptionNameMap, resolveSubscriptionName, isUnattributedSubscriptionId } from "@/lib/azureSubscriptionNames";
@@ -531,6 +531,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             lastUpdated: new Date().toISOString(),
             isCustom,
             matchType,
+            matchTagKey: meta.match_tag_key || null,
+            matchTagValue: meta.match_tag_value || null,
+            matchRgPattern: meta.match_rg_pattern || null,
             matchedResourceGroups,
             currentFY: {
                 ...currentFY,
@@ -567,6 +570,74 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     } catch (e: unknown) {
         if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
         console.error("[cost-groups/detail] GET error:", e);
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    }
+}
+
+/**
+ * PATCH /api/cost-groups/[name] — edita un Cost Group ya creado por el
+ * usuario (description + regla de membresía: matchType/tagKey/tagValue/
+ * rgPattern). El nombre no es editable (es la clave usada para joinear
+ * contra CostSnapshots/Budgets en todo el resto de la app — renombrar
+ * rompería esas referencias).
+ *
+ * Solo aplica a grupos "custom" (match_type NOT NULL). Los grupos legacy
+ * (auto-descubiertos por el tag CostCenter, sin fila propia con regla) no
+ * tienen nada editable — devuelve 404 si el grupo no existe como custom.
+ */
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ name: string }> }) {
+    try {
+        const { name: rawName } = await params;
+        const name = decodeURIComponent(rawName);
+        const body = await request.json();
+        const { tenantId, description, matchType, tagKey, tagValue, rgPattern } = body;
+
+        if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
+        if (matchType !== "tag" && matchType !== "name_pattern") {
+            return NextResponse.json({ error: "matchType debe ser 'tag' o 'name_pattern'" }, { status: 400 });
+        }
+        if (matchType === "tag" && (!tagKey || !String(tagKey).trim() || !tagValue || !String(tagValue).trim())) {
+            return NextResponse.json({ error: "tagKey y tagValue son requeridos para matchType='tag'" }, { status: 400 });
+        }
+        if (matchType === "name_pattern" && (!rgPattern || !String(rgPattern).trim())) {
+            return NextResponse.json({ error: "rgPattern es requerido para matchType='name_pattern'" }, { status: 400 });
+        }
+
+        // Misma sensibilidad que crear/eliminar un grupo (gobernanza financiera).
+        await requireTenantRole(request, tenantId, ["Admin", "Owner"]);
+
+        if (isMockTenant(tenantId)) {
+            return NextResponse.json({ success: true, mock: true, name });
+        }
+
+        await requireTenantTier(request, tenantId, "Business");
+
+        const [result]: any = await pool.query(
+            `UPDATE CostGroups
+                SET description = ?, match_type = ?, match_tag_key = ?, match_tag_value = ?, match_rg_pattern = ?
+              WHERE tenant_id = ? AND name = ? AND match_type IS NOT NULL`,
+            [
+                description ? String(description).trim().slice(0, 1000) : null,
+                matchType,
+                matchType === "tag" ? String(tagKey).trim().slice(0, 255) : null,
+                matchType === "tag" ? String(tagValue).trim().slice(0, 255) : null,
+                matchType === "name_pattern" ? String(rgPattern).trim().slice(0, 255) : null,
+                tenantId,
+                name,
+            ]
+        );
+
+        if (result.affectedRows === 0) {
+            return NextResponse.json(
+                { error: `"${name}" no es un Cost Group editable (no existe o es un grupo legacy sin regla propia)` },
+                { status: 404 }
+            );
+        }
+
+        return NextResponse.json({ success: true, name });
+    } catch (e: unknown) {
+        if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
+        console.error("[cost-groups] PATCH error:", e);
         return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }

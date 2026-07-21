@@ -341,6 +341,7 @@ export default function CostGroupsBoard() {
                     name={openGroup}
                     tenantId={selectedTenant.id}
                     onClose={() => setOpenGroup(null)}
+                    onUpdated={() => mutate()}
                 />
             )}
 
