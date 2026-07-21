@@ -772,7 +772,20 @@
     "ensure_auth": "Selecione um Tenant e certifique-se de estar autenticado.",
     "no_data_toast": "A assinatura atual não tem dados ou custos recentes de tráfego de rede para analisar.",
     "analysis_complete": "Análise de rede concluída.",
-    "analysis_error": "Erro ao analisar a rede."
+    "analysis_error": "Erro ao analisar a rede.",
+    "resourceGroupCol": "Grupo de Recursos",
+    "categories": "{count} categorias",
+    "totalNetwork30d": "Total de rede (30d)",
+    "resourcesAnalyzed": "Recursos analisados",
+    "showingTop300": "Mostrando top 300 por custo",
+    "resourceGroupsAffected": "Grupos de Recursos afetados",
+    "networkResourcesTitle": "Recursos de Rede com Custo",
+    "resourcesCount": "{count} recursos",
+    "rowsPerPage": "Linhas/página:",
+    "rangeOf": "{from}–{to} de {total}",
+    "previous": "Anterior",
+    "pageOf": "Pág. {page} / {total}",
+    "next": "Próximo"
   },
   "Chargeback": {
     "title": "Showback / Chargeback",

@@ -772,7 +772,20 @@
     "ensure_auth": "Select a Tenant and make sure you're authenticated.",
     "no_data_toast": "The current subscription has no recent network traffic data or costs to analyze.",
     "analysis_complete": "Network analysis completed.",
-    "analysis_error": "Error analyzing network."
+    "analysis_error": "Error analyzing network.",
+    "resourceGroupCol": "Resource Group",
+    "categories": "{count} categories",
+    "totalNetwork30d": "Total network (30d)",
+    "resourcesAnalyzed": "Resources analyzed",
+    "showingTop300": "Showing top 300 by cost",
+    "resourceGroupsAffected": "Resource Groups affected",
+    "networkResourcesTitle": "Network Resources with Cost",
+    "resourcesCount": "{count} resources",
+    "rowsPerPage": "Rows/page:",
+    "rangeOf": "{from}–{to} of {total}",
+    "previous": "Previous",
+    "pageOf": "Page {page} / {total}",
+    "next": "Next"
   },
   "Chargeback": {
     "title": "Showback / Chargeback",

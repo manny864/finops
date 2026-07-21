@@ -143,7 +143,7 @@ export default function NetworkAnalyticsPage() {
     const columnHelper = createColumnHelper<any>();
     const columns = useMemo(() => [
         columnHelper.accessor('resourceGroup', {
-            header: 'Resource Group',
+            header: t('resourceGroupCol'),
             cell: info => (
                 <span className="font-semibold text-ink text-[12px] break-all" title={info.getValue()}>
                     {info.getValue()}
@@ -245,7 +245,7 @@ export default function NetworkAnalyticsPage() {
                         <div className="card flex flex-col min-w-0">
                             <div className="card-h">
                                 <h3><ArrowDownToLine className="w-4 h-4 mr-1" /> {t('cost_distribution')}</h3>
-                                <span className="text-[11px] text-ink-soft ml-auto">{pieData.length} categorías</span>
+                                <span className="text-[11px] text-ink-soft ml-auto">{t('categories', { count: pieData.length })}</span>
                             </div>
                             {pieData.length > 0 ? (
                                 <div className="flex-1 min-h-[300px]">
@@ -284,20 +284,20 @@ export default function NetworkAnalyticsPage() {
                         {/* Summary stats */}
                         <div className="flex flex-col gap-4 justify-start">
                             <div className="card p-4">
-                                <p className="text-[11px] text-ink-soft font-bold uppercase tracking-wider mb-1">Total red (30d)</p>
+                                <p className="text-[11px] text-ink-soft font-bold uppercase tracking-wider mb-1">{t('totalNetwork30d')}</p>
                                 <p className="text-2xl font-extrabold text-brand-deep">
                                     ${data.reduce((s, r) => s + r.cost, 0).toFixed(2)}
                                 </p>
                             </div>
                             <div className="card p-4">
-                                <p className="text-[11px] text-ink-soft font-bold uppercase tracking-wider mb-1">Recursos analizados</p>
+                                <p className="text-[11px] text-ink-soft font-bold uppercase tracking-wider mb-1">{t('resourcesAnalyzed')}</p>
                                 <p className="text-2xl font-extrabold text-ink">{data.length}</p>
                                 {data.length >= 300 && (
-                                    <p className="text-[11px] text-amber mt-1">Mostrando top 300 por costo</p>
+                                    <p className="text-[11px] text-amber mt-1">{t('showingTop300')}</p>
                                 )}
                             </div>
                             <div className="card p-4">
-                                <p className="text-[11px] text-ink-soft font-bold uppercase tracking-wider mb-1">Resource Groups afectados</p>
+                                <p className="text-[11px] text-ink-soft font-bold uppercase tracking-wider mb-1">{t('resourceGroupsAffected')}</p>
                                 <p className="text-2xl font-extrabold text-ink">
                                     {new Set(data.map(r => r.resourceGroup)).size}
                                 </p>
@@ -310,9 +310,9 @@ export default function NetworkAnalyticsPage() {
                         <div className="card-h shrink-0">
                             <h3 className="flex items-center gap-2">
                                 <Network className="w-4 h-4" />
-                                Recursos de Red con Costo
+                                {t('networkResourcesTitle')}
                             </h3>
-                            <span className="text-[11px] text-ink-soft ml-auto">{tableData.length} recursos</span>
+                            <span className="text-[11px] text-ink-soft ml-auto">{t('resourcesCount', { count: tableData.length })}</span>
                         </div>
                         <div className="overflow-x-auto w-full">
                             <table className="tbl w-full min-w-[480px]">
@@ -362,7 +362,7 @@ export default function NetworkAnalyticsPage() {
                         {tableData.length > 0 && (
                             <div className="flex flex-wrap items-center justify-between gap-3 p-4 border-t border-line bg-surface shrink-0">
                                 <div className="flex items-center gap-2">
-                                    <span className="text-[12px] text-ink-soft">Filas/página:</span>
+                                    <span className="text-[12px] text-ink-soft">{t('rowsPerPage')}</span>
                                     <select
                                         value={pageSize}
                                         onChange={e => setPageSize(Number(e.target.value))}
@@ -373,7 +373,11 @@ export default function NetworkAnalyticsPage() {
                                         ))}
                                     </select>
                                     <span className="text-[12px] text-ink-soft">
-                                        {table.getState().pagination.pageIndex * pageSize + 1}–{Math.min((table.getState().pagination.pageIndex + 1) * pageSize, tableData.length)} de {tableData.length}
+                                        {t('rangeOf', {
+                                            from: table.getState().pagination.pageIndex * pageSize + 1,
+                                            to: Math.min((table.getState().pagination.pageIndex + 1) * pageSize, tableData.length),
+                                            total: tableData.length,
+                                        })}
                                     </span>
                                 </div>
                                 <div className="flex items-center gap-2">
@@ -386,15 +390,15 @@ export default function NetworkAnalyticsPage() {
                                         onClick={() => table.previousPage()}
                                         disabled={!table.getCanPreviousPage()}
                                         className="px-3 py-1 bg-surface-2 border border-line rounded-[6px] text-[12px] font-bold text-ink disabled:opacity-40 cursor-pointer"
-                                    >Anterior</button>
+                                    >{t('previous')}</button>
                                     <span className="text-[12px] text-ink-soft px-1">
-                                        Pág. {table.getState().pagination.pageIndex + 1} / {table.getPageCount()}
+                                        {t('pageOf', { page: table.getState().pagination.pageIndex + 1, total: table.getPageCount() })}
                                     </span>
                                     <button
                                         onClick={() => table.nextPage()}
                                         disabled={!table.getCanNextPage()}
                                         className="px-3 py-1 bg-surface-2 border border-line rounded-[6px] text-[12px] font-bold text-ink disabled:opacity-40 cursor-pointer"
-                                    >Siguiente</button>
+                                    >{t('next')}</button>
                                     <button
                                         onClick={() => table.setPageIndex(table.getPageCount() - 1)}
                                         disabled={!table.getCanNextPage()}
