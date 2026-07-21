@@ -16,6 +16,7 @@ import { isMockTenant, getMockCostGroupDetail } from "@/lib/mockData";
 import { collectAdvisorData } from "@/modules/collectors/azure/advisorCollector";
 import { getSubscriptionNameMap, resolveSubscriptionName, isUnattributedSubscriptionId } from "@/lib/azureSubscriptionNames";
 import pool from "@/modules/storage/db";
+import { invalidateCache, costGroupsCacheKeys } from "@/lib/cache";
 
 function escapeKql(s: string): string {
     // Orden importa: escapar `\` primero (el propio carácter de escape KQL)
@@ -634,6 +635,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
             );
         }
 
+        await invalidateCache(...costGroupsCacheKeys(tenantId));
+
         return NextResponse.json({ success: true, name });
     } catch (e: unknown) {
         if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
@@ -688,6 +691,8 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
             `DELETE FROM CostGroupResourceGroups WHERE tenant_id = ? AND group_name = ?`,
             [tenantId, name]
         );
+
+        await invalidateCache(...costGroupsCacheKeys(tenantId));
 
         return NextResponse.json({ success: true, name });
     } catch (e: unknown) {

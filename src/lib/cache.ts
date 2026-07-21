@@ -46,6 +46,52 @@ export async function getWithCache<T>(
   return freshData;
 }
 
+/**
+ * Invalida (borra) una o más claves de cache tras una mutación (create/update/
+ * delete), para que el próximo GET no sirva un valor stale hasta que venza el
+ * TTL — el patrón SWR de arriba está pensado para lecturas puras, así que
+ * cualquier endpoint que cachea una lista/detalle Y tiene un endpoint de
+ * escritura hermano debe llamar esto al final de cada mutación exitosa.
+ * Best-effort: nunca lanza (un fallo de invalidación no debe romper la
+ * mutación que ya se aplicó en la base de datos).
+ */
+export async function invalidateCache(...keys: string[]): Promise<void> {
+  if (keys.length === 0) return;
+  try {
+    await redis.del(...keys);
+  } catch (error) {
+    console.error('[cache] invalidateCache falló:', error);
+  }
+}
+
+/**
+ * Igual que invalidateCache, pero para cuando las keys a borrar no son un
+ * conjunto fijo enumerable (ej. `budgets:{tenantId}:{subscriptionId}`, donde
+ * subscriptionId puede ser cualquier GUID de Azure, no un enum chico como los
+ * períodos de Cost Groups). Usa KEYS (no SCAN) porque el volumen de keys de
+ * esta app es chico y esto solo corre en el path de una mutación puntual, no
+ * en el hot path de lectura — si el dataset creciera mucho, migrar a SCAN.
+ */
+export async function invalidateCachePattern(pattern: string): Promise<void> {
+  try {
+    const keys = await redis.keys(pattern);
+    if (keys.length > 0) await redis.del(...keys);
+  } catch (error) {
+    console.error('[cache] invalidateCachePattern falló:', error);
+  }
+}
+
+/**
+ * Las 3 variantes de período que cachea GET /api/cost-groups
+ * (`cost-groups:v1:{tenantId}:{period}`) — cualquier endpoint que mute un
+ * Cost Group (crear/editar/eliminar/ajustar Resource Groups manuales) debe
+ * invalidar las 3, no solo la que esté mirando el usuario que hizo el
+ * cambio, porque otra pestaña/usuario puede estar en un período distinto.
+ */
+export function costGroupsCacheKeys(tenantId: string): string[] {
+  return ["30d", "90d", "fy"].map((p) => `cost-groups:v1:${tenantId}:${p}`);
+}
+
 // In-flight de revalidaciones para deduplicar refreshes concurrentes: si N
 // requests llegan mientras se está revalidando, todos comparten la misma
 // promesa de background y nadie dispara un fetch redundante.
