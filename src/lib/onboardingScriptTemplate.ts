@@ -59,6 +59,166 @@ export const ENTERPRISE_CUSTOM_ACTIONS: string[] = [
 // Nombre canónico del custom role creado por el script de onboarding.
 export const CUSTOM_REMEDIATION_ROLE_NAME = 'CSCloudSolutions Remediation Role';
 
+export type ScriptLocale = 'es' | 'en' | 'pt-BR';
+
+// Textos (comentarios y mensajes Write-Host) del script de onboarding, por
+// idioma. Se mantienen aquí (no en messages/*.json) porque son contenido de un
+// script PowerShell generado server-side, fuera del contexto de request de
+// next-intl. Las referencias a variables PowerShell ($RoleName, $Scope, etc.) y
+// los nombres de roles RBAC de Azure se dejan literales a propósito.
+const SCRIPT_I18N: Record<ScriptLocale, Record<string, string>> = {
+    es: {
+        hdrDesc1: 'Ejecutar en Azure Cloud Shell (PowerShell). Configura UN SOLO Service Principal',
+        hdrDesc2: 'para N suscripciones, con los roles correspondientes al tier contratado.',
+        hdrSubRoles: 'Roles que asigna a nivel SUSCRIPCIÓN:',
+        hdrTenantRole: 'Rol que asigna a nivel TENANT (Microsoft.Capacity):',
+        reservationsReaderDesc: '(lectura de Reservas/RIs Shared y Single para el panel de Compromisos)',
+        hdrCustomRole: 'Custom role con permisos de remediación:',
+        helperComment: '--- Helper: asigna rol y registra éxito/fallo (no oculta errores reales) ---',
+        customRoleComment1: '--- Crear/Actualizar Custom Role UNA SOLA VEZ a nivel directorio ---',
+        customRoleComment2: 'Los custom roles son directory-wide. AssignableScopes debe incluir TODAS las subs.',
+        whCreatingCustomRole: '4b. Creando/Actualizando Rol Personalizado (directory-wide)...',
+        customRoleContext: 'IMPORTANTE: los cmdlets *-AzRoleDefinition operan contra la suscripción del\n# CONTEXTO actual. Fijamos el contexto a la primera suscripción destino para que\n# la creación/actualización sea determinística y no dependa de la sub default de\n# Cloud Shell (que podría no estar en AssignableScopes o no ser controlada).',
+        whRoleExists: '   -> Rol ya existe. Actualizando AssignableScopes y Actions...',
+        commentEnsureScopes: 'Asegurar que todas las subs estén en AssignableScopes',
+        commentEnsureActions: 'Asegurar Actions',
+        whRoleUpdated: '   [OK] Rol actualizado.',
+        whRoleUpdateFail: '   [FAIL] No se pudo actualizar el rol: $($_.Exception.Message)',
+        whCreatingNewRole: '   -> Creando nuevo rol personalizado...',
+        roleDescription: 'Permite a CSCloudSolutions ejecutar acciones de FinOps (remediación controlada)',
+        commentWaitProp: 'Esperar propagación (Azure tarda ~30-60s en hacer visible un rol nuevo)',
+        whWaitProp: '   -> Esperando propagación del rol (máx 90s)...',
+        whRoleCreatedProp: '   [OK] Rol creado y propagado.',
+        whRoleCreatedNotProp: '   [WARN] Rol creado pero aún no propagado. Re-ejecute el script en unos minutos para asignar.',
+        whRoleCreateFail: '   [FAIL] No se pudo crear el rol: $($_.Exception.Message)',
+        whAlreadyAssigned: '     [OK] $RoleName ya asignado en $Scope',
+        whAssigned: '     [OK] $RoleName asignado en $Scope',
+        whAssignFail: '     [FAIL] $RoleName en $Scope -> $($_.Exception.Message)',
+        whCheckingApp: 'Verificando si la App ya existe...',
+        whCreatingApp: '1. Creando la App Registration y el Service Principal...',
+        whAppExists: 'La App ya existe. Reutilizando Service Principal...',
+        whGeneratingSecret: '2. Generando Client Secret seguro (2 años de validez)...',
+        whAssigningGraph: '3. Asignando permisos de Microsoft Graph',
+        whGraphAssigned: '   -> Permisos asignados. Requiere ADMIN CONSENT desde Azure Portal > App Registrations > $AppName > API Permissions',
+        whGraphNotFoundPre: '   -> No se localizaron roles de MS Graph. Asigne',
+        whGraphNotFoundPost: 'manualmente.',
+        whMgmtGroup: '4. Intentando asignación a nivel MANAGEMENT GROUP raíz (opcional, mejora rendimiento)...',
+        whAssigningPerSub: '5. Asignando roles por SUSCRIPCIÓN (scope autoritativo)...',
+        whSubscription: '   Suscripción $sub',
+        whReservations: '6. Asignando lectura de RESERVAS (RIs) a nivel TENANT (Microsoft.Capacity)...',
+        whReservationsNote1: "   Necesario para el panel 'Descuentos por Compromiso (RIs)'. Las reservas viven a nivel tenant,",
+        whReservationsNote2: '   NO por suscripcion; incluye reservas de scope Shared y Single. Requiere que quien ejecute',
+        whReservationsNote3: "   sea Reservations Administrator u Owner/User Access Administrator en '/providers/Microsoft.Capacity'.",
+        whSummary: 'RESUMEN DE ASIGNACIONES',
+        whFailures: 'FALLOS (revisar permisos del usuario que ejecuta el script):',
+        whCompleted: 'ONBOARDING COMPLETADO',
+        whCopyJson: 'Copie de forma segura el siguiente JSON y envíelo a CSCloudSolutions:',
+        noteSecret: 'NOTA: El ClientSecret solo es visible UNA VEZ. Si lo pierde, deberá regenerarlo.',
+        noteEaMca: "NOTA: Si está usando una suscripción EA/MCA, pídale al Billing Admin que asigne 'Enrollment Reader' o 'Billing Account Reader' al SP para ver datos de billing-account scope.",
+        noteReservations: "NOTA: Si 'Reservations Reader' aparece como [FAIL], un Reservations Administrator debe asignarlo manualmente al SP en el scope '/providers/Microsoft.Capacity' (Portal > Reservations > Access control, o 'New-AzRoleAssignment -ObjectId $spId -RoleDefinitionName ''Reservations Reader'' -Scope ''/providers/Microsoft.Capacity'''). Sin este rol, las reservas (RIs) Shared/Single no aparecen en el panel.",
+    },
+    en: {
+        hdrDesc1: 'Run in Azure Cloud Shell (PowerShell). Configures a SINGLE Service Principal',
+        hdrDesc2: 'for N subscriptions, with the roles matching the contracted tier.',
+        hdrSubRoles: 'Roles assigned at SUBSCRIPTION level:',
+        hdrTenantRole: 'Role assigned at TENANT level (Microsoft.Capacity):',
+        reservationsReaderDesc: '(reads Shared and Single Reservations/RIs for the Commitments panel)',
+        hdrCustomRole: 'Custom role with remediation permissions:',
+        helperComment: '--- Helper: assigns a role and logs success/failure (does not hide real errors) ---',
+        customRoleComment1: '--- Create/Update Custom Role ONCE at the directory level ---',
+        customRoleComment2: 'Custom roles are directory-wide. AssignableScopes must include ALL subscriptions.',
+        whCreatingCustomRole: '4b. Creating/Updating Custom Role (directory-wide)...',
+        customRoleContext: 'IMPORTANT: the *-AzRoleDefinition cmdlets operate against the CURRENT\n# context subscription. We pin the context to the first target subscription so\n# that creation/update is deterministic and does not depend on the Cloud Shell\n# default subscription (which might not be in AssignableScopes or under control).',
+        whRoleExists: '   -> Role already exists. Updating AssignableScopes and Actions...',
+        commentEnsureScopes: 'Ensure all subscriptions are in AssignableScopes',
+        commentEnsureActions: 'Ensure Actions',
+        whRoleUpdated: '   [OK] Role updated.',
+        whRoleUpdateFail: '   [FAIL] Could not update the role: $($_.Exception.Message)',
+        whCreatingNewRole: '   -> Creating new custom role...',
+        roleDescription: 'Allows CSCloudSolutions to run FinOps actions (controlled remediation)',
+        commentWaitProp: 'Wait for propagation (Azure takes ~30-60s to make a new role visible)',
+        whWaitProp: '   -> Waiting for role propagation (max 90s)...',
+        whRoleCreatedProp: '   [OK] Role created and propagated.',
+        whRoleCreatedNotProp: '   [WARN] Role created but not yet propagated. Re-run the script in a few minutes to assign.',
+        whRoleCreateFail: '   [FAIL] Could not create the role: $($_.Exception.Message)',
+        whAlreadyAssigned: '     [OK] $RoleName already assigned at $Scope',
+        whAssigned: '     [OK] $RoleName assigned at $Scope',
+        whAssignFail: '     [FAIL] $RoleName at $Scope -> $($_.Exception.Message)',
+        whCheckingApp: 'Checking whether the App already exists...',
+        whCreatingApp: '1. Creating the App Registration and the Service Principal...',
+        whAppExists: 'The App already exists. Reusing Service Principal...',
+        whGeneratingSecret: '2. Generating a secure Client Secret (valid for 2 years)...',
+        whAssigningGraph: '3. Assigning Microsoft Graph permissions',
+        whGraphAssigned: '   -> Permissions assigned. Requires ADMIN CONSENT from Azure Portal > App Registrations > $AppName > API Permissions',
+        whGraphNotFoundPre: '   -> MS Graph roles not found. Assign',
+        whGraphNotFoundPost: 'manually.',
+        whMgmtGroup: '4. Attempting assignment at the root MANAGEMENT GROUP level (optional, improves performance)...',
+        whAssigningPerSub: '5. Assigning roles per SUBSCRIPTION (authoritative scope)...',
+        whSubscription: '   Subscription $sub',
+        whReservations: '6. Assigning RESERVATIONS (RIs) read access at TENANT level (Microsoft.Capacity)...',
+        whReservationsNote1: "   Required for the 'Commitment Discounts (RIs)' panel. Reservations live at tenant level,",
+        whReservationsNote2: '   NOT per subscription; includes Shared and Single scope reservations. Requires the executor',
+        whReservationsNote3: "   to be Reservations Administrator or Owner/User Access Administrator at '/providers/Microsoft.Capacity'.",
+        whSummary: 'ASSIGNMENT SUMMARY',
+        whFailures: 'FAILURES (review the permissions of the user running the script):',
+        whCompleted: 'ONBOARDING COMPLETED',
+        whCopyJson: 'Securely copy the following JSON and send it to CSCloudSolutions:',
+        noteSecret: 'NOTE: The ClientSecret is visible ONLY ONCE. If you lose it, you must regenerate it.',
+        noteEaMca: "NOTE: If you are using an EA/MCA subscription, ask the Billing Admin to assign 'Enrollment Reader' or 'Billing Account Reader' to the SP to see billing-account scope data.",
+        noteReservations: "NOTE: If 'Reservations Reader' shows as [FAIL], a Reservations Administrator must assign it manually to the SP at scope '/providers/Microsoft.Capacity' (Portal > Reservations > Access control, or 'New-AzRoleAssignment -ObjectId $spId -RoleDefinitionName ''Reservations Reader'' -Scope ''/providers/Microsoft.Capacity'''). Without this role, Shared/Single reservations (RIs) do not appear in the panel.",
+    },
+    'pt-BR': {
+        hdrDesc1: 'Execute no Azure Cloud Shell (PowerShell). Configura UM ÚNICO Service Principal',
+        hdrDesc2: 'para N assinaturas, com os papéis correspondentes ao tier contratado.',
+        hdrSubRoles: 'Papéis atribuídos no nível de ASSINATURA:',
+        hdrTenantRole: 'Papel atribuído no nível de TENANT (Microsoft.Capacity):',
+        reservationsReaderDesc: '(leitura de Reservas/RIs Shared e Single para o painel de Compromissos)',
+        hdrCustomRole: 'Papel personalizado com permissões de remediação:',
+        helperComment: '--- Helper: atribui papel e registra sucesso/falha (não oculta erros reais) ---',
+        customRoleComment1: '--- Criar/Atualizar Papel Personalizado UMA ÚNICA VEZ no nível do diretório ---',
+        customRoleComment2: 'Papéis personalizados são directory-wide. AssignableScopes deve incluir TODAS as assinaturas.',
+        whCreatingCustomRole: '4b. Criando/Atualizando Papel Personalizado (directory-wide)...',
+        customRoleContext: 'IMPORTANTE: os cmdlets *-AzRoleDefinition operam contra a assinatura do\n# CONTEXTO atual. Fixamos o contexto na primeira assinatura de destino para que\n# a criação/atualização seja determinística e não dependa da assinatura padrão\n# do Cloud Shell (que pode não estar em AssignableScopes ou não ser controlada).',
+        whRoleExists: '   -> Papel já existe. Atualizando AssignableScopes e Actions...',
+        commentEnsureScopes: 'Garantir que todas as assinaturas estejam em AssignableScopes',
+        commentEnsureActions: 'Garantir Actions',
+        whRoleUpdated: '   [OK] Papel atualizado.',
+        whRoleUpdateFail: '   [FAIL] Não foi possível atualizar o papel: $($_.Exception.Message)',
+        whCreatingNewRole: '   -> Criando novo papel personalizado...',
+        roleDescription: 'Permite que a CSCloudSolutions execute ações de FinOps (remediação controlada)',
+        commentWaitProp: 'Aguardar propagação (o Azure leva ~30-60s para tornar um papel novo visível)',
+        whWaitProp: '   -> Aguardando propagação do papel (máx 90s)...',
+        whRoleCreatedProp: '   [OK] Papel criado e propagado.',
+        whRoleCreatedNotProp: '   [WARN] Papel criado mas ainda não propagado. Re-execute o script em alguns minutos para atribuir.',
+        whRoleCreateFail: '   [FAIL] Não foi possível criar o papel: $($_.Exception.Message)',
+        whAlreadyAssigned: '     [OK] $RoleName já atribuído em $Scope',
+        whAssigned: '     [OK] $RoleName atribuído em $Scope',
+        whAssignFail: '     [FAIL] $RoleName em $Scope -> $($_.Exception.Message)',
+        whCheckingApp: 'Verificando se o App já existe...',
+        whCreatingApp: '1. Criando o App Registration e o Service Principal...',
+        whAppExists: 'O App já existe. Reutilizando Service Principal...',
+        whGeneratingSecret: '2. Gerando Client Secret seguro (2 anos de validade)...',
+        whAssigningGraph: '3. Atribuindo permissões do Microsoft Graph',
+        whGraphAssigned: '   -> Permissões atribuídas. Requer ADMIN CONSENT no Azure Portal > App Registrations > $AppName > API Permissions',
+        whGraphNotFoundPre: '   -> Papéis do MS Graph não localizados. Atribua',
+        whGraphNotFoundPost: 'manualmente.',
+        whMgmtGroup: '4. Tentando atribuição no nível do MANAGEMENT GROUP raiz (opcional, melhora o desempenho)...',
+        whAssigningPerSub: '5. Atribuindo papéis por ASSINATURA (escopo autoritativo)...',
+        whSubscription: '   Assinatura $sub',
+        whReservations: '6. Atribuindo leitura de RESERVAS (RIs) no nível de TENANT (Microsoft.Capacity)...',
+        whReservationsNote1: "   Necessário para o painel 'Descontos por Compromisso (RIs)'. As reservas ficam no nível do tenant,",
+        whReservationsNote2: '   NÃO por assinatura; inclui reservas de escopo Shared e Single. Requer que quem executa',
+        whReservationsNote3: "   seja Reservations Administrator ou Owner/User Access Administrator em '/providers/Microsoft.Capacity'.",
+        whSummary: 'RESUMO DAS ATRIBUIÇÕES',
+        whFailures: 'FALHAS (revise as permissões do usuário que executa o script):',
+        whCompleted: 'ONBOARDING CONCLUÍDO',
+        whCopyJson: 'Copie com segurança o JSON a seguir e envie-o à CSCloudSolutions:',
+        noteSecret: 'NOTA: O ClientSecret só é visível UMA VEZ. Se você o perder, deverá regenerá-lo.',
+        noteEaMca: "NOTA: Se estiver usando uma assinatura EA/MCA, peça ao Billing Admin que atribua 'Enrollment Reader' ou 'Billing Account Reader' ao SP para ver dados de escopo billing-account.",
+        noteReservations: "NOTA: Se 'Reservations Reader' aparecer como [FAIL], um Reservations Administrator deve atribuí-lo manualmente ao SP no escopo '/providers/Microsoft.Capacity' (Portal > Reservations > Access control, ou 'New-AzRoleAssignment -ObjectId $spId -RoleDefinitionName ''Reservations Reader'' -Scope ''/providers/Microsoft.Capacity'''). Sem esse papel, as reservas (RIs) Shared/Single não aparecem no painel.",
+    },
+};
+
 /** Devuelve las acciones que el custom role de remediación debe tener para el tier dado. */
 export function getCustomRoleActionsForTier(tier: string): string[] {
     switch ((tier || 'Essential').toLowerCase()) {
@@ -71,7 +231,8 @@ export function getCustomRoleActionsForTier(tier: string): string[] {
     }
 }
 
-export function generateOnboardingScript(clientTenantId: string, subscriptionIdsStr: string, tier: string = 'Essential'): string {
+export function generateOnboardingScript(clientTenantId: string, subscriptionIdsStr: string, tier: string = 'Essential', locale: string = 'es'): string {
+    const S = SCRIPT_I18N[(locale as ScriptLocale)] ?? SCRIPT_I18N.es;
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
     const subscriptions = subscriptionIdsStr.split(',').map(s => s.trim());
@@ -131,14 +292,11 @@ export function generateOnboardingScript(clientTenantId: string, subscriptionIds
         : '';
 
     const customRoleBootstrapScript = customActions.length > 0 ? `
-# --- Crear/Actualizar Custom Role UNA SOLA VEZ a nivel directorio ---
-# Los custom roles son directory-wide. AssignableScopes debe incluir TODAS las subs.
-Write-Host "4b. Creando/Actualizando Rol Personalizado (directory-wide)..." -ForegroundColor Cyan
+# ${S.customRoleComment1}
+# ${S.customRoleComment2}
+Write-Host "${S.whCreatingCustomRole}" -ForegroundColor Cyan
 
-# IMPORTANTE: los cmdlets *-AzRoleDefinition operan contra la suscripción del
-# CONTEXTO actual. Fijamos el contexto a la primera suscripción destino para que
-# la creación/actualización sea determinística y no dependa de la sub default de
-# Cloud Shell (que podría no estar en AssignableScopes o no ser controlada).
+# ${S.customRoleContext}
 Set-AzContext -SubscriptionId $Subscriptions[0] -ErrorAction SilentlyContinue | Out-Null
 
 $customActions = @(
@@ -149,15 +307,15 @@ $assignableScopes = $Subscriptions | ForEach-Object { "/subscriptions/$_" }
 $existingCustom = Get-AzRoleDefinition -Name $RoleName -ErrorAction SilentlyContinue
 
 if ($existingCustom) {
-    Write-Host "   -> Rol ya existe. Actualizando AssignableScopes y Actions..." -ForegroundColor Yellow
+    Write-Host "${S.whRoleExists}" -ForegroundColor Yellow
     try {
-        # Asegurar que todas las subs estén en AssignableScopes
+        # ${S.commentEnsureScopes}
         $currentScopes = @($existingCustom.AssignableScopes)
         $merged = ($currentScopes + $assignableScopes) | Select-Object -Unique
         $existingCustom.AssignableScopes.Clear()
         foreach ($s in $merged) { $existingCustom.AssignableScopes.Add($s) }
 
-        # Asegurar Actions
+        # ${S.commentEnsureActions}
         if ($null -ne $existingCustom.Permissions -and $existingCustom.Permissions.Count -gt 0) {
             $existingCustom.Permissions[0].Actions.Clear()
             foreach ($a in $customActions) { $existingCustom.Permissions[0].Actions.Add($a) }
@@ -167,20 +325,20 @@ if ($existingCustom) {
         }
 
         Set-AzRoleDefinition -Role $existingCustom -ErrorAction Stop | Out-Null
-        Write-Host "   [OK] Rol actualizado." -ForegroundColor Green
+        Write-Host "${S.whRoleUpdated}" -ForegroundColor Green
         $customRoleReady = $true
     } catch {
-        Write-Host "   [FAIL] No se pudo actualizar el rol: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "${S.whRoleUpdateFail}" -ForegroundColor Red
         $customRoleReady = $false
     }
 } else {
-    Write-Host "   -> Creando nuevo rol personalizado..." -ForegroundColor Cyan
+    Write-Host "${S.whCreatingNewRole}" -ForegroundColor Cyan
     try {
         $roleDef = Get-AzRoleDefinition -Name "Reader"
         $roleDef.Id = $null
         $roleDef.IsCustom = $true
         $roleDef.Name = $RoleName
-        $roleDef.Description = "Permite a CSCloudSolutions ejecutar acciones de FinOps (remediación controlada)"
+        $roleDef.Description = "${S.roleDescription}"
 
         if ($null -ne $roleDef.Permissions -and $roleDef.Permissions.Count -gt 0) {
             $roleDef.Permissions[0].Actions.Clear()
@@ -197,8 +355,8 @@ if ($existingCustom) {
 
         New-AzRoleDefinition -Role $roleDef -ErrorAction Stop | Out-Null
 
-        # Esperar propagación (Azure tarda ~30-60s en hacer visible un rol nuevo)
-        Write-Host "   -> Esperando propagación del rol (máx 90s)..." -ForegroundColor DarkGray
+        # ${S.commentWaitProp}
+        Write-Host "${S.whWaitProp}" -ForegroundColor DarkGray
         $customRoleReady = $false
         for ($i = 0; $i -lt 18; $i++) {
             Start-Sleep -Seconds 5
@@ -206,12 +364,12 @@ if ($existingCustom) {
             if ($check) { $customRoleReady = $true; break }
         }
         if ($customRoleReady) {
-            Write-Host "   [OK] Rol creado y propagado." -ForegroundColor Green
+            Write-Host "${S.whRoleCreatedProp}" -ForegroundColor Green
         } else {
-            Write-Host "   [WARN] Rol creado pero aún no propagado. Re-ejecute el script en unos minutos para asignar." -ForegroundColor Yellow
+            Write-Host "${S.whRoleCreatedNotProp}" -ForegroundColor Yellow
         }
     } catch {
-        Write-Host "   [FAIL] No se pudo crear el rol: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "${S.whRoleCreateFail}" -ForegroundColor Red
         $customRoleReady = $false
     }
 }
@@ -225,16 +383,16 @@ if ($existingCustom) {
 # CSCloudSolutions FinOps Agent - Onboarding Script (PowerShell)
 # Tier: ${tier}
 # ==============================================================================
-# Ejecutar en Azure Cloud Shell (PowerShell). Configura UN SOLO Service Principal
-# para N suscripciones, con los roles correspondientes al tier contratado.
+# ${S.hdrDesc1}
+# ${S.hdrDesc2}
 #
-# Roles que asigna a nivel SUSCRIPCIÓN:
+# ${S.hdrSubRoles}
 #   ${baseRoles.map(r => `* ${r}`).join('\n#   ')}
 #
-# Rol que asigna a nivel TENANT (Microsoft.Capacity):
-#   * Reservations Reader  (lectura de Reservas/RIs Shared y Single para el panel de Compromisos)
+# ${S.hdrTenantRole}
+#   * Reservations Reader  ${S.reservationsReaderDesc}
 ${customActions.length > 0 ? `#
-# Custom role con permisos de remediación:
+# ${S.hdrCustomRole}
 #   ${customActions.map(a => `* ${a}`).join('\n#   ')}` : ''}
 # ==============================================================================
 
@@ -247,46 +405,46 @@ $RoleName = "${CUSTOM_REMEDIATION_ROLE_NAME}"
 $WarningPreference = 'SilentlyContinue'
 $env:SuppressAzurePowerShellBreakingChangeWarnings = 'true'
 
-# --- Helper: asigna rol y registra éxito/fallo (no oculta errores reales) ---
+# ${S.helperComment}
 $script:assignmentLog = @()
 function Try-AssignRole {
     param([string]$ObjectId, [string]$RoleName, [string]$Scope)
     try {
         $existing = Get-AzRoleAssignment -ObjectId $ObjectId -Scope $Scope -RoleDefinitionName $RoleName -ErrorAction SilentlyContinue
         if ($existing) {
-            Write-Host "     [OK] $RoleName ya asignado en $Scope" -ForegroundColor DarkGray
+            Write-Host "${S.whAlreadyAssigned}" -ForegroundColor DarkGray
             $script:assignmentLog += [PSCustomObject]@{ Role=$RoleName; Scope=$Scope; Status='AlreadyExists' }
             return
         }
         New-AzRoleAssignment -ObjectId $ObjectId -RoleDefinitionName $RoleName -Scope $Scope -ErrorAction Stop | Out-Null
-        Write-Host "     [OK] $RoleName asignado en $Scope" -ForegroundColor Green
+        Write-Host "${S.whAssigned}" -ForegroundColor Green
         $script:assignmentLog += [PSCustomObject]@{ Role=$RoleName; Scope=$Scope; Status='Assigned' }
     } catch {
-        Write-Host "     [FAIL] $RoleName en $Scope -> $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "${S.whAssignFail}" -ForegroundColor Red
         $script:assignmentLog += [PSCustomObject]@{ Role=$RoleName; Scope=$Scope; Status='Failed'; Error=$_.Exception.Message }
     }
 }
 
-Write-Host "Verificando si la App ya existe..." -ForegroundColor Cyan
+Write-Host "${S.whCheckingApp}" -ForegroundColor Cyan
 $spList = Get-AzADServicePrincipal -DisplayName $AppName -ErrorAction SilentlyContinue
 
 if (-not $spList) {
-    Write-Host "1. Creando la App Registration y el Service Principal..." -ForegroundColor Cyan
+    Write-Host "${S.whCreatingApp}" -ForegroundColor Cyan
     $sp = New-AzADServicePrincipal -DisplayName $AppName
 } else {
-    Write-Host "La App ya existe. Reutilizando Service Principal..." -ForegroundColor Yellow
+    Write-Host "${S.whAppExists}" -ForegroundColor Yellow
     if ($spList.Count -gt 1) { $sp = $spList[0] } else { $sp = $spList }
 }
 
 $ClientId = $sp.AppId
 $spId = $sp.Id
 
-Write-Host "2. Generando Client Secret seguro (2 años de validez)..." -ForegroundColor Cyan
+Write-Host "${S.whGeneratingSecret}" -ForegroundColor Cyan
 $app = Get-AzADApplication -AppId $sp.AppId
 $secret = New-AzADAppCredential -ObjectId $app.Id -StartDate (Get-Date) -EndDate (Get-Date).AddYears(2)
 $ClientSecret = $secret.SecretText
 
-Write-Host "3. Asignando permisos de Microsoft Graph (${graphPermsLabel})..." -ForegroundColor Cyan
+Write-Host "${S.whAssigningGraph} (${graphPermsLabel})..." -ForegroundColor Cyan
 $GraphSp = Get-AzADServicePrincipal -Filter "appId eq '00000003-0000-0000-c000-000000000000'"
 $DirRole = $GraphSp.AppRole | Where-Object { $_.Value -eq "Directory.Read.All" -and $_.AllowedMemberType -contains "Application" }
 $RepRole = $GraphSp.AppRole | Where-Object { $_.Value -eq "Reports.Read.All" -and $_.AllowedMemberType -contains "Application" }
@@ -300,21 +458,21 @@ if ($DirRole -and $RepRole -and $UserRole${auditLogCondition}) {
     Invoke-AzRestMethod -Method Post -Uri "https://graph.microsoft.com/v1.0/servicePrincipals/$($sp.Id)/appRoleAssignments" -Payload $bodyDir -ErrorAction SilentlyContinue | Out-Null
     Invoke-AzRestMethod -Method Post -Uri "https://graph.microsoft.com/v1.0/servicePrincipals/$($sp.Id)/appRoleAssignments" -Payload $bodyRep -ErrorAction SilentlyContinue | Out-Null
     Invoke-AzRestMethod -Method Post -Uri "https://graph.microsoft.com/v1.0/servicePrincipals/$($sp.Id)/appRoleAssignments" -Payload $bodyUser -ErrorAction SilentlyContinue | Out-Null${auditLogAssignBlock}
-    Write-Host "   -> Permisos asignados. Requiere ADMIN CONSENT desde Azure Portal > App Registrations > $AppName > API Permissions" -ForegroundColor Green
+    Write-Host "${S.whGraphAssigned}" -ForegroundColor Green
 } else {
-    Write-Host "   -> No se localizaron roles de MS Graph. Asigne ${graphPermsManualHint} manualmente." -ForegroundColor Yellow
+    Write-Host "${S.whGraphNotFoundPre} ${graphPermsManualHint} ${S.whGraphNotFoundPost}" -ForegroundColor Yellow
 }
 
-Write-Host "4. Intentando asignación a nivel MANAGEMENT GROUP raíz (opcional, mejora rendimiento)..." -ForegroundColor Cyan
+Write-Host "${S.whMgmtGroup}" -ForegroundColor Cyan
 foreach ($r in @('Reader', 'Cost Management Reader')) {
     Try-AssignRole -ObjectId $spId -RoleName $r -Scope "/providers/Microsoft.Management/managementGroups/$TenantId"
 }
 
-Write-Host "5. Asignando roles por SUSCRIPCIÓN (scope autoritativo)..." -ForegroundColor Cyan
+Write-Host "${S.whAssigningPerSub}" -ForegroundColor Cyan
 ${customRoleBootstrapScript}
 foreach ($sub in $Subscriptions) {
     Write-Host ""
-    Write-Host "   Suscripción $sub" -ForegroundColor Cyan
+    Write-Host "${S.whSubscription}" -ForegroundColor Cyan
     Set-AzContext -SubscriptionId $sub -ErrorAction SilentlyContinue | Out-Null
 
 ${baseRoles.map(role => `    Try-AssignRole -ObjectId $spId -RoleName "${role}" -Scope "/subscriptions/$sub"`).join('\n')}
@@ -322,15 +480,15 @@ ${customRoleAssignPerSub}
 }
 
 Write-Host ""
-Write-Host "6. Asignando lectura de RESERVAS (RIs) a nivel TENANT (Microsoft.Capacity)..." -ForegroundColor Cyan
-Write-Host "   Necesario para el panel 'Descuentos por Compromiso (RIs)'. Las reservas viven a nivel tenant," -ForegroundColor DarkGray
-Write-Host "   NO por suscripcion; incluye reservas de scope Shared y Single. Requiere que quien ejecute" -ForegroundColor DarkGray
-Write-Host "   sea Reservations Administrator u Owner/User Access Administrator en '/providers/Microsoft.Capacity'." -ForegroundColor DarkGray
+Write-Host "${S.whReservations}" -ForegroundColor Cyan
+Write-Host "${S.whReservationsNote1}" -ForegroundColor DarkGray
+Write-Host "${S.whReservationsNote2}" -ForegroundColor DarkGray
+Write-Host "${S.whReservationsNote3}" -ForegroundColor DarkGray
 Try-AssignRole -ObjectId $spId -RoleName "Reservations Reader" -Scope "/providers/Microsoft.Capacity"
 
 Write-Host ""
 Write-Host "==============================================================================" -ForegroundColor Green
-Write-Host "RESUMEN DE ASIGNACIONES" -ForegroundColor Green
+Write-Host "${S.whSummary}" -ForegroundColor Green
 Write-Host "==============================================================================" -ForegroundColor Green
 $script:assignmentLog | Group-Object Status | ForEach-Object {
     $color = if ($_.Name -eq 'Failed') { 'Red' } elseif ($_.Name -eq 'Assigned') { 'Green' } else { 'DarkGray' }
@@ -339,14 +497,14 @@ $script:assignmentLog | Group-Object Status | ForEach-Object {
 $failures = $script:assignmentLog | Where-Object { $_.Status -eq 'Failed' }
 if ($failures.Count -gt 0) {
     Write-Host ""
-    Write-Host "FALLOS (revisar permisos del usuario que ejecuta el script):" -ForegroundColor Red
+    Write-Host "${S.whFailures}" -ForegroundColor Red
     $failures | Format-Table Role, Scope, Error -AutoSize -Wrap
 }
 
 Write-Host ""
 Write-Host "==============================================================================" -ForegroundColor Green
-Write-Host "ONBOARDING COMPLETADO" -ForegroundColor Green
-Write-Host "Copie de forma segura el siguiente JSON y envíelo a CSCloudSolutions:" -ForegroundColor Yellow
+Write-Host "${S.whCompleted}" -ForegroundColor Green
+Write-Host "${S.whCopyJson}" -ForegroundColor Yellow
 
 $output = @{
     TenantId = $TenantId
@@ -361,9 +519,9 @@ $output = @{
 $output | ConvertTo-Json -Depth 5
 
 Write-Host ""
-Write-Host "NOTA: El ClientSecret solo es visible UNA VEZ. Si lo pierde, deberá regenerarlo." -ForegroundColor Red
-Write-Host "NOTA: Si está usando una suscripción EA/MCA, pídale al Billing Admin que asigne 'Enrollment Reader' o 'Billing Account Reader' al SP para ver datos de billing-account scope." -ForegroundColor Yellow
-Write-Host "NOTA: Si 'Reservations Reader' aparece como [FAIL], un Reservations Administrator debe asignarlo manualmente al SP en el scope '/providers/Microsoft.Capacity' (Portal > Reservations > Access control, o 'New-AzRoleAssignment -ObjectId $spId -RoleDefinitionName ''Reservations Reader'' -Scope ''/providers/Microsoft.Capacity'''). Sin este rol, las reservas (RIs) Shared/Single no aparecen en el panel." -ForegroundColor Yellow
+Write-Host "${S.noteSecret}" -ForegroundColor Red
+Write-Host "${S.noteEaMca}" -ForegroundColor Yellow
+Write-Host "${S.noteReservations}" -ForegroundColor Yellow
 `;
 }
 

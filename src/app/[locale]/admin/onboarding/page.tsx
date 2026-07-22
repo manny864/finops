@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { Terminal, Copy, Check, Server, ShieldCheck, Database, ListChecks, AlertTriangle, CheckCircle2, XCircle, Loader2, Search, ChevronDown } from "lucide-react";
 import { useTenant } from '@/components/TenantProvider';
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { useMsal } from '@azure/msal-react';
 import { fetchWithAuthRetry } from '@/lib/msalToken';
 import Pagination, { usePagination } from '@/components/Pagination';
@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 export default function OnboardingPage() {
   const t = useTranslations('onboarding');
   const tA = useTranslations('AdminOnboarding');
+  const locale = useLocale();
   const { selectedTenant, systemRole } = useTenant();
   const { instance, accounts } = useMsal();
   const [tenants, setTenants] = useState<any[]>([]);
@@ -141,7 +142,7 @@ export default function OnboardingPage() {
               {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ clientTenantId: formTenantId, subscriptionId: formSubscriptionId }),
+                  body: JSON.stringify({ clientTenantId: formTenantId, subscriptionId: formSubscriptionId, locale }),
               }
           );
           const data = await res.json();
