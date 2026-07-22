@@ -31,7 +31,9 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
   const triggerCopilotWithPrompt = useAIContext(state => state.triggerCopilotWithPrompt);
   const { selectedSubscription, setSelectedSubscription } = useSubscription();
   
-  // Removed conditional useTranslations hook which was causing React Error 310
+  // Removed conditional useTranslations hook which was causing React Error 310.
+  // Called unconditionally at the top level to comply with the Rules of Hooks.
+  const t = useTranslations('Zombies');
   const [data, setData] = useState<any[]>([]);
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const [selectedSub, setSelectedSub] = useState<string>("all");
@@ -96,7 +98,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
               })
           });
           const json = await res.json();
-          if (!res.ok) return { ok: false, error: json.error || "Fallo al eliminar" };
+          if (!res.ok) return { ok: false, error: json.error || t('errorDeleteGeneric') };
           return { ok: true };
       } catch (err: any) {
           return { ok: false, error: err.message };
@@ -105,24 +107,24 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
 
   const handleDelete = async (item: any) => {
       if (item.manualDelete) {
-          toast.error('Requisito Manual', { description: `La eliminación de [${item.type}] debe hacerse en el portal.` });
+          toast.error(t('toastManualTitle'), { description: t('toastManualDesc', { type: item.type }) });
           return;
       }
 
-      if (!window.confirm(`¿Estás completamente seguro de ELIMINAR el recurso ${item.resourceName} permanentemente? Esto impactará los costos en Azure al instante.`)) return;
+      if (!window.confirm(t('confirmDeleteSingle', { name: item.resourceName }))) return;
 
       setDeletingId(item.id);
       const result = await deleteResourceItem(item);
       if (result.ok) {
           setData(prev => prev.filter(r => r.id !== item.id));
-          toast.success('Recurso Eliminado', { description: `${item.resourceName} fue destruido.` });
-          addAction({ message: `Se eliminó el recurso zombi: ${item.resourceName} exitosamente.`, status: 'success' });
+          toast.success(t('toastDeletedTitle'), { description: t('toastDeletedDesc', { name: item.resourceName }) });
+          addAction({ message: t('logDeleted', { name: item.resourceName }), status: 'success' });
       } else if (result.error === "MISSING_CONTRIBUTOR_ROLE") {
-          toast.error('¡Operación Denegada!', { description: 'La eliminación de recursos requiere el plan Enterprise (tu Service Principal no tiene el rol de Azure necesario).' });
-          addAction({ message: `Fallo de permisos al borrar ${item.resourceName}. Requiere plan Enterprise.`, status: 'error' });
+          toast.error(t('toastDeniedTitle'), { description: t('toastDeniedDesc') });
+          addAction({ message: t('logDeniedSingle', { name: item.resourceName }), status: 'error' });
       } else {
-          toast.error('Error al borrar', { description: result.error });
-          addAction({ message: `Error al borrar ${item.resourceName}: ${result.error}`, status: 'error' });
+          toast.error(t('toastDeleteErrorTitle'), { description: result.error });
+          addAction({ message: t('logDeleteError', { name: item.resourceName, error: result.error || '' }), status: 'error' });
       }
       setDeletingId(null);
   };
@@ -135,7 +137,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
   // (Slack/Teams/Email) para que sea él quien la ejecute.
   const [requestingId, setRequestingId] = useState<string | null>(null);
   const requestDeletion = async (item: any) => {
-      if (!window.confirm(`¿Solicitar al Administrador la eliminación de ${item.resourceName}?`)) return;
+      if (!window.confirm(t('confirmRequestSingle', { name: item.resourceName }))) return;
       setRequestingId(item.id);
       try {
           const idToken = await getFreshIdToken(instance, accounts[0]);
@@ -154,11 +156,11 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
               })
           });
           const json = await res.json();
-          if (!res.ok) throw new Error(json.error || "No se pudo enviar la solicitud.");
-          toast.success('Solicitud enviada', { description: `El Administrador fue notificado para revisar y eliminar ${item.resourceName}.` });
-          addAction({ message: `Solicitud de eliminación enviada para ${item.resourceName}.`, status: 'success' });
+          if (!res.ok) throw new Error(json.error || t('errorRequestFailed'));
+          toast.success(t('toastRequestSentTitle'), { description: t('toastRequestSentDesc', { name: item.resourceName }) });
+          addAction({ message: t('logRequestSent', { name: item.resourceName }), status: 'success' });
       } catch (err: any) {
-          toast.error('Error al enviar la solicitud', { description: err.message });
+          toast.error(t('toastRequestErrorTitle'), { description: err.message });
       }
       setRequestingId(null);
   };
@@ -166,7 +168,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
   const handleBulkDelete = async () => {
       const items = filteredData.filter(i => selectedIds.has(i.id) && !i.manualDelete);
       if (items.length === 0) return;
-      if (!window.confirm(`¿Estás completamente seguro de ELIMINAR permanentemente ${items.length} recursos seleccionados? Esto impactará los costos en Azure al instante y no se puede deshacer.`)) return;
+      if (!window.confirm(t('confirmBulkDelete', { count: items.length }))) return;
 
       setBulkDeleting(true);
       let ok = 0, missingRole = 0, failed = 0;
@@ -187,21 +189,21 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
       setSelectedIds(new Set());
 
       if (ok > 0) {
-          toast.success(`${ok} recurso(s) eliminados`, { description: 'Eliminación en bulk completada.' });
-          addAction({ message: `Eliminación en bulk: ${ok} recurso(s) destruidos exitosamente.`, status: 'success' });
+          toast.success(t('toastBulkDeletedTitle', { count: ok }), { description: t('toastBulkDeletedDesc') });
+          addAction({ message: t('logBulkDeleted', { count: ok }), status: 'success' });
       }
       if (missingRole > 0) {
-          toast.error('¡Operación Denegada!', { description: `${missingRole} recurso(s) requieren el plan Enterprise para poder eliminarse.` });
+          toast.error(t('toastDeniedTitle'), { description: t('toastBulkDeniedDesc', { count: missingRole }) });
       }
       if (failed > 0) {
-          toast.error('Error al eliminar', { description: `${failed} recurso(s) fallaron.` });
+          toast.error(t('toastBulkDeleteErrorTitle'), { description: t('toastBulkDeleteErrorDesc', { count: failed }) });
       }
   };
 
   const handleBulkRequestDeletion = async () => {
       const items = filteredData.filter(i => selectedIds.has(i.id) && !i.manualDelete);
       if (items.length === 0) return;
-      if (!window.confirm(`¿Solicitar al Administrador la eliminación de ${items.length} recurso(s) seleccionados?`)) return;
+      if (!window.confirm(t('confirmBulkRequest', { count: items.length }))) return;
 
       setBulkDeleting(true);
       let ok = 0, failed = 0;
@@ -229,8 +231,8 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
       setBulkDeleting(false);
       setSelectedIds(new Set());
 
-      if (ok > 0) toast.success(`${ok} solicitud(es) enviadas`, { description: 'El Administrador fue notificado para revisar y ejecutar las eliminaciones.' });
-      if (failed > 0) toast.error('Error al enviar solicitudes', { description: `${failed} solicitud(es) fallaron.` });
+      if (ok > 0) toast.success(t('toastBulkRequestSentTitle', { count: ok }), { description: t('toastBulkRequestSentDesc') });
+      if (failed > 0) toast.error(t('toastBulkRequestErrorTitle'), { description: t('toastBulkRequestErrorDesc', { count: failed }) });
   };
 
   const handleTagSubmit = async () => {
@@ -255,15 +257,15 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
               });
 
               const json = await res.json();
-              if (!res.ok) throw new Error(json.details || json.error || "Fallo al aplicar etiquetas");
+              if (!res.ok) throw new Error(json.details || json.error || t('errorTagFailed'));
 
               ok++;
               setData(prev => prev.filter(r => r.id !== item.id));
-              addAction({ message: `Etiquetas FinOps aplicadas a ${item.resourceName}`, status: 'success' });
+              addAction({ message: t('logTagged', { name: item.resourceName }), status: 'success' });
           } catch (err: any) {
               console.error("Error tagging:", err);
               failed++;
-              addAction({ message: `Error etiquetando ${item.resourceName}: ${err.message}`, status: 'error' });
+              addAction({ message: t('logTagError', { name: item.resourceName, error: err.message }), status: 'error' });
           }
       }
 
@@ -271,8 +273,8 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
       setTaggingItems([]);
       setSelectedIds(new Set());
 
-      if (ok > 0) toast.success(ok === 1 ? "Etiquetas aplicadas exitosamente." : `Etiquetas aplicadas a ${ok} recursos.`);
-      if (failed > 0) toast.error(`${failed} recurso(s) fallaron al etiquetar.`);
+      if (ok > 0) toast.success(ok === 1 ? t('toastTaggedSingle') : t('toastTaggedMultiple', { count: ok }));
+      if (failed > 0) toast.error(t('toastTagErrorCount', { count: failed }));
   };
 
   useEffect(() => {
@@ -310,7 +312,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
             json = await res.json();
             
             if (!res.ok || json.error) {
-                setError(json.error === 'MISSING_RBAC_ROLE' ? 'MISSING_RBAC_ROLE' : (json.error || "Error de servidor al consultar recursos."));
+                setError(json.error === 'MISSING_RBAC_ROLE' ? 'MISSING_RBAC_ROLE' : (json.error || t('errorServer')));
                 setLoading(false);
                 return;
             }
@@ -374,6 +376,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                 armType: r.type || config.armType,
                 resourceGroup: r.resourceGroup,
                 issue: config.issue,
+                issueKey: key,
                 subscriptionId: r.subscriptionId || selectedSub,
                 potentialSavings: r.estimatedMonthlyCost || (r.diskSizeGB ? r.diskSizeGB * 0.15 : (r.sizeGB ? r.sizeGB * 0.05 : config.savings)),
                 issueType: config.issueType,
@@ -413,7 +416,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                 account: accounts[0]
             }).catch(e => console.error("Error initiating redirect login in ZombieResourcesTable:", e));
         } else {
-            setError("Fallo de red o credenciales denegadas.");
+            setError(t('errorNetwork'));
         }
         setLoading(false);
       }
@@ -478,7 +481,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
       },
       {
         accessorKey: 'resourceName',
-        header: 'Recurso',
+        header: t('colResource'),
         cell: ({ row }) => {
             const item = row.original;
             return <span className={`font-semibold text-gray-800 dark:text-gray-200 ${item.isLocked ? 'filter blur-sm select-none' : ''}`}>{item.resourceName}</span>;
@@ -489,7 +492,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
     if (viewMode === 'engineer') {
       cols.push({
         id: 'armDetails',
-        header: 'Resource ID / ARM Type',
+        header: t('colArmDetails'),
         cell: ({ row }) => {
             const item = row.original;
             return (
@@ -502,7 +505,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
       });
       cols.push({
         accessorKey: 'subscriptionId',
-        header: 'Suscripción',
+        header: t('colSubscription'),
         cell: info => {
             const val = info.getValue() as string;
             return <span className="text-xs font-mono text-gray-500">{val === 'all' ? 'N/A' : val.substring(0,8) + '...'}</span>;
@@ -512,13 +515,13 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
 
     cols.push({
       accessorKey: 'type',
-      header: 'Tipo',
+      header: t('colType'),
       cell: info => <span className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-2 py-1 rounded text-xs">{info.getValue() as string}</span>
     });
 
     cols.push({
       accessorKey: 'resourceGroup',
-      header: 'Grupo',
+      header: t('colGroup'),
       cell: ({ row }) => {
           const item = row.original;
           return <span className={`text-xs text-gray-600 dark:text-gray-400 font-medium ${item.isLocked ? 'filter blur-sm select-none' : ''}`}>{item.resourceGroup || 'N/A'}</span>;
@@ -527,12 +530,12 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
 
     cols.push({
       accessorKey: 'issue',
-      header: 'Problema',
+      header: t('colIssue'),
       cell: ({ row }) => {
           const item = row.original;
           return (
             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${item.issueType === 'governance' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-red-50 text-red-700 border-red-100'}`}>
-                {item.issue}
+                {item.issueKey ? t(`issues.${item.issueKey}`) : item.issue}
             </span>
           );
       }
@@ -540,14 +543,14 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
 
     cols.push({
       accessorKey: 'potentialSavings',
-      header: 'Ahorro Est.',
+      header: t('colSavings'),
       cell: ({ row }) => {
           const item = row.original;
           const val = item.potentialSavings as number;
           if (item.isHygiene) {
               return (
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-violet-50 text-violet-700 border border-violet-200">
-                      Higiene
+                      {t('hygiene')}
                   </span>
               );
           }
@@ -557,12 +560,13 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
 
     cols.push({
       id: 'actions',
-      header: 'Acciones',
+      header: t('colActions'),
       cell: ({ row }) => {
           const item = row.original;
+          const isTagCompliance = item.issueKey === 'taggingNonCompliance';
           return (
             <div className="text-right flex items-center justify-end gap-2">
-                {item.issueType === 'governance' && item.issue === "Sin Etiquetas FinOps" && (
+                {item.issueType === 'governance' && isTagCompliance && (
                     <>
                         <button
                             onClick={() => {
@@ -571,36 +575,36 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                             }}
                             className="px-3 py-1 rounded-md text-xs font-semibold shadow-sm transition-colors bg-[#0054A6] text-white hover:bg-[#00AEEF]"
                         >
-                            Fijar Etiquetas
+                            {t('setTags')}
                         </button>
                         <button 
-                            onClick={() => triggerCopilotWithPrompt(`Por favor, analiza el recurso "${item.resourceName}" (Tipo: ${item.type}) en el grupo "${item.resourceGroup}" y sugiéreme la mejor estructura de etiquetas (tags) FinOps para aplicarle basándote en las mejores prácticas de Azure.`)}
+                            onClick={() => triggerCopilotWithPrompt(t('suggestPrompt', { name: item.resourceName, type: item.type, group: item.resourceGroup }))}
                             className="px-3 py-1 rounded-md text-xs font-semibold shadow-sm transition-colors bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200"
                         >
-                            Sugerir
+                            {t('suggest')}
                         </button>
                     </>
                 )}
                 {canDeleteDirect ? (
                     <button
                         onClick={() => handleDelete(item)}
-                        disabled={deletingId === item.id || (item.issueType === 'governance' && item.issue === "Sin Etiquetas FinOps")}
-                        className={`px-3 py-1 rounded-md text-xs font-semibold shadow-sm transition-colors ${deletingId === item.id ? 'bg-gray-100 text-gray-400 cursor-wait' : (item.issueType === 'governance' && item.issue === "Sin Etiquetas FinOps") ? 'bg-gray-50 text-gray-300 cursor-not-allowed' : 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200'}`}
+                        disabled={deletingId === item.id || (item.issueType === 'governance' && isTagCompliance)}
+                        className={`px-3 py-1 rounded-md text-xs font-semibold shadow-sm transition-colors ${deletingId === item.id ? 'bg-gray-100 text-gray-400 cursor-wait' : (item.issueType === 'governance' && isTagCompliance) ? 'bg-gray-50 text-gray-300 cursor-not-allowed' : 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200'}`}
                     >
-                        {deletingId === item.id ? 'Borrando...' : 'Borrar'}
+                        {deletingId === item.id ? t('deleting') : t('delete')}
                     </button>
                 ) : canRequestDelete ? (
                     <button
                         onClick={() => requestDeletion(item)}
-                        disabled={requestingId === item.id || (item.issueType === 'governance' && item.issue === "Sin Etiquetas FinOps")}
-                        title="Tu rol no puede eliminar recursos directamente — se notificará a un Administrador para que la ejecute."
-                        className={`px-3 py-1 rounded-md text-xs font-semibold shadow-sm transition-colors ${requestingId === item.id ? 'bg-gray-100 text-gray-400 cursor-wait' : (item.issueType === 'governance' && item.issue === "Sin Etiquetas FinOps") ? 'bg-gray-50 text-gray-300 cursor-not-allowed' : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'}`}
+                        disabled={requestingId === item.id || (item.issueType === 'governance' && isTagCompliance)}
+                        title={t('requestDeleteRowTooltip')}
+                        className={`px-3 py-1 rounded-md text-xs font-semibold shadow-sm transition-colors ${requestingId === item.id ? 'bg-gray-100 text-gray-400 cursor-wait' : (item.issueType === 'governance' && isTagCompliance) ? 'bg-gray-50 text-gray-300 cursor-not-allowed' : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'}`}
                     >
-                        {requestingId === item.id ? 'Enviando...' : 'Solicitar Eliminación'}
+                        {requestingId === item.id ? t('sending') : t('requestDelete')}
                     </button>
                 ) : (
-                    <span className="px-3 py-1 rounded-md text-xs font-semibold bg-gray-50 text-gray-400 border border-gray-200" title="La eliminación de recursos requiere el plan Enterprise">
-                        Enterprise
+                    <span className="px-3 py-1 rounded-md text-xs font-semibold bg-gray-50 text-gray-400 border border-gray-200" title={t('enterpriseTooltip')}>
+                        {t('enterprise')}
                     </span>
                 )}
             </div>
@@ -609,7 +613,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
     });
 
     return cols;
-  }, [viewMode, deletingId, canDelete, selectedIds]);
+  }, [viewMode, deletingId, requestingId, canDeleteDirect, canRequestDelete, selectedIds, t]);
 
   const table = useReactTable({
     data: filteredData,
@@ -628,8 +632,8 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
     return (
         <div className="bg-white shadow-sm rounded-lg border border-gray-200 p-8 text-center flex flex-col items-center justify-center">
             <svg className="w-12 h-12 text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
-            <h2 className="text-lg font-semibold text-gray-800 mb-2">Acceso Restringido</h2>
-            <p className="text-sm text-gray-500">Inicia sesión con Microsoft Entra ID para visualizar tus recursos zombi.</p>
+            <h2 className="text-lg font-semibold text-gray-800 mb-2">{t('restrictedTitle')}</h2>
+            <p className="text-sm text-gray-500">{t('restrictedDesc')}</p>
         </div>
     );
   }
@@ -640,14 +644,14 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
       <div className="card-h flex-col sm:flex-row items-start sm:items-center gap-4 border-b border-line pb-4 mb-4">
         <div>
             <h3 className="text-brand-deep dark:text-white m-0">
-                {selectedSub === "all" ? "Auditoría FinOps (Global)" : "Auditoría FinOps (Filtrada)"}
+                {selectedSub === "all" ? t('auditGlobal') : t('auditFiltered')}
             </h3>
             {error && error !== 'MISSING_RBAC_ROLE' && <span className="mt-2 inline-block text-xs text-amber bg-amber-soft px-2 py-1 rounded border border-amber/20">{error}</span>}
         </div>
         
         <div className="flex flex-wrap items-center gap-4 w-full sm:w-auto">
             <div className="flex items-center space-x-2">
-                <label className="text-[11px] font-bold text-grey dark:text-gray-300 uppercase tracking-[0.5px]">Suscripción:</label>
+                <label className="text-[11px] font-bold text-grey dark:text-gray-300 uppercase tracking-[0.5px]">{t('filterSubscription')}</label>
                 <select 
                     value={selectedSub}
                     onChange={(e) => {
@@ -657,42 +661,42 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                     }}
                     className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] focus:border-brand-bright focus:ring-1 focus:ring-brand-bright p-2 outline-none w-32 placeholder-ink-soft"
                 >
-                    <option value="all">Todas</option>
+                    <option value="all">{t('filterAll')}</option>
                     {subscriptions.map((sub: any) => (
                         <option key={sub.id} value={sub.id}>{(sub.name || sub.id).substring(0,20)}...</option>
                     ))}
                 </select>
             </div>
             <div className="flex items-center space-x-2">
-                <label className="text-[11px] font-bold text-grey dark:text-gray-300 uppercase tracking-[0.5px]">Nombre:</label>
+                <label className="text-[11px] font-bold text-grey dark:text-gray-300 uppercase tracking-[0.5px]">{t('filterName')}</label>
                 <input 
                     type="text" 
-                    placeholder="Filtrar por nombre..."
+                    placeholder={t('filterNamePlaceholder')}
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
                     className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] p-2 outline-none w-32 focus:border-brand-bright focus:ring-1 focus:ring-brand-bright placeholder-ink-soft"
                 />
             </div>
             <div className="flex items-center space-x-2">
-                <label className="text-[11px] font-bold text-grey dark:text-gray-300 uppercase tracking-[0.5px]">Tipo:</label>
+                <label className="text-[11px] font-bold text-grey dark:text-gray-300 uppercase tracking-[0.5px]">{t('filterType')}</label>
                 <input 
                     type="text"
                     list="type-list"
-                    placeholder="Todos..."
+                    placeholder={t('filterAllPlaceholder')}
                     value={filterType === 'all' ? '' : filterType}
                     onChange={e => setFilterType(e.target.value)}
                     className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] p-2 outline-none w-32 focus:border-brand-bright focus:ring-1 focus:ring-brand-bright placeholder-ink-soft"
                 />
                 <datalist id="type-list">
-                    {Array.from(new Set(data.map(d => d.type))).filter(Boolean).sort().map((t: any) => <option key={t} value={t} />)}
+                    {Array.from(new Set(data.map(d => d.type))).filter(Boolean).sort().map((opt: any) => <option key={opt} value={opt} />)}
                 </datalist>
             </div>
             <div className="flex items-center space-x-2">
-                <label className="text-[11px] font-bold text-grey dark:text-gray-300 uppercase tracking-[0.5px]">Grupo:</label>
+                <label className="text-[11px] font-bold text-grey dark:text-gray-300 uppercase tracking-[0.5px]">{t('filterGroup')}</label>
                 <input 
                     type="text"
                     list="group-list"
-                    placeholder="Todos..."
+                    placeholder={t('filterAllPlaceholder')}
                     value={filterGroup === 'all' ? '' : filterGroup}
                     onChange={e => setFilterGroup(e.target.value)}
                     className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] p-2 outline-none w-32 focus:border-brand-bright focus:ring-1 focus:ring-brand-bright placeholder-ink-soft"
@@ -702,11 +706,11 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                 </datalist>
             </div>
             <div className="flex items-center space-x-2">
-                <label className="text-[11px] font-bold text-grey dark:text-gray-300 uppercase tracking-[0.5px]">Severidad:</label>
+                <label className="text-[11px] font-bold text-grey dark:text-gray-300 uppercase tracking-[0.5px]">{t('filterSeverity')}</label>
                 <select value={filterIssue} onChange={e => setFilterIssue(e.target.value)} className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] p-2 outline-none w-32 focus:border-brand-bright focus:ring-1 focus:ring-brand-bright placeholder-ink-soft">
-                    <option value="all">Todas</option>
-                    <option value="cost">Costo</option>
-                    <option value="governance">Gobernanza</option>
+                    <option value="all">{t('filterAll')}</option>
+                    <option value="cost">{t('severityCost')}</option>
+                    <option value="governance">{t('severityGovernance')}</option>
                 </select>
             </div>
         </div>
@@ -714,7 +718,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
 
       {selectedIds.size > 0 && (
           <div className="flex items-center gap-3 mb-4 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800/50">
-              <span className="text-sm font-semibold text-blue-800 dark:text-blue-300">{selectedIds.size} seleccionado(s)</span>
+              <span className="text-sm font-semibold text-blue-800 dark:text-blue-300">{t('selectedCount', { count: selectedIds.size })}</span>
               <button
                   onClick={() => {
                       setTaggingItems(filteredData.filter(i => selectedIds.has(i.id)));
@@ -722,7 +726,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                   }}
                   className="px-3 py-1.5 rounded-md text-xs font-semibold bg-white dark:bg-slate-800 border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
               >
-                  Etiquetar seleccionados
+                  {t('tagSelected')}
               </button>
               {canDeleteDirect ? (
                   <button
@@ -730,37 +734,37 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                       disabled={bulkDeleting}
                       className="px-3 py-1.5 rounded-md text-xs font-semibold bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/50 hover:bg-red-100 dark:hover:bg-red-950/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
-                      {bulkDeleting ? 'Eliminando...' : 'Eliminar seleccionados'}
+                      {bulkDeleting ? t('deletingBulk') : t('deleteSelected')}
                   </button>
               ) : canRequestDelete ? (
                   <button
                       onClick={handleBulkRequestDeletion}
                       disabled={bulkDeleting}
-                      title="Tu rol no puede eliminar recursos directamente — se notificará a un Administrador para que los ejecute."
+                      title={t('requestDeleteSelectedTooltip')}
                       className="px-3 py-1.5 rounded-md text-xs font-semibold bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50 hover:bg-amber-100 dark:hover:bg-amber-950/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
-                      {bulkDeleting ? 'Enviando...' : 'Solicitar eliminación de seleccionados'}
+                      {bulkDeleting ? t('sendingBulk') : t('requestDeleteSelected')}
                   </button>
               ) : (
-                  <span className="px-3 py-1.5 rounded-md text-xs font-semibold bg-gray-100 dark:bg-slate-800 text-gray-400 dark:text-slate-500 border border-gray-200 dark:border-slate-700" title="La eliminación de recursos requiere el plan Enterprise">
-                      Eliminar — requiere Enterprise
+                  <span className="px-3 py-1.5 rounded-md text-xs font-semibold bg-gray-100 dark:bg-slate-800 text-gray-400 dark:text-slate-500 border border-gray-200 dark:border-slate-700" title={t('enterpriseTooltip')}>
+                      {t('deleteRequiresEnterprise')}
                   </span>
               )}
               <button onClick={() => setSelectedIds(new Set())} className="ml-auto text-xs text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 font-semibold">
-                  Limpiar selección
+                  {t('clearSelection')}
               </button>
           </div>
       )}
 
       {error === 'MISSING_RBAC_ROLE' ? <RoleAssignmentBanner /> : loading ? (
-          <div className="empty animate-pulse">Escaneando Azure Resource Graph...</div>
+          <div className="empty animate-pulse">{t('scanning')}</div>
       ) : (
         <div className="flex flex-col">
             <div className="overflow-x-auto w-full relative">
                 {hasLockedItems && (
                     <div className="absolute inset-x-0 bottom-0 top-12 z-10 flex flex-col items-center justify-center bg-white/40 backdrop-blur-[1px]">
                         <a href="/upgrade" className="px-6 py-3 bg-brand-deep text-white font-bold rounded-lg shadow-lg hover:bg-brand-bright transition-all hover:scale-105 inline-flex items-center gap-2">
-                            Upgrade to Professional to unlock exact resource names and start saving
+                            {t('upgradeCta')}
                         </a>
                     </div>
                 )}
@@ -810,7 +814,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                     ) : (
                         <tr>
                         <td colSpan={columns.length} className="empty">
-                            El entorno está 100% optimizado y bajo políticas de Gobernanza. ¡Excelente trabajo!
+                            {t('emptyOptimized')}
                         </td>
                         </tr>
                     )}
@@ -822,7 +826,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
             <div className="flex items-center justify-between p-[18px] bg-surface border-t border-line sm:px-6">
                 <div className="flex items-center gap-2">
                     <span className="text-[13px] text-ink-soft font-bold">
-                        Página <span className="text-ink">{table.getState().pagination.pageIndex + 1}</span> de{' '}
+                        {t('paginationPage')} <span className="text-ink">{table.getState().pagination.pageIndex + 1}</span> {t('paginationOf')}{' '}
                         <span className="text-ink">{table.getPageCount() || 1}</span>
                     </span>
                     <select
@@ -834,7 +838,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                     >
                         {[10, 15, 20, 25, 50, 100].map(pageSize => (
                             <option key={pageSize} value={pageSize}>
-                                Mostrar {pageSize}
+                                {t('showOption', { size: pageSize })}
                             </option>
                         ))}
                     </select>
@@ -845,14 +849,14 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                         disabled={!table.getCanPreviousPage()}
                         className="bg-surface-2 border border-line text-ink px-[11px] py-[7px] rounded-[10px] font-heading font-semibold text-[12px] hover:border-brand-bright disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
                     >
-                        Anterior
+                        {t('previous')}
                     </button>
                     <button
                         onClick={() => table.nextPage()}
                         disabled={!table.getCanNextPage()}
                         className="bg-surface-2 border border-line text-ink px-[11px] py-[7px] rounded-[10px] font-heading font-semibold text-[12px] hover:border-brand-bright disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
                     >
-                        Siguiente
+                        {t('next')}
                     </button>
                 </div>
             </div>
@@ -862,14 +866,18 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
       {taggingItems.length > 0 && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
             <div className="bg-white rounded-xl shadow-2xl p-6 w-[450px] animate-in zoom-in-95">
-                <h3 className="text-xl font-bold text-gray-900 mb-2">Fijar Etiquetas FinOps</h3>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">{t('tagModalTitle')}</h3>
                 <p className="text-sm text-gray-500 mb-4">
-                    {taggingItems.length === 1 ? (
-                        <>Estás a punto de etiquetar el recurso <span className="font-mono font-semibold text-gray-700">{taggingItems[0].resourceName}</span>.</>
-                    ) : (
-                        <>Estás a punto de etiquetar <span className="font-semibold text-gray-700">{taggingItems.length} recursos</span> seleccionados con las mismas etiquetas.</>
-                    )}{' '}
-                    Las políticas FinOps de la organización requieren 3 etiquetas fundamentales: <b>CostCenter</b> (quién paga), <b>Environment</b> (producción/dev) y <b>Owner</b> (responsable técnico).
+                    {taggingItems.length === 1
+                        ? t.rich('tagModalDescSingle', {
+                            name: taggingItems[0].resourceName,
+                            res: (chunks) => <span className="font-mono font-semibold text-gray-700">{chunks}</span>,
+                        })
+                        : t.rich('tagModalDescMultiple', {
+                            count: taggingItems.length,
+                            res: (chunks) => <span className="font-semibold text-gray-700">{chunks}</span>,
+                        })}{' '}
+                    {t.rich('tagModalPolicyNote', { b: (chunks) => <b>{chunks}</b> })}
                 </p>
                 <div className="space-y-4 mb-6">
                     <div>
@@ -877,7 +885,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                         <input 
                             type="text" 
                             className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-[#0054A6] focus:ring-1 focus:ring-[#0054A6]" 
-                            placeholder="Ej: Marketing, IT, HR..." 
+                            placeholder={t('costCenterPlaceholder')}
                             value={tagValues.CostCenter}
                             onChange={e => setTagValues({...tagValues, CostCenter: e.target.value})}
                         />
@@ -889,7 +897,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                             value={tagValues.Environment}
                             onChange={e => setTagValues({...tagValues, Environment: e.target.value})}
                         >
-                            <option value="">Selecciona un entorno...</option>
+                            <option value="">{t('environmentSelectPlaceholder')}</option>
                             <option value="Production">Production</option>
                             <option value="Staging">Staging</option>
                             <option value="Development">Development</option>
@@ -901,7 +909,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                         <input 
                             type="text" 
                             className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-[#0054A6] focus:ring-1 focus:ring-[#0054A6]" 
-                            placeholder="Ej: juan.perez@empresa.com" 
+                            placeholder={t('ownerPlaceholder')}
                             value={tagValues.Owner}
                             onChange={e => setTagValues({...tagValues, Owner: e.target.value})}
                         />
@@ -912,14 +920,14 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                         onClick={() => setTaggingItems([])}
                         className="px-4 py-2 text-sm font-semibold text-gray-600 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
                     >
-                        Cancelar
+                        {t('cancel')}
                     </button>
                     <button 
                         onClick={handleTagSubmit} 
                         disabled={isTagging || !tagValues.CostCenter || !tagValues.Environment || !tagValues.Owner}
                         className="px-4 py-2 text-sm font-semibold text-white bg-[#0054A6] hover:bg-[#00AEEF] rounded-md transition-colors disabled:opacity-50 flex items-center"
                     >
-                        {isTagging ? 'Aplicando...' : 'Aplicar Etiquetas'}
+                        {isTagging ? t('applying') : t('applyTags')}
                     </button>
                 </div>
             </div>
