@@ -351,7 +351,7 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
                 <div className="hidden sm:flex flex-row items-center gap-2 leading-tight">
                     {/* eslint-disable-next-line @next/next/no-img-element -- logo servido por nuestra propia API, dinámico por tenant, no apto para next/image estático */}
                     <img
-                        src={`/api/tenant-logo/${selectedTenant.id}`}
+                        src={`/api/tenant-logo/${selectedTenant.id}${selectedTenant.logo_version ? `?v=${selectedTenant.logo_version}` : ''}`}
                         alt={selectedTenant.name}
                         className="max-h-[55px] w-auto object-contain object-left"
                     />

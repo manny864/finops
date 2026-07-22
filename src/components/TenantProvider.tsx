@@ -15,6 +15,7 @@ export interface Tenant {
   trial_ends_at?: string;
   access_until?: string;
   has_logo?: boolean;
+  logo_version?: string | null;
   requires_rbac_update?: boolean;
   is_onboarded?: boolean;
   client_id?: string | null;
