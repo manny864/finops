@@ -260,11 +260,8 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
 
               <div className="sm:mx-auto sm:w-full sm:max-w-md text-center animate-in fade-in zoom-in duration-500 relative z-10">
                   <div className="flex items-center justify-center mb-6">
-                      <img src="/CSCloudSolutions.png" alt="CSCloudSolutions" className="w-[48px] h-[48px] object-contain" />
+                      <img src="/CSCloudSolutions.png" alt="CSCloudSolutions" className="w-full max-w-[400px] h-auto object-contain" />
                   </div>
-                  <h2 className="mt-2 text-center text-[28px] font-extrabold text-white tracking-tight font-heading">
-                      CS<span className="text-brand-bright">Cloud</span>Solutions
-                  </h2>
                   <p className="mt-2 text-center text-[13px] tracking-[2px] text-[#62809c] uppercase font-semibold">
                       FinOps Platform
                   </p>
