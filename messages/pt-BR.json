@@ -491,7 +491,12 @@
     "tenant_health": "Saúde do Tenant",
     "simulator_whatif": "Simulador (What-If)",
     "policies_autoblock": "Políticas (Auto-Block)",
-    "approvals": "Aprovações"
+    "approvals": "Aprovações",
+    "users_permissions": "Usuários e Permissões",
+    "ai_config": "Configuração de IA",
+    "invoicing_report": "Relatório de Faturamento",
+    "notifications": "Notificações",
+    "billing_subscription": "Faturamento"
   },
   "Dashboard": {
     "title": "Dashboard Geral",
@@ -1645,7 +1650,10 @@
     "provision": "Provisionar",
     "reindex": "Re-indexar",
     "revoke": "Revogar",
-    "requirements": "Requer licença Microsoft 365 Copilot e permissão ExternalConnection.ReadWrite.OwnedBy."
+    "requirements": "Requer licença Microsoft 365 Copilot e permissão ExternalConnection.ReadWrite.OwnedBy.",
+    "askQuestionLabel": "Fazer uma pergunta ao agente",
+    "askPlaceholder": "Ex: Qual foi o custo total do último mês?",
+    "sendButton": "Enviar"
   },
   "Lighthouse": {
     "error": "Erro",
@@ -1661,7 +1669,13 @@
       "revoked": "Revogado"
     },
     "roles": "Roles delegados",
-    "noDelegations": "Sem delegações ativas ainda."
+    "noDelegations": "Sem delegações ativas ainda.",
+    "roleNames": {
+      "reader": "Leitor",
+      "costManagementReader": "Leitor de Gestão de Custos",
+      "tagContributor": "Colaborador de Tags",
+      "contributor": "Colaborador"
+    }
   },
   "Mock": {
     "badge": "DADOS DE EXEMPLO",
@@ -2572,7 +2586,14 @@
     "toastUpgradeProcessError": "Erro ao processar upgrade",
     "toastSubscriptionCanceled": "Assinatura cancelada",
     "toastCancelError": "Erro ao cancelar",
-    "toastCancelSubscriptionError": "Erro ao cancelar assinatura"
+    "toastCancelSubscriptionError": "Erro ao cancelar assinatura",
+    "statusValues": {
+      "TRIAL": "Teste",
+      "ACTIVE": "Ativa",
+      "PAST_DUE": "Vencida",
+      "CANCELED": "Cancelada"
+    },
+    "invoiceStatusCompleted": "Concluída"
   },
   "AdminPricingUnits": {
     "title": "Normalizador de Unidades de Preço",
@@ -3443,7 +3464,26 @@
   "Workbooks": {
     "provider_alert_title": "Aviso: provider 'microsoft.insights' (Azure Monitor)",
     "provider_alert_body": "Se a implantação falhar com \"A assinatura não tem o resource provider 'microsoft.insights' registrado\": a plataforma o registra e tenta novamente automaticamente. Se o provider já aparecer como 'Registered' no Azure, o erro é causado pela propagação do ARM (pode levar alguns minutos) — aguarde 2-5 minutos e tente novamente. Registro manual:",
-    "provider_alert_retry": "A primeira implantação após registrar o provider pode precisar de 1-2 novas tentativas automáticas devido à propagação do ARM."
+    "provider_alert_retry": "A primeira implantação após registrar o provider pode precisar de 1-2 novas tentativas automáticas devido à propagação do ARM.",
+    "pageTitle": "Artefatos e Workbooks",
+    "pageSubtitle": "Injete painéis e relatórios diretamente no ambiente Azure do cliente.",
+    "availableArtifacts": "Artefatos Disponíveis",
+    "selectTenantTitle": "Selecione um Tenant",
+    "selectTenantDesc": "Você deve selecionar uma organização para injetar artefatos.",
+    "costDesc": "Painel baseado no Azure Monitor para visualizar gastos, anomalias e previsões.",
+    "zombieDesc": "Ferramenta especializada para identificar IPs públicos sem uso e discos órfãos.",
+    "subscription": "Assinatura",
+    "selectSubscription": "Selecione uma assinatura...",
+    "targetRg": "Resource Group de Destino",
+    "createRg": "+ Criar Novo RG",
+    "loadingRgs": "Carregando...",
+    "selectRg": "Selecione um RG...",
+    "deployAzure": "Implantar no Azure",
+    "deploying": "Implantando...",
+    "deploySuccess": "Artefato implantado com sucesso em {rg}",
+    "deployError": "Erro ao implantar o artefato",
+    "deployUnexpected": "Ocorreu um erro inesperado ao implantar.",
+    "rgRequired": "Por favor, insira o Subscription ID e o Resource Group."
   },
   "CostByCategory": {
     "title": "Custo por Categoria",
@@ -4396,5 +4436,56 @@
   "Policies": {
     "title": "Políticas (Auto-Block)",
     "subtitle": "Implante restrições automatizadas via Azure Policy para evitar gastos indesejados desde o momento do provisionamento."
+  },
+  "Invoicing": {
+    "pageTitle": "Relatório de Faturamento",
+    "pageSubtitle": "Relatório de faturamento com markup para clientes PBI (Business+)",
+    "loading": "Carregando relatório de faturamento...",
+    "tierFeatureName": "Relatório de Faturamento",
+    "errorTitle": "Erro",
+    "periodLabel": "Período:",
+    "monthLabel": "Mês específico:",
+    "monthTooltip": "Escolha qualquer mês dentro dos últimos 13 (janela de retenção do Azure)",
+    "subscriptionLabel": "Assinatura:",
+    "allSubscriptions": "Todas as assinaturas",
+    "markupApplied": "Markup aplicado:",
+    "downloadZip": "Baixar Tudo (ZIP)",
+    "downloadCsv": "Baixar CSV",
+    "pbidsTooltip": "Baixa um .pbids que conecta o Power BI Desktop ao feed deste tenant (requer API Key)",
+    "kpiOriginalCost": "Custo Original",
+    "kpiMarkupAmount": "Valor do Markup",
+    "kpiMarkupSub": "{percent}% sobre o original",
+    "kpiAdjustedCost": "Custo Ajustado",
+    "tableByCustomer": "Faturamento por Cliente",
+    "colCustomer": "Cliente",
+    "colOriginalCost": "Custo Original",
+    "colAdjustedCost": "Custo Ajustado",
+    "colActions": "Ações",
+    "noDataPeriod": "Nenhum dado para o período selecionado.",
+    "tableByInvoiceSection": "Faturamento por Invoice Section",
+    "colCost": "Custo",
+    "colAdjusted": "Ajustado",
+    "tableBySubscription": "Faturamento por Assinatura",
+    "colSubscription": "Assinatura",
+    "totalSubscriptions": "Total ({count} assinaturas)",
+    "tableLines": "Detalhe de Linhas (Billing Profile / Invoice Section / Customer)",
+    "colDate": "Data",
+    "colService": "Serviço",
+    "noLinesPeriod": "Nenhuma linha para o período selecionado.",
+    "toastPbidsSuccess": "Modelo Power BI (.pbids) baixado. Abra-o com o Power BI Desktop: ele solicitará uma API Key (Configurações → API Keys) como credencial Web.",
+    "toastPbidsError": "Erro ao gerar o modelo Power BI",
+    "toastCsvError": "Erro ao baixar CSV",
+    "toastJsonError": "Erro ao baixar JSON",
+    "toastZipSuccess": "ZIP baixado com sucesso",
+    "toastZipError": "Falha ao baixar o ZIP",
+    "toastStaleData": "Dados desatualizados: recarregue a página e tente novamente.",
+    "toastPdfSuccess": "PDF baixado com sucesso",
+    "toastPdfError": "Falha ao baixar o PDF",
+    "toastEmailSuccess": "E-mail enviado com sucesso",
+    "toastEmailError": "Falha ao enviar o e-mail",
+    "toastLoadError": "Erro ao carregar o relatório de faturamento",
+    "toastDownloadError": "Erro ao baixar {filename}",
+    "noAccount": "Nenhuma conta autenticada",
+    "promptRecipientEmail": "Insira o e-mail do destinatário:"
   }
 }

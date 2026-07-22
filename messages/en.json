@@ -491,7 +491,12 @@
     "tenant_health": "Tenant Health",
     "simulator_whatif": "Simulator (What-If)",
     "policies_autoblock": "Policies (Auto-Block)",
-    "approvals": "Approvals"
+    "approvals": "Approvals",
+    "users_permissions": "Users & Permissions",
+    "ai_config": "AI Configuration",
+    "invoicing_report": "Invoicing Report",
+    "notifications": "Notifications",
+    "billing_subscription": "Billing"
   },
   "Dashboard": {
     "title": "General Dashboard",
@@ -1645,7 +1650,10 @@
     "provision": "Provision",
     "reindex": "Re-index",
     "revoke": "Revoke",
-    "requirements": "Requires Microsoft 365 Copilot license and ExternalConnection.ReadWrite.OwnedBy permission."
+    "requirements": "Requires Microsoft 365 Copilot license and ExternalConnection.ReadWrite.OwnedBy permission.",
+    "askQuestionLabel": "Ask the agent a question",
+    "askPlaceholder": "e.g.: What was the total cost last month?",
+    "sendButton": "Send"
   },
   "Lighthouse": {
     "error": "Error",
@@ -1661,7 +1669,13 @@
       "revoked": "Revoked"
     },
     "roles": "Delegated roles",
-    "noDelegations": "No active delegations yet."
+    "noDelegations": "No active delegations yet.",
+    "roleNames": {
+      "reader": "Reader",
+      "costManagementReader": "Cost Management Reader",
+      "tagContributor": "Tag Contributor",
+      "contributor": "Contributor"
+    }
   },
   "Mock": {
     "badge": "SAMPLE DATA",
@@ -2572,7 +2586,14 @@
     "toastUpgradeProcessError": "Error processing upgrade",
     "toastSubscriptionCanceled": "Subscription canceled",
     "toastCancelError": "Error canceling subscription",
-    "toastCancelSubscriptionError": "Error canceling subscription"
+    "toastCancelSubscriptionError": "Error canceling subscription",
+    "statusValues": {
+      "TRIAL": "Trial",
+      "ACTIVE": "Active",
+      "PAST_DUE": "Past Due",
+      "CANCELED": "Canceled"
+    },
+    "invoiceStatusCompleted": "Completed"
   },
   "AdminPricingUnits": {
     "title": "Pricing Unit Normalizer",
@@ -3443,7 +3464,26 @@
   "Workbooks": {
     "provider_alert_title": "Notice: 'microsoft.insights' provider (Azure Monitor)",
     "provider_alert_body": "If deployment fails with \"The subscription is not registered to use namespace 'microsoft.insights'\": the platform registers it and retries automatically. If the provider already shows as 'Registered' in Azure, the error is due to ARM propagation (it can take a few minutes) — wait 2-5 minutes and retry. Manual registration:",
-    "provider_alert_retry": "The first deployment after registering the provider may need 1-2 automatic retries due to ARM propagation."
+    "provider_alert_retry": "The first deployment after registering the provider may need 1-2 automatic retries due to ARM propagation.",
+    "pageTitle": "Artifacts & Workbooks",
+    "pageSubtitle": "Inject dashboards and reports directly into the customer's Azure environment.",
+    "availableArtifacts": "Available Artifacts",
+    "selectTenantTitle": "Select a Tenant",
+    "selectTenantDesc": "You must select an organization to inject artifacts.",
+    "costDesc": "Azure Monitor-based dashboard to visualize spend, anomalies and forecasts.",
+    "zombieDesc": "Specialized tool to identify unused public IPs and orphaned disks.",
+    "subscription": "Subscription",
+    "selectSubscription": "Select a subscription...",
+    "targetRg": "Target Resource Group",
+    "createRg": "+ Create New RG",
+    "loadingRgs": "Loading...",
+    "selectRg": "Select an RG...",
+    "deployAzure": "Deploy to Azure",
+    "deploying": "Deploying...",
+    "deploySuccess": "Artifact deployed successfully to {rg}",
+    "deployError": "Error deploying the artifact",
+    "deployUnexpected": "An unexpected error occurred while deploying.",
+    "rgRequired": "Please enter Subscription ID and Resource Group."
   },
   "CostByCategory": {
     "title": "Cost by Category",
@@ -4396,5 +4436,56 @@
   "Policies": {
     "title": "Policies (Auto-Block)",
     "subtitle": "Deploy automated guardrails via Azure Policy to prevent unwanted spend from the moment of provisioning."
+  },
+  "Invoicing": {
+    "pageTitle": "Invoicing Report",
+    "pageSubtitle": "Billing report with markup for PBI customers (Business+)",
+    "loading": "Loading invoicing report...",
+    "tierFeatureName": "Invoicing Report",
+    "errorTitle": "Error",
+    "periodLabel": "Period:",
+    "monthLabel": "Specific month:",
+    "monthTooltip": "Pick any month within the last 13 (Azure retention window)",
+    "subscriptionLabel": "Subscription:",
+    "allSubscriptions": "All subscriptions",
+    "markupApplied": "Markup applied:",
+    "downloadZip": "Download All (ZIP)",
+    "downloadCsv": "Download CSV",
+    "pbidsTooltip": "Downloads a .pbids that connects Power BI Desktop to this tenant's feed (requires API Key)",
+    "kpiOriginalCost": "Original Cost",
+    "kpiMarkupAmount": "Markup Amount",
+    "kpiMarkupSub": "{percent}% over original",
+    "kpiAdjustedCost": "Adjusted Cost",
+    "tableByCustomer": "Billing by Customer",
+    "colCustomer": "Customer",
+    "colOriginalCost": "Original Cost",
+    "colAdjustedCost": "Adjusted Cost",
+    "colActions": "Actions",
+    "noDataPeriod": "No data for the selected period.",
+    "tableByInvoiceSection": "Billing by Invoice Section",
+    "colCost": "Cost",
+    "colAdjusted": "Adjusted",
+    "tableBySubscription": "Billing by Subscription",
+    "colSubscription": "Subscription",
+    "totalSubscriptions": "Total ({count} subscriptions)",
+    "tableLines": "Line Detail (Billing Profile / Invoice Section / Customer)",
+    "colDate": "Date",
+    "colService": "Service",
+    "noLinesPeriod": "No lines for the selected period.",
+    "toastPbidsSuccess": "Power BI template (.pbids) downloaded. Open it with Power BI Desktop: it will ask for an API Key (Settings → API Keys) as a Web credential.",
+    "toastPbidsError": "Error generating the Power BI template",
+    "toastCsvError": "Error downloading CSV",
+    "toastJsonError": "Error downloading JSON",
+    "toastZipSuccess": "ZIP downloaded successfully",
+    "toastZipError": "Failed to download ZIP",
+    "toastStaleData": "Stale data: reload the page and try again.",
+    "toastPdfSuccess": "PDF downloaded successfully",
+    "toastPdfError": "Failed to download PDF",
+    "toastEmailSuccess": "Email sent successfully",
+    "toastEmailError": "Failed to send email",
+    "toastLoadError": "Error loading invoicing report",
+    "toastDownloadError": "Error downloading {filename}",
+    "noAccount": "No authenticated account",
+    "promptRecipientEmail": "Enter recipient email address:"
   }
 }
