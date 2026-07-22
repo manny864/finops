@@ -548,7 +548,7 @@ function TroubleshootingSection({ t }: { t: ReturnType<typeof useTranslations> }
                 onClick={() => setOpen(!open)}
                 className="w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-surface/50 transition-colors"
             >
-                <span className="flex items-center gap-2 font-semibold text-[14px] text-ink">
+                <span className="flex items-center gap-2 font-semibold text-[16px] text-ink">
                     <HelpCircle className="w-4 h-4 text-brand-deep" /> {t("troubleshootingTitle")}
                 </span>
                 <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`} />
@@ -556,21 +556,21 @@ function TroubleshootingSection({ t }: { t: ReturnType<typeof useTranslations> }
 
             {open && (
                 <div className="px-4 pb-4 border-t border-line pt-3">
-                    <p className="text-[12px] text-gray-500 mb-3">{t("troubleshootingSubtitle")}</p>
+                    <p className="text-[14px] text-gray-500 mb-3">{t("troubleshootingSubtitle")}</p>
 
                     <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-[8px] px-3 py-2.5 mb-4">
                         <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-                        <p className="text-[12px] text-amber-800">{t("troubleshootingDisclaimer")}</p>
+                        <p className="text-[14px] text-amber-800">{t("troubleshootingDisclaimer")}</p>
                     </div>
 
                     <div className="flex flex-col gap-1.5">
                         {items.map((item, i) => (
                             <details key={i} className="group border border-line rounded-[8px] px-3 py-2">
-                                <summary className="cursor-pointer text-[13px] font-medium text-ink list-none flex items-center justify-between gap-2">
+                                <summary className="cursor-pointer text-[15px] font-medium text-ink list-none flex items-center justify-between gap-2">
                                     {item.q}
                                     <ChevronDown className="w-3.5 h-3.5 text-gray-400 flex-shrink-0 transition-transform group-open:rotate-180" />
                                 </summary>
-                                <p className="text-[12.5px] text-gray-600 mt-2 leading-relaxed">{item.a}</p>
+                                <p className="text-[14.5px] text-gray-600 mt-2 leading-relaxed">{item.a}</p>
                             </details>
                         ))}
                     </div>
