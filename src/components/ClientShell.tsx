@@ -231,8 +231,11 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
   if (isInitializing || inProgress === "startup" || inProgress === "handleRedirect") {
       return (
           <div className="min-h-screen bg-gradient-to-br from-nav-bg to-nav-bg2 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative font-sans items-center">
-              <div className="flex flex-col items-center animate-pulse">
-                  <img src="/logo_29k.png" alt="Logo" className="w-16 h-16 object-contain mb-4" />
+              <div className="flex flex-col items-center">
+                  <div className="relative mb-6 flex items-center justify-center">
+                      <div className="absolute w-40 h-40 rounded-full bg-brand-bright/25 blur-3xl animate-ping"></div>
+                      <img src="/logo_29k.png" alt="Logo" className="relative w-32 h-32 object-contain animate-pulse drop-shadow-[0_0_28px_rgba(30,136,229,0.55)]" />
+                  </div>
                   <div className="w-8 h-8 border-4 border-[#0054A6] border-t-transparent rounded-full animate-spin"></div>
                   <p className="mt-4 text-sm font-semibold text-[#62809c] tracking-widest uppercase">Cargando...</p>
               </div>
@@ -260,11 +263,8 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
 
               <div className="sm:mx-auto sm:w-full sm:max-w-md text-center animate-in fade-in zoom-in duration-500 relative z-10">
                   <div className="flex items-center justify-center mb-6">
-                      <img src="/CSCloudSolutions.png" alt="CSCloudSolutions" className="w-[48px] h-[48px] object-contain" />
+                      <img src="/CSCloudSolutions.png" alt="CSCloudSolutions" className="w-full max-w-[400px] h-auto object-contain" />
                   </div>
-                  <h2 className="mt-2 text-center text-[28px] font-extrabold text-white tracking-tight font-heading">
-                      CS<span className="text-brand-bright">Cloud</span>Solutions
-                  </h2>
                   <p className="mt-2 text-center text-[13px] tracking-[2px] text-[#62809c] uppercase font-semibold">
                       FinOps Platform
                   </p>
@@ -348,14 +348,14 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
             </button>
             {selectedTenant && selectedTenant.id !== 'default' && selectedTenant.has_logo ? (
-                <div className="hidden sm:flex flex-col items-start leading-tight">
+                <div className="hidden sm:flex flex-row items-center gap-2 leading-tight">
                     {/* eslint-disable-next-line @next/next/no-img-element -- logo servido por nuestra propia API, dinámico por tenant, no apto para next/image estático */}
                     <img
                         src={`/api/tenant-logo/${selectedTenant.id}`}
                         alt={selectedTenant.name}
-                        className="h-6 max-w-[160px] object-contain object-left"
+                        className="max-h-[55px] w-auto object-contain object-left"
                     />
-                    <span className="text-xs font-bold text-ink tracking-tight mt-0.5">{selectedTenant.name}</span>
+                    <span className="text-xs font-bold text-ink tracking-tight">{selectedTenant.name}</span>
                 </div>
             ) : (
                 <Link href="/admin/config#logo-upload" className="hidden sm:flex items-center gap-2 group">
