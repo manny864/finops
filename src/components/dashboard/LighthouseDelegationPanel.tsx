@@ -128,13 +128,13 @@ export default function LighthouseDelegationPanel() {
                     <input className="px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/40" placeholder="Managed Subscription ID (GUID)" value={form.managedSubscriptionId} onChange={e => setForm({ ...form, managedSubscriptionId: e.target.value })} />
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
-                    {['Reader', 'Cost Management Reader', 'Tag Contributor', 'Contributor'].map(r => (
+                    {([['Reader', 'reader'], ['Cost Management Reader', 'costManagementReader'], ['Tag Contributor', 'tagContributor'], ['Contributor', 'contributor']] as const).map(([r, key]) => (
                         <label key={r} className="flex items-center gap-2 text-sm">
                             <input type="checkbox" checked={form.roles.includes(r)} onChange={e => {
                                 const next = e.target.checked ? [...form.roles, r] : form.roles.filter(x => x !== r);
                                 setForm({ ...form, roles: next });
                             }} />
-                            {r}
+                            {t(`roleNames.${key}`)}
                         </label>
                     ))}
                 </div>

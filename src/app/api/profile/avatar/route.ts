@@ -31,13 +31,17 @@ export async function GET(request: NextRequest) {
     try {
         const identity = await requireRequestIdentity(request);
         const row = await findOwnRow(identity.tenantId, identity.claims.oid || "", identity.email || "");
+        // 204 (no 404): no tener avatar personalizado todavía es el caso normal
+        // para la mayoría de los usuarios (Entra ID trae foto, o no hay
+        // ninguna) — un 404 en cada carga de página ensucia la consola del
+        // navegador con un error de red que no es tal.
         const storedName = row?.avatar_stored_name as string | null | undefined;
         if (!storedName) {
-            return NextResponse.json({ error: "Sin avatar" }, { status: 404 });
+            return new NextResponse(null, { status: 204 });
         }
         const bytes = await readUserAvatar(storedName);
         if (!bytes) {
-            return NextResponse.json({ error: "Sin avatar" }, { status: 404 });
+            return new NextResponse(null, { status: 204 });
         }
         const ext = storedName.split(".").pop() || "";
         return new NextResponse(new Uint8Array(bytes), {

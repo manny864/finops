@@ -292,7 +292,7 @@ export default function BillingPage() {
           <div>
             <p className="text-sm text-gray-500">{t("status")}</p>
             <p className={`inline-block rounded-full px-3 py-1 text-sm font-medium ${statusColors[billingInfo?.status as keyof typeof statusColors] || "text-gray-600"}`}>
-              {billingInfo?.status || t("notAvailable")}
+              {billingInfo?.status ? (t.has(`statusValues.${billingInfo.status}`) ? t(`statusValues.${billingInfo.status}`) : billingInfo.status) : t("notAvailable")}
             </p>
           </div>
           {billingInfo?.status === "TRIAL" && billingInfo.trialEndsAt && (
@@ -608,7 +608,7 @@ export default function BillingPage() {
                             : "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
                         }`}
                       >
-                        {invoice.status}
+                        {invoice.status === "completed" ? t("invoiceStatusCompleted") : invoice.status}
                       </span>
                     </td>
                     <td className="px-4 py-3 font-mono text-xs">{invoice.transactionId?.slice(-8)}</td>

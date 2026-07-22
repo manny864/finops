@@ -79,7 +79,7 @@ export default function WorkbooksPage() {
 
     const handleDeploy = async (type: string, subscriptionId: string, resourceGroupName: string, setLoading: (s: boolean) => void) => {
         if (!subscriptionId || !resourceGroupName) {
-            toast.error("Por favor ingresa Subscription ID y Resource Group.");
+            toast.error(t('rgRequired'));
             return;
         }
         if ((accounts.length === 0 && !isMockTenant(selectedTenant?.id || ''))) return;
@@ -100,12 +100,12 @@ export default function WorkbooksPage() {
             
             const json = await res.json();
             if (res.ok && json.success) {
-                toast.success(`Artefacto desplegado correctamente en ${resourceGroupName}`);
+                toast.success(t('deploySuccess', { rg: resourceGroupName }));
             } else {
-                toast.error(json.error || "Error al desplegar el artefacto");
+                toast.error(json.error || t('deployError'));
             }
         } catch (e) {
-            toast.error("Ocurrió un error inesperado al desplegar.");
+            toast.error(t('deployUnexpected'));
         }
         setLoading(false);
     };
@@ -114,8 +114,8 @@ export default function WorkbooksPage() {
         return (
             <div className="flex flex-col items-center justify-center h-96 bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-slate-800 shadow-sm">
                 <span className="text-4xl mb-4">🔐</span>
-                <h2 className="text-xl font-bold text-gray-700 dark:text-gray-300">Selecciona un Tenant</h2>
-                <p className="text-sm text-gray-500 mt-2">Debes seleccionar una organización para inyectar artefactos.</p>
+                <h2 className="text-xl font-bold text-gray-700 dark:text-gray-300">{t('selectTenantTitle')}</h2>
+                <p className="text-sm text-gray-500 mt-2">{t('selectTenantDesc')}</p>
             </div>
         );
     }
@@ -126,20 +126,20 @@ export default function WorkbooksPage() {
             <div className="mb-8 border-b border-gray-200 dark:border-slate-800 pb-4">
                 <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight flex items-center">
                     <BookOpen className="w-8 h-8 mr-3 text-[#0054A6]" />
-                    Artefactos y Workbooks
+                    {t('pageTitle')}
                     <span title="Required Roles (Enterprise): Monitoring Contributor (workbooks/write) + Custom Role con Microsoft.Resources/subscriptions/resourceGroups/write (para crear RGs desde la UI). El onboarding script Enterprise los asigna automáticamente.">
                         <Info 
                             className="w-5 h-5 ml-3 text-gray-400 cursor-help" 
                         />
                     </span>
                 </h1>
-                <p className="text-gray-500 dark:text-gray-400 mt-2">Inyecta tableros de control y reportes directamente en el entorno de Azure del cliente.</p>
+                <p className="text-gray-500 dark:text-gray-400 mt-2">{t('pageSubtitle')}</p>
             </div>
 
             <div className="mb-6">
                 <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 flex items-center">
                     <Box className="w-5 h-5 mr-2 text-gray-500" />
-                    Artefactos Disponibles
+                    {t('availableArtifacts')}
                 </h2>
             </div>
 
@@ -160,29 +160,29 @@ export default function WorkbooksPage() {
                         <div className="h-2 bg-[#0054A6]"></div>
                         <div className="p-6 flex-1">
                             <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">FinOps Cost Optimization Workbook</h3>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Tablero basado en Azure Monitor para visualizar gastos, anomalías y predicciones.</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">{t('costDesc')}</p>
                             
                             <div className="space-y-4">
                                 <div>
-                                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Suscripción</label>
+                                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">{t('subscription')}</label>
                                     <select 
                                         value={subIdCost}
                                         onChange={e => handleSubChange(e.target.value, setSubIdCost, true)}
                                         className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white rounded-md shadow-sm focus:ring-[#0054A6] focus:border-[#0054A6] sm:text-sm placeholder-gray-500 dark:placeholder-gray-400"
                                     >
-                                        <option value="">Selecciona una suscripción...</option>
+                                        <option value="">{t('selectSubscription')}</option>
                                         {subscriptions.map((s:any) => <option key={s.id} value={s.id}>{s.name || s.displayName || s.id}</option>)}
                                     </select>
                                 </div>
                                 <div>
                                     <div className="flex justify-between items-center mb-1">
-                                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">Resource Group de Destino</label>
+                                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">{t('targetRg')}</label>
                                         <button 
                                             onClick={() => { setTargetSubForModal(subIdCost); setIsRgModalOpen(true); }}
                                             disabled={!subIdCost}
                                             className="text-xs font-semibold text-[#0054A6] hover:underline disabled:opacity-50"
                                         >
-                                            + Crear Nuevo RG
+                                            {t('createRg')}
                                         </button>
                                     </div>
                                     <select 
@@ -191,7 +191,7 @@ export default function WorkbooksPage() {
                                         disabled={!subIdCost || loadingRgs}
                                         className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white rounded-md shadow-sm sm:text-sm placeholder-gray-500 dark:placeholder-gray-400"
                                     >
-                                        <option value="">{loadingRgs ? 'Cargando...' : 'Selecciona un RG...'}</option>
+                                        <option value="">{loadingRgs ? t('loadingRgs') : t('selectRg')}</option>
                                         {rgs.map((r:any) => <option key={r.name} value={r.name}>{r.name} ({r.location})</option>)}
                                     </select>
                                 </div>
@@ -205,7 +205,7 @@ export default function WorkbooksPage() {
                             >
                                 {loadingCost && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                                 {!loadingCost && <CloudUpload className="w-4 h-4 mr-2" />}
-                                <span>{loadingCost ? 'Desplegando...' : 'Desplegar en Azure'}</span>
+                                <span>{loadingCost ? t('deploying') : t('deployAzure')}</span>
                             </button>
                         </div>
                     </div>
@@ -215,29 +215,29 @@ export default function WorkbooksPage() {
                         <div className="h-2 bg-emerald-500"></div>
                         <div className="p-6 flex-1">
                             <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Zombie Resources Tracker</h3>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Herramienta especializada para identificar IPs públicas sin uso y discos huérfanos.</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">{t('zombieDesc')}</p>
                             
                             <div className="space-y-4">
                                 <div>
-                                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Suscripción</label>
+                                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">{t('subscription')}</label>
                                     <select 
                                         value={subIdZombie}
                                         onChange={e => handleSubChange(e.target.value, setSubIdZombie, false)}
                                         className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm placeholder-gray-500 dark:placeholder-gray-400"
                                     >
-                                        <option value="">Selecciona una suscripción...</option>
+                                        <option value="">{t('selectSubscription')}</option>
                                         {subscriptions.map((s:any) => <option key={s.id} value={s.id}>{s.name || s.displayName || s.id}</option>)}
                                     </select>
                                 </div>
                                 <div>
                                     <div className="flex justify-between items-center mb-1">
-                                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">Resource Group de Destino</label>
+                                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">{t('targetRg')}</label>
                                         <button 
                                             onClick={() => { setTargetSubForModal(subIdZombie); setIsRgModalOpen(true); }}
                                             disabled={!subIdZombie}
                                             className="text-xs font-semibold text-emerald-600 hover:underline disabled:opacity-50"
                                         >
-                                            + Crear Nuevo RG
+                                            {t('createRg')}
                                         </button>
                                     </div>
                                     <select 
@@ -246,7 +246,7 @@ export default function WorkbooksPage() {
                                         disabled={!subIdZombie || loadingRgs}
                                         className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white rounded-md shadow-sm sm:text-sm placeholder-gray-500 dark:placeholder-gray-400"
                                     >
-                                        <option value="">{loadingRgs ? 'Cargando...' : 'Selecciona un RG...'}</option>
+                                        <option value="">{loadingRgs ? t('loadingRgs') : t('selectRg')}</option>
                                         {rgs.map((r:any) => <option key={r.name} value={r.name}>{r.name} ({r.location})</option>)}
                                     </select>
                                 </div>
@@ -260,7 +260,7 @@ export default function WorkbooksPage() {
                             >
                                 {loadingZombie && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                                 {!loadingZombie && <CloudUpload className="w-4 h-4 mr-2" />}
-                                <span>{loadingZombie ? 'Desplegando...' : 'Desplegar en Azure'}</span>
+                                <span>{loadingZombie ? t('deploying') : t('deployAzure')}</span>
                             </button>
                         </div>
                     </div>

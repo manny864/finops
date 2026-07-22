@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
@@ -316,6 +317,7 @@ function comparisonToPdf(scenarios: SavedScenario[]): jsPDF {
 }
 
 export default function ScenarioManager({ currentInputs, currentBaseCost, currency = "USD" }: Props) {
+    const t = useTranslations("Simulator");
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
 
@@ -346,7 +348,7 @@ export default function ScenarioManager({ currentInputs, currentBaseCost, curren
             );
             if (!res.ok) {
                 const j = await res.json().catch(() => ({}));
-                toast.error(j.error || "No se pudieron cargar los escenarios.");
+                toast.error(j.error || t("toastLoadFailed"));
                 return;
             }
             const j = await res.json();
@@ -362,11 +364,11 @@ export default function ScenarioManager({ currentInputs, currentBaseCost, curren
 
     async function handleSave() {
         if (!name.trim()) {
-            toast.error("Poné un nombre al escenario.");
+            toast.error(t("toastNameRequired"));
             return;
         }
         if (!currentBaseCost) {
-            toast.error("Ejecutá una simulación primero para fijar el baseCost.");
+            toast.error(t("toastRunFirst"));
             return;
         }
         setSaving(true);
@@ -386,10 +388,10 @@ export default function ScenarioManager({ currentInputs, currentBaseCost, curren
             });
             if (!res.ok) {
                 const j = await res.json().catch(() => ({}));
-                toast.error(j.error || "Error al guardar.");
+                toast.error(j.error || t("toastSaveError"));
                 return;
             }
-            toast.success(`Escenario "${name}" guardado.`);
+            toast.success(t("toastSaved", { name }));
             setShowSave(false);
             setName("");
             setNotes("");
@@ -400,7 +402,7 @@ export default function ScenarioManager({ currentInputs, currentBaseCost, curren
     }
 
     async function handleDelete(id: string) {
-        if (!confirm("¿Borrar este escenario?")) return;
+        if (!confirm(t("toastDeleteConfirm"))) return;
         const headers = await authHeaders();
         const res = await fetch(
             `/api/intelligence/simulator/scenarios/${id}?tenantId=${selectedTenant.id}`,
@@ -408,10 +410,10 @@ export default function ScenarioManager({ currentInputs, currentBaseCost, curren
         );
         if (!res.ok) {
             const j = await res.json().catch(() => ({}));
-            toast.error(j.error || "Error al borrar.");
+            toast.error(j.error || t("toastDeleteError"));
             return;
         }
-        toast.success("Escenario borrado.");
+        toast.success(t("toastDeleted"));
         setSelected((s) => {
             const n = new Set(s);
             n.delete(id);
@@ -426,7 +428,7 @@ export default function ScenarioManager({ currentInputs, currentBaseCost, curren
             if (n.has(id)) n.delete(id);
             else {
                 if (n.size >= 4) {
-                    toast.error("Máximo 4 escenarios para comparar.");
+                    toast.error(t("toastMaxCompare"));
                     return prev;
                 }
                 n.add(id);
@@ -475,16 +477,16 @@ export default function ScenarioManager({ currentInputs, currentBaseCost, curren
             <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
                     <Bookmark className="w-5 h-5 text-indigo-500" />
-                    Escenarios Guardados
+                    {t("savedScenariosTitle")}
                 </h3>
                 <div className="flex items-center gap-2 flex-wrap">
                     <label className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                        Formato
+                        {t("formatLabel")}
                         <select
                             value={exportFormat}
                             onChange={(e) => setExportFormat(e.target.value as "csv" | "pdf" | "md")}
                             className="border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-md px-2 py-1 text-xs"
-                            aria-label="Formato de descarga"
+                            aria-label={t("formatAriaLabel")}
                         >
                             <option value="csv">CSV</option>
                             <option value="pdf">PDF</option>
@@ -496,22 +498,22 @@ export default function ScenarioManager({ currentInputs, currentBaseCost, curren
                         disabled={!currentBaseCost}
                         className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50"
                     >
-                        <Plus className="w-3.5 h-3.5" /> Guardar actual
+                        <Plus className="w-3.5 h-3.5" /> {t("saveCurrentBtn")}
                     </button>
                     <button
                         onClick={downloadAll}
                         disabled={scenarios.length === 0}
                         className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-slate-700 disabled:opacity-50"
-                        title={`Descargar todos los escenarios guardados (${exportFormat.toUpperCase()})`}
+                        title={t("downloadAllTooltip", { format: exportFormat.toUpperCase() })}
                     >
-                        <Download className="w-3.5 h-3.5" /> Descargar todo
+                        <Download className="w-3.5 h-3.5" /> {t("downloadAllBtn")}
                     </button>
                     <button
                         onClick={() => setCompareOpen(true)}
                         disabled={selected.size < 2}
                         className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
                     >
-                        <GitCompare className="w-3.5 h-3.5" /> Comparar ({selected.size})
+                        <GitCompare className="w-3.5 h-3.5" /> {t("compareBtn", { count: selected.size })}
                     </button>
                 </div>
             </div>
@@ -519,11 +521,11 @@ export default function ScenarioManager({ currentInputs, currentBaseCost, curren
             {loading ? (
                 <div className="text-center py-8 text-gray-400">
                     <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
-                    Cargando escenarios...
+                    {t("loadingScenarios")}
                 </div>
             ) : scenarios.length === 0 ? (
                 <p className="text-sm text-gray-500 text-center py-6">
-                    No hay escenarios guardados. Ejecutá una simulación y hacé clic en <strong>Guardar actual</strong>.
+                    {t("noScenarios")} <strong>{t("saveCurrentBtn")}</strong>.
                 </p>
             ) : (
                 <div className="overflow-x-auto">
@@ -531,11 +533,11 @@ export default function ScenarioManager({ currentInputs, currentBaseCost, curren
                         <thead className="bg-gray-50 dark:bg-slate-800 text-xs uppercase text-gray-500">
                             <tr>
                                 <th className="px-3 py-2 text-left"></th>
-                                <th className="px-3 py-2 text-left">Nombre</th>
-                                <th className="px-3 py-2 text-right">Base</th>
-                                <th className="px-3 py-2 text-right">Proyectado</th>
-                                <th className="px-3 py-2 text-right">Δ %</th>
-                                <th className="px-3 py-2 text-left">Creado</th>
+                                <th className="px-3 py-2 text-left">{t("colName")}</th>
+                                <th className="px-3 py-2 text-right">{t("colBase")}</th>
+                                <th className="px-3 py-2 text-right">{t("colProjected")}</th>
+                                <th className="px-3 py-2 text-right">{t("colDelta")}</th>
+                                <th className="px-3 py-2 text-left">{t("colCreated")}</th>
                                 <th className="px-3 py-2"></th>
                             </tr>
                         </thead>
@@ -548,7 +550,7 @@ export default function ScenarioManager({ currentInputs, currentBaseCost, curren
                                             checked={selected.has(s.id)}
                                             onChange={() => toggleSelect(s.id)}
                                             className="accent-indigo-600"
-                                            aria-label={`Seleccionar ${s.name}`}
+                                            aria-label={t("selectAriaLabel", { name: s.name })}
                                         />
                                     </td>
                                     <td className="px-3 py-2 font-medium text-gray-900 dark:text-gray-100">
@@ -567,15 +569,15 @@ export default function ScenarioManager({ currentInputs, currentBaseCost, curren
                                         <button
                                             onClick={() => downloadOne(s)}
                                             className="text-gray-400 hover:text-indigo-600 mr-2"
-                                            aria-label={`Descargar ${s.name}`}
-                                            title={`Descargar este escenario (${exportFormat.toUpperCase()})`}
+                                            aria-label={t("downloadAriaLabel", { name: s.name })}
+                                            title={t("downloadOneTooltip", { format: exportFormat.toUpperCase() })}
                                         >
                                             <Download className="w-4 h-4" />
                                         </button>
                                         <button
                                             onClick={() => handleDelete(s.id)}
                                             className="text-rose-500 hover:text-rose-700"
-                                            aria-label="Borrar escenario"
+                                            aria-label={t("deleteAriaLabel")}
                                         >
                                             <Trash2 className="w-4 h-4" />
                                         </button>
@@ -592,41 +594,40 @@ export default function ScenarioManager({ currentInputs, currentBaseCost, curren
                     <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xl p-6 w-full max-w-md">
                         <div className="flex items-center justify-between mb-4">
                             <h4 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                                <Save className="w-5 h-5 text-indigo-500" /> Guardar escenario
+                                <Save className="w-5 h-5 text-indigo-500" /> {t("saveModalTitle")}
                             </h4>
                             <button onClick={() => setShowSave(false)}><X className="w-5 h-5 text-gray-500" /></button>
                         </div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Nombre *</label>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">{t("nameLabel")}</label>
                         <input
                             type="text"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             maxLength={120}
-                            placeholder="Ej: Migración prod 2026Q3"
+                            placeholder={t("namePlaceholder")}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         />
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Notas (opcional)</label>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">{t("notesLabel")}</label>
                         <textarea
                             value={notes}
                             onChange={(e) => setNotes(e.target.value)}
                             rows={3}
                             maxLength={2000}
-                            placeholder="Hipótesis, supuestos, contexto..."
+                            placeholder={t("notesPlaceholder")}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         />
                         <div className="text-xs text-gray-500 bg-gray-50 dark:bg-slate-800 p-2 rounded mb-4">
-                            Inputs actuales: compute ×{currentInputs.computeScale}, storage ×{currentInputs.storageScale},
-                            network {currentInputs.networkIncrease > 0 ? "+" : ""}{currentInputs.networkIncrease}%
+                            {t("currentInputsPrefix", { compute: currentInputs.computeScale, storage: currentInputs.storageScale, network: `${currentInputs.networkIncrease > 0 ? "+" : ""}${currentInputs.networkIncrease}` })}
                             {currentInputs.applyAhb ? ", AHB ON" : ""}
                             <br />
-                            Base: <strong>{currentBaseCost ? fmt(currentBaseCost, currency) : "—"}</strong>
+                            {t("baseLabel")}: <strong>{currentBaseCost ? fmt(currentBaseCost, currency) : "—"}</strong>
                         </div>
                         <button
                             onClick={handleSave}
                             disabled={saving}
                             className="w-full py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
                         >
-                            {saving ? "Guardando..." : "Guardar escenario"}
+                            {saving ? t("savingBtn") : t("saveScenarioBtn")}
                         </button>
                     </div>
                 </div>
@@ -638,17 +639,19 @@ export default function ScenarioManager({ currentInputs, currentBaseCost, curren
                     onClose={() => setCompareOpen(false)}
                     onDownload={() => downloadComparison(selectedScenarios)}
                     exportFormat={exportFormat}
+                    t={t}
                 />
             )}
         </div>
     );
 }
 
-function CompareModal({ scenarios, onClose, onDownload, exportFormat }: {
+function CompareModal({ scenarios, onClose, onDownload, exportFormat, t }: {
     scenarios: SavedScenario[];
     onClose: () => void;
     onDownload: () => void;
     exportFormat: "csv" | "pdf" | "md";
+    t: ReturnType<typeof useTranslations>;
 }) {
     const baseline = scenarios[0];
     const gridCols = scenarios.length === 2 ? "md:grid-cols-2" : scenarios.length === 3 ? "md:grid-cols-3" : "md:grid-cols-4";
@@ -657,21 +660,21 @@ function CompareModal({ scenarios, onClose, onDownload, exportFormat }: {
             <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl p-6 w-full max-w-5xl max-h-[90vh] overflow-y-auto">
                 <div className="flex items-center justify-between mb-6">
                     <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                        <GitCompare className="w-6 h-6 text-emerald-500" /> Comparación lado-a-lado
+                        <GitCompare className="w-6 h-6 text-emerald-500" /> {t("compareModalTitle")}
                     </h3>
                     <div className="flex items-center gap-2">
                         <button
                             onClick={onDownload}
                             className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-emerald-600 text-white hover:bg-emerald-700"
-                            title={`Descargar esta comparación (${exportFormat.toUpperCase()})`}
+                            title={t("downloadComparisonTooltip", { format: exportFormat.toUpperCase() })}
                         >
-                            <Download className="w-3.5 h-3.5" /> Descargar comparación
+                            <Download className="w-3.5 h-3.5" /> {t("downloadComparisonBtn")}
                         </button>
                         <button onClick={onClose}><X className="w-5 h-5 text-gray-500" /></button>
                     </div>
                 </div>
                 <p className="text-xs text-gray-500 mb-4">
-                    Línea base: <strong>{baseline.name}</strong>. Las diferencias (Δ) se calculan respecto a ella.
+                    {t("baselineLabel", { name: baseline.name })}
                 </p>
                 <div className={`grid grid-cols-1 ${gridCols} gap-4`}>
                     {scenarios.map((s, idx) => {
@@ -685,29 +688,29 @@ function CompareModal({ scenarios, onClose, onDownload, exportFormat }: {
                             >
                                 <div className="flex items-center justify-between mb-2">
                                     <h4 className="font-semibold text-gray-900 dark:text-white text-sm">{s.name}</h4>
-                                    {isBaseline && <span className="text-[10px] bg-indigo-600 text-white px-1.5 py-0.5 rounded">BASE</span>}
+                                    {isBaseline && <span className="text-[10px] bg-indigo-600 text-white px-1.5 py-0.5 rounded">{t("baseTag")}</span>}
                                 </div>
                                 {s.notes && <p className="text-xs text-gray-500 italic mb-2">{s.notes}</p>}
                                 <dl className="text-xs space-y-1.5">
-                                    <Row label="Base" value={fmt(s.baseCost, s.currency)} />
-                                    <Row label="Proyectado" value={fmt(s.projectedCost, s.currency)} strong />
-                                    <Row label="Δ vs Base" value={`${s.deltaPct >= 0 ? "+" : ""}${s.deltaPct}%`} color={s.deltaPct >= 0 ? "rose" : "emerald"} />
+                                    <Row label={t("rowBase")} value={fmt(s.baseCost, s.currency)} />
+                                    <Row label={t("rowProjected")} value={fmt(s.projectedCost, s.currency)} strong />
+                                    <Row label={t("rowDeltaVsBase")} value={`${s.deltaPct >= 0 ? "+" : ""}${s.deltaPct}%`} color={s.deltaPct >= 0 ? "rose" : "emerald"} />
                                     {!isBaseline && (
                                         <Row
-                                            label={`Δ vs ${baseline.name.length > 12 ? baseline.name.slice(0, 12) + "…" : baseline.name}`}
+                                            label={t("rowDeltaVs", { name: baseline.name.length > 12 ? baseline.name.slice(0, 12) + "…" : baseline.name })}
                                             value={`${dProjPct >= 0 ? "+" : ""}${Math.round(dProjPct * 10) / 10}%`}
                                             color={dProjPct >= 0 ? "rose" : "emerald"}
                                         />
                                     )}
                                     <hr className="my-2 border-gray-200 dark:border-slate-700" />
-                                    <Row label="Compute" value={fmt(s.breakdown.compute, s.currency)} />
-                                    <Row label="Storage" value={fmt(s.breakdown.storage, s.currency)} />
-                                    <Row label="Network" value={fmt(s.breakdown.network, s.currency)} />
+                                    <Row label={t("rowCompute")} value={fmt(s.breakdown.compute, s.currency)} />
+                                    <Row label={t("rowStorage")} value={fmt(s.breakdown.storage, s.currency)} />
+                                    <Row label={t("rowNetwork")} value={fmt(s.breakdown.network, s.currency)} />
                                     <hr className="my-2 border-gray-200 dark:border-slate-700" />
-                                    <Row label="Compute ×" value={`${s.inputs.computeScale ?? 1}`} />
-                                    <Row label="Storage ×" value={`${s.inputs.storageScale ?? 1}`} />
-                                    <Row label="Network Δ" value={`${(s.inputs.networkIncrease ?? 0) > 0 ? "+" : ""}${s.inputs.networkIncrease ?? 0}%`} />
-                                    <Row label="AHB" value={s.inputs.applyAhb ? "ON" : "OFF"} />
+                                    <Row label={t("rowComputeScale")} value={`${s.inputs.computeScale ?? 1}`} />
+                                    <Row label={t("rowStorageScale")} value={`${s.inputs.storageScale ?? 1}`} />
+                                    <Row label={t("rowNetworkDelta")} value={`${(s.inputs.networkIncrease ?? 0) > 0 ? "+" : ""}${s.inputs.networkIncrease ?? 0}%`} />
+                                    <Row label={t("rowAhb")} value={s.inputs.applyAhb ? "ON" : "OFF"} />
                                 </dl>
                             </div>
                         );

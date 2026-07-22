@@ -108,13 +108,15 @@ export default function TenantHealthDashboard() {
                         {(data.signals || []).map((s: any) => (
                             <div key={s.key}>
                                 <div className="flex items-center justify-between mb-1">
-                                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{s.label}</span>
+                                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t(`signalLabels.${s.key}`)}</span>
                                     <span className="text-sm font-bold text-gray-900 dark:text-white">{s.score}/100 <span className="text-gray-400 font-normal">{t('weight', { weight: s.weight })}</span></span>
                                 </div>
                                 <div className="w-full h-2 rounded-full bg-gray-100 dark:bg-slate-800 overflow-hidden">
                                     <div className={`h-full rounded-full ${scoreBarColor(s.score)}`} style={{ width: `${Math.max(2, s.score)}%` }} />
                                 </div>
-                                <p className="text-xs text-gray-500 mt-1">{s.detail}</p>
+                                <p className="text-xs text-gray-500 mt-1">
+                                    {s.detailKey ? t(`signalDetails.${s.detailKey}`, s.detailParams) : t(`signalDetails.${s.key}`)}
+                                </p>
                             </div>
                         ))}
                     </div>

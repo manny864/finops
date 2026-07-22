@@ -1,10 +1,12 @@
 import React from 'react';
+import { getTranslations } from 'next-intl/server';
 import MockBanner from '@/components/MockBanner';
 import AnomalyDashboard from '@/components/dashboard/AnomalyDashboard';
 import HistoryButton from '@/components/history/HistoryButton';
 import { ShieldAlert } from 'lucide-react';
 
-export default function AnomaliesPage() {
+export default async function AnomaliesPage() {
+    const t = await getTranslations('Anomalies');
     return (
         <div className="content animate-in fade-in">
             <MockBanner />
@@ -14,12 +16,12 @@ export default function AnomaliesPage() {
                         <span className="vico bg-gradient-to-br from-red-500 to-rose-700 text-white p-2 rounded-xl">
                             <ShieldAlert className="w-5 h-5" />
                         </span>
-                        Detección de Anomalías (AI)
+                        {t('pageTitle')}
                     </div>
-                    <div className="vs">Monitoreo 24/7 estadístico (Z-Score) que dispara alertas automáticamente al detectar desviaciones financieras anómalas.</div>
+                    <div className="vs">{t('pageSubtitle')}</div>
                 </div>
                 <div className="right">
-                    <HistoryButton domain="anomalies" title="Detección de Anomalías (AI)" />
+                    <HistoryButton domain="anomalies" title={t('pageTitle')} />
                 </div>
             </div>
 

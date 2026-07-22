@@ -6,7 +6,7 @@ import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { clientTenantId, subscriptionId } = body;
+        const { clientTenantId, subscriptionId, locale } = body;
 
         if (!clientTenantId || !subscriptionId) {
             return NextResponse.json({ error: "Faltan parámetros clientTenantId o subscriptionId" }, { status: 400 });
@@ -26,7 +26,8 @@ export async function POST(request: NextRequest) {
 
         let script;
         try {
-            script = generateOnboardingScript(clientTenantId, subscriptionId, tier);
+            const scriptLocale = ['es', 'en', 'pt-BR'].includes(locale) ? locale : 'es';
+            script = generateOnboardingScript(clientTenantId, subscriptionId, tier, scriptLocale);
         } catch (err) {
             return NextResponse.json({ error: (err as Error).message }, { status: 400 });
         }

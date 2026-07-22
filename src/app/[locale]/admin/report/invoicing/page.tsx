@@ -4,7 +4,7 @@ import MockBanner from '@/components/MockBanner';
 import InvoicingReportPanel from "@/components/dashboard/InvoicingReportPanel";
 
 export default async function InvoicingReportPage() {
-    const t = await getTranslations("Navigation");
+    const t = await getTranslations("Invoicing");
 
     return (
         <div className="content animate-in fade-in">
@@ -13,9 +13,9 @@ export default async function InvoicingReportPage() {
                 <div>
                     <div className="vt">
                         <span className="vico bg-gradient-to-br from-[#0054A6] to-[#00AEEF]">🧾</span>
-                        Invoicing Report
+                        {t('pageTitle')}
                     </div>
-                    <div className="vs">Reporte de facturación con markup para clientes PBI (Business+)</div>
+                    <div className="vs">{t('pageSubtitle')}</div>
                 </div>
             </div>
 

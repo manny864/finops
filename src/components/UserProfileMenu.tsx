@@ -108,7 +108,7 @@ export default function UserProfileMenu() {
         try {
             const headers = await authHeaders();
             const res = await fetch("/api/profile/avatar", { headers });
-            if (!res.ok) {
+            if (!res.ok || res.status === 204) {
                 setCustomAvatarUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return null; });
                 return;
             }
