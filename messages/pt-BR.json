@@ -489,7 +489,9 @@
     "anomaly_detection": "Detecção de Anomalias",
     "optimization_index": "Índice de Otimização (COIN)",
     "tenant_health": "Saúde do Tenant",
-    "simulator_whatif": "Simulador (What-If)"
+    "simulator_whatif": "Simulador (What-If)",
+    "policies_autoblock": "Políticas (Auto-Block)",
+    "approvals": "Aprovações"
   },
   "Dashboard": {
     "title": "Dashboard Geral",
@@ -1552,7 +1554,11 @@
       "low_capacity": "Capacidade insuficiente"
     },
     "remediate": "Remediar",
-    "noIssues": "Nenhum problema de alta disponibilidade detectado."
+    "noIssues": "Nenhum problema de alta disponibilidade detectado.",
+    "resourceType": "Tipo de Recurso",
+    "risk": "Risco",
+    "loading": "Carregando...",
+    "errorPrefix": "Erro:"
   },
   "Credentials": {
     "tierLockedFeatureName": "Credenciais a Expirar",
@@ -1585,7 +1591,37 @@
     "alertCancel": "Cancelar",
     "alertCreated": "Alerta criado. Será avaliado diariamente.",
     "alertInvalidForm": "Verifique os campos: dias entre 1 e 365 e um destino válido.",
-    "alertError": "Não foi possível criar o alerta."
+    "alertError": "Não foi possível criar o alerta.",
+    "loading": "Carregando...",
+    "errorPrefix": "Erro:",
+    "tabCredentials": "Credenciais",
+    "tabRules": "Alertas Configurados",
+    "rulesEmpty": "Você ainda não configurou nenhum alerta de expiração de credenciais.",
+    "colName": "Nome",
+    "colThreshold": "Limite",
+    "colRecurrence": "Recorrência",
+    "colChannel": "Canal",
+    "colTarget": "Destino",
+    "colLastTriggered": "Última vez disparada",
+    "colActions": "Ações",
+    "daysAmount": "{days} dias",
+    "recurrenceOnce": "Apenas uma vez",
+    "recurrenceWeekly": "Semanal",
+    "recurrenceDaily": "Diária",
+    "recurrenceEveryHours": "A cada {hours}h",
+    "never": "Nunca",
+    "testBtn": "Testar",
+    "testTooltip": "Enviar uma notificação de teste agora",
+    "deleteTooltip": "Excluir este alerta",
+    "confirmDeleteAlert": "Excluir este alerta?",
+    "alertDeleted": "Alerta excluído.",
+    "alertDeleteError": "Não foi possível excluir o alerta.",
+    "testDemoSent": "[SIMULAÇÃO DEMO] Notificação de teste enviada.",
+    "serverUnavailable": "O servidor não está disponível no momento.",
+    "testSendError": "Não foi possível enviar o teste.",
+    "testSent": "Teste enviado ({count} credencial(is) incluída(s)).",
+    "alertRecurrenceLabel": "Recorrência do lembrete",
+    "recurrenceDailyOption": "Diária (enquanto continuar expirando)"
   },
   "CopilotM365": {
     "loading": "Carregando configuração do M365 Copilot...",
@@ -4356,5 +4392,9 @@
     "toastDeleteError": "Erro ao excluir.",
     "toastDeleted": "Cenário excluído.",
     "toastMaxCompare": "Máximo de 4 cenários para comparar."
+  },
+  "Policies": {
+    "title": "Políticas (Auto-Block)",
+    "subtitle": "Implante restrições automatizadas via Azure Policy para evitar gastos indesejados desde o momento do provisionamento."
   }
 }

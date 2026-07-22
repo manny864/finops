@@ -489,7 +489,9 @@
     "anomaly_detection": "Anomaly Detection",
     "optimization_index": "Optimization Index (COIN)",
     "tenant_health": "Tenant Health",
-    "simulator_whatif": "Simulator (What-If)"
+    "simulator_whatif": "Simulator (What-If)",
+    "policies_autoblock": "Policies (Auto-Block)",
+    "approvals": "Approvals"
   },
   "Dashboard": {
     "title": "General Dashboard",
@@ -1552,7 +1554,11 @@
       "low_capacity": "Insufficient capacity"
     },
     "remediate": "Remediate",
-    "noIssues": "No high availability issues detected."
+    "noIssues": "No high availability issues detected.",
+    "resourceType": "Resource Type",
+    "risk": "Risk",
+    "loading": "Loading...",
+    "errorPrefix": "Error:"
   },
   "Credentials": {
     "tierLockedFeatureName": "Expiring Credentials",
@@ -1585,7 +1591,37 @@
     "alertCancel": "Cancel",
     "alertCreated": "Alert created. It will be evaluated daily.",
     "alertInvalidForm": "Check the fields: days between 1 and 365, and a valid target.",
-    "alertError": "Could not create the alert."
+    "alertError": "Could not create the alert.",
+    "loading": "Loading...",
+    "errorPrefix": "Error:",
+    "tabCredentials": "Credentials",
+    "tabRules": "Configured Alerts",
+    "rulesEmpty": "You haven't configured any credential expiry alerts yet.",
+    "colName": "Name",
+    "colThreshold": "Threshold",
+    "colRecurrence": "Recurrence",
+    "colChannel": "Channel",
+    "colTarget": "Target",
+    "colLastTriggered": "Last triggered",
+    "colActions": "Actions",
+    "daysAmount": "{days} days",
+    "recurrenceOnce": "Once only",
+    "recurrenceWeekly": "Weekly",
+    "recurrenceDaily": "Daily",
+    "recurrenceEveryHours": "Every {hours}h",
+    "never": "Never",
+    "testBtn": "Test",
+    "testTooltip": "Send a test notification now",
+    "deleteTooltip": "Delete this alert",
+    "confirmDeleteAlert": "Delete this alert?",
+    "alertDeleted": "Alert deleted.",
+    "alertDeleteError": "Could not delete the alert.",
+    "testDemoSent": "[DEMO SIMULATION] Test notification sent.",
+    "serverUnavailable": "The server is currently unavailable.",
+    "testSendError": "Could not send the test.",
+    "testSent": "Test sent ({count} credential(s) included).",
+    "alertRecurrenceLabel": "Reminder recurrence",
+    "recurrenceDailyOption": "Daily (while still expiring)"
   },
   "CopilotM365": {
     "loading": "Loading M365 Copilot configuration...",
@@ -4356,5 +4392,9 @@
     "toastDeleteError": "Error deleting.",
     "toastDeleted": "Scenario deleted.",
     "toastMaxCompare": "Maximum 4 scenarios to compare."
+  },
+  "Policies": {
+    "title": "Policies (Auto-Block)",
+    "subtitle": "Deploy automated guardrails via Azure Policy to prevent unwanted spend from the moment of provisioning."
   }
 }
