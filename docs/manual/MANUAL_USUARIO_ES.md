@@ -559,12 +559,12 @@ El cambio de plan (ver sección 8.4) tiene 3 modos de prorrateo posibles al hace
 
 Desde `/admin/billing` también accedés al **portal de gestión de pago** (actualizar tarjeta) y al **historial de facturas** descargables.
 
-### 11.8. Trial gratuito de 14 días (autoservicio)
+### 11.8. Trial gratuito de 7 días (autoservicio)
 
-Si te registraste vos mismo desde la página de precios (sin pasar por un onboarding asistido por el equipo de CSCloudSolutions), tu cuenta arranca con un **trial de 14 días** sobre el plan que elegiste. Vas a ver un banner de estado del trial en la parte superior de la plataforma:
+Si te registraste vos mismo desde la página de precios (sin pasar por un onboarding asistido por el equipo de CSCloudSolutions), tu cuenta arranca con un **trial de 7 días** sobre el plan que elegiste. Vas a ver un banner de estado del trial en la parte superior de la plataforma:
 
-- 🔵 Azul: más de 7 días restantes.
-- 🟡 Amarillo: entre 3 y 7 días restantes.
+- 🔵 Azul: 5 días o más restantes.
+- 🟡 Amarillo: entre 3 y 4 días restantes.
 - 🔴 Rojo: 2 días o menos — este no se puede descartar.
 
 Podés upgradear a plan pago en cualquier momento desde **Facturación** — el trial se convierte inmediatamente en suscripción activa. Si el trial expira sin upgrade, la cuenta queda en modo de acceso limitado hasta que actives un plan pago.

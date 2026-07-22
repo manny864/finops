@@ -565,12 +565,12 @@ A mudança de plano (veja seção 8.4) tem 3 modos possíveis de rateio ao fazer
 
 Em `/admin/billing` você também acessa o **portal de gestão de pagamento** (atualizar cartão) e o **histórico de faturas** para download.
 
-### 11.8. Teste gratuito de 14 dias (autoatendimento)
+### 11.8. Teste gratuito de 7 dias (autoatendimento)
 
-Se você se cadastrou sozinho pela página de preços (sem passar pelo onboarding de um SuperAdmin), sua conta começa com um **teste de 14 dias** no plano que você escolheu. Você verá um banner de status do teste no topo da plataforma:
+Se você se cadastrou sozinho pela página de preços (sem passar pelo onboarding de um SuperAdmin), sua conta começa com um **teste de 7 dias** no plano que você escolheu. Você verá um banner de status do teste no topo da plataforma:
 
-- 🔵 Azul: mais de 7 dias restantes.
-- 🟡 Amarelo: entre 3 e 7 dias restantes.
+- 🔵 Azul: 5 dias ou mais restantes.
+- 🟡 Amarelo: entre 3 e 4 dias restantes.
 - 🔴 Vermelho: 2 dias ou menos — este não pode ser dispensado.
 
 Você pode fazer upgrade para um plano pago a qualquer momento em **Faturamento** — o teste se converte imediatamente em assinatura ativa. Se o teste expirar sem upgrade, a conta passa para modo de acesso limitado até você ativar um plano pago.
