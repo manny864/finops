@@ -4,13 +4,14 @@ import { useTranslations } from "next-intl";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
-import { Bell, Plus, Trash2, Loader2, MessageCircle, Mail, CheckCircle, AlertCircle, Zap, X } from "lucide-react";
+import { Bell, Plus, Trash2, Loader2, MessageCircle, Mail, CheckCircle, AlertCircle, Zap, X, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 interface Channel {
     id: number;
     type: "slack" | "teams" | "email";
     name: string;
+    config_json?: { webhook_url?: string; recipients?: string[] };
     severity_filter: string;
     enabled: boolean;
     created_at: string;
@@ -33,6 +34,8 @@ export default function NotificationsPage() {
         severityFilter: string;
     }>({ name: "", severityFilter: "info,warning,error" });
     const [creating, setCreating] = useState(false);
+    // editingId: null = modo creación; number = editando ese canal existente.
+    const [editingId, setEditingId] = useState<number | null>(null);
     const [testing, setTesting] = useState<number | null>(null);
     const [notificationsEnabled, setNotificationsEnabled] = useState(true);
     const [togglingMaster, setTogglingMaster] = useState(false);
@@ -129,6 +132,71 @@ export default function NotificationsPage() {
         }
     };
 
+    const openEdit = (ch: Channel) => {
+        setEditingId(ch.id);
+        setSelectedType(ch.type);
+        setError(null);
+        setFormData({
+            name: ch.name,
+            webhookUrl: ch.config_json?.webhook_url || "",
+            recipients: ch.config_json?.recipients?.length ? [...ch.config_json.recipients] : [""],
+            severityFilter: ch.severity_filter || "info,warning,error",
+        });
+        setShowModal(true);
+    };
+
+    const updateChannel = async () => {
+        if (editingId == null || !selectedType || !formData.name.trim()) {
+            setError(t("errors.nameRequired"));
+            return;
+        }
+        if (!selectedTenant?.id) return;
+
+        let config_json: any = {};
+        if (selectedType === "slack" || selectedType === "teams") {
+            if (!formData.webhookUrl?.trim()) {
+                setError(t("errors.webhookUrlRequired"));
+                return;
+            }
+            config_json = { webhook_url: formData.webhookUrl.trim() };
+        } else if (selectedType === "email") {
+            const recipientList = formData.recipients?.filter((r) => r.trim()) || [];
+            if (recipientList.length === 0) {
+                setError(t("errors.recipientRequired"));
+                return;
+            }
+            config_json = { recipients: recipientList };
+        }
+
+        setCreating(true);
+        setError(null);
+        try {
+            const headers = { "Content-Type": "application/json", ...(await authHeaders()) };
+            const res = await fetch(`/api/admin/notifications/channels/${editingId}`, {
+                method: "PUT",
+                headers,
+                body: JSON.stringify({
+                    tenantId: selectedTenant.id,
+                    name: formData.name.trim(),
+                    config_json,
+                    severity_filter: formData.severityFilter,
+                }),
+            });
+            const json = await res.json();
+            if (!json.success) {
+                setError(json.error || t("errors.updateFailed"));
+            } else {
+                toast.success(t("toasts.channelUpdated"));
+                closeModal();
+                await loadChannels();
+            }
+        } catch (e: any) {
+            setError(e?.message);
+        } finally {
+            setCreating(false);
+        }
+    };
+
     const deleteChannel = async (id: number) => {
         if (!confirm(t("deleteConfirm"))) return;
 
@@ -154,6 +222,7 @@ export default function NotificationsPage() {
     const closeModal = () => {
         setShowModal(false);
         setSelectedType(null);
+        setEditingId(null);
         setFormData({ name: "", severityFilter: "info,warning,error" });
         setError(null);
     };
@@ -361,6 +430,14 @@ export default function NotificationsPage() {
                                                 {t("activeChannels.test")}
                                             </button>
                                             <button
+                                                onClick={() => openEdit(ch)}
+                                                aria-label={t("editChannel")}
+                                                title={t("editChannel")}
+                                                className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200"
+                                            >
+                                                <Pencil className="w-3 h-3" />
+                                            </button>
+                                            <button
                                                 onClick={() => deleteChannel(ch.id)}
                                                 className="text-xs px-2 py-1 rounded bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 hover:bg-red-200"
                                             >
@@ -387,7 +464,7 @@ export default function NotificationsPage() {
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-md w-full mx-4 p-6">
                         <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-lg font-semibold">{t("modal.title")}</h3>
+                            <h3 className="text-lg font-semibold">{editingId != null ? t("modal.editTitle") : t("modal.title")}</h3>
                             <button
                                 onClick={closeModal}
                                 aria-label={t("modal.close")}
@@ -442,12 +519,14 @@ export default function NotificationsPage() {
                             </div>
                         ) : (
                             <div className="space-y-4">
-                                <button
-                                    onClick={() => setSelectedType(null)}
-                                    className="text-sm text-blue-600 hover:text-blue-800 mb-2"
-                                >
-                                    {t("modal.back")}
-                                </button>
+                                {editingId == null && (
+                                    <button
+                                        onClick={() => setSelectedType(null)}
+                                        className="text-sm text-blue-600 hover:text-blue-800 mb-2"
+                                    >
+                                        {t("modal.back")}
+                                    </button>
+                                )}
 
                                 <div>
                                     <label className="block text-xs font-medium mb-1">{t("modal.channelNameLabel")}</label>
@@ -520,12 +599,12 @@ export default function NotificationsPage() {
                                         {t("modal.cancel")}
                                     </button>
                                     <button
-                                        onClick={createChannel}
+                                        onClick={editingId != null ? updateChannel : createChannel}
                                         disabled={creating || !formData.name.trim()}
                                         className="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded px-3 py-2 text-sm disabled:opacity-50 flex items-center justify-center gap-2"
                                     >
-                                        {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                                        {t("modal.create")}
+                                        {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : (editingId != null ? <Pencil className="w-4 h-4" /> : <Plus className="w-4 h-4" />)}
+                                        {editingId != null ? t("modal.save") : t("modal.create")}
                                     </button>
                                 </div>
                             </div>

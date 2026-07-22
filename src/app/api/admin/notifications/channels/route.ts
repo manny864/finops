@@ -17,11 +17,17 @@ export async function GET(request: NextRequest) {
 
         await requireTenantAccess(request, tenantId);
 
-        const [rows] = await pool.query(
-            `SELECT id, type, name, severity_filter, enabled, created_at, updated_at
+        const [rawRows] = await pool.query(
+            `SELECT id, type, name, config_json, severity_filter, enabled, created_at, updated_at
              FROM NotificationChannels WHERE tenant_id=? ORDER BY created_at DESC LIMIT 200`,
             [tenantId]
         );
+        // config_json llega como string o como objeto según el driver — normalizamos
+        // a objeto para que el form de edición pueda prellenar webhook_url / recipients.
+        const rows = (rawRows as any[]).map((r) => ({
+            ...r,
+            config_json: typeof r.config_json === "string" ? JSON.parse(r.config_json || "{}") : (r.config_json || {}),
+        }));
 
         const [tenantRows] = await pool.query(
             "SELECT notifications_enabled FROM Tenants WHERE tenant_id = ? LIMIT 1",
