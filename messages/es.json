@@ -2723,7 +2723,8 @@
       "deleteFailed": "No se pudo eliminar el canal",
       "testFailed": "No se pudo enviar la prueba",
       "toggleFailed": "No se pudo cambiar el estado del canal",
-      "toggleMasterFailed": "No se pudo cambiar el estado"
+      "toggleMasterFailed": "No se pudo cambiar el estado",
+      "updateFailed": "No se pudo actualizar el canal"
     },
     "toasts": {
       "channelCreated": "Canal creado con éxito",
@@ -2732,7 +2733,8 @@
       "channelEnabled": "Canal habilitado",
       "channelDisabled": "Canal deshabilitado",
       "notificationsEnabled": "Notificaciones habilitadas",
-      "notificationsDisabled": "Notificaciones deshabilitadas"
+      "notificationsDisabled": "Notificaciones deshabilitadas",
+      "channelUpdated": "Canal actualizado"
     },
     "masterSwitch": {
       "label": "Habilitar notificaciones",
@@ -2777,8 +2779,11 @@
       "email": {
         "name": "Email",
         "description": "Enviar vía SMTP"
-      }
-    }
+      },
+      "editTitle": "Editar Canal de Notificación",
+      "save": "Guardar cambios"
+    },
+    "editChannel": "Editar canal"
   },
   "Academy": {
     "loading": "Cargando módulos de la Academia FinOps...",

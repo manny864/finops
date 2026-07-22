@@ -2723,7 +2723,8 @@
       "deleteFailed": "Failed to delete channel",
       "testFailed": "Failed to send test",
       "toggleFailed": "Failed to toggle channel",
-      "toggleMasterFailed": "Could not change the setting"
+      "toggleMasterFailed": "Could not change the setting",
+      "updateFailed": "Could not update the channel"
     },
     "toasts": {
       "channelCreated": "Channel created successfully",
@@ -2732,7 +2733,8 @@
       "channelEnabled": "Channel enabled",
       "channelDisabled": "Channel disabled",
       "notificationsEnabled": "Notifications enabled",
-      "notificationsDisabled": "Notifications disabled"
+      "notificationsDisabled": "Notifications disabled",
+      "channelUpdated": "Channel updated"
     },
     "masterSwitch": {
       "label": "Enable notifications",
@@ -2777,8 +2779,11 @@
       "email": {
         "name": "Email",
         "description": "Send via SMTP"
-      }
-    }
+      },
+      "editTitle": "Edit Notification Channel",
+      "save": "Save changes"
+    },
+    "editChannel": "Edit channel"
   },
   "Academy": {
     "loading": "Loading FinOps Academy modules...",
