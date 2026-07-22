@@ -1,3 +1,11 @@
+<div class="cover">
+<img src="../../public/CSCloudSolutions.png" alt="CSCloudSolutions" class="cover-logo" width="360" />
+<h1 class="cover-title">Manual de SuperAdmin</h1>
+<p class="cover-sub">FinOps SaaS · CSCloudSolutions</p>
+<p class="cover-meta">Versión 2.0 · Julio 2026</p>
+<p class="cover-copyright">© 2026 CSCloudSolutions. Todos los derechos reservados.</p>
+</div>
+
 # 📘 Manual de SuperAdmin — FinOps SaaS (CSCloudSolutions)
 
 **Versión:** 2.0 (detallada)

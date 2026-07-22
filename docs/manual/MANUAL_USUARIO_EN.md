@@ -1,3 +1,11 @@
+<div class="cover">
+<img src="../../public/CSCloudSolutions.png" alt="CSCloudSolutions" class="cover-logo" width="360" />
+<h1 class="cover-title">User Manual</h1>
+<p class="cover-sub">FinOps SaaS · CSCloudSolutions</p>
+<p class="cover-meta">Version 2.0 · July 2026</p>
+<p class="cover-copyright">© 2026 CSCloudSolutions. All rights reserved.</p>
+</div>
+
 # 📘 User Manual — FinOps SaaS (CSCloudSolutions)
 
 **Version:** 2.0 (detailed)
