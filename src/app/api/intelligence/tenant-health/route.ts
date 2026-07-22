@@ -116,20 +116,23 @@ export async function GET(request: NextRequest) {
             grade: scoreToGrade(overallScore),
             signals: [
                 {
-                    key: "budget", label: "Cumplimiento de Presupuesto", score: budgetScore, weight: WEIGHTS.budget,
-                    detail: burnPct === null ? "Sin presupuesto configurado este mes" : `${burnPct.toFixed(0)}% del presupuesto consumido`,
+                    key: "budget", score: budgetScore, weight: WEIGHTS.budget,
+                    detailKey: burnPct === null ? "budgetNone" : "budgetConfigured",
+                    detailParams: burnPct === null ? undefined : { pct: burnPct.toFixed(0) },
                 },
                 {
-                    key: "credentials", label: "Credenciales por Expirar", score: credentialsScore, weight: WEIGHTS.credentials,
-                    detail: `${expiringCount} credencial(es) vencen en los próximos 30 días`,
+                    key: "credentials", score: credentialsScore, weight: WEIGHTS.credentials,
+                    detailKey: "credentialsCount", detailParams: { count: expiringCount },
                 },
                 {
-                    key: "optimization", label: "Índice de Optimización (COIN)", score: optimizationScore, weight: WEIGHTS.optimization,
-                    detail: coinTotal > 0 ? `${coinImplemented}/${coinTotal} recomendaciones implementadas (90 días)` : "Sin recomendaciones gestionadas todavía",
+                    key: "optimization", score: optimizationScore, weight: WEIGHTS.optimization,
+                    detailKey: coinTotal > 0 ? "optimizationProgress" : "optimizationNone",
+                    detailParams: coinTotal > 0 ? { done: coinImplemented, total: coinTotal } : undefined,
                 },
                 {
-                    key: "security", label: "Postura de Seguridad (MFA)", score: securityScore, weight: WEIGHTS.security,
-                    detail: mfaTotal > 0 ? `${mfaWith}/${mfaTotal} administradores con MFA activo` : "Sin usuarios Admin registrados",
+                    key: "security", score: securityScore, weight: WEIGHTS.security,
+                    detailKey: mfaTotal > 0 ? "securityActive" : "securityNone",
+                    detailParams: mfaTotal > 0 ? { withMfa: mfaWith, total: mfaTotal } : undefined,
                 },
             ],
         });

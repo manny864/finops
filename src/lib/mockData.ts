@@ -726,12 +726,12 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                 overallScore: score,
                 grade: score >= 85 ? 'A' : score >= 70 ? 'B' : score >= 50 ? 'C' : 'D',
                 signals: [
-                    { key: 'tagging', label: 'Cumplimiento de Etiquetas', score: Math.min(100, 50 + maturityBoost * 2), weight: 20, detail: 'Recursos con tags obligatorios completos' },
-                    { key: 'waste', label: 'Recursos Zombis', score: Math.max(20, 85 - multiplier), weight: 20, detail: 'Inventario sin desperdicio detectado' },
-                    { key: 'budget', label: 'Cumplimiento de Presupuesto', score: Math.min(100, 60 + maturityBoost), weight: 20, detail: 'Burn rate vs. presupuesto asignado' },
-                    { key: 'credentials', label: 'Credenciales por Expirar', score: Math.min(100, 65 + maturityBoost), weight: 15, detail: 'Secrets/certificados dentro de la ventana segura' },
-                    { key: 'savings', label: 'Ahorro Aplicado vs Potencial', score: Math.min(100, 35 + maturityBoost * 2), weight: 15, detail: 'Recomendaciones implementadas sobre el total detectado' },
-                    { key: 'security', label: 'Postura de Seguridad (MFA)', score: Math.min(100, 72 + maturityBoost), weight: 10, detail: 'Usuarios administradores con MFA activo' },
+                    { key: 'tagging', score: Math.min(100, 50 + maturityBoost * 2), weight: 20 },
+                    { key: 'waste', score: Math.max(20, 85 - multiplier), weight: 20 },
+                    { key: 'budget', score: Math.min(100, 60 + maturityBoost), weight: 20 },
+                    { key: 'credentials', score: Math.min(100, 65 + maturityBoost), weight: 15 },
+                    { key: 'savings', score: Math.min(100, 35 + maturityBoost * 2), weight: 15 },
+                    { key: 'security', score: Math.min(100, 72 + maturityBoost), weight: 10 },
                 ],
                 trend: Array.from({ length: 6 }).map((_, i) => {
                     const d = new Date();

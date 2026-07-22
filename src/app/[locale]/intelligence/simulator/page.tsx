@@ -1,6 +1,7 @@
 "use client";
 import MockBanner from '@/components/MockBanner';
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -12,6 +13,7 @@ import ScenarioManager from '@/components/simulator/ScenarioManager';
 import { isMockTenant } from '@/lib/mockData';
 
 export default function SimulatorPage() {
+    const t = useTranslations('Simulator');
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const isEnterprise = hasAccess(selectedTenant.tier || 'Essential', 'Enterprise');
@@ -95,13 +97,13 @@ export default function SimulatorPage() {
             const json = await res.json();
             if (res.ok) {
                 setSimulationData(json.simulation);
-                toast.success("Simulación completada.");
+                toast.success(t('toastSuccess'));
             } else {
-                toast.error(json.error || "Fallo en simulación.");
+                toast.error(json.error || t('toastFailDefault'));
             }
         } catch (e) {
             console.error(e);
-            toast.error("Error al conectar con la API de Simulación.");
+            toast.error(t('toastConnError'));
         } finally {
             setLoading(false);
         }
@@ -114,13 +116,12 @@ export default function SimulatorPage() {
             <div className="p-6">
                 <div className="bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-900/50 rounded-xl p-8 text-center max-w-2xl mx-auto shadow-sm">
                     <Calculator className="w-12 h-12 text-amber-500 mx-auto mb-4" />
-                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Simulador de Escenarios (What-If)</h2>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{t('lockedTitle')}</h2>
                     <p className="text-gray-600 dark:text-gray-400 mb-6">
-                        Proyecta costos futuros basados en cambios de arquitectura, incrementos de tráfico o migraciones a gran escala.
-                        Esta característica está disponible exclusivamente en el plan <b>Enterprise</b>.
+                        {t('lockedDesc')} <b>Enterprise</b>.
                     </p>
                     <button className="px-6 py-3 bg-brand-deep text-white font-bold rounded-lg shadow hover:bg-brand-bright transition-colors">
-                        Actualizar Plan
+                        {t('lockedCta')}
                     </button>
                 </div>
             </div>
@@ -129,13 +130,13 @@ export default function SimulatorPage() {
 
     const chartData = simulationData ? [
         {
-            name: 'Actual',
+            name: t('chartActual'),
             Compute: simulationData.baseCost * 0.6,
             Storage: simulationData.baseCost * 0.25,
             Network: simulationData.baseCost * 0.15,
         },
         {
-            name: 'Proyectado',
+            name: t('chartProjected'),
             Compute: simulationData.breakdown.compute,
             Storage: simulationData.breakdown.storage,
             Network: simulationData.breakdown.network,
@@ -148,10 +149,10 @@ export default function SimulatorPage() {
             <div className="mb-8">
                 <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white flex items-center gap-3">
                     <Calculator className="w-8 h-8 text-indigo-500" />
-                    Simulador de Escenarios
+                    {t('pageTitle')}
                 </h1>
                 <p className="text-gray-500 dark:text-gray-400 mt-2">
-                    Modela el impacto financiero de cambios arquitectónicos antes de ejecutarlos.
+                    {t('pageSubtitle')}
                 </p>
             </div>
 
@@ -160,7 +161,7 @@ export default function SimulatorPage() {
                 <div className="lg:col-span-1 flex flex-col gap-6">
                     <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-6">
                         <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6 border-b border-gray-100 dark:border-slate-800 pb-3">
-                            Variables del Escenario
+                            {t('variablesTitle')}
                         </h3>
 
                         <div className="flex flex-col gap-6">
@@ -168,7 +169,7 @@ export default function SimulatorPage() {
                             <div className="flex flex-col gap-2">
                                 <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
                                     <DollarSign className="w-4 h-4 text-emerald-600" />
-                                    Costo Base
+                                    {t('baseCostLabel')}
                                 </label>
                                 <div className="flex items-center gap-2">
                                     <div className="relative flex-1">
@@ -196,7 +197,7 @@ export default function SimulatorPage() {
                                         <button
                                             type="button"
                                             onClick={() => { setBaseCost(realBaseCost); setBaseCostEdited(false); }}
-                                            title="Restaurar costo real del tenant"
+                                            title={t('restoreCostTooltip')}
                                             className="p-2 text-gray-400 hover:text-brand-deep rounded-lg border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800"
                                         >
                                             <RotateCcw className="w-4 h-4" />
@@ -205,8 +206,8 @@ export default function SimulatorPage() {
                                 </div>
                                 <p className="text-[11px] text-gray-400">
                                     {baseCostEdited
-                                        ? "Valor personalizado — no es el gasto real del tenant."
-                                        : "Gasto real de los últimos 30 días. Editalo para simular otro punto de partida."}
+                                        ? t('baseCostEditedHint')
+                                        : t('baseCostRealHint')}
                                 </p>
                             </div>
 
@@ -214,7 +215,7 @@ export default function SimulatorPage() {
                             <div className="flex flex-col gap-2">
                                 <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
                                     <Cpu className="w-4 h-4 text-brand-deep" />
-                                    Crecimiento de Cómputo (VMs/AKS)
+                                    {t('computeLabel')}
                                 </label>
                                 <div className="flex items-center gap-4">
                                     <input 
@@ -230,7 +231,7 @@ export default function SimulatorPage() {
                             <div className="flex flex-col gap-2">
                                 <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
                                     <Network className="w-4 h-4 text-emerald-500" />
-                                    Aumento Egress de Red
+                                    {t('networkLabel')}
                                 </label>
                                 <div className="flex items-center gap-4">
                                     <input 
@@ -246,7 +247,7 @@ export default function SimulatorPage() {
                             <div className="flex flex-col gap-2">
                                 <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
                                     <HardDrive className="w-4 h-4 text-amber-500" />
-                                    Expansión de Almacenamiento
+                                    {t('storageLabel')}
                                 </label>
                                 <div className="flex items-center gap-4">
                                     <input 
@@ -263,8 +264,8 @@ export default function SimulatorPage() {
                                 <div className="flex items-center gap-2">
                                     <ShieldCheck className="w-5 h-5 text-indigo-500" />
                                     <div className="flex flex-col">
-                                        <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Aplicar Licencias (AHB)</span>
-                                        <span className="text-[10px] text-gray-500">Trae tus propias licencias de Win/SQL</span>
+                                        <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('ahbLabel')}</span>
+                                        <span className="text-[10px] text-gray-500">{t('ahbHint')}</span>
                                     </div>
                                 </div>
                                 <label className="relative inline-flex items-center cursor-pointer">
@@ -278,7 +279,7 @@ export default function SimulatorPage() {
                                 disabled={loading || baseCostLoading || !baseCost}
                                 className="mt-4 w-full py-3 bg-brand-deep hover:bg-brand-bright text-white font-bold rounded-lg shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                             >
-                                {loading ? <span className="animate-pulse">Calculando...</span> : <><Play className="w-4 h-4" /> Ejecutar Simulación</>}
+                                {loading ? <span className="animate-pulse">{t('runningButton')}</span> : <><Play className="w-4 h-4" /> {t('runButton')}</>}
                             </button>
                         </div>
                     </div>
@@ -288,18 +289,18 @@ export default function SimulatorPage() {
                 <div className="lg:col-span-2">
                     {simulationData ? (
                         <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-6 flex flex-col h-full animate-in zoom-in-95 duration-300">
-                            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6">Impacto Financiero Proyectado</h3>
-                            
+                            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6">{t('resultsTitle')}</h3>
+
                             <div className="grid grid-cols-2 gap-4 mb-8">
                                 <div className="p-4 bg-gray-50 dark:bg-slate-800/50 rounded-lg border border-gray-100 dark:border-slate-700">
-                                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Costo Base (Actual)</p>
+                                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">{t('baseCostResultLabel')}</p>
                                     <p className="text-3xl font-black text-gray-800 dark:text-gray-100">
                                         {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(simulationData.baseCost)}
                                     </p>
                                 </div>
                                 <div className={`p-4 rounded-lg border ${simulationData.projectedCost > simulationData.baseCost ? 'bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800/50' : 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800/50'}`}>
                                     <p className={`text-xs font-bold uppercase tracking-wider mb-1 ${simulationData.projectedCost > simulationData.baseCost ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                                        Costo Proyectado
+                                        {t('projectedCostLabel')}
                                     </p>
                                     <div className="flex items-end gap-3">
                                         <p className={`text-3xl font-black ${simulationData.projectedCost > simulationData.baseCost ? 'text-rose-700 dark:text-rose-300' : 'text-emerald-700 dark:text-emerald-300'}`}>
@@ -334,9 +335,9 @@ export default function SimulatorPage() {
                     ) : (
                         <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-6 flex flex-col items-center justify-center h-full min-h-[400px] text-center">
                             <Calculator className="w-16 h-16 text-gray-300 dark:text-gray-700 mb-4" />
-                            <h3 className="text-xl font-bold text-gray-500 dark:text-gray-400 mb-2">Listo para Simular</h3>
+                            <h3 className="text-xl font-bold text-gray-500 dark:text-gray-400 mb-2">{t('readyTitle')}</h3>
                             <p className="text-gray-400 dark:text-gray-500 max-w-sm">
-                                Ajusta los parámetros en el panel izquierdo y haz clic en "Ejecutar Simulación" para ver el impacto financiero.
+                                {t('readyDesc')}
                             </p>
                         </div>
                     )}
