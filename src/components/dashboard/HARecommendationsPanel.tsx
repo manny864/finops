@@ -53,13 +53,13 @@ export default function HARecommendationsPanel() {
     const { page, setPage, pageSize, setPageSize, total, totalPages, paged } = usePagination(items, 10);
 
     if (!selectedTenant || selectedTenant.id === 'default') return null;
-    if (isLoading) return <div className="flex items-center justify-center py-16"><Loader2 className="w-7 h-7 animate-spin text-brand-deep mr-3" /><span className="text-gray-500">Cargando...</span></div>;
+    if (isLoading) return <div className="flex items-center justify-center py-16"><Loader2 className="w-7 h-7 animate-spin text-brand-deep mr-3" /><span className="text-gray-500">{t('loading')}</span></div>;
     if (error) {
         const requiredTier = parseTierRequiredError(error.message);
         if (requiredTier) {
             return <TierLockedNotice requiredTier={requiredTier} currentTier={(selectedTenant as any)?.tier} featureName={t('tierLockedFeatureName')} />;
         }
-        return <div className="bg-red-50 dark:bg-red-900/20 text-red-600 p-4 rounded-lg"><b>Error:</b> {error.message}</div>;
+        return <div className="bg-red-50 dark:bg-red-900/20 text-red-600 p-4 rounded-lg"><b>{t('errorPrefix')}</b> {error.message}</div>;
     }
 
     return (
@@ -84,10 +84,10 @@ export default function HARecommendationsPanel() {
                     <thead className="bg-gray-50 dark:bg-slate-800/50 text-xs text-slate-500 dark:text-slate-400">
                         <tr>
                             <th className="px-4 py-3 font-semibold">{t('resource')}</th>
-                            <th className="px-4 py-3 font-semibold">Tipo de Recurso</th>
+                            <th className="px-4 py-3 font-semibold">{t('resourceType')}</th>
                             <th className="px-4 py-3 font-semibold">{t('issue')}</th>
                             <th className="px-4 py-3 font-semibold">{t('severity')}</th>
-                            <th className="px-4 py-3 font-semibold">Riesgo</th>
+                            <th className="px-4 py-3 font-semibold">{t('risk')}</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-slate-800/50">
