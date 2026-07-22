@@ -353,7 +353,7 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
                     <img
                         src={`/api/tenant-logo/${selectedTenant.id}`}
                         alt={selectedTenant.name}
-                        className="max-h-[120px] max-w-[180px] object-contain object-left"
+                        className="max-h-10 w-auto object-contain object-left"
                     />
                     <span className="text-xs font-bold text-ink tracking-tight mt-0.5">{selectedTenant.name}</span>
                 </div>
