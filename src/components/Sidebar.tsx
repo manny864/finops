@@ -158,11 +158,11 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             items: [
                 { href: '/governance/tags', label: t('tag_compliance'), icon: Tags, requiredTier: 'Essential' },
                 { href: '/governance/power', label: t('power_schedules'), icon: Power, requiredTier: 'Business' },
-                { href: '/governance/policies', label: 'Políticas (Auto-Block)', icon: ShieldAlert, requiredTier: 'Enterprise' },
+                { href: '/governance/policies', label: t('policies_autoblock'), icon: ShieldAlert, requiredTier: 'Enterprise' },
                 { href: '/governance/reporting', label: t('governance_reporting', { fallback: 'Reporting de Gobernanza' }), icon: ShieldCheck, requiredTier: 'Enterprise' },
                 { href: '/governance/ha', label: t('ha_recommendations', { fallback: 'Alta Disponibilidad' }), icon: ShieldCheck, requiredTier: 'Business' },
                 { href: '/governance/credentials', label: t('expiring_credentials', { fallback: 'Credenciales por Expirar' }), icon: KeyRound, requiredTier: 'Business' },
-                { href: '/remediation/approvals', label: 'Aprobaciones', icon: CheckCircle, requiredTier: 'Business' }
+                { href: '/remediation/approvals', label: t('approvals'), icon: CheckCircle, requiredTier: 'Business' }
             ]
         },
         {
