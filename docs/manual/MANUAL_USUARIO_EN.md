@@ -559,12 +559,12 @@ The plan change (see section 8.4) has 3 possible proration modes when upgrading/
 
 From `/admin/billing` you also access the **payment management portal** (update card) and the **downloadable invoice history**.
 
-### 11.8. 14-day free trial (self-service)
+### 11.8. 7-day free trial (self-service)
 
-If you signed up yourself from the pricing page (not through an onboarding assisted by the CSCloudSolutions team), your account starts with a **14-day trial** on the plan you chose. You'll see a trial status banner at the top of the platform:
+If you signed up yourself from the pricing page (not through an onboarding assisted by the CSCloudSolutions team), your account starts with a **7-day trial** on the plan you chose. You'll see a trial status banner at the top of the platform:
 
-- 🔵 Blue: more than 7 days remaining.
-- 🟡 Yellow: between 3 and 7 days remaining.
+- 🔵 Blue: 5 or more days remaining.
+- 🟡 Yellow: between 3 and 4 days remaining.
 - 🔴 Red: 2 days or fewer — this one can't be dismissed.
 
 You can upgrade to a paid plan at any time from **Billing** — the trial immediately converts to an active subscription. If the trial expires without an upgrade, the account switches to limited access until you activate a paid plan.
