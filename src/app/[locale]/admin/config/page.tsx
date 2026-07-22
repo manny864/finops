@@ -399,7 +399,7 @@ function BrandingConfig() {
             });
             const json = await res.json();
             if (!res.ok) throw new Error(json.error || t('branding.uploadFailed'));
-            setSelectedTenant({ ...selectedTenant, has_logo: true });
+            setSelectedTenant({ ...selectedTenant, has_logo: true, logo_version: String(Date.now()) });
             setCacheBust(Date.now());
             toast.success(t('branding.updatedToast'));
         } catch (e: any) {
@@ -419,7 +419,7 @@ function BrandingConfig() {
             });
             const json = await res.json();
             if (!res.ok) throw new Error(json.error || t('branding.removeFailed'));
-            setSelectedTenant({ ...selectedTenant, has_logo: false });
+            setSelectedTenant({ ...selectedTenant, has_logo: false, logo_version: null });
             toast.success(t('branding.removedToast'));
         } catch (e: any) {
             toast.error(t('branding.removeErrorToast'), { description: e.message });
