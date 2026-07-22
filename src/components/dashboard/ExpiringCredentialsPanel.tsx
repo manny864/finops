@@ -94,7 +94,7 @@ export default function ExpiringCredentialsPanel() {
         setTestingId(ruleId);
         try {
             if (isMockTenant(selectedTenant?.id || '')) {
-                toast.success('[SIMULACIÓN DEMO] Notificación de prueba enviada.');
+                toast.success(t('testDemoSent'));
                 return;
             }
             const tokenResponse = await instance.acquireTokenSilent({ scopes: ["User.Read"], account: accounts[0] });
@@ -103,18 +103,18 @@ export default function ExpiringCredentialsPanel() {
                 headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` },
             });
             let json: any;
-            try { json = await res.json(); } catch { throw new Error('El servidor no está disponible en este momento.'); }
-            if (!res.ok || json.success === false) throw new Error(json.error || 'No se pudo enviar la prueba.');
-            toast.success(`Prueba enviada (${json.matchedCount ?? 0} credencial(es) incluida(s)).`);
+            try { json = await res.json(); } catch { throw new Error(t('serverUnavailable')); }
+            if (!res.ok || json.success === false) throw new Error(json.error || t('testSendError'));
+            toast.success(t('testSent', { count: json.matchedCount ?? 0 }));
         } catch (e) {
-            toast.error(e instanceof Error && e.message ? e.message : 'No se pudo enviar la prueba.');
+            toast.error(e instanceof Error && e.message ? e.message : t('testSendError'));
         } finally {
             setTestingId(null);
         }
     };
 
     const deleteAlertRule = async (ruleId: number | string) => {
-        if (!window.confirm('¿Eliminar esta alerta?')) return;
+        if (!window.confirm(t('confirmDeleteAlert'))) return;
         setDeletingId(ruleId);
         try {
             if (!isMockTenant(selectedTenant?.id || '')) {
@@ -124,10 +124,10 @@ export default function ExpiringCredentialsPanel() {
                     headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` },
                 });
             }
-            toast.success('Alerta eliminada.');
+            toast.success(t('alertDeleted'));
             mutateRules();
         } catch (e) {
-            toast.error('No se pudo eliminar la alerta.');
+            toast.error(t('alertDeleteError'));
         } finally {
             setDeletingId(null);
         }
@@ -199,13 +199,13 @@ export default function ExpiringCredentialsPanel() {
     };
 
     if (!selectedTenant || selectedTenant.id === 'default') return null;
-    if (isLoading) return <div className="flex items-center justify-center py-16"><Loader2 className="w-7 h-7 animate-spin text-brand-deep mr-3" /><span className="text-gray-500">Cargando...</span></div>;
+    if (isLoading) return <div className="flex items-center justify-center py-16"><Loader2 className="w-7 h-7 animate-spin text-brand-deep mr-3" /><span className="text-gray-500">{t('loading')}</span></div>;
     if (error) {
         const requiredTier = parseTierRequiredError(error.message);
         if (requiredTier) {
             return <TierLockedNotice requiredTier={requiredTier} currentTier={(selectedTenant as any)?.tier} featureName={t('tierLockedFeatureName')} />;
         }
-        return <div className="bg-red-50 dark:bg-red-900/20 text-red-600 p-4 rounded-lg"><b>Error:</b> {error.message}</div>;
+        return <div className="bg-red-50 dark:bg-red-900/20 text-red-600 p-4 rounded-lg"><b>{t('errorPrefix')}</b> {error.message}</div>;
     }
 
     return (
@@ -218,13 +218,13 @@ export default function ExpiringCredentialsPanel() {
                         onClick={() => setActiveTab('credentials')}
                         className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors flex items-center gap-1.5 ${activeTab === 'credentials' ? 'bg-white dark:bg-slate-900 text-brand-deep dark:text-brand-bright shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
                     >
-                        <KeyRound className="w-3.5 h-3.5" /> Credenciales
+                        <KeyRound className="w-3.5 h-3.5" /> {t('tabCredentials')}
                     </button>
                     <button
                         onClick={() => setActiveTab('rules')}
                         className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors flex items-center gap-1.5 ${activeTab === 'rules' ? 'bg-white dark:bg-slate-900 text-brand-deep dark:text-brand-bright shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
                     >
-                        <ListChecks className="w-3.5 h-3.5" /> Alertas Configuradas
+                        <ListChecks className="w-3.5 h-3.5" /> {t('tabRules')}
                     </button>
                 </div>
                 <div className="flex items-center gap-2">
@@ -244,46 +244,46 @@ export default function ExpiringCredentialsPanel() {
                         <div className="flex items-center justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-brand-deep" /></div>
                     ) : alertRules.length === 0 ? (
                         <div className="px-4 py-10 text-center text-sm text-slate-500">
-                            Todavía no configuraste ninguna alerta de vencimiento de credenciales.
+                            {t('rulesEmpty')}
                         </div>
                     ) : (
                         <table className="w-full text-left text-sm">
                             <thead className="bg-gray-50 dark:bg-slate-800/50 text-xs text-slate-500 dark:text-slate-400">
                                 <tr>
-                                    <th className="px-4 py-3 font-semibold">Nombre</th>
-                                    <th className="px-4 py-3 font-semibold">Umbral</th>
-                                    <th className="px-4 py-3 font-semibold">Recurrencia</th>
-                                    <th className="px-4 py-3 font-semibold">Canal</th>
-                                    <th className="px-4 py-3 font-semibold">Destino</th>
-                                    <th className="px-4 py-3 font-semibold">Última vez disparada</th>
-                                    <th className="px-4 py-3 font-semibold text-right">Acciones</th>
+                                    <th className="px-4 py-3 font-semibold">{t('colName')}</th>
+                                    <th className="px-4 py-3 font-semibold">{t('colThreshold')}</th>
+                                    <th className="px-4 py-3 font-semibold">{t('colRecurrence')}</th>
+                                    <th className="px-4 py-3 font-semibold">{t('colChannel')}</th>
+                                    <th className="px-4 py-3 font-semibold">{t('colTarget')}</th>
+                                    <th className="px-4 py-3 font-semibold">{t('colLastTriggered')}</th>
+                                    <th className="px-4 py-3 font-semibold text-right">{t('colActions')}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 dark:divide-slate-800/50">
                                 {alertRules.map((r: any) => (
                                     <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/20">
                                         <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-200">{r.ruleName}</td>
-                                        <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{r.thresholdValue} días</td>
+                                        <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{t('daysAmount', { days: r.thresholdValue })}</td>
                                         <td className="px-4 py-3 text-slate-500 dark:text-slate-400">
-                                            {r.reminderFrequencyHours == null ? 'Solo una vez' : r.reminderFrequencyHours >= 168 ? 'Semanal' : r.reminderFrequencyHours >= 24 ? 'Diaria' : `Cada ${r.reminderFrequencyHours}h`}
+                                            {r.reminderFrequencyHours == null ? t('recurrenceOnce') : r.reminderFrequencyHours >= 168 ? t('recurrenceWeekly') : r.reminderFrequencyHours >= 24 ? t('recurrenceDaily') : t('recurrenceEveryHours', { hours: r.reminderFrequencyHours })}
                                         </td>
                                         <td className="px-4 py-3 text-slate-500 dark:text-slate-400 capitalize">{r.channel}</td>
                                         <td className="px-4 py-3 text-slate-500 dark:text-slate-400 truncate max-w-[180px]" title={r.channelTarget}>{r.channelTarget}</td>
-                                        <td className="px-4 py-3 text-xs text-slate-400">{r.lastTriggeredAt ? new Date(r.lastTriggeredAt).toLocaleString() : 'Nunca'}</td>
+                                        <td className="px-4 py-3 text-xs text-slate-400">{r.lastTriggeredAt ? new Date(r.lastTriggeredAt).toLocaleString() : t('never')}</td>
                                         <td className="px-4 py-3">
                                             <div className="flex items-center justify-end gap-2">
                                                 <button
                                                     onClick={() => testAlertRule(r.id)}
                                                     disabled={testingId === r.id}
-                                                    title="Enviar una notificación de prueba ahora"
+                                                    title={t('testTooltip')}
                                                     className="flex items-center gap-1 px-2.5 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded-md text-xs font-semibold hover:bg-blue-100 dark:hover:bg-blue-900/30 disabled:opacity-50"
                                                 >
-                                                    {testingId === r.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />} Probar
+                                                    {testingId === r.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />} {t('testBtn')}
                                                 </button>
                                                 <button
                                                     onClick={() => deleteAlertRule(r.id)}
                                                     disabled={deletingId === r.id}
-                                                    title="Eliminar esta alerta"
+                                                    title={t('deleteTooltip')}
                                                     className="flex items-center gap-1 px-2.5 py-1 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-md text-xs font-semibold hover:bg-red-100 dark:hover:bg-red-900/30 disabled:opacity-50"
                                                 >
                                                     {deletingId === r.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
@@ -351,7 +351,7 @@ export default function ExpiringCredentialsPanel() {
                                     <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400 font-mono">{(it.expiresAt || '').slice(0, 10)}</td>
                                     <td className="px-4 py-3 text-right">
                                         <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${SEV_STYLES[sev]}`}>
-                                            {days} días
+                                            {t('daysAmount', { days })}
                                         </span>
                                     </td>
                                     <td className="px-4 py-3 text-xs text-slate-400 font-mono">{it.appId?.slice(0, 18)}…</td>
@@ -385,15 +385,15 @@ export default function ExpiringCredentialsPanel() {
                                 />
                             </div>
                             <div>
-                                <label className="text-xs font-semibold text-gray-500">Recurrencia del recordatorio</label>
+                                <label className="text-xs font-semibold text-gray-500">{t('alertRecurrenceLabel')}</label>
                                 <select
                                     value={alertForm.recurrence}
                                     onChange={(e) => setAlertForm({ ...alertForm, recurrence: e.target.value })}
                                     className="w-full border border-gray-200 dark:border-slate-700 rounded-md p-2 text-sm mt-1 bg-white dark:bg-slate-800"
                                 >
-                                    <option value="24">Diaria (mientras siga venciendo)</option>
-                                    <option value="168">Semanal</option>
-                                    <option value="once">Solo una vez</option>
+                                    <option value="24">{t('recurrenceDailyOption')}</option>
+                                    <option value="168">{t('recurrenceWeekly')}</option>
+                                    <option value="once">{t('recurrenceOnce')}</option>
                                 </select>
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
