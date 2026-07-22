@@ -231,8 +231,11 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
   if (isInitializing || inProgress === "startup" || inProgress === "handleRedirect") {
       return (
           <div className="min-h-screen bg-gradient-to-br from-nav-bg to-nav-bg2 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative font-sans items-center">
-              <div className="flex flex-col items-center animate-pulse">
-                  <img src="/logo_29k.png" alt="Logo" className="w-16 h-16 object-contain mb-4" />
+              <div className="flex flex-col items-center">
+                  <div className="relative mb-6 flex items-center justify-center">
+                      <div className="absolute w-40 h-40 rounded-full bg-brand-bright/25 blur-3xl animate-ping"></div>
+                      <img src="/logo_29k.png" alt="Logo" className="relative w-32 h-32 object-contain animate-pulse drop-shadow-[0_0_28px_rgba(30,136,229,0.55)]" />
+                  </div>
                   <div className="w-8 h-8 border-4 border-[#0054A6] border-t-transparent rounded-full animate-spin"></div>
                   <p className="mt-4 text-sm font-semibold text-[#62809c] tracking-widest uppercase">Cargando...</p>
               </div>
