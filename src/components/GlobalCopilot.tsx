@@ -406,7 +406,7 @@ export default function GlobalCopilot() {
                         <button
                             onClick={() => { if (canAccessCopilot) setIsOpen(true); }}
                             aria-label={t('tooltip')}
-                            className="relative w-full h-full bg-gradient-to-br from-brand-deep to-[#00AEEF] rounded-full shadow-lg flex items-center justify-center text-white hover:scale-110 transition-transform"
+                            className="relative w-full h-full bg-gradient-to-br from-[#0E1A2B] to-[#00AEEF] rounded-full shadow-lg flex items-center justify-center text-white hover:scale-110 transition-transform"
                         >
                             <MessageSquare className="w-7 h-7" />
                         </button>
@@ -436,7 +436,7 @@ export default function GlobalCopilot() {
                     }}
                 >
                     <div 
-                        className="bg-brand-deep p-4 flex justify-between items-center cursor-move select-none"
+                        className="bg-[#0E1A2B] p-4 flex justify-between items-center cursor-move select-none"
                         onPointerDown={handlePointerDown}
                         onPointerMove={handlePointerMove}
                         onPointerUp={handlePointerUp}
@@ -462,7 +462,7 @@ export default function GlobalCopilot() {
                             </div>
                         )}
                         {messages.map((m, i) => (
-                            <div key={i} className={`p-3 rounded-lg text-sm max-w-[85%] ${m.role === 'user' ? 'bg-brand-deep text-white ml-auto' : 'bg-surface-2 text-ink mr-auto'}`}>
+                            <div key={i} className={`p-3 rounded-lg text-sm max-w-[85%] ${m.role === 'user' ? 'bg-[#0E1A2B] text-white ml-auto' : 'bg-surface-2 text-ink mr-auto'}`}>
                                 {m.role === 'user' ? (
                                     m.content
                                 ) : (
@@ -479,7 +479,7 @@ export default function GlobalCopilot() {
                                                 // se lea como un bloque de texto continuo.
                                                 h3: ({node, ...props}) => <h3 className="font-bold text-[15px] mt-4 mb-1.5 pt-2 border-t border-line first:mt-0 first:pt-0 first:border-t-0" {...props} />,
                                                 h4: ({node, ...props}) => <h4 className="font-semibold text-[14px] mt-2 mb-1" {...props} />,
-                                                strong: ({node, ...props}) => <strong className="font-bold text-brand-deep dark:text-brand-bright" {...props} />,
+                                                strong: ({node, ...props}) => <strong className="font-bold text-[#0E1A2B] dark:text-brand-bright" {...props} />,
                                                 // El prompt del sistema usa "---" para separar secciones cuando no
                                                 // corresponde un heading nuevo (ej. el CTA final del auto-reporte).
                                                 hr: ({node, ...props}) => <hr className="my-3 border-line" {...props} />,
@@ -516,7 +516,7 @@ export default function GlobalCopilot() {
                             onChange={e => setInput(e.target.value)}
                             onKeyDown={e => e.key === 'Enter' && handleSend()}
                         />
-                        <button onClick={() => handleSend()} disabled={loading} className="p-2 bg-brand-deep text-white rounded-lg hover:bg-brand-bright transition-colors disabled:opacity-50"><Send className="w-4 h-4"/></button>
+                        <button onClick={() => handleSend()} disabled={loading} className="p-2 bg-[#0E1A2B] text-white rounded-lg hover:bg-brand-bright transition-colors disabled:opacity-50"><Send className="w-4 h-4"/></button>
                         
                         {/* Custom Resize Handle */}
                         <div 
@@ -526,7 +526,7 @@ export default function GlobalCopilot() {
                             onPointerUp={handleResizeUp}
                             onPointerCancel={handleResizeUp}
                         >
-                            <div className="w-2 h-2 border-r-2 border-b-2 border-brand-deep rounded-br-sm" />
+                            <div className="w-2 h-2 border-r-2 border-b-2 border-[#0E1A2B] rounded-br-sm" />
                         </div>
                     </div>
                 </div>
