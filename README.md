@@ -205,7 +205,15 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
 
 ## 📈 Recent Major Updates
 
-### 2026-07-23 — Container Apps: control de costos + tarjeta White Board (nueva feature, tier Business)
+### 2026-07-23 — Log Analytics: control de costos + tarjeta White Board + página (nueva feature, tier Business)
+
+- Nueva capability de **control de costos de Azure Monitor Log Analytics Workspaces** (`Microsoft.OperationalInsights/workspaces`) que ataca las 3 palancas clásicas de gasto: **ingesta masiva innecesaria** (workspaces sin tope diario → recomendar filtrar en origen + `dailyQuotaGb`), **retención excesiva** (recortar `retentionInDays` sobre el umbral) y **Commitment Tiers** (migrar de Pay-As-You-Go al tier comprometido más conveniente según la ingesta diaria).
+- **Endpoint**: `GET /api/intelligence/log-analytics?tenantId=...[&subscriptionId=...]` — feature **tier Business+** (`requireTenantTier(..., 'Business')`); tenants demo pasan por `requireTenantAccess` con datos sintéticos escalados por tier.
+- **Servicio**: `src/modules/collectors/azure/logAnalyticsCostService.ts`. Roles Azure (Service Principal, **solo lectura**): **Reader** (Resource Graph) + **Cost Management Reader**. La ingesta se **estima** desde el costo y precios de referencia de Azure Monitor (marcada `estimated`); sirve para priorizar, no para facturar.
+- **UI**: página dedicada `/intelligence/log-analytics` (KPIs + tabla con recomendación por workspace) y tarjeta `LogAnalyticsCard` en el White Board (`FeatureGuard` Business). Entrada en Sidebar, `routeTiers` Business, `pageRegistry`, `pageRoleTags` (FinOps), widget pineable. i18n `LogAnalytics` en en/es/pt-BR. Mocks por tier en el servicio.
+- **Regla Cero**: montos agregados en centavos enteros (`src/lib/money.ts`).
+
+### 2026-07-23 — Container Apps: control de costos + tarjeta White Board + página (nueva feature, tier Business)
 
 - Nueva capability de **control de costos de Azure Container Apps** (`Microsoft.App/containerApps`): inventario, costo `MonthToDate` por app y detección de oportunidades de **scale-to-zero** (apps con `minReplicas >= 1` mantienen réplicas encendidas 24/7 aunque no reciban tráfico).
 - **Endpoint**: `GET /api/intelligence/container-apps?tenantId=...[&subscriptionId=...]` — feature **tier Business+** (`requireTenantTier(..., 'Business')`); tenants demo pasan por `requireTenantAccess` con datos sintéticos escalados por tier.
