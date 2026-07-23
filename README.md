@@ -205,6 +205,28 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
 
 ## 📈 Recent Major Updates
 
+### 2026-07-23 — Look & feel: unificación al azul de marca CSCloudSolutions (design system)
+
+- Todo el proyecto usa ahora el **azul principal de marca `#0054A6`** (`--brand-deep`) de forma consistente. Se remapearon las escalas genéricas de Tailwind `blue-*` e `indigo-*` al ramp "deep" (anclado en `#0054A6`) y `sky-*` al ramp "bright" (anclado en `#00AEEF`, `--brand-bright`) directamente en `src/app/globals.css` vía `@theme`, evitando editar ~124 archivos y garantizando cohesión visual futura sin re-trabajo.
+- `purple`/`violet` se mantienen como color semántico secundario distinto (token `--purple`).
+- Los acentos primarios hardcodeados en gráficos (`#0ea5e9` → `#00AEEF`, `#3b82f6` → `#0054A6`) se alinearon al azul de marca; las paletas categóricas multiserie (arrays `COLORS`/`LINE_COLORS`) se conservan para diferenciar series.
+
+### 2026-07-23 — Log Analytics: control de costos + tarjeta White Board + página (nueva feature, tier Business)
+
+- Nueva capability de **control de costos de Azure Monitor Log Analytics Workspaces** (`Microsoft.OperationalInsights/workspaces`) que ataca las 3 palancas clásicas de gasto: **ingesta masiva innecesaria** (workspaces sin tope diario → recomendar filtrar en origen + `dailyQuotaGb`), **retención excesiva** (recortar `retentionInDays` sobre el umbral) y **Commitment Tiers** (migrar de Pay-As-You-Go al tier comprometido más conveniente según la ingesta diaria).
+- **Endpoint**: `GET /api/intelligence/log-analytics?tenantId=...[&subscriptionId=...]` — feature **tier Business+** (`requireTenantTier(..., 'Business')`); tenants demo pasan por `requireTenantAccess` con datos sintéticos escalados por tier.
+- **Servicio**: `src/modules/collectors/azure/logAnalyticsCostService.ts`. Roles Azure (Service Principal, **solo lectura**): **Reader** (Resource Graph) + **Cost Management Reader**. La ingesta se **estima** desde el costo y precios de referencia de Azure Monitor (marcada `estimated`); sirve para priorizar, no para facturar.
+- **UI**: página dedicada `/intelligence/log-analytics` (KPIs + tabla con recomendación por workspace) y tarjeta `LogAnalyticsCard` en el White Board (`FeatureGuard` Business). Entrada en Sidebar, `routeTiers` Business, `pageRegistry`, `pageRoleTags` (FinOps), widget pineable. i18n `LogAnalytics` en en/es/pt-BR. Mocks por tier en el servicio.
+- **Regla Cero**: montos agregados en centavos enteros (`src/lib/money.ts`).
+
+### 2026-07-23 — Container Apps: control de costos + tarjeta White Board + página (nueva feature, tier Business)
+
+- Nueva capability de **control de costos de Azure Container Apps** (`Microsoft.App/containerApps`): inventario, costo `MonthToDate` por app y detección de oportunidades de **scale-to-zero** (apps con `minReplicas >= 1` mantienen réplicas encendidas 24/7 aunque no reciban tráfico).
+- **Endpoint**: `GET /api/intelligence/container-apps?tenantId=...[&subscriptionId=...]` — feature **tier Business+** (`requireTenantTier(..., 'Business')`); tenants demo pasan por `requireTenantAccess` con datos sintéticos escalados por tier.
+- **Servicio**: `src/modules/collectors/azure/containerAppsCostService.ts`. Roles Azure requeridos (Service Principal, **solo lectura**): **Reader** (Resource Graph, inventario) + **Cost Management Reader** (costo por recurso). No requiere ningún rol de escritura.
+- **UI**: tarjeta `ContainerAppsCard` en el White Board (`ExecutiveSummaryBoard`), envuelta en `FeatureGuard requiredTier="Business"`. Muestra costo mensual total, ahorro potencial por scale-to-zero y top-6 apps por costo (barras ámbar = candidatas a scale-to-zero). i18n `ContainerApps` en en/es/pt-BR. Mocks por tier dentro del servicio.
+- **Regla Cero**: todos los montos se agregan en centavos enteros (`src/lib/money.ts`) para evitar drift de floats.
+
 ### 2026-07-18 — MFA: enforcement cableado a operaciones sensibles (opt-in por usuario)
 
 - El enrollment 2FA (TOTP + QR + recovery codes) ya existía y funcionaba, pero la **exigencia del challenge en operaciones sensibles nunca estuvo cableada** (`requireMfaChallenge` y `MfaPromptModal` estaban definidos pero no se usaban en ningún lado). Ahora sí.

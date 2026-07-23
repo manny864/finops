@@ -12,7 +12,7 @@ export default async function AIAnalyticsPage() {
             <div className="vhead">
                 <div>
                     <div className="vt">
-                        <span className="vico bg-gradient-to-br from-[#6366f1] to-[#8b5cf6]">🤖</span>
+                        <span className="vico bg-gradient-to-br from-[#0054a6] to-[#8b5cf6]">🤖</span>
                         {t("title")}
                     </div>
                     <div className="vs">{t("subtitle")}</div>

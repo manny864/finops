@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
 import { useMsal } from '@azure/msal-react';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import { useRouter } from '@/i18n/routing';
 import { initializePaddle, Paddle } from '@paddle/paddle-js';
 import EnterpriseLeadModal from './EnterpriseLeadModal';
@@ -28,6 +28,8 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
   // tras enviarlo se navega a /demo. Guarda el tier elegido mientras tanto.
   const [pendingDemoTier, setPendingDemoTier] = useState<DemoTier | null>(null);
   const t = useTranslations('pricing');
+  const tf = useTranslations('Footer');
+  const locale = useLocale();
 
   // Email corporativo del usuario ya logueado con MSAL (viene de preferred_username /
   // UPN del tenant Azure AD). Para cuando se llega al checkout, el login/onboarding
@@ -136,16 +138,36 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col font-sans py-16 px-4 sm:px-6 lg:px-8">
+    <div className="relative overflow-hidden min-h-screen bg-[#0E1A2B] flex flex-col font-sans py-16 px-4 sm:px-6 lg:px-8">
+      {/* Fondo: orbes de luz animados (mismo efecto que el home de cscloudsolutions) */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden z-0">
+        <div
+          className="absolute -top-[10%] -left-[10%] w-[400px] h-[400px] rounded-full animate-blob-7"
+          style={{ background: 'radial-gradient(circle, rgba(0,174,239,0.35) 0%, transparent 60%)' }}
+        />
+        <div
+          className="absolute top-[12%] -right-[8%] w-[450px] h-[450px] rounded-full animate-blob-8"
+          style={{ background: 'radial-gradient(circle, rgba(0,84,166,0.45) 0%, transparent 60%)' }}
+        />
+        <div
+          className="absolute -bottom-[10%] left-[25%] w-[600px] h-[600px] rounded-full animate-blob-9"
+          style={{ background: 'radial-gradient(circle, rgba(51,195,255,0.22) 0%, transparent 60%)' }}
+        />
+      </div>
+
       {/* Top Right: Language switcher + Login link */}
       <div className="absolute top-6 right-8 flex items-center gap-3 z-10">
-        <LanguageSwitcher />
+        <LanguageSwitcher
+          iconClassName="w-4 h-4 mr-1 text-white shrink-0"
+          selectClassName="bg-transparent border-none focus:ring-0 cursor-pointer outline-none font-medium [color-scheme:dark]"
+          selectStyle={{ color: '#ffffff' }}
+        />
         {!hideLogin && (
           <>
-            <span className="text-sm font-medium text-gray-500">Already have an account?</span>
+            <span className="text-sm font-medium text-gray-300">Already have an account?</span>
             <button
               onClick={() => handleSignUp('Essential')}
-              className="text-brand-deep font-bold hover:underline"
+              className="text-brand-bright font-bold hover:underline"
             >
               Log in
             </button>
@@ -153,28 +175,34 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
         )}
       </div>
 
-      <div className="max-w-7xl mx-auto text-center mt-8 mb-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <h2 className="text-4xl sm:text-5xl font-extrabold text-gray-900 tracking-tight font-heading">
-          {t('title')}
-        </h2>
-        <p className="mt-4 text-lg text-gray-600 max-w-2xl mx-auto">
+      <div className="relative z-10 max-w-7xl mx-auto text-center mt-8 mb-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="flex items-center justify-center gap-3 sm:gap-4">
+          <div className="flex flex-col items-start gap-1.5 shrink-0">
+            <img src="/logo_29k.png" alt="CSCloudSolutions" className="h-11 sm:h-14 w-auto object-contain" />
+            <img src="/CSCloudSolutionsText.png" alt="CSCloudSolutions" className="h-4 sm:h-5 w-auto object-contain" />
+          </div>
+          <h2 className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight font-heading">
+            {t('title')}
+          </h2>
+        </div>
+        <p className="mt-4 text-lg text-gray-300 max-w-2xl mx-auto">
           {t('subtitle')}
         </p>
       </div>
 
       {/* Toggle */}
-      <div className="flex justify-center items-center mb-16">
-        <span className={`text-sm font-medium ${!isAnnual ? 'text-gray-900' : 'text-gray-500'}`}>{t('monthly')}</span>
+      <div className="relative z-10 flex justify-center items-center mb-16">
+        <span className={`text-sm font-medium ${!isAnnual ? 'text-white' : 'text-gray-400'}`}>{t('monthly')}</span>
         <button 
           onClick={() => setIsAnnual(!isAnnual)}
-          className="mx-4 relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brand-deep focus:ring-offset-2"
+          className="mx-4 relative inline-flex h-6 w-11 items-center rounded-full border border-white/40 transition-colors focus:outline-none focus:ring-2 focus:ring-brand-bright focus:ring-offset-2 focus:ring-offset-[#0E1A2B]"
           style={{ backgroundColor: isAnnual ? '#0054A6' : '#D1D5DB' }}
         >
           <span 
             className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isAnnual ? 'translate-x-6' : 'translate-x-1'}`}
           />
         </button>
-        <span className={`text-sm font-medium flex items-center ${isAnnual ? 'text-gray-900' : 'text-gray-500'}`}>
+        <span className={`text-sm font-medium flex items-center ${isAnnual ? 'text-white' : 'text-gray-400'}`}>
           {t('annual')}
           <span className="ml-2 inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
             {t('save12')}
@@ -182,11 +210,11 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
         </span>
       </div>
 
-      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 animate-in fade-in zoom-in-95 duration-700 delay-150">
+      <div className="relative z-10 max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 animate-in fade-in zoom-in-95 duration-700 delay-150">
         {/* Essential */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 flex flex-col hover:shadow-md transition-shadow">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 flex flex-col relative transition-all duration-300 hover:-translate-y-2 hover:scale-[1.02] hover:shadow-2xl hover:z-20">
           <div className="mb-6 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-            <h3 className="text-lg font-medium text-gray-900 min-w-0">{t('essential.name')}</h3>
+            <h3 className="text-lg font-bold text-gray-900 min-w-0">{t('essential.name')}</h3>
             <span className="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded flex-shrink-0">
               {t('pro.trial')}
             </span>
@@ -210,7 +238,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
             </button>
             <button 
               onClick={() => handleSignUp('Essential')}
-              className="w-full bg-gray-800 text-white rounded-lg py-3 px-4 font-semibold hover:bg-gray-900 transition-colors shadow-md text-center inline-block"
+              className="w-full bg-[#0E1A2B] text-white rounded-lg py-3 px-4 font-semibold hover:brightness-110 transition-colors shadow-md text-center inline-block"
             >
               {t('buyNow')}
             </button>
@@ -229,7 +257,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
         </div>
 
         {/* Professional */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 flex flex-col hover:shadow-md transition-shadow">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 flex flex-col relative transition-all duration-300 hover:-translate-y-2 hover:scale-[1.02] hover:shadow-2xl hover:z-20">
           <div className="mb-6 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
             <h3 className="text-xl font-bold text-gray-900 min-w-0">{t('pro.name')}</h3>
             <span className="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded flex-shrink-0">
@@ -255,7 +283,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
             </button>
             <button 
               onClick={() => openCheckout(getPriceId('pro'))}
-              className="w-full bg-gradient-to-r from-brand-deep to-[#1E88E5] text-white rounded-lg py-3 px-4 font-semibold hover:brightness-110 transition-colors shadow-md text-center inline-block"
+              className="w-full bg-gradient-to-r from-[#0E1A2B] to-[#1B2A41] text-white rounded-lg py-3 px-4 font-semibold hover:brightness-110 transition-colors shadow-md text-center inline-block"
             >
               {t('buyNow')}
             </button>
@@ -274,7 +302,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
         </div>
 
         {/* Business */}
-        <div className="bg-white rounded-2xl shadow-xl border-2 border-brand-deep p-8 flex flex-col hover:shadow-xl transition-shadow relative transform md:-translate-y-4">
+        <div className="bg-white rounded-2xl shadow-xl border-2 border-brand-deep p-8 flex flex-col relative transition-all duration-300 hover:-translate-y-2 hover:scale-[1.02] hover:shadow-2xl hover:z-20">
           <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
             <span className="bg-brand-deep text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide shadow-md">
               {t('business.badge')}
@@ -305,7 +333,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
             </button>
             <button 
               onClick={() => openCheckout(getPriceId('business'))}
-              className="w-full bg-gradient-to-r from-brand-deep to-[#1E88E5] text-white rounded-lg py-3 px-4 font-semibold hover:brightness-110 transition-colors shadow-md text-center inline-block"
+              className="w-full bg-gradient-to-r from-[#0E1A2B] to-[#1B2A41] text-white rounded-lg py-3 px-4 font-semibold hover:brightness-110 transition-colors shadow-md text-center inline-block"
             >
               {t('buyNow')}
             </button>
@@ -324,35 +352,35 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
         </div>
 
         {/* Enterprise */}
-        <div className="bg-gray-900 rounded-2xl shadow-lg border border-gray-700 p-8 flex flex-col hover:shadow-xl transition-shadow relative">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 flex flex-col relative transition-all duration-300 hover:-translate-y-2 hover:scale-[1.02] hover:shadow-2xl hover:z-20">
           <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
-            <div className="absolute top-0 right-0 -mr-8 -mt-8 w-24 h-24 bg-brand-deep rounded-full opacity-20 blur-xl"></div>
+            <div className="absolute top-0 right-0 -mr-8 -mt-8 w-24 h-24 bg-brand-bright rounded-full opacity-10 blur-xl"></div>
           </div>
 
           <div className="mb-6 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 relative z-10">
-            <h3 className="text-lg font-medium text-white min-w-0">{t('enterprise.name')}</h3>
-            <span className="bg-brand-bright/20 text-brand-bright text-xs font-semibold px-2 py-1 rounded flex-shrink-0">{t('enterprise.badge')}</span>
+            <h3 className="text-lg font-bold text-gray-900 min-w-0">{t('enterprise.name')}</h3>
+            <span className="bg-[#0E1A2B] text-white border border-white text-xs font-semibold px-2 py-1 rounded-[5px] flex-shrink-0">{t('enterprise.badge')}</span>
           </div>
           <div className="mb-6 relative z-10">
-            <div className="flex flex-wrap items-baseline text-3xl sm:text-4xl font-extrabold text-white mt-2 mb-2 break-words">
+            <div className="flex flex-wrap items-baseline text-3xl sm:text-4xl font-extrabold text-gray-900 mt-2 mb-2 break-words">
               {t('customPrice')}
             </div>
           </div>
           
           <button 
             onClick={() => setEnterpriseModalOpen(true)}
-            className="w-full bg-white text-gray-900 rounded-lg py-3 px-4 font-bold hover:bg-gray-100 transition-colors shadow-sm relative z-10 text-center flex justify-center items-center"
+            className="w-full bg-[#0E1A2B] text-white rounded-lg py-3 px-4 font-bold hover:brightness-110 transition-colors shadow-md relative z-10 text-center flex justify-center items-center"
           >
             {t('contactSales')}
           </button>
           <button
             onClick={() => goToDemo('enterprise')}
-            className="w-full mt-3 mb-6 bg-transparent border border-white/30 text-white rounded-lg py-3 px-4 font-bold hover:bg-white/10 transition-colors relative z-10 text-center"
+            className="w-full mt-3 mb-6 bg-white border-2 border-gray-800 text-gray-800 rounded-lg py-3 px-4 font-bold hover:bg-gray-50 transition-colors shadow-sm relative z-10 text-center"
           >
             {t('tryNow')}
           </button>
           
-          <p className="text-sm text-gray-300 mb-8 relative z-10 text-justify">
+          <p className="text-sm text-gray-500 mb-8 relative z-10 text-justify">
             {t('enterprise.desc')}
           </p>
           
@@ -361,13 +389,24 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
               features={t.raw('enterprise.features') as string[]}
               showLabel={t('showFeatures', {count: (t.raw('enterprise.features') as string[]).length})}
               hideLabel={t('hideFeatures')}
-              dark
             />
           </div>
           <div className="flex-1" />
         </div>
 
       </div>
+
+      <footer className="relative z-10 max-w-7xl mx-auto w-full mt-16 pt-8 border-t border-white/10">
+        <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-gray-300">
+          <a href={`/${locale}/legal/privacy`} className="hover:text-white transition-colors">{tf('privacy')}</a>
+          <a href={`/${locale}/legal/terms`} className="hover:text-white transition-colors">{tf('terms')}</a>
+          <a href={`/${locale}/legal/dpa`} className="hover:text-white transition-colors">{tf('dpa')}</a>
+          <a href={`/${locale}/legal/security`} className="hover:text-white transition-colors">{tf('security')}</a>
+          <a href={`/${locale}/legal/subprocessors`} className="hover:text-white transition-colors">{tf('subprocessors')}</a>
+          <a href="/status" className="hover:text-white transition-colors">{tf('status')}</a>
+        </div>
+        <p className="text-center text-xs text-gray-400 mt-4">{tf('copyright', { year: new Date().getFullYear() })}</p>
+      </footer>
       <EnterpriseLeadModal isOpen={isEnterpriseModalOpen} onClose={() => setEnterpriseModalOpen(false)} />
       {pendingDemoTier && <DemoLeadModal onSuccess={handleDemoLeadSuccess} onClose={() => setPendingDemoTier(null)} />}
       <CorporateEmailNoticeModal

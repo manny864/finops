@@ -12,7 +12,7 @@ import PremiumBanner from '@/components/PremiumBanner';
 import { isMockTenant } from '@/lib/mockData';
 
 const CATEGORY_COLORS: Record<string, string> = {
-    Cost: '#0ea5e9',
+    Cost: '#00aeef',
     Performance: '#a855f7',
     Reliability: '#f59e0b',
     Security: '#ef4444',
@@ -160,7 +160,7 @@ export default function CoinDashboard() {
                             <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#6B7280' }} />
                             <YAxis domain={[0, 100]} tick={{ fontSize: 12, fill: '#6B7280' }} tickFormatter={(v) => `${v}%`} />
                             <Tooltip formatter={(v: any, _n: any, p: any) => [`${v}% (${p.payload.implemented}/${p.payload.total})`, 'COIN']} />
-                            <Line type="monotone" dataKey="coin" stroke="#0ea5e9" strokeWidth={3} dot={{ r: 4, fill: '#0ea5e9' }} activeDot={{ r: 6 }} />
+                            <Line type="monotone" dataKey="coin" stroke="#00aeef" strokeWidth={3} dot={{ r: 4, fill: '#00aeef' }} activeDot={{ r: 6 }} />
                         </LineChart>
                     </ResponsiveContainer>
                 </div>

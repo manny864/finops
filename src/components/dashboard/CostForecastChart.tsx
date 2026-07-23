@@ -106,8 +106,8 @@ export default function CostForecastChart() {
                         <AreaChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                             <defs>
                                 <linearGradient id="colorActual" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.3}/>
-                                    <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0}/>
+                                    <stop offset="5%" stopColor="#00aeef" stopOpacity={0.3}/>
+                                    <stop offset="95%" stopColor="#00aeef" stopOpacity={0}/>
                                 </linearGradient>
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
@@ -133,7 +133,7 @@ export default function CostForecastChart() {
                                 type="monotone" 
                                 dataKey="actualCost" 
                                 name="Gasto Actual" 
-                                stroke="#0ea5e9" 
+                                stroke="#00aeef" 
                                 strokeWidth={3}
                                 fillOpacity={1} 
                                 fill="url(#colorActual)" 
