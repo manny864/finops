@@ -138,12 +138,29 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
   };
 
   return (
-    <div className="min-h-screen bg-[#0E1A2B] flex flex-col font-sans py-16 px-4 sm:px-6 lg:px-8">
+    <div className="relative overflow-hidden min-h-screen bg-[#0E1A2B] flex flex-col font-sans py-16 px-4 sm:px-6 lg:px-8">
+      {/* Fondo: orbes de luz animados (mismo efecto que el home de cscloudsolutions) */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden z-0">
+        <div
+          className="absolute -top-[10%] -left-[10%] w-[400px] h-[400px] rounded-full animate-blob-7"
+          style={{ background: 'radial-gradient(circle, rgba(0,174,239,0.35) 0%, transparent 60%)' }}
+        />
+        <div
+          className="absolute top-[12%] -right-[8%] w-[450px] h-[450px] rounded-full animate-blob-8"
+          style={{ background: 'radial-gradient(circle, rgba(0,84,166,0.45) 0%, transparent 60%)' }}
+        />
+        <div
+          className="absolute -bottom-[10%] left-[25%] w-[600px] h-[600px] rounded-full animate-blob-9"
+          style={{ background: 'radial-gradient(circle, rgba(51,195,255,0.22) 0%, transparent 60%)' }}
+        />
+      </div>
+
       {/* Top Right: Language switcher + Login link */}
       <div className="absolute top-6 right-8 flex items-center gap-3 z-10">
         <LanguageSwitcher
           iconClassName="w-4 h-4 mr-1 text-white shrink-0"
-          selectClassName="bg-transparent border-none text-white focus:ring-0 cursor-pointer outline-none font-medium [color-scheme:dark]"
+          selectClassName="bg-transparent border-none focus:ring-0 cursor-pointer outline-none font-medium [color-scheme:dark]"
+          selectStyle={{ color: '#ffffff' }}
         />
         {!hideLogin && (
           <>
@@ -158,9 +175,12 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
         )}
       </div>
 
-      <div className="max-w-7xl mx-auto text-center mt-8 mb-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="relative z-10 max-w-7xl mx-auto text-center mt-8 mb-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
         <div className="flex items-center justify-center gap-3 sm:gap-4">
-          <img src="/logo_29k.png" alt="CSCloudSolutions" className="h-11 sm:h-14 w-auto object-contain shrink-0" />
+          <div className="flex flex-col items-start gap-1.5 shrink-0">
+            <img src="/logo_29k.png" alt="CSCloudSolutions" className="h-11 sm:h-14 w-auto object-contain" />
+            <img src="/CSCloudSolutionsText.png" alt="CSCloudSolutions" className="h-4 sm:h-5 w-auto object-contain" />
+          </div>
           <h2 className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight font-heading">
             {t('title')}
           </h2>
@@ -171,7 +191,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
       </div>
 
       {/* Toggle */}
-      <div className="flex justify-center items-center mb-16">
+      <div className="relative z-10 flex justify-center items-center mb-16">
         <span className={`text-sm font-medium ${!isAnnual ? 'text-white' : 'text-gray-400'}`}>{t('monthly')}</span>
         <button 
           onClick={() => setIsAnnual(!isAnnual)}
@@ -190,7 +210,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
         </span>
       </div>
 
-      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 animate-in fade-in zoom-in-95 duration-700 delay-150">
+      <div className="relative z-10 max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 animate-in fade-in zoom-in-95 duration-700 delay-150">
         {/* Essential */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 flex flex-col relative transition-all duration-300 hover:-translate-y-2 hover:scale-[1.02] hover:shadow-2xl hover:z-20">
           <div className="mb-6 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
@@ -339,7 +359,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
 
           <div className="mb-6 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 relative z-10">
             <h3 className="text-lg font-bold text-gray-900 min-w-0">{t('enterprise.name')}</h3>
-            <span className="bg-[#0E1A2B]/10 text-[#0E1A2B] text-xs font-semibold px-2 py-1 rounded flex-shrink-0">{t('enterprise.badge')}</span>
+            <span className="bg-[#0E1A2B] text-white border border-white text-xs font-semibold px-2 py-1 rounded-[5px] flex-shrink-0">{t('enterprise.badge')}</span>
           </div>
           <div className="mb-6 relative z-10">
             <div className="flex flex-wrap items-baseline text-3xl sm:text-4xl font-extrabold text-gray-900 mt-2 mb-2 break-words">
@@ -376,7 +396,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
 
       </div>
 
-      <footer className="max-w-7xl mx-auto w-full mt-16 pt-8 border-t border-white/10">
+      <footer className="relative z-10 max-w-7xl mx-auto w-full mt-16 pt-8 border-t border-white/10">
         <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-gray-300">
           <a href={`/${locale}/legal/privacy`} className="hover:text-white transition-colors">{tf('privacy')}</a>
           <a href={`/${locale}/legal/terms`} className="hover:text-white transition-colors">{tf('terms')}</a>
