@@ -14,7 +14,7 @@ import { useTranslations } from 'next-intl';
 const fmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 
 const REC_BADGE: Record<string, string> = {
-    'commitment-tier': 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300',
+    'commitment-tier': 'bg-brand-soft text-brand-deep dark:bg-brand-deep/30 dark:text-brand-bright',
     'reduce-retention': 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
     'set-daily-cap': 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
     'ok': 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
@@ -63,7 +63,7 @@ export default function LogAnalyticsPage() {
         return (
             <div className="p-6 max-w-6xl mx-auto flex items-center justify-center min-h-[400px]">
                 <div className="animate-pulse flex flex-col items-center">
-                    <div className="w-12 h-12 border-4 border-sky-200 border-t-sky-600 rounded-full animate-spin mb-4"></div>
+                    <div className="w-12 h-12 border-4 border-brand-soft border-t-brand-deep rounded-full animate-spin mb-4"></div>
                     <p className="text-gray-500 font-semibold">{t('loading')}</p>
                 </div>
             </div>
@@ -89,7 +89,7 @@ export default function LogAnalyticsPage() {
             <MockBanner />
             <div className="mb-6">
                 <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white flex items-center gap-3">
-                    <ScrollText className="w-8 h-8 text-sky-500" />
+                    <ScrollText className="w-8 h-8 text-brand-deep" />
                     {t('page_title')}
                     <PinButton widgetKey="intelligence.log-analytics" />
                 </h1>

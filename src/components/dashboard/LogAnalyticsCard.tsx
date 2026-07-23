@@ -12,9 +12,9 @@ const fmt = (n: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n || 0);
 
 const REC_COLOR: Record<string, string> = {
-    'commitment-tier': '#6366f1',
-    'reduce-retention': '#f59e0b',
-    'set-daily-cap': '#ef4444',
+    'commitment-tier': '#0054A6',
+    'reduce-retention': '#E08A1E',
+    'set-daily-cap': '#E0556B',
     'ok': '#94a3b8',
 };
 
@@ -69,7 +69,7 @@ export default function LogAnalyticsCard() {
     return (
         <div className="drag-handle cursor-move bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm p-4 flex flex-col h-full overflow-auto">
             <div className="flex items-center gap-2 mb-1">
-                <ScrollText className="w-5 h-5 text-sky-500" />
+                <ScrollText className="w-5 h-5 text-brand-deep" />
                 <h3 className="m-0 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">{t('title')}</h3>
             </div>
 
