@@ -194,10 +194,13 @@ export default function GlobalCopilot() {
         }
     }, [setIsOpen, canAccessCopilot, isDemoLoginRoute]);
 
-    const handleSend = async (overridePrompt?: string) => {
+    const handleSend = async (overridePrompt?: string, displayText?: string) => {
         const promptText = overridePrompt || input;
         if (!promptText.trim() || loading) return;
-        setMessages(prev => [...prev, { role: 'user', content: promptText }]);
+        // `displayText` permite enviar un prompt largo/técnico al modelo (ej. el
+        // template de auto-reporte) sin mostrar esa instrucción cruda en el chat:
+        // la burbuja del usuario muestra una etiqueta amigable en su lugar.
+        setMessages(prev => [...prev, { role: 'user', content: displayText || promptText }]);
         if (!overridePrompt) setInput("");
         setLoading(true);
 
@@ -364,7 +367,8 @@ export default function GlobalCopilot() {
             `- Cifras SIEMPRE del payload (USD, %, conteos). NUNCA inventes valores.\n` +
             `- Si un dato falta, escribí "n/d".\n` +
             `- Sé concreto: nada de "considerar revisar"; usá verbos accionables (eliminar, redimensionar, migrar, programar apagado).\n` +
-            `- Extensión objetivo: 120-180 palabras en total (sin contar la tabla). Nada de relleno ni párrafos largos.`
+            `- Extensión objetivo: 120-180 palabras en total (sin contar la tabla). Nada de relleno ni párrafos largos.`,
+            t('auto_report_label', { page: effectivePageLabel })
         );
     }, [isOpen, effectiveDataPayload, effectivePageLabel, messages.length, injectedPrompt, currentDataPayload, autoContentSettled]);
 
