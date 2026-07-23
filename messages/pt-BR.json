@@ -3849,7 +3849,8 @@
     "ha_resources_at_risk": "{count} recursos com riscos detectados",
     "ha_no_resources_at_risk": "Sem recursos em risco",
     "ha_no_data": "Sem dados",
-    "ha_tooltip_resources": "recursos"
+    "ha_tooltip_resources": "recursos",
+    "container_apps_feature_name": "Controle de Custos de Container Apps"
   },
   "CostGroups": {
     "title": "Cost Groups",
@@ -4493,5 +4494,13 @@
     "toastDownloadError": "Erro ao baixar {filename}",
     "noAccount": "Nenhuma conta autenticada",
     "promptRecipientEmail": "Insira o e-mail do destinatário:"
+  },
+  "ContainerApps": {
+    "title": "Container Apps",
+    "per_month": "/ mês",
+    "cost": "Custo",
+    "empty": "Nenhum Azure Container App detectado",
+    "no_access": "Sem acesso",
+    "savings_hint": "Economia potencial {amount}/mês · {count} candidatos a scale-to-zero"
   }
 }
