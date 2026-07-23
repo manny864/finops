@@ -125,6 +125,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/intelligence/zero-cost', label: 'Costo Cero', icon: Box },
                 { href: '/intelligence/aks', label: 'Control AKS', icon: Server, requiredTier: 'Enterprise' },
                 { href: '/intelligence/aks-chargeback', label: 'AKS Chargeback', icon: Layers, requiredTier: 'Enterprise' },
+                { href: '/intelligence/container-apps', label: 'Container Apps', icon: Boxes, requiredTier: 'Business' },
                 { href: '/intelligence/unit-economics', label: 'Unit Economics', icon: Activity, requiredTier: 'Enterprise' },
                 { href: '/intelligence/allocation', label: 'Prorrateo (Allocation)', icon: PieChart, requiredTier: 'Enterprise' },
                 { href: '/intelligence/scorecard', label: 'Scorecard (Fama)', icon: Trophy, requiredTier: 'Business' },
