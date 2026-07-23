@@ -276,6 +276,7 @@ Simulá el impacto de escalar cómputo/storage, variar tráfico de red, o activa
 | **Hybrid Benefit (AHB)** | Business | Muestra qué VMs podrían usar licencias con Software Assurance y cuánto ahorrarías activándolo; tracking de qué ya lo usa. |
 | **Control AKS** | Enterprise | Nodos activos, utilización real vs. sobre-aprovisionamiento, costo por pod, recomendaciones de auto-scaling. |
 | **AKS Chargeback** | Enterprise | Asignás namespaces a equipos y el sistema calcula cuánto gasta cada equipo en el clúster, para facturación interna. |
+| **Container Apps** | Business | Control de costos de Azure Container Apps: costo mensual por app, entorno, CPU/memoria y réplicas. Detecta oportunidades de *scale-to-zero* (apps con réplica mínima ≥ 1 que podrían apagarse sin tráfico) y estima el ahorro potencial. También disponible como tarjeta en el White Board. |
 | **Unit Economics** | Enterprise | Definís tu propia métrica unitaria (costo por transacción, por usuario, por MB procesado) y el sistema calcula el costo unitario automáticamente sobre tus datos de Azure. |
 | **Usuarios y Licencias** (fusión con "Licencias") | Professional | 3 pestañas: **Dashboard** (KPIs M365/Entra ID), **Actividad de Usuarios** (tabla filtrable), **Optimización de Licencias** (recursos sin Hybrid Benefit vía Resource Graph + métricas por SKU vía Microsoft Graph). |
 | **Ingesta CSV** | Business | Subís un CSV con facturación de terceros bajo el estándar FOCUS para analizarlo junto a tus datos de Azure. |
