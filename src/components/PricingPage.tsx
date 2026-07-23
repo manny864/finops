@@ -210,7 +210,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
             </button>
             <button 
               onClick={() => handleSignUp('Essential')}
-              className="w-full bg-gray-800 text-white rounded-lg py-3 px-4 font-semibold hover:bg-gray-900 transition-colors shadow-md text-center inline-block"
+              className="w-full bg-[#0E1A2B] text-white rounded-lg py-3 px-4 font-semibold hover:brightness-110 transition-colors shadow-md text-center inline-block"
             >
               {t('buyNow')}
             </button>
@@ -255,7 +255,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
             </button>
             <button 
               onClick={() => openCheckout(getPriceId('pro'))}
-              className="w-full bg-gradient-to-r from-brand-deep to-[#1E88E5] text-white rounded-lg py-3 px-4 font-semibold hover:brightness-110 transition-colors shadow-md text-center inline-block"
+              className="w-full bg-gradient-to-r from-[#0E1A2B] to-[#1B2A41] text-white rounded-lg py-3 px-4 font-semibold hover:brightness-110 transition-colors shadow-md text-center inline-block"
             >
               {t('buyNow')}
             </button>
@@ -305,7 +305,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
             </button>
             <button 
               onClick={() => openCheckout(getPriceId('business'))}
-              className="w-full bg-gradient-to-r from-brand-deep to-[#1E88E5] text-white rounded-lg py-3 px-4 font-semibold hover:brightness-110 transition-colors shadow-md text-center inline-block"
+              className="w-full bg-gradient-to-r from-[#0E1A2B] to-[#1B2A41] text-white rounded-lg py-3 px-4 font-semibold hover:brightness-110 transition-colors shadow-md text-center inline-block"
             >
               {t('buyNow')}
             </button>
