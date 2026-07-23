@@ -205,6 +205,14 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
 
 ## 📈 Recent Major Updates
 
+### 2026-07-23 — Container Apps: control de costos + tarjeta White Board (nueva feature, tier Business)
+
+- Nueva capability de **control de costos de Azure Container Apps** (`Microsoft.App/containerApps`): inventario, costo `MonthToDate` por app y detección de oportunidades de **scale-to-zero** (apps con `minReplicas >= 1` mantienen réplicas encendidas 24/7 aunque no reciban tráfico).
+- **Endpoint**: `GET /api/intelligence/container-apps?tenantId=...[&subscriptionId=...]` — feature **tier Business+** (`requireTenantTier(..., 'Business')`); tenants demo pasan por `requireTenantAccess` con datos sintéticos escalados por tier.
+- **Servicio**: `src/modules/collectors/azure/containerAppsCostService.ts`. Roles Azure requeridos (Service Principal, **solo lectura**): **Reader** (Resource Graph, inventario) + **Cost Management Reader** (costo por recurso). No requiere ningún rol de escritura.
+- **UI**: tarjeta `ContainerAppsCard` en el White Board (`ExecutiveSummaryBoard`), envuelta en `FeatureGuard requiredTier="Business"`. Muestra costo mensual total, ahorro potencial por scale-to-zero y top-6 apps por costo (barras ámbar = candidatas a scale-to-zero). i18n `ContainerApps` en en/es/pt-BR. Mocks por tier dentro del servicio.
+- **Regla Cero**: todos los montos se agregan en centavos enteros (`src/lib/money.ts`) para evitar drift de floats.
+
 ### 2026-07-18 — MFA: enforcement cableado a operaciones sensibles (opt-in por usuario)
 
 - El enrollment 2FA (TOTP + QR + recovery codes) ya existía y funcionaba, pero la **exigencia del challenge en operaciones sensibles nunca estuvo cableada** (`requireMfaChallenge` y `MfaPromptModal` estaban definidos pero no se usaban en ningún lado). Ahora sí.
