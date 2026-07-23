@@ -1091,7 +1091,8 @@
     "welcome_message": "Olá! Sou seu assistente de FinOps e estou aqui para ajudar. Estou analisando o módulo <b>{page}</b>; você pode me perguntar qualquer coisa relacionada aos dados mostrados nesta página.",
     "title": "FinOps Copilot",
     "placeholder": "Pergunte sobre essas métricas...",
-    "tooltip": "FinOps Copilot — Assistente IA: analisa a página atual, encontra economias e responde suas perguntas."
+    "tooltip": "FinOps Copilot — Assistente IA: analisa a página atual, encontra economias e responde suas perguntas.",
+    "auto_report_label": "Gerando um resumo executivo do módulo {page}…"
   },
   "pricing": {
     "monthly": "Mensal",
