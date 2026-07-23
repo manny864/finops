@@ -205,6 +205,12 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
 
 ## 📈 Recent Major Updates
 
+### 2026-07-23 — Look & feel: unificación al azul de marca CSCloudSolutions (design system)
+
+- Todo el proyecto usa ahora el **azul principal de marca `#0054A6`** (`--brand-deep`) de forma consistente. Se remapearon las escalas genéricas de Tailwind `blue-*` e `indigo-*` al ramp "deep" (anclado en `#0054A6`) y `sky-*` al ramp "bright" (anclado en `#00AEEF`, `--brand-bright`) directamente en `src/app/globals.css` vía `@theme`, evitando editar ~124 archivos y garantizando cohesión visual futura sin re-trabajo.
+- `purple`/`violet` se mantienen como color semántico secundario distinto (token `--purple`).
+- Los acentos primarios hardcodeados en gráficos (`#0ea5e9` → `#00AEEF`, `#3b82f6` → `#0054A6`) se alinearon al azul de marca; las paletas categóricas multiserie (arrays `COLORS`/`LINE_COLORS`) se conservan para diferenciar series.
+
 ### 2026-07-23 — Log Analytics: control de costos + tarjeta White Board + página (nueva feature, tier Business)
 
 - Nueva capability de **control de costos de Azure Monitor Log Analytics Workspaces** (`Microsoft.OperationalInsights/workspaces`) que ataca las 3 palancas clásicas de gasto: **ingesta masiva innecesaria** (workspaces sin tope diario → recomendar filtrar en origen + `dailyQuotaGb`), **retención excesiva** (recortar `retentionInDays` sobre el umbral) y **Commitment Tiers** (migrar de Pay-As-You-Go al tier comprometido más conveniente según la ingesta diaria).
