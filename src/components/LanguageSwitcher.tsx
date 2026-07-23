@@ -8,9 +8,10 @@ import { Globe } from 'lucide-react';
 interface LanguageSwitcherProps {
   className?: string;
   selectClassName?: string;
+  iconClassName?: string;
 }
 
-export default function LanguageSwitcher({ className, selectClassName }: LanguageSwitcherProps = {}) {
+export default function LanguageSwitcher({ className, selectClassName, iconClassName }: LanguageSwitcherProps = {}) {
   const [isPending, startTransition] = useTransition();
   const locale = useLocale();
   const router = useRouter();
@@ -32,7 +33,7 @@ export default function LanguageSwitcher({ className, selectClassName }: Languag
 
   return (
     <div className={className ?? "flex items-center text-sm mr-4"}>
-      <Globe className="w-4 h-4 mr-1 text-gray-500 shrink-0" />
+      <Globe className={iconClassName ?? "w-4 h-4 mr-1 text-gray-500 shrink-0"} />
       <select
         defaultValue={locale}
         onChange={onSelectChange}
