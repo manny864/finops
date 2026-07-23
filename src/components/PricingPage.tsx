@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
 import { useMsal } from '@azure/msal-react';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import { useRouter } from '@/i18n/routing';
 import { initializePaddle, Paddle } from '@paddle/paddle-js';
 import EnterpriseLeadModal from './EnterpriseLeadModal';
@@ -28,6 +28,8 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
   // tras enviarlo se navega a /demo. Guarda el tier elegido mientras tanto.
   const [pendingDemoTier, setPendingDemoTier] = useState<DemoTier | null>(null);
   const t = useTranslations('pricing');
+  const tf = useTranslations('Footer');
+  const locale = useLocale();
 
   // Email corporativo del usuario ya logueado con MSAL (viene de preferred_username /
   // UPN del tenant Azure AD). Para cuando se llega al checkout, el login/onboarding
@@ -139,7 +141,10 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
     <div className="min-h-screen bg-[#0E1A2B] flex flex-col font-sans py-16 px-4 sm:px-6 lg:px-8">
       {/* Top Right: Language switcher + Login link */}
       <div className="absolute top-6 right-8 flex items-center gap-3 z-10">
-        <LanguageSwitcher />
+        <LanguageSwitcher
+          iconClassName="w-4 h-4 mr-1 text-white shrink-0"
+          selectClassName="bg-transparent border-none text-white focus:ring-0 cursor-pointer outline-none font-medium [color-scheme:dark]"
+        />
         {!hideLogin && (
           <>
             <span className="text-sm font-medium text-gray-300">Already have an account?</span>
@@ -154,9 +159,12 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
       </div>
 
       <div className="max-w-7xl mx-auto text-center mt-8 mb-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <h2 className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight font-heading">
-          {t('title')}
-        </h2>
+        <div className="flex items-center justify-center gap-3 sm:gap-4">
+          <img src="/logo_29k.png" alt="CSCloudSolutions" className="h-11 sm:h-14 w-auto object-contain shrink-0" />
+          <h2 className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight font-heading">
+            {t('title')}
+          </h2>
+        </div>
         <p className="mt-4 text-lg text-gray-300 max-w-2xl mx-auto">
           {t('subtitle')}
         </p>
@@ -167,7 +175,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
         <span className={`text-sm font-medium ${!isAnnual ? 'text-white' : 'text-gray-400'}`}>{t('monthly')}</span>
         <button 
           onClick={() => setIsAnnual(!isAnnual)}
-          className="mx-4 relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brand-deep focus:ring-offset-2"
+          className="mx-4 relative inline-flex h-6 w-11 items-center rounded-full border border-white/40 transition-colors focus:outline-none focus:ring-2 focus:ring-brand-bright focus:ring-offset-2 focus:ring-offset-[#0E1A2B]"
           style={{ backgroundColor: isAnnual ? '#0054A6' : '#D1D5DB' }}
         >
           <span 
@@ -186,7 +194,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
         {/* Essential */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 flex flex-col relative transition-all duration-300 hover:-translate-y-2 hover:scale-[1.02] hover:shadow-2xl hover:z-20">
           <div className="mb-6 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-            <h3 className="text-lg font-medium text-gray-900 min-w-0">{t('essential.name')}</h3>
+            <h3 className="text-lg font-bold text-gray-900 min-w-0">{t('essential.name')}</h3>
             <span className="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded flex-shrink-0">
               {t('pro.trial')}
             </span>
@@ -330,7 +338,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
           </div>
 
           <div className="mb-6 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 relative z-10">
-            <h3 className="text-lg font-medium text-gray-900 min-w-0">{t('enterprise.name')}</h3>
+            <h3 className="text-lg font-bold text-gray-900 min-w-0">{t('enterprise.name')}</h3>
             <span className="bg-[#0E1A2B]/10 text-[#0E1A2B] text-xs font-semibold px-2 py-1 rounded flex-shrink-0">{t('enterprise.badge')}</span>
           </div>
           <div className="mb-6 relative z-10">
@@ -367,6 +375,18 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
         </div>
 
       </div>
+
+      <footer className="max-w-7xl mx-auto w-full mt-16 pt-8 border-t border-white/10">
+        <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-gray-300">
+          <a href={`/${locale}/legal/privacy`} className="hover:text-white transition-colors">{tf('privacy')}</a>
+          <a href={`/${locale}/legal/terms`} className="hover:text-white transition-colors">{tf('terms')}</a>
+          <a href={`/${locale}/legal/dpa`} className="hover:text-white transition-colors">{tf('dpa')}</a>
+          <a href={`/${locale}/legal/security`} className="hover:text-white transition-colors">{tf('security')}</a>
+          <a href={`/${locale}/legal/subprocessors`} className="hover:text-white transition-colors">{tf('subprocessors')}</a>
+          <a href="/status" className="hover:text-white transition-colors">{tf('status')}</a>
+        </div>
+        <p className="text-center text-xs text-gray-400 mt-4">{tf('copyright', { year: new Date().getFullYear() })}</p>
+      </footer>
       <EnterpriseLeadModal isOpen={isEnterpriseModalOpen} onClose={() => setEnterpriseModalOpen(false)} />
       {pendingDemoTier && <DemoLeadModal onSuccess={handleDemoLeadSuccess} onClose={() => setPendingDemoTier(null)} />}
       <CorporateEmailNoticeModal
