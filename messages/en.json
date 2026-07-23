@@ -4501,6 +4501,27 @@
     "cost": "Cost",
     "empty": "No Azure Container Apps detected",
     "no_access": "No access",
-    "savings_hint": "Potential savings {amount}/mo · {count} scale-to-zero candidates"
+    "savings_hint": "Potential savings {amount}/mo · {count} scale-to-zero candidates",
+    "page_title": "Container Apps",
+    "page_subtitle": "Azure Container Apps cost control and scale-to-zero opportunities.",
+    "loading": "Loading Container Apps…",
+    "load_error": "Could not load the data.",
+    "toast_load_error": "Error loading data.",
+    "toast_network_error": "Network error loading data.",
+    "empty_title": "No Container Apps",
+    "empty_desc": "No Azure Container Apps found in the tenant.",
+    "kpi_total_cost": "Monthly cost",
+    "kpi_potential_saving": "Potential savings",
+    "kpi_scale_to_zero": "Scale-to-zero candidates",
+    "kpi_app_count": "Total apps",
+    "table_title": "Per Container App breakdown",
+    "col_app": "App",
+    "col_environment": "Environment",
+    "col_resources": "CPU / Memory",
+    "col_replicas": "Replicas (min–max)",
+    "col_monthly_cost": "Cost/mo",
+    "col_saving": "Potential savings",
+    "scale_to_zero_tag": "scale-to-zero",
+    "cost_unavailable_note": "Per-resource cost unavailable (check the Service Principal Cost Management Reader role)."
   }
 }

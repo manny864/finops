@@ -4501,6 +4501,27 @@
     "cost": "Custo",
     "empty": "Nenhum Azure Container App detectado",
     "no_access": "Sem acesso",
-    "savings_hint": "Economia potencial {amount}/mês · {count} candidatos a scale-to-zero"
+    "savings_hint": "Economia potencial {amount}/mês · {count} candidatos a scale-to-zero",
+    "page_title": "Container Apps",
+    "page_subtitle": "Controle de custos de Azure Container Apps e oportunidades de scale-to-zero.",
+    "loading": "Carregando Container Apps…",
+    "load_error": "Não foi possível carregar os dados.",
+    "toast_load_error": "Erro ao carregar os dados.",
+    "toast_network_error": "Erro de rede ao carregar os dados.",
+    "empty_title": "Nenhum Container App",
+    "empty_desc": "Nenhum Azure Container App encontrado no tenant.",
+    "kpi_total_cost": "Custo mensal",
+    "kpi_potential_saving": "Economia potencial",
+    "kpi_scale_to_zero": "Candidatos scale-to-zero",
+    "kpi_app_count": "Total de apps",
+    "table_title": "Detalhe por Container App",
+    "col_app": "App",
+    "col_environment": "Ambiente",
+    "col_resources": "CPU / Memória",
+    "col_replicas": "Réplicas (min–max)",
+    "col_monthly_cost": "Custo/mês",
+    "col_saving": "Economia potencial",
+    "scale_to_zero_tag": "scale-to-zero",
+    "cost_unavailable_note": "Custo por recurso indisponível (verifique a função Cost Management Reader do Service Principal)."
   }
 }
