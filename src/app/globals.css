@@ -90,6 +90,54 @@
   --ink-soft: #A9BBD0;
 }
 
+/* ===== Unificación de look & feel: azul de marca CSCloudSolutions =====
+ * Remapea las escalas genéricas de Tailwind (blue/indigo/sky) al ramp de la
+ * marca para que TODO el proyecto use el mismo azul principal (#0054A6) sin
+ * tener que editar cada archivo. `blue` e `indigo` comparten el ramp "deep"
+ * (anclado en --brand-deep = #0054A6, tono primario). `sky` usa el ramp
+ * "bright" (anclado en --brand-bright = #00AEEF) para conservar el acento
+ * secundario cian de la identidad. `purple`/`violet` NO se tocan: son un
+ * color semántico distinto con su propio token (--purple). */
+@theme {
+  /* Ramp DEEP — brand-deep #0054A6 en 600 (usado por blue-* e indigo-*) */
+  --color-blue-50: #e9f1fa;
+  --color-blue-100: #cfe0f2;
+  --color-blue-200: #a0c2e6;
+  --color-blue-300: #6b9fd6;
+  --color-blue-400: #3b7ec4;
+  --color-blue-500: #1462ae;
+  --color-blue-600: #0054a6;
+  --color-blue-700: #004489;
+  --color-blue-800: #00366d;
+  --color-blue-900: #002b57;
+  --color-blue-950: #001b38;
+
+  --color-indigo-50: #e9f1fa;
+  --color-indigo-100: #cfe0f2;
+  --color-indigo-200: #a0c2e6;
+  --color-indigo-300: #6b9fd6;
+  --color-indigo-400: #3b7ec4;
+  --color-indigo-500: #1462ae;
+  --color-indigo-600: #0054a6;
+  --color-indigo-700: #004489;
+  --color-indigo-800: #00366d;
+  --color-indigo-900: #002b57;
+  --color-indigo-950: #001b38;
+
+  /* Ramp BRIGHT — brand-bright #00AEEF en 500 (usado por sky-*) */
+  --color-sky-50: #e6f7fe;
+  --color-sky-100: #c7eefd;
+  --color-sky-200: #90defb;
+  --color-sky-300: #56cdf7;
+  --color-sky-400: #22bcf3;
+  --color-sky-500: #00aeef;
+  --color-sky-600: #0090c9;
+  --color-sky-700: #0073a1;
+  --color-sky-800: #005e82;
+  --color-sky-900: #004e6b;
+  --color-sky-950: #003348;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
