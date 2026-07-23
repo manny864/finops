@@ -49,9 +49,9 @@ function TrendLine({ points }: { points: { date: string; cost: number }[] }) {
     const d = xs.map((x, i) => `${i === 0 ? "M" : "L"}${x},${ys[i]}`).join(" ");
     return (
         <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-16" preserveAspectRatio="none">
-            <path d={d} fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinejoin="round" />
+            <path d={d} fill="none" stroke="#0054a6" strokeWidth="2" strokeLinejoin="round" />
             {xs.map((x, i) => (
-                <circle key={i} cx={x} cy={ys[i]} r="3" fill="#3b82f6" />
+                <circle key={i} cx={x} cy={ys[i]} r="3" fill="#0054a6" />
             ))}
         </svg>
     );

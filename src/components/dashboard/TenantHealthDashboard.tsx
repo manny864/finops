@@ -12,7 +12,7 @@ import { isMockTenant } from '@/lib/mockData';
 
 function gradeColor(grade: string): string {
     if (grade === 'A') return '#10b981';
-    if (grade === 'B') return '#0ea5e9';
+    if (grade === 'B') return '#00aeef';
     if (grade === 'C') return '#f59e0b';
     return '#ef4444';
 }

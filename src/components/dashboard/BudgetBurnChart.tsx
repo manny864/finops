@@ -133,7 +133,7 @@ export default function BudgetBurnChart({ onHeightChange }: BudgetBurnChartProps
                                             // (ver Cell abajo) para que el tooltip no confunda:
                                             // rojo ≥90%, ámbar ≥75%, azul si está sano.
                                             const ratio = data.budget > 0 ? data.actual / data.budget : 0;
-                                            const gastoColor = ratio >= 0.9 ? '#ef4444' : ratio >= 0.75 ? '#f59e0b' : '#3b82f6';
+                                            const gastoColor = ratio >= 0.9 ? '#ef4444' : ratio >= 0.75 ? '#f59e0b' : '#0054a6';
                                             return (
                                                 <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-100">
                                                     <p className="font-bold text-sm text-gray-800 mb-1">{data.costCenter}</p>
@@ -156,7 +156,7 @@ export default function BudgetBurnChart({ onHeightChange }: BudgetBurnChartProps
                                     {burnData.map((entry, index) => {
                                         const ratio = entry.budget > 0 ? entry.actual / entry.budget : 0;
                                         // Rojo si excede el 90%, Ámbar si pasa el 75%, Verde si está bien.
-                                        const color = ratio >= 0.9 ? '#ef4444' : ratio >= 0.75 ? '#f59e0b' : '#3b82f6';
+                                        const color = ratio >= 0.9 ? '#ef4444' : ratio >= 0.75 ? '#f59e0b' : '#0054a6';
                                         return <Cell key={`cell-${index}`} fill={color} />;
                                     })}
                                 </Bar>

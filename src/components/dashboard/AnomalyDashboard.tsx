@@ -360,13 +360,13 @@ export default function AnomalyDashboard() {
                                 <Tooltip content={<CustomTooltip />} />
 
                                 {/* Base Expected Band */}
-                                <ReferenceArea y1={Math.max(0, mean - (3 * stdDev))} y2={upperBound} fill="#3b82f6" fillOpacity={0.05} />
+                                <ReferenceArea y1={Math.max(0, mean - (3 * stdDev))} y2={upperBound} fill="#0054a6" fillOpacity={0.05} />
                                 <ReferenceLine y={upperBound} stroke="#ef4444" strokeDasharray="3 3" label={{ position: 'top', value: t('chartLimitLabel'), fill: '#ef4444', fontSize: 10 }} />
 
                                 <Line
                                     type="monotone"
                                     dataKey="amount"
-                                    stroke="#0ea5e9"
+                                    stroke="#00aeef"
                                     strokeWidth={3}
                                     dot={(props: any) => {
                                         const { cx, cy, value } = props;
@@ -375,7 +375,7 @@ export default function AnomalyDashboard() {
                                         }
                                         return <circle cx={cx} cy={cy} r={0} />;
                                     }}
-                                    activeDot={{ r: 6, fill: '#0ea5e9', stroke: '#ffffff', strokeWidth: 2 }}
+                                    activeDot={{ r: 6, fill: '#00aeef', stroke: '#ffffff', strokeWidth: 2 }}
                                 />
                             </LineChart>
                         </ResponsiveContainer>

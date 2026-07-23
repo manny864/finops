@@ -166,7 +166,7 @@ export default function CostProjectionCard({ showFullPageLink = true }: Props) {
                                     <YAxis tickFormatter={(v: number) => format(v, { compact: true })} tick={{ fontSize: 11 }} />
                                     <RechartsTooltip formatter={(value: any) => [value == null ? "—" : format(Number(value))]} />
                                     <Legend wrapperStyle={{ fontSize: 12 }} />
-                                    <Line type="monotone" dataKey="real" name={t('cost_projection_real')} stroke="#0ea5e9" strokeWidth={2} dot={false} connectNulls={false} />
+                                    <Line type="monotone" dataKey="real" name={t('cost_projection_real')} stroke="#00aeef" strokeWidth={2} dot={false} connectNulls={false} />
                                     <Line type="monotone" dataKey="proyectado" name={t('cost_projection_projected')} stroke="#f97316" strokeWidth={2} strokeDasharray="5 4" dot={false} connectNulls={false} />
                                 </LineChart>
                             </ResponsiveContainer>

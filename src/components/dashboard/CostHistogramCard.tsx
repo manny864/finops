@@ -129,7 +129,7 @@ export default function CostHistogramCard() {
                                 formatter={(value: any) => [format(Number(value || 0)), t('cost_histogram_cost_label')]}
                                 labelFormatter={(label: any) => formatDate(label)}
                             />
-                            <Bar dataKey="cost" fill="#0ea5e9" radius={[4, 4, 0, 0]} />
+                            <Bar dataKey="cost" fill="#00aeef" radius={[4, 4, 0, 0]} />
                         </BarChart>
                     </ResponsiveContainer>
                 )}

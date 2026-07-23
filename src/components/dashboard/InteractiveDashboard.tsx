@@ -302,7 +302,7 @@ export default function InteractiveDashboard({
     const CustomDot = (props: any) => {
         const { cx, cy, index } = props;
         if (index === evolutionData.length - 1) {
-            return <circle cx={cx} cy={cy} r={6} stroke="#0ea5e9" strokeWidth={3} fill="var(--surface)" />;
+            return <circle cx={cx} cy={cy} r={6} stroke="#00aeef" strokeWidth={3} fill="var(--surface)" />;
         }
         return null;
     };
@@ -428,8 +428,8 @@ export default function InteractiveDashboard({
                             <AreaChart data={evolutionData} margin={{ top: 10, right: 20, left: -20, bottom: 0 }}>
                                 <defs>
                                     <linearGradient id="colorGasto" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.15}/>
-                                        <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0}/>
+                                        <stop offset="5%" stopColor="#00aeef" stopOpacity={0.15}/>
+                                        <stop offset="95%" stopColor="#00aeef" stopOpacity={0}/>
                                     </linearGradient>
                                 </defs>
                                 <CartesianGrid vertical={false} stroke="var(--line)" />
@@ -439,7 +439,7 @@ export default function InteractiveDashboard({
                                     contentStyle={{ borderRadius: '8px', border: '1px solid var(--line)', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', background: 'var(--surface)', color: 'inherit' }}
                                 formatter={(value: any) => [format(value), t('spend_label')]}
                                 />
-                                <Area type="monotone" dataKey="cost" stroke="#0ea5e9" strokeWidth={4} fillOpacity={1} fill="url(#colorGasto)" activeDot={{ r: 8, strokeWidth: 0 }} dot={<CustomDot />} />
+                                <Area type="monotone" dataKey="cost" stroke="#00aeef" strokeWidth={4} fillOpacity={1} fill="url(#colorGasto)" activeDot={{ r: 8, strokeWidth: 0 }} dot={<CustomDot />} />
                             </AreaChart>
                         </ResponsiveContainer>
                         <div className="absolute bottom-[35px] left-[55px] right-[25px] border-t-2 border-dashed border-slate-300 dark:border-slate-700"></div>

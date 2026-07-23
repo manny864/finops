@@ -87,7 +87,7 @@ export default function BudgetMonthlyChart({ data, budgetAmount, loading, height
                     <Bar dataKey="cost" radius={[3, 3, 0, 0]} barSize={18}>
                         {chartData.map((entry, index) => {
                             const over = budgetAmount > 0 && entry.cost > budgetAmount;
-                            return <Cell key={`cell-${index}`} fill={over ? '#ef4444' : '#3b82f6'} />;
+                            return <Cell key={`cell-${index}`} fill={over ? '#ef4444' : '#0054a6'} />;
                         })}
                     </Bar>
                 </BarChart>
