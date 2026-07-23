@@ -3850,7 +3850,8 @@
     "ha_no_resources_at_risk": "No resources at risk",
     "ha_no_data": "No data",
     "ha_tooltip_resources": "resources",
-    "container_apps_feature_name": "Container Apps Cost Control"
+    "container_apps_feature_name": "Container Apps Cost Control",
+    "log_analytics_feature_name": "Log Analytics Cost Control"
   },
   "CostGroups": {
     "title": "Cost Groups",
@@ -4523,5 +4524,42 @@
     "col_saving": "Potential savings",
     "scale_to_zero_tag": "scale-to-zero",
     "cost_unavailable_note": "Per-resource cost unavailable (check the Service Principal Cost Management Reader role)."
+  },
+  "LogAnalytics": {
+    "title": "Log Analytics",
+    "per_month": "/ month",
+    "cost": "Cost",
+    "no_access": "No access",
+    "empty": "No Log Analytics Workspaces",
+    "savings_hint": "Potential savings {amount}/mo from Commitment Tiers and retention",
+    "page_title": "Log Analytics",
+    "page_subtitle": "Log Analytics Workspaces cost control: ingestion, retention and Commitment Tiers.",
+    "loading": "Loading Log Analytics…",
+    "load_error": "Could not load the data.",
+    "toast_load_error": "Error loading data.",
+    "toast_network_error": "Network error loading data.",
+    "empty_title": "No Log Analytics Workspaces",
+    "empty_desc": "No Log Analytics Workspaces found in the tenant.",
+    "kpi_total_cost": "Monthly cost",
+    "kpi_potential_saving": "Potential savings",
+    "kpi_commitment_candidates": "Commitment Tier candidates",
+    "kpi_uncapped": "Without ingestion cap",
+    "table_title": "Per Workspace breakdown",
+    "col_workspace": "Workspace",
+    "col_sku": "Pricing tier",
+    "col_retention": "Retention",
+    "col_ingestion": "Est. ingestion",
+    "col_monthly_cost": "Cost/mo",
+    "col_recommendation": "Recommendation",
+    "col_saving": "Potential savings",
+    "days": "days",
+    "day": "day",
+    "gb_month": "GB/mo",
+    "no_cap": "no daily cap",
+    "rec_commitment_tier": "Move to Commitment Tier",
+    "rec_reduce_retention": "Reduce retention",
+    "rec_set_daily_cap": "Set daily cap",
+    "rec_ok": "Optimal",
+    "estimate_note": "Ingestion and savings are estimated from cost and Azure Monitor reference prices; use them to prioritize, not to bill."
   }
 }

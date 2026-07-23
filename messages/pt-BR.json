@@ -3850,7 +3850,8 @@
     "ha_no_resources_at_risk": "Sem recursos em risco",
     "ha_no_data": "Sem dados",
     "ha_tooltip_resources": "recursos",
-    "container_apps_feature_name": "Controle de Custos de Container Apps"
+    "container_apps_feature_name": "Controle de Custos de Container Apps",
+    "log_analytics_feature_name": "Controle de Custos de Log Analytics"
   },
   "CostGroups": {
     "title": "Cost Groups",
@@ -4523,5 +4524,42 @@
     "col_saving": "Economia potencial",
     "scale_to_zero_tag": "scale-to-zero",
     "cost_unavailable_note": "Custo por recurso indisponível (verifique a função Cost Management Reader do Service Principal)."
+  },
+  "LogAnalytics": {
+    "title": "Log Analytics",
+    "per_month": "/ mês",
+    "cost": "Custo",
+    "no_access": "Sem acesso",
+    "empty": "Nenhum Log Analytics Workspace",
+    "savings_hint": "Economia potencial {amount}/mês com Commitment Tiers e retenção",
+    "page_title": "Log Analytics",
+    "page_subtitle": "Controle de custos de Log Analytics Workspaces: ingestão, retenção e Commitment Tiers.",
+    "loading": "Carregando Log Analytics…",
+    "load_error": "Não foi possível carregar os dados.",
+    "toast_load_error": "Erro ao carregar os dados.",
+    "toast_network_error": "Erro de rede ao carregar os dados.",
+    "empty_title": "Nenhum Log Analytics Workspace",
+    "empty_desc": "Nenhum Log Analytics Workspace encontrado no tenant.",
+    "kpi_total_cost": "Custo mensal",
+    "kpi_potential_saving": "Economia potencial",
+    "kpi_commitment_candidates": "Candidatos Commitment Tier",
+    "kpi_uncapped": "Sem limite de ingestão",
+    "table_title": "Detalhe por Workspace",
+    "col_workspace": "Workspace",
+    "col_sku": "Pricing tier",
+    "col_retention": "Retenção",
+    "col_ingestion": "Ingestão est.",
+    "col_monthly_cost": "Custo/mês",
+    "col_recommendation": "Recomendação",
+    "col_saving": "Economia potencial",
+    "days": "dias",
+    "day": "dia",
+    "gb_month": "GB/mês",
+    "no_cap": "sem limite diário",
+    "rec_commitment_tier": "Migrar para Commitment Tier",
+    "rec_reduce_retention": "Reduzir retenção",
+    "rec_set_daily_cap": "Definir limite diário",
+    "rec_ok": "Ótimo",
+    "estimate_note": "A ingestão e a economia são estimativas com base no custo e nos preços de referência do Azure Monitor; use-as para priorizar, não para faturar."
   }
 }
