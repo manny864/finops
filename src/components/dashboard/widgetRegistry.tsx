@@ -28,6 +28,7 @@ const Loading = () => (
 const HABreakdownCard = dynamic(() => import("./HABreakdownCard"), { loading: Loading, ssr: false });
 const AksChargebackCard = dynamic(() => import("./AksChargebackCard"), { loading: Loading, ssr: false });
 const ContainerAppsCard = dynamic(() => import("./ContainerAppsCard"), { loading: Loading, ssr: false });
+const LogAnalyticsCard = dynamic(() => import("./LogAnalyticsCard"), { loading: Loading, ssr: false });
 const ExpiringCredentialsPanel = dynamic(() => import("./ExpiringCredentialsPanel"), { loading: Loading, ssr: false });
 const ShortcutWidget = dynamic(() => import("./ShortcutWidget"), { loading: Loading, ssr: false });
 
@@ -63,6 +64,14 @@ export const WIDGETS: Record<string, WidgetDef> = {
         description: "Costo de Azure Container Apps y oportunidades de scale-to-zero.",
         sourcePage: "/intelligence/container-apps",
         Component: ContainerAppsCard,
+        minHeightRem: 22,
+    },
+    "intelligence.log-analytics": {
+        key: "intelligence.log-analytics",
+        title: "Log Analytics",
+        description: "Costo de Log Analytics Workspaces: ingesta, retención y Commitment Tiers.",
+        sourcePage: "/intelligence/log-analytics",
+        Component: LogAnalyticsCard,
         minHeightRem: 22,
     },
     "governance.expiring-credentials": {

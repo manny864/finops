@@ -18,6 +18,7 @@ import { useCurrency } from "@/components/CurrencyProvider";
 import CostProjectionCard from "@/components/dashboard/CostProjectionCard";
 import HABreakdownCard from "@/components/dashboard/HABreakdownCard";
 import ContainerAppsCard from "@/components/dashboard/ContainerAppsCard";
+import LogAnalyticsCard from "@/components/dashboard/LogAnalyticsCard";
 import BudgetBurnChart from "@/components/dashboard/BudgetBurnChart";
 import MyPinnedWidgets from "@/components/dashboard/MyPinnedWidgets";
 import FeatureGuard from "@/components/FeatureGuard";
@@ -53,6 +54,7 @@ const LG_ITEMS = [
     { i: "recTrend", x: 4, y: 18, w: 4, h: 3 },
     { i: "costGroups", x: 8, y: 18, w: 4, h: 3 },
     { i: "containerApps", x: 0, y: 21, w: 6, h: 5 },
+    { i: "logAnalytics", x: 6, y: 21, w: 6, h: 5 },
 ];
 
 // Deriva un layout válido para un breakpoint angosto a partir del de `lg`
@@ -608,6 +610,12 @@ export default function ExecutiveSummaryBoard() {
                 <div key="containerApps">
                     <FeatureGuard requiredTier="Business" featureName={t("container_apps_feature_name")} className="h-full w-full drag-handle cursor-move">
                         <ContainerAppsCard />
+                    </FeatureGuard>
+                </div>
+
+                <div key="logAnalytics">
+                    <FeatureGuard requiredTier="Business" featureName={t("log_analytics_feature_name")} className="h-full w-full drag-handle cursor-move">
+                        <LogAnalyticsCard />
                     </FeatureGuard>
                 </div>
             </ResponsiveGridLayout>
