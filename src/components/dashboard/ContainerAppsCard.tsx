@@ -72,7 +72,7 @@ export default function ContainerAppsCard() {
         <div className="drag-handle cursor-move bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm p-4 flex flex-col h-full overflow-auto">
             <div className="flex items-center justify-between gap-2 mb-1">
                 <div className="flex items-center gap-2">
-                    <Boxes className="w-5 h-5 text-indigo-500" />
+                    <Boxes className="w-5 h-5 text-brand-deep" />
                     <h3 className="m-0 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">{t('title')}</h3>
                 </div>
             </div>
@@ -108,7 +108,7 @@ export default function ContainerAppsCard() {
                             <RechartsTooltip formatter={(v: any) => [fmt(Number(v)), t('cost')]} />
                             <Bar dataKey="cost" radius={[0, 4, 4, 0]}>
                                 {chartData.map((row, idx) => (
-                                    <Cell key={idx} fill={row.candidate ? '#f59e0b' : '#6366f1'} />
+                                    <Cell key={idx} fill={row.candidate ? '#E08A1E' : '#0054A6'} />
                                 ))}
                             </Bar>
                         </BarChart>

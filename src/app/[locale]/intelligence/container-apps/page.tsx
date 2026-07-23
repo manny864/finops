@@ -56,7 +56,7 @@ export default function ContainerAppsPage() {
         return (
             <div className="p-6 max-w-6xl mx-auto flex items-center justify-center min-h-[400px]">
                 <div className="animate-pulse flex flex-col items-center">
-                    <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
+                    <div className="w-12 h-12 border-4 border-brand-soft border-t-brand-deep rounded-full animate-spin mb-4"></div>
                     <p className="text-gray-500 font-semibold">{t('loading')}</p>
                 </div>
             </div>
@@ -82,7 +82,7 @@ export default function ContainerAppsPage() {
             <MockBanner />
             <div className="mb-6">
                 <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white flex items-center gap-3">
-                    <Boxes className="w-8 h-8 text-indigo-500" />
+                    <Boxes className="w-8 h-8 text-brand-deep" />
                     {t('page_title')}
                     <PinButton widgetKey="intelligence.container-apps" />
                 </h1>
