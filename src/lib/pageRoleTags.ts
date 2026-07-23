@@ -71,6 +71,7 @@ export const PAGE_ROLE_TAGS: Record<string, RoleTag[]> = {
     "/intelligence/aks": ["CloudAdmin"],
     "/intelligence/aks-chargeback": ["FinOps"],
     "/intelligence/container-apps": ["FinOps"],
+    "/intelligence/log-analytics": ["FinOps"],
     "/intelligence/unit-economics": ["FinOps"],
     "/intelligence/allocation": ["FinOps"],
     "/intelligence/scorecard": ["ProductOwner"],

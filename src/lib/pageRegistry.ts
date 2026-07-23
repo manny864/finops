@@ -40,6 +40,7 @@ export const PAGES: PageEntry[] = [
     { id: "int-unit-economics", path: "/intelligence/unit-economics", title: "Unit Economics", description: "Costo por unidad de negocio (req, GB, etc).", icon: "TrendingUp", category: "intelligence" },
     { id: "int-aks", path: "/intelligence/aks", title: "AKS Overview", description: "Visión general de clusters AKS.", icon: "Container", category: "intelligence" },
     { id: "int-container-apps", path: "/intelligence/container-apps", title: "Container Apps", description: "Control de costos de Azure Container Apps y oportunidades de scale-to-zero.", icon: "Boxes", category: "intelligence" },
+    { id: "int-log-analytics", path: "/intelligence/log-analytics", title: "Log Analytics", description: "Control de costos de Log Analytics Workspaces: ingesta, retención y Commitment Tiers.", icon: "ScrollText", category: "intelligence" },
     { id: "int-alerts", path: "/intelligence/alerts", title: "Alertas Self-Service", description: "Reglas de alerta de costo configurables.", icon: "Bell", category: "intelligence" },
     { id: "int-simulator", path: "/intelligence/simulator", title: "Simulador de Costos", description: "Simulá cambios y proyectá impacto.", icon: "Calculator", category: "intelligence" },
     { id: "int-cost-projection", path: "/intelligence/cost-projection", title: "Proyección de Gastos", description: "Proyección de gasto a futuro (12m + % crecimiento).", icon: "TrendingUp", category: "intelligence" },
