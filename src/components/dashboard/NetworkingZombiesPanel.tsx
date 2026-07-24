@@ -260,6 +260,21 @@ export default function NetworkingZombiesPanel() {
 
             {!canDelete && <EnterpriseDeleteDisclaimer domain="networking" />}
 
+            {/* Acumulación de Private Endpoints: aunque estén sanos y en uso, cada
+                uno suma un costo fijo por hora — desplegar decenas sin consolidar
+                genera un gasto acumulado que no aparece como "recurso roto". */}
+            {data.privateEndpointAccumulation?.totalCount > 0 && (
+                <div className="bg-fuchsia-50 dark:bg-fuchsia-950/20 p-3 flex gap-3 rounded-xl border border-fuchsia-200 dark:border-fuchsia-800/50 text-fuchsia-800 dark:text-fuchsia-300">
+                    <Info className="w-5 h-5 shrink-0 mt-0.5" />
+                    <p className="text-sm">
+                        {t("privateEndpointAccumulation", {
+                            count: data.privateEndpointAccumulation.totalCount,
+                            cost: data.privateEndpointAccumulation.estimatedMonthlyCost.toFixed(2),
+                        })}
+                    </p>
+                </div>
+            )}
+
             {/* Summary KPI */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-5">

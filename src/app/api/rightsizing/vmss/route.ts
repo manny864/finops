@@ -1,15 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireTenantRole, AuthError } from "@/lib/requestAuth";
+import { requireTenantRole, requireTenantTier, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
-import pool from "@/modules/storage/db";
-
-const MOCK_ITEMS = [
-    { vmssName: 'vmss-web-prod', subscriptionId: 'sub-1', resourceGroup: 'rg-prod', currentSku: 'Standard_D8s_v5', currentCapacity: 6, recommendedCapacity: 4, avgCpuPercent: 18.5, hasAutoscale: false, monthlyCost: 1840, estimatedSavings: 613, reason: 'Avg CPU <20% for 30d and no autoscale' },
-    { vmssName: 'vmss-api', subscriptionId: 'sub-1', resourceGroup: 'rg-prod', currentSku: 'Standard_E4s_v5', currentCapacity: 4, recommendedCapacity: 3, avgCpuPercent: 42, hasAutoscale: true, monthlyCost: 760, estimatedSavings: 190, reason: 'Min instances could drop from 4 to 3' },
-    { vmssName: 'vmss-batch', subscriptionId: 'sub-2', resourceGroup: 'rg-data', currentSku: 'Standard_F8s_v2', currentCapacity: 2, recommendedCapacity: 2, avgCpuPercent: 8, hasAutoscale: false, monthlyCost: 485, estimatedSavings: 340, reason: 'Downsize SKU from F8s_v2 to F4s_v2' },
-];
-
-const MOCK_RESPONSE = { success: true, mock: true, items: MOCK_ITEMS, totalSavings: 1143 };
+import { getVmssRightsizingRecommendations } from "@/modules/collectors/azure/vmssRightsizingService";
+import { getResourceGraphClient } from "@/lib/azure";
+import { getWithStaleWhileRevalidate } from "@/lib/cache";
+import { withArgLimit } from "@/lib/argConcurrency";
 
 export async function GET(request: NextRequest) {
     try {
@@ -18,26 +13,53 @@ export async function GET(request: NextRequest) {
         if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
 
         try {
-            await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
+            if (!isMockTenant(tenantId)) {
+                await requireTenantTier(request, tenantId, "Business");
+            } else {
+                await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
+            }
         } catch (e) {
             if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
             throw e;
         }
 
-        if (isMockTenant(tenantId)) return NextResponse.json(MOCK_RESPONSE);
-
-        try {
-            const [rows]: any = await pool.query(
-                'SELECT * FROM VmssRecommendations WHERE tenant_id = ? ORDER BY estimated_savings DESC',
-                [tenantId]
-            );
-            const items = rows || [];
-            const totalSavings = items.reduce((sum: number, r: any) => sum + Number(r.estimated_savings || 0), 0);
-            return NextResponse.json({ success: true, mock: false, items, totalSavings });
-        } catch (dbErr: any) {
-            console.error("[rightsizing/vmss] DB error for real tenant:", tenantId, dbErr?.message);
-            return NextResponse.json({ success: false, mock: false, items: [], totalSavings: 0, error: `Sin datos: ${dbErr?.message || "error"}` });
+        if (isMockTenant(tenantId)) {
+            const data = await getVmssRightsizingRecommendations(tenantId, "");
+            return NextResponse.json({ success: true, mock: true, ...data });
         }
+
+        // VMSS puede estar en varias suscripciones — recorremos todas las que
+        // tengan al menos un scale set (mismo patrón que Container Apps).
+        let subscriptionIds: string[] = [];
+        try {
+            const client = await getResourceGraphClient(tenantId);
+            const query = `Resources | where type =~ 'microsoft.compute/virtualmachinescalesets' | summarize by subscriptionId`;
+            const resARG: any = await withArgLimit(() => client.resources({ query, options: { resultFormat: "objectArray", top: 1000 } }));
+            subscriptionIds = ((resARG.data as any[]) || []).map((r) => String(r.subscriptionId)).filter(Boolean);
+        } catch (e: unknown) {
+            console.warn(`[rightsizing/vmss] No se pudieron listar suscripciones para ${tenantId}:`, e instanceof Error ? e.message : e);
+            return NextResponse.json({ success: true, items: [], totalSavings: 0, dataAvailable: false });
+        }
+
+        if (subscriptionIds.length === 0) {
+            return NextResponse.json({ success: true, items: [], totalSavings: 0, dataAvailable: true });
+        }
+
+        const perSub = await Promise.all(
+            subscriptionIds.map((subId) =>
+                getWithStaleWhileRevalidate(
+                    `vmss-rightsizing:v1:${tenantId}:${subId}`,
+                    () => getVmssRightsizingRecommendations(tenantId, subId),
+                    1800,
+                    600
+                )
+            )
+        );
+        const items = perSub.flatMap((r) => r.items);
+        const totalSavings = Number(items.reduce((s, i) => s + i.estimatedSavings, 0).toFixed(2));
+        const dataAvailable = perSub.every((r) => r.dataAvailable);
+
+        return NextResponse.json({ success: true, mock: false, items, totalSavings, dataAvailable });
     } catch (err: unknown) {
         console.error("[rightsizing/vmss] handler error:", err instanceof Error ? err.message : err);
         return NextResponse.json({ success: false, mock: false, items: [], totalSavings: 0, error: "Internal server error" }, { status: 500 });

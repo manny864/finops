@@ -127,6 +127,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/intelligence/aks', label: 'Control AKS', icon: Server, requiredTier: 'Enterprise' },
                 { href: '/intelligence/aks-chargeback', label: 'AKS Chargeback', icon: Layers, requiredTier: 'Enterprise' },
                 { href: '/intelligence/container-apps', label: 'Container Apps', icon: Boxes, requiredTier: 'Business' },
+                { href: '/intelligence/cosmos-db', label: t('cosmosDb', { fallback: 'Cosmos DB' }), icon: Database, requiredTier: 'Business' },
                 { href: '/intelligence/log-analytics', label: 'Log Analytics', icon: ScrollText, requiredTier: 'Business' },
                 { href: '/intelligence/unit-economics', label: 'Unit Economics', icon: Activity, requiredTier: 'Enterprise' },
                 { href: '/intelligence/allocation', label: 'Prorrateo (Allocation)', icon: PieChart, requiredTier: 'Enterprise' },

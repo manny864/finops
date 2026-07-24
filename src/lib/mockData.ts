@@ -506,7 +506,11 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                 };
             });
             const totalMonthlyWaste = Number(items.reduce((sum, it) => sum + it.monthlyCost, 0).toFixed(2));
-            return { success: true, mock: true, items, totalMonthlyWaste };
+            // Total de Private Endpoints (conectados + desconectados) — la mayoría
+            // están sanos y en uso; solo los "Disconnected" aparecen en `items`.
+            const totalPrivateEndpoints = (12 + scale * 6);
+            const privateEndpointAccumulation = { totalCount: totalPrivateEndpoints, estimatedMonthlyCost: Number((totalPrivateEndpoints * 7.2).toFixed(2)) };
+            return { success: true, mock: true, items, totalMonthlyWaste, privateEndpointAccumulation };
         }
         case 'history':
             // Genera 12 puntos semanales terminando hoy, con score creciente

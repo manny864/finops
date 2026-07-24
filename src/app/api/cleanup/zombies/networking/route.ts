@@ -152,5 +152,17 @@ async function fetchNetworkingZombies(tenantId: string, subscriptionId: string |
 
         const totalMonthlyWaste = Number(items.reduce((sum, i) => sum + i.monthlyCost, 0).toFixed(2));
 
-        return { items, totalMonthlyWaste };
+        // Punto ciego "Efecto acumulativo de Private Endpoints" del reporte FinOps:
+        // TODOS los PEs (conectados o no) generan un costo fijo continuo por hora.
+        // A diferencia de `privateEndpoints` arriba (solo Disconnected → remediable
+        // con delete), esto es informativo: cuánto suma el conjunto completo aunque
+        // cada uno individualmente esté sano y en uso.
+        const allPrivateEndpoints = ((graphResults as any)?.allPrivateEndpoints as any[] | undefined) || [];
+        const PE_FIXED_MONTHLY_COST = 7.2;
+        const privateEndpointAccumulation = {
+            totalCount: allPrivateEndpoints.length,
+            estimatedMonthlyCost: Number((allPrivateEndpoints.length * PE_FIXED_MONTHLY_COST).toFixed(2)),
+        };
+
+        return { items, totalMonthlyWaste, privateEndpointAccumulation };
 }
