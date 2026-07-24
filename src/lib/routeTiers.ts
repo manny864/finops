@@ -18,6 +18,11 @@ export const ROUTE_TIERS: Record<string, 'Essential' | 'Professional' | 'Busines
     '/intelligence/aks': 'Enterprise',
     '/intelligence/container-apps': 'Business',
     '/intelligence/cosmos-db': 'Business',
+    '/cleanup/backup-orphans': 'Business',
+    '/intelligence/defender': 'Business',
+    '/intelligence/network-perimeter': 'Professional',
+    '/intelligence/app-insights': 'Business',
+    '/intelligence/misc-services': 'Essential',
     '/intelligence/log-analytics': 'Business',
     '/intelligence/unit-economics': 'Enterprise',
     // Cost Groups (Budget & Forecast por Business Unit) — Business y Enterprise.
