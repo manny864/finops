@@ -3,12 +3,14 @@ import MockBanner from '@/components/MockBanner';
 import React, { useState, useEffect } from 'react';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
-import { ShieldAlert, Info } from 'lucide-react';
+import { ShieldAlert, Info, DollarSign, Layers } from 'lucide-react';
 import { toast } from 'sonner';
 import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
 import { useTranslations } from 'next-intl';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
+
+const fmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 
 export default function BackupOrphansPage() {
     const t = useTranslations('BackupOrphans');
@@ -89,6 +91,17 @@ export default function BackupOrphansPage() {
                     <p className="text-gray-600 dark:text-gray-400">{t('empty_desc')}</p>
                 </div>
             ) : (
+                <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
+                    <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-6">
+                        <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1"><DollarSign className="w-4 h-4" />{t('kpi_total_cost')}</h3>
+                        <p className="text-2xl font-black text-gray-900 dark:text-white">{fmt.format(data.totalEstimatedMonthlyCost || 0)}</p>
+                    </div>
+                    <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-6">
+                        <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1"><Layers className="w-4 h-4" />{t('kpi_item_count')}</h3>
+                        <p className="text-2xl font-black text-gray-900 dark:text-white">{items.length}</p>
+                    </div>
+                </div>
                 <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-6">
                     <div className="mb-4 flex items-start gap-2 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300 p-3 rounded-lg text-sm">
                         <Info className="w-4 h-4 mt-0.5 shrink-0" />
@@ -102,6 +115,7 @@ export default function BackupOrphansPage() {
                                     <th className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase">{t('col_vault')}</th>
                                     <th className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase">{t('col_type')}</th>
                                     <th className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase">{t('col_state')}</th>
+                                    <th className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase text-right">{t('col_cost')}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -111,12 +125,15 @@ export default function BackupOrphansPage() {
                                         <td className="py-3 px-4 border-b border-gray-100 dark:border-slate-800 text-sm text-gray-600 dark:text-gray-400">{item.vaultName}</td>
                                         <td className="py-3 px-4 border-b border-gray-100 dark:border-slate-800 text-sm text-gray-600 dark:text-gray-400">{item.backupManagementType}</td>
                                         <td className="py-3 px-4 border-b border-gray-100 dark:border-slate-800 text-sm text-gray-600 dark:text-gray-400">{item.protectionState}</td>
+                                        <td className="py-3 px-4 border-b border-gray-100 dark:border-slate-800 font-bold text-sm text-brand-deep text-right">{fmt.format(item.estimatedMonthlyCost || 0)}</td>
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
                     </div>
+                    <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-3">{t('cost_estimate_note')}</p>
                 </div>
+                </>
             )}
         </div>
     );

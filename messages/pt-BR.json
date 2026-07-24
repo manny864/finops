@@ -4229,6 +4229,16 @@
   },
   "NetworkingZombies": {
     "privateEndpointAccumulation": "{count} Private Endpoints ativos no tenant (conectados e desconectados) — custo fixo contínuo estimado de ${cost}/mês. Mesmo que cada um esteja saudável, implantar dezenas sem consolidar acumula um gasto por hora raramente auditado.",
+    "pePanelTitle": "Private Endpoints — Detalhe completo",
+    "pePanelSubtitle": "Todos os Private Endpoints do tenant, conectados e desconectados, para revisar e decidir o que consolidar.",
+    "peColName": "Nome",
+    "peColResourceGroup": "Grupo de recursos",
+    "peColSubscription": "Assinatura",
+    "peColState": "Estado",
+    "peColCost": "Custo/mês",
+    "peStateConnected": "Conectado",
+    "peStateDisconnected": "Desconectado",
+    "peActionableAbove": "(acionável na tabela acima)",
     "loadError": "Falha ao carregar dados",
     "deleteFailed": "Falha ao excluir",
     "confirmDeleteSingle": "Tem certeza absoluta de que deseja EXCLUIR permanentemente o recurso {name} ({type})? Isso impactará os custos no Azure instantaneamente.",
@@ -4571,7 +4581,11 @@
     "col_item": "Item protegido",
     "col_vault": "Vault",
     "col_type": "Tipo",
-    "col_state": "Estado de proteção"
+    "col_state": "Estado de proteção",
+    "col_cost": "Custo estimado/mês",
+    "kpi_total_cost": "Custo mensal estimado",
+    "kpi_item_count": "Itens órfãos",
+    "cost_estimate_note": "Estimativa por ordem de grandeza segundo o tipo de carga (VM, workload, storage) — o tamanho real dos pontos de restauração não está disponível sem uma chamada adicional por item."
   },
   "Defender": {
     "page_title": "Defender for Cloud",

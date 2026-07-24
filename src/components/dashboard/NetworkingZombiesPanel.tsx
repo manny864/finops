@@ -275,6 +275,54 @@ export default function NetworkingZombiesPanel() {
                 </div>
             )}
 
+            {/* Listado completo de Private Endpoints (conectados + desconectados),
+                para que se puedan revisar y tomar acción caso por caso. Los
+                Disconnected ya son accionables (borrado) en la tabla de abajo —
+                acá solo se marca su estado; no se duplica el botón de borrado
+                para no exponer un delete de un click sobre recursos sanos. */}
+            {(data.privateEndpointsDetail?.length || 0) > 0 && (
+                <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-6">
+                    <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-1">{t("pePanelTitle")}</h3>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">{t("pePanelSubtitle")}</p>
+                    <div className="max-h-80 overflow-y-auto overflow-x-auto rounded-lg border border-gray-100 dark:border-slate-800">
+                        <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700 text-sm">
+                            <thead className="bg-gray-50 dark:bg-slate-800/50 sticky top-0">
+                                <tr>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t("peColName")}</th>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t("peColResourceGroup")}</th>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t("peColSubscription")}</th>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t("peColState")}</th>
+                                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t("peColCost")}</th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white dark:bg-slate-900 divide-y divide-gray-100 dark:divide-slate-800">
+                                {[...data.privateEndpointsDetail]
+                                    .sort((a: any, b: any) => (a.connectionState === "Disconnected" ? -1 : 1) - (b.connectionState === "Disconnected" ? -1 : 1))
+                                    .map((pe: any) => {
+                                        const isDisconnected = pe.connectionState === "Disconnected";
+                                        return (
+                                            <tr key={pe.resourceId} className="hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
+                                                <td className="px-4 py-2 font-medium text-gray-900 dark:text-white whitespace-nowrap">{pe.resourceName}</td>
+                                                <td className="px-4 py-2 text-gray-500 dark:text-gray-400 whitespace-nowrap">{pe.resourceGroup}</td>
+                                                <td className="px-4 py-2 text-gray-500 dark:text-gray-400 whitespace-nowrap font-mono text-xs">{pe.subscriptionId}</td>
+                                                <td className="px-4 py-2 whitespace-nowrap">
+                                                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${isDisconnected ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"}`}>
+                                                        {isDisconnected ? t("peStateDisconnected") : t("peStateConnected")}
+                                                    </span>
+                                                    {isDisconnected && (
+                                                        <span className="ml-2 text-[11px] text-red-600 dark:text-red-400">{t("peActionableAbove")}</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-4 py-2 text-right text-gray-500 dark:text-gray-400 whitespace-nowrap">${pe.monthlyCost.toFixed(2)}</td>
+                                            </tr>
+                                        );
+                                    })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
             {/* Summary KPI */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-5">

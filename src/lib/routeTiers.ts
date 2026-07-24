@@ -18,7 +18,7 @@ export const ROUTE_TIERS: Record<string, 'Essential' | 'Professional' | 'Busines
     '/intelligence/aks': 'Enterprise',
     '/intelligence/container-apps': 'Business',
     '/intelligence/cosmos-db': 'Business',
-    '/cleanup/backup-orphans': 'Business',
+    '/cleanup/backup-orphans': 'Essential',
     '/intelligence/defender': 'Business',
     '/intelligence/network-perimeter': 'Professional',
     '/intelligence/app-insights': 'Business',

@@ -4229,6 +4229,16 @@
   },
   "NetworkingZombies": {
     "privateEndpointAccumulation": "{count} Private Endpoints active in the tenant (connected and disconnected) — estimated fixed cost of ${cost}/mo. Even if each one is healthy, deploying dozens without consolidating accumulates hourly spend that's rarely audited.",
+    "pePanelTitle": "Private Endpoints — Full detail",
+    "pePanelSubtitle": "All Private Endpoints in the tenant, connected and disconnected, to review and decide what to consolidate.",
+    "peColName": "Name",
+    "peColResourceGroup": "Resource group",
+    "peColSubscription": "Subscription",
+    "peColState": "State",
+    "peColCost": "Cost/mo",
+    "peStateConnected": "Connected",
+    "peStateDisconnected": "Disconnected",
+    "peActionableAbove": "(actionable in the table above)",
     "loadError": "Failed to load data",
     "deleteFailed": "Deletion failed",
     "confirmDeleteSingle": "Are you absolutely sure you want to permanently DELETE the resource {name} ({type})? This will impact your Azure costs instantly.",
@@ -4571,7 +4581,11 @@
     "col_item": "Protected item",
     "col_vault": "Vault",
     "col_type": "Type",
-    "col_state": "Protection state"
+    "col_state": "Protection state",
+    "col_cost": "Estimated cost/mo",
+    "kpi_total_cost": "Estimated monthly cost",
+    "kpi_item_count": "Orphaned items",
+    "cost_estimate_note": "Order-of-magnitude estimate by workload type (VM, workload, storage) — real restore point size isn't available without an extra call per item."
   },
   "Defender": {
     "page_title": "Defender for Cloud",

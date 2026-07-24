@@ -19,6 +19,20 @@ import { isMockTenant } from "@/lib/mockData";
 const ARM_BASE = "https://management.azure.com";
 const BACKUP_API_VERSION = "2023-04-01";
 
+// Estimación de costo mensual de almacenamiento de puntos de restauración por
+// tipo de carga protegida — no hay tamaño real disponible sin $expand por item
+// (llamada extra por recurso), así que se usa un orden de magnitud de
+// referencia (LRS, retención estándar), mismo criterio que el resto de los
+// costos planos de zombies/networking en esta app.
+const MONTHLY_COST_BY_TYPE: Record<string, number> = {
+    AzureIaasVM: 12.0,
+    AzureWorkload: 8.0,
+    AzureStorage: 5.0,
+    MAB: 3.0,
+    AzureSql: 6.0,
+};
+const DEFAULT_MONTHLY_COST = 6.0;
+
 export interface OrphanedBackupItemRow {
     vaultName: string;
     resourceGroup: string;
@@ -26,16 +40,18 @@ export interface OrphanedBackupItemRow {
     sourceResourceId: string;
     backupManagementType: string;
     protectionState: string;
+    estimatedMonthlyCost: number;
 }
 
 export interface BackupOrphanResult {
     items: OrphanedBackupItemRow[];
+    totalEstimatedMonthlyCost: number;
     dataAvailable: boolean;
 }
 
 const MOCK_ITEMS: OrphanedBackupItemRow[] = [
-    { vaultName: 'rsv-prod-backup', resourceGroup: 'rg-backups', itemName: 'vm-decommissioned-01', sourceResourceId: 'mock', backupManagementType: 'AzureIaasVM', protectionState: 'ProtectionStopped' },
-    { vaultName: 'rsv-prod-backup', resourceGroup: 'rg-backups', itemName: 'sqldb-legacy-app', sourceResourceId: 'mock', backupManagementType: 'AzureWorkload', protectionState: 'ProtectionStopped' },
+    { vaultName: 'rsv-prod-backup', resourceGroup: 'rg-backups', itemName: 'vm-decommissioned-01', sourceResourceId: 'mock', backupManagementType: 'AzureIaasVM', protectionState: 'ProtectionStopped', estimatedMonthlyCost: 12.0 },
+    { vaultName: 'rsv-prod-backup', resourceGroup: 'rg-backups', itemName: 'sqldb-legacy-app', sourceResourceId: 'mock', backupManagementType: 'AzureWorkload', protectionState: 'ProtectionStopped', estimatedMonthlyCost: 8.0 },
 ];
 
 async function armToken(credential: any): Promise<string> {
@@ -45,7 +61,9 @@ async function armToken(credential: any): Promise<string> {
 }
 
 export const getOrphanedBackupItems = async (tenantId: string): Promise<BackupOrphanResult> => {
-    if (isMockTenant(tenantId)) return { items: MOCK_ITEMS, dataAvailable: true };
+    if (isMockTenant(tenantId)) {
+        return { items: MOCK_ITEMS, totalEstimatedMonthlyCost: Number(MOCK_ITEMS.reduce((s, i) => s + i.estimatedMonthlyCost, 0).toFixed(2)), dataAvailable: true };
+    }
 
     let vaults: any[] = [];
     let allResourceIds: Set<string> = new Set();
@@ -66,16 +84,16 @@ export const getOrphanedBackupItems = async (tenantId: string): Promise<BackupOr
         allResourceIds = new Set(((allRes.data as any[]) || []).map((r) => String(r.id).toLowerCase()));
     } catch (e: unknown) {
         console.warn(`[Backup Orphan] No se pudo inventariar para ${tenantId}:`, e instanceof Error ? e.message : e);
-        return { items: [], dataAvailable: false };
+        return { items: [], totalEstimatedMonthlyCost: 0, dataAvailable: false };
     }
 
-    if (vaults.length === 0) return { items: [], dataAvailable: true };
+    if (vaults.length === 0) return { items: [], totalEstimatedMonthlyCost: 0, dataAvailable: true };
 
     let credential;
     try {
         credential = await getAzureCredential(tenantId);
     } catch {
-        return { items: [], dataAvailable: false };
+        return { items: [], totalEstimatedMonthlyCost: 0, dataAvailable: false };
     }
 
     const items: OrphanedBackupItemRow[] = [];
@@ -91,13 +109,15 @@ export const getOrphanedBackupItems = async (tenantId: string): Promise<BackupOr
                 const sourceResourceId = String(props.sourceResourceId || props.virtualMachineId || "").toLowerCase();
                 if (!sourceResourceId) continue;
                 if (allResourceIds.has(sourceResourceId)) continue; // recurso fuente sigue existiendo
+                const backupManagementType = props.backupManagementType || "—";
                 items.push({
                     vaultName: vault.name,
                     resourceGroup: vault.resourceGroup,
                     itemName: props.friendlyName || props.virtualMachineId?.split("/").pop() || String(item.name || "—"),
                     sourceResourceId,
-                    backupManagementType: props.backupManagementType || "—",
+                    backupManagementType,
                     protectionState: props.protectionState || "—",
+                    estimatedMonthlyCost: MONTHLY_COST_BY_TYPE[backupManagementType] ?? DEFAULT_MONTHLY_COST,
                 });
             }
         } catch (e: unknown) {
@@ -105,5 +125,5 @@ export const getOrphanedBackupItems = async (tenantId: string): Promise<BackupOr
         }
     }
 
-    return { items, dataAvailable: true };
+    return { items, totalEstimatedMonthlyCost: Number(items.reduce((s, i) => s + i.estimatedMonthlyCost, 0).toFixed(2)), dataAvailable: true };
 };

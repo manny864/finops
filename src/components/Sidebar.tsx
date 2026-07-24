@@ -160,7 +160,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/cleanup/zombies', label: t('zombie_resources'), icon: Trash2 },
                 { href: '/cleanup/zombies/networking', label: 'Networking Zombies', icon: Network, requiredTier: 'Essential' },
                 { href: '/cleanup/ttl', label: t('ttl_expirations'), icon: Clock, requiredTier: 'Business' },
-                { href: '/cleanup/backup-orphans', label: t('backup_orphans', { fallback: 'Backups Huérfanos' }), icon: ShieldAlert, requiredTier: 'Business' }
+                { href: '/cleanup/backup-orphans', label: t('backup_orphans', { fallback: 'Backups Huérfanos' }), icon: ShieldAlert }
             ]
         },
         {

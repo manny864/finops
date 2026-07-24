@@ -8,7 +8,7 @@
  * Snapshots está marcado "Bajo / Controlado" en la matriz del reporte).
  */
 import { NextRequest, NextResponse } from "next/server";
-import { requireTenantAccess, requireTenantTier, AuthError } from "@/lib/requestAuth";
+import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
 import { getOrphanedBackupItems } from "@/modules/collectors/azure/backupOrphanService";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
@@ -19,11 +19,9 @@ export async function GET(request: NextRequest) {
         const tenantId = searchParams.get("tenantId");
         if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
 
-        if (!isMockTenant(tenantId)) {
-            await requireTenantTier(request, tenantId, "Business");
-        } else {
-            await requireTenantAccess(request, tenantId);
-        }
+        // Feature Essential (gratis para todos los tenants) — solo chequeo de
+        // pertenencia al tenant, sin gate de tier.
+        await requireTenantAccess(request, tenantId);
 
         const data = await getWithStaleWhileRevalidate(
             `backup-orphans:v1:${tenantId}`,
