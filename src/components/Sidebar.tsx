@@ -52,10 +52,12 @@ import {
     TrendingUp,
     PiggyBank,
     Network,
+    Router,
     LifeBuoy,
     HeartPulse,
     Table2,
     Boxes,
+    Blocks,
     ScrollText,
     Wallet,
     Recycle,
@@ -127,6 +129,11 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/intelligence/aks', label: 'Control AKS', icon: Server, requiredTier: 'Enterprise' },
                 { href: '/intelligence/aks-chargeback', label: 'AKS Chargeback', icon: Layers, requiredTier: 'Enterprise' },
                 { href: '/intelligence/container-apps', label: 'Container Apps', icon: Boxes, requiredTier: 'Business' },
+                { href: '/intelligence/cosmos-db', label: t('cosmosDb', { fallback: 'Cosmos DB' }), icon: Database, requiredTier: 'Business' },
+                { href: '/intelligence/defender', label: t('defender', { fallback: 'Defender for Cloud' }), icon: ShieldCheck, requiredTier: 'Business' },
+                { href: '/intelligence/network-perimeter', label: t('network_perimeter', { fallback: 'Red Perimetral' }), icon: Router, requiredTier: 'Professional' },
+                { href: '/intelligence/app-insights', label: t('app_insights', { fallback: 'Application Insights' }), icon: Activity, requiredTier: 'Business' },
+                { href: '/intelligence/misc-services', label: t('misc_services', { fallback: 'Otros Servicios' }), icon: Blocks },
                 { href: '/intelligence/log-analytics', label: 'Log Analytics', icon: ScrollText, requiredTier: 'Business' },
                 { href: '/intelligence/unit-economics', label: 'Unit Economics', icon: Activity, requiredTier: 'Enterprise' },
                 { href: '/intelligence/allocation', label: 'Prorrateo (Allocation)', icon: PieChart, requiredTier: 'Enterprise' },
@@ -152,7 +159,8 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             items: [
                 { href: '/cleanup/zombies', label: t('zombie_resources'), icon: Trash2 },
                 { href: '/cleanup/zombies/networking', label: 'Networking Zombies', icon: Network, requiredTier: 'Essential' },
-                { href: '/cleanup/ttl', label: t('ttl_expirations'), icon: Clock, requiredTier: 'Business' }
+                { href: '/cleanup/ttl', label: t('ttl_expirations'), icon: Clock, requiredTier: 'Business' },
+                { href: '/cleanup/backup-orphans', label: t('backup_orphans', { fallback: 'Backups Huérfanos' }), icon: ShieldAlert }
             ]
         },
         {

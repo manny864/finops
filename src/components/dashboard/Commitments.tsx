@@ -49,6 +49,16 @@ function utilTextColor(v: number | null): string {
     return v >= 80 ? 'text-emerald-600 dark:text-emerald-400' : v >= 70 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400';
 }
 
+// Reserva "huérfana": sigue activa/facturando pero sin consumo real en los últimos
+// 7 días — típicamente porque la VM/recurso subyacente se eliminó o cambió de familia
+// y nadie migró/canceló la reserva. Es una detección honesta con lo que ya trae el
+// blade de Reservations (sin collector nuevo): utilización ~0% con status activo.
+function isOrphaned(r: ReservationDetail): boolean {
+    const s = (r.status || '').toLowerCase();
+    const isActive = s.includes('succeed') || s.includes('active');
+    return isActive && r.utilizationLast7Days !== null && r.utilizationLast7Days < 5;
+}
+
 function fmtExpiry(iso: string | null): string {
     if (!iso) return '—';
     const d = new Date(iso);
@@ -139,6 +149,9 @@ export default function Commitments() {
             { name: t('utilizationLabelWaste'), value: 100 - utilizationValue }
           ]
         : [{ name: t('utilizationLabelNoData'), value: 100 }];
+
+    const reservationDetails: ReservationDetail[] = metrics.reservationDetails || [];
+    const orphanedReservations = reservationDetails.filter(isOrphaned);
 
     const coverageColor = metrics.coverage >= 60 ? '#3B82F6' : '#6366F1';
     const coverageData = [
@@ -256,6 +269,12 @@ export default function Commitments() {
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
                     {t('reservasSubtitle')}
                 </p>
+                {orphanedReservations.length > 0 && (
+                    <div className="mb-4 flex items-start gap-2 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 p-3 rounded-lg text-sm font-medium">
+                        <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                        <span>{t('orphanedAlert', { count: orphanedReservations.length })}</span>
+                    </div>
+                )}
                 {!metrics.reservationDetails?.length ? (
                     <div className="text-center py-8 text-gray-500 dark:text-gray-400 text-sm">
                         {t('empty')}
@@ -283,8 +302,16 @@ export default function Commitments() {
                                     <tr key={r.reservationId || idx} className="hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
                                         <td className="px-4 py-3 font-medium text-gray-900 dark:text-white whitespace-nowrap">
                                             <span className="inline-flex items-center gap-2">
-                                                <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+                                                <span className={`w-2 h-2 rounded-full shrink-0 ${isOrphaned(r) ? 'bg-red-500' : 'bg-emerald-400'}`} />
                                                 <span className="truncate max-w-[180px]" title={r.name}>{r.name}</span>
+                                                {isOrphaned(r) && (
+                                                    <span
+                                                        title={t('orphanedTooltip')}
+                                                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400 shrink-0"
+                                                    >
+                                                        {t('orphanedBadge')}
+                                                    </span>
+                                                )}
                                             </span>
                                         </td>
                                         <td className="px-4 py-3 whitespace-nowrap">

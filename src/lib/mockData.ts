@@ -506,7 +506,26 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                 };
             });
             const totalMonthlyWaste = Number(items.reduce((sum, it) => sum + it.monthlyCost, 0).toFixed(2));
-            return { success: true, mock: true, items, totalMonthlyWaste };
+            // Total de Private Endpoints (conectados + desconectados) — la mayoría
+            // están sanos y en uso; solo los "Disconnected" aparecen también en `items`
+            // (con acción de borrado). El resto se sintetiza como "Connected" para
+            // dar visibilidad completa del conjunto en el mock.
+            const disconnectedPeItems = items.filter((it) => it.resourceType === "privateEndpoint");
+            const totalPrivateEndpoints = (12 + scale * 6);
+            const connectedPeCount = Math.max(0, totalPrivateEndpoints - disconnectedPeItems.length);
+            const privateEndpointsDetail = [
+                ...disconnectedPeItems.map((it) => ({
+                    resourceId: it.resourceId, resourceName: it.resourceName, resourceGroup: it.resourceGroup,
+                    subscriptionId: it.subscriptionId, connectionState: "Disconnected", monthlyCost: 7.2,
+                })),
+                ...Array.from({ length: connectedPeCount }).map((_, i) => ({
+                    resourceId: `/subscriptions/mock-sub-${(i % 3) + 1}/resourceGroups/rg-data/providers/Microsoft.Network/privateEndpoints/pe-active-${i + 1}`,
+                    resourceName: `pe-active-${i + 1}`, resourceGroup: "rg-data", subscriptionId: `mock-sub-${(i % 3) + 1}`,
+                    connectionState: "Connected", monthlyCost: 7.2,
+                })),
+            ];
+            const privateEndpointAccumulation = { totalCount: totalPrivateEndpoints, estimatedMonthlyCost: Number((totalPrivateEndpoints * 7.2).toFixed(2)) };
+            return { success: true, mock: true, items, totalMonthlyWaste, privateEndpointAccumulation, privateEndpointsDetail };
         }
         case 'history':
             // Genera 12 puntos semanales terminando hoy, con score creciente

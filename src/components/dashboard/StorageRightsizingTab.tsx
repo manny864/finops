@@ -127,7 +127,7 @@ export default function StorageRightsizingTab() {
                                             <HardDrive className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                                             <span>{r.accountName}</span>
                                         </div>
-                                        <div className="text-xs text-slate-400 mt-0.5 font-mono">{r.containerName}</div>
+                                        <div className="text-xs text-slate-400 mt-0.5 font-mono">{r.containerName || r.resourceGroup}</div>
                                     </td>
                                     <td className="px-4 py-3 text-xs">
                                         <span className={`px-2 py-0.5 rounded-full font-semibold ${TIER_COLORS[r.currentTier] || 'bg-gray-100 text-gray-600'}`}>{r.currentTier}</span>
