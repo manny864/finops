@@ -534,6 +534,42 @@ export function getAwsMockDataForRoute(route: string, tier: string): Record<stri
     const base = { success: true, mock: true, provider: 'AWS' as const, currency: 'USD' };
 
     switch (route) {
+        case 'budgets': {
+            // Los presupuestos de la demo se expresan sobre el gasto AWS del
+            // tier, no sobre cifras fijas: un limite que no guarda relacion con
+            // el consumo mostrado deja la barra siempre al 100% o siempre al 5%.
+            const limite = round2(total * 1.15);
+            return {
+                ...base,
+                data: [
+                    { name: 'Presupuesto Cloud Q3', limit: limite, currentSpend: round2(total * 0.86), status: 'On Track' },
+                    { name: 'Campana Marketing', limit: round2(total * 0.2), currentSpend: round2(total * 0.23), status: 'Exceeded' },
+                ],
+            };
+        }
+
+        case 'budgets_burn': {
+            const cuentas = getAwsDemoAccounts(tier);
+            // El presupuesto nativo cuelga de la cuenta: en AWS Budgets no hay
+            // un scope jerarquico como el management group de Azure.
+            const reparto = [
+                { costCenter: 'IT & Ops', share: 0.38, uso: 0.80 },
+                { costCenter: 'Marketing', share: 0.14, uso: 0.96 },
+                { costCenter: 'R&D', share: 0.28, uso: 1.19 },
+                { costCenter: 'HR', share: 0.06, uso: 0.60 },
+            ];
+            return {
+                ...base,
+                burnData: reparto.map((r, i) => ({
+                    costCenter: r.costCenter,
+                    subscriptionId: cuentas[i % cuentas.length].account_id,
+                    budget: round2(total * r.share * 1.1),
+                    actual: round2(total * r.share * 1.1 * r.uso),
+                    estimated: false,
+                })),
+            };
+        }
+
         case 'cost-projection': {
             // 400 dias para que el grafico de proyeccion tenga 13 meses de
             // historico. Se escala con el total AWS del tier y no con el de

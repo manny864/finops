@@ -66,6 +66,12 @@ const AGNOSTIC_ROUTES: readonly string[] = [
     "/intelligence/cost-groups",
     "/intelligence/simulator",
 
+    // Presupuestos. Los definidos en la plataforma viven en la tabla Budgets y
+    // ya eran agnosticos; los nativos salen de AWS Budgets, que es un servicio
+    // global aparte (solo responde en us-east-1) y no tiene scope jerarquico:
+    // se consultan cuenta por cuenta.
+    "/intelligence/budgets",
+
     // Gastos y proyeccion: la serie sale de CostSnapshots, que el sync de AWS
     // llena por los dos caminos (CUR y Cost Explorer). El backfill contra Azure
     // se saltea para AWS, que ya trae su propio historico.

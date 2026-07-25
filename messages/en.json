@@ -1366,7 +1366,13 @@
         "killSwitchTargetRgLabel": "Target Resource Group",
         "killSwitchSelectRgPlaceholder": "Select an RG...",
         "killSwitchSaving": "Saving...",
-        "killSwitchApply": "Apply Kill Switch"
+        "killSwitchApply": "Apply Kill Switch",
+        "breakdown_by_subscription_aws": "Breakdown by Account",
+        "createModalTitle_aws": "Create Budget",
+        "createModalSuccess_aws": "Budget successfully created on the platform. Budgets defined in AWS Budgets are read-only here.",
+        "killSwitchDescription_aws": "Not available on AWS: automatic bulk shutdown needs write permissions on EC2 that the read-only onboarding role does not request.",
+        "killSwitchSelectRgError_aws": "Not available on AWS",
+        "killSwitchTargetRgLabel_aws": "Not available on AWS"
     },
     "onboarding": {
         "leastPrivilegeBanner": "As your current plan is {tier}, this script has been custom-tailored to request only the strictly necessary RBAC permissions for your features.",

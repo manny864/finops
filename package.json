@@ -28,6 +28,7 @@
     "@ai-sdk/azure": "^3.0.77",
     "@ai-sdk/google": "^3.0.80",
     "@ai-sdk/openai": "^3.0.68",
+    "@aws-sdk/client-budgets": "^3.1095.0",
     "@aws-sdk/client-cost-explorer": "^3.1076.0",
     "@aws-sdk/client-ec2": "^3.1076.0",
     "@aws-sdk/client-marketplace-entitlement-service": "^3.1076.0",

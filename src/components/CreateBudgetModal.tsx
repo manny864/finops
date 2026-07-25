@@ -1,12 +1,13 @@
 "use client";
 import React, { useState } from 'react';
 import { useMsal } from '@azure/msal-react';
-import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { Loader2, X } from 'lucide-react';
 import KillSwitchConfig from '@/components/budgets/KillSwitchConfig';
 import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
+import { useCloudProvider } from '@/context/ProviderContext';
+import { useProviderTranslations } from '@/lib/useProviderTranslations';
 
 interface CreateBudgetModalProps {
     isOpen: boolean;
@@ -17,7 +18,12 @@ interface CreateBudgetModalProps {
 }
 
 export default function CreateBudgetModal({ isOpen, onClose, onSuccess, subscriptionId, tenantId }: CreateBudgetModalProps) {
-    const t = useTranslations('Budgets');
+    const t = useProviderTranslations('Budgets');
+    const { activeProvider } = useCloudProvider();
+    // En AWS el presupuesto se crea solo en la plataforma: escribirlo tambien en
+    // AWS Budgets exigiria budgets:CreateBudget, un permiso de escritura que el
+    // rol de solo lectura del onboarding no pide a proposito (menor privilegio).
+    const isAws = activeProvider === 'aws';
     const { instance, accounts } = useMsal();
     const [budgetName, setBudgetName] = useState('');
     const [amount, setAmount] = useState('');
@@ -49,6 +55,34 @@ export default function CreateBudgetModal({ isOpen, onClose, onSuccess, subscrip
             }
 
             const idToken = await getFreshIdToken(instance, accounts[0]);
+
+            if (isAws) {
+                const localRes = await fetch('/api/budgets', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${idToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        tenantId,
+                        costCenter: budgetName,
+                        monthlyLimit: parseFloat(amount),
+                        alertThreshold: parseFloat(alertThreshold)
+                    })
+                });
+                if (localRes.ok) {
+                    toast.success(t('createModalSuccess'));
+                    onSuccess();
+                    onClose();
+                    setBudgetName('');
+                    setAmount('');
+                    setContactEmail('');
+                } else {
+                    toast.error(t('createModalFailed'));
+                }
+                setLoading(false);
+                return;
+            }
 
             // First save/create budget in Azure via API
             const res = await fetch('/api/budgets/create', {
@@ -178,7 +212,10 @@ export default function CreateBudgetModal({ isOpen, onClose, onSuccess, subscrip
                         </select>
                     </div>
 
-                    <KillSwitchConfig subscriptionId={subscriptionId} />
+                    {/* El kill-switch apaga los recursos de un resource group,
+                        que en AWS no existe; su equivalente exigiria permisos de
+                        escritura sobre EC2 que el rol de lectura no tiene. */}
+                    {!isAws && <KillSwitchConfig subscriptionId={subscriptionId} />}
                     
                     <div className="px-6 py-4 bg-gray-50 dark:bg-slate-800/50 -mx-6 -mb-6 flex justify-end gap-3 mt-6">
                         <button 

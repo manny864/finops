@@ -1366,7 +1366,13 @@
         "killSwitchTargetRgLabel": "Resource Group de Destino",
         "killSwitchSelectRgPlaceholder": "Selecione um RG...",
         "killSwitchSaving": "Salvando...",
-        "killSwitchApply": "Aplicar Kill Switch"
+        "killSwitchApply": "Aplicar Kill Switch",
+        "breakdown_by_subscription_aws": "Detalhamento por Conta",
+        "createModalTitle_aws": "Criar Orçamento",
+        "createModalSuccess_aws": "Orçamento criado com sucesso na plataforma. Os orçamentos definidos no AWS Budgets aparecem somente para leitura.",
+        "killSwitchDescription_aws": "Não disponível na AWS: o desligamento automático em massa precisa de permissões de escrita no EC2 que o papel somente leitura do onboarding não solicita.",
+        "killSwitchSelectRgError_aws": "Não disponível na AWS",
+        "killSwitchTargetRgLabel_aws": "Não disponível na AWS"
     },
     "onboarding": {
         "leastPrivilegeBanner": "Como seu plano atual é {tier}, este script foi personalizado para solicitar apenas as permissões RBAC estritamente necessárias para seus recursos.",

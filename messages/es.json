@@ -1366,7 +1366,13 @@
         "killSwitchTargetRgLabel": "Resource Group Objetivo",
         "killSwitchSelectRgPlaceholder": "Seleccione un RG...",
         "killSwitchSaving": "Guardando...",
-        "killSwitchApply": "Aplicar Kill Switch"
+        "killSwitchApply": "Aplicar Kill Switch",
+        "breakdown_by_subscription_aws": "Desglose por Cuenta",
+        "createModalTitle_aws": "Crear Presupuesto",
+        "createModalSuccess_aws": "Presupuesto creado con éxito en la plataforma. Los presupuestos definidos en AWS Budgets se muestran solo de lectura.",
+        "killSwitchDescription_aws": "No disponible en AWS: el apagado automático masivo necesita permisos de escritura sobre EC2 que el rol de solo lectura del onboarding no solicita.",
+        "killSwitchSelectRgError_aws": "No disponible en AWS",
+        "killSwitchTargetRgLabel_aws": "No disponible en AWS"
     },
     "onboarding": {
         "leastPrivilegeBanner": "Dado que tu plan actual es {tier}, este script ha sido personalizado para solicitar únicamente los permisos RBAC estrictamente necesarios para tus funciones.",
