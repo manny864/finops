@@ -609,6 +609,21 @@ export function getAwsMockDataForRoute(route: string, tier: string): Record<stri
 
         case 'dashboard_summary': {
             const histogram = getAwsDailyHistogram(tier);
+            // `dashboardData` alimenta la pagina de fugas financieras, que
+            // agrupa por `type` los items con issueType 'cost'. Sin esto la
+            // demo AWS mostraba la pagina vacia.
+            const AWS_LEAK_TYPES: Record<string, string> = {
+                'aws.ec2/volumes': 'EBS Volume',
+                'aws.ec2/elastic-ips': 'Elastic IP',
+                'aws.ec2/snapshots': 'EBS Snapshot',
+                'aws.ec2/instances': 'EC2 (Stopped)',
+            };
+            const dashboardData = getAwsZombieResources(tier).map((r) => ({
+                ...r,
+                type: AWS_LEAK_TYPES[r.resourceType as string] ?? r.resourceType,
+                issueType: 'cost',
+                potentialSavings: r.monthlyCost,
+            }));
             return {
                 ...base,
                 actualCost: round2(total),
@@ -617,6 +632,8 @@ export function getAwsMockDataForRoute(route: string, tier: string): Record<stri
                 accountsEvaluated: accountCountFor(multiplier),
                 histogram,
                 topServices: getAwsCostByService(tier).slice(0, 5),
+                dashboardData,
+                zombieCount: dashboardData.length,
             };
         }
 

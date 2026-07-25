@@ -4,7 +4,7 @@ import { redis } from "@/lib/redis";
 import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";
 import { getCurrentMonthAmortizedCosts, getHistoricalDailyCosts, AZURE_COST_HISTORY_MAX_MONTHS } from "@/modules/collectors/azure/billingService";
-import { tenantUsesAzure } from "@/lib/tenantProviderContext";
+import { tenantUsesAzure, tenantUsesAws } from "@/lib/tenantProviderContext";
 import { isMockTenant } from "@/lib/mockData";
 import { recordDailySnapshotAsync } from "@/services/snapshotService";
 import { getInternalBaseUrl } from "@/lib/internalBaseUrl";
@@ -45,6 +45,51 @@ const NON_ZOMBIE_AUDIT_KEYS = new Set<string>([
   "flowLogsWithoutTrafficAnalytics",
   "expiredCerts",
 ]);
+
+/**
+ * Fugas financieras de un tenant AWS, con el contrato de `mapAuditData`.
+ *
+ * En Azure la lista sale de `/api/audit/full`, que corre un catálogo de
+ * consultas KQL contra Resource Graph. AWS no tiene un equivalente global y
+ * gratuito (Config se habilita por región y factura por ítem), así que se
+ * reutiliza el inventario EC2 que ya alimenta la limpieza de recursos ociosos.
+ *
+ * Los nombres de tipo son los de AWS. Reutilizar los de Azure —"Disk",
+ * "Public IP"— haría que la pantalla le hable al tenant en la terminología de
+ * la nube equivocada, que es justo lo que el panel parametrizado evita.
+ */
+async function fetchAwsLeaks(tenantId: string, subscriptionId: string) {
+  const AWS_LEAK_TYPES: Record<string, string> = {
+    'aws.ec2/volumes': 'EBS Volume',
+    'aws.ec2/elastic-ips': 'Elastic IP',
+    'aws.ec2/snapshots': 'EBS Snapshot',
+    'aws.ec2/instances': 'EC2 (Stopped)',
+  };
+
+  try {
+    const { getAwsZombies } = await import('@/modules/collectors/aws/awsInventoryService');
+    const account = subscriptionId && subscriptionId.toLowerCase() !== 'all' ? subscriptionId : null;
+    const items = await getAwsZombies(tenantId, account);
+
+    const mappedData = items.map((r) => ({
+      ...r,
+      // La UI comparte tabla con Azure y espera `resourceGroup`; en AWS el
+      // agrupador equivalente es la region.
+      resourceGroup: r.region,
+      subscriptionId: r.accountId,
+      type: AWS_LEAK_TYPES[r.resourceType] ?? r.resourceType,
+      issueType: 'cost' as const,
+      potentialSavings: r.monthlyCost,
+    }));
+
+    return { mappedData, zombieCount: items.length };
+  } catch (e) {
+    // Un permiso IAM faltante no puede tumbar el dashboard entero: el resto de
+    // la pantalla vive de CostSnapshots y tiene que seguir cargando.
+    console.warn('[Summary] inventario AWS no disponible:', (e as Error)?.message);
+    return { mappedData: [] as Array<Record<string, unknown>>, zombieCount: 0 };
+  }
+}
 
 function mapAuditData(auditResults: AuditResults) {
   const resourceConfig: Record<string, { type: string; savings: number; issueType: string }> = {
@@ -359,8 +404,12 @@ export async function GET(request: NextRequest) {
 
         // Disparamos audit, forecast y MTD cost en paralelo. NINGUNO bloquea al resto:
         // si audit falla o tarda, el dashboard sigue mostrando costos (de DB) y viceversa.
+        // En AWS no se llama a /api/audit/full: su catalogo es KQL contra
+        // Resource Graph y para un tenant AWS solo gastaria los 60s de timeout
+        // antes de devolver vacio. El inventario equivalente se pide aparte.
+        const isAwsTenant = await tenantUsesAws(tenantId);
         const [auditSettled, forecastSettled, mtdActual] = await Promise.all([
-          timedFetch(
+          isAwsTenant ? Promise.resolve({ auditResults: {} }) : timedFetch(
             `${origin}/api/audit/full?tenantId=${encodeURIComponent(tenantId)}${subParam}`,
             // El catálogo KQL ya supera 45 consultas (batches de 16 con delay
             // de 1500ms + reintentos por 429). Con 30s el audit se abortaba
@@ -408,7 +457,9 @@ export async function GET(request: NextRequest) {
         if (forecastAzureUnavailable) console.warn('[Summary] Azure Cost Management unavailable or no data for this scope');
 
         const auditResults = (auditJson.auditResults || {}) as AuditResults;
-        const { mappedData, zombieCount } = mapAuditData(auditResults);
+        const { mappedData, zombieCount } = isAwsTenant
+          ? await fetchAwsLeaks(tenantId, subscriptionId)
+          : mapAuditData(auditResults);
         const totalSavings = mappedData.reduce((sum, item) => sum + Number(item.potentialSavings || 0), 0);
         const environmentalImpact = Number(((totalSavings / 100) * 15).toFixed(1));
 

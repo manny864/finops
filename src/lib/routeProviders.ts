@@ -66,6 +66,11 @@ const AGNOSTIC_ROUTES: readonly string[] = [
     "/intelligence/cost-groups",
     "/intelligence/simulator",
 
+    // Fugas financieras: agrupa por tipo los recursos que generan costo sin dar
+    // valor. En Azure salen del catalogo KQL de /api/audit/full; en AWS, del
+    // inventario EC2, porque Resource Graph no tiene equivalente gratuito.
+    "/overview/financial-leaks",
+
     // Presupuestos. Los definidos en la plataforma viven en la tabla Budgets y
     // ya eran agnosticos; los nativos salen de AWS Budgets, que es un servicio
     // global aparte (solo responde en us-east-1) y no tiene scope jerarquico:

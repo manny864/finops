@@ -463,3 +463,35 @@ describe('mock de gastos y proyeccion AWS', () => {
         expect(suma('enterprise')).toBeGreaterThan(suma('essential'));
     });
 });
+
+describe('fugas financieras AWS en el resumen', () => {
+    it('el resumen trae los recursos ociosos con nomenclatura de AWS', () => {
+        const payload = getAwsMockDataForRoute('dashboard_summary', 'business') as {
+            dashboardData: Array<{ type: string; issueType: string; potentialSavings: number }>;
+            zombieCount: number;
+        };
+
+        expect(payload.dashboardData.length).toBeGreaterThan(0);
+        expect(payload.zombieCount).toBe(payload.dashboardData.length);
+
+        const tipos = new Set(payload.dashboardData.map(d => d.type));
+        // La pagina agrupa por `type`: si llegara el identificador crudo
+        // ('aws.ec2/volumes') el usuario veria un slug en vez de un servicio.
+        for (const t of tipos) expect(t).not.toContain('aws.ec2/');
+        // Y nunca la terminologia de Azure.
+        for (const t of tipos) expect(t).not.toMatch(/^Disk$|Public IP|Managed Disk/);
+        expect(tipos.has('EBS Volume')).toBe(true);
+    });
+
+    it('solo cuentan como fuga los items con ahorro y categoria de costo', () => {
+        const payload = getAwsMockDataForRoute('dashboard_summary', 'enterprise') as {
+            dashboardData: Array<{ issueType: string; potentialSavings: number }>;
+        };
+        // La pagina descarta lo que no sea issueType 'cost' con ahorro > 0: si
+        // no se marcaran asi, el total de fuga daria cero.
+        for (const d of payload.dashboardData) {
+            expect(d.issueType).toBe('cost');
+            expect(d.potentialSavings).toBeGreaterThan(0);
+        }
+    });
+});
