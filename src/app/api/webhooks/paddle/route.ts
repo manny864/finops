@@ -3,6 +3,18 @@ import crypto from "crypto";
 import pool from "@/modules/storage/db";
 import { priceIdToTier, TierName } from "@/lib/paddleTierMap";
 import { notifyInternalCancellation } from "@/lib/billingAlerts";
+import { applyTierChange } from "@/services/providerLifecycleService";
+
+/**
+ * Tier actual del tenant ANTES de escribir el nuevo. Lo necesita
+ * `applyTierChange` para decidir si el cambio implica archivar o restaurar el
+ * proveedor secundario de un tenant multi-cloud (ver
+ * docs/provider-downgrade-policy.md).
+ */
+async function readCurrentTier(connection: any, tenantId: string): Promise<string | null> {
+  const [rows] = await connection.query("SELECT tier FROM Tenants WHERE tenant_id = ? LIMIT 1", [tenantId]);
+  return (rows as Array<{ tier?: string }>)[0]?.tier ?? null;
+}
 
 const VALID_TIERS: readonly TierName[] = ["Essential", "Professional", "Business", "Enterprise"];
 
@@ -163,7 +175,9 @@ async function handleSubscriptionCreated(payload: any, tenantId?: string) {
     }
 
     const connection = await pool.getConnection();
+    let previousTier: string | null = null;
     try {
+      previousTier = await readCurrentTier(connection, tenantId);
       if (tier) {
         await connection.execute(
           `UPDATE Tenants
@@ -191,6 +205,11 @@ async function handleSubscriptionCreated(payload: any, tenantId?: string) {
       }
     } finally {
       connection.release();
+    }
+
+    if (tier && previousTier) {
+      // Fuera del `finally`: applyTierChange toma su propia conexión del pool.
+      await applyTierChange({ tenantId, previousTier, nextTier: tier, actor: "paddle-webhook" });
     }
 
     return NextResponse.json({ success: true });
@@ -223,7 +242,9 @@ async function handleSubscriptionUpdated(payload: any, tenantId?: string) {
     }
 
     const connection = await pool.getConnection();
+    let previousTier: string | null = null;
     try {
+      previousTier = await readCurrentTier(connection, tenantId);
       if (tier) {
         await connection.execute(
           `UPDATE Tenants
@@ -249,6 +270,10 @@ async function handleSubscriptionUpdated(payload: any, tenantId?: string) {
       }
     } finally {
       connection.release();
+    }
+
+    if (tier && previousTier) {
+      await applyTierChange({ tenantId, previousTier, nextTier: tier, actor: "paddle-webhook" });
     }
 
     return NextResponse.json({ success: true });

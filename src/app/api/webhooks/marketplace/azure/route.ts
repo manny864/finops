@@ -3,6 +3,7 @@ import pool from '@/modules/storage/db';
 import { verifyWebhookJwt, getSubscription } from '@/lib/marketplace/azure';
 import { azurePlanToTier } from '@/lib/marketplace/planMapping';
 import { notifyInternalCancellation } from '@/lib/billingAlerts';
+import { applyTierChange } from '@/services/providerLifecycleService';
 
 interface AzureWebhookEvent {
   id?: string;
@@ -99,11 +100,29 @@ export async function POST(request: NextRequest) {
       );
     }
     if (action === 'ChangePlan' && planId) {
+      const [tierRows] = await connection.query('SELECT tier FROM Tenants WHERE tenant_id = ? LIMIT 1', [
+        tenant.tenant_id,
+      ]);
+      const previousTier = (tierRows as Array<{ tier?: string }>)[0]?.tier ?? null;
+      const nextTier = azurePlanToTier(planId);
+
       await connection.query('UPDATE Tenants SET tier = ?, marketplace_plan_id = ? WHERE tenant_id = ?', [
-        azurePlanToTier(planId),
+        nextTier,
         planId,
         tenant.tenant_id,
       ]);
+
+      if (previousTier && nextTier) {
+        // Un ChangePlan a la baja puede quitarle a un tenant multi-cloud el
+        // derecho a tener los dos proveedores: archiva el secundario en vez de
+        // dejar el estado incoherente. Ver docs/provider-downgrade-policy.md.
+        await applyTierChange({
+          tenantId: tenant.tenant_id,
+          previousTier,
+          nextTier,
+          actor: 'azure-marketplace-webhook',
+        });
+      }
     }
     if (action === 'ChangeQuantity' && typeof quantity === 'number') {
       // Persist quantity in plan_id JSON marker for now; future schema can dedicate column

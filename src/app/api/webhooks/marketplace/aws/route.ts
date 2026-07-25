@@ -3,6 +3,7 @@ import pool from '@/modules/storage/db';
 import { verifySnsMessage, confirmSubscription, type SnsMessage } from '@/lib/marketplace/aws';
 import { awsDimensionToTier } from '@/lib/marketplace/planMapping';
 import { notifyInternalCancellation } from '@/lib/billingAlerts';
+import { applyTierChange } from '@/services/providerLifecycleService';
 
 interface EntitlementNotification {
   action: 'subscribe-success' | 'subscribe-fail' | 'unsubscribe-pending' | 'unsubscribe-success' | string;
@@ -123,10 +124,25 @@ export async function POST(request: NextRequest) {
       );
       // Update tier if plan changed (re-read entitlements via separate flow if needed)
       if (tenant.marketplace_plan_id) {
-        await connection.query('UPDATE Tenants SET tier = ? WHERE tenant_id = ?', [
-          awsDimensionToTier(tenant.marketplace_plan_id),
+        const [tierRows] = await connection.query('SELECT tier FROM Tenants WHERE tenant_id = ? LIMIT 1', [
           tenant.tenant_id,
         ]);
+        const previousTier = (tierRows as Array<{ tier?: string }>)[0]?.tier ?? null;
+        const nextTier = awsDimensionToTier(tenant.marketplace_plan_id);
+
+        await connection.query('UPDATE Tenants SET tier = ? WHERE tenant_id = ?', [
+          nextTier,
+          tenant.tenant_id,
+        ]);
+
+        if (previousTier && nextTier) {
+          await applyTierChange({
+            tenantId: tenant.tenant_id,
+            previousTier,
+            nextTier,
+            actor: 'aws-marketplace-webhook',
+          });
+        }
       }
     } else if (action === 'subscribe-fail') {
       // 'PAYMENT_FAILED' tampoco es un valor válido del ENUM — el estado
