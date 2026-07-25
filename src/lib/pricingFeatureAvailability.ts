@@ -35,7 +35,10 @@ export const AWS_AVAILABLE_FEATURES: Record<string, readonly number[]> = {
 
     // 3, 8 y 9 son las páginas de costo habilitadas para AWS (Cost Groups,
     // What-If y Costos por Categoría). En AWS los Cost Groups agrupan por región.
-    business: [0, 1, 3, 8, 9, 10, 11, 21, 22],
+    // 2 es Recursos: el inventario sale de la Resource Groups Tagging API, que
+    // sólo devuelve recursos con al menos una etiqueta. Es una limitación de la
+    // API, no del producto, y la página lo advierte.
+    business: [0, 1, 2, 3, 8, 9, 10, 11, 21, 22],
 
     // Casi todo lo de Enterprise es optimización sobre inventario de recursos,
     // que en AWS todavía no se ingesta. Sobrevive lo transversal (integraciones,

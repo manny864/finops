@@ -42,10 +42,18 @@ describe("routeProviders", () => {
     });
 
     it("las páginas Azure puras siguen ocultas para AWS", () => {
-        for (const route of ["/governance/tags", "/intelligence/aks", "/overview/resources"]) {
+        for (const route of ["/governance/tags", "/intelligence/aks"]) {
             expect(isRouteAvailableForProvider(route, "aws")).toBe(false);
             expect(isRouteAvailableForProvider(route, "azure")).toBe(true);
         }
+    });
+
+    it("el inventario de recursos sirve a ambos proveedores", () => {
+        // En AWS lo arma awsResourceInventoryService con la Resource Groups
+        // Tagging API, el equivalente transversal de Resource Graph. Ojo: solo
+        // devuelve recursos con al menos una etiqueta.
+        expect(isRouteAvailableForProvider("/overview/resources", "aws")).toBe(true);
+        expect(isRouteAvailableForProvider("/overview/resources", "azure")).toBe(true);
     });
 
     it("la limpieza de recursos ociosos sirve a ambos proveedores", () => {

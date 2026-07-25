@@ -534,6 +534,113 @@ export function getAwsMockDataForRoute(route: string, tier: string): Record<stri
     const base = { success: true, mock: true, provider: 'AWS' as const, currency: 'USD' };
 
     switch (route) {
+        case 'resources_search': {
+            // Recursos AWS reales: ARNs, tipos de servicio y regiones. La
+            // columna de grupo de recursos transporta la region, que es la
+            // convencion del proyecto: AWS no tiene grupos de recursos.
+            const cuenta = '123456789012';
+            const owners = ['ana.rivas@demo.com', 'diego.paz@demo.com', 'lucia.mena@demo.com'];
+            const regiones = ['us-east-1', 'eu-west-1', 'us-west-2', 'sa-east-1'];
+            const tipos = [
+                { svc: 'ec2', tipo: 'instance', pre: 'i-0' },
+                { svc: 'ec2', tipo: 'volume', pre: 'vol-0' },
+                { svc: 's3', tipo: 'bucket', pre: 'bkt-' },
+                { svc: 'rds', tipo: 'db', pre: 'db-' },
+                { svc: 'lambda', tipo: 'function', pre: 'fn-' },
+            ];
+            const totalCount = Math.round(69 * multiplier);
+            const rows = Array.from({ length: 15 }, (_, i) => {
+                const t = tipos[i % tipos.length];
+                const region = regiones[i % regiones.length];
+                const rid = `${t.pre}${(100 + i).toString(16)}a2b3c4d`;
+                return {
+                    id: `arn:aws:${t.svc}:${region}:${cuenta}:${t.tipo}/${rid}`,
+                    name: rid,
+                    type: `aws.${t.svc}/${t.tipo}`,
+                    subscriptionId: cuenta,
+                    subscriptionName: 'produccion',
+                    resourceGroup: region,
+                    tags: {
+                        Owner: owners[i % owners.length],
+                        CostCenter: `Application ${(i % 4) + 1}`,
+                        Environment: i % 2 === 0 ? 'Production' : 'Staging',
+                    },
+                    // La Tagging API no expone fecha de creacion; se informa
+                    // null igual que en produccion, no una fecha inventada.
+                    createdTime: null,
+                    periodCost: round2((total * 0.02) * (0.6 + 0.4 * Math.abs(Math.sin(i)))),
+                };
+            });
+            return {
+                ...base, page: 1, pageSize: 15, rows, total: totalCount,
+                kpis: { costGroups: 4, subscriptions: 1, resourceGroups: regiones.length, resources: totalCount },
+            };
+        }
+        case 'resources_inventory': {
+            const byType = [
+                { type: 'instance', count: Math.round(28 * multiplier) },
+                { type: 'volume', count: Math.round(24 * multiplier) },
+                { type: 'bucket', count: Math.round(18 * multiplier) },
+                { type: 'network-interface', count: Math.round(16 * multiplier) },
+                { type: 'db', count: Math.round(9 * multiplier) },
+                { type: 'function', count: Math.round(6 * multiplier) },
+            ];
+            const totalRecursos = byType.reduce((acc, t) => acc + t.count, 0);
+            return {
+                ...base,
+                byType,
+                bySubscription: [{ subscriptionId: '123456789012', subscriptionName: 'produccion', count: totalRecursos }],
+                kpis: {
+                    costGroups: 4,
+                    subscriptions: 1,
+                    // En AWS la dimension equivalente al grupo de recursos es la
+                    // region, y por eso el numero es chico: son regiones, no
+                    // decenas de grupos.
+                    resourceGroups: 4,
+                    resources: totalRecursos,
+                    owners: 3,
+                },
+            };
+        }
+        case 'resources_created_by': {
+            const rows = [
+                { userName: 'ana.rivas@demo.com', resources: Math.round(29 * multiplier), resourceGroups: 3, subscriptions: 1 },
+                { userName: 'diego.paz@demo.com', resources: Math.round(32 * multiplier), resourceGroups: 2, subscriptions: 1 },
+                { userName: 'lucia.mena@demo.com', resources: Math.round(4 * multiplier), resourceGroups: 1, subscriptions: 1 },
+                { userName: 'terraform-ci', resources: Math.round(11 * multiplier), resourceGroups: 4, subscriptions: 1 },
+            ];
+            return {
+                ...base, rows,
+                kpis: {
+                    createdBy: rows.length, costGroups: 4, subscriptions: 1,
+                    resourceGroups: 4, resources: rows.reduce((acc, r) => acc + r.resources, 0),
+                },
+            };
+        }
+        case 'resources_costs_by_tag': {
+            const tag = (key: string, values: Array<[string, number]>) => ({
+                key,
+                totalCost: round2(values.reduce((acc, [, c]) => acc + c, 0) * multiplier),
+                values: values.map(([value, cost]) => ({ value, cost: round2(cost * multiplier) })),
+            });
+            const tags = [
+                tag('Department', [['Marketing', 1417.8], ['Corporate', 1394.1], ['IT', 895.5], ['Finance', 738.1], ['Engineering', 622.9]]),
+                tag('Environment', [['production', 3800.2], ['staging', 900.4], ['development', 314.2]]),
+                tag('Application', [['checkout-api', 2100.0], ['data-pipeline', 1450.5], ['portal-web', 980.2]]),
+                tag('CostCenter', [['Application 1', 2400.0], ['Application 2', 1600.0], ['Application 3', 900.0]]),
+                tag('CreatedBy', [['terraform-ci', 3400.1], ['ana.rivas@demo.com', 850.0]]),
+            ];
+            return {
+                ...base, tags,
+                kpis: {
+                    resources: Math.round(1926 * multiplier),
+                    resourcesWithTags: Math.round(1065 * multiplier),
+                    resourcesWithoutTags: Math.round(861 * multiplier),
+                    tagNames: tags.length,
+                    tagValues: tags.reduce((acc, t) => acc + t.values.length, 0),
+                },
+            };
+        }
         case 'sustainability': {
             // Regiones AWS con la intensidad de carbono que declara carbonData.
             // `storageCount` es 0 a proposito y no por falta de datos: el rol de

@@ -107,6 +107,7 @@ const AGNOSTIC_ROUTES: readonly string[] = [
     // y volumenes EBS sin adjuntar). El almacenamiento queda fuera: el rol de
     // onboarding no concede s3:ListAllMyBuckets y pedirlo solo para estimar
     // GB seria desproporcionado.
+    "/overview/resources",
     "/overview/sustainability",
 
     // Limpieza de recursos ociosos. El inventario AWS lo arma

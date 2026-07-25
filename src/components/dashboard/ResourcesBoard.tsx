@@ -3,7 +3,8 @@ import React, { useState } from "react";
 import useSWR from "swr";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
-import { useTranslations, useLocale } from "next-intl";
+import { useLocale } from "next-intl";
+import { useProviderTranslations } from "@/lib/useProviderTranslations";
 import { getFreshIdToken } from "@/lib/msalToken";
 import Pagination, { usePagination } from "@/components/Pagination";
 import ResizableTh from "@/components/ResizableTh";
@@ -58,7 +59,7 @@ function useReadyKey(path: string) {
 // Tab: Search Resources
 // ─────────────────────────────────────────────────────────────────────────────
 function SearchResourcesTab() {
-    const t = useTranslations("Resources");
+    const t = useProviderTranslations("Resources");
     const locale = useLocale();
     const [page, setPage] = useState(1);
     const pageSize = 15;
@@ -120,7 +121,7 @@ function SearchResourcesTab() {
 // Tab: Resource Inventory Type
 // ─────────────────────────────────────────────────────────────────────────────
 function InventoryTab() {
-    const t = useTranslations("Resources");
+    const t = useProviderTranslations("Resources");
     const key = useReadyKey("/api/resources/inventory");
     const { data, error, isLoading } = useAuthedSWR<any>(key);
 
@@ -178,7 +179,7 @@ function InventoryTab() {
 // Tab: Created By
 // ─────────────────────────────────────────────────────────────────────────────
 function CreatedByTab() {
-    const t = useTranslations("Resources");
+    const t = useProviderTranslations("Resources");
     const key = useReadyKey("/api/resources/created-by");
     const { data, error, isLoading } = useAuthedSWR<any>(key);
     const pg = usePagination<any>(data?.rows, 15);
@@ -238,7 +239,7 @@ function CreatedByTab() {
 // Tab: Costs by Tag
 // ─────────────────────────────────────────────────────────────────────────────
 function CostsByTagTab() {
-    const t = useTranslations("Resources");
+    const t = useProviderTranslations("Resources");
     const key = useReadyKey("/api/resources/costs-by-tag");
     const { data, error, isLoading } = useAuthedSWR<any>(key);
     const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -296,7 +297,7 @@ function CostsByTagTab() {
 }
 
 function LoadingBlock() {
-    const t = useTranslations("Resources");
+    const t = useProviderTranslations("Resources");
     return (
         <div className="flex flex-col items-center justify-center py-20">
             <Loader2 className="w-8 h-8 animate-spin text-brand-deep mb-4" />
@@ -320,7 +321,7 @@ function ErrorBlock({ message }: { message: string }) {
 }
 
 export default function ResourcesBoard() {
-    const t = useTranslations("Resources");
+    const t = useProviderTranslations("Resources");
     const { selectedTenant } = useTenant();
     const [tab, setTab] = useState<"search" | "inventory" | "created_by" | "tags">("search");
 

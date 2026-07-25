@@ -212,6 +212,8 @@ describe('el YAML generado es sintácticamente válido', () => {
             'ec2:DescribeVolumes',      // getAwsZombies: EBS sin adjuntar
             's3:GetObject',             // manifest y Parquet del CUR
             's3:ListBucket',            // localizar el manifest del CUR
+            'tag:GetResources',         // inventario transversal por etiquetas
+            'tag:GetTagKeys',           // claves de etiqueta en uso
         ]);
 
         // Ninguna accion de escritura: el rol no puede crear, modificar ni

@@ -4118,7 +4118,17 @@
     "col_avg_daily_cost": "Costo Diario Prom.",
     "distribution_by_type": "Distribución por Tipo",
     "resource_count_by_subscription": "Recursos por Suscripción",
-    "created_by_caveat": "Basado en la etiqueta CreatedBy/Owner de cada recurso — Azure no expone el usuario que creó un recurso ni su último inicio de sesión sin integrar Activity Log y Microsoft Graph."
+    "created_by_caveat": "Basado en la etiqueta CreatedBy/Owner de cada recurso — Azure no expone el usuario que creó un recurso ni su último inicio de sesión sin integrar Activity Log y Microsoft Graph.",
+    "subtitle_aws": "Comprende tu inventario en AWS. Revisa los recursos etiquetados para asegurar que cumplan las politicas.",
+    "kpi_subscriptions_aws": "Cuentas",
+    "kpi_resource_groups_aws": "Regiones",
+    "col_resource_group_aws": "Region",
+    "col_subscription_aws": "Cuenta",
+    "col_resource_groups_aws": "Regiones",
+    "col_subscriptions_aws": "Cuentas",
+    "resource_count_by_subscription_aws": "Recursos por Cuenta",
+    "created_by_caveat_aws": "Basado en la etiqueta CreatedBy/Owner de cada recurso. El usuario que creo un recurso solo consta en CloudTrail, que es una ingesta aparte.",
+    "no_resources_aws": "No se encontraron recursos etiquetados. La Resource Groups Tagging API solo devuelve recursos con al menos una etiqueta."
   },
   "M365Users": {
     "title": "Usuarios y Licencias",

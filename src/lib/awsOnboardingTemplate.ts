@@ -25,6 +25,8 @@
  *   | `ec2:DescribeVolumes`    | `getAwsZombies()` — volúmenes EBS sin adjuntar     |
  *   | `ec2:DescribeAddresses`  | `getAwsZombies()` — IPs elásticas sin asociar      |
  *   | `ec2:DescribeSnapshots`  | `getAwsZombies()` — snapshots antiguos             |
+ *   | `tag:GetResources`       | `getAwsAllResources()` — inventario etiquetado     |
+ *   | `tag:GetTagKeys`         | `getAwsDistinctTagKeys()` — claves de etiqueta     |
  *   | `budgets:DescribeBudgets`| `getAwsNativeBudgets()` — presupuestos nativos     |
  *   | `budgets:ViewBudget`     | idem (AWS exige las dos para leer un presupuesto)  |
  *   | `s3:ListBucket`          | `ListObjectsV2Command` — localizar el manifest CUR |
@@ -181,6 +183,16 @@ Resources:
                   - ec2:DescribeAddresses
                   - ec2:DescribeSnapshots
                 Resource: '*'
+              # Inventario transversal por etiquetas. La Resource Groups Tagging
+              # API es la unica forma de listar recursos de todos los servicios
+              # en una sola llamada; las dos acciones son de solo lectura y no
+              # existe version acotada por recurso.
+              - Sid: InventarioPorEtiquetas
+                Effect: Allow
+                Action:
+                  - tag:GetResources
+                  - tag:GetTagKeys
+                Resource: '*'
               # Presupuestos nativos. AWS exige las dos acciones para leer un
               # presupuesto: DescribeBudgets lista y ViewBudget autoriza el
               # detalle. Ninguna permite crear ni modificar.
@@ -288,6 +300,8 @@ data "aws_iam_policy_document" "finops_readonly" {
       "ec2:DescribeVolumes",
       "ec2:DescribeAddresses",
       "ec2:DescribeSnapshots",
+      "tag:GetResources",
+      "tag:GetTagKeys",
     ]
     # Las acciones Describe* de EC2 no admiten permisos por recurso.
     resources = ["*"]

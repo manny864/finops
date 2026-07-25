@@ -3,6 +3,8 @@ import { requireTenantTier, AuthError } from "@/lib/requestAuth";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { searchResources } from "@/modules/collectors/azure/resourceInventoryService";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
+import { tenantUsesAws } from "@/lib/tenantProviderContext";
+import { searchAwsResources } from "@/modules/collectors/aws/awsResourceInventoryService";
 
 export async function GET(request: NextRequest) {
     try {
@@ -22,6 +24,25 @@ export async function GET(request: NextRequest) {
         const resourceGroup = url.searchParams.get("resourceGroup") || "";
         const tagKey = url.searchParams.get("tagKey") || "";
         const search = url.searchParams.get("search") || "";
+
+        if (await tenantUsesAws(tenantId)) {
+            // En AWS `resourceGroup` transporta la region (convencion del
+            // proyecto) y `subscriptionId` el account ID, asi que la UI puede
+            // seguir mandando los mismos parametros.
+            const awsData = await getWithStaleWhileRevalidate(
+                `resources:search:aws:v1:${tenantId}:${page}:${pageSize}:${subscriptionId}:${resourceGroup}:${tagKey}:${search}`,
+                () => searchAwsResources(tenantId, {
+                    accountId: subscriptionId || undefined,
+                    region: resourceGroup || undefined,
+                    tagKey: tagKey || undefined,
+                    search: search || undefined,
+                    page,
+                    pageSize,
+                }),
+                3600
+            );
+            return NextResponse.json({ success: true, mock: false, provider: "AWS", page, pageSize, ...awsData });
+        }
 
         const cacheKey = `resources:search:v1:${tenantId}:${page}:${pageSize}:${subscriptionId}:${resourceGroup}:${tagKey}:${search}`;
         const data = await getWithStaleWhileRevalidate(cacheKey, () => searchResources(tenantId, {

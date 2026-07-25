@@ -4118,7 +4118,17 @@
     "col_avg_daily_cost": "Av. Daily Cost",
     "distribution_by_type": "Distribution by Type",
     "resource_count_by_subscription": "Resource Count by Subscription",
-    "created_by_caveat": "Based on each resource's CreatedBy/Owner tag — Azure does not expose who actually created a resource or their last sign-in without integrating Activity Log and Microsoft Graph."
+    "created_by_caveat": "Based on each resource's CreatedBy/Owner tag — Azure does not expose who actually created a resource or their last sign-in without integrating Activity Log and Microsoft Graph.",
+    "subtitle_aws": "Understand your AWS inventory. Review tagged resources to make sure they comply with your policies.",
+    "kpi_subscriptions_aws": "Accounts",
+    "kpi_resource_groups_aws": "Regions",
+    "col_resource_group_aws": "Region",
+    "col_subscription_aws": "Account",
+    "col_resource_groups_aws": "Regions",
+    "col_subscriptions_aws": "Accounts",
+    "resource_count_by_subscription_aws": "Resources by Account",
+    "created_by_caveat_aws": "Based on each resource CreatedBy/Owner tag. The user who created a resource is only recorded in CloudTrail, which is a separate ingestion.",
+    "no_resources_aws": "No tagged resources found. The Resource Groups Tagging API only returns resources with at least one tag."
   },
   "M365Users": {
     "title": "Users and Licenses",
