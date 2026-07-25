@@ -4,6 +4,7 @@ import { tenants as mockTenants } from '@/lib/tenants';
 import { verifySubscription } from '@/lib/apiSecurity';
 import { AuthError, requireRequestIdentity, requireSuperAdmin, requireTenantRole, requireTenantAccess } from "@/lib/requestAuth";
 import { setTenantCredentials } from "@/lib/secrets/tenantCredentials";
+import { assertProviderIngestable, ProviderDisabledError } from "@/services/providerLifecycleService";
 
 export async function GET(request: NextRequest) {
     try {
@@ -179,6 +180,13 @@ export async function PUT(request: NextRequest) {
         // Si vienen credenciales, las guardamos via tenantCredentials (KV con fallback DB).
         // Si no vienen, solo actualizamos nombre.
         if (clientId && clientSecret) {
+            // Contraparte Azure del gate de `POST /api/aws/accounts`: un tenant
+            // configurado como 'aws' puro, o con Azure archivado tras un downgrade
+            // multi-cloud, no puede volver a conectar Azure. Solo se valida cuando
+            // realmente se están escribiendo credenciales — renombrar el tenant no
+            // es ingesta y no debe rechazarse.
+            await assertProviderIngestable(tenantId, 'azure');
+
             await pool.query(
                 'INSERT INTO Tenants (tenant_id, company_name) VALUES (?, ?) ON DUPLICATE KEY UPDATE company_name = VALUES(company_name)',
                 [tenantId, name]
@@ -193,6 +201,10 @@ export async function PUT(request: NextRequest) {
 
         return NextResponse.json({ success: true });
     } catch (error: any) {
+        // requireTenantRole ya lanzaba AuthError acá y caía en el 500 genérico,
+        // enmascarando un 401/403 como error del servidor.
+        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
+        if (error instanceof ProviderDisabledError) return NextResponse.json({ error: error.message }, { status: error.status });
         console.error('API PUT /tenants error:', error);
         return NextResponse.json({ error: 'Fallo al actualizar Tenant' }, { status: 500 });
     }
