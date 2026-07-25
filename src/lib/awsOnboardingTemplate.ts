@@ -18,10 +18,15 @@
  *
  *   | Acción                  | Dónde se usa                                        |
  *   |-------------------------|-----------------------------------------------------|
- *   | `ce:GetCostAndUsage`    | `getCostAndUsage()` — sync de Cost Explorer         |
- *   | `ec2:DescribeInstances` | `getActiveResources()` — inventario EC2             |
- *   | `s3:ListBucket`         | `ListObjectsV2Command` — localizar el manifest CUR  |
- *   | `s3:GetObject`          | `GetObjectCommand` — leer manifest y Parquet        |
+ *   | `ce:GetCostAndUsage`     | `getCostAndUsage()` — sync de Cost Explorer        |
+ *   | `ec2:DescribeInstances`  | `getActiveResources()` — inventario EC2            |
+ *   | `ec2:DescribeVolumes`    | `getAwsZombies()` — volúmenes EBS sin adjuntar     |
+ *   | `ec2:DescribeAddresses`  | `getAwsZombies()` — IPs elásticas sin asociar      |
+ *   | `ec2:DescribeSnapshots`  | `getAwsZombies()` — snapshots antiguos             |
+ *   | `budgets:DescribeBudgets`| `getAwsNativeBudgets()` — presupuestos nativos     |
+ *   | `budgets:ViewBudget`     | idem (AWS exige las dos para leer un presupuesto)  |
+ *   | `s3:ListBucket`          | `ListObjectsV2Command` — localizar el manifest CUR |
+ *   | `s3:GetObject`           | `GetObjectCommand` — leer manifest y Parquet       |
  *
  * Las dos de S3 van restringidas al bucket del CUR, no a `*`.
  *
@@ -159,12 +164,26 @@ Resources:
                 Action:
                   - ce:GetCostAndUsage
                 Resource: '*'
-              # Inventario para correlacionar costo con recursos vivos.
+              # Inventario para correlacionar costo con recursos vivos y
+              # detectar los ociosos. Las acciones Describe* de EC2 no admiten
+              # permisos por recurso: '*' es el unico Resource valido.
               - Sid: InventarioEC2SoloLectura
                 Effect: Allow
                 Action:
                   - ec2:DescribeInstances
-                Resource: '*'${curStatements}
+                  - ec2:DescribeVolumes
+                  - ec2:DescribeAddresses
+                  - ec2:DescribeSnapshots
+                Resource: '*'
+              # Presupuestos nativos. AWS exige las dos acciones para leer un
+              # presupuesto: DescribeBudgets lista y ViewBudget autoriza el
+              # detalle. Ninguna permite crear ni modificar.
+              - Sid: LeerPresupuestosNativos
+                Effect: Allow
+                Action:
+                  - budgets:DescribeBudgets
+                  - budgets:ViewBudget
+                Resource: !Sub 'arn:aws:budgets::\${AWS::AccountId}:budget/*'${curStatements}
 
 Outputs:
   RoleArn:
@@ -219,6 +238,8 @@ terraform {
   }
 }
 
+data "aws_caller_identity" "current" {}
+
 data "aws_iam_policy_document" "assume_role" {
   statement {
     effect  = "Allow"
@@ -248,10 +269,28 @@ data "aws_iam_policy_document" "finops_readonly" {
   }
 
   statement {
-    sid       = "InventarioEC2SoloLectura"
-    effect    = "Allow"
-    actions   = ["ec2:DescribeInstances"]
+    sid    = "InventarioEC2SoloLectura"
+    effect = "Allow"
+    actions = [
+      "ec2:DescribeInstances",
+      "ec2:DescribeVolumes",
+      "ec2:DescribeAddresses",
+      "ec2:DescribeSnapshots",
+    ]
+    # Las acciones Describe* de EC2 no admiten permisos por recurso.
     resources = ["*"]
+  }
+
+  statement {
+    sid    = "LeerPresupuestosNativos"
+    effect = "Allow"
+    # AWS exige las dos acciones para leer un presupuesto; ninguna permite
+    # crearlo ni modificarlo.
+    actions = [
+      "budgets:DescribeBudgets",
+      "budgets:ViewBudget",
+    ]
+    resources = ["arn:aws:budgets::\${data.aws_caller_identity.current.account_id}:budget/*"]
   }
 ${curStatements}}
 

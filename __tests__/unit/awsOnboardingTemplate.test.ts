@@ -134,6 +134,11 @@ describe('Terraform', () => {
 
         expect(tf).toContain('"ce:GetCostAndUsage"');
         expect(tf).toContain('"ec2:DescribeInstances"');
+        expect(tf).toContain('"ec2:DescribeVolumes"');
+        expect(tf).toContain('"budgets:DescribeBudgets"');
+        // El ARN del presupuesto se resuelve en Terraform, no en el generador:
+        // si se interpolara acá saldría vacío.
+        expect(tf).toContain('${data.aws_caller_identity.current.account_id}');
         expect(tf).toContain('"s3:GetObject"');
         expect(tf).toContain('arn:aws:s3:::b-cur/r/*');
         expect(tf).toContain('sts:ExternalId');
@@ -192,12 +197,26 @@ describe('el YAML generado es sintácticamente válido', () => {
         const statements = role.Properties.Policies[0].PolicyDocument.Statement;
         const actions = statements.flatMap((s) => s.Action).sort();
 
+        // Lista cerrada a proposito: es el guardian del menor privilegio. Cada
+        // accion que se agregue tiene que corresponder a una llamada que el
+        // codigo ya ejecuta, no a una feature planificada.
         expect(actions).toEqual([
-            'ce:GetCostAndUsage',
-            'ec2:DescribeInstances',
-            's3:GetObject',
-            's3:ListBucket',
+            'budgets:DescribeBudgets',  // getAwsNativeBudgets
+            'budgets:ViewBudget',       // idem: AWS exige las dos para leer
+            'ce:GetCostAndUsage',       // sync de Cost Explorer
+            'ec2:DescribeAddresses',    // getAwsZombies: IPs elasticas sueltas
+            'ec2:DescribeInstances',    // inventario EC2
+            'ec2:DescribeSnapshots',    // getAwsZombies: snapshots antiguos
+            'ec2:DescribeVolumes',      // getAwsZombies: EBS sin adjuntar
+            's3:GetObject',             // manifest y Parquet del CUR
+            's3:ListBucket',            // localizar el manifest del CUR
         ]);
+
+        // Ninguna accion de escritura: el rol no puede crear, modificar ni
+        // borrar nada en la cuenta del cliente.
+        for (const a of actions) {
+            expect(a).not.toMatch(/:(Create|Update|Delete|Put|Modify|Terminate|Stop|Start|Release|Detach)/);
+        }
 
         const s3Statements = statements.filter((s) => s.Action.some((a) => a.startsWith('s3:')));
         for (const s of s3Statements) {
