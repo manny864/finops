@@ -629,6 +629,7 @@ Endpoints internos protegidos por `Authorization: Bearer ${CRON_SECRET}`. Se inv
 | `GET /api/cron/cost-sync-staleness-check` | Diaria 08:00 UTC   | Verifica que `/api/cron/sync` haya escrito datos nuevos en `CostSnapshots` en las últimas 36h para cada tenant real con Azure conectado — Cost Groups y el resto de features basadas en `CostSnapshots` requieren refresco diario. Si el sync no corrió (0 tenants frescos) crea una alerta `critical` en `SystemAlerts` + email a soporte; si es parcial, `warning` sin email. Existe justamente para detectar automáticamente el escenario del incidente del 2026-07-05 (ver nota abajo) la próxima vez que pase, en vez de depender de que alguien lo note manualmente. |
 | `GET /api/cron/ttl-expiry-alerts`     | Diaria (o más seguido)  | Evalúa reglas `AlertRules` tipo `ttl_expiry` (Alertas Self-Service) contra los entornos con tag `ExpireOn`/`TTL` de cada tenant y notifica los que vencen dentro de N días (o ya vencidos) — paso 3 del flujo TTL Enforcement ("El sistema te alerta antes de la eliminación automática"), antes inexistente. Mismo patrón anti-spam que `credential-expiry-alerts` (`last_triggered_at`). |
 | `GET /api/cron/focus-export-daily`   | Diaria                  | Genera el export FOCUS 1.1 (CSV/JSON) del día anterior para cada tenant con `FocusExportSchedules.enabled = TRUE` (Administración → FOCUS 1.1 Export → "Programación diaria automática") y lo manda como adjunto por email — antes el export solo era manual, por rango de fechas. |
+| `GET /api/cron/provider-archive-purge` | Diaria 05:00 UTC     | Cierra el ciclo de vida del proveedor archivado tras un downgrade de un tenant Enterprise multi-cloud (`provider = 'both'`): avisa en T-30 y T-7 (in-app + email, idempotente por `notified_tNN_at`) y purga por lotes los datos del proveedor archivado cuya ventana de gracia venció, con auditoría en `ActionLogs`. Ver [docs/provider-downgrade-policy.md](docs/provider-downgrade-policy.md). |
 
 **Ejemplo crontab VPS:**
 ```cron
@@ -660,6 +661,11 @@ Endpoints internos protegidos por `Authorization: Bearer ${CRON_SECRET}`. Se inv
 
 # Alertas de expiración TTL (entornos efímeros por vencer/vencidos) — diario
 0 9 * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/ttl-expiry-alerts >> /var/log/finops-cron.log 2>&1
+
+# Ciclo de vida del proveedor archivado tras un downgrade multi-cloud: avisos
+# T-30/T-7 y purga de la ventana de gracia vencida — diario.
+# Ver docs/provider-downgrade-policy.md
+0 5 * * * curl -fsS -H "Authorization: ******" https://finops.cscloudsolutions.com.ar/api/cron/provider-archive-purge >> /var/log/finops-cron.log 2>&1
 
 # Export FOCUS 1.1 diario por email (tenants con programación habilitada)
 0 7 * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/focus-export-daily >> /var/log/finops-cron.log 2>&1
