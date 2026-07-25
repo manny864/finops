@@ -1132,7 +1132,9 @@
         "Usuarios y Permisos, Onboarding y Configuración",
         "Preferencias Multi-Moneda",
         "Soporte en plataforma (5 tickets/mes, respuesta en 48 h)"
-      ]
+      ],
+      "awsScope": "1 cuenta de AWS, 1 usuario",
+      "desc_aws": "Para empresas que recién comienzan a preocuparse por sus costos en AWS."
     },
     "pro": {
       "name": "Professional",
@@ -1157,7 +1159,8 @@
         "Autenticación Multi-Factor (MFA)",
         "Soporte en plataforma (20 tickets/mes, respuesta en 24 h)",
         "FinOps Copilot (IA)"
-      ]
+      ],
+      "awsScope": "Hasta 5 cuentas de AWS, hasta 5 usuarios"
     },
     "business": {
       "name": "Business",
@@ -1187,7 +1190,8 @@
         "Reporte Ejecutivo",
         "Página de Estado Pública + Historial de Incidentes",
         "Soporte ilimitado en plataforma (respuesta en 8 h)"
-      ]
+      ],
+      "awsScope": "Hasta 20 cuentas de AWS, hasta 20 usuarios"
     },
     "enterprise": {
       "name": "Enterprise",
@@ -1229,7 +1233,8 @@
         "Azure Key Vault (cifrado gestionado por la plataforma)",
         "Billing Azure Marketplace SaaS",
         "Soporte dedicado ilimitado (SLA máximo 4 h)"
-      ]
+      ],
+      "awsScope": "Cuentas de AWS y usuarios ilimitados"
     },
     "enterpriseModal": {
       "title": "Contactar a Ventas Enterprise",
@@ -1260,7 +1265,12 @@
       "continue": "Continuar al pago"
     },
     "showFeatures": "Ver funciones ({count})",
-    "hideFeatures": "Ocultar funciones"
+    "hideFeatures": "Ocultar funciones",
+    "cloudSelectorLabel": "¿Qué nube querés gestionar?",
+    "cloudAzure": "Azure",
+    "cloudAws": "AWS",
+    "featureNotInAws": "Todavía no disponible en AWS",
+    "awsScopeNotice": "Las funciones atenuadas todavía no están disponibles para AWS. El soporte de AWS se libera capability por capability: lo que ves habilitado es lo que funciona hoy, no lo planificado."
   },
   "auth": {
     "paymentSuccess": "¡Pago completado con éxito! Por favor, inicia sesión para acceder a tu plan."

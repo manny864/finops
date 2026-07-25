@@ -1132,7 +1132,9 @@
         "Users & Permissions, Onboarding and Configuration",
         "Multi-Currency Display Preferences",
         "In-platform support (5 tickets/mo, 48 h response)"
-      ]
+      ],
+      "awsScope": "1 AWS account, 1 user",
+      "desc_aws": "For companies starting to care about their AWS costs."
     },
     "pro": {
       "name": "Professional",
@@ -1157,7 +1159,8 @@
         "Multi-Factor Authentication (MFA)",
         "In-platform support (20 tickets/mo, 24 h response)",
         "FinOps Copilot (AI)"
-      ]
+      ],
+      "awsScope": "Up to 5 AWS accounts, up to 5 users"
     },
     "business": {
       "name": "Business",
@@ -1187,7 +1190,8 @@
         "Executive Report",
         "Public Status Page + Incident History",
         "Unlimited in-platform support (8 h response)"
-      ]
+      ],
+      "awsScope": "Up to 20 AWS accounts, up to 20 users"
     },
     "enterprise": {
       "name": "Enterprise",
@@ -1229,7 +1233,8 @@
         "Azure Key Vault (platform-managed encryption)",
         "Azure Marketplace SaaS Billing",
         "Unlimited dedicated support (4 h max SLA)"
-      ]
+      ],
+      "awsScope": "Unlimited AWS accounts and users"
     },
     "enterpriseModal": {
       "title": "Contact Enterprise Sales",
@@ -1260,7 +1265,12 @@
       "continue": "Continue to payment"
     },
     "showFeatures": "View features ({count})",
-    "hideFeatures": "Hide features"
+    "hideFeatures": "Hide features",
+    "cloudSelectorLabel": "Which cloud do you want to manage?",
+    "cloudAzure": "Azure",
+    "cloudAws": "AWS",
+    "featureNotInAws": "Not available on AWS yet",
+    "awsScopeNotice": "Features greyed out are not available for AWS yet. AWS support is being rolled out capability by capability: what you see enabled is what works today, not what is planned."
   },
   "auth": {
     "paymentSuccess": "Payment completed successfully! Please log in to access your plan."

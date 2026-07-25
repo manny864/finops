@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
+import { isFeatureAvailable, type PricingCloud } from '@/lib/pricingFeatureAvailability';
 import { useMsal } from '@azure/msal-react';
 import { useTranslations, useLocale } from 'next-intl';
 import { useRouter } from '@/i18n/routing';
@@ -20,6 +21,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
   const { instance, accounts } = useMsal();
   const router = useRouter();
   const [isAnnual, setIsAnnual] = useState(false);
+  const [cloud, setCloud] = useState<PricingCloud>('azure');
   const [paddle, setPaddle] = useState<Paddle>();
   const [isEnterpriseModalOpen, setEnterpriseModalOpen] = useState(false);
   const [pendingCheckoutPriceId, setPendingCheckoutPriceId] = useState<string | undefined>(undefined);
@@ -190,6 +192,32 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
         </p>
       </div>
 
+      {/* Selector de nube: la tabla es pre-login, asi que no hay tenant del que
+          deducir el proveedor. Lo elige el visitante. */}
+      <div className="relative z-10 flex flex-col items-center mb-8">
+        <span className="text-sm font-medium text-gray-300 mb-3">{t('cloudSelectorLabel')}</span>
+        <div className="inline-flex rounded-lg border border-white/25 p-1" role="group">
+          {(['azure', 'aws'] as const).map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => setCloud(c)}
+              aria-pressed={cloud === c}
+              className={`px-6 py-2 text-sm font-semibold rounded-md transition-colors cursor-pointer ${
+                cloud === c ? 'bg-white text-[#0E1A2B]' : 'text-gray-300 hover:bg-white/10'
+              }`}
+            >
+              {c === 'azure' ? t('cloudAzure') : t('cloudAws')}
+            </button>
+          ))}
+        </div>
+        {cloud === 'aws' && (
+          <p className="mt-4 max-w-2xl text-center text-xs text-amber-200 bg-amber-900/30 border border-amber-500/30 rounded-md px-4 py-2">
+            {t('awsScopeNotice')}
+          </p>
+        )}
+      </div>
+
       {/* Toggle */}
       <div className="relative z-10 flex justify-center items-center mb-16">
         <span className={`text-sm font-medium ${!isAnnual ? 'text-white' : 'text-gray-400'}`}>{t('monthly')}</span>
@@ -245,11 +273,15 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
           </div>
           
           <p className="text-sm text-gray-500 mb-8 text-justify">
-            {t('essential.desc')}
+            {cloud === 'aws' ? t('essential.desc_aws') : t('essential.desc')}
           </p>
           
           <PlanFeatures
             features={t.raw('essential.features') as string[]}
+            tier="essential"
+            cloud={cloud}
+            scopeOverride={cloud === 'aws' ? t('essential.awsScope') : undefined}
+            unavailableLabel={t('featureNotInAws')}
             showLabel={t('showFeatures', {count: (t.raw('essential.features') as string[]).length})}
             hideLabel={t('hideFeatures')}
           />
@@ -295,6 +327,10 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
           
           <PlanFeatures
             features={t.raw('pro.features') as string[]}
+            tier="pro"
+            cloud={cloud}
+            scopeOverride={cloud === 'aws' ? t('pro.awsScope') : undefined}
+            unavailableLabel={t('featureNotInAws')}
             showLabel={t('showFeatures', {count: (t.raw('pro.features') as string[]).length})}
             hideLabel={t('hideFeatures')}
           />
@@ -345,6 +381,10 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
           
           <PlanFeatures
             features={t.raw('business.features') as string[]}
+            tier="business"
+            cloud={cloud}
+            scopeOverride={cloud === 'aws' ? t('business.awsScope') : undefined}
+            unavailableLabel={t('featureNotInAws')}
             showLabel={t('showFeatures', {count: (t.raw('business.features') as string[]).length})}
             hideLabel={t('hideFeatures')}
           />
@@ -387,6 +427,10 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
           <div className="relative z-10">
             <PlanFeatures
               features={t.raw('enterprise.features') as string[]}
+            tier="enterprise"
+            cloud={cloud}
+            scopeOverride={cloud === 'aws' ? t('enterprise.awsScope') : undefined}
+            unavailableLabel={t('featureNotInAws')}
               showLabel={t('showFeatures', {count: (t.raw('enterprise.features') as string[]).length})}
               hideLabel={t('hideFeatures')}
             />
@@ -482,7 +526,7 @@ function CorporateEmailNoticeModal({ open, email, onCancel, onConfirm, t }: Corp
  * Lista de funciones del plan contraída por defecto (móvil y escritorio):
  * un toggle "Ver funciones (N)" expande la lista completa inline.
  */
-function PlanFeatures({ features, showLabel, hideLabel, dark = false }: { features: string[]; showLabel: string; hideLabel: string; dark?: boolean }) {
+function PlanFeatures({ features, showLabel, hideLabel, dark = false, tier, cloud, scopeOverride, unavailableLabel }: { features: string[]; showLabel: string; hideLabel: string; dark?: boolean; tier: string; cloud: PricingCloud; scopeOverride?: string; unavailableLabel: string }) {
   const [open, setOpen] = useState(false);
   return (
     <div>
@@ -497,12 +541,24 @@ function PlanFeatures({ features, showLabel, hideLabel, dark = false }: { featur
       </button>
       {open && (
         <ul className={`space-y-3 text-sm mt-4 ${dark ? 'text-gray-300' : 'text-gray-600'}`}>
-          {features.map((feature, idx) => (
-            <li key={idx} className={`flex items-start font-medium ${dark ? 'text-white' : 'text-gray-900'}`}>
-              <svg className={`w-5 h-5 mr-2 flex-shrink-0 ${dark ? 'text-brand-bright' : 'text-blue-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-              {feature}
-            </li>
-          ))}
+          {features.map((feature, idx) => {
+            const available = isFeatureAvailable(tier, idx, cloud);
+            // La primera feature es el limite de scope: en AWS se cuenta en
+            // cuentas, no en suscripciones.
+            const label = idx === 0 && scopeOverride ? scopeOverride : feature;
+            return (
+              <li key={idx} className={`flex items-start font-medium ${
+                !available ? (dark ? 'text-gray-500 line-through' : 'text-gray-400 line-through')
+                           : (dark ? 'text-white' : 'text-gray-900')}`}>
+                {available ? (
+                  <svg className={`w-5 h-5 mr-2 flex-shrink-0 ${dark ? 'text-brand-bright' : 'text-blue-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+                ) : (
+                  <svg className="w-5 h-5 mr-2 flex-shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-label={unavailableLabel}><title>{unavailableLabel}</title><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                )}
+                {label}
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

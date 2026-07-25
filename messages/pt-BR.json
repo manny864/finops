@@ -1132,7 +1132,9 @@
         "Usuários e Permissões, Onboarding e Configuração",
         "Preferências Multi-Moeda",
         "Suporte na plataforma (5 tickets/mês, resposta em 48 h)"
-      ]
+      ],
+      "awsScope": "1 conta da AWS, 1 usuário",
+      "desc_aws": "Para empresas que estão começando a se preocupar com seus custos na AWS."
     },
     "pro": {
       "name": "Professional",
@@ -1157,7 +1159,8 @@
         "Autenticação Multi-Fator (MFA)",
         "Suporte na plataforma (20 tickets/mês, resposta em 24 h)",
         "FinOps Copilot (IA)"
-      ]
+      ],
+      "awsScope": "Até 5 contas da AWS, até 5 usuários"
     },
     "business": {
       "name": "Business",
@@ -1187,7 +1190,8 @@
         "Relatório Executivo",
         "Página de Status Pública + Histórico de Incidentes",
         "Suporte ilimitado na plataforma (resposta em 8 h)"
-      ]
+      ],
+      "awsScope": "Até 20 contas da AWS, até 20 usuários"
     },
     "enterprise": {
       "name": "Enterprise",
@@ -1229,7 +1233,8 @@
         "Azure Key Vault (criptografia gerenciada pela plataforma)",
         "Billing Azure Marketplace SaaS",
         "Suporte dedicado ilimitado (SLA máximo de 4 h)"
-      ]
+      ],
+      "awsScope": "Contas da AWS e usuários ilimitados"
     },
     "enterpriseModal": {
       "title": "Contatar Vendas Enterprise",
@@ -1260,7 +1265,12 @@
       "continue": "Continuar para o pagamento"
     },
     "showFeatures": "Ver funções ({count})",
-    "hideFeatures": "Ocultar funções"
+    "hideFeatures": "Ocultar funções",
+    "cloudSelectorLabel": "Qual nuvem você quer gerenciar?",
+    "cloudAzure": "Azure",
+    "cloudAws": "AWS",
+    "featureNotInAws": "Ainda não disponível na AWS",
+    "awsScopeNotice": "Os recursos esmaecidos ainda não estão disponíveis para a AWS. O suporte à AWS é liberado capability por capability: o que você vê habilitado é o que funciona hoje, não o que está planejado."
   },
   "auth": {
     "paymentSuccess": "Pagamento concluído com sucesso! Por favor, faça login para acessar seu plano."
