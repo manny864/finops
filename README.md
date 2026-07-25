@@ -247,9 +247,23 @@ cero, y un cero se lee como "no hay desperdicio".
 
 `docs/finops-framework-coverage.md` tiene la matriz de capabilities del FinOps
 Framework abierta por nube, con la evidencia de qué acopla cada una a Azure y
-los gaps priorizados. El de mayor impacto es **Allocation**: los tags de AWS se
-ingestan en `FocusLineItems`, pero el agregado diario a `CostSnapshots` los
-descarta, y eso bloquea además Chargeback, Unit Economics y Showback.
+los gaps priorizados.
+
+**Allocation** era el gap de mayor impacto y quedó resuelto por la migración
+`20260728-001`, que agrega `allocation_tag_hash` a la clave única de
+`CostSnapshots`. Antes esa clave era
+`(tenant, subscription, date, resource_group, service_name)`: dos filas del
+mismo día, región y servicio con distinto centro de costo se pisaban por
+`ON DUPLICATE KEY UPDATE` y todo el gasto AWS caía en "Sin asignar". Con eso se
+habilitaron además Chargeback, Unit Economics y Showback por equipo.
+
+> ⚠️ **Allocation en AWS depende del CUR.** El camino de Cost Explorer no trae
+> etiquetas de recurso: un tenant que sólo conecte CE no va a ver reparto por
+> centro de costo por más que la migración esté aplicada.
+
+⚠️ **`ALLOCATION_TAG_KEYS` (`src/lib/allocationTags.ts`) es orden-dependiente**:
+su orden define el hash, así que agregar una clave al medio invalida todo lo
+persistido. **Agregar siempre al final.**
 
 La tabla de precios es **pre-login**, así que no puede deducir el proveedor de
 ningún tenant: el visitante lo elige con un selector. `src/lib/pricingFeatureAvailability.ts`
@@ -327,7 +341,9 @@ AWS y el PATCH de superadmin) para que ninguno pueda olvidarse del side-effect.
 
 ### 2026-07-26 — Multi-cloud AWS: onboarding de mínimo privilegio, caché de Cost Explorer y panel parametrizado
 
-- **Onboarding AWS automatizado** (Fase 4). `POST /api/admin/onboarding/aws` (guard `requireTenantRole(['ADMIN','OWNER'])`, fail-closed 503 sin `AWS_PLATFORM_ACCOUNT_ID`) genera plantillas **CloudFormation, Terraform y AWS CLI** parametrizadas con el account ID de la plataforma y el `externalId` de la cuenta, y la pantalla de alta las muestra con selector de formato. Reemplazan las tres managed policies que se sugerían antes: `AmazonS3ReadOnlyAccess` daba lectura de **todos** los buckets del cliente para leer un solo reporte de costos. La plantilla concede exactamente las 4 acciones que el código invoca (`sts:AssumeRole`, `ce:GetCostAndUsage`, `ec2:DescribeInstances`, `s3:GetObject`+`s3:ListBucket` acotadas al bucket del CUR), extraídas leyendo los comandos del SDK, no la documentación de AWS.
+- **Onboarding AWS automatizado** (Fase 4). `POST /api/admin/onboarding/aws` (guard `requireTenantRole(['ADMIN','OWNER'])`, fail-closed 503 sin `AWS_PLATFORM_ACCOUNT_ID`) genera plantillas **CloudFormation, Terraform y AWS CLI** parametrizadas con el account ID de la plataforma y el `externalId` de la cuenta, y la pantalla de alta las muestra con selector de formato. Reemplazan las tres managed policies que se sugerían antes: `AmazonS3ReadOnlyAccess` daba lectura de **todos** los buckets del cliente para leer un solo reporte de costos. La plantilla concede exactamente las acciones que el código invoca, extraídas leyendo los comandos del SDK y no la documentación de AWS: `sts:AssumeRole`, `ce:GetCostAndUsage`, el inventario EC2 de sólo lectura (`ec2:DescribeInstances`, `DescribeVolumes`, `DescribeAddresses`, `DescribeSnapshots`), los presupuestos nativos (`budgets:DescribeBudgets`, `budgets:ViewBudget`, acotados al ARN de presupuestos de la propia cuenta) y `s3:GetObject`+`s3:ListBucket` acotadas al bucket del CUR. No hay ni una acción de escritura, y un test afirma la **lista cerrada** para que no se amplíe sin una llamada real que lo justifique.
+
+  > ⚠️ **Los clientes onboardeados antes de julio 2026 tienen que re-ejecutar la plantilla.** La versión anterior sólo otorgaba `ec2:DescribeInstances`, así que la limpieza de recursos ociosos fallaba con `AccessDenied` en volúmenes, IPs elásticas y snapshots — silenciosamente, mostrando la lista incompleta en vez de un error.
 - **Caché de Cost Explorer** (Fase 5). CE cobra **USD 0.01 por request** y cada página de la paginación cuenta aparte, así que un dashboard que refresca solo podía costar más que el ahorro que encuentra. `getCostAndUsage` ahora cachea en Redis por `(cuenta, rango)` con TTL de 24 h si el rango ya cerró y 1 h si incluye el día en curso —que AWS sigue actualizando—, reintenta con backoff exponencial **y jitter** ante throttling (sin jitter, las cuentas de un mismo tenant se re-throttlean entre sí al sincronizar juntas) y traduce `AccessDeniedException` en un mensaje que nombra el permiso faltante. Redis caído degrada a lectura fresca: la caché no es un punto de falla.
 - **Panel parametrizado por proveedor** (Fase 7, en curso). Nuevo `src/lib/tenantProviderContext.ts`: una ruta puede preguntar `tenantUsesAzure(tenantId)` y saltear el camino live de Azure, cayendo a `CostSnapshots` —tabla que el sync de AWS **ya alimenta**—. `/api/dashboard/summary` lo usa en sus 3 llamadas live: antes un tenant AWS pagaba el timeout completo antes de ver el mismo fallback. Se habilitan para AWS `cost-by-category`, `cost-groups` y `simulator`. **La decisión de fondo quedó tomada: el panel AWS se parametriza, no se forkea** — no hay componentes `*Aws.tsx` paralelos.
 - **Fix de disponibilidad en el rate limiter**. `pipeline.exec()` de ioredis **no lanza** cuando fallan los comandos individuales: devolvía `undefined`, `Number(undefined)` daba `NaN` y `NaN <= limite` es `false`, así que el limiter respondía **429 a todo el mundo** en vez de degradar a memoria. No hacía falta que Redis estuviera caído: ioredis conecta *lazy*, así que el primer request tras cada arranque lo disparaba. Afectaba **25 rutas**, incluidas toda la API pública `/api/v1/*`, checkout, SSO y los 7 endpoints de auth local.

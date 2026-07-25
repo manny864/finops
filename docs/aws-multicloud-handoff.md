@@ -18,7 +18,14 @@ de esa base (§2) y se definió el alcance del producto AWS completo (§3).
 **El alcance ya no es solo ingesta.** Es un producto AWS paralelo al de Azure
 dentro del mismo codebase: login propio, panel, roles, i18n y onboarding.
 
-**Dos hallazgos que cambian cómo encarar lo que falta** (detalle en §11):
+**Lo más reciente (§12)**: se cerró el gap de Allocation con una migración de
+esquema (opción 2 de la §9, **ya aplicada**) y se habilitaron Allocation,
+Chargeback, Unit Economics, Cost Centers, Budgets, Cost Projection y Financial
+Leaks. También se descubrió que **el onboarding otorgaba menos permisos IAM de
+los que el código ya usaba**: los clientes ya dados de alta tienen que
+re-ejecutar la plantilla (§12.5).
+
+**Tres hallazgos que cambian cómo encarar lo que falta** (detalle en §11 y §12):
 
 - Buena parte de las páginas que "faltaban" para AWS **no requerían trabajo
   técnico**: eran páginas de plataforma (alta, cobro, cumplimiento, móvil) que
@@ -27,6 +34,10 @@ dentro del mismo codebase: login propio, panel, roles, i18n y onboarding.
 - `routeProviders.ts` tiene **dos listas** y `EXPLICIT_AZURE_ROUTES` pisa a
   `AGNOSTIC_ROUTES`. Había rutas en las dos, así que agregarlas a la agnóstica
   no hacía nada. **Verificar siempre las dos listas.**
+- Habilitar una ruta en `routeProviders.ts` **sin** agregarle su caso en
+  `getAwsMockDataForRoute` no falla de forma visible: le muestra al tenant AWS
+  los datos de Azure. Ya pasó con `approvals` y `alerts` (§12.6). **Los dos
+  cambios van siempre juntos.**
 
 **Dónde está parado esto hoy:**
 
@@ -46,6 +57,7 @@ dentro del mismo codebase: login propio, panel, roles, i18n y onboarding.
 | 7.9 — Aviso de CUR en onboarding + selector de nube en precios | **✅ completa** |
 | 7.10 — Paridad de panel: WhiteBoard, TOP Gastos, Anomalías, Proyección | **✅ completa** |
 | 7.11 — Paridad de catálogo: 38 → **63 de 119 páginas** (§11) | **✅ completa** |
+| 7.12 — Asignación de costos + grupo B: 63 → **69 de 119 páginas** (§12) | **✅ completa** |
 | 8 — Módulo C: optimización y huérfanos | 🟡 **en curso** — inventario EC2 y limpieza hechos (§11.3); faltan rightsizing y gobernanza de tags |
 | 9 — Wiring y operación | ❌ no empezado |
 
@@ -1558,10 +1570,13 @@ de producción exitoso.
 
 ---
 
-## 9. Decisión pendiente del usuario — el gap de Allocation
+## 9. ~~Decisión pendiente~~ RESUELTA — el gap de Allocation
 
-Es lo primero que hay que resolver para avanzar, y **requiere una decisión, no
-más análisis**.
+> **Estado: CERRADO.** El usuario eligió la **opción 2** (migrar el esquema), no
+> la opción 1 que se recomendaba abajo. La migración
+> `migrations/20260728-001-costsnapshots-allocation-tags.sql` está **aplicada**
+> (4882 filas intactas). El detalle de la implementación está en la §12.
+> Lo que sigue se conserva como registro de la decisión.
 
 **El problema.** Las vistas de asignación de costos agrupan por
 `CostSnapshots.Tags`. El sync de AWS no llena esa columna, así que para un tenant
@@ -1587,8 +1602,11 @@ dimensión de tag. Meter filas con distintos tags colapsaría por
 | Costo | Duplica la lógica de agregación | Unifica el modelo |
 | Cardinalidad | Sin impacto | Multiplica filas por combinación de tags |
 
-**Recomendación: opción 1** para la primera iteración, por reversible. La 2 es el
-destino correcto si el modelo multi-cloud se consolida.
+~~**Recomendación: opción 1**~~ → **se ejecutó la opción 2.** El riesgo previsto
+("puede afectar datos de Azure ya persistidos") resultó no materializarse por un
+motivo verificable: el insert de Azure (`db.ts:1066`) **no llena `Tags`**, así
+que su hash queda `''` y la clave nueva es equivalente a la vieja para todo lo
+ya persistido. Además, ampliar una clave única sólo *relaja* la restricción.
 
 ⚠️ **Con cualquiera de las dos**: el camino de Cost Explorer **no trae tags de
 recurso**. Un tenant que conecte solo CE seguirá sin allocation. Ya se advierte
@@ -1795,3 +1813,149 @@ y ocultarla del contenedor: el test lo exige y verifica que el gate exista.
 | `__tests__/unit/simulatorEngine.test.ts` | La matemática del What-If, incluido el ahorro de licencias por proveedor. |
 | `__tests__/unit/routeProviders.test.ts` | Que las páginas ya habilitadas no se caigan de la allow-list (la landing post-login, sobre todo). |
 | `__tests__/integration/api-forecast.test.ts` | El contrato `data` que consume `admin/report`, y que el camino AWS no llame a Cost Management. |
+
+---
+
+## 12. Fase 7.12 — Asignación de costos y paridad del grupo B
+
+Cierra el gap de la §9 y habilita el primer bloque de páginas parametrizables.
+**De 63 a 69 páginas habilitadas para AWS** (de 119 totales).
+
+### 12.1 La migración que lo destrabó todo
+
+`migrations/20260728-001-costsnapshots-allocation-tags.sql` — **aplicada**.
+
+Lo que se creía el bloqueo (“el sync de AWS no llena `Tags`”) no era el
+bloqueo real: **la columna `Tags` ya existía**. El problema era la clave única
+`(tenant_id, subscription_id, date, resource_group, service_name)`, sin
+dimensión de tag: dos filas del mismo día/región/servicio con distinto centro
+de costo colapsaban por `ON DUPLICATE KEY UPDATE` y se pisaban entre sí.
+
+Se agrega `allocation_tag_hash VARCHAR(64) ascii_bin NOT NULL DEFAULT ''` y se
+incorpora a la clave única.
+
+Detalles que **no** hay que revertir por parecer arbitrarios:
+
+- **`ascii_bin` y no utf8**: el valor es hexadecimal. A 1 byte por carácter en
+  vez de 4, la clave entra holgada en el límite de 3072 bytes de InnoDB.
+- **El índice nuevo se crea ANTES de borrar el viejo**, para que un fallo a
+  mitad de camino deje la tabla con la protección anterior.
+- **No es una columna generada**: la normalización (case-insensitive + alias)
+  vive en JS. Replicarla en SQL la dejaría sin tests y las dos copias se
+  desincronizarían.
+- **`hashAllocationKey('')` devuelve `''`**, no el hash del string vacío. De eso
+  depende que las filas sin tags no generen duplicados.
+
+**Por qué fue segura para Azure**: el insert de Azure (`db.ts:1066`) no llena
+`Tags`, así que su hash queda `''` y la clave nueva es equivalente a la vieja
+para todo lo ya persistido. Ampliar una clave única sólo relaja la restricción.
+
+### 12.2 `src/lib/allocationTags.ts` — cómo se reparte el dinero
+
+Un error acá no da error visible: da plata asignada al equipo equivocado.
+
+- Se agrupa por un **subconjunto** de etiquetas (`CostCenter, Team, Environment,
+  Department, Role, Project, Owner, Application`), no por el JSON completo. Si
+  entrara `Name` —distinto en cada recurso— el agregado diario degeneraría en
+  una copia del detalle.
+- **En AWS los tags son case-sensitive**: `CostCenter`, `costcenter` y
+  `cost-center` conviven y parten el costo en tres. Se normaliza el nombre
+  (minúsculas, sin `[\s_\-.]`) y se resuelven alias (`BusinessUnit`, `bu`,
+  `env`, `squad`, `dept`, `app`…).
+- **El VALOR no se normaliza**: `prod` y `Prod` pueden ser dos entornos
+  distintos y no es la plataforma quien debe decidirlo.
+- Separador `\u0001` (carácter de control) para que un valor con `=` o `|` no
+  pueda falsificar otra combinación.
+- ⚠️ **El orden de `ALLOCATION_TAG_KEYS` define el hash.** Agregar una clave al
+  medio invalida todo lo persistido. **Agregar siempre al final.**
+
+### 12.3 Páginas habilitadas en esta fase
+
+| Página | Cómo se resolvió |
+|---|---|
+| `/intelligence/allocation` | Ya era agnóstica: opera sobre `CostSnapshots.Tags`, que AWS ahora llena. |
+| `/intelligence/cost-centers` | Idem. |
+| `/intelligence/chargeback` | Parametrizada: en AWS el reparto sale de `CostSnapshots`, no del SDK de Azure. |
+| `/intelligence/unit-economics` | Parametrizada. Se extrajo `buildUnitEconomics`: el DAU y el costo por usuario viven en la base del SaaS y ya eran agnósticos; lo único atado al proveedor es de dónde sale el costo diario. |
+| `/intelligence/cost-projection` | La serie ya salía de `CostSnapshots`; se saltea el backfill contra Azure. |
+| `/intelligence/budgets` | Nuevo `awsBudgetService` sobre `@aws-sdk/client-budgets`. |
+| `/overview/financial-leaks` | En AWS las fugas salen del inventario EC2, no del catálogo KQL. |
+
+**Convención del payload compartido con Azure** (no cambiarla sin migrar la UI):
+en AWS `resourceGroup` transporta la **región** y `chargeType` el **nombre del
+servicio**, porque AWS no tiene grupos de recursos ni el ChargeType de Azure.
+
+### 12.4 AWS Budgets — particularidades que condicionan el diseño
+
+`src/modules/collectors/aws/awsBudgetService.ts`
+
+- **Es un servicio global**: sólo responde en `us-east-1`. Consultarlo por
+  región devolvería vacío en todas las demás.
+- **Los presupuestos cuelgan de la cuenta** y no hay scope jerárquico como el
+  management group de Azure: se recorren cuenta por cuenta.
+- **Sólo se leen los de tipo `COST`.** Los de uso, cobertura y utilización de
+  RI/Savings Plans se miden en horas o en porcentaje: sumarlos junto a dinero
+  daría un total sin sentido.
+- **Regla de precisión (la misma que en Azure)**: si AWS informa el gasto
+  —aunque sea 0— esa es la verdad; si no lo informa y el presupuesto cubre la
+  cuenta entera, se aproxima con el MTD; si está **filtrado** por servicio o
+  etiqueta se deja en 0. Aproximar un presupuesto filtrado con el total de la
+  cuenta lo mostraría sobregirado sin estarlo.
+- **Menor privilegio**: en AWS el modal crea el presupuesto **sólo en la
+  plataforma** y se oculta el kill-switch. Escribir en AWS Budgets o apagar
+  instancias en masa exigiría permisos de escritura que el rol de onboarding no
+  pide a propósito.
+
+### 12.5 Permisos IAM — el onboarding estaba incompleto
+
+La plantilla otorgaba sólo `ec2:DescribeInstances`, pero el inventario de
+recursos ociosos (Fase 7.11) ya llamaba a `DescribeVolumes`,
+`DescribeAddresses` y `DescribeSnapshots`. **En una cuenta onboardeada con la
+plantilla anterior esas familias fallaban con `AccessDenied` y la limpieza
+quedaba silenciosamente incompleta.** Corregido en CloudFormation y Terraform.
+
+Permisos actuales (lista cerrada, verificada contra el uso real del SDK):
+
+| Acción | Dónde se usa |
+|---|---|
+| `ce:GetCostAndUsage` | sync de Cost Explorer |
+| `ec2:DescribeInstances` | inventario EC2 |
+| `ec2:DescribeVolumes` | volúmenes EBS sin adjuntar |
+| `ec2:DescribeAddresses` | IPs elásticas sin asociar |
+| `ec2:DescribeSnapshots` | snapshots antiguos |
+| `budgets:DescribeBudgets` | presupuestos nativos |
+| `budgets:ViewBudget` | idem — AWS exige las dos para leer uno |
+| `s3:ListBucket` / `s3:GetObject` | manifest y Parquet del CUR (acotado al bucket) |
+
+`__tests__/unit/awsOnboardingTemplate.test.ts` afirma la **lista cerrada** y
+rechaza cualquier verbo de escritura, para que la plantilla no se amplíe sin una
+llamada real que lo justifique. **Los clientes ya onboardeados tienen que
+re-ejecutar la plantilla** para que la limpieza y los presupuestos funcionen.
+
+### 12.6 Fugas de terminología corregidas en los mocks
+
+Auditoría completa de `src/lib/awsMockData.ts`. El hallazgo grave no fue el
+dataset propio sino **rutas habilitadas para AWS sin caso en
+`getAwsMockDataForRoute`**, que caían al mock genérico de Azure:
+
+- `approvals` (`/remediation/approvals`, `/mobile/approvals`) mostraba IDs
+  `/subscriptions/.../Microsoft.Compute/disks` y SKUs `Standard_D8s_v5`.
+- `alerts` (`/intelligence/alerts`) mostraba reglas sobre “Prod Subscription”.
+
+Se agregaron `getAwsRemediationApprovals` y `getAwsAlertRules` con ARNs,
+familias de instancia y palancas propias de AWS (cobertura de Savings Plans, NAT
+Gateway, Data Transfer Out).
+
+> **Regla que se desprende**: habilitar una ruta en `routeProviders.ts` sin
+> agregarle su caso en `getAwsMockDataForRoute` **no falla de forma visible** —
+> muestra datos de Azure. Los dos cambios van siempre juntos.
+
+### 12.7 Lo que queda del grupo B
+
+| Página | Estado | Motivo |
+|---|---|---|
+| `/intelligence/rates` | Pendiente | Resource Graph → Tagging API + RDS. |
+| `/overview/sustainability` | Pendiente | Resource Graph → EC2 + factores de emisión de AWS. |
+| `/overview/progress` | **Bloqueada** | Depende de Azure Advisor Score. El equivalente sería Trusted Advisor, que **exige plan de soporte Business o Enterprise**: no se puede asumir. |
+| `/overview/maturity` | **Bloqueada** | Idem. |
+| `/governance/*` | Pendiente | `/governance/tags` **necesita diseño propio, no parametrización**: la página Azure se apoya en la herencia resource-group→recurso, que en AWS no existe. El equivalente son las Tag Policies de Organizations, que no se heredan: se declaran y se auditan. |

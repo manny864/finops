@@ -22,10 +22,10 @@ Leyenda: ✅ cubierta · 🟡 parcial · ❌ no cubierta · n/a fuera de alcance
 | Capability | Azure | AWS | Evidencia / bloqueo |
 |---|:--:|:--:|---|
 | Data Ingestion | ✅ | ✅ | AWS ingesta por dos caminos: Cost Explorer (`/api/sync/aws/[id]/ce`) y CUR en S3 (`.../cur`). Ambos normalizan a FOCUS 1.0. |
-| Allocation | ✅ | ❌ | **Bloqueo estructural.** El agregado diario a `CostSnapshots` descarta los tags: su clave única es `(tenant, subscription, date, resource_group, service_name)` y no hay columna de tag en esa dimensión. Los tags de AWS sí se persisten, pero en `FocusLineItems.Tags` y solo por el camino CUR. Consecuencia: todo cae en "Sin asignar". Ver §Gap 1. |
+| Allocation | ✅ | ✅ | Resuelto por la migración `20260728-001`, que agrega `allocation_tag_hash` a la clave única de `CostSnapshots`. Antes las filas del mismo día/región/servicio con distinto centro de costo se pisaban por `ON DUPLICATE KEY UPDATE` y todo caía en "Sin asignar". **Requiere CUR**: el camino de Cost Explorer no trae etiquetas de recurso. |
 | Reporting & Analytics | ✅ | 🟡 | Habilitadas para AWS: Costo por Categoría, Grupos de Costo, Ahorro Capturado, **WhiteBoard** y **TOP Gastos**. En AWS, `resource_group` guarda la **región**, así que los grupos agrupan por región, no por agrupador lógico, y los rankings van por costo (no hay inventario de recursos que contar). |
 | Anomaly Management | ✅ | ✅ | La detección por Z-Score corre sobre `CostSnapshots`, que las dos nubes llenan. Lo único atado a Azure era el backfill del historial vía Cost Management, innecesario en AWS porque el sync ya escribe la serie completa. |
-| Data Analysis & Showback | ✅ | 🟡 | Sirve la ingesta de costo, pero sin allocation el showback por equipo/producto no es posible en AWS. |
+| Data Analysis & Showback | ✅ | ✅ | El showback por equipo/producto quedó habilitado junto con Allocation (migración `20260728-001`). |
 
 ## 2. Quantify Business Value
 
@@ -33,8 +33,8 @@ Leyenda: ✅ cubierta · 🟡 parcial · ❌ no cubierta · n/a fuera de alcance
 |---|:--:|:--:|---|
 | Planning & Estimating | ✅ | ✅ | Simulador habilitado para las dos nubes. El ahorro por licencias ya no asume el 18 % de AHB en AWS: el porcentaje lo declara el usuario (default 0). |
 | Forecasting | ✅ | 🟡 | La serie histórica se reconstruye desde `CostSnapshots` y se proyecta con `linearForecast` (`src/lib/forecasting.ts`). Falta integrar `ce:GetCostForecast` para contrastar contra la proyección del propio proveedor. |
-| Budgeting | ✅ | ❌ | `budgetService.ts` importa `@azure/arm-consumption`. |
-| Unit Economics | ✅ | ❌ | `/api/intelligence/unit-economics` importa `@azure/arm-costmanagement`. |
+| Budgeting | ✅ | ✅ | `awsBudgetService.ts` sobre `@aws-sdk/client-budgets`. Sólo lectura y sólo presupuestos de tipo `COST`: los de uso y cobertura de RI/Savings Plans se miden en horas o porcentaje. Crear presupuestos en AWS exigiría permisos de escritura que el rol de onboarding no pide, así que en AWS el alta es sólo en la plataforma. |
+| Unit Economics | ✅ | ✅ | Parametrizada: en AWS el costo diario sale de `CostSnapshots`. El DAU y el costo por usuario viven en la base del SaaS y ya eran agnósticos (`buildUnitEconomics`). |
 | Benchmarking | 🟡 | ❌ | Solo comparación intra-tenant. |
 
 ## 3. Optimize Usage & Cost
@@ -54,7 +54,7 @@ Leyenda: ✅ cubierta · 🟡 parcial · ❌ no cubierta · n/a fuera de alcance
 | FinOps Practice Operations | ✅ | ✅ | RBAC por tenant, auditoría, alertas y administración son agnósticos. |
 | Education & Enablement | ✅ | ✅ | Academy está habilitada para las dos nubes en los tres idiomas. |
 | Cloud Policy & Governance | ✅ | ❌ | **Toda la sección Gobernanza es Azure.** Policies, Score, Tags, HA, Power Management y Reporting dependen de Azure Resource Graph o de `@azure/arm-*`. Es la sección que un tenant AWS ve vacía. |
-| Invoicing & Chargeback | ✅ | ❌ | `/api/intelligence/chargeback` importa `@azure/arm-costmanagement`; además el chargeback sin allocation no tiene sentido. |
+| Invoicing & Chargeback | ✅ | ✅ | Parametrizada sobre `CostSnapshots.Tags`. En el payload compartido `resourceGroup` transporta la región y `chargeType` el servicio, porque AWS no tiene grupos de recursos ni el ChargeType de Azure. |
 | Onboarding Workloads | ✅ | ✅ | Onboarding AWS por rol asumido con `ExternalId`, de mínimo privilegio. |
 | Intersecting Disciplines | ✅ | ✅ | ITSM, webhooks y exportación FOCUS son agnósticos. |
 
@@ -62,26 +62,20 @@ Leyenda: ✅ cubierta · 🟡 parcial · ❌ no cubierta · n/a fuera de alcance
 
 ## Gaps priorizados
 
-### Gap 1 — Allocation en AWS (bloquea 4 capabilities)
+### ~~Gap 1~~ — Allocation en AWS · **RESUELTO**
 
-Es el de mayor impacto: sin tags en la dimensión agregada no hay Allocation,
-Chargeback, Unit Economics ni Showback por equipo.
+Era el de mayor impacto: bloqueaba Allocation, Chargeback, Unit Economics y
+Showback por equipo.
 
-Los datos **ya se están ingestando** (`FocusLineItems.Tags`, camino CUR); lo que
-falta es exponerlos. Dos caminos posibles:
+Se resolvió con la **opción 2**: la migración
+`migrations/20260728-001-costsnapshots-allocation-tags.sql` agrega
+`allocation_tag_hash` a la clave única de `CostSnapshots`. Fue segura para los
+datos de Azure porque su insert no llena `Tags`, así que el hash queda `''` y la
+clave nueva resulta equivalente a la vieja para todo lo ya persistido.
 
-1. Que las vistas de allocation lean de `FocusLineItems` cuando el tenant es AWS.
-   No toca el esquema, pero duplica la lógica de agregación.
-2. Agregar una dimensión de tag de asignación a `CostSnapshots`, lo que exige
-   migración y revisar la clave única para no colapsar filas por
-   `ON DUPLICATE KEY UPDATE`.
-
-Pendiente de decisión. La opción 1 es reversible y no arriesga los datos de
-Azure ya persistidos, así que es la recomendada para la primera iteración.
-
-Nota: el camino de Cost Explorer (sin CUR) **no trae tags de recurso**. Un
-tenant que solo conecte CE va a seguir sin allocation, sea cual sea la opción
-elegida. Conviene reflejarlo en el onboarding.
+⚠️ **Limitación que persiste**: el camino de Cost Explorer (sin CUR) **no trae
+etiquetas de recurso**. Un tenant que sólo conecte CE sigue sin allocation. Ya
+se advierte en el onboarding y en los manuales.
 
 ### Gap 2 — Gobernanza en AWS
 
