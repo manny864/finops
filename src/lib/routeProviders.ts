@@ -113,3 +113,19 @@ export function providersForRoute(href: string): readonly CloudProviderId[] {
 export function isRouteAvailableForProvider(href: string, provider: CloudProviderId): boolean {
     return providersForRoute(href).includes(provider);
 }
+
+/**
+ * Rutas explícitamente habilitadas para AWS.
+ *
+ * Existe para que las verificaciones automáticas (por ejemplo el test de
+ * terminología por proveedor) puedan recorrer la lista real en vez de una copia
+ * a mano que se desactualiza en silencio: habilitar una página para AWS y
+ * olvidarse de revisar su i18n es exactamente cómo se coló el "VMs/AKS" que
+ * veían los tenants AWS.
+ */
+export function awsEnabledRoutes(): readonly string[] {
+    return Object.entries(ROUTE_PROVIDERS)
+        .filter(([, providers]) => providers.includes("aws"))
+        .map(([route]) => route)
+        .sort();
+}
