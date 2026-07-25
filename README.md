@@ -251,6 +251,13 @@ los gaps priorizados. El de mayor impacto es **Allocation**: los tags de AWS se
 ingestan en `FocusLineItems`, pero el agregado diario a `CostSnapshots` los
 descarta, y eso bloquea además Chargeback, Unit Economics y Showback.
 
+La tabla de precios es **pre-login**, así que no puede deducir el proveedor de
+ningún tenant: el visitante lo elige con un selector. `src/lib/pricingFeatureAvailability.ts`
+declara por tier qué features tiene hoy un tenant AWS — fail-closed, un tier sin
+clasificar no ofrece nada — y al elegir AWS lo no disponible se muestra tachado.
+**Al habilitar una capability para AWS hay que agregar su índice ahí**, o la
+tabla va a seguir mostrándola tachada.
+
 Un test (`__tests__/unit/i18nProviderTerms.test.ts`) deriva del código los
 namespaces de i18n que ve un tenant AWS y falla si una página habilitada usa
 terminología exclusiva de Azure sin variante `_aws`. Es automático: parte de
