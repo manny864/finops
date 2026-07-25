@@ -4696,5 +4696,52 @@
     "rec_set_daily_cap": "Fijar tope diario",
     "rec_ok": "Óptimo",
     "estimate_note": "La ingesta y el ahorro son estimaciones a partir del costo y precios de referencia de Azure Monitor; úselos para priorizar, no para facturar."
+  },
+  "login": {
+    "title": "Iniciar sesión",
+    "subtitle": "Accedé a tu panel de FinOps.",
+    "microsoft": "Iniciar sesión con Microsoft",
+    "microsoftError": "No se pudo iniciar sesión con Microsoft.",
+    "or": "o",
+    "email": "Email",
+    "password": "Contraseña",
+    "signIn": "Entrar",
+    "loading": "Cargando…",
+    "forgotPassword": "Olvidé mi contraseña",
+    "backToSignIn": "Volver a iniciar sesión",
+    "sendResetLink": "Enviar link de recuperación",
+    "resetSent": "Si existe una cuenta con ese email, te enviamos un link para restablecer la contraseña.",
+    "genericError": "Algo salió mal. Probá de nuevo.",
+    "noAccount": "¿No tenés cuenta?",
+    "startTrial": "Empezá tu prueba gratis"
+  },
+  "authToken": {
+    "invalidTitle": "Link inválido",
+    "missingToken": "Este link está incompleto. Volvé a pedir uno nuevo.",
+    "genericError": "Algo salió mal. Probá de nuevo.",
+    "goToSignIn": "Ir a iniciar sesión",
+    "newPassword": "Contraseña nueva",
+    "confirmPassword": "Repetir contraseña",
+    "passwordMismatch": "Las contraseñas no coinciden.",
+    "passwordTooShort": "La contraseña debe tener al menos {min} caracteres.",
+    "passwordHint": "Elegí una contraseña de al menos {min} caracteres. Una frase larga es más segura que una corta con símbolos.",
+    "save": "Guardar",
+    "loading": "Cargando…",
+    "verify": {
+      "pendingTitle": "Confirmando tu email…",
+      "pendingBody": "Un momento.",
+      "successTitle": "Email confirmado",
+      "successBody": "Ya podés iniciar sesión con tu email y contraseña."
+    },
+    "reset": {
+      "formTitle": "Elegí una contraseña nueva",
+      "successTitle": "Contraseña actualizada",
+      "successBody": "Ya podés iniciar sesión con tu contraseña nueva."
+    },
+    "invite": {
+      "formTitle": "Activá tu cuenta",
+      "successTitle": "Cuenta activada",
+      "successBody": "Ya podés iniciar sesión. Entrás con permisos de solo lectura."
+    }
   }
 }

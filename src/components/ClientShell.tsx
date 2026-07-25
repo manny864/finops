@@ -19,6 +19,11 @@ import GlobalPagePinButton from './dashboard/GlobalPagePinButton';
 import SupportHeaderActions from './SupportHeaderActions';
 import MobileTabBar from './mobile/MobileTabBar';
 import PricingPage from './PricingPage';
+import LocalLoginForm from './LocalLoginForm';
+import { hasLocalSession } from '@/lib/localSession';
+
+/** Rutas públicas de la Fase 2: se llega por link de email, sin sesión. */
+const AUTH_TOKEN_ROUTES = ['/verify-email', '/reset-password', '/accept-invite'];
 import PublicFooter from './PublicFooter';
 import CookieConsent from './CookieConsent';
 import { useActionLogStore } from '@/store/actionLogStore';
@@ -66,7 +71,13 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
   
   // If demoSession exists, we treat the user as authenticated for the sake of the shell.
   const isMsalAuthenticated = useIsAuthenticated();
-  const isAuthenticated = isMsalAuthenticated || !!demoSession?.isDemo;
+  // Identidad propia (tenants AWS): el token vive en sessionStorage, que no
+  // existe en el server. Se lee en un efecto y no inline para no romper la
+  // hidratación (el HTML del server diría "no autenticado" y el primer render
+  // del cliente diría lo contrario).
+  const [hasLocal, setHasLocal] = useState(false);
+  useEffect(() => { setHasLocal(hasLocalSession()); }, []);
+  const isAuthenticated = isMsalAuthenticated || !!demoSession?.isDemo || hasLocal;
   const { viewMode, toggleViewMode } = useViewMode();
   const t = useTranslations('nav');
   const tc = useTranslations('Common');
@@ -215,16 +226,24 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
 
 
 
+  // Rutas que se abren desde un link de email y por definición se visitan SIN
+  // sesión: confirmar email, restablecer contraseña, aceptar invitación. Sin
+  // esta excepción, ClientShell las tapa con la pantalla de login y el token
+  // del link se pierde.
+  const isAuthTokenRoute = AUTH_TOKEN_ROUTES.some(
+      (r) => pathname === r || pathname.startsWith(`${r}/`)
+  );
+
   useEffect(() => {
       if (!isInitializing && !isAuthenticated && inProgress !== "startup" && inProgress !== "handleRedirect") {
           const isDemo = pathname === '/demo' || pathname.startsWith('/demo/');
-          if (!showPricing && pathname !== '/login' && !isDemo) {
+          if (!showPricing && pathname !== '/login' && !isDemo && !isAuthTokenRoute) {
               router.replace('/login');
           }
       } else if (isAuthenticated && pathname === '/login') {
           router.replace('/');
       }
-  }, [isAuthenticated, inProgress, showPricing, pathname, router]);
+  }, [isAuthenticated, inProgress, showPricing, pathname, router, isAuthTokenRoute]);
 
   const isDemoRoute = pathname === '/demo' || pathname.startsWith('/demo/');
 
@@ -244,7 +263,7 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
   }
 
   if (!isAuthenticated) {
-      if (isDemoRoute) {
+      if (isDemoRoute || isAuthTokenRoute) {
           return <>{children}</>;
       }
       if (showPricing) {
@@ -294,6 +313,9 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
                               <svg className="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 24 24"><path d="M11.4 24H0V12.6h11.4V24zM24 24H12.6V12.6H24V24zM11.4 11.4H0V0h11.4v11.4zm12.6 0H12.6V0H24v11.4z"/></svg>
                               {tc('sign_in_microsoft')}
                           </button>
+
+                          {/* Identidad propia (tenants AWS, sin Entra) — Fase 2. */}
+                          <LocalLoginForm />
 
                           <button
                               onClick={() => {
