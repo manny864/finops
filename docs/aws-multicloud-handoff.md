@@ -970,6 +970,48 @@ documento de cobertura. **Ojo:** el camino de Cost Explorer sin CUR no trae tags
 de recurso, así que un tenant que solo conecte CE seguirá sin allocation
 cualquiera sea la opción elegida.
 
+### Fase 7.9 — Expectativas del cliente: onboarding y precios — ✅ COMPLETA
+
+Dos correcciones de lo que le prometemos a un cliente AWS.
+
+**1. El onboarding avisa qué se pierde sin CUR (`cee1cf2`).** La sección de CUR
+decía “opcional” y “alta fidelidad”, que no alcanza para dimensionarlo:
+**Cost Explorer no devuelve las etiquetas de los recursos**. Un tenant que
+conecte solo CE ve sus costos abiertos por cuenta, región y servicio, y se queda
+sin asignación por equipo o proyecto, sin chargeback y sin unit economics — lo
+descubría recién cuando todo aparecía en “Sin asignar”. La columna CUR de la
+tabla pasó de gris a ámbar con el mismo texto como tooltip: no tener CUR es una
+limitación funcional, no un estado neutro.
+
+**2. La tabla de precios tiene selector de nube (`9ff4f40`).** Ofrecía
+“1 suscripción de Azure” y features como “Asesor de Azure” o “Azure Lighthouse
+Onboarding” a cualquier visitante, incluido el que viene por AWS.
+
+Lo importante para quien retome esto: **no se pudo usar
+`useProviderTranslations`**. Ese hook lee el proveedor del tenant activo, y
+`PricingPage` se renderiza desde `ClientShell` bajo `!isAuthenticated` — es
+pre-login, no hay tenant ni proveedor. Una variante `_aws` ahí no se elegiría
+nunca. Por eso el proveedor lo elige el visitante con un selector, igual que el
+ciclo mensual/anual.
+
+Y el problema de fondo no era el vocabulario sino **ofrecer capabilities que no
+existen para AWS**. `src/lib/pricingFeatureAvailability.ts` declara, por tier,
+qué features tiene hoy un tenant AWS; la clasificación sale de
+`docs/finops-framework-coverage.md`. Es fail-closed: un tier sin clasificar no
+ofrece nada en AWS. Al elegir AWS, el límite de scope se cuenta en **cuentas** y
+lo no disponible se muestra **tachado** — no oculto, para que el valor del
+producto siga a la vista sin prometer lo que no hay.
+
+La lista es posicional sobre `pricing.<tier>.features`, así que un
+reordenamiento la desalinearía. Lo cubre
+`__tests__/unit/pricingFeatureAvailability.test.ts`, que además falla si una
+feature ofrecida en AWS nombra un producto exclusivo de Azure (verificado por
+mutación: agregar “Asesor de Azure” a la lista de Essential lo hace fallar).
+
+**Al habilitar una capability nueva para AWS hay que agregar su índice a
+`AWS_AVAILABLE_FEATURES`**, o la tabla de precios va a seguir mostrándola
+tachada.
+
 ### Fase 8 — Módulo C: optimización y huérfanos (spec §3 Módulo C) — NO EMPEZADO
 
 `awsProvider.getRecommendations()` devuelve `[]` (línea ~105). No existe nada.
