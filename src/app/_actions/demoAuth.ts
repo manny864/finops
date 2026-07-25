@@ -3,9 +3,13 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-export async function setDemoSession(tier: string) {
+export async function setDemoSession(tier: string, provider: string = "azure") {
   const cookieStore = await cookies();
-  const sessionData = JSON.stringify({ isDemo: true, tier });
+  // El proveedor se normaliza acá y no en el cliente: la cookie la lee el
+  // layout server-side y un valor arbitrario terminaria eligiendo un tenant
+  // de demo inexistente.
+  const normalizedProvider = provider === "aws" ? "aws" : "azure";
+  const sessionData = JSON.stringify({ isDemo: true, tier, provider: normalizedProvider });
   
   cookieStore.set("finops_demo_session", sessionData, {
     httpOnly: true,

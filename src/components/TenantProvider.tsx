@@ -1,7 +1,8 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useMsal } from '@azure/msal-react';
-import { getMockDataForRoute, getMockCostGroupDetail } from '@/lib/mockData';
+import { getMockDataForRoute, getMockCostGroupDetail, isAwsMockTenant } from '@/lib/mockData';
+import { getAwsMockDataForRoute } from '@/lib/awsMockData';
 import { usePathname, useRouter } from 'next/navigation';
 import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
@@ -55,7 +56,7 @@ interface TenantContextType {
 
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
 
-export function TenantProvider({ children, demoSession }: { children: React.ReactNode, demoSession?: { isDemo: boolean; tier: string } | null }) {
+export function TenantProvider({ children, demoSession }: { children: React.ReactNode, demoSession?: { isDemo: boolean; tier: string; provider?: string } | null }) {
   const router = useRouter();
   const pathname = usePathname();
   const { instance, accounts } = useMsal();
@@ -65,11 +66,20 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
       let id = 'demo_tenant';
       let name = 'Demo Workspace';
       const tier = demoSession.tier?.toLowerCase() || 'essential';
-      if (tier === 'essential') { id = '11111111-2222-3333-4444-555555555555'; name = 'Cliente ACME (Demo Essentials)'; }
+      const isAws = demoSession.provider === 'aws';
+      if (isAws) {
+        // Tenants de demo AWS: mismos tiers, datos AWS-nativos (cuentas de 12
+        // dígitos, servicios de Cost Explorer, Savings Plans).
+        if (tier === 'essential') { id = 'aaaa1111-2222-3333-4444-555555555555'; name = 'Northwind Cloud (Demo AWS Essentials)'; }
+        else if (tier === 'pro' || tier === 'professional') { id = 'aaaa2222-3333-4444-5555-666666666666'; name = 'Cumulus Labs (Demo AWS Pro)'; }
+        else if (tier === 'business') { id = 'aaaa4444-5555-6666-7777-888888888888'; name = 'Vertex Retail (Demo AWS Business)'; }
+        else if (tier === 'enterprise') { id = 'aaaa3333-4444-5555-6666-777777777777'; name = 'Helios Group (Demo AWS Enterprise)'; }
+      }
+      else if (tier === 'essential') { id = '11111111-2222-3333-4444-555555555555'; name = 'Cliente ACME (Demo Essentials)'; }
       else if (tier === 'pro' || tier === 'professional') { id = '22222222-3333-4444-5555-666666666666'; name = 'Startup Tech (Demo Pro)'; }
       else if (tier === 'business') { id = '44444444-5555-6666-7777-888888888888'; name = 'Midmarket Corp (Demo Business)'; }
       else if (tier === 'enterprise') { id = '33333333-4444-5555-6666-777777777777'; name = 'Corporation XTZ (Demo Enterprise)'; }
-      return { id, name, tier: demoSession.tier };
+      return { id, name, tier: demoSession.tier, provider: isAws ? 'aws' : 'azure' };
     }
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('finops_active_tenant');
@@ -251,38 +261,54 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                   return originalFetch(input, init);
               }
               const tier = selectedTenant?.tier?.toLowerCase() || demoSession?.tier?.toLowerCase() || 'essential';
-              if (url.includes('/api/intelligence/billing')) return new Response(JSON.stringify(getMockDataForRoute('billing', tier)), {status: 200});
+              // getMockDataForRoute distingue tenantId de tier por longitud. Para
+              // los tenants de demo AWS hay que pasarle el id, que es lo unico
+              // que le permite elegir el dataset de AWS en vez del de Azure.
+              const mockKey = (selectedTenant?.id && isAwsMockTenant(selectedTenant.id)) ? selectedTenant.id : tier;
+              // Cuentas AWS: la pantalla de alta debe verse poblada en la demo,
+              // y las mutaciones tienen que responder OK sin tocar nada real.
+              if (url.includes('/api/aws/accounts')) {
+                  const method = (init?.method || 'GET').toUpperCase();
+                  if (method === 'GET') {
+                      return new Response(JSON.stringify(getAwsMockDataForRoute('aws-accounts', tier)), {status: 200});
+                  }
+                  if (url.includes('/test')) {
+                      return new Response(JSON.stringify({ success: true, mock: true, message: 'Demo: rol asumido correctamente' }), {status: 200});
+                  }
+                  return new Response(JSON.stringify({ success: true, mock: true }), {status: method === 'POST' ? 201 : 200});
+              }
+              if (url.includes('/api/intelligence/billing')) return new Response(JSON.stringify(getMockDataForRoute('billing', mockKey)), {status: 200});
               if (url.includes('/api/advisor')) {
                   const advLocale = (url.match(/[?&]locale=([^&]+)/)?.[1] && decodeURIComponent(url.match(/[?&]locale=([^&]+)/)![1])) || 'es';
-                  return new Response(JSON.stringify(getMockDataForRoute('advisor', tier, advLocale)), {status: 200});
+                  return new Response(JSON.stringify(getMockDataForRoute('advisor', mockKey, advLocale)), {status: 200});
               }
               if (url.includes('/api/academy/content')) {
                   if (init?.method === 'POST') return new Response(JSON.stringify({ success: true, mock: true }), {status: 200});
-                  return new Response(JSON.stringify(getMockDataForRoute('academy', tier)), {status: 200});
+                  return new Response(JSON.stringify(getMockDataForRoute('academy', mockKey)), {status: 200});
               }
-              if (url.includes('/api/audit/full')) return new Response(JSON.stringify(getMockDataForRoute('audit_full', tier)), {status: 200});
-              if (url.includes('/api/audit/ttl')) return new Response(JSON.stringify(getMockDataForRoute('ttl', tier)), {status: 200});
-              if (url.includes('/api/tags/compliance')) return new Response(JSON.stringify(getMockDataForRoute('tags_compliance', tier)), {status: 200});
-              if (url.includes('/api/intelligence/network')) return new Response(JSON.stringify(getMockDataForRoute('network', tier)), {status: 200});
-              if (url.includes('/api/intelligence/rates')) return new Response(JSON.stringify(getMockDataForRoute('rates', tier)), {status: 200});
+              if (url.includes('/api/audit/full')) return new Response(JSON.stringify(getMockDataForRoute('audit_full', mockKey)), {status: 200});
+              if (url.includes('/api/audit/ttl')) return new Response(JSON.stringify(getMockDataForRoute('ttl', mockKey)), {status: 200});
+              if (url.includes('/api/tags/compliance')) return new Response(JSON.stringify(getMockDataForRoute('tags_compliance', mockKey)), {status: 200});
+              if (url.includes('/api/intelligence/network')) return new Response(JSON.stringify(getMockDataForRoute('network', mockKey)), {status: 200});
+              if (url.includes('/api/intelligence/rates')) return new Response(JSON.stringify(getMockDataForRoute('rates', mockKey)), {status: 200});
               if (url.includes('/api/subscriptions')) return new Response(JSON.stringify({ subscriptions: [{id: 'mock-sub', name: 'Demo Subscription'}]}), {status: 200});
-              if (url.includes('/api/intelligence/budgets')) return new Response(JSON.stringify(getMockDataForRoute('budgets', tier)), {status: 200});
-              if (url.includes('/api/budgets/burn')) return new Response(JSON.stringify(getMockDataForRoute('budgets_burn', tier)), {status: 200});
-              if (url.includes('/api/budgets/alerts')) return new Response(JSON.stringify(getMockDataForRoute('alerts', tier)), {status: 200});
-              if (url.includes('/api/intelligence/history')) return new Response(JSON.stringify(getMockDataForRoute('history', tier)), {status: 200});
-              if (url.includes('/api/intelligence/forecast')) return new Response(JSON.stringify(getMockDataForRoute('forecast', tier)), {status: 200});
-              if (url.includes('/api/intelligence/maturity')) return new Response(JSON.stringify(getMockDataForRoute('maturity', tier)), {status: 200});
-              if (url.includes('/api/admin/provider-transition')) return new Response(JSON.stringify(getMockDataForRoute('provider_transition', tier)), {status: 200});
-              if (url.includes('/api/cleanup/zombies/networking')) return new Response(JSON.stringify(getMockDataForRoute('networking_zombies', tier)), {status: 200});
-              if (url.includes('/api/cleanup/zombies')) return new Response(JSON.stringify(getMockDataForRoute('audit_full', tier)), {status: 200});
+              if (url.includes('/api/intelligence/budgets')) return new Response(JSON.stringify(getMockDataForRoute('budgets', mockKey)), {status: 200});
+              if (url.includes('/api/budgets/burn')) return new Response(JSON.stringify(getMockDataForRoute('budgets_burn', mockKey)), {status: 200});
+              if (url.includes('/api/budgets/alerts')) return new Response(JSON.stringify(getMockDataForRoute('alerts', mockKey)), {status: 200});
+              if (url.includes('/api/intelligence/history')) return new Response(JSON.stringify(getMockDataForRoute('history', mockKey)), {status: 200});
+              if (url.includes('/api/intelligence/forecast')) return new Response(JSON.stringify(getMockDataForRoute('forecast', mockKey)), {status: 200});
+              if (url.includes('/api/intelligence/maturity')) return new Response(JSON.stringify(getMockDataForRoute('maturity', mockKey)), {status: 200});
+              if (url.includes('/api/admin/provider-transition')) return new Response(JSON.stringify(getMockDataForRoute('provider_transition', mockKey)), {status: 200});
+              if (url.includes('/api/cleanup/zombies/networking')) return new Response(JSON.stringify(getMockDataForRoute('networking_zombies', mockKey)), {status: 200});
+              if (url.includes('/api/cleanup/zombies')) return new Response(JSON.stringify(getMockDataForRoute('audit_full', mockKey)), {status: 200});
               if (url.includes('/api/cleanup/ttl/policies')) {
                   const method = (init?.method || 'GET').toUpperCase();
-                  if (method === 'GET') return new Response(JSON.stringify(getMockDataForRoute('ttl_policies', tier)), {status: 200});
+                  if (method === 'GET') return new Response(JSON.stringify(getMockDataForRoute('ttl_policies', mockKey)), {status: 200});
                   if (method === 'POST') return new Response(JSON.stringify({ success: true, mock: true }), {status: 201});
                   if (method === 'DELETE') return new Response(JSON.stringify({ success: true, mock: true }), {status: 200});
               }
-              if (url.includes('/api/cleanup/ttl/unlabeled')) return new Response(JSON.stringify(getMockDataForRoute('ttl_unlabeled', tier)), {status: 200});
-              if (url.includes('/api/cleanup/ttl/history')) return new Response(JSON.stringify(getMockDataForRoute('ttl_history', tier)), {status: 200});
+              if (url.includes('/api/cleanup/ttl/unlabeled')) return new Response(JSON.stringify(getMockDataForRoute('ttl_unlabeled', mockKey)), {status: 200});
+              if (url.includes('/api/cleanup/ttl/history')) return new Response(JSON.stringify(getMockDataForRoute('ttl_history', mockKey)), {status: 200});
               if (url.includes('/api/tags/apply')) return new Response(JSON.stringify({ success: true, mock: true }), {status: 200});
               if (url.includes('/api/cleanup/ttl')) {
                   const m = (selectedTenant?.tier?.toLowerCase()==='enterprise')?50:(selectedTenant?.tier?.toLowerCase()==='business')?10:(selectedTenant?.tier?.toLowerCase()==='pro')?3:1;
@@ -330,18 +356,18 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                           message: `[DEMO] Acción "${parsedBody.action}" SIMULADA sobre ${Array.isArray(parsedBody.vms) ? parsedBody.vms.length : 0} VM(s). En un tenant real este comando se enviaría a Azure.`,
                       }), { status: 200 });
                   }
-                  return new Response(JSON.stringify(getMockDataForRoute('audit_full', tier)), {status: 200});
+                  return new Response(JSON.stringify(getMockDataForRoute('audit_full', mockKey)), {status: 200});
               }
-              if (url.includes('/api/intelligence/chargeback')) return new Response(JSON.stringify(getMockDataForRoute('chargeback', tier)), {status: 200});
+              if (url.includes('/api/intelligence/chargeback')) return new Response(JSON.stringify(getMockDataForRoute('chargeback', mockKey)), {status: 200});
               // AKS Chargeback debe ir ANTES que /api/intelligence/aks (substring).
-              if (url.includes('/api/intelligence/aks-chargeback')) return new Response(JSON.stringify(getMockDataForRoute('aks_chargeback', tier)), {status: 200});
-              if (url.includes('/api/intelligence/aks')) return new Response(JSON.stringify(getMockDataForRoute('aks', tier)), {status: 200});
-              if (url.includes('/api/intelligence/zero-cost')) return new Response(JSON.stringify(getMockDataForRoute('zero_cost', tier)), {status: 200});
-              if (url.includes('/api/intelligence/unit-economics')) return new Response(JSON.stringify(getMockDataForRoute('unit_economics', tier)), {status: 200});
-              if (url.includes('/api/intelligence/scorecard')) return new Response(JSON.stringify(getMockDataForRoute('scorecard', tier)), {status: 200});
-              if (url.includes('/api/intelligence/whiteboard')) return new Response(JSON.stringify(getMockDataForRoute('white_board', tier)), {status: 200});
-              if (url.includes('/api/intelligence/cost-centers')) return new Response(JSON.stringify(getMockDataForRoute('cost_centers', tier)), {status: 200});
-              if (url.includes('/api/intelligence/captured-savings')) return new Response(JSON.stringify(getMockDataForRoute('captured_savings', tier)), {status: 200});
+              if (url.includes('/api/intelligence/aks-chargeback')) return new Response(JSON.stringify(getMockDataForRoute('aks_chargeback', mockKey)), {status: 200});
+              if (url.includes('/api/intelligence/aks')) return new Response(JSON.stringify(getMockDataForRoute('aks', mockKey)), {status: 200});
+              if (url.includes('/api/intelligence/zero-cost')) return new Response(JSON.stringify(getMockDataForRoute('zero_cost', mockKey)), {status: 200});
+              if (url.includes('/api/intelligence/unit-economics')) return new Response(JSON.stringify(getMockDataForRoute('unit_economics', mockKey)), {status: 200});
+              if (url.includes('/api/intelligence/scorecard')) return new Response(JSON.stringify(getMockDataForRoute('scorecard', mockKey)), {status: 200});
+              if (url.includes('/api/intelligence/whiteboard')) return new Response(JSON.stringify(getMockDataForRoute('white_board', mockKey)), {status: 200});
+              if (url.includes('/api/intelligence/cost-centers')) return new Response(JSON.stringify(getMockDataForRoute('cost_centers', mockKey)), {status: 200});
+              if (url.includes('/api/intelligence/captured-savings')) return new Response(JSON.stringify(getMockDataForRoute('captured_savings', mockKey)), {status: 200});
               if (url.includes('/api/intelligence/commitments')) {
                   const m = (selectedTenant?.tier?.toLowerCase()==='enterprise')?50:(selectedTenant?.tier?.toLowerCase()==='business')?10:(selectedTenant?.tier?.toLowerCase()==='pro')?3:1;
                   return new Response(JSON.stringify({ success: true, mock: true, data: {
@@ -380,14 +406,14 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                   const totalPotentialSavings = eligibleResources.reduce((s, r) => s + r.savings, 0);
                   return new Response(JSON.stringify({ success: true, mock: true, data: { eligibleResources, totalPotentialSavings } }), {status: 200});
               }
-              if (url.includes('/api/intelligence/licenses')) return new Response(JSON.stringify(getMockDataForRoute('licenses', tier)), {status: 200});
-              if (url.includes('/api/intelligence/rightsizing')) return new Response(JSON.stringify(getMockDataForRoute('rightsizing', tier)), {status: 200});
-              if (url.includes('/api/intelligence/anomalies')) return new Response(JSON.stringify(getMockDataForRoute('anomalies', tier)), {status: 200});
+              if (url.includes('/api/intelligence/licenses')) return new Response(JSON.stringify(getMockDataForRoute('licenses', mockKey)), {status: 200});
+              if (url.includes('/api/intelligence/rightsizing')) return new Response(JSON.stringify(getMockDataForRoute('rightsizing', mockKey)), {status: 200});
+              if (url.includes('/api/intelligence/anomalies')) return new Response(JSON.stringify(getMockDataForRoute('anomalies', mockKey)), {status: 200});
               if (url.includes('/api/intelligence/kpis/coin')) {
                   if (init?.method === 'POST') return new Response(JSON.stringify({ success: true, mock: true, expiresAt: null }), {status: 200});
-                  return new Response(JSON.stringify(getMockDataForRoute('coin', tier)), {status: 200});
+                  return new Response(JSON.stringify(getMockDataForRoute('coin', mockKey)), {status: 200});
               }
-              if (url.includes('/api/intelligence/tenant-health')) return new Response(JSON.stringify(getMockDataForRoute('tenant_health', tier)), {status: 200});
+              if (url.includes('/api/intelligence/tenant-health')) return new Response(JSON.stringify(getMockDataForRoute('tenant_health', mockKey)), {status: 200});
               // entra-sync ANTES que /api/admin/config/users (substring): trae forma
               // Graph (mail/userPrincipalName/displayName), no la de usuarios locales.
               if (url.includes('/api/admin/config/users/entra-sync')) {
@@ -400,12 +426,12 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                       ],
                   }), { status: 200 });
               }
-              if (url.includes('/api/admin/config/users')) return new Response(JSON.stringify(getMockDataForRoute('users', tier)), {status: 200});
-              if (url.includes('/api/tags') && !url.includes('/api/tags/compliance')) return new Response(JSON.stringify(getMockDataForRoute('tags', tier)), {status: 200});
-              if (url.includes('/api/intelligence/sustainability')) return new Response(JSON.stringify(getMockDataForRoute('sustainability', tier)), {status: 200});
-              if (url.includes('/api/governance/policies')) return new Response(JSON.stringify(getMockDataForRoute('governance-policies', tier)), {status: 200});
-              if (url.includes('/api/remediation/workflow')) return new Response(JSON.stringify(getMockDataForRoute('approvals', tier)), {status: 200});
-              if (url.includes('/api/billing/portal')) return new Response(JSON.stringify(getMockDataForRoute('payments', tier)), {status: 200});
+              if (url.includes('/api/admin/config/users')) return new Response(JSON.stringify(getMockDataForRoute('users', mockKey)), {status: 200});
+              if (url.includes('/api/tags') && !url.includes('/api/tags/compliance')) return new Response(JSON.stringify(getMockDataForRoute('tags', mockKey)), {status: 200});
+              if (url.includes('/api/intelligence/sustainability')) return new Response(JSON.stringify(getMockDataForRoute('sustainability', mockKey)), {status: 200});
+              if (url.includes('/api/governance/policies')) return new Response(JSON.stringify(getMockDataForRoute('governance-policies', mockKey)), {status: 200});
+              if (url.includes('/api/remediation/workflow')) return new Response(JSON.stringify(getMockDataForRoute('approvals', mockKey)), {status: 200});
+              if (url.includes('/api/billing/portal')) return new Response(JSON.stringify(getMockDataForRoute('payments', mockKey)), {status: 200});
               if (url.includes('/api/billing/plan')) {
                   const tierCap = tier.charAt(0).toUpperCase() + tier.slice(1);
                   return new Response(JSON.stringify({
@@ -427,16 +453,16 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                   }));
                   return new Response(JSON.stringify({ success: true, invoices, count: invoices.length }), { status: 200 });
               }
-              if (url.includes('/api/dashboard/summary')) return new Response(JSON.stringify(getMockDataForRoute('dashboard_summary', tier)), {status: 200});
+              if (url.includes('/api/dashboard/summary')) return new Response(JSON.stringify(getMockDataForRoute('dashboard_summary', mockKey)), {status: 200});
               if (url.includes('/api/intelligence/applied-savings')) {
                   const m = tier === 'enterprise' ? 50 : tier === 'business' ? 10 : tier === 'pro' ? 3 : 1;
                   return new Response(JSON.stringify({ success: true, mock: true, appliedSavings: 380.5 * m, actionsCount: 6 }), { status: 200 });
               }
-              if (url.includes('/api/intelligence/allocation-rules')) return new Response(JSON.stringify(getMockDataForRoute('allocation-rules', tier)), {status: 200});
-              if (url.includes('/api/intelligence/cost-by-category')) return new Response(JSON.stringify(getMockDataForRoute('cost-by-category', tier)), {status: 200});
-              if (url.includes('/api/intelligence/cost-projection')) return new Response(JSON.stringify(getMockDataForRoute('cost-projection', tier)), {status: 200});
-              if (url.includes('/api/intelligence/commitment-simulator')) return new Response(JSON.stringify(getMockDataForRoute('commitment-simulator', tier)), {status: 200});
-              if (url.includes('/api/intelligence/compute-efficiency')) return new Response(JSON.stringify(getMockDataForRoute('compute-efficiency', tier)), {status: 200});
+              if (url.includes('/api/intelligence/allocation-rules')) return new Response(JSON.stringify(getMockDataForRoute('allocation-rules', mockKey)), {status: 200});
+              if (url.includes('/api/intelligence/cost-by-category')) return new Response(JSON.stringify(getMockDataForRoute('cost-by-category', mockKey)), {status: 200});
+              if (url.includes('/api/intelligence/cost-projection')) return new Response(JSON.stringify(getMockDataForRoute('cost-projection', mockKey)), {status: 200});
+              if (url.includes('/api/intelligence/commitment-simulator')) return new Response(JSON.stringify(getMockDataForRoute('commitment-simulator', mockKey)), {status: 200});
+              if (url.includes('/api/intelligence/compute-efficiency')) return new Response(JSON.stringify(getMockDataForRoute('compute-efficiency', mockKey)), {status: 200});
               // Simulador What-If: reproduce la misma matemática pura de
               // src/lib/simulator/engine.ts (compute 60% / storage 25% / network 15%,
               // AHB -18%) para que el POST no dependa de un JWT real.
@@ -451,7 +477,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                   // rama POST de abajo con baseCost hardcodeado en 25000.
                   const method = (init?.method || 'GET').toUpperCase();
                   if (method === 'GET') {
-                      const summary = getMockDataForRoute('dashboard_summary', tier) as { actualCost?: number };
+                      const summary = getMockDataForRoute('dashboard_summary', mockKey) as { actualCost?: number };
                       return new Response(JSON.stringify({ success: true, baseCost: summary?.actualCost ?? 25000 }), { status: 200 });
                   }
                   let parsedBody: any = {};
@@ -481,8 +507,8 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                       inputs: { computeScale, storageScale, networkIncrease, applyAhb },
                   }), { status: 200 });
               }
-              if (url.includes('/api/admin/governance-policies')) return new Response(JSON.stringify(getMockDataForRoute('governance-policies', tier)), {status: 200});
-              if (url.includes('/api/admin/billing-markup')) return new Response(JSON.stringify(getMockDataForRoute('billing-markup', tier)), {status: 200});
+              if (url.includes('/api/admin/governance-policies')) return new Response(JSON.stringify(getMockDataForRoute('governance-policies', mockKey)), {status: 200});
+              if (url.includes('/api/admin/billing-markup')) return new Response(JSON.stringify(getMockDataForRoute('billing-markup', mockKey)), {status: 200});
               if (url.includes('/api/copilot-m365/ask')) {
                   return new Response(JSON.stringify({
                       success: true, mock: true,
@@ -530,21 +556,21 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                       recommendation: { movableGb, potentialSavings, fromTier: 'hot', toTier: 'cool' }
                   }), {status: 200});
               }
-              if (url.includes('/api/governance/reporting')) return new Response(JSON.stringify(getMockDataForRoute('governance-reporting', tier)), {status: 200});
+              if (url.includes('/api/governance/reporting')) return new Response(JSON.stringify(getMockDataForRoute('governance-reporting', mockKey)), {status: 200});
               {
                   const costGroupDetailMatch = url.match(/\/api\/cost-groups\/([^/?]+)/);
                   if (costGroupDetailMatch) {
                       return new Response(JSON.stringify(getMockCostGroupDetail(decodeURIComponent(costGroupDetailMatch[1]), tier)), {status: 200});
                   }
               }
-              if (url.includes('/api/cost-groups')) return new Response(JSON.stringify(getMockDataForRoute('cost_groups', tier)), {status: 200});
-              if (url.includes('/api/intelligence/top-expenses')) return new Response(JSON.stringify(getMockDataForRoute('top_expenses', tier)), {status: 200});
-              if (url.includes('/api/resources/search')) return new Response(JSON.stringify(getMockDataForRoute('resources_search', tier)), {status: 200});
-              if (url.includes('/api/resources/inventory')) return new Response(JSON.stringify(getMockDataForRoute('resources_inventory', tier)), {status: 200});
-              if (url.includes('/api/resources/created-by')) return new Response(JSON.stringify(getMockDataForRoute('resources_created_by', tier)), {status: 200});
-              if (url.includes('/api/resources/costs-by-tag')) return new Response(JSON.stringify(getMockDataForRoute('resources_costs_by_tag', tier)), {status: 200});
-              if (url.includes('/api/m365/overview')) return new Response(JSON.stringify(getMockDataForRoute('m365_overview', tier)), {status: 200});
-              if (url.includes('/api/m365/user-activity')) return new Response(JSON.stringify(getMockDataForRoute('m365_user_activity', tier)), {status: 200});
+              if (url.includes('/api/cost-groups')) return new Response(JSON.stringify(getMockDataForRoute('cost_groups', mockKey)), {status: 200});
+              if (url.includes('/api/intelligence/top-expenses')) return new Response(JSON.stringify(getMockDataForRoute('top_expenses', mockKey)), {status: 200});
+              if (url.includes('/api/resources/search')) return new Response(JSON.stringify(getMockDataForRoute('resources_search', mockKey)), {status: 200});
+              if (url.includes('/api/resources/inventory')) return new Response(JSON.stringify(getMockDataForRoute('resources_inventory', mockKey)), {status: 200});
+              if (url.includes('/api/resources/created-by')) return new Response(JSON.stringify(getMockDataForRoute('resources_created_by', mockKey)), {status: 200});
+              if (url.includes('/api/resources/costs-by-tag')) return new Response(JSON.stringify(getMockDataForRoute('resources_costs_by_tag', mockKey)), {status: 200});
+              if (url.includes('/api/m365/overview')) return new Response(JSON.stringify(getMockDataForRoute('m365_overview', mockKey)), {status: 200});
+              if (url.includes('/api/m365/user-activity')) return new Response(JSON.stringify(getMockDataForRoute('m365_user_activity', mockKey)), {status: 200});
               if (url.includes('/api/governance/ha')) {
                   const m = (selectedTenant?.tier?.toLowerCase()==='enterprise')?5:(selectedTenant?.tier?.toLowerCase()==='business')?2:1;
                   const baseItems = [
@@ -584,8 +610,8 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                   items.forEach(it => { if (it.severity in counts) counts[it.severity]++; });
                   return new Response(JSON.stringify({ success: true, mock: true, source: 'mock', items, counts }), {status: 200});
               }
-              if (url.includes('/api/intelligence/compute-cost-per-core')) return new Response(JSON.stringify(getMockDataForRoute('compute-efficiency', tier)), {status: 200});
-              if (url.includes('/api/intelligence/macc')) return new Response(JSON.stringify(getMockDataForRoute('macc', tier)), {status: 200});
+              if (url.includes('/api/intelligence/compute-cost-per-core')) return new Response(JSON.stringify(getMockDataForRoute('compute-efficiency', mockKey)), {status: 200});
+              if (url.includes('/api/intelligence/macc')) return new Response(JSON.stringify(getMockDataForRoute('macc', mockKey)), {status: 200});
 
               // ===== Bloque demo: features admin / gobernanza / analytics faltantes =====
               {
@@ -594,7 +620,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                   const dayMs = 86400000;
 
                   // AI Cost Analytics
-                  if (url.includes('/api/intelligence/ai-analytics')) return new Response(JSON.stringify(getMockDataForRoute('ai-analytics', tier)), { status: 200 });
+                  if (url.includes('/api/intelligence/ai-analytics')) return new Response(JSON.stringify(getMockDataForRoute('ai-analytics', mockKey)), { status: 200 });
 
                   // Credenciales por expirar
                   if (url.includes('/api/governance/expiring-credentials')) {
@@ -826,7 +852,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                   const invoicingMethod = (init?.method || 'GET').toUpperCase();
                   if (invoicingMethod !== 'GET') return new Response(JSON.stringify({ success: true, mock: true }), { status: 200 });
 
-                  const invoicingData = getMockDataForRoute('invoicing_report', tier) as any;
+                  const invoicingData = getMockDataForRoute('invoicing_report', mockKey) as any;
                   const subFilter = new URL(url, window.location.origin).searchParams.get('subscriptionId');
                   if (subFilter && invoicingData?.lines) {
                       // Recalcula agregados/totales sobre las líneas filtradas —
