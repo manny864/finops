@@ -17,6 +17,7 @@ import {
     type ProviderFootprint,
     type TenantProviderSetting,
 } from "@/lib/providerPolicy";
+import { invalidateTenantProviders } from "@/lib/tenantProviderContext";
 
 /**
  * Ciclo de vida del proveedor de un tenant: que pasa con los datos del
@@ -325,6 +326,9 @@ export async function applyTierChange(params: {
         });
 
         await connection.commit();
+        // El provider del tenant cambio: el cache del request path debe
+        // reflejarlo ya, no en el proximo minuto.
+        invalidateTenantProviders(tenantId);
     } catch (e) {
         await connection.rollback();
         throw e;
@@ -394,6 +398,9 @@ export async function electRetainedProvider(params: {
         });
 
         await connection.commit();
+        // El provider del tenant cambio: el cache del request path debe
+        // reflejarlo ya, no en el proximo minuto.
+        invalidateTenantProviders(params.tenantId);
     } catch (e) {
         await connection.rollback();
         throw e;
@@ -444,6 +451,9 @@ export async function restoreArchivedProvider(params: {
         });
 
         await connection.commit();
+        // El provider del tenant cambio: el cache del request path debe
+        // reflejarlo ya, no en el proximo minuto.
+        invalidateTenantProviders(params.tenantId);
     } catch (e) {
         await connection.rollback();
         throw e;
@@ -536,6 +546,9 @@ export async function purgeArchivedProvider(
             },
         });
         await connection.commit();
+        // El provider del tenant cambio: el cache del request path debe
+        // reflejarlo ya, no en el proximo minuto.
+        invalidateTenantProviders(transition.tenantId);
     } catch (e) {
         await connection.rollback();
         throw e;

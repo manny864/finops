@@ -47,4 +47,24 @@ describe("routeProviders", () => {
             expect(isRouteAvailableForProvider(route, "azure")).toBe(true);
         }
     });
+
+    it("las páginas de costo habilitadas en Fase 7 sirven a ambos proveedores", () => {
+        // Leen CostSnapshots / CostGroups, que el sync de AWS también alimenta.
+        for (const route of [
+            "/intelligence/cost-by-category",
+            "/intelligence/cost-groups",
+            "/intelligence/simulator",
+        ]) {
+            expect(isRouteAvailableForProvider(route, "aws")).toBe(true);
+            expect(isRouteAvailableForProvider(route, "azure")).toBe(true);
+        }
+    });
+
+    it("habilitar cost-groups no arrastra a sus hermanas de /intelligence", () => {
+        // Guarda contra un match por prefijo demasiado laxo: si alguien
+        // acortara la entrada a "/intelligence", un tenant AWS vería ~30 páginas
+        // que fallan al abrirlas.
+        expect(isRouteAvailableForProvider("/intelligence/commitments", "aws")).toBe(false);
+        expect(isRouteAvailableForProvider("/intelligence/hybrid-benefit", "aws")).toBe(false);
+    });
 });

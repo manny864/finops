@@ -56,6 +56,15 @@ const AGNOSTIC_ROUTES: readonly string[] = [
     "/legal",
     "/status",
     "/upgrade",
+
+    // --- Fase 7: páginas de costo que leen de tablas propias ---------------
+    // Verificadas una por una: su API principal no importa (ni directa ni
+    // transitivamente) ningún SDK de Azure. Leen `CostSnapshots` / `CostGroups`,
+    // tablas que el sync de AWS también alimenta (ver /api/sync/aws/[id]/ce),
+    // así que muestran datos reales para un tenant AWS sin código nuevo.
+    "/intelligence/cost-by-category",
+    "/intelligence/cost-groups",
+    "/intelligence/simulator",
 ];
 
 /** Rutas que sólo tienen sentido con AWS conectado. */
