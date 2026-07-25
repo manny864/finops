@@ -6,6 +6,7 @@ import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { collectAdvisorData } from "@/modules/collectors/azure/advisorCollector";
 import pool from "@/modules/storage/db";
+import { tenantUsesAzure } from "@/lib/tenantProviderContext";
 
 /**
  * White Board — Executive Summary (Enterprise). Agrega en una sola llamada
@@ -232,6 +233,39 @@ async function getCostAnomalyTrend(tenantId: string) {
     return trend;
 }
 
+/**
+ * Top 5 por region para un tenant AWS.
+ *
+ * En AWS el sync guarda la REGION en `resource_group` (ver
+ * /api/sync/aws/[accountId]/ce y .../cur). No hay inventario de recursos, asi
+ * que se rankea por costo en vez de por cantidad: es el dato que si tenemos y
+ * ademas es el que le importa a FinOps.
+ */
+async function getAwsTop5Regions(tenantId: string) {
+    const [rows]: any = await pool.query(
+        `SELECT resource_group AS name, SUM(COALESCE(EffectiveCost, cost_usd, 0)) AS cost
+           FROM CostSnapshots
+          WHERE tenant_id = ? AND DATE(COALESCE(ChargePeriodStart, date)) >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+            AND resource_group IS NOT NULL AND resource_group <> ''
+          GROUP BY resource_group ORDER BY cost DESC LIMIT 5`,
+        [tenantId]
+    );
+    return (rows as any[]).map(r => ({ name: r.name || "unknown", count: Number(Number(r.cost).toFixed(2)) }));
+}
+
+/** Top 5 servicios AWS por costo: el equivalente disponible al inventario por tipo. */
+async function getAwsTop5Services(tenantId: string) {
+    const [rows]: any = await pool.query(
+        `SELECT service_name AS name, SUM(COALESCE(EffectiveCost, cost_usd, 0)) AS cost
+           FROM CostSnapshots
+          WHERE tenant_id = ? AND DATE(COALESCE(ChargePeriodStart, date)) >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+            AND service_name IS NOT NULL AND service_name <> ''
+          GROUP BY service_name ORDER BY cost DESC LIMIT 5`,
+        [tenantId]
+    );
+    return (rows as any[]).map(r => ({ name: r.name || "unknown", count: Number(Number(r.cost).toFixed(2)) }));
+}
+
 export async function GET(request: NextRequest) {
     try {
         const tenantId = request.nextUrl.searchParams.get("tenantId");
@@ -245,10 +279,16 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(getMockDataForRoute("white_board", tenantId));
         }
 
-        const cacheKey = `whiteboard:v1:${tenantId}`;
+        // El proveedor entra en la clave: si no, un tenant que migra de nube
+        // se queda leyendo el payload de la anterior hasta que expire el TTL.
+        const usesAzure = await tenantUsesAzure(tenantId);
+        const cacheKey = `whiteboard:v2:${usesAzure ? 'azure' : 'aws'}:${tenantId}`;
         const data = await getWithStaleWhileRevalidate(cacheKey, async () => {
-            const credential = await getAzureCredential(tenantId);
-            const argClient = new ResourceGraphClient(credential);
+            // Sin esto, `getAzureCredential` tira para un tenant AWS y se cae la
+            // pagina entera: es la landing post-login, asi que quedaba inusable.
+            const argClient = usesAzure
+                ? new ResourceGraphClient(await getAzureCredential(tenantId))
+                : null;
 
             const [
                 costFigures,
@@ -264,12 +304,26 @@ export async function GET(request: NextRequest) {
             ] = await Promise.all([
                 getCostFigures(tenantId).catch(e => { console.warn("[whiteboard] costFigures:", e.message); return { currentFYCost: 0, previousFYCost: 0, costProjected: 0, costChangePct: 0, top3Services: [], last3MonthsTrend: [] }; }),
                 getTop5CostGroups(tenantId).catch(e => { console.warn("[whiteboard] costGroups:", e.message); return { totalCost: 0, groups: [] }; }),
-                getUntaggedResources(tenantId, argClient).catch(e => { console.warn("[whiteboard] untagged:", e.message); return { count: 0, total: 0, countPct: 0, cost: 0, costPct: 0, trend: [] }; }),
-                getComplianceWins(tenantId, argClient).catch(e => { console.warn("[whiteboard] complianceWins:", e.message); return []; }),
-                getTop5(argClient, tenantId, "location").catch(e => { console.warn("[whiteboard] locations:", e.message); return []; }),
-                getTop5(argClient, tenantId, "type").catch(e => { console.warn("[whiteboard] inventory:", e.message); return []; }),
+                argClient
+                    ? getUntaggedResources(tenantId, argClient).catch(e => { console.warn("[whiteboard] untagged:", e.message); return { count: 0, total: 0, countPct: 0, cost: 0, costPct: 0, trend: [] }; })
+                    : Promise.resolve({ count: 0, total: 0, countPct: 0, cost: 0, costPct: 0, trend: [] }),
+                argClient
+                    ? getComplianceWins(tenantId, argClient).catch(e => { console.warn("[whiteboard] complianceWins:", e.message); return []; })
+                    : Promise.resolve([]),
+                (argClient
+                    ? getTop5(argClient, tenantId, "location")
+                    : getAwsTop5Regions(tenantId)
+                ).catch(e => { console.warn("[whiteboard] locations:", e.message); return []; }),
+                (argClient
+                    ? getTop5(argClient, tenantId, "type")
+                    : getAwsTop5Services(tenantId)
+                ).catch(e => { console.warn("[whiteboard] inventory:", e.message); return []; }),
                 getSecurityScore(tenantId).catch(e => { console.warn("[whiteboard] security:", e.message); return { pct: 0, withMfa: 0, total: 0 }; }),
-                collectAdvisorData(tenantId, locale).catch(e => { console.warn("[whiteboard] advisor:", e.message); return { recommendations: { Cost: [], Security: [], HighAvailability: [], Performance: [], OperationalExcellence: [] } }; }),
+                // Azure Advisor no tiene equivalente ingestado en AWS todavia
+                // (Fase 8: Compute Optimizer / Trusted Advisor).
+                usesAzure
+                    ? collectAdvisorData(tenantId, locale).catch(e => { console.warn("[whiteboard] advisor:", e.message); return { recommendations: { Cost: [], Security: [], HighAvailability: [], Performance: [], OperationalExcellence: [] } }; })
+                    : Promise.resolve({ recommendations: { Cost: [], Security: [], HighAvailability: [], Performance: [], OperationalExcellence: [] } }),
                 getRecommendationTrend(tenantId).catch(e => { console.warn("[whiteboard] recTrend:", e.message); return []; }),
                 getCostAnomalyTrend(tenantId).catch(e => { console.warn("[whiteboard] anomalyTrend:", e.message); return []; }),
             ]);

@@ -260,3 +260,24 @@ describe('captured_savings (AWS)', () => {
         expect(ent.current.potentialSavings).toBeGreaterThan(ess.current.potentialSavings);
     });
 });
+
+describe('white_board (AWS)', () => {
+    it('sirve los bloques de costo con datos AWS', () => {
+        const r = getAwsMockDataForRoute('white_board', 'business') as any;
+        expect(r).not.toBeNull();
+        expect(r.costs.currentFYCost).toBeGreaterThan(0);
+        expect(r.costs.top3Services).toHaveLength(3);
+        expect(r.top5Locations.length).toBeGreaterThan(0);
+        // Las regiones tienen que ser de AWS, no de Azure.
+        expect(r.top5Locations.some((l: any) => /^(us|eu|ap|sa)-/.test(l.name))).toBe(true);
+    });
+
+    it('no inventa inventario ni recomendaciones que AWS todavia no ingesta', () => {
+        // Si algun dia estos dejan de estar en cero es porque se implemento la
+        // ingesta: hay que actualizar el mock, no borrar el test.
+        const r = getAwsMockDataForRoute('white_board', 'enterprise') as any;
+        expect(r.governance.untagged.count).toBe(0);
+        expect(r.recommendations.open).toBe(0);
+        expect(r.top3ThreatCategories).toEqual([]);
+    });
+});

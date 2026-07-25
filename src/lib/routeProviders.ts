@@ -66,6 +66,12 @@ const AGNOSTIC_ROUTES: readonly string[] = [
     "/intelligence/cost-groups",
     "/intelligence/simulator",
 
+    // Es la landing post-login: si no esta habilitada, un tenant AWS aterriza
+    // en una pagina que su propio menu no muestra. La API se parametrizo por
+    // proveedor (los bloques de costo salen de CostSnapshots; el inventario y
+    // Advisor quedan vacios hasta la Fase 8).
+    "/overview/whiteboard",
+
     // Lee `DailySnapshots` del dominio 'dashboard_summary', que se escribe
     // desde /api/dashboard/summary — ya parametrizada por proveedor. La serie
     // de ahorro capturado se arma con los mismos snapshots para las dos nubes.

@@ -36,11 +36,22 @@ function resolveImport(spec: string, fromFile: string): string | null {
     return null;
 }
 
+/**
+ * Marcador que un componente pone en su cabecera para declarar que solo se
+ * renderiza cuando el proveedor activo es Azure (porque cubre un servicio que
+ * no existe en AWS, como Container Apps o Log Analytics). Sus textos quedan
+ * fuera del analisis: traducirlos a "AWS" seria inventar un producto.
+ * Al marcar un componente hay que garantizar que efectivamente no se renderiza
+ * para AWS, si no la pagina mostraria una tarjeta vacia sin explicacion.
+ */
+const AZURE_ONLY_MARKER = '@azure-only';
+
 function namespacesOf(entry: string, seen = new Set<string>()): Set<string> {
     const out = new Set<string>();
     if (seen.has(entry) || !fs.existsSync(entry)) return out;
     seen.add(entry);
     const src = fs.readFileSync(entry, 'utf-8');
+    if (src.includes(AZURE_ONLY_MARKER)) return out;
     for (const m of src.matchAll(/(?:useTranslations|useProviderTranslations|getTranslations)\s*\(\s*['"]([^'"]+)['"]/g)) {
         out.add(m[1]);
     }
@@ -244,5 +255,43 @@ describe('onboarding AWS - limitaciones declaradas', () => {
             expect(warning, `${lang} no tiene AdminCloudAccounts.curSectionWarning`).toBeTruthy();
             expect(/chargeback/i.test(warning), `${lang}: el aviso no menciona el chargeback`).toBe(true);
         }
+    });
+
+    // El marcador @azure-only excluye textos del analisis: si alguien lo pone
+    // pero no gatea el componente, un tenant AWS veria una tarjeta de un
+    // servicio inexistente y el test de terminologia ya no lo avisaria.
+    it('los componentes @azure-only estan gateados por proveedor en quien los usa', () => {
+        const componentsDir = path.join(process.cwd(), 'src', 'components');
+        const walk = (dir: string): string[] =>
+            fs.readdirSync(dir, { withFileTypes: true }).flatMap(e => {
+                const full = path.join(dir, e.name);
+                return e.isDirectory() ? walk(full) : /\.tsx?$/.test(e.name) ? [full] : [];
+            });
+        const all = walk(componentsDir);
+        const azureOnly = all.filter(f => fs.readFileSync(f, 'utf-8').includes('@azure-only'));
+        expect(azureOnly.length).toBeGreaterThan(0);
+
+        const problems: string[] = [];
+        for (const file of azureOnly) {
+            const name = path.basename(file).replace(/\.tsx?$/, '');
+            const consumers = all.filter(f => f !== file && new RegExp(`import\\s+${name}\\s+from`).test(fs.readFileSync(f, 'utf-8')));
+            if (consumers.length === 0) {
+                problems.push(`${name} esta marcado @azure-only pero nadie lo importa`);
+                continue;
+            }
+            for (const c of consumers) {
+                const src = fs.readFileSync(c, 'utf-8');
+                // No alcanza con que el archivo nombre el proveedor: el gate
+                // tiene que estar delante del render del componente.
+                for (const m of src.matchAll(new RegExp(`<${name}[\\s/>]`, 'g'))) {
+                    const before = src.slice(Math.max(0, m.index! - 400), m.index!);
+                    const gated = /(activeProvider|isAzure|isAws|useCloudProvider)[^\n]*&&/.test(before);
+                    if (!gated) {
+                        problems.push(`${path.basename(c)} renderiza ${name} (@azure-only) sin gate de proveedor`);
+                    }
+                }
+            }
+        }
+        expect(problems).toEqual([]);
     });
 });

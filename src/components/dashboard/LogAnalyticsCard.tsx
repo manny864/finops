@@ -1,3 +1,7 @@
+/**
+ * @azure-only — cubre Azure Log Analytics, que no tiene equivalente en AWS.
+ * ExecutiveSummaryBoard no lo renderiza cuando el proveedor activo es AWS.
+ */
 "use client";
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';

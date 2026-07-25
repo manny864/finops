@@ -546,11 +546,13 @@
     "cost_projection_page_title": "Gastos y Proyección",
     "cost_histogram_title": "Histograma de costos",
     "cost_histogram_desc": "Distribución diaria del gasto (hasta 13 meses — límite histórico de Azure Cost Management).",
+    "cost_histogram_desc_aws": "Distribución diaria del gasto (hasta 13 meses de historial ingestado).",
     "cost_histogram_range": "Rango",
     "cost_histogram_1m": "Último mes",
     "cost_histogram_nm": "Últimos {months} meses",
     "cost_histogram_12m": "Último año",
     "cost_histogram_13m": "Máximo (13 meses — límite de Azure)",
+    "cost_histogram_13m_aws": "Máximo (13 meses)",
     "cost_histogram_empty": "Sin datos de costos para el período seleccionado.",
     "cost_histogram_cost_label": "Costo"
   },

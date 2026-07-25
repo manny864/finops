@@ -18,11 +18,12 @@
  * clasificación es `docs/finops-framework-coverage.md`.
  */
 export const AWS_AVAILABLE_FEATURES: Record<string, readonly number[]> = {
-    // 0 scope · 4 dashboard de consumo (parametrizado por proveedor) ·
-    // 10 exportaciones · 13 academia · 15 usuarios y config · 16 multi-moneda ·
-    // 17 soporte. Queda afuera todo lo que necesita inventario de recursos
-    // (zombies, etiquetas, costo cero) o Azure Advisor.
-    essential: [0, 4, 10, 13, 15, 16, 17],
+    // 0 scope · 1 WhiteBoard (landing post-login, parametrizada por proveedor) ·
+    // 4 dashboard de consumo · 10 exportaciones · 13 academia ·
+    // 15 usuarios y config · 16 multi-moneda · 17 soporte. Queda afuera todo lo
+    // que necesita inventario de recursos (zombies, etiquetas, costo cero) o
+    // Azure Advisor.
+    essential: [0, 1, 4, 10, 13, 15, 16, 17],
 
     // 5 es Ahorro Capturado, que lee los snapshots del dashboard y por eso sirve
     // para las dos nubes. 10 es FOCUS: el sync de AWS ya normaliza a ese esquema.

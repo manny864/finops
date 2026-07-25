@@ -293,6 +293,59 @@ export function getAwsMockDataForRoute(route: string, tier: string): Record<stri
             };
         }
 
+        case 'white_board': {
+            // Refleja lo que la API sirve de verdad para un tenant AWS: los
+            // bloques de costo salen de CostSnapshots, pero no hay inventario de
+            // recursos (por eso `untagged` en cero) ni Advisor (recomendaciones
+            // vacias, pendiente de la Fase 8). Inflar esos numeros haria que la
+            // demo prometa algo que el producto todavia no entrega.
+            const monthLabel = (offset: number) => {
+                const d = new Date();
+                d.setUTCMonth(d.getUTCMonth() - offset);
+                return d.toISOString().slice(0, 7);
+            };
+            const annual = total * 12;
+            const previous = round2(annual * 0.88);
+            const services = getAwsCostByService(tier);
+            const regions = getAwsCostByRegion(tier);
+            return {
+                ...base,
+                costs: {
+                    currentFYCost: round2(annual),
+                    previousFYCost: previous,
+                    costProjected: round2(annual * 1.12),
+                    costChangePct: round2(((annual - previous) / previous) * 100),
+                    top3Services: services.slice(0, 3).map(s => ({ name: s.serviceName, cost: round2(s.cost * 12) })),
+                    last3MonthsTrend: [
+                        { month: monthLabel(2), cost: round2(total * 0.9) },
+                        { month: monthLabel(1), cost: round2(total * 1.05) },
+                        { month: monthLabel(0), cost: round2(total * 1.1) },
+                    ],
+                },
+                security: { pct: 53.4, withMfa: accountCountFor(multiplier), total: accountCountFor(multiplier) * 2 },
+                vulnerabilities: { high: 0, medium: 0, low: 0 },
+                governance: {
+                    untagged: { count: 0, total: 0, countPct: 0, cost: 0, costPct: 0, trend: [] },
+                    top3ComplianceWins: [],
+                },
+                top3ThreatCategories: [],
+                // En AWS se rankea por costo, no por cantidad de recursos: es el
+                // dato que existe (ver getAwsTop5Regions en la API).
+                top5Locations: regions.slice(0, 5).map(r => ({ name: r.region, count: round2(r.cost) })),
+                top5Inventory: services.slice(0, 5).map(s => ({ name: s.serviceName, count: round2(s.cost) })),
+                recommendations: { open: 0, potentialCostSavings: 0, trend: [] },
+                costAnomalyTrend: [
+                    { month: monthLabel(2), count: 1 },
+                    { month: monthLabel(1), count: 3 },
+                    { month: monthLabel(0), count: 2 },
+                ],
+                top5CostGroups: {
+                    totalCost: round2(annual * 0.7),
+                    groups: regions.slice(0, 5).map(r => ({ name: r.region, cost: round2(r.cost * 12) })),
+                },
+            };
+        }
+
         case 'captured_savings': {
             // Misma forma que el dataset de Azure: la pagina de Ahorro
             // Capturado es agnostica y grafica la serie de DailySnapshots.
