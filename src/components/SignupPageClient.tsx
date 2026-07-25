@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { useTranslations, useLocale } from 'next-intl';
 import { Link } from '@/i18n/routing';
+import LocalSignupForm from './LocalSignupForm';
 
 interface PlanProps {
   id: string;
@@ -22,6 +23,11 @@ export default function SignupPageClient() {
   const t = useTranslations('signup');
   const locale = useLocale();
   const [hoveredPlan, setHoveredPlan] = useState<string | null>(null);
+  // Proveedor elegido en el alta. Azure entra por MSAL; AWS no puede (no hay
+  // IdP corporativo equivalente a Entra), asi que abre el alta local.
+  const [provider, setProvider] = useState<'azure' | 'aws'>('azure');
+  const [awsSignupPlan, setAwsSignupPlan] = useState<string | null>(null);
+  const tp = useTranslations('provider');
 
   const plans: PlanProps[] = [
     {
@@ -92,6 +98,12 @@ export default function SignupPageClient() {
   ];
 
   const handleSignUp = (planId: string) => {
+    if (provider === 'aws') {
+      // No hay redirect posible: el alta AWS es email+contrasena y se resuelve
+      // en la misma tarjeta del plan elegido.
+      setAwsSignupPlan(planId);
+      return;
+    }
     sessionStorage.setItem('pendingUpgrade', planId);
     instance.loginRedirect({ scopes: ["User.Read", "Directory.Read.All"] }).catch(e => console.error(e));
   };
@@ -136,7 +148,33 @@ export default function SignupPageClient() {
       {/* Plan Cards */}
       <section className="py-16 px-4">
         <div className="max-w-7xl mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-12">{t('planSelector')}</h2>
+          <h2 className="text-3xl font-bold text-center mb-6">{t('planSelector')}</h2>
+
+          {/* Selector de proveedor. Los precios y los planes son identicos para
+              los dos: lo unico que cambia es como se crea la cuenta y que datos
+              se recolectan despues. */}
+          <div className="flex flex-col items-center mb-10">
+            <p className="text-sm font-semibold text-gray-700 mb-3">{tp('signupTitle')}</p>
+            <div role="radiogroup" aria-label={tp('signupTitle')} className="inline-flex rounded-lg border border-gray-300 bg-white p-1">
+              {(['azure', 'aws'] as const).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  role="radio"
+                  aria-checked={provider === p}
+                  onClick={() => { setProvider(p); setAwsSignupPlan(null); }}
+                  className={`px-5 py-2 text-sm font-semibold rounded-md transition-colors ${
+                    provider === p ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  {p === 'azure' ? tp('signupAzure') : tp('signupAws')}
+                </button>
+              ))}
+            </div>
+            <p className="mt-3 max-w-xl text-center text-xs text-gray-500">
+              {provider === 'azure' ? tp('signupAzureHint') : tp('signupAwsHint')}
+            </p>
+          </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {plans.map((plan) => (
@@ -190,6 +228,12 @@ export default function SignupPageClient() {
                     >
                       {plan.cta}
                     </button>
+                  )}
+
+                  {awsSignupPlan === plan.id && (
+                    <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50/50 p-4">
+                      <LocalSignupForm plan={plan.id} onCancel={() => setAwsSignupPlan(null)} />
+                    </div>
                   )}
 
                   {/* Features */}
