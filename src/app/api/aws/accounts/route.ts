@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import pool from '@/modules/storage/db';
 import { AuthError, requireTenantRole, requireTenantTier } from '@/lib/requestAuth';
+import { assertProviderIngestable, ProviderDisabledError } from '@/services/providerLifecycleService';
 import { encryptExternalId, generateExternalId } from '@/lib/aws/sts';
 
 interface AccountRow {
@@ -63,6 +64,10 @@ export async function POST(request: NextRequest) {
     // un tenant que baja de plan tiene que poder seguir viendo y borrando las
     // cuentas que ya cargo, no quedar con datos huerfanos e inaccesibles.
     await requireTenantTier(request, tenantId, 'Enterprise');
+    // Ademas del tier: un tenant Enterprise puede estar configurado como
+    // 'azure' puro, o tener AWS archivado tras un downgrade previo que todavia
+    // no se purgo. En ninguno de los dos casos debe aceptar cuentas nuevas.
+    await assertProviderIngestable(tenantId, 'aws');
 
     const externalId = generateExternalId();
     const encrypted = encryptExternalId(externalId);
@@ -79,6 +84,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ id, accountId, alias, externalId }, { status: 201 });
   } catch (e: unknown) {
     if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
+    if (e instanceof ProviderDisabledError) return NextResponse.json({ error: e.message }, { status: e.status });
     const msg = e instanceof Error ? e.message : 'Error';
     if (msg.includes('ER_DUP_ENTRY')) {
       return NextResponse.json({ error: 'Ya existe una cuenta AWS con ese accountId' }, { status: 409 });

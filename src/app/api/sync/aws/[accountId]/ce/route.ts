@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/modules/storage/db';
 import { AuthError, requireTenantRole, requireTenantTier } from '@/lib/requestAuth';
+import { assertProviderIngestable, ProviderDisabledError } from '@/services/providerLifecycleService';
 import { assumeRole, decryptExternalId } from '@/lib/aws/sts';
 import { getCostAndUsage } from '@/lib/aws/costExplorer';
 import { mapCeDailyToFocus } from '@/modules/collectors/aws/awsFocusMapper';
@@ -34,6 +35,10 @@ export async function POST(
     await requireTenantRole(request, tenantId, ['ADMIN', 'OWNER']);
     // Multi-cloud es Enterprise (ver docs/aws-multicloud-handoff.md).
     await requireTenantTier(request, tenantId, 'Enterprise');
+    // Corta el sync si AWS quedo archivado por un downgrade: es donde esta el
+    // costo real (Cost Explorer cobra USD 0.01 por request), y es lo que hace
+    // que bajar de plan tenga efecto economico sin borrar datos.
+    await assertProviderIngestable(tenantId, 'aws');
 
     const [rows] = await pool.query(
       `SELECT id, tenant_id, account_id, role_arn, external_id_encrypted
@@ -115,6 +120,7 @@ export async function POST(
     });
   } catch (e: unknown) {
     if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
+    if (e instanceof ProviderDisabledError) return NextResponse.json({ error: e.message }, { status: e.status });
     const msg = e instanceof Error ? e.message : 'Error';
     console.error('POST /api/sync/aws/[accountId]/ce:', e);
     try {
