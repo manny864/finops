@@ -90,6 +90,7 @@ export async function GET(request: NextRequest) {
 
         if (history.length < 2) {
             return NextResponse.json({
+                data: combinedData,
                 method_used: 'linear',
                 forecast: [],
                 metrics: { rmse: '0', mape: '0', history_points: history.length, forecast_horizon_days: days },
@@ -160,6 +161,12 @@ export async function GET(request: NextRequest) {
         const anomalies = detectAnomalies(history, result);
 
         return NextResponse.json({
+            // `data` tambien va en la respuesta avanzada: ningun consumidor
+            // pasa withConfidence=false, asi que la rama simple de arriba es
+            // inalcanzable desde la UI. Sin esto, admin/report (que arma
+            // forecastSeries con `forecast?.data`) salia siempre vacio, en
+            // Azure y en AWS.
+            data: combinedData,
             method_used: methodToUse,
             forecast: forecastResponse,
             metrics: {
