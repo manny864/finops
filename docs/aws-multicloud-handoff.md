@@ -18,6 +18,16 @@ de esa base (§2) y se definió el alcance del producto AWS completo (§3).
 **El alcance ya no es solo ingesta.** Es un producto AWS paralelo al de Azure
 dentro del mismo codebase: login propio, panel, roles, i18n y onboarding.
 
+**Dos hallazgos que cambian cómo encarar lo que falta** (detalle en §11):
+
+- Buena parte de las páginas que "faltaban" para AWS **no requerían trabajo
+  técnico**: eran páginas de plataforma (alta, cobro, cumplimiento, móvil) que
+  el código ya servía y que estaban ocultas sólo porque el default de la
+  allow-list de `routeProviders.ts` es azure-only. Eran 19.
+- `routeProviders.ts` tiene **dos listas** y `EXPLICIT_AZURE_ROUTES` pisa a
+  `AGNOSTIC_ROUTES`. Había rutas en las dos, así que agregarlas a la agnóstica
+  no hacía nada. **Verificar siempre las dos listas.**
+
 **Dónde está parado esto hoy:**
 
 | Fase | Estado |
@@ -35,7 +45,8 @@ dentro del mismo codebase: login propio, panel, roles, i18n y onboarding.
 | 7.8 — Ahorro Capturado + matriz del FinOps Framework | **✅ completa** |
 | 7.9 — Aviso de CUR en onboarding + selector de nube en precios | **✅ completa** |
 | 7.10 — Paridad de panel: WhiteBoard, TOP Gastos, Anomalías, Proyección | **✅ completa** |
-| 8 — Módulo C: optimización y huérfanos | ❌ no empezado |
+| 7.11 — Paridad de catálogo: 38 → **63 de 119 páginas** (§11) | **✅ completa** |
+| 8 — Módulo C: optimización y huérfanos | 🟡 **en curso** — inventario EC2 y limpieza hechos (§11.3); faltan rightsizing y gobernanza de tags |
 | 9 — Wiring y operación | ❌ no empezado |
 
 **Un cliente AWS ya puede** registrarse, verificar su email, entrar con
@@ -1586,13 +1597,155 @@ diseñar: la feature depende de que el cliente configure el CUR.
 
 ---
 
+---
+
+## 11. Fase 7.11 — Paridad de catálogo de páginas
+
+El pedido del usuario fue explícito: *"solo muestras un par de páginas vs las
+muchas que tiene Azure, hay que crear las páginas similares/equivalentes en
+AWS"*. Esta fase ataca el volumen, no una capability puntual.
+
+**Resultado: de 38 a 63 páginas habilitadas para AWS, sobre 119 totales.**
+
+### 11.1 Qué se descubrió al medir el gap
+
+El catálogo de 119 páginas no se divide en "Azure" y "AWS", sino en cuatro
+grupos con causas distintas. Confundirlos fue lo que hizo perder tiempo antes:
+
+| Grupo | Qué son | Cuántas | Qué requieren |
+|---|---|---|---|
+| **A. Plataforma / SaaS** | Administran el producto (identidad, alta, cobro, cumplimiento, marketplace, móvil), no la nube del cliente | ~19 | Nada: el código ya era agnóstico. Estaban ocultas sólo porque el **default de la allow-list es azure-only** |
+| **B. Parametrizables** | El dato ya está en `CostSnapshots` / `FocusLineItems` | ~12 | El patrón `tenantUsesAzure()` + mock + variantes `_aws` |
+| **C. Requieren ingesta nueva** | Inventario, rightsizing, limpieza, gobernanza de tags | ~20 | Un colector nuevo (§11.3) |
+| **D. Sin equivalente conceptual** | AKS, Cosmos DB, Log Analytics, Hybrid Benefit, MACC, Defender… | ~14 | Deben quedar **deliberadamente ocultas**, o crearse su equivalente AWS nativo (EKS, Savings Plans, Security Hub) |
+
+**El grupo A era el más grande y el más barato, y estaba invisibilizado.** Un
+tenant AWS no podía ver su propia pantalla de facturación del SaaS, ni el alta,
+ni cumplimiento, ni la app móvil — no por una limitación técnica, sino porque
+nadie las había agregado a la allow-list. Se habilitaron las 19.
+
+### 11.2 Un choque de configuración que anulaba parte del trabajo
+
+`routeProviders.ts` tiene dos listas, y `EXPLICIT_AZURE_ROUTES` se aplica
+**después** de `AGNOSTIC_ROUTES`, así que la pisa. `/admin/markup`,
+`/admin/report` y `/admin/copilot-m365` estaban en **las dos**: agregarlas a la
+lista agnóstica no tenía ningún efecto.
+
+Se verificaron una por una y quedaron como agnósticas. En la lista Azure sólo
+siguen las que de verdad lo son: el alta por Service Principal/Lighthouse y
+Azure Workbooks.
+
+> Al agregar una ruta a `AGNOSTIC_ROUTES`, **verificar que no esté también en
+> `EXPLICIT_AZURE_ROUTES`**. El test `routeProviders.test.ts` ahora lo cubre.
+
+### 11.3 El inventario AWS (`awsInventoryService.ts`)
+
+Es lo que destraba el grupo C, y era la pieza que faltaba desde el principio.
+
+**El problema de fondo:** Azure resuelve el inventario con una sola consulta KQL
+a Resource Graph, que ya es global a todas las suscripciones y no cuesta nada.
+**AWS no tiene ese equivalente.** Config Advanced Query existe, pero hay que
+habilitar Config por región y se factura por ítem registrado — inaceptable para
+una plataforma FinOps que debe predicar con el ejemplo.
+
+La solución: llamar a las APIs de EC2 cuenta por cuenta y región por región.
+
+**Detecta cuatro clases de desperdicio**, que son el equivalente funcional de
+los "zombies" de Azure:
+
+| Hallazgo | Equivalente Azure | Costeo |
+|---|---|---|
+| Volumen EBS en estado `available` | Disco no adjunto | Precio por GB según tipo (gp3/gp2/io1/st1/sc1) |
+| IP elástica sin asociar | IP pública no asociada | USD 0.005/h × 730 h |
+| Snapshot propio de más de 90 días | Snapshot viejo | USD 0.05/GB-mes |
+| Instancia detenida | VM apagada hace tiempo | **La suma de sus volúmenes EBS** |
+
+Ese último es el caso interesante: una instancia `stopped` **no factura
+cómputo**, pero sus discos se cobran enteros. Reportar el costo de cómputo ahí
+sería mentir; reportar cero, también. El desperdicio real es el EBS.
+
+**Decisiones de diseño que conviene no revertir sin leer esto:**
+
+1. **Las regiones salen de `CostSnapshots.resource_group`** (que en AWS guarda
+   la región). Sin esto habría que barrer las ~30 regiones de AWS en cada
+   request. Si una región no generó ni un dólar, no puede tener recursos con
+   costo que valga la pena auditar. Se filtran las filas sin región del CUR
+   (servicios globales tipo IAM, Route 53 o los cargos de soporte).
+2. **Precios EBS en tabla estática, operados con `Decimal`** (Regla Cero). La
+   Pricing API de AWS cobra por request y agrega latencia a un endpoint que ya
+   es multi-región. Estos precios estiman **sólo el ahorro de un recurso
+   huérfano**, que por definición todavía no tiene línea propia en el CUR. El
+   costo real sigue saliendo del CUR / Cost Explorer.
+3. **`DescribeSnapshots` va con `OwnerIds: ['self']`.** Sin eso AWS devuelve
+   también los snapshots públicos de toda la comunidad: decenas de miles.
+4. **Aislamiento por familia y por cuenta.** Si el rol del cliente no tiene
+   `ec2:DescribeSnapshots`, se pierde esa familia y no la respuesta entera. Si
+   un rol está revocado en una cuenta, las demás cuentas del tenant se siguen
+   auditando.
+
+**RBAC (menor privilegio):** sólo lectura sobre EC2 —`ec2:DescribeInstances`,
+`DescribeVolumes`, `DescribeAddresses`, `DescribeSnapshots`. **Ninguna acción de
+escritura**: la remediación mantiene su propio flujo con aprobación.
+
+### 11.4 Dos trampas del sistema de mocks
+
+1. **`getMockDataForRoute` no devuelve `null` para una ruta sin `case`**, sino
+   un payload genérico `{success:true, message:"Mock data not defined"}`. Usar
+   `isMockTenant` como guard en una ruta nueva **le vacía la pantalla a los
+   tenants de demo Azure**. Por eso el guard en `/api/cleanup/zombies` es
+   `isAwsMockTenant`.
+2. **El mock que ya existía (`getAwsOrphanResources`) es un agregado por tipo**
+   (`{type, count, monthlyCost}`), que sirve a las tarjetas de resumen. La tabla
+   de limpieza necesita el **detalle recurso por recurso**, porque desde ahí se
+   dispara la remediación. Se agregó `getAwsZombieResources` con ese contrato.
+
+### 11.5 La convención `@azure-only` ahora también cubre hallazgos
+
+Ya existía para componentes (Container Apps, Log Analytics). Se extendió a
+**claves de traducción que describen un hallazgo que sólo puede existir en
+Azure**: `Zombies.issues.emptyRgs` ("grupo de recursos vacío") no tiene
+equivalente AWS y traducirla sería inventar un concepto.
+
+La exención **no es una forma de silenciar el test**: hay un caso que lee
+`awsInventoryService.ts`, extrae los motivos que el motor emite y verifica que
+(a) ninguno sea el motivo Azure-only, y (b) todos los que sí emite estén
+traducidos en los tres idiomas. **Verificado por mutación**: al cambiar un
+`reason` a `emptyRgs`, el test falla.
+
+### 11.6 Qué falta todavía (56 páginas)
+
+En orden de valor/esfuerzo:
+
+1. **Grupo B, parametrizables** (~12): `/intelligence/{budgets,cost-projection,
+   commitments,rates,commitment-simulator}`, `/overview/{progress,
+   financial-leaks,maturity,sustainability}`, `/governance/{reporting,score}`.
+   Patrón conocido, sin ingesta nueva.
+2. **Extender el inventario** a `/overview/resources`: hoy `awsInventoryService`
+   devuelve sólo los recursos *ociosos*. Falta un `getAwsResourceInventory` que
+   devuelva **todos**, reutilizando `scanRegion`. Ojo: esa página consume además
+   `/api/resources/{search,created-by,costs-by-tag}`, y `created-by` sale del
+   Activity Log de Azure (en AWS sería CloudTrail, que es otra ingesta).
+3. **`/governance/tags` necesita diseño propio, no parametrización.** La página
+   de Azure se apoya en la **herencia resource group → recurso**, que en AWS
+   **no existe**. El equivalente son las Tag Policies de AWS Organizations y los
+   *cost allocation tags*, que son otro modelo: no se heredan, se declaran y se
+   auditan. Es una página nueva, no una adaptación.
+4. **Rightsizing AWS**: requiere métricas de CloudWatch (o Compute Optimizer,
+   que es gratis en su nivel básico y sería el camino más barato).
+5. **Grupo E, páginas AWS-nativas**: EKS (vs AKS), Savings Plans / cobertura de
+   RI (vs Hybrid Benefit), Security Hub (vs Defender).
+6. **Grupo D**: confirmar con el usuario que quedan ocultas a propósito.
+
+
 ## 10. Punto de partida para la próxima sesión
 
 **Estado del repo:** rama `staging`, ~56 commits locales, **sin push** (el push
 lo pide el usuario explícitamente). Working tree limpio salvo `.claudeignore`,
 que es ajeno a este trabajo y **no hay que commitear**.
 
-**Validación al cierre:** `npx vitest run` → 732 tests en verde;
+**Cobertura de páginas:** 63 de 119 habilitadas para AWS (ver §11).
+
+**Validación al cierre:** `npx vitest run` → 754 tests en verde;
 `npm run lint` → 0 errores (2310 warnings preexistentes); `npm run build` → OK.
 
 **Restricciones vigentes del usuario:**
