@@ -35,6 +35,7 @@ Cada seção explica **o que é** a funcionalidade, **quem** pode usá-la (papel
 10. [Segurança da Conta (MFA)](#10-segurança-da-conta-mfa)
 11. [Funcionalidades Avançadas e Integrações](#11-funcionalidades-avançadas-e-integrações)
 12. [Melhores Práticas](#12-melhores-práticas)
+13. [Multi-cloud: modelo de provedor e ciclo de vida dos dados](#13-multi-cloud-modelo-de-provedor-e-ciclo-de-vida-dos-dados)
 
 ---
 
@@ -42,12 +43,16 @@ Cada seção explica **o que é** a funcionalidade, **quem** pode usá-la (papel
 
 ### 1.1. Acesso e login
 
-A plataforma é um SaaS B2B integrado ao **Microsoft Entra ID** (Azure Active Directory) para autenticação:
+A plataforma é um SaaS B2B com **duas formas de entrar**, conforme o provedor de nuvem da sua organização.
+
+**Se você usa Azure**, a autenticação é integrada ao **Microsoft Entra ID** (Azure Active Directory):
 
 1. Acesse a URL da plataforma.
 2. Clique em **"Entrar com Microsoft"**.
 3. Autentique-se com sua conta corporativa. A plataforma reconhece automaticamente seu tenant do Azure e sua identidade.
 4. **Modo Demo:** se quiser testar a plataforma sem conectar seu ambiente real do Azure, escolha um dos perfis comerciais pré-configurados na tela principal — eles vêm com dados e métricas simuladas realistas, para você explorar cada módulo sem risco.
+
+**Se o tenant for AWS**, a autenticação é própria da plataforma (e-mail e senha). Veja a [seção 13](#13-multi-cloud-modelo-de-provedor-e-ciclo-de-vida-dos-dados).
 
 ### 1.2. O assistente de onboarding (primeira vez)
 
@@ -594,6 +599,73 @@ Você pode fazer upgrade para um plano pago a qualquer momento em **Faturamento*
 - **Exija conformidade de tags:** sem tags consistentes, o módulo de chargeback/showback não consegue distribuir a fatura mensal de forma justa entre equipes — é a base de tudo o resto.
 - **Use o Simulador What-If antes de se comprometer:** antes de comprar uma Reserva ou Savings Plan, simule o cenário e salve-o — isso dá um número concreto para justificar a decisão perante o financeiro.
 - **Configure pelo menos um canal de notificação desde o primeiro dia** (Slack/Teams se sua equipe já vive lá, ou email se preferir simplicidade) — alertas de orçamento não servem de nada se ninguém os vê a tempo.
+
+---
+
+## 13. Multi-cloud: modelo de provedor e ciclo de vida dos dados
+
+Esta seção é exclusiva do SuperAdmin: descreve como a plataforma decide qual provedor de nuvem cada tenant tem, o que acontece quando o plano muda e como operar a exclusão de dados.
+
+### 13.1. O modelo de provedor
+
+Cada tenant tem uma coluna `Tenants.provider` com três valores possíveis:
+
+| Valor | Significado | Tier mínimo |
+|---|---|---|
+| `azure` | Somente Azure. É o **padrão** e o estado de todos os tenants preexistentes. | Essential |
+| `aws` | Somente AWS. Gravado pelo cadastro com e-mail+senha. | Essential |
+| `both` | Azure e AWS simultaneamente. | **Enterprise** |
+
+A exclusividade é **validada no servidor**, não apenas na UI: `assertProviderIngestable()` corta a ingestão do provedor que o tenant não tem habilitado nos quatro pontos de entrada (cadastro de contas AWS, sync do Cost Explorer, sync do CUR e cadastro de credenciais do Azure). Um tenant que manipule o frontend não consegue ingerir o provedor que não paga.
+
+### 13.2. Identidade: dois caminhos de autenticação
+
+- **Azure** → Microsoft Entra ID (MSAL). O `tenant_id` é o GUID do tenant do Entra.
+- **AWS** → identidade própria da plataforma (e-mail + senha). O `tenant_id` é um **UUID gerado**, e `Users.entra_oid` fica `NULL`.
+
+Um usuário é "local" **se e somente se** tiver `password_hash`. Os tokens próprios são assinados em HS256 e os do Entra são RS256; o backend discrimina por algoritmo e cada ramo exige o seu, então não há confusão de algoritmo possível. Papéis, permissões, MFA e cotas de usuário funcionam igual nos dois caminhos.
+
+> **Requisito de implantação:** sem a variável de ambiente `LOCAL_AUTH_SECRET` (mínimo 32 caracteres) os sete endpoints de autenticação local retornam **503 de propósito**. É fail-closed: preferimos que o login AWS não funcione a que funcione com um segredo fraco.
+
+### 13.3. O que acontece quando um tenant `both` muda para um plano menor
+
+O downgrade chega por webhook (Paddle, Marketplace do Azure ou da AWS) ou pelo PATCH do SuperAdmin. Os quatro passam pelo **mesmo ponto único**, `applyTierChange()`, para que nenhum possa esquecer o efeito colateral.
+
+A política é **arquivamento reversível com janela de carência**, nunca exclusão imediata:
+
+| Momento | O que ocorre |
+|---|---|
+| **T+0 (downgrade)** | Um provedor é escolhido para ser mantido e o outro fica **arquivado**: a ingestão para, todos os dados e credenciais são preservados. Registrado em `TenantProviderTransitions` com status `GRACE`. |
+| **T+0 … T+90** | O provedor arquivado fica **somente leitura**. A exportação FOCUS continua habilitada mesmo que o novo tier não a inclua (portabilidade; GDPR art. 20), exigindo ainda papel ADMIN/OWNER. |
+| **T-30 e T-7** | O cron envia aviso por e-mail e notificação no app. É idempotente: cada marco é registrado na linha da transição. |
+| **T+90** | O cron **expurga** os dados do provedor arquivado em lotes de 5.000 linhas e grava `PROVIDER_DATA_PURGED` em `ActionLogs`. |
+
+**Escolha automática do provedor mantido.** Se ninguém escolher, vence: (1) maior gasto nos últimos 90 dias, (2) mais contas conectadas, (3) `azure` como desempate final. A comparação de gasto usa aritmética decimal exata, nunca ponto flutuante: o resultado define qual conjunto de dados é apagado.
+
+**O tenant pode inverter a escolha** durante toda a janela pelo banner da plataforma ou via `POST /api/admin/provider-transition` (papel ADMIN/OWNER). **Inverter não reinicia o relógio** — se reiniciasse, um tenant poderia alternar indefinidamente e manter multi-cloud de graça para sempre.
+
+**Voltar ao Enterprise antes do prazo restaura tudo sem perda.** É o caso que justifica a janela inteira: um downgrade por cartão recusado é revertido em horas.
+
+### 13.4. Por que 90 dias e não outro prazo
+
+- **Não apagar na hora:** o evento chega por webhook assíncrono, sem ninguém que possa confirmar uma exclusão em massa; e a série histórica não é reconstruível (o Cost Explorer retém 12-14 meses, e o CUR depende de um bucket do cliente que não controlamos).
+- **Não reter para sempre:** `FocusLineItems` tem granularidade recurso/hora — milhões de linhas por conta por mês.
+- **90 dias = um fechamento trimestral completo.** O caso real é o cliente que desce de plano em janeiro e em abril precisa do Q1 inteiro para fechar o exercício.
+
+Pode ser ajustado com `PROVIDER_ARCHIVE_RETENTION_DAYS`. O valor é **limitado entre 7 e 730 dias** em vez de rejeitado, porque quem o consome é um webhook e um cron: uma variável mal escrita não pode fazer o sistema expurgar amanhã nem reter para sempre.
+
+### 13.5. Operação
+
+- **Cron de avisos e expurgo:** `/api/cron/provider-archive-purge`, autenticado com `Authorization: Bearer $CRON_SECRET`. **Se não estiver no crontab, nada é avisado nem expurgado** — a política fica pela metade e a retenção vira infinita em silêncio. Frequência recomendada: diária.
+- **Auditoria:** todas as transições ficam em `ActionLogs` (`PROVIDER_ARCHIVED`, `PROVIDER_ELECTION_CHANGED`, `PROVIDER_RESTORED`, `PROVIDER_DATA_PURGED`) e em `TenantProviderTransitions`.
+- **Verificação do primeiro caso real:** antes do primeiro downgrade de um cliente grande, revise o primeiro `PROVIDER_DATA_PURGED` manualmente. O expurgo é irreversível e a única rede de proteção é o backup completo do MySQL — não há backup seletivo por provedor.
+- **Consultar o estado de qualquer tenant:** `GET /api/admin/provider-transition?tenantId=...` devolve o provedor arquivado, a data do expurgo e os dias restantes.
+
+### 13.6. Escopo do painel por provedor
+
+O painel nasceu 100% Azure e a maioria das páginas acaba chamando o Azure Resource Manager. O menu lateral é filtrado pelo provedor ativo com uma **lista de rotas permitidas**: por padrão uma página é Azure-only, e só as explicitamente marcadas como agnósticas (plataforma, usuários, faturamento do SaaS, auditoria, exportação FOCUS) ou AWS aparecem com a AWS ativa.
+
+É deliberadamente restritivo: se alguém adicionar uma página nova e esquecer de classificá-la, ela fica **oculta** para AWS em vez de aparecer quebrada. À medida que as páginas forem parametrizadas, são adicionadas a essa lista.
 
 ---
 

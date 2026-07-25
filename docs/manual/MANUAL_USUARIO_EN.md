@@ -35,6 +35,7 @@ Each section explains **what** the feature is, **who** can use it (role and subs
 10. [Account Security (MFA)](#10-account-security-mfa)
 11. [Advanced Features and Integrations](#11-advanced-features-and-integrations)
 12. [Best Practices](#12-best-practices)
+13. [Multi-cloud: Azure and AWS](#13-multi-cloud-azure-and-aws)
 
 ---
 
@@ -42,12 +43,16 @@ Each section explains **what** the feature is, **who** can use it (role and subs
 
 ### 1.1. Access and login
 
-The platform is a B2B SaaS integrated with **Microsoft Entra ID** (Azure Active Directory) for authentication:
+The platform is a B2B SaaS with **two ways to sign in**, depending on your organization's cloud provider.
+
+**If you use Azure**, authentication is integrated with **Microsoft Entra ID** (Azure Active Directory):
 
 1. Go to the platform URL.
 2. Click **"Sign in with Microsoft"**.
 3. Authenticate with your corporate account. The platform automatically recognizes your Azure tenant and identity.
 4. **Demo Mode:** if you want to try the platform without connecting your real Azure environment, choose one of the preconfigured demo profiles from the main screen — they come with realistic simulated data and metrics, so you can explore every module risk-free.
+
+**If you use AWS**, your organization does not sign in through Microsoft: you log in with **email and password** from the same login form. See [section 13](#13-multi-cloud-azure-and-aws) for details.
 
 ### 1.2. The onboarding wizard (first time)
 
@@ -588,6 +593,57 @@ You can upgrade to a paid plan at any time from **Billing** — the trial immedi
 - **Enforce tag compliance:** without consistent tags, the chargeback/showback module can't fairly distribute the monthly bill across teams — it's the foundation everything else relies on.
 - **Use the What-If Simulator before committing:** before purchasing a Reservation or Savings Plan, simulate the scenario and save it — it gives you a concrete number to justify the decision to finance.
 - **Set up at least one notification channel from day one** (Slack/Teams if your team already lives there, or email if you prefer simplicity) — budget alerts are useless if nobody sees them in time.
+
+---
+
+## 13. Multi-cloud: Azure and AWS
+
+The platform supports **two cloud providers**: Microsoft Azure and Amazon Web Services. Plans and pricing are **identical** for both — the only difference is how you create the account and what data is collected.
+
+### 13.1. Choosing your provider at signup
+
+On the plans page (`/signup`) you first choose **which cloud you want to analyze**:
+
+| Provider | How the account is created |
+|---|---|
+| **Microsoft Azure** | You sign in with your Microsoft account. The platform recognizes your Entra ID tenant automatically. |
+| **Amazon Web Services** | AWS has no corporate sign-in equivalent to Entra ID, so you create an account with **email and password**. You receive an email to verify your address. |
+
+> **Why the difference:** IAM Identity Center is *your own organization's* SSO, not a global directory we can query, and "Login with Amazon" is consumer identity (shopping accounts). There is no enterprise "sign in with AWS". That is why the AWS path uses platform-native credentials.
+
+### 13.2. Signing in
+
+The login screen offers both options:
+
+- **Sign in with Microsoft** — for Azure tenants.
+- **Email and password** — for AWS tenants. Below the form you have **"Forgot your password?"**, which sends you a time-limited recovery link.
+
+If your administrator invited you, you will receive an email with a link to **choose your password** and get in. Invited users always start with the **Reader** role; your administrator can widen it later from **Users and Permissions**.
+
+### 13.3. Using both providers at once (Enterprise only)
+
+The **Enterprise** plan is the only one that can have Azure and AWS connected in the same account. When that is your case, an **AWS/Azure switch appears in the top bar**: changing it makes the sidebar and the pages show that provider's data.
+
+If you only have one provider the switch is not rendered — there would be nothing to choose.
+
+> **Important:** the sidebar changes with the active provider. Many pages are Azure-specific (AKS, Hybrid Benefit, Azure Policies, Defender for Cloud, and so on) and do not appear while AWS is active. This is intentional: we would rather not show you a page that cannot work with your data.
+
+### 13.4. What happens to your data if you downgrade
+
+If you are on Enterprise with **both providers** and you move to a lower plan, you lose the multi-cloud entitlement. **Nothing is deleted at that moment.** What happens is:
+
+1. **One provider is retained and the other is archived.** If you do not choose, we automatically retain the one where you spend the most (and, on a tie, the one with more connected accounts).
+2. **The archived provider becomes read-only for 90 days.** You can still browse it and **export everything** from `/admin/focus-export` — the export stays enabled for the whole window even if your new plan does not include it, because your data is yours.
+3. **We notify you** by email and by in-app notification **30 days and 7 days before** deletion.
+4. **Only when the 90 days expire** is that provider's data permanently deleted.
+
+While the window is open you will see a **banner at the top** with the remaining days and three ways out:
+
+- **Export data** — takes you to the FOCUS exporter.
+- **Keep the other provider instead** — flips the choice (Admin/Owner only). Note: **flipping does not reset the countdown**; the deletion date stays the same.
+- **Go back to Enterprise** — if you return before the deadline, **everything is restored with no loss whatsoever**. That is exactly why the window exists.
+
+> **Tip:** if the downgrade was accidental (a declined card, for example), you do not need to do anything other than fix the payment. Nothing is deleted until day 90.
 
 ---
 

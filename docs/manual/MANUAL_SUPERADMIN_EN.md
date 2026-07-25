@@ -35,6 +35,7 @@ Each section explains **what** the feature is, **who** can use it (role and subs
 10. [Account Security (MFA)](#10-account-security-mfa)
 11. [Advanced Features and Integrations](#11-advanced-features-and-integrations)
 12. [Best Practices](#12-best-practices)
+13. [Multi-cloud: provider model and data lifecycle](#13-multi-cloud-provider-model-and-data-lifecycle)
 
 ---
 
@@ -42,12 +43,16 @@ Each section explains **what** the feature is, **who** can use it (role and subs
 
 ### 1.1. Access and login
 
-The platform is a B2B SaaS integrated with **Microsoft Entra ID** (Azure Active Directory) for authentication:
+The platform is a B2B SaaS with **two ways to sign in**, depending on your organization's cloud provider.
+
+**If you use Azure**, authentication is integrated with **Microsoft Entra ID** (Azure Active Directory):
 
 1. Go to the platform URL.
 2. Click **"Sign in with Microsoft"**.
 3. Authenticate with your corporate account. The platform automatically recognizes your Azure tenant and identity.
 4. **Demo Mode:** if you want to try the platform without connecting your real Azure environment, choose one of the preconfigured demo profiles from the main screen — they come with realistic simulated data and metrics, so you can explore every module risk-free.
+
+**If the tenant is AWS**, authentication is platform-native (email and password). See [section 13](#13-multi-cloud-provider-model-and-data-lifecycle).
 
 ### 1.2. The onboarding wizard (first time)
 
@@ -594,6 +599,73 @@ You can upgrade to a paid plan at any time from **Billing** — the trial immedi
 - **Enforce tag compliance:** without consistent tags, the chargeback/showback module can't fairly distribute the monthly bill across teams — it's the foundation everything else relies on.
 - **Use the What-If Simulator before committing:** before purchasing a Reservation or Savings Plan, simulate the scenario and save it — it gives you a concrete number to justify the decision to finance.
 - **Set up at least one notification channel from day one** (Slack/Teams if your team already lives there, or email if you prefer simplicity) — budget alerts are useless if nobody sees them in time.
+
+---
+
+## 13. Multi-cloud: provider model and data lifecycle
+
+This section is SuperAdmin-only: it describes how the platform decides which cloud provider each tenant has, what happens when the plan changes, and how to operate data deletion.
+
+### 13.1. The provider model
+
+Every tenant has a `Tenants.provider` column with three possible values:
+
+| Value | Meaning | Minimum tier |
+|---|---|---|
+| `azure` | Azure only. This is the **default** and the state of every pre-existing tenant. | Essential |
+| `aws` | AWS only. Written by the email+password signup. | Essential |
+| `both` | Azure and AWS at the same time. | **Enterprise** |
+
+Exclusivity is **enforced server-side**, not only in the UI: `assertProviderIngestable()` blocks ingestion of the provider the tenant is not entitled to at all four entry points (AWS account creation, Cost Explorer sync, CUR sync and Azure credential upload). A tenant tampering with the frontend cannot ingest the provider they are not paying for.
+
+### 13.2. Identity: two authentication paths
+
+- **Azure** → Microsoft Entra ID (MSAL). The `tenant_id` is the Entra tenant GUID.
+- **AWS** → platform-native identity (email + password). The `tenant_id` is a **generated UUID**, and `Users.entra_oid` stays `NULL`.
+
+A user is "local" **if and only if** they have a `password_hash`. Platform tokens are signed with HS256 and Entra's are RS256; the backend discriminates by algorithm and each branch requires its own, so no algorithm confusion is possible. Roles, permissions, MFA and user quotas behave identically on both paths.
+
+> **Deployment requirement:** without the `LOCAL_AUTH_SECRET` environment variable (32 characters minimum) the seven local auth endpoints return **503 on purpose**. It is fail-closed: we would rather AWS login not work than work with a weak secret.
+
+### 13.3. What happens when a `both` tenant downgrades
+
+The downgrade arrives via webhook (Paddle, Azure Marketplace or AWS Marketplace) or via the SuperAdmin PATCH. All four go through the **same single choke point**, `applyTierChange()`, so none of them can forget the side effect.
+
+The policy is **reversible archiving with a grace window**, never immediate deletion:
+
+| Moment | What happens |
+|---|---|
+| **T+0 (downgrade)** | One provider is elected to be retained and the other is **archived**: ingestion stops, all data and credentials are kept. Recorded in `TenantProviderTransitions` with status `GRACE`. |
+| **T+0 … T+90** | The archived provider is **read-only**. The FOCUS export stays enabled even if the new tier does not include it (data portability; GDPR art. 20), still requiring an ADMIN/OWNER role. |
+| **T-30 and T-7** | The cron sends an email and an in-app notification. It is idempotent: each milestone is stamped on the transition row. |
+| **T+90** | The cron **purges** the archived provider's data in batches of 5,000 rows and writes a `PROVIDER_DATA_PURGED` entry to `ActionLogs`. |
+
+**Automatic election of the retained provider.** If nobody chooses, the winner is: (1) higher spend over the last 90 days, (2) more connected accounts, (3) `azure` as the final tiebreaker. The spend comparison uses exact decimal arithmetic, never floating point: the result decides which dataset gets deleted.
+
+**The tenant can flip the choice** for the whole window from the in-app banner or via `POST /api/admin/provider-transition` (ADMIN/OWNER role). **Flipping does not reset the clock** — if it did, a tenant could alternate indefinitely and keep multi-cloud for free forever.
+
+**Returning to Enterprise before the deadline restores everything with no loss.** That is the case that justifies the entire window: a downgrade caused by a declined card is reverted within hours.
+
+### 13.4. Why 90 days and not something else
+
+- **Do not delete on the spot:** the event arrives through an asynchronous webhook, with nobody available to confirm a mass deletion; and the historical series cannot be rebuilt (Cost Explorer retains 12-14 months, and the CUR depends on a customer bucket we do not control).
+- **Do not retain forever:** `FocusLineItems` is at resource/hour grain — millions of rows per account per month.
+- **90 days = one full quarterly close.** The real case is the customer who downgrades in January and in April needs the whole Q1 to close the books.
+
+It can be tuned with `PROVIDER_ARCHIVE_RETENTION_DAYS`. The value is **clamped between 7 and 730 days** rather than rejected, because a webhook and a cron consume it: a mistyped variable must not be able to purge tomorrow nor retain forever.
+
+### 13.5. Operations
+
+- **Notification and purge cron:** `/api/cron/provider-archive-purge`, authenticated with `Authorization: Bearer $CRON_SECRET`. **If it is not in the crontab, nothing is ever notified or purged** — the policy is left half-applied and retention becomes silently infinite. Recommended frequency: daily.
+- **Auditing:** every transition lands in `ActionLogs` (`PROVIDER_ARCHIVED`, `PROVIDER_ELECTION_CHANGED`, `PROVIDER_RESTORED`, `PROVIDER_DATA_PURGED`) and in `TenantProviderTransitions`.
+- **Verifying the first real case:** before the first downgrade of a large customer, review the first `PROVIDER_DATA_PURGED` by hand. The purge is irreversible and the only safety net is the full MySQL backup — there is no per-provider selective backup.
+- **Checking any tenant's state:** `GET /api/admin/provider-transition?tenantId=...` returns the archived provider, the purge date and the days remaining.
+
+### 13.6. Panel scope per provider
+
+The panel was born 100% Azure and most pages end up calling Azure Resource Manager. The sidebar is filtered by the active provider using an **allow-list of routes**: by default a page is Azure-only, and only those explicitly marked as agnostic (platform, users, SaaS billing, auditing, FOCUS export) or AWS show up while AWS is active.
+
+It is deliberately restrictive: if someone adds a new page and forgets to classify it, it stays **hidden** for AWS instead of appearing broken. As pages get parameterized, they are added to that list.
 
 ---
 

@@ -6,10 +6,13 @@ Bienvenido a la Plataforma FinOps de CSCloudSolutions. Este manual está diseña
 
 ## 1. Introducción y Acceso
 
-La plataforma es una solución SaaS B2B que se integra directamente con tu entorno de **Microsoft Azure** utilizando **Entra ID (Active Directory)** para la autenticación y validación de identidades.
+La plataforma es una solución SaaS B2B multi-cloud: soporta **Microsoft Azure** y **Amazon Web Services**, con los mismos planes y los mismos precios para ambos.
 
-- **Para Iniciar Sesión:** Ve a la pantalla principal de la aplicación y haz clic en "Iniciar Sesión con Microsoft".
-- **Modo Demo:** Si deseas probar la plataforma sin conectar tu propio entorno de Azure, puedes utilizar uno de los perfiles comerciales preconfigurados desde la pantalla principal, los cuales proveen datos y métricas simuladas.
+- **Para Iniciar Sesión (Azure):** Ve a la pantalla principal y haz clic en "Iniciar Sesión con Microsoft". La autenticación se integra con **Entra ID (Active Directory)** y reconoce tu tenant automáticamente.
+- **Para Iniciar Sesión (AWS):** AWS no tiene un inicio de sesión corporativo equivalente a Entra ID, así que los tenants AWS usan **email y contraseña** desde el mismo formulario de login. Debajo está el enlace de recuperación de contraseña.
+- **Modo Demo:** Si deseas probar la plataforma sin conectar tu propio entorno, puedes utilizar uno de los perfiles comerciales preconfigurados desde la pantalla principal, los cuales proveen datos y métricas simuladas.
+
+> El detalle completo del modelo multi-cloud (elección de proveedor en el alta, switch AWS/Azure del header y qué pasa con los datos al bajar de plan) está en la **sección 7** de este manual y, con más profundidad, en `docs/manual/MANUAL_USUARIO_ES.md` §13.
 
 ---
 
@@ -187,6 +190,8 @@ La plataforma cuenta con un asistente inteligente integrado (**FinOps Copilot**)
 
 ---
 
+---
+
 ## 6. Política de documentación de cambios
 
 A partir de ahora, cada ajuste funcional, técnico o visual de la plataforma se registra en `CAMBIOS_IMPLEMENTADOS.md`.
@@ -196,3 +201,33 @@ Además, cada vez que se aplica un cambio también se actualizan de forma obliga
 1. `README.md` (documentación técnica y arquitectura)
 2. `MANUAL_DE_USUARIO.md` (impacto en uso funcional)
 3. `CAMBIOS_IMPLEMENTADOS.md` (bitácora de cambios realizados y futuros)
+
+---
+
+## 7. Multi-cloud: Azure y AWS
+
+### 7.1. Elegir el proveedor
+
+En la pantalla de planes elegís primero qué nube querés analizar. Los planes y los precios son idénticos; lo único que cambia es cómo se crea la cuenta:
+
+| Proveedor | Alta |
+|---|---|
+| **Azure** | Inicio de sesión con Microsoft; se reconoce tu tenant de Entra ID. |
+| **AWS** | Email y contraseña, con verificación por mail. |
+
+### 7.2. Los dos proveedores a la vez (solo Enterprise)
+
+El plan **Enterprise** es el único que puede tener Azure y AWS conectados en la misma cuenta. En ese caso aparece un **selector AWS/Azure en la barra superior**; al cambiarlo, el menú lateral y las páginas muestran los datos de ese proveedor.
+
+El menú lateral **cambia según el proveedor activo**: muchas páginas son específicas de Azure (AKS, Hybrid Benefit, Azure Policies, Defender for Cloud) y no aparecen con AWS activo. Es intencional — preferimos no mostrar una página que no puede funcionar con tus datos.
+
+### 7.3. Qué pasa con tus datos si bajás de plan
+
+Si tenés Enterprise con los dos proveedores y bajás de plan, **no se borra nada en ese momento**:
+
+1. Se retiene un proveedor (por defecto, aquel donde más gastás) y el otro queda **archivado en modo sólo lectura**.
+2. Tenés **90 días** para consultarlo y **exportar todo** desde `/admin/focus-export`. El export sigue habilitado durante toda la ventana aunque el nuevo plan no lo incluya.
+3. Te avisamos por email y notificación in-app **30 y 7 días antes** de la eliminación.
+4. Recién al vencer los 90 días se eliminan los datos de ese proveedor.
+
+Durante la ventana ves un aviso en la parte superior con los días restantes. Podés **invertir la elección** (Admin/Owner) — aunque eso **no reinicia el plazo** — o **volver a Enterprise**, en cuyo caso **se restaura todo sin pérdida**.

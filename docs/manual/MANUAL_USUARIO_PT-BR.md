@@ -35,6 +35,7 @@ Cada seção explica **o que é** a funcionalidade, **quem** pode usá-la (papel
 10. [Segurança da Conta (MFA)](#10-segurança-da-conta-mfa)
 11. [Funcionalidades Avançadas e Integrações](#11-funcionalidades-avançadas-e-integrações)
 12. [Melhores Práticas](#12-melhores-práticas)
+13. [Multi-cloud: Azure e AWS](#13-multi-cloud-azure-e-aws)
 
 ---
 
@@ -42,12 +43,16 @@ Cada seção explica **o que é** a funcionalidade, **quem** pode usá-la (papel
 
 ### 1.1. Acesso e login
 
-A plataforma é um SaaS B2B integrado ao **Microsoft Entra ID** (Azure Active Directory) para autenticação:
+A plataforma é um SaaS B2B com **duas formas de entrar**, conforme o provedor de nuvem da sua organização.
+
+**Se você usa Azure**, a autenticação é integrada ao **Microsoft Entra ID** (Azure Active Directory):
 
 1. Acesse a URL da plataforma.
 2. Clique em **"Entrar com Microsoft"**.
 3. Autentique-se com sua conta corporativa. A plataforma reconhece automaticamente seu tenant do Azure e sua identidade.
 4. **Modo Demo:** se quiser testar a plataforma sem conectar seu ambiente real do Azure, escolha um dos perfis comerciais pré-configurados na tela principal — eles vêm com dados e métricas simuladas realistas, para você explorar cada módulo sem risco.
+
+**Se você usa AWS**, sua organização não entra pela Microsoft: você faz login com **e-mail e senha** no mesmo formulário. Veja a [seção 13](#13-multi-cloud-azure-e-aws) para os detalhes.
 
 ### 1.2. O assistente de onboarding (primeira vez)
 
@@ -588,6 +593,57 @@ Você pode fazer upgrade para um plano pago a qualquer momento em **Faturamento*
 - **Exija conformidade de tags:** sem tags consistentes, o módulo de chargeback/showback não consegue distribuir a fatura mensal de forma justa entre equipes — é a base de tudo o resto.
 - **Use o Simulador What-If antes de se comprometer:** antes de comprar uma Reserva ou Savings Plan, simule o cenário e salve-o — isso dá um número concreto para justificar a decisão perante o financeiro.
 - **Configure pelo menos um canal de notificação desde o primeiro dia** (Slack/Teams se sua equipe já vive lá, ou email se preferir simplicidade) — alertas de orçamento não servem de nada se ninguém os vê a tempo.
+
+---
+
+## 13. Multi-cloud: Azure e AWS
+
+A plataforma suporta **dois provedores de nuvem**: Microsoft Azure e Amazon Web Services. Os planos e os preços são **idênticos** para ambos — o que muda é apenas como você cria a conta e quais dados são coletados.
+
+### 13.1. Escolher o provedor no cadastro
+
+Na tela de planos (`/signup`) você escolhe primeiro **qual nuvem quer analisar**:
+
+| Provedor | Como a conta é criada |
+|---|---|
+| **Microsoft Azure** | Você entra com sua conta Microsoft. A plataforma reconhece seu tenant do Entra ID automaticamente. |
+| **Amazon Web Services** | A AWS não tem um login corporativo equivalente ao Entra ID, então você cria uma conta com **e-mail e senha**. Você recebe um e-mail para verificar seu endereço. |
+
+> **Por que a diferença:** o IAM Identity Center é o SSO *da sua própria organização*, não um diretório global que possamos consultar, e o "Login with Amazon" é identidade de consumidor (contas de compras). Não existe um "entrar com AWS" corporativo. Por isso o caminho AWS usa credenciais próprias da plataforma.
+
+### 13.2. Entrar na plataforma
+
+A tela de login oferece as duas opções:
+
+- **Entrar com a Microsoft** — para tenants Azure.
+- **E-mail e senha** — para tenants AWS. Abaixo do formulário há **"Esqueceu sua senha?"**, que envia um link de recuperação com validade limitada.
+
+Se o seu administrador convidou você, vai receber um e-mail com um link para **escolher sua senha** e entrar. Convidados entram sempre com o papel **Reader**; seu administrador pode ampliá-lo depois em **Usuários e Permissões**.
+
+### 13.3. Usar os dois provedores ao mesmo tempo (somente Enterprise)
+
+O plano **Enterprise** é o único que pode ter Azure e AWS conectados na mesma conta. Nesse caso aparece um **seletor AWS/Azure na barra superior**: ao trocá-lo, o menu lateral e as páginas passam a mostrar os dados daquele provedor.
+
+Se você tem apenas um provedor, o seletor não é exibido — não haveria o que escolher.
+
+> **Importante:** o menu lateral muda conforme o provedor ativo. Muitas páginas são específicas do Azure (AKS, Hybrid Benefit, Azure Policies, Defender for Cloud etc.) e não aparecem com a AWS ativa. É intencional: preferimos não mostrar uma página que não funcionaria com seus dados.
+
+### 13.4. O que acontece com seus dados se você mudar para um plano menor
+
+Se você está no Enterprise com **os dois provedores** e desce de plano, perde o direito ao multi-cloud. **Nada é apagado nesse momento.** O que acontece é:
+
+1. **Um provedor é mantido e o outro fica arquivado.** Se você não escolher, mantemos automaticamente aquele em que você gasta mais (e, em caso de empate, o que tem mais contas conectadas).
+2. **O provedor arquivado fica somente leitura por 90 dias.** Você ainda pode consultá-lo e **exportar tudo** em `/admin/focus-export` — a exportação segue habilitada durante toda a janela mesmo que seu novo plano não a inclua, porque os dados são seus.
+3. **Avisamos** por e-mail e por notificação dentro da plataforma **30 dias e 7 dias antes** da exclusão.
+4. **Somente ao vencer os 90 dias** os dados daquele provedor são excluídos definitivamente.
+
+Enquanto a janela estiver aberta, você verá um **aviso no topo** com os dias restantes e três saídas:
+
+- **Exportar dados** — leva ao exportador FOCUS.
+- **Manter o outro provedor** — inverte a escolha (somente Admin/Owner). Atenção: **inverter não reinicia o prazo**; a data de exclusão é a mesma.
+- **Voltar ao Enterprise** — se você voltar antes do prazo, **tudo é restaurado sem nenhuma perda**. É exatamente para isso que a janela existe.
+
+> **Dica:** se a mudança de plano foi acidental (um cartão recusado, por exemplo), basta regularizar o pagamento. Nada é excluído até o dia 90.
 
 ---
 

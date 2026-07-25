@@ -35,6 +35,7 @@ Cada sección explica **qué es** la funcionalidad, **quién puede usarla** (rol
 10. [Seguridad de la cuenta (MFA)](#10-seguridad-de-la-cuenta-mfa)
 11. [Funciones avanzadas e integraciones](#11-funciones-avanzadas-e-integraciones)
 12. [Mejores prácticas](#12-mejores-prácticas)
+13. [Multi-cloud: Azure y AWS](#13-multi-cloud-azure-y-aws)
 
 ---
 
@@ -42,12 +43,16 @@ Cada sección explica **qué es** la funcionalidad, **quién puede usarla** (rol
 
 ### 1.1. Acceso e inicio de sesión
 
-La plataforma es un SaaS B2B que se integra con **Microsoft Entra ID** (Azure Active Directory) para autenticación:
+La plataforma es un SaaS B2B con **dos formas de iniciar sesión**, según el proveedor de nube de tu organización.
+
+**Si usás Azure**, la autenticación se integra con **Microsoft Entra ID** (Azure Active Directory):
 
 1. Entrá a la URL de la plataforma.
 2. Hacé clic en **"Iniciar sesión con Microsoft"**.
 3. Autenticate con tu cuenta corporativa. La plataforma reconoce automáticamente tu tenant de Azure y tu identidad.
 4. **Modo Demo:** si querés probar la plataforma sin conectar tu entorno real de Azure, elegí uno de los perfiles comerciales preconfigurados desde la pantalla principal — vienen con datos y métricas simuladas realistas, para que puedas explorar cada módulo sin riesgo.
+
+**Si usás AWS**, tu organización no entra por Microsoft: iniciás sesión con **email y contraseña** desde el mismo formulario de login. Ver la [sección 13](#13-multi-cloud-azure-y-aws) para el detalle.
 
 ### 1.2. El asistente de onboarding (primera vez)
 
@@ -588,6 +593,57 @@ Podés upgradear a plan pago en cualquier momento desde **Facturación** — el 
 - **Exigí cumplimiento de tags:** sin etiquetas consistentes, el módulo de chargeback/showback no puede distribuir la factura mensual de forma justa entre equipos — es la base de todo lo demás.
 - **Usá el Simulador What-If antes de comprometerte:** antes de comprar una Reserva o Savings Plan, simulá el escenario y guardalo — te da un número concreto para justificar la decisión ante finanzas.
 - **Configurá al menos un canal de notificación** desde el primer día (Slack/Teams si tu equipo ya vive ahí, o email si preferís simplicidad) — las alertas de presupuesto no sirven si nadie las ve a tiempo.
+
+---
+
+## 13. Multi-cloud: Azure y AWS
+
+La plataforma soporta **dos proveedores de nube**: Microsoft Azure y Amazon Web Services. Los planes y los precios son **idénticos** para ambos — lo único que cambia es cómo creás la cuenta y qué datos se recolectan.
+
+### 13.1. Elegir el proveedor al registrarte
+
+En la pantalla de planes (`/signup`) elegís primero **qué nube querés analizar**:
+
+| Proveedor | Cómo se crea la cuenta |
+|---|---|
+| **Microsoft Azure** | Iniciás sesión con tu cuenta de Microsoft. La plataforma reconoce tu tenant de Entra ID automáticamente. |
+| **Amazon Web Services** | AWS no tiene un inicio de sesión corporativo equivalente a Entra ID, así que creás una cuenta con **email y contraseña**. Te llega un mail para verificar tu dirección. |
+
+> **Por qué la diferencia:** IAM Identity Center es el SSO *de tu propia organización*, no un directorio global que nosotros podamos consultar, y "Login with Amazon" es identidad de consumidor (cuentas de compras). No existe un "iniciar sesión con AWS" empresarial. Por eso el camino AWS usa credenciales propias de la plataforma.
+
+### 13.2. Iniciar sesión
+
+La pantalla de login ofrece las dos opciones:
+
+- **Iniciar sesión con Microsoft** — para los tenants Azure.
+- **Email y contraseña** — para los tenants AWS. Debajo del formulario tenés **"¿Olvidaste tu contraseña?"**, que te manda un link de recuperación válido por tiempo limitado.
+
+Si tu administrador te invitó, vas a recibir un mail con un link para **elegir tu contraseña** y entrar. Los invitados entran siempre con rol **Reader**; tu administrador puede ampliarlo después desde **Usuarios y Permisos**.
+
+### 13.3. Usar los dos proveedores a la vez (solo Enterprise)
+
+El plan **Enterprise** es el único que puede tener Azure y AWS conectados en la misma cuenta. Cuando es tu caso, aparece un **selector AWS/Azure en la barra superior**: al cambiarlo, el menú lateral y las páginas pasan a mostrar los datos de ese proveedor.
+
+Si tenés un solo proveedor, el selector no se muestra — no tendría ninguna opción que elegir.
+
+> **Importante:** el menú lateral cambia según el proveedor activo. Muchas páginas son específicas de Azure (AKS, Hybrid Benefit, Azure Policies, Defender for Cloud, etc.) y no aparecen con AWS activo. Es intencional: preferimos no mostrarte una página que no puede funcionar con tus datos.
+
+### 13.4. Qué pasa con tus datos si bajás de plan
+
+Si tenés Enterprise con **los dos proveedores** y bajás a un plan inferior, perdés el derecho a multi-cloud. **No borramos nada en ese momento.** Lo que ocurre es:
+
+1. **Se retiene un proveedor y el otro queda archivado.** Si no elegís, retenemos automáticamente aquel donde más gastás (y, a igualdad de gasto, el que tenga más cuentas conectadas).
+2. **El proveedor archivado queda en modo sólo lectura durante 90 días.** Podés consultarlo y **exportar todo** desde `/admin/focus-export` — el export sigue habilitado durante toda la ventana aunque tu nuevo plan no lo incluya, porque tus datos son tuyos.
+3. **Te avisamos** por email y por notificación dentro de la plataforma **30 días y 7 días antes** de la eliminación.
+4. **Recién al vencer los 90 días** se eliminan definitivamente los datos de ese proveedor.
+
+Mientras dure la ventana vas a ver un **aviso en la parte superior** con los días restantes y tres salidas:
+
+- **Exportar datos** — te lleva al exportador FOCUS.
+- **Retener el otro proveedor** — invierte la elección (solo Admin/Owner). Ojo: **invertir no reinicia el plazo**; la fecha de eliminación es la misma.
+- **Volver a Enterprise** — si volvés antes de que venza el plazo, **se restaura todo sin ninguna pérdida**. Ese es exactamente el motivo por el que la ventana existe.
+
+> **Consejo:** si el downgrade fue un accidente (por ejemplo, una tarjeta rechazada), no hace falta que hagas nada más que regularizar el pago. Nada se borra hasta el día 90.
 
 ---
 
