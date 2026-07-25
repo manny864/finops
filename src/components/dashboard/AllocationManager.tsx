@@ -10,6 +10,7 @@ import Pagination, { usePagination } from '@/components/Pagination';
 import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
+import { useProviderTranslations } from "@/lib/useProviderTranslations";
 
 // Contador module-level para generar keys estables client-side (no persisten,
 // no se mandan al backend — sólo identidad de React entre renders).
@@ -17,7 +18,7 @@ let ruleKeySeq = 0;
 const nextRuleKey = () => `rule-${++ruleKeySeq}`;
 
 export default function AllocationManager() {
-    const t = useTranslations('IntelligenceAllocation');
+    const t = useProviderTranslations('IntelligenceAllocation');
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const tier = (selectedTenant as any)?.tier || 'Essential';

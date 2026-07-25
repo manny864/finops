@@ -465,12 +465,83 @@ export function getAwsAlertRules(tier: string) {
  * AWS. Devuelve `null` si la ruta no tiene equivalente AWS, para que el caller
  * caiga al mock genérico en vez de mostrar una pantalla vacía.
  */
+/**
+ * Reparto de costos por centro de costo para la demo AWS.
+ *
+ * El contrato lo fija `/api/intelligence/chargeback`: `aggregated` alimenta el
+ * grafico de torta y `detailed` la tabla. En AWS `resourceGroup` transporta la
+ * region y `chargeType` el nombre del servicio, porque AWS no tiene el
+ * ChargeType de Azure ni el concepto de grupo de recursos.
+ */
+export function getAwsChargebackMock(tier: string) {
+    const multiplier = awsMultiplierForTier(tier);
+    const total = awsMonthlyTotal(multiplier);
+    const shares = [
+        { name: 'Engineering', share: 0.42 },
+        { name: 'Data', share: 0.24 },
+        { name: 'Marketing', share: 0.14 },
+        { name: 'Security', share: 0.09 },
+        { name: 'Sin asignar', share: 0.11 },
+    ];
+    const aggregated = shares.map(s => ({ name: s.name, value: round2(total * s.share) }));
+
+    const regions = getAwsCostByRegion(tier);
+    const services = getAwsCostByService(tier);
+    const detailed: Array<{ cost: number; date: string; resourceGroup: string; chargeType: string; costCenter: string }> = [];
+    const today = new Date();
+    // 14 dias por centro de costo: suficiente para que la tabla pagine y el
+    // total cierre contra el agregado sin generar miles de filas.
+    for (let d = 13; d >= 0; d--) {
+        const date = new Date(today);
+        date.setDate(today.getDate() - d);
+        const day = date.toISOString().slice(0, 10);
+        shares.forEach((cc, i) => {
+            const svc = services[(i + d) % services.length];
+            const reg = regions[(i + d) % regions.length];
+            detailed.push({
+                cost: round2((total * cc.share) / 14),
+                date: day,
+                resourceGroup: reg.region,
+                chargeType: svc.serviceName,
+                costCenter: cc.name,
+            });
+        });
+    }
+    return { aggregated, detailed };
+}
+
+/**
+ * Reglas de reparto de recursos compartidos en AWS.
+ *
+ * Los equivalentes de ExpressRoute y del cluster AKS compartido son Direct
+ * Connect y un cluster EKS multi-equipo; se suma un NAT gateway porque en AWS
+ * es un costo compartido tipico que ningun equipo reclama como propio.
+ */
+export function getAwsAllocationRulesMock() {
+    return [
+        { id: 'rule-1', resourceName: 'dxcon-corp-primary', targetCostCenter: 'Marketing', allocationPercentage: 35.0 },
+        { id: 'rule-2', resourceName: 'dxcon-corp-primary', targetCostCenter: 'Engineering', allocationPercentage: 65.0 },
+        { id: 'rule-3', resourceName: 'eks-shared-prod', targetCostCenter: 'MobileApp', allocationPercentage: 80.0 },
+        { id: 'rule-4', resourceName: 'eks-shared-prod', targetCostCenter: 'WebPortal', allocationPercentage: 20.0 },
+        { id: 'rule-5', resourceName: 'nat-0a1b2c3d4e5f6a7b8', targetCostCenter: 'Engineering', allocationPercentage: 50.0 },
+        { id: 'rule-6', resourceName: 'nat-0a1b2c3d4e5f6a7b8', targetCostCenter: 'Data', allocationPercentage: 50.0 },
+    ];
+}
+
 export function getAwsMockDataForRoute(route: string, tier: string): Record<string, unknown> | null {
     const multiplier = awsMultiplierForTier(tier);
     const total = awsMonthlyTotal(multiplier);
     const base = { success: true, mock: true, provider: 'AWS' as const, currency: 'USD' };
 
     switch (route) {
+        case 'chargeback': {
+            const cb = getAwsChargebackMock(tier);
+            return { ...base, data: cb.aggregated, detailed: cb.detailed };
+        }
+
+        case 'allocation-rules':
+            return { ...base, data: getAwsAllocationRulesMock() };
+
         case 'aws-accounts':
             return { ...base, accounts: getAwsDemoAccounts(tier) };
 

@@ -66,6 +66,17 @@ const AGNOSTIC_ROUTES: readonly string[] = [
     "/intelligence/cost-groups",
     "/intelligence/simulator",
 
+    // Asignacion de costos. Se habilitan a partir de la migracion
+    // 20260728-001, que agrega la dimension de etiqueta a la clave unica de
+    // CostSnapshots: antes el agregado diario colapsaba las filas con distinto
+    // centro de costo y todo el gasto AWS caia en "Sin asignar".
+    // Requiere que el cliente tenga el CUR configurado: el camino de Cost
+    // Explorer no trae etiquetas de recurso.
+    "/intelligence/allocation",
+    "/intelligence/cost-centers",
+    "/intelligence/chargeback",
+    "/intelligence/unit-economics",
+
     // Limpieza de recursos ociosos. El inventario AWS lo arma
     // awsInventoryService con las APIs de EC2 (volumenes EBS sin adjuntar, IPs
     // elasticas ociosas, snapshots vencidos e instancias apagadas), que es el

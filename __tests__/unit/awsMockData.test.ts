@@ -11,6 +11,8 @@ import {
     getAwsCommitmentSimulation,
     getAwsCostGroups,
     getAwsMockDataForRoute,
+    getAwsChargebackMock,
+    getAwsAllocationRulesMock,
 } from '@/lib/awsMockData';
 import {
     isMockTenant,
@@ -377,5 +379,57 @@ describe('orphans (AWS)', () => {
         expect(types).not.toMatch(/Managed Disk|Virtual Machine|App Service|Public IP Address/i);
         expect(types).toMatch(/EBS Volume/);
         expect(types).toMatch(/Application Load Balancer/);
+    });
+});
+
+describe('mocks de asignacion de costos AWS', () => {
+    it('el chargeback reparte el total sin dejar costo fuera de ningun centro', () => {
+        const { aggregated } = getAwsChargebackMock('enterprise');
+        const suma = aggregated.reduce((s, a) => s + a.value, 0);
+        // Las participaciones tienen que cubrir el 100%: si sumaran menos, la
+        // demo mostraria un total que no coincide con el del dashboard.
+        expect(aggregated.length).toBeGreaterThan(1);
+        expect(suma).toBeGreaterThan(0);
+        const detalle = getAwsChargebackMock('enterprise').detailed
+            .reduce((s, d) => s + d.cost, 0);
+        expect(Math.abs(detalle - suma) / suma).toBeLessThan(0.01);
+    });
+
+    it('el detalle usa region y servicio de AWS, no grupo de recursos ni ChargeType', () => {
+        const { detailed } = getAwsChargebackMock('business');
+        expect(detailed.length).toBeGreaterThan(0);
+        for (const fila of detailed) {
+            // En AWS `resourceGroup` transporta la region: si trajera un nombre
+            // de grupo de recursos seria un dato de Azure filtrado.
+            expect(fila.resourceGroup).toMatch(/^[a-z]{2}-[a-z]+-\d$/);
+            expect(fila.chargeType).not.toMatch(/Usage|Purchase|Refund/);
+            expect(fila.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+        }
+    });
+
+    it('escala con el tier', () => {
+        const ess = getAwsChargebackMock('essential').aggregated.reduce((s, a) => s + a.value, 0);
+        const ent = getAwsChargebackMock('enterprise').aggregated.reduce((s, a) => s + a.value, 0);
+        expect(ent).toBeGreaterThan(ess);
+    });
+
+    it('las reglas de reparto suman 100% por recurso compartido y no nombran servicios de Azure', () => {
+        const reglas = getAwsAllocationRulesMock();
+        const porRecurso = new Map<string, number>();
+        for (const r of reglas) {
+            expect(r.resourceName).not.toMatch(/ExpressRoute|AKS|Microsoft\./i);
+            porRecurso.set(r.resourceName, (porRecurso.get(r.resourceName) || 0) + r.allocationPercentage);
+        }
+        // Una regla que no cierra en 100 deja costo compartido sin repartir.
+        for (const [, total] of porRecurso) expect(total).toBe(100);
+        expect(new Set(reglas.map(r => r.id)).size).toBe(reglas.length);
+    });
+
+    it('el despachador entrega los mocks de asignacion a las rutas AWS', () => {
+        const cb = getAwsMockDataForRoute('chargeback', 'business');
+        expect(cb).not.toBeNull();
+        expect(Array.isArray((cb as Record<string, unknown>).detailed)).toBe(true);
+        const ar = getAwsMockDataForRoute('allocation-rules', 'business');
+        expect(Array.isArray((ar as Record<string, unknown>).data)).toBe(true);
     });
 });

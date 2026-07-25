@@ -11,6 +11,7 @@ import { isMockTenant } from "@/lib/mockData";
 import Pagination, { usePagination } from "@/components/Pagination";
 import ResizableTh from "@/components/ResizableTh";
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
+import { useProviderTranslations } from "@/lib/useProviderTranslations";
 
 const fmtUsd = (n: number | null | undefined) =>
     new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n || 0);
@@ -97,7 +98,7 @@ function BudgetCell({ costCenter, isAdmin, onSaved, t }: { costCenter: any; isAd
 }
 
 export default function CostCenterBudgetsBoard() {
-    const t = useTranslations("IntelligenceCostCenters");
+    const t = useProviderTranslations("IntelligenceCostCenters");
     const { selectedTenant, userRole, systemRole } = useTenant();
     const { instance, accounts } = useMsal();
     const isAdmin = userRole === "Admin" || userRole === "Owner" || systemRole === "SUPERADMIN";

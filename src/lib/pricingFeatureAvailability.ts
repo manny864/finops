@@ -39,7 +39,13 @@ export const AWS_AVAILABLE_FEATURES: Record<string, readonly number[]> = {
     // que en AWS todavía no se ingesta. Sobrevive lo transversal (integraciones,
     // API pública, SSO, Power BI y facturación) más 11, la detección de
     // anomalías: el Z-Score corre sobre CostSnapshots, que las dos nubes llenan.
-    enterprise: [0, 1, 11, 16, 21, 24, 25, 26, 27, 28, 29, 31, 33],
+    // 2 (Presupuesto por Centro de Costos), 9 (Unit Economics) y 10 (Allocation)
+    // entran a partir de la migración 20260728-001, que agrega la dimensión de
+    // etiqueta a la clave única de CostSnapshots: antes el agregado diario
+    // colapsaba las filas con distinto centro de costo y en AWS todo el gasto
+    // caía en "Sin asignar". Requiere el CUR — el camino de Cost Explorer no
+    // trae etiquetas de recurso.
+    enterprise: [0, 1, 2, 9, 10, 11, 16, 21, 24, 25, 26, 27, 28, 29, 31, 33],
 };
 
 export type PricingCloud = 'azure' | 'aws';

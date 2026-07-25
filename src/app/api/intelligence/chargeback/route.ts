@@ -5,6 +5,10 @@ import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { serverError } from '@/lib/apiErrors';
 import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError, findCostColumnIndex } from '@/lib/azureCostColumn';
+import { tenantUsesAws } from "@/lib/tenantProviderContext";
+import pool from "@/modules/storage/db";
+import { ALLOCATION_TAG_KEYS } from "@/lib/allocationTags";
+import { isAwsMockTenant, getMockDataForRoute } from "@/lib/mockData";
 
 export async function GET(request: NextRequest) {
     try {
@@ -20,7 +24,24 @@ export async function GET(request: NextRequest) {
         // Auth: validate JWT and assert caller belongs to this tenant.
         await requireTenantRole(request, tenantId, ['Admin', 'Owner', 'Reader', 'Colaborador']);
 
-        const cacheKey = `intelligence:chargeback:${tenantId}:${subscriptionId}:${tagKey}`;
+        // El proveedor entra en la clave: un tenant que migra de nube no puede
+        // seguir leyendo el reparto de la anterior.
+        const isAws = await tenantUsesAws(tenantId);
+        const cacheKey = `intelligence:chargeback:v2:${isAws ? 'aws' : 'azure'}:${tenantId}:${subscriptionId}:${tagKey}`;
+
+        // `isAwsMockTenant` y no `isMockTenant`: el despachador de mocks no
+        // devuelve null para una ruta sin case sino un payload generico, asi
+        // que abrirlo a los tenants de demo Azure les romperia la pantalla.
+        if (isAwsMockTenant(tenantId)) {
+            const mock = getMockDataForRoute('chargeback', tenantId);
+            if (mock) return NextResponse.json(mock);
+        }
+
+        if (isAws) {
+            const awsData = await getWithStaleWhileRevalidate(
+                cacheKey, () => getAwsChargeback(tenantId, subscriptionId, tagKey), 3600);
+            return NextResponse.json({ data: awsData.aggregated, detailed: awsData.detailedCosts });
+        }
 
         const chargebackData = await getWithStaleWhileRevalidate(cacheKey, async () => {
             let credential;
@@ -159,4 +180,71 @@ export async function GET(request: NextRequest) {
         console.error("Chargeback Fetch Error:", error);
         return serverError(error, { message: "Fallo al obtener información de chargeback.", status: 500 });
     }
+}
+
+/**
+ * Reparto de costos de un tenant AWS.
+ *
+ * Sale de `CostSnapshots`, que desde la migracion de asignacion
+ * (20260728-001) guarda el costo separado por etiqueta. No se usa
+ * `ce:GetCostAndUsage` con `GroupBy` de tipo TAG por dos razones: Cost Explorer
+ * factura por consulta, y sobre una serie ya ingestada el resultado es el
+ * mismo. Ademas, el agrupamiento por etiqueta de Cost Explorer solo funciona
+ * con las etiquetas activadas como *cost allocation tags* en la consola, un
+ * paso que el cliente puede no haber hecho.
+ *
+ * La semantica de las columnas cambia respecto de Azure: `resourceGroup` es la
+ * REGION (convencion del sync AWS) y `subscriptionId` es el ID de cuenta.
+ */
+async function getAwsChargeback(tenantId: string, accountId: string, tagKey: string) {
+    // El nombre de la etiqueta se interpola en un JSON path, asi que no puede
+    // venir libre del cliente: se valida contra el catalogo de etiquetas de
+    // asignacion. Sin esto seria una inyeccion en la expresion JSON.
+    const safeTagKey = (ALLOCATION_TAG_KEYS as readonly string[]).includes(tagKey)
+        ? tagKey
+        : 'CostCenter';
+
+    const filterAccount = accountId && accountId !== 'All';
+    const [rows] = await pool.query(
+        `SELECT COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(Tags, ?)), 'null'), '') AS tagValue,
+                DATE(COALESCE(ChargePeriodStart, date)) AS usageDate,
+                resource_group AS region,
+                service_name AS serviceName,
+                SUM(COALESCE(EffectiveCost, cost_usd, 0)) AS cost
+           FROM CostSnapshots
+          WHERE tenant_id = ?
+            AND DATE(COALESCE(ChargePeriodStart, date)) >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+            ${filterAccount ? 'AND subscription_id = ?' : ''}
+          GROUP BY tagValue, usageDate, region, serviceName
+          ORDER BY cost DESC`,
+        filterAccount ? [`$.${safeTagKey}`, tenantId, accountId] : [`$.${safeTagKey}`, tenantId]
+    );
+
+    const chargebackMap: Record<string, number> = {};
+    const detailedCosts: Array<Record<string, unknown>> = [];
+
+    for (const r of (Array.isArray(rows) ? rows : []) as Array<Record<string, unknown>>) {
+        const cost = Number(r.cost) || 0;
+        const raw = String(r.tagValue ?? '').trim();
+        const tagValue = raw === '' ? 'Sin Etiquetar / Untagged' : raw;
+
+        chargebackMap[tagValue] = (chargebackMap[tagValue] || 0) + cost;
+        detailedCosts.push({
+            cost,
+            date: r.usageDate,
+            // La UI rotula esta columna segun el proveedor: en AWS es la region.
+            resourceGroup: r.region || 'Desconocido',
+            // AWS no tiene el concepto de ChargeType de Azure; lo mas cercano
+            // y util para repartir es el servicio que genero el cargo.
+            chargeType: r.serviceName || 'Desconocido',
+            costCenter: tagValue,
+        });
+    }
+
+    const aggregated = Object.keys(chargebackMap).map((k) => ({
+        name: k,
+        value: Number(chargebackMap[k].toFixed(2)),
+    }));
+
+    return { aggregated, detailedCosts };
 }

@@ -10,6 +10,7 @@ import { useTranslations } from 'next-intl';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { calculateChargeback, CostEntry, AllocationRule } from '@/services/allocationService';
 import Pagination, { usePagination } from '@/components/Pagination';
+import { useProviderTranslations } from "@/lib/useProviderTranslations";
 
 const COLORS = ['#0054A6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#64748b'];
 
@@ -17,7 +18,7 @@ export default function ChargebackPage() {
     const { selectedTenant } = useTenant();
     const { selectedSubscription, loading: loadingSubs } = useSubscription();
     const { instance, accounts } = useMsal();
-    const t = useTranslations('Chargeback');
+    const t = useProviderTranslations('Chargeback');
     const tc = useTranslations('Common');
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState<{name: string, value: number}[]>([]);

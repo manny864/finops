@@ -830,7 +830,9 @@
         "enter_tag": "Você deve inserir um nome de tag válido.",
         "showback_success": "Dados de Showback calculados com sucesso.",
         "error_unknown": "Erro desconhecido",
-        "error_fetching": "Erro ao obter dados de chargeback."
+        "error_fetching": "Erro ao obter dados de chargeback.",
+        "no_costs_desc_aws": "Nenhum dado de consumo registrado nos últimos 30 dias para esta conta.",
+        "select_sub_aws": "Selecione uma conta na barra superior."
     },
     "Rates": {
         "title": "Otimização de Tarifas (Reservas)",
@@ -1897,7 +1899,8 @@
         "cancelTooltip": "Cancelar",
         "invalidBudget": "Informe um orçamento válido (>= 0).",
         "saveError": "Falha ao salvar",
-        "saveSuccess": "Orçamento atualizado."
+        "saveSuccess": "Orçamento atualizado.",
+        "groupedByTagPrefix_aws": "Agrupado pela tag da AWS"
     },
     "IntelligenceHybridBenefit": {
         "title": "Scanner do Azure Hybrid Benefit",
@@ -2368,7 +2371,8 @@
         "newCostCenter": "Novo Centro",
         "notSum100Error": "O recurso {name} não soma 100% ({pct}%)",
         "saveFailed": "Falha ao salvar regras",
-        "saveSuccess": "Regras de alocação salvas com sucesso"
+        "saveSuccess": "Regras de alocação salvas com sucesso",
+        "description_aws": "Divida os custos de recursos compartilhados (Direct Connect, Amazon EKS, CloudWatch) proporcionalmente entre os centros de custo."
     },
     "AdminOnboarding": {
         "notLoggedIn": "Sessão não iniciada",
