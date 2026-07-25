@@ -240,3 +240,23 @@ describe('integración con los tenants de demo', () => {
         }
     });
 });
+
+describe('captured_savings (AWS)', () => {
+    it('devuelve una serie de 6 meses con datos AWS', () => {
+        const r = getAwsMockDataForRoute('captured_savings', 'business') as any;
+        expect(r).not.toBeNull();
+        expect(r.provider).toBe('AWS');
+        expect(r.history).toHaveLength(6);
+        expect(r.current.potentialSavings).toBeGreaterThan(0);
+        // El ahorro capturado nunca puede superar al desperdicio total.
+        for (const p of r.history) {
+            expect(p.potentialSavings).toBeLessThan(p.totalWasted);
+        }
+    });
+
+    it('escala con el tier', () => {
+        const ess = getAwsMockDataForRoute('captured_savings', 'essential') as any;
+        const ent = getAwsMockDataForRoute('captured_savings', 'enterprise') as any;
+        expect(ent.current.potentialSavings).toBeGreaterThan(ess.current.potentialSavings);
+    });
+});

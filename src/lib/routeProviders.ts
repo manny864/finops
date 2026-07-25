@@ -65,6 +65,11 @@ const AGNOSTIC_ROUTES: readonly string[] = [
     "/intelligence/cost-by-category",
     "/intelligence/cost-groups",
     "/intelligence/simulator",
+
+    // Lee `DailySnapshots` del dominio 'dashboard_summary', que se escribe
+    // desde /api/dashboard/summary — ya parametrizada por proveedor. La serie
+    // de ahorro capturado se arma con los mismos snapshots para las dos nubes.
+    "/overview/captured-savings",
 ];
 
 /** Rutas que sólo tienen sentido con AWS conectado. */

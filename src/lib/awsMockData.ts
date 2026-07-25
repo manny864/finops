@@ -293,6 +293,37 @@ export function getAwsMockDataForRoute(route: string, tier: string): Record<stri
             };
         }
 
+        case 'captured_savings': {
+            // Misma forma que el dataset de Azure: la pagina de Ahorro
+            // Capturado es agnostica y grafica la serie de DailySnapshots.
+            const monthLabel = (offset: number) => {
+                const d = new Date();
+                d.setUTCDate(1);
+                d.setUTCMonth(d.getUTCMonth() - offset);
+                return d.toISOString().slice(0, 10);
+            };
+            const history = Array.from({ length: 6 }).map((_, i) => {
+                const potentialSavings = round2(total * 0.22 * (0.7 + i * 0.08));
+                return {
+                    date: monthLabel(5 - i),
+                    totalWasted: round2(potentialSavings * 2.3),
+                    potentialSavings,
+                };
+            });
+            const latest = history[history.length - 1];
+            const previous = history[history.length - 2];
+            return {
+                ...base,
+                history,
+                current: {
+                    potentialSavings: latest.potentialSavings,
+                    totalWasted: latest.totalWasted,
+                    date: latest.date,
+                },
+                changePct: round2(((latest.potentialSavings - previous.potentialSavings) / previous.potentialSavings) * 100),
+            };
+        }
+
         case 'cost-by-category': {
             // Se agregan los servicios AWS en las mismas categorías FinOps que
             // usa la vista de Azure, para que el gráfico sea comparable.
