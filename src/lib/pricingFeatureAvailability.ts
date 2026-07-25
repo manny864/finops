@@ -23,7 +23,10 @@ export const AWS_AVAILABLE_FEATURES: Record<string, readonly number[]> = {
     // 15 usuarios y config · 16 multi-moneda · 17 soporte. Queda afuera todo lo
     // que necesita inventario de recursos (zombies, etiquetas, costo cero) o
     // Azure Advisor.
-    essential: [0, 1, 4, 10, 13, 15, 16, 17],
+    // 9 es Cumplimiento de Etiquetas sin remediacion, que es exactamente lo que
+    // AWS tiene: la Tagging API audita, y escribir etiquetas exigiria permisos
+    // que el rol de solo lectura del onboarding no pide.
+    essential: [0, 1, 4, 9, 10, 13, 15, 16, 17],
 
     // 3 es TOP Gastos: rankea CostSnapshots, asi que sirve para las dos nubes
     // (en AWS agrupa por cuenta y region). 5 es Ahorro Capturado, que lee los

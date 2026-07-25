@@ -4,7 +4,8 @@ import { useTenant } from './TenantProvider';
 import { useSubscription } from './SubscriptionProvider';
 import { useMsal } from '@azure/msal-react';
 import { Info, ShieldAlert, Tag, CheckCircle2, Download } from 'lucide-react';
-import { useTranslations } from 'next-intl';
+import { useProviderTranslations } from '@/lib/useProviderTranslations';
+import { useCloudProvider } from '@/context/ProviderContext';
 import Pagination, { usePagination } from './Pagination';
 import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
@@ -17,7 +18,13 @@ import { csvEscape } from '@/lib/csvExport';
 const AUTO_REFRESH_MS = 60_000;
 
 export default function TagManager() {
-    const t = useTranslations('GovernanceTags');
+    const t = useProviderTranslations('GovernanceTags');
+    const { activeProvider } = useCloudProvider();
+    // AWS no tiene un contenedor equivalente al grupo de recursos, asi que no
+    // hay nada que auditar en ese nivel ni etiquetas que heredar. Tampoco se
+    // ofrece remediacion: exigiria permisos de escritura (`tag:TagResources`),
+    // que el rol de solo lectura del onboarding no pide.
+    const isAws = activeProvider === 'aws';
     const { selectedTenant } = useTenant();
     const { selectedSubscription, subscriptions } = useSubscription();
     const { instance, accounts } = useMsal();
@@ -252,9 +259,9 @@ export default function TagManager() {
                         </div>
                     </div>
 
-                    <div className="w-px h-12 bg-line mx-1" />
+                    {!isAws && <div className="w-px h-12 bg-line mx-1" />}
 
-                    <div className="flex flex-col items-end justify-center">
+                    {!isAws && <div className="flex flex-col items-end justify-center">
                         <span className="text-[11px] font-bold text-grey uppercase tracking-[0.5px]">{t('resourceGroupsLabel')}</span>
                         {isAnalyzing ? (
                             <span className="text-[12px] font-bold text-brand-deep animate-pulse mt-1">{t('analyzing')}</span>
@@ -263,9 +270,9 @@ export default function TagManager() {
                                 {t('violations', { count: resourceGroups.filter(r => !r.isCompliant).length })}
                             </span>
                         )}
-                    </div>
+                    </div>}
 
-                    <div className="relative flex items-center justify-center">
+                    {!isAws && <div className="relative flex items-center justify-center">
                         <svg className="w-16 h-16 transform -rotate-90">
                             <circle
                                 cx="32"
@@ -305,7 +312,7 @@ export default function TagManager() {
                                 {rgComplianceScore === null ? '-' : `${rgComplianceScore}%`}
                             </span>
                         </div>
-                    </div>
+                    </div>}
                 </div>
             </div>
 
@@ -411,7 +418,7 @@ export default function TagManager() {
                                                 </div>
                                             </td>
                                             <td className="num">
-                                                {!item.isCompliant && (
+                                                {!item.isCompliant && !isAws && (
                                                     <FeatureGuard requiredTier="Business" featureName={t('remediateFeatureName')} className="inline-block">
                                                         <button
                                                             onClick={() => {
@@ -444,8 +451,15 @@ export default function TagManager() {
                 )}
             </div>
 
-            {/* Auditoría de Grupos de Recursos */}
-            <div className="card overflow-hidden mt-6">
+            {isAws && (
+                <div className="mt-3 flex items-start gap-2 text-[12px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                    <span>{t('awsReadOnlyNotice')}</span>
+                </div>
+            )}
+
+            {/* Auditoría de Grupos de Recursos — no aplica en AWS */}
+            {!isAws && <div className="card overflow-hidden mt-6">
                 <div className="card-h flex justify-between items-center">
                     <h3 className="m-0">{t('rgAuditTitle')}</h3>
                     {isAnalyzing && <span className="text-[11px] font-bold text-brand-deep animate-pulse">{t('scanningGroups')}</span>}
@@ -545,7 +559,7 @@ export default function TagManager() {
                         </div>
                     </div>
                 )}
-            </div>
+            </div>}
 
             {/* Modal de Edición de Etiquetas */}
             {editingResource && (

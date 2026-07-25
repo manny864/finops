@@ -107,6 +107,11 @@ const AGNOSTIC_ROUTES: readonly string[] = [
     // y volumenes EBS sin adjuntar). El almacenamiento queda fuera: el rol de
     // onboarding no concede s3:ListAllMyBuckets y pedirlo solo para estimar
     // GB seria desproporcionado.
+    // Gobernanza de etiquetas. En AWS es una auditoria de solo lectura: no hay
+    // contenedor del que heredar etiquetas ni permisos para escribirlas, asi
+    // que la pagina oculta el bloque de grupos de recursos, el panel de
+    // herencia y el boton de remediacion.
+    "/governance/tags",
     "/overview/resources",
     "/overview/sustainability",
 

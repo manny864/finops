@@ -4455,7 +4455,14 @@
     "csvColResourceGroup": "Resource Group",
     "csvColRegion": "Region",
     "csvColComplianceStatus": "Compliance Status",
-    "csvColMissingTags": "Missing Tags"
+    "csvColMissingTags": "Missing Tags",
+    "subtitle_aws": "Audit tag compliance for the tenant account:",
+    "colSubscription_aws": "Account",
+    "colResourceGroup_aws": "Region",
+    "csvColSubscription_aws": "Account",
+    "csvColResourceGroup_aws": "Region",
+    "noResourceTagsBody_aws": "The inventory only includes resources with at least one tag: a resource with none will not show up in this audit. Tag it so it is included in the analysis.",
+    "awsReadOnlyNotice": "Read-only audit: the onboarding role does not request permissions to write tags, so remediation is done from the AWS console or from your infrastructure-as-code tooling."
   },
   "TierLockedNotice": {
     "featureLockedTitle": "{feature} is on the {tier} plan",

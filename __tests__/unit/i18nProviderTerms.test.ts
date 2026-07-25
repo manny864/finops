@@ -150,6 +150,32 @@ const AZURE_ONLY_FINDING_KEYS: Record<string, string> = {
     'Zombies.issues.emptyRgs': 'unattachedVolumes|unattachedPublicIps|oldSnapshots|longStoppedInstances',
 };
 
+/**
+ * Claves cuya UI **no se renderiza** cuando el proveedor activo es AWS.
+ *
+ * Distinto de una variante `_aws`: aca no hace falta traducir el termino, hace
+ * falta que el bloque entero desaparezca. En AWS no existe un contenedor
+ * equivalente al grupo de recursos, asi que auditar su etiquetado o heredar
+ * etiquetas desde el no significa nada; y la remediacion exigiria permisos de
+ * escritura que el rol de solo lectura del onboarding no pide.
+ *
+ * Para que esto no sea una forma de silenciar el test, el caso siguiente
+ * verifica en el componente que el bloque este efectivamente condicionado.
+ */
+const AZURE_ONLY_UI_KEYS: Record<string, string> = {
+    'GovernanceTags.resourceGroupsLabel': 'KPI de grupos de recursos',
+    'GovernanceTags.rgAuditTitle': 'card de auditoria de grupos de recursos',
+    'GovernanceTags.noRgTitle': 'idem',
+    'GovernanceTags.noRgBody': 'idem',
+    'GovernanceTags.csvScopeRg': 'columna del CSV: en AWS la lista de grupos va vacia',
+    'GovernanceTags.modalTitleRg': 'modal de remediacion',
+    'GovernanceTags.modalTitleResource': 'idem',
+    'GovernanceTags.applyingInAzure': 'idem',
+    'GovernanceTags.applyToAzure': 'idem',
+    'GovernanceTags.applySuccess': 'idem',
+    'GovernanceTags.applyError': 'idem',
+};
+
 const AZURE_ONLY_TERMS = [
     'AKS', 'AHB', 'Azure', 'Microsoft',
     'Suscripción', 'Suscripciones', 'Subscription', 'Subscriptions', 'Assinatura', 'Assinaturas',
@@ -213,6 +239,7 @@ describe('i18n - variantes por proveedor', () => {
                     if (flat[`${key}_aws`] !== undefined) continue;
                     if (PLATFORM_AUTH_KEYS.includes(key)) continue;
                     if (key in AZURE_ONLY_FINDING_KEYS) continue;
+                    if (key in AZURE_ONLY_UI_KEYS) continue;
                     // Enumeracion multi-cloud ("Azure, AWS o GCP"): el texto ya
                     // le habla al tenant AWS, nombrar Azure ahi es correcto y
                     // pedirle una variante _aws seria empeorarlo.
@@ -222,6 +249,23 @@ describe('i18n - variantes por proveedor', () => {
             }
         }
         expect(offenders, offenders.join('\n')).toEqual([]);
+    });
+
+    it('los bloques exentos de GovernanceTags siguen ocultos para AWS', () => {
+        // Sin esto, AZURE_ONLY_UI_KEYS seria una via para silenciar el test: si
+        // alguien quitara el condicional, el tenant AWS volveria a ver un panel
+        // de grupos de recursos vacio y un boton de remediacion que no puede
+        // funcionar, y nadie se enteraria.
+        const manager = fs.readFileSync(path.join(SRC, 'components', 'TagManager.tsx'), 'utf-8');
+        expect(manager).toContain("const isAws = activeProvider === 'aws'");
+        // El KPI, la card de auditoria de grupos y el boton de remediacion.
+        expect(manager).toContain("{!isAws && <div className=\"flex flex-col items-end justify-center\">");
+        expect(manager).toContain('{!isAws && <div className="card overflow-hidden mt-6">');
+        expect(manager).toContain('{!item.isCompliant && !isAws && (');
+
+        const inheritance = fs.readFileSync(
+            path.join(SRC, 'components', 'dashboard', 'TagInheritancePanel.tsx'), 'utf-8');
+        expect(inheritance).toContain('if (activeProvider === "aws") return null;');
     });
 
     it('las rutas cubiertas por este test siguen habilitadas para AWS', () => {

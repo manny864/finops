@@ -4455,7 +4455,14 @@
     "csvColResourceGroup": "Grupo de Recursos",
     "csvColRegion": "Region",
     "csvColComplianceStatus": "Estado de Cumplimiento",
-    "csvColMissingTags": "Etiquetas Faltantes"
+    "csvColMissingTags": "Etiquetas Faltantes",
+    "subtitle_aws": "Audita el cumplimiento de etiquetas de la cuenta del tenant:",
+    "colSubscription_aws": "Cuenta",
+    "colResourceGroup_aws": "Región",
+    "csvColSubscription_aws": "Cuenta",
+    "csvColResourceGroup_aws": "Region",
+    "noResourceTagsBody_aws": "El inventario solo incluye recursos con al menos una etiqueta: un recurso sin ninguna no aparece en esta auditoria. Etiquetalo para que entre en el analisis.",
+    "awsReadOnlyNotice": "Auditoria de solo lectura: el rol del onboarding no pide permisos para escribir etiquetas, asi que la correccion se hace desde la consola de AWS o desde tu herramienta de infraestructura como codigo."
   },
   "TierLockedNotice": {
     "featureLockedTitle": "{feature} está en el plan {tier}",

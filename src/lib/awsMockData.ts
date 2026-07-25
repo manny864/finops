@@ -534,6 +534,36 @@ export function getAwsMockDataForRoute(route: string, tier: string): Record<stri
     const base = { success: true, mock: true, provider: 'AWS' as const, currency: 'USD' };
 
     switch (route) {
+        case 'tags_compliance': {
+            const cuenta = '123456789012';
+            const rec = (arn: string, name: string, missing: string[], region: string) => ({
+                resourceId: arn, id: arn, name,
+                type: `aws.${arn.split(':')[2]}/${arn.split(':')[5].split('/')[0]}`,
+                subscriptionId: cuenta, resourceGroup: region, location: region,
+                reason: missing.length === 0 ? 'Cumple con las políticas' : `Faltan etiquetas obligatorias: ${missing.join(', ')}`,
+                missingTags: missing, isCompliant: missing.length === 0,
+            });
+            const allResources = [
+                rec(`arn:aws:ec2:us-east-1:${cuenta}:instance/i-0a1b2c3d`, 'web-01', [], 'us-east-1'),
+                rec(`arn:aws:ec2:us-east-1:${cuenta}:instance/i-0e4f5a6b`, 'web-02', ['Owner'], 'us-east-1'),
+                rec(`arn:aws:rds:eu-west-1:${cuenta}:db/pedidos-prod`, 'pedidos-prod', [], 'eu-west-1'),
+                rec(`arn:aws:s3:::datos-historicos`, 'datos-historicos', ['Environment', 'CostCenter'], 'global'),
+                rec(`arn:aws:ec2:us-west-2:${cuenta}:volume/vol-0c7d8e9f`, 'vol-datos-01', ['CostCenter'], 'us-west-2'),
+            ];
+            const cumplen = allResources.filter(r => r.isCompliant).length;
+            return {
+                success: true,
+                provider: 'AWS',
+                data: {
+                    complianceScore: Math.round((cumplen / allResources.length) * 100),
+                    allResources,
+                    // AWS no tiene un contenedor equivalente al grupo de
+                    // recursos: el bloque se oculta en vez de informar 100%.
+                    rgComplianceScore: null,
+                    resourceGroups: [],
+                },
+            };
+        }
         case 'resources_search': {
             // Recursos AWS reales: ARNs, tipos de servicio y regiones. La
             // columna de grupo de recursos transporta la region, que es la

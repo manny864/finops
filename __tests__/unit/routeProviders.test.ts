@@ -42,10 +42,18 @@ describe("routeProviders", () => {
     });
 
     it("las páginas Azure puras siguen ocultas para AWS", () => {
-        for (const route of ["/governance/tags", "/intelligence/aks"]) {
+        for (const route of ["/governance/policies", "/intelligence/aks"]) {
             expect(isRouteAvailableForProvider(route, "aws")).toBe(false);
             expect(isRouteAvailableForProvider(route, "azure")).toBe(true);
         }
+    });
+
+    it("la gobernanza de etiquetas sirve a ambos proveedores", () => {
+        // En AWS es solo auditoria: la pagina oculta el bloque de grupos de
+        // recursos, el panel de herencia y la remediacion, porque ninguno tiene
+        // equivalente ni permisos en el rol de solo lectura del onboarding.
+        expect(isRouteAvailableForProvider("/governance/tags", "aws")).toBe(true);
+        expect(isRouteAvailableForProvider("/governance/tags", "azure")).toBe(true);
     });
 
     it("el inventario de recursos sirve a ambos proveedores", () => {
