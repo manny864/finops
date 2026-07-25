@@ -68,3 +68,24 @@ describe("routeProviders", () => {
         expect(isRouteAvailableForProvider("/intelligence/hybrid-benefit", "aws")).toBe(false);
     });
 });
+
+describe('paginas habilitadas en la Fase 7', () => {
+    // El WhiteBoard es la landing post-login (src/app/[locale]/page.tsx). Si
+    // deja de estar disponible para AWS, el tenant aterriza en una pagina que
+    // su propio menu no lista y que ahora ademas bloquea RouteTierGate.
+    it('el WhiteBoard esta disponible para AWS por ser la landing post-login', () => {
+        expect(isRouteAvailableForProvider('/overview/whiteboard', 'aws')).toBe(true);
+        expect(isRouteAvailableForProvider('/overview/whiteboard', 'azure')).toBe(true);
+    });
+
+    it('TOP Gastos esta disponible para las dos nubes', () => {
+        expect(isRouteAvailableForProvider('/overview/top-expenses', 'aws')).toBe(true);
+        expect(isRouteAvailableForProvider('/overview/top-expenses', 'azure')).toBe(true);
+    });
+
+    // Dependen de Azure Advisor, que no tiene ingesta equivalente en AWS todavia.
+    it('las paginas que dependen de Azure Advisor siguen siendo azure-only', () => {
+        expect(isRouteAvailableForProvider('/intelligence/history', 'aws')).toBe(false);
+        expect(isRouteAvailableForProvider('/advisor', 'aws')).toBe(false);
+    });
+});

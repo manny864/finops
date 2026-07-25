@@ -4814,5 +4814,10 @@
     "signupSuccess": "Listo. Te enviamos un email para verificar tu dirección.",
     "signupError": "No pudimos crear la cuenta. Revisá los datos e intentá de nuevo.",
     "loading": "Procesando..."
+  },
+  "ProviderGate": {
+    "title": "Función no disponible para {provider}",
+    "description": "Esta página todavía no tiene equivalente para {provider}: depende de datos que solo entrega Azure.",
+    "hint": "Si su organización también tiene Azure, cambie de proveedor con el selector de la barra superior."
   }
 }

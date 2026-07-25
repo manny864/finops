@@ -6,6 +6,10 @@ import { useTenant } from './TenantProvider';
 import { hasAccess } from '@/lib/tierLogic';
 import { getRequiredTierForPath, stripLocale } from '@/lib/routeTiers';
 import { getTagsForRoute, hasAnyTag, ROLE_TAG_META } from '@/lib/pageRoleTags';
+import { isRouteAvailableForProvider } from '@/lib/routeProviders';
+import { useCloudProvider } from '@/context/ProviderContext';
+import { useTranslations } from 'next-intl';
+import { CloudOff } from 'lucide-react';
 import TierLockedNotice from './TierLockedNotice';
 
 // Rutas siempre accesibles con cualquier combinación de rol/permisos
@@ -27,11 +31,20 @@ const ALWAYS_VISIBLE_ROUTES = ['/', '/support', '/academy'];
 export default function RouteTierGate({ children }: { children: React.ReactNode }) {
     const pathname = usePathname() || '/';
     const { selectedTenant, systemRole, userRole, userPermissions } = useTenant();
+    const { activeProvider } = useCloudProvider();
 
     const requiredTier = getRequiredTierForPath(pathname);
     const currentTier = (selectedTenant as any)?.tier || 'Essential';
 
     if (systemRole === 'SUPERADMIN') return <>{children}</>;
+
+    // Gate por proveedor. Antes esto solo filtraba el Sidebar, asi que una
+    // pagina Azure-only seguia renderizando si se llegaba por URL directa o por
+    // un redirect: el panel intentaba pedir datos de Azure con un tenant AWS y
+    // mostraba un error crudo en vez de una explicacion.
+    if (!isRouteAvailableForProvider(stripLocale(pathname), activeProvider)) {
+        return <ProviderBlocked provider={activeProvider} />;
+    }
 
     if (requiredTier && !hasAccess(currentTier, requiredTier)) {
         return <TierBlocked requiredTier={requiredTier} currentTier={currentTier} />;
@@ -48,6 +61,30 @@ export default function RouteTierGate({ children }: { children: React.ReactNode 
     }
 
     return <>{children}</>;
+}
+
+function ProviderBlocked({ provider }: { provider: string }) {
+    const t = useTranslations('ProviderGate');
+    return (
+        <div className="content animate-in fade-in">
+            <div className="max-w-2xl mx-auto mt-10 bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-900/40 rounded-2xl p-8 shadow-sm">
+                <div className="flex items-start gap-4">
+                    <div className="p-3 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400">
+                        <CloudOff className="w-6 h-6" />
+                    </div>
+                    <div className="flex-1">
+                        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-1">
+                            {t('title', { provider: provider.toUpperCase() })}
+                        </h2>
+                        <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">
+                            {t('description', { provider: provider.toUpperCase() })}
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-500">{t('hint')}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
 }
 
 function TierBlocked({ requiredTier, currentTier }: { requiredTier: string; currentTier: string }) {

@@ -4814,5 +4814,10 @@
     "signupSuccess": "Done. We sent you an email to verify your address.",
     "signupError": "We could not create the account. Check the details and try again.",
     "loading": "Processing..."
+  },
+  "ProviderGate": {
+    "title": "Feature not available for {provider}",
+    "description": "This page has no {provider} equivalent yet: it relies on data that only Azure provides.",
+    "hint": "If your organization also has Azure, switch providers using the selector in the top bar."
   }
 }
