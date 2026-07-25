@@ -628,7 +628,49 @@ Se você tem apenas um provedor, o seletor não é exibido — não haveria o qu
 
 > **Importante:** o menu lateral muda conforme o provedor ativo. Muitas páginas são específicas do Azure (AKS, Hybrid Benefit, Azure Policies, Defender for Cloud etc.) e não aparecem com a AWS ativa. É intencional: preferimos não mostrar uma página que não funcionaria com seus dados.
 
-### 13.4. O que acontece com seus dados se você mudar para um plano menor
+### 13.4. Conectar sua conta da AWS
+
+Em **Administração → Contas Cloud** você cadastra cada conta AWS que deseja
+monitorar. O cadastro tem duas etapas:
+
+1. **Informe os dados da conta**: o ID de 12 dígitos, o ARN da função que você
+   vai criar e um apelido para reconhecê-la. Se você tem um **CUR** (Cost & Usage
+   Report) configurado, informe também o bucket, o prefixo e o nome do relatório
+   — com CUR você obtém detalhe por recurso; sem ele usamos o Cost Explorer, que
+   dá detalhe por serviço e região.
+2. **Crie a função na sua conta AWS** com o modelo que exibimos. Escolha o
+   formato que você já usa: **CloudFormation**, **Terraform** ou comandos da
+   **AWS CLI**. O botão *Copiar* leva o conteúdo para a área de transferência.
+
+Depois disso, use **Testar conexão** para validar que a função funciona sem
+esperar a primeira sincronização.
+
+#### Por que o modelo pede tão poucas permissões
+
+O modelo concede **apenas quatro ações**, e as permissões de S3 ficam restritas
+exclusivamente ao bucket onde está o seu CUR:
+
+| Permissão | Para que usamos |
+|---|---|
+| `sts:AssumeRole` | Assumir a função que você criou, sem chaves permanentes |
+| `ce:GetCostAndUsage` | Ler seus custos diários por serviço e região |
+| `ec2:DescribeInstances` | Ver o inventário de instâncias para as recomendações |
+| `s3:GetObject`, `s3:ListBucket` | Ler os arquivos do seu CUR, **somente nesse bucket** |
+
+Não pedimos políticas gerenciadas amplas como `AmazonS3ReadOnlyAccess`, que
+daria leitura de **todos** os buckets da sua conta quando precisamos de apenas
+um. Se sua área de segurança revisar a função, encontrará exatamente estas
+quatro ações e nada mais.
+
+#### O ExternalId
+
+Ao cadastrar a conta geramos um **ExternalId**: um valor secreto incluído na
+condição de confiança da função, que evita o ataque conhecido como *confused
+deputy* — alguém adivinhar o ARN da sua função e conseguir que a assumamos em seu
+nome. O modelo já o inclui; se você perder a tela, pode gerá-lo novamente a
+partir da mesma conta, sem excluí-la nem recriá-la.
+
+### 13.5. O que acontece com seus dados se você mudar para um plano menor
 
 Se você está no Enterprise com **os dois provedores** e desce de plano, perde o direito ao multi-cloud. **Nada é apagado nesse momento.** O que acontece é:
 

@@ -667,6 +667,31 @@ The panel was born 100% Azure and most pages end up calling Azure Resource Manag
 
 It is deliberately restrictive: if someone adds a new page and forgets to classify it, it stays **hidden** for AWS instead of appearing broken. As pages get parameterized, they are added to that list.
 
+**Cost by category**, **cost groups** and the **simulator** are already enabled for AWS, because they read from platform-owned tables that the AWS sync also populates. The remaining cost pages are being migrated with the same pattern: the route asks which provider the tenant uses and, when it is not Azure, skips the live Azure Cost Management call and reads straight from the database.
+
+### 13.7. AWS account onboarding: permissions and requirements
+
+The account onboarding screen generates a **least-privilege** template (CloudFormation, Terraform or AWS CLI) containing the **four** actions the platform actually invokes: `sts:AssumeRole`, `ce:GetCostAndUsage`, `ec2:DescribeInstances` and `s3:GetObject`/`s3:ListBucket` scoped to the customer's CUR bucket.
+
+Previously we suggested the managed policies `job-function/Billing`, `AmazonEC2ReadOnlyAccess` and `AmazonS3ReadOnlyAccess`. The latter grants read access to **every** bucket in the customer's account, which is disproportionate for reading a cost report and is routinely rejected by demanding security teams.
+
+> **Deployment requirement:** without the `AWS_PLATFORM_ACCOUNT_ID` variable (the 12-digit ID of our AWS account), the template endpoint returns **503 on purpose**. The fail-closed behaviour is deliberate: issuing a template with the wrong account ID would have the customer grant access to their billing data to an account that is not ours.
+
+When new capabilities require additional permissions (Cost Optimization Hub, AWS-native forecasting, and so on), they must be added to the template **at that time**, not in advance.
+
+### 13.8. Cost Explorer pricing and caching
+
+The AWS Cost Explorer API **charges USD 0.01 per request**, and each pagination page counts as a separate request. Left unchecked, a tenant with several accounts and a self-refreshing dashboard can produce a Cost Explorer bill larger than the savings the tool finds for them.
+
+Reads are therefore cached in Redis per account and date range:
+
+- **24 hours** if the range has already closed (past days do not change, barring billing adjustments).
+- **1 hour** if the range includes the current day, which AWS keeps updating several times a day.
+
+The **Test connection** button bypasses the cache on purpose: its job is to verify the role works *right now*, not to return what was read hours ago. Deleting an account invalidates its cache automatically.
+
+If Redis is unavailable the read still goes to AWS: the cache is never a single point of failure for reading costs.
+
 ---
 
 ## Support and Contact

@@ -667,6 +667,31 @@ O painel nasceu 100% Azure e a maioria das páginas acaba chamando o Azure Resou
 
 É deliberadamente restritivo: se alguém adicionar uma página nova e esquecer de classificá-la, ela fica **oculta** para AWS em vez de aparecer quebrada. À medida que as páginas forem parametrizadas, são adicionadas a essa lista.
 
+Já estão habilitadas para AWS as páginas de **custos por categoria**, **grupos de custo** e o **simulador**, porque leem de tabelas próprias da plataforma que a sincronização da AWS também alimenta. As demais páginas de custos vão sendo migradas com o mesmo padrão: a rota consulta qual provedor o tenant usa e, quando não é Azure, omite a chamada ao vivo ao Azure Cost Management e lê diretamente do banco.
+
+### 13.7. Onboarding de contas AWS: permissões e requisitos
+
+A tela de cadastro de contas gera um modelo de **privilégio mínimo** (CloudFormation, Terraform ou AWS CLI) com as **quatro** ações que a plataforma realmente invoca: `sts:AssumeRole`, `ce:GetCostAndUsage`, `ec2:DescribeInstances` e `s3:GetObject`/`s3:ListBucket` restritas ao bucket do CUR do cliente.
+
+Antes sugeríamos as políticas gerenciadas `job-function/Billing`, `AmazonEC2ReadOnlyAccess` e `AmazonS3ReadOnlyAccess`. Esta última concede leitura de **todos** os buckets da conta do cliente, o que é desproporcional para ler um relatório de custos e costuma ser recusado por áreas de segurança exigentes.
+
+> **Requisito de implantação:** sem a variável `AWS_PLATFORM_ACCOUNT_ID` (o ID de 12 dígitos da nossa conta AWS), o endpoint de modelos devolve **503 de propósito**. O comportamento fail-closed é deliberado: emitir um modelo com o account ID errado faria o cliente conceder acesso aos seus dados de faturamento a uma conta que não é a nossa.
+
+Quando novas capacidades exigirem permissões adicionais (Cost Optimization Hub, previsão nativa da AWS etc.), elas devem ser adicionadas ao modelo **naquele momento**, não antecipadamente.
+
+### 13.8. Custo do Cost Explorer e cache
+
+A API do Cost Explorer da AWS **cobra USD 0,01 por requisição**, e cada página da paginação conta como uma requisição separada. Sem controle, um tenant com várias contas e um painel que atualiza sozinho pode gerar uma fatura de Cost Explorer maior que a economia que a ferramenta encontra.
+
+Por isso as leituras são cacheadas no Redis por conta e intervalo de datas:
+
+- **24 horas** se o intervalo já fechou (dias passados não mudam, salvo ajustes de faturamento).
+- **1 hora** se o intervalo inclui o dia corrente, que a AWS continua atualizando várias vezes ao dia.
+
+O botão **Testar conexão** ignora o cache de propósito: sua função é verificar que a função funciona *agora*, não devolver o que foi lido horas atrás. Ao excluir uma conta, seu cache é invalidado automaticamente.
+
+Se o Redis não estiver disponível, a leitura vai para a AWS mesmo assim: o cache nunca é um ponto único de falha para consultar custos.
+
 ---
 
 ## Suporte e Contato

@@ -628,7 +628,50 @@ Si tenés un solo proveedor, el selector no se muestra — no tendría ninguna o
 
 > **Importante:** el menú lateral cambia según el proveedor activo. Muchas páginas son específicas de Azure (AKS, Hybrid Benefit, Azure Policies, Defender for Cloud, etc.) y no aparecen con AWS activo. Es intencional: preferimos no mostrarte una página que no puede funcionar con tus datos.
 
-### 13.4. Qué pasa con tus datos si bajás de plan
+### 13.4. Conectar tu cuenta de AWS
+
+Desde **Administración → Cuentas Cloud** das de alta cada cuenta de AWS que
+querés monitorear. El alta tiene dos pasos:
+
+1. **Cargás los datos de la cuenta**: el ID de 12 dígitos, el ARN del rol que vas
+   a crear y un alias para reconocerla. Si tenés un **CUR** (Cost & Usage Report)
+   configurado, indicás también su bucket, prefijo y nombre de reporte: con CUR
+   obtenés detalle por recurso; sin CUR trabajamos con Cost Explorer, que da
+   detalle por servicio y región.
+2. **Creás el rol en tu cuenta de AWS** con la plantilla que te mostramos. Podés
+   elegir el formato que uses habitualmente: **CloudFormation**, **Terraform** o
+   comandos de **AWS CLI**. El botón *Copiar* la lleva al portapapeles.
+
+Terminado eso, usá **Probar conexión** para validar que el rol funciona antes de
+esperar al primer sync.
+
+#### Por qué la plantilla pide tan pocos permisos
+
+La plantilla concede **sólo cuatro acciones**, y los permisos sobre S3 quedan
+acotados exclusivamente al bucket donde está tu CUR:
+
+| Permiso | Para qué lo usamos |
+|---|---|
+| `sts:AssumeRole` | Asumir el rol que creaste, sin que nos des claves permanentes |
+| `ce:GetCostAndUsage` | Leer tus costos diarios por servicio y región |
+| `ec2:DescribeInstances` | Ver el inventario de instancias para las recomendaciones |
+| `s3:GetObject`, `s3:ListBucket` | Leer los archivos de tu CUR, **sólo en ese bucket** |
+
+No pedimos políticas administradas amplias como `AmazonS3ReadOnlyAccess`, que
+daría acceso de lectura a **todos** los buckets de tu cuenta cuando lo único que
+necesitamos es uno. Si tu área de seguridad revisa el rol, va a encontrar
+exactamente estas cuatro acciones y nada más.
+
+#### El ExternalId
+
+Al dar de alta la cuenta generamos un **ExternalId**: un valor secreto que se
+incluye en la condición de confianza del rol y evita el ataque conocido como
+*confused deputy* — que un tercero que adivine el ARN de tu rol consiga que lo
+asumamos en su nombre. La plantilla ya lo trae incorporado; si perdés la
+pantalla, podés volver a generarla desde la misma cuenta sin borrarla ni
+recrearla.
+
+### 13.5. Qué pasa con tus datos si bajás de plan
 
 Si tenés Enterprise con **los dos proveedores** y bajás a un plan inferior, perdés el derecho a multi-cloud. **No borramos nada en ese momento.** Lo que ocurre es:
 

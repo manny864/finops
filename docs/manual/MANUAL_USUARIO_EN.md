@@ -628,7 +628,49 @@ If you only have one provider the switch is not rendered — there would be noth
 
 > **Important:** the sidebar changes with the active provider. Many pages are Azure-specific (AKS, Hybrid Benefit, Azure Policies, Defender for Cloud, and so on) and do not appear while AWS is active. This is intentional: we would rather not show you a page that cannot work with your data.
 
-### 13.4. What happens to your data if you downgrade
+### 13.4. Connecting your AWS account
+
+From **Administration → Cloud Accounts** you register each AWS account you want
+to monitor. Onboarding has two steps:
+
+1. **Enter the account details**: the 12-digit ID, the ARN of the role you are
+   about to create, and an alias to recognize it. If you have a **CUR** (Cost &
+   Usage Report) configured, also provide its bucket, prefix and report name —
+   with CUR you get per-resource detail; without it we use Cost Explorer, which
+   gives detail per service and region.
+2. **Create the role in your AWS account** using the template we show you. Pick
+   whichever format you normally use: **CloudFormation**, **Terraform** or **AWS
+   CLI** commands. The *Copy* button puts it on your clipboard.
+
+Once done, use **Test connection** to confirm the role works without waiting for
+the first sync.
+
+#### Why the template asks for so few permissions
+
+The template grants **only four actions**, and the S3 permissions are scoped
+exclusively to the bucket holding your CUR:
+
+| Permission | What we use it for |
+|---|---|
+| `sts:AssumeRole` | Assume the role you created, so you never hand us permanent keys |
+| `ce:GetCostAndUsage` | Read your daily costs by service and region |
+| `ec2:DescribeInstances` | See your instance inventory for recommendations |
+| `s3:GetObject`, `s3:ListBucket` | Read your CUR files, **in that bucket only** |
+
+We do not ask for broad managed policies such as `AmazonS3ReadOnlyAccess`, which
+would grant read access to **every** bucket in your account when we only need
+one. If your security team reviews the role, they will find exactly these four
+actions and nothing else.
+
+#### The ExternalId
+
+When you register the account we generate an **ExternalId**: a secret value
+included in the role's trust condition that prevents the *confused deputy*
+attack — someone guessing your role ARN and getting us to assume it on their
+behalf. The template already includes it; if you lose the screen, you can
+regenerate it from the same account without deleting and recreating it.
+
+### 13.5. What happens to your data if you downgrade
 
 If you are on Enterprise with **both providers** and you move to a lower plan, you lose the multi-cloud entitlement. **Nothing is deleted at that moment.** What happens is:
 
