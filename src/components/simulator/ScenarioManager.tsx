@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
+import { useProviderTranslations } from "@/lib/useProviderTranslations";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
@@ -317,7 +318,7 @@ function comparisonToPdf(scenarios: SavedScenario[]): jsPDF {
 }
 
 export default function ScenarioManager({ currentInputs, currentBaseCost, currency = "USD" }: Props) {
-    const t = useTranslations("Simulator");
+    const t = useProviderTranslations("Simulator");
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
 

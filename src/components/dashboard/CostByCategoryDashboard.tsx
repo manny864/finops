@@ -4,6 +4,7 @@ import useSWR from "swr";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { useTranslations } from "next-intl";
+import { useProviderTranslations } from "@/lib/useProviderTranslations";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { Loader2, AlertCircle, Info, PieChart } from "lucide-react";
@@ -27,7 +28,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 const colorFor = (cat: string) => CATEGORY_COLORS[cat] || "bg-gray-400";
 
 export default function CostByCategoryDashboard() {
-    const t = useTranslations("CostByCategory");
+    const t = useProviderTranslations("CostByCategory");
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const { format } = useCurrency();

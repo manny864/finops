@@ -2,6 +2,7 @@
 import MockBanner from '@/components/MockBanner';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
+import { useProviderTranslations } from "@/lib/useProviderTranslations";
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -13,7 +14,7 @@ import ScenarioManager from '@/components/simulator/ScenarioManager';
 import { isMockTenant } from '@/lib/mockData';
 
 export default function SimulatorPage() {
-    const t = useTranslations('Simulator');
+    const t = useProviderTranslations("Simulator");
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const isEnterprise = hasAccess(selectedTenant.tier || 'Essential', 'Enterprise');
