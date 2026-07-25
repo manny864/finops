@@ -2870,10 +2870,6 @@
     "externalIdLabel": "External ID (necesario para el Trust Policy)",
     "trustPolicyLabel": "Trust Policy para el Role",
     "permissionPoliciesLabel": "Permission Policies a adjuntar",
-    "policyBillingNote": "(Cost Explorer + Budgets)",
-    "policyEc2Note": "(resource discovery)",
-    "policyS3OptionalPrefix": "Opcional:",
-    "policyS3OptionalSuffix": "al bucket de CUR (mejor una policy custom limitada a ese bucket).",
     "closeButton": "Cerrar",
     "errorLoadingAccounts": "Error cargando cuentas AWS",
     "errorRequiredFields": "Account ID, Role ARN y Alias son obligatorios",
@@ -2885,7 +2881,15 @@
     "testFailed": "Test falló",
     "testSuccess": "Test OK: ${amount} en los últimos 7 días ({rows} filas)",
     "syncFailed": "Sync {source} falló",
-    "syncSuccess": "Sync {source} OK: {rows} filas actualizadas"
+    "syncSuccess": "Sync {source} OK: {rows} filas actualizadas",
+    "leastPrivilegeIntro": "Creá el rol con la plantilla de abajo. Otorga sólo las cuatro acciones que la plataforma realmente usa, sin políticas administradas amplias.",
+    "templatesLoading": "Generando plantillas de mínimo privilegio…",
+    "templatesError": "La cuenta se creó, pero no se pudieron generar las plantillas. Podés configurar el rol a mano o volver a abrir esta cuenta más tarde.",
+    "templateTab_cloudFormation": "CloudFormation",
+    "templateTab_terraform": "Terraform",
+    "templateTab_cli": "AWS CLI",
+    "templateCopy": "Copiar",
+    "templateCopied": "Plantilla copiada al portapapeles"
   },
   "AdminCompliance": {
     "pageTitle": "Legal y Compliance",

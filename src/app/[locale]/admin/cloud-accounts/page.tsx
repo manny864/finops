@@ -34,6 +34,14 @@ interface AwsAccount {
   created_at: string;
 }
 
+type TemplateFormat = 'cloudFormation' | 'terraform' | 'cli';
+
+interface AwsOnboardingTemplates {
+  cloudFormation: string;
+  terraform: string;
+  cli: string;
+}
+
 const PLATFORM_AWS_ACCOUNT = process.env.NEXT_PUBLIC_AWS_PLATFORM_ACCOUNT_ID || '<YOUR_PLATFORM_AWS_ACCOUNT_ID>';
 
 export default function CloudAccountsPage() {
@@ -46,6 +54,9 @@ export default function CloudAccountsPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [newExternalId, setNewExternalId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [templates, setTemplates] = useState<AwsOnboardingTemplates | null>(null);
+  const [templateFormat, setTemplateFormat] = useState<TemplateFormat>('cloudFormation');
+  const [templatesError, setTemplatesError] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     accountId: '',
@@ -85,6 +96,35 @@ export default function CloudAccountsPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  /**
+   * Plantillas de minimo privilegio para el rol que el cliente debe crear.
+   * Se piden al servidor en vez de armarlas aca porque incluyen el account id
+   * de la plataforma y el externalId descifrado, que no viven en el cliente.
+   */
+  const loadTemplates = useCallback(async (awsAccountId: string) => {
+    if (!selectedTenant?.id) return;
+    setTemplates(null);
+    setTemplatesError(null);
+    try {
+      const headers = await authHeaders();
+      const res = await fetch('/api/admin/onboarding/aws', {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenantId: selectedTenant.id, awsAccountId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        // La cuenta ya quedo creada: no poder mostrar la plantilla no invalida
+        // el alta, solo obliga a configurar el rol a mano.
+        setTemplatesError(data.error || t('templatesError'));
+        return;
+      }
+      setTemplates({ cloudFormation: data.cloudFormation, terraform: data.terraform, cli: data.cli });
+    } catch {
+      setTemplatesError(t('templatesError'));
+    }
+  }, [selectedTenant, authHeaders, t]);
+
   const handleCreate = useCallback(async () => {
     if (!selectedTenant?.id) return;
     if (!form.accountId || !form.roleArn || !form.alias) {
@@ -113,13 +153,14 @@ export default function CloudAccountsPage() {
         return;
       }
       setNewExternalId(data.externalId);
+      void loadTemplates(data.id);
       toast.success(t('successAccountCreated'));
       setForm({ accountId: '', roleArn: '', alias: '', curBucket: '', curPrefix: '', curReportName: '' });
       await load();
     } finally {
       setBusy(null);
     }
-  }, [selectedTenant, form, authHeaders, load, t]);
+  }, [selectedTenant, form, authHeaders, load, loadTemplates, t]);
 
   const handleTest = useCallback(async (acc: AwsAccount) => {
     if (!selectedTenant?.id) return;
@@ -235,7 +276,7 @@ export default function CloudAccountsPage() {
 
       <div className="mb-6 flex justify-end">
         <button
-          onClick={() => { setShowAddModal(true); setNewExternalId(null); }}
+          onClick={() => { setShowAddModal(true); setNewExternalId(null); setTemplates(null); setTemplatesError(null); }}
           className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 flex items-center"
         >
           <Plus className="h-4 w-4 mr-2" />
@@ -436,15 +477,47 @@ export default function CloudAccountsPage() {
                 </div>
                 <div className="mb-6">
                   <label className="block text-sm font-medium mb-1">{t('permissionPoliciesLabel')}</label>
-                  <ul className="text-sm text-gray-700 list-disc ml-5 space-y-1">
-                    <li><code className="bg-gray-100 px-1 rounded">arn:aws:iam::aws:policy/job-function/Billing</code> {t('policyBillingNote')}</li>
-                    <li><code className="bg-gray-100 px-1 rounded">arn:aws:iam::aws:policy/AmazonEC2ReadOnlyAccess</code> {t('policyEc2Note')}</li>
-                    <li>{t('policyS3OptionalPrefix')} <code className="bg-gray-100 px-1 rounded">AmazonS3ReadOnlyAccess</code> {t('policyS3OptionalSuffix')}</li>
-                  </ul>
+                  <p className="text-sm text-gray-600 mb-3">{t('leastPrivilegeIntro')}</p>
+
+                  {templatesError && (
+                    <div className="bg-red-50 border border-red-200 rounded p-3 text-sm text-red-800">
+                      {templatesError}
+                    </div>
+                  )}
+
+                  {!templates && !templatesError && (
+                    <p className="text-sm text-gray-500">{t('templatesLoading')}</p>
+                  )}
+
+                  {templates && (
+                    <>
+                      <div className="flex gap-2 mb-2" role="tablist">
+                        {(['cloudFormation', 'terraform', 'cli'] as TemplateFormat[]).map((fmt) => (
+                          <button
+                            key={fmt}
+                            role="tab"
+                            aria-selected={templateFormat === fmt}
+                            onClick={() => setTemplateFormat(fmt)}
+                            className={`px-3 py-1 text-sm rounded-md border ${templateFormat === fmt
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+                          >{t(`templateTab_${fmt}`)}</button>
+                        ))}
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(templates[templateFormat]);
+                            toast.success(t('templateCopied'));
+                          }}
+                          className="ml-auto px-3 py-1 text-sm rounded-md border border-gray-300 hover:bg-gray-50 inline-flex items-center gap-1"
+                        ><Copy className="h-4 w-4" /> {t('templateCopy')}</button>
+                      </div>
+                      <pre className="px-3 py-2 bg-gray-900 text-green-200 rounded text-xs overflow-x-auto max-h-72">{templates[templateFormat]}</pre>
+                    </>
+                  )}
                 </div>
                 <div className="flex justify-end">
                   <button
-                    onClick={() => { setShowAddModal(false); setNewExternalId(null); }}
+                    onClick={() => { setShowAddModal(false); setNewExternalId(null); setTemplates(null); setTemplatesError(null); }}
                     className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700"
                   >{t('closeButton')}</button>
                 </div>
