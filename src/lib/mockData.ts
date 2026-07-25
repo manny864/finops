@@ -1031,6 +1031,36 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                     { date: "2026-06-10", forecastCost: 360 * multiplier },
                 ]
             };
+        // Estado de la ventana de gracia del proveedor archivado tras un
+        // downgrade (docs/provider-downgrade-policy.md). Mock por tier:
+        //  - Enterprise: multi-cloud sano, sin nada archivado -> se ve el
+        //    switch AWS/Azure del header y ningun banner.
+        //  - Business: el caso didactico -> es un ex-Enterprise que bajo de
+        //    plan y tiene AWS archivado con la cuenta regresiva corriendo.
+        //  - Professional / Essential: nunca tuvieron multi-cloud.
+        case 'provider_transition': {
+            const t = tier.toLowerCase();
+            if (t === 'enterprise') {
+                return { provider: 'both', tier: 'Enterprise', archived: null };
+            }
+            if (t === 'business') {
+                const purgeAt = new Date(Date.now() + 23 * 86400000);
+                return {
+                    provider: 'azure',
+                    tier: 'Business',
+                    archived: {
+                        provider: 'aws',
+                        retainedProvider: 'azure',
+                        purgeAt: purgeAt.toISOString(),
+                        daysLeft: 23,
+                        archivedAt: new Date(Date.now() - 67 * 86400000).toISOString(),
+                        electionSource: 'auto',
+                        exportable: true,
+                    },
+                };
+            }
+            return { provider: 'azure', tier: tier || 'Essential', archived: null };
+        }
         case 'maturity':
             return {
                 success: true,

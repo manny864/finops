@@ -502,7 +502,8 @@
     "ai_config": "AI Configuration",
     "invoicing_report": "Invoicing Report",
     "notifications": "Notifications",
-    "billing_subscription": "Billing"
+    "billing_subscription": "Billing",
+    "cloud_accounts": "AWS Accounts"
   },
   "Dashboard": {
     "title": "General Dashboard",
@@ -4743,5 +4744,28 @@
       "successTitle": "Account activated",
       "successBody": "You can now sign in. You start with read-only permissions."
     }
+  },
+  "provider": {
+    "switchLabel": "Active cloud provider",
+    "archivedHint": "Archived provider: read-only until purge",
+    "archivedBadge": "Archived",
+    "graceTitle": "Your {provider} data will be deleted in {days} days",
+    "graceBody": "Downgrading from Enterprise keeps a single provider. {retained} is retained and {archived} was archived: you can still browse and export it, but it no longer syncs. It is permanently deleted on {date}.",
+    "exportCta": "Export data",
+    "invertCta": "Keep {provider} instead",
+    "invertConfirm": "Keep {retained} and archive the other provider? The archived data is still deleted on the same date: switching does not reset the countdown.",
+    "dismiss": "Got it",
+    "signupTitle": "Which cloud do you want to analyze?",
+    "signupAzure": "Microsoft Azure",
+    "signupAzureHint": "You sign in with your Microsoft account.",
+    "signupAws": "Amazon Web Services",
+    "signupAwsHint": "AWS has no corporate sign-in: you create an account with email and password.",
+    "signupCompany": "Company name",
+    "signupEmail": "Work email",
+    "signupPassword": "Password (12 characters minimum)",
+    "signupSubmit": "Create account",
+    "signupSuccess": "Done. We sent you an email to verify your address.",
+    "signupError": "We could not create the account. Check the details and try again.",
+    "loading": "Processing..."
   }
 }

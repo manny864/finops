@@ -502,7 +502,8 @@
     "ai_config": "Configuração de IA",
     "invoicing_report": "Relatório de Faturamento",
     "notifications": "Notificações",
-    "billing_subscription": "Faturamento"
+    "billing_subscription": "Faturamento",
+    "cloud_accounts": "Contas AWS"
   },
   "Dashboard": {
     "title": "Dashboard Geral",
@@ -4743,5 +4744,28 @@
       "successTitle": "Conta ativada",
       "successBody": "Agora você pode entrar. Você começa com permissões somente leitura."
     }
+  },
+  "provider": {
+    "switchLabel": "Provedor de nuvem ativo",
+    "archivedHint": "Provedor arquivado: somente leitura até a exclusão",
+    "archivedBadge": "Arquivado",
+    "graceTitle": "Seus dados da {provider} serão excluídos em {days} dias",
+    "graceBody": "Ao sair do plano Enterprise você mantém um único provedor. {retained} foi mantido e {archived} ficou arquivado: você ainda pode consultar e exportar, mas não sincroniza mais. Em {date} os dados são excluídos definitivamente.",
+    "exportCta": "Exportar dados",
+    "invertCta": "Manter {provider} no lugar",
+    "invertConfirm": "Manter {retained} e arquivar o outro provedor? Os dados arquivados são excluídos na mesma data: inverter a escolha não reinicia o prazo.",
+    "dismiss": "Entendi",
+    "signupTitle": "Qual nuvem você quer analisar?",
+    "signupAzure": "Microsoft Azure",
+    "signupAzureHint": "Você entra com sua conta Microsoft.",
+    "signupAws": "Amazon Web Services",
+    "signupAwsHint": "A AWS não tem login corporativo: você cria uma conta com e-mail e senha.",
+    "signupCompany": "Nome da empresa",
+    "signupEmail": "E-mail corporativo",
+    "signupPassword": "Senha (mínimo 12 caracteres)",
+    "signupSubmit": "Criar conta",
+    "signupSuccess": "Pronto. Enviamos um e-mail para verificar seu endereço.",
+    "signupError": "Não foi possível criar a conta. Verifique os dados e tente novamente.",
+    "loading": "Processando..."
   }
 }
