@@ -66,6 +66,11 @@ const AGNOSTIC_ROUTES: readonly string[] = [
     "/intelligence/cost-groups",
     "/intelligence/simulator",
 
+    // Gastos y proyeccion: la serie sale de CostSnapshots, que el sync de AWS
+    // llena por los dos caminos (CUR y Cost Explorer). El backfill contra Azure
+    // se saltea para AWS, que ya trae su propio historico.
+    "/intelligence/cost-projection",
+
     // Asignacion de costos. Se habilitan a partir de la migracion
     // 20260728-001, que agrega la dimension de etiqueta a la clave unica de
     // CostSnapshots: antes el agregado diario colapsaba las filas con distinto

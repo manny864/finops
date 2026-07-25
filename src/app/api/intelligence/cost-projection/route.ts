@@ -25,6 +25,7 @@ import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { redis } from "@/lib/redis";
 import pool from "@/modules/storage/db";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
+import { tenantUsesAws } from "@/lib/tenantProviderContext";
 import { getHistoricalDailyCosts, AZURE_COST_HISTORY_MAX_MONTHS } from "@/modules/collectors/azure/billingService";
 
 type DailyPoint = { date: string; cost: number };
@@ -108,7 +109,13 @@ export async function GET(request: NextRequest) {
             const requiredFrom = new Date();
             requiredFrom.setMonth(requiredFrom.getMonth() - AZURE_COST_HISTORY_MAX_MONTHS);
             const earliestInDb = daily[0]?.date;
-            const needsBackfill = daily.length === 0 || (earliestInDb && new Date(earliestInDb) > requiredFrom);
+            // El backfill es especifico de Azure. En AWS el historico ya entra
+            // por el sync (CUR o Cost Explorer) y llamarlo igual no fallaria
+            // ruidosamente: dejaria backfillOk en false y con eso el TTL en 10
+            // minutos para siempre, reconsultando una serie que no va a cambiar.
+            const isAws = await tenantUsesAws(tenantId);
+            const needsBackfill = !isAws && (daily.length === 0 || (earliestInDb && new Date(earliestInDb) > requiredFrom));
+            if (isAws) backfillOk = daily.length > 0;
             if (needsBackfill) {
                 try {
                     const historical = await getHistoricalDailyCosts(tenantId, subscriptionId, AZURE_COST_HISTORY_MAX_MONTHS);

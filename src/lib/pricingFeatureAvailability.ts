@@ -45,7 +45,9 @@ export const AWS_AVAILABLE_FEATURES: Record<string, readonly number[]> = {
     // colapsaba las filas con distinto centro de costo y en AWS todo el gasto
     // caía en "Sin asignar". Requiere el CUR — el camino de Cost Explorer no
     // trae etiquetas de recurso.
-    enterprise: [0, 1, 2, 9, 10, 11, 16, 21, 24, 25, 26, 27, 28, 29, 31, 33],
+    // 13 es Gastos y Proyeccion: la serie sale de CostSnapshots y en AWS se
+    // saltea el backfill contra Azure, que ya no hace falta.
+    enterprise: [0, 1, 2, 9, 10, 11, 13, 16, 21, 24, 25, 26, 27, 28, 29, 31, 33],
 };
 
 export type PricingCloud = 'azure' | 'aws';

@@ -433,3 +433,33 @@ describe('mocks de asignacion de costos AWS', () => {
         expect(Array.isArray((ar as Record<string, unknown>).data)).toBe(true);
     });
 });
+
+describe('mock de gastos y proyeccion AWS', () => {
+    it('entrega 13 meses de historico escalados al total AWS del tier', () => {
+        const payload = getAwsMockDataForRoute('cost-projection', 'business') as {
+            dailyHistory: Array<{ date: string; cost: number }>;
+            monthlyHistory: Array<{ month: string; cost: number }>;
+        };
+        expect(payload.dailyHistory).toHaveLength(400);
+        // 13 meses: es la ventana que la pagina grafica. Con menos, el selector
+        // de "ultimos 12 meses" quedaria sin datos en el extremo.
+        expect(payload.monthlyHistory.length).toBeGreaterThanOrEqual(13);
+        expect(payload.monthlyHistory).toEqual(
+            [...payload.monthlyHistory].sort((a, b) => a.month.localeCompare(b.month))
+        );
+
+        // El gasto tiene que cerrar contra el total AWS del tier, no contra el
+        // de Azure: si no, la demo se contradice con su propio dashboard.
+        const ultimoMes = payload.monthlyHistory[payload.monthlyHistory.length - 2].cost;
+        const esperado = awsMonthlyTotal(awsMultiplierForTier('business'));
+        expect(ultimoMes).toBeGreaterThan(esperado * 0.5);
+        expect(ultimoMes).toBeLessThan(esperado * 1.6);
+    });
+
+    it('escala con el tier', () => {
+        const suma = (t: string) => (getAwsMockDataForRoute('cost-projection', t) as {
+            dailyHistory: Array<{ cost: number }>;
+        }).dailyHistory.reduce((s, d) => s + d.cost, 0);
+        expect(suma('enterprise')).toBeGreaterThan(suma('essential'));
+    });
+});

@@ -534,6 +534,32 @@ export function getAwsMockDataForRoute(route: string, tier: string): Record<stri
     const base = { success: true, mock: true, provider: 'AWS' as const, currency: 'USD' };
 
     switch (route) {
+        case 'cost-projection': {
+            // 400 dias para que el grafico de proyeccion tenga 13 meses de
+            // historico. Se escala con el total AWS del tier y no con el de
+            // Azure: si no, la demo AWS mostraria una proyeccion que no cierra
+            // contra su propio dashboard.
+            const dailyBase = total / 30.44;
+            const DAYS = 400;
+            const dailyHistory = Array.from({ length: DAYS }).map((_, i) => {
+                const d = new Date(Date.now() - (DAYS - 1 - i) * 86400000);
+                const dow = d.getUTCDay();
+                const weekendFactor = (dow === 0 || dow === 6) ? 0.72 : 1;
+                const trend = 0.85 + 0.3 * (i / (DAYS - 1));
+                const noise = 0.95 + 0.1 * Math.abs(Math.sin(i * 1.3));
+                return { date: d.toISOString().slice(0, 10), cost: round2(dailyBase * trend * weekendFactor * noise) };
+            });
+            const byMonth = new Map<string, number>();
+            for (const { date, cost } of dailyHistory) {
+                const m = date.slice(0, 7);
+                byMonth.set(m, (byMonth.get(m) || 0) + cost);
+            }
+            const monthlyHistory = Array.from(byMonth.entries())
+                .map(([month, cost]) => ({ month, cost: round2(cost) }))
+                .sort((a, b) => a.month.localeCompare(b.month));
+            return { ...base, dailyHistory, monthlyHistory };
+        }
+
         case 'chargeback': {
             const cb = getAwsChargebackMock(tier);
             return { ...base, data: cb.aggregated, detailed: cb.detailed };
