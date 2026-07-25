@@ -3,6 +3,8 @@ import MockBanner from '@/components/MockBanner';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 import { useProviderTranslations } from "@/lib/useProviderTranslations";
+import { useCloudProvider } from "@/context/ProviderContext";
+import { DEFAULT_LICENSE_SAVINGS_PCT } from "@/lib/simulator/engine";
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -23,6 +25,16 @@ export default function SimulatorPage() {
     const [computeScale, setComputeScale] = useState(100);
     const [storageScale, setStorageScale] = useState(100);
     const [applyAhb, setApplyAhb] = useState(false);
+    // El ahorro por licencias es un supuesto explicito y editable: en Azure
+    // arranca en el 18% historico del AHB, en AWS en 0 porque el BYOL depende
+    // del mix Windows/SQL de la flota y no hay un valor plano defendible.
+    const { activeProvider } = useCloudProvider();
+    const defaultLicensePct = DEFAULT_LICENSE_SAVINGS_PCT[activeProvider === 'aws' ? 'aws' : 'azure'];
+    const [licenseSavingsPct, setLicenseSavingsPct] = useState<number>(defaultLicensePct);
+
+    useEffect(() => {
+        setLicenseSavingsPct(defaultLicensePct);
+    }, [defaultLicensePct]);
 
     // Costo Base: se precarga con el gasto real del tenant (GET al mismo
     // endpoint que usa la simulación) pero es editable — el usuario puede
@@ -90,7 +102,8 @@ export default function SimulatorPage() {
                         networkIncrease,
                         computeScale: computeScale / 100,
                         storageScale: storageScale / 100,
-                        applyAhb
+                        applyAhb,
+                        licenseSavingsPct
                     }
                 })
             });
@@ -274,6 +287,30 @@ export default function SimulatorPage() {
                                     <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-500"></div>
                                 </label>
                             </div>
+
+                            {applyAhb && (
+                                <div className="pl-7">
+                                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
+                                        {t('licenseSavingsLabel')}
+                                    </label>
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="number"
+                                            min={0}
+                                            max={100}
+                                            value={licenseSavingsPct}
+                                            onChange={(e) => {
+                                                const v = parseInt(e.target.value, 10);
+                                                setLicenseSavingsPct(Number.isFinite(v) ? Math.min(100, Math.max(0, v)) : 0);
+                                            }}
+                                            className="w-24 px-2 py-1 rounded-md border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm text-gray-900 dark:text-white"
+                                            aria-label={t('licenseSavingsLabel')}
+                                        />
+                                        <span className="text-sm text-gray-500">%</span>
+                                    </div>
+                                    <p className="text-[10px] text-gray-500 mt-1">{t('licenseSavingsHint')}</p>
+                                </div>
+                            )}
 
                             <button
                                 onClick={handleSimulate}

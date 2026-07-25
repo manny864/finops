@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { runScenario, parseInputs } from "@/lib/simulator/engine";
+import { tenantUsesAzure } from "@/lib/tenantProviderContext";
 import { AuthError, requireTenantAccess, requireTenantTier } from "@/lib/requestAuth";
 import { serverError } from '@/lib/apiErrors';
 
@@ -98,7 +99,11 @@ export async function POST(request: NextRequest) {
         }
 
         const inputs = parseInputs(scenario);
-        const simulation = runScenario(baseCost, inputs);
+        // El default de ahorro por licencias difiere entre nubes: AHB en Azure
+        // tiene un valor calibrado, BYOL en AWS no. Un tenant `both` se trata
+        // como Azure, que es su default historico.
+        const simulatorProvider = (await tenantUsesAzure(tenantId)) ? "azure" : "aws";
+        const simulation = runScenario(baseCost, inputs, simulatorProvider);
 
         if (!isMockTenant(tenantId)) {
             await pool.query(

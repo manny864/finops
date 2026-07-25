@@ -29,14 +29,36 @@ describe("simulator engine", () => {
             expect(r.breakdown.network).toBe(300);
         });
 
-        it("applies AHB 18% discount globally", () => {
+        it("aplica el descuento de licencias solo al computo", () => {
+            // AHB cubre licencias de Windows/SQL, que se pagan junto con la
+            // VM. No abarata ni el storage ni el egress: aplicarlo al total
+            // (como se hacia antes) sobreestimaba el ahorro.
             const r = runScenario(1000, { applyAhb: true });
-            // (600+250+150) * 0.82 = 820
-            expect(r.projectedCost).toBe(820);
-            expect(r.deltaPct).toBe(-18);
+            // compute 600*0.82 = 492; storage y network intactos
+            expect(r.projectedCost).toBe(892);
+            expect(r.deltaPct).toBeCloseTo(-10.8, 5);
             expect(r.breakdown.compute).toBeCloseTo(492, 0);
-            expect(r.breakdown.storage).toBeCloseTo(205, 0);
-            expect(r.breakdown.network).toBeCloseTo(123, 0);
+            expect(r.breakdown.storage).toBe(250);
+            expect(r.breakdown.network).toBe(150);
+        });
+
+        it("respeta el porcentaje de licencias declarado por el usuario", () => {
+            const r = runScenario(1000, { applyAhb: true, licenseSavingsPct: 40 });
+            // compute 600*0.60 = 360 → 360+250+150 = 760
+            expect(r.projectedCost).toBe(760);
+            expect(r.breakdown.compute).toBeCloseTo(360, 0);
+        });
+
+        it("en AWS no asume ahorro de licencias sin un porcentaje explicito", () => {
+            // BYOL en AWS exige Dedicated Hosts y depende del mix Windows/SQL:
+            // no hay un valor plano defendible, asi que el default es 0 y el
+            // supuesto lo declara el usuario.
+            const r = runScenario(1000, { applyAhb: true }, "aws");
+            expect(r.projectedCost).toBe(1000);
+            expect(r.deltaPct).toBe(0);
+
+            const declarado = runScenario(1000, { applyAhb: true, licenseSavingsPct: 25 }, "aws");
+            expect(declarado.breakdown.compute).toBeCloseTo(450, 0);
         });
 
         it("rejects non-positive baseCost", () => {
