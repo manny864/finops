@@ -4036,13 +4036,18 @@
     "cost_axis": "Cost",
     "cost_group_axis": "Cost Group",
     "subscription_axis": "Subscription",
+    "subscription_axis_aws": "Account",
     "resource_group_axis": "Resource Group",
+    "resource_group_axis_aws": "Region",
     "resource_axis": "Resource",
     "top_cost_groups_title": "Top 3 Cost Groups by Cost",
     "top_resource_groups_title": "Top 3 Resource Groups by Cost",
+    "top_resource_groups_title_aws": "Top 3 Regions by Cost",
     "top_resources_title": "Top 3 Resources by Cost",
     "top_subscriptions_title": "{count, plural, =0 {Top Subscriptions by Cost} =1 {Top Subscription by Cost} =2 {Top 2 Subscriptions by Cost} other {Top 3 Subscriptions by Cost}}",
-    "unattributed_subscription_cost": "{amount} for this period was synced at the Management Group level and could not be attributed to a specific subscription."
+    "top_subscriptions_title_aws": "{count, plural, =0 {Top Accounts by Cost} =1 {Top Account by Cost} =2 {Top 2 Accounts by Cost} other {Top 3 Accounts by Cost}}",
+    "unattributed_subscription_cost": "{amount} for this period was synced at the Management Group level and could not be attributed to a specific subscription.",
+    "unattributed_subscription_cost_aws": "{amount} for this period was synced at the organization level and could not be attributed to a specific account."
   },
   "Resources": {
     "title": "Resources",

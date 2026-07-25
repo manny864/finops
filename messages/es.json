@@ -4036,13 +4036,18 @@
     "cost_axis": "Costo",
     "cost_group_axis": "Cost Group",
     "subscription_axis": "Suscripción",
+    "subscription_axis_aws": "Cuenta",
     "resource_group_axis": "Resource Group",
+    "resource_group_axis_aws": "Región",
     "resource_axis": "Recurso",
     "top_cost_groups_title": "Top 3 Cost Groups por Costo",
     "top_resource_groups_title": "Top 3 Resource Groups por Costo",
+    "top_resource_groups_title_aws": "Top 3 Regiones por Costo",
     "top_resources_title": "Top 3 Resources por Costo",
     "top_subscriptions_title": "{count, plural, =0 {Top Suscripciones por Costo} =1 {Top Suscripción por Costo} =2 {Top 2 Suscripciones por Costo} other {Top 3 Suscripciones por Costo}}",
-    "unattributed_subscription_cost": "{amount} de este período se sincronizó a nivel Management Group y no pudo atribuirse a una suscripción específica."
+    "top_subscriptions_title_aws": "{count, plural, =0 {Top Cuentas por Costo} =1 {Top Cuenta por Costo} =2 {Top 2 Cuentas por Costo} other {Top 3 Cuentas por Costo}}",
+    "unattributed_subscription_cost": "{amount} de este período se sincronizó a nivel Management Group y no pudo atribuirse a una suscripción específica.",
+    "unattributed_subscription_cost_aws": "{amount} de este período se sincronizó a nivel de la organización y no pudo atribuirse a una cuenta específica."
   },
   "Resources": {
     "title": "Recursos",

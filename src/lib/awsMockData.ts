@@ -293,6 +293,32 @@ export function getAwsMockDataForRoute(route: string, tier: string): Record<stri
             };
         }
 
+        case 'top_expenses': {
+            const services = getAwsCostByService(tier);
+            const regions = getAwsCostByRegion(tier);
+            const accounts = getAwsDemoAccounts(tier);
+            // El gasto se reparte entre las cuentas con pesos decrecientes para
+            // que el ranking tenga forma realista y no sea plano.
+            const weights = [0.42, 0.27, 0.16, 0.09, 0.06];
+            return {
+                ...base,
+                // Sin CUR no hay tags en CostSnapshots, asi que el ranking por
+                // centro de costo cae en "Untagged/Unknown": el mock lo refleja
+                // en vez de simular una asignacion que el producto no entrega.
+                topCostGroups: [{ name: 'Untagged/Unknown', cost: round2(total) }],
+                topSubscriptions: accounts.slice(0, 3).map((a, i) => ({
+                    name: `${a.alias} (${a.account_id})`,
+                    cost: round2(total * (weights[i] ?? 0.05)),
+                })),
+                unattributedSubscriptionCost: 0,
+                topResourceGroups: regions.slice(0, 3).map(r => ({ name: r.region, cost: round2(r.cost) })),
+                topResources: services.slice(0, 3).map((s, i) => ({
+                    name: `${s.serviceName} \u2014 ${regions[i % regions.length].region}`,
+                    cost: round2(s.cost),
+                })),
+            };
+        }
+
         case 'white_board': {
             // Refleja lo que la API sirve de verdad para un tenant AWS: los
             // bloques de costo salen de CostSnapshots, pero no hay inventario de

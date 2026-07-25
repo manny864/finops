@@ -66,6 +66,10 @@ const AGNOSTIC_ROUTES: readonly string[] = [
     "/intelligence/cost-groups",
     "/intelligence/simulator",
 
+    // Todo el ranking sale de CostSnapshots. Lo unico Azure era resolver los
+    // nombres de suscripcion; en AWS se resuelven los alias de AwsAccounts.
+    "/overview/top-expenses",
+
     // Es la landing post-login: si no esta habilitada, un tenant AWS aterriza
     // en una pagina que su propio menu no muestra. La API se parametrizo por
     // proveedor (los bloques de costo salen de CostSnapshots; el inventario y

@@ -281,3 +281,22 @@ describe('white_board (AWS)', () => {
         expect(r.top3ThreatCategories).toEqual([]);
     });
 });
+
+describe('top_expenses (AWS)', () => {
+    it('rankea cuentas con alias legible y regiones AWS', () => {
+        const r = getAwsMockDataForRoute('top_expenses', 'pro') as any;
+        expect(r).not.toBeNull();
+        expect(r.topSubscriptions.length).toBeGreaterThan(0);
+        // El account ID suelto no dice nada: tiene que venir con el alias.
+        expect(r.topSubscriptions[0].name).toMatch(/^.+ \(\d{12}\)$/);
+        expect(r.topResourceGroups[0].name).toMatch(/^(us|eu|ap|sa)-/);
+        // Ranking decreciente, si no el grafico se ve plano.
+        const costs = r.topSubscriptions.map((s: any) => s.cost);
+        expect([...costs].sort((a, b) => b - a)).toEqual(costs);
+    });
+
+    it('refleja que sin CUR no hay asignacion por centro de costo', () => {
+        const r = getAwsMockDataForRoute('top_expenses', 'enterprise') as any;
+        expect(r.topCostGroups).toEqual([{ name: 'Untagged/Unknown', cost: expect.any(Number) }]);
+    });
+});

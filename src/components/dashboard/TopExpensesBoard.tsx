@@ -3,7 +3,7 @@ import React from "react";
 import useSWR from "swr";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
-import { useTranslations } from "next-intl";
+import { useProviderTranslations } from "@/lib/useProviderTranslations";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { Loader2, AlertCircle, Info } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, LabelList } from "recharts";
@@ -53,7 +53,7 @@ function TopBarChart({ data, color, costLabel, nameLabel }: { data: Array<{ name
 }
 
 export default function TopExpensesBoard() {
-    const t = useTranslations("TopExpenses");
+    const t = useProviderTranslations("TopExpenses");
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
 

@@ -4036,13 +4036,18 @@
     "cost_axis": "Custo",
     "cost_group_axis": "Cost Group",
     "subscription_axis": "Assinatura",
+    "subscription_axis_aws": "Conta",
     "resource_group_axis": "Resource Group",
+    "resource_group_axis_aws": "Região",
     "resource_axis": "Recurso",
     "top_cost_groups_title": "Top 3 Cost Groups por Custo",
     "top_resource_groups_title": "Top 3 Resource Groups por Custo",
+    "top_resource_groups_title_aws": "Top 3 Regiões por Custo",
     "top_resources_title": "Top 3 Resources por Custo",
     "top_subscriptions_title": "{count, plural, =0 {Top Assinaturas por Custo} =1 {Top Assinatura por Custo} =2 {Top 2 Assinaturas por Custo} other {Top 3 Assinaturas por Custo}}",
-    "unattributed_subscription_cost": "{amount} deste período foi sincronizado no nível do Management Group e não pôde ser atribuído a uma assinatura específica."
+    "top_subscriptions_title_aws": "{count, plural, =0 {Top Contas por Custo} =1 {Top Conta por Custo} =2 {Top 2 Contas por Custo} other {Top 3 Contas por Custo}}",
+    "unattributed_subscription_cost": "{amount} deste período foi sincronizado no nível do Management Group e não pôde ser atribuído a uma assinatura específica.",
+    "unattributed_subscription_cost_aws": "{amount} deste período foi sincronizado no nível da organização e não pôde ser atribuído a uma conta específica."
   },
   "Resources": {
     "title": "Recursos",

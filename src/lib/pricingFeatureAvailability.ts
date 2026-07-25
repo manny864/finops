@@ -25,9 +25,11 @@ export const AWS_AVAILABLE_FEATURES: Record<string, readonly number[]> = {
     // Azure Advisor.
     essential: [0, 1, 4, 10, 13, 15, 16, 17],
 
-    // 5 es Ahorro Capturado, que lee los snapshots del dashboard y por eso sirve
-    // para las dos nubes. 10 es FOCUS: el sync de AWS ya normaliza a ese esquema.
-    pro: [0, 1, 5, 8, 9, 10, 13, 14, 15, 16],
+    // 3 es TOP Gastos: rankea CostSnapshots, asi que sirve para las dos nubes
+    // (en AWS agrupa por cuenta y region). 5 es Ahorro Capturado, que lee los
+    // snapshots del dashboard. 10 es FOCUS: el sync de AWS ya normaliza a ese
+    // esquema.
+    pro: [0, 1, 3, 5, 8, 9, 10, 13, 14, 15, 16],
 
     // 3, 8 y 9 son las páginas de costo habilitadas para AWS (Cost Groups,
     // What-If y Costos por Categoría). En AWS los Cost Groups agrupan por región.
