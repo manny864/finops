@@ -1,7 +1,8 @@
 # Handoff — Producto AWS Multi-Cloud (FOCUS)
 
-> **Estado**: ingesta corregida · **Fases 2, 3, 3.5, 4 y 5 ✅ COMPLETAS** · **Fase 7 🟡 en curso** · Fases 6, 8, 9 pendientes.
-> **Última actualización**: 2026-07-26
+> **Estado**: ingesta corregida · **Fases 2, 3, 3.5, 4, 5, 7.5–7.9 ✅ COMPLETAS** · **Fase 7 🟡 en curso** · Fases 6, 8, 9 pendientes.
+> **Última actualización**: 2026-07-25
+> **Rama**: `staging`, ~49 commits locales **sin push** (el push lo pide el usuario).
 > **Objetivo del documento**: permitir continuar esta implementación desde cero
 > en otra sesión o en otro IDE, sin contexto previo.
 
@@ -30,6 +31,9 @@ dentro del mismo codebase: login propio, panel, roles, i18n y onboarding.
 | 7 — Panel AWS (páginas genéricas) | 🟡 **en curso** — infra hecha, faltan páginas |
 | 7.5 — Mocks y demo AWS | **✅ completa** |
 | 7.6 — Terminología por proveedor | **✅ completa** |
+| 7.7 — Fix del simulador + revisión automática de terminología | **✅ completa** |
+| 7.8 — Ahorro Capturado + matriz del FinOps Framework | **✅ completa** |
+| 7.9 — Aviso de CUR en onboarding + selector de nube en precios | **✅ completa** |
 | 8 — Módulo C: optimización y huérfanos | ❌ no empezado |
 | 9 — Wiring y operación | ❌ no empezado |
 
@@ -38,6 +42,24 @@ email+contraseña, invitar usuarios, dar de alta su cuenta AWS con una plantilla
 de mínimo privilegio, sincronizar costos (con caché, así CE no le sale caro) y
 ver un menú que no le miente. **Y la demo comercial ya puede mostrarse en AWS**:
 `/demo?provider=aws` entra con datos AWS-nativos escalados por tier (§Fase 7.5).
+
+**### ⚠️ Lo primero que tiene que saber quien retoma
+
+**El cuello de botella ya no es habilitar páginas, es la profundidad de la
+ingesta AWS.** La auditoría de la Fase 7.8 (resolución transitiva de imports
+sobre las 152 rutas de API) mostró que la sección Gobernanza no está vacía para
+AWS por una allow-list incompleta: está vacía porque **el sync de AWS solo
+persiste costo agregado por (cuenta, región, servicio)**. No hay inventario de
+recursos ni recomendaciones. Habilitar esas páginas mostraría ceros, y un cero
+se lee como “no hay desperdicio”.
+
+El criterio para habilitar una ruta es **doble**: que su API no dependa de Azure
+(ni transitivamente) **y** que las tablas que consulta las alimente también el
+sync de AWS. La matriz completa, con evidencia por capability, está en
+`docs/finops-framework-coverage.md`.
+
+**Hay una decisión de diseño pendiente del usuario** — el gap de Allocation, que
+bloquea además Chargeback, Unit Economics y Showback. Ver §9.
 
 **La pregunta que bloqueaba todo — ¿el panel AWS se parametriza o se forkea? —
 está respondida: se parametriza.** `src/lib/tenantProviderContext.ts` permite que
@@ -1291,6 +1313,37 @@ D  src/app/api/onboard/aws/route.ts
 | `__tests__/unit/i18nProviderTerms.test.ts` | **nuevo** — 5 tests, red de contención |
 | `__tests__/components/useProviderTranslations.test.tsx` | **nuevo** — 5 tests del hook |
 
+### Fase 7.7 — fix del simulador y revisión automática (`6a3deb4`, `0918267`, `428cc96`)
+
+| Archivo | Qué |
+|---|---|
+| `src/lib/simulator/engine.ts` | descuento de licencias solo al cómputo; `licenseSavingsPct` (0..100); `DEFAULT_LICENSE_SAVINGS_PCT = {azure:18, aws:0}`; `runScenario(base, inputs, provider)` |
+| `src/app/api/intelligence/simulator/route.ts`, `.../scenarios/route.ts` | pasan el proveedor vía `tenantUsesAzure` |
+| `src/app/[locale]/intelligence/simulator/page.tsx` | campo editable de % de licencias |
+| `src/components/MockBanner.tsx` | usa `useProviderTranslations` (decía "suscripción Azure" a tenants AWS) |
+| `messages/{en,es,pt-BR}.json` | `licenseSavings*`, `Mock.description_aws`; `TierLockedNotice` pasa a decir "plan" |
+| `__tests__/unit/i18nProviderTerms.test.ts` | namespaces derivados del código (se eliminó el mapa manual) |
+| `src/lib/routeProviders.ts` | nueva export `awsEnabledRoutes()` |
+
+### Fase 7.8 — Ahorro Capturado y cobertura del framework (`2b93786`, `fd73847`)
+
+| Archivo | Qué |
+|---|---|
+| `docs/finops-framework-coverage.md` | **nuevo** — matriz capability × proveedor con evidencia y gaps priorizados |
+| `src/lib/routeProviders.ts` | `/overview/captured-savings` habilitada para AWS |
+| `src/lib/awsMockData.ts` | `case 'captured_savings'` |
+
+### Fase 7.9 — onboarding y precios (`cee1cf2`, `9ff4f40`, `9707fb7`)
+
+| Archivo | Qué |
+|---|---|
+| `src/lib/pricingFeatureAvailability.ts` | **nuevo** — qué features tiene AWS por tier; fail-closed |
+| `src/components/PricingPage.tsx` | selector Azure/AWS (la tabla es **pre-login**, no hay proveedor en contexto) |
+| `src/app/[locale]/admin/cloud-accounts/page.tsx` | aviso de que sin CUR no hay tags; columna CUR en ámbar |
+| `messages/{en,es,pt-BR}.json` | `curSectionWarning`, `awsScope` ×4 tiers, `cloudSelectorLabel`, `featureNotInAws`, `awsScopeNotice` |
+| `__tests__/unit/pricingFeatureAvailability.test.ts` | **nuevo** — 5 tests, verificado por mutación |
+| `docs/manual/MANUAL_USUARIO_{ES,EN,PT-BR}.md` + PDFs | advertencia del CUR |
+
 ## 8. Checklist consolidado: qué falta para tener producto AWS
 
 Ordenado por lo que desbloquea a lo demás. Los ítems marcados ⛔ son bloqueantes
@@ -1348,8 +1401,16 @@ además que **no se hizo push** de ninguno de los commits de este trabajo.
 - **Fase 7.6** — Terminología por proveedor: el What-If le ofrecía "VMs/AKS" y
   "AHB" a tenants AWS. `useProviderTranslations` resuelve variantes `_aws` y un
   test impide que vuelva a pasar.
+- **Fase 7.7** — El motor del What-If aplicaba el descuento de licencias al
+  total en vez de solo al cómputo (sobreestimaba el ahorro) y asumía el 18 % de
+  AHB también en AWS. La revisión de terminología pasó a derivarse del código.
+- **Fase 7.8** — `/overview/captured-savings` habilitada para AWS (la única
+  candidata que sirve datos reales) + matriz del FinOps Framework por proveedor.
+- **Fase 7.9** — El onboarding avisa que sin CUR no hay tags; la tabla de
+  precios tiene selector de nube y deja de ofrecer capabilities inexistentes en
+  AWS.
 
-Validado: `typecheck` limpio, `lint` 0 errores, **705 tests** en verde y `build`
+Validado: `typecheck` limpio, `lint` 0 errores, **719 tests** en verde y `build`
 de producción exitoso.
 
 ### Producto — el resto de las fases
@@ -1385,3 +1446,91 @@ de producción exitoso.
       hizo en la Fase 7.5.
 - [ ] 🔴 **Regla Cero** — reemplazar `parseFloat` por `decimal.js` en el parser de
       Cost Explorer (§6.0), junto con la primera prueba contra AWS real.
+
+---
+
+## 9. Decisión pendiente del usuario — el gap de Allocation
+
+Es lo primero que hay que resolver para avanzar, y **requiere una decisión, no
+más análisis**.
+
+**El problema.** Las vistas de asignación de costos agrupan por
+`CostSnapshots.Tags`. El sync de AWS no llena esa columna, así que para un tenant
+AWS todo el gasto cae en “Sin asignar”. Eso bloquea cuatro capabilities del
+FinOps Framework: Allocation, Chargeback, Unit Economics y Showback por equipo.
+
+**El dato ya se ingesta.** El camino CUR persiste los tags en
+`FocusLineItems.Tags` (ver `src/app/api/sync/aws/[accountId]/cur/route.ts`,
+~línea 142). Lo que falta es exponerlo.
+
+**Por qué no es un `INSERT` más.** El agregado diario a `CostSnapshots` agrupa
+por `(date, region, service)` y su clave única es
+`(tenant_id, subscription_id, date, resource_group, service_name)` — sin
+dimensión de tag. Meter filas con distintos tags colapsaría por
+`ON DUPLICATE KEY UPDATE`: se pisarían entre sí.
+
+**Las dos opciones:**
+
+| | Opción 1 — leer de `FocusLineItems` para AWS | Opción 2 — agregar dimensión de tag a `CostSnapshots` |
+|---|---|---|
+| Esquema | No se toca | Migración + revisar la clave única |
+| Riesgo | Bajo, reversible | Alto: puede afectar datos de Azure ya persistidos |
+| Costo | Duplica la lógica de agregación | Unifica el modelo |
+| Cardinalidad | Sin impacto | Multiplica filas por combinación de tags |
+
+**Recomendación: opción 1** para la primera iteración, por reversible. La 2 es el
+destino correcto si el modelo multi-cloud se consolida.
+
+⚠️ **Con cualquiera de las dos**: el camino de Cost Explorer **no trae tags de
+recurso**. Un tenant que conecte solo CE seguirá sin allocation. Ya se advierte
+en el onboarding y en los manuales (Fase 7.9), pero conviene tenerlo presente al
+diseñar: la feature depende de que el cliente configure el CUR.
+
+---
+
+## 10. Punto de partida para la próxima sesión
+
+**Estado del repo:** rama `staging`, ~49 commits locales, **sin push** (el push
+lo pide el usuario explícitamente). Working tree limpio salvo `.claudeignore`,
+que es ajeno a este trabajo y **no hay que commitear**.
+
+**Validación al cierre:** `npx vitest run` → 719 tests en verde;
+`npm run lint` → 0 errores (2301 warnings preexistentes); `npm run build` → OK.
+
+**Restricciones vigentes del usuario:**
+- No hacer `git push`.
+- Todo lo de producción (crontab del VPS, env vars reales, migraciones contra la
+  base real) queda diferido hasta después de las pruebas integrales.
+
+**Orden sugerido para retomar:**
+
+1. **Decidir el gap de Allocation** (§9). Desbloquea 4 capabilities.
+2. **Fase 6 — CUR 2.0.** Hoy un export CUR 2.0 devuelve 0 filas, y el CUR es
+   justamente la condición para tener tags. Va de la mano del punto 1.
+3. **Rate Optimization y Forecasting en AWS.** Son las de mejor relación
+   valor/esfuerzo después de Allocation: se resuelven con la API de Cost Explorer
+   que ya se usa (`GetSavingsPlansPurchaseRecommendation`,
+   `GetReservationPurchaseRecommendation`, `GetCostForecast`), sin necesidad de
+   inventario de recursos.
+4. **Fase 8 — inventario y recomendaciones.** Es lo que destraba la sección
+   Gobernanza, hoy vacía para AWS.
+5. **Regla Cero** — `parseFloat` → `decimal.js` en `costExplorer.ts`, junto con
+   la primera prueba contra una cuenta AWS real.
+
+**Al habilitar una capability nueva para AWS, tocar estos cuatro lugares:**
+
+1. `src/lib/routeProviders.ts` → agregar la ruta a `AGNOSTIC_ROUTES`.
+2. `src/lib/awsMockData.ts` → sumar su `case` para que la demo la muestre.
+3. `src/lib/pricingFeatureAvailability.ts` → sumar su índice, o la tabla de
+   precios la va a seguir mostrando tachada.
+4. Revisar terminología: el test `i18nProviderTerms` detecta la ruta nueva solo,
+   pero las variantes `_aws` hay que escribirlas.
+
+**Tests que actúan de red de contención** (si fallan, es señal, no ruido):
+
+| Test | Qué protege |
+|---|---|
+| `__tests__/unit/i18nProviderTerms.test.ts` | Que ninguna página habilitada para AWS use terminología de Azure. Deriva los namespaces del código. |
+| `__tests__/unit/pricingFeatureAvailability.test.ts` | Que la tabla de precios no ofrezca a AWS capabilities que no existen. |
+| `__tests__/unit/awsMockData.test.ts` | Que la demo AWS tenga datos coherentes y escalados por tier. |
+| `__tests__/unit/simulatorEngine.test.ts` | La matemática del What-If, incluido el ahorro de licencias por proveedor. |
