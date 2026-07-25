@@ -1687,7 +1687,8 @@
   },
   "Mock": {
     "badge": "DATOS DE EJEMPLO",
-    "description": "Estás viendo datos simulados. Conecta tu suscripción Azure para ver datos reales."
+    "description": "Estás viendo datos simulados. Conecta tu suscripción Azure para ver datos reales.",
+    "description_aws": "Estás viendo datos simulados. Conectá tu cuenta de AWS para ver datos reales."
   },
   "signup": {
     "title": "Comienza tu prueba gratuita de 7 días",
@@ -4399,7 +4400,7 @@
     "notAvailableTitle": "Función no disponible en tu plan",
     "descAvailableFrom": "Esta función está disponible a partir del plan",
     "descCurrentPlan": "tu plan actual es",
-    "descUpgradePrompt": "Actualizá tu suscripción para desbloquearla.",
+    "descUpgradePrompt": "Actualizá tu plan para desbloquearla.",
     "viewPlansCta": "Ver planes y precios"
   },
   "Simulator": {

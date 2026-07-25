@@ -1,9 +1,9 @@
 "use client";
 import React from 'react';
-import { useTranslations } from 'next-intl';
 import { Info } from 'lucide-react';
 import { useTenant } from '@/components/TenantProvider';
 import { isMockTenant } from '@/lib/mockData';
+import { useProviderTranslations } from '@/lib/useProviderTranslations';
 
 type Props = {
     show?: boolean;
@@ -17,7 +17,7 @@ type Props = {
  * Texto centralizado en messages/*.json bajo namespace `Mock`.
  */
 export default function MockBanner({ show, className }: Props) {
-    const t = useTranslations('Mock');
+    const t = useProviderTranslations('Mock');
     let auto = false;
     try {
         const { selectedTenant } = useTenant() as any;

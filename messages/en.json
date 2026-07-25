@@ -1687,7 +1687,8 @@
   },
   "Mock": {
     "badge": "SAMPLE DATA",
-    "description": "You're viewing simulated data. Connect your Azure subscription to see real data."
+    "description": "You're viewing simulated data. Connect your Azure subscription to see real data.",
+    "description_aws": "You're viewing simulated data. Connect your AWS account to see real data."
   },
   "signup": {
     "title": "Start your 7-day free trial",
@@ -4399,7 +4400,7 @@
     "notAvailableTitle": "Feature not available on your plan",
     "descAvailableFrom": "This feature is available starting with the",
     "descCurrentPlan": "your current plan is",
-    "descUpgradePrompt": "Upgrade your subscription to unlock it.",
+    "descUpgradePrompt": "Upgrade your plan to unlock it.",
     "viewPlansCta": "View plans and pricing"
   },
   "Simulator": {
