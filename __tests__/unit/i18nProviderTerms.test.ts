@@ -227,3 +227,22 @@ describe('i18n - variantes por proveedor', () => {
         }
     });
 });
+
+describe('onboarding AWS - limitaciones declaradas', () => {
+    it('la pantalla de alta advierte que sin CUR no hay tags', () => {
+        // Cost Explorer no devuelve tags de recurso: un tenant que solo conecte
+        // CE se queda sin allocation, chargeback ni unit economics. Si el aviso
+        // no esta, el cliente lo descubre cuando ya cargo todo en "Sin asignar".
+        const page = fs.readFileSync(
+            path.join(SRC, 'app', '[locale]', 'admin', 'cloud-accounts', 'page.tsx'), 'utf-8');
+        expect(page).toContain("t('curSectionWarning')");
+    });
+
+    it('el aviso existe en los tres idiomas y nombra lo que se pierde', () => {
+        for (const [lang, dict] of Object.entries(LOCALES)) {
+            const warning = (dict.AdminCloudAccounts as Record<string, string>)?.curSectionWarning;
+            expect(warning, `${lang} no tiene AdminCloudAccounts.curSectionWarning`).toBeTruthy();
+            expect(/chargeback/i.test(warning), `${lang}: el aviso no menciona el chargeback`).toBe(true);
+        }
+    });
+});

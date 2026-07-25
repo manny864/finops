@@ -2859,6 +2859,7 @@
     "roleArnHelpSuffix": "(Cost Explorer) y, opcionalmente, S3 ReadOnly al bucket de CUR.",
     "curSectionTitle": "CUR S3 (opcional)",
     "curSectionSubtitle": "Si activaste un Cost & Usage Report en formato Parquet, completá estos campos para ingesta de alta fidelidad.",
+    "curSectionWarning": "Sin CUR, Cost Explorer no devuelve las etiquetas de los recursos: los costos se abren solo por cuenta, región y servicio. La asignación de costos por equipo o proyecto, el chargeback y el unit economics requieren el CUR.",
     "placeholderAccountId": "123456789012",
     "placeholderAlias": "prod-us-east",
     "placeholderRoleArn": "arn:aws:iam::123456789012:role/FinOpsReader",

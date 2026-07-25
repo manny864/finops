@@ -315,7 +315,7 @@ export default function CloudAccountsPage() {
                   <td className="px-4 py-3 text-xs">
                     {acc.cur_bucket
                       ? <span className="text-green-700">s3://{acc.cur_bucket}/{acc.cur_prefix}/{acc.cur_report_name}</span>
-                      : <span className="text-gray-400">{t('curNotConfigured')}</span>}
+                      : <span className="text-amber-700" title={t('curSectionWarning')}>{t('curNotConfigured')}</span>}
                   </td>
                   <td className="px-4 py-3">
                     {renderStatus(acc.sync_status)}
@@ -420,6 +420,9 @@ export default function CloudAccountsPage() {
                   <h3 className="text-sm font-semibold mb-2">{t('curSectionTitle')}</h3>
                   <p className="text-xs text-gray-500 mb-3">
                     {t('curSectionSubtitle')}
+                  </p>
+                  <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mb-3">
+                    {t('curSectionWarning')}
                   </p>
                   <div className="grid grid-cols-3 gap-3">
                     <input
