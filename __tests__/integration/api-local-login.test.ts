@@ -34,6 +34,13 @@ beforeAll(async () => {
         || 'test-secret-para-login-local-de-al-menos-32-chars';
 
     try {
+        // No alcanza con que ESTE pool conecte: el handler usa el pool de la
+        // app (@/modules/storage/db), que se configura con otras env vars. Si
+        // solo se chequeara el pool local, en un entorno con MySQL corriendo
+        // pero sin .env el spec creeria estar disponible y fallaria con 500.
+        const appDb = (await import('@/modules/storage/db')).default;
+        await appDb.query('SELECT 1');
+
         pool = mysql.createPool({ ...DB, connectionLimit: 3 });
         const { hashPassword } = await import('@/lib/localAuth');
         const hash = await hashPassword(PASSWORD);
@@ -60,9 +67,10 @@ beforeAll(async () => {
         }
         available = true;
     } catch {
-        // Sin MySQL local (p. ej. en CI sin servicio de base) los tests se
-        // saltan en vez de fallar: este spec valida integración real, no lógica
-        // pura — esa ya está cubierta en __tests__/unit/localAuth.test.ts.
+        // Sin MySQL alcanzable por la app (p. ej. CI sin servicio de base, o
+        // local sin `source .env.development`) los tests se saltan en vez de
+        // fallar: este spec valida integración real, no lógica pura — esa ya
+        // está cubierta en __tests__/unit/localAuth.test.ts.
         available = false;
     }
 }, 60_000);
