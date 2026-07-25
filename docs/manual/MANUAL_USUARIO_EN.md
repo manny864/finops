@@ -50,7 +50,7 @@ The platform is a B2B SaaS with **two ways to sign in**, depending on your organ
 1. Go to the platform URL.
 2. Click **"Sign in with Microsoft"**.
 3. Authenticate with your corporate account. The platform automatically recognizes your Azure tenant and identity.
-4. **Demo Mode:** if you want to try the platform without connecting your real Azure environment, choose one of the preconfigured demo profiles from the main screen — they come with realistic simulated data and metrics, so you can explore every module risk-free.
+4. **Demo Mode:** if you want to try the platform without connecting your real environment, choose one of the preconfigured demo profiles from the main screen — they come with realistic simulated data and metrics, so you can explore every module risk-free. The demo form lets you pick **whether you want to see the platform with Azure or AWS data**: each cloud shows its own services, regions and recommendations (for example, Savings Plans and Reserved Instances on AWS instead of Azure Reservations). Figures are scaled to the same level in both clouds, so you can compare them directly. Demo credentials are `demo` / `demo`.
 
 **If you use AWS**, your organization does not sign in through Microsoft: you log in with **email and password** from the same login form. See [section 13](#13-multi-cloud-azure-and-aws) for details.
 

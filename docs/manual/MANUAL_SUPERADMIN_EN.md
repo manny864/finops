@@ -50,7 +50,7 @@ The platform is a B2B SaaS with **two ways to sign in**, depending on your organ
 1. Go to the platform URL.
 2. Click **"Sign in with Microsoft"**.
 3. Authenticate with your corporate account. The platform automatically recognizes your Azure tenant and identity.
-4. **Demo Mode:** if you want to try the platform without connecting your real Azure environment, choose one of the preconfigured demo profiles from the main screen — they come with realistic simulated data and metrics, so you can explore every module risk-free.
+4. **Demo Mode:** if you want to try the platform without connecting your real environment, choose one of the preconfigured demo profiles from the main screen — they come with realistic simulated data and metrics, so you can explore every module risk-free. Pick the cloud provider in the demo form, or link straight to it with `/demo?tier=business&provider=aws`. There are four demo tenants per provider (one per tier); the AWS ones use the same scale factors as the Azure ones so a side-by-side comparison is honest. One AWS demo account is deliberately shown in `ERROR` state, so the demo also covers what a sync failure looks like.
 
 **If the tenant is AWS**, authentication is platform-native (email and password). See [section 13](#13-multi-cloud-provider-model-and-data-lifecycle).
 
