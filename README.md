@@ -125,7 +125,10 @@ src/
 
 El sistema opera un modelo de seguridad multi-nivel estricto:
 
-1. **User Identity**: El acceso de usuarios es manejado vía MSAL (`@azure/msal-react`). Los tokens JWT emitidos validan la identidad de la sesión en todos los llamados a la API en `src/app/api`.
+1. **User Identity — dos caminos**:
+   - **Azure (Entra ID)**: manejado vía MSAL (`@azure/msal-react`). Los tokens JWT (RS256) se validan contra el JWKS de `login.microsoftonline.com/{tid}` en todos los llamados a la API en `src/app/api`.
+   - **AWS (identidad propia)**: AWS no tiene un IdP equivalente a Entra (IAM Identity Center es el SSO del cliente, no un directorio global; "Login with Amazon" es identidad de consumidor), así que los tenants AWS usan email+contraseña. `src/lib/localToken.ts` emite un JWT **HS256** con la misma forma que `AuthClaims`, y `validateRequestToken` (`src/lib/requestAuth.ts`) discrimina **por algoritmo** — cada rama exige el suyo, así que no hay confusión de algoritmo posible. Es el único punto de cambio: los guards y las ~250 rutas quedan intactos.
+   - Requiere `LOCAL_AUTH_SECRET` (32+ chars). Sin él, los 7 endpoints de `/api/auth/local/*` devuelven **503 fail-closed**.
 2. **Service Principal (Platform Agent)**: Los Tenants hacen Onboarding ejecutando un script de PowerShell que crea un **Service Principal Least-Privilege**.
 3. **Role-Based Access Control (RBAC)** — Roles asignados por tier:
 
@@ -203,7 +206,93 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
 
 ---
 
+## ☁️ Modelo multi-cloud (Azure + AWS)
+
+La plataforma soporta dos proveedores con **el mismo modelo de precios**. Son dos
+sistemas de datos independientes dentro del mismo codebase; sólo **Enterprise**
+puede tener los dos a la vez.
+
+### Columna `Tenants.provider`
+
+| Valor | Significado | Tier mínimo |
+|---|---|---|
+| `azure` | Sólo Azure. **Default** de la columna y estado de todos los tenants preexistentes (no requiere backfill). | Essential |
+| `aws` | Sólo AWS. Lo escribe `POST /api/auth/local/signup`. | Essential |
+| `both` | Azure y AWS simultáneos. | **Enterprise** |
+
+La exclusividad se valida server-side, no sólo en la UI: `assertProviderIngestable()`
+(`src/services/providerLifecycleService.ts`) corta la ingesta del proveedor no
+habilitado en los cuatro puntos de entrada — `POST /api/aws/accounts`,
+`/api/sync/aws/[accountId]/ce`, `/api/sync/aws/[accountId]/cur` y el `PUT /api/tenants`
+que graba las credenciales del Service Principal de Azure. Devuelve **409**, no 403:
+no es un problema de permisos sino de estado del tenant.
+
+### Alcance del panel por proveedor
+
+`src/lib/routeProviders.ts` mapea ruta → proveedores que la soportan, con match
+por prefijo más largo (mismo mecanismo que `routeTiers.ts`). **El default es
+`azure` solo**, deliberadamente: el panel nació 100% Azure y la mayoría de las
+páginas terminan llamando a Azure Resource Manager, así que una página nueva sin
+clasificar queda *oculta* para AWS en vez de aparecer rota. La lista de rutas
+agnósticas es el marcador de avance de la parametrización multi-cloud.
+
+El Sidebar aplica ese filtro **antes** que el de rol y el de tier: es una
+restricción del producto, no del usuario.
+
+### Ciclo de vida de los datos al bajar de tier
+
+Un Enterprise con `provider = 'both'` que baja de plan pierde el derecho a
+multi-cloud. La política es **archivado reversible con ventana de gracia de 90
+días**, nunca borrado inmediato. El detalle completo, con el rationale de cada
+decisión, está en **`docs/provider-downgrade-policy.md`**. Resumen:
+
+| Momento | Qué ocurre |
+|---|---|
+| T+0 | Se elige el proveedor retenido (mayor gasto → más cuentas → `azure`, comparado con `Decimal`, nunca float) y el otro queda archivado: se corta la ingesta, se conservan datos y credenciales. |
+| T+0 … T+90 | El archivado es **sólo lectura**. El export FOCUS sigue habilitado aunque el nuevo tier no lo incluya (portabilidad, GDPR art. 20), exigiendo igual rol ADMIN/OWNER. |
+| T-30 / T-7 | Aviso por email y notificación in-app, idempotente por hito. |
+| T+90 | Purga en lotes de 5.000 filas + registro `PROVIDER_DATA_PURGED` en `ActionLogs`. |
+
+Volver a Enterprise antes del plazo **restaura todo sin pérdida**. Invertir la
+elección durante la gracia **no reinicia el reloj** (si no, un tenant podría
+alternar y retener multi-cloud gratis para siempre).
+
+**Punto único de entrada:** `applyTierChange()` está wireado en los 4 lugares que
+escriben `Tenants.tier` (webhook de Paddle, Marketplace de Azure, Marketplace de
+AWS y el PATCH de superadmin) para que ninguno pueda olvidarse del side-effect.
+
+**Tablas/columnas** (migración `20260725-005-provider-archive.sql`):
+`Tenants.provider_archived`, `Tenants.provider_purge_at`, tabla
+`TenantProviderTransitions`, `AwsAccounts.disabled_at` / `disabled_reason`.
+
+> ⚠️ **Gotcha de purga:** `FocusLineItems.ProviderName` **no es confiable para
+> Azure** — la columna se agregó tarde con `DEFAULT 'Azure'`, así que las filas
+> históricas quedaron con `NULL` **o** con `'Azure'` indistintamente. El mapper de
+> AWS siempre escribe exactamente `'AWS'`. Filtrar Azure por `ProviderName = 'Azure'`
+> deja filas sin purgar (verificado contra MySQL 8: el predicado ingenuo perdía 1
+> de 2 filas). El predicado seguro está centralizado en `providerPredicate()`.
+
+### Endpoints
+
+| Endpoint | Método | RBAC | Para qué |
+|---|---|---|---|
+| `/api/admin/provider-transition?tenantId=...` | GET | `requireTenantAccess` | Estado de la ventana de gracia: proveedor archivado, fecha de purga, días restantes. Lo consume el banner de la UI. |
+| `/api/admin/provider-transition` | POST | `requireTenantRole(['ADMIN','OWNER'])` | Invierte cuál proveedor se retiene. Decide qué dataset se borra: es titularidad, no consulta. |
+
+---
+
 ## 📈 Recent Major Updates
+
+### 2026-07-25 — Multi-cloud AWS: identidad propia, modelo de proveedor y ciclo de vida de datos
+
+- **Identidad propia para tenants AWS** (Fase 2). AWS no tiene un IdP equivalente a Entra, así que el camino de login AWS es email+contraseña: 7 endpoints en `/api/auth/local/*` (signup, login, verificación de email, reset de contraseña ×2, invitación ×2), todos con rate limit distribuido y fail-closed sin `LOCAL_AUTH_SECRET`. Se agrega una segunda rama de auth **en paralelo** a MSAL: el único punto de cambio es `validateRequestToken`, que discrimina por algoritmo (HS256 propio vs RS256 de Entra, cada rama exigiendo el suyo). Los guards y las ~250 rutas quedan intactos. UI completa: login con las dos opciones, `/verify-email`, `/reset-password`, `/accept-invite`, y el token local enganchado en `getFreshIdToken` para que `fetchWithAuthRetry` y `TenantProvider` funcionen sin ramificar.
+- **Modelo de proveedor por tenant** (Fase 3). Columna `Tenants.provider` (`azure` | `aws` | `both`), con `both` restringido a Enterprise y **enforcement server-side** en los 4 puntos de ingesta. Selector de proveedor en el signup, switch AWS/Azure en el header (sólo si hay más de uno para elegir) y **filtrado del Sidebar por proveedor activo** — antes un tenant AWS habría visto los ~30 ítems de menú de Azure, todos rotos al abrirlos.
+- **Política de datos al bajar de tier**: archivado reversible con ventana de gracia de 90 días, avisos en T-30/T-7, purga auditada y restauración total si el tenant vuelve a Enterprise antes del plazo. Punto único `applyTierChange()` wireado en los 4 lugares que escriben `Tenants.tier`. Banner in-app con la cuenta regresiva y las tres salidas (exportar / invertir la elección / volver a Enterprise). Rationale completo en [`docs/provider-downgrade-policy.md`](docs/provider-downgrade-policy.md).
+- **Seguridad**: tokens de un solo uso hasheados en SHA-256 y consumidos atómicamente; emitir uno invalida los anteriores del mismo propósito; el rol **no** es parámetro de la invitación (todo invitado entra como Reader, si no un Admin podría autoinvitarse como Owner); el cupo del plan se revalida al aceptar, no sólo al invitar; `verifyPasswordConstantTime` gasta un bcrypt contra un hash dummy *válido* aunque el usuario no exista (con uno inválido `compare()` retorna al instante y el timing filtra qué emails están registrados).
+- **Migraciones**: `20260725-004-local-auth.sql` (`Users.password_hash`/`email_verified_at`, `entra_oid` NULLable, tabla `AuthTokens`, `Tenants.provider`) y `20260725-005-provider-archive.sql` (`Tenants.provider_archived`/`provider_purge_at`, `TenantProviderTransitions`, `AwsAccounts.disabled_at`/`disabled_reason`).
+- **Nuevas env vars**: `LOCAL_AUTH_SECRET` (obligatoria para el login AWS) y `PROVIDER_ARCHIVE_RETENTION_DAYS` (opcional, default 90, clampeada 7–730).
+- **Nuevo cron**: `/api/cron/provider-archive-purge` (diario).
+- i18n en `es`/`en`/`pt-BR` con paridad verificada (4090 keys), mocks por tier para `/demo` y manuales de usuario y superadmin actualizados en los 3 idiomas (MD + PDF).
 
 ### 2026-07-23 — Look & feel: unificación al azul de marca CSCloudSolutions (design system)
 
