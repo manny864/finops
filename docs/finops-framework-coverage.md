@@ -43,9 +43,9 @@ Leyenda: ✅ cubierta · 🟡 parcial · ❌ no cubierta · n/a fuera de alcance
 |---|:--:|:--:|---|
 | Architecting for Cloud | 🟡 | ❌ | Cubierta parcialmente por HA y Advisor, ambos Azure. |
 | Workload Optimization | ✅ | 🟡 | **Parcial en AWS.** La eliminación de recursos ociosos ya funciona: `awsInventoryService` arma el inventario con las APIs de EC2 y detecta volúmenes EBS sin adjuntar, IPs elásticas ociosas, snapshots vencidos e instancias detenidas (en estas se reporta el costo de sus discos, no el de cómputo, que una instancia apagada no paga). Falta el **rightsizing**: `/api/intelligence/rightsizing` importa `src/lib/azure.ts` y el equivalente AWS exige métricas de CloudWatch o Compute Optimizer. |
-| Rate Optimization | ✅ | ❌ | `/api/intelligence/commitments` importa `@azure/arm-costmanagement`. El equivalente AWS son Savings Plans y Reserved Instances, vía Cost Explorer. |
+| Rate Optimization | ✅ | ✅ | **AWS resuelto** con `awsRateService`: `GetReservationPurchaseRecommendation` y `GetSavingsPlansPurchaseRecommendation` de Cost Explorer, calculadas sobre el uso real de 30 días **descontando la cobertura vigente**. No se recalcula desde el inventario: eso llevaría a recomendar sobre-compra. TTL de 12 h porque cada request cuesta USD 0.01. |
 | Licensing & SaaS | ✅ | n/a | AHB y M365 son específicos de Microsoft. En AWS el equivalente (BYOL sobre Dedicated Hosts) requiere datos que hoy no se ingestan. |
-| Cloud Sustainability | ✅ | ❌ | Depende del Emissions Impact Dashboard de Azure. |
+| Cloud Sustainability | ✅ | ✅ | **AWS resuelto** con los factores de emisión de 29 regiones AWS sobre el inventario EC2. No se usa el Customer Carbon Footprint Tool: sólo trae datos ya facturados, con hasta 3 meses de retraso y sin API pública. S3 queda fuera del alcance (exigiría `s3:ListAllMyBuckets`) y se informa 0, no una estimación inventada. |
 
 ## 4. Manage the FinOps Practice
 
@@ -53,7 +53,7 @@ Leyenda: ✅ cubierta · 🟡 parcial · ❌ no cubierta · n/a fuera de alcance
 |---|:--:|:--:|---|
 | FinOps Practice Operations | ✅ | ✅ | RBAC por tenant, auditoría, alertas y administración son agnósticos. |
 | Education & Enablement | ✅ | ✅ | Academy está habilitada para las dos nubes en los tres idiomas. |
-| Cloud Policy & Governance | ✅ | ❌ | **Toda la sección Gobernanza es Azure.** Policies, Score, Tags, HA, Power Management y Reporting dependen de Azure Resource Graph o de `@azure/arm-*`. Es la sección que un tenant AWS ve vacía. |
+| Cloud Policy & Governance | ✅ | 🟡 | **Parcial en AWS.** La auditoría de etiquetas ya funciona con la Resource Groups Tagging API (score de cumplimiento, CSV, filtros). Se ofrece **sólo lectura**: remediar exigiría `tag:TagResources`. Siguen siendo Azure-only Policies, Score, HA, Power Management y Reporting, que dependen de Resource Graph o de `@azure/arm-*`. |
 | Invoicing & Chargeback | ✅ | ✅ | Parametrizada sobre `CostSnapshots.Tags`. En el payload compartido `resourceGroup` transporta la región y `chargeType` el servicio, porque AWS no tiene grupos de recursos ni el ChargeType de Azure. |
 | Onboarding Workloads | ✅ | ✅ | Onboarding AWS por rol asumido con `ExternalId`, de mínimo privilegio. |
 | Intersecting Disciplines | ✅ | ✅ | ITSM, webhooks y exportación FOCUS son agnósticos. |
@@ -77,18 +77,32 @@ clave nueva resulta equivalente a la vieja para todo lo ya persistido.
 etiquetas de recurso**. Un tenant que sólo conecte CE sigue sin allocation. Ya
 se advierte en el onboarding y en los manuales.
 
-### Gap 2 — Gobernanza en AWS
+### Gap 2 — Gobernanza en AWS — **parcialmente resuelto**
 
-Requiere un colector de inventario equivalente a Azure Resource Graph. El
-candidato natural es AWS Config con consultas agregadas, más Trusted Advisor
-para las recomendaciones. Es trabajo de módulo nuevo, no de habilitar páginas.
+La pata de **etiquetado** ya está: `awsResourceInventoryService` usa la Resource
+Groups Tagging API, la única API de AWS que lista recursos de todos los
+servicios en una sola llamada, y con eso funcionan el inventario transversal y
+la auditoría de cumplimiento de etiquetas.
 
-### Gap 3 — Rate Optimization y Forecasting en AWS
+Dos límites que hay que tener presentes al leer los números:
 
-Ambas son alcanzables con la API de Cost Explorer que ya se usa
-(`GetSavingsPlansPurchaseRecommendation`, `GetReservationPurchaseRecommendation`,
-`GetCostForecast`) sin necesidad de inventario. Son las de mejor relación
-valor/esfuerzo después del Gap 1.
+- La Tagging API **sólo devuelve recursos con al menos una etiqueta**, así que
+  el denominador del score son los recursos etiquetados, no la cuenta entera.
+- **No hay contenedor equivalente al grupo de recursos**, así que no existe
+  auditoría de ese nivel ni herencia de etiquetas: los bloques correspondientes
+  se ocultan en vez de informar un 100% engañoso.
+
+Lo que sigue abierto (Policies, Score, HA, Reporting) necesita AWS Config con
+consultas agregadas, más Trusted Advisor para las recomendaciones —que **exige
+plan de soporte Business o Enterprise**, y por eso no se puede asumir. Es
+trabajo de módulo nuevo, no de habilitar páginas.
+
+### Gap 3 — Rate Optimization y Forecasting en AWS — **resuelto**
+
+Ambas se resolvieron con la API de Cost Explorer que ya se usaba, sin
+necesidad de inventario. Lo que queda abierto en esta rama es el **rightsizing**
+(ver Workload Optimization): el camino más barato es Compute Optimizer, gratuito
+en su nivel básico.
 
 ### Gap 4 — Precisión (Regla Cero)
 

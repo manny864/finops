@@ -667,7 +667,31 @@ El panel nació 100% Azure y la mayoría de las páginas terminan llamando a Azu
 
 Es deliberadamente restrictivo: si alguien agrega una página nueva y se olvida de clasificarla, queda **oculta** para AWS en lugar de aparecer rota. A medida que se vayan parametrizando páginas, se agregan a esa lista.
 
-Hoy hay **69 de 119 páginas** habilitadas para AWS. Las de costos siguen todas el mismo patrón: la ruta consulta qué proveedor usa el tenant y, si no es Azure, omite la llamada en vivo a Azure Cost Management y lee directamente de la base. Las que quedan afuera son las que dependen de inventario de Azure Resource Graph o de servicios sin equivalente directo (Azure Policy, Defender for Cloud, Hybrid Benefit).
+Hoy hay **73 de 119 páginas** habilitadas para AWS. Las de costos siguen todas el mismo patrón: la ruta consulta qué proveedor usa el tenant y, si no es Azure, omite la llamada en vivo a Azure Cost Management y lee directamente de la base. Las que quedan afuera son las que dependen de inventario de Azure Resource Graph o de servicios sin equivalente directo (Azure Policy, Defender for Cloud, Hybrid Benefit).
+
+### Diagnóstico: inventario de recursos y auditoría de etiquetas vacíos en AWS
+
+Dos causas, y ninguna produce un mensaje de error — el síntoma es siempre una
+**lista sin filas**, que soporte suele leer como "la cuenta no tiene nada":
+
+1. **El rol no tiene `tag:GetResources` / `tag:GetTagKeys`.** Se agregaron a la
+   plantilla en esta versión: los tenants onboardeados antes tienen que
+   **re-ejecutarla**. Es la primera comprobación a hacer.
+2. **La cuenta tiene recursos, pero sin etiquetas.** La Resource Groups Tagging
+   API —la única API de AWS que lista recursos de todos los servicios en una
+   sola llamada— sólo devuelve recursos con **al menos una etiqueta**. No hay
+   forma de listar los no etiquetados sin recorrer servicio por servicio.
+
+De ahí se desprende cómo leer el score de cumplimiento de etiquetas: el
+denominador son los recursos **etiquetados**, no la cuenta entera. Un tenant con
+etiquetado incipiente puede mostrar un score alto justamente porque los pocos
+recursos que etiquetó los etiquetó bien.
+
+En AWS esa página es de **sólo lectura**: no se ofrece remediación porque
+exigiría `tag:TagResources`, un permiso de escritura que el rol no pide. Los
+bloques de grupos de recursos y de herencia de etiquetas están ocultos, no
+rotos: AWS no tiene un contenedor equivalente al grupo de recursos.
+
 
 > ⚠️ **Habilitar una ruta para AWS son siempre dos cambios, no uno.** Además de agregarla a la allow-list hay que darle su caso en el generador de datos de demo. Si se hace sólo lo primero **no falla de forma visible**: el tenant AWS de demo cae al dato genérico y ve **recursos de Azure**. Ya ocurrió con dos páginas antes de detectarse.
 
@@ -679,7 +703,7 @@ Estas cuatro capacidades estaban bloqueadas para AWS por un motivo estructural, 
 
 ### 13.7. Onboarding de cuentas AWS: permisos y requisitos
 
-La pantalla de alta de cuentas genera una plantilla de **mínimo privilegio** (CloudFormation, Terraform o AWS CLI) con exactamente las acciones que la plataforma realmente invoca, todas de **sólo lectura**: `sts:AssumeRole`, `ce:GetCostAndUsage`, el inventario EC2 (`ec2:DescribeInstances`, `DescribeVolumes`, `DescribeAddresses`, `DescribeSnapshots`), los presupuestos nativos (`budgets:DescribeBudgets`, `budgets:ViewBudget`, acotados al ARN de presupuestos de la propia cuenta) y `s3:GetObject`/`s3:ListBucket` acotadas al bucket del CUR del cliente. Un test afirma esa **lista cerrada** y rechaza cualquier verbo de escritura, para que no se amplíe sin una llamada real que lo justifique.
+La pantalla de alta de cuentas genera una plantilla de **mínimo privilegio** (CloudFormation, Terraform o AWS CLI) con exactamente las acciones que la plataforma realmente invoca, todas de **sólo lectura**: `sts:AssumeRole`, `ce:GetCostAndUsage`, el inventario EC2 (`ec2:DescribeInstances`, `DescribeVolumes`, `DescribeAddresses`, `DescribeSnapshots`), los presupuestos nativos (`budgets:DescribeBudgets`, `budgets:ViewBudget`, acotados al ARN de presupuestos de la propia cuenta) y `s3:GetObject`/`s3:ListBucket` acotadas al bucket del CUR del cliente, las recomendaciones de compra de Cost Explorer (`ce:GetReservationPurchaseRecommendation`, `ce:GetSavingsPlansPurchaseRecommendation`) y el inventario por etiquetas (`tag:GetResources`, `tag:GetTagKeys`). Un test afirma esa **lista cerrada** y rechaza cualquier verbo de escritura, para que no se amplíe sin una llamada real que lo justifique.
 
 > ⚠️ **Los tenants onboardeados antes de julio de 2026 tienen que re-ejecutar la plantilla.** La versión original sólo otorgaba `ec2:DescribeInstances`, pero el inventario de recursos ociosos ya llamaba a `DescribeVolumes`, `DescribeAddresses` y `DescribeSnapshots`. **El síntoma no es un error visible**: esas familias fallan con `AccessDenied`, se descartan, y el cliente ve una lista de limpieza incompleta que parece decir "no tenés nada para optimizar". Al detectar un tenant AWS con cero volúmenes o cero snapshots huérfanos, verificar primero la antigüedad del rol antes de asumir que la cuenta está limpia.
 

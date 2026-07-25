@@ -58,7 +58,8 @@ re-ejecutar la plantilla (§12.5).
 | 7.10 — Paridad de panel: WhiteBoard, TOP Gastos, Anomalías, Proyección | **✅ completa** |
 | 7.11 — Paridad de catálogo: 38 → **63 de 119 páginas** (§11) | **✅ completa** |
 | 7.12 — Asignación de costos + grupo B: 63 → **69 de 119 páginas** (§12) | **✅ completa** |
-| 8 — Módulo C: optimización y huérfanos | 🟡 **en curso** — inventario EC2 y limpieza hechos (§11.3); faltan rightsizing y gobernanza de tags |
+| 7.13 — Tarifas, sostenibilidad, inventario y etiquetas: 69 → **73 de 119 páginas** (§13) | **✅ completa** |
+| 8 — Módulo C: optimización y huérfanos | 🟡 **en curso** — inventario EC2, limpieza, inventario transversal y auditoría de etiquetas hechos (§11.3, §13); falta rightsizing |
 | 9 — Wiring y operación | ❌ no empezado |
 
 **Un cliente AWS ya puede** registrarse, verificar su email, entrar con
@@ -1954,8 +1955,154 @@ Gateway, Data Transfer Out).
 
 | Página | Estado | Motivo |
 |---|---|---|
-| `/intelligence/rates` | Pendiente | Resource Graph → Tagging API + RDS. |
-| `/overview/sustainability` | Pendiente | Resource Graph → EC2 + factores de emisión de AWS. |
+| `/intelligence/rates` | ✅ **hecha** (§13.1) | No se replicó el camino de Azure: Cost Explorer ya devuelve las recomendaciones de compra. |
+| `/overview/sustainability` | ✅ **hecha** (§13.2) | Factores de emisión de 29 regiones AWS sobre el inventario EC2. |
 | `/overview/progress` | **Bloqueada** | Depende de Azure Advisor Score. El equivalente sería Trusted Advisor, que **exige plan de soporte Business o Enterprise**: no se puede asumir. |
 | `/overview/maturity` | **Bloqueada** | Idem. |
-| `/governance/*` | Pendiente | `/governance/tags` **necesita diseño propio, no parametrización**: la página Azure se apoya en la herencia resource-group→recurso, que en AWS no existe. El equivalente son las Tag Policies de Organizations, que no se heredan: se declaran y se auditan. |
+| `/governance/tags` | ✅ **hecha** (§13.4) | Auditoría de solo lectura. Los bloques que dependen de la herencia resource-group→recurso se ocultan. |
+| `/governance/*` (resto) | Pendiente | Ver §13.6. |
+
+
+---
+
+## 13. Fase 7.13 — Tarifas, sostenibilidad, inventario y etiquetas
+
+**De 69 a 73 páginas habilitadas para AWS** (de 119 totales).
+
+Cuatro páginas más, y en las cuatro la decisión de diseño relevante fue **qué no
+replicar de Azure**. Portar la implementación de Azure literalmente habría
+producido, en cada caso, un número plausible pero equivocado.
+
+### 13.1 `/intelligence/rates` — Optimización de tarifas
+
+`src/modules/collectors/aws/awsRateService.ts` + 17 tests.
+
+**No se replica el camino de Azure** (inventario de recursos + Retail Prices
+API). Cost Explorer ya expone `GetReservationPurchaseRecommendation` y
+`GetSavingsPlansPurchaseRecommendation`, calculadas sobre el uso real de los
+últimos 30 días **descontando la cobertura vigente**. Recalcularlo desde el
+inventario actual llevaría a recomendar sobre-compra —el error clásico de las
+herramientas caseras, que suman lo que ya está reservado— y además exigiría
+descargar índices de precios de cientos de MB que ignoran los descuentos EDP
+negociados por el cliente.
+
+Detalles que **no** hay que "corregir" por parecer arbitrarios:
+
+- **Sólo `us-east-1`**: el servicio de recomendaciones es global.
+- **TTL de 12 h**: cada request cuesta **USD 0.01** y son hasta 4 por cuenta. La
+  ventana de análisis es de 30 días: no cambia dentro del mismo día.
+- **`PaymentOption: 'NO_UPFRONT'`**: es la única opción cuyo ahorro se compara
+  mes a mes sin amortizar un desembolso inicial.
+- Los importes llegan **como string** → `Decimal`, nunca `parseFloat`.
+- **Un Savings Plan no se compra por unidad**: es un compromiso en USD/hora, y
+  así se expone en `recommendedQuantity`.
+- Cuando AWS no recomienda un término, su ahorro queda en **0** y no se
+  extrapola del otro: AWS deja de recomendar 3 años justamente cuando el uso no
+  es estable, y rellenar ese hueco inventaría una recomendación.
+
+### 13.2 `/overview/sustainability` — Green FinOps
+
+`src/lib/carbonData.ts` suma **29 regiones AWS**; `carbonService.ts`, sus peers
+verdes. Las claves de región de AWS (`us-east-1`) y Azure (`eastus`) **no
+colisionan**, así que conviven en el mismo mapa y las dos nubes quedan
+comparables sin traducir unidades.
+
+- **No se usa el Customer Carbon Footprint Tool de AWS**: sólo trae datos ya
+  facturados, con hasta 3 meses de retraso y sin API pública. Sirve para
+  reportar el año pasado, no para decidir hoy.
+- **S3 queda fuera del alcance**: exigiría `s3:ListAllMyBuckets`. Se informa 0,
+  no una estimación inventada.
+- Los peers verdes **no cruzan continentes**: cambiaría la jurisdicción de los
+  datos y la latencia, así que no serían migraciones comparables.
+
+### 13.3 `/overview/resources` — Inventario de recursos
+
+`src/modules/collectors/aws/awsResourceInventoryService.ts` + 17 tests.
+Requiere los permisos nuevos `tag:GetResources` y `tag:GetTagKeys`.
+
+La Resource Groups Tagging API es la única API de AWS que lista recursos de
+**todos** los servicios en una sola llamada: es el equivalente transversal de
+Resource Graph.
+
+**Limitación que hay que conocer antes de dar soporte**: sólo devuelve recursos
+con **al menos una etiqueta**. Un recurso sin ninguna no aparece. La UI lo
+advierte explícitamente, porque el síntoma —una lista más corta de lo esperado—
+se confunde con "la cuenta está limpia".
+
+- **La paginación es en memoria**: `GetResources` sólo pagina con un token opaco
+  secuencial, así que servir la página 5 exigiría recorrer igual las cuatro
+  anteriores. Traer todo una vez y paginar en proceso es más barato, y el
+  resultado se cachea aguas arriba.
+- **El costo por etiqueta sale de `FocusLineItems`**, no del group-by por
+  etiqueta de Cost Explorer, que cobra por request teniendo el dato en casa.
+- `getAwsCostByTagKey` valida `tagKey` con `/^[\w.:/=+@-]{1,128}$/` **antes** de
+  interpolarlo en un JSON path de MySQL.
+- Se descartan las claves con prefijo `aws:`: son las que genera AWS
+  (`aws:cloudformation:stack-name`), no etiquetas de gobernanza del cliente.
+
+### 13.4 `/governance/tags` — Auditoría de etiquetas
+
+En AWS **no existe un contenedor equivalente al grupo de recursos**. Eso no es
+un detalle de implementación: es lo que sostiene media página en Azure.
+
+| Bloque de la página Azure | En AWS |
+|---|---|
+| KPI y card de cumplimiento de grupos de recursos | **Oculto** — no hay nada que auditar en ese nivel |
+| Panel de herencia de etiquetas | **Oculto** — no hay contenedor del que heredar |
+| Botón de remediación (`/api/tags/apply`) | **Oculto** — exigiría `tag:TagResources`, permiso de escritura |
+| Auditoría de recursos, score, CSV, paginación | **Reutilizados tal cual** |
+
+`rgComplianceScore` viaja como **`null`**, no como 100. Un 100% se leería como
+"todos los grupos cumplen" cuando en realidad no hay grupos: la UI usa el null
+para ocultar el bloque.
+
+**Sesgo del score**: por la limitación de la Tagging API (§13.3), el
+denominador son los recursos **etiquetados**. El score responde "de los recursos
+con etiquetas, cuántos tienen las obligatorias", no la cobertura de la cuenta.
+
+Las claves i18n de los bloques ocultos están exentas del guardián de
+terminología vía `AZURE_ONLY_UI_KEYS`, y **un test verifica en el componente que
+sigan condicionados**: sin eso, la exención sería una vía para silenciar el
+guardián y devolver a producción el panel vacío.
+
+### 13.5 Permisos IAM — lista cerrada actualizada
+
+Se suman a la plantilla (CloudFormation y Terraform):
+
+| Acción | Para qué |
+|---|---|
+| `tag:GetResources` | inventario transversal por etiquetas |
+| `tag:GetTagKeys` | claves de etiqueta en uso |
+
+Ambas de sólo lectura y sin versión acotada por recurso: `Resource: '*'` es el
+único valor válido. **Los clientes ya onboardeados tienen que re-ejecutar la
+plantilla** para que el inventario y la auditoría de etiquetas funcionen. Sin
+los permisos, el síntoma es un **inventario vacío, no un error**.
+
+### 13.6 Lo que queda (46 páginas)
+
+| Grupo | Estado | Camino |
+|---|---|---|
+| Rightsizing (`/advisor/rightsizing`) | Pendiente | **Compute Optimizer** en nivel básico es gratuito: es el camino más barato. Alternativa: métricas de CloudWatch. |
+| `/overview/progress`, `/overview/maturity` | **Bloqueadas** | Dependen de Azure Advisor Score. El equivalente, Trusted Advisor, **exige plan de soporte Business o Enterprise**: no se puede asumir que el cliente lo tenga. |
+| `/governance/policies`, `/governance/score`, `/governance/reporting` | Pendiente | Requieren decidir la fuente: AWS Config / Organizations Tag Policies (declarativas, se auditan, no se heredan). |
+| Páginas AWS-nativas nuevas | Pendiente | EKS (en vez de AKS), cobertura de Savings Plans / RI (en vez de Hybrid Benefit), Security Hub (en vez de Defender). |
+| Resto de `/cleanup`, `/remediation` | Pendiente | Necesitan permisos de escritura: decisión de producto, no técnica. |
+
+**Recordatorio del cuádruple wiring** para una página *nueva* (no para habilitar
+una existente): `Sidebar.tsx` + `routeTiers.ts` + `pageRegistry.ts` +
+`pageRoleTags.ts`.
+
+### 13.7 Checklist para habilitar una página más
+
+1. `src/lib/routeProviders.ts` → agregar la ruta a `AGNOSTIC_ROUTES`.
+   Verificar que **no** esté también en `EXPLICIT_AZURE_ROUTES`, que se aplica
+   después y la pisa.
+2. `src/lib/awsMockData.ts` → **caso en `getAwsMockDataForRoute`**. Sin esto la
+   demo muestra datos de Azure y no falla de forma visible.
+3. Bifurcar la ruta API con `tenantUsesAws(tenantId)`.
+4. Variantes `_aws` en `messages/{en,es,pt-BR}.json` + migrar el componente a
+   `useProviderTranslations`.
+5. `src/lib/pricingFeatureAvailability.ts` → índice de la feature en su tier.
+6. Permisos IAM nuevos → plantilla **y** lista cerrada del test.
+7. `npx vitest run`, `npx tsc --noEmit`, `npm run lint`.

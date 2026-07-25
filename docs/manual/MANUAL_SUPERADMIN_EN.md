@@ -667,7 +667,30 @@ The panel was born 100% Azure and most pages end up calling Azure Resource Manag
 
 It is deliberately restrictive: if someone adds a new page and forgets to classify it, it stays **hidden** for AWS instead of appearing broken. As pages get parameterized, they are added to that list.
 
-**69 of 119 pages** are enabled for AWS today. The cost pages all follow the same pattern: the route asks which provider the tenant uses and, when it is not Azure, skips the live Azure Cost Management call and reads straight from the database. What remains excluded is whatever depends on Azure Resource Graph inventory or on services with no direct equivalent (Azure Policy, Defender for Cloud, Hybrid Benefit).
+**73 of 119 pages** are enabled for AWS today. The cost pages all follow the same pattern: the route asks which provider the tenant uses and, when it is not Azure, skips the live Azure Cost Management call and reads straight from the database. What remains excluded is whatever depends on Azure Resource Graph inventory or on services with no direct equivalent (Azure Policy, Defender for Cloud, Hybrid Benefit).
+
+### Troubleshooting: empty resource inventory and tag audit on AWS
+
+Two causes, and neither produces an error message — the symptom is always an
+**empty list**, which support tends to read as "the account has nothing in it":
+
+1. **The role lacks `tag:GetResources` / `tag:GetTagKeys`.** They were added to
+   the template in this release: tenants onboarded before it must **re-run it**.
+   That is the first thing to check.
+2. **The account has resources, but no tags.** The Resource Groups Tagging API
+   —the only AWS API that lists resources across every service in a single
+   call— only returns resources with **at least one tag**. There is no way to
+   list untagged ones without walking service by service.
+
+That is also how to read the tag compliance score: the denominator is the
+**tagged** resources, not the whole account. A tenant with immature tagging can
+show a high score precisely because the few resources it did tag, it tagged well.
+
+On AWS that page is **read-only**: no remediation is offered because it would
+require `tag:TagResources`, a write permission the role does not request. The
+resource-group and tag-inheritance blocks are hidden, not broken: AWS has no
+container equivalent to a resource group.
+
 
 > ⚠️ **Enabling a route for AWS is always two changes, not one.** Besides adding it to the allow-list you must give it a case in the demo data generator. Doing only the first **does not fail visibly**: the AWS demo tenant falls through to the generic payload and sees **Azure resources**. This already happened on two pages before it was caught.
 

@@ -696,6 +696,9 @@ acotados exclusivamente al bucket donde está tu CUR:
 | `ec2:DescribeAddresses` | Detectar IPs elásticas reservadas y sin asociar |
 | `ec2:DescribeSnapshots` | Detectar snapshots antiguos que ya nadie usa |
 | `budgets:DescribeBudgets`, `budgets:ViewBudget` | Leer los presupuestos que ya tenés creados en AWS Budgets |
+| `ce:GetReservationPurchaseRecommendation` | Recomendarte qué Instancias Reservadas conviene comprar |
+| `ce:GetSavingsPlansPurchaseRecommendation` | Recomendarte qué Savings Plans conviene comprar |
+| `tag:GetResources`, `tag:GetTagKeys` | Armar el inventario de recursos y auditar el etiquetado |
 | `s3:GetObject`, `s3:ListBucket` | Leer los archivos de tu CUR, **sólo en ese bucket** |
 
 No hay **ni una sola acción de escritura**: no podemos crear, modificar ni
@@ -703,6 +706,19 @@ borrar nada en tu cuenta. Tampoco pedimos políticas administradas amplias como
 `AmazonS3ReadOnlyAccess`, que daría acceso de lectura a **todos** los buckets
 cuando lo único que necesitamos es uno. Si tu área de seguridad revisa el rol,
 va a encontrar exactamente estas acciones y nada más.
+
+> **Si acabás de agregar estos permisos:** las páginas de Recursos y de
+> Gobernanza de Etiquetas aparecen **vacías** hasta que el rol los tenga. No vas
+> a ver un error, vas a ver una lista sin filas — que es fácil de confundir con
+> "no tengo nada para revisar". Si diste de alta tu cuenta antes de esta
+> versión, volvé a ejecutar la plantilla.
+
+> **Qué recursos aparecen en el inventario:** AWS sólo permite listar de una
+> sola vez los recursos que tienen **al menos una etiqueta**. Un recurso sin
+> ninguna no va a aparecer, ni en el inventario ni en la auditoría de etiquetas.
+> Es una limitación de AWS, no de la plataforma: etiquetalo y entra al análisis
+> en la siguiente actualización.
+
 
 > **Si diste de alta tu cuenta antes de julio de 2026, volvé a ejecutar la
 > plantilla.** La versión anterior no incluía los permisos de volúmenes, IPs

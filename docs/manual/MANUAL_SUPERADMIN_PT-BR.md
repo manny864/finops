@@ -667,7 +667,31 @@ O painel nasceu 100% Azure e a maioria das páginas acaba chamando o Azure Resou
 
 É deliberadamente restritivo: se alguém adicionar uma página nova e esquecer de classificá-la, ela fica **oculta** para AWS em vez de aparecer quebrada. À medida que as páginas forem parametrizadas, são adicionadas a essa lista.
 
-Hoje há **69 de 119 páginas** habilitadas para AWS. As de custos seguem todas o mesmo padrão: a rota consulta qual provedor o tenant usa e, quando não é Azure, omite a chamada ao vivo ao Azure Cost Management e lê diretamente do banco. Ficam de fora as que dependem do inventário do Azure Resource Graph ou de serviços sem equivalente direto (Azure Policy, Defender for Cloud, Hybrid Benefit).
+Hoje há **73 de 119 páginas** habilitadas para AWS. As de custos seguem todas o mesmo padrão: a rota consulta qual provedor o tenant usa e, quando não é Azure, omite a chamada ao vivo ao Azure Cost Management e lê diretamente do banco. Ficam de fora as que dependem do inventário do Azure Resource Graph ou de serviços sem equivalente direto (Azure Policy, Defender for Cloud, Hybrid Benefit).
+
+### Diagnóstico: inventário de recursos e auditoria de etiquetas vazios na AWS
+
+Duas causas, e nenhuma produz mensagem de erro — o sintoma é sempre uma **lista
+sem linhas**, que o suporte costuma ler como "a conta não tem nada":
+
+1. **O papel não tem `tag:GetResources` / `tag:GetTagKeys`.** Foram adicionados
+   ao modelo nesta versão: os tenants cadastrados antes precisam **executá-lo
+   novamente**. É a primeira verificação a fazer.
+2. **A conta tem recursos, mas sem etiquetas.** A Resource Groups Tagging API
+   —a única API da AWS que lista recursos de todos os serviços em uma só
+   chamada— só devolve recursos com **pelo menos uma etiqueta**. Não há como
+   listar os não etiquetados sem percorrer serviço por serviço.
+
+Daí também se lê o score de conformidade de etiquetas: o denominador são os
+recursos **etiquetados**, não a conta inteira. Um tenant com etiquetagem
+incipiente pode mostrar um score alto justamente porque os poucos recursos que
+etiquetou, etiquetou bem.
+
+Na AWS essa página é **somente leitura**: não se oferece remediação porque
+exigiria `tag:TagResources`, uma permissão de escrita que o papel não pede. Os
+blocos de grupos de recursos e de herança de etiquetas estão ocultos, não
+quebrados: a AWS não tem um contêiner equivalente ao grupo de recursos.
+
 
 > ⚠️ **Habilitar uma rota para AWS são sempre duas mudanças, não uma.** Além de adicioná-la à allow-list é preciso dar a ela um caso no gerador de dados de demonstração. Fazer só a primeira **não falha de forma visível**: o tenant AWS de demonstração cai no dado genérico e vê **recursos do Azure**. Isso já aconteceu com duas páginas antes de ser detectado.
 

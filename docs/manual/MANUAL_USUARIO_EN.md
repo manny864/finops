@@ -697,6 +697,9 @@ exclusively to the bucket holding your CUR:
 | `ec2:DescribeAddresses` | Spot reserved Elastic IPs that are not associated |
 | `ec2:DescribeSnapshots` | Spot stale snapshots nobody uses any more |
 | `budgets:DescribeBudgets`, `budgets:ViewBudget` | Read the budgets you already created in AWS Budgets |
+| `ce:GetReservationPurchaseRecommendation` | Recommend which Reserved Instances are worth buying |
+| `ce:GetSavingsPlansPurchaseRecommendation` | Recommend which Savings Plans are worth buying |
+| `tag:GetResources`, `tag:GetTagKeys` | Build the resource inventory and audit your tagging |
 | `s3:GetObject`, `s3:ListBucket` | Read your CUR files, **in that bucket only** |
 
 There is **not a single write action**: we cannot create, modify or delete
@@ -704,6 +707,19 @@ anything in your account. Nor do we ask for broad managed policies such as
 `AmazonS3ReadOnlyAccess`, which would grant read access to **every** bucket when
 we only need one. If your security team reviews the role, they will find exactly
 these actions and nothing else.
+
+> **If you have just added these permissions:** the Resources and Tag Governance
+> pages will look **empty** until the role has them. You will not see an error,
+> you will see a list with no rows — which is easy to mistake for "I have
+> nothing to review". If you onboarded your account before this release, run the
+> template again.
+
+> **Which resources show up in the inventory:** AWS only lets us list, in a
+> single call, resources that have **at least one tag**. A resource with none
+> will not appear, neither in the inventory nor in the tag audit. That is an AWS
+> limitation, not a platform one: tag it and it joins the analysis on the next
+> refresh.
+
 
 > **If you registered your account before July 2026, re-run the template.** The
 > earlier version did not include the volume, Elastic IP, snapshot or budget
