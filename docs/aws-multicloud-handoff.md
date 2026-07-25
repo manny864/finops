@@ -29,6 +29,7 @@ dentro del mismo codebase: login propio, panel, roles, i18n y onboarding.
 | 6 — CUR 2.0 real | ⚠️ parcial |
 | 7 — Panel AWS (páginas genéricas) | 🟡 **en curso** — infra hecha, faltan páginas |
 | 7.5 — Mocks y demo AWS | **✅ completa** |
+| 7.6 — Terminología por proveedor | **✅ completa** |
 | 8 — Módulo C: optimización y huérfanos | ❌ no empezado |
 | 9 — Wiring y operación | ❌ no empezado |
 
@@ -829,6 +830,65 @@ el test correspondiente.
 **Pendiente menor:** `getAwsMockDataForRoute` cubre 8 rutas. A medida que la
 Fase 7 habilite más páginas hay que ir agregando sus `case`.
 
+### Fase 7.6 — Terminología por proveedor — ✅ COMPLETA
+
+**Cómo se detectó.** Probando la demo AWS, el simulador What-If ofrecía
+*"Crecimiento de Cómputo (VMs/AKS)"* y *"Aplicar Licencias (AHB)"*. **AKS y el
+Azure Hybrid Benefit no existen en AWS.** Al revisar el resto de las páginas ya
+habilitadas aparecieron más: Cost Groups hablaba de "Suscripción" y
+"Resource Group", y Cost by Category atribuía sus categorías al *Microsoft
+FinOps Toolkit*.
+
+**Por qué importa más de lo que parece.** No es cosmético. Una herramienta de
+FinOps vive de que el usuario crea sus números; leer el vocabulario de otra nube
+es la señal más barata de que la herramienta no entiende su entorno. Y el costo
+de arreglarlo crece con cada página que se habilite.
+
+**Solución: variantes de clave, no diccionarios paralelos.**
+`src/lib/useProviderTranslations.ts` busca `<clave>_aws` cuando el proveedor
+activo es AWS y cae a la clave base si no existe. Así sólo se traduce lo que
+difiere de verdad. La alternativa —un diccionario AWS completo— garantiza que
+las dos mitades diverjan, que es el mismo error que ya se descartó al decidir
+parametrizar el panel en vez de forkearlo.
+
+Está implementado con un **Proxy** y no envolviendo la función a mano: `t` de
+next-intl trae `rich`, `markup`, `raw` y `has`, y un wrapper parcial rompería
+cualquier página que los use (de hecho el primer intento falló el typecheck por
+esto).
+
+**Hallazgo importante para Cost Groups.** El sync AWS escribe la **región** en
+la columna `resource_group` de `CostSnapshots` —verificado en los dos caminos,
+`sync/aws/[id]/ce` (`focus.Region || '*'`) y `sync/aws/[id]/cur` (`v.region`)—
+y el `account_id` en `subscription_id`. Por lo tanto el equivalente correcto en
+AWS de "Resource Group" es **"Región"**, no "tag" ni "Cost Category", y el de
+"Suscripción" es **"Cuenta"**. Traducirlo como "tag" habría sido plausible y
+**falso**: los Cost Groups de un tenant AWS agrupan por región.
+
+| Concepto Azure | Equivalente AWS aplicado |
+|---|---|
+| VMs / AKS | EC2 / EKS |
+| AHB (Azure Hybrid Benefit) | BYOL |
+| Suscripción | Cuenta |
+| Resource Group | Región (por cómo lo llena el sync) |
+| Microsoft FinOps Toolkit (categorías) | Dimensión `SERVICE` de Cost Explorer |
+
+**Red de contención.** `__tests__/unit/i18nProviderTerms.test.ts` recorre los
+namespaces de las páginas habilitadas para AWS y **falla si alguna cadena usa un
+término exclusivo de Azure sin variante `_aws`**, en cualquiera de los 3
+idiomas. También verifica que ninguna variante `_aws` reintroduzca terminología
+de Azure, y que las rutas que cubre sigan habilitadas para AWS. Verificado por
+mutación: al quitar `computeLabel_aws` el test vuelve a señalar el AKS.
+
+⚠️ **Al habilitar una página nueva para AWS en `routeProviders.ts` hay que
+sumar su namespace a `AWS_FACING_NAMESPACES` en ese test.** Es el paso que
+convierte la regla en automática; sin él la página entra sin revisar.
+
+**Pendiente conocido:** el motor del What-If aplica –18 % al activar licencias,
+un supuesto calibrado para AHB. Para BYOL en AWS (que requiere Dedicated Hosts)
+el ahorro real es distinto; **no se inventó un porcentaje nuevo sin datos**. Se
+corrigió el nombre, no la matemática — revisar junto con la primera prueba
+contra una cuenta AWS real.
+
 ### Fase 8 — Módulo C: optimización y huérfanos (spec §3 Módulo C) — NO EMPEZADO
 
 `awsProvider.getRecommendations()` devuelve `[]` (línea ~105). No existe nada.
@@ -1096,6 +1156,18 @@ D  src/app/api/onboard/aws/route.ts
 | `src/app/_actions/demoAuth.ts` | `provider` en la cookie, normalizado server-side |
 | `src/app/[locale]/demo/page.tsx` | selector de proveedor y soporte de `?provider=aws` |
 
+### Fase 7.6 — terminología por proveedor (`1f24af7`)
+
+| Archivo | Qué |
+|---|---|
+| `src/lib/useProviderTranslations.ts` | **nuevo** — resolución de `<clave>_aws` vía Proxy |
+| `messages/{en,es,pt-BR}.json` | 21 variantes `_aws` ×3 idiomas (4115 claves, paridad exacta) |
+| `src/app/[locale]/intelligence/simulator/page.tsx`, `src/components/simulator/ScenarioManager.tsx` | What-If |
+| `src/components/dashboard/CostGroupsBoard.tsx`, `CostGroupDetailModal.tsx` | Cost Groups |
+| `src/components/dashboard/CostByCategoryDashboard.tsx` | Cost by Category |
+| `__tests__/unit/i18nProviderTerms.test.ts` | **nuevo** — 5 tests, red de contención |
+| `__tests__/components/useProviderTranslations.test.tsx` | **nuevo** — 5 tests del hook |
+
 ## 8. Checklist consolidado: qué falta para tener producto AWS
 
 Ordenado por lo que desbloquea a lo demás. Los ítems marcados ⛔ son bloqueantes
@@ -1150,7 +1222,11 @@ además que **no se hizo push** de ninguno de los commits de este trabajo.
   AWS (uno por tier) + selector de proveedor en `/demo`. Cubre la directiva #13,
   que hasta ahora AWS incumplía por completo.
 
-Validado: `typecheck` limpio, `lint` 0 errores, **695 tests** en verde y `build`
+- **Fase 7.6** — Terminología por proveedor: el What-If le ofrecía "VMs/AKS" y
+  "AHB" a tenants AWS. `useProviderTranslations` resuelve variantes `_aws` y un
+  test impide que vuelva a pasar.
+
+Validado: `typecheck` limpio, `lint` 0 errores, **705 tests** en verde y `build`
 de producción exitoso.
 
 ### Producto — el resto de las fases
