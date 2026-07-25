@@ -55,7 +55,7 @@ export class AwsProvider implements CloudProvider {
         } else {
             start.setDate(start.getDate() - 30);
         }
-        const ceRows = await getCostAndUsage(creds, isoDate(start), isoDate(end));
+        const ceRows = await getCostAndUsage(creds, isoDate(start), isoDate(end), { accountId: row.account_id });
         const focus = ceRows.map((r) => mapCeDailyToFocus(r, row.account_id));
         const totalCost = focus.reduce((acc, r) => acc + r.BilledCost, 0);
         return {

@@ -61,7 +61,7 @@ export async function POST(
     const isoEnd = end.toISOString().slice(0, 10);
 
     const ceStart = Date.now();
-    const ceRows = await getCostAndUsage(creds, isoStart, isoEnd);
+    const ceRows = await getCostAndUsage(creds, isoStart, isoEnd, { accountId: row.account_id, bypassCache: true });
     const ceMs = Date.now() - ceStart;
     const totalCost = ceRows.reduce((acc, r) => acc + r.unblendedCost, 0);
 

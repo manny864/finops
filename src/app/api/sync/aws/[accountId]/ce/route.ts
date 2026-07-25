@@ -57,7 +57,7 @@ export async function POST(
 
     const end = new Date();
     const start = new Date(end.getTime() - days * 24 * 60 * 60 * 1000);
-    const ceRows = await getCostAndUsage(creds, isoDate(start), isoDate(end));
+    const ceRows = await getCostAndUsage(creds, isoDate(start), isoDate(end), { accountId: row.account_id });
 
     let upserts = 0;
     for (const r of ceRows) {
