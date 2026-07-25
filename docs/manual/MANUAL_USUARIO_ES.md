@@ -628,6 +628,23 @@ Si tenés un solo proveedor, el selector no se muestra — no tendría ninguna o
 
 > **Importante:** el menú lateral cambia según el proveedor activo. Muchas páginas son específicas de Azure (AKS, Hybrid Benefit, Azure Policies, Defender for Cloud, etc.) y no aparecen con AWS activo. Es intencional: preferimos no mostrarte una página que no puede funcionar con tus datos.
 
+Si llegás a una de esas páginas por un enlace guardado o escribiendo la dirección, no vas a ver un error: la plataforma te avisa que esa función todavía no tiene equivalente en AWS y, si tenés las dos nubes, te recuerda que podés cambiar de proveedor desde el selector.
+
+**Qué vas a encontrar con AWS activo:**
+
+| Página | Qué muestra en AWS |
+|---|---|
+| **WhiteBoard (Vista Ejecutiva)** | Es tu pantalla de inicio. Gasto del año, proyección, tendencia y los cinco servicios y regiones que más gastan. |
+| **TOP Gastos** | Ranking de cuentas, regiones y servicios. Cada cuenta aparece con el alias que le pusiste al darla de alta. |
+| **Detección de Anomalías** | Picos de gasto detectados estadísticamente, con la región y el servicio que los causaron. Necesita unos 60 días de historial para ser confiable. |
+| **Proyección de costos** | Estimación de cierre del mes a partir de tu historial ya sincronizado. |
+| **Costo por Categoría, Grupos de Costo, Ahorro Capturado, Simulador What-If, Academia** | Igual que en Azure. |
+
+Dos diferencias que conviene tener presentes:
+
+- **Los rankings se ordenan por costo, no por cantidad de recursos.** En AWS no llevamos un inventario de recursos como en Azure, y para decidir dónde recortar el costo es el dato que importa.
+- **Las secciones de Gobernanza y Optimización todavía no tienen datos de AWS.** Dependen de un inventario de recursos que aún no recolectamos. Preferimos no mostrarte ceros: un cero se lee como "no hay desperdicio", y no es lo que estaríamos diciendo.
+
 ### 13.4. Conectar tu cuenta de AWS
 
 Desde **Administración → Cuentas Cloud** das de alta cada cuenta de AWS que

@@ -628,6 +628,23 @@ Se você tem apenas um provedor, o seletor não é exibido — não haveria o qu
 
 > **Importante:** o menu lateral muda conforme o provedor ativo. Muitas páginas são específicas do Azure (AKS, Hybrid Benefit, Azure Policies, Defender for Cloud etc.) e não aparecem com a AWS ativa. É intencional: preferimos não mostrar uma página que não funcionaria com seus dados.
 
+Se você chegar a uma dessas páginas por um link salvo ou digitando o endereço, não verá um erro: a plataforma avisa que a função ainda não tem equivalente na AWS e, se você tiver as duas nuvens, lembra que pode trocar de provedor pelo seletor.
+
+**O que você encontra com a AWS ativa:**
+
+| Página | O que mostra na AWS |
+|---|---|
+| **WhiteBoard (Visão Executiva)** | É a sua tela inicial. Gasto do ano, projeção, tendência e os cinco serviços e regiões que mais gastam. |
+| **TOP Gastos** | Ranking de contas, regiões e serviços. Cada conta aparece com o apelido definido no cadastro. |
+| **Detecção de Anomalias** | Picos de gasto detectados estatisticamente, com a região e o serviço que os causaram. Precisa de cerca de 60 dias de histórico para ser confiável. |
+| **Projeção de custos** | Estimativa de fechamento do mês a partir do histórico já sincronizado. |
+| **Custo por Categoria, Grupos de Custo, Economia Capturada, Simulador What-If, Academia** | Igual ao Azure. |
+
+Duas diferenças que vale ter em mente:
+
+- **Os rankings são ordenados por custo, não por quantidade de recursos.** Na AWS não mantemos um inventário de recursos como no Azure, e para decidir onde cortar o custo é o dado que importa.
+- **Governança e Otimização ainda não têm dados da AWS.** Dependem de um inventário de recursos que ainda não coletamos. Preferimos não mostrar zeros: um zero é lido como "não há desperdício", e não é isso que estaríamos dizendo.
+
 ### 13.4. Conectar sua conta da AWS
 
 Em **Administração → Contas Cloud** você cadastra cada conta AWS que deseja

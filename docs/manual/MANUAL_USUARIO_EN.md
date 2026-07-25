@@ -628,6 +628,23 @@ If you only have one provider the switch is not rendered — there would be noth
 
 > **Important:** the sidebar changes with the active provider. Many pages are Azure-specific (AKS, Hybrid Benefit, Azure Policies, Defender for Cloud, and so on) and do not appear while AWS is active. This is intentional: we would rather not show you a page that cannot work with your data.
 
+If you reach one of those pages from a saved link or by typing the address, you will not see an error: the platform tells you the feature has no AWS equivalent yet and, if you have both clouds, reminds you that you can switch providers from the selector.
+
+**What you get while AWS is active:**
+
+| Page | What it shows on AWS |
+|---|---|
+| **WhiteBoard (Executive View)** | Your landing page. Year-to-date spend, projection, trend, and the five services and regions that spend the most. |
+| **TOP Expenses** | Ranking of accounts, regions, and services. Each account shows the alias you gave it during onboarding. |
+| **Anomaly Detection** | Spend spikes detected statistically, with the region and service that caused them. It needs about 60 days of history to be reliable. |
+| **Cost forecast** | Month-end estimate built from the history already synced. |
+| **Cost by Category, Cost Groups, Captured Savings, What-If Simulator, Academy** | Same as on Azure. |
+
+Two differences worth keeping in mind:
+
+- **Rankings are ordered by cost, not by resource count.** We do not keep a resource inventory on AWS the way we do on Azure, and when deciding where to cut, cost is the number that matters.
+- **Governance and Optimization have no AWS data yet.** They depend on a resource inventory we do not collect yet. We would rather not show you zeros: a zero reads as "there is no waste", and that is not what we would be saying.
+
 ### 13.4. Connecting your AWS account
 
 From **Administration → Cloud Accounts** you register each AWS account you want
