@@ -422,6 +422,55 @@ describe('API: /intelligence/forecast', () => {
   });
 });
 
+describe('API: /intelligence/forecast — tenant AWS', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(requireTenantAccess).mockResolvedValue(undefined as never);
+  });
+
+  // Un tenantId distinto por test: getTenantProviders cachea el proveedor 60s
+  // a nivel de modulo y reusar el id desalinearia la cola de mocks de pool.query.
+  const awsRequest = (tenantId: string) =>
+    new NextRequest(`http://localhost/api/intelligence/forecast?tenantId=${tenantId}&subscriptionId=All`);
+
+  /** Serie diaria creciente: 30 dias con costo conocido. */
+  const dailyRows = () =>
+    Array.from({ length: 30 }).map((_, i) => ({
+      UsageDate: new Date(Date.UTC(2026, 0, i + 1)).toISOString().slice(0, 10),
+      EffectiveCost: 100 + i,
+    }));
+
+  it('reconstruye el historico desde CostSnapshots y proyecta sin llamar a Azure', async () => {
+    // provider = 'aws' -> tenantUsesAzure() es false
+    vi.mocked(pool.query as unknown as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce([[{ provider: 'aws', tier: 'business' }]] as never)
+      .mockResolvedValueOnce([dailyRows()] as never);
+
+    const res = await GET(awsRequest('aws-tenant-series'));
+    const json = await res.json();
+
+    // Lo importante: no se toca Cost Management con un tenant que no es Azure.
+    expect(getCurrentMonthAmortizedCosts).not.toHaveBeenCalled();
+    expect(getCostForecast).not.toHaveBeenCalled();
+
+    expect(json.data.length).toBeGreaterThan(30);
+    expect(json.data.some((d: any) => d.actualCost > 0)).toBe(true);
+    // Sin esto la UI dibujaria solo la linea real y el panel no proyectaria nada.
+    expect(json.data.some((d: any) => typeof d.forecastCost === 'number')).toBe(true);
+  });
+
+  it('no marca azureUnavailable cuando el tenant AWS todavia no tiene datos', async () => {
+    vi.mocked(pool.query as unknown as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce([[{ provider: 'aws', tier: 'business' }]] as never)
+      .mockResolvedValueOnce([[]] as never);
+
+    const json = await (await GET(awsRequest('aws-tenant-empty'))).json();
+    expect(json.data).toEqual([]);
+    expect(json.azureUnavailable).toBe(false);
+    expect(json.providerDataUnavailable).toBe(true);
+  });
+});
+
 describe('API: /intelligence/forecast — contrato con CostForecastChart', () => {
   beforeEach(() => {
     vi.clearAllMocks();

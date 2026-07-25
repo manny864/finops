@@ -15,6 +15,47 @@ import {
   detectAnomalies,
   type HistoryPoint,
 } from "@/lib/forecasting";
+import { tenantUsesAzure } from "@/lib/tenantProviderContext";
+
+/**
+ * Serie historica diaria para un tenant AWS.
+ *
+ * Azure la trae de Cost Management; en AWS se reconstruye desde CostSnapshots,
+ * que el sync (Cost Explorer o CUR) ya llena a diario. Devuelve la misma forma
+ * que `getCurrentMonthAmortizedCosts` para no bifurcar el resto del handler.
+ */
+async function getAwsDailyCosts(tenantId: string, days: number) {
+    const [rows]: any = await pool.query(
+        `SELECT DATE(COALESCE(ChargePeriodStart, date)) AS UsageDate,
+                SUM(COALESCE(EffectiveCost, BilledCost, cost_usd, 0)) AS EffectiveCost
+           FROM CostSnapshots
+          WHERE tenant_id = ? AND DATE(COALESCE(ChargePeriodStart, date)) >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+          GROUP BY UsageDate ORDER BY UsageDate ASC`,
+        [tenantId, days]
+    );
+    return (rows as any[]).map(r => ({
+        UsageDate: r.UsageDate instanceof Date ? r.UsageDate.toISOString().slice(0, 10) : String(r.UsageDate).slice(0, 10),
+        EffectiveCost: Number(r.EffectiveCost) || 0,
+        BilledCost: Number(r.EffectiveCost) || 0,
+        ChargePeriodStart: undefined as string | undefined,
+    }));
+}
+
+/**
+ * Proyeccion para AWS con el motor propio del repo.
+ *
+ * Cost Explorer expone GetCostForecast, pero todavia no esta integrado en
+ * `src/lib/aws/costExplorer.ts`; usar `linearForecast` sobre la serie ya
+ * ingestada evita una llamada extra facturada por request y mantiene la misma
+ * matematica que el resto del endpoint.
+ */
+function buildAwsForecast(history: HistoryPoint[], horizonDays: number) {
+    if (history.length < 2) return [] as { date: string; forecastCost: number }[];
+    return linearForecast(history, horizonDays).map(p => ({
+        date: p.date,
+        forecastCost: Number(p.value),
+    }));
+}
 
 export async function GET(request: NextRequest) {
     try {
@@ -35,20 +76,33 @@ export async function GET(request: NextRequest) {
 
         const metricType = (request.headers.get('x-metric-type') as 'ActualCost' | 'AmortizedCost') || 'ActualCost';
 
+        const usesAzure = await tenantUsesAzure(tenantId);
+
         // Get historical data — resilient: no credentials or Azure failure returns []
         let historicalEntries: Awaited<ReturnType<typeof getCurrentMonthAmortizedCosts>> = [];
-        try {
-            historicalEntries = await getCurrentMonthAmortizedCosts(tenantId, subscriptionId, metricType);
-        } catch (azureErr: any) {
-            console.warn('[Forecast] getCurrentMonthAmortizedCosts failed (Azure unavailable):', azureErr?.message);
-        }
+        let forecastData: { date: string; forecastCost: number }[] = [];
 
-        // Get forecast — getCostForecast is already resilient (returns [] instead of throwing)
-        const forecastData = await getCostForecast(tenantId, subscriptionId, metricType);
+        if (usesAzure) {
+            try {
+                historicalEntries = await getCurrentMonthAmortizedCosts(tenantId, subscriptionId, metricType);
+            } catch (azureErr: any) {
+                console.warn('[Forecast] getCurrentMonthAmortizedCosts failed (Azure unavailable):', azureErr?.message);
+            }
+            // getCostForecast is already resilient (returns [] instead of throwing)
+            forecastData = await getCostForecast(tenantId, subscriptionId, metricType);
+        } else {
+            historicalEntries = await getAwsDailyCosts(tenantId, Math.max(days, 30)) as typeof historicalEntries;
+            forecastData = buildAwsForecast(
+                historicalEntries
+                    .map(h => ({ date: String(h.UsageDate), value: String(h.EffectiveCost) }))
+                    .filter(h => Number(h.value) > 0),
+                days
+            );
+        }
 
         // If both are empty, return gracefully so dashboard/summary does NOT mark forecast as failed
         if (historicalEntries.length === 0 && forecastData.length === 0) {
-            return NextResponse.json({ data: [], azureUnavailable: true });
+            return NextResponse.json({ data: [], azureUnavailable: usesAzure, providerDataUnavailable: true });
         }
 
         // Combine into one array
