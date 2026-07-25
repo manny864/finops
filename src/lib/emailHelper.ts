@@ -444,3 +444,79 @@ export function getCriticalSystemAlertEmailHtml(params: {
     </html>
   `;
 }
+
+/**
+ * Envoltorio compartido de las plantillas de auth local (Fase 2). Mismo estilo
+ * visual que getWelcomeEmailHtml, sin repetir el bloque de CSS en cada una.
+ *
+ * Estos mails llevan un link de un solo uso, así que el texto avisa
+ * explícitamente qué hacer si el destinatario NO pidió la acción — es la
+ * única defensa del usuario cuando alguien tipea mal su email en el signup.
+ */
+function getAuthEmailShell(title: string, bodyHtml: string): string {
+  return `
+    <html>
+      <head>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #0054A6 0%, #003d7a 100%); color: white; padding: 40px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background: white; border: 1px solid #e0e0e0; border-radius: 0 0 8px 8px; padding: 40px; }
+          .button { display: inline-block; padding: 12px 32px; background-color: #0054A6; color: white; text-decoration: none; border-radius: 4px; font-weight: bold; margin-top: 20px; }
+          .fallback { word-break: break-all; color: #666; font-size: 12px; margin-top: 24px; }
+          .footer { text-align: center; font-size: 12px; color: #666; margin-top: 40px; padding-top: 20px; border-top: 1px solid #e0e0e0; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header"><h1>${title}</h1></div>
+          <div class="content">${bodyHtml}</div>
+          <div class="footer">
+            <p>© 2026 CSCloudSolutions. All rights reserved.</p>
+            <p>This is an automated email. Please do not reply to this message.</p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+}
+
+export function getVerifyEmailHtml(verifyUrl: string): string {
+  return getAuthEmailShell('Confirmá tu email', `
+    <p>Hola,</p>
+    <p>Alguien creó una cuenta en CSCloudSolutions con esta dirección. Confirmala para poder iniciar sesión.</p>
+    <p><a href="${verifyUrl}" class="button">Confirmar mi email</a></p>
+    <p class="fallback">Si el botón no funciona, copiá y pegá este link en tu navegador:<br>${verifyUrl}</p>
+    <p style="margin-top: 24px; color: #666; font-size: 14px;">
+      El link vence en 24 horas. <strong>Si no creaste ninguna cuenta, ignorá este mensaje</strong> —
+      sin confirmar, la cuenta no puede usarse.
+    </p>
+  `);
+}
+
+export function getPasswordResetEmailHtml(resetUrl: string): string {
+  return getAuthEmailShell('Restablecer tu contraseña', `
+    <p>Hola,</p>
+    <p>Recibimos un pedido para restablecer la contraseña de tu cuenta de CSCloudSolutions.</p>
+    <p><a href="${resetUrl}" class="button">Elegir una contraseña nueva</a></p>
+    <p class="fallback">Si el botón no funciona, copiá y pegá este link en tu navegador:<br>${resetUrl}</p>
+    <p style="margin-top: 24px; color: #666; font-size: 14px;">
+      El link vence en 1 hora y sirve una sola vez. <strong>Si no pediste esto, ignorá el mensaje</strong>:
+      tu contraseña actual sigue funcionando y nadie accedió a tu cuenta.
+    </p>
+  `);
+}
+
+export function getInviteEmailHtml(inviteUrl: string): string {
+  return getAuthEmailShell('Te invitaron a CSCloudSolutions', `
+    <p>Hola,</p>
+    <p>Un administrador de tu organización te dio acceso a la plataforma de FinOps de CSCloudSolutions.
+       Para entrar sólo tenés que elegir una contraseña.</p>
+    <p><a href="${inviteUrl}" class="button">Activar mi cuenta</a></p>
+    <p class="fallback">Si el botón no funciona, copiá y pegá este link en tu navegador:<br>${inviteUrl}</p>
+    <p style="margin-top: 24px; color: #666; font-size: 14px;">
+      El link vence en 7 días y sirve una sola vez. Vas a entrar con permisos de solo lectura;
+      si necesitás más, pedíselo a quien te invitó.
+    </p>
+  `);
+}
