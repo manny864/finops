@@ -11,6 +11,8 @@ import {
     regionIntensity,
 } from "@/services/carbonService";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
+import { tenantUsesAws } from "@/lib/tenantProviderContext";
+import { getAwsCarbonInventory } from "@/modules/collectors/aws/awsInventoryService";
 
 export async function GET(request: NextRequest) {
     try {
@@ -21,14 +23,31 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ success: false, error: "Falta tenantId" }, { status: 400 });
         }
 
+        await requireTenantAccess(request, tenantId);
+
+        if (await tenantUsesAws(tenantId)) {
+            // En AWS el identificador es un account ID de 12 digitos, no un
+            // UUID: aplicar la validacion de Azure rechazaria toda cuenta
+            // valida. Igual hay que validarlo, porque baja a una consulta SQL
+            // parametrizada y a llamadas al SDK.
+            if (subscriptionId.toLowerCase() !== "all" && !/^[0-9]{12}$/.test(subscriptionId)) {
+                return NextResponse.json({ success: false, error: "accountId inválido" }, { status: 400 });
+            }
+            const awsPayload = await getWithStaleWhileRevalidate(
+                `intelligence:sustainability:aws:v1:${tenantId}:${subscriptionId.toLowerCase()}`,
+                () => fetchAwsSustainability(tenantId, subscriptionId),
+                1800,
+                600
+            );
+            return NextResponse.json(awsPayload);
+        }
+
         // IA-6: subscriptionId se interpola en un query KQL (Resource Graph).
         // Se acepta solo "all" o un UUID válido para prevenir inyección KQL.
         if (subscriptionId.toLowerCase() !== "all" &&
             !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(subscriptionId)) {
             return NextResponse.json({ success: false, error: "subscriptionId inválido" }, { status: 400 });
         }
-
-        await requireTenantAccess(request, tenantId);
 
         const payload = await getWithStaleWhileRevalidate(
             `intelligence:sustainability:v1:${tenantId}:${subscriptionId.toLowerCase()}`,
@@ -197,4 +216,108 @@ async function fetchSustainability(tenantId: string, subscriptionId: string) {
                 phoneCharges: Math.round(equivalencies.phoneCharges),
             },
         };
+}
+
+/**
+ * Huella de carbono de un tenant AWS.
+ *
+ * Usa exactamente los mismos factores de emisión que el lado Azure —los de
+ * `carbonData.ts`, ampliados con las regiones AWS—, así que un Enterprise con
+ * las dos nubes puede comparar cifras sin traducir unidades.
+ *
+ * Tres diferencias respecto de Azure, todas por límites reales y no por falta
+ * de implementación:
+ *
+ * - **El almacenamiento no entra.** El rol de onboarding sólo concede lectura
+ *   sobre el bucket del CUR, no `s3:ListAllMyBuckets`. Se informa 0 en vez de
+ *   estimar GB que no se pueden ver.
+ * - **La huella evitable sale de los volúmenes EBS sin adjuntar**, el análogo
+ *   exacto de los discos huérfanos de Azure.
+ * - **No se usa el Customer Carbon Footprint Tool de AWS**: publica sólo datos
+ *   ya facturados, con hasta 3 meses de retraso y sin API pública. No sirve
+ *   para evaluar una decisión que se toma hoy.
+ */
+async function fetchAwsSustainability(tenantId: string, accountId: string) {
+    const scope = accountId.toLowerCase() === "all" ? null : accountId;
+
+    let inventory;
+    try {
+        inventory = await getAwsCarbonInventory(tenantId, scope);
+    } catch (e: any) {
+        console.warn(`[Sustainability] Inventario AWS fallo para ${tenantId}:`, e?.message);
+        return {
+            success: true,
+            degraded: true,
+            footprint: 0,
+            avoided: 0,
+            vmCount: 0,
+            zombieCount: 0,
+            storageCount: 0,
+            byRegion: [],
+            recommendations: [],
+            equivalencies: { carKm: 0, treesYear: 0, phoneCharges: 0 },
+        };
+    }
+
+    let totalFootprint = 0;
+    let vmCount = 0;
+    const byRegion: Record<string, { kg: number; resources: number; intensity: number }> = {};
+
+    for (const [region, count] of Object.entries(inventory.runningByRegion)) {
+        if (count === 0) continue;
+        // 730 h = un mes completo. Es la misma ventana que usa el lado Azure.
+        const kg = calculateEmissions(730 * count, region);
+        totalFootprint += kg;
+        vmCount += count;
+        byRegion[region] = { kg, resources: count, intensity: regionIntensity(region) };
+    }
+
+    let avoided = 0;
+    let zombieCount = 0;
+    for (const [region, count] of Object.entries(inventory.unattachedVolumesByRegion)) {
+        if (count === 0) continue;
+        avoided += calculateDiskEmissions(730 * count, region);
+        zombieCount += count;
+    }
+
+    const regionsRanked = Object.entries(byRegion).sort((a, b) => b[1].kg - a[1].kg);
+    const recommendations: any[] = [];
+    for (const [region, data] of regionsRanked.slice(0, 5)) {
+        const rec = suggestGreenMigration(region);
+        if (!rec) continue;
+        recommendations.push({
+            fromRegion: rec.fromRegion,
+            toRegion: rec.toRegion,
+            currentIntensity: rec.currentIntensity,
+            targetIntensity: rec.targetIntensity,
+            reductionPct: Math.round(rec.reductionPct * 10) / 10,
+            projectedReductionKgCO2: Math.round(data.kg * (rec.reductionPct / 100) * 100) / 100,
+            impactedResources: data.resources,
+        });
+    }
+
+    const equivalencies = emissionsEquivalencies(totalFootprint);
+
+    return {
+        success: true,
+        provider: "AWS" as const,
+        footprint: Math.round(totalFootprint * 100) / 100,
+        avoided: Math.round(avoided * 100) / 100,
+        vmCount,
+        zombieCount,
+        // S3 queda fuera del alcance por menor privilegio; ver el JSDoc.
+        storageCount: 0,
+        byRegion: Object.entries(byRegion).map(([region, d]) => ({
+            region,
+            kgCO2e: Math.round(d.kg * 100) / 100,
+            resources: d.resources,
+            intensity: d.intensity,
+        })),
+        recommendations,
+        equivalencies: {
+            carKm: Math.round(equivalencies.carKm),
+            treesYear: Math.round(equivalencies.treesYear * 10) / 10,
+            phoneCharges: Math.round(equivalencies.phoneCharges),
+        },
+    };
 }

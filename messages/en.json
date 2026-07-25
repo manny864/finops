@@ -1473,7 +1473,8 @@
     "avgPowerEfficiency": "Avg Power Efficiency",
     "highGrade": "High Grade",
     "sustainableCloudComputing": "Sustainable Cloud Computing",
-    "sustainabilityDesc": "Your carbon intensity factor is automatically mapped to your active Azure regions. Moving workloads to regions like northeurope or francecentral can significantly reduce your footprint."
+    "sustainabilityDesc": "Your carbon intensity factor is automatically mapped to your active Azure regions. Moving workloads to regions like northeurope or francecentral can significantly reduce your footprint.",
+    "sustainabilityDesc_aws": "The carbon intensity factor is mapped automatically to your active AWS regions. Moving workloads to regions such as eu-north-1 or ca-central-1 can cut your footprint significantly. Object storage is not included: reading it would require listing every bucket in your account, a permission this platform deliberately does not request."
   },
   "StorageEfficiency": {
     "tierLockedFeatureName": "Storage Efficiency",

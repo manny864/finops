@@ -101,6 +101,14 @@ const AGNOSTIC_ROUTES: readonly string[] = [
     // sobre-comprar.
     "/intelligence/rates",
 
+    // Green FinOps. Usa los mismos factores de emision que Azure, ampliados con
+    // las regiones AWS, para que un Enterprise con las dos nubes pueda comparar
+    // sin traducir unidades. El inventario sale de EC2 (instancias en ejecucion
+    // y volumenes EBS sin adjuntar). El almacenamiento queda fuera: el rol de
+    // onboarding no concede s3:ListAllMyBuckets y pedirlo solo para estimar
+    // GB seria desproporcionado.
+    "/overview/sustainability",
+
     // Limpieza de recursos ociosos. El inventario AWS lo arma
     // awsInventoryService con las APIs de EC2 (volumenes EBS sin adjuntar, IPs
     // elasticas ociosas, snapshots vencidos e instancias apagadas), que es el

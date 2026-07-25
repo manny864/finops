@@ -1473,7 +1473,8 @@
     "avgPowerEfficiency": "Eficiencia Energética Prom.",
     "highGrade": "Grado Alto",
     "sustainableCloudComputing": "Computación en la Nube Sostenible",
-    "sustainabilityDesc": "El factor de intensidad de carbono se asigna automáticamente según tus regiones activas en Azure. Mover cargas de trabajo a regiones como northeurope o francecentral puede reducir significativamente tu huella."
+    "sustainabilityDesc": "El factor de intensidad de carbono se asigna automáticamente según tus regiones activas en Azure. Mover cargas de trabajo a regiones como northeurope o francecentral puede reducir significativamente tu huella.",
+    "sustainabilityDesc_aws": "El factor de intensidad de carbono se asigna automáticamente según tus regiones activas en AWS. Mover cargas de trabajo a regiones como eu-north-1 o ca-central-1 puede reducir significativamente tu huella. El almacenamiento de objetos no se incluye: leerlo exigiría listar todos los buckets de tu cuenta, un permiso que esta plataforma no pide a propósito."
   },
   "StorageEfficiency": {
     "tierLockedFeatureName": "Eficiencia de Storage",

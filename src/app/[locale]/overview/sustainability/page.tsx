@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useTenant } from "@/components/TenantProvider";
 import { useSubscription } from "@/components/SubscriptionProvider";
 import { Leaf, Wind, Zap, Loader2, Car, TreePine, Smartphone, MapPin, TrendingDown } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useProviderTranslations } from "@/lib/useProviderTranslations";
 import MockBanner from "@/components/MockBanner";
 import { useMsal } from "@azure/msal-react";
 import { fetchWithAuthRetry } from "@/lib/msalToken";
@@ -23,7 +23,7 @@ interface SustainData {
 export default function SustainabilityPage() {
     const { selectedTenant } = useTenant();
     const { selectedSubscription } = useSubscription();
-    const t = useTranslations("Sustainability");
+    const t = useProviderTranslations("Sustainability");
     const { instance, accounts } = useMsal();
     const account = accounts[0];
     const [data, setData] = useState<SustainData | null>(null);

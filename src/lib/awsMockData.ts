@@ -534,6 +534,41 @@ export function getAwsMockDataForRoute(route: string, tier: string): Record<stri
     const base = { success: true, mock: true, provider: 'AWS' as const, currency: 'USD' };
 
     switch (route) {
+        case 'sustainability': {
+            // Regiones AWS con la intensidad de carbono que declara carbonData.
+            // `storageCount` es 0 a proposito y no por falta de datos: el rol de
+            // onboarding no concede s3:ListAllMyBuckets, asi que la huella de
+            // almacenamiento queda fuera del alcance en AWS. Mostrar un numero
+            // inventado aca haria que la demo prometiera algo que el producto
+            // no entrega.
+            const escala = Math.max(1, Math.round(multiplier));
+            const byRegion = [
+                { region: 'us-east-1', resources: 8 * escala, intensity: 380, kgCO2e: round2(4200.5 * multiplier) },
+                { region: 'eu-west-1', resources: 5 * escala, intensity: 160, kgCO2e: round2(1100.2 * multiplier) },
+                { region: 'eu-north-1', resources: 3 * escala, intensity: 40, kgCO2e: round2(520.8 * multiplier) },
+                { region: 'ap-southeast-1', resources: 4 * escala, intensity: 480, kgCO2e: round2(2680.0 * multiplier) },
+                { region: 'sa-east-1', resources: 2 * escala, intensity: 100, kgCO2e: round2(640.3 * multiplier) },
+            ];
+            const footprint = round2(byRegion.reduce((acc, r) => acc + r.kgCO2e, 0));
+            return {
+                ...base,
+                footprint,
+                avoided: round2(340.2 * multiplier),
+                vmCount: byRegion.reduce((acc, r) => acc + r.resources, 0),
+                storageCount: 0,
+                zombieCount: 3 * escala,
+                byRegion,
+                recommendations: [
+                    { fromRegion: 'us-east-1', currentIntensity: 380, toRegion: 'ca-central-1', targetIntensity: 130, reductionPct: 65.8, projectedReductionKgCO2: round2(2763.9 * multiplier), impactedResources: 8 * escala },
+                    { fromRegion: 'ap-southeast-1', currentIntensity: 480, toRegion: 'ap-northeast-1', targetIntensity: 480, reductionPct: 0, projectedReductionKgCO2: 0, impactedResources: 4 * escala },
+                ].filter((r) => r.reductionPct > 0),
+                equivalencies: {
+                    carKm: Math.round(footprint * 4.6),
+                    treesYear: Math.round(footprint / 21),
+                    phoneCharges: Math.round(footprint * 121),
+                },
+            };
+        }
         case 'rates': {
             // En AWS las recomendaciones de tarifa las calcula Cost Explorer
             // sobre el uso real, asi que la demo muestra tipos de instancia y

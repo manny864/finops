@@ -374,3 +374,103 @@ export async function getAwsZombies(tenantId: string, accountId?: string | null)
 
     return perAccount.flat().sort((a, b) => b.monthlyCost - a.monthlyCost);
 }
+
+/**
+ * Conteo de recursos por región para el cálculo de huella de carbono.
+ *
+ * Se separa de `getAwsZombies` porque la pregunta es distinta: la sostenibilidad
+ * mira **todo lo que está encendido**, no sólo lo que está desperdiciado.
+ *
+ * Qué se cuenta y qué no:
+ *
+ * - **Instancias en ejecución** → huella. Las apagadas no consumen cómputo, así
+ *   que sumarlas inflaría el número.
+ * - **Volúmenes EBS sin adjuntar** → huella evitable. Es el análogo exacto de
+ *   los discos huérfanos que mide el lado Azure.
+ * - **Almacenamiento S3 → no se cuenta.** El rol de onboarding sólo concede
+ *   lectura sobre el bucket del CUR, no `s3:ListAllMyBuckets`. Pedir ese
+ *   permiso para estimar GB almacenados sería desproporcionado, así que la
+ *   huella de almacenamiento queda fuera del alcance en AWS y la UI informa
+ *   cero en lugar de una estimación inventada.
+ */
+export interface AwsCarbonInventory {
+    /** Instancias EC2 en ejecución, por región. */
+    runningByRegion: Record<string, number>;
+    /** Volúmenes EBS sin adjuntar, por región. */
+    unattachedVolumesByRegion: Record<string, number>;
+}
+
+async function carbonScanRegion(
+    region: string,
+    creds: AwsTempCredentials,
+    accountId: string
+): Promise<{ region: string; running: number; unattached: number }> {
+    const ec2 = ec2For(region, creds);
+
+    const instancesP = paginate<Instance>(async (t) => {
+        const r = await ec2.send(new DescribeInstancesCommand({ NextToken: t, MaxResults: 500 }));
+        const items = (r.Reservations || []).flatMap((res) => res.Instances || []);
+        return { items, next: r.NextToken };
+    }).catch((e) => {
+        console.warn(`[AwsCarbon] ${accountId}/${region} DescribeInstances fallo:`, (e as Error).message);
+        return [] as Instance[];
+    });
+
+    const volumesP = paginate<Volume>(async (t) => {
+        const r = await ec2.send(new DescribeVolumesCommand({ NextToken: t, MaxResults: 500 }));
+        return { items: r.Volumes || [], next: r.NextToken };
+    }).catch((e) => {
+        console.warn(`[AwsCarbon] ${accountId}/${region} DescribeVolumes fallo:`, (e as Error).message);
+        return [] as Volume[];
+    });
+
+    const [instances, volumes] = await Promise.all([instancesP, volumesP]);
+
+    return {
+        region,
+        running: instances.filter((i) => i.State?.Name === 'running').length,
+        unattached: volumes.filter((v) => v.State === 'available').length,
+    };
+}
+
+/**
+ * Inventario de carbono de todas las cuentas AWS del tenant.
+ *
+ * @param accountId Limita a una cuenta; `null`/'all' recorre todas.
+ */
+export async function getAwsCarbonInventory(
+    tenantId: string,
+    accountId?: string | null
+): Promise<AwsCarbonInventory> {
+    const accounts = await getAwsAccounts(tenantId, accountId);
+    const runningByRegion: Record<string, number> = {};
+    const unattachedVolumesByRegion: Record<string, number> = {};
+    if (accounts.length === 0) return { runningByRegion, unattachedVolumesByRegion };
+
+    const perAccount = await Promise.all(accounts.map(async (account) => {
+        let creds: AwsTempCredentials;
+        try {
+            creds = await assumeRole(
+                account.role_arn,
+                decryptExternalId(account.external_id_encrypted),
+                `FinOps-${tenantId.slice(0, 8)}`
+            );
+        } catch (e) {
+            console.warn(`[AwsCarbon] AssumeRole fallo en ${account.account_id}:`, (e as Error).message);
+            return [];
+        }
+        const regions = await getActiveRegions(tenantId, account.account_id);
+        return Promise.all(regions.map((region) => carbonScanRegion(region, creds, account.account_id)
+            .catch((e) => {
+                console.warn(`[AwsCarbon] region ${region} fallo:`, (e as Error).message);
+                return { region, running: 0, unattached: 0 };
+            })));
+    }));
+
+    for (const row of perAccount.flat()) {
+        runningByRegion[row.region] = (runningByRegion[row.region] || 0) + row.running;
+        unattachedVolumesByRegion[row.region] = (unattachedVolumesByRegion[row.region] || 0) + row.unattached;
+    }
+
+    return { runningByRegion, unattachedVolumesByRegion };
+}
