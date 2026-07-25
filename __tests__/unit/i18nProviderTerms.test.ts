@@ -122,6 +122,16 @@ const PLATFORM_PRODUCT_TERMS = [
     'Azure AD', 'Microsoft Graph', 'Azure Key Vault',
 ];
 
+/**
+ * Claves donde "Microsoft" es el proveedor de identidad del SaaS, no la nube
+ * cuyos costos mira el tenant: un cliente AWS igual entra al panel con Entra ID.
+ * Traducirlas a "AWS" seria describir mal como se inicia sesion.
+ */
+const PLATFORM_AUTH_KEYS = [
+    'Common.sign_in_microsoft',
+    'Common.corporate_access_desc',
+];
+
 const AZURE_ONLY_TERMS = [
     'AKS', 'AHB', 'Azure', 'Microsoft',
     'Suscripción', 'Suscripciones', 'Subscription', 'Subscriptions', 'Assinatura', 'Assinaturas',
@@ -183,6 +193,7 @@ describe('i18n - variantes por proveedor', () => {
                     // Con variante AWS definida, el término de Azure es correcto
                     // para Azure y nunca se le muestra a un tenant AWS.
                     if (flat[`${key}_aws`] !== undefined) continue;
+                    if (PLATFORM_AUTH_KEYS.includes(key)) continue;
                     offenders.push(`${lang}: ${key} contiene "${hit}" y no tiene variante _aws → "${value}"`);
                 }
             }

@@ -36,9 +36,10 @@ export const AWS_AVAILABLE_FEATURES: Record<string, readonly number[]> = {
     business: [0, 1, 3, 8, 9, 10, 11, 21, 22],
 
     // Casi todo lo de Enterprise es optimización sobre inventario de recursos,
-    // que en AWS todavía no se ingesta. Sobrevive lo transversal: integraciones,
-    // API pública, SSO, Power BI y facturación.
-    enterprise: [0, 1, 16, 21, 24, 25, 26, 27, 28, 29, 31, 33],
+    // que en AWS todavía no se ingesta. Sobrevive lo transversal (integraciones,
+    // API pública, SSO, Power BI y facturación) más 11, la detección de
+    // anomalías: el Z-Score corre sobre CostSnapshots, que las dos nubes llenan.
+    enterprise: [0, 1, 11, 16, 21, 24, 25, 26, 27, 28, 29, 31, 33],
 };
 
 export type PricingCloud = 'azure' | 'aws';

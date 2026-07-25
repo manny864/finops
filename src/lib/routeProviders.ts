@@ -66,6 +66,11 @@ const AGNOSTIC_ROUTES: readonly string[] = [
     "/intelligence/cost-groups",
     "/intelligence/simulator",
 
+    // La deteccion (Z-Score) corre sobre CostSnapshots; lo unico Azure era el
+    // backfill del historial, que en AWS no hace falta porque el sync ya
+    // escribe la serie completa.
+    "/intelligence/anomalies",
+
     // Todo el ranking sale de CostSnapshots. Lo unico Azure era resolver los
     // nombres de suscripcion; en AWS se resuelven los alias de AwsAccounts.
     "/overview/top-expenses",

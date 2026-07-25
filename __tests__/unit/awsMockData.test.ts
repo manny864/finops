@@ -300,3 +300,25 @@ describe('top_expenses (AWS)', () => {
         expect(r.topCostGroups).toEqual([{ name: 'Untagged/Unknown', cost: expect.any(Number) }]);
     });
 });
+
+describe('anomalies (AWS)', () => {
+    it('usa cuentas, regiones y unidades de facturacion de AWS', () => {
+        const r = getAwsMockDataForRoute('anomalies', 'enterprise') as any;
+        expect(r).not.toBeNull();
+        expect(r.dailyCosts).toHaveLength(60);
+        expect(r.anomalies.length).toBeGreaterThan(0);
+        const a = r.anomalies[0];
+        // En AWS la "suscripcion" es la cuenta: 12 digitos, no un sub-xxx.
+        expect(a.subscription_id).toMatch(/^\d{12}$/);
+        expect(a.top_contributors[0].resource_group).toMatch(/^(us|eu|ap|sa)-/);
+        // Ningun servicio de Azure se debe colar en la atribucion de causa.
+        const names = r.anomalies.map((x: any) => x.service).join(' ');
+        expect(names).not.toMatch(/Azure|AKS|Cosmos DB|DTU/i);
+    });
+
+    it('es determinista entre llamadas', () => {
+        const a = getAwsMockDataForRoute('anomalies', 'business') as any;
+        const b = getAwsMockDataForRoute('anomalies', 'business') as any;
+        expect(a.dailyCosts).toEqual(b.dailyCosts);
+    });
+});

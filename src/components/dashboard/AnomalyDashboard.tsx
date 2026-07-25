@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useMemo, useState } from 'react';
 import useSWR from 'swr';
-import { useTranslations } from 'next-intl';
+import { useProviderTranslations } from '@/lib/useProviderTranslations';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { getFreshIdToken } from '@/lib/msalToken';
@@ -68,7 +68,7 @@ export default function AnomalyDashboard() {
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const { format } = useCurrency();
-    const t = useTranslations('Anomalies');
+    const t = useProviderTranslations('Anomalies');
     const tier = (selectedTenant as any)?.tier || 'Essential';
     const isPro = hasAccess(tier, 'Professional');
 

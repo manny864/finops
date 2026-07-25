@@ -293,6 +293,84 @@ export function getAwsMockDataForRoute(route: string, tier: string): Record<stri
             };
         }
 
+        case 'anomalies': {
+            const baseMean = round2(total / 30);
+            const std = round2(baseMean * 0.15);
+            const today = new Date();
+            // Pseudo-aleatorio determinista: el grafico tiene que ser estable
+            // entre renders, si no la demo "parpadea".
+            const rand = (i: number) => {
+                const x = Math.sin(i * 12.9898) * 43758.5453;
+                return x - Math.floor(x);
+            };
+            const spikeDays = new Set([7, 22, 41, 55, 58]);
+            const dailyCosts: Array<{ date: string; amount: number }> = [];
+            for (let i = 59; i >= 0; i--) {
+                const d = new Date(today);
+                d.setDate(today.getDate() - i);
+                const idx = 59 - i;
+                let amount = baseMean + (rand(idx) - 0.5) * std * 1.4 + Math.sin(idx / 7) * std * 0.4;
+                if (spikeDays.has(idx)) amount = baseMean + std * (4 + rand(idx + 100) * 2);
+                dailyCosts.push({ date: d.toISOString().slice(0, 10), amount: Math.max(50, round2(amount)) });
+            }
+            const upperBound = baseMean + 3 * std;
+            const spikes = dailyCosts.filter(d => d.amount > upperBound);
+            const services = getAwsCostByService(tier).map(s => s.serviceName);
+            const regions = getAwsCostByRegion(tier).map(r => r.region);
+            const accounts = getAwsDemoAccounts(tier);
+            // Unidades de facturacion reales de AWS: NAT gateway se cobra por
+            // GB procesado, S3 por GB-mes, EC2 por hora de instancia.
+            const metrics = ['GB-month', 'Instance Hours', 'NAT GB processed', 'Requests', 'Provisioned IOPS'];
+            const STATUS_CYCLE = ['Open', 'Postponed', 'Dismissed', 'Completed', 'Completed', 'Open'] as const;
+            const anomalies = spikes.map((sp, i) => {
+                const status = STATUS_CYCLE[i % STATUS_CYCLE.length];
+                const detectedAt = new Date(`${sp.date}T06:00:00.000Z`);
+                const primaryService = services[i % services.length];
+                const secondaryService = services[(i + 2) % services.length];
+                const totalDelta = Math.max(0, sp.amount - baseMean);
+                const primaryPct = 55 + Math.round(rand(i + 300) * 20);
+                return {
+                    id: i + 1,
+                    date: sp.date,
+                    status,
+                    service: primaryService,
+                    // En AWS el equivalente de la suscripcion es la cuenta.
+                    subscription_id: accounts[i % accounts.length].account_id,
+                    amount: sp.amount,
+                    expected_amount: baseMean,
+                    z_score: (sp.amount - baseMean) / std,
+                    metric: metrics[i % metrics.length],
+                    severity: sp.amount > baseMean + 5 * std ? 'Critical' : 'High',
+                    description: `Pico inusual detectado en ${primaryService} — desviación de +$${(sp.amount - baseMean).toFixed(0)} vs media móvil.`,
+                    // El "resource group" en AWS es la region: es la dimension
+                    // que el sync guarda en esa columna.
+                    top_contributors: totalDelta > 0 ? [
+                        {
+                            resource_group: regions[i % regions.length],
+                            service_name: primaryService,
+                            cost: round2(baseMean * 0.3 + totalDelta * (primaryPct / 100)),
+                            baseline_avg: round2(baseMean * 0.3),
+                            delta: round2(totalDelta * (primaryPct / 100)),
+                            delta_pct_of_total: primaryPct,
+                        },
+                        {
+                            resource_group: regions[(i + 1) % regions.length],
+                            service_name: secondaryService,
+                            cost: round2(baseMean * 0.15 + totalDelta * ((100 - primaryPct) / 100)),
+                            baseline_avg: round2(baseMean * 0.15),
+                            delta: round2(totalDelta * ((100 - primaryPct) / 100)),
+                            delta_pct_of_total: 100 - primaryPct,
+                        },
+                    ] : [],
+                    detected_at: detectedAt.toISOString(),
+                    resolved_at: status !== 'Open'
+                        ? new Date(detectedAt.getTime() + (4 + rand(i + 200) * 36) * 3600_000).toISOString()
+                        : null,
+                };
+            });
+            return { ...base, mean: baseMean, stdDev: std, dailyCosts, anomalies };
+        }
+
         case 'top_expenses': {
             const services = getAwsCostByService(tier);
             const regions = getAwsCostByRegion(tier);

@@ -568,6 +568,7 @@
     "select_tenant_desc": "Debes seleccionar una organización para ver la analítica.",
     "export_csv": "Exportar CSV",
     "no_subscriptions": "Sin suscripciones",
+    "no_subscriptions_aws": "Sin cuentas",
     "loading_subs": "Cargando...",
     "total_spending": "Gasto Total",
     "last_30_days": "Últimos 30 días",
@@ -582,6 +583,7 @@
     "executive": "Ejecutivo",
     "engineer": "Ingeniero",
     "subscription": "Suscripción",
+    "subscription_aws": "Cuenta",
     "all_tenant_scope": "Todas (Tenant Scope)",
     "tenant_admin": "Tenant (Admin Propietario)",
     "scope": "Alcance",
@@ -590,6 +592,7 @@
     "prev": "Anterior",
     "next": "Siguiente",
     "rbacUpdateRequired": "Actualiza tus permisos en Azure para desbloquear esta función",
+    "rbacUpdateRequired_aws": "Actualice sus permisos de IAM en AWS para desbloquear esta función",
     "tierRequired": "Desbloquea {feature} con el plan {tier}"
   },
   "Shell": {
@@ -3813,6 +3816,7 @@
     "fetchError": "Error al cargar anomalías",
     "noDataTitle": "Sin datos suficientes",
     "noDataDesc": "El motor requiere al menos 60 días de historial de facturación de Azure para establecer una línea base estadística confiable.",
+    "noDataDesc_aws": "El motor requiere al menos 60 días de historial de facturación de AWS para establecer una línea base estadística confiable.",
     "baselineSpend": "Gasto Base (Media)",
     "baselineSpendDesc": "Promedio móvil de 60 días",
     "zScoreTolerance": "Tolerancia Z-Score (3σ)",

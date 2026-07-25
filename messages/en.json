@@ -568,6 +568,7 @@
     "select_tenant_desc": "You must select an organization to view the analytics.",
     "export_csv": "Export CSV",
     "no_subscriptions": "No subscriptions",
+    "no_subscriptions_aws": "No accounts",
     "loading_subs": "Loading...",
     "total_spending": "Total Spending",
     "last_30_days": "Last 30 days",
@@ -582,6 +583,7 @@
     "executive": "Executive",
     "engineer": "Engineer",
     "subscription": "Subscription",
+    "subscription_aws": "Account",
     "all_tenant_scope": "All (Tenant Scope)",
     "tenant_admin": "Tenant (Admin Owner)",
     "scope": "Scope",
@@ -590,6 +592,7 @@
     "prev": "Previous",
     "next": "Next",
     "rbacUpdateRequired": "Update your Azure permissions to unlock this feature",
+    "rbacUpdateRequired_aws": "Update your AWS IAM permissions to unlock this feature",
     "tierRequired": "Unlock {feature} with the {tier} plan"
   },
   "Shell": {
@@ -3813,6 +3816,7 @@
     "fetchError": "Error loading anomalies",
     "noDataTitle": "Not enough data",
     "noDataDesc": "The engine requires at least 60 days of Azure billing history to establish a reliable statistical baseline.",
+    "noDataDesc_aws": "The engine requires at least 60 days of AWS billing history to establish a reliable statistical baseline.",
     "baselineSpend": "Baseline Spend (Mean)",
     "baselineSpendDesc": "60-day moving average",
     "zScoreTolerance": "Z-Score Tolerance (3σ)",
