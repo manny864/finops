@@ -883,11 +883,92 @@ mutación: al quitar `computeLabel_aws` el test vuelve a señalar el AKS.
 sumar su namespace a `AWS_FACING_NAMESPACES` en ese test.** Es el paso que
 convierte la regla en automática; sin él la página entra sin revisar.
 
-**Pendiente conocido:** el motor del What-If aplica –18 % al activar licencias,
-un supuesto calibrado para AHB. Para BYOL en AWS (que requiere Dedicated Hosts)
-el ahorro real es distinto; **no se inventó un porcentaje nuevo sin datos**. Se
-corrigió el nombre, no la matemática — revisar junto con la primera prueba
-contra una cuenta AWS real.
+**Los dos pendientes de esta fase quedaron resueltos** en la Fase 7.7.
+
+### Fase 7.7 — Correcciones del simulador y revisión automática — ✅ COMPLETA
+
+Cierra los dos pendientes que había dejado abiertos la Fase 7.6.
+
+**1. El motor del What-If (`6a3deb4`).** Tenía dos errores acumulados:
+
+- El descuento por licencias se aplicaba al **costo total** del escenario
+  (cómputo + storage + red). AHB cubre licencias de Windows/SQL, que se
+  facturan junto con la VM: no abarata ni el almacenamiento ni el egress.
+  Ahora se aplica solo al cómputo. Con el caso base de los tests, el proyectado
+  pasa de 820 a 892 y el delta de –18 % a –10,8 %: **los escenarios guardados
+  van a mostrar menos ahorro al recalcularse, y ese es el valor correcto.**
+- El –18 % estaba calibrado para AHB y se aplicaba también a los tenants AWS.
+  El default para AWS es 0 y el porcentaje pasa a ser un input declarado por el
+  usuario (`licenseSavingsPct`, validado 0..100). No se inventó un número: BYOL
+  en AWS exige Dedicated Hosts y depende del mix Windows/SQL, así que no hay un
+  valor plano defendible.
+
+**2. La revisión de terminología es automática (`428cc96`).** Dependía de una
+lista de namespaces escrita a mano, que se desactualiza en silencio — justo el
+mecanismo por el que se coló el “VMs/AKS”. Ahora el test parte de
+`awsEnabledRoutes()`, resuelve el `page.tsx` de cada ruta y sigue sus imports
+dentro de `src/` para juntar los namespaces del árbol. Solo mira de la página
+hacia abajo: el shell global vive en el layout, así que **no** reproduce la
+contaminación del crawler de rutas que se intentó antes.
+
+Dos decisiones de diseño del test, para que no se revierta por error:
+
+- El análisis estricto se limita a las páginas de **datos de nube**
+  (`/intelligence`, `/governance`, `/overview`, `/cleanup`, `/advisor`). Las de
+  admin y pricing quedan afuera porque su palabra “Subscription” es la
+  suscripción comercial al SaaS, no una Azure Subscription; mezclarlas producía
+  45 falsos positivos y volvía el test inservible.
+- Los nombres de producto de la plataforma (Azure OpenAI, Microsoft Teams, Azure
+  Marketplace, Entra) se descartan antes de buscar terminología: a un cliente
+  AWS se le nombra “Azure OpenAI” con toda propiedad, porque es el motor de IA
+  del SaaS y no un recurso suyo.
+
+El test, ya automatizado, encontró un bug real: el banner de datos simulados le
+decía **“Conecta tu suscripción Azure” a un tenant AWS** (`0918267`).
+
+**Pendiente conocido de esta fase:** hay ~10 strings de `pricing.*` que dicen
+“suscripciones de Azure” al describir el límite de scopes por tier. Un
+prospecto de AWS los ve en la página de planes. Están fuera del alcance
+estricto del test por la ambigüedad de “Subscription” descrita arriba, pero son
+un error real de cara al cliente.
+
+### Fase 7.8 — Ahorro Capturado y cobertura del framework — ✅ COMPLETA
+
+**Auditoría de acoplamiento rehecha (`2b93786`).** Se resolvieron
+transitivamente los imports de las 152 rutas de API. Resultado relevante: de las
+páginas candidatas a habilitarse, **solo `/overview/captured-savings` sirve
+datos reales a un tenant AWS**, porque lee `DailySnapshots` del dominio
+`dashboard_summary`, que `/api/dashboard/summary` ya escribe para las dos nubes.
+
+Las demás candidatas se descartaron con evidencia, no por prudencia:
+
+| Ruta | Por qué no |
+|---|---|
+| `/intelligence/storage-efficiency` | Lee `CostMeterSnapshots`, que solo llena `collectors/azure/billingService`. |
+| `/intelligence/optimization-index` (COIN) | Lee `RecommendationActions`, que solo llena `/api/advisor` (Azure Advisor). Daría cero, y un cero se lee como “no hay desperdicio”. |
+| `/intelligence/cost-centers`, `/intelligence/allocation` | Agrupan por `CostSnapshots.Tags`, que el sync de AWS no llena: todo caería en “Sin asignar”. |
+| `/intelligence/macc` | MACC es un compromiso de consumo de Microsoft. El equivalente AWS es el EDP; no es la misma página. |
+| `/intelligence/tenant-health` | Mezcla `CostSnapshots` (ok) con `ExpiringCredentials` y `RecommendationActions` (ambos vacíos en AWS): mostraría una salud degradada artificialmente. |
+| `/governance/credentials` | Consulta Microsoft Graph para listar App Registrations de Entra ID. No tiene equivalente: el onboarding AWS usa rol asumido, sin secreto que expire. |
+
+**Cobertura del FinOps Framework** documentada en
+`docs/finops-framework-coverage.md` (`fd73847`): matriz capability × proveedor
+con la evidencia de qué acopla cada una a Azure.
+
+La conclusión de fondo, que reencuadra el trabajo restante: **la sección
+Gobernanza no está vacía para AWS por una allow-list incompleta, sino porque el
+sync de AWS solo persiste costo agregado por (cuenta, región, servicio)**. No
+hay inventario de recursos ni recomendaciones. Lo que falta es ingesta, no
+habilitar páginas.
+
+El gap de mayor impacto es **Allocation**: bloquea además Chargeback, Unit
+Economics y Showback. Los tags de AWS ya se ingestan en `FocusLineItems.Tags`
+(camino CUR), pero el agregado diario a `CostSnapshots` los descarta porque su
+clave única es `(tenant, subscription, date, resource_group, service_name)` y no
+tiene dimensión de tag. Las dos opciones y la recomendación están en el
+documento de cobertura. **Ojo:** el camino de Cost Explorer sin CUR no trae tags
+de recurso, así que un tenant que solo conecte CE seguirá sin allocation
+cualquiera sea la opción elegida.
 
 ### Fase 8 — Módulo C: optimización y huérfanos (spec §3 Módulo C) — NO EMPEZADO
 
