@@ -66,6 +66,34 @@ const AGNOSTIC_ROUTES: readonly string[] = [
     "/intelligence/cost-groups",
     "/intelligence/simulator",
 
+    // --- Plataforma / SaaS: no dependen de la nube del tenant -------------
+    // Estas paginas administran el producto (identidad, facturacion del SaaS,
+    // cumplimiento, integraciones), no los recursos del cliente. Estaban
+    // ocultas para AWS sólo porque el default de esta allow-list es azure-only,
+    // y eso dejaba al tenant AWS sin medio panel de administracion.
+    "/admin/compliance",
+    "/admin/data-residency",
+    "/admin/markup",
+    "/admin/payments",
+    "/admin/powerbi-templates",
+    "/admin/copilot-m365",
+    "/admin/report",
+    "/remediation/approvals",
+    "/intelligence/alerts",
+    "/intelligence/upload",
+    "/marketplace",
+    "/mobile",
+    "/upgrade",
+
+    // Rutas de autenticacion y alta. Son pre-login o de ciclo de vida de la
+    // cuenta: el tenant AWS entra justamente por aca (email + contraseña).
+    "/login",
+    "/signup",
+    "/verify-email",
+    "/reset-password",
+    "/accept-invite",
+    "/demo",
+
     // La deteccion (Z-Score) corre sobre CostSnapshots; lo unico Azure era el
     // backfill del historial, que en AWS no hace falta porque el sync ya
     // escribe la serie completa.

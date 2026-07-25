@@ -77,6 +77,10 @@ const ROUTES_WITHOUT_OWN_UI: Record<string, string> = {
     '/': 'redirect post-login hacia /whiteboard, no renderiza UI propia',
     '/legal': 'seccion contenedora: la UI vive en sus subrutas',
     '/superadmin': 'seccion contenedora: la UI vive en sus subrutas',
+    '/marketplace': 'seccion contenedora: la UI vive en sus subrutas (aws|azure)/landing',
+    '/login': 'devuelve null: la tarjeta de acceso la pinta ClientShell cuando no hay sesion',
+    '/admin/payments': 'redirect permanente a /admin/billing, que si esta habilitada',
+    '/demo': 'pantalla pre-login de la demo, hoy con textos fijos en es (deuda de i18n propia, no de proveedor)',
 };
 
 const ROUTE_NAMESPACES: Record<string, string[]> = Object.fromEntries(
@@ -194,6 +198,10 @@ describe('i18n - variantes por proveedor', () => {
                     // para Azure y nunca se le muestra a un tenant AWS.
                     if (flat[`${key}_aws`] !== undefined) continue;
                     if (PLATFORM_AUTH_KEYS.includes(key)) continue;
+                    // Enumeracion multi-cloud ("Azure, AWS o GCP"): el texto ya
+                    // le habla al tenant AWS, nombrar Azure ahi es correcto y
+                    // pedirle una variante _aws seria empeorarlo.
+                    if (/\bAWS\b/i.test(value)) continue;
                     offenders.push(`${lang}: ${key} contiene "${hit}" y no tiene variante _aws → "${value}"`);
                 }
             }
