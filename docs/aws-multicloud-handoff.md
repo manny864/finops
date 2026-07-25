@@ -34,6 +34,7 @@ dentro del mismo codebase: login propio, panel, roles, i18n y onboarding.
 | 7.7 — Fix del simulador + revisión automática de terminología | **✅ completa** |
 | 7.8 — Ahorro Capturado + matriz del FinOps Framework | **✅ completa** |
 | 7.9 — Aviso de CUR en onboarding + selector de nube en precios | **✅ completa** |
+| 7.10 — Paridad de panel: WhiteBoard, TOP Gastos, Anomalías, Proyección | **✅ completa** |
 | 8 — Módulo C: optimización y huérfanos | ❌ no empezado |
 | 9 — Wiring y operación | ❌ no empezado |
 
@@ -57,6 +58,21 @@ El criterio para habilitar una ruta es **doble**: que su API no dependa de Azure
 (ni transitivamente) **y** que las tablas que consulta las alimente también el
 sync de AWS. La matriz completa, con evidencia por capability, está en
 `docs/finops-framework-coverage.md`.
+
+> **⚠️ Corrección importante a esa auditoría (Fase 7.10).** La auditoría de la
+> 7.8 fue **binaria**: si el route importaba algo de Azure, la página quedaba
+> descartada. Ese criterio **subestima** lo habilitable, porque el import de
+> Azure suele cubrir *una fracción* de la página. El caso testigo es el
+> WhiteBoard: 5 de sus 10 fuentes salen de `CostSnapshots` y sólo 3 usaban
+> Resource Graph. Descartarla entera dejaba a los tenants AWS sin la landing
+> post-login.
+>
+> **El criterio correcto es por fuente de datos, no por página**: mirar qué
+> fracción de la respuesta depende de Azure y parametrizar esa parte con
+> `tenantUsesAzure()`, dejando el resto servido desde `CostSnapshots`. Las
+> páginas que quedan descartadas hoy lo están porque **toda** su sustancia es
+> Azure (Advisor Score, Resource Graph, Microsoft Graph), no porque importen el
+> SDK.
 
 **Hay una decisión de diseño pendiente del usuario** — el gap de Allocation, que
 bloquea además Chargeback, Unit Economics y Showback. Ver §9.
@@ -1034,6 +1050,65 @@ mutación: agregar “Asesor de Azure” a la lista de Essential lo hace fallar)
 `AWS_AVAILABLE_FEATURES`**, o la tabla de precios va a seguir mostrándola
 tachada.
 
+### Fase 7.10 — Paridad de panel: las páginas que el cliente esperaba ver — ✅ COMPLETA
+
+**Disparador.** El usuario señaló que el panel AWS no se parecía al de Azure:
+faltaban WhiteBoard, Advisor y Progreso Histórico. Tenía razón, y revisarlo
+destapó dos problemas de fondo.
+
+**Problema 1 — el WhiteBoard rompía la landing post-login.**
+`src/app/[locale]/page.tsx` redirige después del login a `/overview/whiteboard`,
+pero esa ruta no estaba habilitada para AWS. Como `isRouteAvailableForProvider`
+sólo se aplicaba en `Sidebar.tsx`, **el tenant AWS aterrizaba en una página que
+su propio menú no listaba**, y la API fallaba entera porque `getAzureCredential`
+quedaba fuera de los `.catch()` por fuente.
+
+**Problema 2 — la auditoría binaria de la 7.8 subestimaba lo habilitable.**
+Ver la corrección destacada en §0. El WhiteBoard no era una página Azure: era
+una página con 3 fuentes Azure sobre 10.
+
+**Páginas habilitadas, y con qué equivalente:**
+
+| Página | Qué era Azure | Equivalente AWS |
+|---|---|---|
+| `/overview/whiteboard` | Resource Graph (sin etiquetar, compliance wins, top 5) + Advisor | Top 5 regiones y servicios por costo desde `CostSnapshots`; inventario y Advisor quedan vacíos (Fase 8) |
+| `/overview/top-expenses` | Sólo resolver nombres de suscripción | Alias de `AwsAccounts` sobre el account ID |
+| `/intelligence/anomalies` | Backfill del historial vía Cost Management | Innecesario: el sync AWS ya escribe la serie completa |
+| Proyección (`/api/intelligence/forecast`) | Cost Management (histórico + forecast) | Serie desde `CostSnapshots` + `linearForecast` de `src/lib/forecasting` |
+
+En AWS los rankings van **por costo, no por cantidad de recursos**: no hay
+inventario, y el costo es además el dato que le importa a FinOps.
+
+**Dos bugs preexistentes que aparecieron al revisar esto:**
+
+1. **El forecast nunca devolvía `data`.** El default de `withConfidence` es
+   `true`, así que la rama que devolvía `data` era inalcanzable desde la UI.
+   `admin/report` arma `forecastSeries` con `forecast?.data` → **el reporte
+   ejecutivo salía siempre con la serie vacía, en Azure también.** Corregido en
+   `5bce01f`, con test de contrato.
+2. **El backfill de anomalías se llamaba siempre.** Para un tenant AWS fallaba
+   en cada request y bajaba el TTL del caché de 6 h a 10 min, multiplicando la
+   carga de la detección.
+
+**Gate por proveedor a nivel de página.** `RouteTierGate` ahora bloquea también
+por proveedor, no sólo por tier y permisos: antes una página Azure-only seguía
+renderizando si se llegaba por URL directa o por un redirect, y mostraba un
+error crudo de credenciales en vez de una explicación.
+
+**Convención nueva: `@azure-only`.** Un componente que cubre un servicio sin
+equivalente en AWS (Container Apps, Log Analytics) se marca con ese comentario
+en su cabecera. El test de terminología deja de exigirle variantes `_aws`
+(traducirlas sería inventar un producto) y a cambio **verifica que el
+componente esté efectivamente gateado** en quien lo renderiza — si no, un tenant
+AWS vería una tarjeta de un servicio inexistente y el test ya no lo avisaría.
+
+**Lo que sigue sin equivalente, y por qué:**
+
+- `/intelligence/history` (Progreso Histórico) — es la serie del **Azure Advisor
+  Score**. No hay métrica equivalente ingestada.
+- `/advisor` — Azure Advisor. El equivalente sería AWS Compute Optimizer /
+  Trusted Advisor: **es ingesta nueva, Fase 8**, no una parametrización.
+
 ### Fase 8 — Módulo C: optimización y huérfanos (spec §3 Módulo C) — NO EMPEZADO
 
 `awsProvider.getRecommendations()` devuelve `[]` (línea ~105). No existe nada.
@@ -1344,6 +1419,25 @@ D  src/app/api/onboard/aws/route.ts
 | `__tests__/unit/pricingFeatureAvailability.test.ts` | **nuevo** — 5 tests, verificado por mutación |
 | `docs/manual/MANUAL_USUARIO_{ES,EN,PT-BR}.md` + PDFs | advertencia del CUR |
 
+### Fase 7.10 — paridad de panel (`d00e9f7`, `1d43e7b`, `5bce01f`, `53ee2f5`, `eaccc73`, `1e5f9e5`)
+
+| Archivo | Cambio |
+|---|---|
+| `src/app/api/intelligence/whiteboard/route.ts` | `argClient` sólo si el tenant usa Azure; Top 5 regiones/servicios por SQL para AWS; el proveedor entra en la clave de caché |
+| `src/app/api/intelligence/top-expenses/route.ts` | alias de `AwsAccounts` en vez de nombres de suscripción |
+| `src/app/api/intelligence/forecast/route.ts` | serie desde `CostSnapshots` + `linearForecast` para AWS; **fix**: devolver `data` también en la respuesta con bandas |
+| `src/services/anomalyDetectionService.ts` | el backfill de Cost Management sólo corre para tenants Azure |
+| `src/components/RouteTierGate.tsx` | gate por proveedor al entrar por URL directa |
+| `src/components/dashboard/ExecutiveSummaryBoard.tsx` | oculta Container Apps y Log Analytics en AWS |
+| `src/components/dashboard/{ContainerApps,LogAnalytics}Card.tsx` | marcados `@azure-only` |
+| `src/components/dashboard/{CostHistogram,TopExpenses,Anomaly}*.tsx`, `RbacLockTooltip.tsx` | `useTranslations` → `useProviderTranslations` |
+| `src/lib/routeProviders.ts` | +3 rutas en `AGNOSTIC_ROUTES` |
+| `src/lib/awsMockData.ts` | `case 'white_board'`, `'top_expenses'`, `'anomalies'` |
+| `src/lib/pricingFeatureAvailability.ts` | +WhiteBoard (essential 1), TOP Gastos (pro 3), Anomalías (enterprise 11) |
+| `messages/{en,es,pt-BR}.json` | namespace `ProviderGate` + variantes `_aws` de histograma, TOP Gastos, anomalías y `Common` |
+| `__tests__/unit/i18nProviderTerms.test.ts` | soporte de `@azure-only` + guard de que el marcador no se use sin gate |
+| `__tests__/unit/{routeProviders,awsMockData}.test.ts`, `__tests__/integration/api-forecast.test.ts` | cobertura nueva |
+
 ## 8. Checklist consolidado: qué falta para tener producto AWS
 
 Ordenado por lo que desbloquea a lo demás. Los ítems marcados ⛔ son bloqueantes
@@ -1406,6 +1500,10 @@ además que **no se hizo push** de ninguno de los commits de este trabajo.
   AHB también en AWS. La revisión de terminología pasó a derivarse del código.
 - **Fase 7.8** — `/overview/captured-savings` habilitada para AWS (la única
   candidata que sirve datos reales) + matriz del FinOps Framework por proveedor.
+- **Fase 7.10** — WhiteBoard, TOP Gastos, Anomalías y Proyección funcionan para
+  AWS; `RouteTierGate` bloquea por proveedor también al entrar por URL; se
+  corrigieron dos bugs preexistentes (el forecast nunca devolvía `data`, y el
+  backfill de anomalías se llamaba para tenants sin Azure).
 - **Fase 7.9** — El onboarding avisa que sin CUR no hay tags; la tabla de
   precios tiene selector de nube y deja de ofrecer capabilities inexistentes en
   AWS.
@@ -1490,12 +1588,12 @@ diseñar: la feature depende de que el cliente configure el CUR.
 
 ## 10. Punto de partida para la próxima sesión
 
-**Estado del repo:** rama `staging`, ~49 commits locales, **sin push** (el push
+**Estado del repo:** rama `staging`, ~56 commits locales, **sin push** (el push
 lo pide el usuario explícitamente). Working tree limpio salvo `.claudeignore`,
 que es ajeno a este trabajo y **no hay que commitear**.
 
-**Validación al cierre:** `npx vitest run` → 719 tests en verde;
-`npm run lint` → 0 errores (2301 warnings preexistentes); `npm run build` → OK.
+**Validación al cierre:** `npx vitest run` → 732 tests en verde;
+`npm run lint` → 0 errores (2310 warnings preexistentes); `npm run build` → OK.
 
 **Restricciones vigentes del usuario:**
 - No hacer `git push`.
@@ -1524,7 +1622,15 @@ que es ajeno a este trabajo y **no hay que commitear**.
 3. `src/lib/pricingFeatureAvailability.ts` → sumar su índice, o la tabla de
    precios la va a seguir mostrando tachada.
 4. Revisar terminología: el test `i18nProviderTerms` detecta la ruta nueva solo,
-   pero las variantes `_aws` hay que escribirlas.
+   pero las variantes `_aws` hay que escribirlas. Ojo: la variante sólo se
+   muestra si el componente usa `useProviderTranslations` en vez de
+   `useTranslations`; escribirla y no cambiar el hook no hace nada.
+
+**Y antes de darla por habilitada, verificar la ruta a nivel de fuente:**
+parametrizar el route con `tenantUsesAzure()` en vez de asumir que toda la
+página sirve. Si una tarjeta cubre un servicio que no existe en AWS (Container
+Apps, Log Analytics), marcarla con `@azure-only` en la cabecera del componente
+y ocultarla del contenedor: el test lo exige y verifica que el gate exista.
 
 **Tests que actúan de red de contención** (si fallan, es señal, no ruido):
 
@@ -1534,3 +1640,5 @@ que es ajeno a este trabajo y **no hay que commitear**.
 | `__tests__/unit/pricingFeatureAvailability.test.ts` | Que la tabla de precios no ofrezca a AWS capabilities que no existen. |
 | `__tests__/unit/awsMockData.test.ts` | Que la demo AWS tenga datos coherentes y escalados por tier. |
 | `__tests__/unit/simulatorEngine.test.ts` | La matemática del What-If, incluido el ahorro de licencias por proveedor. |
+| `__tests__/unit/routeProviders.test.ts` | Que las páginas ya habilitadas no se caigan de la allow-list (la landing post-login, sobre todo). |
+| `__tests__/integration/api-forecast.test.ts` | El contrato `data` que consume `admin/report`, y que el camino AWS no llame a Cost Management. |
