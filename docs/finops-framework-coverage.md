@@ -23,8 +23,8 @@ Leyenda: ✅ cubierta · 🟡 parcial · ❌ no cubierta · n/a fuera de alcance
 |---|:--:|:--:|---|
 | Data Ingestion | ✅ | ✅ | AWS ingesta por dos caminos: Cost Explorer (`/api/sync/aws/[id]/ce`) y CUR en S3 (`.../cur`). Ambos normalizan a FOCUS 1.0. |
 | Allocation | ✅ | ❌ | **Bloqueo estructural.** El agregado diario a `CostSnapshots` descarta los tags: su clave única es `(tenant, subscription, date, resource_group, service_name)` y no hay columna de tag en esa dimensión. Los tags de AWS sí se persisten, pero en `FocusLineItems.Tags` y solo por el camino CUR. Consecuencia: todo cae en "Sin asignar". Ver §Gap 1. |
-| Reporting & Analytics | ✅ | 🟡 | Habilitadas para AWS: Costo por Categoría, Grupos de Costo, Ahorro Capturado. En AWS, `resource_group` guarda la **región**, así que los grupos agrupan por región, no por agrupador lógico. |
-| Anomaly Management | ✅ | ❌ | `anomalyDetectionService.ts` depende de Azure. |
+| Reporting & Analytics | ✅ | 🟡 | Habilitadas para AWS: Costo por Categoría, Grupos de Costo, Ahorro Capturado, **WhiteBoard** y **TOP Gastos**. En AWS, `resource_group` guarda la **región**, así que los grupos agrupan por región, no por agrupador lógico, y los rankings van por costo (no hay inventario de recursos que contar). |
+| Anomaly Management | ✅ | ✅ | La detección por Z-Score corre sobre `CostSnapshots`, que las dos nubes llenan. Lo único atado a Azure era el backfill del historial vía Cost Management, innecesario en AWS porque el sync ya escribe la serie completa. |
 | Data Analysis & Showback | ✅ | 🟡 | Sirve la ingesta de costo, pero sin allocation el showback por equipo/producto no es posible en AWS. |
 
 ## 2. Quantify Business Value
@@ -32,7 +32,7 @@ Leyenda: ✅ cubierta · 🟡 parcial · ❌ no cubierta · n/a fuera de alcance
 | Capability | Azure | AWS | Evidencia / bloqueo |
 |---|:--:|:--:|---|
 | Planning & Estimating | ✅ | ✅ | Simulador habilitado para las dos nubes. El ahorro por licencias ya no asume el 18 % de AHB en AWS: el porcentaje lo declara el usuario (default 0). |
-| Forecasting | ✅ | ❌ | `/api/intelligence/forecast` importa `collectors/azure/billingService`. |
+| Forecasting | ✅ | 🟡 | La serie histórica se reconstruye desde `CostSnapshots` y se proyecta con `linearForecast` (`src/lib/forecasting.ts`). Falta integrar `ce:GetCostForecast` para contrastar contra la proyección del propio proveedor. |
 | Budgeting | ✅ | ❌ | `budgetService.ts` importa `@azure/arm-consumption`. |
 | Unit Economics | ✅ | ❌ | `/api/intelligence/unit-economics` importa `@azure/arm-costmanagement`. |
 | Benchmarking | 🟡 | ❌ | Solo comparación intra-tenant. |
