@@ -638,6 +638,11 @@ querés monitorear. El alta tiene dos pasos:
    configurado, indicás también su bucket, prefijo y nombre de reporte: con CUR
    obtenés detalle por recurso; sin CUR trabajamos con Cost Explorer, que da
    detalle por servicio y región.
+
+   > **Conviene configurar el CUR.** Cost Explorer no devuelve las **etiquetas**
+   > de los recursos. Sin CUR vas a ver tus costos abiertos por cuenta, región y
+   > servicio, pero no vas a poder asignarlos por equipo o proyecto, ni usar
+   > chargeback ni unit economics: todo el gasto queda como “Sin asignar”.
 2. **Creás el rol en tu cuenta de AWS** con la plantilla que te mostramos. Podés
    elegir el formato que uses habitualmente: **CloudFormation**, **Terraform** o
    comandos de **AWS CLI**. El botón *Copiar* la lleva al portapapeles.

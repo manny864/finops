@@ -638,6 +638,11 @@ monitorar. O cadastro tem duas etapas:
    Report) configurado, informe também o bucket, o prefixo e o nome do relatório
    — com CUR você obtém detalhe por recurso; sem ele usamos o Cost Explorer, que
    dá detalhe por serviço e região.
+
+   > **Vale a pena configurar o CUR.** O Cost Explorer não retorna as **tags**
+   > dos recursos. Sem o CUR você verá seus custos abertos por conta, região e
+   > serviço, mas não poderá alocá-los por equipe ou projeto, nem usar chargeback
+   > ou unit economics: todo o gasto fica como “Sem alocação”.
 2. **Crie a função na sua conta AWS** com o modelo que exibimos. Escolha o
    formato que você já usa: **CloudFormation**, **Terraform** ou comandos da
    **AWS CLI**. O botão *Copiar* leva o conteúdo para a área de transferência.

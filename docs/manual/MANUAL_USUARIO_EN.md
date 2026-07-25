@@ -638,6 +638,12 @@ to monitor. Onboarding has two steps:
    Usage Report) configured, also provide its bucket, prefix and report name —
    with CUR you get per-resource detail; without it we use Cost Explorer, which
    gives detail per service and region.
+
+   > **Setting up the CUR is worth it.** Cost Explorer does not return resource
+   > **tags**. Without a CUR you will see your costs broken down by account,
+   > region and service, but you will not be able to allocate them by team or
+   > project, nor use chargeback or unit economics: all spend stays
+   > “Unallocated”.
 2. **Create the role in your AWS account** using the template we show you. Pick
    whichever format you normally use: **CloudFormation**, **Terraform** or **AWS
    CLI** commands. The *Copy* button puts it on your clipboard.
