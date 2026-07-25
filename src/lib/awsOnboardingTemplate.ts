@@ -19,6 +19,8 @@
  *   | Acción                  | Dónde se usa                                        |
  *   |-------------------------|-----------------------------------------------------|
  *   | `ce:GetCostAndUsage`     | `getCostAndUsage()` — sync de Cost Explorer        |
+ *   | `ce:GetReservationPurchaseRecommendation`     | `getAwsRateRecommendations()` — RI  |
+ *   | `ce:GetSavingsPlansPurchaseRecommendation`    | idem — Savings Plans               |
  *   | `ec2:DescribeInstances`  | `getActiveResources()` — inventario EC2            |
  *   | `ec2:DescribeVolumes`    | `getAwsZombies()` — volúmenes EBS sin adjuntar     |
  *   | `ec2:DescribeAddresses`  | `getAwsZombies()` — IPs elásticas sin asociar      |
@@ -163,6 +165,10 @@ Resources:
                 Effect: Allow
                 Action:
                   - ce:GetCostAndUsage
+                  # Recomendaciones de compra: las calcula AWS sobre el uso real
+                  # de los ultimos 30 dias, descontando la cobertura vigente.
+                  - ce:GetReservationPurchaseRecommendation
+                  - ce:GetSavingsPlansPurchaseRecommendation
                 Resource: '*'
               # Inventario para correlacionar costo con recursos vivos y
               # detectar los ociosos. Las acciones Describe* de EC2 no admiten
@@ -263,7 +269,13 @@ data "aws_iam_policy_document" "finops_readonly" {
   statement {
     sid       = "LeerCostosDeCostExplorer"
     effect    = "Allow"
-    actions   = ["ce:GetCostAndUsage"]
+    actions = [
+      "ce:GetCostAndUsage",
+      # Recomendaciones de compra: las calcula AWS sobre el uso real de los
+      # ultimos 30 dias, descontando la cobertura vigente.
+      "ce:GetReservationPurchaseRecommendation",
+      "ce:GetSavingsPlansPurchaseRecommendation",
+    ]
     # Cost Explorer no admite permisos por recurso.
     resources = ["*"]
   }

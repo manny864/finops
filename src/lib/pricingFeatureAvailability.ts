@@ -47,7 +47,10 @@ export const AWS_AVAILABLE_FEATURES: Record<string, readonly number[]> = {
     // trae etiquetas de recurso.
     // 13 es Gastos y Proyeccion: la serie sale de CostSnapshots y en AWS se
     // saltea el backfill contra Azure, que ya no hace falta.
-    enterprise: [0, 1, 2, 9, 10, 11, 13, 16, 21, 24, 25, 26, 27, 28, 29, 31, 33],
+    // 4 (Optimizacion de Tarifas) y 6 (Reservas) entran con las recomendaciones
+    // de compra de Cost Explorer: Reserved Instances y Savings Plans, que AWS
+    // calcula sobre el uso real de los ultimos 30 dias.
+    enterprise: [0, 1, 2, 4, 6, 9, 10, 11, 13, 16, 21, 24, 25, 26, 27, 28, 29, 31, 33],
 };
 
 export type PricingCloud = 'azure' | 'aws';

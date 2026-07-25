@@ -203,7 +203,9 @@ describe('el YAML generado es sintácticamente válido', () => {
         expect(actions).toEqual([
             'budgets:DescribeBudgets',  // getAwsNativeBudgets
             'budgets:ViewBudget',       // idem: AWS exige las dos para leer
-            'ce:GetCostAndUsage',       // sync de Cost Explorer
+            'ce:GetCostAndUsage',
+            'ce:GetReservationPurchaseRecommendation', // getAwsRateRecommendations: RI
+            'ce:GetSavingsPlansPurchaseRecommendation', // idem: Savings Plans       // sync de Cost Explorer
             'ec2:DescribeAddresses',    // getAwsZombies: IPs elasticas sueltas
             'ec2:DescribeInstances',    // inventario EC2
             'ec2:DescribeSnapshots',    // getAwsZombies: snapshots antiguos

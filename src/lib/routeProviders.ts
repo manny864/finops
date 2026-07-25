@@ -93,6 +93,14 @@ const AGNOSTIC_ROUTES: readonly string[] = [
     "/intelligence/chargeback",
     "/intelligence/unit-economics",
 
+    // Optimizacion de tarifas. En AWS no se replica el calculo de Azure
+    // (inventario + precio de lista): Cost Explorer ya devuelve la
+    // recomendacion de Reserved Instances y Savings Plans calculada sobre el
+    // uso real de los ultimos 30 dias, descontando la cobertura vigente. Armar
+    // la recomendacion sobre el inventario actual sin descontarla llevaria a
+    // sobre-comprar.
+    "/intelligence/rates",
+
     // Limpieza de recursos ociosos. El inventario AWS lo arma
     // awsInventoryService con las APIs de EC2 (volumenes EBS sin adjuntar, IPs
     // elasticas ociosas, snapshots vencidos e instancias apagadas), que es el

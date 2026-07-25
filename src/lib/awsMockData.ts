@@ -534,6 +534,66 @@ export function getAwsMockDataForRoute(route: string, tier: string): Record<stri
     const base = { success: true, mock: true, provider: 'AWS' as const, currency: 'USD' };
 
     switch (route) {
+        case 'rates': {
+            // En AWS las recomendaciones de tarifa las calcula Cost Explorer
+            // sobre el uso real, asi que la demo muestra tipos de instancia y
+            // Savings Plans, no SKUs de maquina virtual ni reservas de Azure.
+            // El descuento de cada termino sigue el orden de magnitud que
+            // publica AWS: ~40% a 1 anio y ~60% a 3 anios sin pago adelantado.
+            const familias = [
+                { sku: 'm5.2xlarge', region: 'us-east-1', qty: 4, mensual: 0.22 },
+                { sku: 'r6g.xlarge', region: 'us-east-1', qty: 3, mensual: 0.14 },
+                { sku: 'c6i.4xlarge', region: 'us-west-2', qty: 2, mensual: 0.11 },
+                { sku: 'm5.xlarge', region: 'eu-west-1', qty: 5, mensual: 0.09 },
+                { sku: 't3.large', region: 'sa-east-1', qty: 6, mensual: 0.04 },
+            ];
+            const recommendations = familias.map((f) => {
+                const monthlyCost = round2(total * f.mensual);
+                const annualCost = round2(monthlyCost * 12);
+                const savings1Y = round2(annualCost * 0.4);
+                const savings3Y = round2(annualCost * 3 * 0.6);
+                return {
+                    resourceName: `${f.sku} ×${f.qty}`,
+                    resourceType: 'EC2 Instance',
+                    sku: f.sku,
+                    region: f.region,
+                    monthlyCost,
+                    monthlyCostLicenseIncluded: monthlyCost,
+                    annualCost,
+                    annualCost1Y: round2(annualCost - savings1Y),
+                    annualCost3Y: round2(annualCost - (savings3Y / 3)),
+                    savings1Y,
+                    savings3Y,
+                };
+            });
+            // Los Savings Plans no se compran por unidad sino por compromiso en
+            // USD/hora: por eso `recommendedQuantity` lleva el compromiso y no
+            // una cantidad de instancias.
+            const spOnDemand = round2(total * 0.45);
+            const savingsPlans = [
+                {
+                    skuName: 'Compute Savings Plans',
+                    resourceType: 'SavingsPlans',
+                    recommendedQuantity: round2((spOnDemand * 0.66) / 730),
+                    totalMonthlyPAYGCost: spOnDemand,
+                    costWith1YReservation: round2(spOnDemand * 0.66),
+                    netSavings1Y: round2(spOnDemand * 0.34 * 12),
+                    costWith3YReservation: round2(spOnDemand * 0.5),
+                    netSavings3Y: round2(spOnDemand * 0.5 * 36),
+                },
+                {
+                    skuName: 'EC2 Instance Savings Plans',
+                    resourceType: 'SavingsPlans',
+                    recommendedQuantity: round2((total * 0.18 * 0.6) / 730),
+                    totalMonthlyPAYGCost: round2(total * 0.18),
+                    costWith1YReservation: round2(total * 0.18 * 0.6),
+                    netSavings1Y: round2(total * 0.18 * 0.4 * 12),
+                    costWith3YReservation: round2(total * 0.18 * 0.44),
+                    netSavings3Y: round2(total * 0.18 * 0.56 * 36),
+                },
+            ];
+            return { ...base, recommendations, reservations: savingsPlans };
+        }
         case 'budgets': {
             // Los presupuestos de la demo se expresan sobre el gasto AWS del
             // tier, no sobre cifras fijas: un limite que no guarda relacion con
