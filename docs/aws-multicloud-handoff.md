@@ -28,13 +28,15 @@ dentro del mismo codebase: login propio, panel, roles, i18n y onboarding.
 | 5 — Caché de Cost Explorer + resiliencia | **✅ completa** (falta fallback CUR→CE) |
 | 6 — CUR 2.0 real | ⚠️ parcial |
 | 7 — Panel AWS (páginas genéricas) | 🟡 **en curso** — infra hecha, faltan páginas |
+| 7.5 — Mocks y demo AWS | **✅ completa** |
 | 8 — Módulo C: optimización y huérfanos | ❌ no empezado |
 | 9 — Wiring y operación | ❌ no empezado |
 
 **Un cliente AWS ya puede** registrarse, verificar su email, entrar con
 email+contraseña, invitar usuarios, dar de alta su cuenta AWS con una plantilla
 de mínimo privilegio, sincronizar costos (con caché, así CE no le sale caro) y
-ver un menú que no le miente.
+ver un menú que no le miente. **Y la demo comercial ya puede mostrarse en AWS**:
+`/demo?provider=aws` entra con datos AWS-nativos escalados por tier (§Fase 7.5).
 
 **La pregunta que bloqueaba todo — ¿el panel AWS se parametriza o se forkea? —
 está respondida: se parametriza.** `src/lib/tenantProviderContext.ts` permite que
@@ -752,6 +754,81 @@ no rompe, sólo muestra datos pobres.
 - Hay un test que verifica que habilitar `cost-groups` **no** arrastre por
   prefijo a las ~30 páginas Azure de `/intelligence`.
 
+### Fase 7.5 — Mocks y demo AWS — ✅ COMPLETA
+
+**Por qué existía el problema.** La directiva #13 exige mocks por tier para cada
+feature, pero `src/lib/mockData.ts` (2330 líneas) era **100% Azure**: IDs
+`/subscriptions/...`, proveedores `Microsoft.Compute`, SKUs `Standard_D8s_v3`.
+Un tenant de demo no tenía forma de mostrar AWS, así que toda la venta del
+producto AWS dependía de conectar una cuenta real.
+
+**Decisión de diseño: tenants de demo separados, no un flag.** Se agregaron
+**cuatro tenants AWS** (uno por tier) en lugar de un booleano sobre los de
+Azure. El motivo es concreto: en una demo comercial se abren las dos nubes en
+paralelo (dos pestañas), y con un flag sobre el mismo tenant eso es imposible.
+
+| Tier | Tenant Azure | Tenant AWS |
+|---|---|---|
+| Essential | `1111...` Cliente ACME | `aaaa1111-...` Northwind Cloud |
+| Pro | `2222...` Startup Tech | `aaaa2222-...` Cumulus Labs |
+| Business | `4444...` Midmarket Corp | `aaaa4444-...` Vertex Retail |
+| Enterprise | `3333...` Corporation XTZ | `aaaa3333-...` Helios Group |
+
+**Los multiplicadores son deliberadamente los mismos que los de Azure**
+(essential=1, pro=3, business=10, enterprise=50). Así, un tenant AWS y uno Azure
+del mismo tier arrojan cifras del mismo orden de magnitud y la comparación
+lado a lado es honesta. Hay un test que lo verifica (ratio entre 0.2 y 5).
+
+**Qué contiene `src/lib/awsMockData.ts`** — datos AWS-nativos, no Azure
+renombrado:
+- Cuentas de 12 dígitos con `arn:aws:iam::<id>:role/CSCloudFinOpsReadOnly`, CUR
+  configurado sólo en las primeras (así se habilita en la vida real, de a poco)
+  y **una cuenta en estado `ERROR`**: la demo tiene que mostrar cómo se ve un
+  problema, no sólo el camino feliz.
+- Servicios con los códigos que devuelve Cost Explorer en la dimensión
+  `SERVICE` (`AmazonEC2`, `AWSELB`, `AWSDataTransfer`), no los nombres
+  comerciales.
+- Regiones reales (`us-east-1`, `sa-east-1`) y su reparto de gasto.
+- Rightsizing con familias reales, incluida la migración a **Graviton**
+  (`m5`→`m6g`, `c5`→`c6g`), que es la palanca de ahorro más citada en AWS.
+- Los cuatro huérfanos clásicos: Elastic IP sin asociar, EBS `available`,
+  snapshots de volúmenes borrados, NAT Gateway ocioso.
+- Compromisos: **Savings Plans vs Reserved Instances** (no "Reservas" a secas).
+  El veredicto está armado como lo diría un FinOps: SP gana a 1 año por
+  flexibilidad, RI a 3 por profundidad de descuento si la flota es estable.
+
+**El bug de integración que costó encontrar.** El interceptor de `fetch` de
+`TenantProvider.tsx` pasaba **siempre el tier** a `getMockDataForRoute(route,
+arg2)`. Pero esa función distingue tenantId de tier **por la longitud de
+`arg2`** (`> 20` ⇒ tenantId), y el dataset AWS sólo se puede elegir desde el
+tenantId. Con el tier no había forma de saber la nube: se veían datos de Azure
+dentro de la demo AWS. Se introdujo `mockKey`, que pasa el id cuando el tenant
+es AWS (63 llamadas actualizadas).
+
+**Degradación elegida:** si una ruta no tiene equivalente AWS,
+`getAwsMockDataForRoute` devuelve `null` y se **cae al mock genérico** en vez de
+mostrar una pantalla vacía. El Sidebar ya oculta esas páginas para AWS, así que
+llegar ahí significa entrada por URL directa — mejor datos imperfectos que un
+error.
+
+**Seguridad del parámetro de proveedor:** la cookie de demo lleva ahora
+`provider`, pero se **normaliza server-side** en `setDemoSession` (`aws` o
+`azure`, nada más). Si se confiara en el valor del cliente, un valor arbitrario
+seleccionaría un tenant de demo inexistente.
+
+**Cómo se usa:** `/demo?tier=business&provider=aws`, o el selector de proveedor
+que ahora tiene el formulario. Credenciales de la demo: `demo` / `demo`
+(sin cambios).
+
+**Verificación:** 26 tests (`__tests__/unit/awsMockData.test.ts`) cubriendo
+escala por tier, determinismo, que los totales por servicio y por región sumen
+el total del mes, ausencia de nomenclatura Azure, y el ruteo por tenant.
+Comprobados **por mutación**: desactivando el ruteo AWS en `mockData.ts` falla
+el test correspondiente.
+
+**Pendiente menor:** `getAwsMockDataForRoute` cubre 8 rutas. A medida que la
+Fase 7 habilite más páginas hay que ir agregando sus `case`.
+
 ### Fase 8 — Módulo C: optimización y huérfanos (spec §3 Módulo C) — NO EMPEZADO
 
 `awsProvider.getRecommendations()` devuelve `[]` (línea ~105). No existe nada.
@@ -1008,6 +1085,17 @@ D  src/app/api/onboard/aws/route.ts
 
 ---
 
+### Fase 7.5 — mocks y demo AWS (`033f940`, `4fa56a3`)
+
+| Archivo | Qué |
+|---|---|
+| `src/lib/awsMockData.ts` | **nuevo** — dataset AWS por tier + `getAwsMockDataForRoute` |
+| `__tests__/unit/awsMockData.test.ts` | **nuevo** — 26 tests |
+| `src/lib/mockData.ts` | `MOCK_AWS_TENANTS`, `isAwsMockTenant`, ruteo al dataset AWS |
+| `src/components/TenantProvider.tsx` | tenants demo AWS + `mockKey` (63 llamadas) + intercepción de `/api/aws/accounts` |
+| `src/app/_actions/demoAuth.ts` | `provider` en la cookie, normalizado server-side |
+| `src/app/[locale]/demo/page.tsx` | selector de proveedor y soporte de `?provider=aws` |
+
 ## 8. Checklist consolidado: qué falta para tener producto AWS
 
 Ordenado por lo que desbloquea a lo demás. Los ítems marcados ⛔ son bloqueantes
@@ -1058,8 +1146,11 @@ además que **no se hizo push** de ninguno de los commits de este trabajo.
   retry con backoff + jitter y `AccessDeniedException` accionable.
 - **Fase 7 (parcial)** — `tenantProviderContext` + `dashboard/summary`
   parametrizado + 3 páginas de costo habilitadas para AWS.
+- **Fase 7.5** — Mocks y demo AWS: `src/lib/awsMockData.ts` + 4 tenants de demo
+  AWS (uno por tier) + selector de proveedor en `/demo`. Cubre la directiva #13,
+  que hasta ahora AWS incumplía por completo.
 
-Validado: `typecheck` limpio, `lint` 0 errores, **669 tests** en verde y `build`
+Validado: `typecheck` limpio, `lint` 0 errores, **695 tests** en verde y `build`
 de producción exitoso.
 
 ### Producto — el resto de las fases
@@ -1086,7 +1177,12 @@ de producción exitoso.
       Gateways, cobertura de SP/RI). Varios se resuelven con SQL sobre
       `FocusLineItems` en vez de llamadas extra a la API. **Al implementarlos hay
       que sumar los permisos correspondientes a la plantilla de la Fase 4.**
+- [x] ~~**Fase 7.5** — Mocks y demo AWS por tier~~ ✅ completa. `/demo?provider=aws`
+      entra con datos AWS-nativos; mismos multiplicadores que Azure para que la
+      comparación entre nubes sea honesta.
 - [ ] **Fase 9** — Cron de sync AWS (`aws-sync-daily`, no existe: hoy el sync
-      solo corre apretando un botón), mock data de AWS por tier, i18n.
+      solo corre apretando un botón) e i18n de las etiquetas del panel
+      ("Suscripción" → "Cuenta"). El mock data por tier que figuraba acá ya se
+      hizo en la Fase 7.5.
 - [ ] 🔴 **Regla Cero** — reemplazar `parseFloat` por `decimal.js` en el parser de
       Cost Explorer (§6.0), junto con la primera prueba contra AWS real.
