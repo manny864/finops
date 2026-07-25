@@ -239,6 +239,24 @@ agnósticas es el marcador de avance de la parametrización multi-cloud.
 El Sidebar aplica ese filtro **antes** que el de rol y el de tier: es una
 restricción del producto, no del usuario.
 
+El criterio para habilitar una ruta a AWS es doble: que su API no dependa de
+Azure (ni directa ni transitivamente) **y** que las tablas que consulta las
+alimente también el sync de AWS. Lo segundo importa tanto como lo primero: una
+página que lea `RecommendationActions` no rompe para un tenant AWS, muestra
+cero, y un cero se lee como "no hay desperdicio".
+
+`docs/finops-framework-coverage.md` tiene la matriz de capabilities del FinOps
+Framework abierta por nube, con la evidencia de qué acopla cada una a Azure y
+los gaps priorizados. El de mayor impacto es **Allocation**: los tags de AWS se
+ingestan en `FocusLineItems`, pero el agregado diario a `CostSnapshots` los
+descarta, y eso bloquea además Chargeback, Unit Economics y Showback.
+
+Un test (`__tests__/unit/i18nProviderTerms.test.ts`) deriva del código los
+namespaces de i18n que ve un tenant AWS y falla si una página habilitada usa
+terminología exclusiva de Azure sin variante `_aws`. Es automático: parte de
+`awsEnabledRoutes()` y sigue los imports de cada `page.tsx`, así que habilitar
+una ruta la mete en la revisión sin tener que acordarse de nada.
+
 ### Ciclo de vida de los datos al bajar de tier
 
 Un Enterprise con `provider = 'both'` que baja de plan pierde el derecho a
