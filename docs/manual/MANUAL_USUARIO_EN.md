@@ -639,11 +639,14 @@ If you reach one of those pages from a saved link or by typing the address, you 
 | **Anomaly Detection** | Spend spikes detected statistically, with the region and service that caused them. It needs about 60 days of history to be reliable. |
 | **Cost forecast** | Month-end estimate built from the history already synced. |
 | **Cost by Category, Cost Groups, Captured Savings, What-If Simulator, Academy** | Same as on Azure. |
+| **Idle resource cleanup** | EBS volumes left unattached, Elastic IPs reserved but unused, snapshots older than 90 days, and stopped instances. For each one we show what it costs you per month. |
+| **Service administration** | Your billing, users and permissions, account setup, compliance, alerts, and the mobile app all work the same as with Azure: they don't depend on which cloud you use. |
 
 Two differences worth keeping in mind:
 
 - **Rankings are ordered by cost, not by resource count.** We do not keep a resource inventory on AWS the way we do on Azure, and when deciding where to cut, cost is the number that matters.
-- **Governance and Optimization have no AWS data yet.** They depend on a resource inventory we do not collect yet. We would rather not show you zeros: a zero reads as "there is no waste", and that is not what we would be saying.
+- **For a stopped instance we show what its disks cost, not its compute.** A stopped instance pays no compute, but its EBS volumes are still billed in full: that is the real spend you can recover.
+- **Tag governance and rightsizing recommendations are not available on AWS yet.** The first one works differently than on Azure (there, tags are inherited from the resource group; on AWS that inheritance does not exist) and the second needs usage metrics we do not collect yet. We would rather not show you zeros: a zero reads as "there is no waste", and that is not what we would be saying.
 
 ### 13.4. Connecting your AWS account
 

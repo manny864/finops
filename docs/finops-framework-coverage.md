@@ -42,7 +42,7 @@ Leyenda: ✅ cubierta · 🟡 parcial · ❌ no cubierta · n/a fuera de alcance
 | Capability | Azure | AWS | Evidencia / bloqueo |
 |---|:--:|:--:|---|
 | Architecting for Cloud | 🟡 | ❌ | Cubierta parcialmente por HA y Advisor, ambos Azure. |
-| Workload Optimization | ✅ | ❌ | `/api/intelligence/rightsizing` importa `src/lib/azure.ts`. AWS necesitaría Compute Optimizer. |
+| Workload Optimization | ✅ | 🟡 | **Parcial en AWS.** La eliminación de recursos ociosos ya funciona: `awsInventoryService` arma el inventario con las APIs de EC2 y detecta volúmenes EBS sin adjuntar, IPs elásticas ociosas, snapshots vencidos e instancias detenidas (en estas se reporta el costo de sus discos, no el de cómputo, que una instancia apagada no paga). Falta el **rightsizing**: `/api/intelligence/rightsizing` importa `src/lib/azure.ts` y el equivalente AWS exige métricas de CloudWatch o Compute Optimizer. |
 | Rate Optimization | ✅ | ❌ | `/api/intelligence/commitments` importa `@azure/arm-costmanagement`. El equivalente AWS son Savings Plans y Reserved Instances, vía Cost Explorer. |
 | Licensing & SaaS | ✅ | n/a | AHB y M365 son específicos de Microsoft. En AWS el equivalente (BYOL sobre Dedicated Hosts) requiere datos que hoy no se ingestan. |
 | Cloud Sustainability | ✅ | ❌ | Depende del Emissions Impact Dashboard de Azure. |

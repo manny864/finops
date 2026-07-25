@@ -639,11 +639,14 @@ Se você chegar a uma dessas páginas por um link salvo ou digitando o endereço
 | **Detecção de Anomalias** | Picos de gasto detectados estatisticamente, com a região e o serviço que os causaram. Precisa de cerca de 60 dias de histórico para ser confiável. |
 | **Projeção de custos** | Estimativa de fechamento do mês a partir do histórico já sincronizado. |
 | **Custo por Categoria, Grupos de Custo, Economia Capturada, Simulador What-If, Academia** | Igual ao Azure. |
+| **Limpeza de recursos ociosos** | Volumes EBS que ficaram sem anexar, IPs elásticos reservados e sem uso, snapshots com mais de 90 dias e instâncias paradas. De cada um informamos quanto custa por mês. |
+| **Administração do serviço** | Seu faturamento, usuários e permissões, cadastro de contas, conformidade, alertas e o app móvel funcionam igual ao Azure: não dependem da nuvem que você usa. |
 
 Duas diferenças que vale ter em mente:
 
 - **Os rankings são ordenados por custo, não por quantidade de recursos.** Na AWS não mantemos um inventário de recursos como no Azure, e para decidir onde cortar o custo é o dado que importa.
-- **Governança e Otimização ainda não têm dados da AWS.** Dependem de um inventário de recursos que ainda não coletamos. Preferimos não mostrar zeros: um zero é lido como "não há desperdício", e não é isso que estaríamos dizendo.
+- **Em uma instância parada mostramos o que custam seus discos, não seu processamento.** Uma instância parada não paga processamento, mas seus volumes EBS continuam sendo cobrados integralmente: esse é o gasto real que você pode recuperar.
+- **Governança de tags e recomendações de redimensionamento ainda não estão disponíveis na AWS.** A primeira funciona de forma diferente do Azure (lá as tags são herdadas do grupo de recursos; na AWS essa herança não existe) e a segunda precisa de métricas de uso que ainda não coletamos. Preferimos não mostrar zeros: um zero é lido como "não há desperdício", e não é isso que estaríamos dizendo.
 
 ### 13.4. Conectar sua conta da AWS
 

@@ -639,11 +639,14 @@ Si llegás a una de esas páginas por un enlace guardado o escribiendo la direcc
 | **Detección de Anomalías** | Picos de gasto detectados estadísticamente, con la región y el servicio que los causaron. Necesita unos 60 días de historial para ser confiable. |
 | **Proyección de costos** | Estimación de cierre del mes a partir de tu historial ya sincronizado. |
 | **Costo por Categoría, Grupos de Costo, Ahorro Capturado, Simulador What-If, Academia** | Igual que en Azure. |
+| **Limpieza de recursos ociosos** | Volúmenes EBS que quedaron sin adjuntar, IPs elásticas reservadas y sin usar, snapshots de más de 90 días e instancias detenidas. De cada uno te decimos cuánto te cuesta por mes. |
+| **Administración del servicio** | Tu facturación, usuarios y permisos, alta de cuentas, cumplimiento, alertas y la app móvil funcionan igual que con Azure: no dependen de la nube que uses. |
 
 Dos diferencias que conviene tener presentes:
 
 - **Los rankings se ordenan por costo, no por cantidad de recursos.** En AWS no llevamos un inventario de recursos como en Azure, y para decidir dónde recortar el costo es el dato que importa.
-- **Las secciones de Gobernanza y Optimización todavía no tienen datos de AWS.** Dependen de un inventario de recursos que aún no recolectamos. Preferimos no mostrarte ceros: un cero se lee como "no hay desperdicio", y no es lo que estaríamos diciendo.
+- **En una instancia detenida te mostramos lo que cuestan sus discos, no su cómputo.** Una instancia apagada no paga cómputo, pero sus volúmenes EBS se siguen cobrando enteros: ese es el gasto real que podés recuperar.
+- **Gobernanza de etiquetas y recomendaciones de redimensionamiento todavía no están disponibles en AWS.** La primera funciona distinto que en Azure (allá las etiquetas se heredan del grupo de recursos; en AWS no existe esa herencia) y la segunda necesita métricas de uso que aún no recolectamos. Preferimos no mostrarte ceros: un cero se lee como "no hay desperdicio", y no es lo que estaríamos diciendo.
 
 ### 13.4. Conectar tu cuenta de AWS
 
