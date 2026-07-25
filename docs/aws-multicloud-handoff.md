@@ -1,6 +1,6 @@
 # Handoff — Producto AWS Multi-Cloud (FOCUS)
 
-> **Estado**: ingesta corregida · Fase 2 ✅ (UI sin commitear) · Fase 3 backend ✅ / UI pendiente.
+> **Estado**: ingesta corregida · **Fases 2 y 3 ✅ COMPLETAS** (backend + UI, commiteadas) · Fases 4-9 pendientes.
 > **Última actualización**: 2026-07-25
 > **Objetivo del documento**: permitir continuar esta implementación desde cero
 > en otra sesión o en otro IDE, sin contexto previo.
@@ -21,8 +21,8 @@ dentro del mismo codebase: login propio, panel, roles, i18n y onboarding.
 
 | Fase | Estado |
 |---|---|
-| 2 — Identidad propia (login sin Entra) | **✅ completa · UI sin commitear** |
-| 3 — Modelo de proveedor por tenant | **Backend ✅ · UI pendiente** |
+| 2 — Identidad propia (login sin Entra) | **✅ completa (backend + UI)** |
+| 3 — Modelo de proveedor por tenant | **✅ completa (backend + UI)** |
 | 4 — Onboarding automatizado AWS | ❌ no empezado |
 | 5 — Caché de Cost Explorer + resiliencia | ❌ no empezado |
 | 6 — CUR 2.0 real | ⚠️ parcial |
@@ -30,11 +30,11 @@ dentro del mismo codebase: login propio, panel, roles, i18n y onboarding.
 | 8 — Módulo C: optimización y huérfanos | ❌ no empezado |
 | 9 — Wiring y operación | ❌ no empezado |
 
-**El próximo trabajo obvio es la UI de la Fase 3** (switch de proveedor,
-filtrado del Sidebar, banner de la ventana de gracia), que es lo único que
-bloquea al resto: el backend está listo, tipado y con tests, pero hoy **no hay
-ninguna pantalla que lo use**. Antes de eso, **commitear la UI de la Fase 2, que
-está escrita pero sólo existe en el working tree**. Ver §4 y el checklist de §8.
+**Las Fases 2 y 3 están cerradas de punta a punta**: un cliente AWS ya puede
+registrarse, verificar su email, entrar con email+contraseña, invitar usuarios y
+ver un menú que no le miente. Lo que bloquea de acá en adelante ya no es la UI
+transversal sino **§3.4: las ~50 rutas que llaman a Azure ARM directo**, porque
+determina si el panel AWS (Fase 7) se parametriza o se forkea. Ver §8.
 
 Tres cosas que hay que entender antes de tocar nada:
 
@@ -272,7 +272,7 @@ identidad no hay signup AWS; sin modelo de proveedor no hay UI separada).
 **Los backends de ambas ya están** — lo que bloquea hoy es su UI. Ver el
 checklist consolidado de §8.
 
-### Fase 2 — Identidad propia para tenants AWS — ✅ COMPLETA (UI sin commitear)
+### Fase 2 — Identidad propia para tenants AWS — ✅ COMPLETA
 
 La fase más grande y la única que toca código crítico existente. **Versión
 barata elegida por el usuario**: no se reemplaza MSAL, se agrega una segunda
@@ -366,7 +366,7 @@ Pendiente real:
 - Alta de `LOCAL_AUTH_SECRET` (32+ chars) en el `.env` de cada entorno y en el
   deploy. Sin eso los 7 endpoints devuelven 503 a propósito.
 
-### Fase 3 — Modelo de proveedor por tenant + switch de UI — BACKEND ✅ / UI PENDIENTE
+### Fase 3 — Modelo de proveedor por tenant + switch de UI — ✅ COMPLETA
 
 Bloqueante de todo el panel AWS: sin esto no se sabe qué proveedor está mirando
 el usuario. **El backend está completo y verificado; falta toda la UI.**
@@ -424,30 +424,55 @@ el usuario. **El backend está completo y verificado; falta toda la UI.**
   en la cuenta del cliente) a alguien que volvió a Enterprise en tres días es
   fricción gratuita.
 
-#### Lo que QUEDA de esta fase (todo UI)
+#### UI — implementada
 
-- **Selector de proveedor en el signup** (`SignupPageClient.tsx` +
-  `api/onboard/route.ts`). Hoy `provider` solo se escribe desde el signup local
-  (siempre `'aws'`); un signup con Entra siempre cae en el default `'azure'`.
-- **Switch AWS/Azure** en el header, visible solo si `provider = 'both'`.
-  Guardar la selección igual que la selección de tenant actual — ver
-  `TenantProvider.tsx`, que ya resuelve exactamente este problema (contexto +
-  cookie) y es el patrón a copiar, no a reinventar.
-- **Filtrado del Sidebar por proveedor.** Hoy `Sidebar.tsx` filtra por tier vía
-  `requiredTier`; agregar un campo análogo `providers?: ('azure'|'aws')[]` a
-  cada item usando la clasificación de §3.3. Los ~12 items sin equivalente AWS
-  se marcan `['azure']`. Mantener en sync el cuádruple wiring de siempre:
-  `Sidebar.tsx` + `routeTiers.ts` + `pageRegistry.ts` + `pageRoleTags.ts`.
-- **Banner de la ventana de gracia**: cuenta regresiva + botón para invertir la
-  elección + link al export, consumiendo `GET /api/admin/provider-transition`.
-  Sin esto el tenant se entera solo por email/notificación. Sugerido en
-  `/admin/cloud-accounts`, que es a donde apuntan los avisos.
-- **i18n en los 3 idiomas** de todo lo anterior. Los emails y notificaciones del
-  ciclo de vida están hoy en español hardcodeado, igual que el resto de las
-  plantillas de `emailHelper.ts` — internacionalizarlas es un trabajo
-  transversal a todas, no específico de esta fase.
-- **Mocks por tier** para el switch y el banner (`src/lib/mockData.ts`), así
-  `/demo` puede mostrar el estado multi-cloud.
+- **`src/lib/routeProviders.ts`** — mapa ruta → proveedores, con match por
+  prefijo más largo (mismo mecanismo que `routeTiers.ts`). La decisión de diseño
+  importante: **el default es azure-only, no "ambos"**. El panel nació 100% Azure
+  y la mayoría de las páginas terminan llamando a ARM, así que si el default
+  fuera permisivo cada página nueva que alguien olvide clasificar aparecería
+  **rota** para un tenant AWS; con el default restrictivo, en el peor caso queda
+  **oculta**. `AGNOSTIC_ROUTES` (administración, academy, soporte, superadmin,
+  legal, upgrade…) es literalmente el marcador de avance de la Fase 7: habilitar
+  el panel AWS = mover rutas a esa lista. `AWS_ROUTES` hoy tiene sólo
+  `/admin/cloud-accounts`. `EXPLICIT_AZURE_ROUTES` existe para que el prefijo más
+  largo resuelva bien casos como `/admin/onboarding/lighthouse`. La raíz `/` se
+  matchea exacta (si no, sería prefijo de todo). 7 tests en
+  `__tests__/unit/routeProviders.test.ts`.
+- **`src/context/ProviderContext.tsx`** — `useCloudProvider()` expone
+  `activeProvider`, `availableProviders`, `canSwitch`, `archivedProvider`,
+  `isActiveArchived`. Persiste la elección en `localStorage` por tenant, igual
+  que `TenantProvider`. Dos detalles: (a) lee storage en un `useEffect`, no en el
+  inicializador de `useState`, porque el tenant se resuelve asincrónicamente y
+  leer storage en render rompería la hidratación SSR; (b) **el proveedor
+  archivado sigue siendo seleccionable** aunque el tier ya no lo habilite — si no,
+  el cliente no tendría por dónde entrar a exportar sus datos antes de la purga.
+- **`src/components/Sidebar.tsx`** — el filtro por proveedor se aplica **antes**
+  que el de rol y el de tier: es una restricción del producto, no del usuario.
+  De paso se reincorporó `/admin/cloud-accounts`, que estaba oculta a mano desde
+  2026-07-05 ("no hacemos referencia a AWS por ahora"); ahora la oculta el filtro,
+  así que un tenant Azure la sigue sin ver.
+- **`src/components/ProviderSwitcher.tsx`** (header, sólo si `canSwitch`) y
+  **`ProviderGraceBanner.tsx`** (cuenta regresiva, color escalando a rojo a ≤7
+  días, botón de invertir sólo para Admin/Owner), montados en `ClientShell.tsx`.
+- **`src/components/SignupPageClient.tsx`** — selector Azure/AWS; el camino AWS
+  usa `LocalSignupForm.tsx` (email+contraseña) dentro de la misma tarjeta de plan.
+- **`src/app/api/tenants/route.ts`** y `TenantProvider.tsx` — los 3 SELECTs
+  devuelven `provider`/`provider_archived`/`provider_purge_at` y la interfaz
+  `Tenant` los expone.
+- **i18n** namespace `provider` (23 keys) en `es`/`en`/`pt-BR`, paridad
+  verificada (4090 keys exactas).
+- **Mocks por tier** (directiva #13): Enterprise = `both` (muestra el switch);
+  **Business es el caso didáctico** — ex-Enterprise con AWS archivado y 23 días
+  para la purga, así `/demo` muestra el banner; Professional/Essential = `azure`.
+  El mock va en el interceptor de `window.fetch` de
+  `TenantProvider.applyDemoFetchInterception()`, que es el patrón del repo, no un
+  branch en el componente.
+
+Lo único que quedó fuera a propósito: **los emails y notificaciones del ciclo de
+vida siguen en español hardcodeado**, igual que el resto de las plantillas de
+`emailHelper.ts`. Internacionalizarlas es un trabajo transversal a todas, no
+específico de esta fase.
 
 ### Fase 4 — Onboarding automatizado AWS (spec §A.3) — NO EMPEZADO
 
@@ -703,6 +728,36 @@ purga verificado con filas `NULL` / `'Azure'` / `'AWS'`.
 **No probado end-to-end**: el ciclo downgrade → archivado → aviso → purga nunca
 corrió completo (ver §6.8).
 
+### Fase 3 — UI de proveedor (`8b8ad67`, `b6d5a42`, `a77e129`, `93894e8`, `854a7ae`)
+
+```
+A  src/lib/routeProviders.ts
+A  src/context/ProviderContext.tsx
+A  src/components/ProviderSwitcher.tsx
+A  src/components/ProviderGraceBanner.tsx
+A  src/components/LocalSignupForm.tsx
+A  __tests__/unit/routeProviders.test.ts
+M  src/components/Sidebar.tsx
+M  src/components/ClientShell.tsx
+M  src/components/SignupPageClient.tsx
+M  src/components/TenantProvider.tsx
+M  src/app/api/tenants/route.ts
+M  src/lib/tenants.ts
+M  src/lib/mockData.ts
+M  messages/{en,es,pt-BR}.json
+```
+
+### Documentación
+
+```
+M  README.md                          (sección "Modelo multi-cloud" + changelog + auth)
+M  MANUAL_DE_USUARIO.md               (sección 7)
+M  docs/manual/MANUAL_USUARIO_{ES,EN,PT-BR}.md      (sección 13 + 1.1)
+M  docs/manual/MANUAL_SUPERADMIN_{ES,EN,PT-BR}.md   (sección 13 + 1.1)
+M  docs/manual/*.pdf, public/manual/*.pdf           (regenerados con scripts/generate-manual-pdfs.js)
+A  docs/provider-downgrade-policy.md   (ADR de la política de 90 días)
+```
+
 ### Sesión anterior — fundación de ingesta AWS
 
 ```
@@ -728,38 +783,19 @@ D  src/app/api/onboard/aws/route.ts
 Ordenado por lo que desbloquea a lo demás. Los ítems marcados ⛔ son bloqueantes
 de todo lo que viene después.
 
-### ✅ UI de Fase 2 — hecha, pero **sin commitear**
+### ✅ Hecho — UI de Fases 2 y 3 (commiteada)
 
-Está toda en el working tree (`git status` la muestra como *untracked/modified*).
-Antes que nada, revisarla y commitearla, o se pierde:
+Ya no hay nada de UI transversal pendiente: login con las dos opciones,
+`/verify-email`, `/reset-password`, `/accept-invite`, selector de proveedor en el
+signup, switch AWS/Azure en el header, filtrado del Sidebar por proveedor, banner
+de la ventana de gracia, i18n ×3 y mocks por tier. Validado con `lint` (0
+errores), `typecheck` limpio, **609 tests** y `build` verde.
 
-- `src/components/LocalLoginForm.tsx` — email + contraseña.
-- `src/app/[locale]/login/page.tsx` — las dos opciones (Microsoft / email).
-- `src/app/[locale]/{verify-email,reset-password,accept-invite}/page.tsx` +
-  `src/components/AuthTokenPageClient.tsx` — los links de los emails ya aterrizan.
-- `src/lib/localSession.ts` y el enganche en `src/lib/msalToken.ts`
-  (`getFreshIdToken` devuelve el token local si existe, antes de tocar MSAL) —
-  esto era lo delicado y **está resuelto**: `fetchWithAuthRetry` y
-  `TenantProvider` funcionan sin ramificar.
-- `messages/{en,es,pt-BR}.json` actualizados.
+### ⏸️ Operación — diferido a propósito hasta después de las pruebas integrales
 
-### ⛔ Bloqueante inmediato — UI de Fase 3 (no existe nada)
-
-El backend del modelo de proveedor está completo y **ninguna pantalla lo usa**:
-
-- [ ] Selector de proveedor en el signup (`/api/auth/local/signup` ya acepta
-      `provider`).
-- [ ] Switch AWS/Azure en el header, visible solo si `provider = 'both'`
-      (Enterprise). Copiar el patrón de `TenantProvider.tsx`.
-- [ ] Filtrado del Sidebar por proveedor (`providers?: ('azure'|'aws')[]`): hoy
-      un tenant AWS ve los ~30 ítems de menú de Azure, todos rotos.
-- [ ] Banner de la ventana de gracia consumiendo `GET /api/admin/provider-transition`
-      (cuenta regresiva + botón para invertir la elección). Sin esto el tenant
-      solo se entera por email.
-- [ ] i18n en `es` / `en` / `pt-BR` de todo lo anterior.
-- [ ] Mocks por tier del switch y el banner (directiva #13).
-
-### ⛔ Operación — sin esto lo ya implementado no corre en producción
+Decisión explícita del usuario (2026-07-25): nada de esto se ejecuta hasta
+terminar las pruebas integrales en local. Queda documentado, no aplicado. Nótese
+además que **no se hizo push** de ninguno de los commits de este trabajo.
 
 - [ ] `LOCAL_AUTH_SECRET` (32+ chars) en el `.env` de cada entorno. Sin él los 7
       endpoints de auth local devuelven 503 a propósito.
