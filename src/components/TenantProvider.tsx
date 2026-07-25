@@ -22,6 +22,15 @@ export interface Tenant {
   has_client_secret?: boolean;
   partner_link_status?: string | null;
   partner_link_detail?: string | null;
+  /**
+   * Proveedor de nube del tenant. 'both' sólo es válido en Enterprise
+   * (ver src/lib/providerPolicy.ts). Lo consume ProviderContext.
+   */
+  provider?: 'azure' | 'aws' | 'both';
+  /** Proveedor archivado durante la ventana de gracia tras un downgrade. */
+  provider_archived?: 'azure' | 'aws' | null;
+  /** Fecha de purga del proveedor archivado (ISO). */
+  provider_purge_at?: string | null;
 }
 
 interface TenantContextType {
@@ -263,6 +272,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               if (url.includes('/api/intelligence/history')) return new Response(JSON.stringify(getMockDataForRoute('history', tier)), {status: 200});
               if (url.includes('/api/intelligence/forecast')) return new Response(JSON.stringify(getMockDataForRoute('forecast', tier)), {status: 200});
               if (url.includes('/api/intelligence/maturity')) return new Response(JSON.stringify(getMockDataForRoute('maturity', tier)), {status: 200});
+              if (url.includes('/api/admin/provider-transition')) return new Response(JSON.stringify(getMockDataForRoute('provider_transition', tier)), {status: 200});
               if (url.includes('/api/cleanup/zombies/networking')) return new Response(JSON.stringify(getMockDataForRoute('networking_zombies', tier)), {status: 200});
               if (url.includes('/api/cleanup/zombies')) return new Response(JSON.stringify(getMockDataForRoute('audit_full', tier)), {status: 200});
               if (url.includes('/api/cleanup/ttl/policies')) {
