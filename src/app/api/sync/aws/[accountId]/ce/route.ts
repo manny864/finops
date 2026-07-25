@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/modules/storage/db';
-import { AuthError, requireTenantRole } from '@/lib/requestAuth';
+import { AuthError, requireTenantRole, requireTenantTier } from '@/lib/requestAuth';
 import { assumeRole, decryptExternalId } from '@/lib/aws/sts';
 import { getCostAndUsage } from '@/lib/aws/costExplorer';
 import { mapCeDailyToFocus } from '@/modules/collectors/aws/awsFocusMapper';
@@ -32,6 +32,8 @@ export async function POST(
     if (!tenantId) return NextResponse.json({ error: 'Falta tenantId' }, { status: 400 });
     const days = Math.min(Math.max(Number(request.nextUrl.searchParams.get('days') || 30), 1), 365);
     await requireTenantRole(request, tenantId, ['ADMIN', 'OWNER']);
+    // Multi-cloud es Enterprise (ver docs/aws-multicloud-handoff.md).
+    await requireTenantTier(request, tenantId, 'Enterprise');
 
     const [rows] = await pool.query(
       `SELECT id, tenant_id, account_id, role_arn, external_id_encrypted
@@ -62,15 +64,17 @@ export async function POST(
            (tenant_id, subscription_id, date, resource_group, service_name,
             cost_usd, currency,
             ChargePeriodStart, ChargePeriodEnd, ProviderName, PublisherName,
-            SubAccountId, BilledCost, EffectiveCost, Quantity)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            BillingAccountId, SubAccountId, BilledCost, EffectiveCost, AmortizedCost, Quantity)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE
            cost_usd = VALUES(cost_usd),
            BilledCost = VALUES(BilledCost),
            EffectiveCost = VALUES(EffectiveCost),
+           AmortizedCost = VALUES(AmortizedCost),
            Quantity = VALUES(Quantity),
            ProviderName = VALUES(ProviderName),
            PublisherName = VALUES(PublisherName),
+           BillingAccountId = VALUES(BillingAccountId),
            SubAccountId = VALUES(SubAccountId),
            ChargePeriodStart = VALUES(ChargePeriodStart),
            ChargePeriodEnd = VALUES(ChargePeriodEnd)`,
@@ -86,9 +90,11 @@ export async function POST(
           focus.ChargePeriodEnd,
           'AWS',
           'Amazon Web Services',
+          focus.BillingAccountId,
           focus.SubAccountId,
           focus.BilledCost,
           focus.EffectiveCost,
+          focus.AmortizedCost,
           focus.UsageQuantity ?? null,
         ]
       );

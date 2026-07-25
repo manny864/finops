@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import pool from '@/modules/storage/db';
-import { AuthError, requireTenantRole } from '@/lib/requestAuth';
+import { AuthError, requireTenantRole, requireTenantTier } from '@/lib/requestAuth';
 import { encryptExternalId, generateExternalId } from '@/lib/aws/sts';
 
 interface AccountRow {
@@ -59,6 +59,10 @@ export async function POST(request: NextRequest) {
     }
 
     await requireTenantRole(request, tenantId, ['ADMIN', 'OWNER']);
+    // Multi-cloud es Enterprise. El gate va en el POST (alta) y no en el GET:
+    // un tenant que baja de plan tiene que poder seguir viendo y borrando las
+    // cuentas que ya cargo, no quedar con datos huerfanos e inaccesibles.
+    await requireTenantTier(request, tenantId, 'Enterprise');
 
     const externalId = generateExternalId();
     const encrypted = encryptExternalId(externalId);

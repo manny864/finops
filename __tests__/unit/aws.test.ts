@@ -169,6 +169,72 @@ describe('mapCurRowToFocus', () => {
   });
 });
 
+// FOCUS distingue tres vistas del costo y el spec multi-cloud las pide por
+// separado. El caso que importa es el upfront de RI/Savings Plan: aparece
+// INTEGRO en BilledCost el mes de la compra, y amortizado se reparte en el
+// termino. Si AmortizedCost colapsara a BilledCost, toda serie temporal
+// mostraria un pico falso en el mes de compra.
+describe('mapCurRowToFocus — BilledCost vs EffectiveCost vs AmortizedCost', () => {
+  const baseCur = (over: Partial<AwsCurLineItem> = {}): AwsCurLineItem => ({
+    'lineItem/UsageAccountId': '987654321098',
+    'lineItem/ProductCode': 'AmazonEC2',
+    'lineItem/UsageStartDate': '2026-06-15T00:00:00Z',
+    'lineItem/UsageEndDate': '2026-06-15T01:00:00Z',
+    'lineItem/BlendedCost': '0.50',
+    'lineItem/UnblendedCost': '0.50',
+    'lineItem/LineItemType': 'Usage',
+    'lineItem/CurrencyCode': 'USD',
+    ...over,
+  } as AwsCurLineItem);
+
+  it('en uso on-demand las tres vistas coinciden', () => {
+    const out = mapCurRowToFocus(baseCur(), '111');
+    expect(out.BilledCost).toBe(0.5);
+    expect(out.EffectiveCost).toBe(0.5);
+    expect(out.AmortizedCost).toBe(0.5);
+  });
+
+  it('separa el upfront prorrateado de un RI del costo facturado', () => {
+    const out = mapCurRowToFocus(
+      baseCur({
+        'lineItem/LineItemType': 'RIFee',
+        'lineItem/UnblendedCost': '1200.00',            // upfront completo en la factura
+        'reservation/AmortizedUpfrontCostForUsage': '100.00', // 1/12 del termino
+      }),
+      '111'
+    );
+    expect(out.BilledCost).toBe(1200);
+    expect(out.AmortizedCost).toBe(100);
+    expect(out.AmortizedCost).not.toBe(out.BilledCost);
+  });
+
+  it('separa el upfront prorrateado de un Savings Plan', () => {
+    const out = mapCurRowToFocus(
+      baseCur({
+        'lineItem/LineItemType': 'SavingsPlanRecurringFee',
+        'lineItem/UnblendedCost': '3600.00',
+        'savingsPlan/AmortizedUpfrontCommitmentForBillingPeriod': '300.00',
+      }),
+      '111'
+    );
+    expect(out.BilledCost).toBe(3600);
+    expect(out.AmortizedCost).toBe(300);
+  });
+
+  it('cae a EffectiveCost cuando la linea no es de compromiso', () => {
+    const out = mapCurRowToFocus(
+      baseCur({
+        'lineItem/LineItemType': 'DiscountedUsage',
+        'lineItem/UnblendedCost': '0.50',
+        'reservation/EffectiveCost': '0.25',
+      }),
+      '111'
+    );
+    expect(out.EffectiveCost).toBe(0.25);
+    expect(out.AmortizedCost).toBe(0.25);
+  });
+});
+
 describe('CUR manifest parser', () => {
   it('parses a well-formed CUR 1.0 manifest', () => {
     const json = JSON.stringify({

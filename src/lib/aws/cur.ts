@@ -15,6 +15,10 @@
  */
 
 import { S3Client, ListObjectsV2Command, GetObjectCommand } from '@aws-sdk/client-s3';
+import { createWriteStream, promises as fsp } from 'fs';
+import os from 'os';
+import path from 'path';
+import { pipeline } from 'stream/promises';
 import type { Readable } from 'stream';
 import type { AwsTempCredentials } from './sts';
 import { mapCurRowToFocus, type AwsCurLineItem, type FocusLineItem } from '@/modules/collectors/aws/awsFocusMapper';
@@ -53,12 +57,26 @@ async function streamToString(body: Readable): Promise<string> {
   return Buffer.concat(chunks).toString('utf-8');
 }
 
-async function streamToBuffer(body: Readable): Promise<Buffer> {
-  const chunks: Buffer[] = [];
-  for await (const chunk of body) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-  }
-  return Buffer.concat(chunks);
+/**
+ * Descarga un objeto de S3 a un archivo temporal en disco y devuelve la ruta.
+ *
+ * NO se bufferea en memoria a proposito: un CUR de una cuenta mediana pesa
+ * cientos de MB comprimido y el contenedor de la app corre con mem_limit 3g
+ * (docker-compose.yml), asi que `Buffer.concat` sobre el objeto entero es un
+ * OOM garantizado. El caller es responsable de borrar el archivo.
+ */
+async function downloadToTempFile(
+  s3: S3Client,
+  bucket: string,
+  key: string
+): Promise<string> {
+  const obj = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+  if (!obj.Body) throw new Error(`Empty CUR file at s3://${bucket}/${key}`);
+
+  const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'finops-cur-'));
+  const filePath = path.join(dir, path.basename(key) || 'part.parquet');
+  await pipeline(obj.Body as Readable, createWriteStream(filePath));
+  return filePath;
 }
 
 /**
@@ -157,8 +175,11 @@ export async function findManifestKey(
 /**
  * Stream parse a Parquet file from S3 and yield FOCUS rows.
  *
- * Uses @dsnp/parquetjs (pure JS). For large CURs (>1M rows), the caller should
- * batch the persistence to MySQL to avoid blowing the heap.
+ * Uses @dsnp/parquetjs (pure JS). El archivo se baja primero a disco temporal
+ * y se lee con `openFile`, que hace seeks sobre el file descriptor en vez de
+ * mantener todo el Parquet en heap (ver downloadToTempFile). El temporal se
+ * borra siempre, incluso si el consumidor corta la iteracion antes de tiempo
+ * (`return()` sobre el generador dispara el finally).
  */
 export async function* iterateCurParquet(
   creds: AwsTempCredentials,
@@ -171,22 +192,47 @@ export async function* iterateCurParquet(
   const { ParquetReader } = await import('@dsnp/parquetjs');
 
   const s3 = buildS3Client(creds, region);
-  const obj = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
-  if (!obj.Body) throw new Error(`Empty CUR file at s3://${bucket}/${key}`);
-  const buf = await streamToBuffer(obj.Body as Readable);
+  const filePath = await downloadToTempFile(s3, bucket, key);
 
-  const reader = await ParquetReader.openBuffer(buf);
-  const cursor = reader.getCursor();
-  let record: Record<string, unknown> | null = null;
-  while ((record = (await cursor.next()) as Record<string, unknown> | null)) {
-    yield mapCurRowToFocus(record as AwsCurLineItem, payerAccountId);
+  try {
+    const reader = await ParquetReader.openFile(filePath);
+    try {
+      const cursor = reader.getCursor();
+      let record: Record<string, unknown> | null = null;
+      while ((record = (await cursor.next()) as Record<string, unknown> | null)) {
+        yield mapCurRowToFocus(record as AwsCurLineItem, payerAccountId);
+      }
+    } finally {
+      await reader.close();
+    }
+  } finally {
+    await fsp.rm(path.dirname(filePath), { recursive: true, force: true });
   }
-  await reader.close();
+}
+
+/** Contexto del periodo que se esta ingiriendo, pasado a cada onBatch. */
+export interface CurIngestContext {
+  assemblyId: string;
+  billingPeriodStart: string | null;
+  billingPeriodEnd: string | null;
+}
+
+export interface CurIngestResult extends CurIngestContext {
+  filesProcessed: number;
+  rowCount: number;
+  /** true si se salteo por assemblyId ya ingerido (ver skipIfAssemblyId). */
+  skipped: boolean;
 }
 
 /**
  * High-level: process the latest billing period of a CUR report end-to-end,
- * invoking `onBatch(rows)` per batchSize records. Returns total row count.
+ * invoking `onBatch(rows, ctx)` per batchSize records.
+ *
+ * `options.skipIfAssemblyId`: AWS re-emite el CUR del periodo en curso varias
+ * veces al mes, cada vez con un assemblyId nuevo. Si el manifest trae el mismo
+ * assemblyId que ya ingerimos, no hay nada nuevo que bajar — se corta ANTES de
+ * transferir un solo byte de Parquet (que es la parte cara en tiempo y en
+ * egress del cliente).
  */
 export async function ingestLatestCurPeriod(
   creds: AwsTempCredentials,
@@ -194,15 +240,16 @@ export async function ingestLatestCurPeriod(
   prefix: string,
   reportName: string,
   payerAccountId: string,
-  onBatch: (rows: FocusLineItem[]) => Promise<void>,
-  options: { region?: string; batchSize?: number } = {}
-): Promise<{ filesProcessed: number; rowCount: number; billingPeriodStart: string | null; billingPeriodEnd: string | null }> {
+  onBatch: (rows: FocusLineItem[], ctx: CurIngestContext) => Promise<void>,
+  options: { region?: string; batchSize?: number; skipIfAssemblyId?: string } = {}
+): Promise<CurIngestResult> {
   const region = options.region || 'us-east-1';
   const batchSize = options.batchSize || 1000;
+  const empty = { filesProcessed: 0, rowCount: 0, skipped: false };
 
   const partition = await findLatestBillingPeriod(creds, bucket, prefix, reportName, region);
   if (!partition) {
-    return { filesProcessed: 0, rowCount: 0, billingPeriodStart: null, billingPeriodEnd: null };
+    return { ...empty, assemblyId: '', billingPeriodStart: null, billingPeriodEnd: null };
   }
 
   const manifestKey = await findManifestKey(creds, bucket, partition, region);
@@ -211,14 +258,19 @@ export async function ingestLatestCurPeriod(
   }
 
   const manifest = await readManifest(creds, bucket, manifestKey, region);
+  const ctx: CurIngestContext = {
+    assemblyId: manifest.assemblyId,
+    billingPeriodStart: manifest.billingPeriod?.start || null,
+    billingPeriodEnd: manifest.billingPeriod?.end || null,
+  };
+
+  if (options.skipIfAssemblyId && manifest.assemblyId && options.skipIfAssemblyId === manifest.assemblyId) {
+    return { ...ctx, ...empty, skipped: true };
+  }
+
   const dataKeys = manifest.reportKeys.length > 0 ? manifest.reportKeys : [];
   if (dataKeys.length === 0) {
-    return {
-      filesProcessed: 0,
-      rowCount: 0,
-      billingPeriodStart: manifest.billingPeriod?.start || null,
-      billingPeriodEnd: manifest.billingPeriod?.end || null,
-    };
+    return { ...ctx, ...empty };
   }
 
   let rowCount = 0;
@@ -227,21 +279,16 @@ export async function ingestLatestCurPeriod(
     for await (const row of iterateCurParquet(creds, bucket, key, payerAccountId, region)) {
       batch.push(row);
       if (batch.length >= batchSize) {
-        await onBatch(batch);
+        await onBatch(batch, ctx);
         rowCount += batch.length;
         batch = [];
       }
     }
   }
   if (batch.length > 0) {
-    await onBatch(batch);
+    await onBatch(batch, ctx);
     rowCount += batch.length;
   }
 
-  return {
-    filesProcessed: dataKeys.length,
-    rowCount,
-    billingPeriodStart: manifest.billingPeriod?.start || null,
-    billingPeriodEnd: manifest.billingPeriod?.end || null,
-  };
+  return { ...ctx, filesProcessed: dataKeys.length, rowCount, skipped: false };
 }

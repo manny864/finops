@@ -11,7 +11,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/modules/storage/db';
-import { AuthError, requireTenantRole } from '@/lib/requestAuth';
+import { AuthError, requireTenantRole, requireTenantTier } from '@/lib/requestAuth';
 import { assumeRole, decryptExternalId } from '@/lib/aws/sts';
 import { getCostAndUsage } from '@/lib/aws/costExplorer';
 import { findLatestBillingPeriod } from '@/lib/aws/cur';
@@ -36,6 +36,9 @@ export async function POST(
     const tenantId = request.nextUrl.searchParams.get('tenantId');
     if (!tenantId) return NextResponse.json({ error: 'Falta tenantId' }, { status: 400 });
     await requireTenantRole(request, tenantId, ['ADMIN', 'OWNER']);
+    // Este endpoint gasta requests reales de Cost Explorer ($0.01 c/u): gate
+    // de tier ademas del de rol.
+    await requireTenantTier(request, tenantId, 'Enterprise');
 
     const [rows] = await pool.query(
       `SELECT id, tenant_id, account_id, role_arn, external_id_encrypted, cur_bucket, cur_prefix, cur_report_name

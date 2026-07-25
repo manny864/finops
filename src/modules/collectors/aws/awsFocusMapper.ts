@@ -50,8 +50,9 @@ export interface FocusLineItem {
     ChargePeriodEnd: Date;
     BillingPeriodStart?: Date;
     BillingPeriodEnd?: Date;
-    BilledCost: number;
-    EffectiveCost: number;                   // includes amortized RIs / SPs
+    BilledCost: number;                      // lo que aparece en la factura del periodo
+    EffectiveCost: number;                   // con descuento de compromiso aplicado
+    AmortizedCost: number;                   // upfront de RI/SP prorrateado en el termino
     UsageQuantity?: number;
     UsageUnit?: string;
     PricingCategory?: string;                // On-Demand | Reserved | Spot | Savings Plan | Free Tier
@@ -98,6 +99,9 @@ export function mapCeDailyToFocus(row: CeDailyRow, billingAccountId: string): Fo
         ChargePeriodEnd: end,
         BilledCost: row.unblendedCost,
         EffectiveCost: row.amortizedCost || row.unblendedCost,
+        // CE ya devuelve la metrica AmortizedCost directamente (a diferencia
+        // del CUR, donde hay que sumar las columnas de upfront prorrateado).
+        AmortizedCost: row.amortizedCost || row.unblendedCost,
         UsageQuantity: row.usageQuantity,
         PricingCategory: 'On-Demand',              // CE aggregates; CUR has the real breakdown
         ChargeCategory: 'Usage',
@@ -117,6 +121,15 @@ export function mapCurRowToFocus(row: AwsCurLineItem, payerAccountId: string): F
     const billed = unblended || blended;
     // EffectiveCost: prefer amortized values when present (RI / Savings Plan rows)
     const effective = reservationEffective || spEffective || billed;
+
+    // AmortizedCost (FOCUS): el pago upfront de un RI/Savings Plan aparece
+    // INTEGRO en BilledCost del mes en que se compro, lo que distorsiona
+    // cualquier serie temporal. La vista amortizada lo reparte a lo largo del
+    // termino. AWS expone ese prorrateo en columnas dedicadas; cuando la linea
+    // no es de compromiso, amortizado == efectivo.
+    const riAmortizedUpfront = parseFloat(row["reservation/AmortizedUpfrontCostForUsage"] || '0');
+    const spAmortizedUpfront = parseFloat(row["savingsPlan/AmortizedUpfrontCommitmentForBillingPeriod"] || '0');
+    const amortized = riAmortizedUpfront || spAmortizedUpfront || effective;
 
     const lineType = row["lineItem/LineItemType"] || 'Usage';
     let pricingCategory: string = 'On-Demand';
@@ -159,6 +172,7 @@ export function mapCurRowToFocus(row: AwsCurLineItem, payerAccountId: string): F
         BillingPeriodEnd: row["bill/BillingPeriodEndDate"] ? new Date(row["bill/BillingPeriodEndDate"]) : undefined,
         BilledCost: billed,
         EffectiveCost: effective,
+        AmortizedCost: amortized,
         UsageQuantity: row["lineItem/UsageAmount"] ? parseFloat(row["lineItem/UsageAmount"]!) : undefined,
         UsageUnit: row["pricing/unit"] || undefined,
         PricingCategory: pricingCategory,

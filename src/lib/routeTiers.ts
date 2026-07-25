@@ -78,7 +78,11 @@ export const ROUTE_TIERS: Record<string, 'Essential' | 'Professional' | 'Busines
     '/admin/pricing-units': 'Essential',
     '/admin/api-keys': 'Enterprise',
     '/admin/focus-export': 'Professional',
-    '/admin/cloud-accounts': 'Professional',
+    // Ingesta multi-cloud (AWS). Enterprise y no Professional: los endpoints
+    // detras de esta pagina (alta de cuenta, test, sync CE/CUR) gastan
+    // requests reales de Cost Explorer a $0.01 c/u contra la cuenta del
+    // cliente. Los gates server-side estan en /api/aws/* y /api/sync/aws/*.
+    '/admin/cloud-accounts': 'Enterprise',
     // Oculta del Sidebar (ver Sidebar.tsx): sólo un datacenter real (Brasil) hoy,
     // no ofrecemos multi-región. La entrada de tier queda por si se accede directo
     // a la URL mientras la feature esté deshabilitada de la nav.
