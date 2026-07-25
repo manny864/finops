@@ -1,7 +1,7 @@
 # Handoff — Producto AWS Multi-Cloud (FOCUS)
 
-> **Estado**: ingesta corregida · **Fases 2 y 3 ✅ COMPLETAS** (backend + UI, commiteadas) · Fases 4-9 pendientes.
-> **Última actualización**: 2026-07-25
+> **Estado**: ingesta corregida · **Fases 2, 3, 3.5, 4 y 5 ✅ COMPLETAS** · **Fase 7 🟡 en curso** · Fases 6, 8, 9 pendientes.
+> **Última actualización**: 2026-07-26
 > **Objetivo del documento**: permitir continuar esta implementación desde cero
 > en otra sesión o en otro IDE, sin contexto previo.
 
@@ -23,18 +23,27 @@ dentro del mismo codebase: login propio, panel, roles, i18n y onboarding.
 |---|---|
 | 2 — Identidad propia (login sin Entra) | **✅ completa (backend + UI)** |
 | 3 — Modelo de proveedor por tenant | **✅ completa (backend + UI)** |
-| 4 — Onboarding automatizado AWS | ❌ no empezado |
-| 5 — Caché de Cost Explorer + resiliencia | ❌ no empezado |
+| 3.5 — Credenciales de prueba + fix del rate limiter | **✅ completa** |
+| 4 — Onboarding automatizado AWS | **✅ completa (backend + UI)** |
+| 5 — Caché de Cost Explorer + resiliencia | **✅ completa** (falta fallback CUR→CE) |
 | 6 — CUR 2.0 real | ⚠️ parcial |
-| 7 — Panel AWS (~30 páginas genéricas) | ❌ no empezado |
+| 7 — Panel AWS (páginas genéricas) | 🟡 **en curso** — infra hecha, faltan páginas |
 | 8 — Módulo C: optimización y huérfanos | ❌ no empezado |
 | 9 — Wiring y operación | ❌ no empezado |
 
-**Las Fases 2 y 3 están cerradas de punta a punta**: un cliente AWS ya puede
-registrarse, verificar su email, entrar con email+contraseña, invitar usuarios y
-ver un menú que no le miente. Lo que bloquea de acá en adelante ya no es la UI
-transversal sino **§3.4: las ~50 rutas que llaman a Azure ARM directo**, porque
-determina si el panel AWS (Fase 7) se parametriza o se forkea. Ver §8.
+**Un cliente AWS ya puede** registrarse, verificar su email, entrar con
+email+contraseña, invitar usuarios, dar de alta su cuenta AWS con una plantilla
+de mínimo privilegio, sincronizar costos (con caché, así CE no le sale caro) y
+ver un menú que no le miente.
+
+**La pregunta que bloqueaba todo — ¿el panel AWS se parametriza o se forkea? —
+está respondida: se parametriza.** `src/lib/tenantProviderContext.ts` permite que
+una ruta pregunte qué proveedor usa el tenant y saltee el camino live de Azure,
+cayendo a `CostSnapshots` — tabla que el sync de AWS **ya alimenta**.
+`dashboard/summary` es el ejemplo a copiar. Ver §Fase 7 y §8.
+
+⚠️ **Antes de facturar a un cliente, leer §6.0**: el parser de Cost Explorer usa
+`parseFloat` sobre montos de dinero, en violación de la Regla Cero.
 
 Tres cosas que hay que entender antes de tocar nada:
 
@@ -42,8 +51,9 @@ Tres cosas que hay que entender antes de tocar nada:
    equivalente a Entra. Implica construir auth propia. Ver §3.1.
 2. **`tenant_id` en toda la base de datos *era* el GUID de Entra.** Ese supuesto
    ya se rompió en la Fase 2: los tenants locales usan un UUID generado.
-3. **La abstracción multi-cloud existe pero está desconectada** — 50 rutas
-   llaman a Azure ARM directo. Ver §3.4. **Es el mayor riesgo pendiente.**
+3. **La abstracción multi-cloud existe pero está desconectada** — ~50 rutas
+   llaman a Azure ARM directo (§3.4). Ya **no** es el mayor riesgo: la Fase 7
+   estableció el patrón para resolverlo ruta por ruta sin duplicar páginas.
 
 Decisiones de producto ya tomadas: la ingesta AWS es **tier Enterprise** (ya
 aplicada en `routeTiers.ts` y los gates server-side); un solo codebase, UI
@@ -474,41 +484,174 @@ vida siguen en español hardcodeado**, igual que el resto de las plantillas de
 `emailHelper.ts`. Internacionalizarlas es un trabajo transversal a todas, no
 específico de esta fase.
 
-### Fase 4 — Onboarding automatizado AWS (spec §A.3) — NO EMPEZADO
+### Fase 3.5 — Credenciales de prueba y disponibilidad del login — ✅ COMPLETA
 
-Hoy la UI (`cloud-accounts/page.tsx`, ~línea 201) muestra una trust policy JSON
-escrita a mano y apunta a las managed policies `job-function/Billing` y
-`AmazonEC2ReadOnlyAccess`. Falta:
+> Esta fase no estaba planificada. Surgió de la pregunta **"¿qué usuario y
+> contraseña se va a usar?"** y terminó destapando un bug que hacía imposible
+> iniciar sesión.
 
-- Generador de plantilla **CloudFormation** (+ snippet Terraform) parametrizado
-  con el `externalId` recién generado y el account ID de la plataforma.
-- La IAM policy real necesita, además de lo que ya hay:
-  - `ce:GetCostAndUsage`, `ce:GetCostForecast`, `ce:GetReservationUtilization`,
-    `ce:GetSavingsPlansUtilization`
-  - `costoptimizationhub:ListRecommendations`,
-    `costoptimizationhub:GetRecommendation`
-  - `s3:GetObject` + `s3:ListBucket` sobre el bucket CUR del cliente
-  - `organizations:ListAccounts` (para el mapeo de linked accounts, §2.2 del spec)
-- Archivo sugerido: `src/lib/aws/onboardingTemplate.ts`, siguiendo el patrón de
-  `src/lib/onboardingScriptTemplate.ts` (el equivalente de Azure).
+#### El hueco real
 
-### Fase 5 — Caché de Cost Explorer + resiliencia (spec §B.1 CRITICAL, §4) — NO EMPEZADO
+La Fase 2 dejó el signup local funcionando, pero el usuario queda **sin
+verificar** y recibe un link por email. **En local no hay SMTP**, así que se
+podía crear la cuenta y nunca entrar. No faltaba una contraseña: faltaba un
+camino para obtener un usuario utilizable.
 
-**Cost Explorer cobra USD 0.01 por request** y hoy no hay ninguna caché: cada
-sync dispara N requests paginados.
+**Solución:** `scripts/seed-aws-tenant.ts` (`npm run seed:aws-tenant`), que crea
+el tenant y un Owner **ya verificado**.
 
-- Envolver `getCostAndUsage` en `getWithStaleWhileRevalidate(key, fn, ttl,
-  staleTtl)` de `src/lib/cache.ts` (ya existe y es lo que usa todo el pipeline
-  de Azure). Clave sugerida: `aws:ce:v1:<tenantId>:<accountId>:<start>:<end>`.
-- Helper de retry con backoff exponencial para rate limits — hoy no existe
-  ninguno; conviene que sea genérico y reutilizable por el lado Azure.
-- Manejo explícito de `AccessDeniedException` → mensaje accionable al usuario
-  ("revisá el trust policy / el ExternalId"), no un 500 genérico.
-- Aviso en la UI de que los **cost allocation tags tardan 24-48h** en reflejarse
-  en billing (el usuario carga un tag y no lo ve; es la consulta de soporte
-  número uno de este tipo de integración).
+```bash
+set -a && source .env.development && set +a
+npm run seed:aws-tenant -- --email=demo@acme.test --password='pruebalocal-2026' \
+  --tier=Enterprise --provider=both
+```
+
+- `assertNotProduction()` **se niega a correr con `NODE_ENV=production`**: es un
+  script que crea un usuario con contraseña conocida y verificación saltada.
+- Idempotente por email: re-ejecutarlo actualiza en vez de duplicar.
+- Política de contraseñas vigente: **mínimo 12 caracteres**, sin reglas de
+  composición (NIST SP 800-63B las desaconseja), bcrypt con 12 rounds.
+
+**Credenciales creadas para pruebas locales:** `demo@acme.test` /
+`pruebalocal-2026`, tenant `57e6b49a-7700-4fa3-b16b-682e6f44c45a`, Enterprise,
+`provider='both'`.
+
+#### 🔴 Bug crítico encontrado: el rate limiter devolvía 429 a todo el mundo
+
+Al probar el login, `curl` devolvía `HTTP=000`. Aislando el handler en un test de
+integración, el síntoma real resultó ser **429**, no un cuelgue.
+
+**Causa raíz:** `pipeline.exec()` de ioredis **no lanza** cuando fallan los
+comandos individuales. Devuelve `[[Error, undefined], [Error, undefined]]`. El
+código hacía `Number(undefined)` → `NaN`, y `NaN <= limite` es `false` →
+`allowed: false` → **429**. El `catch` que debía degradar a memoria nunca se
+activaba, porque `exec()` no lanzaba nada.
+
+**Lo peor:** no hacía falta que Redis estuviera caído. ioredis conecta de forma
+*lazy* y con `enableOfflineQueue: false`, así que **el primer request tras
+arrancar el proceso** fallaba con `"Stream isn't writeable"`. Es decir: el primer
+intento de login después de cada arranque o hot-reload devolvía 429.
+
+**Alcance:** 25 rutas, incluidas toda la API pública `/api/v1/*`, checkout,
+leads, SSO y los 7 endpoints de auth local.
+
+**Fix** (`src/lib/rateLimiter.ts`, `a7a6c54`): se inspeccionan los errores por
+comando del pipeline y se valida `Number.isFinite(count)`, lanzando para caer al
+fallback en memoria — que es lo que el docstring siempre prometió.
+
+5 tests de regresión en `__tests__/unit/rateLimiterFallback.test.ts`, verificados
+por mutación: revirtiendo el fix, 2 fallan.
+
+#### Nota operativa: el dev server de Next se cuelga tras hot-reload
+
+Síntoma: **todos** los endpoints devuelven `HTTP=000` indefinidamente y el
+request ni aparece en los logs. Con el server recién arrancado, el mismo request
+responde en 436 ms. **No es un bug del código.**
+
+Procedimiento: matar por PID (`lsof -ti:3000` → `kill -9 <PID>`; `pkill` está
+prohibido por las directivas) y relanzar. **Los tests de integración son
+evidencia más confiable que `curl` contra el dev server.**
+
+### Fase 4 — Onboarding automatizado AWS (spec §A.3) — ✅ COMPLETA
+
+Antes, la pantalla de alta mostraba una trust policy escrita a mano y apuntaba a
+tres **managed policies de AWS**: `job-function/Billing`,
+`AmazonEC2ReadOnlyAccess` y `AmazonS3ReadOnlyAccess`. Esa última da lectura de
+**todos** los buckets de la cuenta del cliente, no sólo del que contiene el CUR.
+Pedir eso para leer un reporte de costos es desproporcionado y un cliente con un
+área de seguridad exigente no lo aprueba.
+
+**Implementado:**
+
+- `src/lib/awsOnboardingTemplate.ts` — genera **CloudFormation**, **Terraform** y
+  un snippet de **AWS CLI**, parametrizados con el account ID de la plataforma,
+  el `externalId` y (si está configurado) el bucket/prefijo del CUR.
+- `src/app/api/admin/onboarding/aws/route.ts` — `POST`, guard
+  `requireTenantRole(['ADMIN','OWNER'])`, filtro por `tenant_id` en el `WHERE`
+  además del guard, y **fail-closed 503** si falta `AWS_PLATFORM_ACCOUNT_ID`.
+- UI: `admin/cloud-accounts` consume ese endpoint tras el alta y muestra la
+  plantilla con selector de formato y copiado. i18n en los 3 idiomas.
+
+**Permisos que la plantilla concede — y por qué son exactamente estos.** Se
+extrajeron leyendo qué comandos del SDK ejecuta el código, no de la
+documentación de AWS:
+
+| Acción | Comando en el código |
+|---|---|
+| `sts:AssumeRole` | `AssumeRoleCommand` (`src/lib/aws/sts.ts`) |
+| `ce:GetCostAndUsage` | `GetCostAndUsageCommand` (`src/lib/aws/costExplorer.ts`) |
+| `ec2:DescribeInstances` | `DescribeInstancesCommand` (`awsProvider.ts`) |
+| `s3:GetObject`, `s3:ListBucket` | `GetObjectCommand` / `ListObjectsV2Command` (`src/lib/aws/cur.ts`) — acotados al bucket del CUR |
+
+> **Corrección a la versión anterior de este documento.** Se listaban como
+> necesarios `ce:GetCostForecast`, `ce:GetReservationUtilization`,
+> `ce:GetSavingsPlansUtilization`, `costoptimizationhub:*` y
+> `organizations:ListAccounts`. **Ningún comando del código los usa hoy.**
+> Incluirlos habría violado el principio de mínimo privilegio pidiendo permisos
+> para features que no existen. Cuando la Fase 8 implemente esas llamadas, se
+> agregan a la plantilla **en ese momento**.
+
+**Decisiones de diseño no obvias:**
+
+- **El endpoint descifra el `externalId`** (`decryptExternalId`). El alta lo
+  devuelve una sola vez y queda cifrado; sin esto, un cliente que cerró la
+  pestaña tenía que borrar y recrear la cuenta.
+- **Es POST y no GET** para que el `externalId` no quede en la query string de
+  los logs del servidor ni en el historial del navegador.
+- **Los parámetros se validan antes de interpolar** (`assertParams()`). El
+  artefacto resultante se ejecuta con permisos de IAM: un `externalId` con
+  comillas y saltos de línea podría inyectar sentencias propias en la policy.
+  Hay un test explícito de eso.
+
+**Gotcha que costó encontrar:** el bloque condicional del CUR se generaba con 10
+espacios de indentación cuando las sentencias base están a 14 → **YAML
+inválido**, que sólo se habría descubierto al subirlo a CloudFormation. Por eso
+el test **parsea el YAML generado con `js-yaml`** en vez de sólo buscar
+substrings. Si tocás `curStatements`, respetá la indentación.
+
+18 tests en `__tests__/unit/awsOnboardingTemplate.test.ts`.
+
+### Fase 5 — Caché de Cost Explorer + resiliencia (spec §B.1 CRITICAL, §4) — ✅ COMPLETA (parcial: ver pendientes)
+
+**Cost Explorer cobra USD 0.01 por request y cada página de la paginación cuenta
+aparte.** Un tenant con varias cuentas y un dashboard que refresca solo podía
+generar una factura de CE mayor que el ahorro que la herramienta le encuentra.
+
+**Implementado en `src/lib/aws/costExplorer.ts`:**
+
+- **Caché en Redis** con clave `aws:ce:v1:<accountId>:<start>:<end>`. La firma de
+  `getCostAndUsage` ahora acepta un cuarto parámetro opcional
+  `{ accountId?, bypassCache? }`; **sin `accountId` no se cachea**, porque la
+  clave sería ambigua entre cuentas.
+- **TTL diferenciado según si el rango cerró**: 24 h si `end` es hoy o anterior,
+  1 h si incluye el día en curso, que AWS sigue actualizando varias veces al día.
+  Cachear 24 h el día actual mostraría datos viejos como si fueran definitivos.
+- **Redis caído o entrada corrupta degradan a lectura fresca.** La caché no puede
+  ser un punto de falla para leer costos.
+- **Retry con backoff exponencial + jitter** ante throttling y 5xx. El jitter
+  importa: varias cuentas del mismo tenant sincronizan juntas y sin él
+  reintentarían en el mismo instante, volviéndose a throttlear entre sí.
+  Los errores de validación **no** se reintentan: sólo gastarían más dinero.
+- **`AwsCostExplorerAccessError`**: traduce `AccessDeniedException` en un mensaje
+  que nombra el permiso faltante (`ce:GetCostAndUsage`) y remite a la plantilla
+  de onboarding, en vez de propagar el error crudo de AWS.
+- **`invalidateCostExplorerCache(accountId)`**, llamada al borrar una cuenta. Usa
+  **SCAN, no KEYS** — `KEYS` bloquea el servidor Redis entero mientras recorre el
+  keyspace, y esto corre en el request path. El `account_id` se lee **antes** del
+  `DELETE`: después ya no habría forma de saber qué claves invalidar.
+
+**Llamadores actualizados:** `sync/aws/[accountId]/ce` y `awsProvider` pasan
+`accountId` (cachean). El endpoint de **test de conexión usa `bypassCache: true`**
+a propósito: su función es verificar que el rol funciona *ahora*, no devolver lo
+que se leyó hace horas.
+
+17 tests en `__tests__/unit/costExplorerCache.test.ts`, **verificados por
+mutación**: desactivar la caché hace fallar 3.
+
+**Pendiente de esta fase (no bloqueante):**
+- Aviso en la UI de que los cost allocation tags tardan 24-48 h en reflejarse.
 - Fallback CUR → CE cuando el CUR está vacío o no promovido.
-- `GetCostForecast` para el forecast de corto plazo (no implementado).
+- `GetCostForecast` para forecast de corto plazo (requiere sumar el permiso).
 
 ### Fase 6 — CUR 2.0 real (spec §B.2) — PARCIAL
 
@@ -523,26 +666,91 @@ devuelve **0 filas** contra un export CUR 2.0.
 - Descubrimiento de partición para el layout nuevo en `findLatestBillingPeriod`.
 - Backfill histórico (hoy solo se ingiere el período más reciente).
 
-### Fase 7 — Panel AWS: las ~30 páginas genéricas — NO EMPEZADO
+### Fase 7 — Panel AWS: las páginas genéricas — 🟡 EN CURSO
 
-El grueso del valor visible, y el más barato **si no se duplica el árbol de
-páginas**. Requiere Fase 3 (para saber qué proveedor está viendo el usuario) y
-Fases 5-6 (para que haya datos AWS de calidad).
+**Estado: la infraestructura de parametrización está hecha; falta migrar el
+grueso de las páginas.**
 
-- **Primero resolver §3.4**: hacer que las rutas que hoy leen `CostSnapshots`
-  y llaman a ARM directo pasen por una capa que resuelva el proveedor del
-  tenant. La forma barata es que esas rutas lean de `FocusLineItems` /
-  `CostSnapshots` filtrando por `ProviderName`, **no** revivir
-  `getCloudProvider()` para lectura (esa factory tiene sentido para colectores,
-  no para queries de dashboard).
-- Reusar los mismos componentes de `src/components/dashboard/`. **No crear
-  `*Aws.tsx` paralelos** — si un componente necesita variar, que reciba el
-  proveedor por prop. Duplicar 67 componentes es la forma garantizada de que
-  las dos mitades diverjan.
-- Etiquetas y unidades: "Suscripción" → "Cuenta", "Resource Group" → "Cost
-  Category / tag", "Región" queda igual. Esto es i18n, en los 3 idiomas.
-- Green FinOps necesita datos de carbono de AWS (Customer Carbon Footprint
-  Tool); si no están, la página se marca `['azure']` y listo.
+#### Lo que se implementó
+
+- **`src/lib/tenantProviderContext.ts`** (nuevo) — resuelve los proveedores
+  activos de un tenant (`getTenantProviders`, `tenantUsesAzure`,
+  `tenantUsesAws`), con caché en memoria de 60 s.
+  - Ante base caída **degrada a Azure**, el comportamiento histórico: clasificar
+    mal a un tenant Azure como AWS le escondería sus propios datos, que es peor
+    que una query de más.
+  - Los casos "sin fila" y "error de base" **no se cachean**, para no fijar un
+    valor incorrecto durante un minuto.
+  - `providerLifecycleService` llama a `invalidateTenantProviders()` tras cada
+    commit que cambia `provider` (downgrade, elección, restauración, purga).
+- **`/api/dashboard/summary`** saltea sus **tres** llamadas live a Azure cuando el
+  tenant no usa Azure, y cae directo a `CostSnapshots`. Antes, un tenant AWS
+  pagaba el timeout completo de cada llamada antes de ver el mismo fallback, y
+  los logs se llenaban de `Azure unavailable` — que para un tenant AWS no es un
+  incidente sino la configuración esperada.
+- **Páginas habilitadas para AWS** en `routeProviders.ts`:
+  `/intelligence/cost-by-category`, `/intelligence/cost-groups`,
+  `/intelligence/simulator`.
+
+#### El hallazgo que hace viable esta fase
+
+**El sync de AWS escribe en `CostSnapshots`**, no sólo en `FocusLineItems` —
+tanto el camino CE (`/api/sync/aws/[accountId]/ce`) como el CUR. Es decir: las
+páginas que leen esa tabla ya muestran datos AWS reales sin escribir código
+nuevo. Lo único que hay que hacer es (a) verificar que la ruta no llame a Azure
+y (b) agregarla a `AGNOSTIC_ROUTES`.
+
+#### Método de verificación (y por qué el automático no alcanza)
+
+Se intentó clasificar automáticamente mapeando cada página a las APIs que llama
+y resolviendo imports transitivamente. **No funciona**: el crawler sigue los
+componentes globales del shell (chatbot, selector de tenant), que llaman a ~95
+endpoints, así que **todas** las páginas salen "sucias". El resultado fue
+inservible.
+
+Dos correcciones necesarias al clasificar acoplamiento, ambas aprendidas por
+falsos positivos:
+
+1. **Separar "Azure como proveedor de datos de nube" de "servicios Microsoft
+   para funciones de plataforma".** `emailHelper.ts` usa `graph.microsoft.com`
+   **para mandar mails**. Contarlo como acoplamiento a Azure ensuciaba media
+   base de código, incluida la propia `provider-transition`.
+2. **`@azure/identity` tampoco cuenta**: se usa para autenticar contra servicios
+   de la plataforma (Key Vault), no para leer datos del cliente.
+
+**El método que sí funciona** es verificar la API principal de cada página, una
+por una, resolviendo imports transitivos sobre ese archivo. Resultado real sobre
+14 rutas FinOps candidatas:
+
+| Ruta | Estado | Acoplamiento |
+|---|---|---|
+| `/intelligence/cost-by-category` | ✅ limpia | — |
+| `/cost-groups` | ✅ limpia | — |
+| `/intelligence/simulator` | ✅ limpia | — |
+| `/budgets` | ❌ | vía `@/services/budgetService` |
+| `/intelligence/anomalies` | ❌ | vía `@/services/anomalyDetectionService` |
+| `/intelligence/top-expenses` | ❌ | vía `@/lib/azure` |
+| `/intelligence/cost-projection`, `/forecast`, `/dashboard/summary`, `/chargeback`, `/history`, `/unit-economics`, `/scorecard` | ❌ | import directo |
+
+#### Cómo seguir
+
+El trabajo restante es **parametrización, no allow-list**. Para cada ruta sucia:
+preguntar `await tenantUsesAzure(tenantId)` y saltear el camino live cayendo a
+`CostSnapshots`, como ya se hizo en `dashboard/summary`. Orden sugerido por
+valor: `forecast` → `top-expenses` → `budgets` → `anomalies`.
+
+`forecast` es el caso más benigno: ya envuelve `getCurrentMonthAmortizedCosts` en
+try/catch y `getCostForecast` devuelve `[]` en vez de lanzar. Para un tenant AWS
+no rompe, sólo muestra datos pobres.
+
+**Reglas que siguen vigentes:**
+- **No crear componentes `*Aws.tsx` paralelos.** Si un componente necesita
+  variar, que reciba el proveedor por prop. Duplicar el árbol garantiza que las
+  dos mitades diverjan.
+- Etiquetas: "Suscripción" → "Cuenta", "Resource Group" → "Cost Category / tag".
+  Es i18n, en los 3 idiomas.
+- Hay un test que verifica que habilitar `cost-groups` **no** arrastre por
+  prefijo a las ~30 páginas Azure de `/intelligence`.
 
 ### Fase 8 — Módulo C: optimización y huérfanos (spec §3 Módulo C) — NO EMPEZADO
 
@@ -597,6 +805,28 @@ Fases 5-6 (para que haya datos AWS de calidad).
 ---
 
 ## 6. Riesgos abiertos / lo que NO está verificado
+
+0. 🔴 **Violación de la Regla Cero en el parser de Cost Explorer — SIN RESOLVER.**
+   `src/lib/aws/costExplorer.ts` (~líneas 72-74) usa **`parseFloat()`** sobre los
+   montos que devuelve AWS (`unblendedCost`, `amortizedCost`, `usageQuantity`).
+   La API de Cost Explorer los entrega como **string** precisamente para no
+   perder precisión, y `CeDailyRow` los tipa como `number`. `AGENTS.md` prohíbe
+   floats para cálculos de costo.
+
+   **Impacto:** errores de redondeo de centavos que se acumulan al agregar miles
+   de filas diarias. Sobre una factura de seis cifras el desvío es visible, y
+   este dato alimenta chargeback — o sea, lo que un cliente le factura a sus
+   propias áreas internas.
+
+   **Por qué no se arregló acá:** el fix correcto es conservar el string y
+   convertir con `decimal.js` (ya es dependencia, vía `src/lib/money.ts`), pero
+   toca el tipo `CeDailyRow`, el mapper FOCUS (`mapCeDailyToFocus`) y los tres
+   consumidores. **Sin datos AWS reales para validar el resultado, refactorizar
+   a ciegas la ruta del dinero es más riesgoso que documentarlo.** Hacerlo junto
+   con la primera prueba contra una cuenta real.
+
+   > Nota: el mismo patrón conviene auditarlo en el parser de CUR antes de
+   > facturar a un cliente.
 
 1. **Nada de esto se probó contra una cuenta AWS real.** No hay cuenta de prueba
    configurada en el entorno. Los tests son unitarios sobre el mapper con
@@ -814,27 +1044,49 @@ además que **no se hizo push** de ninguno de los commits de este trabajo.
 - [ ] Definir retención/particionado de `FocusLineItems` antes del primer
       cliente grande (§6.2).
 
+### ✅ Hecho — Fases 3.5, 4 y 5 (commiteadas, sin push)
+
+- **Fase 3.5** — `npm run seed:aws-tenant` da credenciales usables en local (el
+  signup dejaba al usuario sin verificar y sin SMTP no había forma de entrar), y
+  se arregló el bug del rate limiter que devolvía **429 en el primer request tras
+  cada arranque** en 25 rutas.
+- **Fase 4** — Onboarding AWS con plantillas CloudFormation / Terraform / CLI de
+  mínimo privilegio, expuestas en la UI de alta de cuentas. Reemplazan las
+  managed policies sobre-permisivas (`AmazonS3ReadOnlyAccess` daba lectura de
+  todos los buckets del cliente).
+- **Fase 5** — Caché de Cost Explorer en Redis con TTL según si el rango cerró,
+  retry con backoff + jitter y `AccessDeniedException` accionable.
+- **Fase 7 (parcial)** — `tenantProviderContext` + `dashboard/summary`
+  parametrizado + 3 páginas de costo habilitadas para AWS.
+
+Validado: `typecheck` limpio, `lint` 0 errores, **669 tests** en verde y `build`
+de producción exitoso.
+
 ### Producto — el resto de las fases
 
-- [ ] **Fase 4** — Onboarding automatizado: plantilla CloudFormation + Terraform
-      con el `externalId`, y la IAM policy real (le faltan permisos de
-      `ce:*`, `costoptimizationhub:*`, `s3:GetObject` sobre el bucket CUR y
-      `organizations:ListAccounts`).
-- [ ] **Fase 5** — Caché de Cost Explorer (**cobra USD 0.01 por request y hoy no
-      hay ninguna caché**), retry con backoff, manejo de `AccessDeniedException`
-      accionable, fallback CUR → CE, `GetCostForecast`.
+- [x] ~~**Fase 4** — Onboarding automatizado~~ ✅ completa. La lista de permisos
+      que figuraba acá (`ce:*`, `costoptimizationhub:*`,
+      `organizations:ListAccounts`) era **incorrecta**: ningún comando del código
+      los usa. Se concedieron sólo los 4 que el código realmente llama.
+- [x] ~~**Fase 5** — Caché de Cost Explorer~~ ✅ completa (caché, retry,
+      `AccessDeniedException`). Quedan pendientes de la fase: fallback CUR → CE,
+      `GetCostForecast` y el aviso de los 24-48 h de los cost allocation tags.
 - [ ] **Fase 6** — CUR 2.0: el mapper solo entiende nombres CUR 1.0, así que
       contra un export CUR 2.0 devuelve **0 filas**. Falta normalización
       camelCase ↔ snake_case, el layout `BILLING_PERIOD=YYYY-MM/` y backfill
       histórico.
-- [ ] **Fase 7** — Panel AWS (~30 páginas). **Primero resolver §3.4**: 50 rutas
-      llaman a Azure ARM directo. Si no se resuelve antes, cada página AWS
-      termina siendo un fork copiado de la de Azure (§6.10, el riesgo más caro
-      del plan).
+- [ ] **Fase 7** — Panel AWS. 🟡 En curso: la infraestructura de parametrización
+      está hecha (`tenantProviderContext`) y `dashboard/summary` ya la usa.
+      Falta migrar `forecast`, `top-expenses`, `budgets` y `anomalies` con el
+      mismo patrón. **El riesgo de forkear el árbol de páginas (§6.10) quedó
+      conjurado**: se parametriza, no se duplica.
 - [ ] **Fase 8** — Módulo C: `awsProvider.getRecommendations()` devuelve `[]`.
       Instalar `@aws-sdk/client-cost-optimization-hub` y escribir los scanners
       (EC2 sobredimensionadas, EBS `available`, Elastic IPs sueltas, NAT
       Gateways, cobertura de SP/RI). Varios se resuelven con SQL sobre
-      `FocusLineItems` en vez de llamadas extra a la API.
+      `FocusLineItems` en vez de llamadas extra a la API. **Al implementarlos hay
+      que sumar los permisos correspondientes a la plantilla de la Fase 4.**
 - [ ] **Fase 9** — Cron de sync AWS (`aws-sync-daily`, no existe: hoy el sync
       solo corre apretando un botón), mock data de AWS por tier, i18n.
+- [ ] 🔴 **Regla Cero** — reemplazar `parseFloat` por `decimal.js` en el parser de
+      Cost Explorer (§6.0), junto con la primera prueba contra AWS real.
