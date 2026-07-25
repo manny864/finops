@@ -66,6 +66,12 @@ const AGNOSTIC_ROUTES: readonly string[] = [
     "/intelligence/cost-groups",
     "/intelligence/simulator",
 
+    // Limpieza de recursos ociosos. El inventario AWS lo arma
+    // awsInventoryService con las APIs de EC2 (volumenes EBS sin adjuntar, IPs
+    // elasticas ociosas, snapshots vencidos e instancias apagadas), que es el
+    // equivalente funcional de la consulta KQL a Resource Graph en Azure.
+    "/cleanup/zombies",
+
     // --- Plataforma / SaaS: no dependen de la nube del tenant -------------
     // Estas paginas administran el producto (identidad, facturacion del SaaS,
     // cumplimiento, integraciones), no los recursos del cliente. Estaban
@@ -124,12 +130,11 @@ const AWS_ROUTES: readonly string[] = ["/admin/cloud-accounts"];
  * resuelva bien.
  */
 const EXPLICIT_AZURE_ROUTES: readonly string[] = [
+    // El alta por Service Principal / Lighthouse es especifica de Azure; el
+    // alta de cuentas AWS vive en /admin/cloud-accounts.
     "/admin/onboarding",
-    "/admin/markup",
+    // Azure Workbooks es un producto de Azure Monitor, sin equivalente AWS.
     "/admin/workbooks",
-    "/admin/powerbi-templates",
-    "/admin/copilot-m365",
-    "/admin/report",
 ];
 
 const ROUTE_PROVIDERS: Record<string, readonly CloudProviderId[]> = {

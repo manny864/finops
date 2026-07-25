@@ -134,7 +134,21 @@ const PLATFORM_PRODUCT_TERMS = [
 const PLATFORM_AUTH_KEYS = [
     'Common.sign_in_microsoft',
     'Common.corporate_access_desc',
+    // Entra ID es el proveedor de identidad del SaaS, no la nube del tenant:
+    // un cliente AWS tambien entra por aca.
+    'Zombies.restrictedDesc',
 ];
+
+/**
+ * Claves que describen un hallazgo que SOLO puede existir en Azure. No se les
+ * pide variante AWS porque traducirlas seria inventar un concepto que la nube
+ * no tiene; a cambio, el caso de mas abajo verifica que el motor de inventario
+ * de AWS nunca emita ese motivo, que es lo que garantiza que el texto jamas se
+ * le muestre a un tenant AWS.
+ */
+const AZURE_ONLY_FINDING_KEYS: Record<string, string> = {
+    'Zombies.issues.emptyRgs': 'unattachedVolumes|unattachedPublicIps|oldSnapshots|longStoppedInstances',
+};
 
 const AZURE_ONLY_TERMS = [
     'AKS', 'AHB', 'Azure', 'Microsoft',
@@ -198,6 +212,7 @@ describe('i18n - variantes por proveedor', () => {
                     // para Azure y nunca se le muestra a un tenant AWS.
                     if (flat[`${key}_aws`] !== undefined) continue;
                     if (PLATFORM_AUTH_KEYS.includes(key)) continue;
+                    if (key in AZURE_ONLY_FINDING_KEYS) continue;
                     // Enumeracion multi-cloud ("Azure, AWS o GCP"): el texto ya
                     // le habla al tenant AWS, nombrar Azure ahi es correcto y
                     // pedirle una variante _aws seria empeorarlo.
@@ -233,6 +248,39 @@ describe('i18n - variantes por proveedor', () => {
             const file = pageFileFor(route);
             const ns = file ? [...namespacesOf(file)] : [];
             expect(ns, `${route} esta exenta ("${motivo}") pero ahora pide namespaces: ${ns.join(', ')}`).toEqual([]);
+        }
+    });
+
+    it('el inventario AWS no emite los motivos marcados como exclusivos de Azure', () => {
+        // Sin esto, AZURE_ONLY_FINDING_KEYS seria una forma de silenciar el
+        // test: si alguien hiciera que la rama AWS devolviera `emptyRgs`, el
+        // tenant AWS veria "Empty resource group" y nadie se enteraria.
+        const engine = fs.readFileSync(
+            path.join(SRC, 'modules', 'collectors', 'aws', 'awsInventoryService.ts'), 'utf-8');
+        const emitidos = [...engine.matchAll(/reason:\s*'([a-zA-Z]+)'/g)].map((m) => m[1]);
+        expect(emitidos.length, 'no se detecto ningun motivo en el inventario AWS').toBeGreaterThan(0);
+        for (const [key, permitidos] of Object.entries(AZURE_ONLY_FINDING_KEYS)) {
+            const azureReason = key.split('.').pop()!;
+            expect(emitidos, `${key} esta exenta pero el inventario AWS emite "${azureReason}"`)
+                .not.toContain(azureReason);
+            // Y los motivos que si emite tienen que estar traducidos.
+            for (const r of emitidos) {
+                expect(permitidos.split('|'),
+                    `el inventario AWS emite el motivo "${r}", declaralo y traducilo`).toContain(r);
+            }
+        }
+    });
+
+    it('los motivos del inventario AWS estan traducidos en los tres idiomas', () => {
+        const engine = fs.readFileSync(
+            path.join(SRC, 'modules', 'collectors', 'aws', 'awsInventoryService.ts'), 'utf-8');
+        const emitidos = [...new Set([...engine.matchAll(/reason:\s*'([a-zA-Z]+)'/g)].map((m) => m[1]))];
+        for (const lang of Object.keys(LOCALES) as (keyof typeof LOCALES)[]) {
+            const flat = flatten(LOCALES[lang]);
+            for (const r of emitidos) {
+                expect(flat[`Zombies.issues.${r}`],
+                    `falta ${lang}: Zombies.issues.${r}`).toBeTruthy();
+            }
         }
     });
 

@@ -42,8 +42,24 @@ describe("routeProviders", () => {
     });
 
     it("las páginas Azure puras siguen ocultas para AWS", () => {
-        for (const route of ["/governance/tags", "/cleanup/zombies", "/intelligence/aks", "/overview/resources"]) {
+        for (const route of ["/governance/tags", "/intelligence/aks", "/overview/resources"]) {
             expect(isRouteAvailableForProvider(route, "aws")).toBe(false);
+            expect(isRouteAvailableForProvider(route, "azure")).toBe(true);
+        }
+    });
+
+    it("la limpieza de recursos ociosos sirve a ambos proveedores", () => {
+        // El inventario AWS lo arma awsInventoryService con las APIs de EC2:
+        // es el equivalente de la consulta a Resource Graph en Azure.
+        expect(isRouteAvailableForProvider("/cleanup/zombies", "aws")).toBe(true);
+        expect(isRouteAvailableForProvider("/cleanup/zombies", "azure")).toBe(true);
+    });
+
+    it("las páginas de plataforma no dependen del proveedor del tenant", () => {
+        // Administran el producto (identidad, alta, cobro, cumplimiento), no
+        // los recursos cloud del cliente.
+        for (const route of ["/login", "/signup", "/admin/compliance", "/admin/markup", "/mobile", "/upgrade"]) {
+            expect(isRouteAvailableForProvider(route, "aws")).toBe(true);
             expect(isRouteAvailableForProvider(route, "azure")).toBe(true);
         }
     });

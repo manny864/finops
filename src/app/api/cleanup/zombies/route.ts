@@ -6,6 +6,9 @@ import { getMonthlyCostEstimate } from "@/services/pricingService";
 import { tenants } from "@/lib/tenants";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
+import { tenantUsesAws } from "@/lib/tenantProviderContext";
+import { getAwsZombies } from "@/modules/collectors/aws/awsInventoryService";
+import { isAwsMockTenant, getMockDataForRoute } from "@/lib/mockData";
 
 async function queryResourceGraphWithRetry(client: any, query: string, subscriptions: string[], retries = 3, initialDelay = 3000): Promise<any> {
     let currentDelay = initialDelay;
@@ -37,8 +40,25 @@ export async function GET(request: NextRequest) {
 
     await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
 
-    const cacheKey = `cleanup:zombies:v1:${tenantId}:${subscriptionId || 'all'}`;
-    const allZombies = await getWithStaleWhileRevalidate(cacheKey, () => fetchZombies(tenantId, subscriptionId), 1800, 600);
+    // El proveedor entra en la clave: un tenant que migra de nube no puede
+    // seguir leyendo el inventario de la anterior.
+    const isAws = await tenantUsesAws(tenantId);
+
+    // Los tenants de demo AWS no tienen rol IAM que asumir: se responde con el
+    // dataset sintetico del tier antes de tocar la red. El guard es
+    // `isAwsMockTenant` y no `isMockTenant` a proposito: el despachador de
+    // mocks no devuelve null para una ruta sin case, sino un payload generico,
+    // asi que abrirlo a los tenants de demo Azure les vaciaria la pantalla.
+    if (isAwsMockTenant(tenantId)) {
+      const mock = getMockDataForRoute('cleanup_zombies', tenantId);
+      if (mock) return NextResponse.json(mock);
+    }
+
+    const cacheKey = `cleanup:zombies:v2:${isAws ? 'aws' : 'azure'}:${tenantId}:${subscriptionId || 'all'}`;
+    const fetcher = isAws
+      ? () => fetchAwsZombies(tenantId, subscriptionId)
+      : () => fetchZombies(tenantId, subscriptionId);
+    const allZombies = await getWithStaleWhileRevalidate(cacheKey, fetcher, 1800, 600);
 
     return NextResponse.json({ success: true, data: allZombies });
 
@@ -248,4 +268,33 @@ async function fetchZombies(tenantId: string, subscriptionId: string | null): Pr
     // El nombre real ahora se enviará como texto plano.
 
     return allZombies;
+}
+
+/**
+ * Recursos ociosos de un tenant AWS.
+ *
+ * Se normaliza al mismo contrato que la rama de Azure para que la UI y la
+ * exportacion no tengan que saber de que nube vienen los datos. La region AWS
+ * viaja en `resourceGroup` y el account id en `subscriptionId`, que es la misma
+ * convencion que ya usa `CostSnapshots` (ver handoff).
+ */
+async function fetchAwsZombies(tenantId: string, accountId: string | null): Promise<any[]> {
+    const items = await getAwsZombies(tenantId, accountId);
+    return items.map((item) => ({
+        resourceId: item.resourceId,
+        name: item.name,
+        resourceType: item.resourceType,
+        monthlyCost: item.monthlyCost,
+        id: item.resourceId,
+        type: item.resourceType,
+        resourceGroup: item.region,
+        subscriptionId: item.accountId,
+        estimatedMonthlyCost: item.monthlyCost,
+        powerState: item.state,
+        tags: item.tags,
+        // Un snapshot vencido o una instancia apagada son señales de higiene:
+        // conviene revisarlos antes de borrarlos, no automatizar el borrado.
+        isHygiene: item.reason === 'oldSnapshots' || item.reason === 'longStoppedInstances',
+        reason: item.reason,
+    }));
 }

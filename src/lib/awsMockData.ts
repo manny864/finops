@@ -271,6 +271,77 @@ export function getAwsCostGroups(tier: string) {
  * AWS. Devuelve `null` si la ruta no tiene equivalente AWS, para que el caller
  * caiga al mock genérico en vez de mostrar una pantalla vacía.
  */
+/**
+ * Lista de recursos ociosos individuales, con el mismo contrato que devuelve
+ * `/api/cleanup/zombies` para un tenant AWS real.
+ *
+ * Se diferencia de `getAwsOrphanResources`, que es el agregado por tipo para
+ * las tarjetas de resumen: la pantalla de limpieza necesita el detalle recurso
+ * por recurso porque desde ahi se dispara la remediacion.
+ */
+export function getAwsZombieResources(tier: string) {
+    const multiplier = awsMultiplierForTier(tier);
+    const scale = (n: number) => Math.max(1, Math.round(n * (multiplier / 3 + 0.7)));
+    const accounts = getAwsDemoAccounts(tier);
+    const acct = (i: number) => accounts[i % accounts.length].account_id;
+    const out: Record<string, unknown>[] = [];
+
+    const push = (
+        i: number,
+        resourceId: string,
+        name: string,
+        resourceType: string,
+        region: string,
+        monthlyCost: number,
+        reason: string,
+        extra: Record<string, unknown> = {}
+    ) => {
+        out.push({
+            resourceId, name, resourceType,
+            monthlyCost: round2(monthlyCost),
+            id: resourceId, type: resourceType,
+            resourceGroup: region,
+            subscriptionId: acct(i),
+            estimatedMonthlyCost: round2(monthlyCost),
+            tags: extra.tags ?? { Environment: i % 2 === 0 ? 'prod' : 'dev' },
+            isHygiene: reason === 'oldSnapshots' || reason === 'longStoppedInstances',
+            reason,
+            ...extra,
+        });
+    };
+
+    const regions = ['us-east-1', 'us-west-2', 'eu-west-1', 'sa-east-1'];
+
+    // Volumenes EBS desasociados: el clasico "cree la instancia, la borre, y el
+    // disco quedo".
+    for (let i = 0; i < scale(6); i++) {
+        const sizeGB = [50, 100, 200, 500][i % 4];
+        push(i, `vol-0${(i + 1).toString().padStart(3, '0')}a2b3c4d5e`, `data-${i + 1}`,
+            'aws.ec2/volumes', regions[i % regions.length], sizeGB * 0.08, 'unattachedVolumes', { sizeGB, powerState: 'available' });
+    }
+
+    // IPs elasticas reservadas y sin asociar.
+    for (let i = 0; i < scale(4); i++) {
+        push(i, `eipalloc-0${(i + 1).toString().padStart(3, '0')}f6a7b8c`, `52.${20 + i}.100.${i + 4}`,
+            'aws.ec2/elastic-ips', regions[i % regions.length], 3.65, 'unattachedPublicIps');
+    }
+
+    // Snapshots de mas de 90 dias.
+    for (let i = 0; i < scale(9); i++) {
+        const sizeGB = [30, 80, 120][i % 3];
+        push(i, `snap-0${(i + 1).toString().padStart(3, '0')}c9d0e1f`, `backup-${i + 1}`,
+            'aws.ec2/snapshots', regions[i % regions.length], sizeGB * 0.05, 'oldSnapshots', { sizeGB });
+    }
+
+    // Instancias apagadas: no pagan computo, pero si sus discos.
+    for (let i = 0; i < scale(3); i++) {
+        push(i, `i-0${(i + 1).toString().padStart(3, '0')}a1b2c3d4`, `worker-${i + 1}`,
+            'aws.ec2/instances', regions[i % regions.length], 16 + i * 8, 'longStoppedInstances', { powerState: 'stopped' });
+    }
+
+    return out.sort((a, b) => (b.monthlyCost as number) - (a.monthlyCost as number));
+}
+
 export function getAwsMockDataForRoute(route: string, tier: string): Record<string, unknown> | null {
     const multiplier = awsMultiplierForTier(tier);
     const total = awsMonthlyTotal(multiplier);
@@ -514,6 +585,9 @@ export function getAwsMockDataForRoute(route: string, tier: string): Record<stri
 
         case 'rightsizing':
             return { ...base, recommendations: getAwsRightsizing(tier) };
+
+        case 'cleanup_zombies':
+            return { ...base, data: getAwsZombieResources(tier) };
 
         case 'zombies':
         case 'orphans': {
