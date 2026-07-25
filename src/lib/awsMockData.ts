@@ -211,7 +211,9 @@ export function getAwsOrphanResources(tier: string) {
         { type: 'EBS Volume', count: scale(6), monthlyCost: round2(8.0 * scale(6)), detail: 'Volúmenes en estado "available" (desasociados)', region: 'us-east-1' },
         { type: 'EBS Snapshot', count: scale(23), monthlyCost: round2(0.5 * scale(23)), detail: 'Snapshots de volúmenes ya eliminados', region: 'us-west-2' },
         { type: 'NAT Gateway', count: scale(2), monthlyCost: round2(32.4 * scale(2)), detail: 'Sin tráfico procesado en 30 días', region: 'eu-west-1' },
-        { type: 'Load Balancer', count: scale(1), monthlyCost: round2(16.2 * scale(1)), detail: 'Sin targets sanos registrados', region: 'us-east-1' },
+        // "Load Balancer" a secas es el nombre del recurso en Azure. En AWS el
+        // servicio es Elastic Load Balancing y lo que se factura es el ALB.
+        { type: 'Application Load Balancer', count: scale(1), monthlyCost: round2(16.2 * scale(1)), detail: 'Sin targets sanos registrados en su target group', region: 'us-east-1' },
     ];
 }
 
@@ -266,11 +268,6 @@ export function getAwsCostGroups(tier: string) {
     }));
 }
 
-/**
- * Punto de entrada por ruta, espejo de `getMockDataForRoute` pero con datos
- * AWS. Devuelve `null` si la ruta no tiene equivalente AWS, para que el caller
- * caiga al mock genérico en vez de mostrar una pantalla vacía.
- */
 /**
  * Lista de recursos ociosos individuales, con el mismo contrato que devuelve
  * `/api/cleanup/zombies` para un tenant AWS real.
@@ -342,6 +339,132 @@ export function getAwsZombieResources(tier: string) {
     return out.sort((a, b) => (b.monthlyCost as number) - (a.monthlyCost as number));
 }
 
+/**
+ * Cola de aprobaciones de remediación (`/api/remediation/workflow`).
+ *
+ * Sin este dataset el tenant de demo AWS caía al mock genérico, que lista IDs
+ * `/subscriptions/.../providers/Microsoft.Compute/...` y rightsizing de VMs
+ * `Standard_D8s_v5`: recursos de Azure dentro de una demo AWS. Acá los
+ * identificadores son ARNs y las acciones, las que el motor puede ejecutar de
+ * verdad contra EC2/S3.
+ */
+export function getAwsRemediationApprovals(tier: string) {
+    const multiplier = awsMultiplierForTier(tier);
+    const accounts = getAwsDemoAccounts(tier);
+    const acct = (i: number) => accounts[i % accounts.length].account_id;
+    const h = 3600_000;
+    const now = Date.now();
+    const base = [
+        {
+            resource_id: `arn:aws:ec2:us-east-1:${acct(0)}:volume/vol-0001a2b3c4d5e`,
+            resource_name: 'data-1 (gp3 512 GB en estado available)',
+            action_type: 'DELETE_RESOURCE',
+            estimated_savings: 40.96,
+            status: 'Pending',
+            requested_by: 'zombie-scanner@demo.local',
+            requestedHoursAgo: 3,
+        },
+        {
+            // Mismo ahorro que la primera recomendación de getAwsRightsizing:
+            // la demo tiene que contar una sola historia entre pantallas.
+            resource_id: `arn:aws:ec2:us-east-1:${acct(0)}:instance/i-0a1b2c3d4e5f60001`,
+            resource_name: 'api-prod-01 (m5.2xlarge → m5.xlarge)',
+            action_type: 'RIGHTSIZE_INSTANCE',
+            estimated_savings: 138.24,
+            status: 'Pending',
+            requested_by: 'rightsizing-engine@demo.local',
+            requestedHoursAgo: 9,
+        },
+        {
+            resource_id: `arn:aws:ec2:eu-west-1:${acct(1)}:elastic-ip/eipalloc-0001f6a7b8c`,
+            resource_name: '52.20.100.4 (Elastic IP sin asociar)',
+            action_type: 'RELEASE_ELASTIC_IP',
+            estimated_savings: 3.65,
+            status: 'Approved',
+            requested_by: 'zombie-scanner@demo.local',
+            requestedHoursAgo: 48,
+        },
+        {
+            // S3 no cambia de "tier" sino de storage class: el nombre de la
+            // acción tiene que coincidir con la API que se invoca de verdad.
+            resource_id: `arn:aws:s3:::finops-demo-logs-${acct(2)}`,
+            resource_name: `finops-demo-logs-${acct(2)} (S3 Standard → Glacier Instant Retrieval)`,
+            action_type: 'CHANGE_STORAGE_CLASS',
+            estimated_savings: 65.00,
+            status: 'Approved',
+            requested_by: 'storage-efficiency@demo.local',
+            requestedHoursAgo: 72,
+        },
+        {
+            resource_id: `arn:aws:ec2:us-east-1:${acct(0)}:instance/i-0a1b2c3d4e5f60005`,
+            resource_name: 'dev-jenkins (m5.large sin uso fuera de horario)',
+            action_type: 'STOP_INSTANCE',
+            estimated_savings: 69.12,
+            status: 'Rejected',
+            requested_by: 'smart-shutdown@demo.local',
+            requestedHoursAgo: 96,
+        },
+    ];
+    // Más cuentas conectadas, más hallazgos en cola: lo que escala es la
+    // cantidad de solicitudes, no el ahorro por recurso (que es un precio de
+    // lista y no depende del tamaño del cliente).
+    const repeats = multiplier >= 50 ? 3 : multiplier >= 10 ? 2 : 1;
+    return Array.from({ length: repeats }).flatMap((_, r) =>
+        base.map((b, i) => {
+            const requestedAt = new Date(now - (b.requestedHoursAgo + r * 6) * h);
+            const resolved = b.status !== 'Pending';
+            return {
+                id: r * base.length + i + 1,
+                resource_id: r === 0 ? b.resource_id : `${b.resource_id}-${r + 1}`,
+                resource_name: r === 0 ? b.resource_name : `${b.resource_name.replace(' (', `-${r + 1} (`)}`,
+                action_type: b.action_type,
+                estimated_savings: round2(b.estimated_savings * (1 + r * 0.08)),
+                status: b.status,
+                requested_by: b.requested_by,
+                requested_at: requestedAt.toISOString(),
+                resolved_at: resolved ? new Date(requestedAt.getTime() + h).toISOString() : null,
+                resolved_by: resolved ? 'admin@demo.local' : null,
+            };
+        })
+    );
+}
+
+/**
+ * Reglas de alerta de costo. El mock genérico habla de "Prod Subscription" y de
+ * umbrales por suscripción: en AWS la unidad de facturación es la cuenta, y las
+ * palancas que se vigilan son otras (cobertura de Savings Plans, egress, NAT).
+ */
+export function getAwsAlertRules(tier: string) {
+    const multiplier = awsMultiplierForTier(tier);
+    const baseThreshold = awsMonthlyTotal(multiplier);
+    const accounts = getAwsDemoAccounts(tier);
+    const h = 3600_000;
+    const now = Date.now();
+    const usd = (n: number) => Math.round(n).toLocaleString('en-US');
+    const rules = [
+        { id: 'mock-aws-alert-1', ruleName: 'Budget Alert > 80%', ruleType: 'budget', thresholdValue: 80, thresholdUnit: 'percent', channel: 'email', channelTarget: 'finops@demo.local', enabled: true, lastTriggeredAt: new Date(now - 15 * 24 * h).toISOString(), triggerCount: 3 },
+        { id: 'mock-aws-alert-2', ruleName: `Threshold $${usd(baseThreshold)} USD`, ruleType: 'threshold', thresholdValue: Math.round(baseThreshold), thresholdUnit: 'usd', channel: 'webhook', channelTarget: 'https://hooks.demo.local/finops', enabled: true, lastTriggeredAt: new Date(now - 3 * 24 * h).toISOString(), triggerCount: 1 },
+        { id: 'mock-aws-alert-3', ruleName: 'Cost Anomaly Detection (25%)', ruleType: 'anomaly', thresholdValue: 25, thresholdUnit: 'percent', channel: 'teams', channelTarget: 'https://hooks.teams.example/webhook-finops', enabled: true, lastTriggeredAt: new Date(now - 10 * h).toISOString(), triggerCount: 7 },
+        { id: 'mock-aws-alert-4', ruleName: 'Forecast Overrun > 110%', ruleType: 'forecast', thresholdValue: 110, thresholdUnit: 'percent', channel: 'slack', channelTarget: '#finops-alerts', enabled: false, lastTriggeredAt: null, triggerCount: 0 },
+        // El alias de la cuenta, no un GUID: es como el equipo identifica de
+        // verdad al pagador dentro de la organización.
+        { id: 'mock-aws-alert-5', ruleName: `Cuenta ${accounts[0].alias} > $${usd(baseThreshold * 0.6)}`, ruleType: 'threshold', thresholdValue: Math.round(baseThreshold * 0.6), thresholdUnit: 'usd', channel: 'email', channelTarget: 'director@demo.local', enabled: true, lastTriggeredAt: new Date(now - 48 * h).toISOString(), triggerCount: 2 },
+        { id: 'mock-aws-alert-6', ruleName: 'NAT Gateway data processing > $500', ruleType: 'threshold', thresholdValue: 500, thresholdUnit: 'usd', channel: 'servicenow', channelTarget: 'https://demo.service-now.com/api/finops/alert', enabled: true, lastTriggeredAt: new Date(now - 6 * h).toISOString(), triggerCount: 12 },
+        { id: 'mock-aws-alert-7', ruleName: 'Data Transfer Out > 20 TB', ruleType: 'threshold', thresholdValue: Math.round(baseThreshold * 0.12), thresholdUnit: 'usd', channel: 'teams', channelTarget: 'https://hooks.teams.example/webhook-ops', enabled: true, lastTriggeredAt: null, triggerCount: 0 },
+        { id: 'mock-aws-alert-8', ruleName: 'Savings Plans coverage < 60%', ruleType: 'threshold', thresholdValue: 60, thresholdUnit: 'percent', channel: 'servicenow', channelTarget: 'https://demo.service-now.com/api/finops/critical', enabled: true, lastTriggeredAt: new Date(now - 2 * h).toISOString(), triggerCount: 4 },
+        { id: 'mock-aws-alert-9', ruleName: 'Amazon S3 storage growth > 15% MoM', ruleType: 'anomaly', thresholdValue: 15, thresholdUnit: 'percent', channel: 'teams', channelTarget: 'https://hooks.teams.example/webhook-exec', enabled: true, lastTriggeredAt: new Date(now - 30 * h).toISOString(), triggerCount: 19 },
+        { id: 'mock-aws-alert-10', ruleName: 'Monthly Forecast Overrun > 105%', ruleType: 'forecast', thresholdValue: 105, thresholdUnit: 'percent', channel: 'email', channelTarget: 'cfo@demo.local', enabled: true, lastTriggeredAt: null, triggerCount: 0 },
+    ];
+    // Mismo escalonado que el mock genérico: cada tier destraba más reglas.
+    const count = multiplier >= 50 ? 10 : multiplier >= 10 ? 7 : multiplier >= 3 ? 5 : 2;
+    return rules.slice(0, count);
+}
+
+/**
+ * Punto de entrada por ruta, espejo de `getMockDataForRoute` pero con datos
+ * AWS. Devuelve `null` si la ruta no tiene equivalente AWS, para que el caller
+ * caiga al mock genérico en vez de mostrar una pantalla vacía.
+ */
 export function getAwsMockDataForRoute(route: string, tier: string): Record<string, unknown> | null {
     const multiplier = awsMultiplierForTier(tier);
     const total = awsMonthlyTotal(multiplier);
@@ -598,6 +721,12 @@ export function getAwsMockDataForRoute(route: string, tier: string): Record<stri
                 totalMonthlyWaste: round2(orphans.reduce((acc, o) => acc + o.monthlyCost, 0)),
             };
         }
+
+        case 'approvals':
+            return { ...base, data: getAwsRemediationApprovals(tier) };
+
+        case 'alerts':
+            return { ...base, rules: getAwsAlertRules(tier) };
 
         case 'cost-by-region':
             return { ...base, regions: getAwsCostByRegion(tier), total: round2(total) };

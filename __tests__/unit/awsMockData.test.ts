@@ -301,8 +301,7 @@ describe('top_expenses (AWS)', () => {
     });
 });
 
-describe('anomalies (AWS)', () => {
-    it('usa cuentas, regiones y unidades de facturacion de AWS', () => {
+describe('anomalies (AWS)', () => {    it('usa cuentas, regiones y unidades de facturacion de AWS', () => {
         const r = getAwsMockDataForRoute('anomalies', 'enterprise') as any;
         expect(r).not.toBeNull();
         expect(r.dailyCosts).toHaveLength(60);
@@ -320,5 +319,63 @@ describe('anomalies (AWS)', () => {
         const a = getAwsMockDataForRoute('anomalies', 'business') as any;
         const b = getAwsMockDataForRoute('anomalies', 'business') as any;
         expect(a.dailyCosts).toEqual(b.dailyCosts);
+    });
+});
+
+describe('approvals (AWS)', () => {
+    it('usa ARNs y acciones de AWS, nunca IDs de Azure', () => {
+        const r = getAwsMockDataForRoute('approvals', 'business') as any;
+        expect(r).not.toBeNull();
+        expect(r.data.length).toBeGreaterThan(0);
+        const serialized = JSON.stringify(r.data);
+        expect(serialized).not.toMatch(/subscriptions\/|resourceGroups|Microsoft\.|Standard_[A-Z]|RIGHTSIZE_VM/i);
+        for (const req of r.data) {
+            expect(req.resource_id).toMatch(/^arn:aws:/);
+            expect(req.estimated_savings).toBeGreaterThan(0);
+            expect(['Pending', 'Approved', 'Rejected']).toContain(req.status);
+            // La tabla de historial hace resolved_by.split('@'): no puede venir
+            // en null para una solicitud ya resuelta.
+            if (req.status !== 'Pending') expect(req.resolved_by).toBeTruthy();
+        }
+        // Los ids tienen que ser unicos: la lista se renderiza con key={id}.
+        const ids = r.data.map((x: any) => x.id);
+        expect(new Set(ids).size).toBe(ids.length);
+    });
+
+    it('acumula mas solicitudes en los tiers con mas cuentas', () => {
+        const ess = (getAwsMockDataForRoute('approvals', 'essential') as any).data.length;
+        const ent = (getAwsMockDataForRoute('approvals', 'enterprise') as any).data.length;
+        expect(ent).toBeGreaterThan(ess);
+    });
+});
+
+describe('alerts (AWS)', () => {
+    it('no habla de suscripciones ni de servicios de Azure', () => {
+        const r = getAwsMockDataForRoute('alerts', 'enterprise') as any;
+        expect(r).not.toBeNull();
+        expect(r.rules.length).toBeGreaterThan(0);
+        const names = r.rules.map((x: any) => x.ruleName).join(' ');
+        expect(names).not.toMatch(/Azure|Subscription|Suscripci|AKS|Hybrid Benefit/i);
+        for (const rule of r.rules) {
+            expect(['budget', 'anomaly', 'forecast', 'threshold', 'credential_expiry', 'ttl_expiry'])
+                .toContain(rule.ruleType);
+            expect(['email', 'webhook', 'teams', 'slack', 'servicenow']).toContain(rule.channel);
+        }
+    });
+
+    it('destraba mas reglas a medida que sube el tier', () => {
+        const counts = TIERS.map((t) => (getAwsMockDataForRoute('alerts', t) as any).rules.length);
+        for (let i = 1; i < counts.length; i++) {
+            expect(counts[i]).toBeGreaterThanOrEqual(counts[i - 1]);
+        }
+    });
+});
+
+describe('orphans (AWS)', () => {
+    it('nombra los recursos con la terminologia de AWS', () => {
+        const types = getAwsOrphanResources('business').map((o) => o.type).join(' ');
+        expect(types).not.toMatch(/Managed Disk|Virtual Machine|App Service|Public IP Address/i);
+        expect(types).toMatch(/EBS Volume/);
+        expect(types).toMatch(/Application Load Balancer/);
     });
 });
