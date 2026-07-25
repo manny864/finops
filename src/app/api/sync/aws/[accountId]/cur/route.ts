@@ -27,6 +27,7 @@ import { assertProviderIngestable, ProviderDisabledError } from '@/services/prov
 import { assumeRole, decryptExternalId } from '@/lib/aws/sts';
 import { ingestLatestCurPeriod, type CurIngestContext } from '@/lib/aws/cur';
 import type { FocusLineItem } from '@/modules/collectors/aws/awsFocusMapper';
+import { allocationKey, allocationTagsForStorage, hashAllocationKey } from '@/lib/allocationTags';
 
 interface AccountRow {
   id: string;
@@ -44,10 +45,12 @@ interface AggKey {
   date: string;
   region: string;
   service: string;
+  /** Etiquetas de asignacion serializadas de forma estable. */
+  allocation: string;
 }
 
 function aggKey(k: AggKey): string {
-  return `${k.date}|${k.region}|${k.service}`;
+  return `${k.date}|${k.region}|${k.service}|${k.allocation}`;
 }
 
 /** Recorta a la longitud de la columna para que un valor largo no aborte el INSERT. */
@@ -99,7 +102,12 @@ export async function POST(
     const creds = await assumeRole(row.role_arn, externalId, `FinOps-CUR-${tenantId.slice(0, 8)}`);
 
     // Agregado diario para CostSnapshots (se acumula mientras streameamos).
-    const agg = new Map<string, { date: string; region: string; service: string; billed: number; effective: number; amortized: number; qty: number; serviceCategory?: string }>();
+    const agg = new Map<string, {
+      date: string; region: string; service: string;
+      allocation: string; allocationTags: Record<string, string> | null;
+      billed: number; effective: number; amortized: number; qty: number;
+      serviceCategory?: string;
+    }>();
     let granularRows = 0;
 
     const result = await ingestLatestCurPeriod(
@@ -164,7 +172,11 @@ export async function POST(
           const date = r.ChargePeriodStart.toISOString().slice(0, 10);
           const region = r.Region || '*';
           const service = r.ServiceName || 'Unknown';
-          const k = aggKey({ date, region, service });
+          // La dimension de asignacion entra en la clave: sin esto, dos
+          // recursos del mismo dia y servicio con distinto centro de costo
+          // colapsan en una sola fila y el costo queda sin repartir.
+          const allocation = allocationKey(r.Tags);
+          const k = aggKey({ date, region, service, allocation });
           const prev = agg.get(k);
           if (prev) {
             prev.billed += r.BilledCost;
@@ -176,6 +188,8 @@ export async function POST(
               date,
               region,
               service,
+              allocation,
+              allocationTags: allocationTagsForStorage(r.Tags),
               billed: r.BilledCost,
               effective: r.EffectiveCost,
               amortized: r.AmortizedCost,
@@ -226,8 +240,8 @@ export async function POST(
             cost_usd, currency,
             ChargePeriodStart, ChargePeriodEnd, ProviderName, PublisherName,
             BillingAccountId, SubAccountId, BilledCost, EffectiveCost, AmortizedCost,
-            Quantity, ServiceFamily)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            Quantity, ServiceFamily, Tags, allocation_tag_hash)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE
            cost_usd = VALUES(cost_usd),
            BilledCost = VALUES(BilledCost),
@@ -240,7 +254,8 @@ export async function POST(
            BillingAccountId = VALUES(BillingAccountId),
            SubAccountId = VALUES(SubAccountId),
            ChargePeriodStart = VALUES(ChargePeriodStart),
-           ChargePeriodEnd = VALUES(ChargePeriodEnd)`,
+           ChargePeriodEnd = VALUES(ChargePeriodEnd),
+           Tags = VALUES(Tags)`,
         [
           tenantId, row.account_id, v.date, v.region, v.service,
           v.billed, 'USD',
@@ -248,6 +263,8 @@ export async function POST(
           row.account_id, row.account_id, v.billed, v.effective, v.amortized,
           v.qty || null,
           v.serviceCategory || null,
+          v.allocationTags ? JSON.stringify(v.allocationTags) : null,
+          hashAllocationKey(v.allocation),
         ]
       );
       upserts++;

@@ -79,8 +79,12 @@ CREATE TABLE IF NOT EXISTS CostSnapshots (
     cost_usd DECIMAL(12, 4) NOT NULL,
     currency VARCHAR(10) DEFAULT 'USD',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    -- Huella de las etiquetas de asignacion de la fila (src/lib/allocationTags.ts).
+    -- Entra en la clave unica para que dos recursos del mismo dia y servicio con
+    -- distinto centro de costo no colapsen en una sola fila. '' = sin asignar.
+    allocation_tag_hash VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT '',
     FOREIGN KEY (tenant_id) REFERENCES Tenants(tenant_id) ON DELETE CASCADE,
-    UNIQUE KEY unique_tenant_date_rg_service_sub (tenant_id, subscription_id, date, resource_group, service_name)
+    UNIQUE KEY unique_tenant_date_rg_service_sub_tag (tenant_id, subscription_id, date, resource_group, service_name, allocation_tag_hash)
 );
 
 CREATE TABLE IF NOT EXISTS RecommendationsCache (
