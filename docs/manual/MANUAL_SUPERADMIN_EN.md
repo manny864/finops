@@ -667,11 +667,21 @@ The panel was born 100% Azure and most pages end up calling Azure Resource Manag
 
 It is deliberately restrictive: if someone adds a new page and forgets to classify it, it stays **hidden** for AWS instead of appearing broken. As pages get parameterized, they are added to that list.
 
-**Cost by category**, **cost groups** and the **simulator** are already enabled for AWS, because they read from platform-owned tables that the AWS sync also populates. The remaining cost pages are being migrated with the same pattern: the route asks which provider the tenant uses and, when it is not Azure, skips the live Azure Cost Management call and reads straight from the database.
+**69 of 119 pages** are enabled for AWS today. The cost pages all follow the same pattern: the route asks which provider the tenant uses and, when it is not Azure, skips the live Azure Cost Management call and reads straight from the database. What remains excluded is whatever depends on Azure Resource Graph inventory or on services with no direct equivalent (Azure Policy, Defender for Cloud, Hybrid Benefit).
+
+> ⚠️ **Enabling a route for AWS is always two changes, not one.** Besides adding it to the allow-list you must give it a case in the demo data generator. Doing only the first **does not fail visibly**: the AWS demo tenant falls through to the generic payload and sees **Azure resources**. This already happened on two pages before it was caught.
+
+#### Cost allocation on AWS (allocation, chargeback, unit economics, showback)
+
+These four capabilities were blocked for AWS for a structural reason, not an integration one: the daily cost aggregate discarded tags, so two rows for the same day, region and service with different cost centres **overwrote each other** and all spend landed in "Unallocated". It was fixed with a migration adding the tag dimension to the unique key. It was safe for already-persisted Azure data because the Azure ingest does not populate that column.
+
+**A limit that remains and support must be able to answer:** a tenant that connected **only Cost Explorer, no CUR**, will still get no cost-centre breakdown. This is neither a bug nor a permissions issue — Cost Explorer does not return resource tags. The fix is for the customer to configure the CUR. This is already flagged on the onboarding screen and in the user manual.
 
 ### 13.7. AWS account onboarding: permissions and requirements
 
-The account onboarding screen generates a **least-privilege** template (CloudFormation, Terraform or AWS CLI) containing the **four** actions the platform actually invokes: `sts:AssumeRole`, `ce:GetCostAndUsage`, `ec2:DescribeInstances` and `s3:GetObject`/`s3:ListBucket` scoped to the customer's CUR bucket.
+The account onboarding screen generates a **least-privilege** template (CloudFormation, Terraform or AWS CLI) containing exactly the actions the platform actually invokes, all **read-only**: `sts:AssumeRole`, `ce:GetCostAndUsage`, the EC2 inventory (`ec2:DescribeInstances`, `DescribeVolumes`, `DescribeAddresses`, `DescribeSnapshots`), native budgets (`budgets:DescribeBudgets`, `budgets:ViewBudget`, scoped to the account's own budget ARN) and `s3:GetObject`/`s3:ListBucket` scoped to the customer's CUR bucket. A test asserts that **closed list** and rejects any write verb, so it cannot grow without a real call justifying it.
+
+> ⚠️ **Tenants onboarded before July 2026 must re-run the template.** The original version only granted `ec2:DescribeInstances`, yet the idle-resource inventory already called `DescribeVolumes`, `DescribeAddresses` and `DescribeSnapshots`. **The symptom is not a visible error**: those families fail with `AccessDenied`, get dropped, and the customer sees an incomplete cleanup list that reads as "you have nothing to optimise". When an AWS tenant shows zero orphaned volumes or snapshots, check how old the role is before assuming the account is clean.
 
 Previously we suggested the managed policies `job-function/Billing`, `AmazonEC2ReadOnlyAccess` and `AmazonS3ReadOnlyAccess`. The latter grants read access to **every** bucket in the customer's account, which is disproportionate for reading a cost report and is routinely rejected by demanding security teams.
 

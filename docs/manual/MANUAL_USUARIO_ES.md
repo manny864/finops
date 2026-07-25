@@ -237,6 +237,18 @@ El dashboard de facturación detallada, en tiempo real desde Azure.
 2. **Umbral de alerta:** definís en qué % del presupuesto querés ser notificado (ej. 75%).
 3. El sistema hace seguimiento automático — ves consumo real vs. presupuesto en tiempo real, con histórico de períodos anteriores.
 
+> **Si tu nube es AWS**, además de los presupuestos que crees acá vas a ver los
+> que ya tengas definidos en **AWS Budgets**, marcados como nativos. Sólo
+> traemos los de tipo *Cost*: los de uso o de cobertura de Reserved Instances y
+> Savings Plans se miden en horas o en porcentaje, así que sumarlos junto a
+> importes en dinero daría un total sin sentido.
+>
+> Dos diferencias respecto de Azure: el presupuesto que creás acá **queda sólo
+> en la plataforma** — no lo escribimos en tu cuenta de AWS, porque el rol de
+> lectura que nos diste no lo permite — y el **apagado automático al superar el
+> límite no está disponible**, por la misma razón. Vas a recibir la alerta,
+> pero la acción correctiva la ejecutás vos.
+
 ### 5.3. Cost Groups (`/intelligence/cost-groups`, Business+)
 
 Agrupación personalizada de costos según tu propia lógica de negocio (por proyecto, línea de negocio, aplicación o ambiente).
@@ -672,7 +684,7 @@ esperar al primer sync.
 
 #### Por qué la plantilla pide tan pocos permisos
 
-La plantilla concede **sólo cuatro acciones**, y los permisos sobre S3 quedan
+La plantilla concede **sólo permisos de lectura**, y los que tocan S3 quedan
 acotados exclusivamente al bucket donde está tu CUR:
 
 | Permiso | Para qué lo usamos |
@@ -680,12 +692,24 @@ acotados exclusivamente al bucket donde está tu CUR:
 | `sts:AssumeRole` | Asumir el rol que creaste, sin que nos des claves permanentes |
 | `ce:GetCostAndUsage` | Leer tus costos diarios por servicio y región |
 | `ec2:DescribeInstances` | Ver el inventario de instancias para las recomendaciones |
+| `ec2:DescribeVolumes` | Detectar volúmenes EBS sin conectar que seguís pagando |
+| `ec2:DescribeAddresses` | Detectar IPs elásticas reservadas y sin asociar |
+| `ec2:DescribeSnapshots` | Detectar snapshots antiguos que ya nadie usa |
+| `budgets:DescribeBudgets`, `budgets:ViewBudget` | Leer los presupuestos que ya tenés creados en AWS Budgets |
 | `s3:GetObject`, `s3:ListBucket` | Leer los archivos de tu CUR, **sólo en ese bucket** |
 
-No pedimos políticas administradas amplias como `AmazonS3ReadOnlyAccess`, que
-daría acceso de lectura a **todos** los buckets de tu cuenta cuando lo único que
-necesitamos es uno. Si tu área de seguridad revisa el rol, va a encontrar
-exactamente estas cuatro acciones y nada más.
+No hay **ni una sola acción de escritura**: no podemos crear, modificar ni
+borrar nada en tu cuenta. Tampoco pedimos políticas administradas amplias como
+`AmazonS3ReadOnlyAccess`, que daría acceso de lectura a **todos** los buckets
+cuando lo único que necesitamos es uno. Si tu área de seguridad revisa el rol,
+va a encontrar exactamente estas acciones y nada más.
+
+> **Si diste de alta tu cuenta antes de julio de 2026, volvé a ejecutar la
+> plantilla.** La versión anterior no incluía los permisos de volúmenes, IPs
+> elásticas, snapshots ni presupuestos. Sin ellos esas secciones no dan error:
+> simplemente aparecen **vacías**, como si no tuvieras nada para limpiar. La
+> plantilla actualizada está en la misma pantalla de la cuenta y se puede
+> re-aplicar sobre el rol existente sin borrarlo ni recrearlo.
 
 #### El ExternalId
 

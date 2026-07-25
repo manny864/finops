@@ -237,6 +237,18 @@ The real-time, detailed billing dashboard, straight from Azure.
 2. **Alert threshold:** define at what % of the budget you want to be notified (e.g., 75%).
 3. The system tracks automatically — see real consumption vs. budget in real time, with history of previous periods.
 
+> **If your cloud is AWS**, on top of the budgets you create here you will also
+> see the ones already defined in **AWS Budgets**, flagged as native. We only
+> bring in *Cost* budgets: usage budgets and Reserved Instance / Savings Plans
+> coverage budgets are measured in hours or percentages, so adding them to money
+> amounts would produce a meaningless total.
+>
+> Two differences from Azure: a budget you create here **stays on the platform
+> only** — we do not write it into your AWS account, because the read-only role
+> you granted us does not allow it — and **automatic shutdown on breach is not
+> available**, for the same reason. You still get the alert; the corrective
+> action is yours to run.
+
 ### 5.3. Cost Groups (`/intelligence/cost-groups`, Business+)
 
 Custom cost grouping according to your own business logic (by project, line of business, application, or environment).
@@ -673,7 +685,7 @@ the first sync.
 
 #### Why the template asks for so few permissions
 
-The template grants **only four actions**, and the S3 permissions are scoped
+The template grants **read-only actions**, and the S3 permissions are scoped
 exclusively to the bucket holding your CUR:
 
 | Permission | What we use it for |
@@ -681,12 +693,24 @@ exclusively to the bucket holding your CUR:
 | `sts:AssumeRole` | Assume the role you created, so you never hand us permanent keys |
 | `ce:GetCostAndUsage` | Read your daily costs by service and region |
 | `ec2:DescribeInstances` | See your instance inventory for recommendations |
+| `ec2:DescribeVolumes` | Spot unattached EBS volumes you are still paying for |
+| `ec2:DescribeAddresses` | Spot reserved Elastic IPs that are not associated |
+| `ec2:DescribeSnapshots` | Spot stale snapshots nobody uses any more |
+| `budgets:DescribeBudgets`, `budgets:ViewBudget` | Read the budgets you already created in AWS Budgets |
 | `s3:GetObject`, `s3:ListBucket` | Read your CUR files, **in that bucket only** |
 
-We do not ask for broad managed policies such as `AmazonS3ReadOnlyAccess`, which
-would grant read access to **every** bucket in your account when we only need
-one. If your security team reviews the role, they will find exactly these four
-actions and nothing else.
+There is **not a single write action**: we cannot create, modify or delete
+anything in your account. Nor do we ask for broad managed policies such as
+`AmazonS3ReadOnlyAccess`, which would grant read access to **every** bucket when
+we only need one. If your security team reviews the role, they will find exactly
+these actions and nothing else.
+
+> **If you registered your account before July 2026, re-run the template.** The
+> earlier version did not include the volume, Elastic IP, snapshot or budget
+> permissions. Without them those sections do not raise an error — they simply
+> show up **empty**, as if you had nothing to clean up. The updated template is
+> on the same account screen and can be re-applied to the existing role without
+> deleting or recreating it.
 
 #### The ExternalId
 

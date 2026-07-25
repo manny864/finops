@@ -667,11 +667,21 @@ O painel nasceu 100% Azure e a maioria das páginas acaba chamando o Azure Resou
 
 É deliberadamente restritivo: se alguém adicionar uma página nova e esquecer de classificá-la, ela fica **oculta** para AWS em vez de aparecer quebrada. À medida que as páginas forem parametrizadas, são adicionadas a essa lista.
 
-Já estão habilitadas para AWS as páginas de **custos por categoria**, **grupos de custo** e o **simulador**, porque leem de tabelas próprias da plataforma que a sincronização da AWS também alimenta. As demais páginas de custos vão sendo migradas com o mesmo padrão: a rota consulta qual provedor o tenant usa e, quando não é Azure, omite a chamada ao vivo ao Azure Cost Management e lê diretamente do banco.
+Hoje há **69 de 119 páginas** habilitadas para AWS. As de custos seguem todas o mesmo padrão: a rota consulta qual provedor o tenant usa e, quando não é Azure, omite a chamada ao vivo ao Azure Cost Management e lê diretamente do banco. Ficam de fora as que dependem do inventário do Azure Resource Graph ou de serviços sem equivalente direto (Azure Policy, Defender for Cloud, Hybrid Benefit).
+
+> ⚠️ **Habilitar uma rota para AWS são sempre duas mudanças, não uma.** Além de adicioná-la à allow-list é preciso dar a ela um caso no gerador de dados de demonstração. Fazer só a primeira **não falha de forma visível**: o tenant AWS de demonstração cai no dado genérico e vê **recursos do Azure**. Isso já aconteceu com duas páginas antes de ser detectado.
+
+#### Alocação de custos na AWS (allocation, chargeback, unit economics, showback)
+
+Estas quatro capacidades estavam bloqueadas para AWS por um motivo estrutural, não de integração: a agregação diária de custos descartava as etiquetas, então duas linhas do mesmo dia, região e serviço com centros de custo diferentes **sobrescreviam uma à outra** e todo o gasto caía em "Não alocado". Foi resolvido com uma migração que soma a dimensão de etiqueta à chave única. Foi seguro para os dados do Azure já persistidos porque a ingestão do Azure não preenche essa coluna.
+
+**Limite que permanece e o suporte precisa saber responder:** um tenant que conectou **apenas o Cost Explorer, sem CUR**, continuará sem rateio por centro de custo. Não é bug nem problema de permissão — o Cost Explorer não devolve etiquetas de recurso. A solução é o cliente configurar o CUR. Isso já é avisado na tela de cadastro e no manual do usuário.
 
 ### 13.7. Onboarding de contas AWS: permissões e requisitos
 
-A tela de cadastro de contas gera um modelo de **privilégio mínimo** (CloudFormation, Terraform ou AWS CLI) com as **quatro** ações que a plataforma realmente invoca: `sts:AssumeRole`, `ce:GetCostAndUsage`, `ec2:DescribeInstances` e `s3:GetObject`/`s3:ListBucket` restritas ao bucket do CUR do cliente.
+A tela de cadastro de contas gera um modelo de **privilégio mínimo** (CloudFormation, Terraform ou AWS CLI) com exatamente as ações que a plataforma realmente invoca, todas de **somente leitura**: `sts:AssumeRole`, `ce:GetCostAndUsage`, o inventário EC2 (`ec2:DescribeInstances`, `DescribeVolumes`, `DescribeAddresses`, `DescribeSnapshots`), os orçamentos nativos (`budgets:DescribeBudgets`, `budgets:ViewBudget`, restritos ao ARN de orçamentos da própria conta) e `s3:GetObject`/`s3:ListBucket` restritas ao bucket do CUR do cliente. Um teste garante essa **lista fechada** e rejeita qualquer verbo de escrita, para que ela não cresça sem uma chamada real que a justifique.
+
+> ⚠️ **Os tenants cadastrados antes de julho de 2026 precisam executar o modelo novamente.** A versão original concedia apenas `ec2:DescribeInstances`, mas o inventário de recursos ociosos já chamava `DescribeVolumes`, `DescribeAddresses` e `DescribeSnapshots`. **O sintoma não é um erro visível**: essas famílias falham com `AccessDenied`, são descartadas, e o cliente vê uma lista de limpeza incompleta que parece dizer "não há nada a otimizar". Ao encontrar um tenant AWS com zero volumes ou snapshots órfãos, verifique primeiro a idade da função antes de supor que a conta está limpa.
 
 Antes sugeríamos as políticas gerenciadas `job-function/Billing`, `AmazonEC2ReadOnlyAccess` e `AmazonS3ReadOnlyAccess`. Esta última concede leitura de **todos** os buckets da conta do cliente, o que é desproporcional para ler um relatório de custos e costuma ser recusado por áreas de segurança exigentes.
 

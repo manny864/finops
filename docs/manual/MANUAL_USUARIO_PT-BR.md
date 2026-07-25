@@ -237,6 +237,18 @@ O painel de faturamento detalhado, em tempo real, direto do Azure.
 2. **Limite de alerta:** defina em qual % do orçamento você quer ser notificado (ex.: 75%).
 3. O sistema acompanha automaticamente — você vê consumo real vs. orçamento em tempo real, com histórico de períodos anteriores.
 
+> **Se a sua nuvem for AWS**, além dos orçamentos criados aqui você também verá
+> os que já tiver definidos no **AWS Budgets**, marcados como nativos. Trazemos
+> apenas os do tipo *Cost*: os de uso e os de cobertura de Reserved Instances e
+> Savings Plans são medidos em horas ou percentuais, então somá-los a valores em
+> dinheiro daria um total sem sentido.
+>
+> Duas diferenças em relação ao Azure: o orçamento criado aqui **fica somente na
+> plataforma** — não o gravamos na sua conta AWS, porque a função somente leitura
+> que você concedeu não permite — e o **desligamento automático ao estourar o
+> limite não está disponível**, pelo mesmo motivo. Você recebe o alerta, mas a
+> ação corretiva é executada por você.
+
 ### 5.3. Cost Groups (`/intelligence/cost-groups`, Business+)
 
 Agrupamento personalizado de custos de acordo com sua própria lógica de negócio (por projeto, linha de negócio, aplicação ou ambiente).
@@ -672,20 +684,32 @@ esperar a primeira sincronização.
 
 #### Por que o modelo pede tão poucas permissões
 
-O modelo concede **apenas quatro ações**, e as permissões de S3 ficam restritas
-exclusivamente ao bucket onde está o seu CUR:
+O modelo concede **apenas ações de leitura**, e as permissões de S3 ficam
+restritas exclusivamente ao bucket onde está o seu CUR:
 
 | Permissão | Para que usamos |
 |---|---|
 | `sts:AssumeRole` | Assumir a função que você criou, sem chaves permanentes |
 | `ce:GetCostAndUsage` | Ler seus custos diários por serviço e região |
 | `ec2:DescribeInstances` | Ver o inventário de instâncias para as recomendações |
+| `ec2:DescribeVolumes` | Detectar volumes EBS desanexados que você continua pagando |
+| `ec2:DescribeAddresses` | Detectar IPs elásticos reservados e não associados |
+| `ec2:DescribeSnapshots` | Detectar snapshots antigos que ninguém mais usa |
+| `budgets:DescribeBudgets`, `budgets:ViewBudget` | Ler os orçamentos que você já criou no AWS Budgets |
 | `s3:GetObject`, `s3:ListBucket` | Ler os arquivos do seu CUR, **somente nesse bucket** |
 
-Não pedimos políticas gerenciadas amplas como `AmazonS3ReadOnlyAccess`, que
-daria leitura de **todos** os buckets da sua conta quando precisamos de apenas
-um. Se sua área de segurança revisar a função, encontrará exatamente estas
-quatro ações e nada mais.
+Não há **nenhuma ação de escrita**: não podemos criar, alterar nem excluir nada
+na sua conta. Também não pedimos políticas gerenciadas amplas como
+`AmazonS3ReadOnlyAccess`, que daria leitura de **todos** os buckets quando
+precisamos de apenas um. Se sua área de segurança revisar a função, encontrará
+exatamente estas ações e nada mais.
+
+> **Se você cadastrou a conta antes de julho de 2026, execute o modelo
+> novamente.** A versão anterior não incluía as permissões de volumes, IPs
+> elásticos, snapshots nem orçamentos. Sem elas essas seções não dão erro:
+> simplesmente aparecem **vazias**, como se não houvesse nada a limpar. O modelo
+> atualizado está na mesma tela da conta e pode ser reaplicado sobre a função
+> existente, sem excluí-la nem recriá-la.
 
 #### O ExternalId
 
