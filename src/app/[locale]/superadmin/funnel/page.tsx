@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { useMsal } from '@azure/msal-react';
 import { getFreshIdToken } from '@/lib/msalToken';
+import Pagination, { usePagination } from '@/components/Pagination';
 
 interface KPIs {
   signups_30d: number;
@@ -43,15 +44,28 @@ export default function FunnelPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Filtros de la tabla de signups recientes (server-side; el listado ya
+  // viene acotado a los últimos 90 días desde la API).
+  const [statusFilter, setStatusFilter] = useState('');
+  const [planFilter, setPlanFilter] = useState('');
+  const [emailFilter, setEmailFilter] = useState('');
+  const [appliedFilters, setAppliedFilters] = useState({ status: '', plan: '', q: '' });
+
   useEffect(() => {
     const fetchData = async () => {
+      setIsLoading(true);
       try {
         if (accounts.length === 0) {
           router.push(`/${locale}/auth/login`);
           return;
         }
         const token = await getFreshIdToken(instance, accounts[0]);
-        const response = await fetch('/api/superadmin/funnel', {
+        const params = new URLSearchParams();
+        if (appliedFilters.status) params.set('status', appliedFilters.status);
+        if (appliedFilters.plan) params.set('plan', appliedFilters.plan);
+        if (appliedFilters.q) params.set('q', appliedFilters.q);
+
+        const response = await fetch(`/api/superadmin/funnel?${params}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -74,7 +88,15 @@ export default function FunnelPage() {
     };
 
     fetchData();
-  }, [locale, router, instance, accounts, t]);
+  }, [locale, router, instance, accounts, t, appliedFilters]);
+
+  const applyFilters = () => setAppliedFilters({ status: statusFilter, plan: planFilter, q: emailFilter });
+  const clearFilters = () => {
+    setStatusFilter('');
+    setPlanFilter('');
+    setEmailFilter('');
+    setAppliedFilters({ status: '', plan: '', q: '' });
+  };
 
   if (isLoading) {
     return (
@@ -96,6 +118,53 @@ export default function FunnelPage() {
   if (!data) {
     return null;
   }
+
+  return (
+    <FunnelContent
+      data={data}
+      locale={locale}
+      t={t}
+      statusFilter={statusFilter}
+      setStatusFilter={setStatusFilter}
+      planFilter={planFilter}
+      setPlanFilter={setPlanFilter}
+      emailFilter={emailFilter}
+      setEmailFilter={setEmailFilter}
+      onApplyFilters={applyFilters}
+      onClearFilters={clearFilters}
+      isLoading={isLoading}
+    />
+  );
+}
+
+function FunnelContent({
+  data,
+  locale,
+  t,
+  statusFilter,
+  setStatusFilter,
+  planFilter,
+  setPlanFilter,
+  emailFilter,
+  setEmailFilter,
+  onApplyFilters,
+  onClearFilters,
+  isLoading,
+}: {
+  data: FunnelData;
+  locale: string;
+  t: (key: string) => string;
+  statusFilter: string;
+  setStatusFilter: (v: string) => void;
+  planFilter: string;
+  setPlanFilter: (v: string) => void;
+  emailFilter: string;
+  setEmailFilter: (v: string) => void;
+  onApplyFilters: () => void;
+  onClearFilters: () => void;
+  isLoading: boolean;
+}) {
+  const { page, setPage, pageSize, setPageSize, total, totalPages, paged } = usePagination(data.recent_signups, 25);
 
   const stageLabels: Record<string, string> = {
     signup_started: t('stageSignupStarted'),
@@ -161,7 +230,61 @@ export default function FunnelPage() {
       {/* Recent Signups Table */}
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div className="p-6 border-b border-gray-200">
-          <h2 className="text-2xl font-bold text-gray-900">{t('recentSignupsTitle')}</h2>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <h2 className="text-2xl font-bold text-gray-900">{t('recentSignupsTitle')}</h2>
+            <span className="text-xs font-medium text-gray-500 bg-gray-100 rounded-full px-3 py-1">
+              Últimos 90 días
+            </span>
+          </div>
+          <div className="flex flex-wrap items-end gap-3 mt-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1">Email</label>
+              <input
+                type="text"
+                value={emailFilter}
+                onChange={(e) => setEmailFilter(e.target.value)}
+                placeholder="Buscar por email"
+                className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm w-56"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1">Estado</label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm"
+              >
+                <option value="">Todos</option>
+                <option value="TRIAL">TRIAL</option>
+                <option value="ACTIVE">ACTIVE</option>
+                <option value="EXPIRED">EXPIRED</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1">Plan</label>
+              <input
+                type="text"
+                value={planFilter}
+                onChange={(e) => setPlanFilter(e.target.value)}
+                placeholder="Ej. Business"
+                className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm w-40"
+              />
+            </div>
+            <button
+              onClick={onApplyFilters}
+              disabled={isLoading}
+              className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold rounded-lg px-4 py-1.5"
+            >
+              Filtrar
+            </button>
+            <button
+              onClick={onClearFilters}
+              disabled={isLoading}
+              className="text-gray-600 hover:text-gray-900 text-sm font-semibold px-2 py-1.5"
+            >
+              Limpiar
+            </button>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -185,7 +308,7 @@ export default function FunnelPage() {
               </tr>
             </thead>
             <tbody>
-              {data.recent_signups.map((signup, idx) => (
+              {paged.map((signup, idx) => (
                 <tr key={idx} className="border-b border-gray-200 hover:bg-gray-50">
                   <td className="px-6 py-4 text-sm text-gray-900 font-mono">{signup.email}</td>
                   <td className="px-6 py-4 text-sm text-gray-700">{signup.plan || '-'}</td>
@@ -212,6 +335,9 @@ export default function FunnelPage() {
               ))}
             </tbody>
           </table>
+        </div>
+        <div className="px-6 pb-6">
+          <Pagination page={page} setPage={setPage} pageSize={pageSize} setPageSize={setPageSize} total={total} totalPages={totalPages} />
         </div>
       </div>
     </div>

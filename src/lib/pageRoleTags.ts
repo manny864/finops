@@ -130,6 +130,13 @@ export const PAGE_ROLE_TAGS: Record<string, RoleTag[]> = {
     "/admin/powerbi-templates": ["Platform"],
     "/admin/focus-export": ["FinOps", "Platform"],
     "/admin/sso": ["Security", "Platform"],
+    "/admin/security": ["Security", "Platform"],
+    "/admin/cloud-accounts": ["Platform"],
+    // Hubs agrupados (tabs de las rutas de arriba) — unión de tags de sus tabs.
+    "/admin/access": ["Platform"],
+    "/admin/reports": ["FinOps", "Platform"],
+    "/admin/integrations": ["Platform"],
+    "/admin/account": ["Security", "Platform"],
     "/admin/tenants": ["Platform"],
     "/superadmin/funnel": ["Platform"],
     "/superadmin/support": ["Platform"],

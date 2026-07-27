@@ -182,26 +182,16 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             title: t('admin'),
             items: [
                 { href: '/support', label: t('support', { fallback: 'Soporte' }), icon: LifeBuoy },
-                { href: '/admin/users', label: t('users_permissions'), icon: Users },
-                { href: '/admin/security', label: t('account_security', { fallback: 'Seguridad (2FA)' }), icon: Lock },
-                { href: '/admin/onboarding', label: t('client_onboarding'), icon: Users },
-                { href: '/admin/onboarding/lighthouse', label: 'Azure Lighthouse Onboarding', icon: Network, requiredTier: 'Enterprise' },
+                // Agrupadas en hubs con tabs para no saturar el sidebar (ver
+                // src/components/admin/AdminHubGate.tsx). Cada tab preserva el
+                // gating por rol/permisos que tenía como item independiente; las
+                // rutas viejas (/admin/users, /admin/report, etc.) siguen vivas
+                // como redirects hacia el tab correspondiente.
+                { href: '/admin/access', label: 'Usuarios y Accesos', icon: Users },
                 { href: '/admin/config', label: t('configuration'), icon: Settings },
-                { href: '/admin/markup', label: 'Partner Markup (CSP)', icon: DollarSign, requiredTier: 'Enterprise' },
-                { href: '/admin/ai-config', label: t('ai_config'), icon: Cpu, requiredTier: 'Professional' },
-                { href: '/admin/report', label: t('executive_report'), icon: FileText, requiredTier: 'Business' },
-                { href: '/admin/report/invoicing', label: t('invoicing_report'), icon: Receipt, requiredTier: 'Business' },
-                { href: '/admin/workbooks', label: t('workbooks'), icon: BookOpen, requiredTier: 'Enterprise' },
-                { href: '/admin/notifications', label: t('notifications'), icon: Bell, requiredTier: 'Professional' },
-                { href: '/admin/billing', label: t('billing_subscription'), icon: CreditCard, requiredTier: 'Essential' },
-                { href: '/admin/copilot-m365', label: t('copilot_m365', { fallback: 'Copilot M365' }), icon: Bot, requiredTier: 'Enterprise' },
-                { href: '/admin/audit', label: t('audit_trail'), icon: Activity, requiredTier: 'Professional' },
-                { href: '/admin/mcp-keys', label: 'MCP API Keys', icon: KeyRound, requiredTier: 'Enterprise' },
-                { href: '/admin/api-keys', label: 'API Pública', icon: Unlock, requiredTier: 'Enterprise' },
-                { href: '/admin/powerbi-templates', label: 'Power BI Templates', icon: BarChart3, requiredTier: 'Enterprise' },
-                { href: '/admin/focus-export', label: 'FOCUS 1.1 Export', icon: FileSpreadsheet, requiredTier: 'Professional' },
-                { href: '/admin/cloud-accounts', label: t('cloud_accounts', { fallback: 'Cuentas Cloud' }), icon: Cloud, requiredTier: 'Enterprise' },
-                { href: '/admin/sso', label: 'SSO SAML', icon: ShieldCheck, requiredTier: 'Enterprise' }
+                { href: '/admin/reports', label: 'Reportes y Exportación', icon: FileText, requiredTier: 'Professional' },
+                { href: '/admin/integrations', label: 'Integraciones y API', icon: Cpu, requiredTier: 'Enterprise' },
+                { href: '/admin/account', label: 'Facturación y Auditoría', icon: CreditCard, requiredTier: 'Essential' }
                 // Data Residency oculto: hoy sólo tenemos un datacenter (Brasil), ofrecer
                 // selección de región (EU/US/LATAM/APAC) sería engañoso. Página y API
                 // quedan implementadas para cuando haya despliegue multi-región real.

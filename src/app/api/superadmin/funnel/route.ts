@@ -13,6 +13,11 @@ export async function GET(request: NextRequest) {
         const connection = await pool.getConnection();
         
         try {
+            const { searchParams } = request.nextUrl;
+            const statusFilter = searchParams.get("status") || undefined;
+            const planFilter = searchParams.get("plan") || undefined;
+            const emailFilter = searchParams.get("q") || undefined;
+
             // Get KPIs
             const [signups30d] = await connection.query(
                 `SELECT COUNT(DISTINCT tenant_id) as count
@@ -53,20 +58,41 @@ export async function GET(request: NextRequest) {
             const churnedCount = churned?.[0]?.count || 0;
             const churnPct = signups30dCount > 0 ? ((churnedCount / signups30dCount) * 100).toFixed(2) : '0.00';
 
-            // Get funnel data
+            // Get funnel data (misma retención de 90 días que el resto de la vista)
             const [funnelData] = await connection.query(
-                `SELECT 
+                `SELECT
                     event_type,
                     COUNT(DISTINCT tenant_id) as count
                 FROM SignupEvents
                 WHERE event_type IN ('signup_started', 'trial_started', 'onboarding_completed', 'converted_to_paid')
+                  AND created_at > DATE_SUB(NOW(), INTERVAL 90 DAY)
                 GROUP BY event_type
                 ORDER BY FIELD(event_type, 'signup_started', 'trial_started', 'onboarding_completed', 'converted_to_paid')`
             ) as any;
 
-            // Get recent signups
+            // Get recent signups. Retención fija de 90 días: SignupEvents es un log
+            // de auditoría de crecimiento, no debe crecer sin límite en esta vista.
+            const recentConditions: string[] = [
+                "se.event_type IN ('trial_started', 'signup_completed')",
+                "se.created_at > DATE_SUB(NOW(), INTERVAL 90 DAY)",
+            ];
+            const recentValues: unknown[] = [];
+
+            if (statusFilter) {
+                recentConditions.push("t.subscription_status = ?");
+                recentValues.push(statusFilter);
+            }
+            if (planFilter) {
+                recentConditions.push("se.plan = ?");
+                recentValues.push(planFilter);
+            }
+            if (emailFilter) {
+                recentConditions.push("se.user_email LIKE ?");
+                recentValues.push(`%${emailFilter}%`);
+            }
+
             const [recentSignups] = await connection.query(
-                `SELECT 
+                `SELECT
                     se.tenant_id,
                     se.user_email,
                     se.plan,
@@ -75,9 +101,10 @@ export async function GET(request: NextRequest) {
                     se.created_at
                 FROM SignupEvents se
                 LEFT JOIN Tenants t ON se.tenant_id = t.tenant_id
-                WHERE se.event_type IN ('trial_started', 'signup_completed')
+                WHERE ${recentConditions.join(" AND ")}
                 ORDER BY se.created_at DESC
-                LIMIT 50`
+                LIMIT 500`,
+                recentValues
             ) as any;
 
             return NextResponse.json({
