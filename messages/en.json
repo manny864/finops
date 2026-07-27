@@ -4716,53 +4716,6 @@
     "rec_ok": "Optimal",
     "estimate_note": "Ingestion and savings are estimated from cost and Azure Monitor reference prices; use them to prioritize, not to bill."
   },
-  "login": {
-    "title": "Sign in",
-    "subtitle": "Access your FinOps dashboard.",
-    "microsoft": "Sign in with Microsoft",
-    "microsoftError": "Could not sign in with Microsoft.",
-    "or": "or",
-    "email": "Email",
-    "password": "Password",
-    "signIn": "Sign in",
-    "loading": "Loading…",
-    "forgotPassword": "Forgot my password",
-    "backToSignIn": "Back to sign in",
-    "sendResetLink": "Send recovery link",
-    "resetSent": "If an account exists for that email, we sent a link to reset the password.",
-    "genericError": "Something went wrong. Please try again.",
-    "noAccount": "Don't have an account?",
-    "startTrial": "Start your free trial"
-  },
-  "authToken": {
-    "invalidTitle": "Invalid link",
-    "missingToken": "This link is incomplete. Please request a new one.",
-    "genericError": "Something went wrong. Please try again.",
-    "goToSignIn": "Go to sign in",
-    "newPassword": "New password",
-    "confirmPassword": "Repeat password",
-    "passwordMismatch": "Passwords do not match.",
-    "passwordTooShort": "Password must be at least {min} characters.",
-    "passwordHint": "Choose a password of at least {min} characters. A long phrase is safer than a short one with symbols.",
-    "save": "Save",
-    "loading": "Loading…",
-    "verify": {
-      "pendingTitle": "Confirming your email…",
-      "pendingBody": "One moment.",
-      "successTitle": "Email confirmed",
-      "successBody": "You can now sign in with your email and password."
-    },
-    "reset": {
-      "formTitle": "Choose a new password",
-      "successTitle": "Password updated",
-      "successBody": "You can now sign in with your new password."
-    },
-    "invite": {
-      "formTitle": "Activate your account",
-      "successTitle": "Account activated",
-      "successBody": "You can now sign in. You start with read-only permissions."
-    }
-  },
   "provider": {
     "switchLabel": "Active cloud provider",
     "archivedHint": "Archived provider: read-only until purge",

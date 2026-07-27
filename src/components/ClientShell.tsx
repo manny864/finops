@@ -20,8 +20,6 @@ import GlobalPagePinButton from './dashboard/GlobalPagePinButton';
 import SupportHeaderActions from './SupportHeaderActions';
 import MobileTabBar from './mobile/MobileTabBar';
 import PricingPage from './PricingPage';
-import LocalLoginForm from './LocalLoginForm';
-import { hasLocalSession } from '@/lib/localSession';
 
 /** Rutas públicas de la Fase 2: se llega por link de email, sin sesión. */
 const AUTH_TOKEN_ROUTES = ['/verify-email', '/reset-password', '/accept-invite'];
@@ -74,13 +72,7 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
   
   // If demoSession exists, we treat the user as authenticated for the sake of the shell.
   const isMsalAuthenticated = useIsAuthenticated();
-  // Identidad propia (tenants AWS): el token vive en sessionStorage, que no
-  // existe en el server. Se lee en un efecto y no inline para no romper la
-  // hidratación (el HTML del server diría "no autenticado" y el primer render
-  // del cliente diría lo contrario).
-  const [hasLocal, setHasLocal] = useState(false);
-  useEffect(() => { setHasLocal(hasLocalSession()); }, []);
-  const isAuthenticated = isMsalAuthenticated || !!demoSession?.isDemo || hasLocal;
+  const isAuthenticated = isMsalAuthenticated || !!demoSession?.isDemo;
   const { viewMode, toggleViewMode } = useViewMode();
   const t = useTranslations('nav');
   const tc = useTranslations('Common');
@@ -316,9 +308,6 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
                               <svg className="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 24 24"><path d="M11.4 24H0V12.6h11.4V24zM24 24H12.6V12.6H24V24zM11.4 11.4H0V0h11.4v11.4zm12.6 0H12.6V0H24v11.4z"/></svg>
                               {tc('sign_in_microsoft')}
                           </button>
-
-                          {/* Identidad propia (tenants AWS, sin Entra) — Fase 2. */}
-                          <LocalLoginForm />
 
                           <button
                               onClick={() => {

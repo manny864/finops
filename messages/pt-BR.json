@@ -4716,53 +4716,6 @@
     "rec_ok": "Ótimo",
     "estimate_note": "A ingestão e a economia são estimativas com base no custo e nos preços de referência do Azure Monitor; use-as para priorizar, não para faturar."
   },
-  "login": {
-    "title": "Entrar",
-    "subtitle": "Acesse seu painel de FinOps.",
-    "microsoft": "Entrar com a Microsoft",
-    "microsoftError": "Não foi possível entrar com a Microsoft.",
-    "or": "ou",
-    "email": "Email",
-    "password": "Senha",
-    "signIn": "Entrar",
-    "loading": "Carregando…",
-    "forgotPassword": "Esqueci minha senha",
-    "backToSignIn": "Voltar para entrar",
-    "sendResetLink": "Enviar link de recuperação",
-    "resetSent": "Se existir uma conta com esse email, enviamos um link para redefinir a senha.",
-    "genericError": "Algo deu errado. Tente novamente.",
-    "noAccount": "Não tem conta?",
-    "startTrial": "Comece seu teste gratuito"
-  },
-  "authToken": {
-    "invalidTitle": "Link inválido",
-    "missingToken": "Este link está incompleto. Solicite um novo.",
-    "genericError": "Algo deu errado. Tente novamente.",
-    "goToSignIn": "Ir para entrar",
-    "newPassword": "Nova senha",
-    "confirmPassword": "Repetir senha",
-    "passwordMismatch": "As senhas não coincidem.",
-    "passwordTooShort": "A senha deve ter pelo menos {min} caracteres.",
-    "passwordHint": "Escolha uma senha de pelo menos {min} caracteres. Uma frase longa é mais segura que uma curta com símbolos.",
-    "save": "Salvar",
-    "loading": "Carregando…",
-    "verify": {
-      "pendingTitle": "Confirmando seu email…",
-      "pendingBody": "Um momento.",
-      "successTitle": "Email confirmado",
-      "successBody": "Agora você pode entrar com seu email e senha."
-    },
-    "reset": {
-      "formTitle": "Escolha uma nova senha",
-      "successTitle": "Senha atualizada",
-      "successBody": "Agora você pode entrar com sua nova senha."
-    },
-    "invite": {
-      "formTitle": "Ative sua conta",
-      "successTitle": "Conta ativada",
-      "successBody": "Agora você pode entrar. Você começa com permissões somente leitura."
-    }
-  },
   "provider": {
     "switchLabel": "Provedor de nuvem ativo",
     "archivedHint": "Provedor arquivado: somente leitura até a exclusão",

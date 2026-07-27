@@ -1,4 +1,4 @@
-import pool from '@/modules/storage/db';
+import pool, { insertPlatformAiUsage } from '@/modules/storage/db';
 import crypto from 'crypto';
 import { generateText, generateObject } from 'ai';
 import { z } from 'zod';
@@ -134,17 +134,19 @@ async function withExponentialBackoff<T>(fn: () => Promise<T>, maxRetries = 3): 
 }
 
 export class AIProviderFactory {
+    /** Devuelve también `config` (incluye `source`: 'byok'|'platform') y `modelName`, para que el caller pueda loggear PlatformAiUsage sin reimplementar el switch. */
     static async getGeminiModel(tenantId?: string) {
         const config = await getCachedAIConfig(tenantId);
         if (!config.apiKey) {
             throw new Error("AI API Key not configured.");
         }
-        
+
         switch (config.provider) {
             case 'openai': {
                 const { createOpenAI } = await import('@ai-sdk/openai');
                 const openai = createOpenAI({ apiKey: config.apiKey });
-                return openai('gpt-4o');
+                const modelName = 'gpt-4o';
+                return { model: openai(modelName), modelName, config };
             }
             case 'azure_openai': {
                 const { createAzure } = await import('@ai-sdk/azure');
@@ -153,7 +155,8 @@ export class AIProviderFactory {
                 // una apiVersion reciente + deployment habilitado (muchos recursos no
                 // lo tienen). .chat apunta al deployment de Chat Completions estándar
                 // ('gpt-4o' acá es el nombre del deployment), el camino universal.
-                return azure.chat('gpt-4o');
+                const modelName = 'gpt-4o';
+                return { model: azure.chat(modelName), modelName, config };
             }
             case 'anthropic': {
                 const { createAnthropic } = await import('@ai-sdk/anthropic');
@@ -161,7 +164,8 @@ export class AIProviderFactory {
                 // claude-3-opus-20240229 fue retirado por Anthropic (2026-01-05).
                 // claude-sonnet-5 es el modelo Sonnet actual (calidad casi-Opus en
                 // tareas de análisis a menor costo que Opus).
-                return anthropic('claude-sonnet-5');
+                const modelName = 'claude-sonnet-5';
+                return { model: anthropic(modelName), modelName, config };
             }
             case 'deepseek': {
                 const { createOpenAI } = await import('@ai-sdk/openai');
@@ -169,7 +173,8 @@ export class AIProviderFactory {
                 // deepseek(...) sin .chat usa por defecto la Responses API de OpenAI
                 // (/responses), que DeepSeek no implementa — 404 Not Found. DeepSeek
                 // solo soporta Chat Completions (/chat/completions), hay que pedirlo explícito.
-                return deepseek.chat('deepseek-chat');
+                const modelName = 'deepseek-chat';
+                return { model: deepseek.chat(modelName), modelName, config };
             }
             case 'google':
             default: {
@@ -178,7 +183,8 @@ export class AIProviderFactory {
                 // semanas, así que el Copilot siempre usa el modelo gratis más reciente
                 // sin requerir cambios de código.
                 const google = createGoogleGenerativeAI({ apiKey: config.apiKey });
-                return google('gemini-flash-latest');
+                const modelName = 'gemini-flash-latest';
+                return { model: google(modelName), modelName, config };
             }
         }
     }
@@ -231,7 +237,7 @@ export async function getAssessment(metricsData: any, tenantId: string): Promise
 
     // Call Gemini — usa la config/key del tenant (no la global) para respetar
     // el aislamiento por tenant y la key configurada por cada cliente (IA-1).
-    const model = await AIProviderFactory.getGeminiModel(tenantId);
+    const { model, modelName, config } = await AIProviderFactory.getGeminiModel(tenantId);
     const systemPrompt = `Eres un Arquitecto Principal de Azure FinOps (FinOps Copilot).
 Tu objetivo es analizar las métricas JSON proporcionadas y generar un Reporte Ejecutivo exhaustivo y altamente estructurado en formato Markdown.
 
@@ -249,8 +255,8 @@ Reglas estrictas:
 - NUNCA uses lenguaje genérico de relleno. Basa cada afirmación en los números concretos provistos en el JSON.
 - Redacta el reporte completamente en Español.`;
 
-    const { text } = await aiQueue.add(() => 
-        withExponentialBackoff(() => 
+    const { text, usage } = await aiQueue.add(() =>
+        withExponentialBackoff(() =>
             generateText({
                 model,
                 system: systemPrompt,
@@ -258,6 +264,16 @@ Reglas estrictas:
             })
         )
     );
+
+    insertPlatformAiUsage({
+        tenantId,
+        source: config.source,
+        provider: config.provider,
+        modelName,
+        feature: 'assessment',
+        inputTokens: usage.inputTokens || 0,
+        outputTokens: usage.outputTokens || 0,
+    });
 
     // Save to cache (REPLACE INTO overwrites if it exists but is expired)
     await pool.query(
@@ -278,17 +294,20 @@ export const focusCostEntrySchema = z.object({
     EffectiveCost: z.number()
 });
 
-export async function normalizeBillingCsv(rawCsvData: any[]): Promise<any[]> {
-    const model = await AIProviderFactory.getGeminiModel();
-    const systemPrompt = `You are a universal multi-cloud FinOps mapper. 
+export async function normalizeBillingCsv(rawCsvData: any[], tenantId?: string): Promise<any[]> {
+    // Sin tenantId en getGeminiModel: siempre usa la key global de plataforma
+    // (no hay BYOK por-tenant para este feature todavía), así que source acá
+    // siempre da 'platform' — es gasto que paga la plataforma en cada upload.
+    const { model, modelName, config } = await AIProviderFactory.getGeminiModel();
+    const systemPrompt = `You are a universal multi-cloud FinOps mapper.
 Identify the cloud provider (AWS, Azure, GCP, etc.) from the raw JSON billing rows.
 Map the diverse column names to the standard FOCUS specification.
 Return an array of the mapped FocusCostEntry objects.`;
 
     // Take a sample or batch if large, but here we process the passed payload
-    const dataString = JSON.stringify(rawCsvData.slice(0, 50)); 
+    const dataString = JSON.stringify(rawCsvData.slice(0, 50));
 
-    const { object } = await aiQueue.add(() =>
+    const { object, usage } = await aiQueue.add(() =>
         withExponentialBackoff(() =>
             generateObject({
                 model,
@@ -298,6 +317,16 @@ Return an array of the mapped FocusCostEntry objects.`;
             })
         )
     );
+
+    insertPlatformAiUsage({
+        tenantId,
+        source: config.source,
+        provider: config.provider,
+        modelName,
+        feature: 'billing-csv-normalize',
+        inputTokens: usage.inputTokens || 0,
+        outputTokens: usage.outputTokens || 0,
+    });
 
     return object;
 }

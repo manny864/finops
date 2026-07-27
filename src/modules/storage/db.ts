@@ -133,6 +133,43 @@ export async function insertAICostSnapshotRow(tenantId: string, date: string, ro
   );
 }
 
+/**
+ * Loggea el uso de un LLM invocado por la propia plataforma (chatbot FinOps,
+ * assessment, normalización de CSV) — distinto de AICostSnapshots, que es el
+ * gasto en Azure AI de CADA TENANT. `source` distingue si la llamada usó la
+ * key propia del tenant (BYOK, gasto del tenant) o la key global de fallback
+ * (gasto que paga la plataforma). Best-effort: un fallo acá nunca debe romper
+ * la respuesta de IA al usuario.
+ */
+export async function insertPlatformAiUsage(row: {
+  tenantId?: string | null;
+  source: 'byok' | 'platform';
+  provider: string;
+  modelName: string;
+  feature: string;
+  inputTokens: number;
+  outputTokens: number;
+}) {
+  try {
+    await pool.query(
+      `INSERT INTO PlatformAiUsage
+        (tenant_id, source, provider, model_name, feature, input_tokens, output_tokens)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        row.tenantId || null,
+        row.source,
+        row.provider,
+        row.modelName,
+        row.feature,
+        row.inputTokens || 0,
+        row.outputTokens || 0,
+      ]
+    );
+  } catch (e) {
+    console.error('[insertPlatformAiUsage] best-effort log failed:', e);
+  }
+}
+
 export async function insertCostMeterSnapshotRow(tenantId: string, date: string, row: {
   subscriptionId: string;
   serviceName: string;

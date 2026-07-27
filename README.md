@@ -125,10 +125,7 @@ src/
 
 El sistema opera un modelo de seguridad multi-nivel estricto:
 
-1. **User Identity — dos caminos**:
-   - **Azure (Entra ID)**: manejado vía MSAL (`@azure/msal-react`). Los tokens JWT (RS256) se validan contra el JWKS de `login.microsoftonline.com/{tid}` en todos los llamados a la API en `src/app/api`.
-   - **Identidad propia (email + contraseña)**: para tenants sin un tenant Entra corporativo. `src/lib/localToken.ts` emite un JWT **HS256** con la misma forma que `AuthClaims`, y `validateRequestToken` (`src/lib/requestAuth.ts`) discrimina **por algoritmo** — cada rama exige el suyo, así que no hay confusión de algoritmo posible. Es el único punto de cambio: los guards y las ~250 rutas quedan intactos.
-   - Requiere `LOCAL_AUTH_SECRET` (32+ chars). Sin él, los 7 endpoints de `/api/auth/local/*` devuelven **503 fail-closed**.
+1. **User Identity**: Azure (Entra ID) vía MSAL (`@azure/msal-react`). Los tokens JWT (RS256) se validan contra el JWKS de `login.microsoftonline.com/{tid}` en todos los llamados a la API en `src/app/api`. (El login por email+contraseña — identidad propia para tenants sin Entra, pensado originalmente para tenants AWS — se retiró el 2026-07-29 junto con el resto del código y esquema asociado; ver el changelog más abajo.)
 2. **Service Principal (Platform Agent)**: Los Tenants hacen Onboarding ejecutando un script de PowerShell que crea un **Service Principal Least-Privilege**.
 3. **Role-Based Access Control (RBAC)** — Roles asignados por tier:
 
@@ -689,61 +686,89 @@ Endpoints internos protegidos por `Authorization: Bearer ${CRON_SECRET}`. Se inv
 | `GET /api/cron/status-snapshot`      | Cada 5 min              | Chequea DB/Azure Sync/AI Provider/Paddle y persiste una fila en `PlatformStatusSnapshots`, de donde `/api/status` calcula `uptime_30d_pct` — sin él la página pública de estado no tiene datos de uptime. Auth vía `?secret=` (query param), no header `Authorization`, a diferencia del resto de los crons de esta tabla — mismo `CRON_SECRET`. |
 
 **Ejemplo crontab VPS:**
+
+Cada línea HTTP está envuelta en `scripts/cron-ping.sh "$X_HEALTHCHECK_URL" -- curl ...`
+(Fase 2, [plan de infra](docs/vps-infra-improvement-plan.md)) — pinguea healthchecks.io
+en éxito/fallo para detectar automáticamente el patrón de los incidentes 2026-07-05 y
+2026-07-18 de arriba (cron documentado pero ausente del crontab real, o fallando en
+silencio). Es no-op mientras la variable de entorno correspondiente esté vacía, así que
+desplegar el wrapper no rompe nada aunque todavía no existan los checks en
+healthchecks.io — crearlos (gratis hasta 20) y setear las `*_HEALTHCHECK_URL` en el
+`.env` del VPS es el único paso manual pendiente.
+
 ```cron
+CRON_PING=/home/manny/cscloud/finops/scripts/cron-ping.sh
+
 # Snapshot diario de costos
-0 6 * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/sync >> /var/log/finops-cron.log 2>&1
+0 6 * * * $CRON_PING "$SYNC_HEALTHCHECK_URL" -- curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/sync >> /var/log/finops-cron.log 2>&1
 
 # Pre-warm dashboard cada 10 min (cache hard-TTL = 15 min)
-*/10 * * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/prewarm-dashboard >> /var/log/finops-cron.log 2>&1
+*/10 * * * * $CRON_PING "$PREWARM_HEALTHCHECK_URL" -- curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/prewarm-dashboard >> /var/log/finops-cron.log 2>&1
 
 # Power Schedules (apagado programado de VMs) cada 2 min (ventana de ejecución = 8 min).
 # Además, /api/power/schedule dispara un chequeo inmediato al guardar un horario.
-*/2 * * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/power-schedules >> /var/log/finops-cron.log 2>&1
+*/2 * * * * $CRON_PING "$POWER_SCHEDULES_HEALTHCHECK_URL" -- curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/power-schedules >> /var/log/finops-cron.log 2>&1
 
 # Backup diario de MySQL (script local del VPS, no endpoint HTTP) — ver docs/runbook-restore-mysql.md
 # 02:00 en vez de 03:00 (valor original del comentario del script) para no chocar
 # con historical-gap-backfill, agregado después en ese mismo horario.
+# El ping de healthchecks.io va DENTRO del script (BACKUP_HEALTHCHECK_URL), no acá.
 0 2 * * * /home/manny/cscloud/finops/scripts/backup-db.sh >> /var/log/finops-backup.log 2>&1
 
 # Open Data del FinOps Toolkit (Regions/Services/ResourceTypes/PricingUnits/CommitmentEligibility) — semanal
-0 4 * * 1 curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/open-data >> /var/log/finops-cron.log 2>&1
+0 4 * * 1 $CRON_PING "$OPEN_DATA_HEALTHCHECK_URL" -- curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/open-data >> /var/log/finops-cron.log 2>&1
 
 # Detección de anomalías de gasto (Z-Score) — cada 5 min, comparte cache Redis
 # de 6h con el endpoint on-demand así que no multiplica llamadas a Azure
-*/5 * * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/anomaly-detection >> /var/log/finops-cron.log 2>&1
+*/5 * * * * $CRON_PING "$ANOMALY_DETECTION_HEALTHCHECK_URL" -- curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/anomaly-detection >> /var/log/finops-cron.log 2>&1
 
 # Chequeo de frescura de CostSnapshots (Cost Groups y afines) — diario, 2h
 # después del sync para dar margen. Alerta si /api/cron/sync no corrió.
-0 8 * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/cost-sync-staleness-check >> /var/log/finops-cron.log 2>&1
+0 8 * * * $CRON_PING "$COST_SYNC_STALENESS_HEALTHCHECK_URL" -- curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/cost-sync-staleness-check >> /var/log/finops-cron.log 2>&1
 
 # Alertas de expiración TTL (entornos efímeros por vencer/vencidos) — diario
-0 9 * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/ttl-expiry-alerts >> /var/log/finops-cron.log 2>&1
+0 9 * * * $CRON_PING "$TTL_EXPIRY_ALERTS_HEALTHCHECK_URL" -- curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/ttl-expiry-alerts >> /var/log/finops-cron.log 2>&1
 
 # Alertas de expiración de credenciales (App Registrations por vencer) — diario
-0 7 * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/credential-expiry-alerts >> /var/log/finops-cron.log 2>&1
+0 7 * * * $CRON_PING "$CREDENTIAL_EXPIRY_ALERTS_HEALTHCHECK_URL" -- curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/credential-expiry-alerts >> /var/log/finops-cron.log 2>&1
 
 # Corta acceso a tenants CANCELED cuyo período pagado ya venció — diario
-30 6 * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/subscription-expiry >> /var/log/finops-cron.log 2>&1
+30 6 * * * $CRON_PING "$SUBSCRIPTION_EXPIRY_HEALTHCHECK_URL" -- curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/subscription-expiry >> /var/log/finops-cron.log 2>&1
 
 # Vence trials cuyo trial_ends_at ya pasó — diario
-0 1 * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/trial-expiry >> /var/log/finops-cron.log 2>&1
+0 1 * * * $CRON_PING "$TRIAL_EXPIRY_HEALTHCHECK_URL" -- curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/trial-expiry >> /var/log/finops-cron.log 2>&1
 
 # Retención de adjuntos de soporte (60 días) — diario, 05:00
-0 5 * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/support-attachments-cleanup >> /var/log/finops-cron.log 2>&1
+0 5 * * * $CRON_PING "$SUPPORT_ATTACHMENTS_CLEANUP_HEALTHCHECK_URL" -- curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/support-attachments-cleanup >> /var/log/finops-cron.log 2>&1
 
 # Snapshot de estado de plataforma (alimenta /api/status y /status) — cada 5 min.
 # Nota: este endpoint autentica por query param ?secret=, no por header Authorization.
-*/5 * * * * curl -fsS "https://finops.cscloudsolutions.com.ar/api/cron/status-snapshot?secret=$CRON_SECRET" >> /var/log/finops-cron.log 2>&1
+*/5 * * * * $CRON_PING "$STATUS_SNAPSHOT_HEALTHCHECK_URL" -- curl -fsS "https://finops.cscloudsolutions.com.ar/api/cron/status-snapshot?secret=$CRON_SECRET" >> /var/log/finops-cron.log 2>&1
 
 # Export FOCUS 1.1 diario por email (tenants con programación habilitada)
-0 7 * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/focus-export-daily >> /var/log/finops-cron.log 2>&1
+0 7 * * * $CRON_PING "$FOCUS_EXPORT_DAILY_HEALTHCHECK_URL" -- curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/focus-export-daily >> /var/log/finops-cron.log 2>&1
 
 # Backfill de huecos históricos (upsert-only) — todos los tenants activos, 03:00 UTC,
 # horario elegido por ser el único slot diario libre entre 00-09h en el crontab real
 # (no compite con support-attachments-cleanup 05h, sync 06h, credential-expiry-alerts
 # 07h, ni ttl-expiry-alerts 09h).
-0 3 * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/historical-gap-backfill >> /var/log/finops-cron.log 2>&1
+0 3 * * * $CRON_PING "$HISTORICAL_GAP_BACKFILL_HEALTHCHECK_URL" -- curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/historical-gap-backfill >> /var/log/finops-cron.log 2>&1
+
+# Snapshot de CPU/RAM por contenedor (Fase 2, alternativa $0 a netdata) — cada 5 min
+*/5 * * * * /home/manny/cscloud/finops/scripts/log-docker-stats.sh >> /var/log/finops-cron.log 2>&1
 ```
+
+Las `*_HEALTHCHECK_URL` viven en el `.env` del VPS (no en este repo, mismo motivo que
+`BACKUP_HEALTHCHECK_URL`): son URLs de ping de checks creados a mano en
+[healthchecks.io](https://healthchecks.io) (gratis hasta 20), una por job. Mientras no
+existan, el crontab de arriba funciona idéntico a como funcionaba antes — el ping es
+puramente aditivo.
+
+**Monitoreo externo de disponibilidad**: además de los pings de cron, agregar un monitor
+de UptimeRobot/Better Uptime (gratis) apuntando a `https://finops.cscloudsolutions.com.ar/api/health`
+(liveness del proceso, sin tocar DB/Redis) y otro a la landing pública — alerta si el
+sitio entero cae, algo que ningún ping de cron detecta. Paso 100% externo, no hay nada
+que instalar en el VPS para esto.
 
 **Backups de MySQL** (`scripts/backup-db.sh`, Fase 1 del [plan de infra](docs/vps-infra-improvement-plan.md)): dump diario comprimido con retención local 7 diarios + 4 semanales, y copia off-site a Azure Blob Storage vía SAS solo-escritura (`BACKUP_AZURE_SAS_URL` en el `.env` del VPS). Runbook completo de provisioning y restore en `docs/runbook-restore-mysql.md`.
 

@@ -1,5 +1,4 @@
 import type { IPublicClientApplication, AccountInfo, AuthenticationResult } from '@azure/msal-browser';
-import { getLocalToken } from './localSession';
 
 /**
  * Decodifica el payload de un JWT (sin validar firma) para chequear `exp`.
@@ -31,14 +30,6 @@ export async function getFreshIdToken(
   account: AccountInfo,
   scopes: string[] = ['User.Read']
 ): Promise<string> {
-  // Identidad propia (tenants AWS, sin Entra). Éste es el ÚNICO lugar donde el
-  // frontend se entera de que existen dos tipos de sesión: los ~264 call sites
-  // de getFreshIdToken siguen pidiendo "un token" y reciben el que corresponda.
-  // Va ANTES del corte por `!account` porque un usuario local nunca tiene
-  // AccountInfo de MSAL y si no caería en la rama 'demo'.
-  const localToken = getLocalToken();
-  if (localToken) return localToken;
-
   // Sin cuenta real no hay nada que pedirle a MSAL — típicamente sesión de
   // demo/mock (ver TenantProvider: intercepta window.fetch por URL para esos
   // tenants). Sin este corte, acquireTokenSilent(..., account: undefined)

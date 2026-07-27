@@ -2,7 +2,6 @@ import crypto from "crypto";
 import { NextRequest } from "next/server";
 import pool from "@/modules/storage/db";
 import { hasAccess } from "@/lib/tierLogic";
-import { verifyLocalToken } from "@/lib/localToken";
 
 type JwtHeader = {
   alg?: string;
@@ -203,26 +202,6 @@ export async function validateRequestToken(request: NextRequest): Promise<AuthCl
   const [encodedHeader, encodedPayload, encodedSignature] = parts;
   const header = parseJson<JwtHeader>(base64UrlDecode(encodedHeader), "header");
   const claims = parseJson<AuthClaims>(base64UrlDecode(encodedPayload), "payload");
-
-  // Rama de identidad propia (tenants AWS, sin Entra — ver
-  // docs/aws-multicloud-handoff.md §3.1). Es el ÚNICO punto de todo el
-  // proyecto que distingue el origen de la identidad: verifyLocalToken
-  // devuelve claims con la misma forma (`tid`, `oid`, `email`), así que de
-  // acá para abajo nada más se entera.
-  //
-  // Se discrimina por algoritmo: nuestros tokens son HS256, los de Entra
-  // RS256. Cada rama exige el suyo (esta vía `algorithms: ["HS256"]` en
-  // jwtVerify, la de Entra vía el `header.alg !== "RS256"` de abajo), así que
-  // un atacante no puede pasar un token firmado con el secreto simétrico por
-  // uno de Entra ni viceversa.
-  if (header.alg === "HS256") {
-    try {
-      return (await verifyLocalToken(token)) as AuthClaims;
-    } catch (error) {
-      // localToken lanza Error pelado a propósito (evita el import circular).
-      throw new AuthError(error instanceof Error ? error.message : "Token local inválido.", 401);
-    }
-  }
 
   if (header.alg !== "RS256" || !header.kid) {
     throw new AuthError("Algoritmo de token inválido.", 401);
