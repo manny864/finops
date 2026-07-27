@@ -4,13 +4,12 @@ import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { setDemoSession } from "@/app/_actions/demoAuth";
 import DemoLeadModal from "@/components/DemoLeadModal";
+import { ENABLE_AWS_UI } from "@/context/ProviderContext";
 
 function DemoForm() {
   const searchParams = useSearchParams();
   const tier = searchParams?.get("tier") || "essential";
-  // El proveedor puede venir por URL (enlaces comerciales que apuntan directo a
-  // la demo de AWS) y también elegirse acá.
-  const providerFromUrl = searchParams?.get("provider") === "aws" ? "aws" : "azure";
+  const providerFromUrl = (ENABLE_AWS_UI && searchParams?.get("provider") === "aws") ? "aws" : "azure";
 
   const [provider, setProvider] = useState<"azure" | "aws">(providerFromUrl);
   const [username, setUsername] = useState("");
@@ -37,25 +36,27 @@ function DemoForm() {
       <h1 className="text-2xl font-bold text-white mb-2 text-center font-heading">Interactive Demo Login</h1>
       <p className="text-sm text-center text-brand-bright mb-6 uppercase tracking-wider font-semibold">Tier: {tier}</p>
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-[#A9BBD0] mb-2">Proveedor de nube</label>
-          <div className="grid grid-cols-2 gap-2">
-            {([
-              { id: "azure", label: "Microsoft Azure" },
-              { id: "aws", label: "Amazon Web Services" },
-            ] as const).map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                aria-pressed={provider === p.id}
-                onClick={() => setProvider(p.id)}
-                className={`py-2 px-3 rounded-lg text-sm font-semibold border transition-all ${provider === p.id
-                  ? "bg-brand-bright/20 text-white border-brand-bright"
-                  : "bg-white/5 text-[#A9BBD0] border-white/10 hover:border-white/30"}`}
-              >{p.label}</button>
-            ))}
+        {ENABLE_AWS_UI && (
+          <div>
+            <label className="block text-sm font-medium text-[#A9BBD0] mb-2">Proveedor de nube</label>
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                { id: "azure", label: "Microsoft Azure" },
+                { id: "aws", label: "Amazon Web Services" },
+              ] as const).map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  aria-pressed={provider === p.id}
+                  onClick={() => setProvider(p.id)}
+                  className={`py-2 px-3 rounded-lg text-sm font-semibold border transition-all ${provider === p.id
+                    ? "bg-brand-bright/20 text-white border-brand-bright"
+                    : "bg-white/5 text-[#A9BBD0] border-white/10 hover:border-white/30"}`}
+                >{p.label}</button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
         <div>
           <label className="block text-sm font-medium text-[#A9BBD0] mb-1">Username</label>
           <input

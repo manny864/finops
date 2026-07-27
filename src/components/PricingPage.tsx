@@ -8,6 +8,7 @@ import { initializePaddle, Paddle } from '@paddle/paddle-js';
 import EnterpriseLeadModal from './EnterpriseLeadModal';
 import DemoLeadModal from './DemoLeadModal';
 import LanguageSwitcher from './LanguageSwitcher';
+import { ENABLE_AWS_UI } from '@/context/ProviderContext';
 
 interface PricingPageProps {
   onLoginClick?: () => void;
@@ -192,31 +193,32 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
         </p>
       </div>
 
-      {/* Selector de nube: la tabla es pre-login, asi que no hay tenant del que
-          deducir el proveedor. Lo elige el visitante. */}
-      <div className="relative z-10 flex flex-col items-center mb-8">
-        <span className="text-sm font-medium text-gray-300 mb-3">{t('cloudSelectorLabel')}</span>
-        <div className="inline-flex rounded-lg border border-white/25 p-1" role="group">
-          {(['azure', 'aws'] as const).map((c) => (
-            <button
-              key={c}
-              type="button"
-              onClick={() => setCloud(c)}
-              aria-pressed={cloud === c}
-              className={`px-6 py-2 text-sm font-semibold rounded-md transition-colors cursor-pointer ${
-                cloud === c ? 'bg-white text-[#0E1A2B]' : 'text-gray-300 hover:bg-white/10'
-              }`}
-            >
-              {c === 'azure' ? t('cloudAzure') : t('cloudAws')}
-            </button>
-          ))}
+      {/* Selector de nube: si ENABLE_AWS_UI es false se oculta y la tabla muestra Azure */}
+      {ENABLE_AWS_UI && (
+        <div className="relative z-10 flex flex-col items-center mb-8">
+          <span className="text-sm font-medium text-gray-300 mb-3">{t('cloudSelectorLabel')}</span>
+          <div className="inline-flex rounded-lg border border-white/25 p-1" role="group">
+            {(['azure', 'aws'] as const).map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setCloud(c)}
+                aria-pressed={cloud === c}
+                className={`px-6 py-2 text-sm font-semibold rounded-md transition-colors cursor-pointer ${
+                  cloud === c ? 'bg-white text-[#0E1A2B]' : 'text-gray-300 hover:bg-white/10'
+                }`}
+              >
+                {c === 'azure' ? t('cloudAzure') : t('cloudAws')}
+              </button>
+            ))}
+          </div>
+          {cloud === 'aws' && (
+            <p className="mt-4 max-w-2xl text-center text-xs text-amber-200 bg-amber-900/30 border border-amber-500/30 rounded-md px-4 py-2">
+              {t('awsScopeNotice')}
+            </p>
+          )}
         </div>
-        {cloud === 'aws' && (
-          <p className="mt-4 max-w-2xl text-center text-xs text-amber-200 bg-amber-900/30 border border-amber-500/30 rounded-md px-4 py-2">
-            {t('awsScopeNotice')}
-          </p>
-        )}
-      </div>
+      )}
 
       {/* Toggle */}
       <div className="relative z-10 flex justify-center items-center mb-16">
