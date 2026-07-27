@@ -47,6 +47,9 @@ interface ProviderContextValue {
 
 const ProviderContext = createContext<ProviderContextValue | undefined>(undefined);
 
+/** Flag global de UI para ocultar AWS en el cliente y presentar la plataforma exclusivamente como Azure FinOps */
+export const ENABLE_AWS_UI = false;
+
 const STORAGE_PREFIX = "finops_active_provider:";
 
 function readStored(tenantId: string): CloudProviderId | null {
@@ -65,6 +68,7 @@ export function ProviderProvider({ children }: { children: React.ReactNode }) {
         archivedRaw === "azure" || archivedRaw === "aws" ? archivedRaw : null;
 
     const availableProviders = useMemo<CloudProviderId[]>(() => {
+        if (!ENABLE_AWS_UI) return ["azure"];
         if (tenantProvider === "both" && tierAllowsMultiProvider(tier)) return ["azure", "aws"];
         if (tenantProvider === "both") {
             // Fila con 'both' pero tier sin derecho: hasta que el cron
@@ -77,6 +81,7 @@ export function ProviderProvider({ children }: { children: React.ReactNode }) {
     // El archivado se agrega a la lista aunque el tier ya no lo habilite: sin
     // esto el cliente no tendría por dónde entrar a exportar antes de la purga.
     const selectableProviders = useMemo<CloudProviderId[]>(() => {
+        if (!ENABLE_AWS_UI) return ["azure"];
         if (archivedProvider && !availableProviders.includes(archivedProvider)) {
             return [...availableProviders, archivedProvider];
         }

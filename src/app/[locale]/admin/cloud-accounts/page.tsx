@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { getFreshIdToken } from '@/lib/msalToken';
-import { ENABLE_AWS_UI } from '@/lib/providerPolicy';
+import { ENABLE_AWS_UI } from '@/context/ProviderContext';
 import {
   Cloud,
   Plus,

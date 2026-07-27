@@ -23,24 +23,15 @@ const MIN_RETENTION_DAYS = 7;
 const MAX_RETENTION_DAYS = 730;
 export const PURGE_REMINDER_DAYS = [30, 7] as const;
 
-/**
- * Flag global para ocultar AWS en la interfaz de usuario.
- * Cuando es false, la plataforma opera exclusivamente en modo Azure FinOps.
- * Todo el código backend de AWS se preserva para reactivación futura.
- */
-export const ENABLE_AWS_UI = false;
-
 export function tierAllowsMultiProvider(tier: string | null | undefined): boolean {
-    if (!ENABLE_AWS_UI) return false;
     return hasAccess(tier || "", MULTI_PROVIDER_TIER);
 }
 
 export function isCloudProviderId(value: unknown): value is CloudProviderId {
-    return value === "azure" || (ENABLE_AWS_UI && value === "aws");
+    return value === "azure" || value === "aws";
 }
 
 export function normalizeProviderSetting(value: unknown): TenantProviderSetting {
-    if (!ENABLE_AWS_UI) return "azure";
     if (value === "aws" || value === "both") return value;
     // Fail-safe hacia 'azure': es el default de la columna y el estado de todos
     // los tenants preexistentes. Un valor corrupto no debe habilitar AWS.
