@@ -23,7 +23,7 @@ import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLocke
 const PIE_COLORS = ["#0054A6", "#F2A900", "#10B981", "#EF4444", "#8B5CF6", "#F43F5E", "#0EA5E9"];
 
 const fmtUsd = (n: number | null | undefined) =>
-    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n || 0);
+    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n || 0);
 
 function fmtDate(iso: string | null | undefined, locale: string) {
     if (!iso) return "—";

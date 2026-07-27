@@ -16,7 +16,7 @@ import {
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 
 const fmtUsd = (n: number | null | undefined) =>
-    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n || 0);
+    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n || 0);
 
 function fmtDate(iso: string | null | undefined, locale: string) {
     if (!iso) return "—";

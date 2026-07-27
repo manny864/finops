@@ -14,7 +14,7 @@ import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLocke
 import { useProviderTranslations } from "@/lib/useProviderTranslations";
 
 const fmtUsd = (n: number | null | undefined) =>
-    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n || 0);
+    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n || 0);
 
 function Kpi({ label, value, icon: Icon, tone }: { label: string; value: string; icon: any; tone: string }) {
     return (

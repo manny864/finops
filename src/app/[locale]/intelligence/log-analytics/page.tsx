@@ -11,7 +11,7 @@ import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
 import { useTranslations } from 'next-intl';
 
-const fmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+const fmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const REC_BADGE: Record<string, string> = {
     'commitment-tier': 'bg-brand-soft text-brand-deep dark:bg-brand-deep/30 dark:text-brand-bright',

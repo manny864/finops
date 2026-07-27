@@ -12,7 +12,7 @@ import Pagination, { usePagination } from "@/components/Pagination";
 import ResizableTh from "@/components/ResizableTh";
 
 const fmtUsd = (n: number | null | undefined) =>
-    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n || 0);
+    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n || 0);
 const fmtNum = (n: number | null | undefined) =>
     new Intl.NumberFormat("en-US").format(n || 0);
 const fmtCompact = (n: number | null | undefined) =>

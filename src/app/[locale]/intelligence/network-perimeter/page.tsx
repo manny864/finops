@@ -10,7 +10,7 @@ import { getFreshIdToken } from '@/lib/msalToken';
 import { useTranslations } from 'next-intl';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 
-const fmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+const fmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const TYPE_LABELS: Record<string, string> = {
     "microsoft.network/azurefirewalls": "Azure Firewall",

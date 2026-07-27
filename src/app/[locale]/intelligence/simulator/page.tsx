@@ -337,7 +337,7 @@ export default function SimulatorPage() {
                                 <div className="p-4 bg-gray-50 dark:bg-slate-800/50 rounded-lg border border-gray-100 dark:border-slate-700">
                                     <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">{t('baseCostResultLabel')}</p>
                                     <p className="text-3xl font-black text-gray-800 dark:text-gray-100">
-                                        {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(simulationData.baseCost)}
+                                        {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(simulationData.baseCost)}
                                     </p>
                                 </div>
                                 <div className={`p-4 rounded-lg border ${simulationData.projectedCost > simulationData.baseCost ? 'bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800/50' : 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800/50'}`}>
@@ -346,7 +346,7 @@ export default function SimulatorPage() {
                                     </p>
                                     <div className="flex items-end gap-3">
                                         <p className={`text-3xl font-black ${simulationData.projectedCost > simulationData.baseCost ? 'text-rose-700 dark:text-rose-300' : 'text-emerald-700 dark:text-emerald-300'}`}>
-                                            {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(simulationData.projectedCost)}
+                                            {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(simulationData.projectedCost)}
                                         </p>
                                         <p className={`text-sm font-bold mb-1 ${simulationData.projectedCost > simulationData.baseCost ? 'text-rose-600' : 'text-emerald-600'}`}>
                                             {simulationData.projectedCost > simulationData.baseCost ? '+' : ''}
@@ -363,7 +363,7 @@ export default function SimulatorPage() {
                                         <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontWeight: 600 }} />
                                         <YAxis tickFormatter={(v) => `$${v/1000}k`} axisLine={false} tickLine={false} tick={{ fill: '#64748b' }} />
                                         <Tooltip 
-                                            formatter={(value: any) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value)}
+                                            formatter={(value: any) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)}
                                             contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                                         />
                                         <Legend wrapperStyle={{ paddingTop: '20px' }} />

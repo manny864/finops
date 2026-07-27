@@ -8,7 +8,7 @@ import pool from "@/modules/storage/db";
 import { isMockTenant } from "@/lib/mockData";
 
 function fmtUSD(n: number) {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n || 0);
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n || 0);
 }
 
 async function buildRealAnswer(tenantId: string, question: string) {

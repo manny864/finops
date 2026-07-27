@@ -266,7 +266,7 @@ export default function AdvisorPanel() {
     return out;
   }, [raw, selectedSub, locale, subMap]);
 
-  const fmtUsd = (n: number) => new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n || 0);
+  const fmtUsd = (n: number) => new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n || 0);
   // <10kg con 0 decimales redondeaba valores reales pequeños (p.ej. 0.3kg) a
   // "0 kg CO₂e", indistinguible de "sin datos" — con decimales queda claro
   // que es un valor real, chico, no un placeholder en cero.

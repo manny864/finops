@@ -23,7 +23,7 @@ interface Summary {
 }
 
 const fmt = (n: number) =>
-    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
+    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 
 export default function MobileSummaryPage() {
     const t = useTranslations("Mobile");

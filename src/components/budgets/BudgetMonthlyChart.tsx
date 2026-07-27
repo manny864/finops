@@ -22,7 +22,7 @@ interface BudgetMonthlyChartProps {
     height?: number;
 }
 
-const fmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+const fmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 function formatMonthLabel(month: string): string {
     const [y, m] = month.split('-').map(Number);

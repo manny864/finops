@@ -118,7 +118,7 @@ export default function AksChargebackPage() {
         value: ns.totalCost
     })).sort((a: any, b: any) => b.value - a.value);
 
-    const formatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+    const formatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
     return (
         <div className="p-6 max-w-6xl mx-auto animate-in fade-in duration-500">
