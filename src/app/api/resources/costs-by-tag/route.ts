@@ -3,8 +3,6 @@ import { requireTenantTier, AuthError } from "@/lib/requestAuth";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { getDistinctTagKeys, getCostByTagKey } from "@/modules/collectors/azure/resourceInventoryService";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
-import { tenantUsesAws } from "@/lib/tenantProviderContext";
-import { getAwsDistinctTagKeys, getAwsCostByTagKey } from "@/modules/collectors/aws/awsResourceInventoryService";
 
 async function fetchCostsByTag(tenantId: string) {
     const keys = await getDistinctTagKeys(tenantId);
@@ -22,25 +20,6 @@ async function fetchCostsByTag(tenantId: string) {
     return { tags };
 }
 
-/**
- * Costo por etiqueta en AWS.
- *
- * No hay batching de concurrencia como en Azure: alla cada clave dispara N
- * llamadas a Cost Management (una por suscripcion) y saturaba la API con 429s.
- * Aca las dos consultas van contra `FocusLineItems`, en la base propia.
- */
-async function fetchAwsCostsByTag(tenantId: string) {
-    const keys = await getAwsDistinctTagKeys(tenantId);
-    const results = await Promise.all(keys.map(async k => ({ key: k, values: await getAwsCostByTagKey(tenantId, k) })));
-    const tags = results.map(r => ({
-        key: r.key,
-        values: r.values,
-        totalCost: Number(r.values.reduce((s, v) => s + v.cost, 0).toFixed(2)),
-    }));
-    tags.sort((a, b) => b.totalCost - a.totalCost);
-    return { tags };
-}
-
 export async function GET(request: NextRequest) {
     try {
         const url = new URL(request.url);
@@ -51,15 +30,6 @@ export async function GET(request: NextRequest) {
 
         if (isMockTenant(tenantId)) {
             return NextResponse.json(getMockDataForRoute("resources_costs_by_tag", tenantId));
-        }
-
-        if (await tenantUsesAws(tenantId)) {
-            const awsData = await getWithStaleWhileRevalidate(
-                `resources:costs-by-tag:aws:v1:${tenantId}`,
-                () => fetchAwsCostsByTag(tenantId),
-                3600
-            );
-            return NextResponse.json({ success: true, mock: false, provider: "AWS", ...awsData });
         }
 
         // Es la consulta más cara de las 4 (N llamadas a Cost Management por

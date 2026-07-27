@@ -3,8 +3,6 @@ import { requireTenantTier, AuthError } from "@/lib/requestAuth";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { getInventoryDistribution } from "@/modules/collectors/azure/resourceInventoryService";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
-import { tenantUsesAws } from "@/lib/tenantProviderContext";
-import { getAwsInventoryDistribution } from "@/modules/collectors/aws/awsResourceInventoryService";
 
 export async function GET(request: NextRequest) {
     try {
@@ -16,15 +14,6 @@ export async function GET(request: NextRequest) {
 
         if (isMockTenant(tenantId)) {
             return NextResponse.json(getMockDataForRoute("resources_inventory", tenantId));
-        }
-
-        if (await tenantUsesAws(tenantId)) {
-            const awsData = await getWithStaleWhileRevalidate(
-                `resources:inventory:aws:v1:${tenantId}`,
-                () => getAwsInventoryDistribution(tenantId),
-                3600
-            );
-            return NextResponse.json({ success: true, mock: false, provider: "AWS", ...awsData });
         }
 
         const data = await getWithStaleWhileRevalidate(

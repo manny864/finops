@@ -60,9 +60,9 @@ Si sos administrador y es la primera vez que tu organización usa la plataforma,
 
 | Paso | Qué hacés | Resultado |
 |---|---|---|
-| **1. Bienvenida y datos de la empresa** | Confirmás nombre de la empresa, proveedor de nube principal (Azure), moneda de visualización (USD/EUR/GBP) y zona horaria | Se guardan tus preferencias iniciales |
-| **2. Conectar suscripción de Azure** | Pegás **Client ID**, **Client Secret** y **Azure Tenant ID** del Service Principal (generado con el script de PowerShell que te entrega CSCloudSolutions) y presionás **"Validar"** | El sistema chequea en vivo que el Service Principal tenga los roles mínimos necesarios; si falta alguno, te muestra en rojo cuál falta |
-| **3. Primera sincronización de datos** | Presionás **"Ejecutar Sincronización"** | Trae tu primer set de datos de costos desde Azure (puede tardar hasta 60 segundos) |
+| **1. Bienvenida y datos de la empresa** | Confirmás nombre de la empresa, proveedor de nube principal (**Azure o AWS**), moneda de visualización (USD/EUR/GBP) y zona horaria | Se guardan tus preferencias iniciales |
+| **2. Conectar nube principal** | Si el tenant eligió **Azure**, carga y valida **Client ID + Client Secret + Azure Tenant ID** del Service Principal. Si eligió **AWS**, abrí **Gestión de Cuentas AWS** (`/admin/cloud-accounts`), registrá al menos una cuenta y validá en el wizard. | La plataforma confirma precondición de ingesta para la nube elegida |
+| **3. Primera sincronización de datos** | Presionás **"Ejecutar Sincronización"** | Trae el primer set de costos desde la nube seleccionada (Azure o AWS; puede tardar hasta 60 segundos) |
 | **4. Crear tu primer presupuesto** | Completás nombre, límite mensual ($) y umbral de alerta (%) | Se crea tu primer presupuesto activo |
 | **5. Configurar notificaciones** | Presionás **"Configurar"** (abre `/admin/notifications` en pestaña nueva) | Agregás al menos un canal (email, Slack o Teams) para recibir alertas |
 
@@ -705,11 +705,13 @@ Estas cuatro capacidades estaban bloqueadas para AWS por un motivo estructural, 
 
 La pantalla de alta de cuentas genera una plantilla de **mínimo privilegio** (CloudFormation, Terraform o AWS CLI) con exactamente las acciones que la plataforma realmente invoca, todas de **sólo lectura**: `sts:AssumeRole`, `ce:GetCostAndUsage`, el inventario EC2 (`ec2:DescribeInstances`, `DescribeVolumes`, `DescribeAddresses`, `DescribeSnapshots`), los presupuestos nativos (`budgets:DescribeBudgets`, `budgets:ViewBudget`, acotados al ARN de presupuestos de la propia cuenta) y `s3:GetObject`/`s3:ListBucket` acotadas al bucket del CUR del cliente, las recomendaciones de compra de Cost Explorer (`ce:GetReservationPurchaseRecommendation`, `ce:GetSavingsPlansPurchaseRecommendation`) y el inventario por etiquetas (`tag:GetResources`, `tag:GetTagKeys`). Un test afirma esa **lista cerrada** y rechaza cualquier verbo de escritura, para que no se amplíe sin una llamada real que lo justifique.
 
+Desde `/admin/cloud-accounts` ahora también podés **editar cuentas AWS ya creadas** (alias, Role ARN y parámetros CUR) sin eliminarlas y recrearlas.
+
 > ⚠️ **Los tenants onboardeados antes de julio de 2026 tienen que re-ejecutar la plantilla.** La versión original sólo otorgaba `ec2:DescribeInstances`, pero el inventario de recursos ociosos ya llamaba a `DescribeVolumes`, `DescribeAddresses` y `DescribeSnapshots`. **El síntoma no es un error visible**: esas familias fallan con `AccessDenied`, se descartan, y el cliente ve una lista de limpieza incompleta que parece decir "no tenés nada para optimizar". Al detectar un tenant AWS con cero volúmenes o cero snapshots huérfanos, verificar primero la antigüedad del rol antes de asumir que la cuenta está limpia.
 
 Antes se sugerían las políticas administradas `job-function/Billing`, `AmazonEC2ReadOnlyAccess` y `AmazonS3ReadOnlyAccess`. Esta última concede lectura de **todos** los buckets de la cuenta del cliente, lo que es desproporcionado para leer un reporte de costos y suele ser rechazado por áreas de seguridad exigentes.
 
-> **Requisito de despliegue:** sin la variable `AWS_PLATFORM_ACCOUNT_ID` (el ID de 12 dígitos de nuestra cuenta AWS) el endpoint de plantillas devuelve **503 a propósito**. Es fail-closed deliberado: emitir una plantilla con un account ID equivocado haría que el cliente le diera acceso a su facturación a una cuenta que no es la nuestra.
+> **Requisito de despliegue:** el endpoint de plantillas necesita el ID de 12 dígitos de la cuenta AWS de la plataforma. Se resuelve en modo **KV-first** desde `infra-aws-platform-account-id` (fallback `AWS_PLATFORM_ACCOUNT_ID` en env). Si no existe un valor válido, devuelve **503 a propósito** (fail-closed): emitir una plantilla con un account ID equivocado haría que el cliente le diera acceso a su facturación a una cuenta que no es la nuestra.
 
 Cuando se implementen nuevas capacidades que requieran permisos adicionales (por ejemplo Cost Optimization Hub, o el forecast nativo de AWS), **hay que agregarlos a la plantilla en ese momento**, no por anticipado.
 

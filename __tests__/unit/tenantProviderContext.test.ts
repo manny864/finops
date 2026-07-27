@@ -1,10 +1,10 @@
 /**
  * Contexto de proveedor por tenant.
  *
- * Lo que importa acá no es solo que devuelva el valor correcto, sino que el
- * fallback sea el histórico (Azure): un tenant Azure que quede mal clasificado
- * como AWS deja de ver sus propios datos en vivo, que es peor que una query de
- * más. Por eso se testea explícitamente el comportamiento ante base caída.
+ * El producto es Azure-only: `getTenantProviders` siempre resuelve azure=true,
+ * aws=false, sin importar el valor crudo de la columna. Lo que importa acá es
+ * la resiliencia (base caída, tenant sin fila) y el cache por tenant/TTL, no
+ * la clasificación por proveedor.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -35,15 +35,10 @@ function rowsWith(provider: string | null) {
 }
 
 describe('getTenantProviders', () => {
-    it('mapea provider="aws" a solo AWS', async () => {
-        queryMock.mockResolvedValue(rowsWith('aws'));
+    it('mapea provider="azure" a azure', async () => {
+        queryMock.mockResolvedValue(rowsWith('azure'));
         const p = await getTenantProviders(T);
-        expect(p).toEqual({ setting: 'aws', azure: false, aws: true });
-    });
-
-    it('mapea provider="both" a los dos proveedores activos', async () => {
-        queryMock.mockResolvedValue(rowsWith('both'));
-        expect(await getTenantProviders(T)).toEqual({ setting: 'both', azure: true, aws: true });
+        expect(p).toEqual({ setting: 'azure', azure: true, aws: false });
     });
 
     it('un valor desconocido en la columna no deja al tenant sin proveedor', async () => {
@@ -70,51 +65,49 @@ describe('resiliencia', () => {
         queryMock.mockRejectedValueOnce(new Error('ECONNREFUSED'));
         await getTenantProviders(T);
 
-        queryMock.mockResolvedValue(rowsWith('aws'));
-        expect((await getTenantProviders(T)).aws).toBe(true);
+        queryMock.mockResolvedValue(rowsWith('azure'));
+        expect((await getTenantProviders(T)).azure).toBe(true);
     });
 
     it('un tenant sin fila tampoco se cachea: puede estar creandose', async () => {
         queryMock.mockResolvedValueOnce([[], []]);
         expect((await getTenantProviders(T)).azure).toBe(true);
 
-        queryMock.mockResolvedValue(rowsWith('aws'));
-        expect((await getTenantProviders(T)).aws).toBe(true);
+        queryMock.mockResolvedValue(rowsWith('azure'));
+        expect((await getTenantProviders(T)).azure).toBe(true);
         expect(queryMock).toHaveBeenCalledTimes(2);
     });
 });
 
 describe('cache', () => {
     it('no repite la query dentro del TTL', async () => {
-        queryMock.mockResolvedValue(rowsWith('aws'));
+        queryMock.mockResolvedValue(rowsWith('azure'));
         await getTenantProviders(T);
         await getTenantProviders(T);
         await getTenantProviders(T);
         expect(queryMock).toHaveBeenCalledTimes(1);
     });
 
-    it('cachea por tenant: no filtra el proveedor de uno a otro', async () => {
-        queryMock.mockResolvedValueOnce(rowsWith('aws')).mockResolvedValueOnce(rowsWith('azure'));
-        expect((await getTenantProviders('t1')).aws).toBe(true);
+    it('cachea por tenant: no filtra el estado de uno a otro', async () => {
+        queryMock.mockResolvedValueOnce(rowsWith('azure')).mockResolvedValueOnce(rowsWith('azure'));
+        expect((await getTenantProviders('t1')).azure).toBe(true);
         expect((await getTenantProviders('t2')).azure).toBe(true);
-        expect((await getTenantProviders('t2')).aws).toBe(false);
     });
 
-    it('invalidateTenantProviders fuerza releer tras un cambio de tier', async () => {
-        queryMock.mockResolvedValueOnce(rowsWith('both'));
-        expect((await getTenantProviders(T)).aws).toBe(true);
+    it('invalidateTenantProviders fuerza releer', async () => {
+        queryMock.mockResolvedValueOnce(rowsWith('azure'));
+        expect((await getTenantProviders(T)).azure).toBe(true);
 
-        // Downgrade: el tenant queda solo con Azure.
         queryMock.mockResolvedValueOnce(rowsWith('azure'));
         invalidateTenantProviders(T);
 
         const after = await getTenantProviders(T);
-        expect(after.aws).toBe(false);
         expect(after.azure).toBe(true);
+        expect(queryMock).toHaveBeenCalledTimes(2);
     });
 
     it('invalidar un tenant no invalida a los demas', async () => {
-        queryMock.mockResolvedValue(rowsWith('aws'));
+        queryMock.mockResolvedValue(rowsWith('azure'));
         await getTenantProviders('t1');
         await getTenantProviders('t2');
         expect(queryMock).toHaveBeenCalledTimes(2);
@@ -127,7 +120,7 @@ describe('cache', () => {
     it('expira pasado el TTL de un minuto', async () => {
         vi.useFakeTimers();
         try {
-            queryMock.mockResolvedValue(rowsWith('aws'));
+            queryMock.mockResolvedValue(rowsWith('azure'));
             await getTenantProviders(T);
             vi.advanceTimersByTime(61_000);
             await getTenantProviders(T);
@@ -139,20 +132,13 @@ describe('cache', () => {
 });
 
 describe('atajos', () => {
-    it('tenantUsesAzure es false para un tenant AWS puro', async () => {
-        queryMock.mockResolvedValue(rowsWith('aws'));
-        expect(await tenantUsesAzure(T)).toBe(false);
-        expect(await tenantUsesAws(T)).toBe(true);
-    });
-
-    it('ambos son true con provider="both"', async () => {
-        queryMock.mockResolvedValue(rowsWith('both'));
+    it('tenantUsesAzure es true y tenantUsesAws es false', async () => {
+        queryMock.mockResolvedValue(rowsWith('azure'));
         expect(await tenantUsesAzure(T)).toBe(true);
-        expect(await tenantUsesAws(T)).toBe(true);
+        expect(await tenantUsesAws(T)).toBe(false);
     });
 
-    it('providerIdsFor lista los proveedores activos', () => {
-        expect(providerIdsFor({ setting: 'both', azure: true, aws: true })).toEqual(['azure', 'aws']);
-        expect(providerIdsFor({ setting: 'aws', azure: false, aws: true })).toEqual(['aws']);
+    it('providerIdsFor lista el proveedor activo', () => {
+        expect(providerIdsFor({ setting: 'azure', azure: true, aws: false })).toEqual(['azure']);
     });
 });

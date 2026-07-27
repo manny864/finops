@@ -5,6 +5,8 @@ import { getBudgetConsumption } from "@/services/budgetService";
 // RBAC: GET requiere pertenencia al tenant (read). POST (crear/actualizar budget)
 // requiere rol Admin/Owner — es un control de gobernanza financiera.
 import { getWithStaleWhileRevalidate, invalidateCachePattern } from "@/lib/cache";
+import Decimal from "decimal.js";
+import { toMoneyNumber } from "@/lib/moneyDecimal";
 
 export async function GET(request: NextRequest) {
     try {
@@ -35,14 +37,17 @@ export async function GET(request: NextRequest) {
                 } catch (consumptionErr: any) {
                     console.warn(`[budgets] consumption fetch failed for budget ${b.id}:`, consumptionErr?.message);
                 }
-                const limit = parseFloat(b.monthly_limit_usd);
-                const utilization = limit > 0 ? (currentSpend / limit) * 100 : 0;
+                const limitDec = new Decimal(b.monthly_limit_usd || 0);
+                const currentSpendDec = new Decimal(currentSpend || 0);
+                const utilization = limitDec.gt(0)
+                    ? Number(currentSpendDec.dividedBy(limitDec).times(100).toFixed(4))
+                    : 0;
                 return {
                     id: b.id,
                     costCenter: b.cost_center_tag_value,
-                    monthlyLimit: limit,
-                    alertThreshold: parseFloat(b.alert_threshold),
-                    currentSpend,
+                    monthlyLimit: toMoneyNumber(limitDec),
+                    alertThreshold: toMoneyNumber(new Decimal(b.alert_threshold || 0)),
+                    currentSpend: toMoneyNumber(currentSpendDec),
                     utilization,
                 };
             }));

@@ -3,7 +3,6 @@ import MockBanner from '@/components/MockBanner';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 import { useProviderTranslations } from "@/lib/useProviderTranslations";
-import { useCloudProvider } from "@/context/ProviderContext";
 import { DEFAULT_LICENSE_SAVINGS_PCT } from "@/lib/simulator/engine";
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
@@ -25,11 +24,9 @@ export default function SimulatorPage() {
     const [computeScale, setComputeScale] = useState(100);
     const [storageScale, setStorageScale] = useState(100);
     const [applyAhb, setApplyAhb] = useState(false);
-    // El ahorro por licencias es un supuesto explicito y editable: en Azure
-    // arranca en el 18% historico del AHB, en AWS en 0 porque el BYOL depende
-    // del mix Windows/SQL de la flota y no hay un valor plano defendible.
-    const { activeProvider } = useCloudProvider();
-    const defaultLicensePct = DEFAULT_LICENSE_SAVINGS_PCT[activeProvider === 'aws' ? 'aws' : 'azure'];
+    // El ahorro por licencias es un supuesto explicito y editable: arranca en
+    // el 18% historico del AHB.
+    const defaultLicensePct = DEFAULT_LICENSE_SAVINGS_PCT.azure;
     const [licenseSavingsPct, setLicenseSavingsPct] = useState<number>(defaultLicensePct);
 
     useEffect(() => {

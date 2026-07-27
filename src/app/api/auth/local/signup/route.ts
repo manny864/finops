@@ -18,8 +18,8 @@ import {
 } from "@/lib/emailHelper";
 
 /**
- * Alta de tenant con identidad propia (sin Entra) — el camino de signup de los
- * clientes AWS. Ver docs/aws-multicloud-handoff.md §3.1.
+ * Alta de tenant con identidad propia (sin Entra) — camino de signup por
+ * email+contraseña para quien no tiene un tenant Entra corporativo.
  *
  * Diferencias con /api/onboard (el equivalente Entra):
  *  - NO requiere estar autenticado: es el punto de entrada anónimo.
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
     const password = String(body.password || "");
     const companyNameInput = String(body.companyName || "").trim();
     const rawPlan = String(body.plan || "essential").toLowerCase();
-    const provider = String(body.provider || "aws").toLowerCase();
+    const provider = String(body.provider || "azure").toLowerCase();
 
     if (!email.includes("@") || email.length > 255) {
         return NextResponse.json({ error: "Email inválido." }, { status: 400 });
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
     if (passwordError) {
         return NextResponse.json({ error: passwordError }, { status: 400 });
     }
-    if (provider !== "aws" && provider !== "azure") {
+    if (provider !== "azure") {
         return NextResponse.json({ error: "Proveedor inválido." }, { status: 400 });
     }
 

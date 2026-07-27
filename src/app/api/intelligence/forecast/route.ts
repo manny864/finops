@@ -17,46 +17,6 @@ import {
 } from "@/lib/forecasting";
 import { tenantUsesAzure } from "@/lib/tenantProviderContext";
 
-/**
- * Serie historica diaria para un tenant AWS.
- *
- * Azure la trae de Cost Management; en AWS se reconstruye desde CostSnapshots,
- * que el sync (Cost Explorer o CUR) ya llena a diario. Devuelve la misma forma
- * que `getCurrentMonthAmortizedCosts` para no bifurcar el resto del handler.
- */
-async function getAwsDailyCosts(tenantId: string, days: number) {
-    const [rows]: any = await pool.query(
-        `SELECT DATE(COALESCE(ChargePeriodStart, date)) AS UsageDate,
-                SUM(COALESCE(EffectiveCost, BilledCost, cost_usd, 0)) AS EffectiveCost
-           FROM CostSnapshots
-          WHERE tenant_id = ? AND DATE(COALESCE(ChargePeriodStart, date)) >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
-          GROUP BY UsageDate ORDER BY UsageDate ASC`,
-        [tenantId, days]
-    );
-    return (rows as any[]).map(r => ({
-        UsageDate: r.UsageDate instanceof Date ? r.UsageDate.toISOString().slice(0, 10) : String(r.UsageDate).slice(0, 10),
-        EffectiveCost: Number(r.EffectiveCost) || 0,
-        BilledCost: Number(r.EffectiveCost) || 0,
-        ChargePeriodStart: undefined as string | undefined,
-    }));
-}
-
-/**
- * Proyeccion para AWS con el motor propio del repo.
- *
- * Cost Explorer expone GetCostForecast, pero todavia no esta integrado en
- * `src/lib/aws/costExplorer.ts`; usar `linearForecast` sobre la serie ya
- * ingestada evita una llamada extra facturada por request y mantiene la misma
- * matematica que el resto del endpoint.
- */
-function buildAwsForecast(history: HistoryPoint[], horizonDays: number) {
-    if (history.length < 2) return [] as { date: string; forecastCost: number }[];
-    return linearForecast(history, horizonDays).map(p => ({
-        date: p.date,
-        forecastCost: Number(p.value),
-    }));
-}
-
 export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
@@ -90,14 +50,6 @@ export async function GET(request: NextRequest) {
             }
             // getCostForecast is already resilient (returns [] instead of throwing)
             forecastData = await getCostForecast(tenantId, subscriptionId, metricType);
-        } else {
-            historicalEntries = await getAwsDailyCosts(tenantId, Math.max(days, 30)) as typeof historicalEntries;
-            forecastData = buildAwsForecast(
-                historicalEntries
-                    .map(h => ({ date: String(h.UsageDate), value: String(h.EffectiveCost) }))
-                    .filter(h => Number(h.value) > 0),
-                days
-            );
         }
 
         // If both are empty, return gracefully so dashboard/summary does NOT mark forecast as failed

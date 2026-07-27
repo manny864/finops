@@ -4,8 +4,6 @@ import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { GLOBAL_MANDATORY_TAGS } from "@/lib/tagConfig";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
-import { tenantUsesAws } from "@/lib/tenantProviderContext";
-import { getAwsAllResources } from "@/modules/collectors/aws/awsResourceInventoryService";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 
 /** Etiquetas faltantes de un recurso, comparando sin distinguir mayusculas. */
@@ -15,49 +13,6 @@ function missingMandatoryTags(itemTags: Record<string, unknown>): string[] {
         const foundKey = Object.keys(itemTags).find(k => k.toLowerCase() === tagKeyLower);
         return !foundKey || !itemTags[foundKey];
     });
-}
-
-/**
- * Auditoria de etiquetas en AWS.
- *
- * No hay equivalente al bloque de grupos de recursos: AWS no tiene un
- * contenedor que agrupe recursos y del que se hereden etiquetas, asi que
- * `resourceGroups` va vacio y `rgComplianceScore` en null. La UI usa ese null
- * para ocultar el bloque en vez de mostrar un 100% enganoso, que se leeria como
- * "todo cumple" cuando en realidad no hay nada que auditar.
- *
- * Sesgo conocido: la Tagging API solo devuelve recursos con **al menos una**
- * etiqueta, asi que un recurso sin ninguna no entra en el denominador. El score
- * mide "de los recursos etiquetados, cuantos tienen las obligatorias", no la
- * cobertura total de la cuenta.
- */
-async function fetchAwsTagCompliance(tenantId: string, accountId: string | null) {
-    const all = await getAwsAllResources(tenantId, accountId);
-
-    const allResources = all.map(r => {
-        const missingTags = missingMandatoryTags(r.tags);
-        const isCompliant = missingTags.length === 0;
-        return {
-            resourceId: r.id,
-            id: r.id,
-            name: r.name,
-            type: r.type,
-            // Convencion del proyecto: en AWS `resourceGroup` transporta la region.
-            resourceGroup: r.resourceGroup,
-            subscriptionId: r.subscriptionId,
-            location: r.resourceGroup,
-            reason: isCompliant ? "Cumple con las políticas" : `Faltan etiquetas obligatorias: ${missingTags.join(', ')}`,
-            missingTags,
-            isCompliant,
-        };
-    });
-
-    const compliantCount = allResources.filter(r => r.isCompliant).length;
-    const complianceScore = allResources.length === 0
-        ? 100
-        : Math.max(0, Math.round((compliantCount / allResources.length) * 100));
-
-    return { complianceScore, allResources, rgComplianceScore: null, resourceGroups: [] };
 }
 
 const MAX_RETRIES = 3;
@@ -93,15 +48,6 @@ export async function GET(req: NextRequest) {
 
         if (isMockTenant(tenantId)) {
             return NextResponse.json(getMockDataForRoute("tags_compliance", tenantId));
-        }
-
-        if (await tenantUsesAws(tenantId)) {
-            const awsData = await getWithStaleWhileRevalidate(
-                `tags_compliance_aws_v1_${tenantId}_${subscriptionId || 'all'}`,
-                () => fetchAwsTagCompliance(tenantId, subscriptionId && subscriptionId.toLowerCase() !== 'all' ? subscriptionId : null),
-                3600
-            );
-            return NextResponse.json({ success: true, provider: "AWS", data: awsData });
         }
 
         const cacheKey = `tags_compliance_v2_${tenantId}_${subscriptionId || 'all'}`;

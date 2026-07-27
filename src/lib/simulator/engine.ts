@@ -40,18 +40,11 @@ export interface SimulatorInputs {
 }
 
 /** Proveedores para los que el simulador tiene defaults calibrados. */
-export type SimulatorProvider = "azure" | "aws";
+export type SimulatorProvider = "azure";
 
-/**
- * Default de ahorro por licencias, en % sobre el cómputo.
- * - `azure`: 18, el valor de AHB con el que se calibró la herramienta.
- * - `aws`: 0, porque no hay un equivalente universal. El ahorro de BYOL depende
- *   de cuánto de la flota corre Windows/SQL y de usar Dedicated Hosts; poner un
- *   número plano sería inventarlo.
- */
+/** Default de ahorro por licencias, en % sobre el cómputo (18 = valor histórico de AHB). */
 export const DEFAULT_LICENSE_SAVINGS_PCT: Record<SimulatorProvider, number> = {
     azure: 18,
-    aws: 0,
 };
 
 export interface SimulatorResult {

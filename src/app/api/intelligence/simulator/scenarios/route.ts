@@ -14,7 +14,6 @@ import crypto from "crypto";
 import pool from "@/modules/storage/db";
 import { requireTenantRole, requireTenantTier, AuthError } from "@/lib/requestAuth";
 import { runScenario, parseInputs } from "@/lib/simulator/engine";
-import { tenantUsesAzure } from "@/lib/tenantProviderContext";
 import { isMockTenant } from "@/lib/mockData";
 
 interface ScenarioRow {
@@ -105,8 +104,7 @@ export async function POST(request: NextRequest) {
             throw new AuthError("baseCost requerido y > 0", 400);
         }
 
-        const simulatorProvider = (await tenantUsesAzure(tenantId)) ? "azure" : "aws";
-        const result = runScenario(numericBase, parsedInputs, simulatorProvider);
+        const result = runScenario(numericBase, parsedInputs);
         const id = crypto.randomUUID();
 
         await pool.query(

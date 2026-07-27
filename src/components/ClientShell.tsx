@@ -7,8 +7,6 @@ import { SubscriptionProvider } from './SubscriptionProvider';
 import ScopeSelector from './ScopeSelector';
 import { ViewModeProvider, useViewMode } from '../context/ViewModeContext';
 import { ProviderProvider } from '../context/ProviderContext';
-import ProviderSwitcher from './ProviderSwitcher';
-import ProviderGraceBanner from './ProviderGraceBanner';
 import { LayoutTemplate, Code2, Bell, HelpCircle } from 'lucide-react';
 import { useTranslations, useLocale } from 'next-intl';
 import AuthSync from './AuthSync';
@@ -398,7 +396,6 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
           
           <div className="flex items-center space-x-2 sm:space-x-6">
             <div className="hidden sm:flex items-center space-x-4">
-                <ProviderSwitcher />
                 <ScopeSelector />
             </div>
 
@@ -440,7 +437,6 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
         <ActionCenterDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
 
         <main className="flex-1 overflow-y-auto p-3 sm:p-6 pb-24 md:pb-6 relative">
-          <ProviderGraceBanner />
           <RouteTierGate>{children}</RouteTierGate>
         </main>
 

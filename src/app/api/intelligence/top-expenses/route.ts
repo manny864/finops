@@ -18,7 +18,6 @@ import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { getSubscriptionNameMap, resolveSubscriptionName, isUnattributedSubscriptionId } from "@/lib/azureSubscriptionNames";
 import pool from "@/modules/storage/db";
-import { tenantUsesAzure } from "@/lib/tenantProviderContext";
 
 async function getTopN(tenantId: string, column: string, extraSelect: string, groupBy: string, days: number, limit = 3) {
     const [rows]: any = await pool.query(
@@ -81,33 +80,12 @@ export async function GET(request: NextRequest) {
             allSubs.filter(s => isUnattributedSubscriptionId(s.name)).reduce((sum, s) => sum + s.cost, 0).toFixed(2)
         );
         let topSubscriptions = allSubs.filter(s => !isUnattributedSubscriptionId(s.name)).slice(0, 3);
-        if (await tenantUsesAzure(tenantId)) {
-            try {
-                const credential = await getAzureCredential(tenantId);
-                const subMap = await getSubscriptionNameMap(tenantId, credential);
-                topSubscriptions = topSubscriptions.map(s => ({ ...s, name: resolveSubscriptionName(s.name, subMap) }));
-            } catch (e: any) {
-                console.warn("[top-expenses] subscriptionNames:", e.message);
-            }
-        } else {
-            // En AWS `subscription_id` guarda el account ID de 12 digitos. Se
-            // reemplaza por el alias que el usuario cargo en el onboarding: un
-            // numero suelto no le dice nada a quien mira el panel.
-            try {
-                const [aliasRows]: any = await pool.query(
-                    `SELECT account_id, alias FROM AwsAccounts WHERE tenant_id = ?`,
-                    [tenantId]
-                );
-                const aliasMap = new Map<string, string>(
-                    (aliasRows as any[]).map(r => [String(r.account_id), String(r.alias)])
-                );
-                topSubscriptions = topSubscriptions.map(s => ({
-                    ...s,
-                    name: aliasMap.get(s.name) ? `${aliasMap.get(s.name)} (${s.name})` : s.name,
-                }));
-            } catch (e: any) {
-                console.warn("[top-expenses] awsAccountAliases:", e.message);
-            }
+        try {
+            const credential = await getAzureCredential(tenantId);
+            const subMap = await getSubscriptionNameMap(tenantId, credential);
+            topSubscriptions = topSubscriptions.map(s => ({ ...s, name: resolveSubscriptionName(s.name, subMap) }));
+        } catch (e: any) {
+            console.warn("[top-expenses] subscriptionNames:", e.message);
         }
 
         return NextResponse.json({

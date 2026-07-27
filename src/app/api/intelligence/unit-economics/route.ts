@@ -8,7 +8,6 @@ import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { redis } from "@/lib/redis";
 import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError, type CostColumn } from "@/lib/azureCostColumn";
-import { tenantUsesAws } from "@/lib/tenantProviderContext";
 
 export async function GET(request: NextRequest) {
     try {
@@ -21,19 +20,9 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(getMockDataForRoute('unit_economics', tenantId));
         }
 
-        // El proveedor entra en la clave: si un tenant migra de nube, la serie
-        // de la anterior no puede seguir sirviendose.
-        const isAws = await tenantUsesAws(tenantId);
-        const cacheKey = `unit_economics:v2:${isAws ? 'aws' : 'azure'}:${tenantId}`;
+        const cacheKey = `unit_economics:v2:azure:${tenantId}`;
         const data = await getWithStaleWhileRevalidate(cacheKey, async () => {
             const dailyCosts = new Map<string, number>();
-
-            // Lo unico atado al proveedor es de donde sale el costo diario: el
-            // DAU y el costo por usuario ya son agnosticos.
-            if (isAws) {
-                await fillAwsDailyCosts(tenantId, dailyCosts);
-                return await buildUnitEconomics(tenantId, dailyCosts);
-            }
 
             let credential;
             let costClient;
@@ -143,34 +132,9 @@ export async function POST(request: NextRequest) {
 
 
 /**
- * Costo diario de los ultimos 30 dias para un tenant AWS.
- *
- * Sale de `CostSnapshots`, que el sync ya alimenta por los dos caminos (Cost
- * Explorer y CUR). No se llama a `ce:GetCostAndUsage` porque Cost Explorer
- * factura por consulta y sobre una serie ya ingestada el resultado es el mismo.
- */
-async function fillAwsDailyCosts(tenantId: string, dailyCosts: Map<string, number>): Promise<void> {
-    const pool = (await import('@/modules/storage/db')).default;
-    const [rows] = await pool.query(
-        `SELECT DATE_FORMAT(DATE(COALESCE(ChargePeriodStart, date)), '%Y-%m-%d') AS d,
-        SUM(COALESCE(EffectiveCost, cost_usd, 0)) AS cost
-           FROM CostSnapshots
-          WHERE tenant_id = ?
-    AND DATE(COALESCE(ChargePeriodStart, date)) >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)
-          GROUP BY d`,
-        [tenantId]
-    );
-    for (const r of (Array.isArray(rows) ? rows : []) as Array<{ d: string; cost: unknown }>) {
-        dailyCosts.set(r.d, Number(r.cost) || 0);
-    }
-}
-
-/**
  * Arma la serie de costo por usuario a partir del costo diario ya resuelto.
  *
- * Es comun a las dos nubes: el DAU y la configuracion de negocio viven en la
- * base del SaaS, no en el proveedor. Lo unico que cambia entre Azure y AWS es
- * de donde sale `dailyCosts`.
+ * El DAU y la configuracion de negocio viven en la base del SaaS.
  */
 async function buildUnitEconomics(tenantId: string, dailyCosts: Map<string, number>) {
     const pool = (await import('@/modules/storage/db')).default;

@@ -45,8 +45,8 @@ const FALLBACK: TenantProviders = { setting: 'azure', azure: true, aws: false };
 function fromSetting(setting: TenantProviderSetting): TenantProviders {
     return {
         setting,
-        azure: setting === 'azure' || setting === 'both',
-        aws: setting === 'aws' || setting === 'both',
+        azure: true,
+        aws: false,
     };
 }
 
@@ -86,7 +86,6 @@ export async function tenantUsesAws(tenantId: string): Promise<boolean> {
 export function providerIdsFor(providers: TenantProviders): CloudProviderId[] {
     const ids: CloudProviderId[] = [];
     if (providers.azure) ids.push('azure');
-    if (providers.aws) ids.push('aws');
     return ids;
 }
 

@@ -26,6 +26,8 @@ import {
     type HistoryPoint,
     type ForecastPoint,
 } from "@/lib/forecasting";
+import Decimal from "decimal.js";
+import { toMoneyDto } from "@/lib/moneyDecimal";
 
 type Method = "linear" | "ema" | "holt_winters" | "damped_holt" | "ensemble" | "auto";
 
@@ -92,7 +94,7 @@ export async function GET(request: NextRequest) {
         for (const r of raw) {
             const d = r.day_date instanceof Date ? r.day_date : new Date(r.day_date);
             const dateStr = d.toISOString().slice(0, 10);
-            const v = Number(r.daily) || 0;
+            const v = new Decimal(r.daily || 0);
             const name = r.service_name || "Unallocated";
             const arr = byService.get(name) || [];
             arr.push({ date: dateStr, value: v.toFixed(2) });
@@ -102,26 +104,26 @@ export async function GET(request: NextRequest) {
         // Rank by total recent spend, keep topN, group rest as "Other"
         const ranked = [...byService.entries()]
             .map(([name, hist]) => {
-                const total = hist.reduce((acc, p) => acc + parseFloat(p.value), 0);
+                const total = hist.reduce((acc, p) => acc.plus(new Decimal(p.value || 0)), new Decimal(0));
                 return { name, hist, total };
             })
-            .sort((a, b) => b.total - a.total);
+            .sort((a, b) => b.total.comparedTo(a.total));
 
         const top = ranked.slice(0, topN);
         const rest = ranked.slice(topN);
 
         // Bucket "rest" into a single Other-time-series by summing per day
         if (rest.length > 0) {
-            const otherMap = new Map<string, number>();
+            const otherMap = new Map<string, Decimal>();
             for (const r of rest) {
                 for (const p of r.hist) {
-                    otherMap.set(p.date, (otherMap.get(p.date) || 0) + parseFloat(p.value));
+                    otherMap.set(p.date, (otherMap.get(p.date) || new Decimal(0)).plus(new Decimal(p.value || 0)));
                 }
             }
             const otherHist: HistoryPoint[] = [...otherMap.entries()]
                 .sort(([a], [b]) => a.localeCompare(b))
                 .map(([date, v]) => ({ date, value: v.toFixed(2) }));
-            const total = otherHist.reduce((acc, p) => acc + parseFloat(p.value), 0);
+            const total = otherHist.reduce((acc, p) => acc.plus(new Decimal(p.value || 0)), new Decimal(0));
             top.push({ name: "Other", hist: otherHist, total });
         }
 
@@ -134,7 +136,8 @@ export async function GET(request: NextRequest) {
                     history: hist,
                     forecast: [],
                     methodUsed: null,
-                    historyTotal: Math.round(total * 100) / 100,
+                    historyTotal: Number(total.toFixed(2)),
+                    historyTotalMoney: toMoneyDto(total),
                     forecastTotal: 0,
                     note: "Historial insuficiente (<2 puntos).",
                 };
@@ -146,14 +149,16 @@ export async function GET(request: NextRequest) {
             } catch {
                 fc = [];
             }
-            const fcTotal = fc.reduce((acc, p) => acc + parseFloat(p.value), 0);
+            const fcTotal = fc.reduce((acc, p) => acc.plus(new Decimal(p.value || 0)), new Decimal(0));
             return {
                 serviceName: name,
                 history: hist,
                 forecast: fc,
                 methodUsed: methodToUse,
-                historyTotal: Math.round(total * 100) / 100,
-                forecastTotal: Math.round(fcTotal * 100) / 100,
+                historyTotal: Number(total.toFixed(2)),
+                forecastTotal: Number(fcTotal.toFixed(2)),
+                historyTotalMoney: toMoneyDto(total),
+                forecastTotalMoney: toMoneyDto(fcTotal),
             };
         });
 

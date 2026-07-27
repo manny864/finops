@@ -127,7 +127,7 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
 
 1. **User Identity — dos caminos**:
    - **Azure (Entra ID)**: manejado vía MSAL (`@azure/msal-react`). Los tokens JWT (RS256) se validan contra el JWKS de `login.microsoftonline.com/{tid}` en todos los llamados a la API en `src/app/api`.
-   - **AWS (identidad propia)**: AWS no tiene un IdP equivalente a Entra (IAM Identity Center es el SSO del cliente, no un directorio global; "Login with Amazon" es identidad de consumidor), así que los tenants AWS usan email+contraseña. `src/lib/localToken.ts` emite un JWT **HS256** con la misma forma que `AuthClaims`, y `validateRequestToken` (`src/lib/requestAuth.ts`) discrimina **por algoritmo** — cada rama exige el suyo, así que no hay confusión de algoritmo posible. Es el único punto de cambio: los guards y las ~250 rutas quedan intactos.
+   - **Identidad propia (email + contraseña)**: para tenants sin un tenant Entra corporativo. `src/lib/localToken.ts` emite un JWT **HS256** con la misma forma que `AuthClaims`, y `validateRequestToken` (`src/lib/requestAuth.ts`) discrimina **por algoritmo** — cada rama exige el suyo, así que no hay confusión de algoritmo posible. Es el único punto de cambio: los guards y las ~250 rutas quedan intactos.
    - Requiere `LOCAL_AUTH_SECRET` (32+ chars). Sin él, los 7 endpoints de `/api/auth/local/*` devuelven **503 fail-closed**.
 2. **Service Principal (Platform Agent)**: Los Tenants hacen Onboarding ejecutando un script de PowerShell que crea un **Service Principal Least-Privilege**.
 3. **Role-Based Access Control (RBAC)** — Roles asignados por tier:
@@ -206,117 +206,11 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
 
 ---
 
-## ☁️ Modelo multi-cloud (Azure + AWS)
+## ☁️ Proveedor de nube
 
-La plataforma soporta dos proveedores con **el mismo modelo de precios**. Son dos
-sistemas de datos independientes dentro del mismo codebase; sólo **Enterprise**
-puede tener los dos a la vez.
-
-### Columna `Tenants.provider`
-
-| Valor | Significado | Tier mínimo |
-|---|---|---|
-| `azure` | Sólo Azure. **Default** de la columna y estado de todos los tenants preexistentes (no requiere backfill). | Essential |
-| `aws` | Sólo AWS. Lo escribe `POST /api/auth/local/signup`. | Essential |
-| `both` | Azure y AWS simultáneos. | **Enterprise** |
-
-La exclusividad se valida server-side, no sólo en la UI: `assertProviderIngestable()`
-(`src/services/providerLifecycleService.ts`) corta la ingesta del proveedor no
-habilitado en los cuatro puntos de entrada — `POST /api/aws/accounts`,
-`/api/sync/aws/[accountId]/ce`, `/api/sync/aws/[accountId]/cur` y el `PUT /api/tenants`
-que graba las credenciales del Service Principal de Azure. Devuelve **409**, no 403:
-no es un problema de permisos sino de estado del tenant.
-
-### Alcance del panel por proveedor
-
-`src/lib/routeProviders.ts` mapea ruta → proveedores que la soportan, con match
-por prefijo más largo (mismo mecanismo que `routeTiers.ts`). **El default es
-`azure` solo**, deliberadamente: el panel nació 100% Azure y la mayoría de las
-páginas terminan llamando a Azure Resource Manager, así que una página nueva sin
-clasificar queda *oculta* para AWS en vez de aparecer rota. La lista de rutas
-agnósticas es el marcador de avance de la parametrización multi-cloud.
-
-El Sidebar aplica ese filtro **antes** que el de rol y el de tier: es una
-restricción del producto, no del usuario.
-
-El criterio para habilitar una ruta a AWS es doble: que su API no dependa de
-Azure (ni directa ni transitivamente) **y** que las tablas que consulta las
-alimente también el sync de AWS. Lo segundo importa tanto como lo primero: una
-página que lea `RecommendationActions` no rompe para un tenant AWS, muestra
-cero, y un cero se lee como "no hay desperdicio".
-
-`docs/finops-framework-coverage.md` tiene la matriz de capabilities del FinOps
-Framework abierta por nube, con la evidencia de qué acopla cada una a Azure y
-los gaps priorizados.
-
-**Allocation** era el gap de mayor impacto y quedó resuelto por la migración
-`20260728-001`, que agrega `allocation_tag_hash` a la clave única de
-`CostSnapshots`. Antes esa clave era
-`(tenant, subscription, date, resource_group, service_name)`: dos filas del
-mismo día, región y servicio con distinto centro de costo se pisaban por
-`ON DUPLICATE KEY UPDATE` y todo el gasto AWS caía en "Sin asignar". Con eso se
-habilitaron además Chargeback, Unit Economics y Showback por equipo.
-
-> ⚠️ **Allocation en AWS depende del CUR.** El camino de Cost Explorer no trae
-> etiquetas de recurso: un tenant que sólo conecte CE no va a ver reparto por
-> centro de costo por más que la migración esté aplicada.
-
-⚠️ **`ALLOCATION_TAG_KEYS` (`src/lib/allocationTags.ts`) es orden-dependiente**:
-su orden define el hash, así que agregar una clave al medio invalida todo lo
-persistido. **Agregar siempre al final.**
-
-La tabla de precios es **pre-login**, así que no puede deducir el proveedor de
-ningún tenant: el visitante lo elige con un selector. `src/lib/pricingFeatureAvailability.ts`
-declara por tier qué features tiene hoy un tenant AWS — fail-closed, un tier sin
-clasificar no ofrece nada — y al elegir AWS lo no disponible se muestra tachado.
-**Al habilitar una capability para AWS hay que agregar su índice ahí**, o la
-tabla va a seguir mostrándola tachada.
-
-Un test (`__tests__/unit/i18nProviderTerms.test.ts`) deriva del código los
-namespaces de i18n que ve un tenant AWS y falla si una página habilitada usa
-terminología exclusiva de Azure sin variante `_aws`. Es automático: parte de
-`awsEnabledRoutes()` y sigue los imports de cada `page.tsx`, así que habilitar
-una ruta la mete en la revisión sin tener que acordarse de nada.
-
-### Ciclo de vida de los datos al bajar de tier
-
-Un Enterprise con `provider = 'both'` que baja de plan pierde el derecho a
-multi-cloud. La política es **archivado reversible con ventana de gracia de 90
-días**, nunca borrado inmediato. El detalle completo, con el rationale de cada
-decisión, está en **`docs/provider-downgrade-policy.md`**. Resumen:
-
-| Momento | Qué ocurre |
-|---|---|
-| T+0 | Se elige el proveedor retenido (mayor gasto → más cuentas → `azure`, comparado con `Decimal`, nunca float) y el otro queda archivado: se corta la ingesta, se conservan datos y credenciales. |
-| T+0 … T+90 | El archivado es **sólo lectura**. El export FOCUS sigue habilitado aunque el nuevo tier no lo incluya (portabilidad, GDPR art. 20), exigiendo igual rol ADMIN/OWNER. |
-| T-30 / T-7 | Aviso por email y notificación in-app, idempotente por hito. |
-| T+90 | Purga en lotes de 5.000 filas + registro `PROVIDER_DATA_PURGED` en `ActionLogs`. |
-
-Volver a Enterprise antes del plazo **restaura todo sin pérdida**. Invertir la
-elección durante la gracia **no reinicia el reloj** (si no, un tenant podría
-alternar y retener multi-cloud gratis para siempre).
-
-**Punto único de entrada:** `applyTierChange()` está wireado en los 4 lugares que
-escriben `Tenants.tier` (webhook de Paddle, Marketplace de Azure, Marketplace de
-AWS y el PATCH de superadmin) para que ninguno pueda olvidarse del side-effect.
-
-**Tablas/columnas** (migración `20260725-005-provider-archive.sql`):
-`Tenants.provider_archived`, `Tenants.provider_purge_at`, tabla
-`TenantProviderTransitions`, `AwsAccounts.disabled_at` / `disabled_reason`.
-
-> ⚠️ **Gotcha de purga:** `FocusLineItems.ProviderName` **no es confiable para
-> Azure** — la columna se agregó tarde con `DEFAULT 'Azure'`, así que las filas
-> históricas quedaron con `NULL` **o** con `'Azure'` indistintamente. El mapper de
-> AWS siempre escribe exactamente `'AWS'`. Filtrar Azure por `ProviderName = 'Azure'`
-> deja filas sin purgar (verificado contra MySQL 8: el predicado ingenuo perdía 1
-> de 2 filas). El predicado seguro está centralizado en `providerPredicate()`.
-
-### Endpoints
-
-| Endpoint | Método | RBAC | Para qué |
-|---|---|---|---|
-| `/api/admin/provider-transition?tenantId=...` | GET | `requireTenantAccess` | Estado de la ventana de gracia: proveedor archivado, fecha de purga, días restantes. Lo consume el banner de la UI. |
-| `/api/admin/provider-transition` | POST | `requireTenantRole(['ADMIN','OWNER'])` | Invierte cuál proveedor se retiene. Decide qué dataset se borra: es titularidad, no consulta. |
+La plataforma es **Azure-only**. (El soporte AWS que existió durante una fase
+de evaluación multi-cloud fue removido; ver el changelog más abajo para el
+historial.)
 
 ---
 
@@ -341,7 +235,7 @@ AWS y el PATCH de superadmin) para que ninguno pueda olvidarse del side-effect.
 
 ### 2026-07-26 — Multi-cloud AWS: onboarding de mínimo privilegio, caché de Cost Explorer y panel parametrizado
 
-- **Onboarding AWS automatizado** (Fase 4). `POST /api/admin/onboarding/aws` (guard `requireTenantRole(['ADMIN','OWNER'])`, fail-closed 503 sin `AWS_PLATFORM_ACCOUNT_ID`) genera plantillas **CloudFormation, Terraform y AWS CLI** parametrizadas con el account ID de la plataforma y el `externalId` de la cuenta, y la pantalla de alta las muestra con selector de formato. Reemplazan las tres managed policies que se sugerían antes: `AmazonS3ReadOnlyAccess` daba lectura de **todos** los buckets del cliente para leer un solo reporte de costos. La plantilla concede exactamente las acciones que el código invoca, extraídas leyendo los comandos del SDK y no la documentación de AWS: `sts:AssumeRole`, `ce:GetCostAndUsage`, el inventario EC2 de sólo lectura (`ec2:DescribeInstances`, `DescribeVolumes`, `DescribeAddresses`, `DescribeSnapshots`), los presupuestos nativos (`budgets:DescribeBudgets`, `budgets:ViewBudget`, acotados al ARN de presupuestos de la propia cuenta), las recomendaciones de compra de Cost Explorer (`ce:GetReservationPurchaseRecommendation`, `ce:GetSavingsPlansPurchaseRecommendation`), el inventario transversal por etiquetas (`tag:GetResources`, `tag:GetTagKeys`) y `s3:GetObject`+`s3:ListBucket` acotadas al bucket del CUR. **Los tenants onboardeados antes de esta versión deben re-ejecutar la plantilla**: sin los permisos nuevos el síntoma es un inventario vacío, no un error. No hay ni una acción de escritura, y un test afirma la **lista cerrada** para que no se amplíe sin una llamada real que lo justifique.
+- **Onboarding AWS automatizado** (Fase 4). `POST /api/admin/onboarding/aws` (guard `requireTenantRole(['ADMIN','OWNER'])`, fail-closed 503 sin cuenta AWS de plataforma configurada) genera plantillas **CloudFormation, Terraform y AWS CLI** parametrizadas con el account ID de la plataforma y el `externalId` de la cuenta, y la pantalla de alta las muestra con selector de formato. El account ID se resuelve KV-first desde `infra-aws-platform-account-id` (fallback `AWS_PLATFORM_ACCOUNT_ID`). Reemplazan las tres managed policies que se sugerían antes: `AmazonS3ReadOnlyAccess` daba lectura de **todos** los buckets del cliente para leer un solo reporte de costos. La plantilla concede exactamente las acciones que el código invoca, extraídas leyendo los comandos del SDK y no la documentación de AWS: `sts:AssumeRole`, `ce:GetCostAndUsage`, el inventario EC2 de sólo lectura (`ec2:DescribeInstances`, `DescribeVolumes`, `DescribeAddresses`, `DescribeSnapshots`), los presupuestos nativos (`budgets:DescribeBudgets`, `budgets:ViewBudget`, acotados al ARN de presupuestos de la propia cuenta), las recomendaciones de compra de Cost Explorer (`ce:GetReservationPurchaseRecommendation`, `ce:GetSavingsPlansPurchaseRecommendation`), el inventario transversal por etiquetas (`tag:GetResources`, `tag:GetTagKeys`) y `s3:GetObject`+`s3:ListBucket` acotadas al bucket del CUR. **Los tenants onboardeados antes de esta versión deben re-ejecutar la plantilla**: sin los permisos nuevos el síntoma es un inventario vacío, no un error. No hay ni una acción de escritura, y un test afirma la **lista cerrada** para que no se amplíe sin una llamada real que lo justifique.
 
   > ⚠️ **Los clientes onboardeados antes de julio 2026 tienen que re-ejecutar la plantilla.** La versión anterior sólo otorgaba `ec2:DescribeInstances`, así que la limpieza de recursos ociosos fallaba con `AccessDenied` en volúmenes, IPs elásticas y snapshots — silenciosamente, mostrando la lista incompleta en vez de un error.
 - **Caché de Cost Explorer** (Fase 5). CE cobra **USD 0.01 por request** y cada página de la paginación cuenta aparte, así que un dashboard que refresca solo podía costar más que el ahorro que encuentra. `getCostAndUsage` ahora cachea en Redis por `(cuenta, rango)` con TTL de 24 h si el rango ya cerró y 1 h si incluye el día en curso —que AWS sigue actualizando—, reintenta con backoff exponencial **y jitter** ante throttling (sin jitter, las cuentas de un mismo tenant se re-throttlean entre sí al sincronizar juntas) y traduce `AccessDeniedException` en un mensaje que nombra el permiso faltante. Redis caído degrada a lectura fresca: la caché no es un punto de falla.
@@ -788,7 +682,11 @@ Endpoints internos protegidos por `Authorization: Bearer ${CRON_SECRET}`. Se inv
 | `GET /api/cron/cost-sync-staleness-check` | Diaria 08:00 UTC   | Verifica que `/api/cron/sync` haya escrito datos nuevos en `CostSnapshots` en las últimas 36h para cada tenant real con Azure conectado — Cost Groups y el resto de features basadas en `CostSnapshots` requieren refresco diario. Si el sync no corrió (0 tenants frescos) crea una alerta `critical` en `SystemAlerts` + email a soporte; si es parcial, `warning` sin email. Existe justamente para detectar automáticamente el escenario del incidente del 2026-07-05 (ver nota abajo) la próxima vez que pase, en vez de depender de que alguien lo note manualmente. |
 | `GET /api/cron/ttl-expiry-alerts`     | Diaria (o más seguido)  | Evalúa reglas `AlertRules` tipo `ttl_expiry` (Alertas Self-Service) contra los entornos con tag `ExpireOn`/`TTL` de cada tenant y notifica los que vencen dentro de N días (o ya vencidos) — paso 3 del flujo TTL Enforcement ("El sistema te alerta antes de la eliminación automática"), antes inexistente. Mismo patrón anti-spam que `credential-expiry-alerts` (`last_triggered_at`). |
 | `GET /api/cron/focus-export-daily`   | Diaria                  | Genera el export FOCUS 1.1 (CSV/JSON) del día anterior para cada tenant con `FocusExportSchedules.enabled = TRUE` (Administración → FOCUS 1.1 Export → "Programación diaria automática") y lo manda como adjunto por email — antes el export solo era manual, por rango de fechas. |
-| `GET /api/cron/provider-archive-purge` | Diaria 05:00 UTC     | Cierra el ciclo de vida del proveedor archivado tras un downgrade de un tenant Enterprise multi-cloud (`provider = 'both'`): avisa en T-30 y T-7 (in-app + email, idempotente por `notified_tNN_at`) y purga por lotes los datos del proveedor archivado cuya ventana de gracia venció, con auditoría en `ActionLogs`. Ver [docs/provider-downgrade-policy.md](docs/provider-downgrade-policy.md). |
+| `GET /api/cron/credential-expiry-alerts` | Diaria             | Evalúa reglas `AlertRules` tipo `credential_expiry`: consulta Microsoft Graph por tenant y notifica (email/Slack/Teams/webhook) las App Registrations que vencen dentro del umbral configurado o ya vencieron. Anti-spam por `last_triggered_at`. |
+| `GET /api/cron/subscription-expiry`  | Diaria                  | Pasa a `EXPIRED` los tenants `CANCELED` cuyo período ya pagado (`access_until`, seteado por el webhook de Paddle) venció — corta el acceso sin cortarlo antes de tiempo. |
+| `GET /api/cron/trial-expiry`         | Diaria                  | Pasa a `EXPIRED` los tenants en `TRIAL` cuyo `trial_ends_at` ya venció y notifica por email. |
+| `GET /api/cron/support-attachments-cleanup` | Diaria           | Borra archivo + fila de los adjuntos de soporte con más de `SUPPORT_ATTACHMENT_RETENTION_DAYS` (60) días. |
+| `GET /api/cron/status-snapshot`      | Cada 5 min              | Chequea DB/Azure Sync/AI Provider/Paddle y persiste una fila en `PlatformStatusSnapshots`, de donde `/api/status` calcula `uptime_30d_pct` — sin él la página pública de estado no tiene datos de uptime. Auth vía `?secret=` (query param), no header `Authorization`, a diferencia del resto de los crons de esta tabla — mismo `CRON_SECRET`. |
 
 **Ejemplo crontab VPS:**
 ```cron
@@ -821,10 +719,21 @@ Endpoints internos protegidos por `Authorization: Bearer ${CRON_SECRET}`. Se inv
 # Alertas de expiración TTL (entornos efímeros por vencer/vencidos) — diario
 0 9 * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/ttl-expiry-alerts >> /var/log/finops-cron.log 2>&1
 
-# Ciclo de vida del proveedor archivado tras un downgrade multi-cloud: avisos
-# T-30/T-7 y purga de la ventana de gracia vencida — diario.
-# Ver docs/provider-downgrade-policy.md
-0 5 * * * curl -fsS -H "Authorization: ******" https://finops.cscloudsolutions.com.ar/api/cron/provider-archive-purge >> /var/log/finops-cron.log 2>&1
+# Alertas de expiración de credenciales (App Registrations por vencer) — diario
+0 7 * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/credential-expiry-alerts >> /var/log/finops-cron.log 2>&1
+
+# Corta acceso a tenants CANCELED cuyo período pagado ya venció — diario
+30 6 * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/subscription-expiry >> /var/log/finops-cron.log 2>&1
+
+# Vence trials cuyo trial_ends_at ya pasó — diario
+0 1 * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/trial-expiry >> /var/log/finops-cron.log 2>&1
+
+# Retención de adjuntos de soporte (60 días) — diario, 05:00
+0 5 * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/support-attachments-cleanup >> /var/log/finops-cron.log 2>&1
+
+# Snapshot de estado de plataforma (alimenta /api/status y /status) — cada 5 min.
+# Nota: este endpoint autentica por query param ?secret=, no por header Authorization.
+*/5 * * * * curl -fsS "https://finops.cscloudsolutions.com.ar/api/cron/status-snapshot?secret=$CRON_SECRET" >> /var/log/finops-cron.log 2>&1
 
 # Export FOCUS 1.1 diario por email (tenants con programación habilitada)
 0 7 * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/focus-export-daily >> /var/log/finops-cron.log 2>&1
@@ -843,6 +752,8 @@ Endpoints internos protegidos por `Authorization: Bearer ${CRON_SECRET}`. Se inv
 > ⚠️ **Verificación periódica obligatoria**: esta tabla documenta el crontab *esperado*, pero puede desincronizarse del real (ej. tras migrar de VPS, reprovisionar el servidor, o editar el crontab a mano). El 2026-07-05 se detectó que `/api/cron/sync` — el que puebla `CostSnapshots`/`CostMeterSnapshots`/`CostCategorySnapshots` — **no estaba en el crontab real**, dejando Cost by Category, Storage Efficiency y Compute Efficiency sin datos indefinidamente sin ningún error visible. El 2026-07-18 se detectó el mismo patrón con `backup-db.sh` (documentado desde el 2026-07-04, nunca instalado). Verificar con `ssh finops-vps 'crontab -l'` contra esta tabla cada vez que se audite el VPS (ver directiva #14, auditorías de seguridad ~quincenales).
 >
 > **⚠️ El crontab del VPS NO viaja con el deploy ni vive en este repo — es estado manual del servidor.** Un `docker compose up -d --build` (el deploy normal) nunca lo toca, pero si el VPS se reprovisiona, se migra a otro servidor, o alguien corre `crontab -r`/edita a mano sin mirar esta tabla, las entradas se pierden en silencio sin ningún error visible hasta que alguien nota datos faltantes días/semanas después (exactamente los 2 incidentes de arriba). **Checklist de migración/reprovisioning de VPS**: reinstalar TODAS las líneas de la sección "Ejemplo crontab VPS" de arriba tal cual están, no de memoria.
+>
+> **Auditoría 2026-07-27 (retiro de AWS)**: se eliminó `provider-archive-purge` (código y fila de esta tabla) — solo existía para el ciclo de vida de tenants multi-cloud `provider = 'both'`, que dejó de ser posible al retirar el soporte AWS. Si esa línea sigue en el crontab real del VPS, ahora solo pega contra una ruta inexistente (404) — quitarla en la próxima edición manual del crontab. La misma auditoría encontró que `credential-expiry-alerts`, `subscription-expiry`, `trial-expiry`, `support-attachments-cleanup` y `status-snapshot` existen en el código, tenían mención suelta o ninguna en esta sección, y no tenían fila propia en la tabla ni línea de ejemplo en el crontab — se agregaron ambas cosas arriba con frecuencias inferidas del propio código, pero **no verificadas contra el crontab real** (no hay acceso SSH desde este entorno): confirmar con `ssh finops-vps 'crontab -l'` cuáles de las 5 corren de verdad antes de asumir que sí.
 >
 > **Confirmado instalado en el crontab real al 2026-07-18** (verificado con `crontab -l` en esa fecha, no solo documentado): `prewarm-dashboard` (*/10), `power-schedules` (*/2), `open-data` (lunes 04h), `sync` (06h), `support-attachments-cleanup` (05h), `credential-expiry-alerts` (07h), `cleanup-docker.sh` (domingo 04h), `ttl-expiry-alerts` (09h), **`historical-gap-backfill` (03h, agregado 2026-07-18)**, **`backup-db.sh` (02h, agregado 2026-07-18, era solo documentación desde el 07-04)**. `anomaly-detection`, `cost-sync-staleness-check` y `focus-export-daily` están documentados en la tabla de arriba pero **NO confirmados en el crontab real al 07-18** — verificar antes de asumir que corren.
 

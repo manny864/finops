@@ -332,12 +332,10 @@ export default function BillingPage() {
             </div>
             <div className="flex-1">
               <h2 className="mb-2 text-lg font-semibold text-blue-900 dark:text-blue-100">
-                {billingInfo.marketplaceSource === 'azure_marketplace'
-                  ? `🔷 ${t("marketplaceSubscriptionAzure")}`
-                  : `🟠 ${t("marketplaceSubscriptionAws")}`}
+                🔷 {t("marketplaceSubscriptionAzure")}
               </h2>
               <p className="mb-4 text-sm text-blue-800 dark:text-blue-200">
-                {t("marketplaceManagedVia", { marketplace: billingInfo.marketplaceSource === 'azure_marketplace' ? 'Azure' : 'AWS' })}
+                {t("marketplaceManagedVia", { marketplace: 'Azure' })}
               </p>
               <div className="mb-4 space-y-1 text-sm">
                 <p className="text-blue-800 dark:text-blue-200">
@@ -348,28 +346,15 @@ export default function BillingPage() {
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
-                {billingInfo.marketplaceSource === 'azure_marketplace' && (
-                  <a
-                    href="https://portal.azure.com/#view/Microsoft_Azure_SubscriptionManagement/SubscriptionsBlade"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    {t("goToAzurePortal")}
-                  </a>
-                )}
-                {billingInfo.marketplaceSource === 'aws_marketplace' && (
-                  <a
-                    href="https://console.aws.amazon.com/billing/home?#/subscriptions"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700 dark:bg-orange-700 dark:hover:bg-orange-600"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    {t("goToAwsConsole")}
-                  </a>
-                )}
+                <a
+                  href="https://portal.azure.com/#view/Microsoft_Azure_SubscriptionManagement/SubscriptionsBlade"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  {t("goToAzurePortal")}
+                </a>
               </div>
             </div>
           </div>

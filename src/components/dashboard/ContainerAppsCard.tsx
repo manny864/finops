@@ -1,6 +1,5 @@
 /**
- * @azure-only — cubre Azure Container Apps, que no tiene equivalente en AWS.
- * ExecutiveSummaryBoard no lo renderiza cuando el proveedor activo es AWS.
+ * @azure-only — cubre Azure Container Apps.
  */
 "use client";
 import React, { useEffect, useMemo, useState } from 'react';

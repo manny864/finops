@@ -3,6 +3,8 @@ import { v4 as uuidv4 } from "uuid";
 import pool from "@/modules/storage/db";
 import { verifyApiKey, requireScope } from "@/lib/publicApiAuth";
 import rateLimiter from "@/lib/rateLimiter";
+import Decimal from "decimal.js";
+import { toMoneyDto } from "@/lib/moneyDecimal";
 
 export async function GET(request: NextRequest) {
   const requestId = uuidv4();
@@ -135,25 +137,27 @@ export async function GET(request: NextRequest) {
     ]);
 
     const breakdown = [] as any[];
-    let totalCost = 0;
+    let totalCost = new Decimal(0);
 
     for (const row of rows as any[]) {
-      const cost = parseFloat(row.total_cost || 0);
-      totalCost += cost;
+      const cost = new Decimal(row.total_cost || 0);
+      totalCost = totalCost.plus(cost);
       breakdown.push({
         key: row.group_key || "Unknown",
-        cost_usd: cost.toFixed(2),
+        cost_usd: toMoneyDto(cost).amount,
       });
     }
 
     const dayCount = Math.max(1, Math.ceil((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24)));
-    const avgDaily = (totalCost / dayCount).toFixed(2);
+    const avgDaily = totalCost.dividedBy(dayCount);
 
     return NextResponse.json(
       {
         data: {
-          total_cost_usd: totalCost.toFixed(2),
-          average_daily_usd: avgDaily,
+          total_cost_usd: toMoneyDto(totalCost).amount,
+          average_daily_usd: toMoneyDto(avgDaily).amount,
+          total_cost: toMoneyDto(totalCost),
+          average_daily: toMoneyDto(avgDaily),
           period_start: from.toISOString().split("T")[0],
           period_end: to.toISOString().split("T")[0],
           group_by: groupBy,

@@ -2,6 +2,8 @@
 
 Bienvenido a la Plataforma FinOps de CSCloudSolutions. Este manual está diseñado para ayudarte a navegar, comprender y aprovechar al máximo las capacidades de gobernanza, optimización y gestión financiera de recursos en la nube.
 
+> **Nota:** el soporte para AWS que se menciona en algunas secciones de este manual fue removido; la plataforma es Azure-only.
+
 ---
 
 ## 1. Introducción y Acceso
@@ -29,11 +31,13 @@ La plataforma mapea automáticamente tu perfil corporativo hacia uno de los sigu
 
 ## 3. Onboarding de Nuevos Clientes (Flujo SuperAdmin)
 
-Para que un nuevo Tenant de Azure pueda operar dentro de la plataforma (si no ha pasado por un registro automático), un **SuperAdmin** debe completar el siguiente flujo:
+Para que un nuevo tenant pueda operar dentro de la plataforma (si no pasó por registro automático), un **SuperAdmin** debe completar el siguiente flujo. En Azure se usa Service Principal; en AWS se conecta cuenta por rol asumido:
 
 1. **Registrar Tenant Manual:** Dirígete a la sección `Gestión de Tenants` (`/admin/tenants`). Aquí debes ingresar el Entra ID del Tenant, el nombre comercial de la empresa y asignar un Tier inicial. **Nota:** Si tu cuenta de Microsoft Entra oculta tu correo en la propiedad `upn`, la plataforma ya está parcheada para reconocer tu identidad y otorgarte acceso de SuperAdmin.
 2. **Generar Credenciales:** Una vez creado en la base de datos, ve a `Onboarding de Clientes` (`/admin/onboarding`). Solo ahora aparecerán las casillas de **Client ID** y **Client Secret** junto al nombre del entorno, permitiéndote pegar las credenciales del Service Principal generadas por el script de PowerShell.
 3. **Etiquetar origen comercial (opcional):** en el mismo panel expandido de cada tenant del **Directorio de Entornos**, el campo **"Origen comercial / Referido por"** permite anotar qué comercial vendió o refirió al cliente, para tracking interno de ventas. Es visible y editable solo por SuperAdmin; el propio tenant nunca lo ve.
+
+> Si el tenant eligió **AWS**, la conexión técnica se realiza en `/admin/cloud-accounts`: registrá `accountId`, `roleArn` y parámetros de CUR. El wizard de onboarding valida que exista al menos una cuenta AWS registrada antes de avanzar.
 
 ### 3.1. Roles Azure que el script PowerShell asigna (por tier)
 

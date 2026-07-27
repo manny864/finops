@@ -26,7 +26,6 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import pool from "@/modules/storage/db";
 import { requireTenantRole, requireTenantTier, AuthError } from "@/lib/requestAuth";
-import { getTenantProviderState } from "@/services/providerLifecycleService";
 import { mapCostSnapshotToFocus, type CostSnapshotRow } from "@/lib/focus/mapper";
 import {
     buildFocusCsvHeader,
@@ -112,17 +111,6 @@ async function authorise(request: NextRequest, tenantId: string): Promise<void> 
     }
     // Rol: siempre exigido, en los dos caminos.
     await requireTenantRole(request, tenantId, ["ADMIN", "OWNER"]);
-
-    // Excepción de portabilidad: un tenant que bajó de Enterprise y tiene
-    // datos de un proveedor archivado en ventana de gracia CONSERVA el export
-    // mientras dure esa ventana, aunque su tier ya no lo habilite. Sin esto,
-    // bajar de plan equivaldría a secuestrarle los datos al cliente
-    // (portabilidad, GDPR art. 20) — justamente lo que la ventana de gracia
-    // existe para evitar. Ver docs/provider-downgrade-policy.md.
-    const state = await getTenantProviderState(tenantId);
-    if (state?.archivedProvider && state.purgeAt && state.purgeAt.getTime() > Date.now()) {
-        return;
-    }
 
     // FOCUS 1.1 Export es feature Enterprise (ver Sidebar).
     await requireTenantTier(request, tenantId, "Enterprise");

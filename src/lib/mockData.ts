@@ -1,5 +1,4 @@
 import { getAdvisorMock } from './advisorMock';
-import { getAwsMockDataForRoute } from './awsMockData';
 
 /**
  * Tenants de demo de Azure, uno por tier.
@@ -11,26 +10,9 @@ export const MOCK_AZURE_TENANTS = [
     "33333333-4444-5555-6666-777777777777",
 ] as const;
 
-/**
- * Tenants de demo de AWS, uno por tier. Son tenants aparte y no un flag sobre
- * los de Azure porque la demo tiene que poder mostrar los dos mundos a la vez
- * (por ejemplo, dos pestañas abiertas en una misma presentación comercial).
- */
-export const MOCK_AWS_TENANTS = [
-    "aaaa1111-2222-3333-4444-555555555555",
-    "aaaa2222-3333-4444-5555-666666666666",
-    "aaaa4444-5555-6666-7777-888888888888",
-    "aaaa3333-4444-5555-6666-777777777777",
-] as const;
-
 export const isMockTenant = (tenantId: string) => {
-    return ([...MOCK_AZURE_TENANTS, ...MOCK_AWS_TENANTS, "demo_tenant"] as string[])
+    return ([...MOCK_AZURE_TENANTS, "demo_tenant"] as string[])
         .includes(tenantId);
-};
-
-/** Un tenant de demo AWS debe recibir datos AWS, no de Azure. */
-export const isAwsMockTenant = (tenantId: string) => {
-    return (MOCK_AWS_TENANTS as readonly string[]).includes(tenantId);
 };
 
 /**
@@ -140,11 +122,6 @@ const MOCK_TENANT_TIER: Record<string, string> = {
     "22222222-3333-4444-5555-666666666666": "pro",
     "44444444-5555-6666-7777-888888888888": "business",
     "33333333-4444-5555-6666-777777777777": "enterprise",
-    // Tenants AWS, mismo tier en la misma posición que su par de Azure.
-    "aaaa1111-2222-3333-4444-555555555555": "essential",
-    "aaaa2222-3333-4444-5555-666666666666": "pro",
-    "aaaa4444-5555-6666-7777-888888888888": "business",
-    "aaaa3333-4444-5555-6666-777777777777": "enterprise",
 };
 
 export const getMockDataForRoute = (route: string, arg2: string, locale?: string): any => {
@@ -155,15 +132,6 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
     }
 
     const tier = (isTenantId ? MOCK_TENANT_TIER[arg2] : arg2) || 'essential';
-
-    // Un tenant de demo AWS recibe datos AWS. Si la ruta no tiene equivalente
-    // (páginas específicas de Azure) se cae al mock genérico en vez de devolver
-    // vacío: el Sidebar ya oculta esas páginas para AWS, así que llegar acá
-    // significa que alguien entró por URL directa.
-    if (isTenantId && isAwsMockTenant(arg2)) {
-        const awsPayload = getAwsMockDataForRoute(route, tier);
-        if (awsPayload) return awsPayload;
-    }
 
     let multiplier = 1;
     if (tier.toLowerCase() === 'pro') multiplier = 3;
@@ -1068,36 +1036,6 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                     { date: "2026-06-10", forecastCost: 360 * multiplier },
                 ]
             };
-        // Estado de la ventana de gracia del proveedor archivado tras un
-        // downgrade (docs/provider-downgrade-policy.md). Mock por tier:
-        //  - Enterprise: multi-cloud sano, sin nada archivado -> se ve el
-        //    switch AWS/Azure del header y ningun banner.
-        //  - Business: el caso didactico -> es un ex-Enterprise que bajo de
-        //    plan y tiene AWS archivado con la cuenta regresiva corriendo.
-        //  - Professional / Essential: nunca tuvieron multi-cloud.
-        case 'provider_transition': {
-            const t = tier.toLowerCase();
-            if (t === 'enterprise') {
-                return { provider: 'both', tier: 'Enterprise', archived: null };
-            }
-            if (t === 'business') {
-                const purgeAt = new Date(Date.now() + 23 * 86400000);
-                return {
-                    provider: 'azure',
-                    tier: 'Business',
-                    archived: {
-                        provider: 'aws',
-                        retainedProvider: 'azure',
-                        purgeAt: purgeAt.toISOString(),
-                        daysLeft: 23,
-                        archivedAt: new Date(Date.now() - 67 * 86400000).toISOString(),
-                        electionSource: 'auto',
-                        exportable: true,
-                    },
-                };
-            }
-            return { provider: 'azure', tier: tier || 'Essential', archived: null };
-        }
         case 'maturity':
             return {
                 success: true,

@@ -86,9 +86,4 @@ describe('marketplace: skip-verify blocked in production', () => {
     const src = fs.readFileSync('src/lib/marketplace/azure.ts', 'utf8');
     expect(src).toMatch(/MARKETPLACE_SKIP_VERIFY[\s\S]*NODE_ENV[\s\S]*production/);
   });
-  it('AWS verifySnsMessage source contains the production guard', async () => {
-    const fs = await import('fs');
-    const src = fs.readFileSync('src/lib/marketplace/aws.ts', 'utf8');
-    expect(src).toMatch(/MARKETPLACE_SKIP_VERIFY[\s\S]*NODE_ENV[\s\S]*production/);
-  });
 });

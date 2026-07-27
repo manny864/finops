@@ -3,8 +3,6 @@ import { requireTenantTier, AuthError } from "@/lib/requestAuth";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { getCreatedByAggregation } from "@/modules/collectors/azure/resourceInventoryService";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
-import { tenantUsesAws } from "@/lib/tenantProviderContext";
-import { getAwsCreatedByAggregation } from "@/modules/collectors/aws/awsResourceInventoryService";
 
 export async function GET(request: NextRequest) {
     try {
@@ -16,17 +14,6 @@ export async function GET(request: NextRequest) {
 
         if (isMockTenant(tenantId)) {
             return NextResponse.json(getMockDataForRoute("resources_created_by", tenantId));
-        }
-
-        if (await tenantUsesAws(tenantId)) {
-            // Mismo proxy que en Azure: el creador real vive en CloudTrail, una
-            // ingesta aparte. Se deriva de la etiqueta CreatedBy/Owner.
-            const awsData = await getWithStaleWhileRevalidate(
-                `resources:created-by:aws:v1:${tenantId}`,
-                () => getAwsCreatedByAggregation(tenantId),
-                3600
-            );
-            return NextResponse.json({ success: true, mock: false, provider: "AWS", ...awsData });
         }
 
         const data = await getWithStaleWhileRevalidate(

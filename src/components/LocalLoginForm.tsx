@@ -6,14 +6,11 @@ import { useRouter } from '@/i18n/routing';
 import { saveLocalSession } from '@/lib/localSession';
 
 /**
- * Formulario de email+contraseña para los tenants con identidad propia (AWS).
- * Se monta DENTRO de la tarjeta de login que ya renderiza ClientShell, debajo
- * del botón de Microsoft — no en una página aparte, porque ClientShell
- * intercepta todas las rutas cuando no hay sesión y una página paralela nunca
- * llegaría a pintarse.
- *
- * Ver docs/aws-multicloud-handoff.md §3.1: no existe un "iniciar sesión con
- * AWS" análogo al de Microsoft, por eso este camino es email+contraseña.
+ * Formulario de email+contraseña para tenants con identidad propia (local
+ * auth), sin pasar por Entra. Se monta DENTRO de la tarjeta de login que ya
+ * renderiza ClientShell, debajo del botón de Microsoft — no en una página
+ * aparte, porque ClientShell intercepta todas las rutas cuando no hay sesión
+ * y una página paralela nunca llegaría a pintarse.
  */
 export default function LocalLoginForm() {
     const t = useTranslations('login');

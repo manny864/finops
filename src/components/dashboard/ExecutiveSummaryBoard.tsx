@@ -27,7 +27,6 @@ import { Responsive, WidthProvider } from "react-grid-layout/legacy";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 import { getCookie, setCookie } from "@/lib/clientCookie";
-import { useCloudProvider } from "@/context/ProviderContext";
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
@@ -129,10 +128,6 @@ function KpiCard({ icon: Icon, label, value, sub, tone }: { icon: any; label: st
 
 export default function ExecutiveSummaryBoard() {
     const t = useTranslations("WhiteBoard");
-    // Container Apps y Log Analytics son servicios de Azure: en AWS no existen,
-    // asi que no se muestran (react-grid-layout ignora el layout sin item).
-    const { activeProvider } = useCloudProvider();
-    const isAzure = activeProvider !== "aws";
     const locale = useLocale();
     const { selectedTenant } = useTenant();
     const { selectedSubscription } = useSubscription();
@@ -612,7 +607,7 @@ export default function ExecutiveSummaryBoard() {
                     </FeatureGuard>
                 </div>
 
-                {isAzure && (
+                {(
                     <div key="containerApps">
                         <FeatureGuard requiredTier="Business" featureName={t("container_apps_feature_name")} className="h-full w-full drag-handle cursor-move">
                             <ContainerAppsCard />
@@ -620,7 +615,7 @@ export default function ExecutiveSummaryBoard() {
                     </div>
                 )}
 
-                {isAzure && (
+                {(
                     <div key="logAnalytics">
                         <FeatureGuard requiredTier="Business" featureName={t("log_analytics_feature_name")} className="h-full w-full drag-handle cursor-move">
                             <LogAnalyticsCard />

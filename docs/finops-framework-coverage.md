@@ -1,5 +1,7 @@
 # Cobertura del FinOps Framework por proveedor
 
+> **Nota:** el soporte AWS descrito en este documento fue removido; la plataforma es Azure-only. Se conserva como referencia histórica.
+
 Estado de la plataforma frente a las *capabilities* del FinOps Framework de la
 FinOps Foundation, abierto por nube. El objetivo es responder con evidencia una
 pregunta concreta: **qué ve hoy un tenant AWS y qué le falta respecto de uno de
@@ -32,7 +34,7 @@ Leyenda: ✅ cubierta · 🟡 parcial · ❌ no cubierta · n/a fuera de alcance
 | Capability | Azure | AWS | Evidencia / bloqueo |
 |---|:--:|:--:|---|
 | Planning & Estimating | ✅ | ✅ | Simulador habilitado para las dos nubes. El ahorro por licencias ya no asume el 18 % de AHB en AWS: el porcentaje lo declara el usuario (default 0). |
-| Forecasting | ✅ | 🟡 | La serie histórica se reconstruye desde `CostSnapshots` y se proyecta con `linearForecast` (`src/lib/forecasting.ts`). Falta integrar `ce:GetCostForecast` para contrastar contra la proyección del propio proveedor. |
+| Forecasting | ✅ | ✅ | AWS usa `ce:GetCostForecast` cuando el tenant consulta una cuenta puntual (`subscriptionId=account_id`) y mantiene fallback al motor interno (`src/lib/forecasting.ts`) para `All` o cuando CE no responde. |
 | Budgeting | ✅ | ✅ | `awsBudgetService.ts` sobre `@aws-sdk/client-budgets`. Sólo lectura y sólo presupuestos de tipo `COST`: los de uso y cobertura de RI/Savings Plans se miden en horas o porcentaje. Crear presupuestos en AWS exigiría permisos de escritura que el rol de onboarding no pide, así que en AWS el alta es sólo en la plataforma. |
 | Unit Economics | ✅ | ✅ | Parametrizada: en AWS el costo diario sale de `CostSnapshots`. El DAU y el costo por usuario viven en la base del SaaS y ya eran agnósticos (`buildUnitEconomics`). |
 | Benchmarking | 🟡 | ❌ | Solo comparación intra-tenant. |
@@ -42,7 +44,7 @@ Leyenda: ✅ cubierta · 🟡 parcial · ❌ no cubierta · n/a fuera de alcance
 | Capability | Azure | AWS | Evidencia / bloqueo |
 |---|:--:|:--:|---|
 | Architecting for Cloud | 🟡 | ❌ | Cubierta parcialmente por HA y Advisor, ambos Azure. |
-| Workload Optimization | ✅ | 🟡 | **Parcial en AWS.** La eliminación de recursos ociosos ya funciona: `awsInventoryService` arma el inventario con las APIs de EC2 y detecta volúmenes EBS sin adjuntar, IPs elásticas ociosas, snapshots vencidos e instancias detenidas (en estas se reporta el costo de sus discos, no el de cómputo, que una instancia apagada no paga). Falta el **rightsizing**: `/api/intelligence/rightsizing` importa `src/lib/azure.ts` y el equivalente AWS exige métricas de CloudWatch o Compute Optimizer. |
+| Workload Optimization | ✅ | 🟡 | **Parcial en AWS.** `/api/intelligence/rightsizing` ya opera en AWS sobre inventario real (`getAwsZombies`) y detecta ahorro en recursos ociosos (EBS sin adjuntar, EIP ociosa, snapshots vencidos, instancias detenidas). El **rightsizing por performance** (downsizing por CPU/MEM histórica) sigue pendiente: requiere CloudWatch/Compute Optimizer para paridad completa con Azure. |
 | Rate Optimization | ✅ | ✅ | **AWS resuelto** con `awsRateService`: `GetReservationPurchaseRecommendation` y `GetSavingsPlansPurchaseRecommendation` de Cost Explorer, calculadas sobre el uso real de 30 días **descontando la cobertura vigente**. No se recalcula desde el inventario: eso llevaría a recomendar sobre-compra. TTL de 12 h porque cada request cuesta USD 0.01. |
 | Licensing & SaaS | ✅ | n/a | AHB y M365 son específicos de Microsoft. En AWS el equivalente (BYOL sobre Dedicated Hosts) requiere datos que hoy no se ingestan. |
 | Cloud Sustainability | ✅ | ✅ | **AWS resuelto** con los factores de emisión de 29 regiones AWS sobre el inventario EC2. No se usa el Customer Carbon Footprint Tool: sólo trae datos ya facturados, con hasta 3 meses de retraso y sin API pública. S3 queda fuera del alcance (exigiría `s3:ListAllMyBuckets`) y se informa 0, no una estimación inventada. |
@@ -74,8 +76,9 @@ datos de Azure porque su insert no llena `Tags`, así que el hash queda `''` y l
 clave nueva resulta equivalente a la vieja para todo lo ya persistido.
 
 ⚠️ **Limitación que persiste**: el camino de Cost Explorer (sin CUR) **no trae
-etiquetas de recurso**. Un tenant que sólo conecte CE sigue sin allocation. Ya
-se advierte en el onboarding y en los manuales.
+etiquetas de recurso**. Por eso el sync CE ahora bloquea tenants productivos
+(`subscription_status=ACTIVE`) sin `cur_bucket` + `cur_prefix` + `cur_region`.
+Un tenant que sólo conecte CE sigue sin allocation real.
 
 ### Gap 2 — Gobernanza en AWS — **parcialmente resuelto**
 
@@ -99,16 +102,17 @@ trabajo de módulo nuevo, no de habilitar páginas.
 
 ### Gap 3 — Rate Optimization y Forecasting en AWS — **resuelto**
 
-Ambas se resolvieron con la API de Cost Explorer que ya se usaba, sin
-necesidad de inventario. Lo que queda abierto en esta rama es el **rightsizing**
-(ver Workload Optimization): el camino más barato es Compute Optimizer, gratuito
-en su nivel básico.
+Ambas se resolvieron con la API de Cost Explorer. Forecast usa
+`ce:GetCostForecast` para cuentas puntuales y fallback local para el agregado.
+Lo que queda abierto en esta rama es el **rightsizing por performance**
+(CloudWatch/Compute Optimizer). El módulo de ahorro por ociosidad ya quedó
+integrado en `/api/intelligence/rightsizing` para AWS.
 
-### Gap 4 — Precisión (Regla Cero)
+### Gap 4 — Precisión (Regla Cero) — **resuelto en Cost Explorer**
 
-`src/lib/aws/costExplorer.ts` usa `parseFloat()` sobre montos que AWS devuelve
-como string justamente para no perder precisión. Debe migrar a `decimal.js`
-antes de la primera facturación real contra AWS.
+`src/lib/aws/costExplorer.ts` ya no usa `parseFloat()` para montos/cantidades
+de CE y parsea con `decimal.js`. Mantener la misma disciplina en cualquier
+nuevo colector AWS.
 
 ---
 

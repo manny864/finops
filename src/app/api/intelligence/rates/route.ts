@@ -4,8 +4,6 @@ import { calculateReservationSavings } from "@/services/rateService";
 import { getReservationRecommendations } from "@/services/reservationService";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
-import { tenantUsesAws } from "@/lib/tenantProviderContext";
-import { getAwsRateRecommendations } from "@/modules/collectors/aws/awsRateService";
 
 export async function GET(request: NextRequest) {
     try {
@@ -18,20 +16,6 @@ export async function GET(request: NextRequest) {
         }
 
         await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
-
-        if (await tenantUsesAws(tenantId)) {
-            // En AWS la recomendacion la calcula Cost Explorer sobre el uso
-            // real de los ultimos 30 dias, no se deriva del inventario. El TTL
-            // es de 12 horas y no de 1: cada refresco cuesta hasta 4 requests
-            // de Cost Explorer por cuenta, y la ventana de analisis es tan
-            // ancha que el resultado no cambia dentro del mismo dia.
-            const awsData = await getWithStaleWhileRevalidate(
-                `rates:aws:${tenantId}:${subscriptionId}`,
-                () => getAwsRateRecommendations(tenantId, subscriptionId),
-                43200
-            );
-            return NextResponse.json(awsData);
-        }
 
         const cacheKey = `rates:${tenantId}:${subscriptionId}`;
         const data = await getWithStaleWhileRevalidate(cacheKey, async () => {

@@ -4,9 +4,8 @@ import { ConsumptionManagementClient } from "@azure/arm-consumption";
 import { redis } from "@/lib/redis";
 import pool from "@/modules/storage/db";
 import { withCostColumn, findCostColumnIndex } from "@/lib/azureCostColumn";
-import { tenantUsesAws } from "@/lib/tenantProviderContext";
-import { getAwsNativeBudgets } from "@/modules/collectors/aws/awsBudgetService";
-import { ALLOCATION_TAG_KEYS } from "@/lib/allocationTags";
+import Decimal from "decimal.js";
+import { toMoneyNumber } from "@/lib/moneyDecimal";
 
 /**
  * Obtiene el gasto MTD real para una suscripción usando el pipeline de cache:
@@ -39,12 +38,6 @@ async function fetchMtdCostForSub(tenantId: string, subscriptionId: string): Pro
 }
 
 export async function getNativeBudgets(tenantId: string, subscriptionId: string) {
-    // En AWS los presupuestos nativos viven en AWS Budgets, que es un servicio
-    // aparte con su propio SDK: no hay equivalente al Consumption de Azure.
-    if (await tenantUsesAws(tenantId)) {
-        return getAwsNativeBudgets(tenantId, subscriptionId);
-    }
-
     let credential;
     let client;
     try {
@@ -101,14 +94,6 @@ export async function getNativeBudgets(tenantId: string, subscriptionId: string)
 }
 
 export async function getBudgetConsumption(tenantId: string, subscriptionId: string, costCenterName: string) {
-    // En AWS el consumo por centro de costo sale de CostSnapshots, que el sync
-    // del CUR ya persiste con las etiquetas. No se usa Cost Explorer con
-    // GroupBy TAG: factura por consulta y solo funciona con las etiquetas
-    // activadas como cost allocation tags en la consola.
-    if (await tenantUsesAws(tenantId)) {
-        return getAwsBudgetConsumption(tenantId, subscriptionId, costCenterName);
-    }
-
     try {
         const credential = await getAzureCredential(tenantId);
         const client = new CostManagementClient(credential);
@@ -135,7 +120,7 @@ export async function getBudgetConsumption(tenantId: string, subscriptionId: str
 
         if (res.rows && res.rows.length > 0 && res.rows[0].length > 0) {
             const costIdx = res.columns ? findCostColumnIndex(res.columns) : -1;
-            return parseFloat(String(res.rows[0][costIdx >= 0 ? costIdx : 0]));
+            return toMoneyNumber(new Decimal(String(res.rows[0][costIdx >= 0 ? costIdx : 0] || 0)));
         }
         return 0;
     } catch (e) {
@@ -190,19 +175,19 @@ export async function getBudgetCostCenterMonthlyHistory(
         const costIdx = findCostColumnIndex(res.columns);
         const dateIdx = res.columns.findIndex((c: any) => /usagedate|date/i.test(c?.name || ''));
 
-        const byMonth = new Map<string, number>();
+        const byMonth = new Map<string, Decimal>();
         for (const row of res.rows) {
             const rawDate = String(row[dateIdx >= 0 ? dateIdx : 0]);
             const month = /^\d{8}$/.test(rawDate)
                 ? `${rawDate.slice(0, 4)}-${rawDate.slice(4, 6)}`
                 : rawDate.slice(0, 7);
             if (!/^\d{4}-\d{2}$/.test(month)) continue;
-            const cost = parseFloat(String(row[costIdx >= 0 ? costIdx : 0])) || 0;
-            byMonth.set(month, (byMonth.get(month) || 0) + cost);
+            const cost = new Decimal(String(row[costIdx >= 0 ? costIdx : 0] || 0));
+            byMonth.set(month, (byMonth.get(month) || new Decimal(0)).plus(cost));
         }
 
         return Array.from(byMonth.entries())
-            .map(([month, cost]) => ({ month, cost: Number(cost.toFixed(2)) }))
+            .map(([month, cost]) => ({ month, cost: toMoneyNumber(cost) }))
             .sort((a, b) => a.month.localeCompare(b.month));
     } catch (e) {
         console.error(`Error fetching monthly history for ${costCenterName}:`, e);
@@ -253,49 +238,3 @@ export async function createSubscriptionBudget(credential: any, subscriptionId: 
     return await client.budgets.createOrUpdate(scope, budgetDetails.budgetName, budgetPayload);
 }
 
-/**
- * Gasto del mes en curso imputado a un centro de costo en AWS.
- *
- * El nombre de la etiqueta no se toma del centro de costo sino del catalogo de
- * asignacion: `costCenterName` es el VALOR buscado, no la clave. Interpolar una
- * clave arbitraria en el JSON path seria una inyeccion en la expresion JSON.
- */
-async function getAwsBudgetConsumption(
-    tenantId: string,
-    accountId: string,
-    costCenterName: string
-): Promise<number> {
-    try {
-        const filterAccount = accountId && accountId !== 'All';
-        // Se evalua contra todas las claves de asignacion equivalentes a un
-        // centro de costo (CostCenter, Department, Team...) porque en AWS cada
-        // organizacion etiqueta con la suya y no hay una canonica.
-        const tagKeys = ALLOCATION_TAG_KEYS.filter((k) =>
-            ['CostCenter', 'Department', 'Team'].includes(k));
-        if (tagKeys.length === 0) return 0;
-
-        const cond = tagKeys
-            .map(() => `JSON_UNQUOTE(JSON_EXTRACT(Tags, ?)) = ?`)
-            .join(' OR ');
-        const params: unknown[] = [];
-        for (const k of tagKeys) params.push(`$.${k}`, costCenterName);
-        params.push(tenantId);
-        if (filterAccount) params.push(accountId);
-
-        const [rows] = await pool.query(
-            `SELECT SUM(COALESCE(EffectiveCost, cost_usd, 0)) AS total
-               FROM CostSnapshots
-              WHERE (${cond})
-                AND tenant_id = ?
-                ${filterAccount ? 'AND subscription_id = ?' : ''}
-                AND DATE(COALESCE(ChargePeriodStart, date)) >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
-                AND DATE(COALESCE(ChargePeriodStart, date)) <= CURDATE()`,
-            params
-        );
-        const total = Number((Array.isArray(rows) ? (rows[0] as { total?: unknown }) : {})?.total ?? 0);
-        return total > 0 ? total : 0;
-    } catch (e) {
-        console.error(`[AwsBudgets] Error calculando consumo de ${costCenterName}:`, (e as Error).message);
-        return 0;
-    }
-}

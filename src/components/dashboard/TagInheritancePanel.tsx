@@ -8,7 +8,6 @@ import { getFreshIdToken } from "@/lib/msalToken";
 import { Tag, Play, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
 import Pagination, { usePagination } from "@/components/Pagination";
 import FeatureGuard from "@/components/FeatureGuard";
-import { useCloudProvider } from "@/context/ProviderContext";
 
 interface PreviewRow {
     resourceId: string;
@@ -23,7 +22,6 @@ interface PreviewRow {
 
 export default function TagInheritancePanel() {
     const t = useTranslations("TagInheritance");
-    const { activeProvider } = useCloudProvider();
     const { selectedTenant } = useTenant();
     const { selectedSubscription } = useSubscription();
     const { instance, accounts } = useMsal();
@@ -131,11 +129,6 @@ export default function TagInheritancePanel() {
 
     // Paginación del resultado de "Analizar".
     const preview = usePagination(rows, 10);
-
-    // En AWS no hay herencia de etiquetas que auditar: no existe un contenedor
-    // equivalente al grupo de recursos del que un recurso pueda heredar. El
-    // panel se oculta entero en vez de mostrarse siempre vacio.
-    if (activeProvider === "aws") return null;
 
     return (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mt-6">

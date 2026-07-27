@@ -5,12 +5,8 @@ export interface Tenant {
   subscriptionId?: string;
   subscriptionStatus?: 'active' | 'past_due' | 'canceled' | 'trialing' | 'unpaid';
   trialEndsAt?: string;
-  /**
-   * Proveedor de nube del tenant de demo. Mocks por tier (directiva #13):
-   * 'both' solo en Enterprise, que es el unico plan con multi-cloud, para que
-   * /demo muestre el switch AWS/Azure con el tier correspondiente.
-   */
-  provider?: 'azure' | 'aws' | 'both';
+  /** Proveedor de nube del tenant de demo. */
+  provider?: 'azure';
 }
 
 export const tenants: Tenant[] = [
@@ -36,6 +32,6 @@ export const tenants: Tenant[] = [
     id: "33333333-4444-5555-6666-777777777777",
     name: "Corporacion XYZ (Demo Enterprise)",
     tier: 'Enterprise',
-    provider: 'both'
+    provider: 'azure'
   }
 ];

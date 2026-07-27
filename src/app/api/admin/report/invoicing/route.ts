@@ -10,8 +10,9 @@ import { resolvePeriodRange } from "@/lib/invoicingPeriod";
 import { triggerBackfillIfStale } from "@/lib/historicalGapBackfill";
 import JSZip from "jszip";
 import { serverError } from '@/lib/apiErrors';
-
-const UNATTRIBUTED_LABEL = "No atribuido a una suscripción";
+import { buildInvoicingPayload } from "@/services/invoicingAggregationService";
+import Decimal from "decimal.js";
+import { toMoneyNumber } from "@/lib/moneyDecimal";
 
 const MOCK_LINES = [
     { date: "2026-06-01", customerId: "cust-001", customerName: "ACME Corp", subscriptionId: "sub-prod-001", service: "Virtual Machines", resourceGroup: "rg-prod-acme", originalCost: 1230.50, adjustedCost: 1415.08 },
@@ -91,7 +92,7 @@ async function handlePdfGeneration(
                 originalCost: customer.originalCost,
                 adjustedCost: customer.adjustedCost,
                 markupPercent: payload.markupPercent,
-                markupAmount: Math.round((customer.adjustedCost - customer.originalCost) * 100) / 100,
+                markupAmount: toMoneyNumber(new Decimal(customer.adjustedCost || 0).minus(new Decimal(customer.originalCost || 0))),
                 currency: payload.currency || "USD",
                 lines: customerLines,
             };
@@ -130,7 +131,7 @@ async function handlePdfGeneration(
                 originalCost: customer.originalCost,
                 adjustedCost: customer.adjustedCost,
                 markupPercent: payload.markupPercent,
-                markupAmount: Math.round((customer.adjustedCost - customer.originalCost) * 100) / 100,
+                markupAmount: toMoneyNumber(new Decimal(customer.adjustedCost || 0).minus(new Decimal(customer.originalCost || 0))),
                 currency: payload.currency || "USD",
                 lines: customerLines,
             };
@@ -319,114 +320,16 @@ export async function GET(request: NextRequest) {
                 return NextResponse.json({ success: true, mock: false, period, markupPercent, totals: null, byCustomer: [], byInvoiceSection: [], bySubscription: [], availableSubscriptions, lines: [] });
             }
 
-            const multiplier = 1 + markupPercent / 100;
-            const round2 = (n: number) => Math.round(n * 100) / 100;
-            // customer_id puede venir NULL en billing EA/MCA sin cliente CSP
-            // asociado. Se usa un sentinel corto y estable como customerId
-            // (nunca el label largo) — el customerId viaja en URLs/query
-            // params (descarga de PDF, email), y un valor largo/no-ASCII ahí
-            // es fragil. El texto legible va aparte, en customerName.
-            const NO_CUSTOMER_ID = "unassigned";
-            const NO_CUSTOMER_LABEL = "Sin identificar (facturación EA/MCA sin cliente CSP)";
-            // adjustedCost se mantiene SIN redondear acá — redondear por línea
-            // y después sumar los redondeos introducía un drift acumulado
-            // (ej. markup 0% mostraba "Monto Markup: -$0.06" en vez de $0).
-            // El redondeo se aplica una sola vez, al final, sobre cada total.
-            const lines = rows.map((r: any) => ({
-                date: String(r.date).substring(0, 10),
-                customerId: r.customerId || null,
-                subscriptionId: r.subscriptionId,
-                service: r.service,
-                resourceGroup: r.resourceGroup,
-                billingProfileId: r.billingProfileId,
-                invoiceSectionId: r.invoiceSectionId,
-                originalCost: Number(r.originalCost),
-                adjustedCostRaw: Number(r.originalCost) * multiplier,
-            }));
-
-            // byCustomer / bySubscription aggregation
-            const custMap = new Map<string, { customerId: string | null; originalCost: number; adjustedCost: number }>();
-            const invMap = new Map<string, { invoiceSectionId: string; customerId: string | null; cost: number; adjusted: number }>();
-            const subMap = new Map<string, { subscriptionId: string; subscriptionName: string; originalCost: number; adjustedCost: number }>();
-
-            for (const l of lines) {
-                const custKey = l.customerId ?? "__none__";
-                const ce = custMap.get(custKey) || { customerId: l.customerId, originalCost: 0, adjustedCost: 0 };
-                ce.originalCost += l.originalCost;
-                ce.adjustedCost += l.adjustedCostRaw;
-                custMap.set(custKey, ce);
-
-                if (l.invoiceSectionId) {
-                    const ie = invMap.get(l.invoiceSectionId) || { invoiceSectionId: l.invoiceSectionId, customerId: l.customerId, cost: 0, adjusted: 0 };
-                    ie.cost += l.originalCost;
-                    ie.adjusted += l.adjustedCostRaw;
-                    invMap.set(l.invoiceSectionId, ie);
-                }
-
-                if (l.subscriptionId) {
-                    const name = isUnattributedSubscriptionId(l.subscriptionId)
-                        ? UNATTRIBUTED_LABEL
-                        : resolveSubscriptionName(l.subscriptionId, subNameMap);
-                    const se = subMap.get(l.subscriptionId) || { subscriptionId: l.subscriptionId, subscriptionName: name, originalCost: 0, adjustedCost: 0 };
-                    se.originalCost += l.originalCost;
-                    se.adjustedCost += l.adjustedCostRaw;
-                    subMap.set(l.subscriptionId, se);
-                }
-            }
-
-            const byCustomer = Array.from(custMap.values())
-                .map(c => ({
-                    customerId: c.customerId || NO_CUSTOMER_ID,
-                    customerName: c.customerId ? undefined : NO_CUSTOMER_LABEL,
-                    originalCost: round2(c.originalCost),
-                    adjustedCost: round2(c.adjustedCost),
-                }))
-                .sort((a, b) => b.originalCost - a.originalCost);
-            const byInvoiceSection = Array.from(invMap.values())
-                .map(i => ({ ...i, customerId: i.customerId || NO_CUSTOMER_ID, cost: round2(i.cost), adjusted: round2(i.adjusted) }))
-                .sort((a, b) => b.cost - a.cost);
-            const bySubscription = Array.from(subMap.values())
-                .map(s => ({ ...s, originalCost: round2(s.originalCost), adjustedCost: round2(s.adjustedCost) }))
-                .sort((a, b) => b.originalCost - a.originalCost);
-            const totalOriginal = lines.reduce((s: number, l: any) => s + l.originalCost, 0);
-            const totalAdjusted = lines.reduce((s: number, l: any) => s + l.adjustedCostRaw, 0);
-
-            // Lines de salida (CSV/JSON/PDF): redondeadas a 2 decimales recién
-            // acá, y con el mismo fallback de customerId que byCustomer/byInvoiceSection
-            // para que el filtro por cliente en el PDF siga matcheando.
-            const displayLines = lines.map((l: any) => ({
-                date: l.date,
-                customerId: l.customerId || NO_CUSTOMER_ID,
-                customerName: l.customerId ? undefined : NO_CUSTOMER_LABEL,
-                subscriptionId: l.subscriptionId,
-                service: l.service,
-                resourceGroup: l.resourceGroup,
-                billingProfileId: l.billingProfileId,
-                invoiceSectionId: l.invoiceSectionId,
-                originalCost: round2(l.originalCost),
-                adjustedCost: round2(l.adjustedCostRaw),
-            }));
-
-            const payload = {
-                success: true,
-                mock: false,
-                period,
+            const payload = buildInvoicingPayload({
+                rows: rows as any[],
                 markupPercent,
-                currency: "USD",
-                totals: {
-                    originalCost: Math.round(totalOriginal * 100) / 100,
-                    adjustedCost: Math.round(totalAdjusted * 100) / 100,
-                    markupAmount: Math.round((totalAdjusted - totalOriginal) * 100) / 100,
-                },
-                byCustomer,
-                byInvoiceSection,
-                bySubscription,
+                period,
                 availableSubscriptions,
-                lines: displayLines,
-            };
+                subNameMap,
+            });
 
             if (format === "csv") {
-                const csv = serializeCSV(displayLines, period);
+                const csv = serializeCSV(payload.lines, period);
                 return new NextResponse(csv, {
                     headers: {
                         "Content-Type": "text/csv",

@@ -17,6 +17,13 @@ import { collectAdvisorData } from "@/modules/collectors/azure/advisorCollector"
 import { getSubscriptionNameMap, resolveSubscriptionName, isUnattributedSubscriptionId } from "@/lib/azureSubscriptionNames";
 import pool from "@/modules/storage/db";
 import { invalidateCache, costGroupsCacheKeys } from "@/lib/cache";
+import {
+    getAnomalyCount,
+    getCurrentFY,
+    getMonthlyCostTrend,
+    getPeriodComparison,
+    getTopBreakdown,
+} from "@/services/costGroupDetailMetricsService";
 
 function escapeKql(s: string): string {
     // Orden importa: escapar `\` primero (el propio carácter de escape KQL)
@@ -38,151 +45,6 @@ function lastNMonths(n: number): Array<{ start: Date; end: Date; label: string }
         out.push({ start, end, label: start.toISOString().slice(0, 7) });
     }
     return out;
-}
-
-async function getCurrentFY(tenantId: string, name: string, budget: number, tagFilter: string, params: any[]) {
-    const now = new Date();
-    const fyStart = `${now.getUTCFullYear()}-01-01`;
-    const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString().slice(0, 10);
-    const today = now.toISOString().slice(0, 10);
-
-    const [rows]: any = await pool.query(
-        `SELECT
-            SUM(CASE WHEN DATE(COALESCE(ChargePeriodStart, date)) >= ? THEN COALESCE(EffectiveCost, BilledCost, cost_usd, 0) ELSE 0 END) AS actualCostToDateFY,
-            SUM(CASE WHEN DATE(COALESCE(ChargePeriodStart, date)) >= ? THEN COALESCE(EffectiveCost, BilledCost, cost_usd, 0) ELSE 0 END) AS currentMonthActualCost,
-            COUNT(DISTINCT CASE WHEN subscription_id NOT IN ('mg-aggregated', 'default') THEN subscription_id END) AS subscriptions,
-            COUNT(DISTINCT resource_group) AS resourceGroups
-         FROM CostSnapshots WHERE tenant_id = ? AND ${tagFilter}`,
-        [fyStart, monthStart, ...params]
-    );
-    const r = rows?.[0] || {};
-    const daysElapsedMonth = Math.max(1, now.getUTCDate());
-    const daysInMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0)).getUTCDate();
-    const currentMonthActualCost = Number(r.currentMonthActualCost) || 0;
-    const currentMonthForecast = Number(((currentMonthActualCost / daysElapsedMonth) * daysInMonth).toFixed(2));
-
-    // Excluye subscription_id = 'mg-aggregated'/'default' del desglose (ver
-    // azureSubscriptionNames.ts) — se separan en unattributedCost en vez de
-    // mostrarse como si fueran una suscripción real.
-    const [subRows]: any = await pool.query(
-        `SELECT subscription_id AS name, SUM(COALESCE(EffectiveCost, BilledCost, cost_usd, 0)) AS cost
-         FROM CostSnapshots WHERE tenant_id = ? AND ${tagFilter} AND DATE(COALESCE(ChargePeriodStart, date)) >= ?
-         GROUP BY subscription_id ORDER BY cost DESC`,
-        [...params, monthStart]
-    );
-    const allSubs = (subRows as any[]).map(s => ({ name: s.name as string, cost: Number(s.cost) || 0 }));
-    const subscriptionBreakdown = allSubs.filter(s => !isUnattributedSubscriptionId(s.name));
-    const unattributedSubscriptionCost = Number(
-        allSubs.filter(s => isUnattributedSubscriptionId(s.name)).reduce((sum, s) => sum + s.cost, 0).toFixed(2)
-    );
-
-    return {
-        actualCostToDateFY: Number((Number(r.actualCostToDateFY) || 0).toFixed(2)),
-        currentMonthActualCost: Number(currentMonthActualCost.toFixed(2)),
-        monthlyBudget: Number(budget.toFixed(2)),
-        currentMonthForecast,
-        subscriptionBreakdown,
-        unattributedSubscriptionCost,
-        subscriptionsCount: Number(r.subscriptions) || 0,
-        resourceGroupsCount: Number(r.resourceGroups) || 0,
-    };
-}
-
-async function getMonthlyCostTrend(tenantId: string, name: string, budget: number, tagFilter: string, params: any[]) {
-    const months = lastNMonths(6);
-    const now = new Date();
-    const out = [];
-    for (const m of months) {
-        const [rows]: any = await pool.query(
-            `SELECT SUM(COALESCE(EffectiveCost, cost_usd, 0)) AS total
-             FROM CostSnapshots WHERE tenant_id = ? AND ${tagFilter} AND COALESCE(ChargePeriodStart, date) BETWEEN ? AND ?`,
-            [...params, m.start, m.end]
-        );
-        const actual = Number(rows?.[0]?.total) || 0;
-        const isCurrentMonth = m.start.getUTCFullYear() === now.getUTCFullYear() && m.start.getUTCMonth() === now.getUTCMonth();
-        const daysElapsed = Math.max(1, now.getUTCDate());
-        const daysInMonth = new Date(Date.UTC(m.start.getUTCFullYear(), m.start.getUTCMonth() + 1, 0)).getUTCDate();
-        const forecast = isCurrentMonth ? Number(((actual / daysElapsed) * daysInMonth).toFixed(2)) : null;
-        out.push({ month: m.label, actual: Number(actual.toFixed(2)), budget: Number(budget.toFixed(2)), forecast });
-    }
-    return out;
-}
-
-async function getAnomalyCount(tenantId: string, tagFilter: string, params: any[]) {
-    const [rows]: any = await pool.query(
-        `SELECT DATE(COALESCE(ChargePeriodStart, date)) AS d, SUM(COALESCE(EffectiveCost, cost_usd, 0)) AS total
-         FROM CostSnapshots WHERE tenant_id = ? AND ${tagFilter} AND DATE(COALESCE(ChargePeriodStart, date)) >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-         GROUP BY d`,
-        params
-    );
-    const values = (rows as any[]).map(r => Number(r.total) || 0);
-    if (values.length < 3) return 0;
-    const mean = values.reduce((s, v) => s + v, 0) / values.length;
-    const variance = values.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / values.length;
-    const stdDev = Math.sqrt(variance);
-    return stdDev > 0 ? values.filter(v => (v - mean) / stdDev > 2.5).length : 0;
-}
-
-// Pestaña Costs — comparativa de período (30d vs 30d previos) y de FY
-// (proyección run-rate vs FY anterior completo), mismo enfoque de proyección
-// simple que getCostFigures en /api/intelligence/whiteboard (no hay ML de
-// forecasting en este repo).
-async function getPeriodComparison(tenantId: string, tagFilter: string, params: any[], budget: number) {
-    const now = new Date();
-    const currentYear = now.getUTCFullYear();
-    const periodEnd = now.toISOString().slice(0, 10);
-    const periodStart = new Date(now); periodStart.setUTCDate(periodStart.getUTCDate() - 30);
-    const prevPeriodEnd = new Date(periodStart); prevPeriodEnd.setUTCDate(prevPeriodEnd.getUTCDate() - 1);
-    const prevPeriodStart = new Date(prevPeriodEnd); prevPeriodStart.setUTCDate(prevPeriodStart.getUTCDate() - 30);
-
-    const [rows]: any = await pool.query(
-        `SELECT
-            SUM(CASE WHEN DATE(COALESCE(ChargePeriodStart, date)) BETWEEN ? AND ? THEN COALESCE(EffectiveCost, cost_usd, 0) ELSE 0 END) AS periodCost,
-            SUM(CASE WHEN DATE(COALESCE(ChargePeriodStart, date)) BETWEEN ? AND ? THEN COALESCE(EffectiveCost, cost_usd, 0) ELSE 0 END) AS previousPeriodCost,
-            SUM(CASE WHEN DATE(COALESCE(ChargePeriodStart, date)) BETWEEN ? AND ? THEN COALESCE(EffectiveCost, cost_usd, 0) ELSE 0 END) AS currentFYCost,
-            SUM(CASE WHEN DATE(COALESCE(ChargePeriodStart, date)) BETWEEN ? AND ? THEN COALESCE(EffectiveCost, cost_usd, 0) ELSE 0 END) AS previousFYCost
-         FROM CostSnapshots WHERE tenant_id = ? AND ${tagFilter}`,
-        [
-            periodStart.toISOString().slice(0, 10), periodEnd,
-            prevPeriodStart.toISOString().slice(0, 10), prevPeriodEnd.toISOString().slice(0, 10),
-            `${currentYear}-01-01`, periodEnd,
-            `${currentYear - 1}-01-01`, `${currentYear - 1}-12-31`,
-            ...params,
-        ]
-    );
-    const r = rows?.[0] || {};
-    const periodCost = Number(r.periodCost) || 0;
-    const previousPeriodCost = Number(r.previousPeriodCost) || 0;
-    const currentFYCost = Number(r.currentFYCost) || 0;
-    const previousFYCost = Number(r.previousFYCost) || 0;
-
-    const startOfYear = new Date(Date.UTC(currentYear, 0, 1));
-    const daysElapsed = Math.max(1, Math.ceil((now.getTime() - startOfYear.getTime()) / 86400000));
-    const projectedFYCost = Number(((currentFYCost / daysElapsed) * 365).toFixed(2));
-
-    return {
-        periodCost: Number(periodCost.toFixed(2)),
-        previousPeriodCost: Number(previousPeriodCost.toFixed(2)),
-        periodChangePct: previousPeriodCost > 0 ? Number((((periodCost - previousPeriodCost) / previousPeriodCost) * 100).toFixed(1)) : 0,
-        projectedFYCost,
-        previousFYCost: Number(previousFYCost.toFixed(2)),
-        fyChangePct: previousFYCost > 0 ? Number((((projectedFYCost - previousFYCost) / previousFYCost) * 100).toFixed(1)) : 0,
-        monthlyBudget: Number(budget.toFixed(2)),
-    };
-}
-
-async function getTopBreakdown(tenantId: string, tagFilter: string, params: any[], column: string, limit = 6) {
-    const [rows]: any = await pool.query(
-        `SELECT COALESCE(NULLIF(${column}, ''), 'Unknown') AS name, SUM(COALESCE(EffectiveCost, cost_usd, 0)) AS cost
-         FROM CostSnapshots WHERE tenant_id = ? AND ${tagFilter} AND DATE(COALESCE(ChargePeriodStart, date)) >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
-         GROUP BY name ORDER BY cost DESC`,
-        params
-    );
-    const all = (rows as any[]).map(r => ({ name: r.name, cost: Number(r.cost) || 0 })).filter(r => r.cost > 0);
-    const top = all.slice(0, limit);
-    const rest = all.slice(limit).reduce((s, r) => s + r.cost, 0);
-    if (rest > 0) top.push({ name: "Other", cost: Number(rest.toFixed(2)) });
-    return top.map(r => ({ ...r, cost: Number(r.cost.toFixed(2)) }));
 }
 
 async function getSubscriptionTrend(tenantId: string, tagFilter: string, params: any[]) {
@@ -412,7 +274,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
                 return { tagFilter: "1=0", tagParams: [] as any[], kqlTagFilter: "false", isCustom: false, matchType: null as string | null, resourceGroups: [] as string[] };
             });
 
-        const currentFY = await getCurrentFY(tenantId, name, budget, tagFilter, tagParams).catch(e => {
+        const currentFY = await getCurrentFY(tenantId, budget, tagFilter, tagParams).catch(e => {
             console.warn("[cost-groups/detail] currentFY:", e.message);
             return { actualCostToDateFY: 0, currentMonthActualCost: 0, monthlyBudget: budget, currentMonthForecast: 0, subscriptionBreakdown: [], unattributedSubscriptionCost: 0, subscriptionsCount: 0, resourceGroupsCount: 0 };
         });
@@ -464,7 +326,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             monthlyCost, costAnomaliesCount, periodComparison, byService, byMeter, byServiceCategory,
             subscriptionTrendRaw, costAnomaliesRaw, resourceGroupsTab, auditLogs, subMap,
         ] = await Promise.all([
-            getMonthlyCostTrend(tenantId, name, budget, tagFilter, tagParams).catch(e => { console.warn("[cost-groups/detail] monthlyCost:", e.message); return []; }),
+            getMonthlyCostTrend(tenantId, budget, tagFilter, tagParams).catch(e => { console.warn("[cost-groups/detail] monthlyCost:", e.message); return []; }),
             getAnomalyCount(tenantId, tagFilter, tagParams).catch(e => { console.warn("[cost-groups/detail] anomalies:", e.message); return 0; }),
             getPeriodComparison(tenantId, tagFilter, tagParams, budget).catch(e => { console.warn("[cost-groups/detail] periodComparison:", e.message); return null; }),
             getTopBreakdown(tenantId, tagFilter, tagParams, "service_name").catch(e => { console.warn("[cost-groups/detail] byService:", e.message); return []; }),

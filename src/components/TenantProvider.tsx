@@ -1,8 +1,7 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useMsal } from '@azure/msal-react';
-import { getMockDataForRoute, getMockCostGroupDetail, isAwsMockTenant } from '@/lib/mockData';
-import { getAwsMockDataForRoute } from '@/lib/awsMockData';
+import { getMockDataForRoute, getMockCostGroupDetail } from '@/lib/mockData';
 import { usePathname, useRouter } from 'next/navigation';
 import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
@@ -23,15 +22,8 @@ export interface Tenant {
   has_client_secret?: boolean;
   partner_link_status?: string | null;
   partner_link_detail?: string | null;
-  /**
-   * Proveedor de nube del tenant. 'both' sólo es válido en Enterprise
-   * (ver src/lib/providerPolicy.ts). Lo consume ProviderContext.
-   */
-  provider?: 'azure' | 'aws' | 'both';
-  /** Proveedor archivado durante la ventana de gracia tras un downgrade. */
-  provider_archived?: 'azure' | 'aws' | null;
-  /** Fecha de purga del proveedor archivado (ISO). */
-  provider_purge_at?: string | null;
+  /** Proveedor de nube del tenant (ver src/lib/providerPolicy.ts). */
+  provider?: 'azure';
 }
 
 interface TenantContextType {
@@ -66,20 +58,11 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
       let id = 'demo_tenant';
       let name = 'Demo Workspace';
       const tier = demoSession.tier?.toLowerCase() || 'essential';
-      const isAws = demoSession.provider === 'aws';
-      if (isAws) {
-        // Tenants de demo AWS: mismos tiers, datos AWS-nativos (cuentas de 12
-        // dígitos, servicios de Cost Explorer, Savings Plans).
-        if (tier === 'essential') { id = 'aaaa1111-2222-3333-4444-555555555555'; name = 'Northwind Cloud (Demo AWS Essentials)'; }
-        else if (tier === 'pro' || tier === 'professional') { id = 'aaaa2222-3333-4444-5555-666666666666'; name = 'Cumulus Labs (Demo AWS Pro)'; }
-        else if (tier === 'business') { id = 'aaaa4444-5555-6666-7777-888888888888'; name = 'Vertex Retail (Demo AWS Business)'; }
-        else if (tier === 'enterprise') { id = 'aaaa3333-4444-5555-6666-777777777777'; name = 'Helios Group (Demo AWS Enterprise)'; }
-      }
-      else if (tier === 'essential') { id = '11111111-2222-3333-4444-555555555555'; name = 'Cliente ACME (Demo Essentials)'; }
+      if (tier === 'essential') { id = '11111111-2222-3333-4444-555555555555'; name = 'Cliente ACME (Demo Essentials)'; }
       else if (tier === 'pro' || tier === 'professional') { id = '22222222-3333-4444-5555-666666666666'; name = 'Startup Tech (Demo Pro)'; }
       else if (tier === 'business') { id = '44444444-5555-6666-7777-888888888888'; name = 'Midmarket Corp (Demo Business)'; }
       else if (tier === 'enterprise') { id = '33333333-4444-5555-6666-777777777777'; name = 'Corporation XTZ (Demo Enterprise)'; }
-      return { id, name, tier: demoSession.tier, provider: isAws ? 'aws' : 'azure' };
+      return { id, name, tier: demoSession.tier, provider: 'azure' };
     }
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('finops_active_tenant');
@@ -261,22 +244,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                   return originalFetch(input, init);
               }
               const tier = selectedTenant?.tier?.toLowerCase() || demoSession?.tier?.toLowerCase() || 'essential';
-              // getMockDataForRoute distingue tenantId de tier por longitud. Para
-              // los tenants de demo AWS hay que pasarle el id, que es lo unico
-              // que le permite elegir el dataset de AWS en vez del de Azure.
-              const mockKey = (selectedTenant?.id && isAwsMockTenant(selectedTenant.id)) ? selectedTenant.id : tier;
-              // Cuentas AWS: la pantalla de alta debe verse poblada en la demo,
-              // y las mutaciones tienen que responder OK sin tocar nada real.
-              if (url.includes('/api/aws/accounts')) {
-                  const method = (init?.method || 'GET').toUpperCase();
-                  if (method === 'GET') {
-                      return new Response(JSON.stringify(getAwsMockDataForRoute('aws-accounts', tier)), {status: 200});
-                  }
-                  if (url.includes('/test')) {
-                      return new Response(JSON.stringify({ success: true, mock: true, message: 'Demo: rol asumido correctamente' }), {status: 200});
-                  }
-                  return new Response(JSON.stringify({ success: true, mock: true }), {status: method === 'POST' ? 201 : 200});
-              }
+              const mockKey = tier;
               if (url.includes('/api/intelligence/billing')) return new Response(JSON.stringify(getMockDataForRoute('billing', mockKey)), {status: 200});
               if (url.includes('/api/advisor')) {
                   const advLocale = (url.match(/[?&]locale=([^&]+)/)?.[1] && decodeURIComponent(url.match(/[?&]locale=([^&]+)/)![1])) || 'es';
@@ -298,7 +266,6 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               if (url.includes('/api/intelligence/history')) return new Response(JSON.stringify(getMockDataForRoute('history', mockKey)), {status: 200});
               if (url.includes('/api/intelligence/forecast')) return new Response(JSON.stringify(getMockDataForRoute('forecast', mockKey)), {status: 200});
               if (url.includes('/api/intelligence/maturity')) return new Response(JSON.stringify(getMockDataForRoute('maturity', mockKey)), {status: 200});
-              if (url.includes('/api/admin/provider-transition')) return new Response(JSON.stringify(getMockDataForRoute('provider_transition', mockKey)), {status: 200});
               if (url.includes('/api/cleanup/zombies/networking')) return new Response(JSON.stringify(getMockDataForRoute('networking_zombies', mockKey)), {status: 200});
               if (url.includes('/api/cleanup/zombies')) return new Response(JSON.stringify(getMockDataForRoute('audit_full', mockKey)), {status: 200});
               if (url.includes('/api/cleanup/ttl/policies')) {
@@ -653,36 +620,6 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                           { id: 2, type: 'teams', name: 'Ops On-Call', severity_filter: 'critical', enabled: 1, created_at: new Date(nowMs - 60 * dayMs).toISOString(), updated_at: new Date(nowMs - 5 * dayMs).toISOString() },
                           { id: 3, type: 'email', name: 'Finance Digest', severity_filter: 'medium', enabled: 0, created_at: new Date(nowMs - 90 * dayMs).toISOString(), updated_at: new Date(nowMs - 10 * dayMs).toISOString() },
                       ] }), { status: 200 });
-                  }
-
-                  // Cloud accounts (AWS)
-                  if (url.includes('/api/aws/accounts')) {
-                      // Sub-acción: test de conexión (POST /{id}/test)
-                      if (url.includes('/test')) {
-                          return new Response(JSON.stringify({
-                              success: true,
-                              assumeRoleMs: 420,
-                              costExplorerMs: 380,
-                              window: { start: new Date(nowMs - 7 * dayMs).toISOString().slice(0, 10), end: new Date(nowMs).toISOString().slice(0, 10) },
-                              totalCost: 1284.57 * dm,
-                              rowCount: 42,
-                              currency: 'USD',
-                              cur: { configured: true, status: 'OK' },
-                          }), { status: 200 });
-                      }
-                      // Eliminar cuenta (DELETE /{id})
-                      if (init?.method === 'DELETE') return new Response(JSON.stringify({ success: true, mock: true }), { status: 200 });
-                      // Crear cuenta (POST a la colección)
-                      if (init?.method && init.method !== 'GET') return new Response(JSON.stringify({ id: 'mock-aws-' + Date.now(), accountId: '123456789012', alias: 'demo', externalId: 'ext-demo-' + Math.random().toString(36).slice(2, 10) }), { status: 201 });
-                      return new Response(JSON.stringify({ accounts: [
-                          { id: 'aws-1', tenant_id: 'demo', account_id: '123456789012', role_arn: 'arn:aws:iam::123456789012:role/FinOpsReadOnly', alias: 'prod-aws', cur_bucket: 'cur-prod-billing', cur_prefix: 'cur/', cur_report_name: 'finops-cur', last_sync_at: new Date(nowMs - dayMs).toISOString(), sync_status: 'OK', last_error_message: null, created_at: new Date(nowMs - 120 * dayMs).toISOString() },
-                          { id: 'aws-2', tenant_id: 'demo', account_id: '210987654321', role_arn: 'arn:aws:iam::210987654321:role/FinOpsReadOnly', alias: 'data-lake-aws', cur_bucket: 'cur-data-billing', cur_prefix: 'cur/', cur_report_name: 'finops-cur', last_sync_at: new Date(nowMs - 3 * dayMs).toISOString(), sync_status: 'SYNCING', last_error_message: null, created_at: new Date(nowMs - 60 * dayMs).toISOString() },
-                      ] }), { status: 200 });
-                  }
-
-                  // Sync AWS (CUR / Cost Explorer) — /api/sync/aws/{id}/{source}
-                  if (url.includes('/api/sync/aws/')) {
-                      return new Response(JSON.stringify({ success: true, mock: true, rowsUpserted: 30 * dm, message: 'Sync demo completado' }), { status: 200 });
                   }
 
                   // Azure Policy definitions (Políticas as Code — Enterprise)

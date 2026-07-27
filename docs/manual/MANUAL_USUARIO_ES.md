@@ -60,9 +60,9 @@ Si sos administrador y es la primera vez que tu organización usa la plataforma,
 
 | Paso | Qué hacés | Resultado |
 |---|---|---|
-| **1. Bienvenida y datos de la empresa** | Confirmás nombre de la empresa, proveedor de nube principal (Azure), moneda de visualización (USD/EUR/GBP) y zona horaria | Se guardan tus preferencias iniciales |
-| **2. Conectar suscripción de Azure** | Pegás **Client ID**, **Client Secret** y **Azure Tenant ID** del Service Principal (generado con el script de PowerShell que te entrega CSCloudSolutions) y presionás **"Validar"** | El sistema chequea en vivo que el Service Principal tenga los roles mínimos necesarios; si falta alguno, te muestra en rojo cuál falta |
-| **3. Primera sincronización de datos** | Presionás **"Ejecutar Sincronización"** | Trae tu primer set de datos de costos desde Azure (puede tardar hasta 60 segundos) |
+| **1. Bienvenida y datos de la empresa** | Confirmás nombre de la empresa, proveedor de nube principal (**Azure o AWS**), moneda de visualización (USD/EUR/GBP) y zona horaria | Se guardan tus preferencias iniciales |
+| **2. Conectar nube principal** | Si elegiste **Azure**, pegás **Client ID**, **Client Secret** y **Azure Tenant ID** del Service Principal y presionás **"Validar"**. Si elegiste **AWS**, abrís **Gestión de Cuentas AWS** (`/admin/cloud-accounts`), registrás al menos una cuenta y volvés al wizard para validar. | El sistema confirma que la conexión mínima está lista para avanzar (SP válido en Azure o cuenta AWS registrada) |
+| **3. Primera sincronización de datos** | Presionás **"Ejecutar Sincronización"** | Trae tu primer set de datos de costos desde tu nube seleccionada (Azure o AWS; puede tardar hasta 60 segundos) |
 | **4. Crear tu primer presupuesto** | Completás nombre, límite mensual ($) y umbral de alerta (%) | Se crea tu primer presupuesto activo |
 | **5. Configurar notificaciones** | Presionás **"Configurar"** (abre `/admin/notifications` en pestaña nueva) | Agregás al menos un canal (email, Slack o Teams) para recibir alertas |
 
@@ -70,7 +70,7 @@ Podés **saltar (skip)** cualquier paso y volver más tarde — el wizard vuelve
 
 ### 1.3. Verificación de la conexión con Azure
 
-Cuando conectás tu suscripción de Azure (paso 2 del asistente de onboarding, o desde `/admin/onboarding`), el Service Principal necesita tener asignados ciertos roles de Azure para que la plataforma pueda leer tus datos de costos. Esta sección te ayuda a verificar y diagnosticar esa conexión.
+Cuando elegís **Azure** en el paso 2 del asistente (o desde `/admin/onboarding`), el Service Principal necesita tener asignados ciertos roles para que la plataforma pueda leer tus datos de costos. Si elegís **AWS**, este bloque no aplica: en ese caso la conexión se hace desde `/admin/cloud-accounts` con rol asumido y External ID.
 
 **Roles Azure necesarios, por tier contratado:**
 
@@ -248,6 +248,8 @@ El dashboard de facturación detallada, en tiempo real desde Azure.
 > lectura que nos diste no lo permite — y el **apagado automático al superar el
 > límite no está disponible**, por la misma razón. Vas a recibir la alerta,
 > pero la acción correctiva la ejecutás vos.
+
+En la sección `/admin/cloud-accounts`, los usuarios con rol Admin/Owner también pueden **editar cuentas AWS existentes** (alias, Role ARN y CUR) sin tener que borrarlas.
 
 ### 5.3. Cost Groups (`/intelligence/cost-groups`, Business+)
 

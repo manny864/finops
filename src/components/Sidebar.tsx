@@ -7,9 +7,7 @@ import { isSuperAdmin } from '@/lib/authGuard';
 import { useTenant } from '@/components/TenantProvider';
 import { hasAccess } from '@/lib/tierLogic';
 import { getTagsForRoute, hasAnyTag } from '@/lib/pageRoleTags';
-import { useCloudProvider } from '@/context/ProviderContext';
-import { isRouteAvailableForProvider } from '@/lib/routeProviders';
-import { 
+import {
     LayoutDashboard,
     Target,
     TrendingDown, 
@@ -202,10 +200,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/admin/api-keys', label: 'API Pública', icon: Unlock, requiredTier: 'Enterprise' },
                 { href: '/admin/powerbi-templates', label: 'Power BI Templates', icon: BarChart3, requiredTier: 'Enterprise' },
                 { href: '/admin/focus-export', label: 'FOCUS 1.1 Export', icon: FileSpreadsheet, requiredTier: 'Professional' },
-                // Cloud Accounts sólo aparece con el proveedor AWS activo: el
-                // filtro por proveedor (routeProviders.ts) la marca AWS-only,
-                // así que un tenant Azure sigue sin verla, igual que antes.
-                { href: '/admin/cloud-accounts', label: t('cloud_accounts', { fallback: 'Cuentas AWS' }), icon: Cloud, requiredTier: 'Enterprise' },
+                { href: '/admin/cloud-accounts', label: t('cloud_accounts', { fallback: 'Cuentas Cloud' }), icon: Cloud, requiredTier: 'Enterprise' },
                 { href: '/admin/sso', label: 'SSO SAML', icon: ShieldCheck, requiredTier: 'Enterprise' }
                 // Data Residency oculto: hoy sólo tenemos un datacenter (Brasil), ofrecer
                 // selección de región (EU/US/LATAM/APAC) sería engañoso. Página y API
@@ -272,11 +267,6 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
     // se aplican JUNTAS, no una en lugar de la otra. Un usuario puede ser
     // Reader (solo lectura) + permiso FinOps (solo ve páginas de ese dominio).
     const { userRole, userPermissions } = useTenant();
-    // Proveedor de nube activo. El menú nació 100% Azure: la mayoría de las
-    // páginas terminan llamando a Azure Resource Manager. Sin este filtro un
-    // tenant AWS vería ~30 ítems que fallan al abrirlos, que es peor que no
-    // verlos. Ver src/lib/routeProviders.ts para la lista y el criterio.
-    const { activeProvider } = useCloudProvider();
     // Rutas siempre visibles con cualquier combinación de rol/permisos (orientación mínima).
     const ALWAYS_VISIBLE_HREFS = ['/', '/support', '/academy'];
     // Admin/Owner no se acotan por permisos: gestionan la plataforma completa
@@ -285,11 +275,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
     // por dominio (compatibilidad con tenants que todavía no los asignaron).
     const restrictByPermissions = userPermissions.length > 0 && userRole !== 'Admin' && userRole !== 'Owner';
     const roleCategories = categories.map(cat => {
-        // El recorte por proveedor va PRIMERO: es una restricción del producto,
-        // no del usuario. Da igual el rol o el plan — si la página no soporta
-        // el proveedor activo, no existe.
-        let items = cat.items.filter(i => isRouteAvailableForProvider(i.href, activeProvider));
-        if (items.length === 0) return null;
+        let items = cat.items;
         if (restrictByPermissions) {
             items = items.filter(i => ALWAYS_VISIBLE_HREFS.includes(i.href) || hasAnyTag(userPermissions, getTagsForRoute(i.href)));
             if (items.length === 0) return null;
