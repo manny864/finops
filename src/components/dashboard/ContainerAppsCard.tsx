@@ -1,3 +1,6 @@
+/**
+ * @azure-only — cubre Azure Container Apps.
+ */
 "use client";
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';

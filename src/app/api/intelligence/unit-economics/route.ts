@@ -20,8 +20,10 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(getMockDataForRoute('unit_economics', tenantId));
         }
 
-        const cacheKey = `unit_economics:${tenantId}`;
+        const cacheKey = `unit_economics:v2:azure:${tenantId}`;
         const data = await getWithStaleWhileRevalidate(cacheKey, async () => {
+            const dailyCosts = new Map<string, number>();
+
             let credential;
             let costClient;
             let subs;
@@ -41,8 +43,6 @@ export async function GET(request: NextRequest) {
             const endDate = new Date();
             const startDate = new Date();
             startDate.setDate(startDate.getDate() - 29);
-
-            const dailyCosts = new Map<string, number>();
 
             // CostUSD (normalizado a USD por Azure) en vez de PreTaxCost (moneda
             // de facturación de la suscripción) — ver src/lib/azureCostColumn.ts.
@@ -89,55 +89,7 @@ export async function GET(request: NextRequest) {
                 }
             }
 
-            const pool = (await import('@/modules/storage/db')).default;
-
-            // DAU per-day from BusinessMetrics
-            let dauByDate = new Map<string, number>();
-            try {
-                const [rows] = await pool.query(
-                    `SELECT metric_date, dau FROM BusinessMetrics
-                     WHERE tenant_id = ? AND metric_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-                     AND dau IS NOT NULL`,
-                    [tenantId]
-                );
-                if (Array.isArray(rows)) {
-                    (rows as any[]).forEach(r => {
-                        const d = r.metric_date instanceof Date
-                            ? r.metric_date.toISOString().split('T')[0]
-                            : String(r.metric_date).split('T')[0];
-                        dauByDate.set(d, Number(r.dau));
-                    });
-                }
-            } catch { dauByDate = new Map(); }
-
-            // Global estimated DAU fallback from BusinessMetricsConfig
-            let estimatedDau = 0;
-            try {
-                const [cfgRows] = await pool.query(
-                    `SELECT estimated_dau FROM BusinessMetricsConfig WHERE tenant_id = ? LIMIT 1`,
-                    [tenantId]
-                );
-                if (Array.isArray(cfgRows) && (cfgRows as any[]).length > 0) {
-                    estimatedDau = Number((cfgRows as any[])[0].estimated_dau) || 0;
-                }
-            } catch { /* tabla puede no existir aún */ }
-
-            const finalData = [];
-            for (let i = 29; i >= 0; i--) {
-                const date = new Date();
-                date.setDate(date.getDate() - i);
-                const dateStr = date.toISOString().split('T')[0];
-                const cost = dailyCosts.get(dateStr) || 0;
-                const dau = dauByDate.has(dateStr) ? dauByDate.get(dateStr)! : (estimatedDau > 0 ? estimatedDau : null);
-                finalData.push({
-                    date: dateStr,
-                    cost,
-                    dau,
-                    costPerUser: (dau && dau > 0 && cost > 0) ? cost / dau : null
-                });
-            }
-
-            return { rows: finalData, estimatedDau };
+            return await buildUnitEconomics(tenantId, dailyCosts);
         }, 43200);
 
         return NextResponse.json({ success: true, data });
@@ -176,5 +128,63 @@ export async function POST(request: NextRequest) {
         console.error("Unit Economics POST Error:", error);
         return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
+}
+
+
+/**
+ * Arma la serie de costo por usuario a partir del costo diario ya resuelto.
+ *
+ * El DAU y la configuracion de negocio viven en la base del SaaS.
+ */
+async function buildUnitEconomics(tenantId: string, dailyCosts: Map<string, number>) {
+    const pool = (await import('@/modules/storage/db')).default;
+
+    // DAU per-day from BusinessMetrics
+    let dauByDate = new Map<string, number>();
+    try {
+        const [rows] = await pool.query(
+            `SELECT metric_date, dau FROM BusinessMetrics
+             WHERE tenant_id = ? AND metric_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+             AND dau IS NOT NULL`,
+            [tenantId]
+        );
+        if (Array.isArray(rows)) {
+            (rows as any[]).forEach(r => {
+                const d = r.metric_date instanceof Date
+                    ? r.metric_date.toISOString().split('T')[0]
+                    : String(r.metric_date).split('T')[0];
+                dauByDate.set(d, Number(r.dau));
+            });
+        }
+    } catch { dauByDate = new Map(); }
+
+    // Global estimated DAU fallback from BusinessMetricsConfig
+    let estimatedDau = 0;
+    try {
+        const [cfgRows] = await pool.query(
+            `SELECT estimated_dau FROM BusinessMetricsConfig WHERE tenant_id = ? LIMIT 1`,
+            [tenantId]
+        );
+        if (Array.isArray(cfgRows) && (cfgRows as any[]).length > 0) {
+            estimatedDau = Number((cfgRows as any[])[0].estimated_dau) || 0;
+        }
+    } catch { /* tabla puede no existir aún */ }
+
+    const finalData = [];
+    for (let i = 29; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dateStr = date.toISOString().split('T')[0];
+        const cost = dailyCosts.get(dateStr) || 0;
+        const dau = dauByDate.has(dateStr) ? dauByDate.get(dateStr)! : (estimatedDau > 0 ? estimatedDau : null);
+        finalData.push({
+            date: dateStr,
+            cost,
+            dau,
+            costPerUser: (dau && dau > 0 && cost > 0) ? cost / dau : null
+        });
+    }
+
+    return { rows: finalData, estimatedDau };
 }
 

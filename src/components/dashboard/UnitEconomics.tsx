@@ -20,12 +20,13 @@ import { useCurrency } from '@/components/CurrencyProvider';
 import { isMockTenant } from '@/lib/mockData';
 import { useTranslations } from 'next-intl';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
+import { useProviderTranslations } from "@/lib/useProviderTranslations";
 
 export default function UnitEconomics() {
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const { format } = useCurrency();
-    const t = useTranslations("UnitEconomics");
+    const t = useProviderTranslations("UnitEconomics");
     const [dauInput, setDauInput] = useState('');
     const [savingDau, setSavingDau] = useState(false);
     const [showDauForm, setShowDauForm] = useState(false);

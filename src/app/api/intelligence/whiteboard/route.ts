@@ -245,10 +245,9 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(getMockDataForRoute("white_board", tenantId));
         }
 
-        const cacheKey = `whiteboard:v1:${tenantId}`;
+        const cacheKey = `whiteboard:v2:azure:${tenantId}`;
         const data = await getWithStaleWhileRevalidate(cacheKey, async () => {
-            const credential = await getAzureCredential(tenantId);
-            const argClient = new ResourceGraphClient(credential);
+            const argClient = new ResourceGraphClient(await getAzureCredential(tenantId));
 
             const [
                 costFigures,

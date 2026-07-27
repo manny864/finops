@@ -1,6 +1,6 @@
 "use client";
 import React, { useMemo, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useProviderTranslations } from "@/lib/useProviderTranslations";
 import useSWR from "swr";
 import {
     BarChart,
@@ -27,7 +27,7 @@ import { useCurrency } from "@/components/CurrencyProvider";
  * filtra client-side sin refetch.
  */
 export default function CostHistogramCard() {
-    const t = useTranslations('Dashboard');
+    const t = useProviderTranslations('Dashboard');
     const { format } = useCurrency();
     const { selectedTenant } = useTenant();
     const { selectedSubscription } = useSubscription();

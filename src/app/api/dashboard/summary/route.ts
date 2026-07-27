@@ -4,6 +4,7 @@ import { redis } from "@/lib/redis";
 import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";
 import { getCurrentMonthAmortizedCosts, getHistoricalDailyCosts, AZURE_COST_HISTORY_MAX_MONTHS } from "@/modules/collectors/azure/billingService";
+import { tenantUsesAzure } from "@/lib/tenantProviderContext";
 import { isMockTenant } from "@/lib/mockData";
 import { recordDailySnapshotAsync } from "@/services/snapshotService";
 import { getInternalBaseUrl } from "@/lib/internalBaseUrl";
@@ -182,6 +183,10 @@ async function fetchMTDBreakdown(
       }
     }
   } catch { /* Redis miss/parse error — recompute below */ }
+
+  // Un tenant AWS no tiene Service Principal ni suscripciones: llamar a Azure
+  // solo agrega el timeout completo antes del mismo null que devolvemos aca.
+  if (!(await tenantUsesAzure(tenantId))) return null;
 
   try {
     const entries = await getCurrentMonthAmortizedCosts(tenantId, subscriptionId, 'ActualCost');
@@ -470,14 +475,18 @@ export async function GET(request: NextRequest) {
         const histogramDays = histogramMonths * 31; // margen holgado por mes calendario
         let histogram = await fetchHistogramFromDb(tenantId, subscriptionId, histogramDays);
         let liveData: Awaited<ReturnType<typeof getCurrentMonthAmortizedCosts>> | null = null;
-        if (histogram.length === 0) {
+        // Los fallbacks live son especificos de Azure. Para un tenant AWS el
+        // histograma sale de CostSnapshots, que el sync de AWS ya alimenta
+        // (ver /api/sync/aws/[accountId]/ce), asi que no hay a que caer.
+        const useAzureLive = await tenantUsesAzure(tenantId);
+        if (histogram.length === 0 && useAzureLive) {
           try {
             liveData = await getCurrentMonthAmortizedCosts(tenantId, subscriptionId, 'ActualCost');
             histogram = buildHistogramRows(liveData || []);
           } catch (e: any) {
             console.warn('[Summary] live billing fallback failed:', e?.message);
           }
-        } else if (histogramMonths > 1) {
+        } else if (histogramMonths > 1 && useAzureLive) {
           // El snapshot diario local puede no cubrir toda la ventana pedida
           // (p.ej. tenants nuevos cuyo job de snapshots arrancó hace poco).
           // Si la fecha más antigua en DB es más reciente que la requerida,

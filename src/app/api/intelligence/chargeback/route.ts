@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
         // Auth: validate JWT and assert caller belongs to this tenant.
         await requireTenantRole(request, tenantId, ['Admin', 'Owner', 'Reader', 'Colaborador']);
 
-        const cacheKey = `intelligence:chargeback:${tenantId}:${subscriptionId}:${tagKey}`;
+        const cacheKey = `intelligence:chargeback:v2:azure:${tenantId}:${subscriptionId}:${tagKey}`;
 
         const chargebackData = await getWithStaleWhileRevalidate(cacheKey, async () => {
             let credential;

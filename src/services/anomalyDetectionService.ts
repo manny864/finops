@@ -19,6 +19,7 @@ import { sendWebhookAlert } from "@/lib/notifications";
 import { createNotification } from "@/lib/notify";
 import { recordDailySnapshotAsync } from "@/services/snapshotService";
 import { getHistoricalDailyCosts, AZURE_COST_HISTORY_MAX_MONTHS } from "@/modules/collectors/azure/billingService";
+import { tenantUsesAzure } from "@/lib/tenantProviderContext";
 
 // Ventana de detección "reciente": los últimos N días se evalúan contra la
 // línea base (todo lo anterior, hasta AZURE_COST_HISTORY_MAX_MONTHS de
@@ -232,13 +233,20 @@ export async function getDailyCostsForTenant(tenantId: string, subscriptionId = 
     const needsBackfill = sortedDates.length === 0 || new Date(sortedDates[0]) > requiredFrom;
     let backfillOk = true;
     if (needsBackfill) {
-        try {
-            const historical = await getHistoricalDailyCosts(tenantId, subscriptionId, AZURE_COST_HISTORY_MAX_MONTHS);
-            for (const { date, cost } of historical) costMap.set(date, cost);
-            backfillOk = historical.length > 0;
-        } catch (e: any) {
-            console.warn("[anomalyDetectionService] historical Azure backfill failed:", e?.message);
-            backfillOk = false;
+        // El backfill es una llamada a Azure Cost Management para completar el
+        // historial. En AWS no aplica: el sync ya escribe la serie completa en
+        // CostSnapshots. Sin este chequeo la llamada fallaba en cada request y
+        // el TTL del cache caia a 10 minutos, multiplicando la carga de la
+        // deteccion para tenants que no tienen nada que backfillear.
+        if (await tenantUsesAzure(tenantId)) {
+            try {
+                const historical = await getHistoricalDailyCosts(tenantId, subscriptionId, AZURE_COST_HISTORY_MAX_MONTHS);
+                for (const { date, cost } of historical) costMap.set(date, cost);
+                backfillOk = historical.length > 0;
+            } catch (e: any) {
+                console.warn("[anomalyDetectionService] historical Azure backfill failed:", e?.message);
+                backfillOk = false;
+            }
         }
     }
 

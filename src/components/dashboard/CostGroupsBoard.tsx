@@ -4,6 +4,7 @@ import useSWR from "swr";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { useTranslations, useLocale } from "next-intl";
+import { useProviderTranslations } from "@/lib/useProviderTranslations";
 import { getFreshIdToken } from "@/lib/msalToken";
 import Pagination, { usePagination } from "@/components/Pagination";
 import { Loader2, AlertCircle, DollarSign, MousePointerClick, Plus } from "lucide-react";
@@ -17,7 +18,7 @@ type MatchType = "tag" | "name_pattern";
 function CreateCostGroupModal({
     tenantId, onClose, onCreated,
 }: { tenantId: string; onClose: () => void; onCreated: () => void }) {
-    const t = useTranslations("CostGroups");
+    const t = useProviderTranslations("CostGroups");
     const { instance, accounts } = useMsal();
     const [name, setName] = useState("");
     const [description, setDescription] = useState("");
@@ -174,7 +175,7 @@ function Kpi({ label, value }: { label: string; value: string }) {
 }
 
 export default function CostGroupsBoard() {
-    const t = useTranslations("CostGroups");
+    const t = useProviderTranslations("CostGroups");
     const locale = useLocale();
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();

@@ -35,6 +35,7 @@ Cada sección explica **qué es** la funcionalidad, **quién puede usarla** (rol
 10. [Seguridad de la cuenta (MFA)](#10-seguridad-de-la-cuenta-mfa)
 11. [Funciones avanzadas e integraciones](#11-funciones-avanzadas-e-integraciones)
 12. [Mejores prácticas](#12-mejores-prácticas)
+13. [Multi-cloud: modelo de proveedor y ciclo de vida de los datos](#13-multi-cloud-modelo-de-proveedor-y-ciclo-de-vida-de-los-datos)
 
 ---
 
@@ -42,12 +43,16 @@ Cada sección explica **qué es** la funcionalidad, **quién puede usarla** (rol
 
 ### 1.1. Acceso e inicio de sesión
 
-La plataforma es un SaaS B2B que se integra con **Microsoft Entra ID** (Azure Active Directory) para autenticación:
+La plataforma es un SaaS B2B con **dos formas de iniciar sesión**, según el proveedor de nube de tu organización.
+
+**Si usás Azure**, la autenticación se integra con **Microsoft Entra ID** (Azure Active Directory):
 
 1. Entrá a la URL de la plataforma.
 2. Hacé clic en **"Iniciar sesión con Microsoft"**.
 3. Autenticate con tu cuenta corporativa. La plataforma reconoce automáticamente tu tenant de Azure y tu identidad.
-4. **Modo Demo:** si querés probar la plataforma sin conectar tu entorno real de Azure, elegí uno de los perfiles comerciales preconfigurados desde la pantalla principal — vienen con datos y métricas simuladas realistas, para que puedas explorar cada módulo sin riesgo.
+4. **Modo Demo:** si querés probar la plataforma sin conectar tu entorno real, elegí uno de los perfiles comerciales preconfigurados desde la pantalla principal — vienen con datos y métricas simuladas realistas, para que puedas explorar cada módulo sin riesgo. Elegí el proveedor de nube en el formulario de la demo, o enlazá directo con `/demo?tier=business&provider=aws`. Hay cuatro tenants de demo por proveedor (uno por tier); los de AWS usan los mismos factores de escala que los de Azure, de modo que la comparación lado a lado sea honesta. Una de las cuentas AWS de demo aparece a propósito en estado `ERROR`, para que la demo también muestre cómo se ve una falla de sincronización.
+
+**Si el tenant es AWS**, la autenticación es propia de la plataforma (email y contraseña). Ver la [sección 13](#13-multi-cloud-modelo-de-proveedor-y-ciclo-de-vida-de-los-datos).
 
 ### 1.2. El asistente de onboarding (primera vez)
 
@@ -55,9 +60,9 @@ Si sos administrador y es la primera vez que tu organización usa la plataforma,
 
 | Paso | Qué hacés | Resultado |
 |---|---|---|
-| **1. Bienvenida y datos de la empresa** | Confirmás nombre de la empresa, proveedor de nube principal (Azure), moneda de visualización (USD/EUR/GBP) y zona horaria | Se guardan tus preferencias iniciales |
-| **2. Conectar suscripción de Azure** | Pegás **Client ID**, **Client Secret** y **Azure Tenant ID** del Service Principal (generado con el script de PowerShell que te entrega CSCloudSolutions) y presionás **"Validar"** | El sistema chequea en vivo que el Service Principal tenga los roles mínimos necesarios; si falta alguno, te muestra en rojo cuál falta |
-| **3. Primera sincronización de datos** | Presionás **"Ejecutar Sincronización"** | Trae tu primer set de datos de costos desde Azure (puede tardar hasta 60 segundos) |
+| **1. Bienvenida y datos de la empresa** | Confirmás nombre de la empresa, proveedor de nube principal (**Azure o AWS**), moneda de visualización (USD/EUR/GBP) y zona horaria | Se guardan tus preferencias iniciales |
+| **2. Conectar nube principal** | Si el tenant eligió **Azure**, carga y valida **Client ID + Client Secret + Azure Tenant ID** del Service Principal. Si eligió **AWS**, abrí **Gestión de Cuentas AWS** (`/admin/cloud-accounts`), registrá al menos una cuenta y validá en el wizard. | La plataforma confirma precondición de ingesta para la nube elegida |
+| **3. Primera sincronización de datos** | Presionás **"Ejecutar Sincronización"** | Trae el primer set de costos desde la nube seleccionada (Azure o AWS; puede tardar hasta 60 segundos) |
 | **4. Crear tu primer presupuesto** | Completás nombre, límite mensual ($) y umbral de alerta (%) | Se crea tu primer presupuesto activo |
 | **5. Configurar notificaciones** | Presionás **"Configurar"** (abre `/admin/notifications` en pestaña nueva) | Agregás al menos un canal (email, Slack o Teams) para recibir alertas |
 
@@ -594,6 +599,134 @@ Podés upgradear a plan pago en cualquier momento desde **Facturación** — el 
 - **Exigí cumplimiento de tags:** sin etiquetas consistentes, el módulo de chargeback/showback no puede distribuir la factura mensual de forma justa entre equipos — es la base de todo lo demás.
 - **Usá el Simulador What-If antes de comprometerte:** antes de comprar una Reserva o Savings Plan, simulá el escenario y guardalo — te da un número concreto para justificar la decisión ante finanzas.
 - **Configurá al menos un canal de notificación** desde el primer día (Slack/Teams si tu equipo ya vive ahí, o email si preferís simplicidad) — las alertas de presupuesto no sirven si nadie las ve a tiempo.
+
+---
+
+## 13. Multi-cloud: modelo de proveedor y ciclo de vida de los datos
+
+Esta sección es exclusiva del SuperAdmin: describe cómo la plataforma decide qué proveedor de nube tiene cada tenant, qué pasa cuando cambia de plan y cómo operar la eliminación de datos.
+
+### 13.1. El modelo de proveedor
+
+Cada tenant tiene una columna `Tenants.provider` con tres valores posibles:
+
+| Valor | Significado | Tier mínimo |
+|---|---|---|
+| `azure` | Sólo Azure. Es el **default** y el estado de todos los tenants preexistentes. | Essential |
+| `aws` | Sólo AWS. Lo escribe el alta con email+contraseña. | Essential |
+| `both` | Azure y AWS simultáneos. | **Enterprise** |
+
+La exclusividad se **valida en el servidor**, no sólo en la UI: `assertProviderIngestable()` corta la ingesta del proveedor que el tenant no tiene habilitado en los cuatro puntos de entrada (alta de cuentas AWS, sync de Cost Explorer, sync de CUR y alta de credenciales de Azure). Un tenant que manipule el frontend no consigue ingestar el proveedor que no paga.
+
+### 13.2. Identidad: dos caminos de autenticación
+
+- **Azure** → Microsoft Entra ID (MSAL). El `tenant_id` es el GUID del tenant de Entra.
+- **AWS** → identidad propia de la plataforma (email + contraseña). El `tenant_id` es un **UUID generado**, y `Users.entra_oid` queda en `NULL`.
+
+Un usuario es "local" **si y sólo si** tiene `password_hash`. Los tokens propios se firman en HS256 y los de Entra son RS256; el backend discrimina por algoritmo, exigiendo el correcto en cada rama, así que no hay confusión de algoritmo posible. Los roles, permisos, MFA y cupos de usuario funcionan igual en los dos caminos.
+
+> **Requisito de despliegue:** sin la variable de entorno `LOCAL_AUTH_SECRET` (mínimo 32 caracteres) los siete endpoints de autenticación local devuelven **503 a propósito**. Es fail-closed: preferimos que el login AWS no funcione a que funcione con un secreto débil.
+
+### 13.3. Qué pasa cuando un tenant `both` baja de plan
+
+El downgrade llega por webhook (Paddle, Marketplace de Azure o de AWS) o por el PATCH de SuperAdmin. Los cuatro pasan por el **mismo punto único**, `applyTierChange()`, para que ninguno pueda olvidarse del efecto secundario.
+
+La política es **archivado reversible con ventana de gracia**, nunca borrado inmediato:
+
+| Momento | Qué ocurre |
+|---|---|
+| **T+0 (downgrade)** | Se elige qué proveedor se retiene y el otro queda **archivado**: se corta la ingesta, se conservan todos los datos y las credenciales. Se registra en `TenantProviderTransitions` con estado `GRACE`. |
+| **T+0 … T+90** | El proveedor archivado es de **sólo lectura**. El export FOCUS sigue habilitado aunque el nuevo tier no lo incluya (portabilidad; GDPR art. 20), exigiendo igual rol ADMIN/OWNER. |
+| **T-30 y T-7** | El cron manda aviso por email y notificación in-app. Es idempotente: cada hito se marca en la fila de la transición. |
+| **T+90** | El cron **purga** los datos del proveedor archivado en lotes de 5.000 filas, y deja registro `PROVIDER_DATA_PURGED` en `ActionLogs`. |
+
+**Elección automática del proveedor retenido.** Si nadie elige, gana: (1) mayor gasto de los últimos 90 días, (2) más cuentas conectadas, (3) `azure` como desempate final. La comparación de gasto usa aritmética decimal exacta, nunca coma flotante: el resultado define qué dataset se borra.
+
+**El tenant puede invertir la elección** durante toda la ventana desde el banner de la plataforma o vía `POST /api/admin/provider-transition` (rol ADMIN/OWNER). **Invertir no reinicia el reloj** — si lo hiciera, un tenant podría alternar indefinidamente y retener multi-cloud gratis para siempre.
+
+**Volver a Enterprise antes del plazo restaura todo sin pérdida.** Es el caso que justifica la ventana entera: un downgrade por tarjeta rechazada se revierte en horas.
+
+### 13.4. Por qué 90 días y no otra cosa
+
+- **No borrar en el acto:** el evento llega por webhook asíncrono, sin nadie que pueda confirmar un borrado masivo; y la serie histórica no se reconstruye (Cost Explorer retiene 12-14 meses, y el CUR depende de un bucket del cliente que no controlamos).
+- **No retener para siempre:** `FocusLineItems` tiene grano recurso/hora — millones de filas por cuenta por mes.
+- **90 días = un cierre trimestral completo.** El caso real es el cliente que baja en enero y en abril necesita el Q1 entero para cerrar el ejercicio.
+
+Se puede ajustar con `PROVIDER_ARCHIVE_RETENTION_DAYS`. El valor se **clampea entre 7 y 730 días** en vez de rechazarse, porque lo consumen un webhook y un cron: una variable mal escrita no puede hacer que el sistema purgue mañana ni que retenga para siempre.
+
+### 13.5. Operación
+
+- **Cron de avisos y purga:** `/api/cron/provider-archive-purge`, autenticado con `Authorization: Bearer $CRON_SECRET`. **Si no está en el crontab, nada se avisa ni se purga nunca** — la política queda a medias y la retención es infinita en silencio. Frecuencia recomendada: diaria.
+- **Auditoría:** todas las transiciones quedan en `ActionLogs` (`PROVIDER_ARCHIVED`, `PROVIDER_ELECTION_CHANGED`, `PROVIDER_RESTORED`, `PROVIDER_DATA_PURGED`) y en `TenantProviderTransitions`.
+- **Verificación del primer caso real:** antes del primer downgrade de un cliente grande, conviene revisar el primer `PROVIDER_DATA_PURGED` a mano. La purga es irreversible y la única red de contención es el backup completo de MySQL — no hay backup selectivo por proveedor.
+- **Consultar el estado de cualquier tenant:** `GET /api/admin/provider-transition?tenantId=...` devuelve el proveedor archivado, la fecha de purga y los días restantes.
+
+### 13.6. Alcance del panel por proveedor
+
+El panel nació 100% Azure y la mayoría de las páginas terminan llamando a Azure Resource Manager. El menú lateral se filtra por el proveedor activo con una **lista de rutas permitidas**: por defecto una página es Azure-only, y sólo las explícitamente marcadas como agnósticas (plataforma, usuarios, facturación del SaaS, auditoría, export FOCUS) o AWS aparecen con AWS activo.
+
+Es deliberadamente restrictivo: si alguien agrega una página nueva y se olvida de clasificarla, queda **oculta** para AWS en lugar de aparecer rota. A medida que se vayan parametrizando páginas, se agregan a esa lista.
+
+Hoy hay **73 de 119 páginas** habilitadas para AWS. Las de costos siguen todas el mismo patrón: la ruta consulta qué proveedor usa el tenant y, si no es Azure, omite la llamada en vivo a Azure Cost Management y lee directamente de la base. Las que quedan afuera son las que dependen de inventario de Azure Resource Graph o de servicios sin equivalente directo (Azure Policy, Defender for Cloud, Hybrid Benefit).
+
+### Diagnóstico: inventario de recursos y auditoría de etiquetas vacíos en AWS
+
+Dos causas, y ninguna produce un mensaje de error — el síntoma es siempre una
+**lista sin filas**, que soporte suele leer como "la cuenta no tiene nada":
+
+1. **El rol no tiene `tag:GetResources` / `tag:GetTagKeys`.** Se agregaron a la
+   plantilla en esta versión: los tenants onboardeados antes tienen que
+   **re-ejecutarla**. Es la primera comprobación a hacer.
+2. **La cuenta tiene recursos, pero sin etiquetas.** La Resource Groups Tagging
+   API —la única API de AWS que lista recursos de todos los servicios en una
+   sola llamada— sólo devuelve recursos con **al menos una etiqueta**. No hay
+   forma de listar los no etiquetados sin recorrer servicio por servicio.
+
+De ahí se desprende cómo leer el score de cumplimiento de etiquetas: el
+denominador son los recursos **etiquetados**, no la cuenta entera. Un tenant con
+etiquetado incipiente puede mostrar un score alto justamente porque los pocos
+recursos que etiquetó los etiquetó bien.
+
+En AWS esa página es de **sólo lectura**: no se ofrece remediación porque
+exigiría `tag:TagResources`, un permiso de escritura que el rol no pide. Los
+bloques de grupos de recursos y de herencia de etiquetas están ocultos, no
+rotos: AWS no tiene un contenedor equivalente al grupo de recursos.
+
+
+> ⚠️ **Habilitar una ruta para AWS son siempre dos cambios, no uno.** Además de agregarla a la allow-list hay que darle su caso en el generador de datos de demo. Si se hace sólo lo primero **no falla de forma visible**: el tenant AWS de demo cae al dato genérico y ve **recursos de Azure**. Ya ocurrió con dos páginas antes de detectarse.
+
+#### Asignación de costos en AWS (allocation, chargeback, unit economics, showback)
+
+Estas cuatro capacidades estaban bloqueadas para AWS por un motivo estructural, no de integración: el agregado diario de costos descartaba las etiquetas, así que dos filas del mismo día, región y servicio con distinto centro de costo **se pisaban entre sí** y todo el gasto caía en "Sin asignar". Se resolvió con una migración que suma la dimensión de etiqueta a la clave única. Fue segura para los datos de Azure ya persistidos porque su ingesta no llena esa columna.
+
+**Límite que persiste y hay que saber responder en soporte:** un tenant que conectó **sólo Cost Explorer, sin CUR**, va a seguir sin reparto por centro de costo. No es un bug ni un problema de permisos — Cost Explorer no devuelve etiquetas de recurso. La solución es que el cliente configure el CUR. Ya se advierte en la pantalla de alta y en el manual de usuario.
+
+### 13.7. Onboarding de cuentas AWS: permisos y requisitos
+
+La pantalla de alta de cuentas genera una plantilla de **mínimo privilegio** (CloudFormation, Terraform o AWS CLI) con exactamente las acciones que la plataforma realmente invoca, todas de **sólo lectura**: `sts:AssumeRole`, `ce:GetCostAndUsage`, el inventario EC2 (`ec2:DescribeInstances`, `DescribeVolumes`, `DescribeAddresses`, `DescribeSnapshots`), los presupuestos nativos (`budgets:DescribeBudgets`, `budgets:ViewBudget`, acotados al ARN de presupuestos de la propia cuenta) y `s3:GetObject`/`s3:ListBucket` acotadas al bucket del CUR del cliente, las recomendaciones de compra de Cost Explorer (`ce:GetReservationPurchaseRecommendation`, `ce:GetSavingsPlansPurchaseRecommendation`) y el inventario por etiquetas (`tag:GetResources`, `tag:GetTagKeys`). Un test afirma esa **lista cerrada** y rechaza cualquier verbo de escritura, para que no se amplíe sin una llamada real que lo justifique.
+
+Desde `/admin/cloud-accounts` ahora también podés **editar cuentas AWS ya creadas** (alias, Role ARN y parámetros CUR) sin eliminarlas y recrearlas.
+
+> ⚠️ **Los tenants onboardeados antes de julio de 2026 tienen que re-ejecutar la plantilla.** La versión original sólo otorgaba `ec2:DescribeInstances`, pero el inventario de recursos ociosos ya llamaba a `DescribeVolumes`, `DescribeAddresses` y `DescribeSnapshots`. **El síntoma no es un error visible**: esas familias fallan con `AccessDenied`, se descartan, y el cliente ve una lista de limpieza incompleta que parece decir "no tenés nada para optimizar". Al detectar un tenant AWS con cero volúmenes o cero snapshots huérfanos, verificar primero la antigüedad del rol antes de asumir que la cuenta está limpia.
+
+Antes se sugerían las políticas administradas `job-function/Billing`, `AmazonEC2ReadOnlyAccess` y `AmazonS3ReadOnlyAccess`. Esta última concede lectura de **todos** los buckets de la cuenta del cliente, lo que es desproporcionado para leer un reporte de costos y suele ser rechazado por áreas de seguridad exigentes.
+
+> **Requisito de despliegue:** el endpoint de plantillas necesita el ID de 12 dígitos de la cuenta AWS de la plataforma. Se resuelve en modo **KV-first** desde `infra-aws-platform-account-id` (fallback `AWS_PLATFORM_ACCOUNT_ID` en env). Si no existe un valor válido, devuelve **503 a propósito** (fail-closed): emitir una plantilla con un account ID equivocado haría que el cliente le diera acceso a su facturación a una cuenta que no es la nuestra.
+
+Cuando se implementen nuevas capacidades que requieran permisos adicionales (por ejemplo Cost Optimization Hub, o el forecast nativo de AWS), **hay que agregarlos a la plantilla en ese momento**, no por anticipado.
+
+### 13.8. Costo de Cost Explorer y caché
+
+La API de Cost Explorer de AWS **cobra USD 0.01 por request**, y cada página de la paginación cuenta como un request aparte. Sin control, un tenant con varias cuentas y un panel que refresca solo puede generar una factura de Cost Explorer mayor que el ahorro que la herramienta le encuentra.
+
+Por eso las lecturas se cachean en Redis por cuenta y rango de fechas:
+
+- **24 horas** si el rango ya cerró (los días pasados no cambian, salvo ajustes de facturación).
+- **1 hora** si el rango incluye el día en curso, que AWS sigue actualizando varias veces al día.
+
+El botón **Probar conexión** ignora la caché a propósito: su función es verificar que el rol funciona *ahora*, no devolver lo que se leyó hace horas. Al eliminar una cuenta se invalida su caché automáticamente.
+
+Si Redis no está disponible, la lectura se hace igual contra AWS: la caché nunca es un punto de falla para consultar costos.
 
 ---
 

@@ -37,8 +37,9 @@ export async function GET(request: NextRequest) {
 
     await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
 
-    const cacheKey = `cleanup:zombies:v1:${tenantId}:${subscriptionId || 'all'}`;
-    const allZombies = await getWithStaleWhileRevalidate(cacheKey, () => fetchZombies(tenantId, subscriptionId), 1800, 600);
+    const cacheKey = `cleanup:zombies:v2:azure:${tenantId}:${subscriptionId || 'all'}`;
+    const fetcher = () => fetchZombies(tenantId, subscriptionId);
+    const allZombies = await getWithStaleWhileRevalidate(cacheKey, fetcher, 1800, 600);
 
     return NextResponse.json({ success: true, data: allZombies });
 
@@ -249,3 +250,4 @@ async function fetchZombies(tenantId: string, subscriptionId: string | null): Pr
 
     return allZombies;
 }
+

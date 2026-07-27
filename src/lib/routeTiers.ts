@@ -78,7 +78,7 @@ export const ROUTE_TIERS: Record<string, 'Essential' | 'Professional' | 'Busines
     '/admin/pricing-units': 'Essential',
     '/admin/api-keys': 'Enterprise',
     '/admin/focus-export': 'Professional',
-    '/admin/cloud-accounts': 'Professional',
+    '/admin/cloud-accounts': 'Enterprise',
     // Oculta del Sidebar (ver Sidebar.tsx): sólo un datacenter real (Brasil) hoy,
     // no ofrecemos multi-región. La entrada de tier queda por si se accede directo
     // a la URL mientras la feature esté deshabilitada de la nav.
@@ -99,13 +99,8 @@ export const ROUTE_TIERS: Record<string, 'Essential' | 'Professional' | 'Busines
     '/admin/onboarding/lighthouse': 'Enterprise',
 };
 
-/**
- * Quita el prefijo de locale (es, en, pt-BR, etc.) de un pathname.
- * `/es/intelligence/billing` -> `/intelligence/billing`
- */
-export function stripLocale(pathname: string): string {
-    return pathname.replace(/^\/[a-z]{2}(-[A-Z]{2})?(?=\/|$)/, '') || '/';
-}
+import { stripLocale } from "./stripLocale";
+export { stripLocale };
 
 /**
  * Devuelve el tier requerido para una ruta o null si es libre.

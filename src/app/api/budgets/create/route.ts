@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSubscriptionBudget } from "@/services/budgetService";
 import { getAzureCredential } from "@/lib/azure";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
+import { requireDecimalStrict } from "@/lib/moneyDecimal";
 
 export async function POST(request: NextRequest) {
     let subscriptionId: string | undefined;
@@ -24,11 +25,16 @@ export async function POST(request: NextRequest) {
 
         const credential = await getAzureCredential(tenantId);
         
+        const parsedAmount = requireDecimalStrict(amount, "amount", { maxScale: 4 });
+        const parsedThreshold = alertThreshold === undefined || alertThreshold === null || String(alertThreshold).trim() === ""
+            ? undefined
+            : requireDecimalStrict(alertThreshold, "alertThreshold", { maxScale: 4 });
+
         const result = await createSubscriptionBudget(credential, subscriptionId, {
             budgetName,
-            amount: parseFloat(amount),
+            amount: parsedAmount.toNumber(),
             contactEmails: [contactEmail],
-            alertThreshold: alertThreshold ? parseFloat(alertThreshold) : undefined,
+            alertThreshold: parsedThreshold?.toNumber(),
             timeGrain: timeGrain || 'BillingMonth'
         });
 
@@ -46,6 +52,9 @@ export async function POST(request: NextRequest) {
             }, { status: 403 });
         }
 
+        if ((e as Error)?.message?.includes("inválido")) {
+            return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+        }
         return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }

@@ -607,17 +607,21 @@ export default function ExecutiveSummaryBoard() {
                     </FeatureGuard>
                 </div>
 
-                <div key="containerApps">
-                    <FeatureGuard requiredTier="Business" featureName={t("container_apps_feature_name")} className="h-full w-full drag-handle cursor-move">
-                        <ContainerAppsCard />
-                    </FeatureGuard>
-                </div>
+                {(
+                    <div key="containerApps">
+                        <FeatureGuard requiredTier="Business" featureName={t("container_apps_feature_name")} className="h-full w-full drag-handle cursor-move">
+                            <ContainerAppsCard />
+                        </FeatureGuard>
+                    </div>
+                )}
 
-                <div key="logAnalytics">
-                    <FeatureGuard requiredTier="Business" featureName={t("log_analytics_feature_name")} className="h-full w-full drag-handle cursor-move">
-                        <LogAnalyticsCard />
-                    </FeatureGuard>
-                </div>
+                {(
+                    <div key="logAnalytics">
+                        <FeatureGuard requiredTier="Business" featureName={t("log_analytics_feature_name")} className="h-full w-full drag-handle cursor-move">
+                            <LogAnalyticsCard />
+                        </FeatureGuard>
+                    </div>
+                )}
             </ResponsiveGridLayout>
         </div>
     );

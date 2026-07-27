@@ -2,10 +2,12 @@
 import MockBanner from '@/components/MockBanner';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
+import { useProviderTranslations } from "@/lib/useProviderTranslations";
+import { DEFAULT_LICENSE_SAVINGS_PCT } from "@/lib/simulator/engine";
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Calculator, Play, Network, HardDrive, Cpu, ShieldCheck, DollarSign, RotateCcw, Loader2 } from 'lucide-react';
+import { Calculator, Play, Network, HardDrive, Cpu, ShieldCheck, DollarSign, RotateCcw, Loader2, Sparkles } from 'lucide-react';
 import { hasAccess } from '@/lib/tierLogic';
 import { toast } from 'sonner';
 import { getFreshIdToken } from '@/lib/msalToken';
@@ -13,7 +15,7 @@ import ScenarioManager from '@/components/simulator/ScenarioManager';
 import { isMockTenant } from '@/lib/mockData';
 
 export default function SimulatorPage() {
-    const t = useTranslations('Simulator');
+    const t = useProviderTranslations("Simulator");
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const isEnterprise = hasAccess(selectedTenant.tier || 'Essential', 'Enterprise');
@@ -22,6 +24,14 @@ export default function SimulatorPage() {
     const [computeScale, setComputeScale] = useState(100);
     const [storageScale, setStorageScale] = useState(100);
     const [applyAhb, setApplyAhb] = useState(false);
+    // El ahorro por licencias es un supuesto explicito y editable: arranca en
+    // el 18% historico del AHB.
+    const defaultLicensePct = DEFAULT_LICENSE_SAVINGS_PCT.azure;
+    const [licenseSavingsPct, setLicenseSavingsPct] = useState<number>(defaultLicensePct);
+
+    useEffect(() => {
+        setLicenseSavingsPct(defaultLicensePct);
+    }, [defaultLicensePct]);
 
     // Costo Base: se precarga con el gasto real del tenant (GET al mismo
     // endpoint que usa la simulación) pero es editable — el usuario puede
@@ -89,7 +99,8 @@ export default function SimulatorPage() {
                         networkIncrease,
                         computeScale: computeScale / 100,
                         storageScale: storageScale / 100,
-                        applyAhb
+                        applyAhb,
+                        licenseSavingsPct
                     }
                 })
             });
@@ -144,16 +155,23 @@ export default function SimulatorPage() {
     ] : [];
 
     return (
-        <div className="p-6 max-w-6xl mx-auto animate-in fade-in duration-500">
+        <div className="p-6 max-w-7xl mx-auto animate-in fade-in duration-500 space-y-8">
             <MockBanner />
-            <div className="mb-8">
-                <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white flex items-center gap-3">
-                    <Calculator className="w-8 h-8 text-indigo-500" />
-                    {t('pageTitle')}
-                </h1>
-                <p className="text-gray-500 dark:text-gray-400 mt-2">
-                    {t('pageSubtitle')}
-                </p>
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-8 rounded-3xl text-white shadow-xl relative overflow-hidden">
+                <div className="absolute -right-10 -bottom-10 w-60 h-60 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+                <div className="relative z-10">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-xs font-semibold mb-3">
+                        <Sparkles className="w-3.5 h-3.5" />
+                        FinOps ROI Simulator
+                    </div>
+                    <h1 className="text-3xl md:text-4xl font-black tracking-tight text-white flex items-center gap-3">
+                        <Calculator className="w-9 h-9 text-indigo-400" />
+                        {t('pageTitle')}
+                    </h1>
+                    <p className="text-indigo-200/80 text-sm md:text-base mt-2 max-w-2xl">
+                        {t('pageSubtitle')}
+                    </p>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -273,6 +291,30 @@ export default function SimulatorPage() {
                                     <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-500"></div>
                                 </label>
                             </div>
+
+                            {applyAhb && (
+                                <div className="pl-7">
+                                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
+                                        {t('licenseSavingsLabel')}
+                                    </label>
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="number"
+                                            min={0}
+                                            max={100}
+                                            value={licenseSavingsPct}
+                                            onChange={(e) => {
+                                                const v = parseInt(e.target.value, 10);
+                                                setLicenseSavingsPct(Number.isFinite(v) ? Math.min(100, Math.max(0, v)) : 0);
+                                            }}
+                                            className="w-24 px-2 py-1 rounded-md border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm text-gray-900 dark:text-white"
+                                            aria-label={t('licenseSavingsLabel')}
+                                        />
+                                        <span className="text-sm text-gray-500">%</span>
+                                    </div>
+                                    <p className="text-[10px] text-gray-500 mt-1">{t('licenseSavingsHint')}</p>
+                                </div>
+                            )}
 
                             <button
                                 onClick={handleSimulate}

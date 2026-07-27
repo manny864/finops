@@ -19,47 +19,21 @@ import { promises as fs } from "fs";
 import path from "path";
 import crypto from "crypto";
 import { isBlobStorageEnabled, uploadBlob, downloadBlob, deleteBlob } from "@/lib/azureBlobStorage";
+import { validateRasterImage, RASTER_STORED_NAME_RE, mimeForExt, type RasterImageValidation } from "@/lib/rasterImageValidation";
 
 export const TENANT_LOGO_MAX_BYTES = 2 * 1024 * 1024; // 2 MB
 export const TENANT_LOGO_CONTAINER = process.env.AZURE_STORAGE_CONTAINER_LOGOS || "tenant-logos";
 
-const ALLOWED: Record<string, { mime: string; magic: number[][] }> = {
-    png: { mime: "image/png", magic: [[0x89, 0x50, 0x4e, 0x47]] },
-    jpg: { mime: "image/jpeg", magic: [[0xff, 0xd8, 0xff]] },
-    jpeg: { mime: "image/jpeg", magic: [[0xff, 0xd8, 0xff]] },
-    webp: { mime: "image/webp", magic: [[0x52, 0x49, 0x46, 0x46]] }, // 'RIFF'
-};
-
-const STORED_NAME_RE = /^[0-9a-f-]{36}\.(png|jpe?g|webp)$/i;
+const STORED_NAME_RE = RASTER_STORED_NAME_RE;
 
 export function getTenantLogoUploadDir(): string {
     return process.env.TENANT_LOGO_UPLOAD_DIR || path.join(process.cwd(), "data", "tenant-logos");
 }
 
-export interface LogoValidation {
-    ok: boolean;
-    error?: string;
-    ext?: string;
-    mime?: string;
-}
+export type LogoValidation = RasterImageValidation;
 
 export function validateTenantLogo(fileName: string, bytes: Buffer): LogoValidation {
-    const ext = (fileName.split(".").pop() || "").toLowerCase();
-    const spec = ALLOWED[ext];
-    if (!spec) {
-        return { ok: false, error: "Formato no permitido. Solo PNG, JPG o WEBP." };
-    }
-    if (bytes.length === 0) {
-        return { ok: false, error: "El archivo está vacío." };
-    }
-    if (bytes.length > TENANT_LOGO_MAX_BYTES) {
-        return { ok: false, error: "El logo supera el máximo de 2 MB." };
-    }
-    const matches = spec.magic.some((sig) => sig.every((b, i) => bytes[i] === b));
-    if (!matches) {
-        return { ok: false, error: "El contenido del archivo no coincide con su extensión." };
-    }
-    return { ok: true, ext, mime: spec.mime };
+    return validateRasterImage(fileName, bytes, TENANT_LOGO_MAX_BYTES);
 }
 
 export async function saveTenantLogo(bytes: Buffer, ext: string): Promise<string> {
@@ -103,7 +77,4 @@ export async function deleteTenantLogoFile(storedName: string): Promise<void> {
     }
 }
 
-export function mimeForExt(ext: string): string {
-    const e = ext.toLowerCase().replace(/^\./, "");
-    return ALLOWED[e]?.mime || "application/octet-stream";
-}
+export { mimeForExt };

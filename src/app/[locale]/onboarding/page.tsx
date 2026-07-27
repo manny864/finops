@@ -58,6 +58,7 @@ export default function OnboardingPage() {
     const [budgetLimit, setBudgetLimit] = useState('');
     const [budgetAlertThreshold, setBudgetAlertThreshold] = useState('80');
     const [budgetSubscription, setBudgetSubscription] = useState('All');
+    const tenantProvider = selectedTenant?.provider;
 
     const timezones = useMemo<string[]>(() => {
         let list = FALLBACK_TIMEZONES;
@@ -77,6 +78,12 @@ export default function OnboardingPage() {
         if (!selectedTenant || !accounts.length) return;
         loadProgress();
     }, [selectedTenant, accounts]);
+
+    useEffect(() => {
+        if (tenantProvider === 'azure') {
+            setPrimaryCloud(tenantProvider);
+        }
+    }, [tenantProvider]);
 
     // DEMO: precargar el formulario de onboarding con datos ya completados.
     // En modo demo no hay cuentas MSAL, por lo que loadProgress() nunca corre;
@@ -174,6 +181,11 @@ export default function OnboardingPage() {
         } finally {
             setSpValidating(false);
         }
+    };
+
+    const handleValidateCloudConnection = async () => {
+        if (!selectedTenant?.id) return;
+        await handleValidateSP();
     };
 
     const handlePartnerLink = async (approve: boolean) => {
@@ -327,21 +339,6 @@ export default function OnboardingPage() {
                                 placeholder={t('companyNamePlaceholder')}
                             />
                         </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                {t('primaryCloud')}
-                            </label>
-                            <select
-                                value={primaryCloud}
-                                onChange={(e) => setPrimaryCloud(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                            >
-                                <option value="azure">{t('azureConnected')}</option>
-                                <option value="aws" disabled>
-                                    {t('awsComingSoon')}
-                                </option>
-                            </select>
-                        </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -384,7 +381,7 @@ export default function OnboardingPage() {
                     status={progress.step_azure_sp}
                     isActive={activeStep === 2}
                     onStart={() => setActiveStep(2)}
-                    onContinue={handleValidateSP}
+                    onContinue={handleValidateCloudConnection}
                     onSkip={async () => {
                         await updateStepStatus('step_azure_sp', 'skipped');
                         setActiveStep(3);

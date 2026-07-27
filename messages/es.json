@@ -364,24 +364,6 @@
     "subscribeButton": "Suscribirse por Correo",
     "footer": "Plataforma CSCloudSolutions FinOps • Última captura a las {time}"
   },
-  "MarketplaceAwsLanding": {
-    "errorConfigMissing": "AWS Marketplace no está configurado (falta PRODUCT_CODE)",
-    "errorTitle": "Error de Configuración",
-    "returnHome": "Volver al Inicio",
-    "welcomeTitle": "Bienvenido a la Plataforma FinOps SaaS",
-    "welcomeSubtitle": "Desde AWS Marketplace",
-    "subscriptionDetails": "Detalles de la Suscripción",
-    "selectedPlan": "Plan Seleccionado",
-    "autoDetected": "detectado automáticamente",
-    "awsAccount": "Cuenta de AWS",
-    "customerId": "Customer ID:",
-    "productCode": "Código de Producto:",
-    "activateButton": "Completar Configuración",
-    "nextStepLabel": "Próximo Paso:",
-    "nextStepText": "Una vez completada la configuración, vas a crear tu cuenta. Tu suscripción de AWS Marketplace ya está activada.",
-    "errorMissingToken": "Falta el token del marketplace. Volvé a AWS Marketplace e intentá de nuevo.",
-    "loading": "Cargando detalles de la suscripción…"
-  },
   "MarketplaceAzureLanding": {
     "errorConfigMissing": "Azure Marketplace no está configurado (falta AAD_APP_ID)",
     "errorTitle": "Error de Configuración",
@@ -502,7 +484,8 @@
     "ai_config": "Configuración de IA",
     "invoicing_report": "Reporte de Facturación",
     "notifications": "Notificaciones",
-    "billing_subscription": "Facturación"
+    "billing_subscription": "Facturación",
+    "cloud_accounts": "Cuentas AWS"
   },
   "Dashboard": {
     "title": "Dashboard General",
@@ -1060,7 +1043,7 @@
       "unattachedDisks": "Disco sin asociar",
       "unusedIps": "IP Pública sin asignar",
       "staleSnapshots": "Snapshot Antiguo (>90d)",
-      "oldSnapshots": "Snapshot Antiguo (>30d)",
+      "oldSnapshots": "Snapshot de más de 90 días",
       "taggingNonCompliance": "Sin Etiquetas FinOps",
       "orphanedNics": "NIC Huérfano",
       "orphanedNsgs": "NSG sin asociar",
@@ -1088,9 +1071,11 @@
       "emptyRgs": "RG Vacío",
       "apiConnections": "Desconectada",
       "expiredCerts": "Expirado",
-      "unattachedPublicIps": "IP Pública sin asignar",
+      "unattachedPublicIps": "IP elástica ociosa",
       "unattachedNics": "NIC Huérfano",
-      "longStoppedVMs": "VM Apagada con Discos"
+      "longStoppedVMs": "VM Apagada con Discos",
+      "unattachedVolumes": "Volumen EBS sin adjuntar",
+      "longStoppedInstances": "Instancia detenida hace tiempo (sigue pagando EBS)"
     }
   },
   "Copilot": {
@@ -1131,7 +1116,8 @@
         "Usuarios y Permisos, Onboarding y Configuración",
         "Preferencias Multi-Moneda",
         "Soporte en plataforma (5 tickets/mes, respuesta en 48 h)"
-      ]
+      ],
+      "awsScope": "1 cuenta de AWS, 1 usuario"
     },
     "pro": {
       "name": "Professional",
@@ -1156,7 +1142,8 @@
         "Autenticación Multi-Factor (MFA)",
         "Soporte en plataforma (20 tickets/mes, respuesta en 24 h)",
         "FinOps Copilot (IA)"
-      ]
+      ],
+      "awsScope": "Hasta 5 cuentas de AWS, hasta 5 usuarios"
     },
     "business": {
       "name": "Business",
@@ -1186,7 +1173,8 @@
         "Reporte Ejecutivo",
         "Página de Estado Pública + Historial de Incidentes",
         "Soporte ilimitado en plataforma (respuesta en 8 h)"
-      ]
+      ],
+      "awsScope": "Hasta 20 cuentas de AWS, hasta 20 usuarios"
     },
     "enterprise": {
       "name": "Enterprise",
@@ -1228,7 +1216,8 @@
         "Azure Key Vault (cifrado gestionado por la plataforma)",
         "Billing Azure Marketplace SaaS",
         "Soporte dedicado ilimitado (SLA máximo 4 h)"
-      ]
+      ],
+      "awsScope": "Cuentas de AWS y usuarios ilimitados"
     },
     "enterpriseModal": {
       "title": "Contactar a Ventas Enterprise",
@@ -1259,7 +1248,12 @@
       "continue": "Continuar al pago"
     },
     "showFeatures": "Ver funciones ({count})",
-    "hideFeatures": "Ocultar funciones"
+    "hideFeatures": "Ocultar funciones",
+    "cloudSelectorLabel": "¿Qué nube querés gestionar?",
+    "cloudAzure": "Azure",
+    "cloudAws": "AWS",
+    "featureNotInAws": "Todavía no disponible en AWS",
+    "awsScopeNotice": "Las funciones atenuadas todavía no están disponibles para AWS. El soporte de AWS se libera capability por capability: lo que ves habilitado es lo que funciona hoy, no lo planificado."
   },
   "auth": {
     "paymentSuccess": "¡Pago completado con éxito! Por favor, inicia sesión para acceder a tu plan."
@@ -1373,25 +1367,37 @@
     "companyNamePlaceholder": "Nombre de tu empresa",
     "primaryCloud": "Proveedor de nube principal",
     "azureConnected": "Azure (Conectado)",
+    "awsConnected": "AWS (Conectado)",
     "awsComingSoon": "AWS (Próximamente)",
     "currency": "Moneda",
     "timezone": "Zona horaria",
     "step2Title": "Conectar suscripción de Azure",
     "step2Desc": "Proporciona las credenciales de tu Service Principal",
+    "step2TitleAws": "Conectar cuenta de AWS",
+    "step2DescAws": "Registra y valida al menos una cuenta AWS para habilitar la ingesta",
     "clientId": "Client ID",
     "clientSecret": "Client Secret",
     "azureTenantId": "Azure Tenant ID",
     "validate": "Validar",
+    "validateAws": "Validar cuenta AWS",
     "validating": "Validando...",
     "credsValidated": "Credenciales validadas correctamente",
     "allPermsPresent": "Todos los permisos requeridos están presentes",
+    "awsAccountValidated": "Cuenta AWS validada correctamente",
+    "awsReadyForSync": "Hay al menos una cuenta AWS registrada y lista para sincronizar",
     "validationFailed": "La validación falló",
+    "awsConnectHint": "Abre Gestión de Cuentas AWS, da de alta una cuenta y luego vuelve aquí para validar.",
+    "openAwsAccounts": "Abrir Gestión de Cuentas AWS",
+    "awsNoAccountsConfigured": "No encontramos cuentas AWS configuradas. Crea al menos una en Gestión de Cuentas AWS.",
     "step3Title": "Ejecutar primera sincronización de datos",
     "step3Desc": "Sincroniza tu primer conjunto de datos de costos desde Azure",
+    "step3DescAws": "Sincroniza tu primer conjunto de datos de costos desde AWS",
     "runSync": "Ejecutar sincronización",
     "syncing": "Sincronizando...",
     "syncingHint": "Sincronizando tus datos... esto puede tardar hasta 60 segundos",
     "syncClickHint": "Haz clic en \"Ejecutar sincronización\" para importar tus datos de costos iniciales desde Azure",
+    "syncingHintAws": "Sincronizando tus datos de AWS... esto puede tardar hasta 60 segundos",
+    "syncClickHintAws": "Haz clic en \"Ejecutar sincronización\" para importar tus datos de costos iniciales desde AWS",
     "step4Title": "Crea tu primer presupuesto",
     "step4Desc": "Configura un presupuesto para controlar el gasto",
     "subscription": "Suscripción",
@@ -2540,12 +2546,10 @@
     "supportLimited": "{count} tickets/mes de soporte",
     "supportUnlimited": "soporte ilimitado",
     "marketplaceSubscriptionAzure": "Suscripción via Azure Marketplace",
-    "marketplaceSubscriptionAws": "Suscripción via AWS Marketplace",
     "marketplaceManagedVia": "Tu suscripción está gestionada a través de {marketplace} Marketplace. Los cambios de plan deben realizarse en el portal del marketplace.",
     "marketplaceSubscriptionId": "ID de Suscripción",
     "plan": "Plan",
     "goToAzurePortal": "Ir a Azure Portal",
-    "goToAwsConsole": "Ir a AWS Console",
     "changePlan": "Cambiar Plan",
     "update": "Actualizar",
     "enterpriseNotice": "Tu organización está en el plan <span>Enterprise</span>, con condiciones y precios personalizados. Para modificar tu plan, contactá a nuestro equipo comercial en <email>ventas@cscloudsolutions.com.ar</email>.",
@@ -2847,9 +2851,12 @@
     "actionTestTitle": "Probar conexión",
     "actionSyncCeTitle": "Sincronizar vía Cost Explorer (30d)",
     "actionSyncCurTitle": "Sincronizar vía CUR S3 (último período)",
+    "actionEditTitle": "Editar cuenta",
     "actionDeleteTitle": "Eliminar",
     "modalTitle": "Conectar cuenta AWS",
     "modalIntro": "Completá los datos. Al crear la cuenta, te vamos a dar el External ID para configurar la confianza del Role en AWS.",
+    "editModalTitle": "Editar cuenta AWS",
+    "editModalIntro": "Actualizá alias, Role ARN o configuración de CUR. Los cambios aplican al próximo test/sync.",
     "fieldAccountId": "AWS Account ID (12 dígitos) *",
     "fieldAlias": "Alias *",
     "fieldRoleArn": "Role ARN *",
@@ -2857,6 +2864,7 @@
     "roleArnHelpSuffix": "(Cost Explorer) y, opcionalmente, S3 ReadOnly al bucket de CUR.",
     "curSectionTitle": "CUR S3 (opcional)",
     "curSectionSubtitle": "Si activaste un Cost & Usage Report en formato Parquet, completá estos campos para ingesta de alta fidelidad.",
+    "curSectionWarning": "Sin CUR, Cost Explorer no devuelve las etiquetas de los recursos: los costos se abren solo por cuenta, región y servicio. La asignación de costos por equipo o proyecto, el chargeback y el unit economics requieren el CUR.",
     "placeholderAccountId": "123456789012",
     "placeholderAlias": "prod-us-east",
     "placeholderRoleArn": "arn:aws:iam::123456789012:role/FinOpsReader",
@@ -2865,26 +2873,34 @@
     "placeholderCurReportName": "nombre del reporte",
     "cancelButton": "Cancelar",
     "createButton": "Crear cuenta",
+    "updateButton": "Guardar cambios",
     "successStepTitle": "¡Cuenta creada! Ahora configurá el IAM Role en AWS:",
     "externalIdLabel": "External ID (necesario para el Trust Policy)",
     "trustPolicyLabel": "Trust Policy para el Role",
     "permissionPoliciesLabel": "Permission Policies a adjuntar",
-    "policyBillingNote": "(Cost Explorer + Budgets)",
-    "policyEc2Note": "(resource discovery)",
-    "policyS3OptionalPrefix": "Opcional:",
-    "policyS3OptionalSuffix": "al bucket de CUR (mejor una policy custom limitada a ese bucket).",
     "closeButton": "Cerrar",
     "errorLoadingAccounts": "Error cargando cuentas AWS",
     "errorRequiredFields": "Account ID, Role ARN y Alias son obligatorios",
     "errorCreatingAccount": "Error creando cuenta",
+    "errorUpdating": "Error actualizando cuenta",
     "successAccountCreated": "Cuenta AWS creada. Copiá el External ID y configurá tu Role en AWS.",
+    "successUpdated": "Cuenta AWS actualizada correctamente.",
     "confirmDelete": "¿Eliminar la cuenta AWS {accountId} ({alias})? Los datos en CostSnapshots no se borran.",
     "errorDeleting": "Error eliminando",
     "successDeleted": "Cuenta eliminada",
     "testFailed": "Test falló",
     "testSuccess": "Test OK: ${amount} en los últimos 7 días ({rows} filas)",
     "syncFailed": "Sync {source} falló",
-    "syncSuccess": "Sync {source} OK: {rows} filas actualizadas"
+    "syncSuccess": "Sync {source} OK: {rows} filas actualizadas",
+    "leastPrivilegeIntro": "Creá el rol con la plantilla de abajo. Otorga sólo las cuatro acciones que la plataforma realmente usa, sin políticas administradas amplias.",
+    "templatesLoading": "Generando plantillas de mínimo privilegio…",
+    "templatesError": "La cuenta se creó, pero no se pudieron generar las plantillas. Podés configurar el rol a mano o volver a abrir esta cuenta más tarde.",
+    "platformAwsAccountMissingHint": "Falta configurar la cuenta AWS de la plataforma (AWS_PLATFORM_ACCOUNT_ID o NEXT_PUBLIC_AWS_PLATFORM_ACCOUNT_ID). Pedile al administrador de la instancia que la defina con 12 dígitos y reinicie la app.",
+    "templateTab_cloudFormation": "CloudFormation",
+    "templateTab_terraform": "Terraform",
+    "templateTab_cli": "AWS CLI",
+    "templateCopy": "Copiar",
+    "templateCopied": "Plantilla copiada al portapapeles"
   },
   "AdminCompliance": {
     "pageTitle": "Legal y Compliance",
@@ -4370,14 +4386,15 @@
     "csvColResourceGroup": "Grupo de Recursos",
     "csvColRegion": "Region",
     "csvColComplianceStatus": "Estado de Cumplimiento",
-    "csvColMissingTags": "Etiquetas Faltantes"
+    "csvColMissingTags": "Etiquetas Faltantes",
+    "awsReadOnlyNotice": "Auditoria de solo lectura: el rol del onboarding no pide permisos para escribir etiquetas, asi que la correccion se hace desde la consola de AWS o desde tu herramienta de infraestructura como codigo."
   },
   "TierLockedNotice": {
     "featureLockedTitle": "{feature} está en el plan {tier}",
     "notAvailableTitle": "Función no disponible en tu plan",
     "descAvailableFrom": "Esta función está disponible a partir del plan",
     "descCurrentPlan": "tu plan actual es",
-    "descUpgradePrompt": "Actualizá tu suscripción para desbloquearla.",
+    "descUpgradePrompt": "Actualizá tu plan para desbloquearla.",
     "viewPlansCta": "Ver planes y precios"
   },
   "Simulator": {
@@ -4396,6 +4413,8 @@
     "storageLabel": "Expansión de Almacenamiento",
     "ahbLabel": "Aplicar Licencias (AHB)",
     "ahbHint": "Trae tus propias licencias de Win/SQL",
+    "licenseSavingsLabel": "Ahorro por licencias",
+    "licenseSavingsHint": "Se aplica sólo sobre el cómputo — las licencias no abaratan storage ni egress.",
     "runButton": "Ejecutar Simulación",
     "runningButton": "Calculando...",
     "resultsTitle": "Impacto Financiero Proyectado",
@@ -4696,5 +4715,33 @@
     "rec_set_daily_cap": "Fijar tope diario",
     "rec_ok": "Óptimo",
     "estimate_note": "La ingesta y el ahorro son estimaciones a partir del costo y precios de referencia de Azure Monitor; úselos para priorizar, no para facturar."
+  },
+  "provider": {
+    "switchLabel": "Proveedor de nube activo",
+    "archivedHint": "Proveedor archivado: sólo lectura hasta la purga",
+    "archivedBadge": "Archivado",
+    "graceTitle": "Tus datos de {provider} se eliminan en {days} días",
+    "graceBody": "Al bajar de plan Enterprise conservás un solo proveedor. Se retiene {retained} y {archived} quedó archivado: podés consultarlo y exportarlo, pero ya no sincroniza. El {date} se elimina de forma definitiva.",
+    "exportCta": "Exportar datos",
+    "invertCta": "Retener {provider} en su lugar",
+    "invertConfirm": "¿Retener {retained} y archivar el otro proveedor? Los datos archivados se eliminan igual en la misma fecha: invertir la elección no reinicia el plazo.",
+    "dismiss": "Entendido",
+    "signupTitle": "¿Qué nube querés analizar?",
+    "signupAzure": "Microsoft Azure",
+    "signupAzureHint": "Iniciás sesión con tu cuenta de Microsoft.",
+    "signupAws": "Amazon Web Services",
+    "signupAwsHint": "AWS no tiene inicio de sesión corporativo: creás una cuenta con email y contraseña.",
+    "signupCompany": "Nombre de la empresa",
+    "signupEmail": "Email de trabajo",
+    "signupPassword": "Contraseña (mínimo 12 caracteres)",
+    "signupSubmit": "Crear cuenta",
+    "signupSuccess": "Listo. Te enviamos un email para verificar tu dirección.",
+    "signupError": "No pudimos crear la cuenta. Revisá los datos e intentá de nuevo.",
+    "loading": "Procesando..."
+  },
+  "ProviderGate": {
+    "title": "Función no disponible para {provider}",
+    "description": "Esta página todavía no tiene equivalente para {provider}: depende de datos que solo entrega Azure.",
+    "hint": "Si su organización también tiene Azure, cambie de proveedor con el selector de la barra superior."
   }
 }

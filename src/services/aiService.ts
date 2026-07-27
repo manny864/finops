@@ -3,7 +3,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createAzure } from '@ai-sdk/azure';
-import pool from '@/modules/storage/db';
+import pool, { insertPlatformAiUsage } from '@/modules/storage/db';
 import { RowDataPacket } from 'mysql2';
 import { decryptSecret } from '@/lib/secretCrypto';
 
@@ -44,7 +44,11 @@ export async function getAIConfig(tenantId?: string) {
 
     return {
         provider: tenantProvider || config['ai_provider'] || process.env.AI_PROVIDER || 'google',
-        apiKey: tenantApiKey || globalApiKey || process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY || process.env.AZURE_OPENAI_API_KEY || ''
+        apiKey: tenantApiKey || globalApiKey || process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY || process.env.AZURE_OPENAI_API_KEY || '',
+        // FinOps: distingue quién paga la llamada — 'byok' es gasto del tenant
+        // (key propia), 'platform' es gasto que absorbe la plataforma (key
+        // global de fallback). Ver PlatformAiUsage / insertPlatformAiUsage.
+        source: (tenantApiKey ? 'byok' : 'platform') as 'byok' | 'platform',
     };
 }
 
@@ -56,20 +60,23 @@ export async function generateFinOpsReport(tenantId: string, metricsData: any, l
     }
 
     let model;
-    
+    let modelName;
+
     switch (config.provider) {
         case 'google':
             const google = createGoogleGenerativeAI({ apiKey: config.apiKey });
             // Reporte ejecutivo: usa el alias `gemini-pro-latest` para acceder al
             // modelo Pro más reciente disponible (free tier cuando aplica).
-            model = google('gemini-pro-latest');
+            modelName = 'gemini-pro-latest';
+            model = google(modelName);
             break;
         case 'anthropic':
             const anthropic = createAnthropic({ apiKey: config.apiKey });
             // claude-3-opus-20240229 fue retirado por Anthropic (2026-01-05).
             // claude-sonnet-5 es el modelo Sonnet actual (calidad casi-Opus en
             // tareas de análisis a menor costo que Opus).
-            model = anthropic('claude-sonnet-5');
+            modelName = 'claude-sonnet-5';
+            model = anthropic(modelName);
             break;
         case 'azure_openai':
             const azure = createAzure({ apiKey: config.apiKey, resourceName: process.env.AZURE_OPENAI_RESOURCE_NAME });
@@ -77,19 +84,22 @@ export async function generateFinOpsReport(tenantId: string, metricsData: any, l
             // una apiVersion reciente + deployment habilitado (muchos recursos no
             // lo tienen). .chat apunta al deployment de Chat Completions estándar
             // ('gpt-4o' acá es el nombre del deployment), el camino universal.
-            model = azure.chat('gpt-4o');
+            modelName = 'gpt-4o';
+            model = azure.chat(modelName);
             break;
         case 'deepseek':
             const deepseek = createOpenAI({ apiKey: config.apiKey, baseURL: 'https://api.deepseek.com/v1' });
             // deepseek(...) sin .chat usa por defecto la Responses API de OpenAI
             // (/responses), que DeepSeek no implementa — 404 Not Found. DeepSeek
             // solo soporta Chat Completions (/chat/completions), hay que pedirlo explícito.
-            model = deepseek.chat('deepseek-chat');
+            modelName = 'deepseek-chat';
+            model = deepseek.chat(modelName);
             break;
         case 'openai':
         default:
             const openai = createOpenAI({ apiKey: config.apiKey });
-            model = openai('gpt-4o');
+            modelName = 'gpt-4o';
+            model = openai(modelName);
             break;
     }
 
@@ -110,10 +120,20 @@ Reglas estrictas:
 - NUNCA uses lenguaje genérico de relleno. Basa cada afirmación en los números concretos provistos en el JSON.
 - Redacta el reporte completamente en ${locale === 'es' ? 'Español' : locale === 'pt-BR' ? 'Portugués (Brasil)' : 'Inglés'}.`;
 
-    const { text } = await generateText({
+    const { text, usage } = await generateText({
         model,
         system: systemPrompt,
         prompt: `Here are the latest metrics for the tenant:\n\n${JSON.stringify(metricsData, null, 2)}`
+    });
+
+    insertPlatformAiUsage({
+        tenantId,
+        source: config.source,
+        provider: config.provider,
+        modelName,
+        feature: 'finops-report',
+        inputTokens: usage.inputTokens || 0,
+        outputTokens: usage.outputTokens || 0,
     });
 
     return text;

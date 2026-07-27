@@ -36,6 +36,9 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Faltan credenciales del entorno' }, { status: 400 });
         }
 
+        // Auth: validate JWT and assert caller belongs to this tenant.
+        await requireTenantRole(request, tenantId, ['Admin', 'Owner', 'Reader', 'Colaborador']);
+
         // subscriptionId se interpola en 3 queries KQL de Resource Graph más
         // abajo — se acepta solo "all" o un UUID válido para prevenir inyección
         // KQL (mismo criterio que intelligence/sustainability).
@@ -43,10 +46,6 @@ export async function GET(request: NextRequest) {
             !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(subscriptionId)) {
             return NextResponse.json({ error: 'subscriptionId inválido' }, { status: 400 });
         }
-
-        // Auth: validate JWT and assert caller belongs to this tenant.
-        await requireTenantRole(request, tenantId, ['Admin', 'Owner', 'Reader', 'Colaborador']);
-
         const cacheKey = `rightsizing:${tenantId}:${subscriptionId || 'all'}`;
         const underutilizedVms = await getWithStaleWhileRevalidate(cacheKey, async () => {
             let argClient;

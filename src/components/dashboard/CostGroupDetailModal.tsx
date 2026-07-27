@@ -4,6 +4,7 @@ import useSWR from "swr";
 import Link from "next/link";
 import { useMsal } from "@azure/msal-react";
 import { useTranslations, useLocale } from "next-intl";
+import { useProviderTranslations } from "@/lib/useProviderTranslations";
 import { getFreshIdToken } from "@/lib/msalToken";
 import Pagination, { usePagination } from "@/components/Pagination";
 import {
@@ -133,7 +134,7 @@ function TrendBadge({ pct }: { pct: number }) {
 function ManualResourceGroupsPanel({
     groupName, tenantId, matchedResourceGroups, onChanged,
 }: { groupName: string; tenantId: string; matchedResourceGroups: string[]; onChanged: () => void }) {
-    const t = useTranslations("CostGroups");
+    const t = useProviderTranslations("CostGroups");
     const { instance, accounts } = useMsal();
     const [newRg, setNewRg] = useState("");
     const [saving, setSaving] = useState(false);
@@ -230,7 +231,7 @@ function EditCostGroupModal({
     onClose: () => void;
     onSaved: () => void;
 }) {
-    const t = useTranslations("CostGroups");
+    const t = useProviderTranslations("CostGroups");
     const { instance, accounts } = useMsal();
     const [description, setDescription] = useState(initial.description || "");
     const [matchType, setMatchType] = useState<MatchType>(initial.matchType);
@@ -347,7 +348,7 @@ function EditCostGroupModal({
 }
 
 export default function CostGroupDetailModal({ name, tenantId, onClose, onUpdated }: { name: string; tenantId: string; onClose: () => void; onUpdated?: () => void }) {
-    const t = useTranslations("CostGroups");
+    const t = useProviderTranslations("CostGroups");
     const locale = useLocale();
     const { instance, accounts } = useMsal();
     const [tab, setTab] = useState<Tab>("current_fy");

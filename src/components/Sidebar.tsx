@@ -7,7 +7,7 @@ import { isSuperAdmin } from '@/lib/authGuard';
 import { useTenant } from '@/components/TenantProvider';
 import { hasAccess } from '@/lib/tierLogic';
 import { getTagsForRoute, hasAnyTag } from '@/lib/pageRoleTags';
-import { 
+import {
     LayoutDashboard,
     Target,
     TrendingDown, 
@@ -63,7 +63,8 @@ import {
     Recycle,
     Search,
     X,
-    Receipt
+    Receipt,
+    Cloud
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -199,8 +200,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/admin/api-keys', label: 'API Pública', icon: Unlock, requiredTier: 'Enterprise' },
                 { href: '/admin/powerbi-templates', label: 'Power BI Templates', icon: BarChart3, requiredTier: 'Enterprise' },
                 { href: '/admin/focus-export', label: 'FOCUS 1.1 Export', icon: FileSpreadsheet, requiredTier: 'Professional' },
-                // Cloud Accounts (AWS) oculto: no hacemos referencia a AWS por ahora (2026-07-05).
-                // Página y API quedan implementadas, sin uso, para cuando se retome soporte AWS.
+                { href: '/admin/cloud-accounts', label: t('cloud_accounts', { fallback: 'Cuentas Cloud' }), icon: Cloud, requiredTier: 'Enterprise' },
                 { href: '/admin/sso', label: 'SSO SAML', icon: ShieldCheck, requiredTier: 'Enterprise' }
                 // Data Residency oculto: hoy sólo tenemos un datacenter (Brasil), ofrecer
                 // selección de región (EU/US/LATAM/APAC) sería engañoso. Página y API

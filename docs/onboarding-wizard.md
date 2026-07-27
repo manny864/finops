@@ -1,5 +1,7 @@
 # Onboarding Wizard Documentation
 
+> **Note:** AWS onboarding support described below was removed; the wizard is Azure-only now.
+
 ## Overview
 
 The **Linear Onboarding Wizard** is a guided step-by-step experience for new CSCloudSolutions FinOps SaaS tenants. It guides users through essential setup tasks with visual progress indicators and persistent storage per tenant.
@@ -121,26 +123,28 @@ Marks onboarding complete, sets `Tenants.is_onboarded = 1`, and fires `SignupEve
 - **Description:** "Confirm your company details and preferences"
 - **Form fields:**
   - Company Name (text)
-  - Primary Cloud Provider (select: Azure, AWS coming soon)
+  - Primary Cloud Provider (select: Azure or AWS)
   - Currency (select: USD, EUR, GBP)
   - Timezone (select: UTC, EST, CST, PST)
 - **Actions:** Start → Continue / Skip
 - **Behavior:** Can be completed, skipped, or come back later
 
-#### **Step 2: Connect Azure Subscription**
-- **Title:** "Connect Azure Subscription"
-- **Description:** "Provide your Service Principal credentials"
-- **Form fields:**
-  - Client ID (text, monospace)
-  - Client Secret (password)
-  - Azure Tenant ID (text, monospace)
-- **Action button:** "Validate" (calls `/api/admin/diagnose-sp`)
-- **Validation display:** Shows green checkmarks for required permissions or red error
+#### **Step 2: Connect Primary Cloud**
+- **Azure path**
+  - **Title:** "Connect Azure Subscription"
+  - **Description:** "Provide your Service Principal credentials"
+  - **Form fields:** Client ID, Client Secret, Azure Tenant ID
+  - **Action button:** "Validate" (calls `/api/admin/diagnose-sp`)
+- **AWS path**
+  - **Title:** "Connect AWS Account"
+  - **Description:** asks the user to open `/admin/cloud-accounts`
+  - **Action button:** "Validate AWS Account" (checks `GET /api/aws/accounts?tenantId=...`)
+  - The step completes when at least one AWS account exists.
 - **Behavior:** Auto-advances to Step 3 on success, or allow skip
 
 #### **Step 3: Run First Data Sync**
 - **Title:** "Run First Data Sync"
-- **Description:** "Sync your first set of cost data from Azure"
+- **Description:** dynamic by provider (Azure/AWS)
 - **Action button:** "Run Sync" (calls `/api/admin/sync/trigger`)
 - **During sync:** Shows spinner + "Syncing your data..." (up to 60s)
 - **On complete:** Auto-advances to Step 4 or allow skip

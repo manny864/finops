@@ -8,7 +8,8 @@ import DemoLeadModal from "@/components/DemoLeadModal";
 function DemoForm() {
   const searchParams = useSearchParams();
   const tier = searchParams?.get("tier") || "essential";
-  
+  const provider = "azure" as const;
+
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -19,7 +20,7 @@ function DemoForm() {
     if (username === "demo" && password === "demo") {
       setError("");
       setLoading(true);
-      await setDemoSession(tier);
+      await setDemoSession(tier, provider);
     } else {
       setError("Credenciales inválidas. Usa demo / demo");
     }

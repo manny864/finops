@@ -4,6 +4,7 @@ import { tenants as mockTenants } from '@/lib/tenants';
 import { verifySubscription } from '@/lib/apiSecurity';
 import { AuthError, requireRequestIdentity, requireSuperAdmin, requireTenantRole, requireTenantAccess } from "@/lib/requestAuth";
 import { setTenantCredentials } from "@/lib/secrets/tenantCredentials";
+import { assertProviderIngestable, ProviderDisabledError } from "@/services/providerLifecycleService";
 
 export async function GET(request: NextRequest) {
     try {
@@ -52,6 +53,7 @@ export async function GET(request: NextRequest) {
                             (client_secret IS NOT NULL AND client_secret <> '') as has_client_secret,
                             tier, trial_ends_at, subscription_status, access_until, is_onboarded,
                             partner_link_status, partner_link_detail,
+                            provider, provider_archived, provider_purge_at,
                             sales_referrer, (logo_stored_name IS NOT NULL) as has_logo,
                             SUBSTRING(MD5(logo_stored_name), 1, 10) as logo_version
                      FROM Tenants ORDER BY created_at ASC`;
@@ -62,6 +64,7 @@ export async function GET(request: NextRequest) {
                             (t.client_secret IS NOT NULL AND t.client_secret <> '') as has_client_secret,
                             t.tier, t.trial_ends_at, t.subscription_status, t.access_until, t.is_onboarded,
                             t.partner_link_status, t.partner_link_detail,
+                            t.provider, t.provider_archived, t.provider_purge_at,
                             (t.logo_stored_name IS NOT NULL) as has_logo,
                             SUBSTRING(MD5(t.logo_stored_name), 1, 10) as logo_version
                      FROM Tenants t
@@ -89,6 +92,7 @@ export async function GET(request: NextRequest) {
                             (client_secret IS NOT NULL AND client_secret <> '') as has_client_secret,
                             tier, trial_ends_at, subscription_status, access_until, is_onboarded,
                             partner_link_status, partner_link_detail,
+                            provider, provider_archived, provider_purge_at,
                             (logo_stored_name IS NOT NULL) as has_logo,
                             SUBSTRING(MD5(logo_stored_name), 1, 10) as logo_version
                      FROM Tenants WHERE tenant_id = ? LIMIT 1`,
@@ -105,8 +109,12 @@ export async function GET(request: NextRequest) {
             const existing = allTenants.find(t => t.id === mock.id);
             if (!existing) {
                 allTenants.push(mock);
-            } else if (mock.tier) {
-                existing.tier = mock.tier;
+            } else {
+                if (mock.tier) existing.tier = mock.tier;
+                // El proveedor del tenant de demo manda sobre la fila real:
+                // /demo tiene que mostrar el multi-cloud del tier Enterprise
+                // aunque la fila en base diga otra cosa.
+                if (mock.provider) (existing as { provider?: string }).provider = mock.provider;
             }
         }
         
@@ -179,6 +187,13 @@ export async function PUT(request: NextRequest) {
         // Si vienen credenciales, las guardamos via tenantCredentials (KV con fallback DB).
         // Si no vienen, solo actualizamos nombre.
         if (clientId && clientSecret) {
+            // Contraparte Azure del gate de `POST /api/aws/accounts`: un tenant
+            // configurado como 'aws' puro, o con Azure archivado tras un downgrade
+            // multi-cloud, no puede volver a conectar Azure. Solo se valida cuando
+            // realmente se están escribiendo credenciales — renombrar el tenant no
+            // es ingesta y no debe rechazarse.
+            await assertProviderIngestable(tenantId, 'azure');
+
             await pool.query(
                 'INSERT INTO Tenants (tenant_id, company_name) VALUES (?, ?) ON DUPLICATE KEY UPDATE company_name = VALUES(company_name)',
                 [tenantId, name]
@@ -193,6 +208,10 @@ export async function PUT(request: NextRequest) {
 
         return NextResponse.json({ success: true });
     } catch (error: any) {
+        // requireTenantRole ya lanzaba AuthError acá y caía en el 500 genérico,
+        // enmascarando un 401/403 como error del servidor.
+        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
+        if (error instanceof ProviderDisabledError) return NextResponse.json({ error: error.message }, { status: error.status });
         console.error('API PUT /tenants error:', error);
         return NextResponse.json({ error: 'Fallo al actualizar Tenant' }, { status: 500 });
     }

@@ -6,6 +6,7 @@ import { TenantProvider, useTenant } from './TenantProvider';
 import { SubscriptionProvider } from './SubscriptionProvider';
 import ScopeSelector from './ScopeSelector';
 import { ViewModeProvider, useViewMode } from '../context/ViewModeContext';
+import { ProviderProvider } from '../context/ProviderContext';
 import { LayoutTemplate, Code2, Bell, HelpCircle } from 'lucide-react';
 import { useTranslations, useLocale } from 'next-intl';
 import AuthSync from './AuthSync';
@@ -19,6 +20,9 @@ import GlobalPagePinButton from './dashboard/GlobalPagePinButton';
 import SupportHeaderActions from './SupportHeaderActions';
 import MobileTabBar from './mobile/MobileTabBar';
 import PricingPage from './PricingPage';
+
+/** Rutas públicas de la Fase 2: se llega por link de email, sin sesión. */
+const AUTH_TOKEN_ROUTES = ['/verify-email', '/reset-password', '/accept-invite'];
 import PublicFooter from './PublicFooter';
 import CookieConsent from './CookieConsent';
 import { useActionLogStore } from '@/store/actionLogStore';
@@ -39,6 +43,7 @@ export default function ClientShell({ children, demoSession }: { children: React
   return <AuthProvider>
       <AuthSync />
       <TenantProvider demoSession={demoSession}>
+        <ProviderProvider>
         <SubscriptionProvider>
           <MetricProvider>
             <CurrencyProvider>
@@ -49,6 +54,7 @@ export default function ClientShell({ children, demoSession }: { children: React
             </CurrencyProvider>
           </MetricProvider>
         </SubscriptionProvider>
+        </ProviderProvider>
       </TenantProvider>
     </AuthProvider>;
 }
@@ -215,16 +221,24 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
 
 
 
+  // Rutas que se abren desde un link de email y por definición se visitan SIN
+  // sesión: confirmar email, restablecer contraseña, aceptar invitación. Sin
+  // esta excepción, ClientShell las tapa con la pantalla de login y el token
+  // del link se pierde.
+  const isAuthTokenRoute = AUTH_TOKEN_ROUTES.some(
+      (r) => pathname === r || pathname.startsWith(`${r}/`)
+  );
+
   useEffect(() => {
       if (!isInitializing && !isAuthenticated && inProgress !== "startup" && inProgress !== "handleRedirect") {
           const isDemo = pathname === '/demo' || pathname.startsWith('/demo/');
-          if (!showPricing && pathname !== '/login' && !isDemo) {
+          if (!showPricing && pathname !== '/login' && !isDemo && !isAuthTokenRoute) {
               router.replace('/login');
           }
       } else if (isAuthenticated && pathname === '/login') {
           router.replace('/');
       }
-  }, [isAuthenticated, inProgress, showPricing, pathname, router]);
+  }, [isAuthenticated, inProgress, showPricing, pathname, router, isAuthTokenRoute]);
 
   const isDemoRoute = pathname === '/demo' || pathname.startsWith('/demo/');
 
@@ -244,7 +258,7 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
   }
 
   if (!isAuthenticated) {
-      if (isDemoRoute) {
+      if (isDemoRoute || isAuthTokenRoute) {
           return <>{children}</>;
       }
       if (showPricing) {

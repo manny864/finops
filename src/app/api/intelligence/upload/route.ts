@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const focusData = await normalizeBillingCsv(rawData);
+        const focusData = await normalizeBillingCsv(rawData, tenantId);
 
         // Aggregate by ServiceName and ChargeCategory to prevent huge payloads going to Gemini
         const aggregated: Record<string, FocusCostEntry> = {};

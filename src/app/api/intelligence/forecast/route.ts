@@ -15,6 +15,7 @@ import {
   detectAnomalies,
   type HistoryPoint,
 } from "@/lib/forecasting";
+import { tenantUsesAzure } from "@/lib/tenantProviderContext";
 
 export async function GET(request: NextRequest) {
     try {
@@ -35,20 +36,25 @@ export async function GET(request: NextRequest) {
 
         const metricType = (request.headers.get('x-metric-type') as 'ActualCost' | 'AmortizedCost') || 'ActualCost';
 
+        const usesAzure = await tenantUsesAzure(tenantId);
+
         // Get historical data — resilient: no credentials or Azure failure returns []
         let historicalEntries: Awaited<ReturnType<typeof getCurrentMonthAmortizedCosts>> = [];
-        try {
-            historicalEntries = await getCurrentMonthAmortizedCosts(tenantId, subscriptionId, metricType);
-        } catch (azureErr: any) {
-            console.warn('[Forecast] getCurrentMonthAmortizedCosts failed (Azure unavailable):', azureErr?.message);
-        }
+        let forecastData: { date: string; forecastCost: number }[] = [];
 
-        // Get forecast — getCostForecast is already resilient (returns [] instead of throwing)
-        const forecastData = await getCostForecast(tenantId, subscriptionId, metricType);
+        if (usesAzure) {
+            try {
+                historicalEntries = await getCurrentMonthAmortizedCosts(tenantId, subscriptionId, metricType);
+            } catch (azureErr: any) {
+                console.warn('[Forecast] getCurrentMonthAmortizedCosts failed (Azure unavailable):', azureErr?.message);
+            }
+            // getCostForecast is already resilient (returns [] instead of throwing)
+            forecastData = await getCostForecast(tenantId, subscriptionId, metricType);
+        }
 
         // If both are empty, return gracefully so dashboard/summary does NOT mark forecast as failed
         if (historicalEntries.length === 0 && forecastData.length === 0) {
-            return NextResponse.json({ data: [], azureUnavailable: true });
+            return NextResponse.json({ data: [], azureUnavailable: usesAzure, providerDataUnavailable: true });
         }
 
         // Combine into one array
@@ -90,6 +96,7 @@ export async function GET(request: NextRequest) {
 
         if (history.length < 2) {
             return NextResponse.json({
+                data: combinedData,
                 method_used: 'linear',
                 forecast: [],
                 metrics: { rmse: '0', mape: '0', history_points: history.length, forecast_horizon_days: days },
@@ -160,6 +167,12 @@ export async function GET(request: NextRequest) {
         const anomalies = detectAnomalies(history, result);
 
         return NextResponse.json({
+            // `data` tambien va en la respuesta avanzada: ningun consumidor
+            // pasa withConfidence=false, asi que la rama simple de arriba es
+            // inalcanzable desde la UI. Sin esto, admin/report (que arma
+            // forecastSeries con `forecast?.data`) salia siempre vacio, en
+            // Azure y en AWS.
+            data: combinedData,
             method_used: methodToUse,
             forecast: forecastResponse,
             metrics: {

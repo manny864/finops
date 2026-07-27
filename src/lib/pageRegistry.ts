@@ -7,6 +7,7 @@
  * La key del widget para pins de página sigue el patrón `page:<route-id>`.
  * NO cambies route-id sin migrar los pins existentes en UserDashboardPins.
  */
+import { stripLocale } from "./stripLocale";
 
 export interface PageEntry {
     /** Identificador estable que se usa como sufijo del widgetKey (`page:<id>`). */
@@ -100,16 +101,6 @@ export const PAGES: PageEntry[] = [
 
 const BY_PATH = new Map<string, PageEntry>(PAGES.map(p => [p.path, p]));
 const BY_ID = new Map<string, PageEntry>(PAGES.map(p => [p.id, p]));
-
-/**
- * Normaliza un pathname removiendo el segmento de locale inicial.
- * Ej: `/es/intelligence/rates` → `/intelligence/rates`.
- */
-export function stripLocale(pathname: string): string {
-    const match = pathname.match(/^\/(en|es|pt-BR|pt)(\/.*)?$/i);
-    if (match) return match[2] || "/";
-    return pathname;
-}
 
 export function findPageForPath(pathname: string): PageEntry | null {
     const path = stripLocale(pathname);

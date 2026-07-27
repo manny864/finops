@@ -4,6 +4,8 @@ import { ConsumptionManagementClient } from "@azure/arm-consumption";
 import { redis } from "@/lib/redis";
 import pool from "@/modules/storage/db";
 import { withCostColumn, findCostColumnIndex } from "@/lib/azureCostColumn";
+import Decimal from "decimal.js";
+import { toMoneyNumber } from "@/lib/moneyDecimal";
 
 /**
  * Obtiene el gasto MTD real para una suscripción usando el pipeline de cache:
@@ -118,7 +120,7 @@ export async function getBudgetConsumption(tenantId: string, subscriptionId: str
 
         if (res.rows && res.rows.length > 0 && res.rows[0].length > 0) {
             const costIdx = res.columns ? findCostColumnIndex(res.columns) : -1;
-            return parseFloat(String(res.rows[0][costIdx >= 0 ? costIdx : 0]));
+            return toMoneyNumber(new Decimal(String(res.rows[0][costIdx >= 0 ? costIdx : 0] || 0)));
         }
         return 0;
     } catch (e) {
@@ -173,19 +175,19 @@ export async function getBudgetCostCenterMonthlyHistory(
         const costIdx = findCostColumnIndex(res.columns);
         const dateIdx = res.columns.findIndex((c: any) => /usagedate|date/i.test(c?.name || ''));
 
-        const byMonth = new Map<string, number>();
+        const byMonth = new Map<string, Decimal>();
         for (const row of res.rows) {
             const rawDate = String(row[dateIdx >= 0 ? dateIdx : 0]);
             const month = /^\d{8}$/.test(rawDate)
                 ? `${rawDate.slice(0, 4)}-${rawDate.slice(4, 6)}`
                 : rawDate.slice(0, 7);
             if (!/^\d{4}-\d{2}$/.test(month)) continue;
-            const cost = parseFloat(String(row[costIdx >= 0 ? costIdx : 0])) || 0;
-            byMonth.set(month, (byMonth.get(month) || 0) + cost);
+            const cost = new Decimal(String(row[costIdx >= 0 ? costIdx : 0] || 0));
+            byMonth.set(month, (byMonth.get(month) || new Decimal(0)).plus(cost));
         }
 
         return Array.from(byMonth.entries())
-            .map(([month, cost]) => ({ month, cost: Number(cost.toFixed(2)) }))
+            .map(([month, cost]) => ({ month, cost: toMoneyNumber(cost) }))
             .sort((a, b) => a.month.localeCompare(b.month));
     } catch (e) {
         console.error(`Error fetching monthly history for ${costCenterName}:`, e);
@@ -235,3 +237,4 @@ export async function createSubscriptionBudget(credential: any, subscriptionId: 
 
     return await client.budgets.createOrUpdate(scope, budgetDetails.budgetName, budgetPayload);
 }
+

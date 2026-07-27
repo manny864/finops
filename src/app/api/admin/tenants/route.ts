@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import pool, { initializeDatabase } from "@/modules/storage/db";
 import { AuthError, requireSuperAdmin } from "@/lib/requestAuth";
 import { serverError } from '@/lib/apiErrors';
+import { applyTierChange } from "@/services/providerLifecycleService";
 
 export async function POST(request: NextRequest) {
     try {
@@ -71,12 +72,30 @@ export async function PATCH(request: NextRequest) {
         }
         params.push(tenantId);
 
+        // Tier previo, necesario para reconciliar el modelo de proveedor si
+        // este PATCH baja a un tenant multi-cloud por debajo de Enterprise.
+        let previousTier: string | null = null;
+        if (tier) {
+            const [tierRows] = await pool.query('SELECT tier FROM Tenants WHERE tenant_id = ? LIMIT 1', [tenantId]);
+            previousTier = (tierRows as Array<{ tier?: string }>)[0]?.tier ?? null;
+        }
+
         await pool.query(
             `UPDATE Tenants SET ${sets.join(', ')} WHERE tenant_id = ?`,
             params
         );
 
-        return NextResponse.json({ success: true, message: 'Tenant actualizado exitosamente.' });
+        let providerChange = null;
+        if (tier && previousTier) {
+            providerChange = await applyTierChange({
+                tenantId,
+                previousTier,
+                nextTier: tier,
+                actor: identity.email,
+            });
+        }
+
+        return NextResponse.json({ success: true, message: 'Tenant actualizado exitosamente.', providerChange });
     } catch (error: any) {
         if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
         console.error('API PATCH /admin/tenants error:', error);

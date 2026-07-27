@@ -109,9 +109,11 @@ async function authorise(request: NextRequest, tenantId: string): Promise<void> 
     if (mcpTid && mcpTid !== tenantId) {
         throw new AuthError("MCP key no autorizada para este tenant.", 403);
     }
+    // Rol: siempre exigido, en los dos caminos.
+    await requireTenantRole(request, tenantId, ["ADMIN", "OWNER"]);
+
     // FOCUS 1.1 Export es feature Enterprise (ver Sidebar).
     await requireTenantTier(request, tenantId, "Enterprise");
-    await requireTenantRole(request, tenantId, ["ADMIN", "OWNER"]);
 }
 
 async function* streamFocusRows(params: ExportParams): AsyncGenerator<CostSnapshotRow[]> {

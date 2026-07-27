@@ -4,6 +4,16 @@ import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { GLOBAL_MANDATORY_TAGS } from "@/lib/tagConfig";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
+import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
+
+/** Etiquetas faltantes de un recurso, comparando sin distinguir mayusculas. */
+function missingMandatoryTags(itemTags: Record<string, unknown>): string[] {
+    return GLOBAL_MANDATORY_TAGS.filter(tag => {
+        const tagKeyLower = tag.toLowerCase();
+        const foundKey = Object.keys(itemTags).find(k => k.toLowerCase() === tagKeyLower);
+        return !foundKey || !itemTags[foundKey];
+    });
+}
 
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 3000;
@@ -36,6 +46,10 @@ export async function GET(req: NextRequest) {
         // sin gate de tier acá, sólo pertenencia al tenant.
         await requireTenantRole(req, tenantId, ['Admin', 'Owner', 'Reader', 'Colaborador']);
 
+        if (isMockTenant(tenantId)) {
+            return NextResponse.json(getMockDataForRoute("tags_compliance", tenantId));
+        }
+
         const cacheKey = `tags_compliance_v2_${tenantId}_${subscriptionId || 'all'}`;
 
         const fetcher = async () => {
@@ -66,11 +80,7 @@ export async function GET(req: NextRequest) {
             const processedResources = allResourcesRaw.map(r => {
                 const itemTags = r.tags || {};
                 
-                const missingTags = GLOBAL_MANDATORY_TAGS.filter(tag => {
-                    const tagKeyLower = tag.toLowerCase();
-                    const foundKey = Object.keys(itemTags).find(k => k.toLowerCase() === tagKeyLower);
-                    return !foundKey || !itemTags[foundKey];
-                });
+                const missingTags = missingMandatoryTags(itemTags);
 
                 const isCompliant = missingTags.length === 0;
 
@@ -101,11 +111,7 @@ export async function GET(req: NextRequest) {
 
             const processedRGs = rgRaw.map(r => {
                 const itemTags = r.tags || {};
-                const missingTags = GLOBAL_MANDATORY_TAGS.filter(tag => {
-                    const tagKeyLower = tag.toLowerCase();
-                    const foundKey = Object.keys(itemTags).find(k => k.toLowerCase() === tagKeyLower);
-                    return !foundKey || !itemTags[foundKey];
-                });
+                const missingTags = missingMandatoryTags(itemTags);
                 const isCompliant = missingTags.length === 0;
                 return {
                     resourceId: r.id,

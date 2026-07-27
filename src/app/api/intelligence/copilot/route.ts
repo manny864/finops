@@ -4,7 +4,7 @@ import { AIProviderFactory } from "@/modules/core/aiProvider";
 import { isMockTenant } from "@/lib/mockData";
 import { requireRequestIdentity, requireTenantTier, AuthError, type RequestIdentity } from "@/lib/requestAuth";
 import rateLimiter from "@/lib/rateLimiter";
-import pool, { initializeDatabase } from "@/modules/storage/db";
+import pool, { initializeDatabase, insertPlatformAiUsage } from "@/modules/storage/db";
 import { getCopilotConfig } from "@/lib/copilotConfig";
 import { isAiGloballyEnabled } from "@/services/aiService";
 
@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const model = await AIProviderFactory.getGeminiModel(effectiveTenantId);
+        const { model, modelName, config: aiConfig } = await AIProviderFactory.getGeminiModel(effectiveTenantId);
 
         let dataString = "";
         try {
@@ -172,6 +172,17 @@ ${prompt ?? ''}
             // en modo text/plain el cliente solo ve el stream cortarse (la API
             // del SDK no permite inyectar un mensaje de error en ese protocolo).
             abortSignal: AbortSignal.timeout(25_000),
+            onFinish: ({ usage }) => {
+                insertPlatformAiUsage({
+                    tenantId: effectiveTenantId,
+                    source: aiConfig.source,
+                    provider: aiConfig.provider,
+                    modelName,
+                    feature: 'copilot',
+                    inputTokens: usage.inputTokens || 0,
+                    outputTokens: usage.outputTokens || 0,
+                });
+            },
             onError: (error) => {
                 // toTextStreamResponse() no tiene forma de mandarle este error al
                 // cliente (solo existe onError en el protocolo data-stream) — por

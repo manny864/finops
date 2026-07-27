@@ -1,12 +1,12 @@
 "use client";
 import React, { useState } from 'react';
 import { useMsal } from '@azure/msal-react';
-import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { Loader2, X } from 'lucide-react';
 import KillSwitchConfig from '@/components/budgets/KillSwitchConfig';
 import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
+import { useProviderTranslations } from '@/lib/useProviderTranslations';
 
 interface CreateBudgetModalProps {
     isOpen: boolean;
@@ -17,7 +17,7 @@ interface CreateBudgetModalProps {
 }
 
 export default function CreateBudgetModal({ isOpen, onClose, onSuccess, subscriptionId, tenantId }: CreateBudgetModalProps) {
-    const t = useTranslations('Budgets');
+    const t = useProviderTranslations('Budgets');
     const { instance, accounts } = useMsal();
     const [budgetName, setBudgetName] = useState('');
     const [amount, setAmount] = useState('');
@@ -178,6 +178,9 @@ export default function CreateBudgetModal({ isOpen, onClose, onSuccess, subscrip
                         </select>
                     </div>
 
+                    {/* El kill-switch apaga los recursos de un resource group,
+                        que en AWS no existe; su equivalente exigiria permisos de
+                        escritura sobre EC2 que el rol de lectura no tiene. */}
                     <KillSwitchConfig subscriptionId={subscriptionId} />
                     
                     <div className="px-6 py-4 bg-gray-50 dark:bg-slate-800/50 -mx-6 -mb-6 flex justify-end gap-3 mt-6">

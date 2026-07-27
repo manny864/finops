@@ -7,6 +7,7 @@ import { useMsal } from '@azure/msal-react';
 import { DollarSign, AlertTriangle, Loader2, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
+import { useProviderTranslations } from '@/lib/useProviderTranslations';
 import { getFreshIdToken } from '@/lib/msalToken';
 import Pagination, { usePagination } from '@/components/Pagination';
 import {
@@ -52,7 +53,7 @@ const reservationColumnHelper = createColumnHelper<ReservationOpportunity>();
 export default function RateOptimizationPage() {
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
-    const t = useTranslations('Rates');
+    const t = useProviderTranslations('Rates');
     const tc = useTranslations('Common');
 
     const columns = useMemo(() => [

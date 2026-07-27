@@ -95,8 +95,16 @@ async function runSync(request: NextRequest) {
         const yesterdayStr = toDateStr(yesterday);
 
         // 3. Fetch all active tenants (only IDs — credentials come from KV per-tenant)
+        //    Se excluyen los tenants que tienen Azure ARCHIVADO por un downgrade
+        //    multi-cloud: su ventana de gracia conserva los datos historicos pero
+        //    la ingesta esta cortada (ver docs/provider-downgrade-policy.md). Sin
+        //    este filtro el cron seguiria escribiendo datos nuevos de un proveedor
+        //    que el tenant ya no contrato — el equivalente Azure de las cuentas
+        //    AWS deshabilitadas con `disabled_at`.
         const [tenants] = await pool.query<any[]>(
-            'SELECT tenant_id as id FROM Tenants WHERE status = "active"'
+            `SELECT tenant_id as id FROM Tenants
+              WHERE status = "active"
+                AND (provider_archived IS NULL OR provider_archived <> 'azure')`
         );
 
         let tenantCount = 0;

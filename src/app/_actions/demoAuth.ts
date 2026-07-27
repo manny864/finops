@@ -3,9 +3,9 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-export async function setDemoSession(tier: string) {
+export async function setDemoSession(tier: string, _provider: string = "azure") {
   const cookieStore = await cookies();
-  const sessionData = JSON.stringify({ isDemo: true, tier });
+  const sessionData = JSON.stringify({ isDemo: true, tier, provider: "azure" });
   
   cookieStore.set("finops_demo_session", sessionData, {
     httpOnly: true,

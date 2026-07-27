@@ -75,23 +75,12 @@ Actualmente **no hay backups automatizados** — el mayor riesgo del diseño (VP
 
 Sin esto, cualquier degradación (como la tormenta de 429 de esta sesión) se detecta recién cuando el usuario se queja.
 
-- [ ] **Monitoreo externo de disponibilidad**: UptimeRobot o Better Uptime (tier gratis, 50 monitores/5 min) apuntando a `https://.../api/health` y a la landing pública. Alerta a email/Slack.
-- [ ] **Healthcheck de Docker Compose** por servicio, para que `docker compose ps` y los orquestadores externos sepan el estado real (no solo "container running"):
-  ```yaml
-  finops-app:
-    healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/health', r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-  redis:
-    healthcheck:
-      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "$REDIS_PASSWORD", "ping"]
-      interval: 30s
-  ```
-- [ ] **Métricas de recursos del VPS sin agregar servicios pesados**: `docker stats --no-stream` cada 5 min por cron, escribiendo a un log rotado; o `netdata` (gratis, self-hosted, ~150-200 MB RAM) si el presupuesto de memoria de la Fase 0 lo permite — es la opción con mejor relación esfuerzo/valor si sobra RAM tras los límites de la Fase 0.
-- [ ] **Alertas de fallo de cron** (los jobs de `/api/cron/*`, incluido el nuevo `power-schedules`): usar **healthchecks.io** (gratis hasta 20 checks) — el propio `curl` del crontab hace *ping* de éxito; si no llega a tiempo, alerta automática. Cero costo, cero infraestructura nueva.
+- [x] **Healthcheck de Docker Compose** por servicio — ya implementado bajo Fase 0 (ver `docker-compose.yml`: `finops-app` pega a `/api/health`, `redis` hace `redis-cli ping`). Este ítem quedó duplicado entre fases al escribir el plan; no hay nada más que hacer acá.
+- [x] **Alertas de fallo de cron** (2026-07-27): `scripts/cron-ping.sh` — wrapper genérico que envuelve cualquier comando de cron y pinguea `https://hc-ping.com/<uuid>` en éxito/fallo (mismo patrón que `ping_health()` en `backup-db.sh`, generalizado). Aplicado a los 14 jobs HTTP de `/api/cron/*` en el "Ejemplo crontab VPS" del README, cada uno con su propia `*_HEALTHCHECK_URL` en `.env.example` (Fase 2). No-op mientras la URL esté vacía, así que es seguro desplegarlo antes de crear los checks.
   - **Justificación concreta (2026-07-05)**: `/api/cron/sync` estuvo documentado en el README como cron diario pero **ausente del crontab real** del VPS, dejando 3 tablas de costo vacías indefinidamente sin ningún error visible (ver README § Recent Major Updates). Un ping de healthchecks.io habría alertado el mismo día en que el job no corrió, en vez de descubrirse recién cuando el usuario reportó páginas sin datos.
+  - **Pendiente (manual, fuera de este repo)**: crear las 14 checks en [healthchecks.io](https://healthchecks.io) (gratis hasta 20) y setear las URLs resultantes en el `.env` del VPS. Sin ese paso el wrapper sigue siendo no-op — el código no reemplaza la cuenta.
+- [x] **Métricas de recursos del VPS sin agregar servicios pesados** (2026-07-27): `scripts/log-docker-stats.sh` — `docker stats --no-stream` cada 5 min por cron, log rotado por antigüedad (`STATS_RETENTION_DAYS`, default 14d), sin dependencias nuevas. Probado localmente contra contenedores reales. `netdata` (self-hosted, ~150-200MB RAM) sigue siendo la opción de mejor relación esfuerzo/valor si sobra RAM tras los límites de la Fase 0 y se quiere un dashboard en vez de un log plano — no implementado, evaluar solo si el log plano resulta insuficiente.
+- [ ] **Monitoreo externo de disponibilidad**: UptimeRobot o Better Uptime (tier gratis, 50 monitores/5 min) apuntando a `https://finops.cscloudsolutions.com.ar/api/health` y a la landing pública. Alerta a email/Slack. **100% manual/externo** — requiere crear una cuenta propia, no hay nada codificable de este lado.
 
 ---
 
@@ -163,7 +152,7 @@ No implementar preventivamente. Disparadores concretos para pasar a esta fase:
 1. [ ] Confirmar topología real de MySQL (¿dockerizado con `network_mode: host` o nativo en el VPS?).
 2. [ ] Fase 0: límites de recursos + Redis con password + rotación de logs + auditoría de puertos expuestos.
 3. [ ] Fase 1: backup diario automatizado + copia off-site + runbook de restore.
-4. [ ] Fase 2: UptimeRobot + healthchecks de Docker + healthchecks.io para crons.
+4. [ ] Fase 2: healthchecks de Docker (✅ ya en Fase 0) + `cron-ping.sh`/`log-docker-stats.sh` (✅ código listo 2026-07-27) — falta crear cuentas UptimeRobot + healthchecks.io e instalar en el crontab real del VPS.
 5. [ ] Fase 4: build-antes-de-stop + smoke test + rollback simple en `deploy.yml`.
 6. [ ] Fase 3: cerrar los pendientes de cache SWR y locks de cron.
 7. [ ] Fase 5: solo si las métricas de la Fase 2 muestran saturación sostenida.

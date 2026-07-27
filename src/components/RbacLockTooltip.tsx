@@ -1,11 +1,11 @@
 "use client";
 import React, { useState } from 'react';
 import { useTenant } from '@/components/TenantProvider';
-import { useTranslations } from 'next-intl';
+import { useProviderTranslations } from '@/lib/useProviderTranslations';
 
 export default function RbacLockTooltip({ children }: { children: React.ReactNode }) {
   const { requiresRbacUpdate } = useTenant();
-  const t = useTranslations('Common');
+  const t = useProviderTranslations('Common');
   const [showTooltip, setShowTooltip] = useState(false);
 
   if (!requiresRbacUpdate) {

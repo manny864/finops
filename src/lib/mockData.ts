@@ -1,13 +1,18 @@
 import { getAdvisorMock } from './advisorMock';
 
+/**
+ * Tenants de demo de Azure, uno por tier.
+ */
+export const MOCK_AZURE_TENANTS = [
+    "11111111-2222-3333-4444-555555555555",
+    "22222222-3333-4444-5555-666666666666",
+    "44444444-5555-6666-7777-888888888888",
+    "33333333-4444-5555-6666-777777777777",
+] as const;
+
 export const isMockTenant = (tenantId: string) => {
-    return [
-        "11111111-2222-3333-4444-555555555555",
-        "22222222-3333-4444-5555-666666666666",
-        "44444444-5555-6666-7777-888888888888",
-        "33333333-4444-5555-6666-777777777777",
-        "demo_tenant"
-    ].includes(tenantId);
+    return ([...MOCK_AZURE_TENANTS, "demo_tenant"] as string[])
+        .includes(tenantId);
 };
 
 /**

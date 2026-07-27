@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import type { Pool } from '@/modules/storage/db';
 import { GET, POST } from '@/app/api/intelligence/forecast/route';
@@ -419,5 +419,32 @@ describe('API: /intelligence/forecast', () => {
         expect(typeof point.day).toBe('number');
       }
     });
+  });
+});
+
+describe('API: /intelligence/forecast — contrato con CostForecastChart', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(requireTenantAccess).mockResolvedValue(undefined as never);
+  });
+
+  // CostForecastChart lee `json.data` y ningun consumidor pasa
+  // withConfidence=false, asi que la respuesta por defecto SIEMPRE tiene que
+  // traer `data`: sin eso el grafico se queda vacio y no se nota en runtime.
+  it('la respuesta por defecto trae `data` para un tenant Azure', async () => {
+    vi.mocked(pool.query as unknown as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce([[{ provider: 'azure', tier: 'business' }]] as never);
+    vi.mocked(getCurrentMonthAmortizedCosts).mockResolvedValue(
+      Array.from({ length: 10 }).map((_, i) => ({
+        UsageDate: `2026-01-0${i}`.slice(0, 10),
+        EffectiveCost: 100 + i,
+      })) as never
+    );
+    vi.mocked(getCostForecast).mockResolvedValue([] as never);
+
+    const res = await GET(new NextRequest('http://localhost/api/intelligence/forecast?tenantId=azure-chart&subscriptionId=All'));
+    const json = await res.json();
+    expect(Array.isArray(json.data)).toBe(true);
+    expect(json.data.length).toBeGreaterThan(0);
   });
 });
