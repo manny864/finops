@@ -18,29 +18,29 @@ export type TenantProviderSetting = CloudProviderId | "both";
 
 /** Tier minimo que puede tener los dos proveedores a la vez (handoff §3). */
 export const MULTI_PROVIDER_TIER = "Enterprise";
-
-/**
- * Ventana de gracia por defecto. 90 dias = un cierre trimestral completo: el
- * caso real es el cliente que baja de plan en enero y en abril necesita el Q1
- * entero para cerrar el ejercicio. Configurable por env para poder estirarla
- * en un contrato Enterprise sin tocar codigo.
- */
 export const DEFAULT_ARCHIVE_RETENTION_DAYS = 90;
 const MIN_RETENTION_DAYS = 7;
 const MAX_RETENTION_DAYS = 730;
-
-/** Dias antes de la purga en los que se avisa. Orden descendente. */
 export const PURGE_REMINDER_DAYS = [30, 7] as const;
 
+/**
+ * Flag global para ocultar AWS en la interfaz de usuario.
+ * Cuando es false, la plataforma opera exclusivamente en modo Azure FinOps.
+ * Todo el código backend de AWS se preserva para reactivación futura.
+ */
+export const ENABLE_AWS_UI = false;
+
 export function tierAllowsMultiProvider(tier: string | null | undefined): boolean {
+    if (!ENABLE_AWS_UI) return false;
     return hasAccess(tier || "", MULTI_PROVIDER_TIER);
 }
 
 export function isCloudProviderId(value: unknown): value is CloudProviderId {
-    return value === "azure" || value === "aws";
+    return value === "azure" || (ENABLE_AWS_UI && value === "aws");
 }
 
 export function normalizeProviderSetting(value: unknown): TenantProviderSetting {
+    if (!ENABLE_AWS_UI) return "azure";
     if (value === "aws" || value === "both") return value;
     // Fail-safe hacia 'azure': es el default de la columna y el estado de todos
     // los tenants preexistentes. Un valor corrupto no debe habilitar AWS.

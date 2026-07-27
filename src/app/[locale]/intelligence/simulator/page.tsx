@@ -8,7 +8,7 @@ import { DEFAULT_LICENSE_SAVINGS_PCT } from "@/lib/simulator/engine";
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Calculator, Play, Network, HardDrive, Cpu, ShieldCheck, DollarSign, RotateCcw, Loader2 } from 'lucide-react';
+import { Calculator, Play, Network, HardDrive, Cpu, ShieldCheck, DollarSign, RotateCcw, Loader2, Sparkles } from 'lucide-react';
 import { hasAccess } from '@/lib/tierLogic';
 import { toast } from 'sonner';
 import { getFreshIdToken } from '@/lib/msalToken';
@@ -158,16 +158,23 @@ export default function SimulatorPage() {
     ] : [];
 
     return (
-        <div className="p-6 max-w-6xl mx-auto animate-in fade-in duration-500">
+        <div className="p-6 max-w-7xl mx-auto animate-in fade-in duration-500 space-y-8">
             <MockBanner />
-            <div className="mb-8">
-                <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white flex items-center gap-3">
-                    <Calculator className="w-8 h-8 text-indigo-500" />
-                    {t('pageTitle')}
-                </h1>
-                <p className="text-gray-500 dark:text-gray-400 mt-2">
-                    {t('pageSubtitle')}
-                </p>
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-8 rounded-3xl text-white shadow-xl relative overflow-hidden">
+                <div className="absolute -right-10 -bottom-10 w-60 h-60 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+                <div className="relative z-10">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-xs font-semibold mb-3">
+                        <Sparkles className="w-3.5 h-3.5" />
+                        FinOps ROI Simulator
+                    </div>
+                    <h1 className="text-3xl md:text-4xl font-black tracking-tight text-white flex items-center gap-3">
+                        <Calculator className="w-9 h-9 text-indigo-400" />
+                        {t('pageTitle')}
+                    </h1>
+                    <p className="text-indigo-200/80 text-sm md:text-base mt-2 max-w-2xl">
+                        {t('pageSubtitle')}
+                    </p>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

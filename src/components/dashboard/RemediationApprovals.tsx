@@ -103,31 +103,37 @@ export default function RemediationApprovals() {
     return (
         <div className="w-full space-y-8">
             {/* Header KPI */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-6 shadow-sm flex items-center justify-between">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-amber-200/60 dark:border-amber-900/40 rounded-2xl p-6 shadow-md hover:shadow-lg transition-all duration-300 flex items-center justify-between group">
                     <div>
-                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">{t('kpiPending')}</p>
-                        <p className="text-3xl font-black text-amber-600 dark:text-amber-500">{pendingRequests.length}</p>
+                        <p className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-1">{t('kpiPending')}</p>
+                        <p className="text-4xl font-black text-amber-600 dark:text-amber-500">{pendingRequests.length}</p>
                     </div>
-                    <Clock className="w-12 h-12 text-amber-100 dark:text-amber-900/50" />
+                    <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200/50 dark:border-amber-800/40 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
+                        <Clock className="w-7 h-7" />
+                    </div>
                 </div>
-                <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-6 shadow-sm flex items-center justify-between">
+                <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-emerald-200/60 dark:border-emerald-900/40 rounded-2xl p-6 shadow-md hover:shadow-lg transition-all duration-300 flex items-center justify-between group">
                     <div>
-                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">{t('kpiApproved')}</p>
-                        <p className="text-3xl font-black text-green-600 dark:text-green-500">
+                        <p className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mb-1">{t('kpiApproved')}</p>
+                        <p className="text-4xl font-black text-emerald-600 dark:text-emerald-500">
                             {resolvedRequests.filter((r:any) => r.status === 'Approved').length}
                         </p>
                     </div>
-                    <CheckCircle className="w-12 h-12 text-green-100 dark:text-green-900/50" />
+                    <div className="w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/50 dark:border-emerald-800/40 flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform">
+                        <CheckCircle className="w-7 h-7" />
+                    </div>
                 </div>
-                <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-6 shadow-sm flex items-center justify-between">
+                <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-indigo-200/60 dark:border-indigo-900/40 rounded-2xl p-6 shadow-md hover:shadow-lg transition-all duration-300 flex items-center justify-between group">
                     <div>
-                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">{t('kpiReleasedSavings')}</p>
-                        <p className="text-3xl font-black text-brand-deep dark:text-brand-bright">
+                        <p className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 mb-1">{t('kpiReleasedSavings')}</p>
+                        <p className="text-4xl font-black text-brand-deep dark:text-brand-bright">
                             ${resolvedRequests.filter((r:any) => r.status === 'Approved').reduce((acc: number, r: any) => acc + Number(r.estimated_savings), 0).toFixed(2)}
                         </p>
                     </div>
-                    <Server className="w-12 h-12 text-brand-light dark:text-brand-deep/30" />
+                    <div className="w-14 h-14 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200/50 dark:border-indigo-800/40 flex items-center justify-center text-indigo-500 group-hover:scale-110 transition-transform">
+                        <Server className="w-7 h-7" />
+                    </div>
                 </div>
             </div>
 
