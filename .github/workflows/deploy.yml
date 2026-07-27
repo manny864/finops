@@ -23,10 +23,9 @@ jobs:
             git remote set-url origin https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
             git fetch origin main
             git reset --hard origin/main
-            # Detenemos la app vieja para liberar memoria RAM antes de compilar la nueva
-            docker compose stop finops-app
-            docker compose up -d --build
-            docker builder prune -af --filter until=48h || true
+            # Fase 4: build-antes-de-stop + smoke test + rollback automático,
+            # ver scripts/deploy-vps.sh y docs/vps-infra-improvement-plan.md
+            bash scripts/deploy-vps.sh
 
       - name: Wait before retry
         if: steps.deploy1.outcome == 'failure'
@@ -49,13 +48,15 @@ jobs:
             git remote set-url origin https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
             git fetch origin main
             git reset --hard origin/main
-            docker compose stop finops-app
-            docker compose up -d --build
-            docker builder prune -af --filter until=48h || true
+            bash scripts/deploy-vps.sh
 
       - name: Wait before final retry
         if: steps.deploy1.outcome == 'failure' && steps.deploy2.outcome == 'failure'
-        run: sleep 90
+        # >600s (bantime de fail2ban en el VPS) — dos intentos fallidos seguidos
+        # de SSH pueden haber baneado la IP del runner; 90s no alcanzaba a que
+        # el ban expire, así que el 3er intento repetía el mismo timeout SSH.
+        # Ver docs/vps-infra-improvement-plan.md (hallazgo Fase 0, mitigación Fase 4).
+        run: sleep 660
 
       - name: Deploy to VPS (attempt 3 - final)
         if: steps.deploy1.outcome == 'failure' && steps.deploy2.outcome == 'failure'
@@ -72,6 +73,4 @@ jobs:
             git remote set-url origin https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
             git fetch origin main
             git reset --hard origin/main
-            docker compose stop finops-app
-            docker compose up -d --build
-            docker builder prune -af --filter until=48h || true
+            bash scripts/deploy-vps.sh
