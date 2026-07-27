@@ -98,12 +98,13 @@ Esto reduce la carga real de CPU/red sobre el VPS, no solo "arregla bugs":
 
 ### Fase 4 — CI/CD y despliegue sin downtime (costo: **$0**, esfuerzo: 1 día)
 
-El `deploy.yml` actual apaga `finops-app` **antes** de reconstruir la imagen — downtime igual a todo el tiempo de build.
+El `deploy.yml` actual apagaba `finops-app` **antes** de reconstruir la imagen — downtime igual a todo el tiempo de build.
 
-- [ ] **Build antes de detener**: cambiar el orden a `docker compose build finops-app` (con la app vieja corriendo) y recién después `docker compose up -d finops-app` (Docker reemplaza el contenedor casi instantáneamente una vez la imagen está lista). Reduce el downtime de "minutos" a "segundos".
-- [ ] **Smoke test post-deploy**: agregar un paso en `deploy.yml` que haga `curl -f http://localhost:3000/api/health` tras el `up -d`; si falla, hacer `docker compose logs --tail=100 finops-app` en la salida del workflow para diagnóstico inmediato.
-- [ ] **Rollback automático simple**: taguear la imagen anterior (`docker tag finops-app:latest finops-app:previous` antes del build) y, si el smoke test falla, `docker compose up -d` con la tag `:previous`.
-- [ ] Mantener el flujo `staging → CI → main → deploy` ya vigente (Directiva #15) — no cambiar la política, solo endurecer el script de deploy.
+- [x] **Build antes de detener** (2026-07-27): `scripts/deploy-vps.sh` — `docker compose build finops-app` con la app vieja todavía sirviendo tráfico, y recién con la imagen lista `docker compose up -d finops-app` (Docker reemplaza el contenedor casi instantáneo). Reduce el downtime de "minutos" a "segundos".
+- [x] **Smoke test post-deploy**: mismo script — en vez de `curl http://localhost:3000/api/health` (no funciona: el puerto no se publica al host, solo es alcanzable vía la red de Traefik), se poll-ea `docker inspect -f '{{.State.Health.Status}}'` sobre el healthcheck que ya define `docker-compose.yml`, hasta 30s. Si no llega a `healthy`, corre `docker compose logs --tail=100 finops-app` para que el workflow muestre el diagnóstico.
+- [x] **Rollback automático simple**: mismo script — tagea `finops-finops-app:previous` antes de buildear; si el smoke test falla, retagea `:previous` como `:latest`, hace `up -d` de nuevo, y sale con `exit 1` (para que `deploy.yml` lo trate como fallo y dispare su reintento existente).
+- [x] Flujo `staging → CI → main → deploy` sin cambios (Directiva #15) — solo se endureció el script de deploy, invocado igual desde los 3 intentos de `deploy.yml`.
+- [x] **Extra, hallazgo de Fase 0 resuelto de paso**: el "Wait before final retry" era `sleep 90`, menor al `bantime` de 600s de fail2ban en el VPS — dos intentos SSH fallidos seguidos podían dejar la IP del runner baneada, y el 3er intento repetía el mismo timeout sin nunca llegar a conectar. Se cambió a `sleep 660` (>600s).
 
 ---
 
@@ -153,6 +154,6 @@ No implementar preventivamente. Disparadores concretos para pasar a esta fase:
 2. [ ] Fase 0: límites de recursos + Redis con password + rotación de logs + auditoría de puertos expuestos.
 3. [ ] Fase 1: backup diario automatizado + copia off-site + runbook de restore.
 4. [ ] Fase 2: healthchecks de Docker (✅ ya en Fase 0) + `cron-ping.sh`/`log-docker-stats.sh` (✅ código listo 2026-07-27) — falta crear cuentas UptimeRobot + healthchecks.io e instalar en el crontab real del VPS.
-5. [ ] Fase 4: build-antes-de-stop + smoke test + rollback simple en `deploy.yml`.
+5. [x] Fase 4: build-antes-de-stop + smoke test + rollback simple en `deploy.yml` (`scripts/deploy-vps.sh`, 2026-07-27).
 6. [ ] Fase 3: cerrar los pendientes de cache SWR y locks de cron.
 7. [ ] Fase 5: solo si las métricas de la Fase 2 muestran saturación sostenida.
