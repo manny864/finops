@@ -1,0 +1,217 @@
+# Los 14 procesos periódicos de FinOps, como Container Apps Jobs.
+#
+# Esto es el motivo principal de la migración. Hoy viven en el crontab manual
+# del VPS, que NO está en git: el README documenta dos incidentes en los que un
+# job estuvo ausente del crontab real mientras la documentación decía que
+# corría, y tres tablas de costo quedaron vacías durante semanas sin ningún
+# error visible. Acá el schedule es código, viaja con el repo y se revisa en PR.
+#
+# Los endpoints /api/cron/* se quedan DENTRO de la app: comparten el pool de
+# MySQL, los servicios de negocio y los guards de requestAuth. El job sólo hace
+# la llamada HTTP autenticada — no duplica lógica (que es lo que pasaría si se
+# reescribieran como Azure Functions).
+#
+# ZONA HORARIA — Container Apps interpreta el cron SIEMPRE en UTC; no hay campo
+# de timezone en el schedule. Como los horarios de este producto se piensan en
+# hora de Argentina (el snapshot diario "a las 6" es a las 6 de acá), las
+# expresiones se declaran en hora local y este módulo las convierte a UTC.
+#
+# La conversión es segura porque Argentina NO aplica horario de verano desde
+# 2009: el offset es -03:00 todo el año. Si alguna vez volviera el DST, esto
+# hay que rehacerlo con una tabla de fechas — un offset fijo dejaría de servir.
+locals {
+  offset_hours = var.timezone_offset_hours
+
+  # Cada expresión se parte en sus 5 campos y se corre sólo el de la hora.
+  parsed = {
+    for k, v in var.jobs : k => {
+      fields = split(" ", trimspace(v.cron))
+    }
+  }
+
+  shifted = {
+    for k, v in var.jobs : k => join(" ", [
+      local.parsed[k].fields[0],
+      # Hora "*" (los jobs de cada N minutos) no se toca: correr cada 2 min es
+      # cada 2 min en cualquier huso.
+      local.parsed[k].fields[1] == "*" ? "*" : tostring(
+        (tonumber(local.parsed[k].fields[1]) - local.offset_hours + 24) % 24
+      ),
+      local.parsed[k].fields[2],
+      local.parsed[k].fields[3],
+      local.parsed[k].fields[4],
+    ])
+  }
+
+  # Un job semanal o mensual cuya hora cruza la medianoche al convertir a UTC
+  # también cambia de día, y el campo de día NO se ajusta acá. En vez de
+  # correr el lunes a las 01:00 UTC cuando se pidió el domingo a las 22:00
+  # local, el apply falla y se corrige a mano.
+  day_rollovers = [
+    for k, v in var.jobs : k
+    if local.parsed[k].fields[1] != "*"
+    && (local.parsed[k].fields[4] != "*" || local.parsed[k].fields[2] != "*" || local.parsed[k].fields[3] != "*")
+    && tonumber(local.parsed[k].fields[1]) - local.offset_hours >= 24
+  ]
+}
+
+resource "terraform_data" "no_day_rollover" {
+  lifecycle {
+    precondition {
+      condition     = length(local.day_rollovers) == 0
+      error_message = "Estos jobs cambian de día al pasar a UTC y el campo de día no se ajusta solo: ${join(", ", local.day_rollovers)}. Escribir la expresión directamente en UTC y anotarlo."
+    }
+  }
+}
+
+locals {
+  # Un fetch autenticado y salida distinta de cero si el endpoint no responde
+  # 2xx: así el job queda en Failed en Azure y dispara la alerta.
+  runner = <<-JS
+    const url = process.env.CRON_URL;
+    const secret = process.env.CRON_SECRET;
+    const useQuery = process.env.CRON_AUTH_MODE === 'query';
+    const target = useQuery ? `$${url}?secret=$${encodeURIComponent(secret)}` : url;
+    const headers = useQuery ? {} : { Authorization: `Bearer $${secret}` };
+    const started = Date.now();
+    fetch(target, { headers, signal: AbortSignal.timeout(Number(process.env.CRON_TIMEOUT_MS || 540000)) })
+      .then(async (r) => {
+        const body = await r.text().catch(() => '');
+        console.log(JSON.stringify({ job: process.env.CRON_JOB, status: r.status, ms: Date.now() - started, body: body.slice(0, 500) }));
+        process.exit(r.ok ? 0 : 1);
+      })
+      .catch((e) => {
+        console.error(JSON.stringify({ job: process.env.CRON_JOB, error: String(e), ms: Date.now() - started }));
+        process.exit(1);
+      });
+  JS
+}
+
+resource "azurerm_container_app_job" "this" {
+  for_each = var.jobs
+
+  # Los jobs NO siguen la convención larga y no es un descuido: Container Apps
+  # limita el nombre a 32 caracteres, y "cscs-finops-prod-eastus2-" ya consume
+  # 25 — con endpoints como "support-attachments-cleanup" (27) no hay forma.
+  # Se usa "cron-<endpoint>", que además deja el nombre del endpoint legible en
+  # el portal. El resource group ya identifica proyecto, ambiente y región.
+  name                         = coalesce(each.value.name, "cron-${each.key}")
+  resource_group_name          = var.resource_group_name
+  location                     = var.location
+  container_app_environment_id = var.environment_id
+  # Margen sobre el timeout del fetch: si el endpoint cuelga, corta el job.
+  replica_timeout_in_seconds = each.value.timeout_seconds
+  # Sin reintento automático: estos endpoints son idempotentes pero pesados
+  # (llaman a las ARM APIs de Azure, que ya throttlean con 429). Reintentar a
+  # ciegas empeora el throttling; el próximo tick del schedule reintenta solo.
+  replica_retry_limit = 0
+  tags                = var.tags
+
+  depends_on = [terraform_data.no_day_rollover]
+
+  schedule_trigger_config {
+    # Convertida a UTC desde la hora local declarada en el tfvars.
+    cron_expression          = local.shifted[each.key]
+    parallelism              = 1
+    replica_completion_count = 1
+  }
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [var.identity_id]
+  }
+
+  registry {
+    server   = var.registry_server
+    identity = var.identity_id
+  }
+
+  secret {
+    name                = "cron-secret"
+    identity            = var.identity_id
+    key_vault_secret_id = var.cron_secret_id
+  }
+
+  template {
+    container {
+      name   = each.key
+      image  = "${var.registry_server}/${var.image_name}:${var.image_tag}"
+      cpu    = 0.25
+      memory = "0.5Gi"
+      # No corre la app: sólo dispara el endpoint. 0.25 vCPU alcanza y sobra.
+      command = ["node", "-e", local.runner]
+
+      env {
+        name  = "CRON_JOB"
+        value = each.key
+      }
+
+      env {
+        name  = "CRON_URL"
+        value = "${var.app_url}/api/cron/${each.key}"
+      }
+
+      env {
+        name = "CRON_AUTH_MODE"
+        # status-snapshot autentica por query param, no por header.
+        value = each.value.auth_mode
+      }
+
+      env {
+        name  = "CRON_TIMEOUT_MS"
+        value = tostring(each.value.timeout_seconds * 1000 - 30000)
+      }
+
+      env {
+        name        = "CRON_SECRET"
+        secret_name = "cron-secret"
+      }
+    }
+  }
+
+  lifecycle {
+    ignore_changes = [template[0].container[0].image]
+  }
+}
+
+# Una alerta por fallo de job, al mismo action group que el resto. Reemplaza a
+# los pings de healthchecks.io: el dead-man switch deja de hacer falta cuando
+# el scheduler es el propio Azure y reporta ejecuciones fallidas.
+resource "azurerm_monitor_metric_alert" "job_failed" {
+  # Igual que en security_policy: el for_each no puede depender de
+  # action_group_id, que no se conoce hasta el apply.
+  for_each = var.alerts_enabled ? var.jobs : {}
+
+  name                = "${var.name_base}-cron-${each.key}-alert"
+  resource_group_name = var.resource_group_name
+  scopes              = [azurerm_container_app_job.this[each.key].id]
+  description         = "El job ${each.key} falló."
+  severity            = 2
+  frequency           = "PT5M"
+  window_size         = "PT30M"
+
+  # Nombres verificados 2026-07-28 contra
+  #   az monitor metrics list-definitions --resource <job>
+  # La métrica es "Executions" (no "JobExecutionCount", que no existe: Azure
+  # devolvía 400 "Couldn't find a metric named JobExecutionCount") y la
+  # dimensión es "state" en minúscula (no "Status").
+  criteria {
+    metric_namespace = "Microsoft.App/jobs"
+    metric_name      = "Executions"
+    aggregation      = "Total"
+    operator         = "GreaterThan"
+    threshold        = 0
+
+    dimension {
+      name     = "state"
+      operator = "Include"
+      values   = ["Failed"]
+    }
+  }
+
+  action {
+    action_group_id = var.action_group_id
+  }
+
+  tags = var.tags
+}

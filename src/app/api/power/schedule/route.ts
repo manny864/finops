@@ -4,9 +4,9 @@ import {
   upsertPowerSchedule,
   listPowerSchedules,
   deletePowerSchedule,
-  parseOffsetMinutes,
   executeDueSchedules,
 } from "@/services/powerScheduleService";
+import { effectiveOffsetMinutes, isValidTimeZone } from "@/lib/timezone";
 
 const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
 const OFFSET_RE = /^([+-])(\d{2}):(\d{2})$/;
@@ -45,6 +45,7 @@ export async function POST(request: NextRequest) {
       actionType,
       shutdownTime,
       gmtOffset,
+      timeZone,
       scheduleDate,
       daysOfWeek,
       smartShutdownEnabled,
@@ -60,6 +61,12 @@ export async function POST(request: NextRequest) {
     }
     if (!OFFSET_RE.test(gmtOffset)) {
       return NextResponse.json({ error: "gmtOffset inválido (formato +HH:MM o -HH:MM)" }, { status: 400 });
+    }
+    // La zona IANA es opcional para no romper clientes viejos, pero si viene
+    // tiene que ser válida: una zona inventada haría que el schedule caiga
+    // silenciosamente al offset fijo y se corra con el horario de verano.
+    if (timeZone && !isValidTimeZone(timeZone)) {
+      return NextResponse.json({ error: "timeZone inválida (se espera un nombre IANA, ej. Europe/Madrid)" }, { status: 400 });
     }
     if (actionType && !ACTION_TYPES.has(actionType)) {
       return NextResponse.json({ error: "actionType inválido (shutdown/start/restart)" }, { status: 400 });
@@ -81,7 +88,7 @@ export async function POST(request: NextRequest) {
     if (scheduleDate) {
       const [hh, mm] = String(shutdownTime).split(":").map((n: string) => parseInt(n, 10));
       const [y, mo, d] = scheduleDate.split("-").map((n: string) => parseInt(n, 10));
-      const offsetMin = parseOffsetMinutes(gmtOffset);
+      const offsetMin = effectiveOffsetMinutes(timeZone, gmtOffset);
       const scheduledUtcMs = Date.UTC(y, mo - 1, d, hh, mm) - offsetMin * 60000;
       if (scheduledUtcMs <= Date.now()) {
         return NextResponse.json({
@@ -107,6 +114,7 @@ export async function POST(request: NextRequest) {
       actionType: ACTION_TYPES.has(actionType) ? actionType : "shutdown",
       shutdownTime,
       gmtOffset,
+      timeZone: timeZone || null,
       scheduleDate: scheduleDate || null,
       daysOfWeek: daysOfWeek || null,
       smartShutdownEnabled: Boolean(smartShutdownEnabled),

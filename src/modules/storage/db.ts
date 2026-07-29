@@ -16,6 +16,21 @@ function createPool(): mysql.Pool {
     queueLimit: 0,
     enableKeepAlive: true,
     keepAliveInitialDelay: 10000,
+    // Azure MySQL Flexible corre con require_secure_transport=ON y rechaza
+    // cualquier conexión en claro:
+    //   ER_SECURE_TRANSPORT_REQUIRED "Connections using insecure transport are
+    //   prohibited while --require_secure_transport=ON"
+    // El MySQL del VPS no lo exige, así que va detrás del flag DB_SSL, que la
+    // infra ya inyecta en la Container App y en los jobs (modules/stamp/main.tf).
+    //
+    // rejectUnauthorized explícito y no por default: es un límite de confianza y
+    // no se deja librado a lo que traiga mysql2. No hace falta pasar `ca` — Azure
+    // firma esos certificados con raíces DigiCert que ya están en el trust store
+    // de Node.
+    ssl:
+      process.env.DB_SSL === "true"
+        ? { minVersion: "TLSv1.2", rejectUnauthorized: true }
+        : undefined,
   });
 }
 

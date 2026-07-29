@@ -1,0 +1,193 @@
+subscription_id = "ec03e8ce-ceee-4638-b303-64ae431d5b1e" # CSCS-LandingZone
+tenant_id       = "81ebe027-e6af-4e09-bc73-58c9012c6408"
+environment     = "prod"
+# Convención: <name_prefix>-<project>-<environment>-<region>-<tipo>
+# Ej: cscs-finops-prod-eastus2-rg
+name_prefix = "cscs"
+project     = "finops"
+# Misma región que el stamp: un ACR lejos de las apps hace más lento el pull
+# de cada revisión nueva.
+global_location = "westus2"
+
+# ---------------------------------------------------------------------------
+# Stamps. La clave es el valor de Tenants.data_residency que atiende el stamp.
+# Hoy uno solo: todos los tenants caen acá igual que hoy caen en el pool único
+# de regionPool.ts. Agregar "eu" habilita la residencia real que el roadmap de
+# docs/data-residency.md pone en Q2 2026.
+# ---------------------------------------------------------------------------
+stamps = {
+  us = {
+    # West US 2 y no East US 2: esta suscripción NO tiene capacidad de MySQL
+    # Flexible en East US 2, East US ni Central US (ProvisionNotSupportedForRegion).
+    location = "westus2"
+
+    address_space       = ["10.50.0.0/16"]
+    apps_subnet_prefix  = "10.50.0.0/23" # /23 o mayor: lo exige Container Apps
+    pe_subnet_prefix    = "10.50.10.0/24"
+    mysql_subnet_prefix = "10.50.20.0/24"
+
+    # 48 tablas y 5 tenants hoy, con snapshots de costo creciendo a diario.
+    # B2s en vez de B1ms: el sync diario y el backfill histórico son pesados.
+    # HA exige GP_Standard_D2ds_v4 o superior — Burstable no la soporta.
+    mysql_sku_name              = "B_Standard_B2s"
+    mysql_storage_gb            = 64
+    mysql_backup_retention_days = 14
+    mysql_high_availability     = false
+
+    # Cache puro y regenerable (docs/vps-infra-improvement-plan.md). Corre como
+    # Container App propio porque Azure retiró Cache for Redis Basic/Standard
+    # y el reemplazo gestionado (Enterprise) arranca en ~USD 90/mes.
+    # Verificar capacidad antes de subir de escalón: Balanced_B3 falla al crear
+    # en West US 2 en esta suscripción (CreateFailed, sin zonas asignadas).
+    redis_sku_name                  = "Balanced_B0"
+    redis_high_availability_enabled = true
+
+    web_cpu                         = 1.0
+    web_memory                      = "2Gi"
+    web_min_replicas                = 1
+    web_max_replicas                = 5
+    concurrent_requests_per_replica = 40
+
+    # El Key Vault se crea en este tenant: los vaults se mudan acá junto con el
+    # resto. Hay que cargarle después las credenciales por tenant
+    # (tenantCredentials.ts) y los secretos de infra — ver
+    # infra/docs/pendientes-de-app.md.
+    keyvault_create = true
+
+    monthly_budget_amount = 250
+  }
+
+  # eu = {
+  #   location            = "westeurope"
+  #   address_space       = ["10.51.0.0/16"]
+  #   apps_subnet_prefix  = "10.51.0.0/23"
+  #   pe_subnet_prefix    = "10.51.10.0/24"
+  #   mysql_subnet_prefix = "10.51.20.0/24"
+  #   keyvault_create     = true
+  #   monthly_budget_amount = 250
+  # }
+}
+
+default_stamp = "us"
+
+# ---------------------------------------------------------------------------
+# Los 14 procesos periódicos. Esto reemplaza al crontab manual del VPS, que no
+# vive en git y ya causó dos incidentes de datos faltantes.
+#
+# Las expresiones están en HORA DE ARGENTINA (UTC-3). Container Apps sólo
+# entiende UTC, así que el módulo las convierte solo — `terraform output
+# cron_schedules` muestra las dos columnas.
+#
+# VERIFICADO 2026-07-28: el VPS corre en UTC (`date` → "Tue Jul 28 00:00:22
+# UTC 2026"), así que las expresiones del README estaban en UTC. Las de acá
+# son las MISMAS ejecuciones, reescritas en hora argentina — el comentario al
+# final de cada línea es el horario UTC original. La migración no mueve ningún
+# job: cambiar infraestructura y horarios a la vez haría imposible saber cuál
+# de los dos rompió algo.
+#
+# Si en algún momento se quiere que el snapshot diario sea a las 6 de la
+# mañana ARGENTINA (y no a las 3, que es lo que pasa hoy), es cambiar el
+# número de la hora en esta línea y nada más.
+#
+# Esto es la zona horaria del SCHEDULER, no la del cliente: la hora a la que
+# se apaga la VM de cada tenant sale de PowerSchedules.timezone.
+# ---------------------------------------------------------------------------
+cron_timezone_offset_hours = -3
+
+cron_jobs = {
+  # Snapshot diario de costos. Es el job crítico: si no corre, quedan tablas
+  # de costo vacías (incidentes 2026-07-05 y 2026-07-18).
+  sync = { cron = "0 3 * * *", timeout_seconds = 3600 } # 06:00 UTC
+
+  # Pre-warm del dashboard (cache hard-TTL = 15 min).
+  prewarm-dashboard = { cron = "*/10 * * * *", timeout_seconds = 300 }
+
+  # Apagado programado de VMs. Ventana de ejecución = 8 min, por eso */2.
+  power-schedules = { cron = "*/2 * * * *", timeout_seconds = 120 }
+
+  # Detección de anomalías (Z-Score). Comparte cache Redis de 6h con el
+  # endpoint on-demand, así que no multiplica llamadas a Azure.
+  anomaly-detection = { cron = "*/5 * * * *", timeout_seconds = 300 }
+
+  # Alerta si el sync diario no dejó datos frescos. 2h después de sync.
+  cost-sync-staleness-check = { cron = "0 5 * * *" } # 08:00 UTC
+
+  # Backfill de huecos históricos (upsert-only), todos los tenants activos.
+  historical-gap-backfill = { cron = "0 0 * * *", timeout_seconds = 3600 } # 03:00 UTC
+
+  # Open Data del FinOps Toolkit — semanal, lunes.
+  open-data = { cron = "0 1 * * 1", timeout_seconds = 1800 } # lunes 04:00 UTC
+
+  # Retención de adjuntos de soporte (60 días).
+  support-attachments-cleanup = { cron = "0 2 * * *" } # 05:00 UTC
+
+  # App Registrations por vencer.
+  credential-expiry-alerts = { cron = "0 4 * * *" } # 07:00 UTC
+
+  # Entornos efímeros por vencer/vencidos.
+  ttl-expiry-alerts = { cron = "0 6 * * *" } # 09:00 UTC
+
+  # Corta acceso a tenants CANCELED con período pagado vencido.
+  subscription-expiry = { cron = "30 3 * * *" } # 06:30 UTC
+
+  # Vence trials cuyo trial_ends_at ya pasó.
+  trial-expiry = { cron = "0 22 * * *" } # 01:00 UTC del día siguiente
+
+  # Export FOCUS 1.1 diario por email.
+  focus-export-daily = { cron = "0 4 * * *", timeout_seconds = 1800 } # 07:00 UTC
+
+  # Alimenta /api/status y /status. Autentica por query param, no por header.
+  status-snapshot = { cron = "*/5 * * * *", timeout_seconds = 120, auth_mode = "query" }
+}
+
+acr_sku    = "Basic"
+image_name = "finops"
+image_tag  = "latest"
+
+# Cloudflare ya hace WAF/TLS/CDN. Front Door recién con el segundo stamp.
+frontdoor_enabled = false
+
+# Defender for Cloud. Alcance SUSCRIPCIÓN: prender sólo acá, no en dev.
+defender_enabled = true
+
+# Vacío durante la validación del certificado del dominio propio; después,
+# los rangos de Cloudflare para que nadie pegue al origen directo.
+allowed_ip_ranges = []
+
+# El resto del .env que NO es secreto. Los secretos van por key_vault_secret_ids.
+extra_env_vars = {
+  NEXT_PUBLIC_SSO_ENABLED = "true"
+  # APP_BASE_URL, NEXT_PUBLIC_CLIENT_ID, AZURE_TENANT_ID, PARTNER_MPN_ID, etc.
+}
+
+# Secretos que la app lee como env var. El id sale del Key Vault existente:
+#   az keyvault secret show --vault-name <vault> -n paddle-api-key --query id -o tsv
+# Usar el id SIN versión para que la rotación no exija redeploy.
+key_vault_secret_ids = {
+  # paddle-api-key       = "https://<vault>.vault.azure.net/secrets/paddle-api-key"
+  # paddle-webhook-secret = "https://<vault>.vault.azure.net/secrets/paddle-webhook-secret"
+  # workos-api-key       = "https://<vault>.vault.azure.net/secrets/workos-api-key"
+  # smtp-password        = "https://<vault>.vault.azure.net/secrets/smtp-password"
+  # mfa-encryption-key   = "https://<vault>.vault.azure.net/secrets/mfa-encryption-key"
+  # sso-session-secret   = "https://<vault>.vault.azure.net/secrets/sso-session-secret"
+}
+
+key_vault_secret_env = {
+  # PADDLE_API_KEY        = "paddle-api-key"
+  # PADDLE_WEBHOOK_SECRET = "paddle-webhook-secret"
+  # WORKOS_API_KEY        = "workos-api-key"
+  # SMTP_PASSWORD         = "smtp-password"
+  # MFA_ENCRYPTION_KEY    = "mfa-encryption-key"
+  # SSO_SESSION_SECRET    = "sso-session-secret"
+}
+
+log_retention_days = 30
+log_daily_quota_gb = 1
+alert_email        = "soporte@cscloudsolutions.com.ar"
+budget_start_date  = "2026-08-01T00:00:00Z"
+
+tags = {
+  Owner      = "CSCS-CloudOps"
+  CostCenter = "FINOPS"
+  Product    = "FinOps"
+}

@@ -96,9 +96,24 @@ CREATE TABLE IF NOT EXISTS AiCache (
 CREATE TABLE IF NOT EXISTS CostSnapshots (
     id INT AUTO_INCREMENT PRIMARY KEY,
     tenant_id VARCHAR(255) NOT NULL,
-    subscription_id VARCHAR(255) DEFAULT 'default',
+    -- ascii y no el charset por defecto: con utf8mb4 (4 bytes/char) esta clave
+    -- única suma 4147 bytes y MySQL corta en 3072 (ER_TOO_LONG_KEY). En el VPS
+    -- entraba porque el default era latin1 (1 byte); Azure MySQL Flexible usa
+    -- utf8mb4. Mismo recurso que ya se había aplicado a allocation_tag_hash.
+    --
+    -- Se achican estas dos y no tenant_id porque tenant_id tiene FK contra
+    -- Tenants y MySQL exige charset idéntico en ambos lados: cambiarlo obligaría
+    -- a tocar las 16+ tablas que lo referencian.
+    --
+    -- Son identificadores de Azure: el subscription_id es un GUID y los nombres
+    -- de resource group están restringidos por Azure a alfanuméricos, guiones,
+    -- guión bajo, paréntesis y punto. No hay pérdida semántica.
+    --
+    -- Collation _ci y no _bin: el default del VPS es case-insensitive, y con
+    -- _bin 'MyRG' y 'myrg' serían filas distintas en la clave única.
+    subscription_id VARCHAR(255) CHARACTER SET ascii COLLATE ascii_general_ci DEFAULT 'default',
     date DATE NOT NULL,
-    resource_group VARCHAR(255) NOT NULL,
+    resource_group VARCHAR(255) CHARACTER SET ascii COLLATE ascii_general_ci NOT NULL,
     service_name VARCHAR(255) NOT NULL,
     cost_usd DECIMAL(12, 4) NOT NULL,
     currency VARCHAR(10) DEFAULT 'USD',

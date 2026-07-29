@@ -1,0 +1,57 @@
+output "hostname" {
+  value = module.app.default_hostname
+}
+
+output "app_name" {
+  value = module.app.app_name
+}
+
+output "identity_principal_id" {
+  value = azurerm_user_assigned_identity.app.principal_id
+}
+
+output "identity_client_id" {
+  value = azurerm_user_assigned_identity.app.client_id
+}
+
+output "resource_group_name" {
+  value = module.network.resource_group_name
+}
+
+output "migrate_job_name" {
+  value = azurerm_container_app_job.migrate.name
+}
+
+output "cron_job_names" {
+  value = module.cronjobs.job_names
+}
+
+output "cron_schedules" {
+  description = "Contrastar contra `crontab -l` del VPS antes del corte."
+  value       = module.cronjobs.schedules
+}
+
+output "mysql_fqdn" {
+  value = module.mysql.fqdn
+}
+
+output "storage_account_name" {
+  value = module.storage.account_name
+}
+
+output "key_vault_uri" {
+  value = module.keyvault.vault_uri
+}
+
+output "workspace_id" {
+  value = module.monitoring.workspace_id
+}
+
+output "appinsights_id" {
+  value = module.monitoring.appinsights_id
+}
+
+output "outbound_ip" {
+  description = "IP de salida: la que ven las ARM APIs de Azure y los webhooks de Paddle."
+  value       = azurerm_container_app_environment.this.static_ip_address
+}

@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
                             (client_secret IS NOT NULL AND client_secret <> '') as has_client_secret,
                             tier, trial_ends_at, subscription_status, access_until, is_onboarded,
                             partner_link_status, partner_link_detail,
-                            provider, provider_archived, provider_purge_at,
+                            provider, provider_archived, provider_purge_at, timezone,
                             sales_referrer, (logo_stored_name IS NOT NULL) as has_logo,
                             SUBSTRING(MD5(logo_stored_name), 1, 10) as logo_version
                      FROM Tenants ORDER BY created_at ASC`;
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
                             (t.client_secret IS NOT NULL AND t.client_secret <> '') as has_client_secret,
                             t.tier, t.trial_ends_at, t.subscription_status, t.access_until, t.is_onboarded,
                             t.partner_link_status, t.partner_link_detail,
-                            t.provider, t.provider_archived, t.provider_purge_at,
+                            t.provider, t.provider_archived, t.provider_purge_at, t.timezone,
                             (t.logo_stored_name IS NOT NULL) as has_logo,
                             SUBSTRING(MD5(t.logo_stored_name), 1, 10) as logo_version
                      FROM Tenants t
@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
                             (client_secret IS NOT NULL AND client_secret <> '') as has_client_secret,
                             tier, trial_ends_at, subscription_status, access_until, is_onboarded,
                             partner_link_status, partner_link_detail,
-                            provider, provider_archived, provider_purge_at,
+                            provider, provider_archived, provider_purge_at, timezone,
                             (logo_stored_name IS NOT NULL) as has_logo,
                             SUBSTRING(MD5(logo_stored_name), 1, 10) as logo_version
                      FROM Tenants WHERE tenant_id = ? LIMIT 1`,

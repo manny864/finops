@@ -190,7 +190,7 @@ ${t.subprocessorsIntro}
 
 | ${t.procColProcessor} | ${t.procColPurpose} | ${t.procColLocation} |
 |---|---|---|
-| Microsoft Azure | ${t.procRow1Purpose} | Brazil South |
+| Microsoft Azure | ${t.procRow1Purpose} | ${m.LegalSubprocessors.residencyRegionValue} |
 | Paddle | ${t.procRow2Purpose} | US/UK |
 | WorkOS | ${t.procRow3Purpose} | US |
 | Google Gemini AI | ${t.procRow4Purpose} | US |

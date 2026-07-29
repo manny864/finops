@@ -36,6 +36,14 @@ CREATE TABLE IF NOT EXISTS CostMeterSnapshots (
 -- colapso descrito arriba (una sola subcategoría por servicio, con costo
 -- parcial) y además duplican el costo de las filas A. Se eliminan; los
 -- próximos syncs pueblan CostMeterSnapshots con datos correctos.
+-- El DELETE original filtraba además por `COALESCE(MeterSubCategory,'') <> ''`,
+-- pero esa columna NO existe en CostSnapshots: nunca estuvo en el bootstrap, se
+-- había agregado a mano en el VPS. En cualquier base creada desde las
+-- migraciones la sentencia muere con ER_BAD_FIELD_ERROR y frena todo el runner.
+-- Verificado 2026-07-28 montando el esquema desde cero.
+--
+-- Se cae el filtro por esa columna. En una base nueva esto no borra nada porque
+-- la tabla está vacía; sobre datos existentes el criterio que importa es el
+-- mismo que usaba el sync para escribir las filas B: resource_group = '*'.
 DELETE FROM CostSnapshots
- WHERE resource_group = '*'
-   AND COALESCE(MeterSubCategory, '') <> '';
+ WHERE resource_group = '*';

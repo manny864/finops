@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
 import { useMsal } from '@azure/msal-react';
 import { useTenant } from '../TenantProvider';
+import { useTenantTimezone } from '@/hooks/useTenantTimezone';
 import { useSubscription } from '../SubscriptionProvider';
 import FeatureGuard from '../FeatureGuard';
 import { getMockDataForRoute, isMockTenant } from '@/lib/mockData';
@@ -130,6 +131,12 @@ export default function PowerSchedules() {
     // SSR no llegue a renderizar este formulario, así que no hay riesgo de
     // hydration mismatch por usar la TZ del browser acá).
     const [gmtOffset, setGmtOffset] = useState(() => getBrowserGmtOffset('-05:00'));
+    // gmt_offset queda por compatibilidad con las filas viejas, pero lo que
+    // manda es la zona IANA: es la única que recalcula el offset en cada
+    // ejecución y por lo tanto sobrevive al horario de verano. Un horario
+    // guardado en julio en Madrid con offset fijo +02:00 apagaba las VMs una
+    // hora antes desde noviembre.
+    const scheduleTimeZone = useTenantTimezone();
     const [scheduleDate, setScheduleDate] = useState('');
     // Modo "recurrente por rango": en vez de una sola hora+acción, el usuario
     // elige días de la semana + "Desde"/"Hasta" — se traduce a DOS schedules
@@ -246,6 +253,7 @@ export default function PowerSchedules() {
                     actionType: scheduleActionType,
                     shutdownTime,
                     gmtOffset,
+                    timeZone: scheduleTimeZone,
                     scheduleDate: scheduleDate || null,
                     smartShutdownEnabled,
                     maxCpuPercentage,
@@ -293,6 +301,7 @@ export default function PowerSchedules() {
                 resourceGroup: vm.resourceGroup,
                 vmName: vm.name,
                 gmtOffset,
+                timeZone: scheduleTimeZone,
                 daysOfWeek: daysOfWeekCsv,
             };
             // Dos filas independientes (la unique key incluye action_type, así

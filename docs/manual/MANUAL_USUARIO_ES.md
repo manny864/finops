@@ -35,7 +35,6 @@ Cada sección explica **qué es** la funcionalidad, **quién puede usarla** (rol
 10. [Seguridad de la cuenta (MFA)](#10-seguridad-de-la-cuenta-mfa)
 11. [Funciones avanzadas e integraciones](#11-funciones-avanzadas-e-integraciones)
 12. [Mejores prácticas](#12-mejores-prácticas)
-13. [Multi-cloud: Azure y AWS](#13-multi-cloud-azure-y-aws)
 
 ---
 
@@ -43,16 +42,12 @@ Cada sección explica **qué es** la funcionalidad, **quién puede usarla** (rol
 
 ### 1.1. Acceso e inicio de sesión
 
-La plataforma es un SaaS B2B con **dos formas de iniciar sesión**, según el proveedor de nube de tu organización.
-
-**Si usás Azure**, la autenticación se integra con **Microsoft Entra ID** (Azure Active Directory):
+La plataforma es un SaaS B2B. La autenticación se integra con **Microsoft Entra ID** (Azure Active Directory):
 
 1. Entrá a la URL de la plataforma.
 2. Hacé clic en **"Iniciar sesión con Microsoft"**.
 3. Autenticate con tu cuenta corporativa. La plataforma reconoce automáticamente tu tenant de Azure y tu identidad.
-4. **Modo Demo:** si querés probar la plataforma sin conectar tu entorno real, elegí uno de los perfiles comerciales preconfigurados desde la pantalla principal — vienen con datos y métricas simuladas realistas, para que puedas explorar cada módulo sin riesgo. En el formulario de la demo podés elegir **si querés ver la plataforma con datos de Azure o de AWS**: cada nube muestra sus propios servicios, regiones y recomendaciones (por ejemplo, Savings Plans y Reserved Instances en AWS, en lugar de Reservas de Azure). Las cifras están escaladas al mismo nivel en ambas nubes, así que podés compararlas de manera directa. Las credenciales de la demo son `demo` / `demo`.
-
-**Si usás AWS**, tu organización no entra por Microsoft: iniciás sesión con **email y contraseña** desde el mismo formulario de login. Ver la [sección 13](#13-multi-cloud-azure-y-aws) para el detalle.
+4. **Modo Demo:** si querés probar la plataforma sin conectar tu entorno real, elegí uno de los perfiles comerciales preconfigurados desde la pantalla principal — vienen con datos y métricas simuladas realistas, para que puedas explorar cada módulo sin riesgo. Las credenciales de la demo son `demo` / `demo`.
 
 ### 1.2. El asistente de onboarding (primera vez)
 
@@ -60,9 +55,9 @@ Si sos administrador y es la primera vez que tu organización usa la plataforma,
 
 | Paso | Qué hacés | Resultado |
 |---|---|---|
-| **1. Bienvenida y datos de la empresa** | Confirmás nombre de la empresa, proveedor de nube principal (**Azure o AWS**), moneda de visualización (USD/EUR/GBP) y zona horaria | Se guardan tus preferencias iniciales |
-| **2. Conectar nube principal** | Si elegiste **Azure**, pegás **Client ID**, **Client Secret** y **Azure Tenant ID** del Service Principal y presionás **"Validar"**. Si elegiste **AWS**, abrís **Gestión de Cuentas AWS** (`/admin/cloud-accounts`), registrás al menos una cuenta y volvés al wizard para validar. | El sistema confirma que la conexión mínima está lista para avanzar (SP válido en Azure o cuenta AWS registrada) |
-| **3. Primera sincronización de datos** | Presionás **"Ejecutar Sincronización"** | Trae tu primer set de datos de costos desde tu nube seleccionada (Azure o AWS; puede tardar hasta 60 segundos) |
+| **1. Bienvenida y datos de la empresa** | Confirmás nombre de la empresa, moneda de visualización (USD/EUR/GBP) y zona horaria | Se guardan tus preferencias iniciales |
+| **2. Conectar Azure** | Pegás **Client ID**, **Client Secret** y **Azure Tenant ID** del Service Principal y presionás **"Validar"**. | El sistema confirma que la conexión mínima está lista para avanzar |
+| **3. Primera sincronización de datos** | Presionás **"Ejecutar Sincronización"** | Trae tu primer set de datos de costos desde Azure (puede tardar hasta 60 segundos) |
 | **4. Crear tu primer presupuesto** | Completás nombre, límite mensual ($) y umbral de alerta (%) | Se crea tu primer presupuesto activo |
 | **5. Configurar notificaciones** | Presionás **"Configurar"** (abre `/admin/notifications` en pestaña nueva) | Agregás al menos un canal (email, Slack o Teams) para recibir alertas |
 
@@ -70,7 +65,7 @@ Podés **saltar (skip)** cualquier paso y volver más tarde — el wizard vuelve
 
 ### 1.3. Verificación de la conexión con Azure
 
-Cuando elegís **Azure** en el paso 2 del asistente (o desde `/admin/onboarding`), el Service Principal necesita tener asignados ciertos roles para que la plataforma pueda leer tus datos de costos. Si elegís **AWS**, este bloque no aplica: en ese caso la conexión se hace desde `/admin/cloud-accounts` con rol asumido y External ID.
+Cuando conectás Azure en el paso 2 del asistente (o desde `/admin/onboarding`), el Service Principal necesita tener asignados ciertos roles para que la plataforma pueda leer tus datos de costos.
 
 **Roles Azure necesarios, por tier contratado:**
 
@@ -236,20 +231,6 @@ El dashboard de facturación detallada, en tiempo real desde Azure.
 1. **Crear presupuesto:** nombre, período (mensual/trimestral/anual), límite en $.
 2. **Umbral de alerta:** definís en qué % del presupuesto querés ser notificado (ej. 75%).
 3. El sistema hace seguimiento automático — ves consumo real vs. presupuesto en tiempo real, con histórico de períodos anteriores.
-
-> **Si tu nube es AWS**, además de los presupuestos que crees acá vas a ver los
-> que ya tengas definidos en **AWS Budgets**, marcados como nativos. Sólo
-> traemos los de tipo *Cost*: los de uso o de cobertura de Reserved Instances y
-> Savings Plans se miden en horas o en porcentaje, así que sumarlos junto a
-> importes en dinero daría un total sin sentido.
->
-> Dos diferencias respecto de Azure: el presupuesto que creás acá **queda sólo
-> en la plataforma** — no lo escribimos en tu cuenta de AWS, porque el rol de
-> lectura que nos diste no lo permite — y el **apagado automático al superar el
-> límite no está disponible**, por la misma razón. Vas a recibir la alerta,
-> pero la acción correctiva la ejecutás vos.
-
-En la sección `/admin/cloud-accounts`, los usuarios con rol Admin/Owner también pueden **editar cuentas AWS existentes** (alias, Role ARN y CUR) sin tener que borrarlas.
 
 ### 5.3. Cost Groups (`/intelligence/cost-groups`, Business+)
 
@@ -598,6 +579,15 @@ Si te registraste vos mismo desde la página de precios (sin pasar por un onboar
 
 Podés upgradear a plan pago en cualquier momento desde **Facturación** — el trial se convierte inmediatamente en suscripción activa. Si el trial expira sin upgrade, la cuenta queda en modo de acceso limitado hasta que actives un plan pago.
 
+### 11.9. Infraestructura actual y residencia de datos (estado vigente)
+
+- **Región física activa hoy:** un único despliegue en **Azure West US 2**.
+- **Residencia por tenant (EU/US/LATAM/APAC):** hoy es **declarativa/lógica**. Aún no hay aislamiento físico por región.
+- **Redis productivo:** **Azure Managed Redis `Balanced_B3`** con **HA habilitada**, endpoint privado y TLS.
+- **Edge/CDN:** se usa **Cloudflare** delante del origen de Azure.
+
+> Si tu organización exige residencia física estricta (por ejemplo, datos UE solo en UE), se requiere desplegar stamps adicionales por región antes de considerarlo cumplido.
+
 ---
 
 ## 12. Mejores Prácticas
@@ -607,153 +597,6 @@ Podés upgradear a plan pago en cualquier momento desde **Facturación** — el 
 - **Exigí cumplimiento de tags:** sin etiquetas consistentes, el módulo de chargeback/showback no puede distribuir la factura mensual de forma justa entre equipos — es la base de todo lo demás.
 - **Usá el Simulador What-If antes de comprometerte:** antes de comprar una Reserva o Savings Plan, simulá el escenario y guardalo — te da un número concreto para justificar la decisión ante finanzas.
 - **Configurá al menos un canal de notificación** desde el primer día (Slack/Teams si tu equipo ya vive ahí, o email si preferís simplicidad) — las alertas de presupuesto no sirven si nadie las ve a tiempo.
-
----
-
-## 13. Multi-cloud: Azure y AWS
-
-La plataforma soporta **dos proveedores de nube**: Microsoft Azure y Amazon Web Services. Los planes y los precios son **idénticos** para ambos — lo único que cambia es cómo creás la cuenta y qué datos se recolectan.
-
-### 13.1. Elegir el proveedor al registrarte
-
-En la pantalla de planes (`/signup`) elegís primero **qué nube querés analizar**:
-
-| Proveedor | Cómo se crea la cuenta |
-|---|---|
-| **Microsoft Azure** | Iniciás sesión con tu cuenta de Microsoft. La plataforma reconoce tu tenant de Entra ID automáticamente. |
-| **Amazon Web Services** | AWS no tiene un inicio de sesión corporativo equivalente a Entra ID, así que creás una cuenta con **email y contraseña**. Te llega un mail para verificar tu dirección. |
-
-> **Por qué la diferencia:** IAM Identity Center es el SSO *de tu propia organización*, no un directorio global que nosotros podamos consultar, y "Login with Amazon" es identidad de consumidor (cuentas de compras). No existe un "iniciar sesión con AWS" empresarial. Por eso el camino AWS usa credenciales propias de la plataforma.
-
-### 13.2. Iniciar sesión
-
-La pantalla de login ofrece las dos opciones:
-
-- **Iniciar sesión con Microsoft** — para los tenants Azure.
-- **Email y contraseña** — para los tenants AWS. Debajo del formulario tenés **"¿Olvidaste tu contraseña?"**, que te manda un link de recuperación válido por tiempo limitado.
-
-Si tu administrador te invitó, vas a recibir un mail con un link para **elegir tu contraseña** y entrar. Los invitados entran siempre con rol **Reader**; tu administrador puede ampliarlo después desde **Usuarios y Permisos**.
-
-### 13.3. Usar los dos proveedores a la vez (solo Enterprise)
-
-El plan **Enterprise** es el único que puede tener Azure y AWS conectados en la misma cuenta. Cuando es tu caso, aparece un **selector AWS/Azure en la barra superior**: al cambiarlo, el menú lateral y las páginas pasan a mostrar los datos de ese proveedor.
-
-Si tenés un solo proveedor, el selector no se muestra — no tendría ninguna opción que elegir.
-
-> **Importante:** el menú lateral cambia según el proveedor activo. Muchas páginas son específicas de Azure (AKS, Hybrid Benefit, Azure Policies, Defender for Cloud, etc.) y no aparecen con AWS activo. Es intencional: preferimos no mostrarte una página que no puede funcionar con tus datos.
-
-Si llegás a una de esas páginas por un enlace guardado o escribiendo la dirección, no vas a ver un error: la plataforma te avisa que esa función todavía no tiene equivalente en AWS y, si tenés las dos nubes, te recuerda que podés cambiar de proveedor desde el selector.
-
-**Qué vas a encontrar con AWS activo:**
-
-| Página | Qué muestra en AWS |
-|---|---|
-| **WhiteBoard (Vista Ejecutiva)** | Es tu pantalla de inicio. Gasto del año, proyección, tendencia y los cinco servicios y regiones que más gastan. |
-| **TOP Gastos** | Ranking de cuentas, regiones y servicios. Cada cuenta aparece con el alias que le pusiste al darla de alta. |
-| **Detección de Anomalías** | Picos de gasto detectados estadísticamente, con la región y el servicio que los causaron. Necesita unos 60 días de historial para ser confiable. |
-| **Proyección de costos** | Estimación de cierre del mes a partir de tu historial ya sincronizado. |
-| **Costo por Categoría, Grupos de Costo, Ahorro Capturado, Simulador What-If, Academia** | Igual que en Azure. |
-| **Limpieza de recursos ociosos** | Volúmenes EBS que quedaron sin adjuntar, IPs elásticas reservadas y sin usar, snapshots de más de 90 días e instancias detenidas. De cada uno te decimos cuánto te cuesta por mes. |
-| **Administración del servicio** | Tu facturación, usuarios y permisos, alta de cuentas, cumplimiento, alertas y la app móvil funcionan igual que con Azure: no dependen de la nube que uses. |
-
-Dos diferencias que conviene tener presentes:
-
-- **Los rankings se ordenan por costo, no por cantidad de recursos.** En AWS no llevamos un inventario de recursos como en Azure, y para decidir dónde recortar el costo es el dato que importa.
-- **En una instancia detenida te mostramos lo que cuestan sus discos, no su cómputo.** Una instancia apagada no paga cómputo, pero sus volúmenes EBS se siguen cobrando enteros: ese es el gasto real que podés recuperar.
-- **Gobernanza de etiquetas y recomendaciones de redimensionamiento todavía no están disponibles en AWS.** La primera funciona distinto que en Azure (allá las etiquetas se heredan del grupo de recursos; en AWS no existe esa herencia) y la segunda necesita métricas de uso que aún no recolectamos. Preferimos no mostrarte ceros: un cero se lee como "no hay desperdicio", y no es lo que estaríamos diciendo.
-
-### 13.4. Conectar tu cuenta de AWS
-
-Desde **Administración → Cuentas Cloud** das de alta cada cuenta de AWS que
-querés monitorear. El alta tiene dos pasos:
-
-1. **Cargás los datos de la cuenta**: el ID de 12 dígitos, el ARN del rol que vas
-   a crear y un alias para reconocerla. Si tenés un **CUR** (Cost & Usage Report)
-   configurado, indicás también su bucket, prefijo y nombre de reporte: con CUR
-   obtenés detalle por recurso; sin CUR trabajamos con Cost Explorer, que da
-   detalle por servicio y región.
-
-   > **Conviene configurar el CUR.** Cost Explorer no devuelve las **etiquetas**
-   > de los recursos. Sin CUR vas a ver tus costos abiertos por cuenta, región y
-   > servicio, pero no vas a poder asignarlos por equipo o proyecto, ni usar
-   > chargeback ni unit economics: todo el gasto queda como “Sin asignar”.
-2. **Creás el rol en tu cuenta de AWS** con la plantilla que te mostramos. Podés
-   elegir el formato que uses habitualmente: **CloudFormation**, **Terraform** o
-   comandos de **AWS CLI**. El botón *Copiar* la lleva al portapapeles.
-
-Terminado eso, usá **Probar conexión** para validar que el rol funciona antes de
-esperar al primer sync.
-
-#### Por qué la plantilla pide tan pocos permisos
-
-La plantilla concede **sólo permisos de lectura**, y los que tocan S3 quedan
-acotados exclusivamente al bucket donde está tu CUR:
-
-| Permiso | Para qué lo usamos |
-|---|---|
-| `sts:AssumeRole` | Asumir el rol que creaste, sin que nos des claves permanentes |
-| `ce:GetCostAndUsage` | Leer tus costos diarios por servicio y región |
-| `ec2:DescribeInstances` | Ver el inventario de instancias para las recomendaciones |
-| `ec2:DescribeVolumes` | Detectar volúmenes EBS sin conectar que seguís pagando |
-| `ec2:DescribeAddresses` | Detectar IPs elásticas reservadas y sin asociar |
-| `ec2:DescribeSnapshots` | Detectar snapshots antiguos que ya nadie usa |
-| `budgets:DescribeBudgets`, `budgets:ViewBudget` | Leer los presupuestos que ya tenés creados en AWS Budgets |
-| `ce:GetReservationPurchaseRecommendation` | Recomendarte qué Instancias Reservadas conviene comprar |
-| `ce:GetSavingsPlansPurchaseRecommendation` | Recomendarte qué Savings Plans conviene comprar |
-| `tag:GetResources`, `tag:GetTagKeys` | Armar el inventario de recursos y auditar el etiquetado |
-| `s3:GetObject`, `s3:ListBucket` | Leer los archivos de tu CUR, **sólo en ese bucket** |
-
-No hay **ni una sola acción de escritura**: no podemos crear, modificar ni
-borrar nada en tu cuenta. Tampoco pedimos políticas administradas amplias como
-`AmazonS3ReadOnlyAccess`, que daría acceso de lectura a **todos** los buckets
-cuando lo único que necesitamos es uno. Si tu área de seguridad revisa el rol,
-va a encontrar exactamente estas acciones y nada más.
-
-> **Si acabás de agregar estos permisos:** las páginas de Recursos y de
-> Gobernanza de Etiquetas aparecen **vacías** hasta que el rol los tenga. No vas
-> a ver un error, vas a ver una lista sin filas — que es fácil de confundir con
-> "no tengo nada para revisar". Si diste de alta tu cuenta antes de esta
-> versión, volvé a ejecutar la plantilla.
-
-> **Qué recursos aparecen en el inventario:** AWS sólo permite listar de una
-> sola vez los recursos que tienen **al menos una etiqueta**. Un recurso sin
-> ninguna no va a aparecer, ni en el inventario ni en la auditoría de etiquetas.
-> Es una limitación de AWS, no de la plataforma: etiquetalo y entra al análisis
-> en la siguiente actualización.
-
-
-> **Si diste de alta tu cuenta antes de julio de 2026, volvé a ejecutar la
-> plantilla.** La versión anterior no incluía los permisos de volúmenes, IPs
-> elásticas, snapshots ni presupuestos. Sin ellos esas secciones no dan error:
-> simplemente aparecen **vacías**, como si no tuvieras nada para limpiar. La
-> plantilla actualizada está en la misma pantalla de la cuenta y se puede
-> re-aplicar sobre el rol existente sin borrarlo ni recrearlo.
-
-#### El ExternalId
-
-Al dar de alta la cuenta generamos un **ExternalId**: un valor secreto que se
-incluye en la condición de confianza del rol y evita el ataque conocido como
-*confused deputy* — que un tercero que adivine el ARN de tu rol consiga que lo
-asumamos en su nombre. La plantilla ya lo trae incorporado; si perdés la
-pantalla, podés volver a generarla desde la misma cuenta sin borrarla ni
-recrearla.
-
-### 13.5. Qué pasa con tus datos si bajás de plan
-
-Si tenés Enterprise con **los dos proveedores** y bajás a un plan inferior, perdés el derecho a multi-cloud. **No borramos nada en ese momento.** Lo que ocurre es:
-
-1. **Se retiene un proveedor y el otro queda archivado.** Si no elegís, retenemos automáticamente aquel donde más gastás (y, a igualdad de gasto, el que tenga más cuentas conectadas).
-2. **El proveedor archivado queda en modo sólo lectura durante 90 días.** Podés consultarlo y **exportar todo** desde `/admin/focus-export` — el export sigue habilitado durante toda la ventana aunque tu nuevo plan no lo incluya, porque tus datos son tuyos.
-3. **Te avisamos** por email y por notificación dentro de la plataforma **30 días y 7 días antes** de la eliminación.
-4. **Recién al vencer los 90 días** se eliminan definitivamente los datos de ese proveedor.
-
-Mientras dure la ventana vas a ver un **aviso en la parte superior** con los días restantes y tres salidas:
-
-- **Exportar datos** — te lleva al exportador FOCUS.
-- **Retener el otro proveedor** — invierte la elección (solo Admin/Owner). Ojo: **invertir no reinicia el plazo**; la fecha de eliminación es la misma.
-- **Volver a Enterprise** — si volvés antes de que venza el plazo, **se restaura todo sin ninguna pérdida**. Ese es exactamente el motivo por el que la ventana existe.
-
-> **Consejo:** si el downgrade fue un accidente (por ejemplo, una tarjeta rechazada), no hace falta que hagas nada más que regularizar el pago. Nada se borra hasta el día 90.
 
 ---
 

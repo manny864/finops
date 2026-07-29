@@ -32,4 +32,20 @@ directivas
 .vscode
 .idea
 
-# Se remueve .env* para que Next.js pueda leer las variables NEXT_PUBLIC_ durante el build
+# Secretos: NUNCA al contexto de build.
+#
+# Antes .env* NO estaba excluido, para que Next inlineara las NEXT_PUBLIC_ al
+# compilar. El costo era que .env.production —con AZURE_CLIENT_SECRET,
+# AZURE_KEYVAULT_CLIENT_SECRET, CRON_SECRET, DB_PASSWORD, GEMINI_API_KEY y el
+# resto— viajaba DENTRO de la imagen publicada en el registry, al alcance de
+# cualquiera con permiso de pull. Detectado 2026-07-28.
+#
+# Además rompía la autenticación en Azure: la app encontraba primero las
+# credenciales del service principal del VPS en ese archivo y nunca usaba la
+# managed identity del stamp, que sí tiene RBAC sobre el Key Vault.
+#
+# Las NEXT_PUBLIC_ ahora entran por --build-arg (ver Dockerfile). Son públicas
+# por definición: terminan en el bundle que se sirve al browser.
+.env
+.env.*
+!.env.example

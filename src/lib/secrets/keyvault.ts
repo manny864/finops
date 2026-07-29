@@ -2,8 +2,12 @@
  * Azure Key Vault client wrapper.
  *
  * Características:
- *  - Singleton SecretClient autenticado con ClientSecretCredential
- *    (Service Principal, ideal para deploys fuera de Azure como Hostinger).
+ *  - Singleton SecretClient con dos modos de autenticación:
+ *      · ClientSecretCredential (Service Principal) para deploys FUERA de
+ *        Azure, donde no hay managed identity — el caso del VPS.
+ *      · ManagedIdentityCredential dentro de Azure (Container Apps), que es
+ *        donde corre hoy producción.
+ *    Se elige solo según qué variables estén presentes; el SP tiene prioridad.
  *  - Cache en memoria con TTL "fresh" + ventana "stale-while-revalidate"
  *    para sobrevivir cortes transitorios de red Hostinger ↔ Azure.
  *  - Cache encriptado en disco (AES-256-GCM) que se carga al boot para
@@ -12,9 +16,15 @@
  *
  * Env vars requeridas:
  *  - AZURE_KEYVAULT_URL                  (https://NAME.vault.azure.net/)
- *  - AZURE_KEYVAULT_TENANT_ID
- *  - AZURE_KEYVAULT_CLIENT_ID
- *  - AZURE_KEYVAULT_CLIENT_SECRET
+ *  - y UNO de los dos modos de autenticación:
+ *      a) Service Principal (fuera de Azure):
+ *         AZURE_KEYVAULT_TENANT_ID + AZURE_KEYVAULT_CLIENT_ID +
+ *         AZURE_KEYVAULT_CLIENT_SECRET
+ *      b) Managed identity (dentro de Azure):
+ *         AZURE_KEYVAULT_MI_CLIENT_ID con el client id de la identidad
+ *         user-assigned que tenga rol "Key Vault Secrets User" sobre el vault.
+ *         Lo inyecta Terraform (infra/terraform/modules/stamp/main.tf).
+ *         NO usar AZURE_CLIENT_ID: esa es del app registration de CSCS.
  *
  * Env vars opcionales:
  *  - AZURE_KEYVAULT_ENABLED              ("true" para activar; default off)
@@ -26,7 +36,7 @@
  */
 
 import { SecretClient } from "@azure/keyvault-secrets";
-import { ClientSecretCredential } from "@azure/identity";
+import { ClientSecretCredential, ManagedIdentityCredential } from "@azure/identity";
 import crypto from "crypto";
 import fs from "fs/promises";
 import path from "path";
@@ -63,13 +73,33 @@ function getCacheEncryptionKey(): Buffer | null {
   return crypto.createHash("sha256").update(raw).digest();
 }
 
+/**
+ * Service Principal explícito: el modo del VPS, que corre FUERA de Azure y no
+ * tiene managed identity disponible.
+ */
+function hasServicePrincipalCreds(): boolean {
+  return (
+    !!process.env.AZURE_KEYVAULT_TENANT_ID &&
+    !!process.env.AZURE_KEYVAULT_CLIENT_ID &&
+    !!process.env.AZURE_KEYVAULT_CLIENT_SECRET
+  );
+}
+
+/**
+ * Managed identity: el modo de Container Apps. Terraform le asigna al stamp una
+ * identidad user-assigned con rol "Key Vault Secrets User" sobre el vault e
+ * inyecta su client id en AZURE_KEYVAULT_MI_CLIENT_ID (nombre propio: ver la
+ * advertencia del encabezado sobre no reusar AZURE_CLIENT_ID).
+ */
+function hasManagedIdentity(): boolean {
+  return !!process.env.AZURE_KEYVAULT_MI_CLIENT_ID;
+}
+
 export function isKeyVaultEnabled(): boolean {
   return (
     process.env.AZURE_KEYVAULT_ENABLED === "true" &&
     !!process.env.AZURE_KEYVAULT_URL &&
-    !!process.env.AZURE_KEYVAULT_TENANT_ID &&
-    !!process.env.AZURE_KEYVAULT_CLIENT_ID &&
-    !!process.env.AZURE_KEYVAULT_CLIENT_SECRET
+    (hasServicePrincipalCreds() || hasManagedIdentity())
   );
 }
 
@@ -78,11 +108,41 @@ function getClient(): SecretClient {
   if (!isKeyVaultEnabled()) {
     throw new Error("Azure Key Vault is not enabled or not configured");
   }
-  const credential = new ClientSecretCredential(
-    process.env.AZURE_KEYVAULT_TENANT_ID!,
-    process.env.AZURE_KEYVAULT_CLIENT_ID!,
-    process.env.AZURE_KEYVAULT_CLIENT_SECRET!
+
+  // El Service Principal tiene prioridad: si alguien lo configuró explícitamente
+  // es porque quiere ESA identidad, no la del host.
+  //
+  // Sin esta rama, dentro de Azure no había forma de autenticar: el archivo se
+  // escribió para el VPS (ver encabezado) y exigía las tres variables del SP,
+  // que en Container Apps no existen. La managed identity quedaba provisionada
+  // y con RBAC correcto, pero sin usar. El síntoma era engañoso —
+  // "The current credential is not configured to acquire tokens for tenant ..."—
+  // y parecía un problema de permisos sobre el vault. Verificado 2026-07-28.
+  const useServicePrincipal = hasServicePrincipalCreds();
+  console.log(
+    `[keyvault] auth mode: ${useServicePrincipal ? "service-principal" : "managed-identity"}`
   );
+
+  const credential = useServicePrincipal
+    ? new ClientSecretCredential(
+        process.env.AZURE_KEYVAULT_TENANT_ID!,
+        process.env.AZURE_KEYVAULT_CLIENT_ID!,
+        process.env.AZURE_KEYVAULT_CLIENT_SECRET!
+      )
+    // ManagedIdentityCredential DIRECTO, no DefaultAzureCredential.
+    //
+    // La cadena de DefaultAzureCredential prueba EnvironmentCredential PRIMERO,
+    // y este proceso tiene legítimamente AZURE_CLIENT_ID / AZURE_TENANT_ID /
+    // AZURE_CLIENT_SECRET seteadas — pero son del app registration de CSCS,
+    // para hablarle a las suscripciones de los clientes, no para este vault.
+    // La cadena las tomaba y fallaba con AADSTS7000232 sin llegar nunca a la
+    // managed identity. Verificado 2026-07-28.
+    //
+    // Yendo directo no hay heurística que valga: se usa la identidad que tiene
+    // el rol "Key Vault Secrets User" y ninguna otra.
+    : new ManagedIdentityCredential({
+        clientId: process.env.AZURE_KEYVAULT_MI_CLIENT_ID,
+      });
   clientSingleton = new SecretClient(
     process.env.AZURE_KEYVAULT_URL!,
     credential,

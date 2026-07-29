@@ -1,0 +1,36 @@
+flowchart TD
+  U["Usuarios / Tenants"] --> CF["Cloudflare — WAF · TLS · CDN"]
+  CF --> WEB["Container App 'web'<br/>Next.js 16 standalone<br/>KEDA por requests concurrentes"]
+
+  subgraph JOBS["Container Apps Jobs — schedule en Terraform"]
+    C1["sync · 06:00"]
+    C2["prewarm-dashboard · */10"]
+    C3["power-schedules · */2"]
+    C4["anomaly-detection · */5"]
+    C5["+ 10 jobs más"]
+    MIG["migrate · disparo manual"]
+  end
+
+  C1 --> WEB
+  C2 --> WEB
+  C3 --> WEB
+  C4 --> WEB
+  C5 --> WEB
+
+  WEB --> DB["MySQL Flexible Server<br/>VNet injection · TLS obligatorio"]
+  MIG --> DB
+  WEB --> R["Azure Cache for Redis<br/>cache regenerable"]
+  WEB --> KV["Key Vault existente<br/>credenciales por tenant + infra"]
+  WEB --> BLOB["Blob Storage<br/>support-attachments · tenant-logos · db-backups"]
+  WEB --> ARM["ARM APIs de Azure de los clientes<br/>Cost Management · Resource Graph · Advisor"]
+  WEB --> EXT["Paddle · WorkOS · SMTP · Marketplace"]
+
+  WEB --> AI["Application Insights"]
+  JOBS --> AI
+  AI --> LAW["Log Analytics + alertas"]
+  ACR["Container Registry"] --> WEB
+  ACR --> JOBS
+  MI["Managed Identity"] -.AcrPull.-> ACR
+  MI -.Secrets User.-> KV
+  MI -.Blob Contributor.-> BLOB
+  GH["GitHub Actions — OIDC"] --> ACR

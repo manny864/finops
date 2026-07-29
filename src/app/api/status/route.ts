@@ -36,13 +36,26 @@ async function checkDatabaseHealth(): Promise<{ status: ComponentStatus; latency
 
 async function checkAzureSyncHealth(): Promise<ComponentStatus> {
   try {
+    // El filtro tiene que ser EL MISMO que usa el cron de sync
+    // (src/app/api/cron/sync/route.ts). Antes contaba todos los tenants, y por
+    // eso un tenant en 'trial', 'pending' o archivado para Azure —que el sync
+    // nunca va a tocar— arrastraba el ratio hacia abajo y dejaba la página
+    // pública de status en amarillo de forma permanente.
+    //
+    // Verificado 2026-07-28: el sync reportaba processed=0 y el health check
+    // decía "degraded" al mismo tiempo. No era contradicción: medían
+    // poblaciones distintas.
+    //
+    // Si el filtro del cron cambia, este tiene que cambiar con él.
     const [rows]: any = await pool.query(
-      `SELECT COUNT(*) as total, 
+      `SELECT COUNT(*) as total,
               SUM(CASE WHEN sync_status='OK' THEN 1 ELSE 0 END) as ok_count
-       FROM Tenants`
+       FROM Tenants
+        WHERE status = 'active'
+          AND (provider_archived IS NULL OR provider_archived <> 'azure')`
     );
     if (!rows || rows.length === 0 || rows[0].total === 0) {
-      return "operational"; // No tenants yet
+      return "operational"; // Ningún tenant que deba sincronizar
     }
     const ratio = rows[0].ok_count / rows[0].total;
     return ratio >= 0.5 ? "operational" : "degraded";

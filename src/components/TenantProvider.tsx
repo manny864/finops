@@ -24,6 +24,9 @@ export interface Tenant {
   partner_link_detail?: string | null;
   /** Proveedor de nube del tenant (ver src/lib/providerPolicy.ts). */
   provider?: 'azure';
+  /** Zona horaria IANA del tenant (ver src/lib/timezone.ts). Gobierna cómo se
+   *  muestran las fechas y el default de los horarios de Power Schedules. */
+  timezone?: string;
 }
 
 interface TenantContextType {

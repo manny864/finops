@@ -1,0 +1,97 @@
+# Copiar a .github/workflows/deploy.yml — REEMPLAZA al deploy por SSH al VPS.
+#
+# Diferencias con el actual:
+# - El build ocurre en ACR, no en el VPS (adiós al downtime del build).
+# - Las migraciones corren como Container App Job, no por SSH.
+# - No hay SSH_PRIVATE_KEY: OIDC federado. De paso desaparece el problema de
+#   fail2ban baneando los runners de GitHub Actions que documenta
+#   docs/vps-infra-improvement-plan.md.
+# - Rollback = activar la revisión anterior, sin rebuild.
+name: deploy
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'infra/**'
+      - 'docs/**'
+      - '**.md'
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+env:
+  ACR: REPLACE_WITH_ACR_NAME
+  IMAGE: finops
+  STAMP: us
+  RG: rg-cscs-finops-prod-us-core
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: prod
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Build & push
+        run: |
+          az acr build --registry "$ACR" \
+            --image "$IMAGE:${{ github.sha }}" \
+            --image "$IMAGE:latest" \
+            --file Dockerfile .
+
+      - name: Migraciones
+        env:
+          JOB: job-cscs-finops-prod-${{ env.STAMP }}-migrate
+        run: |
+          az containerapp job update -g "$RG" -n "$JOB" \
+            --image "$ACR.azurecr.io/$IMAGE:${{ github.sha }}"
+          az containerapp job start -g "$RG" -n "$JOB"
+          for i in $(seq 1 90); do
+            STATUS=$(az containerapp job execution list -g "$RG" --name "$JOB" \
+              --query "[0].properties.status" -o tsv)
+            [ "$STATUS" = "Succeeded" ] && exit 0
+            [ "$STATUS" = "Failed" ] && { echo "Migración falló"; exit 1; }
+            sleep 10
+          done
+          echo "Timeout esperando la migración"; exit 1
+
+      - name: Deploy de la app
+        run: |
+          az containerapp update -g "$RG" -n "ca-cscs-finops-prod-$STAMP-web" \
+            --image "$ACR.azurecr.io/$IMAGE:${{ github.sha }}"
+
+      # Los 14 cron jobs corren la MISMA imagen. Si no se actualizan acá,
+      # quedan clavados en la versión anterior y ejecutan código viejo contra
+      # una base ya migrada — que es peor que no correr.
+      - name: Deploy de los cron jobs
+        run: |
+          for JOB in $(az containerapp job list -g "$RG" \
+              --query "[?properties.configuration.triggerType=='Schedule'].name" -o tsv); do
+            echo "-> $JOB"
+            az containerapp job update -g "$RG" -n "$JOB" \
+              --image "$ACR.azurecr.io/$IMAGE:${{ github.sha }}"
+          done
+
+      - name: Health check
+        run: |
+          FQDN=$(az containerapp show -g "$RG" -n "ca-cscs-finops-prod-$STAMP-web" \
+            --query properties.configuration.ingress.fqdn -o tsv)
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "https://$FQDN/api/health" || true)
+            [ "$code" = "200" ] && exit 0
+            sleep 10
+          done
+          echo "Health check falló — revisar la revisión y hacer rollback"; exit 1
