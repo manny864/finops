@@ -2,6 +2,7 @@ import pool from "@/modules/storage/db";
 import { deallocateVirtualMachine, startVirtualMachine, restartVirtualMachine } from "@/services/remediationService";
 import { getAzureCredential } from "@/lib/azure";
 import { MonitorClient } from "@azure/arm-monitor";
+import { effectiveOffsetMinutes, parseOffsetMinutes as parseOffset } from "@/lib/timezone";
 
 export type PowerScheduleAction = "shutdown" | "start" | "restart";
 
@@ -23,10 +24,13 @@ export interface PowerScheduleInput {
   vmName: string;
   /** Acción a ejecutar. Default 'shutdown' (compatibilidad con schedules viejos). */
   actionType?: PowerScheduleAction;
-  /** "HH:MM" en hora local segun gmtOffset. */
+  /** "HH:MM" en hora local segun timeZone (o gmtOffset si no hay zona). */
   shutdownTime: string;
-  /** Formato "+HH:MM" o "-HH:MM". */
+  /** Formato "+HH:MM" o "-HH:MM". Legado: no contempla horario de verano. */
   gmtOffset: string;
+  /** Nombre IANA (ej. "Europe/Madrid"). Gana sobre gmtOffset: es el único que
+   *  recalcula el offset en cada ejecución y por lo tanto sobrevive al DST. */
+  timeZone?: string | null;
   /** "YYYY-MM-DD" — si se define, ejecuta UNA sola vez en esa fecha local en
    *  vez de todos los días (recurrente, el comportamiento por defecto). */
   scheduleDate?: string | null;
@@ -50,6 +54,7 @@ export interface PowerScheduleRow {
   action_type: PowerScheduleAction;
   shutdown_time: string;
   gmt_offset: string;
+  timezone: string | null;
   schedule_date: string | null;
   days_of_week: string | null;
   enabled: number;
@@ -72,12 +77,13 @@ export async function upsertPowerSchedule(input: PowerScheduleInput): Promise<vo
   const daysOfWeek = input.scheduleDate ? null : (input.daysOfWeek || null);
   await pool.query(
     `INSERT INTO PowerSchedules
-      (tenant_id, subscription_id, resource_group, vm_name, action_type, shutdown_time, gmt_offset, schedule_date,
+      (tenant_id, subscription_id, resource_group, vm_name, action_type, shutdown_time, gmt_offset, timezone, schedule_date,
        days_of_week, enabled, smart_shutdown_enabled, max_cpu_percentage, idle_duration_minutes, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)
      ON DUPLICATE KEY UPDATE
        shutdown_time = VALUES(shutdown_time),
        gmt_offset = VALUES(gmt_offset),
+       timezone = VALUES(timezone),
        schedule_date = VALUES(schedule_date),
        days_of_week = VALUES(days_of_week),
        enabled = 1,
@@ -95,6 +101,7 @@ export async function upsertPowerSchedule(input: PowerScheduleInput): Promise<vo
       actionType,
       `${input.shutdownTime}:00`,
       input.gmtOffset,
+      input.timeZone || null,
       input.scheduleDate || null,
       daysOfWeek,
       actionType === "shutdown" && input.smartShutdownEnabled ? 1 : 0,
@@ -117,12 +124,8 @@ export async function deletePowerSchedule(tenantId: string, id: number): Promise
   await pool.query(`DELETE FROM PowerSchedules WHERE tenant_id = ? AND id = ?`, [tenantId, id]);
 }
 
-export function parseOffsetMinutes(offset: string): number {
-  const m = /^([+-])(\d{2}):(\d{2})$/.exec(String(offset).trim());
-  if (!m) return 0;
-  const sign = m[1] === "-" ? -1 : 1;
-  return sign * (parseInt(m[2], 10) * 60 + parseInt(m[3], 10));
-}
+/** Reexport por compatibilidad: la implementación vive en @/lib/timezone. */
+export const parseOffsetMinutes = parseOffset;
 
 async function isVmCpuBelowThreshold(
   tenantId: string,
@@ -214,7 +217,11 @@ export async function executeDueSchedules(
 
   for (const s of schedules) {
     evaluated++;
-    const offsetMin = parseOffsetMinutes(s.gmt_offset);
+    // La zona IANA gana sobre el offset fijo y se recalcula en CADA
+    // ejecución: por eso un schedule en Madrid sigue apagando a las 20:00
+    // locales tanto en invierno como en verano. Las filas viejas sin zona
+    // conservan el comportamiento anterior (ver migración 20260731-001).
+    const offsetMin = effectiveOffsetMinutes(s.timezone, s.gmt_offset, nowUtc);
     const localNow = new Date(nowUtc.getTime() + offsetMin * 60000);
     const localDateStr = localNow.toISOString().slice(0, 10);
 

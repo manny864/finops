@@ -1,0 +1,170 @@
+# Deploy a Azure Container Apps. REEMPLAZA al deploy por SSH al VPS.
+#
+# Diferencias con el anterior:
+# - El build ocurre en ACR, no en el VPS (adiós al downtime del build).
+# - Las migraciones corren como Container App Job, no por SSH.
+# - No hay SSH_PRIVATE_KEY: OIDC federado. De paso desaparece el problema de
+#   fail2ban baneando los runners de GitHub Actions que documenta
+#   docs/vps-infra-improvement-plan.md.
+# - Rollback = activar la revisión anterior, sin rebuild.
+#
+# Nombres verificados contra el stamp real el 2026-07-28. Salen de
+# `terraform output` en infra/terraform/environments/prod:
+#   acr_login_server, web_apps, migrate_jobs
+name: deploy
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'infra/**'
+      - 'docs/**'
+      - '**.md'
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+env:
+  ACR: cscsfinopsprodglobalcr
+  IMAGE: finops
+  RG: cscs-finops-prod-westus2-rg
+  APP: cscs-finops-prod-westus2-web
+  MIGRATE_JOB: cscs-finops-prod-wus2-migrate
+  # Tag aparte para las migraciones: la imagen de runtime es un standalone de
+  # Next podado y NO puede correr `npm run migrate` (no tiene scripts/, ni
+  # migrations/, ni tsx). Este tag se construye con --target builder.
+  MIGRATE_TAG_SUFFIX: builder
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: prod
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # Las NEXT_PUBLIC_ TIENEN que ir como --build-arg: Next las inlinea en el
+      # bundle del cliente al compilar, así que una env var del Container App
+      # llega tarde — para entonces el bundle ya está hecho.
+      #
+      # Van como `vars` y no como `secrets` porque son públicas por definición:
+      # se sirven a cualquier browser que abra la app. Si faltan, el build NO
+      # falla: compila con valores vacíos y el login queda en "not-configured"
+      # y el checkout de Paddle roto. Por eso el paso siguiente las verifica.
+      #
+      # Antes salían de .env.production, que viajaba dentro de la imagen; ese
+      # archivo se sacó del contexto de build por seguridad (ver .dockerignore).
+      - name: Verificar variables públicas de build
+        run: |
+          MISSING=""
+          for V in NEXT_PUBLIC_CLIENT_ID \
+                   NEXT_PUBLIC_PADDLE_CLIENT_TOKEN \
+                   NEXT_PUBLIC_PADDLE_ESSENTIAL_MONTHLY \
+                   NEXT_PUBLIC_PADDLE_ESSENTIAL_YEARLY \
+                   NEXT_PUBLIC_PADDLE_PRO_MONTHLY \
+                   NEXT_PUBLIC_PADDLE_PRO_YEARLY \
+                   NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY \
+                   NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY; do
+            eval "VAL=\${$V}"
+            [ -z "$VAL" ] && MISSING="$MISSING $V"
+          done
+          if [ -n "$MISSING" ]; then
+            echo "Faltan variables de repositorio (Settings > Variables):$MISSING"
+            echo "Sin ellas el bundle se compila vacío y el login rompe en runtime."
+            exit 1
+          fi
+        env:
+          NEXT_PUBLIC_CLIENT_ID: ${{ vars.NEXT_PUBLIC_CLIENT_ID }}
+          NEXT_PUBLIC_PADDLE_CLIENT_TOKEN: ${{ vars.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN }}
+          NEXT_PUBLIC_PADDLE_ESSENTIAL_MONTHLY: ${{ vars.NEXT_PUBLIC_PADDLE_ESSENTIAL_MONTHLY }}
+          NEXT_PUBLIC_PADDLE_ESSENTIAL_YEARLY: ${{ vars.NEXT_PUBLIC_PADDLE_ESSENTIAL_YEARLY }}
+          NEXT_PUBLIC_PADDLE_PRO_MONTHLY: ${{ vars.NEXT_PUBLIC_PADDLE_PRO_MONTHLY }}
+          NEXT_PUBLIC_PADDLE_PRO_YEARLY: ${{ vars.NEXT_PUBLIC_PADDLE_PRO_YEARLY }}
+          NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY: ${{ vars.NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY }}
+          NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY: ${{ vars.NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY }}
+
+      - name: Build & push (runtime)
+        run: |
+          az acr build --registry "$ACR" \
+            --image "$IMAGE:${{ github.sha }}" \
+            --image "$IMAGE:latest" \
+            --platform linux/amd64 \
+            --file Dockerfile \
+            --build-arg NEXT_PUBLIC_CLIENT_ID="${{ vars.NEXT_PUBLIC_CLIENT_ID }}" \
+            --build-arg NEXT_PUBLIC_PADDLE_CLIENT_TOKEN="${{ vars.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN }}" \
+            --build-arg NEXT_PUBLIC_PADDLE_ESSENTIAL_MONTHLY="${{ vars.NEXT_PUBLIC_PADDLE_ESSENTIAL_MONTHLY }}" \
+            --build-arg NEXT_PUBLIC_PADDLE_ESSENTIAL_YEARLY="${{ vars.NEXT_PUBLIC_PADDLE_ESSENTIAL_YEARLY }}" \
+            --build-arg NEXT_PUBLIC_PADDLE_PRO_MONTHLY="${{ vars.NEXT_PUBLIC_PADDLE_PRO_MONTHLY }}" \
+            --build-arg NEXT_PUBLIC_PADDLE_PRO_YEARLY="${{ vars.NEXT_PUBLIC_PADDLE_PRO_YEARLY }}" \
+            --build-arg NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY="${{ vars.NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY }}" \
+            --build-arg NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY="${{ vars.NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY }}" \
+            .
+
+      # Imagen SEPARADA para migrar. No lleva --build-arg: el stage builder no
+      # compila el bundle del cliente para nada, sólo necesita el código, los
+      # .sql y el node_modules completo.
+      - name: Build & push (imagen de migraciones)
+        run: |
+          az acr build --registry "$ACR" \
+            --image "$IMAGE:${{ github.sha }}-$MIGRATE_TAG_SUFFIX" \
+            --image "$IMAGE:$MIGRATE_TAG_SUFFIX" \
+            --platform linux/amd64 \
+            --target builder \
+            --file Dockerfile \
+            .
+
+      - name: Migraciones
+        run: |
+          az containerapp job update -g "$RG" -n "$MIGRATE_JOB" \
+            --image "$ACR.azurecr.io/$IMAGE:${{ github.sha }}-$MIGRATE_TAG_SUFFIX"
+          az containerapp job start -g "$RG" -n "$MIGRATE_JOB"
+          for i in $(seq 1 90); do
+            STATUS=$(az containerapp job execution list -g "$RG" --name "$MIGRATE_JOB" \
+              --query "[0].properties.status" -o tsv)
+            [ "$STATUS" = "Succeeded" ] && exit 0
+            [ "$STATUS" = "Failed" ] && { echo "Migración falló"; exit 1; }
+            sleep 10
+          done
+          echo "Timeout esperando la migración"; exit 1
+
+      - name: Deploy de la app
+        run: |
+          az containerapp update -g "$RG" -n "$APP" \
+            --image "$ACR.azurecr.io/$IMAGE:${{ github.sha }}"
+
+      # Los 14 cron jobs corren la MISMA imagen de runtime. Si no se actualizan
+      # acá, quedan clavados en la versión anterior y ejecutan código viejo
+      # contra una base ya migrada — que es peor que no correr.
+      #
+      # El filtro por triggerType deja afuera al job de migraciones, que es
+      # Manual y usa la otra imagen. Pisarlo con la de runtime lo rompería.
+      - name: Deploy de los cron jobs
+        run: |
+          for JOB in $(az containerapp job list -g "$RG" \
+              --query "[?properties.configuration.triggerType=='Schedule'].name" -o tsv); do
+            echo "-> $JOB"
+            az containerapp job update -g "$RG" -n "$JOB" \
+              --image "$ACR.azurecr.io/$IMAGE:${{ github.sha }}"
+          done
+
+      - name: Health check
+        run: |
+          FQDN=$(az containerapp show -g "$RG" -n "$APP" \
+            --query properties.configuration.ingress.fqdn -o tsv)
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "https://$FQDN/api/health" || true)
+            [ "$code" = "200" ] && exit 0
+            sleep 10
+          done
+          echo "Health check falló — revisar la revisión y hacer rollback"; exit 1

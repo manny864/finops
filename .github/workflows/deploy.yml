@@ -1,7 +1,17 @@
-name: Deploy FinOps
+# Deploy por SSH al VPS. REEMPLAZADO por deploy-azure.yml (Container Apps).
+#
+# Se conserva, pero SÓLO con disparo manual: el VPS quedó congelado el
+# 2026-07-28 y la producción vive en Azure. Con el trigger de `push` puesto,
+# un merge a main disparaba ESTE workflow y el de Azure a la vez — desplegando
+# al VPS congelado y corriendo sus migraciones por SSH contra la base vieja.
+#
+# Queda disponible por si hiciera falta volver al VPS en una emergencia
+# mientras la migración se estabiliza. Cuando eso deje de ser una opción real,
+# borrar este archivo junto con los secrets SERVER_HOST, SERVER_USER y
+# SSH_PRIVATE_KEY, que ya no usa ningún workflow automático.
+name: Deploy FinOps (VPS — legacy, manual)
 on:
-  push:
-    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   deploy:

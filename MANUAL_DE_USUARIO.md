@@ -2,19 +2,14 @@
 
 Bienvenido a la Plataforma FinOps de CSCloudSolutions. Este manual está diseñado para ayudarte a navegar, comprender y aprovechar al máximo las capacidades de gobernanza, optimización y gestión financiera de recursos en la nube.
 
-> **Nota:** el soporte para AWS que se menciona en algunas secciones de este manual fue removido; la plataforma es Azure-only.
-
 ---
 
 ## 1. Introducción y Acceso
 
-La plataforma es una solución SaaS B2B multi-cloud: soporta **Microsoft Azure** y **Amazon Web Services**, con los mismos planes y los mismos precios para ambos.
+La plataforma es una solución SaaS B2B para **Microsoft Azure**.
 
-- **Para Iniciar Sesión (Azure):** Ve a la pantalla principal y haz clic en "Iniciar Sesión con Microsoft". La autenticación se integra con **Entra ID (Active Directory)** y reconoce tu tenant automáticamente.
-- **Para Iniciar Sesión (AWS):** AWS no tiene un inicio de sesión corporativo equivalente a Entra ID, así que los tenants AWS usan **email y contraseña** desde el mismo formulario de login. Debajo está el enlace de recuperación de contraseña.
+- **Para Iniciar Sesión:** Ve a la pantalla principal y haz clic en "Iniciar Sesión con Microsoft". La autenticación se integra con **Entra ID (Active Directory)** y reconoce tu tenant automáticamente.
 - **Modo Demo:** Si deseas probar la plataforma sin conectar tu propio entorno, puedes utilizar uno de los perfiles comerciales preconfigurados desde la pantalla principal, los cuales proveen datos y métricas simuladas.
-
-> El detalle completo del modelo multi-cloud (elección de proveedor en el alta, switch AWS/Azure del header y qué pasa con los datos al bajar de plan) está en la **sección 7** de este manual y, con más profundidad, en `docs/manual/MANUAL_USUARIO_ES.md` §13.
 
 ---
 
@@ -31,13 +26,11 @@ La plataforma mapea automáticamente tu perfil corporativo hacia uno de los sigu
 
 ## 3. Onboarding de Nuevos Clientes (Flujo SuperAdmin)
 
-Para que un nuevo tenant pueda operar dentro de la plataforma (si no pasó por registro automático), un **SuperAdmin** debe completar el siguiente flujo. En Azure se usa Service Principal; en AWS se conecta cuenta por rol asumido:
+Para que un nuevo tenant pueda operar dentro de la plataforma (si no pasó por registro automático), un **SuperAdmin** debe completar el siguiente flujo con Service Principal:
 
 1. **Registrar Tenant Manual:** Dirígete a la sección `Gestión de Tenants` (`/admin/tenants`). Aquí debes ingresar el Entra ID del Tenant, el nombre comercial de la empresa y asignar un Tier inicial. **Nota:** Si tu cuenta de Microsoft Entra oculta tu correo en la propiedad `upn`, la plataforma ya está parcheada para reconocer tu identidad y otorgarte acceso de SuperAdmin.
 2. **Generar Credenciales:** Una vez creado en la base de datos, ve a `Onboarding de Clientes` (`/admin/onboarding`). Solo ahora aparecerán las casillas de **Client ID** y **Client Secret** junto al nombre del entorno, permitiéndote pegar las credenciales del Service Principal generadas por el script de PowerShell.
 3. **Etiquetar origen comercial (opcional):** en el mismo panel expandido de cada tenant del **Directorio de Entornos**, el campo **"Origen comercial / Referido por"** permite anotar qué comercial vendió o refirió al cliente, para tracking interno de ventas. Es visible y editable solo por SuperAdmin; el propio tenant nunca lo ve.
-
-> Si el tenant eligió **AWS**, la conexión técnica se realiza en `/admin/cloud-accounts`: registrá `accountId`, `roleArn` y parámetros de CUR. El wizard de onboarding valida que exista al menos una cuenta AWS registrada antes de avanzar.
 
 ### 3.1. Roles Azure que el script PowerShell asigna (por tier)
 
@@ -189,6 +182,9 @@ La plataforma cuenta con un asistente inteligente integrado (**FinOps Copilot**)
 - **Revisión Semanal:** Sugerimos acceder al **Dashboard** y la sección de **Recursos Zombis** al menos una vez por semana para capturar fugas financieras emergentes.
 - **Automatización Temprana:** Activa **Horarios de Apagado** en tus entornos de Desarrollo (Dev/Test) como primera medida para asegurar ahorros del 60% en horas de cómputo inactivas.
 - **Delegación de Responsabilidad:** Exige el cumplimiento de **Etiquetas (Tags)** a tus equipos de desarrollo para que el módulo de Showback/Chargeback pueda distribuir justamente la factura mensual.
+- **Residencia de Datos (actual):** hoy la plataforma opera un único despliegue físico en **Azure West US 2**. La selección EU/US/LATAM/APAC es declarativa y todavía no implica aislamiento físico por región.
+- **Capa Edge/CDN:** el tráfico externo se publica detrás de **Cloudflare**.
+- **Cache de producción:** se usa **Azure Managed Redis `Balanced_B3`** con **HA habilitada** y conexión TLS privada.
 
 > **Soporte:** Para cualquier asistencia adicional o reporte de incidencias operativas, por favor contacte al equipo administrativo a través de la sección de soporte.
 
@@ -205,33 +201,3 @@ Además, cada vez que se aplica un cambio también se actualizan de forma obliga
 1. `README.md` (documentación técnica y arquitectura)
 2. `MANUAL_DE_USUARIO.md` (impacto en uso funcional)
 3. `CAMBIOS_IMPLEMENTADOS.md` (bitácora de cambios realizados y futuros)
-
----
-
-## 7. Multi-cloud: Azure y AWS
-
-### 7.1. Elegir el proveedor
-
-En la pantalla de planes elegís primero qué nube querés analizar. Los planes y los precios son idénticos; lo único que cambia es cómo se crea la cuenta:
-
-| Proveedor | Alta |
-|---|---|
-| **Azure** | Inicio de sesión con Microsoft; se reconoce tu tenant de Entra ID. |
-| **AWS** | Email y contraseña, con verificación por mail. |
-
-### 7.2. Los dos proveedores a la vez (solo Enterprise)
-
-El plan **Enterprise** es el único que puede tener Azure y AWS conectados en la misma cuenta. En ese caso aparece un **selector AWS/Azure en la barra superior**; al cambiarlo, el menú lateral y las páginas muestran los datos de ese proveedor.
-
-El menú lateral **cambia según el proveedor activo**: muchas páginas son específicas de Azure (AKS, Hybrid Benefit, Azure Policies, Defender for Cloud) y no aparecen con AWS activo. Es intencional — preferimos no mostrar una página que no puede funcionar con tus datos.
-
-### 7.3. Qué pasa con tus datos si bajás de plan
-
-Si tenés Enterprise con los dos proveedores y bajás de plan, **no se borra nada en ese momento**:
-
-1. Se retiene un proveedor (por defecto, aquel donde más gastás) y el otro queda **archivado en modo sólo lectura**.
-2. Tenés **90 días** para consultarlo y **exportar todo** desde `/admin/focus-export`. El export sigue habilitado durante toda la ventana aunque el nuevo plan no lo incluya.
-3. Te avisamos por email y notificación in-app **30 y 7 días antes** de la eliminación.
-4. Recién al vencer los 90 días se eliminan los datos de ese proveedor.
-
-Durante la ventana ves un aviso en la parte superior con los días restantes. Podés **invertir la elección** (Admin/Owner) — aunque eso **no reinicia el plazo** — o **volver a Enterprise**, en cuyo caso **se restaura todo sin pérdida**.

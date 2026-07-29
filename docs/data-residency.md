@@ -1,6 +1,9 @@
 # Data Residency
 
-> ⚠️ **DESHABILITADA DE LA UI (2026-07-05).** Hoy sólo operamos un datacenter real (Azure Brazil South).
+> ⚠️ **DESHABILITADA DE LA UI (2026-07-05).** Hoy sólo operamos un datacenter real
+> (**Azure West US 2** desde la migración a Azure — antes Brazil South; ver
+> `infra/docs/migracion-desde-vps.md` y el aviso de cambio de subencargado en
+> `docs/trust-center/`).
 > Ofrecer selección de región (EU/US/LATAM/APAC) sería engañoso para el cliente/compliance cuando no hay
 > aislamiento físico multi-región. La página (`/admin/data-residency`) y los endpoints siguen implementados
 > y funcionales, pero se sacó la entrada del Sidebar — es una **futura mejora**, no una feature activa.
@@ -49,8 +52,8 @@ Single MySQL Pool (All regions route here today)
 | Region | Compliance | Subprocessor Locations |
 |--------|-----------|----------------------|
 | **EU** | GDPR, NIS2 | Azure (Netherlands), AWS (Frankfurt), Google Cloud (Belgium) |
-| **US** | CCPA, HIPAA (BAs) | AWS (us-east-1), Azure (East US 2), Google Cloud (South Carolina) |
-| **LATAM** | LGPD (Brazil), local laws | AWS (São Paulo), Azure (Brazil South) |
+| **US** | CCPA, HIPAA (BAs) | AWS (us-east-1), **Azure (West US 2) — el despliegue real de hoy**, Google Cloud (South Carolina) |
+| **LATAM** | LGPD (Brazil), local laws | AWS (São Paulo), Azure (Brazil South) — *planificado, no desplegado* |
 | **APAC** | PDPA (Thailand), local | AWS (Singapore), Azure (Singapore), Google Cloud (Tokyo) |
 | **GLOBAL** | Default multi-region | All major cloud providers |
 
@@ -231,7 +234,7 @@ Tenants can request a compliance report showing:
 
 ⚠️ **Physical vs. Logical Isolation:**
 
-- Today: All regions use the same MySQL deployment
+- Today: All regions use the same MySQL deployment, physically in **Azure West US 2**
 - Declared region is a **compliance/audit signal**, not a **technical guarantee**
 - Subprocessor selection happens at deployment time, not per-tenant
 - True geographic isolation requires separate database clusters (planned Q2 2026)

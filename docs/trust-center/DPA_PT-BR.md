@@ -62,4 +62,4 @@ Veja a lista completa de Subprocessadores (finops.cscloudsolutions.com/legal/sub
 - Detalhes disponíveis no relatório SOC 2 Tipo II mediante solicitação.
 
 ---
-Última atualização: 7/21/2026
+Última atualização: 7/28/2026

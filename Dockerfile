@@ -1,8 +1,16 @@
 # syntax=docker/dockerfile:1
-# La directiva de arriba habilita los `RUN --mount=type=cache` de BuildKit
-# (Compose v2 usa BuildKit por default). Los cache mounts persisten entre
-# deploys en el mismo VPS, así que npm ci no re-descarga y next build reusa
-# su caché incremental — recorta varios minutos de cada deploy.
+#
+# SIN `RUN --mount=type=cache`. Los tenía, para que en el VPS los cache mounts
+# persistieran entre deploys (npm ci sin re-descargar, next build incremental).
+# Con el deploy en Container Apps la imagen se construye con `az acr build`, y
+# ACR Tasks NO usa BuildKit: falla con
+#   "the --mount option requires BuildKit"
+# antes de instalar nada. Verificado 2026-07-28 — el workflow deploy-azure.yml
+# no podía buildear por esto.
+#
+# Tampoco se pierde gran cosa: cada run de ACR arranca en un contenedor limpio,
+# así que un cache mount no persistiría entre builds de todos modos. El cacheo
+# entre deploys lo da el layer cache del registry.
 FROM node:22-alpine AS base
 
 # Install dependencies only when needed
@@ -10,19 +18,39 @@ FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 COPY package.json package-lock.json* ./
-# Caché del store de npm: en un rebuild con package-lock sin cambios, las
-# tarballs ya descargadas se reusan en vez de bajarse de nuevo.
-RUN --mount=type=cache,target=/root/.npm npm ci
+RUN npm ci
 
 # Rebuild the source code only when needed
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# Caché incremental de Next (.next/cache): NO forma parte del output standalone
-# (solo se copian .next/standalone y .next/static al runner), así que montarla
-# como caché de build es seguro y acelera la recompilación entre deploys.
-RUN --mount=type=cache,target=/app/.next/cache npm run build
+
+# Next inlinea las NEXT_PUBLIC_ en el bundle del cliente al compilar, así que
+# tienen que existir ACÁ, en build-time. Antes venían de .env.production, que
+# viajaba dentro de la imagen y se llevaba puestos todos los secretos del
+# archivo — ver el comentario en .dockerignore.
+#
+# Van como ARG y no como secreto: son públicas por definición, terminan
+# servidas a cualquier browser que abra la app.
+ARG NEXT_PUBLIC_CLIENT_ID=""
+ARG NEXT_PUBLIC_PADDLE_CLIENT_TOKEN=""
+ARG NEXT_PUBLIC_PADDLE_ESSENTIAL_MONTHLY=""
+ARG NEXT_PUBLIC_PADDLE_ESSENTIAL_YEARLY=""
+ARG NEXT_PUBLIC_PADDLE_PRO_MONTHLY=""
+ARG NEXT_PUBLIC_PADDLE_PRO_YEARLY=""
+ARG NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY=""
+ARG NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY=""
+ENV NEXT_PUBLIC_CLIENT_ID=$NEXT_PUBLIC_CLIENT_ID \
+    NEXT_PUBLIC_PADDLE_CLIENT_TOKEN=$NEXT_PUBLIC_PADDLE_CLIENT_TOKEN \
+    NEXT_PUBLIC_PADDLE_ESSENTIAL_MONTHLY=$NEXT_PUBLIC_PADDLE_ESSENTIAL_MONTHLY \
+    NEXT_PUBLIC_PADDLE_ESSENTIAL_YEARLY=$NEXT_PUBLIC_PADDLE_ESSENTIAL_YEARLY \
+    NEXT_PUBLIC_PADDLE_PRO_MONTHLY=$NEXT_PUBLIC_PADDLE_PRO_MONTHLY \
+    NEXT_PUBLIC_PADDLE_PRO_YEARLY=$NEXT_PUBLIC_PADDLE_PRO_YEARLY \
+    NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY=$NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY \
+    NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY=$NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY
+
+RUN npm run build
 
 # Production image, copy all the files and run next
 FROM base AS runner

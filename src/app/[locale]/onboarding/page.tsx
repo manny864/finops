@@ -46,7 +46,13 @@ export default function OnboardingPage() {
     const [companyName, setCompanyName] = useState('');
     const [primaryCloud, setPrimaryCloud] = useState('azure');
     const [currency, setCurrency] = useState('USD');
-    const [timezone, setTimezone] = useState('UTC');
+    const [timezone, setTimezone] = useState(() => {
+        try {
+            return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+        } catch {
+            return 'UTC';
+        }
+    });
     const [clientId, setClientId] = useState('');
     const [clientSecret, setClientSecret] = useState('');
     const [azureTenantId, setAzureTenantId] = useState('');
@@ -130,6 +136,24 @@ export default function OnboardingPage() {
             console.error('[Onboarding] Failed to load progress:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    /** Persiste la zona horaria elegida en el paso 1. Antes este `<select>`
+     *  existía pero su valor se descartaba: no había columna ni endpoint donde
+     *  guardarlo. La zona gobierna cómo se muestran las fechas de la app y es
+     *  el default de los horarios de Power Schedules. */
+    const saveTenantTimezone = async () => {
+        if (!selectedTenant?.id || !timezone) return;
+        try {
+            await fetchWithAuthRetry(instance, accounts[0], '/api/admin/tenant-settings', {
+                method: 'PUT',
+                body: JSON.stringify({ tenantId: selectedTenant.id, timezone }),
+            });
+        } catch (error) {
+            // No bloquea el onboarding: la zona queda en el default y se puede
+            // cambiar después desde la configuración del tenant.
+            console.error('[Onboarding] Failed to save timezone:', error);
         }
     };
 
@@ -318,6 +342,7 @@ export default function OnboardingPage() {
                     isActive={activeStep === 1}
                     onStart={() => setActiveStep(1)}
                     onContinue={async () => {
+                        await saveTenantTimezone();
                         await updateStepStatus('step_welcome', 'completed');
                         setActiveStep(2);
                     }}

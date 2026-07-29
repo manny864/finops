@@ -21,7 +21,10 @@ Nuestra postura de seguridad y compromiso de cumplimiento
 
 ## Infraestructura y Disponibilidad
 - Proveedor de nube principal: Microsoft Azure (certificado para HIPAA, FedRAMP, SOC 2)
-- Base de datos: MySQL alojada en regiones de Azure configurables con copias de seguridad diarias automáticas
+- Región física activa: despliegue único en Azure West US 2
+- Base de datos: MySQL administrada en Azure con copias de seguridad automáticas
+- Cache: Azure Managed Redis (`Balanced_B3`) con alta disponibilidad habilitada y acceso privado
+- Perímetro: Cloudflare como CDN/WAF delante del origen en Azure
 - Recuperación ante desastres: copias de seguridad georredundantes; RTO < 4 horas, RPO < 1 hora
 - SLA: 99,9% de disponibilidad garantizada para planes pagos (excluye mantenimiento programado)
 
@@ -35,7 +38,7 @@ Trabajamos con proveedores líderes de la industria para servicios específicos:
 
 | Encargado | Finalidad | Ubicación |
 |---|---|---|
-| Microsoft Azure | Cómputo, almacenamiento, redes | Brazil South |
+| Microsoft Azure | Cómputo, almacenamiento, redes | Azure West US 2 |
 | Paddle | Procesamiento de pagos | US/UK |
 | WorkOS | Autenticación y SSO | US |
 | Google Gemini AI | Servicios de LLM opcionales | US |

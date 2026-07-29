@@ -20,6 +20,7 @@
     "migrate": "tsx scripts/migrate.ts",
     "seed:pricing-units": "tsx scripts/seed-pricing-units.ts",
     "migrate:infra-secrets": "tsx scripts/migrate-infra-secrets-to-kv.ts",
+    "verify:demo-tenant": "tsx scripts/verify-demo-tenant.ts",
     "cron:power-schedules": "bash -c 'set -a; source .env.development; set +a; curl -fsS -H \"Authorization: Bearer $CRON_SECRET\" http://localhost:3000/api/cron/power-schedules'"
   },
   "dependencies": {
@@ -100,8 +101,10 @@
     "eslint-config-next": "16.2.7",
     "happy-dom": "^20.10.6",
     "jsdom": "^29.1.1",
+    "marked": "^18.0.7",
     "msw": "^2.14.6",
     "tailwindcss": "^4",
+    "tsx": "^4.23.1",
     "typescript": "^5",
     "vitest": "^4.1.9"
   },

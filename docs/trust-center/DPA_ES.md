@@ -62,4 +62,4 @@ Ver listado completo de Subencargados (finops.cscloudsolutions.com/legal/subproc
 - Detalles disponibles en el informe SOC 2 Tipo II a pedido.
 
 ---
-Última actualización: 7/21/2026
+Última actualización: 7/28/2026

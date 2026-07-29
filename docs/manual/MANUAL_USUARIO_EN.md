@@ -35,7 +35,6 @@ Each section explains **what** the feature is, **who** can use it (role and subs
 10. [Account Security (MFA)](#10-account-security-mfa)
 11. [Advanced Features and Integrations](#11-advanced-features-and-integrations)
 12. [Best Practices](#12-best-practices)
-13. [Multi-cloud: Azure and AWS](#13-multi-cloud-azure-and-aws)
 
 ---
 
@@ -43,16 +42,12 @@ Each section explains **what** the feature is, **who** can use it (role and subs
 
 ### 1.1. Access and login
 
-The platform is a B2B SaaS with **two ways to sign in**, depending on your organization's cloud provider.
-
-**If you use Azure**, authentication is integrated with **Microsoft Entra ID** (Azure Active Directory):
+The platform is a B2B SaaS. Authentication is integrated with **Microsoft Entra ID** (Azure Active Directory):
 
 1. Go to the platform URL.
 2. Click **"Sign in with Microsoft"**.
 3. Authenticate with your corporate account. The platform automatically recognizes your Azure tenant and identity.
-4. **Demo Mode:** if you want to try the platform without connecting your real environment, choose one of the preconfigured demo profiles from the main screen — they come with realistic simulated data and metrics, so you can explore every module risk-free. The demo form lets you pick **whether you want to see the platform with Azure or AWS data**: each cloud shows its own services, regions and recommendations (for example, Savings Plans and Reserved Instances on AWS instead of Azure Reservations). Figures are scaled to the same level in both clouds, so you can compare them directly. Demo credentials are `demo` / `demo`.
-
-**If you use AWS**, your organization does not sign in through Microsoft: you log in with **email and password** from the same login form. See [section 13](#13-multi-cloud-azure-and-aws) for details.
+4. **Demo Mode:** if you want to try the platform without connecting your real environment, choose one of the preconfigured demo profiles from the main screen — they come with realistic simulated data and metrics, so you can explore every module risk-free. Demo credentials are `demo` / `demo`.
 
 ### 1.2. The onboarding wizard (first time)
 
@@ -236,18 +231,6 @@ The real-time, detailed billing dashboard, straight from Azure.
 1. **Create a budget:** name, period (monthly/quarterly/annual), limit in $.
 2. **Alert threshold:** define at what % of the budget you want to be notified (e.g., 75%).
 3. The system tracks automatically — see real consumption vs. budget in real time, with history of previous periods.
-
-> **If your cloud is AWS**, on top of the budgets you create here you will also
-> see the ones already defined in **AWS Budgets**, flagged as native. We only
-> bring in *Cost* budgets: usage budgets and Reserved Instance / Savings Plans
-> coverage budgets are measured in hours or percentages, so adding them to money
-> amounts would produce a meaningless total.
->
-> Two differences from Azure: a budget you create here **stays on the platform
-> only** — we do not write it into your AWS account, because the read-only role
-> you granted us does not allow it — and **automatic shutdown on breach is not
-> available**, for the same reason. You still get the alert; the corrective
-> action is yours to run.
 
 ### 5.3. Cost Groups (`/intelligence/cost-groups`, Business+)
 
@@ -596,6 +579,15 @@ If you signed up yourself from the pricing page (not through an onboarding assis
 
 You can upgrade to a paid plan at any time from **Billing** — the trial immediately converts to an active subscription. If the trial expires without an upgrade, the account switches to limited access until you activate a paid plan.
 
+### 11.9. Current infrastructure and data residency (as-is)
+
+- **Active physical region today:** a single deployment in **Azure West US 2**.
+- **Per-tenant residency selection (EU/US/LATAM/APAC):** currently **declarative/logical** only. There is no physical per-region isolation yet.
+- **Production Redis:** **Azure Managed Redis `Balanced_B3`** with **HA enabled**, private endpoint, and TLS.
+- **Edge/CDN:** **Cloudflare** is used in front of the Azure origin.
+
+> If your organization requires strict physical residency (for example, EU data only in EU), additional regional stamps must be deployed before that requirement is considered satisfied.
+
 ---
 
 ## 12. Best Practices
@@ -605,153 +597,6 @@ You can upgrade to a paid plan at any time from **Billing** — the trial immedi
 - **Enforce tag compliance:** without consistent tags, the chargeback/showback module can't fairly distribute the monthly bill across teams — it's the foundation everything else relies on.
 - **Use the What-If Simulator before committing:** before purchasing a Reservation or Savings Plan, simulate the scenario and save it — it gives you a concrete number to justify the decision to finance.
 - **Set up at least one notification channel from day one** (Slack/Teams if your team already lives there, or email if you prefer simplicity) — budget alerts are useless if nobody sees them in time.
-
----
-
-## 13. Multi-cloud: Azure and AWS
-
-The platform supports **two cloud providers**: Microsoft Azure and Amazon Web Services. Plans and pricing are **identical** for both — the only difference is how you create the account and what data is collected.
-
-### 13.1. Choosing your provider at signup
-
-On the plans page (`/signup`) you first choose **which cloud you want to analyze**:
-
-| Provider | How the account is created |
-|---|---|
-| **Microsoft Azure** | You sign in with your Microsoft account. The platform recognizes your Entra ID tenant automatically. |
-| **Amazon Web Services** | AWS has no corporate sign-in equivalent to Entra ID, so you create an account with **email and password**. You receive an email to verify your address. |
-
-> **Why the difference:** IAM Identity Center is *your own organization's* SSO, not a global directory we can query, and "Login with Amazon" is consumer identity (shopping accounts). There is no enterprise "sign in with AWS". That is why the AWS path uses platform-native credentials.
-
-### 13.2. Signing in
-
-The login screen offers both options:
-
-- **Sign in with Microsoft** — for Azure tenants.
-- **Email and password** — for AWS tenants. Below the form you have **"Forgot your password?"**, which sends you a time-limited recovery link.
-
-If your administrator invited you, you will receive an email with a link to **choose your password** and get in. Invited users always start with the **Reader** role; your administrator can widen it later from **Users and Permissions**.
-
-### 13.3. Using both providers at once (Enterprise only)
-
-The **Enterprise** plan is the only one that can have Azure and AWS connected in the same account. When that is your case, an **AWS/Azure switch appears in the top bar**: changing it makes the sidebar and the pages show that provider's data.
-
-If you only have one provider the switch is not rendered — there would be nothing to choose.
-
-> **Important:** the sidebar changes with the active provider. Many pages are Azure-specific (AKS, Hybrid Benefit, Azure Policies, Defender for Cloud, and so on) and do not appear while AWS is active. This is intentional: we would rather not show you a page that cannot work with your data.
-
-If you reach one of those pages from a saved link or by typing the address, you will not see an error: the platform tells you the feature has no AWS equivalent yet and, if you have both clouds, reminds you that you can switch providers from the selector.
-
-**What you get while AWS is active:**
-
-| Page | What it shows on AWS |
-|---|---|
-| **WhiteBoard (Executive View)** | Your landing page. Year-to-date spend, projection, trend, and the five services and regions that spend the most. |
-| **TOP Expenses** | Ranking of accounts, regions, and services. Each account shows the alias you gave it during onboarding. |
-| **Anomaly Detection** | Spend spikes detected statistically, with the region and service that caused them. It needs about 60 days of history to be reliable. |
-| **Cost forecast** | Month-end estimate built from the history already synced. |
-| **Cost by Category, Cost Groups, Captured Savings, What-If Simulator, Academy** | Same as on Azure. |
-| **Idle resource cleanup** | EBS volumes left unattached, Elastic IPs reserved but unused, snapshots older than 90 days, and stopped instances. For each one we show what it costs you per month. |
-| **Service administration** | Your billing, users and permissions, account setup, compliance, alerts, and the mobile app all work the same as with Azure: they don't depend on which cloud you use. |
-
-Two differences worth keeping in mind:
-
-- **Rankings are ordered by cost, not by resource count.** We do not keep a resource inventory on AWS the way we do on Azure, and when deciding where to cut, cost is the number that matters.
-- **For a stopped instance we show what its disks cost, not its compute.** A stopped instance pays no compute, but its EBS volumes are still billed in full: that is the real spend you can recover.
-- **Tag governance and rightsizing recommendations are not available on AWS yet.** The first one works differently than on Azure (there, tags are inherited from the resource group; on AWS that inheritance does not exist) and the second needs usage metrics we do not collect yet. We would rather not show you zeros: a zero reads as "there is no waste", and that is not what we would be saying.
-
-### 13.4. Connecting your AWS account
-
-From **Administration → Cloud Accounts** you register each AWS account you want
-to monitor. Onboarding has two steps:
-
-1. **Enter the account details**: the 12-digit ID, the ARN of the role you are
-   about to create, and an alias to recognize it. If you have a **CUR** (Cost &
-   Usage Report) configured, also provide its bucket, prefix and report name —
-   with CUR you get per-resource detail; without it we use Cost Explorer, which
-   gives detail per service and region.
-
-   > **Setting up the CUR is worth it.** Cost Explorer does not return resource
-   > **tags**. Without a CUR you will see your costs broken down by account,
-   > region and service, but you will not be able to allocate them by team or
-   > project, nor use chargeback or unit economics: all spend stays
-   > “Unallocated”.
-2. **Create the role in your AWS account** using the template we show you. Pick
-   whichever format you normally use: **CloudFormation**, **Terraform** or **AWS
-   CLI** commands. The *Copy* button puts it on your clipboard.
-
-Once done, use **Test connection** to confirm the role works without waiting for
-the first sync.
-
-#### Why the template asks for so few permissions
-
-The template grants **read-only actions**, and the S3 permissions are scoped
-exclusively to the bucket holding your CUR:
-
-| Permission | What we use it for |
-|---|---|
-| `sts:AssumeRole` | Assume the role you created, so you never hand us permanent keys |
-| `ce:GetCostAndUsage` | Read your daily costs by service and region |
-| `ec2:DescribeInstances` | See your instance inventory for recommendations |
-| `ec2:DescribeVolumes` | Spot unattached EBS volumes you are still paying for |
-| `ec2:DescribeAddresses` | Spot reserved Elastic IPs that are not associated |
-| `ec2:DescribeSnapshots` | Spot stale snapshots nobody uses any more |
-| `budgets:DescribeBudgets`, `budgets:ViewBudget` | Read the budgets you already created in AWS Budgets |
-| `ce:GetReservationPurchaseRecommendation` | Recommend which Reserved Instances are worth buying |
-| `ce:GetSavingsPlansPurchaseRecommendation` | Recommend which Savings Plans are worth buying |
-| `tag:GetResources`, `tag:GetTagKeys` | Build the resource inventory and audit your tagging |
-| `s3:GetObject`, `s3:ListBucket` | Read your CUR files, **in that bucket only** |
-
-There is **not a single write action**: we cannot create, modify or delete
-anything in your account. Nor do we ask for broad managed policies such as
-`AmazonS3ReadOnlyAccess`, which would grant read access to **every** bucket when
-we only need one. If your security team reviews the role, they will find exactly
-these actions and nothing else.
-
-> **If you have just added these permissions:** the Resources and Tag Governance
-> pages will look **empty** until the role has them. You will not see an error,
-> you will see a list with no rows — which is easy to mistake for "I have
-> nothing to review". If you onboarded your account before this release, run the
-> template again.
-
-> **Which resources show up in the inventory:** AWS only lets us list, in a
-> single call, resources that have **at least one tag**. A resource with none
-> will not appear, neither in the inventory nor in the tag audit. That is an AWS
-> limitation, not a platform one: tag it and it joins the analysis on the next
-> refresh.
-
-
-> **If you registered your account before July 2026, re-run the template.** The
-> earlier version did not include the volume, Elastic IP, snapshot or budget
-> permissions. Without them those sections do not raise an error — they simply
-> show up **empty**, as if you had nothing to clean up. The updated template is
-> on the same account screen and can be re-applied to the existing role without
-> deleting or recreating it.
-
-#### The ExternalId
-
-When you register the account we generate an **ExternalId**: a secret value
-included in the role's trust condition that prevents the *confused deputy*
-attack — someone guessing your role ARN and getting us to assume it on their
-behalf. The template already includes it; if you lose the screen, you can
-regenerate it from the same account without deleting and recreating it.
-
-### 13.5. What happens to your data if you downgrade
-
-If you are on Enterprise with **both providers** and you move to a lower plan, you lose the multi-cloud entitlement. **Nothing is deleted at that moment.** What happens is:
-
-1. **One provider is retained and the other is archived.** If you do not choose, we automatically retain the one where you spend the most (and, on a tie, the one with more connected accounts).
-2. **The archived provider becomes read-only for 90 days.** You can still browse it and **export everything** from `/admin/focus-export` — the export stays enabled for the whole window even if your new plan does not include it, because your data is yours.
-3. **We notify you** by email and by in-app notification **30 days and 7 days before** deletion.
-4. **Only when the 90 days expire** is that provider's data permanently deleted.
-
-While the window is open you will see a **banner at the top** with the remaining days and three ways out:
-
-- **Export data** — takes you to the FOCUS exporter.
-- **Keep the other provider instead** — flips the choice (Admin/Owner only). Note: **flipping does not reset the countdown**; the deletion date stays the same.
-- **Go back to Enterprise** — if you return before the deadline, **everything is restored with no loss whatsoever**. That is exactly why the window exists.
-
-> **Tip:** if the downgrade was accidental (a declined card, for example), you do not need to do anything other than fix the payment. Nothing is deleted until day 90.
 
 ---
 

@@ -64,3 +64,20 @@ mysql_data/
 
 # Adjuntos de soporte en dev local (SUPPORT_UPLOAD_DIR default)
 data/
+
+# ---------------------------------------------------------------------------
+# Terraform
+#
+# El ESTADO nunca va al repo: contiene los secretos en claro que Terraform
+# genera o lee (primary_access_key del storage y de Redis, la password de MySQL,
+# connection strings). El estado real vive en el backend remoto de Azure
+# (cscsfinopsmgmtqak5xmsa / container tfstate).
+#
+# .terraform.lock.hcl SÍ se commitea: fija las versiones de los providers.
+# ---------------------------------------------------------------------------
+**/.terraform/
+*.tfstate
+*.tfstate.*
+errored.tfstate
+tfplan
+*.tfplan
