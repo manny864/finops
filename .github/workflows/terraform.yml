@@ -45,12 +45,78 @@ jobs:
           quiet: true
           output_format: cli,sarif
           output_file_path: console,checkov.sarif
-          # Reglas silenciadas a propósito, con motivo:
-          #  CKV_AZURE_109 — Key Vault con acceso público: el private endpoint
-          #    es opcional por costo (keyvault_private_endpoint_enabled).
+          # Reglas silenciadas a propósito, con motivo. Revisado 2026-07-29 al
+          # correr Checkov por primera vez sobre infra/ (27 hallazgos): lo que
+          # sigue es lo que quedó como decisión consciente después de arreglar
+          # lo barato (secrets sin expiration_date/content_type, SAS policy,
+          # logging de blob) — ver los commits de esa fecha.
+          #
+          #  CKV_AZURE_109, CKV_AZURE_189 — Key Vault con acceso público: el
+          #    private endpoint es opcional por costo
+          #    (keyvault_private_endpoint_enabled, ~USD 7/mes). RBAC +
+          #    managed identity cubren el acceso mientras tanto. Pasar a
+          #    privado exige una ruta de red hacia el vault desde donde se
+          #    opera hoy (laptop + GitHub-hosted runners) — hoy no existe.
           #  CKV_AZURE_206 — Storage LRS: el directorio de tenants usa RAGRS,
           #    el resto no guarda datos.
-          skip_check: CKV_AZURE_109,CKV_AZURE_206
+          #  CKV_AZURE_59, CKV2_AZURE_33 — Storage accounts (tfstate y del
+          #    stamp) con red pública: sin private endpoint, mismo motivo que
+          #    el Key Vault — GitHub-hosted runners tienen IP dinámica y no
+          #    hay VPN/bastion para llegar por red privada.
+          #  CKV_AZURE_33 — Logging del servicio Queue: ninguna de las dos
+          #    storage accounts usa Queue, sólo Blob.
+          #  CKV2_AZURE_1 — Cifrado con Customer Managed Key: sin mandato de
+          #    compliance que lo exija: las claves gestionadas por Microsoft
+          #    ya cifran en reposo con AES-256.
+          #  CKV2_AZURE_21 — SÍ está resuelto en infra real: hay un
+          #    azurerm_monitor_diagnostic_setting apuntando a
+          #    "${storage_account_id}/blobServices/default" con
+          #    category_group=allLogs (modules/stamp/main.tf). Sigue en esta
+          #    lista porque el check de grafo de Checkov no reconoce un
+          #    diagnostic setting sobre un sub-recurso (blobServices) como
+          #    asociado al container — limitación de la herramienta, no
+          #    ausencia de logging. Verificado 2026-07-29: sin el diagnostic
+          #    setting Y sin el skip, sigue marcando FAILED igual.
+          #  CKV2_AZURE_40 — Storage del stamp con Shared Key habilitada: la
+          #    app todavía usa AZURE_STORAGE_CONNECTION_STRING
+          #    (src/lib/azureBlobStorage.ts). Migrar a DefaultAzureCredential
+          #    es un cambio de código, no de infra — ver
+          #    infra/docs/pendientes-de-app.md.
+          #  CKV2_AZURE_56 — MySQL Flexible sin private endpoint: usa VNet
+          #    injection (delegated_subnet_id) en su lugar, que deja el
+          #    servidor igual de privado sin pagar el PE — Checkov sólo
+          #    reconoce el mecanismo de private endpoint.
+          #  CKV_AZURE_94 — MySQL sin backups geo-redundantes: deployment de
+          #    región única (mysql_geo_redundant_backup=false por defecto);
+          #    doble costo de backup sin un segundo stamp que lo aproveche.
+          #  CKV_AZURE_20 — Sin teléfono de contacto en Defender: sólo email.
+          #    No hay un teléfono de guardia que declarar hoy; agregar uno acá
+          #    sería inventarlo. Si se define un número de soporte, cargarlo
+          #    en modules/defender (variable "alert_phone") y sacar este skip.
+          #  CKV_AZURE_43 — Nombre de la storage account del stamp: Checkov no
+          #    resuelve la interpolación "${var.name_compact}sa" contra el
+          #    patrón que exige (minúsculas, alfanumérico, 3-24). La variable
+          #    YA tiene una validation block idéntica a esa regla
+          #    (modules/storage/variables.tf) — falso positivo conocido de
+          #    Checkov con nombres calculados en vez de literales.
+          #  CKV2_AZURE_32 — Key Vault sin private endpoint (variante del
+          #    check CKV_AZURE_109/189, mismo recurso): mismo motivo, ver ahí.
+          #  CKV_AZURE_139, 163, 164, 165, 166, 233, 237 — ACR en SKU Basic:
+          #    georreplicación, zona redundante, endpoints dedicados,
+          #    firewall/red privada y content trust son todas features
+          #    exclusivas de Premium (~USD 500/mes más). Con un solo stamp no
+          #    hay georreplicación que aprovechar. El escaneo de
+          #    vulnerabilidades (163) ya está cubierto igual: el plan
+          #    "Containers" de Defender for Cloud escanea imágenes en
+          #    cualquier SKU de ACR (defender_resource_types en
+          #    environments/prod/variables.tf).
+          skip_check: >-
+            CKV_AZURE_109,CKV_AZURE_189,CKV_AZURE_206,CKV_AZURE_59,
+            CKV2_AZURE_33,CKV_AZURE_33,CKV2_AZURE_1,CKV2_AZURE_21,
+            CKV2_AZURE_40,CKV2_AZURE_56,CKV_AZURE_94,CKV_AZURE_139,
+            CKV_AZURE_163,CKV_AZURE_164,CKV_AZURE_165,CKV_AZURE_166,
+            CKV_AZURE_233,CKV_AZURE_237,CKV_AZURE_20,CKV_AZURE_43,
+            CKV2_AZURE_32
 
       - name: Subir hallazgos al Security tab
         if: always()

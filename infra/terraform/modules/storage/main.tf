@@ -23,6 +23,14 @@ resource "azurerm_storage_account" "this" {
   # DefaultAzureCredential — ver infra/docs/pendientes-de-app.md.
   shared_access_key_enabled = var.shared_access_key_enabled
 
+  # Una SAS emitida a mano y olvidada no vence sola. El límite es sobre la
+  # validez máxima que Azure acepta al emitir una nueva SAS, no sobre las que
+  # ya existen — no rompe la de db-backups del VPS descrita arriba.
+  sas_policy {
+    expiration_period = "01.00:00:00"
+    expiration_action = "Log"
+  }
+
   blob_properties {
     delete_retention_policy {
       days = 30
