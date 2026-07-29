@@ -118,8 +118,18 @@ jobs:
             CKV_AZURE_233,CKV_AZURE_237,CKV_AZURE_20,CKV_AZURE_43,
             CKV2_AZURE_32
 
+      # continue-on-error: este repo es privado y no tiene GitHub Advanced
+      # Security, así que Code Scanning no está habilitado — la subida falla
+      # siempre con "Resource not accessible by integration" (403),
+      # independientemente de lo que encuentre Checkov. Verificado 2026-07-29:
+      # el step de Checkov de arriba pasó con 0 findings y este de todos modos
+      # tumbaba el job entero, bloqueando plan-apply por un paso que no es el
+      # gate real. El gate es el exit code de Checkov, no esto — si algún día
+      # se habilita GHAS, este paso vuelve a subir hallazgos solo, sin tocar
+      # nada acá.
       - name: Subir hallazgos al Security tab
         if: always()
+        continue-on-error: true
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: checkov.sarif
