@@ -204,6 +204,19 @@ jobs:
       - name: Terraform validate
         run: terraform validate
 
+      # terraform.tfvars está gitignored (tiene GUIDs de tenant/subscription,
+      # nombre de certificado, tamaños de infra — sin passwords ni connection
+      # strings, esos los genera Terraform con random_password). Sin este paso
+      # `terraform plan -var-file=terraform.tfvars` nunca tuvo el archivo: el
+      # workflow jamás llegó a correr un plan real hasta hoy, tapado siempre
+      # por la falla de auth que se arregló antes en este mismo archivo.
+      # env (no interpolación directa en el run) para no romper el contenido
+      # multilínea con el shell.
+      - name: Escribir terraform.tfvars desde el secret
+        env:
+          TF_VARS_CONTENT: ${{ secrets.TF_VARS_PROD }}
+        run: printf '%s\n' "$TF_VARS_CONTENT" > terraform.tfvars
+
       - name: Terraform plan
         run: terraform plan -var-file=terraform.tfvars -out=tfplan
 
@@ -272,5 +285,10 @@ jobs:
             -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
             -backend-config="client_id=${{ secrets.AZURE_CLIENT_ID }}" \
             -backend-config="key=${{ matrix.environment }}/terraform.tfstate"
+      # Mismo motivo que en el job plan-apply: terraform.tfvars está gitignored.
+      - name: Escribir terraform.tfvars desde el secret
+        env:
+          TF_VARS_CONTENT: ${{ secrets.TF_VARS_PROD }}
+        run: printf '%s\n' "$TF_VARS_CONTENT" > terraform.tfvars
       - name: Detectar drift
         run: terraform plan -var-file=terraform.tfvars -detailed-exitcode
