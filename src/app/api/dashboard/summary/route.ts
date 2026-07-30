@@ -168,6 +168,8 @@ async function fetchActualCostMTD(tenantId: string, subscriptionId: string): Pro
  * ChargeCategory por fila). Se cachea el split en Redis hasta fin de día.
  * Devuelve null si Azure no está disponible (el caller cae al total sin split).
  */
+const MTD_SPLIT_TTL_SECONDS = 900;
+
 async function fetchMTDBreakdown(
   tenantId: string,
   subscriptionId: string
@@ -204,10 +206,15 @@ async function fetchMTDBreakdown(
     }
     usage = Number(usage.toFixed(2));
     purchase = Number(purchase.toFixed(2));
-    const secsUntilMidnight = Math.floor(
-      (new Date(new Date().toISOString().slice(0, 10) + 'T23:59:59Z').getTime() - Date.now()) / 1000
-    ) + 3600;
-    redis.set(key, JSON.stringify({ usage, purchase }), 'EX', Math.max(secsUntilMidnight, 3600))
+    // TTL alineado con el del payload de summary (900 s). ANTES era "lo que
+    // queda del día + 1 h", y eso congelaba `actualCost` —y con él
+    // `projectedCost`, que se deriva— hasta la medianoche: un gasto nuevo en
+    // Azure no se reflejaba en los KPIs por el resto del día.
+    //
+    // No agrega llamadas a Azure: el payload de summary ya se cachea 15 min, así
+    // que este bloque no puede ejecutarse más de una vez por (tenant, scope) en
+    // esa ventana. Con el TTL largo, lo único que aportaba era la desactualización.
+    redis.set(key, JSON.stringify({ usage, purchase }), 'EX', MTD_SPLIT_TTL_SECONDS)
       .catch((e: any) => console.warn('[Summary] Redis MTD split write failed:', e?.message));
     return { usageCost: usage, purchaseCost: purchase };
   } catch (e: any) {
@@ -546,14 +553,13 @@ export async function GET(request: NextRequest) {
               const oneTime = usageCost > 0 ? purchaseCost : 0;
               projectedCost = Number((base * (daysInMonth / currentDay) + oneTime).toFixed(2));
             }
-            // Cache computed MTD cost in Redis so the next request reads it directly
-            // instead of going through Azure API again. TTL = rest of day + 1h buffer.
+            // Cachea el MTD ya calculado para que el próximo request no vuelva a
+            // Azure. Mismo TTL que el split (900 s) y por el mismo motivo: con
+            // "lo que queda del día" el KPI de costo actual quedaba congelado
+            // hasta la medianoche.
             const ym = new Date().toISOString().slice(0, 7);
             const redisMtdKey = `cost:mtd:v1:${tenantId}:${subscriptionId.toLowerCase()}:${ym}`;
-            const secsUntilMidnight = Math.floor(
-              (new Date(new Date().toISOString().slice(0, 10) + 'T23:59:59Z').getTime() - Date.now()) / 1000
-            ) + 3600; // + 1h buffer past midnight
-            redis.set(redisMtdKey, String(liveActual), 'EX', Math.max(secsUntilMidnight, 3600))
+            redis.set(redisMtdKey, String(liveActual), 'EX', MTD_SPLIT_TTL_SECONDS)
               .catch((e: any) => console.warn('[Summary] Redis MTD cache write failed:', e?.message));
           }
         }
