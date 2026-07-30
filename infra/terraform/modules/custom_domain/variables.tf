@@ -24,6 +24,18 @@ variable "domain_name" {
   type        = string
 }
 
+variable "certificate_name" {
+  description = <<-DESC
+    Nombre del recurso managed certificate. Si se crea por primera vez desde
+    Terraform, cualquier nombre válido sirve (Azure lo acepta tal cual). Si se
+    va a importar uno creado a mano (portal/az cli), usar el nombre real que
+    Azure le asignó — suele traer un sufijo de timestamp que no se puede
+    predecir de antemano.
+  DESC
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   type = map(string)
 }

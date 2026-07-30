@@ -282,6 +282,12 @@ variable "custom_domain_name" {
   default     = ""
 }
 
+variable "custom_domain_certificate_name" {
+  description = "Nombre real del managed certificate cuando se importó uno creado a mano. Ver modules/custom_domain/variables.tf."
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   type = map(string)
 }

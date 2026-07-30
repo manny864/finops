@@ -307,6 +307,7 @@ module "custom_domain" {
   source                       = "../custom_domain"
   enabled                      = var.custom_domain_enabled
   domain_name                  = var.custom_domain_name
+  certificate_name             = var.custom_domain_certificate_name
   container_app_id             = module.app.app_id
   container_app_environment_id = azurerm_container_app_environment.this.id
   tags                         = var.tags

@@ -162,6 +162,7 @@ module "stamp" {
   budget_start_date               = var.budget_start_date
   custom_domain_enabled           = each.value.custom_domain_enabled
   custom_domain_name              = each.value.custom_domain_name
+  custom_domain_certificate_name  = each.value.custom_domain_certificate_name
 
   tags = merge(local.tags, { DataRegion = upper(each.key) })
 

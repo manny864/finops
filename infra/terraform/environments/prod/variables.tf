@@ -70,8 +70,9 @@ variable "stamps" {
 
     monthly_budget_amount = optional(number, 250)
 
-    custom_domain_enabled = optional(bool, false)
-    custom_domain_name    = optional(string, "")
+    custom_domain_enabled          = optional(bool, false)
+    custom_domain_name             = optional(string, "")
+    custom_domain_certificate_name = optional(string, "")
   }))
 }
 
