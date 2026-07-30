@@ -1901,7 +1901,7 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
             });
             return {
                 success: true, mock: true, page: 1, pageSize: 15,
-                rows, total: totalCount,
+                rows, total: totalCount, sortedByCost: true,
                 kpis: { costGroups: Math.round(9 * multiplier), subscriptions: 1, resourceGroups: rgs.length, resources: totalCount },
             };
         }

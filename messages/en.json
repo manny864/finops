@@ -3944,6 +3944,7 @@
     "loading": "Loading...",
     "no_data": "No data.",
     "no_resources": "No resources found.",
+    "cost_sort_unavailable": "Cost sort unavailable for more than 500 filtered resources — use the filters to narrow the search.",
     "tab_search": "Search Resources",
     "filter_search": "Search",
     "filter_search_placeholder": "Name, type or SKU...",

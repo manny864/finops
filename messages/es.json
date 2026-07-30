@@ -3944,6 +3944,7 @@
     "loading": "Cargando...",
     "no_data": "Sin datos.",
     "no_resources": "No se encontraron recursos.",
+    "cost_sort_unavailable": "Orden por costo no disponible con más de 500 recursos filtrados — usá los filtros para acotar la búsqueda.",
     "tab_search": "Buscar Recursos",
     "filter_search": "Buscar",
     "filter_search_placeholder": "Nombre, tipo o SKU...",

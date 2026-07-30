@@ -174,6 +174,18 @@ function SearchResourcesTab() {
     return (
         <div className="space-y-4">
             {filterBar}
+            {/* sortedByCost === false (chequeo estricto, no falsy): el backend
+                degrada al orden alfabético cuando el conjunto filtrado supera
+                SORT_BY_COST_MAX_RESOURCES, para no costear todo el tenant contra
+                Cost Management de una sola vez. Se avisa en vez de mostrar un
+                orden distinto al esperado en silencio — usar los filtros acota el
+                resultado y reactiva el orden por costo. */}
+            {data.sortedByCost === false && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 text-xs font-medium">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    {t("cost_sort_unavailable")}
+                </div>
+            )}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <Kpi icon={<DollarSign className="w-4.5 h-4.5 text-emerald-600" />} color="bg-emerald-50 dark:bg-emerald-950/40" label={t("kpi_cost_groups")} value={data.kpis?.costGroups ?? 0} />
                 <Kpi icon={<Key className="w-4.5 h-4.5 text-amber-600" />} color="bg-amber-50 dark:bg-amber-950/40" label={t("kpi_subscriptions")} value={data.kpis?.subscriptions ?? 0} />
