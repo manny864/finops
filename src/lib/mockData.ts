@@ -1886,8 +1886,15 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
             const rgs = ['rg-data-platform-1', 'rg-engineering-3', 'rg-shared-services-1', 'rg-it-prod-007'];
             const types = ['virtualMachines', 'storageAccounts', 'sqlServers/databases', 'disks', 'appServicePlans'];
             const totalCount = Math.round(69 * multiplier);
-            const rows = Array.from({ length: 15 }, (_, i) => {
-                const cost = round2((1200 - i * 70) * multiplier * (0.6 + 0.4 * Math.abs(Math.sin(i))));
+            // Genera TODAS las filas (no sólo una página fija de 15): el selector
+            // de tamaño de página (15/30/45/60) necesita datos reales para
+            // slicear en cualquier combinación de page/pageSize — antes esto
+            // siempre devolvía exactamente 15 filas sin importar lo pedido.
+            // Decaimiento exponencial (nunca negativo, a diferencia de la resta
+            // lineal anterior) para mantener sortedByCost: true creíble más allá
+            // de las primeras ~17 filas.
+            const allRows = Array.from({ length: Math.min(totalCount, 200) }, (_, i) => {
+                const cost = round2(Math.max(5, 1200 * Math.pow(0.97, i)) * multiplier * (0.9 + 0.2 * Math.abs(Math.sin(i))));
                 return {
                     id: `/subscriptions/mock-sub/resourceGroups/${rgs[i % rgs.length]}/providers/Microsoft.Compute/${types[i % types.length]}/r-demo-${i}`,
                     name: `r-demo-${100 + i}`,
@@ -1900,8 +1907,15 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                 };
             });
             return {
+                // `rows`/`page`/`pageSize` son el default (primera página de 15)
+                // para callers que no re-paginan (p.ej. el interceptor de fetch de
+                // TenantProvider.tsx, que devuelve este mock tal cual sin mirar la
+                // query string). `allRows` es el set completo, que
+                // /api/resources/search SÍ slicea según el page/pageSize real
+                // pedido — sin esto, elegir 30/45/60 filas en modo demo mostraba
+                // siempre las mismas 15 filas fijas.
                 success: true, mock: true, page: 1, pageSize: 15,
-                rows, total: totalCount, sortedByCost: true,
+                rows: allRows.slice(0, 15), allRows, total: totalCount, sortedByCost: true,
                 kpis: { costGroups: Math.round(9 * multiplier), subscriptions: 1, resourceGroups: rgs.length, resources: totalCount },
             };
         }
