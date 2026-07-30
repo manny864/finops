@@ -4,7 +4,6 @@ import Link from "next/link";
 import useSWR from "swr";
 import { useLocale, useTranslations } from "next-intl";
 import { useTenant } from "@/components/TenantProvider";
-import { useSubscription } from "@/components/SubscriptionProvider";
 import { useMsal } from "@azure/msal-react";
 import {
     LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
@@ -99,9 +98,6 @@ const COLORS = {
     violet: "#8b5cf6",
 };
 
-const fmtUsd = (n: number) =>
-    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n || 0);
-
 function Card({ title, className = "", children }: { title?: string; className?: string; children: React.ReactNode }) {
     return (
         <div className={`drag-handle cursor-move bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm p-4 flex flex-col h-full overflow-auto ${className}`}>
@@ -130,7 +126,6 @@ export default function ExecutiveSummaryBoard() {
     const t = useTranslations("WhiteBoard");
     const locale = useLocale();
     const { selectedTenant } = useTenant();
-    const { selectedSubscription } = useSubscription();
     const { instance, accounts } = useMsal();
     const { format } = useCurrency();
 
@@ -155,7 +150,18 @@ export default function ExecutiveSummaryBoard() {
     // KPIs (mismos 4 que el Dashboard General: costo actual, recursos
     // zombies, ahorro potencial e impacto ambiental) — se reusa
     // /api/dashboard/summary en vez de duplicar su lógica de auditoría.
-    const summarySub = selectedSubscription && selectedSubscription.toLowerCase() !== "all" ? selectedSubscription : "All";
+    // El White Board es un resumen EJECUTIVO del tenant completo: las ~13
+    // tarjetas de abajo se alimentan de /api/intelligence/whiteboard, que no
+    // acepta subscriptionId y siempre agrega todo el tenant (getCostFigures y
+    // compañía no filtran por suscripción).
+    //
+    // Antes esta fila pasaba `selectedSubscription`, así que con una suscripción
+    // puntual elegida la mitad de arriba del board mostraba UNA suscripción y la
+    // mitad de abajo el tenant entero — dos respuestas a preguntas distintas, sin
+    // nada en pantalla que lo dijera. Se fuerza el alcance del tenant para que
+    // todo el board hable del mismo universo; el drill-down por suscripción vive
+    // en las páginas dedicadas (/intelligence/billing, cost-projection, etc.).
+    const summarySub = "All";
     const { data: summaryData, isLoading: summaryLoading } = useSWR(
         canFetch ? `/api/dashboard/summary?tenantId=${selectedTenant!.id}&subscriptionId=${summarySub}` : null,
         fetcher,
@@ -370,11 +376,11 @@ export default function ExecutiveSummaryBoard() {
                 <div key="costs">
                     <Card title={t("costs")}>
                         <p className="text-[11px] text-slate-400 mb-1">{t("current_fy_cost")}</p>
-                        <p className="text-2xl font-extrabold text-slate-800 dark:text-slate-100">{fmtUsd(costs?.currentFYCost)}</p>
+                        <p className="text-2xl font-extrabold text-slate-800 dark:text-slate-100">{format(costs?.currentFYCost)}</p>
 
                         <p className="text-[11px] text-slate-400 mt-4 mb-1">{t("cost_projected")}</p>
                         <div className="flex items-center gap-2">
-                            <p className="text-lg font-bold text-slate-700 dark:text-slate-200">{fmtUsd(costs?.costProjected)}</p>
+                            <p className="text-lg font-bold text-slate-700 dark:text-slate-200">{format(costs?.costProjected)}</p>
                             <span className={`inline-flex items-center gap-1 text-xs font-bold ${costUp ? "text-red-600" : "text-emerald-600"}`}>
                                 {costUp ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
                                 {Math.abs(costs?.costChangePct || 0)}%
@@ -383,7 +389,7 @@ export default function ExecutiveSummaryBoard() {
 
                         <div className="mt-4 pt-3 border-t border-gray-100 dark:border-slate-800">
                             <p className="text-[11px] text-slate-400 mb-1">{t("previous_fy")}</p>
-                            <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">{fmtUsd(costs?.previousFYCost)}</p>
+                            <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">{format(costs?.previousFYCost)}</p>
                         </div>
                     </Card>
                 </div>
@@ -395,7 +401,7 @@ export default function ExecutiveSummaryBoard() {
                                 <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
                                 <XAxis dataKey="month" tick={{ fontSize: 11 }} />
                                 <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} width={45} />
-                                <Tooltip formatter={(v: any) => fmtUsd(Number(v))} />
+                                <Tooltip formatter={(v: any) => format(Number(v))} />
                                 <Line type="monotone" dataKey="cost" stroke={COLORS.blue} strokeWidth={2} dot={{ r: 3 }} />
                             </LineChart>
                         </ResponsiveContainer>
@@ -408,7 +414,7 @@ export default function ExecutiveSummaryBoard() {
                             <BarChart data={servicesBarData} layout="vertical" margin={{ left: 8, right: 16 }}>
                                 <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
                                 <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={100} />
-                                <Tooltip formatter={(v: any) => fmtUsd(Number(v))} />
+                                <Tooltip formatter={(v: any) => format(Number(v))} />
                                 <Bar dataKey="cost" radius={[0, 4, 4, 0]}>
                                     {servicesBarData.map((entry, i) => (
                                         <Cell key={i} fill={i === servicesBarData.length - 1 ? COLORS.cyan : COLORS.blue} />
@@ -460,7 +466,7 @@ export default function ExecutiveSummaryBoard() {
                                 <ResponsiveContainer width="100%" height={100}>
                                     <LineChart data={untagged.trend || []}>
                                         <XAxis dataKey="month" tick={{ fontSize: 10 }} />
-                                        <Tooltip formatter={(v: any) => fmtUsd(Number(v))} />
+                                        <Tooltip formatter={(v: any) => format(Number(v))} />
                                         <Line type="monotone" dataKey="cost" stroke={COLORS.violet} strokeWidth={2} dot={{ r: 2 }} />
                                     </LineChart>
                                 </ResponsiveContainer>
@@ -473,7 +479,7 @@ export default function ExecutiveSummaryBoard() {
                                 </div>
                                 <div className="bg-gray-50 dark:bg-slate-800/50 rounded-lg p-3">
                                     <p className="text-[10px] text-slate-400 mb-1">{t("untagged_resources_cost")}</p>
-                                    <p className="text-lg font-extrabold text-slate-800 dark:text-slate-100">{fmtUsd(untagged.cost)}</p>
+                                    <p className="text-lg font-extrabold text-slate-800 dark:text-slate-100">{format(untagged.cost)}</p>
                                     <p className="text-[11px] text-slate-500">{untagged.costPct}% {t("monthly_cost_pct")}</p>
                                 </div>
                             </div>
@@ -564,7 +570,7 @@ export default function ExecutiveSummaryBoard() {
                             </div>
                             <div className="bg-gray-50 dark:bg-slate-800/50 rounded-lg p-3 flex flex-col justify-center">
                                 <p className="text-[10px] text-slate-400 mb-1">{t("potential_cost_savings")}</p>
-                                <p className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400">{fmtUsd(recommendations?.potentialCostSavings)}</p>
+                                <p className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400">{format(recommendations?.potentialCostSavings)}</p>
                             </div>
                         </Link>
                     </Card>
@@ -594,12 +600,12 @@ export default function ExecutiveSummaryBoard() {
                 <div key="costGroups">
                     <FeatureGuard requiredTier="Business" featureName="Cost Groups" className="h-full w-full drag-handle cursor-move">
                         <Card title={t("top5_cost_groups")}>
-                            <p className="text-lg font-extrabold text-slate-800 dark:text-slate-100 mb-2">{fmtUsd(top5CostGroups?.totalCost)}</p>
+                            <p className="text-lg font-extrabold text-slate-800 dark:text-slate-100 mb-2">{format(top5CostGroups?.totalCost)}</p>
                             <ResponsiveContainer width="100%" height="100%" minHeight={100}>
                                 <BarChart data={top5CostGroups?.groups || []}>
                                     <XAxis dataKey="name" tick={{ fontSize: 10 }} />
                                     <YAxis tick={{ fontSize: 9 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} width={40} />
-                                    <Tooltip formatter={(v: any) => fmtUsd(Number(v))} />
+                                    <Tooltip formatter={(v: any) => format(Number(v))} />
                                     <Bar dataKey="cost" fill={COLORS.cyan} radius={[4, 4, 0, 0]} />
                                 </BarChart>
                             </ResponsiveContainer>
