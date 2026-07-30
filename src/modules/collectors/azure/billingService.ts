@@ -99,28 +99,33 @@ export type CostQueryDiagnostics = {
  * suscripciones". No es un error real; sólo reusa el camino per-subscription
  * que ya vivía en los bloques catch.
  *
- * POR QUÉ. El scope de management group
- * (/providers/Microsoft.Management/managementGroups/{tenantId}) devuelve un
- * agregado que VA RETRASADO respecto al scope de suscripción. Medido en prod el
- * 2026-07-30 sobre el tenant 81ebe027, que tiene UNA sola suscripción — o sea
- * ambos scopes deberían dar idéntico:
+ * POR QUÉ. El management group llamado como el tenant NO EXISTE. Verificado en
+ * los logs de prod el 2026-07-30:
  *
- *     scope MG              -> actualCost  7.62
- *     scope /subscriptions  -> actualCost 12.77   (= 12.78 del portal)
+ *     [BillingService] MG scope failed (BadRequest), iterating subscriptions...
+ *     Management group 81ebe027-… does not exist
  *
- * Y lo grave es que la consulta al MG NO falla: devuelve 200 con menos filas.
- * Por eso el fallback per-subscription —que da el número correcto— no se
- * activaba nunca, y los KPIs de Costo Actual / Costo Proyectado quedaban
- * abajo del valor real de Cost Management sin ningún error en los logs.
- * El mismo defecto afectaba a getYesterdayCost, que es lo que el cron `sync`
- * persiste en CostSnapshots: la tabla se llenaba con montos incompletos.
+ * Cada consulta con scope 'All' gastaba entonces una llamada garantizada a fallar
+ * antes de caer al camino per-subscription. Saltearla ahorra esa llamada y el
+ * ruido de log que la acompaña. Nada más: el resultado es el mismo que ya daba el
+ * fallback, así que tampoco agrega presión de rate-limit (antes eran 1+N
+ * consultas, ahora N).
  *
- * COSTO DE ESTE FIX: N consultas (concurrencia 2) en vez de 1 por tenant. Se
- * acepta a cambio de precisión — Regla Cero. El techo es el mismo que ya tenía
- * el fallback por 429, que corría exactamente estas N consultas.
+ * ⚠ ESTO NO ARREGLA LOS KPIs. La primera versión de este comentario afirmaba que
+ * el scope de MG devolvía un agregado retrasado (HTTP 200 con menos filas) y que
+ * eso explicaba el desfase de Costo Actual / Costo Proyectado contra el portal.
+ * ERA FALSO: el MG nunca respondía 200, fallaba con BadRequest, y el fallback
+ * per-subscription ya se estaba usando. La comparación que llevó a esa conclusión
+ * equivocada fue medir 'All' contra una consulta directa a la suscripción, que no
+ * son comparables: la directa era una sola consulta sin competencia.
+ *
+ * La causa real del desfase es otra y sigue abierta: la consulta MTD de la
+ * suscripción agota sus reintentos por 429 y el KPI cae EN SILENCIO al valor
+ * incompleto de CostSnapshots (7.62 en vez de 12.77). Ver
+ * [BillingService] 429 on usage(sub …). Retry 2/2 en los logs.
  */
 class MgScopeBypass extends Error {
-    constructor() { super('MG scope bypassed: agregado retrasado, se itera por suscripción'); }
+    constructor() { super('MG scope no existe para este tenant: se itera por suscripción'); }
 }
 
 // Private implementation — all Azure API logic lives here.
