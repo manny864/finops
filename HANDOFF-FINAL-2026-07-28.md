@@ -152,6 +152,24 @@ VPS deje de ser una salida de emergencia.
 Diagnóstico cerrado el 2026-07-30 **contra los logs reales de prod** (Log
 Analytics `cscs-finops-prod-westus2-law`, tabla `ContainerAppConsoleLogs_CL`).
 
+#### ✅ Desplegado y verificado en prod (2026-07-30 06:00 UTC, PR #99)
+
+Revisión `cscs-finops-prod-westus2-web--0000008`, 100% del tráfico, health 200.
+
+**El síntoma que importaba desapareció:** `[Summary] Azure Cost Management
+unavailable or no data for this scope` pasó de aparecer cada 10 minutos a **0
+ocurrencias en 4 h**. Era el que dejaba a `actualCost`/`projectedCost` leyendo una
+tabla vacía.
+
+**Lo que SIGUE apareciendo, y es otra cosa:** 429 del cron `sync` (operaciones
+`yesterday(MG …)` y `detailed(/subscriptions/…)`) a las 06:00 UTC, su horario
+programado, y sobre un tenant distinto (`8b41364f` / sub `0beb7800`) del que
+sufría el stampede por request. Es carga legítima y concentrada, pero **hay que
+mirarla**: si el sync se come sus reintentos, no escribe en `CostSnapshots`, y esa
+es la razón de fondo de que la tabla esté rala y las tarjetas salgan vacías.
+Próximo paso sugerido: espaciar el barrido de tenants del sync (hoy corre con
+concurrencia 2) o repartirlo en ventanas, en vez de subir reintentos.
+
 #### El bucle de 429 (era la causa de casi todo)
 
 Los logs muestran, de forma sostenida y cada 10 minutos:
