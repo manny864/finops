@@ -58,6 +58,15 @@ variable "jobs" {
     # prefijo "cron-". Hoy el más largo es support-attachments-cleanup, que
     # queda justo en el límite.
     name = optional(string)
+    # true: el runner dispara y hace polling con `?status=1` en vez de esperar
+    # la respuesta completa. Hace falta para endpoints cuyo trabajo real supera
+    # los ~240s que tolera el ingress de Container Apps antes de devolver 504
+    # "stream timeout" — un techo de plataforma, no configurable (verificado
+    # 2026-07-30: no hay `requestTimeout` en `properties.configuration.ingress`).
+    # Sin esto el job queda marcado Failed aunque el trabajo termine bien del
+    # lado del servidor. Sólo `sync` lo necesita hoy; default false para no
+    # tocar el comportamiento de los demás.
+    async_poll = optional(bool, false)
   }))
 
   validation {

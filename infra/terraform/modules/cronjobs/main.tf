@@ -85,6 +85,44 @@ locals {
         process.exit(1);
       });
   JS
+
+  # Variante para jobs con `async_poll = true` (ver variables.tf). El endpoint
+  # dispara el trabajo en background y responde de inmediato; este runner hace
+  # polling con `?status=1` en requests cortas — ninguna se acerca al techo de
+  # ~240s del ingress, porque cada una es sólo una lectura de Redis.
+  runner_async = <<-JS
+    const url = process.env.CRON_URL;
+    const secret = process.env.CRON_SECRET;
+    const useQuery = process.env.CRON_AUTH_MODE === 'query';
+    const headers = useQuery ? {} : { Authorization: `Bearer $${secret}` };
+    const withQs = (extra) => {
+      const qs = [useQuery ? `secret=$${encodeURIComponent(secret)}` : '', extra].filter(Boolean).join('&');
+      return qs ? `$${url}?$${qs}` : url;
+    };
+    const pollIntervalMs = Number(process.env.CRON_POLL_INTERVAL_MS || 15000);
+    const overallTimeoutMs = Number(process.env.CRON_TIMEOUT_MS || 540000);
+    const shortTimeout = { signal: AbortSignal.timeout(30000) };
+    const started = Date.now();
+    (async () => {
+      try {
+        await fetch(withQs(''), { headers, ...shortTimeout });
+        while (Date.now() - started < overallTimeoutMs) {
+          await new Promise((r) => setTimeout(r, pollIntervalMs));
+          const r = await fetch(withQs('status=1'), { headers, ...shortTimeout });
+          const status = await r.json().catch(() => ({}));
+          if (status.done) {
+            console.log(JSON.stringify({ job: process.env.CRON_JOB, status: status.ok ? 200 : 500, ms: Date.now() - started, body: JSON.stringify(status).slice(0, 500) }));
+            process.exit(status.ok ? 0 : 1);
+          }
+        }
+        console.error(JSON.stringify({ job: process.env.CRON_JOB, error: 'poll timeout sin done', ms: Date.now() - started }));
+        process.exit(1);
+      } catch (e) {
+        console.error(JSON.stringify({ job: process.env.CRON_JOB, error: String(e), ms: Date.now() - started }));
+        process.exit(1);
+      }
+    })();
+  JS
 }
 
 resource "azurerm_container_app_job" "this" {
@@ -138,8 +176,9 @@ resource "azurerm_container_app_job" "this" {
       image  = "${var.registry_server}/${var.image_name}:${var.image_tag}"
       cpu    = 0.25
       memory = "0.5Gi"
-      # No corre la app: sólo dispara el endpoint. 0.25 vCPU alcanza y sobra.
-      command = ["node", "-e", local.runner]
+      # No corre la app: sólo dispara el endpoint (o lo dispara y hace polling,
+      # ver runner_async / async_poll en variables.tf). 0.25 vCPU alcanza y sobra.
+      command = each.value.async_poll ? ["node", "-e", local.runner_async] : ["node", "-e", local.runner]
 
       env {
         name  = "CRON_JOB"
@@ -160,6 +199,12 @@ resource "azurerm_container_app_job" "this" {
       env {
         name  = "CRON_TIMEOUT_MS"
         value = tostring(each.value.timeout_seconds * 1000 - 30000)
+      }
+
+      # Sólo lo usa runner_async (async_poll = true); el runner simple lo ignora.
+      env {
+        name  = "CRON_POLL_INTERVAL_MS"
+        value = "15000"
       }
 
       env {
