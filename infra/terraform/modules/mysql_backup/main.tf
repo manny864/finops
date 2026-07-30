@@ -66,6 +66,117 @@ resource "azurerm_subnet_network_security_group_association" "vm" {
   network_security_group_id = azurerm_network_security_group.vm.id
 }
 
+# Reglas exactas que exige Microsoft para AzureBastionSubnet — un NSG más
+# restrictivo (o sin alguna de estas reglas) rompe Bastion en runtime, no en
+# el apply: https://learn.microsoft.com/azure/bastion/bastion-nsg
+resource "azurerm_network_security_group" "bastion" {
+  name                = "${var.resource_group_name}-nsg-bastion"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.this.name
+  tags                = var.tags
+
+  security_rule {
+    name                       = "AllowHttpsInbound"
+    priority                   = 100
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "443"
+    source_address_prefix      = "Internet"
+    destination_address_prefix = "*"
+  }
+
+  security_rule {
+    name                       = "AllowGatewayManagerInbound"
+    priority                   = 110
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "443"
+    source_address_prefix      = "GatewayManager"
+    destination_address_prefix = "*"
+  }
+
+  security_rule {
+    name                       = "AllowAzureLoadBalancerInbound"
+    priority                   = 120
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "443"
+    source_address_prefix      = "AzureLoadBalancer"
+    destination_address_prefix = "*"
+  }
+
+  security_rule {
+    name                       = "AllowBastionHostCommunicationInbound"
+    priority                   = 130
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "*"
+    source_port_range          = "*"
+    destination_port_ranges    = ["8080", "5701"]
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "VirtualNetwork"
+  }
+
+  security_rule {
+    name                       = "AllowSshRdpOutbound"
+    priority                   = 100
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_ranges    = ["22", "3389"]
+    source_address_prefix      = "*"
+    destination_address_prefix = "VirtualNetwork"
+  }
+
+  security_rule {
+    name                       = "AllowAzureCloudOutbound"
+    priority                   = 110
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "443"
+    source_address_prefix      = "*"
+    destination_address_prefix = "AzureCloud"
+  }
+
+  security_rule {
+    name                       = "AllowBastionHostCommunicationOutbound"
+    priority                   = 120
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "*"
+    source_port_range          = "*"
+    destination_port_ranges    = ["8080", "5701"]
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "VirtualNetwork"
+  }
+
+  security_rule {
+    name                       = "AllowGetSessionInformationOutbound"
+    priority                   = 130
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "80"
+    source_address_prefix      = "*"
+    destination_address_prefix = "Internet"
+  }
+}
+
+resource "azurerm_subnet_network_security_group_association" "bastion" {
+  subnet_id                 = azurerm_subnet.bastion.id
+  network_security_group_id = azurerm_network_security_group.bastion.id
+}
+
 resource "azurerm_public_ip" "bastion" {
   name                = "${var.resource_group_name}-pip-bastion"
   location            = var.location
@@ -110,7 +221,14 @@ resource "azurerm_key_vault_secret" "vm_admin_password" {
   name         = "infra-backup-vm-admin-password"
   value        = random_password.vm_admin.result
   key_vault_id = var.key_vault_id
+  content_type = "text/plain"
+  # random_password no rota sola: la password vive mientras viva la VM. Un
+  # año da margen para rotarla a mano por Bastion sin dejarla sin vencimiento
+  # para siempre.
+  expiration_date = timeadd(time_static.vm_admin_password_created.rfc3339, "8760h")
 }
+
+resource "time_static" "vm_admin_password_created" {}
 
 resource "azurerm_network_interface" "vm" {
   name                = "${var.resource_group_name}-nic-vm"
@@ -141,6 +259,16 @@ resource "azurerm_windows_virtual_machine" "this" {
     caching              = "ReadWrite"
     storage_account_type = "StandardSSD_LRS"
   }
+
+  # Cifrado en el host, no sólo en el disco (Azure Disk Encryption cubre el
+  # disco; esto también cubre la cache y el tráfico temporal en el host
+  # físico). Requiere el feature EncryptionAtHost registrado en la
+  # suscripción — estaba NotRegistered, se registró a mano el 2026-07-30
+  # (`az feature register --namespace Microsoft.Compute --name
+  # EncryptionAtHost` + `az provider register -n Microsoft.Compute`). La
+  # propagación puede tardar hasta ~15 min; si el apply falla acá con
+  # "feature not enabled", es por eso — reintentar en unos minutos.
+  encryption_at_host_enabled = true
 
   source_image_reference {
     publisher = "MicrosoftWindowsServer"
@@ -315,6 +443,7 @@ resource "azurerm_automation_variable_string" "mysql_host" {
   resource_group_name     = azurerm_resource_group.this.name
   automation_account_name = azurerm_automation_account.this.name
   value                   = var.mysql_fqdn
+  encrypted               = true
 }
 
 resource "azurerm_automation_variable_string" "mysql_user" {
@@ -322,6 +451,7 @@ resource "azurerm_automation_variable_string" "mysql_user" {
   resource_group_name     = azurerm_resource_group.this.name
   automation_account_name = azurerm_automation_account.this.name
   value                   = var.mysql_admin_login
+  encrypted               = true
 }
 
 resource "azurerm_automation_variable_string" "mysql_pass" {
@@ -337,6 +467,7 @@ resource "azurerm_automation_variable_string" "storage_account_name" {
   resource_group_name     = azurerm_resource_group.this.name
   automation_account_name = azurerm_automation_account.this.name
   value                   = var.storage_account_name
+  encrypted               = true
 }
 
 resource "azurerm_automation_variable_string" "storage_sas_token" {
