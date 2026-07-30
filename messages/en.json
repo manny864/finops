@@ -3930,6 +3930,7 @@
     "subtitle": "Easily view the biggest expenses by Resource",
     "loading": "Loading...",
     "cost_axis": "Cost",
+    "empty_no_recent_sync": "No data in the last 30 days. Check that the cost sync has run for this environment.",
     "cost_group_axis": "Cost Group",
     "subscription_axis": "Subscription",
     "resource_group_axis": "Resource Group",

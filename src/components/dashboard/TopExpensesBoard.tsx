@@ -22,9 +22,18 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
     );
 }
 
-function TopBarChart({ data, color, costLabel, nameLabel }: { data: Array<{ name: string; cost: number }>; color: string; costLabel: string; nameLabel: string }) {
+function TopBarChart({ data, color, costLabel, nameLabel, emptyHint }: { data: Array<{ name: string; cost: number }>; color: string; costLabel: string; nameLabel: string; emptyHint: string }) {
     if (!data || data.length === 0) {
-        return <div className="flex items-center justify-center h-56 text-sm text-gray-400 dark:text-gray-500">—</div>;
+        // Antes acá iba un "—" pelado. Estas cuatro tarjetas salen de
+        // CostSnapshots con una ventana FIJA de 30 días (ver la ruta), así que
+        // vacío casi siempre significa "el sync no escribió nada reciente para
+        // este tenant", no "este tenant no gasta". El guion no lo decía y mandaba
+        // a debuggear la UI en vez de mirar la sincronización.
+        return (
+            <div className="flex items-center justify-center h-56 px-4 text-center text-sm text-gray-400 dark:text-gray-500">
+                {emptyHint}
+            </div>
+        );
     }
     const height = Math.max(200, data.length * 76);
     return (
@@ -105,10 +114,10 @@ export default function TopExpensesBoard() {
             {!isLoading && !error && data && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <Card title={t("top_cost_groups_title")}>
-                        <TopBarChart data={data.topCostGroups} color="#0054A6" costLabel={t("cost_axis")} nameLabel={t("cost_group_axis")} />
+                        <TopBarChart emptyHint={t("empty_no_recent_sync")} data={data.topCostGroups} color="#0054A6" costLabel={t("cost_axis")} nameLabel={t("cost_group_axis")} />
                     </Card>
                     <Card title={subsTitle}>
-                        <TopBarChart data={data.topSubscriptions} color="#F2A900" costLabel={t("cost_axis")} nameLabel={t("subscription_axis")} />
+                        <TopBarChart emptyHint={t("empty_no_recent_sync")} data={data.topSubscriptions} color="#F2A900" costLabel={t("cost_axis")} nameLabel={t("subscription_axis")} />
                         {data.unattributedSubscriptionCost > 0 && (
                             <p className="flex items-start gap-1.5 text-[11px] text-amber-600 dark:text-amber-400 mt-2">
                                 <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
@@ -117,10 +126,10 @@ export default function TopExpensesBoard() {
                         )}
                     </Card>
                     <Card title={t("top_resource_groups_title")}>
-                        <TopBarChart data={data.topResourceGroups} color="#0EA5E9" costLabel={t("cost_axis")} nameLabel={t("resource_group_axis")} />
+                        <TopBarChart emptyHint={t("empty_no_recent_sync")} data={data.topResourceGroups} color="#0EA5E9" costLabel={t("cost_axis")} nameLabel={t("resource_group_axis")} />
                     </Card>
                     <Card title={t("top_resources_title")}>
-                        <TopBarChart data={data.topResources} color="#10B981" costLabel={t("cost_axis")} nameLabel={t("resource_axis")} />
+                        <TopBarChart emptyHint={t("empty_no_recent_sync")} data={data.topResources} color="#10B981" costLabel={t("cost_axis")} nameLabel={t("resource_axis")} />
                     </Card>
                 </div>
             )}
