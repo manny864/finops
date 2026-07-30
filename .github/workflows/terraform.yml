@@ -194,6 +194,8 @@ jobs:
             -backend-config="container_name=tfstate" \
             -backend-config="use_azuread_auth=true" \
             -backend-config="use_oidc=true" \
+            -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
+            -backend-config="client_id=${{ secrets.AZURE_CLIENT_ID }}" \
             -backend-config="key=${{ github.event.inputs.environment || 'prod' }}/terraform.tfstate"
 
       - name: Terraform fmt
@@ -267,6 +269,8 @@ jobs:
             -backend-config="container_name=tfstate" \
             -backend-config="use_azuread_auth=true" \
             -backend-config="use_oidc=true" \
+            -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
+            -backend-config="client_id=${{ secrets.AZURE_CLIENT_ID }}" \
             -backend-config="key=${{ matrix.environment }}/terraform.tfstate"
       - name: Detectar drift
         run: terraform plan -var-file=terraform.tfvars -detailed-exitcode
