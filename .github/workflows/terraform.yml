@@ -20,6 +20,11 @@ on:
         # antes de llegar a Azure. Cuando exista un stamp dev aplicado, volver
         # a agregarlo aca y en la matriz de drift.
         options: [prod]
+      confirm:
+        description: 'Para APLICAR, escribir exactamente: APPLY-PROD (vacio = solo plan)'
+        required: false
+        default: ''
+        type: string
   pull_request:
     paths:
       - 'infra/terraform/**'
@@ -154,10 +159,16 @@ jobs:
     # El apply sigue atado a workflow_dispatch (ver el paso al final), asi que
     # un PR nunca escribe: planifica contra el state de prod en modo lectura.
     #
-    # OJO: el GitHub environment `prod` no tiene protection rules hoy, asi que
-    # un workflow_dispatch aplica sin aprobacion. Si se quiere el gate manual
-    # que este comentario prometia, hay que agregar un required reviewer al
-    # environment `prod` en Settings del repo.
+    # El gate manual NO puede vivir en el GitHub environment: los protection
+    # rules (required reviewers y wait timer) no estan disponibles para repos
+    # privados en el plan Free — la API responde 422 "Please ensure the billing
+    # plan supports the required reviewers protection rule". Verificado el
+    # 2026-07-30 sobre este repo.
+    #
+    # El gate equivalente vive entonces en el input `confirm`: el apply solo
+    # corre si se tipea exactamente APPLY-PROD. Un dispatch sin confirmar hace
+    # plan y se detiene, y lo dice en el log (paso "Aviso" mas abajo) para que
+    # no se confunda con un apply exitoso.
     environment: ${{ github.event.inputs.environment || 'prod' }}
     defaults:
       run:
@@ -215,9 +226,17 @@ jobs:
         env:
           INFRACOST_API_KEY: ${{ secrets.INFRACOST_API_KEY }}
 
-      # Apply sólo en ejecución manual, nunca automático desde un PR.
+      # Apply sólo en ejecución manual, nunca automático desde un PR, y sólo
+      # con la confirmación tipeada (ver el comentario del job).
+      - name: Aviso — dispatch sin confirmar, no se aplica
+        if: github.event_name == 'workflow_dispatch' && inputs.confirm != 'APPLY-PROD'
+        run: |
+          echo "::warning title=Plan sin aplicar::El plan de arriba NO se aplicó."
+          echo "Para aplicar, re-lanzar el workflow escribiendo APPLY-PROD en el campo 'confirm'."
+          echo "Recibido: '${{ inputs.confirm }}'"
+
       - name: Terraform apply
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' && inputs.confirm == 'APPLY-PROD'
         run: terraform apply -auto-approve tfplan
 
   # Detecta cambios hechos a mano en el portal. Corre los lunes a la mañana.
