@@ -13,9 +13,13 @@ on:
       environment:
         description: Ambiente a desplegar
         required: true
-        default: dev
+        default: prod
         type: choice
-        options: [dev, prod]
+        # Solo prod: environments/dev/ tiene terraform.tfvars.example pero no
+        # terraform.tfvars, asi que un plan sobre dev falla en el -var-file
+        # antes de llegar a Azure. Cuando exista un stamp dev aplicado, volver
+        # a agregarlo aca y en la matriz de drift.
+        options: [prod]
   pull_request:
     paths:
       - 'infra/terraform/**'
@@ -137,11 +141,27 @@ jobs:
   plan-apply:
     runs-on: ubuntu-latest
     needs: scan
-    # El environment de GitHub es el que exige aprobación manual para prod.
-    environment: ${{ github.event.inputs.environment || 'dev' }}
+    # En un pull_request no hay inputs, asi que cae al default: prod.
+    #
+    # Tiene que ser prod y no dev por dos razones. La primera es que es el
+    # unico ambiente que existe: no hay stamp dev aplicado ni terraform.tfvars
+    # para el. La segunda es que el nombre de este environment define el
+    # subject del token OIDC (`repo:<owner>/<repo>:environment:<nombre>`), y el
+    # service principal cscs-finops-terraform solo tiene credenciales federadas
+    # para `environment:prod`, `pull_request` y `ref:refs/heads/main`. Con 'dev'
+    # azure/login fallaba con AADSTS700213 en cada PR que tocara infra.
+    #
+    # El apply sigue atado a workflow_dispatch (ver el paso al final), asi que
+    # un PR nunca escribe: planifica contra el state de prod en modo lectura.
+    #
+    # OJO: el GitHub environment `prod` no tiene protection rules hoy, asi que
+    # un workflow_dispatch aplica sin aprobacion. Si se quiere el gate manual
+    # que este comentario prometia, hay que agregar un required reviewer al
+    # environment `prod` en Settings del repo.
+    environment: ${{ github.event.inputs.environment || 'prod' }}
     defaults:
       run:
-        working-directory: infra/terraform/environments/${{ github.event.inputs.environment || 'dev' }}
+        working-directory: infra/terraform/environments/${{ github.event.inputs.environment || 'prod' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -162,7 +182,7 @@ jobs:
             -backend-config="storage_account_name=${{ secrets.TFSTATE_STORAGE }}" \
             -backend-config="container_name=tfstate" \
             -backend-config="use_azuread_auth=true" \
-            -backend-config="key=${{ github.event.inputs.environment || 'dev' }}.tfstate"
+            -backend-config="key=${{ github.event.inputs.environment || 'prod' }}/terraform.tfstate"
 
       - name: Terraform fmt
         run: terraform fmt -check -recursive
@@ -206,7 +226,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        environment: [dev, prod]
+        # Solo prod, por el mismo motivo que en el input de arriba.
+        environment: [prod]
     defaults:
       run:
         working-directory: infra/terraform/environments/${{ matrix.environment }}
@@ -225,6 +246,6 @@ jobs:
             -backend-config="storage_account_name=${{ secrets.TFSTATE_STORAGE }}" \
             -backend-config="container_name=tfstate" \
             -backend-config="use_azuread_auth=true" \
-            -backend-config="key=${{ matrix.environment }}.tfstate"
+            -backend-config="key=${{ matrix.environment }}/terraform.tfstate"
       - name: Detectar drift
         run: terraform plan -var-file=terraform.tfvars -detailed-exitcode
