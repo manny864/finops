@@ -248,7 +248,20 @@ export const getLogAnalyticsCost = async (
         rawWorkspaces = (resARG.data as any[]) || [];
     } catch (e: unknown) {
         const message = e instanceof Error ? e.message : String(e);
-        console.warn(`[Log Analytics] No se pudo inventariar para ${tenantId}:`, message);
+        // Error COMPLETO, no sólo `message`: Resource Graph devuelve un texto genérico
+        // de soporte (timestamp + correlationId) que no identifica la causa. Ver el
+        // mismo comentario en containerAppsCostService.ts.
+        const err = e as { code?: string; statusCode?: number; details?: unknown; body?: unknown };
+        console.warn(
+            `[Log Analytics] No se pudo inventariar para ${tenantId}:`,
+            message,
+            JSON.stringify({
+                code: err?.code,
+                statusCode: err?.statusCode,
+                details: err?.details,
+                body: err?.body,
+            })
+        );
         return {
             subscriptionId,
             totalMonthlyCost: 0,

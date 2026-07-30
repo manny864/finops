@@ -432,7 +432,18 @@ export async function GET(request: NextRequest) {
           if (Number.isFinite(current)) actualCost += current;
           if (Number.isFinite(forecast)) forecastSum += forecast;
         });
-        if (actualCost === 0) actualCost = mtdActual;
+        // De dónde salió finalmente `actualCost`. SE EXPONE EN EL PAYLOAD a
+        // propósito: cuando Cost Management throttlea (429 con reintentos agotados),
+        // el KPI caía al valor de CostSnapshots —que puede tener un solo día
+        // cargado— y lo mostraba como si fuera el gasto real del mes. Así el KPI
+        // marcaba 7.62 con el portal diciendo 12.77 y nadie se enteraba.
+        // Un número incompleto presentado como completo es peor que no mostrarlo.
+        let costSource: 'azure' | 'snapshot' | 'none' = 'none';
+        if (actualCost > 0) costSource = 'snapshot';
+        if (actualCost === 0) {
+          actualCost = mtdActual;
+          if (actualCost > 0) costSource = 'snapshot';
+        }
 
         // Desglose Consumo vs Compras (cargos únicos). El acumulado (actualCost)
         // sigue siendo el TOTAL, pero exponemos ambos componentes por separado.
@@ -444,7 +455,17 @@ export async function GET(request: NextRequest) {
           purchaseCost = mtdBreakdown.purchaseCost;
           const breakdownTotal = Number((usageCost + purchaseCost).toFixed(2));
           // Fuente live autoritativa: reemplaza el total de Redis/DB/forecast.
-          if (breakdownTotal > 0) actualCost = breakdownTotal;
+          if (breakdownTotal > 0) {
+            actualCost = breakdownTotal;
+            costSource = 'azure';
+          }
+        }
+        if (costSource !== 'azure' && actualCost > 0) {
+          console.warn(
+            `[Summary] actualCost DEGRADADO para tenant=${tenantId} scope=${subscriptionId}: ` +
+            `sale de CostSnapshots (${actualCost}), no de Cost Management. ` +
+            `Probable 429 con reintentos agotados — el valor puede estar incompleto.`
+          );
         }
         // Sin split disponible (Azure caído → total vino de DB/Redis/forecast, que
         // no distinguen ChargeType): tratamos todo como consumo, compras = 0.
@@ -566,6 +587,12 @@ export async function GET(request: NextRequest) {
 
         return {
           actualCost,
+          // 'azure'   = live de Cost Management, es el gasto real.
+          // 'snapshot'= viene de CostSnapshots porque la consulta live falló
+          //             (típicamente 429): puede estar INCOMPLETO. La UI debe
+          //             avisarlo en vez de presentarlo como el gasto del mes.
+          // 'none'    = no hay dato.
+          costSource,
           usageCost,
           purchaseCost,
           projectedCost,
@@ -596,7 +623,13 @@ export async function GET(request: NextRequest) {
     );
 
     // Write-through de historial diario (best-effort, solo datos frescos no degradados).
-    if (!isMockTenant(tenantId) && data && !data.degraded && !data.azureNoAccess) {
+    //
+    // Se exige costSource === 'azure': con 'snapshot' el actualCost viene de
+    // CostSnapshots porque la consulta live falló (429), y puede estar incompleto.
+    // Persistir eso en el historial diario dejaba un número malo escrito para
+    // siempre — y el historial es justamente lo que después se compara contra el
+    // portal. Mejor un día sin fila que un día con un valor equivocado.
+    if (!isMockTenant(tenantId) && data && !data.degraded && !data.azureNoAccess && data.costSource === 'azure') {
       recordDailySnapshotAsync(tenantId, 'dashboard_summary', {
         actualCost: Number(data.actualCost || 0),
         projectedCost: Number(data.projectedCost || 0),

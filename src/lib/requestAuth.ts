@@ -3,6 +3,38 @@ import { NextRequest } from "next/server";
 import pool from "@/modules/storage/db";
 import { hasAccess } from "@/lib/tierLogic";
 
+/**
+ * Tenant well-known de Microsoft para CUENTAS PERSONALES (MSA / "consumers"):
+ * cualquier token emitido para una @outlook.com / @hotmail.com / @live.com trae
+ * este GUID en el claim `tid`.
+ *
+ * SE RECHAZA EN LA VALIDACIÓN DEL TOKEN, no en cada ruta. Una cuenta personal no
+ * puede tener suscripciones de Azure ni un Service Principal, así que toda
+ * operación de la plataforma contra ella falla por diseño — y falla tarde y con un
+ * mensaje que no dice nada: getAzureCredential cae al AZURE_CLIENT_ID de
+ * plataforma y lo autentica contra este directorio, produciendo
+ * "AADSTS700016: Application ... was not found in the directory '9188040d-…'".
+ *
+ * Peor todavía: bastaba un GET a /api/tenants para que se auto-provisionara una
+ * fila en `Tenants` con este id (ver el bloque de auto-provisión de esa ruta).
+ * En prod eso dejó un tenant basura que prewarm-dashboard barría cada 10 min
+ * gastando reintentos de Cost Management que les hacen falta a los tenants
+ * reales: 102 líneas de error en 7 minutos el 2026-07-30. La migración
+ * 20260731-002 borra esa fila; esto es lo que evita que vuelva.
+ *
+ * Cortarlo acá cubre TODOS los caminos de alta de una sola vez (había 10 puntos
+ * de INSERT INTO Tenants en 7 archivos) en vez de parchear ruta por ruta.
+ */
+export const MSA_CONSUMERS_TENANT_ID = "9188040d-6c67-4c5b-b112-36a304b66dad";
+
+/**
+ * Mensaje de rechazo. Es user-facing (lo muestra la pantalla de login), así que
+ * dice qué hacer, no qué falló internamente.
+ */
+export const PERSONAL_ACCOUNT_REJECTION =
+  "Esta plataforma requiere una cuenta de organización de Microsoft Entra ID. " +
+  "Las cuentas personales (Outlook, Hotmail, Live) no pueden acceder.";
+
 type JwtHeader = {
   alg?: string;
   kid?: string;
@@ -209,6 +241,10 @@ export async function validateRequestToken(request: NextRequest): Promise<AuthCl
 
   if (!claims.tid) {
     throw new AuthError("Token sin tenant.", 401);
+  }
+
+  if (claims.tid.toLowerCase() === MSA_CONSUMERS_TENANT_ID) {
+    throw new AuthError(PERSONAL_ACCOUNT_REJECTION, 403);
   }
 
   validateStandardClaims(claims);

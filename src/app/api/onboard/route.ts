@@ -29,24 +29,75 @@ export async function POST(request: NextRequest) {
         // y 'Essential'/'business' en minúscula. Sin esta normalización, el plan
         // 'professional' no matcheaba ningún branch y el usuario quedaba
         // provisionado silenciosamente como Essential/PENDING_PAYMENT sin trial.
-        const rawPlan = String(reqBody.plan || 'essential').toLowerCase();
+        // INTENCIÓN DE CHECKOUT vs LOGIN COMÚN.
+        //
+        // Este endpoint se llama en CADA LOGIN_SUCCESS de MSAL (ver AuthProvider.tsx),
+        // no sólo al contratar. El cliente manda `plan` desde
+        // sessionStorage['pendingUpgrade'], que se setea al elegir un plan en la
+        // pantalla de precios; en un login común viene null.
+        //
+        // El `|| 'essential'` de antes convertía ese null en un plan real, así que
+        // cualquier login creaba un tenant. Ahora null significa lo que significa:
+        // "vengo a entrar, no a contratar" — y sin fila previa no se crea nada.
+        const requestedPlan = reqBody.plan ? String(reqBody.plan).toLowerCase() : null;
+        const isCheckoutIntent = requestedPlan !== null;
+        const rawPlan = requestedPlan || 'essential';
         const plan = rawPlan === 'professional' ? 'pro' : rawPlan;
 
-        let tier = 'Essential';
-        let subStatus = 'PENDING_PAYMENT';
-        let trialInterval = 0;
+        // Un login común sobre una organización que no tiene suscripción NO crea el
+        // tenant. Los únicos caminos de alta son: checkout (este endpoint con plan
+        // explícito, que además nace en PENDING_PAYMENT hasta que Paddle confirma),
+        // pago del Marketplace de Azure (su webhook), o alta explícita de un
+        // SuperAdmin. Para un tenant que ya existe esto no cambia nada.
+        if (!isCheckoutIntent) {
+            const [existing] = await pool.query<any[]>(
+                'SELECT 1 FROM Tenants WHERE tenant_id = ? LIMIT 1',
+                [tenantId]
+            );
+            if (!existing || existing.length === 0) {
+                console.log(`[onboard] login sin suscripción para tenant ${tenantId} — no se crea tenant`);
+                return NextResponse.json(
+                    {
+                        success: false,
+                        error: 'Esta organización no tiene una suscripción activa. Contratá un plan para comenzar.',
+                        needsSubscription: true,
+                    },
+                    { status: 403 }
+                );
+            }
+        }
 
-        if (plan === 'essential') {
-            subStatus = 'TRIAL';
-            trialInterval = 7;
-        } else if (plan === 'pro') {
+        // EL TRIAL NO SE OTORGA ACÁ — SE OTORGA AL PASAR POR EL CHECKOUT.
+        //
+        // Antes este endpoint escribía subscription_status = 'TRIAL' con 7 días de
+        // trial_ends_at calculados localmente, según el `plan` que mandaba el
+        // CLIENTE en el body. O sea: cualquier usuario autenticado se auto-otorgaba
+        // un trial (y podía pedir 'business') sin pasar nunca por Paddle.
+        //
+        // Ahora la fila nace en PENDING_PAYMENT, que verifySubscription() NO
+        // considera acceso válido (sólo ACTIVE y TRIAL lo son, ver
+        // src/lib/apiSecurity.ts). Quien promueve el tenant es el webhook de Paddle
+        // en subscription.created: mapea status 'trialing' → 'TRIAL' y guarda el
+        // trial_ends_at que informa Paddle, que es la fuente autoritativa.
+        //
+        // POR QUÉ SE SIGUE CREANDO LA FILA. El webhook de Paddle sólo hace UPDATE,
+        // nunca INSERT: necesita que el tenant exista para poder promoverlo, y el
+        // checkout se abre con custom_data.tenant_id. Así que la fila tiene que
+        // existir ANTES del checkout — pero inerte. Un tenant en PENDING_PAYMENT no
+        // da acceso a nada.
+        //
+        // El `plan` del cliente se conserva sólo como intención declarada (qué
+        // eligió en la pantalla de precios, útil para el funnel y para prellenar el
+        // checkout). El tier efectivo lo resuelve el webhook desde el priceId /
+        // custom_data, no desde este parámetro.
+        const subStatus = 'PENDING_PAYMENT';
+        const trialInterval = 0;
+
+        let tier = 'Essential';
+        if (plan === 'pro') {
             tier = 'Professional';
-            subStatus = 'TRIAL';
-            trialInterval = 7;
         } else if (plan === 'business') {
             tier = 'Business';
-            subStatus = 'TRIAL';
-            trialInterval = 7;
         } else if (plan === 'enterprise') {
             tier = 'Enterprise';
         }
@@ -62,13 +113,10 @@ export async function POST(request: NextRequest) {
             await connection.beginTransaction();
 
             // Insert Tenant (Ignore if already exists to preserve custom names)
-            // Asignamos el tier si es nuevo, sino lo mantenemos
-            let trialEndsAtValue = null;
-            if (trialInterval > 0) {
-                const now = new Date();
-                now.setDate(now.getDate() + trialInterval);
-                trialEndsAtValue = now.toISOString().slice(0, 19).replace('T', ' ');
-            }
+            // trial_ends_at queda NULL a propósito: lo escribe el webhook de Paddle
+            // con la fecha que informa Paddle al confirmar el checkout. Calcularlo
+            // acá era lo que permitía auto-otorgarse un trial de 7 días.
+            const trialEndsAtValue = null;
 
             // Defaults de IA para tenants nuevos (Configuración de IA Global,
             // Super Admin) — cada tenant puede después ajustarlos en su propia

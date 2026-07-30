@@ -2,14 +2,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 /**
- * Fija la garantía del fix del 2026-07-30: las consultas de costo con scope
- * 'All' NUNCA deben pegarle al management group.
+ * Fija la garantía del 2026-07-30: las consultas de costo con scope 'All' no
+ * deben pegarle al management group.
  *
- * El agregado del MG va retrasado respecto al de suscripción y devuelve montos
- * incompletos SIN error (HTTP 200 con menos filas), así que el fallback
- * per-subscription no se activaba y los KPIs de Costo Actual / Proyectado
- * quedaban por debajo del valor real de Cost Management. Medido en prod sobre un
- * tenant de UNA sola suscripción: MG 7.62 vs suscripción 12.77 (portal 12.78).
+ * El MG llamado como el tenant NO EXISTE — en prod la llamada fallaba con
+ * BadRequest ("Management group 81ebe027-… does not exist") y recién entonces se
+ * caía al camino per-subscription. Saltearlo evita una llamada garantizada a
+ * fallar por cada consulta.
+ *
+ * ⚠ Este test NO cubre el desfase de los KPIs contra el portal. La versión
+ * original de este comentario atribuía ese desfase al MG (supuestamente un
+ * agregado retrasado que respondía 200 con menos filas); era un diagnóstico
+ * equivocado. La causa real es el 429 que agota los reintentos de la consulta MTD
+ * y hace que el KPI caiga en silencio al valor incompleto de CostSnapshots.
  *
  * Si alguien vuelve a poner el scope de MG como camino feliz, este test falla.
  */

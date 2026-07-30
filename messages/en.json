@@ -3776,6 +3776,7 @@
     "view_full_detail": "View full detail",
     "kpi_current_cost": "Current Cost",
     "kpi_current_cost_sub": "month to date",
+    "kpi_cost_partial": "partial data — Azure throttled",
     "kpi_projected_cost": "Projected Cost",
     "kpi_projected_cost_sub": "at month end",
     "kpi_zombie_resources": "Zombie Resources",

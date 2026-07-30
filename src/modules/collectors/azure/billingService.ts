@@ -2,6 +2,7 @@ import { CostManagementClient } from "@azure/arm-costmanagement";
 import { getAzureCredential } from '@/lib/azure';
 import { FocusCostEntry, mapAzureToFocus } from '@/modules/core/focusMapper';
 import { redis } from '@/lib/redis';
+import { getWithStaleWhileRevalidate } from '@/lib/cache';
 import { withCostColumn, findCostColumnIndex, resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError, type CostColumn } from '@/lib/azureCostColumn';
 
 // --- Helpers de resiliencia para Azure Cost Management (rate limiting) ---
@@ -99,28 +100,33 @@ export type CostQueryDiagnostics = {
  * suscripciones". No es un error real; sólo reusa el camino per-subscription
  * que ya vivía en los bloques catch.
  *
- * POR QUÉ. El scope de management group
- * (/providers/Microsoft.Management/managementGroups/{tenantId}) devuelve un
- * agregado que VA RETRASADO respecto al scope de suscripción. Medido en prod el
- * 2026-07-30 sobre el tenant 81ebe027, que tiene UNA sola suscripción — o sea
- * ambos scopes deberían dar idéntico:
+ * POR QUÉ. El management group llamado como el tenant NO EXISTE. Verificado en
+ * los logs de prod el 2026-07-30:
  *
- *     scope MG              -> actualCost  7.62
- *     scope /subscriptions  -> actualCost 12.77   (= 12.78 del portal)
+ *     [BillingService] MG scope failed (BadRequest), iterating subscriptions...
+ *     Management group 81ebe027-… does not exist
  *
- * Y lo grave es que la consulta al MG NO falla: devuelve 200 con menos filas.
- * Por eso el fallback per-subscription —que da el número correcto— no se
- * activaba nunca, y los KPIs de Costo Actual / Costo Proyectado quedaban
- * abajo del valor real de Cost Management sin ningún error en los logs.
- * El mismo defecto afectaba a getYesterdayCost, que es lo que el cron `sync`
- * persiste en CostSnapshots: la tabla se llenaba con montos incompletos.
+ * Cada consulta con scope 'All' gastaba entonces una llamada garantizada a fallar
+ * antes de caer al camino per-subscription. Saltearla ahorra esa llamada y el
+ * ruido de log que la acompaña. Nada más: el resultado es el mismo que ya daba el
+ * fallback, así que tampoco agrega presión de rate-limit (antes eran 1+N
+ * consultas, ahora N).
  *
- * COSTO DE ESTE FIX: N consultas (concurrencia 2) en vez de 1 por tenant. Se
- * acepta a cambio de precisión — Regla Cero. El techo es el mismo que ya tenía
- * el fallback por 429, que corría exactamente estas N consultas.
+ * ⚠ ESTO NO ARREGLA LOS KPIs. La primera versión de este comentario afirmaba que
+ * el scope de MG devolvía un agregado retrasado (HTTP 200 con menos filas) y que
+ * eso explicaba el desfase de Costo Actual / Costo Proyectado contra el portal.
+ * ERA FALSO: el MG nunca respondía 200, fallaba con BadRequest, y el fallback
+ * per-subscription ya se estaba usando. La comparación que llevó a esa conclusión
+ * equivocada fue medir 'All' contra una consulta directa a la suscripción, que no
+ * son comparables: la directa era una sola consulta sin competencia.
+ *
+ * La causa real del desfase es otra y sigue abierta: la consulta MTD de la
+ * suscripción agota sus reintentos por 429 y el KPI cae EN SILENCIO al valor
+ * incompleto de CostSnapshots (7.62 en vez de 12.77). Ver
+ * [BillingService] 429 on usage(sub …). Retry 2/2 en los logs.
  */
 class MgScopeBypass extends Error {
-    constructor() { super('MG scope bypassed: agregado retrasado, se itera por suscripción'); }
+    constructor() { super('MG scope no existe para este tenant: se itera por suscripción'); }
 }
 
 // Private implementation — all Azure API logic lives here.
@@ -361,6 +367,35 @@ async function _fetchCostData(
     }
 }
 
+// TTL del cache COMPARTIDO de la consulta MTD. 15 min, alineado con el payload de
+// /api/dashboard/summary: pasado ese punto el dato se considera viejo igual.
+const MTD_SHARED_TTL_SECONDS = 900;
+// Un resultado SIN filas casi siempre significa "Azure nos throttleó", no "este
+// tenant no gastó nada". Se cachea corto para reintentar pronto en vez de dejar
+// 15 min una respuesta vacía que apaga todas las tarjetas.
+const MTD_DEGRADED_TTL_SECONDS = 120;
+
+/**
+ * Consulta MTD con cache COMPARTIDO entre replicas.
+ *
+ * EL PROBLEMA QUE RESUELVE. Una sola carga de página dispara esta consulta desde
+ * varios lugares (summary la pide dos veces, forecast, billing), y `prewarm-dashboard`
+ * la dispara para TODOS los tenants cada 10 min. Había dos capas de dedup pero las
+ * dos viven en memoria del PROCESO (COST_CACHE de 60 s y COST_INFLIGHT), así que:
+ *
+ *   - con web_max_replicas = 5, cinco replicas podían lanzar la misma consulta ancha
+ *     a la vez, y el autoscaling agrega replicas justo cuando hay más carga;
+ *   - los 60 s de TTL no cubren el ciclo de 10 min del prewarm, así que cada corrida
+ *     volvía a pegarle a Azure.
+ *
+ * Resultado: 429 de Cost Management, los reintentos se agotan y `actualCost` cae al
+ * valor incompleto de CostSnapshots. Eso es lo que hacía que el KPI mostrara 7.62
+ * cuando el portal decía 12.77.
+ *
+ * Ahora el resultado vive en Redis, compartido por todas las replicas y por el
+ * prewarm. Las dos capas en memoria se conservan: siguen sirviendo para ráfagas
+ * dentro de la misma replica y para cuando Redis no está.
+ */
 export async function getCurrentMonthAmortizedCostsWithDiagnostics(
     tenantId: string,
     subscriptionId: string,
@@ -382,8 +417,15 @@ export async function getCurrentMonthAmortizedCostsWithDiagnostics(
         return inflight;
     }
 
-    const promise = _fetchCostData(tenantId, subscriptionId, metricType, cacheKey)
-        .finally(() => COST_INFLIGHT.delete(cacheKey));
+    const promise = getWithStaleWhileRevalidate(
+        `cost:mtd:shared:v1:${tenantId}:${subscriptionId.toLowerCase()}:${metricType}`,
+        () => _fetchCostData(tenantId, subscriptionId, metricType, cacheKey),
+        MTD_SHARED_TTL_SECONDS,
+        undefined,
+        // Sin filas ⇒ TTL corto (ver MTD_DEGRADED_TTL_SECONDS).
+        (result) => (result?.data?.length ? MTD_SHARED_TTL_SECONDS : MTD_DEGRADED_TTL_SECONDS)
+    ).finally(() => COST_INFLIGHT.delete(cacheKey));
+
     COST_INFLIGHT.set(cacheKey, promise);
     return promise;
 }

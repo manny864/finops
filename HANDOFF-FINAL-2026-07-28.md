@@ -170,47 +170,65 @@ es la razón de fondo de que la tabla esté rala y las tarjetas salgan vacías.
 Próximo paso sugerido: espaciar el barrido de tenants del sync (hoy corre con
 concurrencia 2) o repartirlo en ventanas, en vez de subir reintentos.
 
-#### ⚠️ Y los KPIs SEGUÍAN mal después de todo eso — causa real (2026-07-30)
+#### ⚠️ Los KPIs SIGUEN mal — y dos diagnósticos míos fueron equivocados (2026-07-30)
 
-El fix del 429 y el del TTL eran correctos pero **no eran la causa** del desfase
-de Costo Actual / Costo Proyectado. Medido con la sesión real de prod contra
-`/api/dashboard/summary` del tenant `81ebe027`, que tiene **una sola**
-suscripción — o sea los dos scopes tienen que dar idéntico:
+**Estado: ABIERTO.** Costo Actual muestra **7.62** cuando Cost Management dice
+**12.77** para el tenant `81ebe027`. Antes de tocar nada, leer las dos hipótesis
+descartadas de abajo para no repetirlas.
 
-| scope | `actualCost` |
-|---|---|
-| `All` → `/providers/Microsoft.Management/managementGroups/81ebe027…` | **7.62** |
-| `/subscriptions/ec03e8ce…` | **12.77** (portal: 12.78 ✅) |
+**Causa real, verificada en los logs de prod:**
 
-**El agregado de Cost Management a nivel management group va retrasado respecto
-al de suscripción, y la consulta NO falla: responde 200 con menos filas.** Por eso
-el fallback per-subscription —que da el número correcto— no se activaba nunca, y
-no había ni un error en los logs que lo delatara.
+```
+[BillingService] 429 on usage(sub ec03e8ce-…). Retry 1/2 in 1850
+[BillingService] 429 on usage(sub ec03e8ce-…). Retry 2/2 in 3362
+```
 
-Afectaba a tres funciones de `billingService.ts`, todas con el mismo patrón "MG
-primero, per-subscription sólo si el MG falla":
+En el camino `All`, la consulta MTD de la suscripción **agota sus 2 reintentos por
+429**, no devuelve filas, `fetchMTDBreakdown` devuelve `null`, y `actualCost` cae
+**en silencio** al valor incompleto de `CostSnapshots`. Eso es el 7.62.
 
-- `_fetchCostData` → `actualCost` / `usageCost` de los KPIs.
-- `getCostForecast` → `projectedCost`.
-- `getYesterdaysCost` → **lo que el cron `sync` persiste en `CostSnapshots`**, así
-  que la tabla venía guardando montos incompletos. Esto también explica por qué el
-  histórico no cerraba con el portal.
+Por qué hay tanto 429: cada carga de página dispara consultas independientes a
+Cost Management desde `summary`, `forecast`, `cost-projection`, `whiteboard`, `HA`,
+Container Apps y Log Analytics, más `prewarm-dashboard` cada 10 min. Los límites de
+Cost Management son por scope y son bajos.
 
-**Resuelto** (commits `ecb3d04` + test `f32e698`): se itera siempre por
-suscripción; un `subscriptionId` explícito no cambia de comportamiento. El test
-`__tests__/unit/billingServiceScope.test.ts` falla si alguien vuelve a poner el MG
-como camino feliz. Costo: N consultas en vez de 1 por tenant — el mismo techo que
-ya tenía el fallback por 429.
+Dirección propuesta (sin implementar): **una** consulta MTD por (tenant, scope,
+ventana) compartida por todas las tarjetas detrás de un lock en Redis, y que la
+degradación deje de ser silenciosa — si el número sale de `CostSnapshots` en vez de
+Cost Management, el payload debe decirlo y la UI marcarlo. Hoy un dato incompleto
+se muestra como si fuera el real, que es lo peor de los dos mundos.
 
-**Hipótesis descartada.** Antes de esto se sospechó del fallback silencioso de
-`getAzureCredential` (usa `AZURE_CLIENT_ID` de plataforma cuando el tenant no
-tiene credenciales en Key Vault, lo que produce `AADSTS700016` — ver §"SP y
-federated credentials"). **No era la causa de los KPIs**: el mismo payload de
-`summary` trae recursos de la suscripción vía Resource Graph, o sea las
-credenciales del tenant funcionan. El `AADSTS700016` de los logs es de OTRO tenant
-(aparece uno cuyo `tenant_id` es `9188040d-6c67-4c5b-b112-36a304b66dad`, el
-directorio de cuentas personales de Microsoft) y sigue pendiente por separado: es
-un tenant basura que `prewarm-dashboard` recorre cada 10 min gastando reintentos.
+##### ❌ Hipótesis descartada 1: el scope de management group
+
+Se afirmó —en los commits `ecb3d04`/`e24bcf7` y en una versión anterior de esta
+sección— que el MG devolvía un agregado retrasado (HTTP 200 con menos filas) y que
+por eso el fallback per-subscription no se activaba. **Falso.** Los logs muestran:
+
+```
+[BillingService] MG scope failed (BadRequest), iterating subscriptions...
+Management group 81ebe027-… does not exist
+```
+
+El MG **no existe**, nunca respondió 200, y el fallback per-subscription ya se
+estaba usando. El error de método fue comparar `All` contra una consulta directa a
+la suscripción: la directa era una sola consulta sin competencia, así que no
+tenía 429 — no eran comparables.
+
+El cambio desplegado (`ecb3d04`, saltear el MG) **es inocuo pero no es el fix**:
+ahorra una llamada que igual fallaba siempre. No revertirlo, pero no confundirlo
+con una solución.
+
+##### ❌ Hipótesis descartada 2: el fallback de `getAzureCredential`
+
+También se sospechó del fallback silencioso a `AZURE_CLIENT_ID` de plataforma
+cuando el tenant no tiene credenciales en Key Vault (produce `AADSTS700016`).
+**No era la causa de los KPIs**: el mismo payload de `summary` trae recursos de la
+suscripción vía Resource Graph, o sea las credenciales del tenant funcionan.
+
+Ese `AADSTS700016` era de **otro** tenant: uno cuyo `tenant_id` era
+`9188040d-6c67-4c5b-b112-36a304b66dad`, el directorio de cuentas personales de
+Microsoft. **Ya resuelto**: la migración `20260731-002` borra la fila y
+`MSA_CONSUMERS_TENANT_ID` en `requestAuth.ts` impide que vuelva.
 
 #### El bucle de 429 (era la causa de casi todo)
 

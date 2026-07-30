@@ -143,7 +143,22 @@ export const getContainerAppsCost = async (
         rawApps = (resARG.data as any[]) || [];
     } catch (e: unknown) {
         const message = e instanceof Error ? e.message : String(e);
-        console.warn(`[Container Apps] No se pudo inventariar para ${tenantId}:`, message);
+        // Se loguea el error COMPLETO, no sólo `message`. Resource Graph contesta con
+        // un mensaje genérico ("Please provide below info when asking for support:
+        // timestamp = …, correlationId = …") que no dice nada de la causa: el detalle
+        // real viene en e.code y en el body de la respuesta. Con sólo el message,
+        // esta tarjeta llevaba días fallando en prod sin que se pudiera diagnosticar.
+        const err = e as { code?: string; statusCode?: number; details?: unknown; body?: unknown };
+        console.warn(
+            `[Container Apps] No se pudo inventariar para ${tenantId}:`,
+            message,
+            JSON.stringify({
+                code: err?.code,
+                statusCode: err?.statusCode,
+                details: err?.details,
+                body: err?.body,
+            })
+        );
         return {
             subscriptionId,
             totalMonthlyCost: 0,

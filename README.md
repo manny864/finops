@@ -849,6 +849,19 @@ ajusta por env, sin redeploy de infra:
 | `CRON_SYNC_TENANT_PACE_MS` | `45000` | Pausa entre tenants |
 | `CRON_SYNC_GAP_PACE_MS` | `10000` | Pausa antes de cada día de backfill |
 | `CRON_SYNC_PACE_BUDGET_MS` | `2400000` | Pasado este punto deja de pausar, para terminar el barrido dentro del timeout de 3600 s |
+| `CRON_SYNC_TENANT_TIMEOUT_MS` | `360000` | Techo de tiempo por tenant (`0` lo desactiva) |
+
+**Techo por tenant** (desde 2026-07-30). Cada tenant corre con un deadline propio:
+uno colgado se abandona y el barrido sigue. Hacía falta porque el sync **nunca
+llegaba al final** — en 30 h de logs de prod no existía ni una línea de cierre, y la
+corrida del 30/07 murió 20 s después de arrancar (no fue el timeout del job, son
+3600 s) esperando una llamada a Azure sin timeout propio, dejando `CostSnapshots`
+con un solo día cargado. Ahora el barrido loguea una línea de cierre con
+`ok=N/total` y `colgados=N`: su ausencia es la señal de que se cortó.
+
+Limitación conocida: el deadline corta la **espera**, no la llamada — la request
+colgada sigue viva en background hasta que el runtime la libere. Cancelarla de
+verdad requiere propagar un `AbortSignal` a los SDK de Azure, que hoy no lo reciben.
 
 **Auth interna**: `prewarm-dashboard` propaga `X-Cron-Auth` a las llamadas internas
 (`summary` → `audit/full` / `intelligence/forecast`) gracias al bypass en
