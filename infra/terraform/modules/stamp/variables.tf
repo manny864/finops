@@ -211,6 +211,14 @@ variable "cron_jobs" {
     cron            = string
     timeout_seconds = optional(number, 600)
     auth_mode       = optional(string, "header")
+    # Mismo motivo que en environments/prod/variables.tf: el tipo tiene que
+    # espejar EXACTO el de var.jobs en modules/cronjobs en TODAS las capas de
+    # passthrough (prod → stamp → cronjobs), o Terraform descarta en silencio
+    # los campos no declarados en cada límite de module call. Esta era la
+    # SEGUNDA capa con el mismo bug — el fix en environments/prod no alcanzaba
+    # porque acá, un nivel más adentro, se volvía a truncar.
+    name       = optional(string)
+    async_poll = optional(bool, false)
   }))
   default = {}
 }

@@ -95,6 +95,16 @@ variable "cron_jobs" {
     cron            = string
     timeout_seconds = optional(number, 600)
     auth_mode       = optional(string, "header")
+    # `name` y `async_poll` faltaban acá — el tipo de este variable (nivel
+    # entorno) tiene que espejar EXACTO el de var.jobs en modules/cronjobs, o
+    # Terraform descarta en silencio cualquier campo no declarado al pasar el
+    # valor al módulo (coerción de tipo en el límite del module call). Pasó de
+    # verdad: cron_jobs.sync.async_poll=true en terraform.tfvars nunca llegó
+    # al módulo, así que el job siguió con el runner viejo (fetch-and-wait)
+    # después de un apply que Terraform reportó exitoso — confirmado con
+    # `terraform console` mostrando var.cron_jobs["sync"] SIN el campo.
+    name       = optional(string)
+    async_poll = optional(bool, false)
   }))
 }
 
