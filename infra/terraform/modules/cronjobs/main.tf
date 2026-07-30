@@ -114,11 +114,30 @@ locals {
     const started = Date.now();
     (async () => {
       try {
-        await fetch(withQs(''), { headers, ...shortTimeout });
+        // Un fallo/timeout ACÁ (ej. cold start del contenedor tardando más de
+        // 30s en responder) NO significa que el servidor no haya recibido el
+        // request — el endpoint dispara el trabajo en background ANTES de
+        // responder, así que puede seguir corriendo del lado del servidor
+        // aunque este fetch nunca vea la respuesta. Abortar acá (como hacía
+        // antes) marcaba el job Failed en Azure con el barrido completando
+        // bien igual — confirmado en prod el 2026-07-30. Se avisa y se sigue
+        // al polling, que es lo único que puede confirmar el estado real.
+        await fetch(withQs(''), { headers, ...shortTimeout }).catch((e) => {
+          console.warn(JSON.stringify({ job: process.env.CRON_JOB, warn: 'trigger sin respuesta, se sigue con polling', error: String(e) }));
+        });
         while (Date.now() - started < overallTimeoutMs) {
           await new Promise((r) => setTimeout(r, pollIntervalMs));
-          const r = await fetch(withQs('status=1'), { headers, ...shortTimeout });
-          const status = await r.json().catch(() => ({}));
+          let status;
+          try {
+            const r = await fetch(withQs('status=1'), { headers, ...shortTimeout });
+            status = await r.json();
+          } catch (e) {
+            // Un poll individual que falla (blip de red) no debe tirar todo el
+            // barrido: se reintenta en el próximo intervalo mientras quede
+            // presupuesto de overallTimeoutMs.
+            console.warn(JSON.stringify({ job: process.env.CRON_JOB, warn: 'poll falló, reintenta', error: String(e) }));
+            continue;
+          }
           if (status.done) {
             console.log(JSON.stringify({ job: process.env.CRON_JOB, status: status.ok ? 200 : 500, ms: Date.now() - started, body: JSON.stringify(status).slice(0, 500) }));
             process.exit(status.ok ? 0 : 1);
