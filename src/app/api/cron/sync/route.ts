@@ -3,13 +3,113 @@ import pool, { insertCostSnapshot, insertCostSnapshotRow, insertCostMeterSnapsho
 import { getYesterdaysCost, getYesterdaysDetailedCosts } from "@/modules/collectors/azure/billingService";
 import { getYesterdaysAIUsage } from "@/modules/collectors/azure/aiUsageCollector";
 import { getTenantCredentials } from "@/lib/secrets/tenantCredentials";
+import { redis } from "@/lib/redis";
+
+/**
+ * DISPARAR Y CONSULTAR, NO ESPERAR (2026-07-30).
+ *
+ * El job de Container Apps que invoca este endpoint hace un fetch() y espera la
+ * respuesta completa. El ingress de Azure Container Apps mata esa conexión a los
+ * ~240s con 504 "stream timeout" — techo de plataforma, no configurable (se
+ * verificó: no hay `requestTimeout` en `properties.configuration.ingress`). Con
+ * 2+ tenants a ~140s cada uno el barrido SIEMPRE supera esos 240s, así que el job
+ * quedaba marcado `Failed` en Azure —y la alerta correspondiente disparaba todos
+ * los días— aunque el sync completara bien del lado del servidor (confirmado:
+ * "barrido terminado ok=2/2, colgados=0" en el log, job igual Failed).
+ *
+ * Migrar el sync a un proceso propio del job (como hace `migrate`) NO es opción:
+ * es una decisión ya tomada y documentada en el módulo de Terraform
+ * (infra/terraform/modules/cronjobs/main.tf) — la lógica se queda DENTRO de la
+ * app para reusar el pool de MySQL, los servicios y los guards de auth, en vez de
+ * duplicarla en un script aparte.
+ *
+ * Así que el contrato HTTP cambia: `?status=1` sólo LEE el último estado desde
+ * Redis (nunca dispara nada); sin ese parámetro DISPARA el barrido en background
+ * y responde de inmediato — el proceso de la app sigue vivo después de responder
+ * (no es una función serverless que se congela), así que el trabajo continúa. El
+ * job pasa a hacer polling corto (cada request < 240s) hasta ver `done: true`.
+ *
+ * El lock en Redis de paso resuelve otra cosa que pasó en producción el mismo
+ * día: dos disparos manuales del sync a 24 minutos de distancia, duplicando la
+ * carga sobre Cost Management. Con el lock, el segundo disparo mientras el
+ * primero sigue corriendo devuelve el estado actual en vez de arrancar de nuevo.
+ */
+const SYNC_STATUS_KEY = "cron:sync:status:v1";
+const SYNC_LOCK_KEY = "cron:sync:lock:v1";
+// Un poco por debajo del timeout del job (3600s): si una corrida se cuelga de
+// verdad más allá de esto, el lock expira solo y el próximo tick puede
+// reintentar — mismo espíritu que "sin retry automático, el próximo tick
+// reintenta solo" del comentario en el módulo de Terraform.
+const SYNC_LOCK_TTL_SECONDS = Number(process.env.CRON_SYNC_LOCK_TTL_SECONDS || 3300);
+
+type SyncStatus = {
+    startedAt: number;
+    finishedAt: number | null;
+    done: boolean;
+    ok: boolean | null;
+    processed?: number;
+    tenantsTotal?: number;
+    timedOutTenants?: number;
+    detailedRows?: number;
+    backfilledDays?: number;
+    error?: string;
+};
+
+async function writeSyncStatus(status: SyncStatus): Promise<void> {
+    // TTL generoso (24h): alcanza para que el próximo poll o una revisión manual
+    // vea el resultado de la corrida anterior aunque no haya arrancado la de hoy.
+    await redis.set(SYNC_STATUS_KEY, JSON.stringify(status), "EX", 86400);
+}
+
+async function readSyncStatus(): Promise<SyncStatus | null> {
+    const raw = await redis.get(SYNC_STATUS_KEY);
+    return raw ? JSON.parse(raw) : null;
+}
 
 export async function GET(request: NextRequest) {
-    return runSync(request);
+    return handleRequest(request);
 }
 
 export async function POST(request: NextRequest) {
-    return runSync(request);
+    return handleRequest(request);
+}
+
+async function handleRequest(request: NextRequest): Promise<NextResponse> {
+    // Mismo chequeo que antes, sin tocar: sólo header Bearer, fail-closed.
+    const cronSecret = process.env.CRON_SECRET;
+    if (!cronSecret || cronSecret.length < 16) {
+        console.error('CRON_SECRET not configured or too short');
+        return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
+    }
+    const authHeader = request.headers.get("authorization");
+    if (authHeader !== `Bearer ${cronSecret}`) {
+        return NextResponse.json({ error: "No autorizado." }, { status: 401 });
+    }
+
+    if (request.nextUrl.searchParams.get("status") === "1") {
+        const status = await readSyncStatus();
+        return NextResponse.json(status || { done: null });
+    }
+
+    const acquired = await redis.set(SYNC_LOCK_KEY, "1", "EX", SYNC_LOCK_TTL_SECONDS, "NX");
+    if (!acquired) {
+        const status = await readSyncStatus();
+        return NextResponse.json({ alreadyRunning: true, status: status || { done: false } });
+    }
+
+    const startedAt = Date.now();
+    await writeSyncStatus({ startedAt, finishedAt: null, done: false, ok: null });
+
+    // Fire-and-forget deliberado: NO se espera acá (ver comentario grande arriba).
+    runSyncCore()
+        .then((result) => writeSyncStatus({ startedAt, finishedAt: Date.now(), done: true, ok: true, ...result }))
+        .catch((e: any) => {
+            console.error("Cron sync fatal failure:", e);
+            return writeSyncStatus({ startedAt, finishedAt: Date.now(), done: true, ok: false, error: e?.message || String(e) });
+        })
+        .finally(() => redis.del(SYNC_LOCK_KEY));
+
+    return NextResponse.json({ status: "started", startedAt });
 }
 
 function toDateStr(d: Date): string {
@@ -246,102 +346,92 @@ async function syncTenant(
     return { detailRows, backfilledDays };
 }
 
-async function runSync(request: NextRequest) {
-    try {
-        // 1. Security Check — fail-closed if secret is not configured
-        const cronSecret = process.env.CRON_SECRET;
-        if (!cronSecret || cronSecret.length < 16) {
-            console.error('CRON_SECRET not configured or too short');
-            return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
+/**
+ * El barrido en sí — sin auth (ya la resolvió `handleRequest`) y sin envolver en
+ * NextResponse: quien la llama decide qué hacer con el resultado o el error
+ * (hoy, escribirlo en el status de Redis). Antes esto vivía inline en el handler
+ * HTTP y esperaba a que terminara para recién ahí responder; ver el comentario
+ * grande al principio del archivo sobre por qué eso dejó de ser viable.
+ */
+async function runSyncCore() {
+    // 1. Define YYYY-MM-DD for yesterday
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = toDateStr(yesterday);
+
+    // 2. Fetch all active tenants (only IDs — credentials come from KV per-tenant)
+    //    El filtro por `provider_archived` es residuo del modelo multi-cloud
+    //    retirado el 2026-07-29: la columna sigue en el esquema y hoy es
+    //    siempre NULL, asi que el predicado no excluye a nadie. Se conserva
+    //    porque es inofensivo y hace explicito que un tenant con la ingesta
+    //    de Azure cortada no debe sincronizarse.
+    const [tenants] = await pool.query<any[]>(
+        `SELECT tenant_id as id FROM Tenants
+          WHERE status = "active"
+            AND (provider_archived IS NULL OR provider_archived <> 'azure')`
+    );
+
+    let tenantCount = 0;
+    let detailRowsTotal = 0;
+    let backfilledDaysTotal = 0;
+
+    // 3. Barrido secuencial y ESPACIADO (ver TENANT_PACE_MS), con el orden
+    //    rotado un puesto por día para que ir último no le toque siempre al
+    //    mismo tenant.
+    const sweepStartedAt = Date.now();
+    const withinPaceBudget = () => Date.now() - sweepStartedAt < PACE_BUDGET_MS;
+    // Pausa que respeta el presupuesto del barrido: pasado PACE_BUDGET_MS deja de
+    // pausar, porque terminar importa más que espaciar.
+    const pace = async (ms: number) => {
+        if (ms > 0 && withinPaceBudget()) await sleep(ms);
+    };
+    const sweep = rotateDaily(tenants, yesterday);
+    console.log(`[cron-sync] barrido de ${sweep.length} tenants, pausa ${TENANT_PACE_MS}ms entre cada uno`);
+
+    let timedOutTenants = 0;
+
+    for (const [index, tenant] of sweep.entries()) {
+        if (index > 0 && TENANT_PACE_MS > 0 && withinPaceBudget()) {
+            await sleep(TENANT_PACE_MS);
         }
-        const authHeader = request.headers.get("authorization");
-        if (authHeader !== `Bearer ${cronSecret}`) {
-            return NextResponse.json({ error: "No autorizado." }, { status: 401 });
-        }
-
-        // 2. Define YYYY-MM-DD for yesterday
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = toDateStr(yesterday);
-
-        // 3. Fetch all active tenants (only IDs — credentials come from KV per-tenant)
-        //    El filtro por `provider_archived` es residuo del modelo multi-cloud
-        //    retirado el 2026-07-29: la columna sigue en el esquema y hoy es
-        //    siempre NULL, asi que el predicado no excluye a nadie. Se conserva
-        //    porque es inofensivo y hace explicito que un tenant con la ingesta
-        //    de Azure cortada no debe sincronizarse.
-        const [tenants] = await pool.query<any[]>(
-            `SELECT tenant_id as id FROM Tenants
-              WHERE status = "active"
-                AND (provider_archived IS NULL OR provider_archived <> 'azure')`
-        );
-
-        let tenantCount = 0;
-        let detailRowsTotal = 0;
-        let backfilledDaysTotal = 0;
-
-        // 4. Barrido secuencial y ESPACIADO (ver TENANT_PACE_MS), con el orden
-        //    rotado un puesto por día para que ir último no le toque siempre al
-        //    mismo tenant.
-        const sweepStartedAt = Date.now();
-        const withinPaceBudget = () => Date.now() - sweepStartedAt < PACE_BUDGET_MS;
-        // Pausa que respeta el presupuesto del barrido: pasado PACE_BUDGET_MS deja de
-        // pausar, porque terminar importa más que espaciar.
-        const pace = async (ms: number) => {
-            if (ms > 0 && withinPaceBudget()) await sleep(ms);
-        };
-        const sweep = rotateDaily(tenants, yesterday);
-        console.log(`[cron-sync] barrido de ${sweep.length} tenants, pausa ${TENANT_PACE_MS}ms entre cada uno`);
-
-        let timedOutTenants = 0;
-
-        for (const [index, tenant] of sweep.entries()) {
-            if (index > 0 && TENANT_PACE_MS > 0 && withinPaceBudget()) {
-                await sleep(TENANT_PACE_MS);
+        const tenantStartedAt = Date.now();
+        try {
+            // Techo de tiempo por tenant: uno colgado no puede dejar sin datos a
+            // los que vienen detrás. Ver TENANT_TIMEOUT_MS.
+            const result = await withDeadline(
+                syncTenant(tenant.id, yesterdayStr, pace),
+                TENANT_TIMEOUT_MS,
+                `[cron-sync] tenant ${tenant.id}`
+            );
+            detailRowsTotal += result.detailRows;
+            backfilledDaysTotal += result.backfilledDays;
+            await updateTenantHealth(tenant.id, 'OK');
+            tenantCount++;
+            console.log(`[cron-sync] tenant=${tenant.id} listo en ${Date.now() - tenantStartedAt}ms (${index + 1}/${sweep.length})`);
+        } catch (err: any) {
+            if (err instanceof TenantSyncTimeout) {
+                timedOutTenants++;
+                console.error(`[cron-sync] tenant=${tenant.id} COLGADO tras ${Date.now() - tenantStartedAt}ms — se abandona y se sigue con el resto`);
+            } else {
+                console.error(`Cron sync error for tenant ${tenant.id}:`, err.message);
             }
-            const tenantStartedAt = Date.now();
-            try {
-                // Techo de tiempo por tenant: uno colgado no puede dejar sin datos a
-                // los que vienen detrás. Ver TENANT_TIMEOUT_MS.
-                const result = await withDeadline(
-                    syncTenant(tenant.id, yesterdayStr, pace),
-                    TENANT_TIMEOUT_MS,
-                    `[cron-sync] tenant ${tenant.id}`
-                );
-                detailRowsTotal += result.detailRows;
-                backfilledDaysTotal += result.backfilledDays;
-                await updateTenantHealth(tenant.id, 'OK');
-                tenantCount++;
-                console.log(`[cron-sync] tenant=${tenant.id} listo en ${Date.now() - tenantStartedAt}ms (${index + 1}/${sweep.length})`);
-            } catch (err: any) {
-                if (err instanceof TenantSyncTimeout) {
-                    timedOutTenants++;
-                    console.error(`[cron-sync] tenant=${tenant.id} COLGADO tras ${Date.now() - tenantStartedAt}ms — se abandona y se sigue con el resto`);
-                } else {
-                    console.error(`Cron sync error for tenant ${tenant.id}:`, err.message);
-                }
-                await updateTenantHealth(tenant.id, 'ERROR', err.message);
-            }
+            await updateTenantHealth(tenant.id, 'ERROR', err.message);
         }
-
-        // Línea de cierre explícita: su AUSENCIA en los logs es lo que delata un
-        // barrido cortado. Antes no existía y por eso el corte pasó desapercibido.
-        console.log(
-            `[cron-sync] barrido terminado en ${Date.now() - sweepStartedAt}ms — ` +
-            `tenants ok=${tenantCount}/${sweep.length}, colgados=${timedOutTenants}, ` +
-            `filas=${detailRowsTotal}, días rellenados=${backfilledDaysTotal}`
-        );
-
-        return NextResponse.json({
-            status: 'Sync completed',
-            timedOutTenants,
-            processed: tenantCount,
-            detailedRows: detailRowsTotal,
-            backfilledDays: backfilledDaysTotal
-        });
-
-    } catch (e: any) {
-        console.error("Cron sync fatal failure:", e);
-        return NextResponse.json({ error: "Internal Server Error", details: e.message }, { status: 500 });
     }
+
+    // Línea de cierre explícita: su AUSENCIA en los logs es lo que delata un
+    // barrido cortado. Antes no existía y por eso el corte pasó desapercibido.
+    console.log(
+        `[cron-sync] barrido terminado en ${Date.now() - sweepStartedAt}ms — ` +
+        `tenants ok=${tenantCount}/${sweep.length}, colgados=${timedOutTenants}, ` +
+        `filas=${detailRowsTotal}, días rellenados=${backfilledDaysTotal}`
+    );
+
+    return {
+        processed: tenantCount,
+        tenantsTotal: sweep.length,
+        timedOutTenants,
+        detailedRows: detailRowsTotal,
+        backfilledDays: backfilledDaysTotal,
+    };
 }
