@@ -193,6 +193,7 @@ jobs:
             -backend-config="storage_account_name=${{ secrets.TFSTATE_STORAGE }}" \
             -backend-config="container_name=tfstate" \
             -backend-config="use_azuread_auth=true" \
+            -backend-config="use_oidc=true" \
             -backend-config="key=${{ github.event.inputs.environment || 'prod' }}/terraform.tfstate"
 
       - name: Terraform fmt
@@ -265,6 +266,7 @@ jobs:
             -backend-config="storage_account_name=${{ secrets.TFSTATE_STORAGE }}" \
             -backend-config="container_name=tfstate" \
             -backend-config="use_azuread_auth=true" \
+            -backend-config="use_oidc=true" \
             -backend-config="key=${{ matrix.environment }}/terraform.tfstate"
       - name: Detectar drift
         run: terraform plan -var-file=terraform.tfvars -detailed-exitcode
