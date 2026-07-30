@@ -4,7 +4,6 @@ import Link from "next/link";
 import useSWR from "swr";
 import { useLocale, useTranslations } from "next-intl";
 import { useTenant } from "@/components/TenantProvider";
-import { useSubscription } from "@/components/SubscriptionProvider";
 import { useMsal } from "@azure/msal-react";
 import {
     LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
@@ -127,7 +126,6 @@ export default function ExecutiveSummaryBoard() {
     const t = useTranslations("WhiteBoard");
     const locale = useLocale();
     const { selectedTenant } = useTenant();
-    const { selectedSubscription } = useSubscription();
     const { instance, accounts } = useMsal();
     const { format } = useCurrency();
 
@@ -152,7 +150,18 @@ export default function ExecutiveSummaryBoard() {
     // KPIs (mismos 4 que el Dashboard General: costo actual, recursos
     // zombies, ahorro potencial e impacto ambiental) — se reusa
     // /api/dashboard/summary en vez de duplicar su lógica de auditoría.
-    const summarySub = selectedSubscription && selectedSubscription.toLowerCase() !== "all" ? selectedSubscription : "All";
+    // El White Board es un resumen EJECUTIVO del tenant completo: las ~13
+    // tarjetas de abajo se alimentan de /api/intelligence/whiteboard, que no
+    // acepta subscriptionId y siempre agrega todo el tenant (getCostFigures y
+    // compañía no filtran por suscripción).
+    //
+    // Antes esta fila pasaba `selectedSubscription`, así que con una suscripción
+    // puntual elegida la mitad de arriba del board mostraba UNA suscripción y la
+    // mitad de abajo el tenant entero — dos respuestas a preguntas distintas, sin
+    // nada en pantalla que lo dijera. Se fuerza el alcance del tenant para que
+    // todo el board hable del mismo universo; el drill-down por suscripción vive
+    // en las páginas dedicadas (/intelligence/billing, cost-projection, etc.).
+    const summarySub = "All";
     const { data: summaryData, isLoading: summaryLoading } = useSWR(
         canFetch ? `/api/dashboard/summary?tenantId=${selectedTenant!.id}&subscriptionId=${summarySub}` : null,
         fetcher,
