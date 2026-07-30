@@ -2,6 +2,13 @@
 
 La Plataforma FinOps de CSCloudSolutions es una solución SaaS B2B automatizada construida sobre Next.js App Router (React) orientada a la gobernanza cloud, auditoría (Omni-Scan), y optimización financiera para entornos empresariales en Microsoft Azure.
 
+La plataforma es **Azure-only**, de punta a punta: la nube que audita es Azure, y la
+infraestructura sobre la que corre también (Azure Container Apps, gestionada con
+Terraform — ver [Infraestructura y despliegue](#-infraestructura-y-despliegue)).
+
+- **Producción:** `https://finops.cscloudsolutions.com.ar` (detrás de Cloudflare, TLS Full strict)
+- **Región principal:** West US 2
+
 ---
 
 ## 🏗️ Architecture
@@ -42,17 +49,24 @@ graph TD
         ComputeService[Compute / Remediation Service]
     end
     
-    MySQL[(MySQL Database\n- Tenants\n- Action Logs\n- Savings)]
+    %% Plataforma (infra propia, Terraform)
+    subgraph Platform [Azure Container Apps — stamp West US 2]
+        Jobs[Container Apps Jobs\n14 crons + migrate]
+        MySQL[(MySQL Flexible Server\n- Tenants\n- Action Logs\n- Savings)]
+        Redis[(Managed Redis\ncache SWR)]
+        KV[Key Vault\nsecretos infra + credenciales por tenant]
+        Blob[Blob Storage\nadjuntos / logos / backups]
+    end
     
-    %% Azure Cloud
-    subgraph Azure_Cloud [Microsoft Azure Cloud]
+    %% Azure Cloud del cliente
+    subgraph Azure_Cloud [Suscripciones Azure del cliente]
         ARG[Azure Resource Graph]
         ACM[Azure Cost Management]
         ARM[Azure Resource Manager]
     end
     
     %% Relaciones
-    User -->|Access| i18n
+    User -->|Cloudflare WAF/TLS| i18n
     i18n --> UI
     UI -->|MSAL Token| Entra
     Entra -->|JWT| UI
@@ -72,6 +86,10 @@ graph TD
     
     API_Auth --> MySQL
     API_Power --> MySQL
+    API_Intel --> Redis
+    API_Auth --> KV
+    Jobs -->|HTTP + CRON_SECRET| API_Auth
+    UI --> Blob
 ```
 
 ---
@@ -82,41 +100,66 @@ graph TD
 src/
 ├── app/
 │   ├── [locale]/                 # Rutas de UI Internacionalizadas (App Router)
-│       ├── admin/                # Configuración, Onboarding, Workbooks
-│       ├── advisor/              # Integración de Azure Advisor
-│       ├── cleanup/              # TTL Enforcement & Zombies
-│       ├── governance/           # Power Schedules (VMs) y Gestión de Etiquetas
-│       ├── intelligence/         # Facturación (Billing), Redes, Rightsizing, Licencias, Upload
-│       ├── overview/             # Maturity Scoring, Progreso Histórico
-│       ├── superadmin/           # Configuración de AI, Salud, Gestión de Tenants, Gestión de Staff (God Mode)
-│       ├── layout.tsx            # Root Layout (Inyecta Providers y next-intl)
-│       └── page.tsx              # Dashboard Principal
-│   └── api/                      # Backend API Routes
-│       ├── admin/
-│       ├── advisor/
-│       ├── audit/
-│       ├── budgets/
-│       ├── cleanup/
-│       ├── consumption/
-│       ├── intelligence/
-│       ├── onboard/
-│       ├── power/
-│       ├── recommendations/
-│       ├── remediation/
-│       ├── subscriptions/
-│       ├── superadmin/
-│       ├── tags/
-│       └── tenants/
+│   │   ├── academy/              # FinOps Academy (LMS interno)
+│   │   ├── admin/                # Configuración, Onboarding, Billing, Workbooks, Reportes
+│   │   ├── advisor/              # Integración de Azure Advisor
+│   │   ├── cleanup/              # TTL Enforcement & Zombies
+│   │   ├── demo/                 # Demo comercial (tenants mock por tier)
+│   │   ├── governance/           # Power Schedules (VMs), Etiquetas, Políticas, HA, Reporting
+│   │   ├── intelligence/         # Billing, Redes, Rightsizing, Licencias, Commitments, Upload
+│   │   ├── legal/                # Páginas legales públicas (términos, subprocesadores)
+│   │   ├── login/  signup/       # Autenticación (MSAL / Entra ID) y alta comercial
+│   │   ├── marketplace/azure/    # Landing de Azure Marketplace SaaS
+│   │   ├── mobile/               # Experiencia mobile-first (PWA)
+│   │   ├── onboarding/           # Wizard de alta técnica (Service Principal)
+│   │   ├── overview/             # Maturity Scoring, Progreso Histórico, WhiteBoard
+│   │   ├── remediation/          # Aprobaciones de remediación
+│   │   ├── status/               # Página pública de estado
+│   │   ├── superadmin/           # AI, Salud, Tenants, Staff, Soporte global (God Mode)
+│   │   ├── support/              # Tickets de soporte in-app
+│   │   ├── upgrade/              # Upsell / cambio de plan
+│   │   ├── layout.tsx            # Root Layout (Inyecta Providers y next-intl)
+│   │   └── page.tsx              # Dashboard Principal
+│   └── api/                      # Backend API Routes (frontera de seguridad multi-tenant)
+│       ├── admin/  advisor/  audit/  auth/  automation/
+│       ├── billing/  budgets/  checkout/  cleanup/  consumption/
+│       ├── copilot-m365/  cost-groups/  cron/  dashboard/  exports/
+│       ├── fx/  governance/  health/  history/  integrations/
+│       ├── intelligence/  m365/  mcp/  mfa/  notifications/
+│       ├── onboard/  onboarding/  open-data/  power/  profile/
+│       ├── recommendations/  remediation/  resources/  rightsizing/
+│       ├── status/  subscriptions/  superadmin/  support/  system/
+│       ├── tags/  tenants/  webhooks/
+│       └── v1/                   # API pública versionada
 ├── components/                   # Componentes React Reusables
 │   ├── dashboard/                # Widgets de métricas, PowerSchedules
+│   ├── history/                  # HistoryButton + panel de histórico diario
 │   ├── layout/                   # Sidebar, Navbar, etc.
 │   └── remediation/              # Modales de confirmación de acciones
-├── context/                      # React Context Providers (ViewMode, etc.)
+├── context/                      # React Context Providers (ViewMode, Tenant, etc.)
 ├── db/                           # Conexiones y utilidades de Base de Datos
-├── lib/                          # Utilidades Generales (Ej. Script Generator)
-├── modules/                      # Lógica modular Core, Storage, y Collectors (Azure/Graph)
+├── hooks/                        # Hooks reutilizables (useMfaChallenge, etc.)
+├── i18n/                         # Routing y configuración de next-intl
+├── lib/                          # Utilidades: requestAuth, tierLogic, money/fx, mockData, secrets
+├── modules/                      # Core (FOCUS, KQL, AI), Storage (MySQL), Collectors (Azure)
 ├── services/                     # Lógica de Negocio y Consumo de Azure SDKs
-└── store/                        # Estado global de Zustand (ActionLogs, etc.)
+├── store/                        # Estado global de Zustand (ActionLogs, etc.)
+├── instrumentation.ts            # OpenTelemetry / Application Insights
+└── proxy.ts                      # Middleware (next-intl + CSP con nonce)
+
+infra/                            # Infraestructura como código (Terraform)
+├── terraform/
+│   ├── bootstrap/                # Storage account del estado remoto
+│   ├── environments/{dev,prod}/  # Plano de control + N stamps regionales
+│   └── modules/                  # stamp, containerapp, cronjobs, mysql, redis,
+│                                 # keyvault, network, private_dns, storage, acr,
+│                                 # monitoring, diagnostics, security_policy,
+│                                 # budget, defender, frontdoor, custom_domain
+└── docs/                         # Guía de despliegue, residencia de datos, costos
+
+migrations/                       # SQL idempotente YYYYMMDD-NNN-descripcion.sql
+directivas/                       # SOPs por feature/módulo
+docs/                             # Guías técnicas profundas + auditorías de seguridad
 ```
 
 ---
@@ -125,7 +168,7 @@ src/
 
 El sistema opera un modelo de seguridad multi-nivel estricto:
 
-1. **User Identity**: Azure (Entra ID) vía MSAL (`@azure/msal-react`). Los tokens JWT (RS256) se validan contra el JWKS de `login.microsoftonline.com/{tid}` en todos los llamados a la API en `src/app/api`. (El login por email+contraseña — identidad propia para tenants sin Entra, pensado originalmente para tenants AWS — se retiró el 2026-07-29 junto con el resto del código y esquema asociado; ver el changelog más abajo.)
+1. **User Identity**: Azure (Entra ID) vía MSAL (`@azure/msal-react`). Los tokens JWT (RS256) se validan contra el JWKS de `login.microsoftonline.com/{tid}` en todos los llamados a la API en `src/app/api`. Es el **único** camino de autenticación: el login por email+contraseña (identidad propia para tenants sin Entra) se retiró el 2026-07-29 junto con su código y esquema — ver el changelog más abajo.
 2. **Service Principal (Platform Agent)**: Los Tenants hacen Onboarding ejecutando un script de PowerShell que crea un **Service Principal Least-Privilege**.
 3. **Role-Based Access Control (RBAC)** — Roles asignados por tier:
 
@@ -205,55 +248,141 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
 
 ## ☁️ Proveedor de nube
 
-La plataforma es **Azure-only**. (El soporte AWS que existió durante una fase
-de evaluación multi-cloud fue removido; ver el changelog más abajo para el
-historial.)
+La plataforma es **Azure-only**. No hay abstracción multi-cloud ni proveedor
+configurable por tenant: todo colector, motor y pantalla asume Azure. La ingesta
+de CSV hacia el esquema **FOCUS 1.0/1.1** (`/api/intelligence/upload`) sigue
+aceptando exports de facturación de terceros — es un estándar abierto de la
+FinOps Foundation, no una integración con otra nube.
+
+---
+
+## 🚀 Infraestructura y despliegue
+
+La plataforma corre en **Azure Container Apps**, con toda la infraestructura
+declarada en Terraform bajo `infra/terraform/` (ver [`infra/README.md`](infra/README.md)).
+Reemplazó al VPS Hostinger + Docker Compose + crontab manual el 2026-07-28.
+
+### Topología
+
+Dos planos, para que agregar una región sea agregar una clave de un mapa y no
+rediseñar nada:
+
+- **Plano de control** (global, sin datos de clientes): Azure Container Registry,
+  Defender for Cloud (alcance suscripción) y — sólo con 2+ stamps — Front Door
+  para geo-routing.
+- **Stamp** (celda regional, todo lo que toca datos de clientes): hoy uno, en
+  **West US 2**, cuya clave en el mapa `stamps` es el valor de
+  `Tenants.data_residency` que atiende.
+
+Dentro de un stamp:
+
+| Recurso | Notas |
+|---|---|
+| Container App `web` | Next.js standalone, autoescalado por requests concurrentes (1–5 réplicas), entorno zone-redundant |
+| Container Apps Jobs | 14 schedules (el reemplazo del crontab) + un job `migrate` de disparo manual |
+| MySQL Flexible Server | VNet injection, sin acceso público, backups con PITR |
+| Azure Managed Redis | Private endpoint, cache SWR compartido entre réplicas |
+| Key Vault | Secretos de infra (`infra-*`) y credenciales por tenant; private endpoint; leído con **Managed Identity** |
+| Blob Storage | Adjuntos de soporte, logos de tenant y backups (el filesystem del contenedor es efímero) |
+| Log Analytics + Application Insights | Con diagnostic settings de Key Vault, MySQL, Redis y Blob |
+| Budget + alertas | Presupuesto mensual por resource group con aviso por email |
+
+La identidad de la app es una **user-assigned managed identity**: se usa para el
+`AcrPull` de la imagen y para leer Key Vault. Ver la advertencia de nombres en
+`infra/terraform/modules/stamp/main.tf` — la variable es
+`AZURE_KEYVAULT_MI_CLIENT_ID`, **nunca** `AZURE_CLIENT_ID` (esa ya tiene dueño:
+es el app registration con el que se piden tokens contra el tenant del cliente).
+
+### Workflows de GitHub Actions
+
+Autenticación por **OIDC federado** (`azure/login`), sin secretos de cliente ni
+llaves SSH.
+
+| Workflow | Disparo | Qué hace |
+|---|---|---|
+| `ci.yml` | PRs a `main`/`staging`, push a `staging` | `lint` → `typecheck` → `test:coverage` → `build`. **Es el único gate de calidad.** |
+| `deploy-azure.yml` | Push a `main` (ignora `infra/**`, `docs/**`, `**.md`) | Build en ACR → job de migraciones → nueva revisión de la Container App → health check. Rollback = activar la revisión anterior, sin rebuild. |
+| `terraform.yml` | PR sobre `infra/terraform/**`, `workflow_dispatch`, lunes 07:00 UTC | Checkov (`--framework terraform`) + Infracost + `plan` en el PR; el **apply es siempre manual**; el cron semanal detecta drift. |
+| `deploy.yml` | Sólo `workflow_dispatch` | Deploy legacy por SSH al VPS congelado. Se conserva como salida de emergencia; **no** corre en push. |
+| `restore-test.yml` | `workflow_dispatch` | Prueba del runbook de restore de MySQL (`docs/runbook-restore-mysql.md` §4.3). |
+
+El build de la imagen produce **dos tags**: el runtime (standalone de Next
+podado) y uno `-builder`, porque el runtime no puede correr `npm run migrate`
+(no lleva `scripts/`, `migrations/` ni `tsx`). El job de migraciones usa el
+segundo.
+
+### Detalles aprendidos que conviene no re-descubrir
+
+- **Probar migraciones en local con la collation de Azure.** Terraform crea la
+  base con `utf8mb4_unicode_ci`; `mysql:8` por defecto usa `utf8mb4_0900_ai_ci`.
+  Una FK que pasa en local revienta en Azure con `ER_FK_INCOMPATIBLE_COLUMNS`.
+  Levantar el contenedor con `--collation-server=utf8mb4_unicode_ci`.
+- **Nunca `terraform apply -lock=false` ni dos applies concurrentes.** Contra
+  backend remoto produce *lost update*; los "state lock stuck" son el síntoma,
+  no la causa.
+- **El Redis de prod no se puede crear con `high_availability = true`**: el
+  path de *create* de Azure falla siempre. Se crea en `false` y se actualiza a
+  `true` después (el `UPDATE` sí funciona).
+- **Managed Certificate + Custom Domain**: dos bugs del provider `azurerm`
+  documentados in-situ en `infra/terraform/modules/custom_domain/main.tf`
+  (IDs desalineados entre recursos, y `container_app_environment_certificate_id`
+  de sólo-escritura, que sin `ignore_changes` quiere recrear un binding vivo).
 
 ---
 
 ## 📈 Recent Major Updates
 
-### 2026-07-28 — Paridad de catálogo AWS: inventario EC2 y limpieza de recursos ociosos
+### 2026-07-29 — Consolidación en un único proveedor de nube: Azure
 
-- **De 38 a 63 de las 119 páginas del panel habilitadas para AWS.** El salto más grande no vino de escribir código nuevo: **19 páginas eran de plataforma** (alta, verificación de email, cobro del SaaS, cumplimiento, marketplace, app móvil) que el código ya servía sin depender de la nube del tenant, y estaban ocultas sólo porque el default de la allow-list de `routeProviders.ts` es azure-only. Un cliente AWS no podía ver ni su propia pantalla de facturación.
-- **Bug de configuración que anulaba trabajo previo:** `routeProviders.ts` aplica `EXPLICIT_AZURE_ROUTES` *después* de `AGNOSTIC_ROUTES`, así que la pisa. `/admin/markup`, `/admin/report` y `/admin/copilot-m365` estaban en las dos listas: agregarlas a la agnóstica no tenía ningún efecto. Se verificaron y quedaron como agnósticas; en la lista Azure sólo siguen el alta por Service Principal y Azure Workbooks.
-- **Nuevo inventario de recursos AWS (`awsInventoryService.ts`), que destraba la limpieza.** Azure resuelve el inventario con una consulta KQL a Resource Graph, global y gratuita; AWS no tiene equivalente (Config Advanced Query obliga a habilitar Config por región y se factura por ítem). El colector llama a las APIs de EC2 cuenta por cuenta y región por región, y detecta volúmenes EBS `available`, IPs elásticas sin asociar, snapshots propios de más de 90 días e instancias detenidas. En esas últimas se reporta **el costo de sus discos EBS, no el de cómputo**: una instancia apagada no factura cómputo, pero sus volúmenes se cobran enteros.
-- **Las regiones a barrer salen de `CostSnapshots`,** que en AWS guarda la región: sin eso habría que consultar las ~30 regiones de AWS en cada request. Los precios EBS son una tabla estática operada con `Decimal` (Regla Cero) porque la Pricing API cobra por request y sólo se usan para estimar el ahorro de un recurso huérfano, que por definición aún no tiene línea propia en el CUR; el costo real sigue saliendo del CUR/Cost Explorer.
-- **RBAC de menor privilegio:** el inventario sólo pide lectura sobre EC2 (`DescribeInstances`, `DescribeVolumes`, `DescribeAddresses`, `DescribeSnapshots`). Ninguna acción de escritura: la remediación mantiene su flujo con aprobación. Si al rol del cliente le falta un permiso, se pierde esa familia de recursos y no la respuesta entera; si un rol está revocado en una cuenta, las demás se siguen auditando.
-- **La convención `@azure-only` ahora cubre también hallazgos,** no sólo componentes: `Zombies.issues.emptyRgs` ("grupo de recursos vacío") no tiene equivalente en AWS. La exención está verificada por un test que lee el motor de inventario, comprueba que nunca emita ese motivo y que todos los que sí emite estén traducidos en los tres idiomas.
+Cierra la evaluación multi-cloud que corrió entre el 2026-07-25 y el 2026-07-28.
+El producto vuelve a ser **exclusivamente Azure**, y el código, el esquema, la
+documentación y el copy comercial dejan de mencionar cualquier otra nube:
 
-### 2026-07-27 — Paridad del panel AWS: WhiteBoard, TOP Gastos, Anomalías y Proyección
+- **Colectores, ingesta, onboarding, webhook de marketplace y mocks de demo del
+  segundo proveedor removidos**, junto con la parametrización del panel por
+  proveedor: cada pantalla vuelve a asumir Azure sin ramificar.
+- **Identidad propia (email+contraseña) retirada** — existía sólo porque el otro
+  proveedor no tiene un IdP equivalente a Entra. `validateRequestToken` vuelve a
+  exigir RS256 de Entra y desaparecen los 7 endpoints `/api/auth/local/*` junto
+  con la tabla `AuthTokens` y las columnas asociadas (migración
+  `20260729-001-drop-local-auth.sql`). De paso desaparece el riesgo conocido de
+  `parseFloat` sobre montos de dinero en ese parser de costos, que violaba la
+  Regla Cero.
+- **Modelo de proveedor por tenant eliminado**, y con él el ciclo de vida de
+  `provider = 'both'` y su cron `provider-archive-purge`.
+- **Documentación y copy**: README, SOPs, guías de `docs/` y los diccionarios
+  `es`/`en`/`pt-BR` quedan alineados a Azure (se eliminaron 20 claves i18n
+  huérfanas que ya no tenían ningún consumidor en el código).
 
-- **El WhiteBoard ya funciona para AWS** — y era urgente: es el destino del redirect post-login, así que un tenant AWS aterrizaba en una página que su propio menú no listaba y cuya API fallaba entera (`getAzureCredential` estaba fuera de los `.catch()` por fuente). No era una página Azure: **5 de sus 10 fuentes salen de `CostSnapshots`**. Ahora el cliente de Resource Graph sólo se crea si el tenant usa Azure, y el Top 5 de regiones y servicios se resuelve por SQL. En AWS se rankea **por costo, no por cantidad de recursos**: no hay inventario, y el costo es además el dato que le importa a FinOps. Container Apps y Log Analytics se ocultan del board por ser servicios sin equivalente en AWS.
-- **TOP Gastos, Detección de Anomalías y Proyección de costos** habilitados con el mismo criterio. En TOP Gastos el account ID de 12 dígitos se reemplaza por el alias cargado en el onboarding. La detección por Z-Score ya corría sobre `CostSnapshots`: lo único atado a Azure era un backfill del historial que en AWS no hace falta —y que además fallaba en cada request, bajando el TTL del caché de 6 h a 10 min—. La proyección reconstruye la serie desde `CostSnapshots` y usa `linearForecast`, el motor que ya vive en el repo, en vez de `ce:GetCostForecast`: AWS lo factura por request y sobre una serie ya ingestada el resultado es equivalente.
-- **Bug preexistente corregido: el reporte ejecutivo salía siempre sin serie de proyección.** El endpoint de forecast sólo devolvía `data` cuando `withConfidence=false`, pero el default es `true` y ningún consumidor lo pasa: la rama era inalcanzable desde la UI, y `admin/report` arma `forecastSeries` con `forecast?.data`. Afectaba a Azure tanto como a AWS.
-- **Bloqueo por proveedor al entrar por URL directa.** `isRouteAvailableForProvider` sólo filtraba el Sidebar: una página Azure-only seguía renderizando si se llegaba por URL o por un redirect, y mostraba un error crudo de credenciales. Ahora `RouteTierGate` la bloquea con el mismo criterio con que ya bloquea tier y permisos de dominio, y el aviso apunta al selector de proveedor si el tenant tiene las dos nubes.
-- **Convención `@azure-only`**: un componente que cubre un servicio inexistente en AWS se marca en su cabecera. El test de terminología deja de exigirle variantes `_aws` —traducirlas sería inventar un producto— y a cambio **verifica que esté efectivamente oculto** para AWS en quien lo renderiza.
+### 2026-07-28 — Migración del VPS a Azure Container Apps (Terraform)
 
-### 2026-07-26 — Multi-cloud AWS: onboarding de mínimo privilegio, caché de Cost Explorer y panel parametrizado
+La producción deja el VPS Hostinger y pasa a Azure Container Apps. El detalle de
+la topología está arriba en [Infraestructura y despliegue](#-infraestructura-y-despliegue);
+lo que motivó la migración:
 
-- **Onboarding AWS automatizado** (Fase 4). `POST /api/admin/onboarding/aws` (guard `requireTenantRole(['ADMIN','OWNER'])`, fail-closed 503 sin cuenta AWS de plataforma configurada) genera plantillas **CloudFormation, Terraform y AWS CLI** parametrizadas con el account ID de la plataforma y el `externalId` de la cuenta, y la pantalla de alta las muestra con selector de formato. El account ID se resuelve KV-first desde `infra-aws-platform-account-id` (fallback `AWS_PLATFORM_ACCOUNT_ID`). Reemplazan las tres managed policies que se sugerían antes: `AmazonS3ReadOnlyAccess` daba lectura de **todos** los buckets del cliente para leer un solo reporte de costos. La plantilla concede exactamente las acciones que el código invoca, extraídas leyendo los comandos del SDK y no la documentación de AWS: `sts:AssumeRole`, `ce:GetCostAndUsage`, el inventario EC2 de sólo lectura (`ec2:DescribeInstances`, `DescribeVolumes`, `DescribeAddresses`, `DescribeSnapshots`), los presupuestos nativos (`budgets:DescribeBudgets`, `budgets:ViewBudget`, acotados al ARN de presupuestos de la propia cuenta), las recomendaciones de compra de Cost Explorer (`ce:GetReservationPurchaseRecommendation`, `ce:GetSavingsPlansPurchaseRecommendation`), el inventario transversal por etiquetas (`tag:GetResources`, `tag:GetTagKeys`) y `s3:GetObject`+`s3:ListBucket` acotadas al bucket del CUR. **Los tenants onboardeados antes de esta versión deben re-ejecutar la plantilla**: sin los permisos nuevos el síntoma es un inventario vacío, no un error. No hay ni una acción de escritura, y un test afirma la **lista cerrada** para que no se amplíe sin una llamada real que lo justifique.
-
-  > ⚠️ **Los clientes onboardeados antes de julio 2026 tienen que re-ejecutar la plantilla.** La versión anterior sólo otorgaba `ec2:DescribeInstances`, así que la limpieza de recursos ociosos fallaba con `AccessDenied` en volúmenes, IPs elásticas y snapshots — silenciosamente, mostrando la lista incompleta en vez de un error.
-- **Caché de Cost Explorer** (Fase 5). CE cobra **USD 0.01 por request** y cada página de la paginación cuenta aparte, así que un dashboard que refresca solo podía costar más que el ahorro que encuentra. `getCostAndUsage` ahora cachea en Redis por `(cuenta, rango)` con TTL de 24 h si el rango ya cerró y 1 h si incluye el día en curso —que AWS sigue actualizando—, reintenta con backoff exponencial **y jitter** ante throttling (sin jitter, las cuentas de un mismo tenant se re-throttlean entre sí al sincronizar juntas) y traduce `AccessDeniedException` en un mensaje que nombra el permiso faltante. Redis caído degrada a lectura fresca: la caché no es un punto de falla.
-- **Panel parametrizado por proveedor** (Fase 7, en curso). Nuevo `src/lib/tenantProviderContext.ts`: una ruta puede preguntar `tenantUsesAzure(tenantId)` y saltear el camino live de Azure, cayendo a `CostSnapshots` —tabla que el sync de AWS **ya alimenta**—. `/api/dashboard/summary` lo usa en sus 3 llamadas live: antes un tenant AWS pagaba el timeout completo antes de ver el mismo fallback. Se habilitan para AWS `cost-by-category`, `cost-groups` y `simulator`. **La decisión de fondo quedó tomada: el panel AWS se parametriza, no se forkea** — no hay componentes `*Aws.tsx` paralelos.
-- **Fix de disponibilidad en el rate limiter**. `pipeline.exec()` de ioredis **no lanza** cuando fallan los comandos individuales: devolvía `undefined`, `Number(undefined)` daba `NaN` y `NaN <= limite` es `false`, así que el limiter respondía **429 a todo el mundo** en vez de degradar a memoria. No hacía falta que Redis estuviera caído: ioredis conecta *lazy*, así que el primer request tras cada arranque lo disparaba. Afectaba **25 rutas**, incluidas toda la API pública `/api/v1/*`, checkout, SSO y los 7 endpoints de auth local.
-- **Credenciales para pruebas locales**: `npm run seed:aws-tenant -- --email=… --password=… --tier=Enterprise --provider=both` crea un tenant AWS con un Owner **ya verificado**. El signup normal deja al usuario sin verificar y envía un link por email; sin SMTP en local, no había forma de entrar. El script se niega a correr con `NODE_ENV=production`.
-- ⚠️ **Riesgo conocido documentado**: el parser de Cost Explorer usa `parseFloat` sobre montos de dinero, en violación de la Regla Cero. Ver §6.0 de [`docs/aws-multicloud-handoff.md`](docs/aws-multicloud-handoff.md); el refactor a `decimal.js` queda atado a la primera prueba contra una cuenta AWS real.
-- **Mocks y demo AWS por tier** (Fase 7.5). `src/lib/mockData.ts` era 100% Azure, así que la demo comercial no podía mostrar AWS sin conectar una cuenta real. Nuevo `src/lib/awsMockData.ts` con datos AWS-nativos —cuentas de 12 dígitos, códigos de servicio tal como los devuelve Cost Explorer (`AmazonEC2`, `AWSDataTransfer`), regiones reales, rightsizing con migración a **Graviton**, los cuatro huérfanos clásicos (Elastic IP, EBS `available`, snapshots, NAT Gateway) y **Savings Plans vs Reserved Instances**—. Se agregan **4 tenants de demo AWS** (uno por tier) en vez de un flag sobre los de Azure, para poder mostrar ambas nubes en paralelo; los multiplicadores son deliberadamente los mismos (1/3/10/50) para que la comparación entre nubes sea honesta. Se entra por `/demo?tier=business&provider=aws` o con el selector de proveedor del formulario; el valor se **normaliza server-side**. Una de las cuentas de demo aparece en `ERROR` a propósito: la demo debe mostrar cómo se ve un problema, no sólo el camino feliz.
-- **Terminología por proveedor** (Fase 7.6). El simulador What-If le ofrecía "Crecimiento de Cómputo (VMs/AKS)" y "Aplicar Licencias (AHB)" a tenants AWS —donde ni AKS ni el Azure Hybrid Benefit existen—; Cost Groups hablaba de "Suscripción" y "Resource Group". Como el panel se parametriza y no se forkea, se resuelve con **variantes de clave**: `useProviderTranslations` busca `<clave>_aws` cuando el proveedor activo es AWS y cae a la clave base si no existe, así sólo se traduce lo que difiere de verdad (un diccionario AWS completo garantizaría que las dos mitades diverjan). Detalle que evitó una traducción plausible pero falsa: el sync AWS escribe la **región** en la columna `resource_group`, así que el equivalente de "Resource Group" en AWS es "Región", no "tag". `__tests__/unit/i18nProviderTerms.test.ts` **falla si una página habilitada para AWS usa terminología de Azure sin variante**, en cualquiera de los 3 idiomas.
-- i18n en `es`/`en`/`pt-BR` con paridad verificada (4115 keys). Validado con `typecheck` limpio, `lint` sin errores, **705 tests** en verde y `build` de producción exitoso.
-
-### 2026-07-25 — Multi-cloud AWS: identidad propia, modelo de proveedor y ciclo de vida de datos
-
-- **Identidad propia para tenants AWS** (Fase 2). AWS no tiene un IdP equivalente a Entra, así que el camino de login AWS es email+contraseña: 7 endpoints en `/api/auth/local/*` (signup, login, verificación de email, reset de contraseña ×2, invitación ×2), todos con rate limit distribuido y fail-closed sin `LOCAL_AUTH_SECRET`. Se agrega una segunda rama de auth **en paralelo** a MSAL: el único punto de cambio es `validateRequestToken`, que discrimina por algoritmo (HS256 propio vs RS256 de Entra, cada rama exigiendo el suyo). Los guards y las ~250 rutas quedan intactos. UI completa: login con las dos opciones, `/verify-email`, `/reset-password`, `/accept-invite`, y el token local enganchado en `getFreshIdToken` para que `fetchWithAuthRetry` y `TenantProvider` funcionen sin ramificar.
-- **Modelo de proveedor por tenant** (Fase 3). Columna `Tenants.provider` (`azure` | `aws` | `both`), con `both` restringido a Enterprise y **enforcement server-side** en los 4 puntos de ingesta. Selector de proveedor en el signup, switch AWS/Azure en el header (sólo si hay más de uno para elegir) y **filtrado del Sidebar por proveedor activo** — antes un tenant AWS habría visto los ~30 ítems de menú de Azure, todos rotos al abrirlos.
-- **Política de datos al bajar de tier**: archivado reversible con ventana de gracia de 90 días, avisos en T-30/T-7, purga auditada y restauración total si el tenant vuelve a Enterprise antes del plazo. Punto único `applyTierChange()` wireado en los 4 lugares que escriben `Tenants.tier`. Banner in-app con la cuenta regresiva y las tres salidas (exportar / invertir la elección / volver a Enterprise). Rationale completo en [`docs/provider-downgrade-policy.md`](docs/provider-downgrade-policy.md).
-- **Seguridad**: tokens de un solo uso hasheados en SHA-256 y consumidos atómicamente; emitir uno invalida los anteriores del mismo propósito; el rol **no** es parámetro de la invitación (todo invitado entra como Reader, si no un Admin podría autoinvitarse como Owner); el cupo del plan se revalida al aceptar, no sólo al invitar; `verifyPasswordConstantTime` gasta un bcrypt contra un hash dummy *válido* aunque el usuario no exista (con uno inválido `compare()` retorna al instante y el timing filtra qué emails están registrados).
-- **Migraciones**: `20260725-004-local-auth.sql` (`Users.password_hash`/`email_verified_at`, `entra_oid` NULLable, tabla `AuthTokens`, `Tenants.provider`) y `20260725-005-provider-archive.sql` (`Tenants.provider_archived`/`provider_purge_at`, `TenantProviderTransitions`, `AwsAccounts.disabled_at`/`disabled_reason`).
-- **Nuevas env vars**: `LOCAL_AUTH_SECRET` (obligatoria para el login AWS) y `PROVIDER_ARCHIVE_RETENTION_DAYS` (opcional, default 90, clampeada 7–730).
-- **Nuevo cron**: `/api/cron/provider-archive-purge` (diario).
-- i18n en `es`/`en`/`pt-BR` con paridad verificada (4090 keys), mocks por tier para `/demo` y manuales de usuario y superadmin actualizados en los 3 idiomas (MD + PDF).
+- **El crontab no estaba en git.** Los 14 procesos de `/api/cron/*` vivían en el
+  crontab manual del servidor, y el README documenta **dos incidentes** en los
+  que un job estuvo ausente del crontab real mientras la documentación afirmaba
+  que corría — dejando tres tablas de costo vacías durante semanas sin ningún
+  error visible. Ahora el schedule es código (`cron_jobs` en tfvars) y se revisa
+  en PR.
+- **Punto único de falla**: app, Redis y MySQL en la misma máquina, sin
+  redundancia, con downtime durante el build de cada deploy. Ahora el build
+  ocurre en ACR y el corte es un cambio de revisión.
+- **Residencia de datos**: `Tenants.data_residency` ya era un ENUM con auditoría
+  y locking; faltaba un segundo despliegue físico para que dejara de ser una
+  declaración. La estructura de stamps lo habilita sin rediseño.
+- **Esquema sincronizado**: se detectaron 37 tablas y 37 columnas que el VPS tenía
+  y las migraciones no creaban. Se extrajeron con `mysqldump --no-data` del
+  servidor real, DDL literal, sin inferir nada
+  (`20260728-003-sincronizar-esquema-vps.sql`). Total: 56 migraciones, 80 tablas.
+- **Gate de infra**: Checkov corre sobre `infra/terraform` en cada PR (122 checks
+  en verde). De los 27 hallazgos de la primera corrida real, 7 se arreglaron
+  (expiración de secretos, política SAS, diagnostic setting de blob en el
+  sub-recurso correcto) y 20 quedaron silenciados **con motivo escrito** en el
+  propio workflow.
+- **Dominio propio** `finops.cscloudsolutions.com.ar` con managed certificate y
+  binding gestionados por Terraform (importados desde el portal).
 
 ### 2026-07-23 — Look & feel: unificación al azul de marca CSCloudSolutions (design system)
 
@@ -317,7 +446,7 @@ Remediación de 8 hallazgos más del assessment, todo sin downtime. Ver `docs/se
 - **IA-6 (MEDIO) — inyección KQL:** validación de formato UUID de `subscriptionId` antes de interpolarlo en el query de Resource Graph (`sustainability`).
 - **A-3 (MEDIO) — CSP:** CSP nonce + `strict-dynamic` desplegada en modo **Report-Only** (`src/proxy.ts`, compuesta con next-intl). No bloquea nada; recoge violaciones para validar antes de promover a enforcing y quitar `unsafe-inline`. Enfoque de bajo riesgo elegido para no romper checkout/login.
 - **IA-5 (MEDIO):** marcador DLP documentado en `aiProvider.ts` (redacción de PII pendiente de decisión de producto).
-- **A-2 (ALTO):** riesgo aceptado — `thrift`/`@dsnp/parquetjs` sin fix upstream; path parquet solo alcanzable vía endpoints AWS con RBAC ADMIN/OWNER, input semi-confiable, feature AWS oculta.
+- **A-2 (ALTO):** riesgo aceptado — `thrift`/`@dsnp/parquetjs` sin fix upstream; el path parquet sólo era alcanzable desde endpoints de una feature entonces oculta y con RBAC ADMIN/OWNER, sobre input semi-confiable. Esos endpoints ya no existen (ver la entrada del 2026-07-29).
 
 ### 2026-07-05 — Seguridad IA-2: API keys de IA cifradas en reposo (AES-256-GCM)
 
@@ -354,10 +483,6 @@ Auditoría completa de las ~50 features anunciadas en la pantalla de precios con
 - **Detección de Anomalías** (duplicado en Business) → removida; el motor real (Z-Score) ya se lista en Professional y los tiers son acumulativos ("Todo lo de X").
 
 Aplicado en paridad en los 3 idiomas (es/en/pt-BR), conteos verificados. Ninguna corrección requirió cambios de código — sólo redacción del pricing.
-
-### 2026-07-05 — Ocultar referencias a AWS (por ahora)
-
-No hacemos referencia a AWS por el momento. Se oculta la entrada "Cloud Accounts (AWS)" del Sidebar y del page registry (pin de dashboard), y se remueven las 2 menciones de AWS en las features de la pantalla de precios (Business: "Ingesta Multi-Cloud AWS"; Enterprise: "Billing AWS Marketplace SaaS") en los 3 idiomas. El código de ingesta AWS (CUR/Cost Explorer), el webhook de AWS Marketplace y la landing `/marketplace/aws` **no se tocan** — quedan implementados y funcionales, sólo sin superficie de navegación ni promesa comercial, para cuando se retome soporte AWS.
 
 ### 2026-07-05 — Fix Signup Funnel (401) + canal de email de Alertas migrado a Graph + MFA activado en prod
 
@@ -666,11 +791,11 @@ Cualquier cambio de estructura de UI o adición de páginas debe registrarse en 
 
 ## ⏰ Cron Jobs
 
-Endpoints internos protegidos por `Authorization: Bearer ${CRON_SECRET}`. Se invocan desde el crontab del VPS (o cualquier scheduler externo). Todos son idempotentes.
+Endpoints internos protegidos por `Authorization: Bearer ${CRON_SECRET}`. Los invoca un **Container Apps Job** por endpoint, cuyo schedule está declarado en Terraform (`cron_jobs`, ver la tabla al final de esta sección). Todos son idempotentes, así que un reintento o una ejecución duplicada no hace daño.
 
 | Endpoint                              | Frecuencia recomendada | Propósito                                                                                       |
 | ------------------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------- |
-| `GET /api/cron/sync`                  | Diaria 06:00 UTC       | Snapshot diario de costos por tenant (CostManagement / CUR).                                    |
+| `GET /api/cron/sync`                  | Diaria 06:00 UTC       | Snapshot diario de costos por tenant (Azure Cost Management).                                    |
 | `GET /api/cron/historical-gap-backfill` | Diaria 03:00 UTC     | Re-consulta los últimos 2 meses de `getHistoricalDetailedCosts`/`getHistoricalDailyCosts` para todos los tenants activos y upsertea (`ON DUPLICATE KEY UPDATE`, nunca `DELETE`) — cierra huecos que el backfill liviano de `/api/cron/sync` (ventana de 7 días) no alcanza a ver, típicamente una suscripción que pierde el sync diario por 429 sostenido durante semanas (ver incidente RPA365 2026-07 abajo). También se dispara on-demand (fire-and-forget, debounced 6h por Redis) al abrir el Invoicing Report si el tenant tiene datos stale — `src/lib/historicalGapBackfill.ts`. |
 | `GET /api/cron/prewarm-dashboard`     | Cada 10 min            | Pre-calienta el cache SWR del Dashboard General (`/api/dashboard/summary`) por tenant activo.  |
 | `GET /api/cron/power-schedules`      | Cada 2 min              | Ejecuta los horarios de apagado programado de VMs (tabla `PowerSchedules`) cuyo horario local ya se cumplió (ventana de 8 min). También se dispara al instante desde `/api/power/schedule` (POST) al crear/editar un horario, sin esperar al próximo tick, para minimizar la latencia percibida. |
@@ -685,102 +810,59 @@ Endpoints internos protegidos por `Authorization: Bearer ${CRON_SECRET}`. Se inv
 | `GET /api/cron/support-attachments-cleanup` | Diaria           | Borra archivo + fila de los adjuntos de soporte con más de `SUPPORT_ATTACHMENT_RETENTION_DAYS` (60) días. |
 | `GET /api/cron/status-snapshot`      | Cada 5 min              | Chequea DB/Azure Sync/AI Provider/Paddle y persiste una fila en `PlatformStatusSnapshots`, de donde `/api/status` calcula `uptime_30d_pct` — sin él la página pública de estado no tiene datos de uptime. Auth vía `?secret=` (query param), no header `Authorization`, a diferencia del resto de los crons de esta tabla — mismo `CRON_SECRET`. |
 
-**Ejemplo crontab VPS:**
+**Schedule real (Container Apps Jobs).** Cada entrada del mapa `cron_jobs` en
+`infra/terraform/environments/prod/terraform.tfvars` crea un Container Apps Job que
+hace un GET al endpoint correspondiente con el `CRON_SECRET` leído de Key Vault.
+Comentar una entrada apaga ese job; agregarla es una línea y un PR. Los `cron` de
+tfvars están expresados en la **timezone del negocio** (`cron_timezone_offset_hours = -3`),
+por eso no coinciden literalmente con la columna UTC de la tabla de arriba:
 
-Cada línea HTTP está envuelta en `scripts/cron-ping.sh "$X_HEALTHCHECK_URL" -- curl ...`
-(Fase 2, [plan de infra](docs/vps-infra-improvement-plan.md)) — pinguea healthchecks.io
-en éxito/fallo para detectar automáticamente el patrón de los incidentes 2026-07-05 y
-2026-07-18 de arriba (cron documentado pero ausente del crontab real, o fallando en
-silencio). Es no-op mientras la variable de entorno correspondiente esté vacía, así que
-desplegar el wrapper no rompe nada aunque todavía no existan los checks en
-healthchecks.io — crearlos (gratis hasta 20) y setear las `*_HEALTHCHECK_URL` en el
-`.env` del VPS es el único paso manual pendiente.
+| Job | `cron` (tfvars, GMT-3) | Equivalente UTC | Timeout |
+|---|---|---|---|
+| `sync` | `0 3 * * *` | 06:00 | 3600s |
+| `historical-gap-backfill` | `0 0 * * *` | 03:00 | 3600s |
+| `prewarm-dashboard` | `*/10 * * * *` | cada 10 min | 300s |
+| `power-schedules` | `*/2 * * * *` | cada 2 min | 120s |
+| `anomaly-detection` | `*/5 * * * *` | cada 5 min | 300s |
+| `status-snapshot` | `*/5 * * * *` | cada 5 min | 120s (`auth_mode = "query"`) |
+| `open-data` | `0 1 * * 1` | lunes 04:00 | 1800s |
+| `support-attachments-cleanup` | `0 2 * * *` | 05:00 | default |
+| `cost-sync-staleness-check` | `0 5 * * *` | 08:00 | default |
+| `credential-expiry-alerts` | `0 4 * * *` | 07:00 | default |
+| `focus-export-daily` | `0 4 * * *` | 07:00 | 1800s |
+| `ttl-expiry-alerts` | `0 6 * * *` | 09:00 | default |
+| `subscription-expiry` | `30 3 * * *` | 06:30 | default |
+| `trial-expiry` | `0 22 * * *` | 01:00 del día siguiente | default |
 
-```cron
-CRON_PING=/home/manny/cscloud/finops/scripts/cron-ping.sh
+**Auth interna**: `prewarm-dashboard` propaga `X-Cron-Auth` a las llamadas internas
+(`summary` → `audit/full` / `intelligence/forecast`) gracias al bypass en
+`requireTenantAccess`. Comparación timing-safe; nunca concede superadmin global, sólo
+acceso al `tenantId` de la query.
 
-# Snapshot diario de costos
-0 6 * * * $CRON_PING "$SYNC_HEALTHCHECK_URL" -- curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/sync >> /var/log/finops-cron.log 2>&1
+**Monitoreo**: una alerta de Azure Monitor sobre ejecuciones fallidas de los jobs
+notifica a `alert_email` (`infra/terraform/modules/cronjobs`). Reemplaza al dead-man
+switch de healthchecks.io que hacía falta cuando el scheduler era un crontab: ahora el
+scheduler es Azure y reporta sus propios fallos. Conviene sumar igual un monitor externo
+de disponibilidad (UptimeRobot/Better Uptime, gratis) contra
+`https://finops.cscloudsolutions.com.ar/api/health` (liveness, sin tocar DB/Redis) y
+contra la landing pública — eso detecta que el sitio entero cayó, algo que ninguna
+alerta de job detecta.
 
-# Pre-warm dashboard cada 10 min (cache hard-TTL = 15 min)
-*/10 * * * * $CRON_PING "$PREWARM_HEALTHCHECK_URL" -- curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/prewarm-dashboard >> /var/log/finops-cron.log 2>&1
+**Backups de MySQL**: los provee el servicio (MySQL Flexible Server con PITR y retención
+de 14 días). El dump lógico sigue teniendo sentido como respaldo independiente y su
+runbook de restore está en `docs/runbook-restore-mysql.md`; el workflow
+`restore-test.yml` lo ejerce a pedido.
 
-# Power Schedules (apagado programado de VMs) cada 2 min (ventana de ejecución = 8 min).
-# Además, /api/power/schedule dispara un chequeo inmediato al guardar un horario.
-*/2 * * * * $CRON_PING "$POWER_SCHEDULES_HEALTHCHECK_URL" -- curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/power-schedules >> /var/log/finops-cron.log 2>&1
-
-# Backup diario de MySQL (script local del VPS, no endpoint HTTP) — ver docs/runbook-restore-mysql.md
-# 02:00 en vez de 03:00 (valor original del comentario del script) para no chocar
-# con historical-gap-backfill, agregado después en ese mismo horario.
-# El ping de healthchecks.io va DENTRO del script (BACKUP_HEALTHCHECK_URL), no acá.
-0 2 * * * /home/manny/cscloud/finops/scripts/backup-db.sh >> /var/log/finops-backup.log 2>&1
-
-# Open Data del FinOps Toolkit (Regions/Services/ResourceTypes/PricingUnits/CommitmentEligibility) — semanal
-0 4 * * 1 $CRON_PING "$OPEN_DATA_HEALTHCHECK_URL" -- curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/open-data >> /var/log/finops-cron.log 2>&1
-
-# Detección de anomalías de gasto (Z-Score) — cada 5 min, comparte cache Redis
-# de 6h con el endpoint on-demand así que no multiplica llamadas a Azure
-*/5 * * * * $CRON_PING "$ANOMALY_DETECTION_HEALTHCHECK_URL" -- curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/anomaly-detection >> /var/log/finops-cron.log 2>&1
-
-# Chequeo de frescura de CostSnapshots (Cost Groups y afines) — diario, 2h
-# después del sync para dar margen. Alerta si /api/cron/sync no corrió.
-0 8 * * * $CRON_PING "$COST_SYNC_STALENESS_HEALTHCHECK_URL" -- curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/cost-sync-staleness-check >> /var/log/finops-cron.log 2>&1
-
-# Alertas de expiración TTL (entornos efímeros por vencer/vencidos) — diario
-0 9 * * * $CRON_PING "$TTL_EXPIRY_ALERTS_HEALTHCHECK_URL" -- curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/ttl-expiry-alerts >> /var/log/finops-cron.log 2>&1
-
-# Alertas de expiración de credenciales (App Registrations por vencer) — diario
-0 7 * * * $CRON_PING "$CREDENTIAL_EXPIRY_ALERTS_HEALTHCHECK_URL" -- curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/credential-expiry-alerts >> /var/log/finops-cron.log 2>&1
-
-# Corta acceso a tenants CANCELED cuyo período pagado ya venció — diario
-30 6 * * * $CRON_PING "$SUBSCRIPTION_EXPIRY_HEALTHCHECK_URL" -- curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/subscription-expiry >> /var/log/finops-cron.log 2>&1
-
-# Vence trials cuyo trial_ends_at ya pasó — diario
-0 1 * * * $CRON_PING "$TRIAL_EXPIRY_HEALTHCHECK_URL" -- curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/trial-expiry >> /var/log/finops-cron.log 2>&1
-
-# Retención de adjuntos de soporte (60 días) — diario, 05:00
-0 5 * * * $CRON_PING "$SUPPORT_ATTACHMENTS_CLEANUP_HEALTHCHECK_URL" -- curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/support-attachments-cleanup >> /var/log/finops-cron.log 2>&1
-
-# Snapshot de estado de plataforma (alimenta /api/status y /status) — cada 5 min.
-# Nota: este endpoint autentica por query param ?secret=, no por header Authorization.
-*/5 * * * * $CRON_PING "$STATUS_SNAPSHOT_HEALTHCHECK_URL" -- curl -fsS "https://finops.cscloudsolutions.com.ar/api/cron/status-snapshot?secret=$CRON_SECRET" >> /var/log/finops-cron.log 2>&1
-
-# Export FOCUS 1.1 diario por email (tenants con programación habilitada)
-0 7 * * * $CRON_PING "$FOCUS_EXPORT_DAILY_HEALTHCHECK_URL" -- curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/focus-export-daily >> /var/log/finops-cron.log 2>&1
-
-# Backfill de huecos históricos (upsert-only) — todos los tenants activos, 03:00 UTC,
-# horario elegido por ser el único slot diario libre entre 00-09h en el crontab real
-# (no compite con support-attachments-cleanup 05h, sync 06h, credential-expiry-alerts
-# 07h, ni ttl-expiry-alerts 09h).
-0 3 * * * $CRON_PING "$HISTORICAL_GAP_BACKFILL_HEALTHCHECK_URL" -- curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://finops.cscloudsolutions.com.ar/api/cron/historical-gap-backfill >> /var/log/finops-cron.log 2>&1
-
-# Snapshot de CPU/RAM por contenedor (Fase 2, alternativa $0 a netdata) — cada 5 min
-*/5 * * * * /home/manny/cscloud/finops/scripts/log-docker-stats.sh >> /var/log/finops-cron.log 2>&1
-```
-
-Las `*_HEALTHCHECK_URL` viven en el `.env` del VPS (no en este repo, mismo motivo que
-`BACKUP_HEALTHCHECK_URL`): son URLs de ping de checks creados a mano en
-[healthchecks.io](https://healthchecks.io) (gratis hasta 20), una por job. Mientras no
-existan, el crontab de arriba funciona idéntico a como funcionaba antes — el ping es
-puramente aditivo.
-
-**Monitoreo externo de disponibilidad**: además de los pings de cron, agregar un monitor
-de UptimeRobot/Better Uptime (gratis) apuntando a `https://finops.cscloudsolutions.com.ar/api/health`
-(liveness del proceso, sin tocar DB/Redis) y otro a la landing pública — alerta si el
-sitio entero cae, algo que ningún ping de cron detecta. Paso 100% externo, no hay nada
-que instalar en el VPS para esto.
-
-**Backups de MySQL** (`scripts/backup-db.sh`, Fase 1 del [plan de infra](docs/vps-infra-improvement-plan.md)): dump diario comprimido con retención local 7 diarios + 4 semanales, y copia off-site a Azure Blob Storage vía SAS solo-escritura (`BACKUP_AZURE_SAS_URL` en el `.env` del VPS). Runbook completo de provisioning y restore en `docs/runbook-restore-mysql.md`.
-
-**Auth interna**: `prewarm-dashboard` propaga `X-Cron-Auth` a las llamadas internas (`summary` → `audit/full` / `intelligence/forecast`) gracias al bypass en `requireTenantAccess`. Comparación timing-safe; nunca concede superadmin global, solo acceso al `tenantId` de la query.
-
-> ⚠️ **Verificación periódica obligatoria**: esta tabla documenta el crontab *esperado*, pero puede desincronizarse del real (ej. tras migrar de VPS, reprovisionar el servidor, o editar el crontab a mano). El 2026-07-05 se detectó que `/api/cron/sync` — el que puebla `CostSnapshots`/`CostMeterSnapshots`/`CostCategorySnapshots` — **no estaba en el crontab real**, dejando Cost by Category, Storage Efficiency y Compute Efficiency sin datos indefinidamente sin ningún error visible. El 2026-07-18 se detectó el mismo patrón con `backup-db.sh` (documentado desde el 2026-07-04, nunca instalado). Verificar con `ssh finops-vps 'crontab -l'` contra esta tabla cada vez que se audite el VPS (ver directiva #14, auditorías de seguridad ~quincenales).
->
-> **⚠️ El crontab del VPS NO viaja con el deploy ni vive en este repo — es estado manual del servidor.** Un `docker compose up -d --build` (el deploy normal) nunca lo toca, pero si el VPS se reprovisiona, se migra a otro servidor, o alguien corre `crontab -r`/edita a mano sin mirar esta tabla, las entradas se pierden en silencio sin ningún error visible hasta que alguien nota datos faltantes días/semanas después (exactamente los 2 incidentes de arriba). **Checklist de migración/reprovisioning de VPS**: reinstalar TODAS las líneas de la sección "Ejemplo crontab VPS" de arriba tal cual están, no de memoria.
->
-> **Auditoría 2026-07-27 (retiro de AWS)**: se eliminó `provider-archive-purge` (código y fila de esta tabla) — solo existía para el ciclo de vida de tenants multi-cloud `provider = 'both'`, que dejó de ser posible al retirar el soporte AWS. Si esa línea sigue en el crontab real del VPS, ahora solo pega contra una ruta inexistente (404) — quitarla en la próxima edición manual del crontab. La misma auditoría encontró que `credential-expiry-alerts`, `subscription-expiry`, `trial-expiry`, `support-attachments-cleanup` y `status-snapshot` existen en el código, tenían mención suelta o ninguna en esta sección, y no tenían fila propia en la tabla ni línea de ejemplo en el crontab — se agregaron ambas cosas arriba con frecuencias inferidas del propio código, pero **no verificadas contra el crontab real** (no hay acceso SSH desde este entorno): confirmar con `ssh finops-vps 'crontab -l'` cuáles de las 5 corren de verdad antes de asumir que sí.
->
-> **Confirmado instalado en el crontab real al 2026-07-18** (verificado con `crontab -l` en esa fecha, no solo documentado): `prewarm-dashboard` (*/10), `power-schedules` (*/2), `open-data` (lunes 04h), `sync` (06h), `support-attachments-cleanup` (05h), `credential-expiry-alerts` (07h), `cleanup-docker.sh` (domingo 04h), `ttl-expiry-alerts` (09h), **`historical-gap-backfill` (03h, agregado 2026-07-18)**, **`backup-db.sh` (02h, agregado 2026-07-18, era solo documentación desde el 07-04)**. `anomaly-detection`, `cost-sync-staleness-check` y `focus-export-daily` están documentados en la tabla de arriba pero **NO confirmados en el crontab real al 07-18** — verificar antes de asumir que corren.
+> 📌 **Por qué esta sección cambió de forma.** Hasta el 2026-07-28 estos 14 procesos
+> vivían en el crontab manual del VPS, que **no viajaba con el deploy ni existía en el
+> repo** — era estado del servidor. Eso produjo dos incidentes del mismo tipo: el
+> 2026-07-05 se descubrió que `/api/cron/sync` nunca se había instalado, dejando
+> `CostSnapshots`/`CostMeterSnapshots`/`CostCategorySnapshots` vacías indefinidamente
+> (y con ellas Cost by Category, Storage Efficiency y Compute Efficiency sin datos) sin
+> ningún error visible; el 2026-07-18 se repitió con `backup-db.sh`, documentado desde
+> el 07-04 y jamás instalado. Ahora el schedule es código, se revisa en PR y se aplica
+> con `terraform apply` — la clase entera de bug desapareció, no hace falta auditar
+> "documentación vs. crontab real".
 
 ---
 
@@ -789,22 +871,27 @@ que instalar en el VPS para esto.
 **CRITICAL RULE: From this point forward, every time a new feature is added, an API route is modified, or a component is created, this README.md file MUST be updated to reflect the change. The Project Structure tree and the Mermaid Infrastructure diagram must be regenerated if the architecture changes.**
 
 ### The Core Loop
-1. **Directivas (`/directivas/`)**: Antes de cualquier cambio, se consulta y se expande el archivo SOP (Standard Operating Procedure) correspondiente a la tarea.
-2. **Ejecución**: El código debe ser generado y validado contra las reglas establecidas de Arquitectura y TypeScript (`npm run dev`, `npx tsc --noEmit`).
+1. **Directivas (`AGENTS.md` + `/directivas/`)**: `AGENTS.md` es el set de directivas operativas vinculante (RBAC-first, commits granulares, protocolo de migraciones, paridad i18n, mocks por tier, auditorías quincenales, modelo de ramas). Antes de cualquier cambio se consulta y se expande además el SOP (Standard Operating Procedure) correspondiente a la tarea.
+2. **Ejecución**: El código debe ser generado y validado contra las reglas establecidas de Arquitectura y TypeScript (`npm run lint`, `npm run typecheck`, `npm run test`).
 3. **Registro de Fallos**: Si un llamado a la API de Azure falla, la restricción debe plasmarse en el SOP para que el "Observer" de la plataforma mantenga una memoria viva del error.
 4. **Documentación Automática**: Actualizar SIEMPRE el `README.md` (este documento) como fuente central y unificada de la verdad del ecosistema.
-5. **Registro de Cambios Obligatorio**: Toda modificación aplicada (y las futuras) debe registrarse en `CAMBIOS_IMPLEMENTADOS.md` con fecha, alcance y archivos afectados.
+5. **Registro de Cambios Obligatorio**: Toda modificación aplicada se registra en la sección [Recent Major Updates](#-recent-major-updates) de este README, con fecha, alcance y el *por qué* — no sólo el *qué*.
 
 ---
 
 ## 🧾 Registro de cambios operativo
 
-Desde ahora, el historial técnico incremental del proyecto se mantiene en:
+El historial técnico incremental vive en tres lugares, cada uno con un propósito
+distinto:
 
-- `CAMBIOS_IMPLEMENTADOS.md`
+1. **`README.md`** (este archivo) — changelog narrado por fecha en
+   [Recent Major Updates](#-recent-major-updates): la fuente de verdad de qué cambió
+   y por qué.
+2. **`MANUAL_DE_USUARIO.md`** — el mismo cambio contado desde el uso end-user.
+3. **`HANDOFF-<fecha>.md`** — estado operativo al cerrar una sesión de trabajo:
+   pendientes por urgencia, trampas conocidas y decisiones asumidas. El más
+   reciente es el que vale.
 
-Regla activa: ante cualquier cambio de código, también se debe actualizar:
-
-1. `README.md`
-2. `MANUAL_DE_USUARIO.md`
-3. `CAMBIOS_IMPLEMENTADOS.md`
+Regla activa: ante cualquier cambio de código se actualizan (1) y, si es visible al
+usuario o al admin, también (2). Los `docs/*.md` y los `directivas/*_SOP.md` se
+actualizan cuando el cambio toca el módulo que documentan.
