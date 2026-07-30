@@ -43,6 +43,40 @@ output "key_vault_uri" {
   value = module.keyvault.vault_uri
 }
 
+output "key_vault_id" {
+  value = module.keyvault.id
+}
+
+output "vnet_id" {
+  value = module.network.vnet_id
+}
+
+output "vnet_name" {
+  value = module.network.vnet_name
+}
+
+output "vnet_resource_group_name" {
+  value = module.network.resource_group_name
+}
+
+output "storage_account_id" {
+  value = module.storage.id
+}
+
+output "storage_account_primary_connection_string" {
+  value     = module.storage.primary_connection_string
+  sensitive = true
+}
+
+output "mysql_admin_login" {
+  value = var.mysql_admin_login
+}
+
+output "mysql_admin_password" {
+  value     = random_password.mysql.result
+  sensitive = true
+}
+
 output "workspace_id" {
   value = module.monitoring.workspace_id
 }

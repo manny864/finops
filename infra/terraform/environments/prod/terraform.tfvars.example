@@ -193,6 +193,18 @@ log_daily_quota_gb = 1
 alert_email        = "soporte@cscloudsolutions.com.ar"
 budget_start_date  = "2026-08-01T00:00:00Z"
 
+# Sistema de Backup Automatizado para MySQL Flexible Server. Apagado por
+# default: false no crea NADA (VM/Bastion/Automation cuestan aunque la VM esté
+# apagada la mayor parte del tiempo — Bastion en particular corre 24/7). Ver
+# infra/terraform/modules/mysql_backup/outputs.tf → next_manual_steps para lo
+# que hay que hacer a mano después del primer apply con esto en true.
+mysql_backup_enabled               = false
+mysql_backup_resource_group_name   = "cscs-finops-prod-westus2-backup-rg"
+mysql_backup_vm_subnet_prefix      = "10.50.30.0/24"
+mysql_backup_bastion_subnet_prefix = "10.50.40.0/27"
+mysql_backup_vm_size               = "Standard_B2s"
+mysql_backup_schedule_start_time   = "2026-08-01T09:00:00-03:00"
+
 tags = {
   Owner      = "CSCS-CloudOps"
   CostCenter = "FINOPS"

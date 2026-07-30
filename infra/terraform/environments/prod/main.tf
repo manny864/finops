@@ -209,3 +209,41 @@ module "frontdoor" {
 
   tags = local.tags
 }
+
+# ---------------------------------------------------------------------------
+# Sistema de Backup Automatizado para MySQL Flexible Server
+#
+# RG separado, misma suscripción, misma VNet que el stamp (decisión del
+# usuario 2026-07-30) — sin Private Endpoint nuevo, esa VNet ya tiene la zona
+# DNS privada de mysql vinculada. Ver
+# infra/terraform/modules/mysql_backup/variables.tf para el detalle completo.
+# ---------------------------------------------------------------------------
+
+module "mysql_backup" {
+  count  = var.mysql_backup_enabled ? 1 : 0
+  source = "../../modules/mysql_backup"
+
+  location            = var.stamps[var.default_stamp].location
+  resource_group_name = var.mysql_backup_resource_group_name
+  tags                = local.tags
+
+  existing_vnet_name                = module.stamp[var.default_stamp].vnet_name
+  existing_vnet_resource_group_name = module.stamp[var.default_stamp].vnet_resource_group_name
+  vm_subnet_prefix                  = var.mysql_backup_vm_subnet_prefix
+  bastion_subnet_prefix             = var.mysql_backup_bastion_subnet_prefix
+
+  vm_size = var.mysql_backup_vm_size
+
+  mysql_fqdn           = module.stamp[var.default_stamp].mysql_fqdn
+  mysql_admin_login    = module.stamp[var.default_stamp].mysql_admin_login
+  mysql_admin_password = module.stamp[var.default_stamp].mysql_admin_password
+  mysql_database_names = [var.stamps[var.default_stamp].mysql_database_name]
+
+  storage_account_name                      = module.stamp[var.default_stamp].storage_account_name
+  storage_account_primary_connection_string = module.stamp[var.default_stamp].storage_account_primary_connection_string
+
+  key_vault_id = module.stamp[var.default_stamp].key_vault_id
+
+  alert_email         = var.alert_email
+  schedule_start_time = var.mysql_backup_schedule_start_time
+}

@@ -236,3 +236,39 @@ variable "tags" {
   type    = map(string)
   default = {}
 }
+
+# ---------------------------------------------------------------------------
+# Sistema de Backup Automatizado para MySQL Flexible Server
+# ---------------------------------------------------------------------------
+
+variable "mysql_backup_enabled" {
+  description = "Apaga el módulo completo (VM Windows + Bastion + Automation) sin borrar nada del stamp."
+  type        = bool
+  default     = false
+}
+
+variable "mysql_backup_resource_group_name" {
+  type    = string
+  default = "cscs-finops-prod-westus2-backup-rg"
+}
+
+variable "mysql_backup_vm_subnet_prefix" {
+  type    = string
+  default = "10.50.30.0/24"
+}
+
+variable "mysql_backup_bastion_subnet_prefix" {
+  type    = string
+  default = "10.50.40.0/27"
+}
+
+variable "mysql_backup_vm_size" {
+  type    = string
+  default = "Standard_B2s"
+}
+
+variable "mysql_backup_schedule_start_time" {
+  description = "RFC3339. Evitar que coincida con el sync diario (06:00 UTC) — compiten por la misma VNet/ancho de banda."
+  type        = string
+  default     = "2026-08-01T09:00:00-03:00"
+}
