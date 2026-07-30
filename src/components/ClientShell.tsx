@@ -23,6 +23,13 @@ import PricingPage from './PricingPage';
 
 /** Rutas públicas de la Fase 2: se llega por link de email, sin sesión. */
 const AUTH_TOKEN_ROUTES = ['/verify-email', '/reset-password', '/accept-invite'];
+
+// Rutas públicas por definición: las legales (privacidad, términos, DPA,
+// seguridad, subprocesadores) y la página de estado. Se visitan SIN sesión —
+// desde la pantalla de precios, desde el pie del sidebar, o linkeadas desde
+// afuera— y en el caso de las legales tienen que ser alcanzables por
+// cumplimiento, no sólo por comodidad.
+const PUBLIC_ROUTES = ['/legal', '/status'];
 import CookieConsent from './CookieConsent';
 import { useActionLogStore } from '@/store/actionLogStore';
 import { useRouter, usePathname } from '@/i18n/routing';
@@ -228,16 +235,20 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
       (r) => pathname === r || pathname.startsWith(`${r}/`)
   );
 
+  const isPublicRoute = PUBLIC_ROUTES.some(
+      (r) => pathname === r || pathname.startsWith(`${r}/`)
+  );
+
   useEffect(() => {
       if (!isInitializing && !isAuthenticated && inProgress !== "startup" && inProgress !== "handleRedirect") {
           const isDemo = pathname === '/demo' || pathname.startsWith('/demo/');
-          if (!showPricing && pathname !== '/login' && !isDemo && !isAuthTokenRoute) {
+          if (!showPricing && pathname !== '/login' && !isDemo && !isAuthTokenRoute && !isPublicRoute) {
               router.replace('/login');
           }
       } else if (isAuthenticated && pathname === '/login') {
           router.replace('/');
       }
-  }, [isAuthenticated, inProgress, showPricing, pathname, router, isAuthTokenRoute]);
+  }, [isAuthenticated, inProgress, showPricing, pathname, router, isAuthTokenRoute, isPublicRoute]);
 
   const isDemoRoute = pathname === '/demo' || pathname.startsWith('/demo/');
 
@@ -257,7 +268,7 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
   }
 
   if (!isAuthenticated) {
-      if (isDemoRoute || isAuthTokenRoute) {
+      if (isDemoRoute || isAuthTokenRoute || isPublicRoute) {
           return <>{children}</>;
       }
       if (showPricing) {

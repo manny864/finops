@@ -4257,6 +4257,7 @@
     "security": "Seguridad",
     "subprocessors": "Subprocesadores",
     "status": "Estado",
+    "backToApp": "Volver",
     "copyright": "© {year} CSCloudSolutions. Todos los derechos reservados."
   },
   "GovernanceTags": {
