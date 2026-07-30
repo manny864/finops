@@ -7,15 +7,28 @@ import pool, {
 import {
     getHistoricalDailyCosts,
     getHistoricalDetailedCosts,
+    AZURE_COST_HISTORY_MAX_MONTHS,
 } from "@/modules/collectors/azure/billingService";
 import { redis } from "@/lib/redis";
 
-// Ventana que cubre este job: suficiente para cerrar huecos que el backfill
-// liviano del cron diario (findGapDays en /api/cron/sync, ventana de 7 días)
-// nunca llega a ver — ver incidente RPA365 2026-07 (huecos de 45 días por
-// 429 sostenido en el cron diario). Upsert-only (ON DUPLICATE KEY UPDATE en
-// todas las insertCost*), nunca DELETE — no puede perder datos ya persistidos.
-export const HISTORICAL_GAP_BACKFILL_MONTHS = 2;
+// Ventana que cubre este job: la MAXIMA que permite la Query API de Azure (13
+// meses). Antes eran 2, suficiente para cerrar huecos del backfill liviano del
+// cron diario (findGapDays en /api/cron/sync, ventana de 7 días) — ver
+// incidente RPA365 2026-07 (huecos de 45 días por 429 sostenido).
+//
+// Se subió a 13 el 2026-07-30 porque 2 meses no alcanzan para el caso que
+// importa hoy: la base de prod arrancó de cero el 2026-07-28, así que las
+// tarjetas que suman el AÑO CALENDARIO (White Board → Costos, vía
+// getCostFigures) mostraban sólo los días ya sincronizados y no cerraban con
+// Cost Management. Con 13 meses este cron llena el histórico solo.
+//
+// Este job es el ÚNICO lugar donde debe vivir una consulta tan ancha: corre una
+// vez por día, serializado, fuera del request path. Cost Management tira 429
+// por scope y una ventana de 13 meses en el camino de una página se lleva
+// puesto el resto de las consultas del tenant (incluida la MTD que alimenta los
+// KPIs). Upsert-only (ON DUPLICATE KEY UPDATE en todas las insertCost*), nunca
+// DELETE — no puede perder datos ya persistidos.
+export const HISTORICAL_GAP_BACKFILL_MONTHS = AZURE_COST_HISTORY_MAX_MONTHS;
 
 export interface BackfillResult {
     tenantId: string;

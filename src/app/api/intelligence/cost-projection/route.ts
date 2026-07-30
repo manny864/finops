@@ -5,11 +5,12 @@
  * (base de la Proyección de Gastos). Usado por la página "Gastos y Proyección"
  * (/intelligence/cost-projection) y su card en el dashboard.
  *
- * Fuente de datos: CostSnapshots (snapshot diario del cron) + relleno desde
- * Azure Cost Management (getHistoricalDailyCosts) cuando el snapshot local no
- * cubre toda la ventana de 13 meses — así el histograma trae TODO lo que Azure
- * tenga disponible, no solo lo acumulado localmente. El resultado combinado se
- * cachea en Redis (TTL 6h) para consulta rápida.
+ * Fuente de datos: CostSnapshots (snapshot diario del cron), cacheada en Redis
+ * (TTL 6h). Si la tabla no cubre la ventana de 13 meses, se dispara el backfill
+ * histórico EN BACKGROUND (triggerBackfillIfStale) y se devuelve la serie que
+ * haya: esta ruta NO consulta Cost Management en línea. Ver el comentario largo
+ * en el cuerpo — hacerlo inline generaba 429 sostenido que además tumbaba la
+ * consulta MTD de los KPIs.
  *
  * La proyección en sí (aplicar el % de crecimiento que ingresa el usuario)
  * se calcula 100% client-side (src/lib/costProjection.ts) porque varía por
@@ -17,7 +18,8 @@
  *
  * RBAC: requireTenantAccess (tenant-scoped). Tier: Professional (routeTiers,
  * mismo nivel que /intelligence/billing).
- * Roles Azure requeridos: 'Cost Management Reader' solo para el relleno live;
+ * Roles Azure requeridos: ninguno en el request (el backfill de background sí
+ * necesita 'Cost Management Reader', igual que el cron);
  * los datos ya persistidos por /api/cron/sync no requieren rol en el request.
  */
 import { NextRequest, NextResponse } from "next/server";
@@ -25,7 +27,8 @@ import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { redis } from "@/lib/redis";
 import pool from "@/modules/storage/db";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
-import { getHistoricalDailyCosts, AZURE_COST_HISTORY_MAX_MONTHS } from "@/modules/collectors/azure/billingService";
+import { AZURE_COST_HISTORY_MAX_MONTHS } from "@/modules/collectors/azure/billingService";
+import { triggerBackfillIfStale } from "@/lib/historicalGapBackfill";
 
 type DailyPoint = { date: string; cost: number };
 type MonthlyPoint = { month: string; cost: number };
@@ -101,34 +104,34 @@ export async function GET(request: NextRequest) {
             let daily = await queryDailyFromDb(tenantId, subscriptionId);
             let backfillOk = true;
 
-            // Relleno desde Azure Cost Management: si el snapshot local no
-            // arranca donde debería (tenants nuevos, o gaps por cron caído),
-            // pedimos la ventana completa a Azure y mergeamos. El snapshot
-            // local gana en fechas superpuestas (ya validado/persistido).
+            // Si el snapshot local no arranca donde debería (tenants nuevos, o
+            // gaps por cron caído), el histórico se completa EN BACKGROUND, no
+            // en esta request.
+            //
+            // Antes esto hacía un getHistoricalDailyCosts de 13 meses inline. Con
+            // una base recién creada —el caso de prod desde el 2026-07-28— la
+            // tabla está vacía, así que *cada* request entraba acá y disparaba una
+            // consulta de 13 meses contra Cost Management. Resultado verificado en
+            // los logs de prod (2026-07-30): 429 sostenido con los 3 reintentos
+            // agotados, y con él "Azure Cost Management unavailable" en
+            // /api/dashboard/summary — es decir, el flood de histórico se llevaba
+            // puesta la consulta MTD que alimenta los KPIs, que quedaban leyendo
+            // una tabla vacía. Y como el backfill también fallaba por 429, la
+            // tabla no se llenaba nunca: bucle cerrado.
+            //
+            // triggerBackfillIfStale ya resuelve esto para el Invoicing Report:
+            // fire-and-forget, con lock de 6h en Redis por tenant, y la ventana
+            // ancha la corre el cron diario (HISTORICAL_GAP_BACKFILL_MONTHS = 13).
             const requiredFrom = new Date();
             requiredFrom.setMonth(requiredFrom.getMonth() - AZURE_COST_HISTORY_MAX_MONTHS);
             const earliestInDb = daily[0]?.date;
             const needsBackfill = daily.length === 0 || (earliestInDb && new Date(earliestInDb) > requiredFrom);
             if (needsBackfill) {
-                try {
-                    const historical = await getHistoricalDailyCosts(tenantId, subscriptionId, AZURE_COST_HISTORY_MAX_MONTHS);
-                    // Azure GANA en fechas superpuestas: el backfill viene en USD
-                    // normalizado (CostUSD), mientras que CostSnapshots guarda hoy
-                    // PreTaxCost en moneda de facturación — mezclar unidades por
-                    // fecha rompería la serie. La DB solo aporta fechas que Azure
-                    // no tiene.
-                    const byDate = new Map<string, number>(daily.map((p) => [p.date, p.cost]));
-                    for (const { date, cost } of historical) {
-                        byDate.set(date, cost);
-                    }
-                    daily = Array.from(byDate.entries())
-                        .map(([date, cost]) => ({ date, cost: Number(cost.toFixed(2)) }))
-                        .sort((a, b) => a.date.localeCompare(b.date));
-                    backfillOk = historical.length > 0;
-                } catch (e: any) {
-                    console.warn("[cost-projection] historical Azure backfill failed:", e?.message);
-                    backfillOk = false;
-                }
+                triggerBackfillIfStale(tenantId);
+                // La serie que se devuelve es la que hay. backfillOk=false baja el
+                // TTL a 10 min, así que en cuanto el backfill de background termine
+                // la próxima lectura ya ve el histórico completo.
+                backfillOk = daily.length > 0;
             }
 
             payload = { dailyHistory: daily, monthlyHistory: aggregateMonthly(daily), backfillOk };
