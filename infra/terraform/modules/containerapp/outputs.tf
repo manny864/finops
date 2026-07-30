@@ -12,20 +12,21 @@ output "default_hostname" {
 
 output "internal_url" {
   # NO era interno de verdad hasta el 2026-07-30: apuntaba al MISMO FQDN
-  # público (ingress[0].fqdn), sólo con "https://" pegado adelante. Confirmado
-  # en prod: un Container App Job pegándole al FQDN público de OTRO recurso
-  # DENTRO del mismo entorno managed hace NAT hairpin y cuelga — el polling de
-  # cron-sync fallaba el 100% de las veces (timeout de 30s en cada intento,
-  # incluso con el servidor de brazos cruzados) mientras un curl externo
-  # respondía en 0.6s. Mismo problema que ya estaba documentado y resuelto para
-  # el self-fetch DENTRO del propio proceso (ver src/lib/internalBaseUrl.ts) —
-  # pero ese usa loopback 127.0.0.1, que no sirve acá porque el job y la app
-  # son contenedores distintos, no el mismo proceso.
+  # público (ingress[0].fqdn), sólo con "https://" pegado adelante. El FQDN
+  # interno real de Container Apps sigue el patrón
+  # <app-name>.internal.<default_domain del entorno>: resuelve por DNS interno
+  # del entorno managed y no sale a internet, así que el tráfico entre jobs y
+  # app se queda adentro. Se mantiene por eso — camino más corto y sin egress.
   #
-  # El FQDN interno real de Container Apps sigue el patrón
-  # <app-name>.internal.<default_domain del entorno> — resuelve por DNS interno
-  # del entorno managed y nunca sale a internet, evitando el hairpin.
-  description = "URL interna real (<app>.internal.<default_domain>) para llamadas dentro del mismo Container Apps Environment — usada por los cron jobs."
+  # OJO CON LA HISTORIA DE ESTE COMENTARIO: este cambio se hizo culpando al NAT
+  # hairpin del cuelgue del polling de cron-sync, y ESE DIAGNÓSTICO ERA
+  # INCORRECTO. La causa real era un bug de JavaScript en el runner (un
+  # AbortSignal.timeout reusado entre requests, ver el comentario largo en
+  # modules/cronjobs/main.tf). El FQDN público funcionaba: el request de
+  # trigger, que salía por el mismo camino, llegaba siempre. No volver a
+  # atribuirle a la red un fallo sin antes mirar los intervalos entre
+  # reintentos — ahí estaba la pista (fallaban en 0ms, no a los 30s).
+  description = "URL interna (<app>.internal.<default_domain>) para llamadas dentro del mismo Container Apps Environment — usada por los cron jobs."
   value       = "https://${azurerm_container_app.this.name}.internal.${var.environment_default_domain}"
 }
 
