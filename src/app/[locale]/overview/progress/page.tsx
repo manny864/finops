@@ -9,6 +9,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import { useAIContext } from '@/hooks/useAIContext';
 import { isMockTenant, getMockDataForRoute } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
+import { translateAdvisorText } from '@/lib/advisorI18n';
 
 
 export default function HistoricalProgressPage() {
@@ -363,7 +364,9 @@ export default function HistoricalProgressPage() {
                                                     </span>
                                                 </div>
                                                 <div className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
-                                                    {rec.shortDescription?.problem || rec.shortDescription?.solution || t('affectedResources.fallbackDescription')}
+                                                    {translateAdvisorText(rec.shortDescription?.problem, locale, 'problem')
+                                                        || translateAdvisorText(rec.shortDescription?.solution, locale, 'solution')
+                                                        || t('affectedResources.fallbackDescription')}
                                                 </div>
                                                 <div className="flex flex-wrap justify-between items-center mt-3 pt-2 border-t border-slate-100 dark:border-slate-800/50 gap-2 text-[10px] text-slate-450 dark:text-slate-400">
                                                     <span className="font-medium break-all">{subName}</span>
