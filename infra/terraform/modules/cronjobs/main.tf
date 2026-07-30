@@ -47,11 +47,20 @@ locals {
   # también cambia de día, y el campo de día NO se ajusta acá. En vez de
   # correr el lunes a las 01:00 UTC cuando se pidió el domingo a las 22:00
   # local, el apply falla y se corrige a mano.
+  # try() es necesario acá y no cosmético: `&&` en HCL no da cortocircuito
+  # real contra errores dentro de un `for...if` — Terraform igual intenta
+  # evaluar tonumber(fields[1]) para los jobs donde fields[1] SÍ es "*" (los de
+  # cada N minutos, ej. "*/10 * * * *"), y tonumber("*") revienta con "Invalid
+  # function argument" en terraform plan. Confirmado en CI el 2026-07-30: el
+  # guard `fields[1] != "*"` de la izquierda no evitaba el crash de la derecha.
+  # try() hace exactamente lo que el guard pretendía: si tonumber() no puede
+  # convertir, el job no es hora-específica y por definición no puede haber
+  # rollover de día — cae a false en vez de propagar el error.
   day_rollovers = [
     for k, v in var.jobs : k
     if local.parsed[k].fields[1] != "*"
     && (local.parsed[k].fields[4] != "*" || local.parsed[k].fields[2] != "*" || local.parsed[k].fields[3] != "*")
-    && tonumber(local.parsed[k].fields[1]) - local.offset_hours >= 24
+    && try(tonumber(local.parsed[k].fields[1]) - local.offset_hours >= 24, false)
   ]
 }
 
