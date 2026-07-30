@@ -1,0 +1,38 @@
+-- Elimina el tenant cuyo tenant_id es el directorio de cuentas personales de
+-- Microsoft (MSA / "consumers"): 9188040d-6c67-4c5b-b112-36a304b66dad.
+--
+-- QUÉ ES. Ese GUID no es un directorio de organización: es el tenant well-known
+-- de Microsoft para cuentas personales (@outlook.com, @hotmail.com, @live.com).
+-- Se creó una fila en `Tenants` con él porque alguien inició sesión con una
+-- cuenta personal y el `tid` de ese token es siempre ese GUID.
+--
+-- POR QUÉ SE ELIMINA. No puede tener suscripciones de Azure ni Service Principal,
+-- así que TODA operación contra él falla por diseño. Verificado en los logs de
+-- prod (Log Analytics, ventana de 24 h del 2026-07-30):
+--
+--   [cron-prewarm] tenant=9188040d-… OK (13ms)
+--   [Subscriptions] Paso 1: Obteniendo credencial para tenant 9188040d-…
+--   [azure] Error fetching subscriptions for tenant 9188040d-…:
+--       AADSTS700016: Application with identifier '07d029f8-…' was not found
+--       in the directory '9188040d-6c67-4c5b-b112-36a304b66dad'
+--
+-- El `07d029f8` del error es el AZURE_CLIENT_ID de plataforma: getAzureCredential
+-- cae a él cuando el tenant no tiene credenciales en Key Vault, y lo autentica
+-- contra el directorio del tenant — combinación que no existe. 102 líneas de log
+-- en una ventana de 7 minutos, y `prewarm-dashboard` lo barre cada 10 min gastando
+-- reintentos de Cost Management que le hacen falta a los tenants reales.
+--
+-- ALCANCE DEL BORRADO. Todas las FK a Tenants(tenant_id) son ON DELETE CASCADE,
+-- así que las filas hijas de este tenant se van con él. No hay nada que perder:
+-- nunca pudo ingestar datos de Azure. No se toca ningún otro tenant — el WHERE
+-- es por PK y el GUID es constante well-known de Microsoft, no un id nuestro.
+--
+-- IDEMPOTENTE. Si la fila ya no está, el DELETE afecta 0 filas y no falla.
+--
+-- OJO — ESTO NO IMPIDE QUE VUELVA. Mientras el alta acepte inicios de sesión con
+-- cuenta personal, el próximo login con una @outlook.com recrea la fila. Cerrar
+-- esa puerta (rechazar el directorio MSA en el onboarding/SSO) queda pendiente y
+-- es lo que hace que este borrado no haya que repetirlo.
+
+DELETE FROM Tenants
+ WHERE tenant_id = '9188040d-6c67-4c5b-b112-36a304b66dad';
