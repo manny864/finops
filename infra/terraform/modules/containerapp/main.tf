@@ -37,11 +37,20 @@ resource "azurerm_container_app" "this" {
     }
   }
 
+  # `var.inline_secrets` es sensitive = true (contiene la password de MySQL, la
+  # de Redis, connection strings) y Terraform no permite usar un valor
+  # sensible directo en for_each: necesita las keys para direccionar cada
+  # instancia del recurso, y se niega a hacerlo con datos marcados sensibles.
+  # `nonsensitive()` se aplica SÓLO a las keys (nombres estables como
+  # "db-password", "redis-password" — ver locals.app_secrets en stamp/main.tf,
+  # no son secretas en sí, son las mismas que ya se referencian por nombre en
+  # otros lugares del módulo). El valor sigue leyéndose de var.inline_secrets,
+  # que sigue marcado sensitive — ningún secreto real se expone.
   dynamic "secret" {
-    for_each = var.inline_secrets
+    for_each = nonsensitive(keys(var.inline_secrets))
     content {
-      name  = secret.key
-      value = secret.value
+      name  = secret.value
+      value = var.inline_secrets[secret.value]
     }
   }
 
