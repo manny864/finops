@@ -94,6 +94,35 @@ export type CostQueryDiagnostics = {
     last30RowsIfMtdEmpty?: number;
 };
 
+/**
+ * Señal interna: "no consultes el management group, andá directo a iterar
+ * suscripciones". No es un error real; sólo reusa el camino per-subscription
+ * que ya vivía en los bloques catch.
+ *
+ * POR QUÉ. El scope de management group
+ * (/providers/Microsoft.Management/managementGroups/{tenantId}) devuelve un
+ * agregado que VA RETRASADO respecto al scope de suscripción. Medido en prod el
+ * 2026-07-30 sobre el tenant 81ebe027, que tiene UNA sola suscripción — o sea
+ * ambos scopes deberían dar idéntico:
+ *
+ *     scope MG              -> actualCost  7.62
+ *     scope /subscriptions  -> actualCost 12.77   (= 12.78 del portal)
+ *
+ * Y lo grave es que la consulta al MG NO falla: devuelve 200 con menos filas.
+ * Por eso el fallback per-subscription —que da el número correcto— no se
+ * activaba nunca, y los KPIs de Costo Actual / Costo Proyectado quedaban
+ * abajo del valor real de Cost Management sin ningún error en los logs.
+ * El mismo defecto afectaba a getYesterdayCost, que es lo que el cron `sync`
+ * persiste en CostSnapshots: la tabla se llenaba con montos incompletos.
+ *
+ * COSTO DE ESTE FIX: N consultas (concurrencia 2) en vez de 1 por tenant. Se
+ * acepta a cambio de precisión — Regla Cero. El techo es el mismo que ya tenía
+ * el fallback por 429, que corría exactamente estas N consultas.
+ */
+class MgScopeBypass extends Error {
+    constructor() { super('MG scope bypassed: agregado retrasado, se itera por suscripción'); }
+}
+
 // Private implementation — all Azure API logic lives here.
 // Called exclusively from getCurrentMonthAmortizedCostsWithDiagnostics, which
 // handles cache lookups and in-flight deduplication before reaching here.
@@ -164,7 +193,13 @@ async function _fetchCostData(
     let mtdOptions = buildOptions('MonthToDate', costCol);
     let activeCol = costCol;
 
+    const isAllScope = subscriptionId === 'All' || subscriptionId.toLowerCase() === 'all';
+
     try {
+        // Para 'All' se salta el MG y se itera por suscripción: su agregado va
+        // retrasado y devuelve montos incompletos SIN error. Ver MgScopeBypass.
+        if (isAllScope) throw new MgScopeBypass();
+
         // maxRetries:0 — on 429 (Azure throttling MG scope) fail immediately and fall back to
         // per-subscription iteration instead of waiting 24s+ of exponential backoff.
         let result: any;
@@ -200,9 +235,14 @@ async function _fetchCostData(
             e.message?.includes('does not have any valid subscriptions') ||
             e.statusCode === 400;
 
-        const isAll = subscriptionId === 'All' || subscriptionId.toLowerCase() === 'all';
+        const isAll = isAllScope;
+        const isBypass = e instanceof MgScopeBypass;
 
-        if (isAll && (isAuthOrNotFound || is429err)) {
+        if (isBypass) {
+            // Camino normal para 'All' (no es un fallo): se consulta cada
+            // suscripción porque el agregado del MG va retrasado.
+            diagnostics.scopeAttempted = 'per-subscription';
+        } else if (isAll && (isAuthOrNotFound || is429err)) {
             // MG scope not accessible or throttled: fall back to per-subscription iteration.
             diagnostics.isFallback = true;
             console.log(`[BillingService] MG scope failed (${is429err ? '429 throttled' : e.code || e.statusCode}), iterating subscriptions...`);
@@ -408,7 +448,13 @@ export async function getCostForecast(
     let isFallback = false;
     let activeCol: CostColumn = await resolveCostColumn(tenantId);
 
+    const isAllScope = subscriptionId === 'All' || subscriptionId.toLowerCase() === 'all';
+
     try {
+        // Igual que en _fetchCostData: el agregado del MG va retrasado, así que
+        // para 'All' se itera por suscripción. Ver MgScopeBypass.
+        if (isAllScope) throw new MgScopeBypass();
+
         // maxRetries:0 — 429 on MG scope triggers immediate per-sub fallback, not 24s of backoff.
         try {
             result = await withRetry(() => client.forecast.usage(scope, forecastOptions(activeCol)), { label: `forecast(${scope})`, maxRetries: 0 });
@@ -425,10 +471,12 @@ export async function getCostForecast(
     } catch (e: any) {
         const is429err = is429(e);
         const isAuthOrNotFound = e.statusCode === 403 || e.statusCode === 401 || e.code === 'AuthorizationFailed' || e.code === 'RBACAccessDenied' || e.message?.includes('AuthorizationFailed') || e.code === 'ManagementGroupNotFound' || e.message?.includes("was not found or you don't have access") || e.message?.includes('does not have authorization') || e.message?.includes('does not have any valid subscriptions') || e.statusCode === 400;
-        const isAll = subscriptionId === 'All' || subscriptionId.toLowerCase() === 'all';
-        if (isAll && (isAuthOrNotFound || is429err)) {
+        const isAll = isAllScope;
+        if (isAll && (e instanceof MgScopeBypass || isAuthOrNotFound || is429err)) {
             isFallback = true;
-            console.log(`[BillingService] MG scope failed for forecast (${is429err ? '429 throttled' : e.code || e.statusCode}), falling back to subscription iteration...`);
+            if (!(e instanceof MgScopeBypass)) {
+                console.log(`[BillingService] MG scope failed for forecast (${is429err ? '429 throttled' : e.code || e.statusCode}), falling back to subscription iteration...`);
+            }
             try {
                 const token = await credential.getToken("https://management.azure.com/.default");
                 const subRes = await fetch("https://management.azure.com/subscriptions?api-version=2020-01-01", {
@@ -526,77 +574,62 @@ export async function getYesterdaysCost(tenantId: string, targetDate?: Date): Pr
         }
     } as any);
 
-    let activeCol: CostColumn = await resolveCostColumn(tenantId);
-    let queryOptions = buildQueryOptions(activeCol);
+    const activeCol: CostColumn = await resolveCostColumn(tenantId);
+    const queryOptions = buildQueryOptions(activeCol);
 
-    try {
-        const scope = `/providers/Microsoft.Management/managementGroups/${tenantId}`;
-        let result: any;
-        try {
-            result = await withRetry(() => client.query.usage(scope, queryOptions), { label: `yesterday(MG ${tenantId})` });
-        } catch (colErr: any) {
-            if (activeCol === 'CostUSD' && isCostUsdUnsupportedError(colErr)) {
-                console.warn(`[BillingService] CostUSD no soportado (yesterday, MG) para tenant ${tenantId} — degradando a PreTaxCost.`);
-                await degradeCostColumn(tenantId);
-                activeCol = 'PreTaxCost';
-                queryOptions = buildQueryOptions(activeCol);
-                result = await withRetry(() => client.query.usage(scope, queryOptions), { label: `yesterday(MG ${tenantId}, PreTaxCost)` });
-            } else {
-                throw colErr;
-            }
-        }
-        if (result && result.rows && result.rows.length > 0) {
-            return Number(result.rows[0][0]) || 0;
-        }
-        return 0;
-    } catch (e: any) {
-        console.warn(`Management Group scope query failed for yesterday's cost of tenant ${tenantId}, falling back to subscriptions:`, e.message);
-        
-        const token = await credential.getToken("https://management.azure.com/.default");
-        if (!token) {
-            throw new Error("No se pudo obtener el token de acceso de Azure.");
-        }
-        
-        const subRes = await fetch("https://management.azure.com/subscriptions?api-version=2020-01-01", {
-            headers: { 'Authorization': `Bearer ${token.token}` }
-        });
-        if (!subRes.ok) {
-            throw new Error(`Failed to fetch subscriptions: HTTP ${subRes.status}`);
-        }
-        const subJson = await subRes.json();
-        const subs = (subJson.value || []).filter((s: any) => s.subscriptionId && s.state === 'Enabled');
-
-        let totalCost = 0;
-        await mapWithConcurrency(subs, 3, async (sub: any) => {
-            const subScope = `/subscriptions/${sub.subscriptionId}`;
-            try {
-                const res = await withRetry(
-                    () => client.query.usage(subScope, queryOptions),
-                    { label: `yesterday(sub ${sub.subscriptionId})`, maxRetries: 3 }
-                );
-                if (res && res.rows && res.rows.length > 0) {
-                    totalCost += Number(res.rows[0][0]) || 0;
-                }
-            } catch (subErr: any) {
-                if (activeCol === 'CostUSD' && isCostUsdUnsupportedError(subErr)) {
-                    try {
-                        const res = await withRetry(
-                            () => client.query.usage(subScope, buildQueryOptions('PreTaxCost')),
-                            { label: `yesterday(sub ${sub.subscriptionId}, PreTaxCost)`, maxRetries: 3 }
-                        );
-                        if (res && res.rows && res.rows.length > 0) {
-                            totalCost += Number(res.rows[0][0]) || 0;
-                        }
-                        return;
-                    } catch (retryErr: any) {
-                        subErr = retryErr;
-                    }
-                }
-                console.warn(`Failed to query yesterday's cost for subscription ${sub.subscriptionId}:`, subErr.message);
-            }
-        });
-        return totalCost;
+    // Se consulta SIEMPRE por suscripción, nunca el scope de management group.
+    // El agregado del MG va retrasado respecto al de suscripción y devolvía
+    // montos incompletos SIN error (200 con menos filas), así que este cron
+    // persistía esos montos bajos en CostSnapshots y de ahí salían los KPIs
+    // desfasados. Medición y detalle en MgScopeBypass.
+    const token = await credential.getToken("https://management.azure.com/.default");
+    if (!token) {
+        throw new Error("No se pudo obtener el token de acceso de Azure.");
     }
+
+    const subRes = await fetch("https://management.azure.com/subscriptions?api-version=2020-01-01", {
+        headers: { 'Authorization': `Bearer ${token.token}` }
+    });
+    if (!subRes.ok) {
+        throw new Error(`Failed to fetch subscriptions: HTTP ${subRes.status}`);
+    }
+    const subJson = await subRes.json();
+    const subs = (subJson.value || []).filter((s: any) => s.subscriptionId && s.state === 'Enabled');
+
+    let totalCost = 0;
+    await mapWithConcurrency(subs, 3, async (sub: any) => {
+        const subScope = `/subscriptions/${sub.subscriptionId}`;
+        try {
+            const res = await withRetry(
+                () => client.query.usage(subScope, queryOptions),
+                { label: `yesterday(sub ${sub.subscriptionId})`, maxRetries: 3 }
+            );
+            if (res && res.rows && res.rows.length > 0) {
+                totalCost += Number(res.rows[0][0]) || 0;
+            }
+        } catch (subErr: any) {
+            if (activeCol === 'CostUSD' && isCostUsdUnsupportedError(subErr)) {
+                try {
+                    // Reintento PUNTUAL para esta suscripción: su oferta puede
+                    // no soportar CostUSD aunque el resto del tenant sí. No se
+                    // degrada el tenant entero ni se muta queryOptions — este
+                    // callback corre en paralelo para varias subs.
+                    const res = await withRetry(
+                        () => client.query.usage(subScope, buildQueryOptions('PreTaxCost')),
+                        { label: `yesterday(sub ${sub.subscriptionId}, PreTaxCost)`, maxRetries: 3 }
+                    );
+                    if (res && res.rows && res.rows.length > 0) {
+                        totalCost += Number(res.rows[0][0]) || 0;
+                    }
+                    return;
+                } catch (retryErr: any) {
+                    subErr = retryErr;
+                }
+            }
+            console.warn(`Failed to query yesterday's cost for subscription ${sub.subscriptionId}:`, subErr.message);
+        }
+    });
+    return totalCost;
 }
 
 /**
