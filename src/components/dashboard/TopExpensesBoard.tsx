@@ -24,11 +24,11 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 
 function TopBarChart({ data, color, costLabel, nameLabel, emptyHint }: { data: Array<{ name: string; cost: number }>; color: string; costLabel: string; nameLabel: string; emptyHint: string }) {
     if (!data || data.length === 0) {
-        // Antes acá iba un "—" pelado. Estas cuatro tarjetas salen de
-        // CostSnapshots con una ventana FIJA de 30 días (ver la ruta), así que
-        // vacío casi siempre significa "el sync no escribió nada reciente para
-        // este tenant", no "este tenant no gasta". El guion no lo decía y mandaba
-        // a debuggear la UI en vez de mirar la sincronización.
+        // Antes acá iba un "—" pelado, que no distinguía "no hay datos" de
+        // "algo se rompió". El mensaje es deliberadamente de producto y no
+        // operativo: estas tarjetas salen de CostSnapshots con una ventana fija
+        // de 30 días, pero al usuario final no le sirve saber eso ni puede
+        // correr el sync — eso es diagnóstico nuestro y va en los logs.
         return (
             <div className="flex items-center justify-center h-56 px-4 text-center text-sm text-gray-400 dark:text-gray-500">
                 {emptyHint}

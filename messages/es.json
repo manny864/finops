@@ -3930,7 +3930,7 @@
     "subtitle": "Visualiza fácilmente los mayores gastos por Recurso",
     "loading": "Cargando...",
     "cost_axis": "Costo",
-    "empty_no_recent_sync": "Sin datos en los últimos 30 días. Verificá que la sincronización de costos haya corrido para este entorno.",
+    "empty_no_recent_sync": "Todavía no hay datos de costos para este entorno.",
     "cost_group_axis": "Cost Group",
     "subscription_axis": "Suscripción",
     "resource_group_axis": "Resource Group",

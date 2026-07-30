@@ -121,7 +121,7 @@ export default function BudgetBurnChart({ onHeightChange }: BudgetBurnChartProps
                     <div className="flex-1 w-full min-w-0" style={{ minHeight: `${Math.max(150, burnData.length * 40)}px` }}>
                         {!isMounted ? null : (
                             <ResponsiveContainer width="100%" height={Math.max(150, burnData.length * 40)} minWidth={0}>
-                            <BarChart layout="vertical" data={burnData} margin={{ top: 10, right: 30, left: 10, bottom: 5 }}>
+                            <BarChart layout="vertical" data={burnData} margin={{ top: 10, right: 62, left: 4, bottom: 5 }}>
                                 <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f3f4f6" />
                                 {/* UN SOLO eje X para las dos series.
                                     Antes había dos (`xAxisId` 0 y 1), y recharts
@@ -131,8 +131,30 @@ export default function BudgetBurnChart({ onHeightChange }: BudgetBurnChartProps
                                     llegaba al máximo de SU propio eje. Compartiendo
                                     el eje, el dominio es [0, max(budget, actual)] y
                                     los largos son comparables entre sí. */}
-                                <XAxis type="number" xAxisId={0} domain={[0, 'dataMax']} hide />
-                                <YAxis type="category" dataKey="costCenter" width={220} tick={{fill: '#6b7280', fontSize: 11}} tickLine={false} axisLine={{stroke: '#e5e7eb'}} />
+                                {/* 15% de aire arriba del maximo: con domain 'dataMax' la barra mas
+                                    larga toca el borde y su etiqueta de monto queda cortada. */}
+                                <XAxis
+                                    type="number"
+                                    xAxisId={0}
+                                    domain={[0, (dataMax: number) => (dataMax > 0 ? dataMax * 1.15 : 1)]}
+                                    hide
+                                />
+                                {/* width 220 dejaba ~70px de area de dibujo en una tarjeta de ~330px:
+                                    las barras salian como muñones aunque el dominio
+                                    fuera correcto. Con 108 y nombres truncados, la
+                                    barra tiene lugar para representar la proporcion. */}
+                                <YAxis
+                                    type="category"
+                                    dataKey="costCenter"
+                                    width={108}
+                                    tick={{fill: '#6b7280', fontSize: 10}}
+                                    tickLine={false}
+                                    axisLine={{stroke: '#e5e7eb'}}
+                                    tickFormatter={(v: any) => {
+                                        const str = String(v ?? '');
+                                        return str.length > 16 ? `${str.slice(0, 15)}…` : str;
+                                    }}
+                                />
                                 <Tooltip 
                                     wrapperStyle={{ zIndex: 9999 }}
                                     content={({ active, payload }) => {
