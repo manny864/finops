@@ -41,7 +41,7 @@
 30. [2FA/MFA (TOTP)](#30-2famfa-totp)
 31. [Onboarding Wizard](#31-onboarding-wizard)
 32. [Data Residency](#32-data-residency)
-33. [Marketplace listings (Azure + AWS)](#33-marketplace-listings-azure--aws)
+33. [Marketplace listing (Azure)](#33-marketplace-listing-azure)
 34. [Smoke checks finales](#34-smoke-checks-finales)
 
 ---
@@ -823,7 +823,7 @@ curl "$BASE/openapi.json" | jq .openapi
 - [ ] Reminder email sent on day 12, max once per tenant
 - [ ] Expired email sent on day 14+
 - [ ] Cron secret configured in `.env` (CRON_SECRET)
-- [ ] Cron runs daily (Vercel, AWS EventBridge, or crontab)
+- [ ] Cron runs daily (Container Apps Job — `cron_jobs` en `infra/terraform/environments/prod/terraform.tfvars`)
 - [ ] Email sending is async (fire-and-forget, no response blocking)
 - [ ] If AZURE_SENDER_EMAIL not configured, emails skipped silently
 
@@ -1228,7 +1228,7 @@ curl "$BASE/openapi.json" | jq .openapi
 
 ---
 
-## 33. Marketplace listings (Azure + AWS)
+## 33. Marketplace listing (Azure)
 
 ### Azure Marketplace
 
@@ -1259,30 +1259,6 @@ curl "$BASE/openapi.json" | jq .openapi
 - [ ] Database: Tenants table has marketplace_source, marketplace_subscription_id, marketplace_plan_id columns
 - [ ] Database: MarketplaceEvents table exists with proper schema
 
-### AWS Marketplace
-
-- [ ] Landing page `/marketplace/aws/landing?x-amzn-marketplace-token=test_xyz` renders
-  - Displays: "Welcome from AWS Marketplace"
-  - Shows plan, features, setup button
-  - Mock token resolution works
-
-- [ ] POST `/api/webhooks/marketplace/aws/activate` with valid token
-  - Tenant created with `marketplace_source='aws_marketplace'`
-  - `marketplace_subscription_id` and `marketplace_plan_id` set correctly
-  - Returns 200 with redirect URL
-
-- [ ] POST `/api/webhooks/marketplace/aws` with EntitlementCreated event
-  - Tenant created automatically (if not already exists)
-  - Subscription status set to ACTIVE
-  - MarketplaceEvents logged
-
-- [ ] POST `/api/webhooks/marketplace/aws` with EntitlementUpdated event
-  - Plan updated correctly
-  - MarketplaceEvents logged
-
-- [ ] POST `/api/webhooks/marketplace/aws` with EntitlementDeleted event
-  - Subscription status updated to CANCELED
-
 ### Admin Billing Page
 
 - [ ] Direct (Paddle) customers: See "Change Plan" section with upgrade button
@@ -1291,38 +1267,25 @@ curl "$BASE/openapi.json" | jq .openapi
   - Link to Azure Portal provided
   - Subscription ID and Plan ID displayed
 
-- [ ] AWS Marketplace customers: See "Subscribed via AWS Marketplace" badge
-  - Plan change button disabled
-  - Link to AWS Console provided
-  - Subscription ID and Plan ID displayed
-
 ### Environment Variables
 
 - [ ] `.env.development` has marketplace variables (even if empty):
   - `AZURE_MARKETPLACE_AAD_TENANT_ID`
   - `AZURE_MARKETPLACE_AAD_APP_ID`
   - `AZURE_MARKETPLACE_AAD_APP_SECRET`
-  - `AWS_MARKETPLACE_PRODUCT_CODE`
-  - `AWS_MARKETPLACE_ROLE_ARN`
-  - `AWS_REGION`
 
 ### Documentation
 
 - [ ] `/docs/marketplace-overview.md` — Architecture, billing flows, implementation status
 - [ ] `/docs/marketplace-azure.md` — Partner Center setup, testing, deployment
-- [ ] `/docs/marketplace-aws.md` — Seller Central setup, testing, deployment
 - [ ] `/marketplace/azure/offer-listing.md` — Listing content for Partner Center
 - [ ] `/marketplace/azure/technical-config.md` — API integration details
-- [ ] `/marketplace/aws/listing.md` — Listing content for Seller Central
-- [ ] `/marketplace/aws/technical-config.md` — API integration details
 
 ### Tests
 
 - [ ] `npm test -- api-marketplace.test.ts` passes
   - Azure activation creates tenant
   - Azure webhook processes events
-  - AWS activation creates tenant
-  - AWS webhook processes events
   - MarketplaceEvents table operations work
   - Error cases return correct status codes
 

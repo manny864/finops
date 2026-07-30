@@ -51,11 +51,11 @@ Single MySQL Pool (All regions route here today)
 
 | Region | Compliance | Subprocessor Locations |
 |--------|-----------|----------------------|
-| **EU** | GDPR, NIS2 | Azure (Netherlands), AWS (Frankfurt), Google Cloud (Belgium) |
-| **US** | CCPA, HIPAA (BAs) | AWS (us-east-1), **Azure (West US 2) — el despliegue real de hoy**, Google Cloud (South Carolina) |
-| **LATAM** | LGPD (Brazil), local laws | AWS (São Paulo), Azure (Brazil South) — *planificado, no desplegado* |
-| **APAC** | PDPA (Thailand), local | AWS (Singapore), Azure (Singapore), Google Cloud (Tokyo) |
-| **GLOBAL** | Default multi-region | All major cloud providers |
+| **EU** | GDPR, NIS2 | Azure (Netherlands) — *candidato, no desplegado* |
+| **US** | CCPA, HIPAA (BAs) | **Azure (West US 2) — el despliegue real de hoy** |
+| **LATAM** | LGPD (Brazil), local laws | Azure (Brazil South) — *planificado, no desplegado* |
+| **APAC** | PDPA (Thailand), local | Azure (Singapore) — *candidato, no desplegado* |
+| **GLOBAL** | Default multi-region | Cualquier región de Azure |
 
 ## Database Schema
 

@@ -1116,8 +1116,7 @@
         "Users & Permissions, Onboarding and Configuration",
         "Multi-Currency Display Preferences",
         "In-platform support (5 tickets/mo, 48 h response)"
-      ],
-      "awsScope": "1 AWS account, 1 user"
+      ]
     },
     "pro": {
       "name": "Professional",
@@ -1142,8 +1141,7 @@
         "Multi-Factor Authentication (MFA)",
         "In-platform support (20 tickets/mo, 24 h response)",
         "FinOps Copilot (AI)"
-      ],
-      "awsScope": "Up to 5 AWS accounts, up to 5 users"
+      ]
     },
     "business": {
       "name": "Business",
@@ -1173,8 +1171,7 @@
         "Executive Report",
         "Public Status Page + Incident History",
         "Unlimited in-platform support (8 h response)"
-      ],
-      "awsScope": "Up to 20 AWS accounts, up to 20 users"
+      ]
     },
     "enterprise": {
       "name": "Enterprise",
@@ -1216,8 +1213,7 @@
         "Azure Key Vault (platform-managed encryption)",
         "Azure Marketplace SaaS Billing",
         "Unlimited dedicated support (4 h max SLA)"
-      ],
-      "awsScope": "Unlimited AWS accounts and users"
+      ]
     },
     "enterpriseModal": {
       "title": "Contact Enterprise Sales",
@@ -1250,10 +1246,7 @@
     "showFeatures": "View features ({count})",
     "hideFeatures": "Hide features",
     "cloudSelectorLabel": "Which cloud do you want to manage?",
-    "cloudAzure": "Azure",
-    "cloudAws": "AWS",
-    "featureNotInAws": "Not available on AWS yet",
-    "awsScopeNotice": "Features greyed out are not available for AWS yet. AWS support is being rolled out capability by capability: what you see enabled is what works today, not what is planned."
+    "cloudAzure": "Azure"
   },
   "auth": {
     "paymentSuccess": "Payment completed successfully! Please log in to access your plan."
@@ -1367,37 +1360,24 @@
     "companyNamePlaceholder": "Your company name",
     "primaryCloud": "Primary Cloud Provider",
     "azureConnected": "Azure (Connected)",
-    "awsConnected": "AWS (Connected)",
-    "awsComingSoon": "AWS (Coming soon)",
     "currency": "Currency",
     "timezone": "Timezone",
     "step2Title": "Connect Azure Subscription",
     "step2Desc": "Provide your Service Principal credentials",
-    "step2TitleAws": "Connect AWS Account",
-    "step2DescAws": "Register and validate at least one AWS account to enable ingestion",
     "clientId": "Client ID",
     "clientSecret": "Client Secret",
     "azureTenantId": "Azure Tenant ID",
     "validate": "Validate",
-    "validateAws": "Validate AWS Account",
     "validating": "Validating...",
     "credsValidated": "Credentials validated successfully",
     "allPermsPresent": "All required permissions present",
-    "awsAccountValidated": "AWS account validated successfully",
-    "awsReadyForSync": "At least one AWS account is registered and ready to sync",
     "validationFailed": "Validation failed",
-    "awsConnectHint": "Open AWS Cloud Accounts, register an account, then return here to validate.",
-    "openAwsAccounts": "Open AWS Cloud Accounts",
-    "awsNoAccountsConfigured": "No AWS accounts were found. Create at least one in AWS Cloud Accounts.",
     "step3Title": "Run First Data Sync",
     "step3Desc": "Sync your first set of cost data from Azure",
-    "step3DescAws": "Sync your first set of cost data from AWS",
     "runSync": "Run Sync",
     "syncing": "Syncing...",
     "syncingHint": "Syncing your data... this may take up to 60 seconds",
     "syncClickHint": "Click \"Run Sync\" to import your initial cost data from Azure",
-    "syncingHintAws": "Syncing your AWS data... this may take up to 60 seconds",
-    "syncClickHintAws": "Click \"Run Sync\" to import your initial cost data from AWS",
     "step4Title": "Create Your First Budget",
     "step4Desc": "Set up a budget to track spending",
     "subscription": "Subscription",
@@ -1974,7 +1954,7 @@
   },
   "IntelligenceUpload": {
     "title": "Manual Cost Ingestion (CSV)",
-    "subtitle": "Upload billing export files from Azure, AWS, or GCP. The system will map columns to the FOCUS standard and generate an instant AI assessment.",
+    "subtitle": "Upload billing export files from Azure or any other provider. The system will map columns to the FOCUS standard and generate an instant AI assessment.",
     "dropzoneTitle": "Drag your CSV file here",
     "dropzoneSubtitle": "Supports standard billing exports (Amortized/Actual Cost). Processing happens locally in your browser.",
     "selectFileButton": "Select File",
@@ -4320,8 +4300,7 @@
     "csvColResourceGroup": "Resource Group",
     "csvColRegion": "Region",
     "csvColComplianceStatus": "Compliance Status",
-    "csvColMissingTags": "Missing Tags",
-    "awsReadOnlyNotice": "Read-only audit: the onboarding role does not request permissions to write tags, so remediation is done from the AWS console or from your infrastructure-as-code tooling."
+    "csvColMissingTags": "Missing Tags"
   },
   "TierLockedNotice": {
     "featureLockedTitle": "{feature} is on the {tier} plan",
@@ -4663,8 +4642,6 @@
     "signupTitle": "Which cloud do you want to analyze?",
     "signupAzure": "Microsoft Azure",
     "signupAzureHint": "You sign in with your Microsoft account.",
-    "signupAws": "Amazon Web Services",
-    "signupAwsHint": "AWS has no corporate sign-in: you create an account with email and password.",
     "signupCompany": "Company name",
     "signupEmail": "Work email",
     "signupPassword": "Password (12 characters minimum)",

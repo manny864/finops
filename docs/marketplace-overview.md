@@ -2,284 +2,253 @@
 
 ## Summary
 
-FinOps SaaS Platform is available on both **Azure Marketplace** and **AWS Marketplace**, in addition to direct billing via Paddle. This document provides a high-level overview of the marketplace integration strategy, billing flows, and key technical decisions.
+The FinOps SaaS Platform is available on **Azure Marketplace**, in addition to
+direct billing via Paddle. This document gives the high-level view: why the
+channel exists, how billing flows through it, and what is still pending outside
+the code. The API-level detail lives in
+[`marketplace-integration.md`](./marketplace-integration.md); the Partner Center
+runbook in [`marketplace-azure.md`](./marketplace-azure.md).
+
+Azure Marketplace is the **only** marketplace channel. A second one (AWS) was
+scaffolded during the multi-cloud evaluation of July 2026 and removed with it on
+2026-07-29 — landing page, webhook handlers and client library are gone. The only
+residue is the third member of the `marketplace_source` enum, kept so the column
+definition stays stable; nothing reads or writes it.
 
 ---
 
 ## Table of Contents
 
-1. [Dual Marketplace Strategy](#dual-marketplace-strategy)
-2. [Billing Flow Diagram](#billing-flow-diagram)
-3. [Tenant Sources](#tenant-sources)
-4. [Implementation Status](#implementation-status)
-5. [Next Steps](#next-steps)
+1. [Why a marketplace channel](#why-a-marketplace-channel)
+2. [Billing flow](#billing-flow)
+3. [Tenant sources](#tenant-sources)
+4. [Implementation status](#implementation-status)
+5. [Next steps](#next-steps)
+6. [Key files](#key-files)
 
 ---
 
-## Dual Marketplace Strategy
+## Why a marketplace channel
 
-### Why Marketplaces?
+- **Market penetration**: enterprise customers often prefer consuming SaaS from
+  their cloud provider's marketplace.
+- **Simplified procurement**: one bill, consolidated with the rest of their Azure
+  spend — and, for customers with a MACC, spend that draws down an existing
+  commitment.
+- **Trust & compliance**: customers trust software listed in an official
+  marketplace.
+- **Frictionless onboarding**: automatic entitlement provisioning shortens the
+  sales cycle.
 
-- **Market penetration**: Enterprise customers often prefer consuming SaaS from their cloud provider's marketplace
-- **Simplified procurement**: One bill, consolidated with other cloud services
-- **Trust & compliance**: Customers trust software from official marketplaces
-- **Frictionless onboarding**: Automatic entitlement provisioning reduces sales cycle
+The integration is **additive**: Paddle billing for direct customers continues
+unchanged. A tenant can be sourced from:
 
-### Additive Approach
+1. **Direct (Paddle)** — traditional SaaS signup, customer manages the subscription.
+2. **Azure Marketplace** — Microsoft bills the customer; we receive notifications.
 
-Marketplace integration is **additive** — Paddle billing for direct customers continues unchanged. Customers can be sourced from:
+### Tier alignment
 
-1. **Direct (Paddle)** — Traditional SaaS signup, customer manages subscription
-2. **Azure Marketplace** — Microsoft bills customer; we receive notifications
-3. **AWS Marketplace** — AWS bills customer; we receive notifications
-
-### Tier Alignment
-
-All three channels offer the same tier structure:
+Both channels offer the same tier structure:
 
 - **Essential**: $99/month
-- **Professional**: $299/month  
+- **Professional**: $299/month
 - **Business**: $799/month
-- **Enterprise**: Custom pricing (contact sales)
+- **Enterprise**: custom pricing (contact sales)
 
 Prices are in USD, auto-converted for local currency where applicable.
 
 ---
 
-## Billing Flow Diagram
+## Billing flow
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                          CUSTOMER                               │
 └────────────────────┬────────────────────────────────────────────┘
                      │
-        ┌────────────┴────────────┬───────────────┐
-        │                         │               │
-        ▼                         ▼               ▼
-   ┌─────────┐          ┌──────────────┐   ┌──────────┐
-   │ DIRECT  │          │ AZURE        │   │ AWS      │
-   │ (Paddle)│          │ MARKETPLACE  │   │ PLACE... │
-   └────┬────┘          └──────┬───────┘   └────┬─────┘
-        │                      │               │
-        │                      ▼               ▼
-        │            ┌──────────────────┐  ┌─────────────┐
-        │            │ Microsoft Inbox  │  │ AWS SQS/SNS │
-        │            │ (Fulfillment API)│  │             │
-        │            └────────┬─────────┘  └──────┬──────┘
-        │                     │                   │
-        │                     ▼                   ▼
-        └────────────────────┬─────────────────────┘
-                             │
-                    ┌────────▼─────────┐
-                    │ FINOPS APP       │
-                    │ Webhook Receiver │
-                    └────────┬─────────┘
-                             │
-                    ┌────────▼────────┐
-                    │ Update Tenant   │
-                    │ Update Status   │
-                    │ Log Event       │
-                    └─────────────────┘
+        ┌────────────┴────────────┐
+        │                         │
+        ▼                         ▼
+   ┌─────────┐          ┌──────────────────┐
+   │ DIRECT  │          │ AZURE            │
+   │ (Paddle)│          │ MARKETPLACE      │
+   └────┬────┘          └────────┬─────────┘
+        │                        │
+        │                        ▼
+        │              ┌──────────────────────┐
+        │              │ Microsoft SaaS       │
+        │              │ Fulfillment API      │
+        │              └──────────┬───────────┘
+        │                         │
+        └────────────┬────────────┘
+                     │
+            ┌────────▼─────────┐
+            │ FINOPS APP       │
+            │ Webhook Receiver │
+            └────────┬─────────┘
+                     │
+            ┌────────▼────────┐
+            │ Update Tenant   │
+            │ Update Status   │
+            │ Log Event       │
+            └─────────────────┘
 ```
 
-### Direct (Paddle) Flow
+### Direct (Paddle) flow
 
-1. Customer signs up at finops.cscloudsolutions.com.ar
-2. Selects tier and billing frequency
-3. Paddle collects payment, stores subscription ID
-4. User account created with `marketplace_source='direct'`
+1. Customer signs up at `finops.cscloudsolutions.com.ar`.
+2. Selects tier and billing frequency.
+3. Paddle collects payment; we store the subscription ID.
+4. Tenant created with `marketplace_source='direct'`.
 
-### Azure Marketplace Flow
+### Azure Marketplace flow
 
-1. Customer finds offer on Azure Marketplace
-2. Clicks "Get It Now" → redirected to landing page with token
-3. Token exchanged with Microsoft SaaS Fulfillment API
-4. Tenant auto-provisioned with `marketplace_source='azure_marketplace'`
-5. Microsoft sends webhook notifications for lifecycle events (suspend, renew, cancel, etc.)
-6. We update tenant status and send email notifications
-
-### AWS Marketplace Flow
-
-1. Customer subscribes on AWS Marketplace
-2. AWS redirects to landing page with registration token
-3. Token exchanged with AWS Marketplace Metering Service API
-4. Tenant auto-provisioned with `marketplace_source='aws_marketplace'`
-5. AWS sends SNS notifications for entitlement changes
-6. We update tenant status and send email notifications
+1. Customer finds the offer on Azure Marketplace.
+2. Clicks "Get It Now" → redirected to the landing page with a token.
+3. Token resolved against the Microsoft SaaS Fulfillment API.
+4. Tenant auto-provisioned with `marketplace_source='azure_marketplace'`.
+5. Microsoft POSTs JWT-signed webhooks for lifecycle events (suspend, renew,
+   cancel, plan change).
+6. We update tenant status and send email notifications.
 
 ---
 
-## Tenant Sources
+## Tenant sources
 
-Each tenant in the database has a `marketplace_source` field:
+Each tenant carries a `marketplace_source`:
 
 ```sql
-ALTER TABLE Tenants ADD COLUMN marketplace_source 
+-- migrations/20260728-003-sincronizar-esquema-vps.sql
+ALTER TABLE Tenants ADD COLUMN marketplace_source
   ENUM('direct','azure_marketplace','aws_marketplace') DEFAULT 'direct';
 
 ALTER TABLE Tenants ADD COLUMN marketplace_subscription_id VARCHAR(255) NULL;
 ALTER TABLE Tenants ADD COLUMN marketplace_plan_id VARCHAR(255) NULL;
 ```
 
-### Data Model
+The third enum member is legacy (see the note in [Summary](#summary)); in practice
+only `direct` and `azure_marketplace` occur.
+
+### Data model
 
 ```
 Tenant
-├── marketplace_source: 'direct' | 'azure_marketplace' | 'aws_marketplace'
-├── marketplace_subscription_id: str (provided by marketplace)
-├── marketplace_plan_id: str (e.g., 'professional-monthly')
+├── marketplace_source: 'direct' | 'azure_marketplace'
+├── marketplace_subscription_id: str (provided by the marketplace)
+├── marketplace_plan_id: str (e.g. 'professional-monthly')
 ├── tier: 'Essential' | 'Professional' | 'Business' | 'Enterprise'
-└── subscription_status: 'ACTIVE' | 'PAST_DUE' | 'CANCELED' | etc.
+└── subscription_status: 'ACTIVE' | 'PAST_DUE' | 'CANCELED' | ...
 ```
 
-### Billing Portal Integration
+### Billing portal integration
 
-In `/admin/billing`, we show:
+In `/admin/billing`:
 
-- ✅ Paddle controls for direct customers
-- ❌ Disabled plan change for marketplace customers (redirect to Azure Portal / AWS Console)
-- ℹ️ Marketplace status badge with link to provider portal
+- ✅ Paddle controls for direct customers.
+- ❌ Self-service plan change disabled for marketplace customers — they change it
+  in the Azure portal, which is what emits the `ChangePlan` webhook.
+- ℹ️ Marketplace status badge with a link to the provider portal.
 
 ---
 
-## Implementation Status
+## Implementation status
 
 ### ✅ Completed
 
-- [x] Database schema updates (marketplace columns + MarketplaceEvents table)
-- [x] Landing pages (Azure + AWS with token resolution mocks)
-- [x] Webhook handlers (Azure + AWS event processing)
-- [x] Marketplace metadata files (listings + technical configs)
+- [x] Database schema (marketplace columns + `MarketplaceEvents` table)
+- [x] Landing page with real token resolution
+- [x] Webhook handler with **RS256 JWT verification** against the live AAD JWKS
+      endpoint, audience pinned to `AZURE_MARKETPLACE_AAD_APP_ID`
+- [x] Offer metadata (`marketplace/azure/offer-listing.md`, `technical-config.md`)
 - [x] Billing page UI (marketplace status display)
-- [x] Environment variables in `.env.development`
-- [x] Integration tests (database operations, event logging)
-- [x] Documentation (this file + per-marketplace guides)
+- [x] Integration tests (`__tests__/integration/api-marketplace.test.ts`)
+- [x] Secrets in Key Vault (`AZURE_MARKETPLACE_AAD_APP_SECRET`)
 
-### ⏳ Requires Partner Center Setup (Out of Scope for Code)
+### ⏳ Requires Partner Center setup (out of scope for code)
 
 - [ ] Register with Microsoft Partner Center
-- [ ] Create Azure Marketplace offer
-- [ ] Register with AWS Marketplace
-- [ ] Configure Azure AD app and credentials
-- [ ] Configure AWS IAM role and credentials
-- [ ] Update `.env.production` with live credentials
-- [ ] Sandbox testing in marketplace partner portals
-- [ ] Submission to Azure/AWS for review
-- [ ] Launch offer (publish to production)
+- [ ] Create the Azure Marketplace offer
+- [ ] Configure the Azure AD app and credentials in the offer's technical configuration
+- [ ] Sandbox testing in the partner portal
+- [ ] Submit for Microsoft review
+- [ ] Publish the offer to production
 
-### ⚠️ Production Readiness Notes
-
-**API Integration:**
-- Landing pages currently use mock token resolution
-- In production, these MUST call the actual fulfillment APIs
-- See `marketplace/{azure,aws}/technical-config.md` for API details
-
-**Security:**
-- JWT signature validation for Azure webhooks not yet implemented (needs public cert from Microsoft)
-- SNS signature validation for AWS webhooks not yet implemented (needs AWS SDK validation)
-- Both must be added before production deployment
+### ⚠️ Production readiness notes
 
 **Monitoring:**
-- Add CloudWatch/Application Insights monitoring for webhook delivery failures
-- Set up alerts for failed tenant provisioning
-- Log all marketplace events for audit trail
+- Application Insights already receives the app's traces; add an alert on webhook
+  handler failures and on failed tenant provisioning.
+- Every marketplace event is persisted in `MarketplaceEvents` for audit.
+
+**Reconciliation:**
+- Microsoft's payout report has to be reconciled against tenant counts and
+  subscription statuses monthly — the webhook is the source of truth for state,
+  not for money.
 
 ---
 
-## Next Steps
+## Next steps
 
-### For Development
+### For development
 
-1. **Test locally with mocks:**
+1. **Test locally:**
    ```bash
    npm run dev
-   # Visit http://localhost:3000/marketplace/azure/landing?token=test_token_xyz
-   # Visit http://localhost:3000/marketplace/aws/landing?x-amzn-marketplace-token=test_token_xyz
+   # http://localhost:3000/marketplace/azure/landing?token=test_token_xyz
    ```
+   `MARKETPLACE_SKIP_VERIFY=true` skips webhook JWT verification — local only.
 
-2. **Run integration tests:**
+2. **Run the integration tests:**
    ```bash
-   npm test -- api-marketplace.test.ts
+   npx vitest run __tests__/integration/api-marketplace.test.ts
    ```
 
-3. **Review webhook handlers:**
-   - Add real JWT/SNS signature validation
-   - Implement retry logic for webhook failures
-   - Set up monitoring/alerting
+3. **Harden the handler:** retry logic for transient failures, plus the
+   monitoring/alerting above.
 
-### For Product/Sales
+### For product/sales
 
-1. **Partner Center Registration:**
-   - Create accounts in Microsoft and AWS Partner Centers
-   - Complete company verification
-   - Register organization details
+1. **Partner Center registration**: create the account, complete company
+   verification, register organization details.
+2. **Offer configuration**: use the metadata in `marketplace/azure/`; upload
+   logos, screenshots and video; set pricing and support tiers.
+3. **Sandbox testing**: full flow (purchase → landing → tenant creation →
+   billing) plus the webhook lifecycle (suspend, renew, cancel, plan change).
+4. **Launch**: publish to sandbox first, pilot with real marketplace-sourced
+   subscriptions, then publish to production.
 
-2. **Offer Configuration:**
-   - Use the metadata from `marketplace/{azure,aws}/` folders
-   - Upload logos, screenshots, videos
-   - Set up pricing and support tiers
+### For operations
 
-3. **Sandbox Testing:**
-   - Test the full flow: purchase → landing page → tenant creation → billing
-   - Test webhook lifecycle: suspend, renew, cancel
-   - Test plan changes and upgrades
-
-4. **Launch & Marketing:**
-   - Publish offers to staging (sandbox) first
-   - Run customer pilots with marketplace-sourced subscriptions
-   - Monitor adoption and customer feedback
-   - Publish to production marketplace
-
-### For Operations
-
-1. **Credentials Management:**
-   - Store Azure AD credentials in secure vault (e.g., GitHub Secrets, Azure Key Vault)
-   - Store AWS credentials in secure vault (e.g., AWS Secrets Manager)
-   - Rotate credentials on schedule
-
-2. **Monitoring Setup:**
-   - Dashboard for marketplace vs. direct signups
-   - Alert on webhook delivery failures
-   - Monitor tenant provisioning latency
-   - Track marketplace conversion rates
-
-3. **Billing Reconciliation:**
-   - Ensure marketplace billing aligns with actual usage
-   - Reconcile Microsoft/AWS invoices monthly
-   - Cross-check tenant counts and subscription statuses
+1. **Credentials**: the AAD client secret lives in Azure Key Vault
+   (`infraSecrets.ts`), not in the `.env`. Rotate on schedule.
+2. **Monitoring**: dashboard for marketplace vs. direct signups; alert on webhook
+   delivery failures; track provisioning latency and conversion.
+3. **Billing reconciliation**: monthly, as above.
 
 ---
 
-## Key Files
+## Key files
 
 | File | Purpose |
 |------|---------|
 | `marketplace/azure/offer-listing.md` | Azure Marketplace listing content |
 | `marketplace/azure/technical-config.md` | Azure API integration guide |
-| `marketplace/aws/listing.md` | AWS Marketplace listing content |
-| `marketplace/aws/technical-config.md` | AWS API integration guide |
-| `src/app/[locale]/marketplace/azure/landing/page.tsx` | Azure landing page (token → tenant) |
-| `src/app/[locale]/marketplace/aws/landing/page.tsx` | AWS landing page (token → tenant) |
-| `src/app/api/webhooks/marketplace/azure/route.ts` | Azure webhook handler |
-| `src/app/api/webhooks/marketplace/azure/activate/route.ts` | Azure activation endpoint |
-| `src/app/api/webhooks/marketplace/aws/route.ts` | AWS webhook handler |
-| `src/app/api/webhooks/marketplace/aws/activate/route.ts` | AWS activation endpoint |
-| `src/modules/storage/db.ts` | Database schema (marketplace columns) |
+| `docs/marketplace-azure.md` | Partner Center runbook |
+| `docs/marketplace-integration.md` | API-level integration reference |
+| `src/app/[locale]/marketplace/azure/landing/page.tsx` | Landing page (token → tenant) |
+| `src/app/api/webhooks/marketplace/azure/route.ts` | Webhook handler (lifecycle events) |
+| `src/app/api/webhooks/marketplace/azure/activate/route.ts` | Activation endpoint |
+| `src/lib/marketplace/azure.ts` | Fulfillment API client + JWT verification |
+| `src/lib/marketplace/planMapping.ts` | Plan ID ⇄ tier mapping |
 | `__tests__/integration/api-marketplace.test.ts` | Integration tests |
-| `.env.development` | Marketplace env variables |
 
 ---
 
-## Support & Questions
+## Support & questions
 
-**For technical implementation issues:**
-- See `marketplace/{azure,aws}/technical-config.md`
-- Check integration test examples in `__tests__/integration/api-marketplace.test.ts`
+**Technical implementation:** see `marketplace/azure/technical-config.md` and the
+examples in `__tests__/integration/api-marketplace.test.ts`.
 
-**For marketplace questions:**
-- Microsoft Partner Center: https://partner.microsoft.com/
-- AWS Marketplace: https://aws.amazon.com/marketplace/
+**Marketplace questions:** Microsoft Partner Center — https://partner.microsoft.com/
 
-**For internal discussion:**
-- Contact engineering team
-- Reference: GitHub Issues / Slack #marketplace-launch
+**Internal:** contact the engineering team.

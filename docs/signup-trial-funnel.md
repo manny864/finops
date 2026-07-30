@@ -128,7 +128,7 @@ ALTER TABLE Tenants ADD COLUMN last_trial_reminder_at DATETIME NULL;
 
 ### GET /api/cron/trial-expiry
 **Auth**: Query param `?secret=$CRON_SECRET`  
-**Called by**: Cron job (Vercel Cron, AWS EventBridge, etc.)  
+**Called by**: Container Apps Job (`trial-expiry`, ver `cron_jobs` en `infra/terraform/environments/prod/terraform.tfvars`)  
 **Frequency**: Daily (recommended: 00:00 UTC)
 
 **What it does**:
@@ -299,27 +299,18 @@ CRON_SECRET=your-secure-random-string
 
 ### Cron Setup
 
-**Vercel Cron** (in vercel.json):
-```json
-{
-  "crons": [
-    {
-      "path": "/api/cron/trial-expiry",
-      "schedule": "0 0 * * *"
-    }
-  ]
+**Container Apps Job** (as deployed — `infra/terraform/environments/prod/terraform.tfvars`):
+```hcl
+cron_jobs = {
+  trial-expiry = { cron = "0 22 * * *" } # 01:00 UTC del día siguiente
 }
 ```
+El schedule se expresa en la timezone del negocio (`cron_timezone_offset_hours = -3`);
+el job hace el GET con el `CRON_SECRET` que lee de Key Vault.
 
-**AWS EventBridge**:
-```
-Target: https://your-app.com/api/cron/trial-expiry?secret=CRON_SECRET
-Schedule: cron(0 0 * * ? *)
-```
-
-**Crontab**:
+**Local / manual**:
 ```bash
-0 0 * * * curl -s "https://your-app.com/api/cron/trial-expiry?secret=$CRON_SECRET"
+curl -s "http://localhost:3000/api/cron/trial-expiry?secret=$CRON_SECRET"
 ```
 
 ## Tracking

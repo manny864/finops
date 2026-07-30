@@ -396,4 +396,4 @@ Higher values = more responsive to recent changes.
 1. Integrate forecast UI widget on `/intelligence/billing` dashboard
 2. Monitor backtest MAPE in production (alert if > 15%)
 3. Collect user feedback on method selection
-4. Consider external ML services (AWS Forecast, Azure AutoML) for complex scenarios
+4. Consider external ML services (Azure AutoML / Azure Machine Learning) for complex scenarios

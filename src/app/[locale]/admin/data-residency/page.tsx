@@ -7,12 +7,17 @@ import { Globe, Lock, Unlock, Copy, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { getFreshIdToken } from '@/lib/msalToken';
 
+// Subprocesadores por región. La plataforma corre íntegramente sobre Microsoft
+// Azure, así que hay un solo subprocesador de infraestructura por región.
+// Hoy existe UN stamp desplegado (West US 2, ver infra/terraform); el resto son
+// regiones candidatas y se marcan como tales para no prometer una capacidad que
+// todavía no está desplegada.
 const REGION_SUBPROCESSORS: Record<string, string[]> = {
-    EU: ['AWS (Frankfurt)', 'Google Cloud (Belgium)', 'Azure (Netherlands)'],
-    US: ['AWS (us-east-1)', 'Google Cloud (South Carolina)', 'Azure (East US 2)'],
-    LATAM: ['AWS (São Paulo)', 'Azure (Brazil South)'],
-    APAC: ['AWS (Singapore)', 'Google Cloud (Tokyo)', 'Azure (Singapore)'],
-    GLOBAL: ['All major cloud providers'],
+    EU: ['Azure (Netherlands) — planned'],
+    US: ['Azure (West US 2)'],
+    LATAM: ['Azure (Brazil South) — planned'],
+    APAC: ['Azure (Singapore) — planned'],
+    GLOBAL: ['Azure (West US 2)'],
 };
 
 interface DataResidencyInfo {
