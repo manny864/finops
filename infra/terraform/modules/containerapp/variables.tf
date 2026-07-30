@@ -16,6 +16,11 @@ variable "environment_id" {
   type = string
 }
 
+variable "environment_default_domain" {
+  description = "default_domain del Container Apps Environment — arma el FQDN interno (<app>.internal.<default_domain>) para self-calls dentro del mismo entorno. Ver internal_url."
+  type        = string
+}
+
 variable "identity_id" {
   type = string
 }

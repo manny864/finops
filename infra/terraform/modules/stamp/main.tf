@@ -282,6 +282,7 @@ module "app" {
   name_base                       = local.name_base
   resource_group_name             = module.network.resource_group_name
   environment_id                  = azurerm_container_app_environment.this.id
+  environment_default_domain      = azurerm_container_app_environment.this.default_domain
   identity_id                     = azurerm_user_assigned_identity.app.id
   registry_server                 = var.registry_server
   image_name                      = var.image_name
