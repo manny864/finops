@@ -70,11 +70,18 @@ cualquiera sea el camino que se elija para (a).
 > job `drift`, que además tenía `dev` en la matriz. `dev` se quitó de las
 > opciones del `workflow_dispatch`.
 >
-> Queda **abierto**: el GitHub environment `prod` no tiene protection rules, así
-> que un `workflow_dispatch` aplica sin aprobación. Si se quiere el gate manual
-> que el comentario del workflow prometía, hay que agregar un required reviewer
-> al environment `prod` en Settings del repo — es un cambio de configuración del
-> repo, no de código.
+> **Gate del apply — resuelto en código (commit `1f86928`), no en el environment.**
+> Los protection rules de GitHub (required reviewers y wait timer) **no están
+> disponibles para repos privados en el plan Free**: la API responde 422
+> "Please ensure the billing plan supports the required reviewers protection
+> rule", verificado el 2026-07-30 tanto para reviewers como para `wait_timer`
+> solo. No se cambió el plan ni se hizo público el repo.
+>
+> En su lugar, `terraform.yml` tiene un input `confirm` y el apply sólo corre con
+> el valor exacto `APPLY-PROD`; un dispatch sin confirmar planifica, se detiene y
+> deja un `::warning` en el log. Si en algún momento el repo pasa a un plan que
+> soporte protection rules, conviene mover el gate al environment y dejar el
+> input como redundancia.
 
 #### Recomendación (la más barata, y la que además hace útil el plan del PR)
 
@@ -185,30 +192,48 @@ az monitor log-analytics query -w bc85f2d1-f695-42b8-a177-44eca87e04ec \
     | project TimeGenerated, Log_s | order by TimeGenerated desc" -o tsv
 ```
 
-#### El tenant de prod quedó en tier Essential
+#### Container Apps y Log Analytics: sigue abierto (dos hipótesis descartadas)
 
-`POST /api/tenants` auto-provisiona con
-`INSERT IGNORE INTO Tenants (tenant_id, company_name)` — **sin la columna
-`tier`**, así que cae al default del schema: `Essential`
-(`tier ENUM(...) DEFAULT 'Essential'`).
+**Descartado 1 — permisos.** El SP del tenant CSCS (`898b952d`, credenciales en
+Key Vault como `tenant-81ebe027-…-client-id`/`-client-secret`) tiene `Reader`,
+`Cost Management Reader`, `Monitoring Reader`, `Billing Reader`, `Tag Contributor`
+y el rol custom de remediación sobre `ec03e8ce`, más `Reader` y
+`Cost Management Reader` sobre el management group. Y los recursos existen y son
+visibles por Resource Graph (`az graph query` sobre
+`microsoft.app/containerapps` + `microsoft.operationalinsights/workspaces`
+devuelve 2 registros).
 
-Con la base recién creada, el tenant CSCS (`81ebe027`) quedó en Essential. Eso
-explica que **Container Apps y Log Analytics no se muestren**: las dos tarjetas
-son `FeatureGuard requiredTier="Business"`, así que quedan bloqueadas, nunca
-montan y nunca hacen fetch — de ahí que no haya *ninguna* línea de log de esos
-endpoints en 48 h. Ídem Cost Groups.
+**Descartado 2 — el tier.** Una versión anterior de este handoff decía que el
+tenant había quedado en `Essential` (el `INSERT IGNORE INTO Tenants
+(tenant_id, company_name)` de auto-provisión no setea `tier`, así que cae al
+default del schema) y que eso bloqueaba las tarjetas. **Es incorrecto** por dos
+motivos, y conviene tenerlos presentes antes de volver a sospechar del tier:
 
-Descartado por el camino: el SP del tenant CSCS (`898b952d`) **sí** tiene
-`Reader`, `Cost Management Reader`, `Monitoring Reader`, `Billing Reader`,
-`Tag Contributor` y el rol custom de remediación sobre `ec03e8ce`, más `Reader` y
-`Cost Management Reader` sobre el management group. No es un problema de
-permisos ni de credenciales (están en Key Vault como
-`tenant-81ebe027-…-client-id` / `-client-secret`).
+- `FeatureGuard` **no** oculta al hijo cuando falta tier: lo renderiza borroso.
+  El componente monta y hace su fetch igual.
+- `requireTenantTier` hace **bypass para SUPERADMIN** (dominio corporativo +
+  `system_role = SUPERADMIN`), así que para ese caller el tier nunca es el gate.
 
-**Acción pendiente (dato, no código):** poner el tenant en Enterprise desde
-`/admin/tenants` (el select de Tier del Directorio de Entornos, RBAC
-SUPERADMIN). Vale la pena decidir aparte si la auto-provisión debería setear un
-tier explícito en vez de heredar el default silenciosamente.
+El usuario además confirmó (2026-07-30) que el tenant ya está en Enterprise en
+prod y las tarjetas siguen vacías.
+
+**Lo que queda por mirar.** `/api/intelligence/container-apps` tiene un camino
+que devuelve `{ success: true, empty: true }` **sin escribir ninguna línea de
+log** (cuando la query de Resource Graph no devuelve suscripciones), y en 48 h no
+hay *ninguna* línea de ese endpoint en Log Analytics — así que es compatible con
+ese retorno silencioso o con que el endpoint no se llame nunca. El otro camino
+(`getContainerAppsCost`) necesita Cost Management, que estaba ahogado por el
+bucle de 429 de arriba.
+
+Próximo paso, en este orden:
+
+1. **Desplegar** — al momento de escribir esto los fixes del 429 están en
+   `staging` y **no** en `main`, así que prod corre el código viejo. Es probable
+   que la tarjeta sea otra víctima del throttling.
+2. Si persiste, abrir devtools en prod y mirar la respuesta cruda de
+   `GET /api/intelligence/container-apps?tenantId=81ebe027-…`: distingue en un
+   golpe entre `empty:true` (ARG no devuelve suscripciones), un 403 (tier) y un
+   500. Ese dato es el que falta; sin él cualquier fix es a ciegas.
 
 #### Lo demás del relevamiento
 

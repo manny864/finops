@@ -403,7 +403,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
           <a href={`/${locale}/legal/dpa`} className="hover:text-white transition-colors">{tf('dpa')}</a>
           <a href={`/${locale}/legal/security`} className="hover:text-white transition-colors">{tf('security')}</a>
           <a href={`/${locale}/legal/subprocessors`} className="hover:text-white transition-colors">{tf('subprocessors')}</a>
-          <a href="/status" className="hover:text-white transition-colors">{tf('status')}</a>
+          <a href={`/${locale}/status`} className="hover:text-white transition-colors">{tf('status')}</a>
         </div>
         <p className="text-center text-xs text-gray-400 mt-4">{tf('copyright', { year: new Date().getFullYear() })}</p>
       </footer>

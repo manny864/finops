@@ -4,7 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { useTenant } from '../TenantProvider';
 import { useSubscription } from '../SubscriptionProvider';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid, LabelList, Legend } from 'recharts';
+import { useCurrency } from '../CurrencyProvider';
 
 interface BudgetBurnChartProps {
     onHeightChange?: (h: number) => void;
@@ -14,6 +15,7 @@ export default function BudgetBurnChart({ onHeightChange }: BudgetBurnChartProps
     const { instance, accounts } = useMsal();
     const { selectedTenant } = useTenant();
     const { selectedSubscription, subscriptions } = useSubscription();
+    const { format } = useCurrency();
     const [burnData, setBurnData] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [isMounted, setIsMounted] = useState(false);
@@ -119,11 +121,40 @@ export default function BudgetBurnChart({ onHeightChange }: BudgetBurnChartProps
                     <div className="flex-1 w-full min-w-0" style={{ minHeight: `${Math.max(150, burnData.length * 40)}px` }}>
                         {!isMounted ? null : (
                             <ResponsiveContainer width="100%" height={Math.max(150, burnData.length * 40)} minWidth={0}>
-                            <BarChart layout="vertical" data={burnData} margin={{ top: 10, right: 30, left: 10, bottom: 5 }}>
+                            <BarChart layout="vertical" data={burnData} margin={{ top: 10, right: 62, left: 4, bottom: 5 }}>
                                 <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f3f4f6" />
-                                <XAxis type="number" xAxisId={0} hide />
-                                <XAxis type="number" xAxisId={1} hide />
-                                <YAxis type="category" dataKey="costCenter" width={220} tick={{fill: '#6b7280', fontSize: 11}} tickLine={false} axisLine={{stroke: '#e5e7eb'}} />
+                                {/* UN SOLO eje X para las dos series.
+                                    Antes había dos (`xAxisId` 0 y 1), y recharts
+                                    autoescala el dominio de cada eje por separado:
+                                    un presupuesto de 150 y un gasto de 10 se
+                                    dibujaban casi del mismo largo porque cada barra
+                                    llegaba al máximo de SU propio eje. Compartiendo
+                                    el eje, el dominio es [0, max(budget, actual)] y
+                                    los largos son comparables entre sí. */}
+                                {/* 15% de aire arriba del maximo: con domain 'dataMax' la barra mas
+                                    larga toca el borde y su etiqueta de monto queda cortada. */}
+                                <XAxis
+                                    type="number"
+                                    xAxisId={0}
+                                    domain={[0, (dataMax: number) => (dataMax > 0 ? dataMax * 1.15 : 1)]}
+                                    hide
+                                />
+                                {/* width 220 dejaba ~70px de area de dibujo en una tarjeta de ~330px:
+                                    las barras salian como muñones aunque el dominio
+                                    fuera correcto. Con 108 y nombres truncados, la
+                                    barra tiene lugar para representar la proporcion. */}
+                                <YAxis
+                                    type="category"
+                                    dataKey="costCenter"
+                                    width={108}
+                                    tick={{fill: '#6b7280', fontSize: 10}}
+                                    tickLine={false}
+                                    axisLine={{stroke: '#e5e7eb'}}
+                                    tickFormatter={(v: any) => {
+                                        const str = String(v ?? '');
+                                        return str.length > 16 ? `${str.slice(0, 15)}…` : str;
+                                    }}
+                                />
                                 <Tooltip 
                                     wrapperStyle={{ zIndex: 9999 }}
                                     content={({ active, payload }) => {
@@ -138,7 +169,7 @@ export default function BudgetBurnChart({ onHeightChange }: BudgetBurnChartProps
                                                 <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-100">
                                                     <p className="font-bold text-sm text-gray-800 mb-1">{data.costCenter}</p>
                                                     <p className="text-xs text-gray-600">
-                                                        Gasto: <span className="font-bold" style={{ color: gastoColor }}>${data.actual.toFixed(2)}</span>{data.estimated ? <span className="text-[10px] text-gray-400" title="Gasto estimado desde el MTD de la suscripción (Azure no reportó currentSpend para este presupuesto)."> ≈ est.</span> : null} / Presupuesto: <span className="font-bold" style={{ color: '#0d9488' }}>${data.budget.toFixed(2)}</span>
+                                                        Gasto: <span className="font-bold" style={{ color: gastoColor }}>{format(Number(data.actual) || 0)}</span>{data.estimated ? <span className="text-[10px] text-gray-400" title="Gasto estimado desde el MTD de la suscripción (Azure no reportó currentSpend para este presupuesto)."> ≈ est.</span> : null} / Presupuesto: <span className="font-bold" style={{ color: '#0d9488' }}>{format(Number(data.budget) || 0)}</span>
                                                     </p>
                                                 </div>
                                             );
@@ -148,17 +179,24 @@ export default function BudgetBurnChart({ onHeightChange }: BudgetBurnChartProps
                                     cursor={{fill: 'transparent'}}
                                 />
                                 
-                                {/* Barra Gruesa de Fondo (Presupuesto) */}
-                                <Bar dataKey="budget" name="Presupuesto Asignado" xAxisId={0} barSize={24} fill="#0d9488" radius={[0, 4, 4, 0]} />
-                                
-                                {/* Barra Fina Frontal (Gasto Actual) */}
-                                <Bar dataKey="actual" name="Gasto Actual" xAxisId={1} barSize={12} radius={[0, 4, 4, 0]}>
+                                <Legend verticalAlign="top" height={24} iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+
+                                {/* Las dos barras van lado a lado en la misma banda y
+                                    sobre el mismo eje. Antes se superponían (gruesa de
+                                    fondo + fina al frente), efecto que sólo funciona si
+                                    ambas comparten dominio — y no lo compartían. */}
+                                <Bar dataKey="budget" name={t('budget_legend_assigned')} xAxisId={0} barSize={11} fill="#0d9488" radius={[0, 4, 4, 0]}>
+                                    <LabelList dataKey="budget" position="right" style={{ fontSize: 10, fill: '#0d9488' }} formatter={(v: any) => format(Number(v) || 0)} />
+                                </Bar>
+
+                                <Bar dataKey="actual" name={t('budget_legend_actual')} xAxisId={0} barSize={11} radius={[0, 4, 4, 0]}>
                                     {burnData.map((entry, index) => {
                                         const ratio = entry.budget > 0 ? entry.actual / entry.budget : 0;
                                         // Rojo si excede el 90%, Ámbar si pasa el 75%, Verde si está bien.
                                         const color = ratio >= 0.9 ? '#ef4444' : ratio >= 0.75 ? '#f59e0b' : '#0054a6';
                                         return <Cell key={`cell-${index}`} fill={color} />;
                                     })}
+                                    <LabelList dataKey="actual" position="right" style={{ fontSize: 10, fill: '#6b7280' }} formatter={(v: any) => format(Number(v) || 0)} />
                                 </Bar>
                             </BarChart>
                         </ResponsiveContainer>

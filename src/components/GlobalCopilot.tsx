@@ -4,9 +4,8 @@ import { usePathname } from 'next/navigation';
 import { MessageSquare, X, Send, Loader2 } from 'lucide-react';
 import { useAIContext } from '@/hooks/useAIContext';
 import { useTranslations, useLocale } from 'next-intl';
-import FeatureGuard from './FeatureGuard';
 import { useTenant } from './TenantProvider';
-import { useMsal } from '@azure/msal-react';
+import { useMsal, useIsAuthenticated } from '@azure/msal-react';
 import { hasAccess } from '@/lib/tierLogic';
 import { compactPayloadString } from '@/lib/copilotPayload';
 import { captureAutoPageSnapshot, deriveLabelFromPathname } from '@/lib/autoPageContext';
@@ -22,6 +21,7 @@ const DEFAULT_PAGE_LABEL = 'Dashboard';
 export default function GlobalCopilot() {
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
+    const isMsalAuthenticated = useIsAuthenticated();
     const currentTier = (selectedTenant as any).tier || 'Essential';
     // FinOps Copilot (IA) es feature Professional (ver pricing.pro.features).
     const canAccessCopilot = hasAccess(currentTier, 'Professional');
@@ -377,18 +377,33 @@ export default function GlobalCopilot() {
         return null;
     }
 
-    // El demo público (/demo) es 100% anónimo — nunca hay cuenta MSAL
-    // (accounts.length === 0), así que el early-return de abajo escondía el
-    // Copilot por completo en demo. Se permite igual cuando el tenant
-    // seleccionado es uno de los mock/demo fijos (isMockTenant).
-    if ((accounts.length === 0 && !isMockTenant(selectedTenant?.id || '')) || !selectedTenant || selectedTenant.id === 'default') {
+    // El demo público (/demo) es 100% anónimo — nunca hay cuenta MSAL, así que
+    // se lo admite explícitamente por tenant mock en vez de por sesión.
+    const isDemoTenant = isMockTenant(selectedTenant?.id || '');
+
+    // Sesión iniciada Y validada. `accounts.length > 0` solo dice que MSAL tiene
+    // una cuenta en cache: sobrevive a un token vencido y es true durante el
+    // handshake. useIsAuthenticated() es la señal de que la sesión quedó
+    // establecida. Se exigen las dos, más un tenant resuelto (`default` es el
+    // placeholder previo a que TenantProvider responda).
+    const hasValidatedSession = (isMsalAuthenticated && accounts.length > 0) || isDemoTenant;
+    if (!hasValidatedSession || !selectedTenant || selectedTenant.id === 'default') {
+        return null;
+    }
+
+    // Tier: se OCULTA, no se desenfoca. Antes esto lo resolvía FeatureGuard, que
+    // renderiza al hijo borroso y clickeable — así que con un tier insuficiente
+    // la burbuja seguía apareciendo flotando sobre la app y al hacer click no
+    // abría nada (el onClick ya chequeaba canAccessCopilot). Un asistente que
+    // está pero no responde es peor que no estar.
+    if (!canAccessCopilot) {
         return null;
     }
 
     return (
         <>
             <div className="fixed bottom-6 right-6 z-50">
-                <FeatureGuard requiredTier="Professional" featureName="FinOps Copilot" className="w-16 h-16">
+                <div className="w-16 h-16">
                     <div className="relative group w-full h-full">
                         {/* Halo animado periódico para llamar la atención */}
                         {!isOpen && (
@@ -419,7 +434,7 @@ export default function GlobalCopilot() {
                             <span className="absolute -bottom-1 right-6 w-2 h-2 bg-slate-900 rotate-45" />
                         </div>
                     </div>
-                </FeatureGuard>
+                </div>
             </div>
 
             {isOpen && canAccessCopilot && (
