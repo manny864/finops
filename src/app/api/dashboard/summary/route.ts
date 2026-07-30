@@ -166,27 +166,25 @@ async function fetchActualCostMTD(tenantId: string, subscriptionId: string): Pro
  * proyección ni se atribuye como gasto recurrente de una suscripción.
  *
  * Fuente autoritativa: getCurrentMonthAmortizedCosts (Azure live, trae
- * ChargeCategory por fila). Se cachea el split en Redis hasta fin de día.
- * Devuelve null si Azure no está disponible (el caller cae al total sin split).
+ * ChargeCategory por fila).
+ *
+ * SIN CACHE PROPIO A PROPÓSITO (2026-07-30). Antes esta función tenía su propia
+ * capa de Redis (`cost:mtdsplit:v1`, 15 min) ENVOLVIENDO una llamada que ya está
+ * cacheada por dentro — getCurrentMonthAmortizedCosts() usa
+ * getCurrentMonthAmortizedCostsWithDiagnostics(), que ya tiene su propio cache
+ * compartido de 15 min (ver billingService.ts, tarea del 429 de Cost
+ * Management). Cachear el resultado de algo que ya está cacheado no ahorra
+ * ninguna llamada a Azure — sólo agrega una SEGUNDA ventana de staleness
+ * independiente, con su propio momento de población. Eso es lo que hacía que
+ * el Dashboard General mostrara un número viejo mientras Consumo Real (que
+ * llama a la MISMA función sin este envoltorio extra) ya mostraba el real: dos
+ * caches del mismo dato, cada uno sirviendo lo que le tocó cachear la última
+ * vez, sin reconciliarse entre sí.
  */
-const MTD_SPLIT_TTL_SECONDS = 900;
-
 async function fetchMTDBreakdown(
   tenantId: string,
   subscriptionId: string
 ): Promise<{ usageCost: number; purchaseCost: number } | null> {
-  const ym = new Date().toISOString().slice(0, 7);
-  const key = `cost:mtdsplit:v1:${tenantId}:${subscriptionId.toLowerCase()}:${ym}`;
-  try {
-    const cached = await redis.get(key);
-    if (cached) {
-      const p = JSON.parse(cached);
-      if (typeof p.usage === 'number' && typeof p.purchase === 'number') {
-        return { usageCost: p.usage, purchaseCost: p.purchase };
-      }
-    }
-  } catch { /* Redis miss/parse error — recompute below */ }
-
   // Un tenant sin Azure conectado no tiene Service Principal ni suscripciones:
   // llamar a Azure solo agrega el timeout completo antes del mismo null que
   // devolvemos aca.
@@ -207,16 +205,6 @@ async function fetchMTDBreakdown(
     }
     usage = Number(usage.toFixed(2));
     purchase = Number(purchase.toFixed(2));
-    // TTL alineado con el del payload de summary (900 s). ANTES era "lo que
-    // queda del día + 1 h", y eso congelaba `actualCost` —y con él
-    // `projectedCost`, que se deriva— hasta la medianoche: un gasto nuevo en
-    // Azure no se reflejaba en los KPIs por el resto del día.
-    //
-    // No agrega llamadas a Azure: el payload de summary ya se cachea 15 min, así
-    // que este bloque no puede ejecutarse más de una vez por (tenant, scope) en
-    // esa ventana. Con el TTL largo, lo único que aportaba era la desactualización.
-    redis.set(key, JSON.stringify({ usage, purchase }), 'EX', MTD_SPLIT_TTL_SECONDS)
-      .catch((e: any) => console.warn('[Summary] Redis MTD split write failed:', e?.message));
     return { usageCost: usage, purchaseCost: purchase };
   } catch (e: any) {
     console.warn('[Summary] MTD breakdown failed (Azure unavailable):', e?.message);
@@ -591,12 +579,20 @@ export async function GET(request: NextRequest) {
               projectedCost = Number((base * (daysInMonth / currentDay) + oneTime).toFixed(2));
             }
             // Cachea el MTD ya calculado para que el próximo request no vuelva a
-            // Azure. Mismo TTL que el split (900 s) y por el mismo motivo: con
-            // "lo que queda del día" el KPI de costo actual quedaba congelado
-            // hasta la medianoche.
+            // Azure. 900s por el mismo motivo que el resto de los caches de esta
+            // ruta: con "lo que queda del día" el KPI de costo actual quedaba
+            // congelado hasta la medianoche.
+            //
+            // Este write SÍ es parcialmente redundante con el cache compartido de
+            // getCurrentMonthAmortizedCosts — pero a diferencia del que se quitó
+            // arriba (mtdsplit), fetchActualCostMTD() que LEE esta key también
+            // tiene un fallback a CostSnapshots (DB) que no depende de este
+            // write. Tocar esa cascada completa queda fuera de este cambio —
+            // registrado como deuda para no ampliar el alcance a las apuradas en
+            // un pipeline de costos en producción.
             const ym = new Date().toISOString().slice(0, 7);
             const redisMtdKey = `cost:mtd:v1:${tenantId}:${subscriptionId.toLowerCase()}:${ym}`;
-            redis.set(redisMtdKey, String(liveActual), 'EX', MTD_SPLIT_TTL_SECONDS)
+            redis.set(redisMtdKey, String(liveActual), 'EX', 900)
               .catch((e: any) => console.warn('[Summary] Redis MTD cache write failed:', e?.message));
           }
         }
