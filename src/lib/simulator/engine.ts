@@ -3,22 +3,20 @@
  * the same projection can run on save and compare endpoints without duplicating
  * coefficients, and so it is unit-testable in isolation.
  *
- * Mix assumptions (baseline shared by both providers):
+ * Mix assumptions:
  *   compute = 60% · baseCost · computeScale
  *   storage = 25% · baseCost · storageScale
  *   network = 15% · baseCost · (1 + networkIncrease/100)
  *
- * Licencias (AHB en Azure, BYOL en AWS): el descuento se aplica SOLO al
- * componente de cómputo. Antes se aplicaba al total, lo que sobreestimaba el
- * ahorro: ni el Azure Hybrid Benefit ni el BYOL de AWS abaratan un byte de
- * storage ni un GB de egress — cubren licencias de Windows Server / SQL Server,
- * que se pagan con el cómputo.
+ * Licencias (Azure Hybrid Benefit): el descuento se aplica SOLO al componente
+ * de cómputo. Antes se aplicaba al total, lo que sobreestimaba el ahorro: el
+ * AHB no abarata un byte de storage ni un GB de egress — cubre licencias de
+ * Windows Server / SQL Server, que se pagan con el cómputo.
  *
- * El porcentaje es un INPUT, no una constante escondida. Azure trae 18% por
- * defecto (valor histórico de AHB con el que se calibró esta herramienta); AWS
- * trae 0 a propósito: el BYOL de AWS exige Dedicated Hosts y su ahorro depende
- * del mix Windows/SQL de la flota, así que el usuario declara su supuesto en
- * vez de comerse un número inventado.
+ * El porcentaje es un INPUT, no una constante escondida: 18% por defecto (valor
+ * histórico de AHB con el que se calibró esta herramienta), y el usuario puede
+ * declarar el suyo. Un proveedor sin default calibrado cae a 0 en vez de
+ * heredar un número que no le corresponde.
  */
 
 import { toMoneyNumber } from "@/lib/money";
@@ -30,7 +28,7 @@ export interface SimulatorInputs {
     storageScale?: number;
     /** Network egress increase in percent points (−50..+200). */
     networkIncrease?: number;
-    /** Apply license benefit (Azure Hybrid Benefit / AWS BYOL). */
+    /** Apply license benefit (Azure Hybrid Benefit). */
     applyAhb?: boolean;
     /**
      * Ahorro por licencias, en puntos porcentuales sobre el cómputo (0..100).

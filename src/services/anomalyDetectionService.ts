@@ -234,10 +234,10 @@ export async function getDailyCostsForTenant(tenantId: string, subscriptionId = 
     let backfillOk = true;
     if (needsBackfill) {
         // El backfill es una llamada a Azure Cost Management para completar el
-        // historial. En AWS no aplica: el sync ya escribe la serie completa en
-        // CostSnapshots. Sin este chequeo la llamada fallaba en cada request y
-        // el TTL del cache caia a 10 minutos, multiplicando la carga de la
-        // deteccion para tenants que no tienen nada que backfillear.
+        // historial. Se saltea para un tenant que no tenga Azure conectado:
+        // sin este chequeo la llamada fallaba en cada request y el TTL del
+        // cache caia a 10 minutos, multiplicando la carga de la deteccion
+        // para tenants que no tienen nada que backfillear.
         if (await tenantUsesAzure(tenantId)) {
             try {
                 const historical = await getHistoricalDailyCosts(tenantId, subscriptionId, AZURE_COST_HISTORY_MAX_MONTHS);

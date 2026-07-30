@@ -26,7 +26,7 @@ describe('seleccion de etiquetas de asignacion', () => {
     });
 
     it('unifica las variantes de mayusculas y separadores', () => {
-        // En AWS las etiquetas son case-sensitive: estas tres conviven en la
+        // Las etiquetas pueden ser case-sensitive: estas tres conviven en la
         // misma cuenta como etiquetas distintas y parten el costo en tres.
         expect(pickAllocationTags({ costcenter: 'CC-1' })).toEqual({ CostCenter: 'CC-1' });
         expect(pickAllocationTags({ 'cost-center': 'CC-1' })).toEqual({ CostCenter: 'CC-1' });

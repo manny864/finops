@@ -167,7 +167,7 @@ const RESERVED_NAME = "Untagged/Unknown";
  * igualdad de tag CostCenter.
  *
  * No hay concepto de "por resource individual" acá: CostSnapshots no trae
- * ResourceId poblado para tenants Azure (solo AWS), así que la regla de
+ * ResourceId poblado (el sync agrega por resource group), así que la regla de
  * patrón de nombre matchea contra `resource_group` — el grano más fino que
  * se puede filtrar de forma confiable al agregar costo. Ver
  * /api/cost-groups/[name]/resource-groups para el ajuste manual.

@@ -3,16 +3,19 @@
  *
  * POR QUE EXISTE
  * --------------
- * Buena parte del panel nacio 100% Azure y llama en vivo a Azure Cost
- * Management / Resource Graph, con fallback a la base cuando Azure no responde.
- * Para un tenant AWS esas llamadas no pueden funcionar: no hay Service
- * Principal ni suscripciones. Sin este chequeo el usuario paga el timeout
- * completo de cada llamada antes de ver el fallback, y los logs se llenan de
- * "Azure unavailable" que no son incidentes sino la configuracion esperada.
+ * Buena parte del panel llama en vivo a Azure Cost Management / Resource Graph,
+ * con fallback a la base cuando Azure no responde. Un tenant sin Service
+ * Principal configurado no puede completar esas llamadas: sin este chequeo el
+ * usuario paga el timeout completo antes de ver el fallback, y los logs se
+ * llenan de "Azure unavailable" que no son incidentes sino la configuracion
+ * esperada.
  *
  * Con esto, una ruta puede preguntar "este tenant usa Azure?" y saltear el
- * camino live, cayendo directo al de base de datos — que el sync de AWS ya
- * alimenta, porque escribe en CostSnapshots igual que el de Azure.
+ * camino live, cayendo directo al de base de datos que alimenta el sync.
+ *
+ * Con un solo proveedor `azure` siempre es true; el modulo se conserva como el
+ * unico punto donde se responde esa pregunta, para no volver a esparcir el
+ * chequeo por las rutas si el modelo de proveedores vuelve a crecer.
  *
  * RBAC: no expone datos; solo lee la columna `provider` del propio tenant que
  * el caller ya autorizo con un guard de requestAuth. No es un guard en si mismo
@@ -26,7 +29,6 @@ import { normalizeProviderSetting, type CloudProviderId, type TenantProviderSett
 export interface TenantProviders {
     setting: TenantProviderSetting;
     azure: boolean;
-    aws: boolean;
 }
 
 /**
@@ -40,13 +42,12 @@ const CACHE_TTL_MS = 60_000;
 const cache = new Map<string, { value: TenantProviders; expiresAt: number }>();
 
 /** Tenant sin fila o con base caida: se asume Azure, que es el comportamiento historico. */
-const FALLBACK: TenantProviders = { setting: 'azure', azure: true, aws: false };
+const FALLBACK: TenantProviders = { setting: 'azure', azure: true };
 
 function fromSetting(setting: TenantProviderSetting): TenantProviders {
     return {
         setting,
         azure: true,
-        aws: false,
     };
 }
 
@@ -77,10 +78,6 @@ export async function getTenantProviders(tenantId: string): Promise<TenantProvid
 /** Atajo para el patron mas comun: saltear el camino live de Azure. */
 export async function tenantUsesAzure(tenantId: string): Promise<boolean> {
     return (await getTenantProviders(tenantId)).azure;
-}
-
-export async function tenantUsesAws(tenantId: string): Promise<boolean> {
-    return (await getTenantProviders(tenantId)).aws;
 }
 
 export function providerIdsFor(providers: TenantProviders): CloudProviderId[] {

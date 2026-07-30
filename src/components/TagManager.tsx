@@ -18,7 +18,7 @@ const AUTO_REFRESH_MS = 60_000;
 
 export default function TagManager() {
     const t = useProviderTranslations('GovernanceTags');
-    // AWS no tiene un contenedor equivalente al grupo de recursos, asi que no
+    // No todo proveedor tiene un contenedor equivalente al grupo de recursos, asi que no
     // hay nada que auditar en ese nivel ni etiquetas que heredar. Tampoco se
     // ofrece remediacion: exigiria permisos de escritura (`tag:TagResources`),
     // que el rol de solo lectura del onboarding no pide.

@@ -25,7 +25,6 @@ import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { redis } from "@/lib/redis";
 import pool from "@/modules/storage/db";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
-import { tenantUsesAws } from "@/lib/tenantProviderContext";
 import { getHistoricalDailyCosts, AZURE_COST_HISTORY_MAX_MONTHS } from "@/modules/collectors/azure/billingService";
 
 type DailyPoint = { date: string; cost: number };
@@ -109,13 +108,7 @@ export async function GET(request: NextRequest) {
             const requiredFrom = new Date();
             requiredFrom.setMonth(requiredFrom.getMonth() - AZURE_COST_HISTORY_MAX_MONTHS);
             const earliestInDb = daily[0]?.date;
-            // El backfill es especifico de Azure. En AWS el historico ya entra
-            // por el sync (CUR o Cost Explorer) y llamarlo igual no fallaria
-            // ruidosamente: dejaria backfillOk en false y con eso el TTL en 10
-            // minutos para siempre, reconsultando una serie que no va a cambiar.
-            const isAws = await tenantUsesAws(tenantId);
-            const needsBackfill = !isAws && (daily.length === 0 || (earliestInDb && new Date(earliestInDb) > requiredFrom));
-            if (isAws) backfillOk = daily.length > 0;
+            const needsBackfill = daily.length === 0 || (earliestInDb && new Date(earliestInDb) > requiredFrom);
             if (needsBackfill) {
                 try {
                     const historical = await getHistoricalDailyCosts(tenantId, subscriptionId, AZURE_COST_HISTORY_MAX_MONTHS);
@@ -123,7 +116,7 @@ export async function GET(request: NextRequest) {
                     // normalizado (CostUSD), mientras que CostSnapshots guarda hoy
                     // PreTaxCost en moneda de facturación — mezclar unidades por
                     // fecha rompería la serie. La DB solo aporta fechas que Azure
-                    // no tiene (p.ej. filas AWS ingestadas por CUR).
+                    // no tiene.
                     const byDate = new Map<string, number>(daily.map((p) => [p.date, p.cost]));
                     for (const { date, cost } of historical) {
                         byDate.set(date, cost);

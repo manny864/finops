@@ -98,9 +98,8 @@ export async function POST(request: NextRequest) {
         }
 
         const inputs = parseInputs(scenario);
-        // El default de ahorro por licencias difiere entre nubes: AHB en Azure
-        // tiene un valor calibrado, BYOL en AWS no. Un tenant `both` se trata
-        // como Azure, que es su default historico.
+        // El default de ahorro por licencias es el valor calibrado del Azure
+        // Hybrid Benefit (ver src/lib/simulator/engine.ts).
         const simulation = runScenario(baseCost, inputs);
 
         if (!isMockTenant(tenantId)) {

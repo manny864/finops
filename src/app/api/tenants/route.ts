@@ -187,11 +187,11 @@ export async function PUT(request: NextRequest) {
         // Si vienen credenciales, las guardamos via tenantCredentials (KV con fallback DB).
         // Si no vienen, solo actualizamos nombre.
         if (clientId && clientSecret) {
-            // Contraparte Azure del gate de `POST /api/aws/accounts`: un tenant
-            // configurado como 'aws' puro, o con Azure archivado tras un downgrade
-            // multi-cloud, no puede volver a conectar Azure. Solo se valida cuando
-            // realmente se están escribiendo credenciales — renombrar el tenant no
-            // es ingesta y no debe rechazarse.
+            // Gate de ingesta por proveedor. Con un solo proveedor siempre
+            // pasa (assertProviderIngestable es no-op), pero se conserva el
+            // punto de choque: sólo se valida cuando realmente se están
+            // escribiendo credenciales — renombrar el tenant no es ingesta y
+            // no debe rechazarse.
             await assertProviderIngestable(tenantId, 'azure');
 
             await pool.query(

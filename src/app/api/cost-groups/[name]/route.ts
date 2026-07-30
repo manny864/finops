@@ -68,7 +68,7 @@ async function getSubscriptionTrend(tenantId: string, tagFilter: string, params:
 }
 
 // Pestaña Actions — anomalías de costo con detalle "antes/después". CostSnapshots
-// no tiene ResourceId poblado para tenants Azure (sólo AWS), así que la
+// no tiene ResourceId poblado (el sync agrega por resource group), así que la
 // granularidad más fina disponible sin fabricar datos es (resource_group,
 // service_name) día a día — se usa z-score sobre esa serie diaria.
 async function getCostAnomaliesDetailed(tenantId: string, name: string, tagFilter: string, params: any[]) {

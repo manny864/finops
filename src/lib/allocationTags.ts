@@ -43,7 +43,7 @@ export type AllocationTagKey = (typeof ALLOCATION_TAG_KEYS)[number];
 /**
  * Índice de búsqueda insensible a mayúsculas y a separadores.
  *
- * En AWS las etiquetas son **case-sensitive**, así que `CostCenter`,
+ * En varias nubes las etiquetas son **case-sensitive**, así que `CostCenter`,
  * `costcenter` y `cost-center` conviven como tres etiquetas distintas en la
  * misma cuenta. Es uno de los problemas clásicos de higiene de etiquetado: el
  * costo aparece repartido en tres columnas que en realidad son una. Azure, en

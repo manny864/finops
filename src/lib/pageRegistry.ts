@@ -94,7 +94,7 @@ export const PAGES: PageEntry[] = [
     { id: "adm-report", path: "/admin/report", title: "Reportes", description: "Reportes ejecutivos y exports.", icon: "FileText", category: "admin" },
     { id: "adm-workbooks", path: "/admin/workbooks", title: "Artefactos y Workbooks", description: "Plantillas y deploys de workbooks.", icon: "BookOpen", category: "admin" },
     { id: "adm-focus-export", path: "/admin/focus-export", title: "FOCUS 1.1 Export", description: "Exportá billing en formato FinOps FOCUS estándar.", icon: "FileSpreadsheet", category: "admin" },
-    // "adm-cloud-accounts" (/admin/cloud-accounts, AWS) removido: no hacemos referencia a AWS
+    // "adm-cloud-accounts" (/admin/cloud-accounts) removido junto con el segundo proveedor
     // por ahora (2026-07-05). findPageById/parsePageWidgetKey devuelven null para pines
     // existentes con este id — el widget simplemente no renderiza, sin romper nada.
 ];

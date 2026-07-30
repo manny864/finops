@@ -179,7 +179,7 @@ export default function CreateBudgetModal({ isOpen, onClose, onSuccess, subscrip
                     </div>
 
                     {/* El kill-switch apaga los recursos de un resource group,
-                        que en AWS no existe; su equivalente exigiria permisos de
+                        que exigiria permisos de
                         escritura sobre EC2 que el rol de lectura no tiene. */}
                     <KillSwitchConfig subscriptionId={subscriptionId} />
                     

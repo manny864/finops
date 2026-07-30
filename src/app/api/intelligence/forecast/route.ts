@@ -170,8 +170,7 @@ export async function GET(request: NextRequest) {
             // `data` tambien va en la respuesta avanzada: ningun consumidor
             // pasa withConfidence=false, asi que la rama simple de arriba es
             // inalcanzable desde la UI. Sin esto, admin/report (que arma
-            // forecastSeries con `forecast?.data`) salia siempre vacio, en
-            // Azure y en AWS.
+            // forecastSeries con `forecast?.data`) salia siempre vacio.
             data: combinedData,
             method_used: methodToUse,
             forecast: forecastResponse,
