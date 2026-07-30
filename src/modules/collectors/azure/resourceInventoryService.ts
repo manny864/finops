@@ -57,10 +57,28 @@ export interface SearchResourcesFilters {
     pageSize: number;
 }
 
+// Techo para ordenar por costo REAL (no por nombre) en /api/resources/search.
+//
+// POR QUÉ HACE FALTA UN TECHO. Resource Graph no conoce el costo — vive en Cost
+// Management, un servicio aparte. Para ordenar por costo de verdad hay que
+// costear TODO el conjunto filtrado antes de paginar (no sólo la página
+// pedida), porque si no, la página 1 sería "los primeros N por nombre,
+// reordenados entre ellos" — no "los N recursos más caros del tenant".
+//
+// Costear el universo filtrado completo es una consulta a Cost Management
+// proporcional al tamaño del tenant — exactamente la clase de carga que ya
+// castigó con 429 en otras pantallas (ver la degradación de KPIs corregida el
+// 2026-07-30). Por eso el orden por costo sólo se activa cuando el conjunto
+// filtrado es chico; más allá de este techo se degrada al orden alfabético
+// anterior (con el costo calculado sólo para la página, como antes) en vez de
+// arriesgar throttling en un tenant grande. `sortedByCost` en la respuesta le
+// dice a la UI cuál de los dos caminos se tomó.
+const SORT_BY_COST_MAX_RESOURCES = 500;
+
 export async function searchResources(tenantId: string, filters: SearchResourcesFilters) {
     const subs = await getSubscriptionsForTenant(tenantId);
     if (subs.length === 0) {
-        return { rows: [] as InventoryResourceRow[], total: 0, kpis: { costGroups: 0, subscriptions: 0, resourceGroups: 0, resources: 0 } };
+        return { rows: [] as InventoryResourceRow[], total: 0, sortedByCost: true, kpis: { costGroups: 0, subscriptions: 0, resourceGroups: 0, resources: 0 } };
     }
 
     const whereClauses: string[] = [];
@@ -74,15 +92,51 @@ export async function searchResources(tenantId: string, filters: SearchResources
     const countRows = await runResourceGraphQuery(tenantId, subs, `${baseQuery} | summarize c = count()`);
     const total = Number(countRows?.[0]?.c || 0);
 
-    const pageRows = await runResourceGraphQuery(
-        tenantId, subs,
-        `${baseQuery} | project id, name, type, subscriptionId, resourceGroup, tags, createdTime = tostring(properties.timeCreated) | order by name asc`,
-        filters.pageSize,
-        (filters.page - 1) * filters.pageSize
-    );
-
     const credential = await getAzureCredential(tenantId);
     const subMap = await getSubscriptionNameMap(tenantId, credential);
+
+    let pageRows: any[];
+    let costMap: Map<string, number>;
+    const sortedByCost = total > 0 && total <= SORT_BY_COST_MAX_RESOURCES;
+
+    if (sortedByCost) {
+        // Conjunto chico: se cuesta TODO antes de paginar, para poder ordenar
+        // por costo real en vez de por nombre.
+        const allIdRows = await runResourceGraphQuery(tenantId, subs, `${baseQuery} | project id, subscriptionId`);
+        costMap = await getResourceCostsById(tenantId, allIdRows.map(r => ({ id: r.id, subscriptionId: r.subscriptionId })));
+
+        const orderedIds = allIdRows
+            .map(r => ({ id: r.id as string, cost: costMap.get(r.id.toLowerCase()) || 0 }))
+            .sort((a, b) => b.cost - a.cost)
+            .slice((filters.page - 1) * filters.pageSize, filters.page * filters.pageSize)
+            .map(r => r.id);
+
+        if (orderedIds.length === 0) {
+            pageRows = [];
+        } else {
+            const idList = orderedIds.map(id => `'${id.replace(/'/g, "")}'`).join(",");
+            const detailRows = await runResourceGraphQuery(
+                tenantId, subs,
+                `${baseQuery} | where id in (${idList}) | project id, name, type, subscriptionId, resourceGroup, tags, createdTime = tostring(properties.timeCreated)`
+            );
+            // `where id in (...)` no preserva el orden de la lista — se reordena
+            // acá según orderedIds, que es el orden real por costo.
+            const byId = new Map(detailRows.map(r => [r.id, r]));
+            pageRows = orderedIds.map(id => byId.get(id)).filter(Boolean);
+        }
+    } else {
+        // Conjunto grande: costear el universo completo antes de paginar
+        // dispararía una consulta de Cost Management proporcional al tenant
+        // entero. Se degrada al orden alfabético + costo sólo de la página
+        // (comportamiento anterior a este cambio).
+        pageRows = await runResourceGraphQuery(
+            tenantId, subs,
+            `${baseQuery} | project id, name, type, subscriptionId, resourceGroup, tags, createdTime = tostring(properties.timeCreated) | order by name asc`,
+            filters.pageSize,
+            (filters.page - 1) * filters.pageSize
+        );
+        costMap = new Map(); // se llena más abajo, sólo para las filas de esta página
+    }
 
     const rows: InventoryResourceRow[] = pageRows.map(r => ({
         id: r.id, name: r.name, type: r.type, subscriptionId: r.subscriptionId,
@@ -96,13 +150,17 @@ export async function searchResources(tenantId: string, filters: SearchResources
         runResourceGraphQuery(tenantId, subs, `${baseQuery} | project cc = tostring(tags['CostCenter']) | where isnotempty(cc) | summarize by cc`),
     ]);
 
-    // Costo en vivo SOLO para los recursos de la página actual (acotado —
-    // evita una consulta de Cost Management a nivel de todo el tenant).
-    const costMap = await getResourceCostsById(tenantId, rows.map(r => ({ id: r.id, subscriptionId: r.subscriptionId })));
+    if (!sortedByCost) {
+        // Camino degradado: costo en vivo SOLO para los recursos de la página
+        // actual (acotado — evita una consulta de Cost Management a nivel de
+        // todo el tenant).
+        costMap = await getResourceCostsById(tenantId, rows.map(r => ({ id: r.id, subscriptionId: r.subscriptionId })));
+    }
 
     return {
         rows: rows.map(r => ({ ...r, periodCost: costMap.get(r.id.toLowerCase()) || 0 })),
         total,
+        sortedByCost,
         kpis: {
             costGroups: costGroupRows.length,
             subscriptions: new Set(rgCountRows.map(r => r.subscriptionId)).size,
