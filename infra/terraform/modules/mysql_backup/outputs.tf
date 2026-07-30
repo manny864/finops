@@ -28,7 +28,7 @@ output "hybrid_worker_group_name" {
 }
 
 output "logic_app_name" {
-  value = azurerm_logic_app_workflow.alerts.name
+  value = "la-backup-alerts"
 }
 
 output "office365_connection_authorize_url" {

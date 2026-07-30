@@ -482,9 +482,10 @@ resource "azurerm_automation_variable_string" "alert_webhook_url" {
   name                    = "ALERT_WEBHOOK_URL"
   resource_group_name     = azurerm_resource_group.this.name
   automation_account_name = azurerm_automation_account.this.name
-  # El trigger HTTP de la Logic App expone su URL de invocación como atributo
-  # del recurso — no hace falta copiarla a mano desde el Portal (Fase 6.2).
-  value     = azurerm_logic_app_trigger_custom.alert_http.callback_url
+  # El trigger HTTP de la Logic App expone su URL de invocación como output
+  # del template ARM (listCallbackUrl) — no hace falta copiarla a mano desde
+  # el Portal (Fase 6.2).
+  value     = local.logic_app_alerts_outputs.triggerUrl.value
   encrypted = true
 }
 
@@ -727,65 +728,105 @@ resource "azurerm_api_connection" "office365" {
 
 data "azurerm_client_config" "current" {}
 
-resource "azurerm_logic_app_workflow" "alerts" {
-  name                = "la-backup-alerts"
-  location            = var.location
+# La combinación azurerm_logic_app_workflow + trigger_custom + action_custom
+# NUNCA declara el schema de "$connections" dentro de la definición del
+# workflow — el argumento `parameters` de azurerm_logic_app_workflow sólo
+# pone VALORES en properties.parameters, no la sección
+# properties.definition.parameters que el motor de Logic Apps exige para
+# cualquier acción de tipo ApiConnection. Confirmado en el primer apply
+# (2026-07-30): "Error: no parameter definition for $connections" — falla de
+# la API, no del plan. La única forma de declarar esa sección con este
+# provider es un template ARM completo.
+resource "azurerm_resource_group_template_deployment" "logic_app_alerts" {
+  name                = "la-backup-alerts-deploy"
   resource_group_name = azurerm_resource_group.this.name
-  tags                = var.tags
+  deployment_mode     = "Incremental"
 
-  parameters = {
-    "$connections" = jsonencode({
-      office365 = {
-        connectionId   = azurerm_api_connection.office365.id
-        connectionName = azurerm_api_connection.office365.name
-        id             = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.Web/locations/${var.location}/managedApis/office365"
-      }
-    })
-  }
-}
+  parameters_content = jsonencode({
+    connectionId = { value = azurerm_api_connection.office365.id }
+  })
 
-resource "azurerm_logic_app_trigger_custom" "alert_http" {
-  name         = "When_a_HTTP_request_is_received"
-  logic_app_id = azurerm_logic_app_workflow.alerts.id
-
-  body = jsonencode({
-    type = "Request"
-    kind = "Http"
-    inputs = {
-      schema = {
-        type = "object"
+  template_content = jsonencode({
+    "$schema"      = "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#"
+    contentVersion = "1.0.0.0"
+    parameters = {
+      connectionId = { type = "string" }
+    }
+    resources = [
+      {
+        type       = "Microsoft.Logic/workflows"
+        apiVersion = "2019-05-01"
+        name       = "la-backup-alerts"
+        location   = var.location
+        tags       = var.tags
         properties = {
-          ErrorMessage = { type = "string" }
-          RunbookName  = { type = "string" }
-          Subject      = { type = "string" }
+          state = "Enabled"
+          definition = {
+            "$schema"      = "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#"
+            contentVersion = "1.0.0.0"
+            parameters = {
+              "$connections" = { type = "Object", defaultValue = {} }
+            }
+            triggers = {
+              When_a_HTTP_request_is_received = {
+                type = "Request"
+                kind = "Http"
+                inputs = {
+                  schema = {
+                    type = "object"
+                    properties = {
+                      ErrorMessage = { type = "string" }
+                      RunbookName  = { type = "string" }
+                      Subject      = { type = "string" }
+                    }
+                  }
+                }
+              }
+            }
+            actions = {
+              Enviar_correo_electronico_V2 = {
+                type = "ApiConnection"
+                inputs = {
+                  host = {
+                    connection = { name = "@parameters('$connections')['office365']['connectionId']" }
+                  }
+                  method = "post"
+                  path   = "/v2/Mail"
+                  body = {
+                    To         = var.alert_email
+                    Subject    = "@triggerBody()?['Subject']"
+                    Body       = "<p><b>Runbook:</b> @{triggerBody()?['RunbookName']}</p><p><b>Error:</b> @{triggerBody()?['ErrorMessage']}</p>"
+                    Importance = "High"
+                  }
+                }
+                runAfter = {}
+              }
+            }
+            outputs = {}
+          }
+          parameters = {
+            "$connections" = {
+              value = {
+                office365 = {
+                  connectionId   = "[parameters('connectionId')]"
+                  connectionName = "office365"
+                  id             = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.Web/locations/${var.location}/managedApis/office365"
+                }
+              }
+            }
+          }
         }
+      }
+    ]
+    outputs = {
+      triggerUrl = {
+        type  = "string"
+        value = "[listCallbackUrl(resourceId('Microsoft.Logic/workflows/triggers', 'la-backup-alerts', 'When_a_HTTP_request_is_received'), '2019-05-01').value]"
       }
     }
   })
 }
 
-resource "azurerm_logic_app_action_custom" "send_alert_email" {
-  name         = "Enviar_correo_electronico_V2"
-  logic_app_id = azurerm_logic_app_workflow.alerts.id
-
-  body = jsonencode({
-    type = "ApiConnection"
-    inputs = {
-      host = {
-        connection = {
-          name = "@parameters('$connections')['office365']['connectionId']"
-        }
-      }
-      method = "post"
-      path   = "/v2/Mail"
-      body = {
-        To         = var.alert_email
-        Subject    = "@triggerBody()?['Subject']"
-        Body       = "<p><b>Runbook:</b> @{triggerBody()?['RunbookName']}</p><p><b>Error:</b> @{triggerBody()?['ErrorMessage']}</p>"
-        Importance = "High"
-      }
-    }
-  })
-
-  depends_on = [azurerm_logic_app_trigger_custom.alert_http]
+locals {
+  logic_app_alerts_outputs = jsondecode(azurerm_resource_group_template_deployment.logic_app_alerts.output_content)
 }
