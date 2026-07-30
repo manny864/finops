@@ -8,6 +8,7 @@ import { tenantUsesAzure } from "@/lib/tenantProviderContext";
 import { isMockTenant } from "@/lib/mockData";
 import { recordDailySnapshotAsync } from "@/services/snapshotService";
 import { getInternalBaseUrl } from "@/lib/internalBaseUrl";
+import { getCachedCarbonFootprint } from "@/lib/carbonFootprint";
 
 type AuditResults = Record<string, unknown[]>;
 
@@ -418,7 +419,22 @@ export async function GET(request: NextRequest) {
         const auditResults = (auditJson.auditResults || {}) as AuditResults;
         const { mappedData, zombieCount } = mapAuditData(auditResults);
         const totalSavings = mappedData.reduce((sum, item) => sum + Number(item.potentialSavings || 0), 0);
-        const environmentalImpact = Number(((totalSavings / 100) * 15).toFixed(1));
+
+        // Antes: `Number(((totalSavings / 100) * 15).toFixed(1))` — una fórmula
+        // inventada sobre el ahorro en dólares, sin relación con emisiones reales,
+        // duplicada además en el cliente (ExecutiveSummaryBoard.tsx). El label de
+        // la tarjeta dice "CO2 evitado", así que corresponde el `avoided` real de
+        // Green FinOps: kgCO2e que se dejarían de emitir si se limpian los discos
+        // zombie detectados por Resource Graph. Cacheado (getCachedCarbonFootprint,
+        // 30 min) y compartido con /api/intelligence/sustainability — no duplica
+        // consultas ARG entre las dos pantallas.
+        const carbonFootprint = await getCachedCarbonFootprint(tenantId, subscriptionId).catch((e: any) => {
+            console.warn('[Summary] getCachedCarbonFootprint failed (degraded):', e?.message);
+            return null;
+        });
+        const environmentalImpact = carbonFootprint && !carbonFootprint.degraded
+            ? carbonFootprint.avoided
+            : null;
 
         // actualCost: fuente primaria — forecast data (que incluye live Azure MTD)
         // Si forecast vino vacío/falló, fallback a CostSnapshots DB (MTD).
