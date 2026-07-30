@@ -34,6 +34,14 @@ stamps = {
     mysql_backup_retention_days = 14
     mysql_high_availability     = false
 
+    # Azure Backup (Data Protection Backup Vault) — contención adicional a
+    # mysql_backup_retention_days (nativo) y al runbook de mysql_backup (dumps
+    # lógicos vía VM). Apagado por default: false no crea nada.
+    mysql_backup_vault_enabled        = false
+    mysql_backup_vault_redundancy     = "LocallyRedundant"
+    mysql_backup_vault_retention_days = 30
+    mysql_backup_vault_daily_time     = "2026-01-01T04:00:00+00:00"
+
     # Cache puro y regenerable (docs/vps-infra-improvement-plan.md). Corre como
     # Container App propio porque Azure retiró Cache for Redis Basic/Standard
     # y el reemplazo gestionado (Enterprise) arranca en ~USD 90/mes.

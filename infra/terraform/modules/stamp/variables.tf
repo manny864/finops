@@ -78,6 +78,32 @@ variable "mysql_high_availability" {
   default     = false
 }
 
+# --- Azure Backup (Data Protection Backup Vault) para MySQL Flexible Server —
+# medida de contención adicional a los backups automáticos nativos
+# (mysql_backup_retention_days arriba) y al runbook de mysql_backup. Punto de
+# restauración gestionado por Azure, fuera del ciclo de vida del servidor.
+variable "mysql_backup_vault_enabled" {
+  type    = bool
+  default = false
+}
+
+variable "mysql_backup_vault_redundancy" {
+  description = "LocallyRedundant o GeoRedundant. Geo duplica el costo de storage del vault."
+  type        = string
+  default     = "LocallyRedundant"
+}
+
+variable "mysql_backup_vault_retention_days" {
+  type    = number
+  default = 30
+}
+
+variable "mysql_backup_vault_daily_time" {
+  description = "RFC3339 completo (fecha + hora) — Azure sólo usa la hora/minuto, pero exige el formato completo. Evitar que coincida con el sync (06:00 UTC) y con el runbook de mysql_backup."
+  type        = string
+  default     = "2026-01-01T04:00:00+00:00"
+}
+
 # --- redis ---
 variable "redis_sku_name" {
   description = "SKU de Azure Managed Redis (ej: Balanced_B3)."

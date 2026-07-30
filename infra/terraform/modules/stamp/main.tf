@@ -189,6 +189,80 @@ module "mysql" {
   tags                         = var.tags
 }
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Azure Backup (Data Protection Backup Vault) para MySQL Flexible Server.
+#
+# Medida de contención ADICIONAL, no reemplaza nada: se suma a los backups
+# automáticos nativos del servidor (mysql_backup_retention_days, gestionados
+# por el servicio) y al sistema separado de infra/terraform/modules/
+# mysql_backup (runbook + VM, para exportar dumps lógicos fuera de Azure).
+# Este es un tercer punto de restauración, gestionado 100% por Azure Backup,
+# sin VM ni pasos manuales — a diferencia de mysql_backup, acá Terraform
+# automatiza todo el ciclo de vida.
+#
+# Verificado contra el provider y Azure antes de escribir esto (2026-07-30):
+# azurerm_data_protection_backup_instance_mysql_flexible_server existe en el
+# provider actual, y el rol "MySQL Backup And Export Operator" existe en la
+# suscripción — MySQL Flexible Server SÍ es una carga de trabajo soportada por
+# Azure Backup (a diferencia de Recovery Services Vault, que NO la soporta).
+# ─────────────────────────────────────────────────────────────────────────────
+
+resource "azurerm_data_protection_backup_vault" "mysql" {
+  count               = var.mysql_backup_vault_enabled ? 1 : 0
+  name                = "${local.name_base}-mysql-bv"
+  location            = var.location
+  resource_group_name = module.network.resource_group_name
+  datastore_type      = "VaultStore"
+  redundancy          = var.mysql_backup_vault_redundancy
+  tags                = var.tags
+
+  identity {
+    type = "SystemAssigned"
+  }
+}
+
+resource "azurerm_role_assignment" "mysql_backup_vault_operator" {
+  count                = var.mysql_backup_vault_enabled ? 1 : 0
+  scope                = module.mysql.id
+  role_definition_name = "MySQL Backup And Export Operator"
+  principal_id         = azurerm_data_protection_backup_vault.mysql[0].identity[0].principal_id
+}
+
+# Mismo motivo que time_sleep.rbac_propagation del módulo keyvault: la
+# instancia de backup valida permisos contra el servidor en el momento de
+# crearse, y el RBAC recién asignado tarda unos segundos en propagar.
+resource "time_sleep" "mysql_backup_vault_rbac_propagation" {
+  count           = var.mysql_backup_vault_enabled ? 1 : 0
+  depends_on      = [azurerm_role_assignment.mysql_backup_vault_operator]
+  create_duration = "30s"
+}
+
+resource "azurerm_data_protection_backup_policy_mysql_flexible_server" "this" {
+  count    = var.mysql_backup_vault_enabled ? 1 : 0
+  name     = "daily-mysql-backup-policy"
+  vault_id = azurerm_data_protection_backup_vault.mysql[0].id
+
+  backup_repeating_time_intervals = ["R/${var.mysql_backup_vault_daily_time}/P1D"]
+
+  default_retention_rule {
+    life_cycle {
+      data_store_type = "VaultStore"
+      duration        = "P${var.mysql_backup_vault_retention_days}D"
+    }
+  }
+}
+
+resource "azurerm_data_protection_backup_instance_mysql_flexible_server" "this" {
+  count            = var.mysql_backup_vault_enabled ? 1 : 0
+  name             = "${var.mysql_database_name}-backup-instance"
+  location         = var.location
+  vault_id         = azurerm_data_protection_backup_vault.mysql[0].id
+  server_id        = module.mysql.id
+  backup_policy_id = azurerm_data_protection_backup_policy_mysql_flexible_server.this[0].id
+
+  depends_on = [time_sleep.mysql_backup_vault_rbac_propagation]
+}
+
 module "redis" {
   source                        = "../redis"
   name_base                     = local.name_base

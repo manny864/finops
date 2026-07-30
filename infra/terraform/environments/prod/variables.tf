@@ -48,6 +48,13 @@ variable "stamps" {
     mysql_geo_redundant_backup  = optional(bool, false)
     mysql_high_availability     = optional(bool, false)
 
+    # Azure Backup (Data Protection Backup Vault) — contención adicional,
+    # ver modules/stamp/main.tf.
+    mysql_backup_vault_enabled        = optional(bool, false)
+    mysql_backup_vault_redundancy     = optional(string, "LocallyRedundant")
+    mysql_backup_vault_retention_days = optional(number, 30)
+    mysql_backup_vault_daily_time     = optional(string, "2026-01-01T04:00:00+00:00")
+
     # Azure Managed Redis.
     redis_sku_name                  = optional(string, "Balanced_B3")
     redis_high_availability_enabled = optional(bool, true)
