@@ -2,6 +2,7 @@ import { CostManagementClient } from "@azure/arm-costmanagement";
 import { getAzureCredential } from '@/lib/azure';
 import { FocusCostEntry, mapAzureToFocus } from '@/modules/core/focusMapper';
 import { redis } from '@/lib/redis';
+import { getWithStaleWhileRevalidate } from '@/lib/cache';
 import { withCostColumn, findCostColumnIndex, resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError, type CostColumn } from '@/lib/azureCostColumn';
 
 // --- Helpers de resiliencia para Azure Cost Management (rate limiting) ---
@@ -366,6 +367,35 @@ async function _fetchCostData(
     }
 }
 
+// TTL del cache COMPARTIDO de la consulta MTD. 15 min, alineado con el payload de
+// /api/dashboard/summary: pasado ese punto el dato se considera viejo igual.
+const MTD_SHARED_TTL_SECONDS = 900;
+// Un resultado SIN filas casi siempre significa "Azure nos throttleó", no "este
+// tenant no gastó nada". Se cachea corto para reintentar pronto en vez de dejar
+// 15 min una respuesta vacía que apaga todas las tarjetas.
+const MTD_DEGRADED_TTL_SECONDS = 120;
+
+/**
+ * Consulta MTD con cache COMPARTIDO entre replicas.
+ *
+ * EL PROBLEMA QUE RESUELVE. Una sola carga de página dispara esta consulta desde
+ * varios lugares (summary la pide dos veces, forecast, billing), y `prewarm-dashboard`
+ * la dispara para TODOS los tenants cada 10 min. Había dos capas de dedup pero las
+ * dos viven en memoria del PROCESO (COST_CACHE de 60 s y COST_INFLIGHT), así que:
+ *
+ *   - con web_max_replicas = 5, cinco replicas podían lanzar la misma consulta ancha
+ *     a la vez, y el autoscaling agrega replicas justo cuando hay más carga;
+ *   - los 60 s de TTL no cubren el ciclo de 10 min del prewarm, así que cada corrida
+ *     volvía a pegarle a Azure.
+ *
+ * Resultado: 429 de Cost Management, los reintentos se agotan y `actualCost` cae al
+ * valor incompleto de CostSnapshots. Eso es lo que hacía que el KPI mostrara 7.62
+ * cuando el portal decía 12.77.
+ *
+ * Ahora el resultado vive en Redis, compartido por todas las replicas y por el
+ * prewarm. Las dos capas en memoria se conservan: siguen sirviendo para ráfagas
+ * dentro de la misma replica y para cuando Redis no está.
+ */
 export async function getCurrentMonthAmortizedCostsWithDiagnostics(
     tenantId: string,
     subscriptionId: string,
@@ -387,8 +417,15 @@ export async function getCurrentMonthAmortizedCostsWithDiagnostics(
         return inflight;
     }
 
-    const promise = _fetchCostData(tenantId, subscriptionId, metricType, cacheKey)
-        .finally(() => COST_INFLIGHT.delete(cacheKey));
+    const promise = getWithStaleWhileRevalidate(
+        `cost:mtd:shared:v1:${tenantId}:${subscriptionId.toLowerCase()}:${metricType}`,
+        () => _fetchCostData(tenantId, subscriptionId, metricType, cacheKey),
+        MTD_SHARED_TTL_SECONDS,
+        undefined,
+        // Sin filas ⇒ TTL corto (ver MTD_DEGRADED_TTL_SECONDS).
+        (result) => (result?.data?.length ? MTD_SHARED_TTL_SECONDS : MTD_DEGRADED_TTL_SECONDS)
+    ).finally(() => COST_INFLIGHT.delete(cacheKey));
+
     COST_INFLIGHT.set(cacheKey, promise);
     return promise;
 }
