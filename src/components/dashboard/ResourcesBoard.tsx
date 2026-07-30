@@ -63,7 +63,7 @@ function SearchResourcesTab() {
     const t = useProviderTranslations("Resources");
     const locale = useLocale();
     const [page, setPage] = useState(1);
-    const pageSize = 15;
+    const [pageSize, setPageSize] = useState(15);
     const { subscriptions } = useSubscription();
 
     // Los cuatro filtros ya los aceptaba /api/resources/search (search,
@@ -222,7 +222,7 @@ function SearchResourcesTab() {
                     </table>
                 </div>
                 <div className="px-4 pb-4">
-                    <Pagination page={page} setPage={(p: any) => setPage(typeof p === "function" ? p(page) : p)} pageSize={pageSize} setPageSize={() => {}} total={data.total || 0} totalPages={totalPages} pageSizes={[pageSize]} />
+                    <Pagination page={page} setPage={(p: any) => setPage(typeof p === "function" ? p(page) : p)} pageSize={pageSize} setPageSize={setPageSize} total={data.total || 0} totalPages={totalPages} pageSizes={[15, 30, 45, 60]} />
                 </div>
             </div>
         </div>
@@ -340,7 +340,7 @@ function CreatedByTab() {
                     </table>
                 </div>
                 <div className="px-4 pb-4">
-                    <Pagination page={pg.page} setPage={pg.setPage} pageSize={pg.pageSize} setPageSize={pg.setPageSize} total={pg.total} totalPages={pg.totalPages} pageSizes={[15, 25, 50]} />
+                    <Pagination page={pg.page} setPage={pg.setPage} pageSize={pg.pageSize} setPageSize={pg.setPageSize} total={pg.total} totalPages={pg.totalPages} pageSizes={[15, 30, 45, 60]} />
                 </div>
             </div>
         </div>

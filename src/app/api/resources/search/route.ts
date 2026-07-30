@@ -12,12 +12,22 @@ export async function GET(request: NextRequest) {
 
         await requireTenantTier(request, tenantId, "Professional");
 
+        const page = Math.max(1, Number(url.searchParams.get("page")) || 1);
+        // Techo 60: coincide con la mayor opción del selector (15/30/45/60) en
+        // ResourcesBoard.tsx — antes era 50, que ni siquiera alcanzaba para la
+        // opción de 60 filas.
+        const pageSize = Math.min(60, Math.max(5, Number(url.searchParams.get("pageSize")) || 15));
+
         if (isMockTenant(tenantId)) {
-            return NextResponse.json(getMockDataForRoute("resources_search", tenantId));
+            // El mock trae TODAS las filas en `allRows`; se sliceá acá según el
+            // page/pageSize real pedido — si no, elegir 30/45/60 en modo demo
+            // seguía mostrando siempre las mismas 15 filas fijas del default.
+            const { allRows: mockAllRows, ...mock } = getMockDataForRoute("resources_search", tenantId);
+            const allRows = mockAllRows || mock.rows || [];
+            const rows = allRows.slice((page - 1) * pageSize, page * pageSize);
+            return NextResponse.json({ ...mock, rows, page, pageSize });
         }
 
-        const page = Math.max(1, Number(url.searchParams.get("page")) || 1);
-        const pageSize = Math.min(50, Math.max(5, Number(url.searchParams.get("pageSize")) || 15));
         const subscriptionId = url.searchParams.get("subscriptionId") || "";
         const resourceGroup = url.searchParams.get("resourceGroup") || "";
         const tagKey = url.searchParams.get("tagKey") || "";
