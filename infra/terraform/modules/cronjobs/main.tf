@@ -110,7 +110,26 @@ locals {
     };
     const pollIntervalMs = Number(process.env.CRON_POLL_INTERVAL_MS || 15000);
     const overallTimeoutMs = Number(process.env.CRON_TIMEOUT_MS || 540000);
-    const shortTimeout = { signal: AbortSignal.timeout(30000) };
+    // FUNCIÓN, no constante. AbortSignal.timeout() arranca a contar en el
+    // momento en que se CREA (no cuando se usa) y es de un solo disparo:
+    // cuando vence queda abortado para siempre. Con un único objeto reusado en
+    // todos los fetch, a los 30s de arrancar el job el signal moría y TODOS los
+    // polls siguientes rechazaban al instante con TimeoutError sin llegar a
+    // tocar la red — el job quedaba dando vueltas hasta agotar CRON_TIMEOUT_MS
+    // (59 min) y salía con código 1, marcando cron-sync como Failed en Azure
+    // aunque el barrido hubiera terminado bien a los ~5 minutos.
+    //
+    // Cómo se identificó (prod, 2026-07-30): los fallos de poll aparecían en el
+    // log cada ~15s, o sea exactamente pollIntervalMs. Si el fetch estuviera
+    // esperando de verdad su timeout de red, el intervalo sería ~45s
+    // (15s de sleep + 30s de timeout). Rechazaban en 0ms.
+    const shortTimeout = () => ({ signal: AbortSignal.timeout(30000) });
+    // Cortar antes si el polling está roto de raíz (DNS, auth, ingress caído):
+    // sin esto, un endpoint inalcanzable mantiene el job vivo ~1h antes de
+    // reportar nada. 20 fallos seguidos ≈ 5 min sin una sola respuesta válida,
+    // holgado para blips de red o de Redis, pero muy por debajo del barrido.
+    const maxConsecutiveFailures = 20;
+    let consecutiveFailures = 0;
     const started = Date.now();
     (async () => {
       try {
@@ -122,22 +141,28 @@ locals {
         // antes) marcaba el job Failed en Azure con el barrido completando
         // bien igual — confirmado en prod el 2026-07-30. Se avisa y se sigue
         // al polling, que es lo único que puede confirmar el estado real.
-        await fetch(withQs(''), { headers, ...shortTimeout }).catch((e) => {
+        await fetch(withQs(''), { headers, ...shortTimeout() }).catch((e) => {
           console.warn(JSON.stringify({ job: process.env.CRON_JOB, warn: 'trigger sin respuesta, se sigue con polling', error: String(e) }));
         });
         while (Date.now() - started < overallTimeoutMs) {
           await new Promise((r) => setTimeout(r, pollIntervalMs));
           let status;
           try {
-            const r = await fetch(withQs('status=1'), { headers, ...shortTimeout });
+            const r = await fetch(withQs('status=1'), { headers, ...shortTimeout() });
             status = await r.json();
           } catch (e) {
             // Un poll individual que falla (blip de red) no debe tirar todo el
             // barrido: se reintenta en el próximo intervalo mientras quede
             // presupuesto de overallTimeoutMs.
-            console.warn(JSON.stringify({ job: process.env.CRON_JOB, warn: 'poll falló, reintenta', error: String(e) }));
+            consecutiveFailures++;
+            console.warn(JSON.stringify({ job: process.env.CRON_JOB, warn: 'poll falló, reintenta', consecutiveFailures, error: String(e) }));
+            if (consecutiveFailures >= maxConsecutiveFailures) {
+              console.error(JSON.stringify({ job: process.env.CRON_JOB, error: 'polling roto: ' + consecutiveFailures + ' fallos seguidos, se corta', ms: Date.now() - started }));
+              process.exit(1);
+            }
             continue;
           }
+          consecutiveFailures = 0;
           if (status.done) {
             console.log(JSON.stringify({ job: process.env.CRON_JOB, status: status.ok ? 200 : 500, ms: Date.now() - started, body: JSON.stringify(status).slice(0, 500) }));
             process.exit(status.ok ? 0 : 1);
