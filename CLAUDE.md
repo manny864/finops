@@ -38,14 +38,21 @@ Next.js route handlers directly need `// @vitest-environment node` at the top of
 the project default, lacks a real `Request`/`Response`).
 
 CI (`.github/workflows/ci.yml`, on PRs to `main`/`staging` and pushes to `staging`) runs `lint`,
-`typecheck`, `test:coverage`, then `build` (build depends on lint+typecheck passing). `deploy.yml`
-on `main` does **not** re-run lint/tests — it just SSHs to the VPS and rebuilds the containers, so
-`staging` CI is the only quality gate. Never promote to `main` with `staging` CI red.
+`typecheck`, `test:coverage`, then `build` (build depends on lint+typecheck passing).
+`deploy-azure.yml` on `main` does **not** re-run lint/tests — it builds the image in ACR, runs the
+migration Container Apps Job and rolls a new revision of the Container App — so `staging` CI is the
+only quality gate. Never promote to `main` with `staging` CI red.
+
+Infra lives in `infra/terraform/` (Azure Container Apps, one control plane + N regional stamps).
+`terraform.yml` gates PRs that touch `infra/terraform/**` with Checkov + Infracost + `plan`; the
+`apply` is always manual (`workflow_dispatch`), and a Monday cron checks for drift. `deploy.yml`
+(SSH to the legacy VPS) is `workflow_dispatch`-only and must not be re-armed on push: the VPS was
+frozen on 2026-07-28 and running it would deploy to a dead host and migrate its stale database.
 
 ## Architecture
 
-Next.js 16 App Router SaaS (multi-tenant FinOps platform for Azure, with AWS support). Three
-logical layers, all under `src/`:
+Next.js 16 App Router SaaS (multi-tenant FinOps platform for Microsoft Azure — Azure-only, no
+multi-cloud abstraction). Three logical layers, all under `src/`:
 
 1. **`src/app/[locale]/`** — UI routes, one subtree per module (`admin`, `advisor`, `cleanup`,
    `governance`, `intelligence`, `overview`, `superadmin`, `academy`, `onboarding`, `demo`, …).
@@ -57,8 +64,8 @@ logical layers, all under `src/`:
    API). This is the tenant-security boundary — see Auth model below.
 3. **`src/services/`** and **`src/modules/`** — business logic and cloud SDK integration, called
    from route handlers, never directly from UI:
-   - `src/modules/collectors/{azure,aws}` + `providerFactory.ts` — cloud provider abstraction
-     (Resource Graph, Cost Management, Compute, EC2/Cost Explorer for AWS).
+   - `src/modules/collectors/azure/` + `azureProvider.ts` + `providerFactory.ts` — Azure SDK
+     integration (Resource Graph, Cost Management, Compute, Monitor).
    - `src/modules/core/` — provider-agnostic engines: `focusMapper.ts` (FOCUS 1.0 schema
      normalization), `rightsizingEngine.ts`, `kqlCatalog.ts` (canned Resource Graph KQL queries),
      `aiProvider.ts` (multi-vendor AI chat, see AI section below).
@@ -116,7 +123,7 @@ all four tiers in `src/lib/mockData.ts` so `/demo` can showcase it without live 
 ### Mock-first demo tenants
 
 `isMockTenant(tenantId)` (`src/lib/mockData.ts`) is checked by API routes to short-circuit real
-Azure/AWS calls and return deterministic synthetic data scaled by tier, so demos work offline. When
+Azure calls and return deterministic synthetic data scaled by tier, so demos work offline. When
 adding an endpoint, follow the existing pattern: check `isMockTenant` early, return mock payload
 with `data.mock === true` (UI shows an amber banner keyed off that flag), otherwise hit the real
 service.
@@ -172,4 +179,4 @@ for Gemini 429s. Used by the context-aware FinOps chatbot and the M365 Copilot R
   exporter, Key Vault, etc.) and `docs/security/audit-YYYY-MM-DD.md` biweekly security audit
   reports (AGENTS.md #14).
 - `.env.example` — canonical list of required environment variables (Azure AD/MSAL, MySQL, Paddle
-  billing, Redis, WorkOS SSO, SMTP, Azure Key Vault, AWS/Azure marketplace).
+  billing, Redis, WorkOS SSO, SMTP, Azure Key Vault, Azure Marketplace).

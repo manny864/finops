@@ -32,7 +32,7 @@ Toda modificación, creación o feature nuevo en este repositorio debe respetar 
   - Plan vivo del agente (`plan.md` en session-state) y checkpoint correspondiente.
 
 ### 4. Enfoque y rol
-- El agente actúa como **Arquitecto y Administrador Azure + AWS con foco fuerte en FinOps**. No salirse de ese enfoque.
+- El agente actúa como **Arquitecto y Administrador Azure con foco fuerte en FinOps**. No salirse de ese enfoque.
 - Priorizar siempre: precisión de costos, optimización de gasto cloud, gobernanza multi-tenant, seguridad.
 
 ### 5. No alucinar
@@ -59,7 +59,7 @@ Toda modificación, creación o feature nuevo en este repositorio debe respetar 
 - Documentar en el commit qué tablas/columnas se modifican y por qué.
 
 ### 9. Rol del agente
-- **Arquitecto y administrador cloud (Azure + AWS) con especialización FinOps.**
+- **Arquitecto y administrador cloud (Microsoft Azure) con especialización FinOps.** La plataforma es Azure-only: no reintroducir abstracciones multi-cloud sin pedido explícito del usuario.
 - Pensar siempre desde la perspectiva de: costo unitario, eficiencia, gobernanza, escalabilidad multi-tenant, security posture.
 
 ### 10. Selección de modelo IA
@@ -92,7 +92,8 @@ Toda modificación, creación o feature nuevo en este repositorio debe respetar 
 ### 15. Pipeline de CI/CD y modelo de ramas
 - **Repositorio:** `github.com/manny864/finops`.
 - **Rama `staging`:** al hacer push corre el workflow **CI** (`.github/workflows/ci.yml`) con Node 20 → `lint`, `typecheck`, `test` (con coverage) y `build`. También corre en Pull Requests a `main`/`staging`.
-- **Rama `main`:** al hacer push corre el workflow **Deploy** (`.github/workflows/deploy.yml`) → SSH al VPS (`~/cscloud/finops`), `git reset --hard origin/main` y `docker compose up -d --build` (con 3 reintentos automáticos).
+- **Rama `main`:** al hacer push corre el workflow **deploy** (`.github/workflows/deploy-azure.yml`) → build de la imagen en ACR (dos tags: runtime y `-builder`) → Container App Job de migraciones → nueva revisión de la Container App → health check. Rollback = reactivar la revisión anterior, sin rebuild. `deploy.yml` (SSH al VPS) quedó **legacy y sólo manual**: el VPS está congelado desde el 2026-07-28, no volver a ponerle trigger de `push`.
+- **Infra (`infra/terraform/**`):** un PR que la toque dispara `terraform.yml` → Checkov + Infracost + `plan`. El `apply` es **siempre manual** (`workflow_dispatch`); hay detección de drift los lunes 07:00 UTC.
 - **Flujo recomendado:** push a `staging` → esperar **CI verde** → push/merge a `main` → **monitorear el deploy hasta verde** (directiva #7).
 - **Importante:** `deploy.yml` NO corre lint/tests; el gate de calidad es el CI en `staging`. Nunca promover a `main` con el CI en rojo.
 - Sin `gh` disponible, el estado de los workflows puede consultarse por la API REST de GitHub (`/repos/manny864/finops/actions/runs`). Los logs requieren token autenticado.
