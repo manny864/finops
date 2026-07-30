@@ -184,8 +184,9 @@ async function fetchMTDBreakdown(
     }
   } catch { /* Redis miss/parse error — recompute below */ }
 
-  // Un tenant AWS no tiene Service Principal ni suscripciones: llamar a Azure
-  // solo agrega el timeout completo antes del mismo null que devolvemos aca.
+  // Un tenant sin Azure conectado no tiene Service Principal ni suscripciones:
+  // llamar a Azure solo agrega el timeout completo antes del mismo null que
+  // devolvemos aca.
   if (!(await tenantUsesAzure(tenantId))) return null;
 
   try {
@@ -475,9 +476,8 @@ export async function GET(request: NextRequest) {
         const histogramDays = histogramMonths * 31; // margen holgado por mes calendario
         let histogram = await fetchHistogramFromDb(tenantId, subscriptionId, histogramDays);
         let liveData: Awaited<ReturnType<typeof getCurrentMonthAmortizedCosts>> | null = null;
-        // Los fallbacks live son especificos de Azure. Para un tenant AWS el
-        // histograma sale de CostSnapshots, que el sync de AWS ya alimenta
-        // (ver /api/sync/aws/[accountId]/ce), asi que no hay a que caer.
+        // El fallback live es especifico de Azure: sin Azure conectado no hay
+        // a que caer y el histograma se queda con lo que haya en CostSnapshots.
         const useAzureLive = await tenantUsesAzure(tenantId);
         if (histogram.length === 0 && useAzureLive) {
           try {

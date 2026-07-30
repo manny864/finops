@@ -1116,8 +1116,7 @@
         "Usuarios y Permisos, Onboarding y Configuración",
         "Preferencias Multi-Moneda",
         "Soporte en plataforma (5 tickets/mes, respuesta en 48 h)"
-      ],
-      "awsScope": "1 cuenta de AWS, 1 usuario"
+      ]
     },
     "pro": {
       "name": "Professional",
@@ -1142,8 +1141,7 @@
         "Autenticación Multi-Factor (MFA)",
         "Soporte en plataforma (20 tickets/mes, respuesta en 24 h)",
         "FinOps Copilot (IA)"
-      ],
-      "awsScope": "Hasta 5 cuentas de AWS, hasta 5 usuarios"
+      ]
     },
     "business": {
       "name": "Business",
@@ -1173,8 +1171,7 @@
         "Reporte Ejecutivo",
         "Página de Estado Pública + Historial de Incidentes",
         "Soporte ilimitado en plataforma (respuesta en 8 h)"
-      ],
-      "awsScope": "Hasta 20 cuentas de AWS, hasta 20 usuarios"
+      ]
     },
     "enterprise": {
       "name": "Enterprise",
@@ -1216,8 +1213,7 @@
         "Azure Key Vault (cifrado gestionado por la plataforma)",
         "Billing Azure Marketplace SaaS",
         "Soporte dedicado ilimitado (SLA máximo 4 h)"
-      ],
-      "awsScope": "Cuentas de AWS y usuarios ilimitados"
+      ]
     },
     "enterpriseModal": {
       "title": "Contactar a Ventas Enterprise",
@@ -1250,10 +1246,7 @@
     "showFeatures": "Ver funciones ({count})",
     "hideFeatures": "Ocultar funciones",
     "cloudSelectorLabel": "¿Qué nube querés gestionar?",
-    "cloudAzure": "Azure",
-    "cloudAws": "AWS",
-    "featureNotInAws": "Todavía no disponible en AWS",
-    "awsScopeNotice": "Las funciones atenuadas todavía no están disponibles para AWS. El soporte de AWS se libera capability por capability: lo que ves habilitado es lo que funciona hoy, no lo planificado."
+    "cloudAzure": "Azure"
   },
   "auth": {
     "paymentSuccess": "¡Pago completado con éxito! Por favor, inicia sesión para acceder a tu plan."
@@ -1367,37 +1360,24 @@
     "companyNamePlaceholder": "Nombre de tu empresa",
     "primaryCloud": "Proveedor de nube principal",
     "azureConnected": "Azure (Conectado)",
-    "awsConnected": "AWS (Conectado)",
-    "awsComingSoon": "AWS (Próximamente)",
     "currency": "Moneda",
     "timezone": "Zona horaria",
     "step2Title": "Conectar suscripción de Azure",
     "step2Desc": "Proporciona las credenciales de tu Service Principal",
-    "step2TitleAws": "Conectar cuenta de AWS",
-    "step2DescAws": "Registra y valida al menos una cuenta AWS para habilitar la ingesta",
     "clientId": "Client ID",
     "clientSecret": "Client Secret",
     "azureTenantId": "Azure Tenant ID",
     "validate": "Validar",
-    "validateAws": "Validar cuenta AWS",
     "validating": "Validando...",
     "credsValidated": "Credenciales validadas correctamente",
     "allPermsPresent": "Todos los permisos requeridos están presentes",
-    "awsAccountValidated": "Cuenta AWS validada correctamente",
-    "awsReadyForSync": "Hay al menos una cuenta AWS registrada y lista para sincronizar",
     "validationFailed": "La validación falló",
-    "awsConnectHint": "Abre Gestión de Cuentas AWS, da de alta una cuenta y luego vuelve aquí para validar.",
-    "openAwsAccounts": "Abrir Gestión de Cuentas AWS",
-    "awsNoAccountsConfigured": "No encontramos cuentas AWS configuradas. Crea al menos una en Gestión de Cuentas AWS.",
     "step3Title": "Ejecutar primera sincronización de datos",
     "step3Desc": "Sincroniza tu primer conjunto de datos de costos desde Azure",
-    "step3DescAws": "Sincroniza tu primer conjunto de datos de costos desde AWS",
     "runSync": "Ejecutar sincronización",
     "syncing": "Sincronizando...",
     "syncingHint": "Sincronizando tus datos... esto puede tardar hasta 60 segundos",
     "syncClickHint": "Haz clic en \"Ejecutar sincronización\" para importar tus datos de costos iniciales desde Azure",
-    "syncingHintAws": "Sincronizando tus datos de AWS... esto puede tardar hasta 60 segundos",
-    "syncClickHintAws": "Haz clic en \"Ejecutar sincronización\" para importar tus datos de costos iniciales desde AWS",
     "step4Title": "Crea tu primer presupuesto",
     "step4Desc": "Configura un presupuesto para controlar el gasto",
     "subscription": "Suscripción",
@@ -1974,7 +1954,7 @@
   },
   "IntelligenceUpload": {
     "title": "Ingesta manual de costos (CSV)",
-    "subtitle": "Cargá archivos de facturación exportados de Azure, AWS o GCP. El sistema mapeará las columnas al estándar FOCUS y generará una evaluación de IA instantánea.",
+    "subtitle": "Cargá archivos de facturación exportados de Azure o de cualquier otro proveedor. El sistema mapeará las columnas al estándar FOCUS y generará una evaluación de IA instantánea.",
     "dropzoneTitle": "Arrastrá tu archivo CSV acá",
     "dropzoneSubtitle": "Soporta archivos de facturación estándar (Amortized/Actual Cost). El procesamiento se hace localmente en tu navegador.",
     "selectFileButton": "Seleccionar archivo",
@@ -4320,8 +4300,7 @@
     "csvColResourceGroup": "Grupo de Recursos",
     "csvColRegion": "Region",
     "csvColComplianceStatus": "Estado de Cumplimiento",
-    "csvColMissingTags": "Etiquetas Faltantes",
-    "awsReadOnlyNotice": "Auditoria de solo lectura: el rol del onboarding no pide permisos para escribir etiquetas, asi que la correccion se hace desde la consola de AWS o desde tu herramienta de infraestructura como codigo."
+    "csvColMissingTags": "Etiquetas Faltantes"
   },
   "TierLockedNotice": {
     "featureLockedTitle": "{feature} está en el plan {tier}",
@@ -4663,8 +4642,6 @@
     "signupTitle": "¿Qué nube querés analizar?",
     "signupAzure": "Microsoft Azure",
     "signupAzureHint": "Iniciás sesión con tu cuenta de Microsoft.",
-    "signupAws": "Amazon Web Services",
-    "signupAwsHint": "AWS no tiene inicio de sesión corporativo: creás una cuenta con email y contraseña.",
     "signupCompany": "Nombre de la empresa",
     "signupEmail": "Email de trabajo",
     "signupPassword": "Contraseña (mínimo 12 caracteres)",

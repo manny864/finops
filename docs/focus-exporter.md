@@ -58,7 +58,7 @@ Tabla `CostSnapshots` (ya tiene los campos shape FOCUS añadidos en la migració
 `__tests__/unit/focusExporter.test.ts` cubre:
 - Lista canónica de columnas, sin duplicados, en orden spec.
 - Mapper para rows Azure mínimos.
-- Mapper para rows con shape FOCUS explícita (AWS).
+- Mapper para rows con shape FOCUS explícita (ingesta externa por CSV).
 - Inferencia de `ServiceCategory` por nombre de servicio.
 - Normalización de tags JSON / raw.
 - Manejo de fechas vacías/inválidas.
@@ -85,5 +85,4 @@ Tabla `CostSnapshots` (ya tiene los campos shape FOCUS añadidos en la migració
 
 - Parquet output (vía `parquetjs`) cuando volúmenes > 100k filas/export sean comunes.
 - Compresión gzip on-the-fly.
-- Multi-cloud merge (Azure + AWS en el mismo export) cuando integración AWS esté lista.
 - Cron job opcional para generar y subir al S3/Blob del cliente.

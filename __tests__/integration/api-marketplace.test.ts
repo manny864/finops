@@ -8,7 +8,7 @@ import pool from '@/modules/storage/db';
  * Tests validate:
  * - Token validation and error handling
  * - Tenant creation with marketplace source
- * - Webhook event processing for Azure and AWS
+ * - Webhook event processing for Azure Marketplace
  * - Subscription status updates
  * - MarketplaceEvents logging
  */
@@ -244,105 +244,6 @@ describe.skip('Marketplace API Integration Tests', () => {
       if (response) {
         // Should return 401 Unauthorized
         expect(response.status).toBe(401);
-      }
-    });
-  });
-
-  describe('AWS Marketplace', () => {
-    it('should create tenant with AWS marketplace source on successful activation', async () => {
-      const testTenantId = `test-aws-${Date.now()}`;
-      const customerId = `aws-cust-${Date.now()}`;
-
-      try {
-        await connection.query(
-          `INSERT INTO Tenants (
-            tenant_id,
-            company_name,
-            marketplace_source,
-            marketplace_subscription_id,
-            marketplace_plan_id,
-            tier,
-            subscription_status,
-            status
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            testTenantId,
-            'Test AWS Customer',
-            'aws_marketplace',
-            customerId,
-            'finops-professional-monthly',
-            'Professional',
-            'ACTIVE',
-            'active',
-          ]
-        );
-
-        // Verify tenant was created with correct marketplace source
-        const [results] = await connection.query(
-          `SELECT * FROM Tenants WHERE tenant_id = ?`,
-          [testTenantId]
-        );
-
-        const tenant = Array.isArray(results) && results.length > 0 ? results[0] : null;
-        expect(tenant).toBeDefined();
-        expect(tenant?.marketplace_source).toBe('aws_marketplace');
-        expect(tenant?.marketplace_subscription_id).toBe(customerId);
-        expect(tenant?.marketplace_plan_id).toBe('finops-professional-monthly');
-        expect(tenant?.subscription_status).toBe('ACTIVE');
-      } catch (error) {
-        if ((error as any).code !== 'ER_DUP_ENTRY') {
-          throw error;
-        }
-      }
-    });
-
-    it('should handle AWS webhook EntitlementDeleted event', async () => {
-      const testTenantId = `test-aws-delete-${Date.now()}`;
-      const customerId = `aws-cust-delete-${Date.now()}`;
-
-      try {
-        // Create tenant
-        await connection.query(
-          `INSERT INTO Tenants (
-            tenant_id,
-            company_name,
-            marketplace_source,
-            marketplace_subscription_id,
-            marketplace_plan_id,
-            tier,
-            subscription_status,
-            status
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            testTenantId,
-            'Test AWS Delete',
-            'aws_marketplace',
-            customerId,
-            'finops-professional-monthly',
-            'Professional',
-            'ACTIVE',
-            'active',
-          ]
-        );
-
-        // Simulate EntitlementDeleted event
-        await connection.query(
-          `UPDATE Tenants SET subscription_status = ? WHERE tenant_id = ?`,
-          ['CANCELED', testTenantId]
-        );
-
-        // Verify status was updated
-        const [results] = await connection.query(
-          `SELECT subscription_status FROM Tenants WHERE tenant_id = ?`,
-          [testTenantId]
-        );
-
-        const tenant = Array.isArray(results) && results[0] ? results[0] : null;
-        expect(tenant?.subscription_status).toBe('CANCELED');
-      } catch (error) {
-        if ((error as any).code !== 'ER_DUP_ENTRY') {
-          throw error;
-        }
       }
     });
   });

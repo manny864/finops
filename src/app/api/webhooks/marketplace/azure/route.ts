@@ -113,9 +113,10 @@ export async function POST(request: NextRequest) {
       ]);
 
       if (previousTier && nextTier) {
-        // Un ChangePlan a la baja puede quitarle a un tenant multi-cloud el
-        // derecho a tener los dos proveedores: archiva el secundario en vez de
-        // dejar el estado incoherente. Ver docs/provider-downgrade-policy.md.
+        // Punto de choque único ante un cambio de tier. Con un solo proveedor
+        // (Azure) no hay nada que reconciliar y `applyTierChange` es no-op; se
+        // conserva la llamada para no volver a cablear los 3 webhooks si el
+        // modelo de proveedores vuelve a crecer.
         await applyTierChange({
           tenantId: tenant.tenant_id,
           previousTier,

@@ -122,12 +122,24 @@ resource "random_password" "cron" {
   special = false
 }
 
+# Ancla de 1 año para expiration_date. time_offset no rota solo — congela la
+# fecha en el momento del primer apply y no vuelve a moverse en los
+# siguientes, así que no fuerza un diff en cada plan. Vence, no rota: cuando
+# Key Vault empiece a avisar por vencimiento, el secreto se regenera a mano
+# (random_password no soporta point-in-time replace controlado) y esto se
+# vuelve a aplicar.
+resource "time_offset" "secret_expiry" {
+  offset_years = 1
+}
+
 resource "azurerm_key_vault_secret" "cron" {
-  count        = var.keyvault_create ? 1 : 0
-  name         = var.cron_secret_name
-  value        = random_password.cron[0].result
-  key_vault_id = module.keyvault.id
-  tags         = var.tags
+  count           = var.keyvault_create ? 1 : 0
+  name            = var.cron_secret_name
+  value           = random_password.cron[0].result
+  key_vault_id    = module.keyvault.id
+  content_type    = "cron-auth-token"
+  expiration_date = time_offset.secret_expiry.rfc3339
+  tags            = var.tags
 
   depends_on = [module.keyvault]
 }
@@ -149,11 +161,12 @@ resource "random_password" "mysql" {
 # quedó congelado (2026-07-28) y esta instalación arranca de cero, así que el
 # nombre desalineado sólo lograba que la app no encontrara el secreto.
 resource "azurerm_key_vault_secret" "mysql_password" {
-  name         = "infra-db-password"
-  value        = random_password.mysql.result
-  key_vault_id = module.keyvault.id
-  content_type = "password"
-  tags         = var.tags
+  name            = "infra-db-password"
+  value           = random_password.mysql.result
+  key_vault_id    = module.keyvault.id
+  content_type    = "password"
+  expiration_date = time_offset.secret_expiry.rfc3339
+  tags            = var.tags
 
   depends_on = [module.keyvault]
 }
@@ -288,6 +301,18 @@ module "app" {
   depends_on                      = [time_sleep.acr_pull_propagation]
 }
 
+# Dominio propio. enabled=false por defecto — ver el comentario del módulo:
+# la secuencia real tiene un paso de DNS afuera de Terraform en el medio.
+module "custom_domain" {
+  source                       = "../custom_domain"
+  enabled                      = var.custom_domain_enabled
+  domain_name                  = var.custom_domain_name
+  certificate_name             = var.custom_domain_certificate_name
+  container_app_id             = module.app.app_id
+  container_app_environment_id = azurerm_container_app_environment.this.id
+  tags                         = var.tags
+}
+
 # Los 14 procesos periódicos, con su schedule en código.
 module "cronjobs" {
   source                = "../cronjobs"
@@ -399,6 +424,29 @@ module "diagnostics" {
   # Verificado 2026-07-28 en prod westus2. Las métricas sí se recogen.
   metrics_only_targets = {
     redis = module.redis.id
+  }
+}
+
+# Storage quedó afuera del módulo diagnostics de arriba porque 'allLogs' no
+# corre a nivel de CUENTA (ver el comentario ahí) — pero sí corre apuntado al
+# sub-servicio blob, que es donde viven los adjuntos de soporte, los logos de
+# tenant y los backups. Sin esto no hay registro de quién leyó o borró un
+# blob — la misma laguna que motivó el módulo diagnostics para el Key Vault.
+resource "azurerm_monitor_diagnostic_setting" "storage_blob" {
+  name                       = "${local.name_base}-storage-blob-diag"
+  target_resource_id         = "${module.storage.id}/blobServices/default"
+  log_analytics_workspace_id = module.monitoring.workspace_id
+
+  enabled_log {
+    category_group = "allLogs"
+  }
+
+  enabled_metric {
+    category = "AllMetrics"
+  }
+
+  lifecycle {
+    ignore_changes = [enabled_log, enabled_metric]
   }
 }
 

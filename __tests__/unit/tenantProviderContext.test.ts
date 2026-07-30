@@ -2,9 +2,9 @@
  * Contexto de proveedor por tenant.
  *
  * El producto es Azure-only: `getTenantProviders` siempre resuelve azure=true,
- * aws=false, sin importar el valor crudo de la columna. Lo que importa acá es
- * la resiliencia (base caída, tenant sin fila) y el cache por tenant/TTL, no
- * la clasificación por proveedor.
+ * sin importar el valor crudo de la columna. Lo que importa acá es la
+ * resiliencia (base caída, tenant sin fila) y el cache por tenant/TTL, no la
+ * clasificación por proveedor.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -17,7 +17,6 @@ vi.mock('@/modules/storage/db', () => ({
 import {
     getTenantProviders,
     tenantUsesAzure,
-    tenantUsesAws,
     invalidateTenantProviders,
     providerIdsFor,
     __clearTenantProvidersCache,
@@ -38,7 +37,7 @@ describe('getTenantProviders', () => {
     it('mapea provider="azure" a azure', async () => {
         queryMock.mockResolvedValue(rowsWith('azure'));
         const p = await getTenantProviders(T);
-        expect(p).toEqual({ setting: 'azure', azure: true, aws: false });
+        expect(p).toEqual({ setting: 'azure', azure: true });
     });
 
     it('un valor desconocido en la columna no deja al tenant sin proveedor', async () => {
@@ -58,7 +57,7 @@ describe('resiliencia', () => {
     it('con la base caida degrada a Azure en vez de propagar el error', async () => {
         queryMock.mockRejectedValue(new Error('ECONNREFUSED'));
         const p = await getTenantProviders(T);
-        expect(p).toEqual({ setting: 'azure', azure: true, aws: false });
+        expect(p).toEqual({ setting: 'azure', azure: true });
     });
 
     it('un fallo de base no se cachea: el proximo request reintenta', async () => {
@@ -132,13 +131,12 @@ describe('cache', () => {
 });
 
 describe('atajos', () => {
-    it('tenantUsesAzure es true y tenantUsesAws es false', async () => {
+    it('tenantUsesAzure es true para cualquier tenant', async () => {
         queryMock.mockResolvedValue(rowsWith('azure'));
         expect(await tenantUsesAzure(T)).toBe(true);
-        expect(await tenantUsesAws(T)).toBe(false);
     });
 
     it('providerIdsFor lista el proveedor activo', () => {
-        expect(providerIdsFor({ setting: 'azure', azure: true, aws: false })).toEqual(['azure']);
+        expect(providerIdsFor({ setting: 'azure', azure: true })).toEqual(['azure']);
     });
 });

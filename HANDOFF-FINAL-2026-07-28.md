@@ -1,153 +1,195 @@
 # HANDOFF — FinOpsProyect: migración del VPS a Azure Container Apps
-**Fecha:** 2026-07-28
+**Última actualización:** 2026-07-29
 
 ## Dónde quedó
 
-La app corre en Azure y sirve tráfico:
-`https://cscs-finops-prod-westus2-web.victoriousmoss-01886ec5.westus2.azurecontainerapps.io`
+La app corre en Azure, se despliega sola desde GitHub, y tiene dominio propio:
+
+- **Producción:** `https://finops.cscloudsolutions.com.ar` (detrás de Cloudflare, Full strict)
+- **FQDN de Azure** (sigue vivo, no lo saques): `cscs-finops-prod-westus2-web.victoriousmoss-01886ec5.westus2.azurecontainerapps.io`
 
 | | Estado |
 |---|---|
-| Terraform | 83 recursos |
-| Esquema | 56 migraciones, **80 tablas — idéntico al VPS** |
-| API / Database / AI Provider / Paddle | `operational` |
-| Redis | `EnterpriseCluster`, 0 errores |
-| Key Vault | `managed-identity`, rol `Secrets Officer` |
-| Superadmin | funcionando |
-| Azure Sync | `degraded` — falta el primer sync con credenciales de tenant |
-
-Los errores `429` que aparecen en los logs son throttling de las APIs de Azure,
-con reintentos y fallback funcionando. No son bugs.
+| Terraform | 83+ recursos, plan estable salvo drift menor conocido (ver abajo) |
+| Esquema | 56 migraciones, 80 tablas — idéntico al VPS |
+| Deploy | Automático: push a `main` → GitHub Actions → Container Apps |
+| Dominio propio | Certificado + binding activos, importados al state |
+| Checkov (gate de infra) | 122/122 checks, verificado en CI real |
+| Repo | **privado** (estuvo público un rato hoy — ver más abajo) |
+| Superadmin, Key Vault, Redis | funcionando |
+| Azure Sync | `degraded` — correcto: hay tenants activos sin credenciales cargadas |
 
 ## Pendientes, por urgencia
 
-### 1. Rotar credenciales expuestas (SEGURIDAD)
-`.dockerignore` **no excluía** `.env*`, así que `.env.production` —con
-`AZURE_CLIENT_SECRET`, `AZURE_KEYVAULT_CLIENT_SECRET`, `CRON_SECRET`,
-`DB_PASSWORD`, `GEMINI_API_KEY` y 31 variables más— viajó **dentro de las
-imágenes publicadas en el ACR**. Cualquiera con permiso de pull sobre
-`cscsfinopsprodglobalcr` puede extraerlas.
+### 1. Credencial OIDC para `environment:dev` (bloquea `plan-apply` en PRs)
+`terraform.yml` → job `plan-apply` declara `environment: dev` (default cuando el
+trigger es `pull_request`, no `workflow_dispatch`). Eso cambia el subject del
+token OIDC a `repo:manny864/finops:environment:dev`, y el service principal
+`cscs-finops-terraform` sólo tiene credenciales para:
+```
+repo:manny864/finops:environment:prod
+repo:manny864/finops:pull_request
+repo:manny864/finops:ref:refs/heads/main
+```
+`azure/login` falla con eso. **No lo toqué** — crear una credencial federada es
+un cambio de superficie de confianza de identidad y es tu decisión. `scan` (el
+gate de Checkov) sí funciona bien en PRs; sólo `plan-apply` queda bloqueado.
 
-Corregido para builds nuevos, pero **las imágenes viejas siguen en el registry**:
-rotar esos secretos y borrar los tags anteriores a la corrida `ccb`.
+### 2. Rotar credenciales expuestas (vos ya dijiste que no vas a rotar — asumido)
+`.env.production` viajó dentro de imágenes del ACR hasta el 2026-07-28 ~21:52
+UTC (antes de que `.dockerignore` excluyera `.env*`). Esas 14 imágenes ya se
+purgaron del registry. Decisión tuya explícita: no rotar `DB_PASSWORD`,
+`CRON_SECRET`, `AZURE_CLIENT_SECRET`, `GEMINI_API_KEY` — riesgo asumido.
+Paddle sí se rotó (ver abajo).
 
-### 2. Cerrar el origen antes de abrir al público
-`allowed_ip_ranges = []` en `prod/terraform.tfvars`. Hoy el FQDN de Container
-Apps es alcanzable directo, salteando el WAF de Cloudflare.
+### 3. `allowed_ip_ranges` con los rangos de Cloudflare
+Sigue vacío. El FQDN de Azure (`*.azurecontainerapps.io`) es alcanzable
+directo salteando el WAF de Cloudflare. El mecanismo ya existe
+(`modules/containerapp/main.tf`, `ip_security_restriction`), sólo falta
+cargar la variable.
 
-### 3. Variables del pipeline en GitHub
-`deploy-azure.yml` quedó corregido pero **nunca se ejecutó**.
+### 4. `resource_lock_enabled = true`
+Cuando el sistema esté estable un tiempo.
 
-*Settings → Secrets and variables → Actions → **Variables*** (públicas):
-`NEXT_PUBLIC_CLIENT_ID` = `876d8a5b-6023-4484-b3ba-73c186e4a72b`,
-`NEXT_PUBLIC_PADDLE_CLIENT_TOKEN` y los 6 `NEXT_PUBLIC_PADDLE_*` de price id.
+### 5. Drift de tags/`workload_profile_name`
+`terraform plan` muestra ~17-18 cambios permanentes: Azure agrega
+`workload_profile_name="Consumption"` y ajusta tags (`Owner`,
+`Environment`) que Terraform no declaró. Es cosmético — no fuerza replace en
+ningún recurso — pero conviene declarar esos valores explícitamente en algún
+momento para que el plan quede realmente limpio.
 
-*→ **Secrets*** (SP `cscs-finops-terraform`, OIDC ya federado para `main`,
-`pull_request` y `environment:prod`):
-`AZURE_CLIENT_ID` = `3826973d-5d75-4039-bd31-b5ff9150f515` (**appId**, no objectId),
-`AZURE_TENANT_ID` = `81ebe027-…`, `AZURE_SUBSCRIPTION_ID` = `ec03e8ce-…`.
+## Repo público → privado (2026-07-29)
 
-### 4. Cuando esté estable
-`resource_lock_enabled = true`.
+El repo estuvo público un rato. Verificado: **ningún secreto real llegó al
+historial de git** (`.env.production` nunca se commiteó, sólo `.env.example`).
+El riesgo real era la topología de infra expuesta (IDs, nombres de recursos,
+arquitectura completa en comentarios) y que `terraform.yml` corre `scan` en
+cualquier PR contra `infra/terraform/**`, incluido uno abierto desde un fork.
+Ya se volvió a privado. `scan` no toca Azure (sólo Checkov), así que no había
+explotación directa posible, pero no vale la pena dejarlo abierto de más.
+
+## Paddle — estado final
+
+| | Valor |
+|---|---|
+| `PADDLE_API_KEY` | `pdl_live_...`, en Key Vault (`infra-paddle-api-key`) |
+| `PADDLE_WEBHOOK_SECRET` | rotado, en Key Vault (`infra-paddle-webhook-secret`) |
+| `NEXT_PUBLIC_PADDLE_CLIENT_TOKEN` | `live_a5fd740ac1687e38b13f619591e`, en variable de GitHub y horneado en el bundle |
+| Los 6 price id | de producción, verificados contra la API (dan `forbidden` de lectura con esta key — normal, la key no tiene scope de precios, pero sí tiene el de `/subscriptions` que es lo único que usa la app) |
+| `.env.production` local | ✅ sincronizado — bloque live activo, sandbox comentado |
+
+Checkout probado end-to-end tras el fix de precios: funciona.
 
 ## Trampas — leer antes de tocar
 
 ### `AZURE_CLIENT_ID` significa TRES cosas distintas
-Ya rompió producción una vez. **No reusar ese nombre:**
+Ya rompió producción una vez. No reusar ese nombre:
 
 | Contexto | Valor | Para qué |
 |---|---|---|
-| Secret de GitHub | `3826973d-…` | que el pipeline entre a Azure |
-| `extra_env_vars` | `07d029f8-…` | que el backend hable con suscripciones de clientes |
-| `AZURE_KEYVAULT_MI_CLIENT_ID` | `99141ef2-…` | que la app lea el Key Vault |
+| Secret de GitHub (`azure/login`) | `3826973d-…` (SP `cscs-finops-terraform`, es el **appId**, no el objectId) | que el pipeline entre a Azure |
+| `extra_env_vars` de la app | `07d029f8-…` | que el backend hable con suscripciones de clientes |
+| `AZURE_KEYVAULT_MI_CLIENT_ID` | `99141ef2-…` (managed identity del stamp) | que la app lea el Key Vault |
 
 Ídem `AZURE_TENANT_ID`: como secret de GitHub va el de **CSCS** (`81ebe027`); en
 `extra_env_vars` va el del **cliente** (`8b41364f`). Cruzarlos da `AADSTS700016`.
 
-### Cambiar config de Redis REGENERA las claves de acceso
-Tocar SKU, HA o clustering invalida la clave. Y **Container Apps no propaga
-secretos a contenedores que ya están corriendo**. El orden es:
+### Managed Certificate + Custom Domain: dos bugs del provider `azurerm`
+Encontrados activando `finops.cscloudsolutions.com.ar` (certificado y binding
+se habían creado a mano en el portal antes de que el módulo Terraform
+existiera; se importaron).
 
-1. `terraform apply`
-2. `az containerapp revision restart` (o nueva revisión)
+1. **IDs desalineados entre dos recursos del mismo provider.**
+   `azurerm_container_app_environment_managed_certificate.id` usa el segmento
+   real de Azure (`.../managedCertificates/<nombre>`), pero
+   `azurerm_container_app_custom_domain.container_app_environment_certificate_id`
+   valida contra el segmento `certificates` (el de BYOC/legacy). Usar el
+   `.id` tal cual hace **reventar hasta un `terraform plan`** con error de
+   parseo, no un diff. Se resuelve con
+   `replace(cert.id, "managedCertificates", "certificates")`.
 
-Al revés no sirve: reiniciar antes del apply deja el valor viejo. Síntoma:
-`WRONGPASS invalid username-password pair`, que la app reporta como
-`Connection is closed` — el error real está dos capas más abajo.
+2. **`replace()` interpreta `/patrón/` como regex.** El primer intento de
+   fix usó `"/managedCertificates/"` (con barras) como patrón — Terraform lo
+   tomó como delimitador de regex y produjo barras dobles en el resultado.
+   El patrón va sin barras: `"managedCertificates"`.
+
+3. **`container_app_environment_certificate_id` es de sólo-escritura.** Al
+   importar el binding, Azure sólo devuelve la contraparte de lectura
+   (`container_app_environment_managed_certificate_id`), así que cualquier
+   refresh ve el atributo como "distinto" del config — y es `ForceNew`. Sin
+   `ignore_changes` en ese atributo, cada plan quería destruir y recrear un
+   binding que ya estaba funcionando en producción. Se ignora explícitamente.
+
+Todo esto queda comentado in-situ en `modules/custom_domain/main.tf`.
+
+### Los IDs de import de Container Apps no son intuitivos
+- Managed certificate: `.../managedEnvironments/<env>/managedCertificates/<nombre>`
+- Custom domain binding: `.../containerApps/<app>/customDomainName/<dominio>`
+  (el segmento es `customDomainName`, **no** `customDomains` — singular y con
+  "Name", pese a que el resto de la API usa plural).
 
 ### El Redis de prod NO se puede crear desde cero
 `CREATE` con `high_availability=true` falla siempre en West US 2 (a los 2m10s
 exactos, con B3 y con B0 por igual). El `UPDATE` de false→true sí funciona, y
-`zones` queda en `null` en ambos casos: **no es capacidad zonal, es el path de
-create de Azure el que está roto**.
+`zones` queda en `null` en ambos casos — no es capacidad zonal, es el path de
+*create* de Azure el que está roto.
 
-Si hay que rehacerlo: crear con `high_availability_enabled = false`, aplicar, y
-después `az redisenterprise update -n <name> -g <rg> --high-availability Enabled`.
+Si hay que rehacerlo: crear con `high_availability_enabled = false`, aplicar,
+y después `az redisenterprise update -n <name> -g <rg> --high-availability Enabled`.
 
 ### Probar migraciones en local, CON LA COLLATION DE AZURE
-Un ciclo contra Azure son ~9 min y el runner corta en el PRIMER error.
-
 ```bash
 docker run -d --name mig -e MYSQL_ROOT_PASSWORD=t -e MYSQL_DATABASE=finops \
   -p 13306:3306 mysql:8 --collation-server=utf8mb4_unicode_ci
 DB_HOST=127.0.0.1 DB_PORT=13306 DB_USER=root DB_PASSWORD=t DB_NAME=finops npm run migrate
 ```
-
-**El `--collation-server` no es opcional.** `mysql:8` usa `utf8mb4_0900_ai_ci`
-pero Terraform crea la base de Azure con `utf8mb4_unicode_ci`
-(`modules/mysql/main.tf`). Una FOREIGN KEY exige collation idéntica en ambos
-lados, así que sin ese flag el local da **falso verde** y Azure revienta con
-`ER_FK_INCOMPATIBLE_COLUMNS`. Pasó exactamente eso hoy.
-
-Correr `npm run migrate` dos veces: la segunda tiene que dar
-`0 aplicadas, N ya aplicadas, 0 fallidas`.
+`mysql:8` sin ese flag usa `utf8mb4_0900_ai_ci`, distinto del
+`utf8mb4_unicode_ci` que pone Terraform — un FK que pasa en local revienta en
+Azure con `ER_FK_INCOMPATIBLE_COLUMNS`. Ya pasó una vez.
 
 ### Nunca `-lock=false` ni Terraform concurrente
-Contra backend remoto produce *lost update*: varios `import` en paralelo se pisan
-y sobrevive el último. Los "state lock stuck" son el síntoma, no la causa.
+Contra backend remoto produce *lost update*. Los "state lock stuck" son el
+síntoma, no la causa.
 
-## Qué se arregló (por si reaparece algo parecido)
+### Checkov: `framework: terraform` en el workflow, no todos los frameworks
+Si corrés Checkov local para verificar antes de pushear, agregá
+`--framework terraform` al comando — sin eso corre también el scanner de
+secretos (`CKV_SECRET_*`), que en este repo da falsos positivos (nombres de
+Key Vault secrets con forma de alta entropía) y no corre en CI de todas
+formas.
 
-Casi todo tuvo la misma raíz: **el VPS tenía esquema y config que nunca entraron
-al repo**.
+## Qué se arregló esta sesión (resumen, por si reaparece algo parecido)
 
-**Esquema (lo más grande).** Las migraciones creaban 43 tablas; el VPS tenía 80.
-Faltaban **37 tablas y 37 columnas**. Se resolvió con `mysqldump --no-data` del
-VPS y `20260728-003-sincronizar-esquema-vps.sql`, con el DDL **literal** del dump
-— sin inferir tipos, largos, índices ni FKs. Antes de eso habían aparecido de a
-uno: `MfaChallenges`, `Anomalies`, las columnas FOCUS de `CostSnapshots` y
-`Tenants.sync_status`. Eran los primeros de la lista.
+**Esquema:** 37 tablas y 37 columnas que el VPS tenía y las migraciones no
+creaban. Se sacaron con `mysqldump --no-data` del VPS real, DDL literal, sin
+inferir nada (`20260728-003-sincronizar-esquema-vps.sql`).
 
-`Users.scope` y `Users.permissions` eran las que tiraban 500 en
-`/api/admin/config/users` y dejaban al frontend sin poder resolver `isSuperAdmin`.
+**Autenticación:** el wrapper de Key Vault sólo sabía Service Principal (era
+para el VPS). Se agregó `ManagedIdentityCredential` directo — no
+`DefaultAzureCredential`, que prueba `EnvironmentCredential` primero y tomaba
+credenciales equivocadas.
 
-**Autenticación.** El wrapper de Key Vault sólo sabía usar Service Principal (fue
-escrito para el VPS). Se le agregó modo managed identity con
-`ManagedIdentityCredential` **directo**, no `DefaultAzureCredential`: la cadena de
-éste prueba `EnvironmentCredential` primero y tomaba el SP de CSCS, fallando con
-`AADSTS7000232`. Y el rol pasó de `Secrets User` (sólo lectura) a
-`Secrets Officer`, porque la app **escribe** credenciales de tenant.
+**Redis:** zona DNS privada equivocada (`redisenterprise.cache` en vez de
+`redis.azure.net`) y clustering `OSSCluster` (exige cliente cluster-aware) en
+vez de `EnterpriseCluster`.
 
-**Redis.** La zona DNS privada era `privatelink.redisenterprise.cache.azure.net`
-(Redis Enterprise clásico) en vez de `privatelink.redis.azure.net` (Managed Redis
-v2): quedaba vacía, el hostname no resolvía y daba `ETIMEDOUT`. Y el clustering
-estaba en `OSSCluster`, que exige cliente cluster-aware — `src/lib/redis.ts` usa
-`new Redis(...)` a secas y fallaba con `MOVED`. Ahora `EnterpriseCluster`.
+**Build/CI:** `.dockerignore` no excluía `.env*` — corregido. El Dockerfile
+usaba `RUN --mount=type=cache` (exige BuildKit, `az acr build` no lo tiene) —
+el pipeline nunca habría podido compilar. `deploy-azure.yml` tenía nombres de
+plantilla sin completar (`REPLACE_WITH_ACR_NAME`, etc.) — corregidos y
+verificados con un deploy real de punta a punta.
 
-**Build.** El Dockerfile usaba `RUN --mount=type=cache`, que exige BuildKit, y
-`az acr build` no lo tiene: el workflow **nunca habría podido buildear**.
-
-**Terraform.** `subplan` no declarado en Defender hacía destroy/create de 3 planes
-de seguridad en CADA apply.
-
-## Divergencia menor pendiente
-
-`CostSnapshots` usa `varchar(100)` en el VPS y `varchar(255)` en el bootstrap del
-repo. Por eso allá el índice único entraba (1667 bytes) y acá no (4147, límite
-3072). Se resolvió pasando `subscription_id` y `resource_group` a `ascii`, que
-funciona y es equivalente en comportamiento, pero **no es lo que hace el VPS**.
-Vale alinearlo en algún momento; no es urgente.
+**Checkov:** 27 hallazgos en la primera corrida real sobre `infra/` — 7
+arreglados (secretos con expiración, política SAS, diagnostic setting de blob
+en el sub-recurso correcto), 20 documentados como decisión consciente
+(costo/complejidad sin mandato de compliance). Un paso adicional de subida de
+SARIF al Security tab bloqueaba el gate entero por 403 (repo privado sin
+GitHub Advanced Security) — se hizo no-bloqueante.
 
 ## Estado del repo
 
-**Sin commits.** Todos los cambios del día están sin stagear, en `main`.
+Rama de trabajo: `staging`. Los últimos commits (Checkov + dominio propio)
+están pusheados; falta abrir/actualizar el PR hacia `main` para que el
+próximo deploy los incluya. Nada crítico sin commitear salvo lo que esta
+sesión dejó en curso al momento de escribir esto — revisar `git status` antes
+de asumir que está todo integrado.

@@ -3,13 +3,13 @@ import { sendEmailAsync, getInternalCancellationAlertEmailHtml } from "@/lib/ema
 
 /**
  * Notifica al equipo interno de CSCloudSolutions cuando un tenant cancela
- * su suscripción, sin importar el canal (Paddle, AWS/Azure Marketplace).
+ * su suscripción, sin importar el canal (Paddle o Azure Marketplace).
  * Best-effort: nunca debe tirar abajo el webhook que la invoca si falla
  * (fire-and-forget vía sendEmailAsync, más try/catch acá).
  */
 export async function notifyInternalCancellation(
   tenantId: string,
-  source: "Paddle" | "AWS Marketplace" | "Azure Marketplace",
+  source: "Paddle" | "Azure Marketplace",
   accessUntil: Date | null
 ): Promise<void> {
   try {

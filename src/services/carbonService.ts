@@ -82,21 +82,6 @@ const GREEN_PEERS: Record<string, string> = {
     'koreacentral': 'japaneast',
     // India / África no tienen peer verde regional —no recomendamos
 
-    // ── Regiones AWS ─────────────────────────────────────────────────────────
-    // Mismo criterio que en Azure: el destino tiene que estar en una geografia
-    // razonable para el mismo negocio. Migrar de Virginia a Estocolmo bajaria
-    // mucho la intensidad, pero cambia la jurisdiccion de los datos y agrega
-    // latencia transatlantica: no es una recomendacion honesta.
-    'us-east-1': 'ca-central-1',
-    'us-east-2': 'ca-central-1',
-    'us-west-1': 'us-west-2',
-    'eu-central-1': 'eu-north-1',
-    'eu-west-2': 'eu-west-3',
-    'eu-south-1': 'eu-west-3',
-    'ap-east-1': 'ap-southeast-1',
-    'ap-northeast-2': 'ap-northeast-1',
-    'ap-southeast-2': 'ap-southeast-1',
-    // India, Africa y Medio Oriente no tienen peer regional mas limpio.
 };
 
 export interface MigrationRecommendation {

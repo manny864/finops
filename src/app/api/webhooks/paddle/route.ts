@@ -6,10 +6,11 @@ import { notifyInternalCancellation } from "@/lib/billingAlerts";
 import { applyTierChange } from "@/services/providerLifecycleService";
 
 /**
- * Tier actual del tenant ANTES de escribir el nuevo. Lo necesita
- * `applyTierChange` para decidir si el cambio implica archivar o restaurar el
- * proveedor secundario de un tenant multi-cloud (ver
- * docs/provider-downgrade-policy.md).
+ * Tier actual del tenant ANTES de escribir el nuevo. Lo recibe
+ * `applyTierChange`, que hoy es no-op — la plataforma es Azure-only y no hay
+ * proveedor secundario que archivar o restaurar. Se mantiene el par
+ * (previousTier, nextTier) porque es el único momento en que ambos valores
+ * están disponibles a la vez.
  */
 async function readCurrentTier(connection: any, tenantId: string): Promise<string | null> {
   const [rows] = await connection.query("SELECT tier FROM Tenants WHERE tenant_id = ? LIMIT 1", [tenantId]);

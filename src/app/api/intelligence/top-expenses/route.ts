@@ -5,9 +5,9 @@
  *
  * Disponible para todos los tiers (sin gate de plan).
  *
- * "Resources": CostSnapshots no tiene ResourceId poblado para tenants Azure
- * (sólo AWS — ver migración de esa columna), así que la granularidad más
- * fina real disponible sin fabricar datos es (resource_group, service_name).
+ * "Resources": CostSnapshots no tiene ResourceId poblado — el sync agrega por
+ * resource group —, así que la granularidad más fina real disponible sin
+ * fabricar datos es (resource_group, service_name).
  * Se etiqueta como "service_name — resource_group" para que quede claro que
  * no es un recurso individual sino la combinación más específica que existe
  * en los datos de costo agregados.

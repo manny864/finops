@@ -280,7 +280,7 @@ export function getSubscriptionEndedEmailHtml(): string {
 
 /**
  * Alerta INTERNA (equipo CSCloudSolutions, no el cliente) cuando un tenant
- * cancela su suscripción — cualquiera sea el canal (Paddle, AWS/Azure
+ * cancela su suscripción — cualquiera sea el canal (Paddle o Azure
  * Marketplace). Notifica cuánto acceso le queda todavía, para que ventas/
  * customer success pueda intentar retenerlo antes de que se corte.
  */

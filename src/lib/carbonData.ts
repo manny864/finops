@@ -44,45 +44,6 @@ export const regionCarbonIntensity: Record<string, number> = {
     // Default
     'default': 300,
 
-    // ── Regiones AWS ─────────────────────────────────────────────────────────
-    // Los nombres de region de AWS (us-east-1) no colisionan con los de Azure
-    // (eastus), asi que conviven en el mismo mapa sin ambiguedad.
-    //
-    // Fuente: intensidad de la red electrica de la geografia donde vive cada
-    // region, la misma base que las filas de Azure. AWS publica su propio
-    // Customer Carbon Footprint Tool, pero solo con **datos ya facturados y con
-    // hasta 3 meses de retraso**, y sin API publica: no sirve para estimar el
-    // impacto de una decision que se toma hoy. Estas cifras son estimaciones
-    // para comparar regiones entre si, no un reporte auditable de emisiones.
-    'us-east-1': 380,        // Virginia
-    'us-east-2': 450,        // Ohio
-    'us-west-1': 250,        // California del Norte
-    'us-west-2': 240,        // Oregon — hidroelectrica
-    'ca-central-1': 130,     // Canada — hidro
-    'ca-west-1': 140,
-    'sa-east-1': 100,        // Sao Paulo — hidro
-    'eu-west-1': 160,        // Irlanda — eolica
-    'eu-west-2': 230,        // Londres
-    'eu-west-3': 60,         // Paris — nuclear
-    'eu-central-1': 380,     // Frankfurt
-    'eu-central-2': 50,      // Zurich
-    'eu-north-1': 40,        // Estocolmo — hidro/nuclear
-    'eu-south-1': 330,       // Milan
-    'eu-south-2': 200,       // Espana
-    'ap-northeast-1': 480,   // Tokio
-    'ap-northeast-2': 500,   // Seul
-    'ap-northeast-3': 480,   // Osaka
-    'ap-southeast-1': 480,   // Singapur
-    'ap-southeast-2': 700,   // Sidney — carbon
-    'ap-southeast-3': 650,   // Yakarta
-    'ap-southeast-4': 710,   // Melbourne
-    'ap-south-1': 720,       // Mumbai — carbon
-    'ap-south-2': 700,       // Hyderabad
-    'ap-east-1': 700,        // Hong Kong — carbon
-    'me-south-1': 480,       // Bahrein
-    'me-central-1': 480,     // EAU
-    'af-south-1': 900,       // Ciudad del Cabo — carbon
-    'il-central-1': 450,     // Tel Aviv
 };
 
 // Power draw promedio (kW) — assumption por VM "standard". Mejora futura: por SKU.

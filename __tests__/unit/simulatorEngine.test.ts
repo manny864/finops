@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { runScenario, parseInputs } from "@/lib/simulator/engine";
+import { runScenario, parseInputs, type SimulatorProvider } from "@/lib/simulator/engine";
 
 describe("simulator engine", () => {
     describe("runScenario", () => {
@@ -49,15 +49,16 @@ describe("simulator engine", () => {
             expect(r.breakdown.compute).toBeCloseTo(360, 0);
         });
 
-        it("en AWS no asume ahorro de licencias sin un porcentaje explicito", () => {
-            // BYOL en AWS exige Dedicated Hosts y depende del mix Windows/SQL:
-            // no hay un valor plano defendible, asi que el default es 0 y el
-            // supuesto lo declara el usuario.
-            const r = runScenario(1000, { applyAhb: true }, "aws");
+        it("un proveedor sin default calibrado no asume ahorro de licencias", () => {
+            // El default de 18% es el valor historico de AHB, especifico de
+            // Azure. Un proveedor sin coeficiente propio cae a 0 en vez de
+            // heredarlo: el supuesto lo declara el usuario.
+            const desconocido = "otro" as unknown as SimulatorProvider;
+            const r = runScenario(1000, { applyAhb: true }, desconocido);
             expect(r.projectedCost).toBe(1000);
             expect(r.deltaPct).toBe(0);
 
-            const declarado = runScenario(1000, { applyAhb: true, licenseSavingsPct: 25 }, "aws");
+            const declarado = runScenario(1000, { applyAhb: true, licenseSavingsPct: 25 }, desconocido);
             expect(declarado.breakdown.compute).toBeCloseTo(450, 0);
         });
 

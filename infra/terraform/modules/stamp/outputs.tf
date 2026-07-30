@@ -55,3 +55,8 @@ output "outbound_ip" {
   description = "IP de salida: la que ven las ARM APIs de Azure y los webhooks de Paddle."
   value       = azurerm_container_app_environment.this.static_ip_address
 }
+
+output "custom_domain_verification_id" {
+  value     = module.app.custom_domain_verification_id
+  sensitive = true
+}

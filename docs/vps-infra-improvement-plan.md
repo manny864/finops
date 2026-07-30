@@ -1,6 +1,6 @@
 # Plan de Mejora de Infraestructura — VPS Hostinger (bajo costo)
 
-**Autor:** Arquitecto Azure/AWS FinOps (agente) · **Fecha:** 2026-07-02
+**Autor:** Arquitecto Azure FinOps (agente) · **Fecha:** 2026-07-02
 **Objetivo:** endurecer, observar y hacer más resiliente el stack actual **sin subir el gasto de infraestructura**, priorizando cambios de costo $0 antes que cualquier upgrade de plan o servicio administrado.
 
 ---
