@@ -18,7 +18,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
       - run: npm ci --no-audit --no-fund
       - run: npm run lint
@@ -30,7 +30,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
       - run: npm ci --no-audit --no-fund
       - run: npm run typecheck
@@ -42,7 +42,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
       - run: npm ci --no-audit --no-fund
       - name: Run tests with coverage
@@ -67,9 +67,23 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
       - run: npm ci --no-audit --no-fund
+      # Cache de build de Next.js (https://nextjs.org/docs/messages/no-cache):
+      # `cache: 'npm'` de setup-node sólo cachea node_modules, no .next/cache
+      # (el cache incremental del compilador). Sin esto cada build recompila
+      # todo desde cero. La key incluye el hash del lockfile (nueva
+      # dependencia invalida el cache) y de todo src/ + config (cambios de
+      # código SÍ pueden reusar el cache — Next.js invalida internamente sólo
+      # lo que cambió); restore-keys cae a la key sin el hash de fuentes si no
+      # hay match exacto, para no arrancar de cero en cada PR.
+      - uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('src/**/*.[jt]s', 'src/**/*.[jt]sx', 'next.config.*') }}
+          restore-keys: |
+            nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
       - name: Next build
         run: npm run build
         env:
