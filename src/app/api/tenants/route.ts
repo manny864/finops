@@ -76,33 +76,21 @@ export async function GET(request: NextRequest) {
         const [rows] = await pool.query(query, queryParams);
         let tenantRows = rows as Array<{ id: string; name: string; tier?: string; subscription_status?: string; is_onboarded?: boolean }>;
 
-        // Auto-provisión: si el tenant del usuario autenticado no aparece en el resultado,
-        // crearlo con INSERT IGNORE para que la UI pueda mostrar los inputs de credenciales.
-        // Se ejecuta SIEMPRE (también para Super Admins) porque un SA puede no tener fila para su tenant.
-        if (identity.tenantId) {
-            const alreadyPresent = tenantRows.some(t => t.id === identity.tenantId);
-            if (!alreadyPresent) {
-                const fallbackName = identity.email?.split('@')[1] || 'Organización sin nombre';
-                await pool.query(
-                    'INSERT IGNORE INTO Tenants (tenant_id, company_name) VALUES (?, ?)',
-                    [identity.tenantId, fallbackName]
-                );
-                const [newRows] = await pool.query(
-                    `SELECT tenant_id as id, company_name as name, client_id,
-                            (client_secret IS NOT NULL AND client_secret <> '') as has_client_secret,
-                            tier, trial_ends_at, subscription_status, access_until, is_onboarded,
-                            partner_link_status, partner_link_detail,
-                            provider, provider_archived, provider_purge_at, timezone,
-                            (logo_stored_name IS NOT NULL) as has_logo,
-                            SUBSTRING(MD5(logo_stored_name), 1, 10) as logo_version
-                     FROM Tenants WHERE tenant_id = ? LIMIT 1`,
-                    [identity.tenantId]
-                );
-                const created = newRows as Array<{ id: string; name: string; client_id?: string; has_client_secret?: boolean; tier?: string; subscription_status?: string; is_onboarded?: boolean }>;
-                if (created.length > 0) tenantRows = [...tenantRows, ...created];
-            }
-        }
-        
+        // NO HAY AUTO-PROVISIÓN ACÁ. Antes, si el tenant del usuario autenticado no
+        // aparecía en el resultado, este GET le creaba la fila con INSERT IGNORE
+        // "para que la UI pueda mostrar los inputs de credenciales".
+        //
+        // Eso convertía una lectura en un alta: cualquier identidad que validara
+        // token —incluida una cuenta personal de Microsoft— se creaba su tenant con
+        // sólo cargar la pantalla, sin pago y sin intervención de un SuperAdmin. Así
+        // apareció en prod el tenant del directorio MSA que prewarm-dashboard barría
+        // cada 10 min (ver MSA_CONSUMERS_TENANT_ID en src/lib/requestAuth.ts).
+        //
+        // Un tenant nace sólo por: pago confirmado (webhooks de Paddle /
+        // Azure Marketplace), alta explícita de un SuperAdmin (/api/admin/tenants,
+        // /api/superadmin/tenants/create), o el flujo de checkout (/api/onboard).
+        // Un usuario sin fila ve la lista vacía, que es la respuesta correcta.
+
         // Inyectar datos mock para demos de tiers o forzar tiers de Admins
         const allTenants = [...tenantRows];
         for (const mock of mockTenants) {
