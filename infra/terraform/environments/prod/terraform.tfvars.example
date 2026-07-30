@@ -97,7 +97,14 @@ cron_timezone_offset_hours = -3
 cron_jobs = {
   # Snapshot diario de costos. Es el job crítico: si no corre, quedan tablas
   # de costo vacías (incidentes 2026-07-05 y 2026-07-18).
-  sync = { cron = "0 3 * * *", timeout_seconds = 3600 } # 06:00 UTC
+  #
+  # async_poll = true (2026-07-30): con 2+ tenants el barrido supera los ~240s
+  # que tolera el ingress de Container Apps antes de devolver 504 "stream
+  # timeout" — un techo de plataforma, no configurable. Sin esto el job queda
+  # marcado Failed en Azure (y dispara la alerta todos los días) aunque el sync
+  # complete bien del lado del servidor. Ver el comentario grande al principio
+  # de src/app/api/cron/sync/route.ts.
+  sync = { cron = "0 3 * * *", timeout_seconds = 3600, async_poll = true } # 06:00 UTC
 
   # Pre-warm del dashboard (cache hard-TTL = 15 min).
   prewarm-dashboard = { cron = "*/10 * * * *", timeout_seconds = 300 }
