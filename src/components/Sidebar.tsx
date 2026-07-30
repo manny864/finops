@@ -72,9 +72,25 @@ interface SidebarProps {
     setSidebarOpen: (open: boolean) => void;
 }
 
+// Links legales del pie. Las claves son las del namespace `Footer` que ya usaba
+// PublicFooter — no se duplica copy ni se agregan claves nuevas.
+const LEGAL_LINKS = [
+    { href: '/legal/privacy', key: 'privacy' },
+    { href: '/legal/terms', key: 'terms' },
+    { href: '/legal/dpa', key: 'dpa' },
+    { href: '/legal/security', key: 'security' },
+    { href: '/legal/subprocessors', key: 'subprocessors' },
+    { href: '/status', key: 'status' },
+] as const;
+
 export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
     const pathname = usePathname();
     const t = useTranslations('Navigation');
+    const tf = useTranslations('Footer');
+    // Links legales: antes vivían en un <footer> al pie de cada página, que
+    // empujaba el contenido y quedaba siempre visible sin aportar nada al uso
+    // diario. Ahora cuelgan de "Powered by" y se despliegan a pedido.
+    const [legalOpen, setLegalOpen] = useState(false);
     const { accounts } = useMsal();
     const { selectedTenant } = useTenant();
     const tier = (selectedTenant as any).tier || 'Essential';
@@ -433,15 +449,53 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 ))}
             </nav>
 
-            <div className={`shrink-0 border-t border-[var(--line)] py-3 ${sidebarOpen ? 'px-4' : 'px-2'}`}>
-                <div className={`flex items-center gap-2 text-[var(--ink-soft)] ${sidebarOpen ? 'justify-start' : 'justify-center'}`}>
+            <div className={`shrink-0 border-t border-[var(--line)] py-3 relative ${sidebarOpen ? 'px-4' : 'px-2'}`}>
+                {/* Panel legal. Con el sidebar abierto se despliega hacia arriba
+                    en el flujo; colapsado sale como popover a la derecha, para que
+                    los links no queden inalcanzables sin abrir el menú. */}
+                {legalOpen && (
+                    <div
+                        className={
+                            sidebarOpen
+                                ? 'mb-3 flex flex-col gap-1.5'
+                                : 'absolute bottom-2 left-full ml-2 z-50 w-52 rounded-lg border border-[var(--line)] bg-[var(--surface)] p-3 shadow-lg flex flex-col gap-1.5'
+                        }
+                    >
+                        {LEGAL_LINKS.map(({ href, key }) => (
+                            <Link
+                                key={href}
+                                href={href}
+                                onClick={() => setLegalOpen(false)}
+                                className="text-[11px] text-[var(--ink-soft)] hover:text-[var(--brand-deep)] transition-colors"
+                            >
+                                {tf(key)}
+                            </Link>
+                        ))}
+                        <span className="text-[10px] text-[var(--ink-soft)] opacity-70 pt-1 border-t border-[var(--line)] mt-1">
+                            {tf('copyright', { year: new Date().getFullYear() })}
+                        </span>
+                    </div>
+                )}
+
+                <button
+                    type="button"
+                    onClick={() => setLegalOpen((v) => !v)}
+                    aria-expanded={legalOpen}
+                    title={sidebarOpen ? undefined : 'Powered by CSCloudSolutions'}
+                    className={`w-full flex items-center gap-2 text-[var(--ink-soft)] hover:text-[var(--brand-deep)] transition-colors ${sidebarOpen ? 'justify-start' : 'justify-center'}`}
+                >
                     <img src="/logo_29k.png" alt="CSCloudSolutions" className="w-4 h-4 object-contain shrink-0 opacity-70" />
                     {sidebarOpen && (
-                        <span className="text-[10px] font-semibold tracking-[0.5px] truncate">
-                            Powered by CSCloudSolutions
-                        </span>
+                        <>
+                            <span className="text-[10px] font-semibold tracking-[0.5px] truncate">
+                                Powered by CSCloudSolutions
+                            </span>
+                            <ChevronDown
+                                className={`w-3 h-3 shrink-0 ml-auto transition-transform ${legalOpen ? 'rotate-180' : ''}`}
+                            />
+                        </>
                     )}
-                </div>
+                </button>
             </div>
         </aside>
     );

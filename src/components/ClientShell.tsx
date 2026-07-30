@@ -23,7 +23,6 @@ import PricingPage from './PricingPage';
 
 /** Rutas públicas de la Fase 2: se llega por link de email, sin sesión. */
 const AUTH_TOKEN_ROUTES = ['/verify-email', '/reset-password', '/accept-invite'];
-import PublicFooter from './PublicFooter';
 import CookieConsent from './CookieConsent';
 import { useActionLogStore } from '@/store/actionLogStore';
 import { useRouter, usePathname } from '@/i18n/routing';
@@ -432,8 +431,6 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
         <MobileTabBar />
 
         <GlobalPagePinButton />
-
-        <PublicFooter />
 
         <div className="fixed bottom-4 right-6 pointer-events-none z-40 opacity-40 select-none">
             <div className="flex flex-col items-end">
