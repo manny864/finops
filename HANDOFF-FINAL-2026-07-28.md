@@ -63,6 +63,11 @@ sobre prod, `terraform init` levanta un **estado vacío** y el plan propone
 peor escenario de esta infra. **Arreglar (c) antes de habilitar el job**,
 cualquiera sea el camino que se elija para (a).
 
+> ✅ **Decisión tomada (2026-07-30):** se va por la recomendación de abajo —
+> apuntar el plan del PR a **prod**, sin credencial nueva. El cambio de
+> `terraform.yml` quedó **sin aplicar** a pedido del usuario ("consultar luego").
+> Cuando se aplique, incluir también la corrección de la key del backend (c).
+
 #### Recomendación (la más barata, y la que además hace útil el plan del PR)
 
 No crear ninguna credencial: hacer que en un PR el plan corra contra **prod**,
@@ -127,23 +132,69 @@ VPS deje de ser una salida de emergencia.
 
 `scan` (el gate de Checkov) funciona bien en PRs y es independiente de todo esto.
 
-### 2. Rotar credenciales expuestas (vos ya dijiste que no vas a rotar — asumido)
+### 2. Bugs del Whiteboard en prod (relevados 2026-07-30, sin resolver)
+
+Seis observaciones del usuario sobre `/overview/whiteboard` en producción. El
+diagnóstico de cada una está en la respuesta de esa sesión; el resumen:
+
+1. **KPIs de costo actual y proyectado no coinciden con Cost Management, pero sí
+   en local.** No es un bug de código: `getCostFigures` suma `CostSnapshots`
+   del **año calendario en curso**, y la base de prod **arrancó de cero el
+   2026-07-28** (decisión explícita). Prod suma sólo los días que alcanzó a
+   sincronizar el cron; local tiene el histórico del dump del VPS. Se arregla
+   con datos, no con código: hace falta un backfill de la ventana completa
+   (`getHistoricalDailyCosts` soporta 13 meses, el límite de la Query API de
+   Azure). `/api/cron/historical-gap-backfill` sólo re-consulta 2 meses.
+2. **Asimetría de filtro por suscripción.** El board pide
+   `/api/intelligence/whiteboard?tenantId=…&locale=…` **sin `subscriptionId`**,
+   mientras la fila de KPIs pide `/api/dashboard/summary` **con** el
+   `selectedSubscription`. Con una suscripción puntual elegida, las tarjetas
+   muestran el total del tenant y los KPIs una sola suscripción — números que no
+   cierran entre sí por diseño accidental. Vale para el punto 1 y para el 4.
+3. **Container Apps y Log Analytics vacíos.** Las tarjetas auditan las
+   suscripciones **del tenant**, vía su Service Principal. Los Container Apps y
+   el Log Analytics que existen son la **infra propia de la plataforma**, en la
+   suscripción `CSCS-LandingZone` (tenant `81ebe027`), no recursos del cliente:
+   `extra_env_vars` apunta `AZURE_TENANT_ID` al tenant del cliente
+   (`8b41364f`). Si el tenant que se está viendo no es el de CSCS con el SP
+   scopeado a esa suscripción, el vacío es correcto. **Confirmar qué tenant y
+   suscripción se estaban viendo antes de tocar código.**
+4. **Recomendaciones sin ahorro potencial.** `extractSavings` sólo lee
+   `extendedProperties.annualSavingsAmount || savingsAmount` y los pasa por
+   `Number()`. Advisor devuelve esos campos como string y no siempre en formato
+   parseable (miles con coma → `NaN` → 0), y sólo los trae para algunas
+   familias de recomendación. Además `recommendations.open` cuenta **todas** las
+   categorías de Advisor, así que puede no cerrar con lo que muestra
+   `/advisor` (ver punto 2).
+5. **Seguridad en 0.** `getSecurityScore` es `% de Admins/Owners con
+   `mfa_enabled = 1`` en la tabla `Users` — no es Defender. En una base que
+   arrancó de cero y con MFA opt-in por usuario, 0 % es el valor **correcto**.
+6. **Vulnerabilidades en 0.** Se derivan de las recomendaciones de Advisor
+   categoría `Security` (no hay integración con Defender for Cloud). Si Advisor
+   no devuelve nada de esa categoría, 0 es correcto. Está atado al punto 4.
+
+**Ya corregido en esa sesión:** las tarjetas usaban un `fmtUsd` local con
+`maximumFractionDigits: 0` — perdía los centavos y además **fijaba USD**,
+así que con otra moneda elegida los KPIs convertían y las tarjetas no. Se
+eliminó y se reusa `format()` de `CurrencyProvider` en los 10 call sites.
+
+### 3. Rotar credenciales expuestas (vos ya dijiste que no vas a rotar — asumido)
 `.env.production` viajó dentro de imágenes del ACR hasta el 2026-07-28 ~21:52
 UTC (antes de que `.dockerignore` excluyera `.env*`). Esas 14 imágenes ya se
 purgaron del registry. Decisión tuya explícita: no rotar `DB_PASSWORD`,
 `CRON_SECRET`, `AZURE_CLIENT_SECRET`, `GEMINI_API_KEY` — riesgo asumido.
 Paddle sí se rotó (ver abajo).
 
-### 3. `allowed_ip_ranges` con los rangos de Cloudflare
+### 4. `allowed_ip_ranges` con los rangos de Cloudflare
 Sigue vacío. El FQDN de Azure (`*.azurecontainerapps.io`) es alcanzable
 directo salteando el WAF de Cloudflare. El mecanismo ya existe
 (`modules/containerapp/main.tf`, `ip_security_restriction`), sólo falta
 cargar la variable.
 
-### 4. `resource_lock_enabled = true`
+### 5. `resource_lock_enabled = true`
 Cuando el sistema esté estable un tiempo.
 
-### 5. Drift de tags/`workload_profile_name`
+### 6. Drift de tags/`workload_profile_name`
 `terraform plan` muestra ~17-18 cambios permanentes: Azure agrega
 `workload_profile_name="Consumption"` y ajusta tags (`Owner`,
 `Environment`) que Terraform no declaró. Es cosmético — no fuerza replace en
