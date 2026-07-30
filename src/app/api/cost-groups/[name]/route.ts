@@ -14,6 +14,7 @@ import { getAzureCredential } from "@/lib/azure";
 import { requireTenantTier, requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { isMockTenant, getMockCostGroupDetail } from "@/lib/mockData";
 import { collectAdvisorData } from "@/modules/collectors/azure/advisorCollector";
+import { translateAdvisorText } from "@/lib/advisorI18n";
 import { getSubscriptionNameMap, resolveSubscriptionName, isUnattributedSubscriptionId } from "@/lib/azureSubscriptionNames";
 import pool from "@/modules/storage/db";
 import { invalidateCache, costGroupsCacheKeys } from "@/lib/cache";
@@ -369,7 +370,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
                 const rgMatch = rid.match(/\/resourceGroups\/([^/]+)\//i);
                 return {
                     id: r.recommendationId || r.id || `${r._category}-${r.shortDescription?.solution || ""}`,
-                    title: r.shortDescription?.solution || r.shortDescription?.problem || r._category,
+                    title: translateAdvisorText(r.shortDescription?.solution, locale, 'solution')
+                        || translateAdvisorText(r.shortDescription?.problem, locale, 'problem')
+                        || r._category,
                     category: r._category,
                     impact: r.impact || "Low",
                     resource: rid.split("/").pop() || "",
