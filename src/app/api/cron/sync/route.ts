@@ -25,6 +25,42 @@ const MAX_BACKFILL_DAYS_PER_RUN = 2;
 // considera que el dato ya no es recuperable / no vale la pena reintentar).
 const BACKFILL_WINDOW_DAYS = 7;
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * REPARTO DEL BARRIDO (2026-07-30).
+ *
+ * El barrido ya era secuencial por tenant, pero sin ninguna pausa: cada tenant
+ * disparaba "ayer" + detalle (3 desgloses) + días de hueco + uso de IA
+ * pegados, y el siguiente arrancaba de inmediato. Cost Management responde a esa
+ * ráfaga con 429 y, si un tenant agota sus reintentos, ese día NO se escribe en
+ * CostSnapshots — que es la razón de fondo de que la tabla quede rala.
+ *
+ * Además desde el fix del scope de management group `getYesterdaysCost` consulta
+ * UNA vez por suscripción en vez de una sola al MG, así que el volumen por tenant
+ * subió y espaciar dejó de ser opcional.
+ *
+ * El job tiene timeout_seconds = 3600 y el barrido es secuencial, así que hay
+ * presupuesto de sobra para pausar. PACE_BUDGET_MS es el cinturón de seguridad:
+ * pasado ese punto se deja de pausar, porque terminar el barrido importa más que
+ * espaciarlo — un job cortado por timeout no escribe nada.
+ */
+const TENANT_PACE_MS = Number(process.env.CRON_SYNC_TENANT_PACE_MS || 45_000);
+const GAP_DAY_PACE_MS = Number(process.env.CRON_SYNC_GAP_PACE_MS || 10_000);
+const PACE_BUDGET_MS = Number(process.env.CRON_SYNC_PACE_BUDGET_MS || 40 * 60 * 1000);
+
+/**
+ * Rota el orden de los tenants un puesto por día. Sin esto, el último tenant de
+ * la lista es siempre el que corre con el rate-limit más gastado y el que más
+ * días pierde. Con la rotación, el costo de ir último se reparte.
+ */
+export function rotateDaily<T>(items: T[], day: Date): T[] {
+    if (items.length < 2) return items;
+    const dayNumber = Math.floor(day.getTime() / 86400000);
+    const offset = dayNumber % items.length;
+    return [...items.slice(offset), ...items.slice(0, offset)];
+}
+
 /**
  * Detecta qué días de los últimos BACKFILL_WINDOW_DAYS (sin contar ayer, que
  * siempre se sincroniza aparte, ni hoy, que Azure todavía no cerró) no
@@ -110,8 +146,18 @@ async function runSync(request: NextRequest) {
         let detailRowsTotal = 0;
         let backfilledDaysTotal = 0;
 
-        // 4. Sequential Loop (for...of) to avoid rate limits
-        for (const tenant of tenants) {
+        // 4. Barrido secuencial y ESPACIADO (ver TENANT_PACE_MS), con el orden
+        //    rotado un puesto por día para que ir último no le toque siempre al
+        //    mismo tenant.
+        const sweepStartedAt = Date.now();
+        const withinPaceBudget = () => Date.now() - sweepStartedAt < PACE_BUDGET_MS;
+        const sweep = rotateDaily(tenants, yesterday);
+        console.log(`[cron-sync] barrido de ${sweep.length} tenants, pausa ${TENANT_PACE_MS}ms entre cada uno`);
+
+        for (const [index, tenant] of sweep.entries()) {
+            if (index > 0 && TENANT_PACE_MS > 0 && withinPaceBudget()) {
+                await sleep(TENANT_PACE_MS);
+            }
             try {
                 const creds = await getTenantCredentials(tenant.id);
                 if (!creds) {
@@ -151,6 +197,12 @@ async function runSync(request: NextRequest) {
                 try {
                     const gapDays = await findGapDays(tenant.id);
                     for (const gapDay of gapDays) {
+                        // Cada día de hueco es otra tanda completa de consultas
+                        // sobre los MISMOS scopes que acaba de usar "ayer" (por eso
+                        // se pausa también antes del primero).
+                        if (GAP_DAY_PACE_MS > 0 && withinPaceBudget()) {
+                            await sleep(GAP_DAY_PACE_MS);
+                        }
                         try {
                             const { dateStr, detailedRows } = await syncDay(tenant.id, gapDay);
                             detailRowsTotal += detailedRows;
