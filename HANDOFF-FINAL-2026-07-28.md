@@ -63,10 +63,18 @@ sobre prod, `terraform init` levanta un **estado vacío** y el plan propone
 peor escenario de esta infra. **Arreglar (c) antes de habilitar el job**,
 cualquiera sea el camino que se elija para (a).
 
-> ✅ **Decisión tomada (2026-07-30):** se va por la recomendación de abajo —
-> apuntar el plan del PR a **prod**, sin credencial nueva. El cambio de
-> `terraform.yml` quedó **sin aplicar** a pedido del usuario ("consultar luego").
-> Cuando se aplique, incluir también la corrección de la key del backend (c).
+> ✅ **RESUELTO (2026-07-30, commit `e09c114`).** Se aplicó la recomendación de
+> abajo: el plan del PR apunta a **prod**, sin credencial federada nueva
+> (`environment:prod` ya la tenía). Incluye la corrección de la key del backend
+> (`prod/terraform.tfstate`, no `prod.tfstate`) y el mismo par de arreglos en el
+> job `drift`, que además tenía `dev` en la matriz. `dev` se quitó de las
+> opciones del `workflow_dispatch`.
+>
+> Queda **abierto**: el GitHub environment `prod` no tiene protection rules, así
+> que un `workflow_dispatch` aplica sin aprobación. Si se quiere el gate manual
+> que el comentario del workflow prometía, hay que agregar un required reviewer
+> al environment `prod` en Settings del repo — es un cambio de configuración del
+> repo, no de código.
 
 #### Recomendación (la más barata, y la que además hace útil el plan del PR)
 
@@ -132,51 +140,95 @@ VPS deje de ser una salida de emergencia.
 
 `scan` (el gate de Checkov) funciona bien en PRs y es independiente de todo esto.
 
-### 2. Bugs del Whiteboard en prod (relevados 2026-07-30, sin resolver)
+### 2. Whiteboard / KPIs de costo — causa raíz encontrada y parcialmente resuelta
 
-Seis observaciones del usuario sobre `/overview/whiteboard` en producción. El
-diagnóstico de cada una está en la respuesta de esa sesión; el resumen:
+Diagnóstico cerrado el 2026-07-30 **contra los logs reales de prod** (Log
+Analytics `cscs-finops-prod-westus2-law`, tabla `ContainerAppConsoleLogs_CL`).
 
-1. **KPIs de costo actual y proyectado no coinciden con Cost Management, pero sí
-   en local.** No es un bug de código: `getCostFigures` suma `CostSnapshots`
-   del **año calendario en curso**, y la base de prod **arrancó de cero el
-   2026-07-28** (decisión explícita). Prod suma sólo los días que alcanzó a
-   sincronizar el cron; local tiene el histórico del dump del VPS. Se arregla
-   con datos, no con código: hace falta un backfill de la ventana completa
-   (`getHistoricalDailyCosts` soporta 13 meses, el límite de la Query API de
-   Azure). `/api/cron/historical-gap-backfill` sólo re-consulta 2 meses.
-2. **Asimetría de filtro por suscripción.** El board pide
-   `/api/intelligence/whiteboard?tenantId=…&locale=…` **sin `subscriptionId`**,
-   mientras la fila de KPIs pide `/api/dashboard/summary` **con** el
-   `selectedSubscription`. Con una suscripción puntual elegida, las tarjetas
-   muestran el total del tenant y los KPIs una sola suscripción — números que no
-   cierran entre sí por diseño accidental. Vale para el punto 1 y para el 4.
-3. **Container Apps y Log Analytics vacíos.** Las tarjetas auditan las
-   suscripciones **del tenant**, vía su Service Principal. Los Container Apps y
-   el Log Analytics que existen son la **infra propia de la plataforma**, en la
-   suscripción `CSCS-LandingZone` (tenant `81ebe027`), no recursos del cliente:
-   `extra_env_vars` apunta `AZURE_TENANT_ID` al tenant del cliente
-   (`8b41364f`). Si el tenant que se está viendo no es el de CSCS con el SP
-   scopeado a esa suscripción, el vacío es correcto. **Confirmar qué tenant y
-   suscripción se estaban viendo antes de tocar código.**
-4. **Recomendaciones sin ahorro potencial.** `extractSavings` sólo lee
-   `extendedProperties.annualSavingsAmount || savingsAmount` y los pasa por
-   `Number()`. Advisor devuelve esos campos como string y no siempre en formato
-   parseable (miles con coma → `NaN` → 0), y sólo los trae para algunas
-   familias de recomendación. Además `recommendations.open` cuenta **todas** las
-   categorías de Advisor, así que puede no cerrar con lo que muestra
-   `/advisor` (ver punto 2).
-5. **Seguridad en 0.** `getSecurityScore` es `% de Admins/Owners con
-   `mfa_enabled = 1`` en la tabla `Users` — no es Defender. En una base que
-   arrancó de cero y con MFA opt-in por usuario, 0 % es el valor **correcto**.
-6. **Vulnerabilidades en 0.** Se derivan de las recomendaciones de Advisor
-   categoría `Security` (no hay integración con Defender for Cloud). Si Advisor
-   no devuelve nada de esa categoría, 0 es correcto. Está atado al punto 4.
+#### El bucle de 429 (era la causa de casi todo)
 
-**Ya corregido en esa sesión:** las tarjetas usaban un `fmtUsd` local con
-`maximumFractionDigits: 0` — perdía los centavos y además **fijaba USD**,
-así que con otra moneda elegida los KPIs convertían y las tarjetas no. Se
-eliminó y se reusa `format()` de `CurrencyProvider` en los 10 call sites.
+Los logs muestran, de forma sostenida y cada 10 minutos:
+
+```
+[Summary] Azure Cost Management unavailable or no data for this scope
+[BillingService] 429 on historical(sub ec03e8ce…, 13mo, chunk 1/2). Retry 3/3
+[BillingService] MG scope failed for forecast (429 throttled), falling back…
+```
+
+La secuencia, consecuencia directa de que la base arrancó de cero:
+
+1. `CostSnapshots` vacía.
+2. Cada request a `/api/intelligence/cost-projection` veía `needsBackfill=true`
+   y disparaba un `getHistoricalDailyCosts` de **13 meses inline**.
+3. Cost Management tira 429 por scope → los 3 reintentos se agotan.
+4. El backfill falla ⇒ la tabla sigue vacía ⇒ paso 2 otra vez, en cada page
+   load, y encima con `prewarm-dashboard` cada 10 min haciendo lo mismo.
+
+El daño no se quedaba en el histograma: **el flood de consultas anchas starveaba
+la consulta MTD** que alimenta `actualCost`/`projectedCost`, que terminaban
+leyendo la tabla vacía. Eso es por qué los KPIs no coincidían con el portal en
+prod y sí en local (local no corre los crons y su base tiene el dump del VPS).
+
+**Resuelto en código** (commit `dc116e0`): `cost-projection` ya no consulta Cost
+Management en línea — dispara `triggerBackfillIfStale` (fire-and-forget, lock de
+6 h por tenant) y devuelve lo que haya; y
+`HISTORICAL_GAP_BACKFILL_MONTHS` pasa de 2 a 13, porque el cron diario es el
+lugar correcto para una ventana así.
+
+**Falta verificar en prod**: que tras el deploy los 429 desaparezcan de los logs
+y que el cron de 03:00 llene el histórico. La query para chequearlo:
+
+```bash
+az monitor log-analytics query -w bc85f2d1-f695-42b8-a177-44eca87e04ec \
+  --analytics-query "ContainerAppConsoleLogs_CL | where TimeGenerated > ago(6h) \
+    | where Log_s contains '429' or Log_s contains 'unavailable' \
+    | project TimeGenerated, Log_s | order by TimeGenerated desc" -o tsv
+```
+
+#### El tenant de prod quedó en tier Essential
+
+`POST /api/tenants` auto-provisiona con
+`INSERT IGNORE INTO Tenants (tenant_id, company_name)` — **sin la columna
+`tier`**, así que cae al default del schema: `Essential`
+(`tier ENUM(...) DEFAULT 'Essential'`).
+
+Con la base recién creada, el tenant CSCS (`81ebe027`) quedó en Essential. Eso
+explica que **Container Apps y Log Analytics no se muestren**: las dos tarjetas
+son `FeatureGuard requiredTier="Business"`, así que quedan bloqueadas, nunca
+montan y nunca hacen fetch — de ahí que no haya *ninguna* línea de log de esos
+endpoints en 48 h. Ídem Cost Groups.
+
+Descartado por el camino: el SP del tenant CSCS (`898b952d`) **sí** tiene
+`Reader`, `Cost Management Reader`, `Monitoring Reader`, `Billing Reader`,
+`Tag Contributor` y el rol custom de remediación sobre `ec03e8ce`, más `Reader` y
+`Cost Management Reader` sobre el management group. No es un problema de
+permisos ni de credenciales (están en Key Vault como
+`tenant-81ebe027-…-client-id` / `-client-secret`).
+
+**Acción pendiente (dato, no código):** poner el tenant en Enterprise desde
+`/admin/tenants` (el select de Tier del Directorio de Entornos, RBAC
+SUPERADMIN). Vale la pena decidir aparte si la auto-provisión debería setear un
+tier explícito en vez de heredar el default silenciosamente.
+
+#### Lo demás del relevamiento
+
+- **Seguridad en 0 — correcto.** `getSecurityScore` es `% de Admins/Owners con
+  `mfa_enabled = 1`` en `Users`, no Defender. Base nueva + MFA opt-in ⇒ 0 % real.
+- **Vulnerabilidades en 0.** Se derivan de las recomendaciones de Advisor
+  categoría `Security` (no hay integración con Defender for Cloud). Atado al
+  punto siguiente.
+- **Ahorro potencial vacío — bug real, sin resolver.** `extractSavings` sólo lee
+  `extendedProperties.annualSavingsAmount || savingsAmount` y los pasa por
+  `Number()`. Advisor los devuelve como **string**, y con separador de miles
+  `Number("1,234.56")` es `NaN` → 0. Además `recommendations.open` cuenta
+  **todas** las categorías de Advisor, así que puede no cerrar con `/advisor`.
+- **Centavos y moneda — resuelto** (commit `ae97b5b`): las tarjetas usaban un
+  `fmtUsd` local con `maximumFractionDigits: 0` que además **fijaba USD**, así
+  que con otra moneda elegida los KPIs convertían y las tarjetas no. Se reusa
+  `format()` de `CurrencyProvider` en los 10 call sites.
+- **Alcance mezclado — resuelto** (commit `5353d36`): los KPIs pedían `summary`
+  con la suscripción elegida y las tarjetas siempre el tenant completo. Se
+  unifica en alcance de tenant, que es lo que el board dice ser.
 
 ### 3. Rotar credenciales expuestas (vos ya dijiste que no vas a rotar — asumido)
 `.env.production` viajó dentro de imágenes del ACR hasta el 2026-07-28 ~21:52
