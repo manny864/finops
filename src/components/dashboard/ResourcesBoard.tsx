@@ -1,7 +1,8 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import useSWR from "swr";
 import { useTenant } from "@/components/TenantProvider";
+import { useSubscription } from "@/components/SubscriptionProvider";
 import { useMsal } from "@azure/msal-react";
 import { useLocale } from "next-intl";
 import { useProviderTranslations } from "@/lib/useProviderTranslations";
@@ -11,7 +12,7 @@ import ResizableTh from "@/components/ResizableTh";
 import { isMockTenant } from "@/lib/mockData";
 import {
     Loader2, AlertCircle, Search, Boxes, Users, Tags,
-    DollarSign, Key, Package, Grid3x3, UserCircle2, ChevronRight, ChevronDown,
+    DollarSign, Key, Package, Grid3x3, UserCircle2, ChevronRight, ChevronDown, X,
 } from "lucide-react";
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 
@@ -63,17 +64,116 @@ function SearchResourcesTab() {
     const locale = useLocale();
     const [page, setPage] = useState(1);
     const pageSize = 15;
-    const base = useReadyKey("/api/resources/search");
-    const { data, error, isLoading } = useAuthedSWR<any>(base ? `${base}&page=${page}&pageSize=${pageSize}` : null);
+    const { subscriptions } = useSubscription();
 
-    if (isLoading) return <LoadingBlock />;
-    if (error) return <ErrorBlock message={error.message} />;
-    if (!data) return null;
+    // Los cuatro filtros ya los aceptaba /api/resources/search (search,
+    // subscriptionId, resourceGroup, tagKey) y los incluye en su cacheKey; la
+    // UI simplemente nunca los mandaba. Acá sólo se cablean.
+    const [search, setSearch] = useState("");
+    const [subscriptionId, setSubscriptionId] = useState("");
+    const [resourceGroup, setResourceGroup] = useState("");
+    const [tagKey, setTagKey] = useState("");
+
+    // Debounce del texto: sin esto cada tecla dispara un request (y el endpoint
+    // consulta Resource Graph). Los selects no lo necesitan.
+    const [debounced, setDebounced] = useState({ search: "", resourceGroup: "", tagKey: "" });
+    useEffect(() => {
+        const id = setTimeout(() => setDebounced({ search, resourceGroup, tagKey }), 400);
+        return () => clearTimeout(id);
+    }, [search, resourceGroup, tagKey]);
+
+    // Cualquier cambio de filtro vuelve a la página 1: quedarse en la 4 con un
+    // resultado de 2 páginas muestra una tabla vacía que parece "sin datos".
+    useEffect(() => {
+        setPage(1);
+    }, [debounced.search, debounced.resourceGroup, debounced.tagKey, subscriptionId]);
+
+    const base = useReadyKey("/api/resources/search");
+    const qs = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+    if (debounced.search) qs.set("search", debounced.search);
+    if (subscriptionId) qs.set("subscriptionId", subscriptionId);
+    if (debounced.resourceGroup) qs.set("resourceGroup", debounced.resourceGroup);
+    if (debounced.tagKey) qs.set("tagKey", debounced.tagKey);
+    const { data, error, isLoading } = useAuthedSWR<any>(base ? `${base}&${qs.toString()}` : null);
+
+    const hasFilters = Boolean(search || subscriptionId || resourceGroup || tagKey);
+    const clearFilters = () => { setSearch(""); setSubscriptionId(""); setResourceGroup(""); setTagKey(""); };
+
+    const filterBar = (
+        <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm p-3 flex flex-wrap items-end gap-3">
+            <label className="flex-1 min-w-[200px] flex flex-col gap-1">
+                <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">{t("filter_search")}</span>
+                <div className="relative">
+                    <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                        type="search"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder={t("filter_search_placeholder")}
+                        className="w-full pl-8 pr-2 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100"
+                    />
+                </div>
+            </label>
+
+            <label className="min-w-[180px] flex flex-col gap-1">
+                <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">{t("filter_subscription")}</span>
+                <select
+                    value={subscriptionId}
+                    onChange={(e) => setSubscriptionId(e.target.value)}
+                    className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100"
+                >
+                    <option value="">{t("filter_all")}</option>
+                    {(subscriptions || []).map((sub) => (
+                        <option key={sub.id} value={sub.id}>
+                            {sub.name || sub.id}
+                        </option>
+                    ))}
+                </select>
+            </label>
+
+            <label className="min-w-[160px] flex flex-col gap-1">
+                <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">{t("filter_resource_group")}</span>
+                <input
+                    type="text"
+                    value={resourceGroup}
+                    onChange={(e) => setResourceGroup(e.target.value)}
+                    placeholder={t("filter_all")}
+                    className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100"
+                />
+            </label>
+
+            <label className="min-w-[150px] flex flex-col gap-1">
+                <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">{t("filter_tag_key")}</span>
+                <input
+                    type="text"
+                    value={tagKey}
+                    onChange={(e) => setTagKey(e.target.value)}
+                    placeholder={t("filter_tag_key_placeholder")}
+                    className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100"
+                />
+            </label>
+
+            {hasFilters && (
+                <button
+                    type="button"
+                    onClick={clearFilters}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-800"
+                >
+                    <X className="w-3.5 h-3.5" />{t("filter_clear")}
+                </button>
+            )}
+        </div>
+    );
+
+    if (isLoading) return <div className="space-y-4">{filterBar}<LoadingBlock /></div>;
+    if (error) return <div className="space-y-4">{filterBar}<ErrorBlock message={error.message} /></div>;
+    if (!data) return <div className="space-y-4">{filterBar}</div>;
 
     const totalPages = Math.max(1, Math.ceil((data.total || 0) / pageSize));
 
     return (
         <div className="space-y-4">
+            {filterBar}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <Kpi icon={<DollarSign className="w-4.5 h-4.5 text-emerald-600" />} color="bg-emerald-50 dark:bg-emerald-950/40" label={t("kpi_cost_groups")} value={data.kpis?.costGroups ?? 0} />
                 <Kpi icon={<Key className="w-4.5 h-4.5 text-amber-600" />} color="bg-amber-50 dark:bg-amber-950/40" label={t("kpi_subscriptions")} value={data.kpis?.subscriptions ?? 0} />
