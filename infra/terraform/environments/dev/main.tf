@@ -34,6 +34,11 @@ provider "azurerm" {
   }
   subscription_id = var.subscription_id
   tenant_id       = var.tenant_id
+
+  # Mismo fix que prod (ver el comentario ahí): sin esto, terraform init falla
+  # con "Authenticating using the Azure CLI is only supported as a User (not a
+  # Service Principal)" apenas se active este ambiente en el workflow.
+  use_oidc = true
 }
 
 locals {

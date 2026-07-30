@@ -34,6 +34,17 @@ provider "azurerm" {
   }
   subscription_id = var.subscription_id
   tenant_id       = var.tenant_id
+
+  # OIDC explícito (2026-07-30): azure/login@v2 deja una sesión de Azure CLI
+  # autenticada como Service Principal vía federated credential, pero el modo
+  # "Azure CLI" del provider SOLO soporta sesiones de usuario — falla con
+  # "Authenticating using the Azure CLI is only supported as a User (not a
+  # Service Principal)" apenas arranca `terraform init`. El workflow ya declara
+  # `permissions: id-token: write` y hace el login OIDC; sólo faltaba decirle al
+  # provider que use ESE token en vez de intentar CLI. Sin client_secret ni
+  # nada más: azurerm lee ARM_CLIENT_ID/ARM_TENANT_ID/ARM_SUBSCRIPTION_ID (los
+  # pone azure/login) y pide el JWT OIDC directo a GitHub Actions.
+  use_oidc = true
 }
 
 locals {
