@@ -167,7 +167,6 @@ export default function ExecutiveSummaryBoard() {
         fetcher,
         { revalidateOnFocus: false }
     );
-    const calculateCO2Savings = (wastedUsd: number) => ((wastedUsd / 100) * 15).toFixed(1);
     // totalSavings viene directo del backend (mismo valor que sum(dashboardData.potentialSavings)
     // en datos reales — ver /api/dashboard/summary — pero en mock dashboardData es una lista de
     // ejemplo fija que no escala por tier, mientras que este campo sí).
@@ -343,7 +342,12 @@ export default function ExecutiveSummaryBoard() {
                 <KpiCard
                     icon={Leaf}
                     label={t("kpi_environmental_impact")}
-                    value={summaryLoading ? "…" : `${calculateCO2Savings(totalSavings)} kg`}
+                    /* kgCO2e evitado al limpiar los discos zombie detectados por Green
+                       FinOps (Resource Graph) — antes era una fórmula inventada sobre
+                       totalSavings sin relación con emisiones reales. `null` = no se
+                       pudo calcular (sin credenciales / Resource Graph no respondió),
+                       se muestra "—" en vez de fingir un 0. */
+                    value={summaryLoading ? "…" : summaryData?.environmentalImpact == null ? "—" : `${summaryData.environmentalImpact} kg`}
                     sub={t("kpi_environmental_impact_sub")}
                     tone="bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400"
                 />
