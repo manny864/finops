@@ -152,6 +152,66 @@ VPS deje de ser una salida de emergencia.
 Diagnóstico cerrado el 2026-07-30 **contra los logs reales de prod** (Log
 Analytics `cscs-finops-prod-westus2-law`, tabla `ContainerAppConsoleLogs_CL`).
 
+#### ✅ Desplegado y verificado en prod (2026-07-30 06:00 UTC, PR #99)
+
+Revisión `cscs-finops-prod-westus2-web--0000008`, 100% del tráfico, health 200.
+
+**El síntoma que importaba desapareció:** `[Summary] Azure Cost Management
+unavailable or no data for this scope` pasó de aparecer cada 10 minutos a **0
+ocurrencias en 4 h**. Era el que dejaba a `actualCost`/`projectedCost` leyendo una
+tabla vacía.
+
+**Lo que SIGUE apareciendo, y es otra cosa:** 429 del cron `sync` (operaciones
+`yesterday(MG …)` y `detailed(/subscriptions/…)`) a las 06:00 UTC, su horario
+programado, y sobre un tenant distinto (`8b41364f` / sub `0beb7800`) del que
+sufría el stampede por request. Es carga legítima y concentrada, pero **hay que
+mirarla**: si el sync se come sus reintentos, no escribe en `CostSnapshots`, y esa
+es la razón de fondo de que la tabla esté rala y las tarjetas salgan vacías.
+Próximo paso sugerido: espaciar el barrido de tenants del sync (hoy corre con
+concurrencia 2) o repartirlo en ventanas, en vez de subir reintentos.
+
+#### ⚠️ Y los KPIs SEGUÍAN mal después de todo eso — causa real (2026-07-30)
+
+El fix del 429 y el del TTL eran correctos pero **no eran la causa** del desfase
+de Costo Actual / Costo Proyectado. Medido con la sesión real de prod contra
+`/api/dashboard/summary` del tenant `81ebe027`, que tiene **una sola**
+suscripción — o sea los dos scopes tienen que dar idéntico:
+
+| scope | `actualCost` |
+|---|---|
+| `All` → `/providers/Microsoft.Management/managementGroups/81ebe027…` | **7.62** |
+| `/subscriptions/ec03e8ce…` | **12.77** (portal: 12.78 ✅) |
+
+**El agregado de Cost Management a nivel management group va retrasado respecto
+al de suscripción, y la consulta NO falla: responde 200 con menos filas.** Por eso
+el fallback per-subscription —que da el número correcto— no se activaba nunca, y
+no había ni un error en los logs que lo delatara.
+
+Afectaba a tres funciones de `billingService.ts`, todas con el mismo patrón "MG
+primero, per-subscription sólo si el MG falla":
+
+- `_fetchCostData` → `actualCost` / `usageCost` de los KPIs.
+- `getCostForecast` → `projectedCost`.
+- `getYesterdaysCost` → **lo que el cron `sync` persiste en `CostSnapshots`**, así
+  que la tabla venía guardando montos incompletos. Esto también explica por qué el
+  histórico no cerraba con el portal.
+
+**Resuelto** (commits `ecb3d04` + test `f32e698`): se itera siempre por
+suscripción; un `subscriptionId` explícito no cambia de comportamiento. El test
+`__tests__/unit/billingServiceScope.test.ts` falla si alguien vuelve a poner el MG
+como camino feliz. Costo: N consultas en vez de 1 por tenant — el mismo techo que
+ya tenía el fallback por 429.
+
+**Hipótesis descartada.** Antes de esto se sospechó del fallback silencioso de
+`getAzureCredential` (usa `AZURE_CLIENT_ID` de plataforma cuando el tenant no
+tiene credenciales en Key Vault, lo que produce `AADSTS700016` — ver §"SP y
+federated credentials"). **No era la causa de los KPIs**: el mismo payload de
+`summary` trae recursos de la suscripción vía Resource Graph, o sea las
+credenciales del tenant funcionan. El `AADSTS700016` de los logs es de OTRO tenant
+(aparece uno cuyo `tenant_id` es `9188040d-6c67-4c5b-b112-36a304b66dad`, el
+directorio de cuentas personales de Microsoft) y sigue pendiente por separado: es
+un tenant basura que `prewarm-dashboard` recorre cada 10 min gastando reintentos.
+
 #### El bucle de 429 (era la causa de casi todo)
 
 Los logs muestran, de forma sostenida y cada 10 minutos:

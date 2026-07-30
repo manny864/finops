@@ -834,6 +834,22 @@ por eso no coinciden literalmente con la columna UTC de la tabla de arriba:
 | `subscription-expiry` | `30 3 * * *` | 06:30 | default |
 | `trial-expiry` | `0 22 * * *` | 01:00 del día siguiente | default |
 
+**Reparto del barrido de `sync`** (desde 2026-07-30). El barrido es secuencial por
+tenant, pero antes no tenía ninguna pausa: cada tenant disparaba "ayer" + los 3
+desgloses de detalle + los días de hueco + el uso de IA pegados, y el siguiente
+arrancaba de inmediato. Cost Management contesta esa ráfaga con 429 y, si un tenant
+agota los reintentos, **ese día no se escribe en `CostSnapshots`** — la causa de
+fondo de que las tarjetas de costo aparezcan ralas. Ahora hay pausa entre tenants y
+antes de cada día de backfill, y el orden de los tenants **rota un puesto por día**
+para que ir último (con el rate-limit ya gastado) no le toque siempre al mismo. Se
+ajusta por env, sin redeploy de infra:
+
+| Env var | Default | Qué hace |
+|---|---|---|
+| `CRON_SYNC_TENANT_PACE_MS` | `45000` | Pausa entre tenants |
+| `CRON_SYNC_GAP_PACE_MS` | `10000` | Pausa antes de cada día de backfill |
+| `CRON_SYNC_PACE_BUDGET_MS` | `2400000` | Pasado este punto deja de pausar, para terminar el barrido dentro del timeout de 3600 s |
+
 **Auth interna**: `prewarm-dashboard` propaga `X-Cron-Auth` a las llamadas internas
 (`summary` → `audit/full` / `intelligence/forecast`) gracias al bypass en
 `requireTenantAccess`. Comparación timing-safe; nunca concede superadmin global, sólo
