@@ -172,6 +172,9 @@ export default function ExecutiveSummaryBoard() {
     // en datos reales — ver /api/dashboard/summary — pero en mock dashboardData es una lista de
     // ejemplo fija que no escala por tier, mientras que este campo sí).
     const totalSavings = Number(summaryData?.totalSavings || 0);
+    // 'snapshot' = el costo salió de CostSnapshots porque la consulta a Cost
+    // Management falló (429). Puede estar incompleto: se marca, no se disimula.
+    const costIsPartial = !summaryLoading && summaryData?.costSource === 'snapshot';
 
     // Layout de tarjetas resizeables/reubicables — persistido por cookie
     // (Max-Age 1 año), con localStorage como fallback de lectura para migrar
@@ -303,15 +306,25 @@ export default function ExecutiveSummaryBoard() {
                     icon={DollarSign}
                     label={t("kpi_current_cost")}
                     value={summaryLoading ? "…" : format(Number(summaryData?.actualCost || 0))}
-                    sub={t("kpi_current_cost_sub")}
-                    tone="bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400"
+                    /* costSource === 'snapshot': el número viene del snapshot en base
+                       porque Cost Management throttleó, así que puede estar
+                       incompleto. Se avisa en vez de presentarlo como el gasto real
+                       del mes — mostrar un parcial como definitivo es lo que hacía
+                       que el KPI no cerrara con el portal sin que nadie lo notara. */
+                    sub={costIsPartial ? t("kpi_cost_partial") : t("kpi_current_cost_sub")}
+                    tone={costIsPartial
+                        ? "bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400"
+                        : "bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400"}
                 />
                 <KpiCard
                     icon={TrendingUp}
                     label={t("kpi_projected_cost")}
                     value={summaryLoading ? "…" : format(Number(summaryData?.projectedCost || 0))}
-                    sub={t("kpi_projected_cost_sub")}
-                    tone="bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400"
+                    /* La proyección se deriva de actualCost, así que hereda el aviso. */
+                    sub={costIsPartial ? t("kpi_cost_partial") : t("kpi_projected_cost_sub")}
+                    tone={costIsPartial
+                        ? "bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400"
+                        : "bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400"}
                 />
                 <KpiCard
                     icon={Recycle}
