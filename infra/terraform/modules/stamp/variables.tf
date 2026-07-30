@@ -99,7 +99,7 @@ variable "mysql_backup_vault_retention_days" {
 }
 
 variable "mysql_backup_vault_daily_time" {
-  description = "RFC3339 completo (fecha + hora) — Azure sólo usa la hora/minuto, pero exige el formato completo. Evitar que coincida con el sync (06:00 UTC) y con el runbook de mysql_backup."
+  description = "RFC3339 completo (fecha + hora): fecha+día-de-semana de referencia del backup SEMANAL (Azure Data Protection sólo acepta P1W para MySQL Flexible Server, no P1D — ver el comentario en modules/stamp/main.tf). Azure sólo usa la hora/minuto y el día de la semana de esta fecha; el año/mes son sólo el ancla. Evitar que la hora coincida con el sync (06:00 UTC) y con el runbook de mysql_backup."
   type        = string
   default     = "2026-01-01T04:00:00+00:00"
 }

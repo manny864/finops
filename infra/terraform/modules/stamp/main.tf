@@ -239,10 +239,20 @@ resource "time_sleep" "mysql_backup_vault_rbac_propagation" {
 
 resource "azurerm_data_protection_backup_policy_mysql_flexible_server" "this" {
   count    = var.mysql_backup_vault_enabled ? 1 : 0
-  name     = "daily-mysql-backup-policy"
+  name     = "weekly-mysql-backup-policy"
   vault_id = azurerm_data_protection_backup_vault.mysql[0].id
 
-  backup_repeating_time_intervals = ["R/${var.mysql_backup_vault_daily_time}/P1D"]
+  # P1D (diario) fue rechazado en el primer apply: 400
+  # BMSUserErrorDPPBackupPolicyBackupFrequencyNotMatchingRule. La plantilla
+  # oficial de Azure para servers Flexible (verificada con `az dataprotection
+  # backup-policy get-default-policy-template --datasource-type
+  # AzureDatabaseForPostgreSQLFlexibleServer` — MySQL Flexible aún no tiene
+  # datasource-type propio en la extensión de az CLI instalada, pero comparte
+  # el mismo motor de Data Protection y la misma regla) sólo permite P1W: el
+  # motor del server YA hace sus propios backups automáticos diarios
+  # (mysql_backup_retention_days); este Vault agrega un full semanal con
+  # retención propia encima, no reemplaza al diario nativo.
+  backup_repeating_time_intervals = ["R/${var.mysql_backup_vault_daily_time}/P1W"]
 
   default_retention_rule {
     life_cycle {
