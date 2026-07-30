@@ -5,6 +5,7 @@ import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { collectAdvisorData } from "@/modules/collectors/azure/advisorCollector";
+import { translateAdvisorText } from "@/lib/advisorI18n";
 import pool from "@/modules/storage/db";
 
 /**
@@ -291,7 +292,11 @@ export async function GET(request: NextRequest) {
             // intelligence real.
             const threatMap = new Map<string, { high: number; medium: number; low: number }>();
             for (const r of securityRecs) {
-                const name = (r.shortDescription?.problem || r.category || "Security").slice(0, 60);
+                // Sin truncar acá: el recorte a 60 caracteres se aplica después de
+                // traducir (ver post-cache más abajo) — truncar el texto en inglés
+                // ANTES de intentar el match rompe los patrones de
+                // translateAdvisorText en cualquier frase más larga que eso.
+                const name = r.shortDescription?.problem || r.category || "Security";
                 const bucket = threatMap.get(name) || { high: 0, medium: 0, low: 0 };
                 const impact = String(r.impact || "").toLowerCase();
                 if (impact === "high") bucket.high++;
@@ -325,7 +330,22 @@ export async function GET(request: NextRequest) {
             };
         }, 3600, 900);
 
-        return NextResponse.json(data);
+        // La traducción NO puede vivir dentro del bloque cacheado de arriba: el
+        // cache key (`whiteboard:v2:azure:${tenantId}`) no incluye locale, así que
+        // el primer idioma que lo pobló quedaría pegado para todos los demás hasta
+        // que expire. Se traduce acá, después de leer el cache, con el locale de
+        // ESTE request — el texto crudo que persiste en Redis no depende del
+        // idioma (shortDescription.problem vuelve en inglés de Azure salvo casos
+        // ya cubiertos por Accept-Language).
+        const localizedData = {
+            ...data,
+            top3ThreatCategories: (data.top3ThreatCategories || []).map((cat: any) => ({
+                ...cat,
+                name: translateAdvisorText(cat.name, locale, 'problem').slice(0, 60),
+            })),
+        };
+
+        return NextResponse.json(localizedData);
     } catch (err: unknown) {
         if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status });
         console.error("[whiteboard] error:", err instanceof Error ? err.message : err);
