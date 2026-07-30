@@ -11,7 +11,6 @@ import { useRouter } from 'next/navigation';
 import { FocusCostEntry } from '@/modules/core/focusMapper';
 import FocusCostPieChart from './FocusCostPieChart';
 import FeatureGuard from '@/components/FeatureGuard';
-import { translateAdvisorText, translateZombieType } from '@/lib/advisorI18n';
 import { useCurrency } from '@/components/CurrencyProvider';
 
 interface InteractiveDashboardProps {
@@ -196,45 +195,6 @@ export default function InteractiveDashboard({
 
     const totalZombiesSavings = Object.values(leakageMap).reduce((sum: any, val: any) => sum + val, 0) as number;
     const totalPotentialSavings = computedTotalSavings + totalZombiesSavings;
-
-    const opportunities: { title: string, category: string, savings: number, type: 'advisor' | 'zombie' }[] = [];
-
-    if (advisorData?.recommendations?.Cost) {
-        advisorData.recommendations.Cost.forEach((rec: any) => {
-            const savings = parseFloat(rec.extendedProperties?.savingsAmount || '0');
-            if (savings > 0) {
-                const rawProblem = rec.shortDescription?.problem || '';
-                const rawSolution = rec.shortDescription?.solution || '';
-                // Preferimos el "problem" (título conciso, con mejor cobertura de
-                // traducción) sobre la "solution" larga que casi nunca tiene trío
-                // traducido y quedaba en inglés.
-                const translated = translateAdvisorText(rawProblem, locale, 'problem')
-                    || translateAdvisorText(rawSolution, locale, 'solution')
-                    || t('cost_optimization', { fallback: 'Optimización de Costos' });
-                opportunities.push({
-                    title: translated,
-                    category: "Azure Advisor",
-                    savings: savings,
-                    type: 'advisor'
-                });
-            }
-        });
-    }
-
-    Object.keys(leakageMap).forEach(key => {
-        const savings = leakageMap[key];
-        if (savings > 0) {
-            opportunities.push({
-                    title: `${t('leak', { fallback: 'Fuga' })}: ${translateZombieType(key, locale)}`,
-                category: t('inactive_resources_cat', { fallback: 'Recursos Inactivos' }),
-                savings: savings,
-                type: 'zombie'
-            });
-        }
-    });
-
-    opportunities.sort((a, b) => b.savings - a.savings);
-    const topOpportunities = opportunities.slice(0, 4);
 
     if (loading || billingData === null) {
         return (
@@ -493,44 +453,6 @@ export default function InteractiveDashboard({
                             <div className="text-sm text-slate-400 dark:text-slate-500">Sin datos de fugas</div>
                         )}
                     </div>
-                </div>
-            </div>
-
-            {/* Bottom List */}
-            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-100 dark:border-slate-800 flex justify-between items-center bg-white dark:bg-slate-900">
-                    <div className="flex items-center text-sm font-bold text-slate-800 dark:text-slate-100">
-                        <Zap className="w-4 h-4 mr-2 text-amber-500 fill-amber-500" />
-                        {t('top_saving_opportunities')}
-                    </div>
-                </div>
-                <div className="divide-y divide-gray-50 dark:divide-slate-800">
-                    {topOpportunities.length === 0 ? (
-                        <div className="p-8 text-center text-slate-400 dark:text-slate-500 text-sm font-medium">
-                            No se encontraron oportunidades de ahorro destacadas en este momento.
-                        </div>
-                    ) : topOpportunities.map((opp, idx) => (
-                        <div key={idx} className="p-4 px-6 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                            <div className="flex items-center">
-                                <div className={`p-2.5 rounded-lg mr-4 ${opp.type === 'advisor' ? 'bg-[#FFF4E5] dark:bg-amber-900/20' : 'bg-[#FFF8E6] dark:bg-amber-900/20'}`}>
-                                    {opp.type === 'advisor' ? (
-                                        <Tag className="w-5 h-5 text-amber-700 dark:text-amber-400 fill-amber-700/20 dark:fill-amber-400/20" />
-                                    ) : (
-                                        <Skull className="w-5 h-5 text-amber-500" />
-                                    )}
-                                </div>
-                                <div>
-                                    <div className="flex items-center gap-2">
-                                        <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100" title={opp.title}>{opp.title}</h4>
-                                    </div>
-                                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 font-medium">{opp.category}</p>
-                                </div>
-                            </div>
-                            <div className="flex flex-col items-end shrink-0">
-                                <div className="text-emerald-600 dark:text-emerald-400 font-extrabold text-sm">{format(opp.savings)} <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500">/mes</span></div>
-                            </div>
-                        </div>
-                    ))}
                 </div>
             </div>
 
