@@ -332,6 +332,18 @@ segundo.
 
 ## 📈 Recent Major Updates
 
+### 2026-07-30 — Recursos: orden por costo real (no por nombre)
+
+`GET /api/resources/search` ordenaba siempre por nombre alfabético — Resource
+Graph no conoce el costo, que vive en Cost Management, un servicio aparte.
+Ahora, cuando el conjunto filtrado tiene 500 recursos o menos
+(`SORT_BY_COST_MAX_RESOURCES`), se costea todo el conjunto antes de paginar y se
+ordena de mayor a menor costo real. Por encima de ese techo se degrada al orden
+alfabético de siempre (con el costo calculado sólo para la página, como antes)
+para no disparar una consulta de Cost Management proporcional al tenant entero
+— la respuesta incluye `sortedByCost: false` y la UI lo avisa en vez de mostrar
+un orden distinto al esperado en silencio.
+
 ### 2026-07-29 — Consolidación en un único proveedor de nube: Azure
 
 Cierra la evaluación multi-cloud que corrió entre el 2026-07-25 y el 2026-07-28.
