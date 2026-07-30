@@ -343,7 +343,34 @@ async function syncTenant(
         console.error(`[cron-sync] AI usage fetch failed for tenant ${tenantId}:`, aiErr.message);
     }
 
+    await invalidateCostCaches(tenantId);
+
     return { detailRows, backfilledDays };
+}
+
+/**
+ * Sin esto, tarjetas como "Proyección de Gastos" (cache 6h) o el Whiteboard
+ * (cache 1h) siguen mostrando el gasto de AYER hasta que su TTL expira solo,
+ * aunque CostSnapshots ya tenga el dato de hoy — el mismo bug de fondo que
+ * dashboard/summary (ver fetchMTDBreakdown), pero acá ninguna corrida lo
+ * bustea nunca porque no depende de un query param `bust=1` manual.
+ * `redis.keys` es aceptable acá: corre una vez por tenant al final del sync
+ * diario, no en el hot path de un request de usuario.
+ */
+async function invalidateCostCaches(tenantId: string): Promise<void> {
+    try {
+        const patterns = [
+            `costProjection:v4:${tenantId}:*`,
+            `whiteboard:v2:azure:${tenantId}`,
+        ];
+        const keys = (await Promise.all(patterns.map((p) => redis.keys(p)))).flat();
+        if (keys.length > 0) {
+            await redis.del(...keys);
+            console.log(`[cron-sync] tenant=${tenantId} cache invalidado: ${keys.join(', ')}`);
+        }
+    } catch (e: any) {
+        console.warn(`[cron-sync] invalidateCostCaches falló para tenant ${tenantId}:`, e?.message);
+    }
 }
 
 /**
