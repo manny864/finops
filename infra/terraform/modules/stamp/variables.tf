@@ -270,6 +270,18 @@ variable "budget_start_date" {
   default = "2026-08-01T00:00:00Z"
 }
 
+variable "custom_domain_enabled" {
+  description = "false hasta que el CNAME + TXT existan en el DNS. Ver custom_domain_dns_instructions en el output del environment."
+  type        = bool
+  default     = false
+}
+
+variable "custom_domain_name" {
+  description = "FQDN del dominio propio, ej. finops.cscloudsolutions.com.ar"
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   type = map(string)
 }

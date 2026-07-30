@@ -44,3 +44,38 @@ output "appinsights_ids" {
 output "frontdoor_hostname" {
   value = module.frontdoor.endpoint_hostname
 }
+
+output "custom_domain_dns_instructions" {
+  # Terraform obliga a marcar sensitive porque el provider marca
+  # custom_domain_verification_id como tal (ver modules/containerapp/outputs.tf).
+  # Para verlo: `terraform output -json custom_domain_dns_instructions`.
+  sensitive   = true
+  description = <<-DESC
+    Runbook para activar el dominio propio de cada stamp que lo tenga
+    configurado (custom_domain_name != ""). Correr `terraform output -json
+    custom_domain_dns_instructions` para ver esto formateado.
+
+    Orden obligatorio, no intercambiable:
+      1. Cargar el CNAME y el TXT en Cloudflare EN MODO DNS-ONLY (nube gris,
+         sin proxy). Si el proxy está prendido, Azure no puede validar y el
+         apply del paso 2 falla.
+      2. Poner custom_domain_enabled=true para ese stamp en el .tfvars y
+         aplicar. Azure valida contra el DNS del paso 1 y emite el
+         certificado gestionado.
+      3. Recién ahí prender el proxy de Cloudflare (nube naranja), modo
+         SSL/TLS "Full (strict)".
+      4. Registrar el mismo FQDN como redirect URI adicional en la app
+         registration de MSAL (876d8a5b-..., tenant 8b41364f-...) — sin esto
+         el login falla con AADSTS50011 al entrar por el dominio nuevo.
+  DESC
+  value = {
+    for k, s in module.stamp : k => {
+      domain            = var.stamps[k].custom_domain_name
+      cname_target      = s.hostname
+      txt_record_name   = "asuid.${split(".", var.stamps[k].custom_domain_name)[0]}"
+      txt_record_value  = s.custom_domain_verification_id
+      currently_enabled = var.stamps[k].custom_domain_enabled
+    }
+    if var.stamps[k].custom_domain_name != ""
+  }
+}

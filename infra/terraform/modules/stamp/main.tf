@@ -301,6 +301,17 @@ module "app" {
   depends_on                      = [time_sleep.acr_pull_propagation]
 }
 
+# Dominio propio. enabled=false por defecto — ver el comentario del módulo:
+# la secuencia real tiene un paso de DNS afuera de Terraform en el medio.
+module "custom_domain" {
+  source                       = "../custom_domain"
+  enabled                      = var.custom_domain_enabled
+  domain_name                  = var.custom_domain_name
+  container_app_id             = module.app.app_id
+  container_app_environment_id = azurerm_container_app_environment.this.id
+  tags                         = var.tags
+}
+
 # Los 14 procesos periódicos, con su schedule en código.
 module "cronjobs" {
   source                = "../cronjobs"
