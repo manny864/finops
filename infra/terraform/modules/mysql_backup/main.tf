@@ -255,6 +255,10 @@ resource "azurerm_windows_virtual_machine" "this" {
   ]
   tags = var.tags
 
+  identity {
+    type = "SystemAssigned"
+  }
+
   os_disk {
     caching              = "ReadWrite"
     storage_account_type = "StandardSSD_LRS"
