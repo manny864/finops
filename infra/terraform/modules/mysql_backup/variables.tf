@@ -53,7 +53,7 @@ variable "bastion_subnet_prefix" {
 
 variable "vm_size" {
   type    = string
-  default = "Standard_B2s"
+  default = "Standard_D2s_v5"
 }
 
 variable "vm_admin_username" {
