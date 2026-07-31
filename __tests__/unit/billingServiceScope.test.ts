@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 /**
  * Fija la garantía del 2026-07-30: las consultas de costo con scope 'All' no
@@ -61,6 +61,16 @@ vi.mock('@/lib/azureCostColumn', () => ({
 const TENANT = '81ebe027-e6af-4e09-bc73-58c9012c6408';
 
 beforeEach(() => {
+    // Reloj fijo a mitad de mes. getCostForecast tiene una guarda deliberada que
+    // el ÚLTIMO día del mes corta y devuelve [] sin llamar a la API (Azure
+    // rechaza timePeriod.from === to con 400, ver billingService.ts), así que sin
+    // fijar la fecha este archivo falla cada día 31 — pasó en CI el
+    // 2026-07-31T00:00Z, con el run del commit anterior en verde a las 23:5x del
+    // día 30. Se falsea SÓLO Date: setTimeout queda real para no colgar los
+    // backoffs internos del servicio. Directiva AGENTS.md #16.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-07-15T12:00:00Z'));
+
     usageScopes.length = 0;
     forecastScopes.length = 0;
     // Descubrimiento de suscripciones (el camino per-subscription lo consulta por REST).
@@ -73,6 +83,10 @@ beforeEach(() => {
             ],
         }),
     }));
+});
+
+afterEach(() => {
+    vi.useRealTimers();
 });
 
 describe("scope de Cost Management para 'All'", () => {
