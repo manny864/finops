@@ -725,6 +725,8 @@
     "filter_all": "All ({count})",
     "filter_active": "Active Suggestions ({count})",
     "filter_exempted": "Exempted / Ignored ({count})",
+    "confirm_remove_exemption": "Are you sure you want to remove the exemption for machine {name}? It will reappear as an active suggestion.",
+    "per_month": "/mo",
     "exemption_saved": "Exemption saved successfully",
     "exemption_removed": "Exemption removed successfully"
   },
