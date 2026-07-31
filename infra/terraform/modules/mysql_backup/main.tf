@@ -260,15 +260,9 @@ resource "azurerm_windows_virtual_machine" "this" {
     storage_account_type = "StandardSSD_LRS"
   }
 
-  # Cifrado en el host, no sólo en el disco (Azure Disk Encryption cubre el
-  # disco; esto también cubre la cache y el tráfico temporal en el host
-  # físico). Requiere el feature EncryptionAtHost registrado en la
-  # suscripción — estaba NotRegistered, se registró a mano el 2026-07-30
-  # (`az feature register --namespace Microsoft.Compute --name
-  # EncryptionAtHost` + `az provider register -n Microsoft.Compute`). La
-  # propagación puede tardar hasta ~15 min; si el apply falla acá con
-  # "feature not enabled", es por eso — reintentar en unos minutos.
-  encryption_at_host_enabled = true
+  # EncryptionAtHost solo es soportado en familias Premium (DSv3, Dv4, etc.),
+  # no en Standard_B2s. Se desactiva para compatibilidad directa con B2s.
+  encryption_at_host_enabled = false
 
   source_image_reference {
     publisher = "MicrosoftWindowsServer"
@@ -366,7 +360,10 @@ resource "azurerm_virtual_machine_extension" "hybrid_worker" {
     AutomationAccountURL = azurerm_automation_account.this.hybrid_service_url
   })
 
-  depends_on = [azurerm_automation_hybrid_runbook_worker_group.this]
+  depends_on = [
+    azurerm_automation_hybrid_runbook_worker_group.this,
+    azurerm_automation_hybrid_runbook_worker.this
+  ]
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
