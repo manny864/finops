@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CSCloudSolutions · Video Corporativo & Showcase FinOps</title>
+  <title>CSCloudSolutions · Video Corporativo FinOps</title>
   <link rel="icon" type="image/png" href="/favicon.png">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800;900&family=Open+Sans:wght@400;600&display=swap');
     :root {
       --brand-deep: #0054A6;
       --brand-bright: #00AEEF;
-      --bg: #0C1B30;
+      --bg: #0A1728;
       --surface: #112239;
       --border: rgba(255, 255, 255, 0.14);
       --text: #FFFFFF;
@@ -31,6 +31,11 @@
       text-align: center;
       margin-bottom: 30px;
     }
+    .brand-logo {
+      height: 60px;
+      margin-bottom: 16px;
+      filter: drop-shadow(0 6px 20px rgba(0,174,239,0.3));
+    }
     .brand-tag {
       font-family: 'Montserrat', sans-serif;
       font-size: 13px;
@@ -42,7 +47,7 @@
       background: rgba(0,174,239,0.1);
       border: 1px solid rgba(0,174,239,0.3);
       display: inline-block;
-      padding: 6px 16px;
+      padding: 6px 18px;
       border-radius: 99px;
     }
     h1 {
@@ -125,20 +130,21 @@
 </head>
 <body>
   <div class="header">
+    <img src="/Logo_CSCloudSolutions.png" alt="CSCloudSolutions Logo" class="brand-logo" />
     <div class="brand-tag">CSCloudSolutions</div>
-    <h1>Video Corporativo Narrado & Capturas Reales</h1>
-    <p class="sub">Presentación audiovisual con locución de voz y capturas de pantalla del entorno real</p>
+    <h1>Video Corporativo con Capturas Reales & Música</h1>
+    <p class="sub">Demostración de la plataforma FinOps con capturas reales del sistema y audio musical</p>
   </div>
 
   <div class="video-container">
-    <video controls poster="desktop_shots/shot_01.png">
+    <video controls autoplay loop muted poster="desktop_shots/shot_01.png">
       <source src="finops_demo_video.mp4" type="video/mp4">
       Tu navegador no soporta la reproducción de video HTML5.
     </video>
   </div>
 
   <div class="grid-title">
-    <span>Capturas de Pantalla Reales (16 Módulos)</span>
+    <span>Capturas de Pantalla Reales del Sistema</span>
     <span style="font-size:13px; font-weight:600; color:var(--text-muted);">CSCloudSolutions FinOps</span>
   </div>
 
@@ -147,49 +153,49 @@
       <img src="desktop_shots/shot_01.png" alt="Acceso Entra ID" />
       <div class="card-body">
         <div class="card-title">01. Acceso Corporativo Entra ID</div>
-        <div class="card-desc">Login corporativo seguro con autenticación federada Microsoft</div>
-      </div>
-    </div>
-    <div class="card">
-      <img src="desktop_shots/shot_02.png" alt="Menú Lateral" />
-      <div class="card-body">
-        <div class="card-title">02. Menú & Módulos FinOps</div>
-        <div class="card-desc">Visibilidad, Presupuestos, Rightsizing y Hybrid Benefit</div>
+        <div class="card-desc">Login seguro con Microsoft Entra ID</div>
       </div>
     </div>
     <div class="card">
       <img src="desktop_shots/shot_03.png" alt="Whiteboard & Advisor" />
       <div class="card-body">
-        <div class="card-title">03. Executive Whiteboard</div>
-        <div class="card-desc">Madurez FinOps, Azure Advisor y ahorro capturado</div>
+        <div class="card-title">02. Executive Whiteboard</div>
+        <div class="card-desc">Madurez FinOps y Azure Advisor</div>
       </div>
     </div>
     <div class="card">
-      <img src="desktop_shots/shot_04.png" alt="Top Gastos" />
+      <img src="desktop_shots/shot_02.png" alt="Presupuestos" />
       <div class="card-body">
-        <div class="card-title">04. Análisis de Top Gastos</div>
-        <div class="card-desc">Monitoreo de servicios de mayor impacto en la factura</div>
+        <div class="card-title">03. Presupuestos & Alertas</div>
+        <div class="card-desc">Monitoreo por centro de costos y alertas en tiempo real</div>
       </div>
     </div>
     <div class="card">
-      <img src="desktop_shots/shot_07.png" alt="Inteligencia Financiera" />
+      <img src="desktop_shots/shot_07.png" alt="Consumo Real" />
       <div class="card-body">
-        <div class="card-title">05. Inteligencia Financiera</div>
-        <div class="card-desc">Consumo real, grupos de costo y proyecciones MTD</div>
+        <div class="card-title">04. Consumo Real & Tendencias</div>
+        <div class="card-desc">Desglose por cómputo, almacenamiento y redes</div>
       </div>
     </div>
     <div class="card">
-      <img src="desktop_shots/shot_09.png" alt="Anomalías & Red" />
+      <img src="desktop_shots/shot_09.png" alt="Red & App Insights" />
       <div class="card-body">
-        <div class="card-title">06. Anomalías & Red Perimetral</div>
-        <div class="card-desc">Alertas tempranas, Unit Economics y Application Insights</div>
+        <div class="card-title">05. Red Perimetral & Telemetría</div>
+        <div class="card-desc">Application Insights, Log Analytics y Unit Economics</div>
       </div>
     </div>
     <div class="card">
-      <img src="desktop_shots/shot_12.png" alt="Savings Plan vs Reserva" />
+      <img src="desktop_shots/shot_12.png" alt="Savings Plans" />
       <div class="card-body">
-        <div class="card-title">07. Savings Plan vs Reservas</div>
-        <div class="card-desc">Comparativa de tarifas y eficiencia de almacenamiento</div>
+        <div class="card-title">06. Costo por Categoría & Savings Plans</div>
+        <div class="card-desc">Eficiencia de almacenamiento e instancias reservadas</div>
+      </div>
+    </div>
+    <div class="card">
+      <img src="desktop_shots/shot_13.png" alt="AI Copilot" />
+      <div class="card-body">
+        <div class="card-title">07. Detección de Anomalías & AI Copilot</div>
+        <div class="card-desc">Alertas predictivas con Inteligencia Artificial</div>
       </div>
     </div>
     <div class="card">

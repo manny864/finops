@@ -1,30 +1,31 @@
 # Directiva: Video Demostrativo Corporativo FinOps (CSCloudSolutions)
 
 ## Descripción del Objetivo
-Generar un video corporativo y material audiovisual de alta fidelidad que muestre las capacidades reales de la plataforma **CSCloudSolutions FinOps Command Center** a partir de capturas de pantalla reales suministradas por el usuario y con locución de audio (TTS / voz sintética) sincronizada para cada escena.
+Generar un video corporativo y material audiovisual de alta fidelidad que muestre las capturas de pantalla reales de la plataforma **CSCloudSolutions FinOps Command Center** inyectadas en formato **Base64 Data URL** para garantizar su renderizado 100% confiable, con la imagen del logo oficial al inicio y final del video, y una pista de música electrónica corporativa interactiva en sustitución de la locución hablada.
 
 ## Entradas
-1. Capturas de pantalla reales provistas por el usuario ubicadas en `/Users/manuelchavez/Desktop` (ej. `Captura de pantalla 2026-07-31...png`).
-2. Nombre oficial de marca estricto: **CSCloudSolutions** (sin espacios).
-3. Motor TTS (edge-tts / macOS say / ffmpeg audio synthesis) para generar las voces de narración en español de alta calidad por cada escena.
+1. Capturas de pantalla reales en `public/video-assets/desktop_shots/shot_01.png` .. `shot_16.png` convertidas a base64.
+2. Logo oficial de la marca: `public/Logo_CSCloudSolutions.png` / `public/logo.png` convertido a base64.
+3. Denominación oficial única: **CSCloudSolutions** (sin espacios).
+4. Pista de música interactiva en `.tmp/bg_music.wav` / `.mp3`.
 
 ## Salidas
-- `public/video-assets/desktop_shots/`: Copia organizada de las capturas del escritorio.
-- `public/video-assets/audio/`: Archivos de voz narrada en MP3/WAV por cada escena.
-- `public/video-assets/finops_demo_video.mp4`: Video HD 1080p con capturas de pantalla reales, superposiciones de UI, transiciones y pista de audio narrativa sincronizada.
-- `public/video-assets/index.html`: Showcase con reproductor HTML5 con audio habilitado.
+- `public/video-assets/finops_demo_video.mp4`: Video HD 1080p con logo oficial de apertura/cierre, capturas reales incrustadas en Base64, transiciones de pantalla y pista de música corporativa.
+- `public/video-assets/finops_demo_preview.gif`: GIF animado de vista previa.
+- `public/video-assets/index.html`: Showcase HTML5 con reproductor de video y galería de capturas.
 
 ## Lógica y Pasos a Seguir
-1. **Copiar e Inspeccionar Capturas Reales:**
-   - Copiar las imágenes de `/Users/manuelchavez/Desktop` a `public/video-assets/desktop_shots/`.
-   - Analizar el contenido visual de cada captura (dashboard, gráficos de costo, presupuestos, gobernanza, recursos zombie, etc.) para extraer información clave.
-2. **Redactar Guión de Narración (Audio):**
-   - Escribir la locución escena por escena utilizando el nombre **CSCloudSolutions**.
-   - Generar los archivos de audio con `edge-tts` o la herramienta de voz de macOS (`say` a wav/mp3).
-3. **Ensamblado y Compilación con FFmpeg:**
-   - Crear marcos HD 1920x1080 incrustando las capturas reales dentro de contenedores estilizados (browser frame / glassmorphism).
-   - Mezclar la pista de video y la pista de audio narrativa usando `ffmpeg`.
+1. **Base64 Inlining de Capturas y Logo:**
+   - Leer cada imagen PNG desde Node.js (`fs.readFileSync(...)`) y convertir a `data:image/png;base64,...`.
+   - Inyectar el string base64 directamente en las etiquetas `<img>` del HTML renderizado por Playwright. Esto elimina cualquier bloqueo de políticas CORS o `file://` en Chromium.
+2. **Escenas de Apertura y Cierre:**
+   - Intro (Escena 0): Renderizar `Logo_CSCloudSolutions.png` (Base64) centrado con animación glow y título **CSCloudSolutions FinOps Command Center**.
+   - Escenas Intermedias (Escenas 1 a 6): Renderizar las capturas reales base64 en un marco de navegador HD con URL `https://finops.cscloudsolutions.com.ar`.
+   - Outro (Escena Final): Renderizar `Logo_CSCloudSolutions.png` (Base64) con llamada a la acción `finops.cscloudsolutions.com.ar`.
+3. **Mezcla Audiovisual con Música:**
+   - Eliminar voz hablada.
+   - Sincronizar la pista de audio musical `.tmp/bg_music.wav` con la secuencia de frames mediante `ffmpeg`.
 
 ## Trampas Conocidas / Restricciones
-- La marca **CSCloudSolutions** DEBE escribirse siempre unida sin espacios en títulos, gráficos, marcas de agua y locuciones.
-- El video final DEBE incluir pista de audio sincronizada con la duración de las escenas.
+- NUNCA usar `file://` en el `src` de las imágenes dentro de `page.setContent()`; SIEMPRE usar Base64 Data URLs (`data:image/png;base64,...`).
+- Mantener la marca **CSCloudSolutions** unida sin espacios en toda la composición.
