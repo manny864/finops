@@ -29,8 +29,6 @@
 
 # videos y assets generados
 /public/video-assets/
-/public/videos/
-/videos/
 *.mp4
 *.webm
 *.gif

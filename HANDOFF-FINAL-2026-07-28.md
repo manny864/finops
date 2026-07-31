@@ -1,5 +1,13 @@
 # HANDOFF — FinOpsProyect: migración del VPS a Azure Container Apps
-**Última actualización:** 2026-07-30
+**Última actualización:** 2026-07-31
+
+## Sesión 2026-07-31 (Pasos 1 a 4 del Plan de Trabajo)
+
+1. **Fix de Parseo de Ahorro en Advisor:** Se creó `parseAzureNumber` en [src/lib/advisorModel.ts](file:///Users/manuelchavez/Documents/FinOpsProyect/src/lib/advisorModel.ts) para limpiar comas en valores numéricos (ej. `"1,234.56"` -> `1234.56`) e integró en `whiteboard`, `AdvisorPanel` y `v1/recommendations`.
+2. **Protección contra 429 & SWR Caché:** Se añadió `isThrottled` a `CostQueryDiagnostics` en [src/modules/collectors/azure/billingService.ts](file:///Users/manuelchavez/Documents/FinOpsProyect/src/modules/collectors/azure/billingService.ts) y se configuró `dynamicTtl` para no envenenar la caché de Redis ante respuestas vacías por 429.
+3. **Container Apps & Pacing de Cron Sync:** Se agregó registro explícito (`console.info`) en [src/app/api/intelligence/container-apps/route.ts](file:///Users/manuelchavez/Documents/FinOpsProyect/src/app/api/intelligence/container-apps/route.ts) para visibilidad en Log Analytics, y se verificó la rotación/pacing del cron `sync`.
+4. **Gobernanza e Infraestructura:** Auditado el gate de confirmación `inputs.confirm == 'APPLY-PROD'` en [.github/workflows/terraform.yml](file:///Users/manuelchavez/Documents/FinOpsProyect/.github/workflows/terraform.yml) y las reglas de IP para Cloudflare WAF en Terraform.
+5. **Documentación Sincronizada:** Regenerados los inventarios LLD (`node scripts/generate-lld.mjs`) y el PDF arquitectónico (`node scripts/generate-lld-pdf.js`).
 
 ## Dónde quedó
 

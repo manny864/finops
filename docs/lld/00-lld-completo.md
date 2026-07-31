@@ -511,14 +511,14 @@ infra/terraform/modules/
 
 ### 12.3 Deuda técnica identificada
 
-| Área | Descripción |
-|---|---|
-| `billingService.ts` (1,302 LoC) | Archivo monolítico. Candidato a split por dominio (MTD, forecast, historical, yesterday). |
-| `TenantProvider.tsx` (76KB) | Componente god-object. Debería descomponerse. |
-| `mockData.ts` (160KB) | Archivo masivo de mocks. Considerar archivos por dominio. |
-| Tests | 65 archivos de test para 676 archivos de src (cobertura ~10% de archivos). |
-| SMTP | 6 variables SMTP declaradas con 0 usos — están configuradas pero no implementadas. |
-| `PROVIDER_ARCHIVE_RETENTION_DAYS` | Variable declarada, 0 usos. Probablemente residuo del proveedor eliminado. |
+| Área | Descripción | Estado |
+|---|---|---|
+| `billingService.ts` (1,302 LoC) | Archivo monolítico refactorizado en submódulos por dominio (`billingTypes`, `mtdBillingService`, `forecastBillingService`, `yesterdayBillingService`, `historicalBillingService`) con patrón facade retrocompatible. | ✅ Completado (2026-07-31) |
+| `TenantProvider.tsx` (76KB) | Componente god-object. Debería descomponerse. | Pendiente |
+| `mockData.ts` (160KB) | Archivo masivo de mocks. Considerar archivos por dominio. | Pendiente |
+| Tests | 66 archivos de test (638 pasados) con aislamiento por archivo en Vitest. | En progreso |
+| SMTP | 6 variables SMTP declaradas con 0 usos — están configuradas pero no implementadas. | Pendiente |
+| `PROVIDER_ARCHIVE_RETENTION_DAYS` | Variable obsoleta de proveedor eliminado removida de `.env.example`. | ✅ Completado (2026-07-31) |
 
 ---
 

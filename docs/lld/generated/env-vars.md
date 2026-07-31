@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Declaradas en `.env.example`: **72**.
+Declaradas en `.env.example`: **71**.
 
 Una variable con 0 usos está declarada pero no la lee nadie: o es de build/infra
 (la consume el Dockerfile, Terraform o Next en tiempo de build), o quedó huérfana.
@@ -61,7 +61,6 @@ Una variable con 0 usos está declarada pero no la lee nadie: o es de build/infr
 | `PARTNER_MPN_ID` | 1 | `src/lib/partner/pal.ts` |
 | `POWER_SCHEDULES_HEALTHCHECK_URL` | 0 | — |
 | `PREWARM_HEALTHCHECK_URL` | 0 | — |
-| `PROVIDER_ARCHIVE_RETENTION_DAYS` | 0 | — |
 | `REDIS_HOST` | 1 | `src/lib/redis.ts` |
 | `REDIS_PASSWORD` | 1 | `src/lib/redis.ts` |
 | `REDIS_PORT` | 1 | `src/lib/redis.ts` |
