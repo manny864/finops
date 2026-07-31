@@ -64,6 +64,7 @@ export async function GET(request: NextRequest) {
             }
 
             if (availableSubscriptions.length === 0) {
+                console.info(`[Container Apps] 0 suscripciones con containerapps encontradas para tenant ${tenantId}`);
                 return NextResponse.json({
                     success: true,
                     empty: true,

@@ -4019,7 +4019,7 @@
     "no_activity": "Sin actividad",
     "days": "días",
     "requires_p1": "La actividad de inicio de sesión requiere Microsoft Entra ID P1.",
-    "requires_graph_perm": "Falta el permiso de Graph AuditLog.Read.All (con consentimiento de administrador) en el Service Principal — sin él, Microsoft Graph no expone esta información.",
+    "requires_graph_perm": "Requiere permiso Graph AuditLog.Read.All (con consentimiento de administrador) y licencia Microsoft Entra ID P1/P2 activa en el Tenant.",
     "search": "Buscar...",
     "account_status": "Estado de Cuenta",
     "has_license": "Tiene Licencia",
@@ -4036,8 +4036,8 @@
     "col_product": "Producto",
     "col_num_licenses": "N.º de Licencias",
     "col_upn": "UPN",
-    "graph_permissions_title": "Permisos de Microsoft Graph requeridos",
-    "graph_permissions_desc": "El Service Principal necesita los permisos de Graph (User.Read.All, Group.Read.All, Reports.Read.All, AuditLog.Read.All) con consentimiento de administrador para leer usuarios, licencias y actividad de M365.",
+    "graph_permissions_title": "Permisos y Licenciamiento requeridos",
+    "graph_permissions_desc": "El Service Principal requiere permisos de Graph (User.Read.All, Group.Read.All, Reports.Read.All, AuditLog.Read.All con consentimiento de admin) y una licencia Entra ID P1/P2 en el tenant para leer actividad de inicio de sesión y MFA.",
     "no_data": "No se encontraron datos.",
     "tab_license_optimization": "Optimización de Licencias",
     "lic_total": "Total Licencias",
@@ -4485,7 +4485,10 @@
     "col_monthly_cost": "Costo/mes",
     "col_saving": "Ahorro potencial",
     "scale_to_zero_tag": "scale-to-zero",
-    "cost_unavailable_note": "Costo por recurso no disponible (verifique el rol Cost Management Reader del Service Principal)."
+    "cost_unavailable_note": "Costo por recurso no disponible (verifique el rol Cost Management Reader del Service Principal).",
+    "section_apps": "Apps",
+    "section_registries": "Registros (ACR)",
+    "resource_count": "{count} recurso(s)"
   },
   "CosmosDb": {
     "page_title": "Cosmos DB",

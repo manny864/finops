@@ -4019,7 +4019,7 @@
     "no_activity": "No Activity",
     "days": "days",
     "requires_p1": "Sign-in activity requires Microsoft Entra ID P1.",
-    "requires_graph_perm": "Missing the AuditLog.Read.All Graph permission (with admin consent) on the Service Principal — without it, Microsoft Graph doesn't expose this data.",
+    "requires_graph_perm": "Requires AuditLog.Read.All Graph permission (with admin consent) and an active Microsoft Entra ID P1/P2 license in the Tenant.",
     "search": "Search...",
     "account_status": "Account Status",
     "has_license": "Has License",
@@ -4036,8 +4036,8 @@
     "col_product": "Product",
     "col_num_licenses": "No. of Licenses",
     "col_upn": "UPN",
-    "graph_permissions_title": "Microsoft Graph permissions required",
-    "graph_permissions_desc": "The Service Principal needs Graph permissions (User.Read.All, Group.Read.All, Reports.Read.All, AuditLog.Read.All) with admin consent to read M365 users, licenses and activity.",
+    "graph_permissions_title": "Permissions and Licensing Required",
+    "graph_permissions_desc": "The Service Principal needs Graph permissions (User.Read.All, Group.Read.All, Reports.Read.All, AuditLog.Read.All with admin consent) and an Entra ID P1/P2 license on the tenant to read sign-in activity and MFA.",
     "no_data": "No data found.",
     "tab_license_optimization": "License Optimization",
     "lic_total": "Total Licenses",
@@ -4485,7 +4485,10 @@
     "col_monthly_cost": "Cost/mo",
     "col_saving": "Potential savings",
     "scale_to_zero_tag": "scale-to-zero",
-    "cost_unavailable_note": "Per-resource cost unavailable (check the Service Principal Cost Management Reader role)."
+    "cost_unavailable_note": "Per-resource cost unavailable (check the Service Principal Cost Management Reader role).",
+    "section_apps": "Apps",
+    "section_registries": "Registries (ACR)",
+    "resource_count": "{count} resource(s)"
   },
   "CosmosDb": {
     "page_title": "Cosmos DB",

@@ -1,5 +1,8 @@
 /**
- * @azure-only — cubre Azure Container Apps.
+ * @azure-only — cubre Azure Container Apps y Azure Container Registry.
+ * RBAC: sólo lectura (Reader + Cost Management Reader del Service Principal); la data llega
+ * por `GET /api/intelligence/container-apps`, que resuelve el tenant con los guards de
+ * `src/lib/requestAuth.ts`.
  */
 "use client";
 import React, { useEffect, useMemo, useState } from 'react';
@@ -9,7 +12,7 @@ import { useMsal } from '@azure/msal-react';
 import { getFreshIdToken } from '@/lib/msalToken';
 import { isMockTenant } from '@/lib/mockData';
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts';
-import { Boxes, Loader2, Zap } from 'lucide-react';
+import { Boxes, Loader2, Package, Zap } from 'lucide-react';
 
 const fmt = (n: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n || 0);
@@ -67,7 +70,11 @@ export default function ContainerAppsCard() {
             .slice(0, 6);
     }, [data]);
 
-    const totalCost = Number(data?.totalMonthlyCost) || 0;
+    const apps: AppRow[] = data?.apps || [];
+    const registries: unknown[] = data?.registries || [];
+    const appsCost = Number(data?.totalMonthlyCost) || 0;
+    const registriesCost = Number(data?.totalRegistryMonthlyCost) || 0;
+    const totalCost = Number(data?.totalContainersMonthlyCost ?? data?.totalMonthlyCost) || 0;
     const totalSaving = Number(data?.totalPotentialSaving) || 0;
     const candidates = Number(data?.scaleToZeroCandidates) || 0;
 
@@ -88,7 +95,7 @@ export default function ContainerAppsCard() {
                 <div className="flex-1 flex items-center justify-center min-h-[160px]">
                     <p className="text-xs text-red-500 text-center">{error}</p>
                 </div>
-            ) : data?.empty || chartData.length === 0 ? (
+            ) : data?.empty || (apps.length === 0 && registries.length === 0) ? (
                 <div className="flex-1 flex items-center justify-center min-h-[160px]">
                     <p className="text-sm text-gray-400 text-center">{t('empty')}</p>
                 </div>
@@ -104,18 +111,36 @@ export default function ContainerAppsCard() {
                             {t('savings_hint', { amount: fmt(totalSaving), count: candidates })}
                         </p>
                     )}
-                    <ResponsiveContainer width="100%" height="100%" minHeight={140}>
-                        <BarChart data={chartData} layout="vertical" margin={{ left: 8, right: 8 }}>
-                            <XAxis type="number" tick={{ fontSize: 9 }} tickFormatter={(v) => `$${(v / 1000).toFixed(1)}k`} />
-                            <YAxis type="category" dataKey="name" width={90} tick={{ fontSize: 10 }} />
-                            <RechartsTooltip formatter={(v: any) => [fmt(Number(v)), t('cost')]} />
-                            <Bar dataKey="cost" radius={[0, 4, 4, 0]}>
-                                {chartData.map((row, idx) => (
-                                    <Cell key={idx} fill={row.candidate ? '#E08A1E' : '#0054A6'} />
-                                ))}
-                            </Bar>
-                        </BarChart>
-                    </ResponsiveContainer>
+                    <div className="grid grid-cols-2 gap-2 mb-3">
+                        <div className="rounded-lg border border-gray-100 dark:border-slate-800 bg-gray-50/60 dark:bg-slate-800/40 p-2">
+                            <p className="m-0 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                                <Boxes className="w-3 h-3" />{t('section_apps')}
+                            </p>
+                            <p className="m-0 text-sm font-bold text-slate-800 dark:text-slate-100">{fmt(appsCost)}</p>
+                            <p className="m-0 text-[10px] text-slate-400">{t('resource_count', { count: apps.length })}</p>
+                        </div>
+                        <div className="rounded-lg border border-gray-100 dark:border-slate-800 bg-gray-50/60 dark:bg-slate-800/40 p-2">
+                            <p className="m-0 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                                <Package className="w-3 h-3" />{t('section_registries')}
+                            </p>
+                            <p className="m-0 text-sm font-bold text-slate-800 dark:text-slate-100">{fmt(registriesCost)}</p>
+                            <p className="m-0 text-[10px] text-slate-400">{t('resource_count', { count: registries.length })}</p>
+                        </div>
+                    </div>
+                    {chartData.length > 0 && (
+                        <ResponsiveContainer width="100%" height="100%" minHeight={140}>
+                            <BarChart data={chartData} layout="vertical" margin={{ left: 8, right: 8 }}>
+                                <XAxis type="number" tick={{ fontSize: 9 }} tickFormatter={(v) => `$${(v / 1000).toFixed(1)}k`} />
+                                <YAxis type="category" dataKey="name" width={90} tick={{ fontSize: 10 }} />
+                                <RechartsTooltip formatter={(v: any) => [fmt(Number(v)), t('cost')]} />
+                                <Bar dataKey="cost" radius={[0, 4, 4, 0]}>
+                                    {chartData.map((row, idx) => (
+                                        <Cell key={idx} fill={row.candidate ? '#E08A1E' : '#0054A6'} />
+                                    ))}
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    )}
                 </>
             )}
         </div>
