@@ -271,7 +271,7 @@ variable "mysql_backup_bastion_subnet_prefix" {
 
 variable "mysql_backup_vm_size" {
   type    = string
-  default = "Standard_B2s"
+  default = "Standard_D2s_v5"
 }
 
 variable "mysql_backup_schedule_start_time" {

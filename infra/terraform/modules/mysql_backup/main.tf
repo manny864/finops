@@ -260,9 +260,8 @@ resource "azurerm_windows_virtual_machine" "this" {
     storage_account_type = "StandardSSD_LRS"
   }
 
-  # EncryptionAtHost solo es soportado en familias Premium (DSv3, Dv4, etc.),
-  # no en Standard_B2s. Se desactiva para compatibilidad directa con B2s.
-  encryption_at_host_enabled = false
+  # Cifrado en el host soportado nativamente por la familia Standard_D2s_v5.
+  encryption_at_host_enabled = true
 
   source_image_reference {
     publisher = "MicrosoftWindowsServer"
