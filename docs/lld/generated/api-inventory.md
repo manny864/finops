@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **238** rutas.
+Total: **239** rutas.
 
 La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archivo.
 `_CRON_SECRET_` = no usa guard de tenant; autentica con el header `Authorization: Bearer $CRON_SECRET`.
@@ -160,6 +160,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/intelligence/network-perimeter` | GET | requireTenantTier, requireTenantAccess | Professional | sí |
 | `/api/intelligence/rates` | GET | requireTenantAccess | — | — |
 | `/api/intelligence/rightsizing` | GET | requireTenantRole | — | sí |
+| `/api/intelligence/rightsizing/exemptions` | GET, POST, DELETE | requireTenantRole | — | — |
 | `/api/intelligence/scorecard` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/simulator` | GET, POST | requireTenantTier, requireTenantAccess | Business | sí |
 | `/api/intelligence/simulator/compare` | POST | requireTenantRole, requireTenantTier | Business | sí |

@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **84** tablas. Migraciones aplicables: **57**.
+Total: **85** tablas. Migraciones aplicables: **58**.
 
 `schema.sql` es el baseline de referencia y **no se ejecuta**; `migrations/` es la
 fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.md`).
@@ -67,6 +67,7 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 | `PowerSchedules` | — | `20260702-003-power-schedules.sql` |
 | `PricingUnits` | — | `20260629-003-pricing-units.sql` |
 | `PublicApiKeys` | — | `20260728-003-sincronizar-esquema-vps.sql` |
+| `recommendation_exemptions` | — | `20260731-003-recommendation-exemptions.sql` |
 | `RecommendationActions` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `RecommendationsCache` | sí | `20260628-001-core-bootstrap.sql` |
 | `RemediationRequests` | — | `20260728-003-sincronizar-esquema-vps.sql` |
@@ -153,3 +154,4 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 - `migrations/20260730-001-platform-ai-usage.sql`
 - `migrations/20260731-001-tenant-timezone.sql`
 - `migrations/20260731-002-eliminar-tenant-directorio-msa.sql`
+- `migrations/20260731-003-recommendation-exemptions.sql`

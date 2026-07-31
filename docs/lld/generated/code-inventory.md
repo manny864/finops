@@ -44,7 +44,7 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 
 Integración con SDKs de Azure (`collectors/`), motores agnósticos (`core/`) y persistencia (`storage/`).
 
-36 archivos.
+37 archivos.
 
 | Archivo | Líneas | Exports principales |
 |---|---|---|
@@ -66,6 +66,7 @@ Integración con SDKs de Azure (`collectors/`), motores agnósticos (`core/`) y 
 | `src/modules/collectors/azure/aksCostService.ts` | 150 | `vmSizeToCores`, `getAksChargebackCost` |
 | `src/modules/collectors/azure/billing/forecastBillingService.ts` | 144 | `getCostForecast` |
 | `src/modules/collectors/azure/defenderCostService.ts` | 143 | `DefenderPlanRow`, `DefenderCostResult`, `getDefenderCost`, `setDefenderPlanTier` |
+| `src/modules/storage/recommendationExemptions.ts` | 141 | `RecommendationExemption`, `getExemptionsForTenant`, `upsertExemption`, `deleteExemption` |
 | `src/modules/collectors/azure/backupOrphanService.ts` | 130 | `OrphanedBackupItemRow`, `BackupOrphanResult`, `getOrphanedBackupItems` |
 | `src/modules/collectors/azure/aiUsageCollector.ts` | 125 | `AIUsageRow`, `getYesterdaysAIUsage` |
 | `src/modules/collectors/azure/perimeterNetworkCostService.ts` | 121 | `PerimeterCostRow`, `PerimeterCostResult`, `getPerimeterNetworkCost` |

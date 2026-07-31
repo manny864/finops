@@ -8,6 +8,7 @@ import { getWithStaleWhileRevalidate } from '@/lib/cache';
 import { isMockTenant } from '@/lib/mockData';
 import { recordDailySnapshotAsync } from '@/services/snapshotService';
 import { withArgLimit } from '@/lib/argConcurrency';
+import { getExemptionsForTenant } from '@/modules/storage/recommendationExemptions';
 
 async function queryResourceGraphWithRetry(client: any, query: string, subscriptions: string[], retries = 3, initialDelay = 3000): Promise<any> {
     let currentDelay = initialDelay;
@@ -203,16 +204,21 @@ export async function GET(request: NextRequest) {
             return results.filter(r => r.isUnderutilized);
         }, 3600);
 
-        // Write-through de historial diario (best-effort, solo tenants reales).
-        if (!isMockTenant(tenantId)) {
-            const potentialSavings = underutilizedVms.reduce((s, v) => s + Number(v.hiddenCost || 0), 0);
-            recordDailySnapshotAsync(tenantId, 'rightsizing', {
-                recommendationsCount: underutilizedVms.length,
-                potentialSavings: Number(potentialSavings.toFixed(2)),
-            }, subscriptionId || 'All');
-        }
+        const exemptions = await getExemptionsForTenant(tenantId);
+        const exemptionsMap = new Map(exemptions.map(e => [(e.resourceId || '').toLowerCase(), e]));
 
-        return NextResponse.json({ success: true, data: underutilizedVms });
+        const enrichedVms = (underutilizedVms || []).map((vm: any) => {
+            const ex = exemptionsMap.get((vm.id || '').toLowerCase());
+            return {
+                ...vm,
+                isExempted: !!ex,
+                exemptionReason: ex?.reason || null,
+                exemptionComment: ex?.comment || null,
+                exemptionDate: ex?.updatedAt || null,
+            };
+        });
+
+        return NextResponse.json({ success: true, data: enrichedVms });
     } catch (error: any) {
         if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
         console.error('Rightsizing API Error:', error);
