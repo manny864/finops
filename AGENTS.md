@@ -108,6 +108,10 @@ Toda modificación, creación o feature nuevo en este repositorio debe respetar 
 - El CI usa el pool **forks** de Vitest (aislamiento por archivo). Correr tests en paralelo con **estado compartido** (env vars, reloj/`Date`, colas de `mockResolvedValueOnce`) puede producir falsos fallos: usar `vi.useFakeTimers`/`vi.setSystemTime` para tests dependientes de fecha y resetear/definir mocks por test.
 - Antes de pushear a `staging`, validar localmente `lint` + `typecheck` + `test` cuando sea posible.
 
+### 17. Uso obligatorio de Skills disponibles
+- **Regla vinculante:** Para cualquier consulta, tarea o refactorización recibida, el agente **DEBE verificar si existe una Skill especializada disponible** en el entorno (`azure-cloud-architect`, `sql-database-assistant`, `senior-frontend`, `security-pen-testing`, `modern-web-guidance`, etc.).
+- Si una Skill es relevante para la tarea actual, el agente DEBE consultar y leer el archivo `SKILL.md` correspondiente usando la herramienta `view_file` antes de proceder, y seguir estrictamente sus metodologías.
+
 ---
 
 ## Resumen rápido (checklist al hacer cambios)
