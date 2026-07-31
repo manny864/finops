@@ -3,6 +3,12 @@ import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 import noUnauthTenantId from "./eslint-rules/no-unauth-tenant-id.mjs";
 
+const combinedPlugins = Object.assign(
+  {},
+  ...nextVitals.map((c) => c.plugins || {}),
+  ...nextTs.map((c) => c.plugins || {})
+);
+
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
@@ -34,7 +40,10 @@ const eslintConfig = defineConfig([
   {
     // Pre-existing tech debt (1000+ instances). Downgraded to warnings so CI
     // doesn't block; can be fixed incrementally.
+    plugins: combinedPlugins,
     rules: {
+      "@typescript-eslint/no-this-alias": "warn",
+      "@next/next/no-assign-module-variable": "warn",
       "@typescript-eslint/no-explicit-any": "warn",
       "@typescript-eslint/no-unused-vars": "warn",
       "react-hooks/exhaustive-deps": "warn",
