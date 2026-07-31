@@ -269,8 +269,10 @@ resource "azurerm_data_protection_backup_policy_mysql_flexible_server" "this" {
   }
 }
 
+# Instancia de backup omitida (count = 0): la API de Azure DataProtection para MySQL Flexible
+# Server retorna HTTP 406. Los respaldos son gestionados por el módulo dedicado mysql_backup.
 resource "azurerm_data_protection_backup_instance_mysql_flexible_server" "this" {
-  count            = var.mysql_backup_vault_enabled ? 1 : 0
+  count            = 0
   name             = "${var.mysql_database_name}-backup-instance"
   location         = var.location
   vault_id         = azurerm_data_protection_backup_vault.mysql[0].id
