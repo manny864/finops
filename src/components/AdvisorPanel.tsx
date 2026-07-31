@@ -14,7 +14,7 @@ import { translateAdvisorText } from '@/lib/advisorI18n';
 import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
 import {
-  ADVISOR_CATEGORIES, impactBadgeClasses, normalizeImpact,
+  ADVISOR_CATEGORIES, impactBadgeClasses, normalizeImpact, parseAzureNumber,
   type AdvisorCategory, type AdvisorModel, type AdvisorRecommendation,
   type AdvisorLifecycleRow, type AdvisorCarbonRow, type AdvisorDynamicRow,
 } from '@/lib/advisorModel';
@@ -103,7 +103,7 @@ function normalizeGroup(
     for (const [ek, ev] of Object.entries(ext)) {
       const lk = ek.toLowerCase();
       if (lk === 'annualsavingsamount' || lk === 'savingsamount' || lk === 'costsavings') {
-        savings = parseFloat(String(ev)) || savings;
+        savings = parseAzureNumber(ev) || savings;
       }
     }
     const carbon = extractAnnualCarbon(ext);

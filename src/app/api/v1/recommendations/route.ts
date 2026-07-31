@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 import { verifyApiKey, requireScope } from "@/lib/publicApiAuth";
 import rateLimiter from "@/lib/rateLimiter";
 import { collectAdvisorData } from "@/modules/collectors/azure/advisorCollector";
+import { parseAzureNumber } from "@/lib/advisorModel";
 
 export async function GET(request: NextRequest) {
   const requestId = uuidv4();
@@ -76,7 +77,7 @@ export async function GET(request: NextRequest) {
           id: r.id || r.recommendationId || `${category}-${r.impactedField || ""}`,
           type: category,
           resource: r.impactedValue || r.impactedField || "unknown",
-          estimated_savings_usd: String(Number(r.extendedProperties?.savingsAmount || 0).toFixed(2)),
+          estimated_savings_usd: String(parseAzureNumber(r.extendedProperties?.annualSavingsAmount || r.extendedProperties?.savingsAmount || 0).toFixed(2)),
           priority: r.impact || "medium",
           details: {
             problem: r.shortDescription?.problem || null,

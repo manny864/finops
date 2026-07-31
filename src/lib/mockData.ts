@@ -2317,3 +2317,18 @@ export const getMockCostGroupDetail = (name: string, tier: string): any => {
         },
     };
 };
+
+export const MOCK_CONTAINER_DOMAIN = {
+    apps: [
+        { name: "ca-frontend-prod", resourceGroup: "rg-prod-westus2", environment: "cae-prod-westus2", cpuCores: 0.5, memoryGb: 1, minReplicas: 1, maxReplicas: 10, baseCost: 45.50, baseSaving: 0 },
+        { name: "ca-backend-api", resourceGroup: "rg-prod-westus2", environment: "cae-prod-westus2", cpuCores: 1, memoryGb: 2, minReplicas: 0, maxReplicas: 5, baseCost: 78.20, baseSaving: 15.00 },
+        { name: "ca-worker-jobs", resourceGroup: "rg-prod-westus2", environment: "cae-prod-westus2", cpuCores: 0.25, memoryGb: 0.5, minReplicas: 0, maxReplicas: 3, baseCost: 12.80, baseSaving: 5.20 },
+    ],
+    registries: [
+        { name: "crprodglobal", resourceGroup: "rg-prod-westus2", sku: "Premium", baseCost: 50.00, location: "westus2" },
+    ],
+    environments: [
+        { name: "cae-prod-westus2", resourceGroup: "rg-prod-westus2", baseCost: 15.00, location: "westus2" },
+    ],
+};
+
