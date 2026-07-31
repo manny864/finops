@@ -25,6 +25,16 @@
 .DS_Store
 *.pem
 /.tmp/
+*.code-workspace
+
+# videos y assets generados
+/public/video-assets/
+/public/videos/
+/videos/
+*.mp4
+*.webm
+*.gif
+
 
 # debug
 npm-debug.log*
