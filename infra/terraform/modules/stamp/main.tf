@@ -228,12 +228,19 @@ resource "azurerm_role_assignment" "mysql_backup_vault_operator" {
   principal_id         = azurerm_data_protection_backup_vault.mysql[0].identity[0].principal_id
 }
 
+resource "azurerm_role_assignment" "mysql_backup_vault_reader" {
+  count                = var.mysql_backup_vault_enabled ? 1 : 0
+  scope                = module.mysql.id
+  role_definition_name = "Reader"
+  principal_id         = azurerm_data_protection_backup_vault.mysql[0].identity[0].principal_id
+}
+
 # Mismo motivo que time_sleep.rbac_propagation del módulo keyvault: la
 # instancia de backup valida permisos contra el servidor en el momento de
 # crearse, y el RBAC recién asignado tarda unos segundos en propagar.
 resource "time_sleep" "mysql_backup_vault_rbac_propagation" {
   count           = var.mysql_backup_vault_enabled ? 1 : 0
-  depends_on      = [azurerm_role_assignment.mysql_backup_vault_operator]
+  depends_on      = [azurerm_role_assignment.mysql_backup_vault_operator, azurerm_role_assignment.mysql_backup_vault_reader]
   create_duration = "30s"
 }
 
