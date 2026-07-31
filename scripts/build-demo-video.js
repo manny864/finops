@@ -16,7 +16,7 @@ const scenes = [
   {
     id: 'scene_00_intro',
     durationSec: 4,
-    title: 'CS Cloud Solutions',
+    title: 'CSCloudSolutions',
     subtitle: 'FinOps Command Center',
     tag: 'PLATAFORMA ENTERPRISE DE OPTIMIZACIÓN CLOUD',
     bgGradient: 'linear-gradient(135deg, #0C1B30 0%, #0054A6 60%, #00AEEF 100%)',

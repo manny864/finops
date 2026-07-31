@@ -1,33 +1,30 @@
-# Directiva: Video Demostrativo Corporativo FinOps (HyperFrames / Demo Video)
+# Directiva: Video Demostrativo Corporativo FinOps (CSCloudSolutions)
 
 ## Descripción del Objetivo
-Generar un video corporativo y material audiovisual de alta fidelidad que muestre las capacidades de la plataforma **CSCloudSolutions FinOps Command Center** (KPIs de costo, inteligencia por categoría, detección de anomalías y puntaje de gobernanza).
+Generar un video corporativo y material audiovisual de alta fidelidad que muestre las capacidades reales de la plataforma **CSCloudSolutions FinOps Command Center** a partir de capturas de pantalla reales suministradas por el usuario y con locución de audio (TTS / voz sintética) sincronizada para cada escena.
 
 ## Entradas
-1. Capturas HD (1920x1080) tomadas vía Playwright desde la versión de producción o demo interactivo (`public/video-assets/`):
-   - `01_dashboard_kpis.png` (Overview & KPIs principal)
-   - `02_cost_by_category.png` (Desglose de costos cloud)
-   - `03_anomalies_detection.png` (Detección de anomalías en consumo)
-   - `04_governance_score.png` (Score de gobernanza y etiquetado)
-2. Narrativa visual y guión técnico en HTML/CSS responsivo o composiciones frame-by-frame.
+1. Capturas de pantalla reales provistas por el usuario ubicadas en `/Users/manuelchavez/Desktop` (ej. `Captura de pantalla 2026-07-31...png`).
+2. Nombre oficial de marca estricto: **CSCloudSolutions** (sin espacios).
+3. Motor TTS (edge-tts / macOS say / ffmpeg audio synthesis) para generar las voces de narración en español de alta calidad por cada escena.
 
 ## Salidas
-- assets de imagen en `public/video-assets/`
-- Render o estructura de escenas listas para visualización o exportación a video/GIF (`.mp4` / `.gif` / HTML interactivo).
+- `public/video-assets/desktop_shots/`: Copia organizada de las capturas del escritorio.
+- `public/video-assets/audio/`: Archivos de voz narrada en MP3/WAV por cada escena.
+- `public/video-assets/finops_demo_video.mp4`: Video HD 1080p con capturas de pantalla reales, superposiciones de UI, transiciones y pista de audio narrativa sincronizada.
+- `public/video-assets/index.html`: Showcase con reproductor HTML5 con audio habilitado.
 
 ## Lógica y Pasos a Seguir
-1. **Captura de Pantalla HD Automática:**
-   - Ejecutar `node scripts/capture-playwright-shots.js` con Viewport 1920x1080 (Factor 2x) para obtener imágenes nítidas de la app real.
-2. **Ensamblado y Estructura de Escenas:**
-   - Hook inicial (Logo CSCloudSolutions + Título)
-   - Escena 1: KPIs y Control FinOps
-   - Escena 2: Análisis por Categoría y Optimización
-   - Escena 3: Detección de Anomalías e IA
-   - Escena 4: Gobernanza y Cumplimiento
-   - Cierre: Call-to-action con URL oficial (`finops.cscloudsolutions.com.ar`)
-3. **Generación / Verificación:**
-   - Asegurar resolución 1080p, tipografía institucional (Montserrat / Open Sans) y paleta de colores oficial.
+1. **Copiar e Inspeccionar Capturas Reales:**
+   - Copiar las imágenes de `/Users/manuelchavez/Desktop` a `public/video-assets/desktop_shots/`.
+   - Analizar el contenido visual de cada captura (dashboard, gráficos de costo, presupuestos, gobernanza, recursos zombie, etc.) para extraer información clave.
+2. **Redactar Guión de Narración (Audio):**
+   - Escribir la locución escena por escena utilizando el nombre **CSCloudSolutions**.
+   - Generar los archivos de audio con `edge-tts` o la herramienta de voz de macOS (`say` a wav/mp3).
+3. **Ensamblado y Compilación con FFmpeg:**
+   - Crear marcos HD 1920x1080 incrustando las capturas reales dentro de contenedores estilizados (browser frame / glassmorphism).
+   - Mezclar la pista de video y la pista de audio narrativa usando `ffmpeg`.
 
 ## Trampas Conocidas / Restricciones
-- Las capturas web deben esperar a que los gráficos (Recharts / SVG) estén completamente renderizados antes de capturar (`networkidle` + timeout adicional).
-- Mantener la estética visual premium (dark/glassmorphism con acentos corporativos `#0054A6` y `#00AEEF`).
+- La marca **CSCloudSolutions** DEBE escribirse siempre unida sin espacios en títulos, gráficos, marcas de agua y locuciones.
+- El video final DEBE incluir pista de audio sincronizada con la duración de las escenas.

@@ -110,7 +110,11 @@ Toda modificación, creación o feature nuevo en este repositorio debe respetar 
 
 ### 17. Uso obligatorio de Skills disponibles
 - **Regla vinculante:** Para cualquier consulta, tarea o refactorización recibida, el agente **DEBE verificar si existe una Skill especializada disponible** en el entorno (`azure-cloud-architect`, `sql-database-assistant`, `senior-frontend`, `security-pen-testing`, `modern-web-guidance`, etc.).
-- Si una Skill es relevante para la tarea actual, el agente DEBE consultar y leer el archivo `SKILL.md` correspondiente usando la herramienta `view_file` antes de proceder, y seguir estrictamente sus metodologías.
+- Si una Skill es relevante para la tarea actual, el agente DEBE consultar y leer el archivo `SKILL.md` correspondiente usando la herramienta `view_file` antes de proceder, y seguir strictly sus metodologías.
+
+### 18. Denominación de Marca Obligatoria (CSCloudSolutions)
+- **Regla vinculante de Marca:** El nombre oficial de la marca y empresa es **CSCloudSolutions** (todo junto, sin espacios, con mayúsculas en C, S, C, S).
+- NUNCA escribir "CS Cloud Solutions", "CS Cloud", "CSCloud Solutions" u otras variaciones con espacio en interfaces de usuario, textos, videos, títulos, directivas o documentación.
 
 ---
 
