@@ -75,6 +75,27 @@ function wrapHtml(bodyHtml) {
 <html lang="es">
 <head>
 <meta charset="utf-8" />
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"><\/script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'base',
+      themeVariables: {
+        primaryColor: '#E6F2FB',
+        primaryBorderColor: '#0054A6',
+        primaryTextColor: '#1f2430',
+        lineColor: '#00AEEF',
+        secondaryColor: '#f4f9fd',
+        tertiaryColor: '#fff',
+        fontFamily: 'Open Sans, sans-serif',
+        fontSize: '12px'
+      },
+      flowchart: { curve: 'basis', htmlLabels: true },
+      sequence: { mirrorActors: false }
+    });
+  });
+<\/script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Open+Sans:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap');
 
@@ -166,15 +187,21 @@ function wrapHtml(bodyHtml) {
   }
   pre code { background: none; color: inherit; padding: 0; }
 
-  /* --- Mermaid --- */
+  /* --- Mermaid (rendered as SVG by mermaid.js) --- */
   pre.mermaid {
     background: white;
     border: 1px solid var(--borde-azul);
     border-left: 4px solid var(--celeste);
+    border-radius: 0 8px 8px 0;
     color: #333;
     text-align: center;
-    padding: 16px;
+    padding: 20px 16px;
     page-break-inside: avoid;
+    overflow-x: auto;
+  }
+  pre.mermaid svg {
+    max-width: 100%;
+    height: auto;
   }
 
   /* --- Blockquotes / Alerts --- */
@@ -356,9 +383,23 @@ async function main() {
 
   await page.setContent(html, { waitUntil: 'networkidle' });
 
-  // Esperar a que Mermaid renderice los diagramas (si hay CDN)
-  // En este caso los dejamos como pre.mermaid (texto), ya que el CDN
-  // requiere JS runtime. El diagrama queda como bloque de código estilizado.
+  // Esperar a que Mermaid.js renderice todos los diagramas como SVG.
+  // mermaid.run() procesa todos los <pre class="mermaid"> y los reemplaza por SVGs.
+  const diagramCount = await page.locator('pre.mermaid').count();
+  if (diagramCount > 0) {
+    console.log(`Renderizando ${diagramCount} diagramas Mermaid...`);
+    // Esperar a que mermaid termine: los <pre class="mermaid"> se convierten en
+    // <pre class="mermaid" data-processed="true"> con un <svg> adentro.
+    await page.waitForFunction(
+      (expected) => {
+        const processed = document.querySelectorAll('pre.mermaid[data-processed="true"]');
+        return processed.length >= expected;
+      },
+      diagramCount,
+      { timeout: 15000 }
+    );
+    console.log('Diagramas renderizados OK.');
+  }
 
   await page.pdf({
     path: OUTPUT_PDF,

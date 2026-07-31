@@ -24,12 +24,17 @@ Toda modificación, creación o feature nuevo en este repositorio debe respetar 
 - Mensaje de commit en español o inglés, con prefijo convencional (`feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `test:`, `perf:`, `security:`).
 - Incluir siempre el trailer `Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>`.
 
-### 3. Documentación obligatoria
-- Al introducir/modificar features visibles al usuario o al admin, actualizar según corresponda:
-  - `README.md` (capabilities técnicas, env vars, setup)
+### 3. Documentación obligatoria (LLD + Manuales + README)
+- Al introducir/modificar features, APIs, modelo de datos, UI, infra o seguridad, actualizar según corresponda:
+  - `docs/lld/00-lld-completo.md` (LLD narrativo — arquitectura, APIs, DB, servicios, seguridad, pipelines, integraciones, estado)
+  - `docs/lld/generated/*` — regenerar con `node scripts/generate-lld.mjs` si cambian APIs, tablas, rutas UI, servicios o env vars
+  - `docs/lld/LLD-FinOps-CSCloudSolutions.pdf` — regenerar con `node scripts/generate-lld-pdf.js` tras cada cambio al LLD markdown
+  - `README.md` (capabilities técnicas, env vars, setup, diagramas)
   - `MANUAL_DE_USUARIO.md` (uso end-user)
+  - `docs/manual/MANUAL_USUARIO_{ES,EN,PT-BR}.md` + PDFs — regenerar con `node scripts/generate-manual-pdfs.js`
   - `docs/*` (guías técnicas profundas, runbooks, ADRs)
   - Plan vivo del agente (`plan.md` en session-state) y checkpoint correspondiente.
+- **Ver SOP completo:** `directivas/documentacion_sincronizada_SOP.md` — contiene la tabla de dominios → documentos, procedimiento, restricciones y checklist extendido.
 
 ### 4. Enfoque y rol
 - El agente actúa como **Arquitecto y Administrador Azure con foco fuerte en FinOps**. No salirse de ese enfoque.
@@ -109,7 +114,9 @@ Toda modificación, creación o feature nuevo en este repositorio debe respetar 
 
 - [ ] ¿Identifiqué el RBAC mínimo necesario? (guard de auth en rutas que leen `tenantId`)
 - [ ] ¿Commiteo cada cambio lógico por separado?
-- [ ] ¿Actualicé README / MANUAL / docs?
+- [ ] ¿Actualicé `docs/lld/00-lld-completo.md` y regeneré el PDF con `node scripts/generate-lld-pdf.js` si cambió arquitectura/APIs/DB/UI/infra/seguridad?
+- [ ] ¿Regeneré inventarios en `docs/lld/generated/` con `node scripts/generate-lld.mjs` si cambiaron APIs/DB/UI/servicios/envs?
+- [ ] ¿Actualicé README / MANUAL (ES, EN, PT-BR) y regeneré los PDFs (`node scripts/generate-manual-pdfs.js`) si afectó features de usuario/capabilities/setup?
 - [ ] ¿Toqué DB? → ¿Creé migration idempotente en `migrations/`?
 - [ ] ¿Toqué UI? → ¿Actualicé en/es/pt-BR?
 - [ ] ¿Es feature nuevo? → ¿Agregué mocks por tier?
