@@ -725,6 +725,8 @@
     "filter_all": "Todas ({count})",
     "filter_active": "Sugerencias Activas ({count})",
     "filter_exempted": "Eximidas / Ignoradas ({count})",
+    "confirm_remove_exemption": "¿Estás seguro de eliminar la exención para la máquina {name}? Volverá a aparecer como sugerencia activa.",
+    "per_month": "/mes",
     "exemption_saved": "Exención guardada correctamente",
     "exemption_removed": "Exención eliminada correctamente"
   },
