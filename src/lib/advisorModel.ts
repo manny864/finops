@@ -139,3 +139,14 @@ export function impactBadgeClasses(impact: AdvisorImpact): string {
       return 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-900';
   }
 }
+
+// Parsea de forma robusta valores numéricos devueltos por Azure Advisor
+// (p.ej. números, cadenas "1234.56" o cadenas con separadores de miles "1,234.56").
+export function parseAzureNumber(val: unknown): number {
+  if (typeof val === 'number') return Number.isFinite(val) ? val : 0;
+  if (val === null || val === undefined || val === '') return 0;
+  const str = String(val).trim().replace(/,/g, '');
+  const n = parseFloat(str);
+  return Number.isFinite(n) ? n : 0;
+}
+

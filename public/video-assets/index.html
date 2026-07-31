@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CSCloudSolutions · Video Corporativo FinOps</title>
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800;900&family=Open+Sans:wght@400;600&display=swap');
+    :root {
+      --brand-deep: #0054A6;
+      --brand-bright: #00AEEF;
+      --bg: #0A1728;
+      --surface: #112239;
+      --border: rgba(255, 255, 255, 0.14);
+      --text: #FFFFFF;
+      --text-muted: #90CAF9;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Open Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 40px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .brand-logo {
+      height: 60px;
+      margin-bottom: 16px;
+      filter: drop-shadow(0 6px 20px rgba(0,174,239,0.3));
+    }
+    .brand-tag {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 13px;
+      font-weight: 900;
+      letter-spacing: 4px;
+      color: var(--brand-bright);
+      text-transform: uppercase;
+      margin-bottom: 10px;
+      background: rgba(0,174,239,0.1);
+      border: 1px solid rgba(0,174,239,0.3);
+      display: inline-block;
+      padding: 6px 18px;
+      border-radius: 99px;
+    }
+    h1 {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 34px;
+      font-weight: 900;
+      margin-bottom: 8px;
+      letter-spacing: -0.5px;
+    }
+    p.sub {
+      color: var(--text-muted);
+      font-size: 16px;
+    }
+    .video-container {
+      width: 100%;
+      max-width: 1000px;
+      background: var(--surface);
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      box-shadow: 0 25px 60px rgba(0,0,0,0.6);
+      overflow: hidden;
+      margin-bottom: 45px;
+    }
+    video {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    .grid-title {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 22px;
+      font-weight: 800;
+      margin-bottom: 20px;
+      width: 100%;
+      max-width: 1000px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .assets-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+      width: 100%;
+      max-width: 1000px;
+    }
+    .card {
+      background: var(--surface);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .card:hover {
+      transform: translateY(-4px);
+      border-color: var(--brand-bright);
+    }
+    .card img {
+      width: 100%;
+      height: 180px;
+      object-fit: cover;
+      object-position: top center;
+      display: block;
+    }
+    .card-body {
+      padding: 14px;
+    }
+    .card-title {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 4px;
+      color: #FFFFFF;
+    }
+    .card-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <img src="/Logo_CSCloudSolutions.png" alt="CSCloudSolutions Logo" class="brand-logo" />
+    <div class="brand-tag">CSCloudSolutions</div>
+    <h1>Video Corporativo con Capturas Reales & Música</h1>
+    <p class="sub">Demostración de la plataforma FinOps con capturas reales del sistema y audio musical</p>
+  </div>
+
+  <div class="video-container">
+    <video controls autoplay loop muted poster="desktop_shots/shot_01.png">
+      <source src="finops_demo_video.mp4" type="video/mp4">
+      Tu navegador no soporta la reproducción de video HTML5.
+    </video>
+  </div>
+
+  <div class="grid-title">
+    <span>Capturas de Pantalla Reales del Sistema</span>
+    <span style="font-size:13px; font-weight:600; color:var(--text-muted);">CSCloudSolutions FinOps</span>
+  </div>
+
+  <div class="assets-grid">
+    <div class="card">
+      <img src="desktop_shots/shot_01.png" alt="Acceso Entra ID" />
+      <div class="card-body">
+        <div class="card-title">01. Acceso Corporativo Entra ID</div>
+        <div class="card-desc">Login seguro con Microsoft Entra ID</div>
+      </div>
+    </div>
+    <div class="card">
+      <img src="desktop_shots/shot_03.png" alt="Whiteboard & Advisor" />
+      <div class="card-body">
+        <div class="card-title">02. Executive Whiteboard</div>
+        <div class="card-desc">Madurez FinOps y Azure Advisor</div>
+      </div>
+    </div>
+    <div class="card">
+      <img src="desktop_shots/shot_02.png" alt="Presupuestos" />
+      <div class="card-body">
+        <div class="card-title">03. Presupuestos & Alertas</div>
+        <div class="card-desc">Monitoreo por centro de costos y alertas en tiempo real</div>
+      </div>
+    </div>
+    <div class="card">
+      <img src="desktop_shots/shot_07.png" alt="Consumo Real" />
+      <div class="card-body">
+        <div class="card-title">04. Consumo Real & Tendencias</div>
+        <div class="card-desc">Desglose por cómputo, almacenamiento y redes</div>
+      </div>
+    </div>
+    <div class="card">
+      <img src="desktop_shots/shot_09.png" alt="Red & App Insights" />
+      <div class="card-body">
+        <div class="card-title">05. Red Perimetral & Telemetría</div>
+        <div class="card-desc">Application Insights, Log Analytics y Unit Economics</div>
+      </div>
+    </div>
+    <div class="card">
+      <img src="desktop_shots/shot_12.png" alt="Savings Plans" />
+      <div class="card-body">
+        <div class="card-title">06. Costo por Categoría & Savings Plans</div>
+        <div class="card-desc">Eficiencia de almacenamiento e instancias reservadas</div>
+      </div>
+    </div>
+    <div class="card">
+      <img src="desktop_shots/shot_13.png" alt="AI Copilot" />
+      <div class="card-body">
+        <div class="card-title">07. Detección de Anomalías & AI Copilot</div>
+        <div class="card-desc">Alertas predictivas con Inteligencia Artificial</div>
+      </div>
+    </div>
+    <div class="card">
+      <img src="desktop_shots/shot_15.png" alt="Recursos Zombis" />
+      <div class="card-body">
+        <div class="card-title">08. Recursos Zombis & Fugas</div>
+        <div class="card-desc">Detección de discos desadjuntados e IPs inactivas</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

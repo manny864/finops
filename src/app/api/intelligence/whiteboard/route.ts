@@ -6,6 +6,7 @@ import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { collectAdvisorData } from "@/modules/collectors/azure/advisorCollector";
 import { translateAdvisorText } from "@/lib/advisorI18n";
+import { parseAzureNumber } from "@/lib/advisorModel";
 import pool from "@/modules/storage/db";
 
 /**
@@ -193,8 +194,7 @@ async function getSecurityScore(tenantId: string) {
 
 function extractSavings(rec: any): number {
     const raw = rec?.extendedProperties?.annualSavingsAmount || rec?.extendedProperties?.savingsAmount;
-    const n = Number(raw);
-    return Number.isFinite(n) ? n : 0;
+    return parseAzureNumber(raw);
 }
 
 async function getRecommendationTrend(tenantId: string) {

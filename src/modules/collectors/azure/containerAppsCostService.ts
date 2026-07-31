@@ -1,10 +1,17 @@
 /**
- * Container Apps Cost Service — control de costos de Azure Container Apps
- * (Microsoft.App/containerApps).
+ * Container Apps Cost Service — control de costos del dominio "Containers" de
+ * Azure:
+ *   - Container Apps          (Microsoft.App/containerApps)
+ *   - Container Registries    (Microsoft.ContainerRegistry/registries)
+ *   - Container Environments  (Microsoft.App/managedEnvironments)
  *
  * RBAC mínimo requerido (Service Principal del tenant):
- *   - Reader (Resource Graph) para inventariar los Container Apps y leer su
- *     configuración de escalado (min/maxReplicas, CPU/memoria).
+ *   - Reader (Resource Graph) para inventariar los tres tipos de recurso y leer
+ *     la configuración de escalado de los apps (min/maxReplicas, CPU/memoria).
+ *     Container Registry NO necesita ningún rol adicional: el inventario y el
+ *     SKU salen del plano de control (ARM/Resource Graph), no del data plane
+ *     del registry — no se requieren AcrPull/AcrPush/ACR Repository Reader ni
+ *     ningún permiso de repositorio.
  *   - Cost Management Reader para el costo actual (MonthToDate) por recurso.
  * No requiere ningún rol de escritura: es una feature de solo lectura /
  * observabilidad de gasto. Feature de tier Business+ (ver route.ts).
@@ -15,12 +22,17 @@
  * workloads con tráfico intermitente. El ahorro potencial se estima como la
  * fracción del costo atribuible a la(s) réplica(s) siempre encendida(s).
  *
+ * Degradación aislada: cada inventario (apps / registries / environments) tiene
+ * su propio try/catch. Si falla el de registries o el de environments se loguea
+ * y esa sección vuelve vacía con totales en 0, pero la respuesta de apps se
+ * sirve igual. Ninguna sección devuelve `undefined`.
+ *
  * Regla Cero (precisión): todos los montos se agregan en centavos enteros
  * (helpers de src/lib/money.ts) para evitar drift de floats.
  */
 import { getAzureCredential, getResourceGraphClient } from "@/lib/azure";
 import { CostManagementClient } from "@azure/arm-costmanagement";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant, MOCK_CONTAINER_DOMAIN } from "@/lib/mockData";
 import { decimalToCents, centsToDecimal } from "@/lib/money";
 
 export interface ContainerAppCostRow {
@@ -36,6 +48,22 @@ export interface ContainerAppCostRow {
     potentialSaving: number;
 }
 
+export interface ContainerRegistryCostRow {
+    name: string;
+    resourceGroup: string;
+    sku: string;
+    monthlyCost: number;
+    location: string;
+}
+
+export interface ContainerEnvironmentCostRow {
+    name: string;
+    resourceGroup: string;
+    appCount: number;
+    monthlyCost: number;
+    location: string;
+}
+
 export interface ContainerAppsCostResult {
     subscriptionId: string;
     totalMonthlyCost: number;
@@ -44,7 +72,19 @@ export interface ContainerAppsCostResult {
     appCount: number;
     apps: ContainerAppCostRow[];
     costBreakdownAvailable: boolean;
+    registries: ContainerRegistryCostRow[];
+    registryCount: number;
+    totalRegistryMonthlyCost: number;
+    environments: ContainerEnvironmentCostRow[];
+    environmentCount: number;
+    totalEnvironmentMonthlyCost: number;
+    /** apps + registries + environments. */
+    totalContainersMonthlyCost: number;
 }
+
+const APPS_TYPE = "microsoft.app/containerapps";
+const REGISTRIES_TYPE = "microsoft.containerregistry/registries";
+const ENVIRONMENTS_TYPE = "microsoft.app/managedenvironments";
 
 /** Suma exacta de montos decimales usando centavos enteros. */
 function sumMoney(values: number[]): number {
@@ -64,6 +104,34 @@ function parseMemoryToGb(raw: unknown): number {
     return unit === "mi" ? value / 1024 : value;
 }
 
+async function queryResourceGraph(tenantId: string, query: string): Promise<any[]> {
+    const argClient = await getResourceGraphClient(tenantId);
+    const res: any = await argClient.resources({ query, options: { resultFormat: "objectArray", top: 1000 } });
+    return (res.data as any[]) || [];
+}
+
+/**
+ * Se loguea el error COMPLETO, no sólo `message`. Resource Graph contesta con
+ * un mensaje genérico ("Please provide below info when asking for support:
+ * timestamp = …, correlationId = …") que no dice nada de la causa: el detalle
+ * real viene en e.code y en el body de la respuesta. Con sólo el message,
+ * esta tarjeta llevaba días fallando en prod sin que se pudiera diagnosticar.
+ */
+function logArgFailure(section: string, tenantId: string, e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    const err = e as { code?: string; statusCode?: number; details?: unknown; body?: unknown };
+    console.warn(
+        `[Container Apps] No se pudo inventariar ${section} para ${tenantId}:`,
+        message,
+        JSON.stringify({
+            code: err?.code,
+            statusCode: err?.statusCode,
+            details: err?.details,
+            body: err?.body,
+        })
+    );
+}
+
 const MOCK_TIER_MULTIPLIER: Record<string, number> = {
     "11111111-2222-3333-4444-555555555555": 1, // essential
     "22222222-3333-4444-5555-666666666666": 3, // pro
@@ -73,20 +141,13 @@ const MOCK_TIER_MULTIPLIER: Record<string, number> = {
 
 function buildMockResult(tenantId: string): ContainerAppsCostResult {
     const multiplier = MOCK_TIER_MULTIPLIER[tenantId] || 1;
-    // Catálogo base de Container Apps de demo. El costo escala por tier
-    // (multiplier) para reflejar la magnitud de gasto del plan del tenant.
-    const base: Array<Omit<ContainerAppCostRow, "monthlyCost" | "potentialSaving" | "scaleToZeroCandidate"> & { baseCost: number; baseSaving: number }> = [
-        { name: "api-gateway", resourceGroup: "rg-apps-prod", environment: "cae-prod", cpuCores: 1, memoryGb: 2, minReplicas: 2, maxReplicas: 10, baseCost: 128.4, baseSaving: 0 },
-        { name: "checkout-worker", resourceGroup: "rg-apps-prod", environment: "cae-prod", cpuCores: 0.5, memoryGb: 1, minReplicas: 1, maxReplicas: 5, baseCost: 42.6, baseSaving: 32.1 },
-        { name: "report-generator", resourceGroup: "rg-apps-batch", environment: "cae-batch", cpuCores: 1, memoryGb: 2, minReplicas: 1, maxReplicas: 3, baseCost: 61.2, baseSaving: 55.4 },
-        { name: "webhook-receiver", resourceGroup: "rg-apps-prod", environment: "cae-prod", cpuCores: 0.25, memoryGb: 0.5, minReplicas: 1, maxReplicas: 2, baseCost: 18.9, baseSaving: 14.2 },
-        { name: "frontend-ssr", resourceGroup: "rg-apps-prod", environment: "cae-prod", cpuCores: 1, memoryGb: 2, minReplicas: 3, maxReplicas: 12, baseCost: 154.8, baseSaving: 0 },
-        { name: "nightly-etl", resourceGroup: "rg-apps-batch", environment: "cae-batch", cpuCores: 2, memoryGb: 4, minReplicas: 1, maxReplicas: 1, baseCost: 96.0, baseSaving: 88.0 },
-    ];
+    // Catálogo base en src/lib/mockData.ts (MOCK_CONTAINER_DOMAIN). El costo
+    // escala por tier (multiplier) para reflejar la magnitud de gasto del plan
+    // del tenant, siempre en centavos enteros (Regla Cero).
+    const scale = (base: number) => centsToDecimal(decimalToCents(base) * multiplier);
 
-    const apps: ContainerAppCostRow[] = base.map((b) => {
-        const monthlyCost = centsToDecimal(decimalToCents(b.baseCost) * multiplier);
-        const potentialSaving = centsToDecimal(decimalToCents(b.baseSaving) * multiplier);
+    const apps: ContainerAppCostRow[] = MOCK_CONTAINER_DOMAIN.apps.map((b: any) => {
+        const potentialSaving = scale(b.baseSaving);
         return {
             name: b.name,
             resourceGroup: b.resourceGroup,
@@ -95,20 +156,80 @@ function buildMockResult(tenantId: string): ContainerAppsCostResult {
             memoryGb: b.memoryGb,
             minReplicas: b.minReplicas,
             maxReplicas: b.maxReplicas,
-            monthlyCost,
+            monthlyCost: scale(b.baseCost),
             scaleToZeroCandidate: potentialSaving > 0,
             potentialSaving,
         };
     });
 
-    return {
+    const registries: ContainerRegistryCostRow[] = MOCK_CONTAINER_DOMAIN.registries.map((r: any) => ({
+        name: r.name,
+        resourceGroup: r.resourceGroup,
+        sku: r.sku,
+        monthlyCost: scale(r.baseCost),
+        location: r.location,
+    }));
+
+    const environments: ContainerEnvironmentCostRow[] = MOCK_CONTAINER_DOMAIN.environments.map((e: any) => ({
+        name: e.name,
+        resourceGroup: e.resourceGroup,
+        appCount: countAppsByEnvironment(apps).get(e.name.toLowerCase()) || 0,
+        monthlyCost: scale(e.baseCost),
+        location: e.location,
+    }));
+
+    return buildResult({
         subscriptionId: "mock-sub",
-        totalMonthlyCost: sumMoney(apps.map((a) => a.monthlyCost)),
+        apps,
+        registries,
+        environments,
+        costBreakdownAvailable: true,
+    });
+}
+
+/** Cuántos Container Apps corren en cada environment (clave en minúsculas). */
+function countAppsByEnvironment(apps: ContainerAppCostRow[]): Map<string, number> {
+    const byEnv = new Map<string, number>();
+    for (const app of apps) {
+        const key = (app.environment || "").toLowerCase();
+        if (!key) continue;
+        byEnv.set(key, (byEnv.get(key) || 0) + 1);
+    }
+    return byEnv;
+}
+
+/** Arma el payload final con todos los totales sumados en centavos enteros. */
+function buildResult(input: {
+    subscriptionId: string;
+    apps: ContainerAppCostRow[];
+    registries: ContainerRegistryCostRow[];
+    environments: ContainerEnvironmentCostRow[];
+    costBreakdownAvailable: boolean;
+}): ContainerAppsCostResult {
+    const { subscriptionId, apps, registries, environments, costBreakdownAvailable } = input;
+    const totalMonthlyCost = sumMoney(apps.map((a) => a.monthlyCost));
+    const totalRegistryMonthlyCost = sumMoney(registries.map((r) => r.monthlyCost));
+    const totalEnvironmentMonthlyCost = sumMoney(environments.map((e) => e.monthlyCost));
+
+    return {
+        subscriptionId,
+        totalMonthlyCost,
         totalPotentialSaving: sumMoney(apps.map((a) => a.potentialSaving)),
         scaleToZeroCandidates: apps.filter((a) => a.scaleToZeroCandidate).length,
         appCount: apps.length,
         apps: apps.sort((a, b) => b.monthlyCost - a.monthlyCost),
-        costBreakdownAvailable: true,
+        costBreakdownAvailable,
+        registries: registries.sort((a, b) => b.monthlyCost - a.monthlyCost),
+        registryCount: registries.length,
+        totalRegistryMonthlyCost,
+        environments: environments.sort((a, b) => b.monthlyCost - a.monthlyCost),
+        environmentCount: environments.length,
+        totalEnvironmentMonthlyCost,
+        totalContainersMonthlyCost: sumMoney([
+            totalMonthlyCost,
+            totalRegistryMonthlyCost,
+            totalEnvironmentMonthlyCost,
+        ]),
     };
 }
 
@@ -120,14 +241,17 @@ export const getContainerAppsCost = async (
         return buildMockResult(tenantId);
     }
 
-    // --- Inventario vía Resource Graph ---
+    const subFilter = subscriptionId ? `| where subscriptionId =~ '${subscriptionId}'` : "";
+
+    // --- Inventario de Container Apps vía Resource Graph ---
     let rawApps: any[] = [];
     try {
-        const argClient = await getResourceGraphClient(tenantId);
-        const query = `
+        rawApps = await queryResourceGraph(
+            tenantId,
+            `
             Resources
-            | where type =~ 'microsoft.app/containerapps'
-            ${subscriptionId ? `| where subscriptionId =~ '${subscriptionId}'` : ""}
+            | where type =~ '${APPS_TYPE}'
+            ${subFilter}
             | extend scale = properties.template.scale
             | extend containers = properties.template.containers
             | project name,
@@ -138,39 +262,57 @@ export const getContainerAppsCost = async (
                       maxReplicas = toint(scale.maxReplicas),
                       cpu = todouble(containers[0].resources.cpu),
                       memory = tostring(containers[0].resources.memory)
-        `;
-        const resARG: any = await argClient.resources({ query, options: { resultFormat: "objectArray", top: 1000 } });
-        rawApps = (resARG.data as any[]) || [];
-    } catch (e: unknown) {
-        const message = e instanceof Error ? e.message : String(e);
-        // Se loguea el error COMPLETO, no sólo `message`. Resource Graph contesta con
-        // un mensaje genérico ("Please provide below info when asking for support:
-        // timestamp = …, correlationId = …") que no dice nada de la causa: el detalle
-        // real viene en e.code y en el body de la respuesta. Con sólo el message,
-        // esta tarjeta llevaba días fallando en prod sin que se pudiera diagnosticar.
-        const err = e as { code?: string; statusCode?: number; details?: unknown; body?: unknown };
-        console.warn(
-            `[Container Apps] No se pudo inventariar para ${tenantId}:`,
-            message,
-            JSON.stringify({
-                code: err?.code,
-                statusCode: err?.statusCode,
-                details: err?.details,
-                body: err?.body,
-            })
+        `
         );
-        return {
+    } catch (e: unknown) {
+        // Si Resource Graph no responde para el tipo principal, el problema es
+        // de credenciales/Reader a nivel tenant: no tiene sentido seguir.
+        logArgFailure("Container Apps", tenantId, e);
+        return buildResult({
             subscriptionId,
-            totalMonthlyCost: 0,
-            totalPotentialSaving: 0,
-            scaleToZeroCandidates: 0,
-            appCount: 0,
             apps: [],
+            registries: [],
+            environments: [],
             costBreakdownAvailable: false,
-        };
+        });
+    }
+
+    // --- Inventario de Container Registries (degradación aislada) ---
+    let rawRegistries: any[] = [];
+    try {
+        rawRegistries = await queryResourceGraph(
+            tenantId,
+            `
+            Resources
+            | where type =~ '${REGISTRIES_TYPE}'
+            ${subFilter}
+            | extend skuName = coalesce(tostring(sku.name), tostring(properties.sku.name), '')
+            | project name, resourceGroup, location, resourceId = tolower(id), skuName
+        `
+        );
+    } catch (e: unknown) {
+        logArgFailure("Container Registries", tenantId, e);
+    }
+
+    // --- Inventario de Container Environments (degradación aislada) ---
+    let rawEnvironments: any[] = [];
+    try {
+        rawEnvironments = await queryResourceGraph(
+            tenantId,
+            `
+            Resources
+            | where type =~ '${ENVIRONMENTS_TYPE}'
+            ${subFilter}
+            | project name, resourceGroup, location, resourceId = tolower(id)
+        `
+        );
+    } catch (e: unknown) {
+        logArgFailure("Container Environments", tenantId, e);
     }
 
     // --- Costo por recurso (MonthToDate) vía Cost Management ---
+    // Una sola consulta para los tres tipos: Cost Management acepta varios
+    // valores en el filtro de ResourceType y así no triplicamos las llamadas.
     const costByResourceId: Record<string, number> = {};
     let costBreakdownAvailable = false;
     if (subscriptionId) {
@@ -189,7 +331,7 @@ export const getContainerAppsCost = async (
                         dimensions: {
                             name: "ResourceType",
                             operator: "In",
-                            values: ["microsoft.app/containerapps"],
+                            values: [APPS_TYPE, REGISTRIES_TYPE, ENVIRONMENTS_TYPE],
                         },
                     },
                 },
@@ -235,13 +377,22 @@ export const getContainerAppsCost = async (
         };
     });
 
-    return {
-        subscriptionId,
-        totalMonthlyCost: sumMoney(apps.map((a) => a.monthlyCost)),
-        totalPotentialSaving: sumMoney(apps.map((a) => a.potentialSaving)),
-        scaleToZeroCandidates: apps.filter((a) => a.scaleToZeroCandidate).length,
-        appCount: apps.length,
-        apps: apps.sort((a, b) => b.monthlyCost - a.monthlyCost),
-        costBreakdownAvailable,
-    };
+    const registries: ContainerRegistryCostRow[] = rawRegistries.map((r) => ({
+        name: String(r.name || ""),
+        resourceGroup: String(r.resourceGroup || ""),
+        sku: String(r.skuName || ""),
+        monthlyCost: costByResourceId[String(r.resourceId)] || 0,
+        location: String(r.location || ""),
+    }));
+
+    const appsByEnvironment = countAppsByEnvironment(apps);
+    const environments: ContainerEnvironmentCostRow[] = rawEnvironments.map((e) => ({
+        name: String(e.name || ""),
+        resourceGroup: String(e.resourceGroup || ""),
+        appCount: appsByEnvironment.get(String(e.name || "").toLowerCase()) || 0,
+        monthlyCost: costByResourceId[String(e.resourceId)] || 0,
+        location: String(e.location || ""),
+    }));
+
+    return buildResult({ subscriptionId, apps, registries, environments, costBreakdownAvailable });
 };
