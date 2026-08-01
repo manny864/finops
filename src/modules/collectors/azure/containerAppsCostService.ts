@@ -327,13 +327,6 @@ export const getContainerAppsCost = async (
                     granularity: "None",
                     aggregation: { totalCost: { name: "Cost", function: "Sum" } },
                     grouping: [{ type: "Dimension", name: "ResourceId" }],
-                    filter: {
-                        dimensions: {
-                            name: "ResourceType",
-                            operator: "In",
-                            values: [APPS_TYPE, REGISTRIES_TYPE, ENVIRONMENTS_TYPE],
-                        },
-                    },
                 },
             });
             const cols = (costRes.columns || []).map((c: any) => String(c.name).toLowerCase());
