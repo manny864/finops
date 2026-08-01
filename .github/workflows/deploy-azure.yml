@@ -98,9 +98,15 @@ jobs:
         run: |
           az acr login -n "$ACR"
           
+          # Descargar imágenes para usar como caché (ignorando fallos si no existen)
+          docker pull "$ACR.azurecr.io/$IMAGE:latest" || true
+          docker pull "$ACR.azurecr.io/$IMAGE:$MIGRATE_TAG_SUFFIX" || true
+          
           docker build \
             -t "$ACR.azurecr.io/$IMAGE:${{ github.sha }}" \
             -t "$ACR.azurecr.io/$IMAGE:latest" \
+            --cache-from "$ACR.azurecr.io/$IMAGE:latest" \
+            --build-arg BUILDKIT_INLINE_CACHE=1 \
             --build-arg NEXT_PUBLIC_CLIENT_ID="${{ vars.NEXT_PUBLIC_CLIENT_ID }}" \
             --build-arg NEXT_PUBLIC_PADDLE_CLIENT_TOKEN="${{ vars.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN }}" \
             --build-arg NEXT_PUBLIC_PADDLE_ESSENTIAL_MONTHLY="${{ vars.NEXT_PUBLIC_PADDLE_ESSENTIAL_MONTHLY }}" \
@@ -115,6 +121,8 @@ jobs:
           docker build \
             -t "$ACR.azurecr.io/$IMAGE:${{ github.sha }}-$MIGRATE_TAG_SUFFIX" \
             -t "$ACR.azurecr.io/$IMAGE:$MIGRATE_TAG_SUFFIX" \
+            --cache-from "$ACR.azurecr.io/$IMAGE:$MIGRATE_TAG_SUFFIX" \
+            --build-arg BUILDKIT_INLINE_CACHE=1 \
             --target builder \
             -f Dockerfile . &
           PID_MIGRATE=$!
