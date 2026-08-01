@@ -12,6 +12,7 @@ import { captureAutoPageSnapshot, deriveLabelFromPathname } from '@/lib/autoPage
 import { isMockTenant } from '@/lib/mockData';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { fetchWithAuthRetry } from '@/lib/fetchWithAuth';
 
 /** Nombre por defecto de `useAIContext` cuando ninguna página llamó a
  *  `setPageContext` — usado para saber cuándo pisarlo con la etiqueta
@@ -197,14 +198,19 @@ export default function GlobalCopilot() {
 
     React.useEffect(() => {
         if (isOpen && canAccessCopilot && selectedTenant?.id && selectedTenant.id !== 'default') {
-            fetch(`/api/intelligence/copilot/quota?tenantId=${selectedTenant.id}`)
+            const account = accounts[0] || null;
+            const doFetch = isMockTenant(selectedTenant.id)
+                ? fetch(`/api/intelligence/copilot/quota?tenantId=${selectedTenant.id}`)
+                : fetchWithAuthRetry(instance, account, `/api/intelligence/copilot/quota?tenantId=${selectedTenant.id}`);
+                
+            doFetch
                 .then(r => r.json())
                 .then(data => {
                     if (data.monthly) setQuota(data.monthly);
                 })
                 .catch(e => console.error("[Copilot Quota] Failed to load quota", e));
         }
-    }, [isOpen, canAccessCopilot, selectedTenant?.id]);
+    }, [isOpen, canAccessCopilot, selectedTenant?.id, instance, accounts]);
 
     const handleSend = async (overridePrompt?: string, displayText?: string) => {
         const promptText = overridePrompt || input;
@@ -237,9 +243,15 @@ export default function GlobalCopilot() {
             // route.ts) — 30s acá da margen y siempre termina en un error visible.
             const abortController = new AbortController();
             const timeoutId = setTimeout(() => abortController.abort(), 30_000);
-            const res = await fetch('/api/intelligence/copilot', {
+            
+            const account = accounts[0] || null;
+            const doFetch = (url: string, opts: any) => isMockTenant(selectedTenant?.id || '') 
+                ? fetch(url, opts)
+                : fetchWithAuthRetry(instance, account, url, opts);
+
+            const res = await doFetch('/api/intelligence/copilot', {
                 method: 'POST',
-                headers,
+                headers: { 'Content-Type': 'application/json' },
                 signal: abortController.signal,
                 body: JSON.stringify({
                     prompt: promptText,

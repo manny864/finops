@@ -3,6 +3,11 @@ import crypto from 'crypto';
 import { generateText, generateObject } from 'ai';
 import { z } from 'zod';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { createOpenAI } from '@ai-sdk/openai';
+import { createAzure } from '@ai-sdk/azure';
+import { createAnthropic } from '@ai-sdk/anthropic';
+import { createMistral } from '@ai-sdk/mistral';
+import { createCohere } from '@ai-sdk/cohere';
 import { RowDataPacket } from 'mysql2';
 import { getAIConfig } from '@/services/aiService';
 
@@ -143,13 +148,11 @@ export class AIProviderFactory {
 
         switch (config.provider) {
             case 'openai': {
-                const { createOpenAI } = await import('@ai-sdk/openai');
                 const openai = createOpenAI({ apiKey: config.apiKey });
                 const modelName = 'gpt-4o';
                 return { model: openai(modelName) as any, modelName, config };
             }
             case 'azure_openai': {
-                const { createAzure } = await import('@ai-sdk/azure');
                 const azure = createAzure({ apiKey: config.apiKey, resourceName: process.env.AZURE_OPENAI_RESOURCE_NAME });
                 // azure(...) sin .chat usa por defecto la Responses API, que requiere
                 // una apiVersion reciente + deployment habilitado (muchos recursos no
@@ -159,7 +162,6 @@ export class AIProviderFactory {
                 return { model: azure.chat(modelName) as any, modelName, config };
             }
             case 'anthropic': {
-                const { createAnthropic } = await import('@ai-sdk/anthropic');
                 const anthropic = createAnthropic({ apiKey: config.apiKey });
                 // claude-3-opus-20240229 fue retirado por Anthropic (2026-01-05).
                 // claude-sonnet-5 es el modelo Sonnet actual (calidad casi-Opus en
@@ -168,7 +170,6 @@ export class AIProviderFactory {
                 return { model: anthropic(modelName) as any, modelName, config };
             }
             case 'deepseek': {
-                const { createOpenAI } = await import('@ai-sdk/openai');
                 const deepseek = createOpenAI({ apiKey: config.apiKey, baseURL: 'https://api.deepseek.com/v1' });
                 // deepseek(...) sin .chat usa por defecto la Responses API de OpenAI
                 // (/responses), que DeepSeek no implementa — 404 Not Found. DeepSeek
@@ -177,25 +178,21 @@ export class AIProviderFactory {
                 return { model: deepseek.chat(modelName) as any, modelName, config };
             }
             case 'chatgpt': {
-                const { createOpenAI } = await import('@ai-sdk/openai');
                 const openai = createOpenAI({ apiKey: config.apiKey });
                 const modelName = 'gpt-4o';
                 return { model: openai(modelName) as any, modelName, config };
             }
             case 'kimi': {
-                const { createOpenAI } = await import('@ai-sdk/openai');
                 const kimi = createOpenAI({ apiKey: config.apiKey, baseURL: 'https://api.moonshot.cn/v1' });
                 const modelName = 'moonshot-v1-8k';
                 return { model: kimi.chat(modelName) as any, modelName, config };
             }
             case 'mistral': {
-                const { createMistral } = await import('@ai-sdk/mistral');
                 const mistral = createMistral({ apiKey: config.apiKey });
                 const modelName = 'mistral-small-latest';
                 return { model: mistral(modelName) as any, modelName, config };
             }
             case 'cohere': {
-                const { createCohere } = await import('@ai-sdk/cohere');
                 const cohere = createCohere({ apiKey: config.apiKey });
                 const modelName = 'command-r-plus';
                 return { model: cohere(modelName) as any, modelName, config };
