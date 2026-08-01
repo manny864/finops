@@ -230,7 +230,8 @@ ${prompt ?? ''}
         return result.toTextStreamResponse();
     } catch (error: unknown) {
         if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
-        console.error("[Copilot] Error:", error instanceof Error ? error.message : error);
-        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+        console.error("[Copilot] Error:", error instanceof Error ? error.stack || error.message : error);
+        const errMsg = error instanceof Error ? error.message : "Internal server error";
+        return NextResponse.json({ error: errMsg }, { status: 500 });
     }
 }
