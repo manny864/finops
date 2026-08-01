@@ -64,25 +64,43 @@ export async function GET(request: NextRequest) {
         }
 
         const [freshnessRows]: any = await pool.query(
-            `SELECT tenant_id, MAX(COALESCE(ChargePeriodStart, date)) AS lastDataAt
+            `SELECT tenant_id, 
+                    MAX(created_at) AS lastSyncAt,
+                    MAX(COALESCE(ChargePeriodStart, date)) AS lastDataAt
              FROM CostSnapshots
              WHERE tenant_id IN (${tenants.map(() => "?").join(",")})
              GROUP BY tenant_id`,
             tenants.map((t) => t.tenant_id)
         );
-        const lastDataByTenant = new Map<string, Date | null>(
-            (freshnessRows as any[]).map((r) => [r.tenant_id, r.lastDataAt ? new Date(r.lastDataAt) : null])
+        const freshnessByTenant = new Map<string, { lastSyncAt: Date | null; lastDataAt: Date | null }>(
+            (freshnessRows as any[]).map((r) => [
+                r.tenant_id,
+                {
+                    lastSyncAt: r.lastSyncAt ? new Date(r.lastSyncAt) : null,
+                    lastDataAt: r.lastDataAt ? new Date(r.lastDataAt) : null,
+                },
+            ])
         );
 
         const now = Date.now();
-        const staleMs = STALE_HOURS * 3600 * 1000;
         const staleTenants = tenants
             .map((t) => {
-                const lastDataAt = lastDataByTenant.get(t.tenant_id) || null;
-                const ageHours = lastDataAt ? (now - lastDataAt.getTime()) / 3600000 : null;
-                return { tenantId: t.tenant_id, name: t.name, lastDataAt, ageHours };
+                const info = freshnessByTenant.get(t.tenant_id) || { lastSyncAt: null, lastDataAt: null };
+                const syncAgeHours = info.lastSyncAt ? (now - info.lastSyncAt.getTime()) / 3600000 : null;
+                const dataAgeHours = info.lastDataAt ? (now - info.lastDataAt.getTime()) / 3600000 : null;
+                return {
+                    tenantId: t.tenant_id,
+                    name: t.name,
+                    lastSyncAt: info.lastSyncAt,
+                    lastDataAt: info.lastDataAt,
+                    syncAgeHours,
+                    dataAgeHours,
+                };
             })
-            .filter((t) => t.lastDataAt === null || (t.ageHours as number) > STALE_HOURS);
+            // Se evalúa staleness basándose en la fecha real de inserción (created_at).
+            // Si created_at es reciente, el cron de sync corrió exitosamente aunque Azure Cost Management API
+            // tenga una latencia de publicación en las fechas de facturación (ChargePeriodStart).
+            .filter((t) => t.lastSyncAt === null || (t.syncAgeHours as number) > STALE_HOURS);
 
         if (staleTenants.length === 0) {
             return NextResponse.json({ success: true, checked: tenants.length, stale: 0 });
@@ -92,15 +110,16 @@ export async function GET(request: NextRequest) {
         const severity = allStale ? "critical" : "warning";
         const message = allStale
             ? `/api/cron/sync no generó datos nuevos en CostSnapshots para NINGÚN tenant activo en las últimas ${STALE_HOURS}h — el cron probablemente no está corriendo.`
-            : `${staleTenants.length}/${tenants.length} tenants sin datos nuevos en CostSnapshots hace más de ${STALE_HOURS}h. Cost Groups y otras features dependientes muestran datos desactualizados para esos tenants.`;
+            : `${staleTenants.length}/${tenants.length} tenants sin ejecuciones exitosas de CostSnapshots hace más de ${STALE_HOURS}h. Cost Groups y otras features dependientes muestran datos desactualizados para esos tenants.`;
         const detail = {
             staleCount: staleTenants.length,
             totalActive: tenants.length,
             staleTenants: staleTenants.slice(0, 20).map((t) => ({
                 tenantId: t.tenantId,
                 name: t.name,
+                lastSyncAt: t.lastSyncAt ? t.lastSyncAt.toISOString() : null,
                 lastDataAt: t.lastDataAt ? t.lastDataAt.toISOString() : null,
-                ageHours: t.ageHours !== null ? Number(t.ageHours.toFixed(1)) : null,
+                syncAgeHours: t.syncAgeHours !== null ? Number(t.syncAgeHours.toFixed(1)) : null,
             })),
         };
 
