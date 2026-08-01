@@ -15,11 +15,25 @@ VM. Todo declarado en Terraform (`infra/terraform/modules/mysql_backup/main.tf`)
 
 ## Restricciones / Casos Borde Conocidos
 
-### ⚠️ CRÍTICO: Compatibilidad del ejecutor (PowerShell 5.1 vs 7.2)
-- **Runtime obligatorio:** `runbook_type = "PowerShell"` (PowerShell 5.1).
-- Cambiar el `runbook_type` en Terraform destruye y recrea el recurso del runbook en Azure Automation, lo cual elimina temporalmente el runbook del portal hasta que termine el `terraform apply`.
-- Los módulos `Az.Accounts`, `Az.Compute` y `Az.Automation` deben importarse con `azurerm_automation_module` (asociado a PS 5.1).
-- Tras el `terraform apply`, Azure Automation requiere ~2 a 5 minutos para terminar de extraer e importar los módulos desde PowerShell Gallery (`Succeeded`). Si se ejecuta el runbook antes de que termine la importación, lanzará `Connect-AzAccount is not recognized`.
+### ⚠️ CRÍTICO: Runtime de módulos Az vs runbooks (descubierto 2026-08-01)
+- **Problema:** Los cmdlets `Connect-AzAccount`, `Start-AzVM`, `Stop-AzVM` no se
+  reconocen si los módulos Az se importan con `azurerm_automation_module` (PS 5.1)
+  pero el runbook corre en PS 7.2.
+- **Causa raíz:** `azurerm_automation_module` importa módulos en el runtime de
+  PS 5.1. Los runbooks de tipo `PowerShell72` solo ven módulos importados para
+  el runtime 7.2.
+- **Solución:** Usar `azurerm_automation_powershell72_module` para importar
+  `Az.Accounts`, `Az.Compute` y `Az.Automation`. Los runbooks deben tener
+  `runbook_type = "PowerShell72"`.
+- **⚠️ Schema diferente:** `azurerm_automation_powershell72_module` usa
+  `automation_account_id` (el ID completo del Automation Account), NO
+  `resource_group_name` + `automation_account_name` como el viejo
+  `azurerm_automation_module`. Si se copian los argumentos del resource viejo
+  sin adaptarlos, Terraform falla con "Missing required argument:
+  automation_account_id" y "Unsupported argument: resource_group_name".
+- **Nota:** No mezclar `azurerm_automation_module` y
+  `azurerm_automation_powershell72_module` para el mismo módulo — si se importa
+  en ambos runtimes, el provisioning puede fallar por conflicto de dependencias.
 
 ### Conexión OAuth de Office 365
 - La API Connection de Office 365 se crea por Terraform pero NO se autoriza.
