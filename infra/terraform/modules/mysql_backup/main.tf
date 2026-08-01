@@ -498,73 +498,73 @@ resource "azurerm_automation_runbook" "worker" {
     infra/terraform/modules/mysql_backup/main.tf, no editar a mano en el Portal.
     #>
 
-    $$toolPath_MysqlDump = "${var.vm_tool_path_mysqldump}"
-    $$toolPath_Gzip = "${var.vm_tool_path_gzip}"
-    $$toolPath_AzCopy = "${var.vm_tool_path_azcopy}"
-    $$localTempPath = "${var.vm_local_temp_path}"
+    $toolPath_MysqlDump = "${var.vm_tool_path_mysqldump}"
+    $toolPath_Gzip = "${var.vm_tool_path_gzip}"
+    $toolPath_AzCopy = "${var.vm_tool_path_azcopy}"
+    $localTempPath = "${var.vm_local_temp_path}"
 
-    $$mysqlHost = Get-AutomationVariable -Name "MYSQL_HOST"
-    $$mysqlUser = Get-AutomationVariable -Name "MYSQL_USER"
-    $$mysqlPass = Get-AutomationVariable -Name "MYSQL_PASS"
-    $$storageAccount = Get-AutomationVariable -Name "STORAGE_ACCOUNT_NAME"
-    $$sasToken = Get-AutomationVariable -Name "STORAGE_SAS_TOKEN"
-    $$containerName = "${var.storage_container_name}"
+    $mysqlHost = Get-AutomationVariable -Name "MYSQL_HOST"
+    $mysqlUser = Get-AutomationVariable -Name "MYSQL_USER"
+    $mysqlPass = Get-AutomationVariable -Name "MYSQL_PASS"
+    $storageAccount = Get-AutomationVariable -Name "STORAGE_ACCOUNT_NAME"
+    $sasToken = Get-AutomationVariable -Name "STORAGE_SAS_TOKEN"
+    $containerName = "${var.storage_container_name}"
 
-    $$databases = @(${join(", ", [for db in var.mysql_database_names : "\"${db}\""])})
+    $databases = @(${join(", ", [for db in var.mysql_database_names : "\"${db}\""])})
 
-    $$now = Get-Date
-    $$dateStr = $$now.ToString("yyyy-MM-dd_HHmm")
-    $$dayOfMonth = $$now.Day
-    $$monthOfYear = $$now.Month
+    $now = Get-Date
+    $dateStr = $now.ToString("yyyy-MM-dd_HHmm")
+    $dayOfMonth = $now.Day
+    $monthOfYear = $now.Month
 
-    if (!(Test-Path $$localTempPath)) { New-Item -ItemType Directory -Path $$localTempPath | Out-Null }
+    if (!(Test-Path $localTempPath)) { New-Item -ItemType Directory -Path $localTempPath | Out-Null }
 
     Write-Output "Configurando entorno seguro para MySQL..."
-    $$env:MYSQL_PWD = $$mysqlPass
+    $env:MYSQL_PWD = $mysqlPass
 
-    foreach ($$db in $$databases) {
-      Write-Output "--- Iniciando backup para base de datos: $$db ---"
-      $$fileName = "$${db}_$${dateStr}.sql.gz"
-      $$localFilePath = Join-Path $$localTempPath $$fileName
+    foreach ($db in $databases) {
+      Write-Output "--- Iniciando backup para base de datos: $db ---"
+      $fileName = "$${db}_$${dateStr}.sql.gz"
+      $localFilePath = Join-Path $localTempPath $fileName
 
-      $$dumpCommand = "`"$$toolPath_MysqlDump`" -h $$mysqlHost -u $$mysqlUser --single-transaction --quick --routines --triggers --ssl-mode=REQUIRED $$db | `"$$toolPath_Gzip`" > `"$$localFilePath`""
+      $dumpCommand = "`"$toolPath_MysqlDump`" -h $mysqlHost -u $mysqlUser --single-transaction --quick --routines --triggers --ssl-mode=REQUIRED $db | `"$toolPath_Gzip`" > `"$localFilePath`""
       Write-Output "Ejecutando dump y compresión..."
-      cmd /c $$dumpCommand
+      cmd /c $dumpCommand
 
-      if (!(Test-Path $$localFilePath) -or (Get-Item $$localFilePath).Length -eq 0) {
-        Write-Error "FALLO: El archivo de backup no se generó correctamente para $$db."
-        if (Test-Path $$localFilePath) { Remove-Item $$localFilePath -Force }
+      if (!(Test-Path $localFilePath) -or (Get-Item $localFilePath).Length -eq 0) {
+        Write-Error "FALLO: El archivo de backup no se generó correctamente para $db."
+        if (Test-Path $localFilePath) { Remove-Item $localFilePath -Force }
         continue
       }
 
-      $$fileSize = (Get-Item $$localFilePath).Length / 1MB
-      Write-Output "Dump generado exitosamente: $$fileName ($([math]::Round($$fileSize, 2)) MB)"
+      $fileSize = (Get-Item $localFilePath).Length / 1MB
+      Write-Output "Dump generado exitosamente: $fileName ($([math]::Round($fileSize, 2)) MB)"
 
-      $$destinations = @()
-      $$dbBaseUrl = "https://$$storageAccount.blob.core.windows.net/$$containerName/$$db"
-      $$destinations += "$$dbBaseUrl/daily/$$fileName$$sasToken"
-      if ($$dayOfMonth -eq 1) { $$destinations += "$$dbBaseUrl/monthly/$$fileName$$sasToken" }
-      if ($$dayOfMonth -eq 1 -and $$monthOfYear -eq 1) { $$destinations += "$$dbBaseUrl/yearly/$$fileName$$sasToken" }
+      $destinations = @()
+      $dbBaseUrl = "https://$storageAccount.blob.core.windows.net/$containerName/$db"
+      $destinations += "$dbBaseUrl/daily/$fileName$sasToken"
+      if ($dayOfMonth -eq 1) { $destinations += "$dbBaseUrl/monthly/$fileName$sasToken" }
+      if ($dayOfMonth -eq 1 -and $monthOfYear -eq 1) { $destinations += "$dbBaseUrl/yearly/$fileName$sasToken" }
 
-      foreach ($$destUrl in $$destinations) {
-        $$logUrl = $$destUrl.Substring(0, $$destUrl.IndexOf('?'))
-        Write-Output "Iniciando subida con AzCopy (SAS) a: $$logUrl"
-        $$azCopyArgs = "copy `"$$localFilePath`" `"$$destUrl`" --overwrite=true --log-level=ERROR"
-        $$uploadProcess = Start-Process -FilePath $$toolPath_AzCopy -ArgumentList $$azCopyArgs -Wait -PassThru -NoNewWindow
+      foreach ($destUrl in $destinations) {
+        $logUrl = $destUrl.Substring(0, $destUrl.IndexOf('?'))
+        Write-Output "Iniciando subida con AzCopy (SAS) a: $logUrl"
+        $azCopyArgs = "copy `"$localFilePath`" `"$destUrl`" --overwrite=true --log-level=ERROR"
+        $uploadProcess = Start-Process -FilePath $toolPath_AzCopy -ArgumentList $azCopyArgs -Wait -PassThru -NoNewWindow
 
-        if ($$uploadProcess.ExitCode -ne 0) {
-          Write-Error "Error subiendo a Blob Storage. Exit Code: $$($$uploadProcess.ExitCode). Verifica el SAS Token."
+        if ($uploadProcess.ExitCode -ne 0) {
+          Write-Error "Error subiendo a Blob Storage. Exit Code: $($uploadProcess.ExitCode). Verifica el SAS Token."
         } else {
           Write-Output "Subida completada OK."
         }
       }
 
-      Remove-Item $$localFilePath -Force
-      Write-Output "Finalizado para $$db."
+      Remove-Item $localFilePath -Force
+      Write-Output "Finalizado para $db."
       Write-Output "------------------------------------"
     }
 
-    $$env:MYSQL_PWD = $$null
+    $env:MYSQL_PWD = $null
     Write-Output "Ciclo finalizado."
   PS1
 }
@@ -588,76 +588,76 @@ resource "azurerm_automation_runbook" "orchestrator" {
     infra/terraform/modules/mysql_backup/main.tf, no editar a mano en el Portal.
     #>
 
-    $$ResourceGroupName = "${azurerm_resource_group.this.name}"
-    $$AutomationAccountName = "${azurerm_automation_account.this.name}"
-    $$VMName = "${azurerm_windows_virtual_machine.this.name}"
-    $$HybridWorkerGroup = "${azurerm_automation_hybrid_runbook_worker_group.this.name}"
-    $$BackupRunbookName = "${azurerm_automation_runbook.worker.name}"
+    $ResourceGroupName = "${azurerm_resource_group.this.name}"
+    $AutomationAccountName = "${azurerm_automation_account.this.name}"
+    $VMName = "${azurerm_windows_virtual_machine.this.name}"
+    $HybridWorkerGroup = "${azurerm_automation_hybrid_runbook_worker_group.this.name}"
+    $BackupRunbookName = "${azurerm_automation_runbook.worker.name}"
 
     function Send-Alert {
-      param([string]$$Subject, [string]$$ErrorMessage, [string]$$SourceRunbook)
+      param([string]$Subject, [string]$ErrorMessage, [string]$SourceRunbook)
       try {
-        $$webhookUrlVar = Get-AutomationVariable -Name "ALERT_WEBHOOK_URL" -ErrorAction Stop
-        $$webhookUrl = if ($$webhookUrlVar.GetType().Name -eq "AutomationVariable") { $$webhookUrlVar.Value } else { $$webhookUrlVar }
-        if ([string]::IsNullOrEmpty($$webhookUrl)) { throw "Variable ALERT_WEBHOOK_URL vacía." }
+        $webhookUrlVar = Get-AutomationVariable -Name "ALERT_WEBHOOK_URL" -ErrorAction Stop
+        $webhookUrl = if ($webhookUrlVar.GetType().Name -eq "AutomationVariable") { $webhookUrlVar.Value } else { $webhookUrlVar }
+        if ([string]::IsNullOrEmpty($webhookUrl)) { throw "Variable ALERT_WEBHOOK_URL vacía." }
 
         Write-Output ">>> INTENTANDO ENVIAR ALERTA A LOGIC APP..."
-        $$payloadData = @{ Subject = "ERROR CRÍTICO: $$Subject"; RunbookName = $$SourceRunbook; ErrorMessage = $$ErrorMessage }
-        $$jsonString = $$payloadData | ConvertTo-Json -Depth 5
-        $$utf8Bytes = [System.Text.Encoding]::UTF8.GetBytes($$jsonString)
-        Invoke-RestMethod -Uri $$webhookUrl -Method Post -Body $$utf8Bytes -ContentType "application/json; charset=utf-8" -ErrorAction Stop
+        $payloadData = @{ Subject = "ERROR CRÍTICO: $Subject"; RunbookName = $SourceRunbook; ErrorMessage = $ErrorMessage }
+        $jsonString = $payloadData | ConvertTo-Json -Depth 5
+        $utf8Bytes = [System.Text.Encoding]::UTF8.GetBytes($jsonString)
+        Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $utf8Bytes -ContentType "application/json; charset=utf-8" -ErrorAction Stop
         Write-Output ">>> ALERTA ENVIADA CORRECTAMENTE."
       } catch {
-        Write-Warning "FALLO AL ENVIAR ALERTA. Detalles: $$_"
+        Write-Warning "FALLO AL ENVIAR ALERTA. Detalles: $_"
       }
     }
 
     try {
       Write-Output "Autenticando con Azure..."
-      $$null = Connect-AzAccount -Identity -ErrorAction Stop
+      $null = Connect-AzAccount -Identity -ErrorAction Stop
       Write-Output "Autenticación exitosa."
 
-      Write-Output "--- FASE 1: Encendiendo VM ($$VMName) ---"
-      Start-AzVM -Name $$VMName -ResourceGroupName $$ResourceGroupName -Verbose -ErrorAction Stop
+      Write-Output "--- FASE 1: Encendiendo VM ($VMName) ---"
+      Start-AzVM -Name $VMName -ResourceGroupName $ResourceGroupName -Verbose -ErrorAction Stop
       Write-Output "VM encendida. Esperando 120s para servicios..."
       Start-Sleep -Seconds 120
 
-      Write-Output "--- FASE 2: Disparando Runbook hijo '$$BackupRunbookName' ---"
+      Write-Output "--- FASE 2: Disparando Runbook hijo '$BackupRunbookName' ---"
       Write-Output "Iniciando trabajo en la VM..."
-      $$initialLaunch = Start-AzAutomationRunbook -AutomationAccountName $$AutomationAccountName `
-        -ResourceGroupName $$ResourceGroupName `
-        -RunbookName $$BackupRunbookName `
-        -RunOn $$HybridWorkerGroup `
+      $initialLaunch = Start-AzAutomationRunbook -AutomationAccountName $AutomationAccountName `
+        -ResourceGroupName $ResourceGroupName `
+        -RunbookName $BackupRunbookName `
+        -RunOn $HybridWorkerGroup `
         -Verbose -ErrorAction Stop
 
-      $$jobId = $$initialLaunch.JobId
-      Write-Output "Trabajo iniciado. Job ID: $$jobId. Monitoreando..."
+      $jobId = $initialLaunch.JobId
+      Write-Output "Trabajo iniciado. Job ID: $jobId. Monitoreando..."
 
-      $$terminalStates = @("completed", "failed", "stopped", "suspended")
+      $terminalStates = @("completed", "failed", "stopped", "suspended")
       do {
         Start-Sleep -Seconds 30
-        $$currentJobInfo = Get-AzAutomationJob -Id $$jobId -ResourceGroupName $$ResourceGroupName -AutomationAccountName $$AutomationAccountName -ErrorAction Stop
-        $$currentStatusStr = "$$($$currentJobInfo.Status)".ToLower()
-        Write-Output "Estado actual en VM: '$$($$currentJobInfo.Status)'..."
-      } while ($$terminalStates -notcontains $$currentStatusStr)
+        $currentJobInfo = Get-AzAutomationJob -Id $jobId -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -ErrorAction Stop
+        $currentStatusStr = "$($currentJobInfo.Status)".ToLower()
+        Write-Output "Estado actual en VM: '$($currentJobInfo.Status)'..."
+      } while ($terminalStates -notcontains $currentStatusStr)
 
-      if ($$currentStatusStr -eq "completed") {
+      if ($currentStatusStr -eq "completed") {
         Write-Output "ÉXITO FINAL: El trabajo de backup terminó correctamente."
       } else {
-        throw "El trabajo en la VM falló o se detuvo. Estado final: '$$($$currentJobInfo.Status)'."
+        throw "El trabajo en la VM falló o se detuvo. Estado final: '$($currentJobInfo.Status)'."
       }
     } catch {
-      $$errorDetails = ($$_.Exception.Message).ToString()
-      Write-Error "ERROR CRÍTICO EN EL ORQUESTADOR. Detalles: $$errorDetails"
+      $errorDetails = ($_.Exception.Message).ToString()
+      Write-Error "ERROR CRÍTICO EN EL ORQUESTADOR. Detalles: $errorDetails"
 
-      $$subject = "Fallo General en el Orquestador"
-      if ($$errorDetails -like "*ResourceNotFound*") { $$subject = "Fallo: VM no encontrada" }
-      elseif ($$errorDetails -like "*El trabajo en la VM falló*") { $$subject = "Fallo en el Backup (Worker VM)" }
+      $subject = "Fallo General en el Orquestador"
+      if ($errorDetails -like "*ResourceNotFound*") { $subject = "Fallo: VM no encontrada" }
+      elseif ($errorDetails -like "*El trabajo en la VM falló*") { $subject = "Fallo en el Backup (Worker VM)" }
 
-      Send-Alert -Subject $$subject -ErrorMessage $$errorDetails -SourceRunbook "Orchestrator"
+      Send-Alert -Subject $subject -ErrorMessage $errorDetails -SourceRunbook "Orchestrator"
     } finally {
       Write-Output "--- FASE 3: Asegurando apagado de VM..."
-      Stop-AzVM -Name $$VMName -ResourceGroupName $$ResourceGroupName -Force -NoWait -ErrorAction SilentlyContinue
+      Stop-AzVM -Name $VMName -ResourceGroupName $ResourceGroupName -Force -NoWait -ErrorAction SilentlyContinue
       Write-Output "Orden de apagado enviada. Fin."
     }
   PS1
