@@ -30,6 +30,7 @@ export default function GlobalCopilot() {
     const [messages, setMessages] = useState<{role: 'user'|'ai', content: string}[]>([]);
     const [input, setInput] = useState("");
     const [loading, setLoading] = useState(false);
+    const [quota, setQuota] = useState<{ limit: number|null, remaining: number|null } | null>(null);
     const t = useTranslations('Copilot');
     const locale = useLocale();
     const pathname = usePathname();
@@ -193,6 +194,17 @@ export default function GlobalCopilot() {
             // sessionStorage no disponible (SSR/privacy mode): no auto-abrir
         }
     }, [setIsOpen, canAccessCopilot, isDemoLoginRoute]);
+
+    React.useEffect(() => {
+        if (isOpen && canAccessCopilot && selectedTenant?.id && selectedTenant.id !== 'default') {
+            fetch(`/api/intelligence/copilot/quota?tenantId=${selectedTenant.id}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.monthly) setQuota(data.monthly);
+                })
+                .catch(e => console.error("[Copilot Quota] Failed to load quota", e));
+        }
+    }, [isOpen, canAccessCopilot, selectedTenant?.id]);
 
     const handleSend = async (overridePrompt?: string, displayText?: string) => {
         const promptText = overridePrompt || input;
@@ -460,6 +472,13 @@ export default function GlobalCopilot() {
                         <div className="flex items-center gap-2">
                             <MessageSquare className="w-5 h-5 text-white" />
                             <h3 className="text-white font-bold">{t('title')}</h3>
+                            {quota && (
+                                <span className="ml-2 text-[11px] font-medium px-2 py-0.5 rounded-full bg-white/10 text-white/90">
+                                    {quota.limit === null 
+                                        ? t('quota_unlimited')
+                                        : t('quota_used', { remaining: quota.remaining as number, limit: quota.limit as number })}
+                                </span>
+                            )}
                         </div>
                         <button 
                             onPointerDown={(e) => e.stopPropagation()} 

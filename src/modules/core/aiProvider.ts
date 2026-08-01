@@ -146,7 +146,7 @@ export class AIProviderFactory {
                 const { createOpenAI } = await import('@ai-sdk/openai');
                 const openai = createOpenAI({ apiKey: config.apiKey });
                 const modelName = 'gpt-4o';
-                return { model: openai(modelName), modelName, config };
+                return { model: openai(modelName) as any, modelName, config };
             }
             case 'azure_openai': {
                 const { createAzure } = await import('@ai-sdk/azure');
@@ -156,7 +156,7 @@ export class AIProviderFactory {
                 // lo tienen). .chat apunta al deployment de Chat Completions estándar
                 // ('gpt-4o' acá es el nombre del deployment), el camino universal.
                 const modelName = 'gpt-4o';
-                return { model: azure.chat(modelName), modelName, config };
+                return { model: azure.chat(modelName) as any, modelName, config };
             }
             case 'anthropic': {
                 const { createAnthropic } = await import('@ai-sdk/anthropic');
@@ -165,7 +165,7 @@ export class AIProviderFactory {
                 // claude-sonnet-5 es el modelo Sonnet actual (calidad casi-Opus en
                 // tareas de análisis a menor costo que Opus).
                 const modelName = 'claude-sonnet-5';
-                return { model: anthropic(modelName), modelName, config };
+                return { model: anthropic(modelName) as any, modelName, config };
             }
             case 'deepseek': {
                 const { createOpenAI } = await import('@ai-sdk/openai');
@@ -174,7 +174,31 @@ export class AIProviderFactory {
                 // (/responses), que DeepSeek no implementa — 404 Not Found. DeepSeek
                 // solo soporta Chat Completions (/chat/completions), hay que pedirlo explícito.
                 const modelName = 'deepseek-chat';
-                return { model: deepseek.chat(modelName), modelName, config };
+                return { model: deepseek.chat(modelName) as any, modelName, config };
+            }
+            case 'chatgpt': {
+                const { createOpenAI } = await import('@ai-sdk/openai');
+                const openai = createOpenAI({ apiKey: config.apiKey });
+                const modelName = 'gpt-4o';
+                return { model: openai(modelName) as any, modelName, config };
+            }
+            case 'kimi': {
+                const { createOpenAI } = await import('@ai-sdk/openai');
+                const kimi = createOpenAI({ apiKey: config.apiKey, baseURL: 'https://api.moonshot.cn/v1' });
+                const modelName = 'moonshot-v1-8k';
+                return { model: kimi.chat(modelName) as any, modelName, config };
+            }
+            case 'mistral': {
+                const { createMistral } = await import('@ai-sdk/mistral');
+                const mistral = createMistral({ apiKey: config.apiKey });
+                const modelName = 'mistral-small-latest';
+                return { model: mistral(modelName) as any, modelName, config };
+            }
+            case 'cohere': {
+                const { createCohere } = await import('@ai-sdk/cohere');
+                const cohere = createCohere({ apiKey: config.apiKey });
+                const modelName = 'command-r-plus';
+                return { model: cohere(modelName) as any, modelName, config };
             }
             case 'google':
             default: {
@@ -184,7 +208,7 @@ export class AIProviderFactory {
                 // sin requerir cambios de código.
                 const google = createGoogleGenerativeAI({ apiKey: config.apiKey });
                 const modelName = 'gemini-flash-latest';
-                return { model: google(modelName), modelName, config };
+                return { model: google(modelName) as any, modelName, config };
             }
         }
     }
@@ -258,7 +282,7 @@ Reglas estrictas:
     const { text, usage } = await aiQueue.add(() =>
         withExponentialBackoff(() =>
             generateText({
-                model,
+                model: model as any,
                 system: systemPrompt,
                 prompt: `Here are the latest metrics for the tenant:\n\n${dataString}`
             })
@@ -310,7 +334,7 @@ Return an array of the mapped FocusCostEntry objects.`;
     const { object, usage } = await aiQueue.add(() =>
         withExponentialBackoff(() =>
             generateObject({
-                model,
+                model: model as any,
                 schema: z.array(focusCostEntrySchema),
                 system: systemPrompt,
                 prompt: `Map these billing records to FOCUS format:\n\n${dataString}`

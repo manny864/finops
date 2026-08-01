@@ -158,7 +158,7 @@ ${prompt ?? ''}
 </user_question>`;
 
         const result = streamText({
-            model,
+            model: model as any,
             system: systemPrompt,
             prompt: userMessage,
             // Sin `temperature`: los modelos Claude recientes (Sonnet 5, Opus

@@ -13,16 +13,24 @@ export default function AiConfigGlobalPage() {
     const account = accounts[0];
 
     const PROVIDERS = [
-        { value: "google", label: t("providers.google") },
-        { value: "openai", label: t("providers.openai") },
-        { value: "azure_openai", label: t("providers.azureOpenai") },
-        { value: "anthropic", label: t("providers.anthropic") },
-        { value: "deepseek", label: t("providers.deepseek") },
+        { value: "google", label: t("providers.google") || "Google Gemini" },
+        { value: "openai", label: t("providers.openai") || "OpenAI" },
+        { value: "chatgpt", label: "ChatGPT" },
+        { value: "azure_openai", label: t("providers.azureOpenai") || "Azure OpenAI" },
+        { value: "anthropic", label: t("providers.anthropic") || "Anthropic Claude" },
+        { value: "deepseek", label: t("providers.deepseek") || "DeepSeek" },
+        { value: "kimi", label: "Kimi (Moonshot)" },
+        { value: "mistral", label: "Mistral AI" },
+        { value: "cohere", label: "Cohere" },
     ];
 
     const [provider, setProvider] = useState("google");
     const [hasApiKey, setHasApiKey] = useState(false);
     const [apiKeyInput, setApiKeyInput] = useState("");
+    
+    const [enterpriseProvider, setEnterpriseProvider] = useState("azure_openai");
+    const [hasEnterpriseApiKey, setHasEnterpriseApiKey] = useState(false);
+    const [enterpriseApiKeyInput, setEnterpriseApiKeyInput] = useState("");
     const [aiEnabled, setAiEnabled] = useState(true);
     const [sensitivity, setSensitivity] = useState<Sensitivity>("medium");
     const [shareResourceNames, setShareResourceNames] = useState(true);
@@ -43,6 +51,8 @@ export default function AiConfigGlobalPage() {
             if (!json.success) throw new Error(json.error || t("errors.loadFailed"));
             setProvider(json.provider);
             setHasApiKey(json.hasApiKey);
+            setEnterpriseProvider(json.enterpriseProvider || "azure_openai");
+            setHasEnterpriseApiKey(json.hasEnterpriseApiKey);
             setAiEnabled(json.aiEnabled ?? true);
             setSensitivity((json.anomalySensitivity as Sensitivity) || "medium");
             setShareResourceNames(json.shareResourceNames ?? true);
@@ -67,6 +77,8 @@ export default function AiConfigGlobalPage() {
                 body: JSON.stringify({
                     provider,
                     apiKey: apiKeyInput || undefined,
+                    enterpriseProvider,
+                    enterpriseApiKey: enterpriseApiKeyInput || undefined,
                     aiEnabled,
                     anomalySensitivity: sensitivity,
                     shareResourceNames,
@@ -76,6 +88,7 @@ export default function AiConfigGlobalPage() {
             const json = await res.json();
             if (!json.success) throw new Error(json.error || t("errors.saveFailed"));
             setApiKeyInput("");
+            setEnterpriseApiKeyInput("");
             await load();
         } catch (e: any) {
             setError(e?.message || t("errors.networkError"));
@@ -98,7 +111,7 @@ export default function AiConfigGlobalPage() {
         try {
             const res = await fetchWithAuthRetry(instance, account, "/api/admin/config/ai-global", {
                 method: "PATCH",
-                body: JSON.stringify({ provider, apiKey: null }),
+                body: JSON.stringify({ provider, apiKey: null, enterpriseApiKey: null }),
             });
             const json = await res.json();
             if (!json.success) throw new Error(json.error || t("errors.deleteFailed"));
@@ -244,6 +257,45 @@ export default function AiConfigGlobalPage() {
                             >
                                 {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />} {t("apiKey.deleteApiKey")}
                             </button>
+                        </div>
+                    </div>
+
+                    <div className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-4 ${!aiEnabled ? "opacity-50" : ""}`}>
+                        <div className="border-b border-slate-200 dark:border-slate-800 pb-4 mb-4">
+                            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                                <Sparkles className="w-4 h-4 text-brand-deep" />
+                                Proveedor IA - Planes Enterprise
+                            </h3>
+                            <p className="text-xs text-slate-500 mt-1">Configura el proveedor exclusivo para clientes del plan Enterprise.</p>
+                        </div>
+                        
+                        <div>
+                            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">{t("provider.label")}</label>
+                            <select
+                                value={enterpriseProvider}
+                                onChange={(e) => setEnterpriseProvider(e.target.value)}
+                                className="w-full border border-slate-300 dark:border-slate-700 dark:bg-slate-800 rounded-lg px-3 py-2 text-sm"
+                            >
+                                {PROVIDERS.map((p) => (
+                                    <option key={p.value} value={p.value}>{p.label}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 flex items-center gap-1.5">
+                                <KeyRound className="w-3.5 h-3.5" /> {t("apiKey.label")}
+                            </label>
+                            <input
+                                type="password"
+                                value={enterpriseApiKeyInput}
+                                onChange={(e) => setEnterpriseApiKeyInput(e.target.value)}
+                                placeholder={hasEnterpriseApiKey ? t("apiKey.placeholderSaved") : t("apiKey.placeholderEmpty")}
+                                className="w-full border border-slate-300 dark:border-slate-700 dark:bg-slate-800 rounded-lg px-3 py-2 text-sm font-mono"
+                            />
+                            <p className="text-xs text-slate-500 mt-1">
+                                {hasEnterpriseApiKey ? t("apiKey.configuredNotice") : t("apiKey.missingNotice")}
+                            </p>
                         </div>
                     </div>
 

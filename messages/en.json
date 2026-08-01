@@ -1098,8 +1098,10 @@
     "welcome_message": "Hi! I'm your FinOps assistant and I'm here to help. I'm currently analyzing the <b>{page}</b> module; you can ask me anything related to the data shown on this page.",
     "title": "FinOps Copilot",
     "placeholder": "Ask about these metrics...",
-    "tooltip": "FinOps Copilot — AI assistant: analyzes the current page, finds savings and answers your questions.",
-    "auto_report_label": "Generate an executive summary of the {page} module…"
+    "tooltip": "FinOps Copilot — AI Assistant: analyzes the current page, detects savings, and answers your questions.",
+    "auto_report_label": "Generate an executive summary of module {page}…",
+    "quota_unlimited": "Unlimited queries",
+    "quota_used": "{remaining} of {limit} queries remaining this month"
   },
   "pricing": {
     "monthly": "Monthly",
