@@ -65,7 +65,7 @@ export default function ContainerAppsCard() {
         const rows: AppRow[] = data?.apps || [];
         return rows
             .map((r) => ({ name: r.name, cost: Number(r.monthlyCost) || 0, candidate: r.scaleToZeroCandidate }))
-            .filter((r) => r.cost > 0)
+            .filter((r) => r.cost >= 0)
             .sort((a, b) => b.cost - a.cost)
             .slice(0, 6);
     }, [data]);

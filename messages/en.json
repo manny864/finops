@@ -3819,7 +3819,18 @@
       "sql": "SQL",
       "storage": "Storage",
       "appservices": "App Services",
-      "containers": "Containers"
+      "containers": "Containers",
+      "privilege_escalation": "Privilege Escalation",
+      "initial_access": "Initial Access",
+      "execution": "Execution",
+      "defense_evasion": "Defense Evasion",
+      "credential_access": "Credential Access",
+      "discovery": "Discovery",
+      "lateral_movement": "Lateral Movement",
+      "collection": "Collection",
+      "exfiltration": "Exfiltration",
+      "impact": "Impact",
+      "command_and_control": "Command and Control"
     }
   },
   "CostGroups": {

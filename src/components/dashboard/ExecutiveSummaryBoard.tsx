@@ -524,12 +524,14 @@ export default function ExecutiveSummaryBoard() {
                                     <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate mb-1" title={cat.name}>
                                         {(() => {
                                             const key = cat.name.toLowerCase().replace(/ /g, '_');
-                                            // Usamos try-catch interno por si falla la traducción en tiempo de ejecución (si no existe la key).
                                             try {
                                                 const translated = t(`threat_cats.${key}` as any);
-                                                return translated || cat.name;
+                                                if (translated && !translated.includes('threat_cats.')) {
+                                                    return translated;
+                                                }
+                                                return cat.name.replace(/_/g, ' ');
                                             } catch {
-                                                return cat.name;
+                                                return cat.name.replace(/_/g, ' ');
                                             }
                                         })()}
                                     </p>
