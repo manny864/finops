@@ -61,10 +61,11 @@ export default function LogAnalyticsCard() {
         const rows: any[] = data?.workspaces || [];
         return rows
             .map((r) => ({ name: r.name, cost: Number(r.monthlyCost) || 0, rec: r.recommendation }))
-            .filter((r) => r.cost > 0)
             .sort((a, b) => b.cost - a.cost)
             .slice(0, 6);
     }, [data]);
+
+    const workspaceCount = Number(data?.workspaceCount) || (data?.workspaces || []).length;
 
     const totalCost = Number(data?.totalMonthlyCost) || 0;
     const totalSaving = Number(data?.totalPotentialSaving) || 0;
@@ -85,8 +86,17 @@ export default function LogAnalyticsCard() {
                     <p className="text-xs text-red-500 text-center">{error}</p>
                 </div>
             ) : data?.empty || chartData.length === 0 ? (
-                <div className="flex-1 flex items-center justify-center min-h-[160px]">
-                    <p className="text-sm text-gray-400 text-center">{t('empty')}</p>
+                <div className="flex-1 flex flex-col items-center justify-center min-h-[160px] gap-2">
+                    {workspaceCount > 0 ? (
+                        <>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 text-center font-semibold">
+                                {workspaceCount} {workspaceCount === 1 ? 'workspace' : 'workspaces'}
+                            </p>
+                            <p className="text-xs text-gray-400 text-center">{t('no_cost_yet', { fallback: 'No cost data accumulated yet for this billing period.' })}</p>
+                        </>
+                    ) : (
+                        <p className="text-sm text-gray-400 text-center">{t('empty')}</p>
+                    )}
                 </div>
             ) : (
                 <>

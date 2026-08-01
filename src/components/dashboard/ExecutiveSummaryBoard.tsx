@@ -523,11 +523,11 @@ export default function ExecutiveSummaryBoard() {
                                 <div key={i}>
                                     <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate mb-1" title={cat.name}>{cat.name}</p>
                                     <div className="flex h-3 rounded-full overflow-hidden bg-gray-100 dark:bg-slate-800">
-                                        {cat.high > 0 && <div style={{ width: `${(cat.high / cat.total) * 100}%`, background: COLORS.high }} title={`High: ${cat.high}`} />}
-                                        {cat.medium > 0 && <div style={{ width: `${(cat.medium / cat.total) * 100}%`, background: COLORS.medium }} title={`Medium: ${cat.medium}`} />}
-                                        {cat.low > 0 && <div style={{ width: `${(cat.low / cat.total) * 100}%`, background: COLORS.low }} title={`Low: ${cat.low}`} />}
+                                        {cat.high > 0 && <div style={{ width: `${(cat.high / cat.total) * 100}%`, background: COLORS.high }} title={`${t("high")}: ${cat.high}`} />}
+                                        {cat.medium > 0 && <div style={{ width: `${(cat.medium / cat.total) * 100}%`, background: COLORS.medium }} title={`${t("medium")}: ${cat.medium}`} />}
+                                        {cat.low > 0 && <div style={{ width: `${(cat.low / cat.total) * 100}%`, background: COLORS.low }} title={`${t("low")}: ${cat.low}`} />}
                                     </div>
-                                    <p className="text-[10px] text-slate-400 mt-1">{cat.total} total</p>
+                                    <p className="text-[10px] text-slate-400 mt-1">{cat.total} {t("total").toLowerCase()}</p>
                                 </div>
                             ))}
                             {(!top3ThreatCategories || top3ThreatCategories.length === 0) && (
