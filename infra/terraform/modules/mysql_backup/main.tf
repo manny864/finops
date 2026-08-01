@@ -592,7 +592,7 @@ resource "azurerm_automation_runbook" "orchestrator" {
   location                = var.location
   resource_group_name     = azurerm_resource_group.this.name
   automation_account_name = azurerm_automation_account.this.name
-  runbook_type            = "PowerShell72"
+  runbook_type            = "PowerShell"
   log_progress            = true
   log_verbose             = true
   tags                    = var.tags
