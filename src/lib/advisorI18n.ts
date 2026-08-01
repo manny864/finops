@@ -30,6 +30,116 @@ function normalize(locale: string | undefined): AdvisorLocale {
 }
 
 const ENTRIES: Entry[] = [
+  {
+    match: /delete.*unattached.*managed.*disk/i,
+    problem: {
+      es: "Eliminar discos administrados no conectados",
+      en: "Delete unattached managed disks",
+      "pt-BR": "Excluir discos gerenciados não conectados",
+    },
+    solution: {
+      es: "Estos discos administrados no están conectados a ninguna máquina virtual y continúan generando costos de almacenamiento. Elimínalos para ahorrar costos.",
+      en: "These managed disks are not attached to any virtual machine and continue to incur storage costs. Delete them to save costs.",
+      "pt-BR": "Esses discos gerenciados não estão conectados a nenhuma máquina virtual e continuam gerando custos de armazenamento. Exclua-os para economizar custos.",
+    },
+  },
+  {
+    match: /enable.*mfa.*privileged.*account/i,
+    problem: {
+      es: "Habilitar MFA para cuentas con privilegios",
+      en: "Enable MFA for privileged accounts",
+      "pt-BR": "Habilitar MFA para contas privilegiadas",
+    },
+  },
+  {
+    match: /enable.*microsoft.*defender.*cloud.*subscription/i,
+    problem: {
+      es: "Habilitar Microsoft Defender for Cloud en las suscripciones",
+      en: "Enable Microsoft Defender for Cloud on subscriptions",
+      "pt-BR": "Habilitar Microsoft Defender for Cloud nas assinaturas",
+    },
+  },
+  {
+    match: /restrict.*network.*access.*storage.*account/i,
+    problem: {
+      es: "Restringir el acceso de red a cuentas de almacenamiento",
+      en: "Restrict network access to storage accounts",
+      "pt-BR": "Restringir o acesso de rede a contas de armazenamento",
+    },
+  },
+  {
+    match: /apply.*disk.*encryption.*virtual.*machine/i,
+    problem: {
+      es: "Aplicar cifrado de discos en máquinas virtuales",
+      en: "Apply disk encryption on virtual machines",
+      "pt-BR": "Aplicar criptografia de disco em máquinas virtuais",
+    },
+  },
+  {
+    match: /enable.*soft.*delete.*protect.*data/i,
+    problem: {
+      es: "Habilitar eliminación temporal (soft delete) para proteger tus datos",
+      en: "Enable soft delete to protect your data",
+      "pt-BR": "Habilitar exclusão reversível (soft delete) para proteger seus dados",
+    },
+  },
+  {
+    match: /configure.*availability.*zone.*critical.*vm/i,
+    problem: {
+      es: "Configurar zonas de disponibilidad para VMs críticas",
+      en: "Configure availability zones for critical VMs",
+      "pt-BR": "Configurar zonas de disponibilidade para VMs críticas",
+    },
+  },
+  {
+    match: /enable.*geo-redundant.*backup/i,
+    problem: {
+      es: "Habilitar copias de seguridad geo-redundantes",
+      en: "Enable geo-redundant backups",
+      "pt-BR": "Habilitar backups geo-redundantes",
+    },
+  },
+  {
+    match: /upgrade.*premium.*ssd.*improve.*performance/i,
+    problem: {
+      es: "Actualizar a discos Premium SSD para mejorar el rendimiento",
+      en: "Upgrade to Premium SSD disks to improve performance",
+      "pt-BR": "Atualizar para discos Premium SSD para melhorar o desempenho",
+    },
+  },
+  {
+    match: /increase.*sql.*database.*performance.*tier/i,
+    problem: {
+      es: "Aumentar el nivel de rendimiento de la base de datos SQL",
+      en: "Increase the SQL database performance tier",
+      "pt-BR": "Aumentar o nível de desempenho do banco de dados SQL",
+    },
+  },
+  {
+    match: /enable.*accelerated.*networking.*supported.*virtual.*machine/i,
+    problem: {
+      es: "Habilitar aceleración de red en máquinas virtuales compatibles",
+      en: "Enable accelerated networking on supported virtual machines",
+      "pt-BR": "Habilitar aceleração de rede em máquinas virtuais compatíveis",
+    },
+  },
+  {
+    match: /assign.*tag.*resource.*improve.*governance/i,
+    problem: {
+      es: "Asignar etiquetas a los recursos para mejorar la gobernanza",
+      en: "Assign tags to resources to improve governance",
+      "pt-BR": "Atribuir tags aos recursos para melhorar a governança",
+    },
+  },
+  {
+    match: /configure.*azure.*service.*health.*alert/i,
+    problem: {
+      es: "Configurar alertas de estado de servicio de Azure",
+      en: "Configure Azure Service Health alerts",
+      "pt-BR": "Configurar alertas de integridade de serviço do Azure",
+    },
+  },
+
   // ---------- COSTO ----------
   {
     match: /right.?size.*(shut\s?down|shutdown).*underutilized.*virtual.?machine/i,
