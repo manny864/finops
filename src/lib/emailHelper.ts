@@ -407,7 +407,10 @@ export function getCriticalSystemAlertEmailHtml(params: {
   const { message, source, detail } = params;
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://finops.example.com';
   const detailRows = detail
-    ? Object.entries(detail).map(([k, v]) => `<tr><td>${k}</td><td style="font-family:monospace;">${String(v)}</td></tr>`).join('')
+    ? Object.entries(detail).map(([k, v]) => {
+        const formattedVal = typeof v === 'object' && v !== null ? JSON.stringify(v, null, 2) : String(v);
+        return `<tr><td style="vertical-align:top;">${k}</td><td><pre style="margin:0;font-family:monospace;font-size:12px;white-space:pre-wrap;word-break:break-all;">${formattedVal}</pre></td></tr>`;
+      }).join('')
     : '';
 
   return `
