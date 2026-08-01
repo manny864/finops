@@ -292,34 +292,34 @@ resource "azurerm_automation_account" "this" {
 }
 
 # Módulos Az que usan los runbooks (Connect-AzAccount, Start/Stop-AzVM,
-# Start-AzAutomationRunbook, Get-AzAutomationJob). IMPORTANTE: deben importarse
-# con azurerm_automation_powershell72_module para que queden disponibles en el
-# runtime de PS 7.2 — el resource genérico azurerm_automation_module los importa
-# en PS 5.1, invisible para runbooks de tipo PowerShell72.
-resource "azurerm_automation_powershell72_module" "az_accounts" {
-  name                  = "Az.Accounts"
-  automation_account_id = azurerm_automation_account.this.id
+# Start-AzAutomationRunbook, Get-AzAutomationJob).
+resource "azurerm_automation_module" "az_accounts" {
+  name                    = "Az.Accounts"
+  resource_group_name     = azurerm_resource_group.this.name
+  automation_account_name = azurerm_automation_account.this.name
   module_link {
     uri = "https://www.powershellgallery.com/api/v2/package/Az.Accounts"
   }
 }
 
-resource "azurerm_automation_powershell72_module" "az_compute" {
-  name                  = "Az.Compute"
-  automation_account_id = azurerm_automation_account.this.id
+resource "azurerm_automation_module" "az_compute" {
+  name                    = "Az.Compute"
+  resource_group_name     = azurerm_resource_group.this.name
+  automation_account_name = azurerm_automation_account.this.name
   module_link {
     uri = "https://www.powershellgallery.com/api/v2/package/Az.Compute"
   }
-  depends_on = [azurerm_automation_powershell72_module.az_accounts]
+  depends_on = [azurerm_automation_module.az_accounts]
 }
 
-resource "azurerm_automation_powershell72_module" "az_automation" {
-  name                  = "Az.Automation"
-  automation_account_id = azurerm_automation_account.this.id
+resource "azurerm_automation_module" "az_automation" {
+  name                    = "Az.Automation"
+  resource_group_name     = azurerm_resource_group.this.name
+  automation_account_name = azurerm_automation_account.this.name
   module_link {
     uri = "https://www.powershellgallery.com/api/v2/package/Az.Automation"
   }
-  depends_on = [azurerm_automation_powershell72_module.az_accounts]
+  depends_on = [azurerm_automation_module.az_accounts]
 }
 
 resource "azurerm_automation_hybrid_runbook_worker_group" "this" {
@@ -482,7 +482,7 @@ resource "azurerm_automation_runbook" "worker" {
   location                = var.location
   resource_group_name     = azurerm_resource_group.this.name
   automation_account_name = azurerm_automation_account.this.name
-  runbook_type            = "PowerShell72"
+  runbook_type            = "PowerShell"
   log_progress            = true
   log_verbose             = true
   tags                    = var.tags
@@ -572,7 +572,7 @@ resource "azurerm_automation_runbook" "orchestrator" {
   location                = var.location
   resource_group_name     = azurerm_resource_group.this.name
   automation_account_name = azurerm_automation_account.this.name
-  runbook_type            = "PowerShell72"
+  runbook_type            = "PowerShell"
   log_progress            = true
   log_verbose             = true
   tags                    = var.tags
@@ -661,9 +661,9 @@ resource "azurerm_automation_runbook" "orchestrator" {
   PS1
 
   depends_on = [
-    azurerm_automation_powershell72_module.az_accounts,
-    azurerm_automation_powershell72_module.az_compute,
-    azurerm_automation_powershell72_module.az_automation,
+    azurerm_automation_module.az_accounts,
+    azurerm_automation_module.az_compute,
+    azurerm_automation_module.az_automation,
   ]
 }
 
