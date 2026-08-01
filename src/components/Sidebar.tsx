@@ -145,7 +145,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/intelligence/zero-cost', label: 'Costo Cero', icon: Box },
                 { href: '/intelligence/aks', label: 'Control AKS', icon: Server, requiredTier: 'Enterprise' },
                 { href: '/intelligence/aks-chargeback', label: 'AKS Chargeback', icon: Layers, requiredTier: 'Enterprise' },
-                { href: '/intelligence/container-apps', label: 'Container Apps', icon: Boxes, requiredTier: 'Business' },
+                { href: '/intelligence/container-apps', label: 'Infraestructura de Contenedores', icon: Boxes, requiredTier: 'Business' },
                 { href: '/intelligence/cosmos-db', label: t('cosmosDb', { fallback: 'Cosmos DB' }), icon: Database, requiredTier: 'Business' },
                 { href: '/intelligence/defender', label: t('defender', { fallback: 'Defender for Cloud' }), icon: ShieldCheck, requiredTier: 'Business' },
                 { href: '/intelligence/network-perimeter', label: t('network_perimeter', { fallback: 'Red Perimetral' }), icon: Router, requiredTier: 'Professional' },

@@ -60,8 +60,8 @@ export const WIDGETS: Record<string, WidgetDef> = {
     },
     "intelligence.container-apps": {
         key: "intelligence.container-apps",
-        title: "Container Apps",
-        description: "Costo de Azure Container Apps y oportunidades de scale-to-zero.",
+        title: "Infraestructura de Contenedores",
+        description: "Costo de Azure Container Apps, Container Registries y Managed Environments.",
         sourcePage: "/intelligence/container-apps",
         Component: ContainerAppsCard,
         minHeightRem: 22,
