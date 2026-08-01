@@ -94,7 +94,7 @@ jobs:
           NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY: ${{ vars.NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY }}
           NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY: ${{ vars.NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY }}
 
-      - name: Build & push (runtime)
+      - name: Build & push (runtime e imagen de migraciones en paralelo)
         run: |
           az acr build --registry "$ACR" \
             --image "$IMAGE:${{ github.sha }}" \
@@ -109,20 +109,20 @@ jobs:
             --build-arg NEXT_PUBLIC_PADDLE_PRO_YEARLY="${{ vars.NEXT_PUBLIC_PADDLE_PRO_YEARLY }}" \
             --build-arg NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY="${{ vars.NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY }}" \
             --build-arg NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY="${{ vars.NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY }}" \
-            .
+            . &
+          PID_RUNTIME=$!
 
-      # Imagen SEPARADA para migrar. No lleva --build-arg: el stage builder no
-      # compila el bundle del cliente para nada, sólo necesita el código, los
-      # .sql y el node_modules completo.
-      - name: Build & push (imagen de migraciones)
-        run: |
           az acr build --registry "$ACR" \
             --image "$IMAGE:${{ github.sha }}-$MIGRATE_TAG_SUFFIX" \
             --image "$IMAGE:$MIGRATE_TAG_SUFFIX" \
             --platform linux/amd64 \
             --target builder \
             --file Dockerfile \
-            .
+            . &
+          PID_MIGRATE=$!
+
+          wait $PID_RUNTIME || { echo "Build de runtime falló"; exit 1; }
+          wait $PID_MIGRATE || { echo "Build de imagen de migraciones falló"; exit 1; }
 
       - name: Migraciones
         run: |
@@ -143,20 +143,15 @@ jobs:
           az containerapp update -g "$RG" -n "$APP" \
             --image "$ACR.azurecr.io/$IMAGE:${{ github.sha }}"
 
-      # Los 14 cron jobs corren la MISMA imagen de runtime. Si no se actualizan
-      # acá, quedan clavados en la versión anterior y ejecutan código viejo
-      # contra una base ya migrada — que es peor que no correr.
-      #
-      # El filtro por triggerType deja afuera al job de migraciones, que es
-      # Manual y usa la otra imagen. Pisarlo con la de runtime lo rompería.
-      - name: Deploy de los cron jobs
+      # Los 14 cron jobs corren la MISMA imagen de runtime. Se actualizan en
+      # paralelo (hasta 8 a la vez) para reducir el tiempo de deploy.
+      - name: Deploy de los cron jobs (en paralelo)
         run: |
-          for JOB in $(az containerapp job list -g "$RG" \
-              --query "[?properties.configuration.triggerType=='Schedule'].name" -o tsv); do
-            echo "-> $JOB"
-            az containerapp job update -g "$RG" -n "$JOB" \
-              --image "$ACR.azurecr.io/$IMAGE:${{ github.sha }}"
-          done
+          JOBS=$(az containerapp job list -g "$RG" \
+              --query "[?properties.configuration.triggerType=='Schedule'].name" -o tsv)
+          if [ -n "$JOBS" ]; then
+            echo "$JOBS" | xargs -P 8 -I {} sh -c 'echo "-> {}" && az containerapp job update -g "'"$RG"'" -n "{}" --image "'"$ACR"'.azurecr.io/'"$IMAGE"':${{ github.sha }}"'
+          fi
 
       - name: Health check
         run: |
