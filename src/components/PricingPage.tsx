@@ -139,18 +139,31 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
 
   return (
     <div className="relative overflow-hidden min-h-screen bg-[#0E1A2B] flex flex-col font-sans py-16 px-4 sm:px-6 lg:px-8">
-      {/* Fondo: orbes de luz animados (mismo efecto que el home de cscloudsolutions) */}
+      {/* Fondo: Video interactivo con superposición corporativa y orbes de luz */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden z-0">
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover opacity-30 scale-105 filter contrast-110 saturate-105"
+        >
+          <source src="/videos/CSCS-Interactivo.mp4" type="video/mp4" />
+        </video>
+        {/* Degradado corporativo oscuro para preservar la legibilidad y estética de marca */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0E1A2B]/85 via-[#0E1A2B]/75 to-[#0E1A2B]/95 backdrop-blur-[1px]" />
+
+        {/* Orbes de luz animados */}
         <div
-          className="absolute -top-[10%] -left-[10%] w-[400px] h-[400px] rounded-full animate-blob-7"
+          className="absolute -top-[10%] -left-[10%] w-[400px] h-[400px] rounded-full animate-blob-7 opacity-75"
           style={{ background: 'radial-gradient(circle, rgba(0,174,239,0.35) 0%, transparent 60%)' }}
         />
         <div
-          className="absolute top-[12%] -right-[8%] w-[450px] h-[450px] rounded-full animate-blob-8"
+          className="absolute top-[12%] -right-[8%] w-[450px] h-[450px] rounded-full animate-blob-8 opacity-75"
           style={{ background: 'radial-gradient(circle, rgba(0,84,166,0.45) 0%, transparent 60%)' }}
         />
         <div
-          className="absolute -bottom-[10%] left-[25%] w-[600px] h-[600px] rounded-full animate-blob-9"
+          className="absolute -bottom-[10%] left-[25%] w-[600px] h-[600px] rounded-full animate-blob-9 opacity-75"
           style={{ background: 'radial-gradient(circle, rgba(51,195,255,0.22) 0%, transparent 60%)' }}
         />
       </div>
