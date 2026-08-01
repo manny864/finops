@@ -330,26 +330,9 @@ resource "azurerm_automation_hybrid_runbook_worker_group" "this" {
   automation_account_name = azurerm_automation_account.this.name
 }
 
-# El registro (esta entrada) es sólo METADATA — lo que realmente convierte a
-# la VM en worker es la extensión de abajo. Sin la extensión, esta entrada
-# existe pero el runbook Worker nunca tiene dónde ejecutarse ("no hay workers
-# disponibles").
-resource "azurerm_automation_hybrid_runbook_worker" "this" {
-  resource_group_name     = azurerm_resource_group.this.name
-  automation_account_name = azurerm_automation_account.this.name
-  worker_group_name       = azurerm_automation_hybrid_runbook_worker_group.this.name
-  vm_resource_id          = azurerm_windows_virtual_machine.this.id
-  worker_id               = random_uuid.hybrid_worker.result
-}
-
-resource "random_uuid" "hybrid_worker" {}
-
 # Patrón "extension-based hybrid worker" (el que usa el asistente del Portal
-# desde 2024) — instala el agente en la VM y lo conecta a esta Automation
-# Account. PIEZA DE MENOR CONFIANZA DE ESTE MÓDULO: es la combinación de
-# recursos menos común de las usadas acá; verificar en el primer apply que la
-# extensión llegue a "Succeeded" y que la VM aparezca como worker activo en
-# Automation Account → Hybrid Worker Groups.
+# desde 2024) — instala el agente en la VM y lo conecta automáticamente a esta
+# Automation Account y al grupo de trabajadores híbridos.
 resource "azurerm_virtual_machine_extension" "hybrid_worker" {
   name                       = "HybridWorkerExtension"
   virtual_machine_id         = azurerm_windows_virtual_machine.this.id
@@ -364,8 +347,7 @@ resource "azurerm_virtual_machine_extension" "hybrid_worker" {
   })
 
   depends_on = [
-    azurerm_automation_hybrid_runbook_worker_group.this,
-    azurerm_automation_hybrid_runbook_worker.this
+    azurerm_automation_hybrid_runbook_worker_group.this
   ]
 }
 
