@@ -94,13 +94,13 @@ jobs:
           NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY: ${{ vars.NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY }}
           NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY: ${{ vars.NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY }}
 
-      - name: Build & push (runtime e imagen de migraciones en paralelo)
+      - name: Build & push (local runner)
         run: |
-          az acr build --registry "$ACR" \
-            --image "$IMAGE:${{ github.sha }}" \
-            --image "$IMAGE:latest" \
-            --platform linux/amd64 \
-            --file Dockerfile \
+          az acr login -n "$ACR"
+          
+          docker build \
+            -t "$ACR.azurecr.io/$IMAGE:${{ github.sha }}" \
+            -t "$ACR.azurecr.io/$IMAGE:latest" \
             --build-arg NEXT_PUBLIC_CLIENT_ID="${{ vars.NEXT_PUBLIC_CLIENT_ID }}" \
             --build-arg NEXT_PUBLIC_PADDLE_CLIENT_TOKEN="${{ vars.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN }}" \
             --build-arg NEXT_PUBLIC_PADDLE_ESSENTIAL_MONTHLY="${{ vars.NEXT_PUBLIC_PADDLE_ESSENTIAL_MONTHLY }}" \
@@ -109,20 +109,25 @@ jobs:
             --build-arg NEXT_PUBLIC_PADDLE_PRO_YEARLY="${{ vars.NEXT_PUBLIC_PADDLE_PRO_YEARLY }}" \
             --build-arg NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY="${{ vars.NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY }}" \
             --build-arg NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY="${{ vars.NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY }}" \
-            . &
+            -f Dockerfile . &
           PID_RUNTIME=$!
 
-          az acr build --registry "$ACR" \
-            --image "$IMAGE:${{ github.sha }}-$MIGRATE_TAG_SUFFIX" \
-            --image "$IMAGE:$MIGRATE_TAG_SUFFIX" \
-            --platform linux/amd64 \
+          docker build \
+            -t "$ACR.azurecr.io/$IMAGE:${{ github.sha }}-$MIGRATE_TAG_SUFFIX" \
+            -t "$ACR.azurecr.io/$IMAGE:$MIGRATE_TAG_SUFFIX" \
             --target builder \
-            --file Dockerfile \
-            . &
+            -f Dockerfile . &
           PID_MIGRATE=$!
 
           wait $PID_RUNTIME || { echo "Build de runtime falló"; exit 1; }
           wait $PID_MIGRATE || { echo "Build de imagen de migraciones falló"; exit 1; }
+
+          # Push images en paralelo
+          docker push "$ACR.azurecr.io/$IMAGE:${{ github.sha }}" &
+          docker push "$ACR.azurecr.io/$IMAGE:latest" &
+          docker push "$ACR.azurecr.io/$IMAGE:${{ github.sha }}-$MIGRATE_TAG_SUFFIX" &
+          docker push "$ACR.azurecr.io/$IMAGE:$MIGRATE_TAG_SUFFIX" &
+          wait
 
       - name: Migraciones
         run: |

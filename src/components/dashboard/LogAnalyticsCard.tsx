@@ -61,6 +61,7 @@ export default function LogAnalyticsCard() {
         const rows: any[] = data?.workspaces || [];
         return rows
             .map((r) => ({ name: r.name, cost: Number(r.monthlyCost) || 0, rec: r.recommendation }))
+            .filter((r) => r.cost > 0)
             .sort((a, b) => b.cost - a.cost)
             .slice(0, 6);
     }, [data]);

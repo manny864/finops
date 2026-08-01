@@ -3807,7 +3807,20 @@
     "ha_no_data": "Sin datos",
     "ha_tooltip_resources": "recursos",
     "container_apps_feature_name": "Control de Costos de Container Apps",
-    "log_analytics_feature_name": "Control de Costos de Log Analytics"
+    "log_analytics_feature_name": "Control de Costos de Log Analytics",
+    "advisor_recommendations": "Recomendaciones Azure Advisor",
+    "threat_cats": {
+      "compute": "Cómputo",
+      "networking": "Redes",
+      "network": "Redes",
+      "identityandaccess": "Identidad y Acceso",
+      "identity": "Identidad",
+      "data": "Datos",
+      "sql": "SQL",
+      "storage": "Almacenamiento",
+      "appservices": "App Services",
+      "containers": "Contenedores"
+    }
   },
   "CostGroups": {
     "title": "Cost Groups",

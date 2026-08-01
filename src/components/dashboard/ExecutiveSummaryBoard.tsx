@@ -521,7 +521,18 @@ export default function ExecutiveSummaryBoard() {
                         <div className="flex flex-col gap-3">
                             {(top3ThreatCategories || []).map((cat: any, i: number) => (
                                 <div key={i}>
-                                    <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate mb-1" title={cat.name}>{cat.name}</p>
+                                    <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate mb-1" title={cat.name}>
+                                        {(() => {
+                                            const key = cat.name.toLowerCase().replace(/ /g, '_');
+                                            // Usamos try-catch interno por si falla la traducción en tiempo de ejecución (si no existe la key).
+                                            try {
+                                                const translated = t(`threat_cats.${key}` as any);
+                                                return translated || cat.name;
+                                            } catch {
+                                                return cat.name;
+                                            }
+                                        })()}
+                                    </p>
                                     <div className="flex h-3 rounded-full overflow-hidden bg-gray-100 dark:bg-slate-800">
                                         {cat.high > 0 && <div style={{ width: `${(cat.high / cat.total) * 100}%`, background: COLORS.high }} title={`${t("high")}: ${cat.high}`} />}
                                         {cat.medium > 0 && <div style={{ width: `${(cat.medium / cat.total) * 100}%`, background: COLORS.medium }} title={`${t("medium")}: ${cat.medium}`} />}
@@ -571,7 +582,7 @@ export default function ExecutiveSummaryBoard() {
                 </div>
 
                 <div key="advisorRec">
-                    <Card>
+                    <Card title={t("advisor_recommendations")}>
                         <Link
                             href={`/${locale}/advisor`}
                             className="grid grid-cols-2 gap-3 h-full group -m-1 p-1 rounded-lg transition-colors hover:bg-gray-50 dark:hover:bg-slate-800/40"
