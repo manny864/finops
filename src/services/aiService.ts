@@ -20,7 +20,7 @@ export async function isAiGloballyEnabled(): Promise<boolean> {
     return rows[0]?.setting_value !== 'false';
 }
 
-export async function getAIConfig(tenantId?: string) {
+export async function getAIConfig(tenantId?: string, forceEnterpriseTier?: boolean) {
     let tenantProvider = null;
     let tenantApiKey = null;
 
@@ -48,8 +48,9 @@ export async function getAIConfig(tenantId?: string) {
     const globalApiKey = config['ai_api_key'] ? decryptSecret(config['ai_api_key']) : '';
     const enterpriseApiKey = config['enterprise_ai_api_key'] ? decryptSecret(config['enterprise_ai_api_key']) : '';
 
-    const defaultProvider = tenantTier === 'Enterprise' ? (config['enterprise_ai_provider'] || config['ai_provider'] || 'azure_openai') : (config['ai_provider'] || 'google');
-    const defaultApiKey = tenantTier === 'Enterprise' ? (enterpriseApiKey || globalApiKey || process.env.AZURE_OPENAI_API_KEY || '') : (globalApiKey || process.env.GEMINI_API_KEY || '');
+    const isEnterprise = tenantTier === 'Enterprise' || forceEnterpriseTier;
+    const defaultProvider = isEnterprise ? (config['enterprise_ai_provider'] || config['ai_provider'] || 'azure_openai') : (config['ai_provider'] || 'google');
+    const defaultApiKey = isEnterprise ? (enterpriseApiKey || globalApiKey || process.env.AZURE_OPENAI_API_KEY || '') : (globalApiKey || process.env.GEMINI_API_KEY || '');
 
     return {
         provider: tenantProvider || defaultProvider,

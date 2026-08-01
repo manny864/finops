@@ -16,8 +16,10 @@ export async function POST(request: NextRequest) {
         // Nunca servir un resultado cacheado de un intento anterior (con o
         // sin key) — el test debe reflejar el estado guardado AHORA MISMO.
         invalidateAIConfigCache();
+        const body = await request.json().catch(() => ({}));
+        const isEnterprise = body.testType === 'enterprise';
 
-        const { model, modelName, config } = await AIProviderFactory.getGeminiModel(undefined);
+        const { model, modelName, config } = await AIProviderFactory.getGeminiModel(undefined, isEnterprise);
         const { text, usage } = await generateText({
             model: model as any,
             prompt: "Respondé únicamente con la palabra: OK",

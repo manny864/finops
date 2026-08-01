@@ -12,12 +12,12 @@ type CachedConfig = { config: Awaited<ReturnType<typeof getAIConfig>>; expires: 
 const _configCache = new Map<string, CachedConfig>();
 const CONFIG_TTL_MS = 5 * 60 * 1000;
 
-async function getCachedAIConfig(tenantId?: string) {
-    const key = tenantId || '__global__';
+async function getCachedAIConfig(tenantId?: string, forceEnterpriseTier?: boolean) {
+    const key = (tenantId || '__global__') + (forceEnterpriseTier ? '_ent' : '');
     const now = Date.now();
     const cached = _configCache.get(key);
     if (cached && cached.expires > now) return cached.config;
-    const config = await getAIConfig(tenantId);
+    const config = await getAIConfig(tenantId, forceEnterpriseTier);
     _configCache.set(key, { config, expires: now + CONFIG_TTL_MS });
     return config;
 }
@@ -135,8 +135,8 @@ async function withExponentialBackoff<T>(fn: () => Promise<T>, maxRetries = 3): 
 
 export class AIProviderFactory {
     /** Devuelve también `config` (incluye `source`: 'byok'|'platform') y `modelName`, para que el caller pueda loggear PlatformAiUsage sin reimplementar el switch. */
-    static async getGeminiModel(tenantId?: string) {
-        const config = await getCachedAIConfig(tenantId);
+    static async getGeminiModel(tenantId?: string, forceEnterpriseTier?: boolean) {
+        const config = await getCachedAIConfig(tenantId, forceEnterpriseTier);
         if (!config.apiKey) {
             throw new Error("AI API Key not configured.");
         }

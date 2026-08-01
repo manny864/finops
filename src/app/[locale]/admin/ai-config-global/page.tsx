@@ -39,8 +39,11 @@ export default function AiConfigGlobalPage() {
     const [saving, setSaving] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [testing, setTesting] = useState(false);
+    const [deletingEnterprise, setDeletingEnterprise] = useState(false);
+    const [testingEnterprise, setTestingEnterprise] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+    const [testResultEnterprise, setTestResultEnterprise] = useState<{ ok: boolean; message: string } | null>(null);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -71,6 +74,7 @@ export default function AiConfigGlobalPage() {
         setSaving(true);
         setError(null);
         setTestResult(null);
+        setTestResultEnterprise(null);
         try {
             const res = await fetchWithAuthRetry(instance, account, "/api/admin/config/ai-global", {
                 method: "PATCH",
@@ -111,7 +115,7 @@ export default function AiConfigGlobalPage() {
         try {
             const res = await fetchWithAuthRetry(instance, account, "/api/admin/config/ai-global", {
                 method: "PATCH",
-                body: JSON.stringify({ provider, apiKey: null, enterpriseApiKey: null }),
+                body: JSON.stringify({ provider, apiKey: null }),
             });
             const json = await res.json();
             if (!json.success) throw new Error(json.error || t("errors.deleteFailed"));
@@ -124,21 +128,58 @@ export default function AiConfigGlobalPage() {
         }
     };
 
-    const testConnection = async () => {
-        setTesting(true);
-        setTestResult(null);
+    const deleteEnterpriseApiKey = async () => {
+        const confirmed = window.confirm(t("confirmDeleteKey"));
+        if (!confirmed) return;
+
+        setDeletingEnterprise(true);
+        setError(null);
+        setTestResultEnterprise(null);
         try {
-            const res = await fetchWithAuthRetry(instance, account, "/api/admin/config/ai-global/test", { method: "POST" });
+            const res = await fetchWithAuthRetry(instance, account, "/api/admin/config/ai-global", {
+                method: "PATCH",
+                body: JSON.stringify({ provider, enterpriseApiKey: null }),
+            });
             const json = await res.json();
-            setTestResult(json.success
-                ? { ok: true, message: t("testResult.success", { reply: json.reply }) }
-                : { ok: false, message: json.error || t("errors.testFailed") });
+            if (!json.success) throw new Error(json.error || t("errors.deleteFailed"));
+            setEnterpriseApiKeyInput("");
+            await load();
         } catch (e: any) {
-            setTestResult({ ok: false, message: e?.message || t("errors.networkError") });
+            setError(e?.message || t("errors.networkError"));
         } finally {
-            setTesting(false);
+            setDeletingEnterprise(false);
         }
     };
+
+    const testConnection = async (type: 'standard' | 'enterprise' = 'standard') => {
+        if (type === 'enterprise') {
+            setTestingEnterprise(true);
+            setTestResultEnterprise(null);
+        } else {
+            setTesting(true);
+            setTestResult(null);
+        }
+        try {
+            const res = await fetchWithAuthRetry(instance, account, "/api/admin/config/ai-global/test", { 
+                method: "POST",
+                body: JSON.stringify({ testType: type })
+            });
+            const json = await res.json();
+            const resultObj = json.success
+                ? { ok: true, message: t("testResult.success", { reply: json.reply }) }
+                : { ok: false, message: json.error || t("errors.testFailed") };
+            
+            if (type === 'enterprise') setTestResultEnterprise(resultObj);
+            else setTestResult(resultObj);
+        } catch (e: any) {
+            if (type === 'enterprise') setTestResultEnterprise({ ok: false, message: e?.message || t("errors.networkError") });
+            else setTestResult({ ok: false, message: e?.message || t("errors.networkError") });
+        } finally {
+            if (type === 'enterprise') setTestingEnterprise(false);
+            else setTesting(false);
+        }
+    };
+
 
     return (
         <div className="content animate-in fade-in max-w-2xl space-y-6">
@@ -242,7 +283,7 @@ export default function AiConfigGlobalPage() {
                                 {saving && <Loader2 className="w-4 h-4 animate-spin" />} {t("save")}
                             </button>
                             <button
-                                onClick={testConnection}
+                                onClick={() => testConnection('standard')}
                                 disabled={testing || !hasApiKey}
                                 title={!hasApiKey ? t("apiKey.saveKeyFirst") : t("apiKey.testConnectionTitle")}
                                 className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold rounded-lg disabled:opacity-50 flex items-center gap-2"
@@ -296,6 +337,41 @@ export default function AiConfigGlobalPage() {
                             <p className="text-xs text-slate-500 mt-1">
                                 {hasEnterpriseApiKey ? t("apiKey.configuredNotice") : t("apiKey.missingNotice")}
                             </p>
+                        </div>
+                        
+                        {testResultEnterprise && (
+                            <div className={`flex items-start gap-2 text-sm px-3 py-2 rounded-lg border ${testResultEnterprise.ok
+                                ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-300"
+                                : "bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800/50 text-rose-700 dark:text-rose-300"}`}>
+                                {testResultEnterprise.ok ? <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" /> : <XCircle className="w-4 h-4 shrink-0 mt-0.5" />}
+                                <span>{testResultEnterprise.message}</span>
+                            </div>
+                        )}
+
+                        <div className="flex items-center gap-2 pt-1">
+                            <button
+                                onClick={save}
+                                disabled={saving}
+                                className="px-4 py-2 bg-brand-deep hover:bg-brand-bright text-white text-sm font-bold rounded-lg disabled:opacity-50 flex items-center gap-2"
+                            >
+                                {saving && <Loader2 className="w-4 h-4 animate-spin" />} {t("save")}
+                            </button>
+                            <button
+                                onClick={() => testConnection('enterprise')}
+                                disabled={testingEnterprise || !hasEnterpriseApiKey}
+                                title={!hasEnterpriseApiKey ? t("apiKey.saveKeyFirst") : t("apiKey.testConnectionTitle")}
+                                className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold rounded-lg disabled:opacity-50 flex items-center gap-2"
+                            >
+                                {testingEnterprise && <Loader2 className="w-4 h-4 animate-spin" />} {t("testConnection")}
+                            </button>
+                            <button
+                                onClick={deleteEnterpriseApiKey}
+                                disabled={deletingEnterprise || !hasEnterpriseApiKey}
+                                title={!hasEnterpriseApiKey ? t("apiKey.noKeySaved") : t("apiKey.deleteKeyTitle")}
+                                className="ml-auto px-4 py-2 bg-rose-50 dark:bg-rose-900/20 hover:bg-rose-100 dark:hover:bg-rose-900/40 text-rose-700 dark:text-rose-300 text-sm font-bold rounded-lg disabled:opacity-50 flex items-center gap-2"
+                            >
+                                {deletingEnterprise ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />} {t("apiKey.deleteApiKey")}
+                            </button>
                         </div>
                     </div>
 
