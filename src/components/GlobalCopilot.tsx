@@ -12,7 +12,7 @@ import { captureAutoPageSnapshot, deriveLabelFromPathname } from '@/lib/autoPage
 import { isMockTenant } from '@/lib/mockData';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { fetchWithAuthRetry } from '@/lib/fetchWithAuth';
+import { fetchWithAuthRetry } from '@/lib/msalToken';
 
 /** Nombre por defecto de `useAIContext` cuando ninguna página llamó a
  *  `setPageContext` — usado para saber cuándo pisarlo con la etiqueta
