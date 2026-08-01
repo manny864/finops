@@ -20,31 +20,41 @@ export async function isAiGloballyEnabled(): Promise<boolean> {
     return rows[0]?.setting_value !== 'false';
 }
 
-export async function getAIConfig(tenantId?: string) {
+export async function getAIConfig(tenantId?: string, forceEnterpriseTier?: boolean) {
     let tenantProvider = null;
     let tenantApiKey = null;
 
+    let tenantTier = 'Essential';
+
     if (tenantId) {
-        const [tenantRows] = await pool.query<RowDataPacket[]>('SELECT ai_provider, ai_api_key FROM Tenants WHERE tenant_id = ? LIMIT 1', [tenantId]);
-        if (tenantRows.length > 0 && tenantRows[0].ai_provider && tenantRows[0].ai_provider !== 'system') {
-            tenantProvider = tenantRows[0].ai_provider;
-            // Descifra la key almacenada (IA-2). decryptSecret devuelve el valor
-            // tal cual si es plaintext legacy (sin prefijo enc:v1:).
-            tenantApiKey = decryptSecret(tenantRows[0].ai_api_key);
+        const [tenantRows] = await pool.query<RowDataPacket[]>('SELECT tier, ai_provider, ai_api_key FROM Tenants WHERE tenant_id = ? LIMIT 1', [tenantId]);
+        if (tenantRows.length > 0) {
+            tenantTier = tenantRows[0].tier || 'Essential';
+            if (tenantRows[0].ai_provider && tenantRows[0].ai_provider !== 'system') {
+                tenantProvider = tenantRows[0].ai_provider;
+                // Descifra la key almacenada (IA-2). decryptSecret devuelve el valor
+                // tal cual si es plaintext legacy (sin prefijo enc:v1:).
+                tenantApiKey = decryptSecret(tenantRows[0].ai_api_key);
+            }
         }
     }
 
-    const [rows] = await pool.query<RowDataPacket[]>('SELECT setting_key, setting_value FROM GlobalSettings WHERE setting_key IN ("ai_provider", "ai_api_key")');
+    const [rows] = await pool.query<RowDataPacket[]>('SELECT setting_key, setting_value FROM GlobalSettings WHERE setting_key IN ("ai_provider", "ai_api_key", "enterprise_ai_provider", "enterprise_ai_api_key")');
     const config: Record<string, string> = {};
     for (const row of rows) {
         config[row.setting_key] = row.setting_value;
     }
     // La key global también puede estar cifrada (o plaintext legacy).
     const globalApiKey = config['ai_api_key'] ? decryptSecret(config['ai_api_key']) : '';
+    const enterpriseApiKey = config['enterprise_ai_api_key'] ? decryptSecret(config['enterprise_ai_api_key']) : '';
+
+    const isEnterprise = tenantTier === 'Enterprise' || forceEnterpriseTier;
+    const defaultProvider = isEnterprise ? (config['enterprise_ai_provider'] || config['ai_provider'] || 'azure_openai') : (config['ai_provider'] || 'google');
+    const defaultApiKey = isEnterprise ? (enterpriseApiKey || globalApiKey || process.env.AZURE_OPENAI_API_KEY || '') : (globalApiKey || process.env.GEMINI_API_KEY || '');
 
     return {
-        provider: tenantProvider || config['ai_provider'] || process.env.AI_PROVIDER || 'google',
-        apiKey: tenantApiKey || globalApiKey || process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY || process.env.AZURE_OPENAI_API_KEY || '',
+        provider: tenantProvider || defaultProvider,
+        apiKey: tenantApiKey || defaultApiKey,
         // FinOps: distingue quién paga la llamada — 'byok' es gasto del tenant
         // (key propia), 'platform' es gasto que absorbe la plataforma (key
         // global de fallback). Ver PlatformAiUsage / insertPlatformAiUsage.
@@ -95,6 +105,28 @@ export async function generateFinOpsReport(tenantId: string, metricsData: any, l
             modelName = 'deepseek-chat';
             model = deepseek.chat(modelName);
             break;
+        case 'chatgpt':
+            const chatgpt = createOpenAI({ apiKey: config.apiKey });
+            modelName = 'gpt-4o';
+            model = chatgpt(modelName);
+            break;
+        case 'kimi':
+            const kimi = createOpenAI({ apiKey: config.apiKey, baseURL: 'https://api.moonshot.cn/v1' });
+            modelName = 'moonshot-v1-8k';
+            model = kimi.chat(modelName);
+            break;
+        case 'mistral':
+            const { createMistral } = await import('@ai-sdk/mistral');
+            const mistral = createMistral({ apiKey: config.apiKey });
+            modelName = 'mistral-small-latest';
+            model = mistral(modelName);
+            break;
+        case 'cohere':
+            const { createCohere } = await import('@ai-sdk/cohere');
+            const cohere = createCohere({ apiKey: config.apiKey });
+            modelName = 'command-r-plus';
+            model = cohere(modelName);
+            break;
         case 'openai':
         default:
             const openai = createOpenAI({ apiKey: config.apiKey });
@@ -121,7 +153,7 @@ Reglas estrictas:
 - Redacta el reporte completamente en ${locale === 'es' ? 'Español' : locale === 'pt-BR' ? 'Portugués (Brasil)' : 'Inglés'}.`;
 
     const { text, usage } = await generateText({
-        model,
+        model: model as any,
         system: systemPrompt,
         prompt: `Here are the latest metrics for the tenant:\n\n${JSON.stringify(metricsData, null, 2)}`
     });

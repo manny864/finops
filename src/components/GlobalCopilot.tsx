@@ -12,6 +12,7 @@ import { captureAutoPageSnapshot, deriveLabelFromPathname } from '@/lib/autoPage
 import { isMockTenant } from '@/lib/mockData';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { fetchWithAuthRetry } from '@/lib/msalToken';
 
 /** Nombre por defecto de `useAIContext` cuando ninguna página llamó a
  *  `setPageContext` — usado para saber cuándo pisarlo con la etiqueta
@@ -30,6 +31,7 @@ export default function GlobalCopilot() {
     const [messages, setMessages] = useState<{role: 'user'|'ai', content: string}[]>([]);
     const [input, setInput] = useState("");
     const [loading, setLoading] = useState(false);
+    const [quota, setQuota] = useState<{ limit: number|null, remaining: number|null } | null>(null);
     const t = useTranslations('Copilot');
     const locale = useLocale();
     const pathname = usePathname();
@@ -194,6 +196,22 @@ export default function GlobalCopilot() {
         }
     }, [setIsOpen, canAccessCopilot, isDemoLoginRoute]);
 
+    React.useEffect(() => {
+        if (isOpen && canAccessCopilot && selectedTenant?.id && selectedTenant.id !== 'default') {
+            const account = accounts[0] || null;
+            const doFetch = isMockTenant(selectedTenant.id)
+                ? fetch(`/api/intelligence/copilot/quota?tenantId=${selectedTenant.id}`)
+                : fetchWithAuthRetry(instance, account, `/api/intelligence/copilot/quota?tenantId=${selectedTenant.id}`);
+                
+            doFetch
+                .then(r => r.json())
+                .then(data => {
+                    if (data.monthly) setQuota(data.monthly);
+                })
+                .catch(e => console.error("[Copilot Quota] Failed to load quota", e));
+        }
+    }, [isOpen, canAccessCopilot, selectedTenant?.id, instance, accounts]);
+
     const handleSend = async (overridePrompt?: string, displayText?: string) => {
         const promptText = overridePrompt || input;
         if (!promptText.trim() || loading) return;
@@ -225,9 +243,15 @@ export default function GlobalCopilot() {
             // route.ts) — 30s acá da margen y siempre termina en un error visible.
             const abortController = new AbortController();
             const timeoutId = setTimeout(() => abortController.abort(), 30_000);
-            const res = await fetch('/api/intelligence/copilot', {
+            
+            const account = accounts[0] || null;
+            const doFetch = (url: string, opts: any) => isMockTenant(selectedTenant?.id || '') 
+                ? fetch(url, opts)
+                : fetchWithAuthRetry(instance, account, url, opts);
+
+            const res = await doFetch('/api/intelligence/copilot', {
                 method: 'POST',
-                headers,
+                headers: { 'Content-Type': 'application/json' },
                 signal: abortController.signal,
                 body: JSON.stringify({
                     prompt: promptText,
@@ -460,6 +484,13 @@ export default function GlobalCopilot() {
                         <div className="flex items-center gap-2">
                             <MessageSquare className="w-5 h-5 text-white" />
                             <h3 className="text-white font-bold">{t('title')}</h3>
+                            {quota && (
+                                <span className="ml-2 text-[11px] font-medium px-2 py-0.5 rounded-full bg-white/10 text-white/90">
+                                    {quota.limit === null 
+                                        ? t('quota_unlimited')
+                                        : t('quota_used', { remaining: quota.remaining as number, limit: quota.limit as number })}
+                                </span>
+                            )}
                         </div>
                         <button 
                             onPointerDown={(e) => e.stopPropagation()} 

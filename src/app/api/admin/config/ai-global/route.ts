@@ -21,11 +21,13 @@ import { invalidateAIConfigCache } from "@/modules/core/aiProvider";
  * ajustarlos por su cuenta en su propia Configuración de IA.
  */
 
-const PROVIDERS = new Set(["google", "openai", "azure_openai", "anthropic", "deepseek"]);
+const PROVIDERS = new Set(["google", "openai", "azure_openai", "anthropic", "deepseek", "chatgpt", "kimi", "mistral", "cohere"]);
 const VALID_SENSITIVITIES = new Set(["low", "medium", "high"]);
 const GLOBAL_KEYS = [
     "ai_provider",
     "ai_api_key",
+    "enterprise_ai_provider",
+    "enterprise_ai_api_key",
     "ai_enabled",
     "ai_anomaly_sensitivity",
     "ai_share_resource_names",
@@ -48,6 +50,8 @@ export async function GET(request: NextRequest) {
             success: true,
             provider: map.ai_provider || "google",
             hasApiKey: Boolean(map.ai_api_key),
+            enterpriseProvider: map.enterprise_ai_provider || "azure_openai",
+            hasEnterpriseApiKey: Boolean(map.enterprise_ai_api_key),
             aiEnabled: map.ai_enabled !== "false",
             anomalySensitivity: (map.ai_anomaly_sensitivity as string) || "medium",
             shareResourceNames: map.ai_share_resource_names !== "false",
@@ -76,10 +80,15 @@ export async function PATCH(request: NextRequest) {
         const body = await request.json().catch(() => ({}));
         const provider = String(body.provider || "google");
         const apiKey = typeof body.apiKey === "string" ? body.apiKey.trim() : "";
+        const enterpriseProvider = body.enterpriseProvider ? String(body.enterpriseProvider) : undefined;
+        const enterpriseApiKey = typeof body.enterpriseApiKey === "string" ? body.enterpriseApiKey.trim() : "";
         const { aiEnabled, anomalySensitivity, shareResourceNames, shareTags } = body;
 
         if (!PROVIDERS.has(provider)) {
             return NextResponse.json({ error: `Proveedor inválido. Debe ser uno de: ${[...PROVIDERS].join(", ")}` }, { status: 400 });
+        }
+        if (enterpriseProvider && !PROVIDERS.has(enterpriseProvider)) {
+            return NextResponse.json({ error: `Proveedor enterprise inválido. Debe ser uno de: ${[...PROVIDERS].join(", ")}` }, { status: 400 });
         }
         if (anomalySensitivity !== undefined && !VALID_SENSITIVITIES.has(anomalySensitivity)) {
             return NextResponse.json({ error: "anomalySensitivity debe ser low, medium o high" }, { status: 400 });
@@ -93,6 +102,16 @@ export async function PATCH(request: NextRequest) {
             await upsertGlobalSetting("ai_api_key", encryptSecret(apiKey));
         } else if (body.apiKey === null) {
             await pool.query(`DELETE FROM GlobalSettings WHERE setting_key = 'ai_api_key'`);
+        }
+
+        if (enterpriseProvider) {
+            await upsertGlobalSetting("enterprise_ai_provider", enterpriseProvider);
+        }
+        
+        if (enterpriseApiKey) {
+            await upsertGlobalSetting("enterprise_ai_api_key", encryptSecret(enterpriseApiKey));
+        } else if (body.enterpriseApiKey === null) {
+            await pool.query(`DELETE FROM GlobalSettings WHERE setting_key = 'enterprise_ai_api_key'`);
         }
 
         if (aiEnabled !== undefined) await upsertGlobalSetting("ai_enabled", aiEnabled ? "true" : "false");

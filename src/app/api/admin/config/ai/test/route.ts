@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
 
         const { model, modelName, config } = await AIProviderFactory.getGeminiModel(tenantId);
         const { text, usage } = await generateText({
-            model,
+            model: model as any,
             prompt: "Respondé únicamente con la palabra: OK",
         });
 

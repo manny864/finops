@@ -26,7 +26,9 @@
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.81",
     "@ai-sdk/azure": "^3.0.77",
+    "@ai-sdk/cohere": "^4.0.18",
     "@ai-sdk/google": "^3.0.80",
+    "@ai-sdk/mistral": "^4.0.20",
     "@ai-sdk/openai": "^3.0.68",
     "@azure/arm-advisor": "^3.2.0",
     "@azure/arm-appservice": "^18.0.0",

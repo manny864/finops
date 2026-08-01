@@ -262,10 +262,14 @@ export default function AiConfigPage() {
                                 >
                                     <option value="system">{t('provider.options.system')}</option>
                                     <option value="openai">{t('provider.options.openai')}</option>
+                                    <option value="chatgpt">ChatGPT</option>
                                     <option value="azure_openai">{t('provider.options.azureOpenai')}</option>
                                     <option value="anthropic">{t('provider.options.anthropic')}</option>
                                     <option value="google">{t('provider.options.google')}</option>
                                     <option value="deepseek">{t('provider.options.deepseek')}</option>
+                                    <option value="kimi">Kimi (Moonshot)</option>
+                                    <option value="mistral">Mistral AI</option>
+                                    <option value="cohere">Cohere</option>
                                 </select>
                                 <p className="text-xs text-gray-500 mt-2">
                                     {t('provider.recommendation')}

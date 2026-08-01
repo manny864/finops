@@ -52,6 +52,10 @@ export async function POST(request: NextRequest) {
 
         const effectiveTenantId = isDemoTenant ? tenantId : (tenantId || identity.tenantId);
 
+        // ID de la fila de CopilotUsage insertada al final del bloque de quota
+        // (0 para demo tenants que no tienen fila en DB).
+        let copilotUsageId = 0;
+
         // Rate limit por (tenant, usuario) para evitar Denial-of-Wallet en el
         // proveedor de IA (IA-4).
         const rl = await rateLimiter.checkByKeyDistributed(`ai:copilot:${effectiveTenantId}:${identity.email}`, AI_RL_LIMIT, AI_RL_WINDOW_MS);
@@ -104,10 +108,12 @@ export async function POST(request: NextRequest) {
             // Se registra ANTES de llamar al modelo (cuenta el intento, no solo
             // las respuestas exitosas) — mismo criterio que la cuota de tickets
             // de soporte (ver /api/support/tickets).
-            await pool.query(
-                "INSERT INTO CopilotUsage (tenant_id, user_email) VALUES (?, ?)",
-                [effectiveTenantId, identity.email]
+            const [insertResult]: any = await pool.query(
+                `INSERT INTO CopilotUsage (tenant_id, user_email, model_name, provider)
+                 VALUES (?, ?, ?, ?)`,
+                [effectiveTenantId, identity.email, null, null]
             );
+            copilotUsageId = Number(insertResult?.insertId || 0);
         }
 
         const { model, modelName, config: aiConfig } = await AIProviderFactory.getGeminiModel(effectiveTenantId);
@@ -152,7 +158,7 @@ ${prompt ?? ''}
 </user_question>`;
 
         const result = streamText({
-            model,
+            model: model as any,
             system: systemPrompt,
             prompt: userMessage,
             // Sin `temperature`: los modelos Claude recientes (Sonnet 5, Opus
@@ -173,6 +179,7 @@ ${prompt ?? ''}
             // del SDK no permite inyectar un mensaje de error en ese protocolo).
             abortSignal: AbortSignal.timeout(25_000),
             onFinish: ({ usage }) => {
+                // Registro del gasto de IA en PlatformAiUsage (visibilidad de costo de la plataforma).
                 insertPlatformAiUsage({
                     tenantId: effectiveTenantId,
                     source: aiConfig.source,
@@ -182,6 +189,32 @@ ${prompt ?? ''}
                     inputTokens: usage.inputTokens || 0,
                     outputTokens: usage.outputTokens || 0,
                 });
+                // Actualizar CopilotUsage con tokens reales y costo estimado.
+                // Solo para tenants reales (copilotUsageId > 0).
+                if (copilotUsageId > 0) {
+                    const inputT = usage.inputTokens || 0;
+                    const outputT = usage.outputTokens || 0;
+                    // Precio aproximado por millón de tokens.
+                    // gpt-4o: $2.50 in / $10.00 out — gpt-4o-mini: $0.15 in / $0.60 out
+                    // gemini-pro: ~$1.25 in / $5.00 out — fallback conservador: $1.25/$5.00
+                    const INPUT_PRICE_PER_M  = modelName.includes('mini') ? 0.15  : modelName.includes('gpt-4o') ? 2.50  : 1.25;
+                    const OUTPUT_PRICE_PER_M = modelName.includes('mini') ? 0.60  : modelName.includes('gpt-4o') ? 10.00 : 5.00;
+                    const estimatedCost = (inputT / 1_000_000) * INPUT_PRICE_PER_M
+                                       + (outputT / 1_000_000) * OUTPUT_PRICE_PER_M;
+                    pool.query(
+                        `UPDATE CopilotUsage
+                         SET model_name         = ?,
+                             provider           = ?,
+                             input_tokens       = ?,
+                             output_tokens      = ?,
+                             estimated_cost_usd = ?
+                         WHERE id = ?`,
+                        [modelName, aiConfig.provider, inputT, outputT,
+                         estimatedCost.toFixed(8), copilotUsageId]
+                    ).catch((err: unknown) => {
+                        console.error('[Copilot] CopilotUsage token update failed:', err);
+                    });
+                }
             },
             onError: (error) => {
                 // toTextStreamResponse() no tiene forma de mandarle este error al
@@ -197,7 +230,8 @@ ${prompt ?? ''}
         return result.toTextStreamResponse();
     } catch (error: unknown) {
         if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
-        console.error("[Copilot] Error:", error instanceof Error ? error.message : error);
-        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+        console.error("[Copilot] Error:", error instanceof Error ? error.stack || error.message : error);
+        const errMsg = error instanceof Error ? error.message : "Internal server error";
+        return NextResponse.json({ error: errMsg }, { status: 500 });
     }
 }

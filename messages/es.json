@@ -1099,7 +1099,9 @@
     "title": "FinOps Copilot",
     "placeholder": "Pregunta sobre estas métricas...",
     "tooltip": "FinOps Copilot — Asistente IA: analiza la página actual, detecta ahorros y responde tus preguntas.",
-    "auto_report_label": "Generá un resumen ejecutivo del módulo {page}…"
+    "auto_report_label": "Generá un resumen ejecutivo del módulo {page}…",
+    "quota_unlimited": "Consultas ilimitadas",
+    "quota_used": "{remaining} de {limit} consultas restantes este mes"
   },
   "pricing": {
     "monthly": "Mensual",

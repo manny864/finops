@@ -331,6 +331,14 @@ resource "azurerm_automation_hybrid_runbook_worker_group" "this" {
 # Patrón "extension-based hybrid worker" (el que usa el asistente del Portal
 # desde 2024) — instala el agente en la VM y lo conecta automáticamente a esta
 # Automation Account y al grupo de trabajadores híbridos.
+
+resource "azurerm_automation_hybrid_runbook_worker" "this" {
+  resource_group_name     = azurerm_resource_group.this.name
+  automation_account_name = azurerm_automation_account.this.name
+  worker_group_name       = azurerm_automation_hybrid_runbook_worker_group.this.name
+  vm_resource_id          = azurerm_windows_virtual_machine.this.id
+}
+
 resource "azurerm_virtual_machine_extension" "hybrid_worker" {
   name                       = "HybridWorkerExtension"
   virtual_machine_id         = azurerm_windows_virtual_machine.this.id
@@ -617,8 +625,8 @@ resource "azurerm_automation_runbook" "orchestrator" {
 
       Write-Output "--- FASE 1: Encendiendo VM ($VMName) ---"
       Start-AzVM -Name $VMName -ResourceGroupName $ResourceGroupName -Verbose -ErrorAction Stop
-      Write-Output "VM encendida. Esperando 120s para servicios..."
-      Start-Sleep -Seconds 120
+      Write-Output "VM encendida. Esperando 300s para servicios..."
+      Start-Sleep -Seconds 300
 
       Write-Output "--- FASE 2: Disparando Runbook hijo '$BackupRunbookName' ---"
       Write-Output "Iniciando trabajo en la VM..."

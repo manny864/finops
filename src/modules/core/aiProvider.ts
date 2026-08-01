@@ -3,6 +3,11 @@ import crypto from 'crypto';
 import { generateText, generateObject } from 'ai';
 import { z } from 'zod';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { createOpenAI } from '@ai-sdk/openai';
+import { createAzure } from '@ai-sdk/azure';
+import { createAnthropic } from '@ai-sdk/anthropic';
+import { createMistral } from '@ai-sdk/mistral';
+import { createCohere } from '@ai-sdk/cohere';
 import { RowDataPacket } from 'mysql2';
 import { getAIConfig } from '@/services/aiService';
 
@@ -12,12 +17,12 @@ type CachedConfig = { config: Awaited<ReturnType<typeof getAIConfig>>; expires: 
 const _configCache = new Map<string, CachedConfig>();
 const CONFIG_TTL_MS = 5 * 60 * 1000;
 
-async function getCachedAIConfig(tenantId?: string) {
-    const key = tenantId || '__global__';
+async function getCachedAIConfig(tenantId?: string, forceEnterpriseTier?: boolean) {
+    const key = (tenantId || '__global__') + (forceEnterpriseTier ? '_ent' : '');
     const now = Date.now();
     const cached = _configCache.get(key);
     if (cached && cached.expires > now) return cached.config;
-    const config = await getAIConfig(tenantId);
+    const config = await getAIConfig(tenantId, forceEnterpriseTier);
     _configCache.set(key, { config, expires: now + CONFIG_TTL_MS });
     return config;
 }
@@ -135,46 +140,62 @@ async function withExponentialBackoff<T>(fn: () => Promise<T>, maxRetries = 3): 
 
 export class AIProviderFactory {
     /** Devuelve también `config` (incluye `source`: 'byok'|'platform') y `modelName`, para que el caller pueda loggear PlatformAiUsage sin reimplementar el switch. */
-    static async getGeminiModel(tenantId?: string) {
-        const config = await getCachedAIConfig(tenantId);
+    static async getGeminiModel(tenantId?: string, forceEnterpriseTier?: boolean) {
+        const config = await getCachedAIConfig(tenantId, forceEnterpriseTier);
         if (!config.apiKey) {
             throw new Error("AI API Key not configured.");
         }
 
         switch (config.provider) {
             case 'openai': {
-                const { createOpenAI } = await import('@ai-sdk/openai');
                 const openai = createOpenAI({ apiKey: config.apiKey });
                 const modelName = 'gpt-4o';
-                return { model: openai(modelName), modelName, config };
+                return { model: openai(modelName) as any, modelName, config };
             }
             case 'azure_openai': {
-                const { createAzure } = await import('@ai-sdk/azure');
                 const azure = createAzure({ apiKey: config.apiKey, resourceName: process.env.AZURE_OPENAI_RESOURCE_NAME });
                 // azure(...) sin .chat usa por defecto la Responses API, que requiere
                 // una apiVersion reciente + deployment habilitado (muchos recursos no
                 // lo tienen). .chat apunta al deployment de Chat Completions estándar
                 // ('gpt-4o' acá es el nombre del deployment), el camino universal.
                 const modelName = 'gpt-4o';
-                return { model: azure.chat(modelName), modelName, config };
+                return { model: azure.chat(modelName) as any, modelName, config };
             }
             case 'anthropic': {
-                const { createAnthropic } = await import('@ai-sdk/anthropic');
                 const anthropic = createAnthropic({ apiKey: config.apiKey });
                 // claude-3-opus-20240229 fue retirado por Anthropic (2026-01-05).
                 // claude-sonnet-5 es el modelo Sonnet actual (calidad casi-Opus en
                 // tareas de análisis a menor costo que Opus).
                 const modelName = 'claude-sonnet-5';
-                return { model: anthropic(modelName), modelName, config };
+                return { model: anthropic(modelName) as any, modelName, config };
             }
             case 'deepseek': {
-                const { createOpenAI } = await import('@ai-sdk/openai');
                 const deepseek = createOpenAI({ apiKey: config.apiKey, baseURL: 'https://api.deepseek.com/v1' });
                 // deepseek(...) sin .chat usa por defecto la Responses API de OpenAI
                 // (/responses), que DeepSeek no implementa — 404 Not Found. DeepSeek
                 // solo soporta Chat Completions (/chat/completions), hay que pedirlo explícito.
                 const modelName = 'deepseek-chat';
-                return { model: deepseek.chat(modelName), modelName, config };
+                return { model: deepseek.chat(modelName) as any, modelName, config };
+            }
+            case 'chatgpt': {
+                const openai = createOpenAI({ apiKey: config.apiKey });
+                const modelName = 'gpt-4o';
+                return { model: openai(modelName) as any, modelName, config };
+            }
+            case 'kimi': {
+                const kimi = createOpenAI({ apiKey: config.apiKey, baseURL: 'https://api.moonshot.cn/v1' });
+                const modelName = 'moonshot-v1-8k';
+                return { model: kimi.chat(modelName) as any, modelName, config };
+            }
+            case 'mistral': {
+                const mistral = createMistral({ apiKey: config.apiKey });
+                const modelName = 'mistral-small-latest';
+                return { model: mistral(modelName) as any, modelName, config };
+            }
+            case 'cohere': {
+                const cohere = createCohere({ apiKey: config.apiKey });
+                const modelName = 'command-r-plus';
+                return { model: cohere(modelName) as any, modelName, config };
             }
             case 'google':
             default: {
@@ -184,7 +205,7 @@ export class AIProviderFactory {
                 // sin requerir cambios de código.
                 const google = createGoogleGenerativeAI({ apiKey: config.apiKey });
                 const modelName = 'gemini-flash-latest';
-                return { model: google(modelName), modelName, config };
+                return { model: google(modelName) as any, modelName, config };
             }
         }
     }
@@ -258,7 +279,7 @@ Reglas estrictas:
     const { text, usage } = await aiQueue.add(() =>
         withExponentialBackoff(() =>
             generateText({
-                model,
+                model: model as any,
                 system: systemPrompt,
                 prompt: `Here are the latest metrics for the tenant:\n\n${dataString}`
             })
@@ -310,7 +331,7 @@ Return an array of the mapped FocusCostEntry objects.`;
     const { object, usage } = await aiQueue.add(() =>
         withExponentialBackoff(() =>
             generateObject({
-                model,
+                model: model as any,
                 schema: z.array(focusCostEntrySchema),
                 system: systemPrompt,
                 prompt: `Map these billing records to FOCUS format:\n\n${dataString}`
