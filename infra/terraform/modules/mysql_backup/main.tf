@@ -625,8 +625,8 @@ resource "azurerm_automation_runbook" "orchestrator" {
 
       Write-Output "--- FASE 1: Encendiendo VM ($VMName) ---"
       Start-AzVM -Name $VMName -ResourceGroupName $ResourceGroupName -Verbose -ErrorAction Stop
-      Write-Output "VM encendida. Esperando 120s para servicios..."
-      Start-Sleep -Seconds 120
+      Write-Output "VM encendida. Esperando 300s para servicios..."
+      Start-Sleep -Seconds 300
 
       Write-Output "--- FASE 2: Disparando Runbook hijo '$BackupRunbookName' ---"
       Write-Output "Iniciando trabajo en la VM..."
