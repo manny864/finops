@@ -177,7 +177,11 @@ export default function AiConfigPage() {
                     'Authorization': `Bearer ${tokenResponse.idToken}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ tenantId: selectedTenant.id })
+                body: JSON.stringify({ 
+                    tenantId: selectedTenant.id,
+                    provider,
+                    apiKey: apiKeyDirty ? apiKey : undefined,
+                })
             });
             const json = await res.json();
             setTestResult(json.success

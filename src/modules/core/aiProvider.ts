@@ -140,8 +140,8 @@ async function withExponentialBackoff<T>(fn: () => Promise<T>, maxRetries = 3): 
 
 export class AIProviderFactory {
     /** Devuelve también `config` (incluye `source`: 'byok'|'platform') y `modelName`, para que el caller pueda loggear PlatformAiUsage sin reimplementar el switch. */
-    static async getGeminiModel(tenantId?: string, forceEnterpriseTier?: boolean) {
-        const config = await getCachedAIConfig(tenantId, forceEnterpriseTier);
+    static async getGeminiModel(tenantId?: string, forceEnterpriseTier?: boolean, overrideConfig?: { provider: string, apiKey: string, source: 'byok'|'platform' }) {
+        const config = overrideConfig || await getCachedAIConfig(tenantId, forceEnterpriseTier);
         if (!config.apiKey) {
             throw new Error("AI API Key not configured.");
         }

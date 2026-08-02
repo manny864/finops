@@ -25,10 +25,17 @@ export async function POST(request: NextRequest) {
         // debe reflejar la config guardada AHORA MISMO.
         invalidateAIConfigCache(tenantId);
 
-        const { model, modelName, config } = await AIProviderFactory.getGeminiModel(tenantId);
+        const overrideProvider = body.provider;
+        const overrideApiKey = body.apiKey;
+        const overrideConfig = overrideProvider && overrideApiKey 
+            ? { provider: overrideProvider, apiKey: overrideApiKey, source: 'byok' as const } 
+            : undefined;
+
+        const { model, modelName, config } = await AIProviderFactory.getGeminiModel(tenantId, false, overrideConfig);
         const { text, usage } = await generateText({
             model: model as any,
-            prompt: "Respondé únicamente con la palabra: OK",
+            system: "You are a test bot. You must only reply with the word OK.",
+            prompt: "Test connection.",
         });
 
         insertPlatformAiUsage({

@@ -162,7 +162,13 @@ export default function AiConfigGlobalPage() {
         try {
             const res = await fetchWithAuthRetry(instance, account, "/api/admin/config/ai-global/test", { 
                 method: "POST",
-                body: JSON.stringify({ testType: type })
+                body: JSON.stringify({ 
+                    testType: type,
+                    provider,
+                    apiKey: apiKeyInput || undefined,
+                    enterpriseProvider,
+                    enterpriseApiKey: enterpriseApiKeyInput || undefined,
+                })
             });
             const json = await res.json();
             const resultObj = json.success

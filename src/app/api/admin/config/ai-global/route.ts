@@ -127,6 +127,7 @@ export async function PATCH(request: NextRequest) {
     } catch (error: unknown) {
         if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
         console.error("[admin/config/ai-global] PATCH error:", error);
-        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+        const msg = error instanceof Error ? error.message : "Internal server error";
+        return NextResponse.json({ error: msg }, { status: 500 });
     }
 }

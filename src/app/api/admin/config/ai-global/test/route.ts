@@ -18,11 +18,18 @@ export async function POST(request: NextRequest) {
         invalidateAIConfigCache();
         const body = await request.json().catch(() => ({}));
         const isEnterprise = body.testType === 'enterprise';
+        const overrideProvider = isEnterprise ? body.enterpriseProvider : body.provider;
+        const overrideApiKey = isEnterprise ? body.enterpriseApiKey : body.apiKey;
 
-        const { model, modelName, config } = await AIProviderFactory.getGeminiModel(undefined, isEnterprise);
+        const overrideConfig = overrideProvider && overrideApiKey 
+            ? { provider: overrideProvider, apiKey: overrideApiKey, source: 'platform' as const } 
+            : undefined;
+
+        const { model, modelName, config } = await AIProviderFactory.getGeminiModel(undefined, isEnterprise, overrideConfig);
         const { text, usage } = await generateText({
             model: model as any,
-            prompt: "Respondé únicamente con la palabra: OK",
+            system: "You are a test bot. You must only reply with the word OK.",
+            prompt: "Test connection.",
         });
 
         insertPlatformAiUsage({
