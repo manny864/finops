@@ -13,6 +13,7 @@ import { getMockDataForRoute, isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
 import { canDeleteResources, canRemediateTags } from '@/lib/tierLogic';
 import EnterpriseDeleteDisclaimer from '@/components/EnterpriseDeleteDisclaimer';
+import { usePendingDeletionsStore } from '@/store/pendingDeletionsStore';
 import {
   useReactTable,
   getCoreRowModel,
@@ -28,6 +29,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
   const { selectedTenant, userRole, systemRole } = useTenant();
   const { viewMode } = useViewMode();
   const { addAction } = useActionLogStore();
+  const { addPending, isPending } = usePendingDeletionsStore();
   const triggerCopilotWithPrompt = useAIContext(state => state.triggerCopilotWithPrompt);
   const { selectedSubscription, setSelectedSubscription } = useSubscription();
   
@@ -116,7 +118,12 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
       setDeletingId(item.id);
       const result = await deleteResourceItem(item);
       if (result.ok) {
-          setData(prev => prev.filter(r => r.id !== item.id));
+          addPending({
+              id: item.id,
+              name: item.resourceName,
+              type: item.type,
+              tenantId: selectedTenant.id
+          });
           toast.success(t('toastDeletedTitle'), { description: t('toastDeletedDesc', { name: item.resourceName }) });
           addAction({ message: t('logDeleted', { name: item.resourceName }), status: 'success' });
       } else if (result.error === "MISSING_CONTRIBUTOR_ROLE") {
@@ -177,7 +184,12 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
           const result = await deleteResourceItem(item);
           if (result.ok) {
               ok++;
-              setData(prev => prev.filter(r => r.id !== item.id));
+              addPending({
+                  id: item.id,
+                  name: item.resourceName,
+                  type: item.type,
+                  tenantId: selectedTenant.id
+              });
           } else if (result.error === "MISSING_CONTRIBUTOR_ROLE") {
               missingRole++;
           } else {
@@ -475,7 +487,8 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                 type="checkbox"
                 checked={selectedIds.has(row.original.id)}
                 onChange={() => toggleSelected(row.original.id)}
-                className="cursor-pointer"
+                disabled={isPending(row.original.id)}
+                className={`cursor-pointer ${isPending(row.original.id) ? 'opacity-50 cursor-not-allowed' : ''}`}
             />
         ),
         size: 36,
@@ -567,48 +580,57 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
           const isTagCompliance = item.issueKey === 'taggingNonCompliance';
           return (
             <div className="text-right flex items-center justify-end gap-2">
-                {item.issueType === 'governance' && isTagCompliance && (
-                    <>
-                        <button
-                            onClick={() => {
-                                setTaggingItems([item]);
-                                setTagValues({ CostCenter: '', Environment: '', Owner: '' });
-                            }}
-                            disabled={!canTag}
-                            title={!canTag ? t('enterpriseTooltip') : ''}
-                            className={`px-3 py-1 rounded-md text-xs font-semibold shadow-sm transition-colors ${!canTag ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-[#0054A6] text-white hover:bg-[#00AEEF]'}`}
-                        >
-                            {t('setTags')}
-                        </button>
-                        <button 
-                            onClick={() => triggerCopilotWithPrompt(t('suggestPrompt', { name: item.resourceName, type: item.type, group: item.resourceGroup }))}
-                            className="px-3 py-1 rounded-md text-xs font-semibold shadow-sm transition-colors bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200"
-                        >
-                            {t('suggest')}
-                        </button>
-                    </>
-                )}
-                {canDeleteDirect ? (
-                    <button
-                        onClick={() => handleDelete(item)}
-                        disabled={deletingId === item.id || (item.issueType === 'governance' && isTagCompliance)}
-                        className={`px-3 py-1 rounded-md text-xs font-semibold shadow-sm transition-colors ${deletingId === item.id ? 'bg-gray-100 text-gray-400 cursor-wait' : (item.issueType === 'governance' && isTagCompliance) ? 'bg-gray-50 text-gray-300 cursor-not-allowed' : 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200'}`}
-                    >
-                        {deletingId === item.id ? t('deleting') : t('delete')}
-                    </button>
-                ) : canRequestDelete ? (
-                    <button
-                        onClick={() => requestDeletion(item)}
-                        disabled={requestingId === item.id || (item.issueType === 'governance' && isTagCompliance)}
-                        title={t('requestDeleteRowTooltip')}
-                        className={`px-3 py-1 rounded-md text-xs font-semibold shadow-sm transition-colors ${requestingId === item.id ? 'bg-gray-100 text-gray-400 cursor-wait' : (item.issueType === 'governance' && isTagCompliance) ? 'bg-gray-50 text-gray-300 cursor-not-allowed' : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'}`}
-                    >
-                        {requestingId === item.id ? t('sending') : t('requestDelete')}
-                    </button>
-                ) : (
-                    <span className="px-3 py-1 rounded-md text-xs font-semibold bg-gray-50 text-gray-400 border border-gray-200" title={t('enterpriseTooltip')}>
-                        {t('enterprise')}
+                {isPending(item.id) ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold bg-gray-100 text-gray-500 border border-gray-200">
+                        <svg className="animate-spin h-3 w-3 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                        {t('deleting')}
                     </span>
+                ) : (
+                    <>
+                        {item.issueType === 'governance' && isTagCompliance && (
+                            <>
+                                <button
+                                    onClick={() => {
+                                        setTaggingItems([item]);
+                                        setTagValues({ CostCenter: '', Environment: '', Owner: '' });
+                                    }}
+                                    disabled={!canTag}
+                                    title={!canTag ? t('enterpriseTooltip') : ''}
+                                    className={`px-3 py-1 rounded-md text-xs font-semibold shadow-sm transition-colors ${!canTag ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-[#0054A6] text-white hover:bg-[#00AEEF]'}`}
+                                >
+                                    {t('setTags')}
+                                </button>
+                                <button 
+                                    onClick={() => triggerCopilotWithPrompt(t('suggestPrompt', { name: item.resourceName, type: item.type, group: item.resourceGroup }))}
+                                    className="px-3 py-1 rounded-md text-xs font-semibold shadow-sm transition-colors bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200"
+                                >
+                                    {t('suggest')}
+                                </button>
+                            </>
+                        )}
+                        {canDeleteDirect ? (
+                            <button
+                                onClick={() => handleDelete(item)}
+                                disabled={deletingId === item.id || (item.issueType === 'governance' && isTagCompliance)}
+                                className={`px-3 py-1 rounded-md text-xs font-semibold shadow-sm transition-colors ${deletingId === item.id ? 'bg-gray-100 text-gray-400 cursor-wait' : (item.issueType === 'governance' && isTagCompliance) ? 'bg-gray-50 text-gray-300 cursor-not-allowed' : 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200'}`}
+                            >
+                                {deletingId === item.id ? t('deleting') : t('delete')}
+                            </button>
+                        ) : canRequestDelete ? (
+                            <button
+                                onClick={() => requestDeletion(item)}
+                                disabled={requestingId === item.id || (item.issueType === 'governance' && isTagCompliance)}
+                                title={t('requestDeleteRowTooltip')}
+                                className={`px-3 py-1 rounded-md text-xs font-semibold shadow-sm transition-colors ${requestingId === item.id ? 'bg-gray-100 text-gray-400 cursor-wait' : (item.issueType === 'governance' && isTagCompliance) ? 'bg-gray-50 text-gray-300 cursor-not-allowed' : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'}`}
+                            >
+                                {requestingId === item.id ? t('sending') : t('requestDelete')}
+                            </button>
+                        ) : (
+                            <span className="px-3 py-1 rounded-md text-xs font-semibold bg-gray-50 text-gray-400 border border-gray-200" title={t('enterpriseTooltip')}>
+                                {t('enterprise')}
+                            </span>
+                        )}
+                    </>
                 )}
             </div>
           );
@@ -616,7 +638,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
     });
 
     return cols;
-  }, [viewMode, deletingId, requestingId, canDeleteDirect, canRequestDelete, selectedIds, t]);
+  }, [viewMode, deletingId, requestingId, canDeleteDirect, canRequestDelete, selectedIds, t, isPending, canTag]);
 
   const table = useReactTable({
     data: filteredData,

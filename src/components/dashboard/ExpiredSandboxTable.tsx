@@ -2,10 +2,12 @@
 import React, { useState, useEffect } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { useTenant } from '../TenantProvider';
+import { usePendingDeletionsStore } from '@/store/pendingDeletionsStore';
 
 export default function ExpiredSandboxTable() {
     const { instance, accounts } = useMsal();
     const { selectedTenant } = useTenant();
+    const { addPending, isPending } = usePendingDeletionsStore();
     const [expiredResources, setExpiredResources] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [deleting, setDeleting] = useState<string | null>(null);
@@ -71,7 +73,12 @@ export default function ExpiredSandboxTable() {
             });
             
             if (res.ok) {
-                setExpiredResources(prev => prev.filter(r => r.id !== resource.id));
+                addPending({
+                    id: resource.id,
+                    name: resource.name,
+                    type: resource.type,
+                    tenantId: selectedTenant.id
+                });
             } else {
                 const err = await res.json();
                 alert(`Error al eliminar: ${err.error || 'Desconocido'}`);
@@ -122,13 +129,20 @@ export default function ExpiredSandboxTable() {
                                         <td className="px-6 py-4 whitespace-nowrap text-[13px] text-ink-soft">{rec.type.split('/').pop()}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-[13px] font-bold text-red-600">{rec.daysExpired} días</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-[13px] font-medium">
-                                            <button 
-                                                onClick={() => handleDelete(rec)}
-                                                disabled={deleting === rec.id}
-                                                className="px-3 py-1.5 bg-red-600 text-white font-semibold text-[11px] uppercase tracking-wider rounded-md hover:bg-red-700 disabled:opacity-50 transition-colors shadow-sm"
-                                            >
-                                                {deleting === rec.id ? 'Eliminando...' : 'Eliminar Entorno'}
-                                            </button>
+                                            {isPending(rec.id) ? (
+                                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] uppercase tracking-wider font-semibold bg-gray-100 text-gray-500 border border-gray-200">
+                                                    <svg className="animate-spin h-3 w-3 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                                    Eliminando...
+                                                </span>
+                                            ) : (
+                                                <button 
+                                                    onClick={() => handleDelete(rec)}
+                                                    disabled={deleting === rec.id}
+                                                    className="px-3 py-1.5 bg-red-600 text-white font-semibold text-[11px] uppercase tracking-wider rounded-md hover:bg-red-700 disabled:opacity-50 transition-colors shadow-sm"
+                                                >
+                                                    {deleting === rec.id ? 'Eliminando...' : 'Eliminar Entorno'}
+                                                </button>
+                                            )}
                                         </td>
                                     </tr>
                                 ))}
