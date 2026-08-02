@@ -4319,7 +4319,8 @@
     "btn_save_exemption": "Guardar Exención",
     "confirm_remove_exemption": "¿Estás seguro de que deseas eliminar la exención para el recurso {name}? Volverá a aparecer como sugerencia de limpieza.",
     "exemptionSaved": "Exención guardada",
-    "exemptionSavedDesc": "La recomendación ya no aparecerá como pendiente."
+    "exemptionSavedDesc": "La recomendación ya no aparecerá como pendiente.",
+    "errorServer": "Error en el servidor"
   },
   "MyDashboard": {
     "title": "Mi Dashboard",

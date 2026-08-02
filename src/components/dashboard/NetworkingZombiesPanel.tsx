@@ -95,22 +95,25 @@ export default function NetworkingZombiesPanel() {
                 method: "POST",
                 headers: {
                     Authorization: `Bearer ${idToken}`,
-                    "Content-Type": "application/json"
+                    "Content-Type": "application/json",
+                    "x-tenant-id": selectedTenant?.id || ""
                 },
                 body: JSON.stringify({
                     tenantId: selectedTenant?.id,
                     recommendationType: "zombies",
                     resourceId: exemptionItem.resourceId,
-                    reason: reasonInput,
-                    comment: commentInput
+                    resourceName: exemptionItem.resourceName,
+                    reason: reasonInput || "Eximida por el usuario",
+                    comment: commentInput || null
                 })
             });
-            if (!res.ok) throw new Error("Error guardando exención");
+            const json = await res.json();
+            if (!res.ok || !json.success) throw new Error(json.error || "Error guardando exención");
             mutate();
             setExemptionModalOpen(false);
-            toast.success(t("exemptionSaved", { defaultMessage: "Exención guardada" }));
-        } catch (err) {
-            toast.error(t("errorServer", { defaultMessage: "Error" }));
+            toast.success(t("exemptionSaved"));
+        } catch (err: any) {
+            toast.error(err.message || "Error al guardar exención");
         } finally {
             setSavingExemption(false);
         }
@@ -122,7 +125,10 @@ export default function NetworkingZombiesPanel() {
             const idToken = await getFreshIdToken(instance, accounts[0]);
             const res = await fetch(`/api/intelligence/zombies/exemptions?resourceId=${encodeURIComponent(item.resourceId)}`, {
                 method: "DELETE",
-                headers: { Authorization: `Bearer ${idToken}` }
+                headers: {
+                    Authorization: `Bearer ${idToken}`,
+                    "x-tenant-id": selectedTenant?.id || ""
+                }
             });
             if (!res.ok) throw new Error("Error removiendo exención");
             mutate();

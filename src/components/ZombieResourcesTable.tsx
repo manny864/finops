@@ -501,7 +501,10 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                 issueType: config.issueType,
                 manualDelete: config.manualDelete,
                 isHygiene: r.isHygiene || config.isHygiene || false,
-                isLocked: r.isLocked || false
+                isLocked: r.isLocked || false,
+                isExempted: r.isExempted || false,
+                exemptionReason: r.exemptionReason || null,
+                exemptionComment: r.exemptionComment || null
             }));
             allMappedData = [...allMappedData, ...mapped];
         }
