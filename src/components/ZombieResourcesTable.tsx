@@ -23,6 +23,7 @@ import {
   ColumnDef,
   SortingState
 } from '@tanstack/react-table';
+import { EyeOff, Eye, X, MessageSquare, AlertTriangle } from 'lucide-react';
 
 export default function ZombieResourcesTable({ forceFilterType }: { forceFilterType?: string }) {
   const { instance, accounts } = useMsal();
@@ -60,6 +61,13 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
+  // Exemption Modal State
+  const [exemptionModalResource, setExemptionModalResource] = useState<any | null>(null);
+  const [reasonInput, setReasonInput] = useState("");
+  const [commentInput, setCommentInput] = useState("");
+  const [savingExemption, setSavingExemption] = useState(false);
+  const [exemptionFilter, setExemptionFilter] = useState<'all' | 'active' | 'exempted'>('all');
+
   // Poda ids seleccionados que ya no existen en `data` (ej. tras eliminarlos).
   useEffect(() => {
       setSelectedIds(prev => {
@@ -76,6 +84,105 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
           if (next.has(id)) next.delete(id); else next.add(id);
           return next;
       });
+  };
+
+  const handleOpenExemptionModal = (item: any) => {
+    setExemptionModalResource(item);
+    setReasonInput(item.exemptionReason || "Eximida por decisión del usuario");
+    setCommentInput(item.exemptionComment || "");
+  };
+
+  const handleSaveExemption = async () => {
+    if (!exemptionModalResource) return;
+    setSavingExemption(true);
+    try {
+      if (isMockTenant(selectedTenant.id)) {
+        setData(prev => prev.map(v => v.id === exemptionModalResource.id ? {
+          ...v,
+          isExempted: true,
+          exemptionReason: reasonInput || "Eximida por el usuario",
+          exemptionComment: commentInput || null
+        } : v));
+        setExemptionModalResource(null);
+        setSavingExemption(false);
+        return;
+      }
+
+      const account = accounts[0];
+      const token = await getFreshIdToken(instance, account);
+
+      const res = await fetch('/api/intelligence/zombies/exemptions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'x-tenant-id': selectedTenant.id
+        },
+        body: JSON.stringify({
+          resourceId: exemptionModalResource.id,
+          resourceName: exemptionModalResource.resourceName,
+          recommendationType: 'zombies',
+          reason: reasonInput || "Eximida por el usuario",
+          comment: commentInput || null
+        })
+      });
+      const json = await res.json();
+      if (json.success) {
+        setData(prev => prev.map(v => v.id === exemptionModalResource.id ? {
+          ...v,
+          isExempted: true,
+          exemptionReason: reasonInput || "Eximida por el usuario",
+          exemptionComment: commentInput || null
+        } : v));
+        setExemptionModalResource(null);
+        toast.success(t("exemptionSaved", { defaultMessage: "Exención guardada" }));
+      } else {
+        toast.error(json.error || t("errorServer"));
+      }
+    } catch (e: any) {
+      toast.error(e.message || String(e));
+    }
+    setSavingExemption(false);
+  };
+
+  const handleRemoveExemption = async (item: any) => {
+    if (!window.confirm("¿Seguro que deseas remover la exención de este recurso?")) return;
+    try {
+      if (isMockTenant(selectedTenant.id)) {
+        setData(prev => prev.map(v => v.id === item.id ? {
+          ...v,
+          isExempted: false,
+          exemptionReason: null,
+          exemptionComment: null
+        } : v));
+        return;
+      }
+
+      const account = accounts[0];
+      const token = await getFreshIdToken(instance, account);
+
+      const res = await fetch(`/api/intelligence/zombies/exemptions?resourceId=${encodeURIComponent(item.id)}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'x-tenant-id': selectedTenant.id
+        }
+      });
+      const json = await res.json();
+      if (json.success) {
+        setData(prev => prev.map(v => v.id === item.id ? {
+          ...v,
+          isExempted: false,
+          exemptionReason: null,
+          exemptionComment: null
+        } : v));
+        toast.success("Exención removida");
+      } else {
+        toast.error(json.error || t("errorServer"));
+      }
+    } catch (e: any) {
+      toast.error(e.message || String(e));
+    }
   };
 
   // Ejecuta el DELETE contra /api/remediation para un único recurso; no
@@ -443,10 +550,13 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
         const matchType = !filterType || filterType === "all" || item.type.toLowerCase().includes(filterType.toLowerCase());
         const matchGroup = !filterGroup || filterGroup === "all" || item.resourceGroup.toLowerCase().includes(filterGroup.toLowerCase());
         const matchIssue = filterIssue === "all" || item.issueType === filterIssue;
+        const matchExemption = exemptionFilter === 'all' || 
+            (exemptionFilter === 'active' && !item.isExempted) || 
+            (exemptionFilter === 'exempted' && item.isExempted);
         
-        return matchName && matchType && matchGroup && matchIssue;
+        return matchName && matchType && matchGroup && matchIssue && matchExemption;
     });
-  }, [data, filterType, filterGroup, filterIssue, searchQuery]);
+  }, [data, filterType, filterGroup, filterIssue, searchQuery, exemptionFilter]);
 
   const hasLockedItems = useMemo(() => filteredData.some(item => item.isLocked), [filteredData]);
   const canDelete = canDeleteResources(selectedTenant.tier, 'zombies');
@@ -630,6 +740,23 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                                 {t('enterprise')}
                             </span>
                         )}
+                        {item.isExempted ? (
+                            <button
+                                onClick={() => handleRemoveExemption(item)}
+                                title="Revertir exención"
+                                className="p-1.5 rounded-md shadow-sm transition-colors bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200"
+                            >
+                                <Eye className="w-4 h-4" />
+                            </button>
+                        ) : (
+                            <button
+                                onClick={() => handleOpenExemptionModal(item)}
+                                title="Eximir / Ignorar recurso"
+                                className="p-1.5 rounded-md shadow-sm transition-colors bg-white text-gray-500 hover:bg-gray-50 border border-gray-200"
+                            >
+                                <EyeOff className="w-4 h-4" />
+                            </button>
+                        )}
                     </>
                 )}
             </div>
@@ -736,6 +863,14 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                     <option value="all">{t('filterAll')}</option>
                     <option value="cost">{t('severityCost')}</option>
                     <option value="governance">{t('severityGovernance')}</option>
+                </select>
+            </div>
+            <div className="flex items-center space-x-2">
+                <label className="text-[11px] font-bold text-grey dark:text-gray-300 uppercase tracking-[0.5px]">Estado</label>
+                <select value={exemptionFilter} onChange={e => setExemptionFilter(e.target.value as any)} className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] p-2 outline-none w-32 focus:border-brand-bright focus:ring-1 focus:ring-brand-bright placeholder-ink-soft">
+                    <option value="all">Todos</option>
+                    <option value="active">Activos</option>
+                    <option value="exempted">Eximidos</option>
                 </select>
             </div>
         </div>
@@ -960,6 +1095,99 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
             </div>
         </div>
       )}
+
+      {exemptionModalResource && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-100 dark:border-slate-800">
+            <div className="flex justify-between items-center p-5 border-b border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-800/50">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 rounded-lg">
+                  <EyeOff className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">Eximir Recurso</h3>
+                  <p className="text-sm text-gray-500 dark:text-slate-400">Marcar recurso como ignorado</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setExemptionModalResource(null)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-slate-300 p-1.5 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl flex gap-3 border border-blue-100 dark:border-blue-800/30">
+                <AlertTriangle className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+                <div className="text-sm text-blue-800 dark:text-blue-300">
+                  Estás a punto de eximir el recurso <span className="font-mono font-bold">{exemptionModalResource.resourceName}</span>. Este recurso dejará de sumar a los reportes de ahorro potencial y será ignorado en futuras auditorías.
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-slate-300 mb-1.5">
+                    Motivo principal <span className="text-red-500">*</span>
+                  </label>
+                  <select 
+                    value={reasonInput} 
+                    onChange={e => setReasonInput(e.target.value)}
+                    className="w-full bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-white"
+                  >
+                    <option value="VM requerida para backups periódicos de MySQL">Backup Periódico</option>
+                    <option value="Entorno de Disaster Recovery (DR)">Disaster Recovery (DR)</option>
+                    <option value="Recurso temporal mantenido por auditoría/compliance">Auditoría / Compliance</option>
+                    <option value="Recurso Legacy (Proceso de migración)">Recurso Legacy (Migrando)</option>
+                    <option value="Eximida por decisión del usuario">Otro Motivo</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                    <MessageSquare className="w-4 h-4 text-gray-400" />
+                    Justificación adicional
+                  </label>
+                  <textarea 
+                    value={commentInput}
+                    onChange={e => setCommentInput(e.target.value)}
+                    placeholder="Detalla por qué este recurso debe mantenerse activo o ignorarse en los reportes..."
+                    rows={3}
+                    className="w-full bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none dark:text-white placeholder:text-gray-400"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 p-5 bg-gray-50 dark:bg-slate-800/30 border-t border-gray-100 dark:border-slate-800">
+              <button
+                onClick={() => setExemptionModalResource(null)}
+                className="px-5 py-2.5 text-sm font-semibold text-gray-600 dark:text-slate-300 hover:text-gray-900 dark:hover:text-white bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-lg transition-all"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={handleSaveExemption} 
+                disabled={savingExemption || !reasonInput}
+                className="px-5 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:pointer-events-none flex items-center gap-2"
+              >
+                {savingExemption ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    Guardando...
+                  </>
+                ) : (
+                  <>
+                    <EyeOff className="w-4 h-4" />
+                    Guardar Exención
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

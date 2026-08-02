@@ -8,6 +8,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import ClientShell from "@/components/ClientShell";
 import CommandPalette from "@/components/CommandPalette";
 import GlobalCopilot from "@/components/GlobalCopilot";
+import BrowserNotificationProvider from "@/components/BrowserNotificationProvider";
 import { cookies } from 'next/headers';
 
 const montserrat = Montserrat({
@@ -70,6 +71,7 @@ export default async function RootLayout({
               <CommandPalette />
               {children}
               <GlobalCopilot />
+              <BrowserNotificationProvider />
             </ClientShell>
           </ThemeProvider>
         </NextIntlClientProvider>

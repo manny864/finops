@@ -7,6 +7,7 @@ import { tenants } from "@/lib/tenants";
 import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { withArgLimit } from "@/lib/argConcurrency";
+import { getExemptionsForTenant } from "@/modules/storage/recommendationExemptions";
 
 type AuditPayload = { mode: string; auditResults: Record<string, unknown[]> };
 
@@ -205,8 +206,25 @@ async function computeAuditPayload(tenantId: string, subscriptionId: string | nu
     // const monitorResults = await runMonitorAudits(credential, subscriptionId);
     // const m365Results = await runM365Audits(credential, tenantId);
 
-    // 4. Lógica Freemium Teaser (Removido el enmascaramiento de privacidad de VMs por solicitud)
-    // El nombre real (vm.name) ahora se enviará como texto plano.
+    // 4. Inyectar Exenciones
+    const exemptions = await getExemptionsForTenant(tenantId);
+    const exemptionsMap = new Map(exemptions.filter(e => e.recommendationType === 'zombies').map(e => [(e.resourceId || '').toLowerCase(), e]));
+
+    Object.keys(graphResults).forEach(key => {
+        const arr = (graphResults as any)[key];
+        if (Array.isArray(arr)) {
+            arr.forEach(res => {
+                const ex = exemptionsMap.get((res.resourceId || res.id || '').toLowerCase());
+                if (ex) {
+                    res.isExempted = true;
+                    res.exemptionReason = ex.reason || null;
+                    res.exemptionComment = ex.comment || null;
+                } else {
+                    res.isExempted = false;
+                }
+            });
+        }
+    });
 
     return {
         mode: subscriptionId ? "single-subscription" : "tenant-wide",
