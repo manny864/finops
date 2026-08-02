@@ -1,6 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import useSWR from "swr";
+import { usePendingDeletionsStore } from '@/store/pendingDeletionsStore';
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { useTranslations } from "next-intl";
@@ -57,6 +58,9 @@ export default function NetworkingZombiesPanel() {
     const tm = useTranslations("Mock");
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
+    
+    const { addPending, isPending } = usePendingDeletionsStore();
+    
     const [pageIndex, setPageIndex] = useState(0);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [bulkDeleting, setBulkDeleting] = useState(false);
@@ -138,6 +142,12 @@ export default function NetworkingZombiesPanel() {
         setDeletingId(item.resourceId);
         const result = await deleteResourceItem(item);
         if (result.ok) {
+            addPending({
+                id: item.resourceId,
+                name: item.resourceName,
+                type: item.resourceType,
+                tenantId: selectedTenant.id
+            });
             removeFromCache(new Set([item.resourceId]));
             toast.success(t("deletedToastTitle"), { description: t("deletedToastDescription", { name: item.resourceName }) });
         } else if (result.error === "MISSING_CONTRIBUTOR_ROLE") {
@@ -158,7 +168,16 @@ export default function NetworkingZombiesPanel() {
         for (const item of items) {
             setDeletingId(item.resourceId);
             const result = await deleteResourceItem(item);
-            if (result.ok) { ok++; removed.add(item.resourceId); }
+            if (result.ok) { 
+                ok++; 
+                removed.add(item.resourceId); 
+                addPending({
+                    id: item.resourceId,
+                    name: item.resourceName,
+                    type: item.resourceType,
+                    tenantId: selectedTenant.id
+                });
+            }
             else if (result.error === "MISSING_CONTRIBUTOR_ROLE") missingRole++;
             else failed++;
         }
@@ -457,16 +476,16 @@ export default function NetworkingZombiesPanel() {
                                                 <td className="px-4 py-3 text-right">
                                                     <button
                                                         onClick={() => handleDelete(item)}
-                                                        disabled={deletingId === item.resourceId}
+                                                        disabled={deletingId === item.resourceId || isPending(item.resourceId)}
                                                         className="inline-flex items-center gap-1 text-xs font-semibold text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 disabled:opacity-50"
                                                         title={t("deleteTitle", { name: item.resourceName })}
                                                     >
-                                                        {deletingId === item.resourceId ? (
+                                                        {deletingId === item.resourceId || isPending(item.resourceId) ? (
                                                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
                                                         ) : (
                                                             <Trash2 className="w-3.5 h-3.5" />
                                                         )}
-                                                        {t("delete")}
+                                                        {isPending(item.resourceId) ? "Borrando..." : t("delete")}
                                                     </button>
                                                 </td>
                                             )}
