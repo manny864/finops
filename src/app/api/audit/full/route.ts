@@ -206,33 +206,9 @@ async function computeAuditPayload(tenantId: string, subscriptionId: string | nu
     // const monitorResults = await runMonitorAudits(credential, subscriptionId);
     // const m365Results = await runM365Audits(credential, tenantId);
 
-    // 4. Inyectar Exenciones
-    const exemptions = await getExemptionsForTenant(tenantId);
-    const exemptionsMap = new Map(exemptions.filter(e => e.recommendationType === 'zombies').map(e => [(e.resourceId || '').toLowerCase(), e]));
-
-    Object.keys(graphResults).forEach(key => {
-        const arr = (graphResults as any)[key];
-        if (Array.isArray(arr)) {
-            arr.forEach(res => {
-                const ex = exemptionsMap.get((res.resourceId || res.id || '').toLowerCase());
-                if (ex) {
-                    res.isExempted = true;
-                    res.exemptionReason = ex.reason || null;
-                    res.exemptionComment = ex.comment || null;
-                } else {
-                    res.isExempted = false;
-                }
-            });
-        }
-    });
-
     return {
         mode: subscriptionId ? "single-subscription" : "tenant-wide",
-        auditResults: {
-            ...graphResults,
-            // vmUnderutilized: monitorResults,
-            // unassignedLicenses: m365Results
-        }
+        auditResults: graphResults
     };
 }
 
@@ -248,11 +224,7 @@ export async function GET(request: NextRequest) {
 
     await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
 
-    // Cache Redis SWR (igual patrón que HA/rightsizing): evita relanzar las
-    // ~47 queries de ARG en cada refresh del dashboard, que era la causa
-    // principal de la tormenta de 429 que vaciaba el conteo de zombies.
-    // TTL corto (30s) si el resultado vino totalmente vacío, para no
-    // "congelar" un falso 0 durante 10 minutos ante una degradación puntual.
+    // Cache Redis SWR: evita relanzar las ~47 queries de ARG en cada refresh.
     const cacheKey = `audit:full:v1:${tenantId}:${(subscriptionId || 'all').toLowerCase()}`;
     const payload = await getWithStaleWhileRevalidate(
       cacheKey,
@@ -267,12 +239,33 @@ export async function GET(request: NextRequest) {
       }
     );
 
+    // Inyectar Exenciones dinámicamente en vivo (fuera de la caché SWR de la auditoría)
+    const exemptions = await getExemptionsForTenant(tenantId);
+    const exemptionsMap = new Map(exemptions.filter(e => e.recommendationType === 'zombies').map(e => [(e.resourceId || '').toLowerCase(), e]));
+
+    const auditResultsCopy = JSON.parse(JSON.stringify(payload.auditResults || {}));
+    Object.keys(auditResultsCopy).forEach(key => {
+        const arr = auditResultsCopy[key];
+        if (Array.isArray(arr)) {
+            arr.forEach((res: any) => {
+                const ex = exemptionsMap.get((res.resourceId || res.id || '').toLowerCase());
+                if (ex) {
+                    res.isExempted = true;
+                    res.exemptionReason = ex.reason || null;
+                    res.exemptionComment = ex.comment || null;
+                } else {
+                    res.isExempted = false;
+                }
+            });
+        }
+    });
+
     // 5. Retornar Estructura Unificada
     return NextResponse.json({
         success: true,
         tenantId,
         mode: payload.mode,
-        auditResults: payload.auditResults
+        auditResults: auditResultsCopy
     });
 
   } catch (error: unknown) {

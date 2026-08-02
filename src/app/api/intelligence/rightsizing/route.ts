@@ -205,7 +205,7 @@ export async function GET(request: NextRequest) {
         }, 3600);
 
         const exemptions = await getExemptionsForTenant(tenantId);
-        const exemptionsMap = new Map(exemptions.map(e => [(e.resourceId || '').toLowerCase(), e]));
+        const exemptionsMap = new Map(exemptions.filter(e => e.recommendationType === 'rightsizing').map(e => [(e.resourceId || '').toLowerCase(), e]));
 
         const enrichedVms = (underutilizedVms || []).map((vm: any) => {
             const ex = exemptionsMap.get((vm.id || '').toLowerCase());

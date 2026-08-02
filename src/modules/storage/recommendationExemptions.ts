@@ -102,6 +102,7 @@ export async function upsertExemption(
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE
                 resource_name = VALUES(resource_name),
+                recommendation_type = VALUES(recommendation_type),
                 reason = VALUES(reason),
                 comment = VALUES(comment),
                 created_by = VALUES(created_by),

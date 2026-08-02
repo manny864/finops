@@ -12,7 +12,8 @@ export async function GET(request: NextRequest) {
         await requireTenantRole(request, tenantId, ["Admin", "Owner", "Reader", "Colaborador"]);
 
         const exemptions = await getExemptionsForTenant(tenantId);
-        return NextResponse.json({ success: true, data: exemptions });
+        const rightsizingExemptions = exemptions.filter(e => e.recommendationType === 'rightsizing');
+        return NextResponse.json({ success: true, data: rightsizingExemptions });
     } catch (e: any) {
         if (e instanceof AuthError) {
             return NextResponse.json({ error: e.message }, { status: e.status });
