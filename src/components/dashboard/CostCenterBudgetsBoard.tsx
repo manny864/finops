@@ -5,7 +5,7 @@ import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Loader2, AlertCircle, Wallet, AlertTriangle, Pencil, Check, X } from "lucide-react";
+import { Loader2, AlertCircle, Wallet, AlertTriangle, Pencil, Check, X, Trash2, Plus } from "lucide-react";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { isMockTenant } from "@/lib/mockData";
 import Pagination, { usePagination } from "@/components/Pagination";
@@ -30,12 +30,31 @@ function Kpi({ label, value, icon: Icon, tone }: { label: string; value: string;
     );
 }
 
-function BudgetCell({ costCenter, isAdmin, onSaved, t }: { costCenter: any; isAdmin: boolean; onSaved: (name: string, value: number) => void; t: ReturnType<typeof useTranslations> }) {
+function BudgetCell({ costCenter, isAdmin, onSaved, onDeleted, t }: { costCenter: any; isAdmin: boolean; onSaved: (name: string, value: number) => void; onDeleted: (name: string) => void; t: ReturnType<typeof useTranslations> }) {
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const [editing, setEditing] = useState(false);
     const [value, setValue] = useState(String(costCenter.budget ?? ""));
     const [saving, setSaving] = useState(false);
+
+    const remove = async () => {
+        if (!confirm(t("confirmDeleteBudget"))) return;
+        setSaving(true);
+        try {
+            const idToken = await getFreshIdToken(instance, accounts[0]);
+            const res = await fetch(`/api/intelligence/cost-centers?tenantId=${selectedTenant.id}&costCenterName=${encodeURIComponent(costCenter.name)}`, {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${idToken}` }
+            });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.error || t("deleteError"));
+            toast.success(t("deleteSuccess"));
+            onDeleted(costCenter.name);
+        } catch (e: any) {
+            toast.error(e.message || t("deleteError"));
+        }
+        setSaving(false);
+    };
 
     const save = async () => {
         const num = Number(value);
@@ -69,9 +88,16 @@ function BudgetCell({ costCenter, isAdmin, onSaved, t }: { costCenter: any; isAd
                     {costCenter.budget === null ? t("budgetNotSet") : fmtUsd(costCenter.budget)}
                 </span>
                 {isAdmin && (
-                    <button onClick={() => setEditing(true)} className="text-gray-400 hover:text-brand-deep" title={t("editBudgetTooltip")}>
-                        <Pencil className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => setEditing(true)} className="p-1 rounded text-gray-400 hover:text-brand-deep hover:bg-gray-100 dark:hover:bg-slate-800" title={t("editBudgetTooltip")}>
+                            <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        {costCenter.budget !== null && (
+                            <button onClick={remove} className="p-1 rounded text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30" title={t("deleteBudgetTooltip")}>
+                                <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                        )}
+                    </div>
                 )}
             </div>
         );
@@ -103,6 +129,11 @@ export default function CostCenterBudgetsBoard() {
     const { instance, accounts } = useMsal();
     const isAdmin = userRole === "Admin" || userRole === "Owner" || systemRole === "SUPERADMIN";
 
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [newCostCenter, setNewCostCenter] = useState("");
+    const [newBudgetUsd, setNewBudgetUsd] = useState("");
+    const [creating, setCreating] = useState(false);
+
     const fetcher = async (url: string) => {
         const idToken = await getFreshIdToken(instance, accounts[0]);
         const res = await fetch(url, { headers: { Authorization: `Bearer ${idToken}` } });
@@ -128,6 +159,48 @@ export default function CostCenterBudgetsBoard() {
                 ? { ...c, budget: value, pctUsed: value > 0 ? Number(((c.currentMonthCost / value) * 100).toFixed(1)) : null, overBudget: c.currentMonthCost > value }
                 : c),
         }, false);
+    };
+
+    const handleBudgetDeleted = (name: string) => {
+        mutate({
+            ...data,
+            costCenters: costCenters.filter((c) => c.name !== name || c.currentMonthCost > 0).map((c) => c.name === name ? { ...c, budget: null, pctUsed: null, overBudget: false } : c),
+        }, false);
+    };
+
+    const handleCreateBudget = async () => {
+        const num = Number(newBudgetUsd);
+        if (!newCostCenter.trim() || !Number.isFinite(num) || num < 0) {
+            toast.error(t("invalidBudget"));
+            return;
+        }
+        setCreating(true);
+        try {
+            const idToken = await getFreshIdToken(instance, accounts[0]);
+            const res = await fetch("/api/intelligence/cost-centers", {
+                method: "PUT",
+                headers: { Authorization: `Bearer ${idToken}`, "Content-Type": "application/json" },
+                body: JSON.stringify({ tenantId: selectedTenant.id, costCenterName: newCostCenter.trim(), monthlyBudgetUsd: num }),
+            });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.error || t("saveError"));
+            
+            toast.success(t("saveSuccess"));
+            
+            // Si el cost center ya existe, actualizamos su presupuesto, si no, lo agregamos.
+            const existing = costCenters.find((c) => c.name === newCostCenter.trim());
+            if (existing) {
+                handleBudgetSaved(newCostCenter.trim(), num);
+            } else {
+                mutate(); // Mutate completo para refetch, ya que no teníamos el historial de gastos para calcular todo
+            }
+            setIsCreateModalOpen(false);
+            setNewCostCenter("");
+            setNewBudgetUsd("");
+        } catch (e: any) {
+            toast.error(e.message || t("saveError"));
+        }
+        setCreating(false);
     };
 
     if (!selectedTenant || selectedTenant.id === "default") return null;
@@ -163,12 +236,23 @@ export default function CostCenterBudgetsBoard() {
             </div>
 
             <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50">
-                    <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">{t("tableTitle", { count: costCenters.length })}</h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        {t("groupedByTagPrefix")} <code className="bg-gray-100 dark:bg-slate-800 px-1 rounded">CostCenter</code>{t("groupedByTagSuffix")}
-                        {isAdmin ? t("editHintAdmin") : t("editHintReadonly")}
-                    </p>
+                <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50 flex justify-between items-center">
+                    <div>
+                        <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">{t("tableTitle", { count: costCenters.length })}</h3>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            {t("groupedByTagPrefix")} <code className="bg-gray-100 dark:bg-slate-800 px-1 rounded">CostCenter</code>{t("groupedByTagSuffix")}
+                            {isAdmin ? t("editHintAdmin") : t("editHintReadonly")}
+                        </p>
+                    </div>
+                    {isAdmin && (
+                        <button
+                            onClick={() => setIsCreateModalOpen(true)}
+                            className="flex items-center gap-2 px-4 py-2 bg-brand-deep text-white text-sm font-semibold rounded-lg hover:bg-brand-bright transition-colors shadow-sm"
+                        >
+                            <Plus className="w-4 h-4" />
+                            {t("createBudgetBtn")}
+                        </button>
+                    )}
                 </div>
                 <div className="p-6">
                     {costCenters.length === 0 ? (
@@ -196,7 +280,7 @@ export default function CostCenterBudgetsBoard() {
                                                 {c.changePct > 0 ? "+" : ""}{c.changePct}%
                                             </td>
                                             <td className="px-6 py-4 whitespace-normal break-words text-sm">
-                                                <BudgetCell costCenter={c} isAdmin={isAdmin} onSaved={handleBudgetSaved} t={t} />
+                                                <BudgetCell costCenter={c} isAdmin={isAdmin} onSaved={handleBudgetSaved} onDeleted={handleBudgetDeleted} t={t} />
                                             </td>
                                             <td className="px-6 py-4 whitespace-normal break-words text-sm">
                                                 {c.pctUsed === null ? (
@@ -224,6 +308,74 @@ export default function CostCenterBudgetsBoard() {
                     )}
                 </div>
             </div>
+
+            {isCreateModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-100 dark:border-slate-800">
+                        <div className="flex justify-between items-center p-5 border-b border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-800/50">
+                            <h3 className="text-lg font-bold text-gray-900 dark:text-white">{t("createBudgetTitle")}</h3>
+                            <button
+                                onClick={() => setIsCreateModalOpen(false)}
+                                className="text-gray-400 hover:text-gray-600 dark:hover:text-slate-300 p-1.5 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 dark:text-slate-300 mb-1.5">
+                                    {t("costCenterNameLabel")} <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    value={newCostCenter}
+                                    onChange={(e) => setNewCostCenter(e.target.value)}
+                                    placeholder="Ej: Marketing, IT, HR..."
+                                    className="w-full bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-deep/20 focus:border-brand-deep dark:text-white"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 dark:text-slate-300 mb-1.5">
+                                    {t("monthlyBudgetLabel")} <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    value={newBudgetUsd}
+                                    onChange={(e) => setNewBudgetUsd(e.target.value)}
+                                    placeholder="0.00"
+                                    className="w-full bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-deep/20 focus:border-brand-deep dark:text-white"
+                                />
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-3 p-5 bg-gray-50 dark:bg-slate-800/30 border-t border-gray-100 dark:border-slate-800">
+                            <button
+                                onClick={() => setIsCreateModalOpen(false)}
+                                className="px-5 py-2.5 text-sm font-semibold text-gray-600 dark:text-slate-300 hover:text-gray-900 dark:hover:text-white bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-lg transition-all"
+                            >
+                                {t("createBudgetCancel")}
+                            </button>
+                            <button
+                                onClick={handleCreateBudget}
+                                disabled={creating || !newCostCenter.trim() || !newBudgetUsd}
+                                className="px-5 py-2.5 text-sm font-semibold text-white bg-brand-deep hover:bg-brand-bright rounded-lg transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:pointer-events-none flex items-center gap-2"
+                            >
+                                {creating ? (
+                                    <>
+                                        <Loader2 className="animate-spin h-4 w-4" />
+                                        {t("saveTooltip")}...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Check className="w-4 h-4" />
+                                        {t("createBudgetSave")}
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

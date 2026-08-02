@@ -1875,7 +1875,17 @@
     "cancelTooltip": "Cancelar",
     "invalidBudget": "Ingresá un presupuesto válido (>= 0).",
     "saveError": "Error al guardar",
-    "saveSuccess": "Presupuesto actualizado."
+    "saveSuccess": "Presupuesto actualizado.",
+    "confirmDeleteBudget": "¿Seguro que deseas eliminar este presupuesto? El costo asociado ya no se comparará contra ningún límite.",
+    "deleteError": "Error al eliminar el presupuesto",
+    "deleteSuccess": "Presupuesto eliminado.",
+    "createBudgetBtn": "Crear Presupuesto",
+    "createBudgetTitle": "Crear Presupuesto",
+    "createBudgetSave": "Crear",
+    "createBudgetCancel": "Cancelar",
+    "costCenterNameLabel": "Nombre del Centro de Costos",
+    "monthlyBudgetLabel": "Presupuesto Mensual (USD)",
+    "deleteBudgetTooltip": "Eliminar presupuesto"
   },
   "IntelligenceHybridBenefit": {
     "title": "Escáner de Azure Hybrid Benefit",

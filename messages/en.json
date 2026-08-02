@@ -1874,8 +1874,18 @@
     "saveTooltip": "Save",
     "cancelTooltip": "Cancel",
     "invalidBudget": "Enter a valid budget (>= 0).",
-    "saveError": "Failed to save",
-    "saveSuccess": "Budget updated."
+    "saveError": "Error saving",
+    "saveSuccess": "Budget updated.",
+    "confirmDeleteBudget": "Are you sure you want to delete this budget? The associated cost will no longer be compared against a limit.",
+    "deleteError": "Error deleting the budget",
+    "deleteSuccess": "Budget deleted.",
+    "createBudgetBtn": "Create Budget",
+    "createBudgetTitle": "Create Budget",
+    "createBudgetSave": "Create",
+    "createBudgetCancel": "Cancel",
+    "costCenterNameLabel": "Cost Center Name",
+    "monthlyBudgetLabel": "Monthly Budget (USD)",
+    "deleteBudgetTooltip": "Delete budget"
   },
   "IntelligenceHybridBenefit": {
     "title": "Azure Hybrid Benefit Scanner",
