@@ -6,6 +6,7 @@ import { getAzureCredential } from "@/lib/azure";
 import { runGraphAudits } from "@/services/auditService";
 import { getMonthlyCostEstimate } from "@/services/pricingService";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
+import { getExemptionsForTenant } from "@/modules/storage/recommendationExemptions";
 
 export async function GET(request: NextRequest) {
     try {
@@ -174,5 +175,20 @@ async function fetchNetworkingZombies(tenantId: string, subscriptionId: string |
             estimatedMonthlyCost: Number((allPrivateEndpoints.length * PE_FIXED_MONTHLY_COST).toFixed(2)),
         };
 
+const exemptions = await getExemptionsForTenant(tenantId);
+        const exemptionsMap = new Map(exemptions.filter((e: any) => e.recommendationType === 'zombies').map((e: any) => [(e.resourceId || '').toLowerCase(), e]));
+
+        items.forEach((res: any) => {
+            const ex = exemptionsMap.get((res.resourceId || '').toLowerCase());
+            if (ex) {
+                res.isExempted = true;
+                res.exemptionReason = ex.reason || null;
+                res.exemptionComment = ex.comment || null;
+            } else {
+                res.isExempted = false;
+            }
+        });
+
         return { items, totalMonthlyWaste, privateEndpointAccumulation, privateEndpointsDetail };
+
 }

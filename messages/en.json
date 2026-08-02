@@ -1092,7 +1092,19 @@
       "longStoppedVMs": "Stopped VM with disks",
       "unattachedVolumes": "Unattached EBS volume",
       "longStoppedInstances": "Long-stopped instance (still paying for EBS)"
-    }
+    },
+    "badge_exempted": "Ignorada / Eximida",
+    "btn_exempt": "Eximir / Ignorar",
+    "btn_edit_exemption": "Editar Exención",
+    "btn_remove_exemption": "Restaurar Sugerencia",
+    "modal_exemption_title": "Eximir Sugerencia de Limpieza",
+    "modal_exemption_desc": "Ingresa una justificación para eximir esta recomendación. Quedará registrada con un badge explicativo.",
+    "field_reason": "Motivo / Resumen",
+    "field_reason_placeholder": "ej. Recurso requerido por compliance",
+    "field_comment": "Comentario adicional (opcional)",
+    "field_comment_placeholder": "Detalles técnicos adicionales...",
+    "btn_save_exemption": "Guardar Exención",
+    "confirm_remove_exemption": "¿Estás seguro de que deseas eliminar la exención para el recurso {name}? Volverá a aparecer como sugerencia de limpieza."
   },
   "Copilot": {
     "welcome_message": "Hi! I'm your FinOps assistant and I'm here to help. I'm currently analyzing the <b>{page}</b> module; you can ask me anything related to the data shown on this page.",
@@ -4291,7 +4303,19 @@
     "applying": "Applying...",
     "applyTags": "Apply Tags",
     "pageTitle": "Networking Zombies",
-    "pageSubtitle": "Network resources with no traffic or no configured backends — detected and quantified."
+    "pageSubtitle": "Network resources with no traffic or no configured backends — detected and quantified.",
+    "badge_exempted": "Ignorada / Eximida",
+    "btn_exempt": "Eximir / Ignorar",
+    "btn_edit_exemption": "Editar Exención",
+    "btn_remove_exemption": "Restaurar Sugerencia",
+    "modal_exemption_title": "Eximir Sugerencia de Limpieza",
+    "modal_exemption_desc": "Ingresa una justificación para eximir esta recomendación. Quedará registrada con un badge explicativo.",
+    "field_reason": "Motivo / Resumen",
+    "field_reason_placeholder": "ej. Recurso requerido por compliance",
+    "field_comment": "Comentario adicional (opcional)",
+    "field_comment_placeholder": "Detalles técnicos adicionales...",
+    "btn_save_exemption": "Guardar Exención",
+    "confirm_remove_exemption": "¿Estás seguro de que deseas eliminar la exención para el recurso {name}? Volverá a aparecer como sugerencia de limpieza."
   },
   "MyDashboard": {
     "title": "My Dashboard",
