@@ -744,17 +744,17 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                             <button
                                 onClick={() => handleRemoveExemption(item)}
                                 title="Revertir exención"
-                                className="p-1.5 rounded-md shadow-sm transition-colors bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200"
+                                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold shadow-sm transition-colors bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200"
                             >
-                                <Eye className="w-4 h-4" />
+                                <Eye className="w-3.5 h-3.5" /> {t('revert') || 'Revertir'}
                             </button>
                         ) : (
                             <button
                                 onClick={() => handleOpenExemptionModal(item)}
                                 title="Eximir / Ignorar recurso"
-                                className="p-1.5 rounded-md shadow-sm transition-colors bg-white text-gray-500 hover:bg-gray-50 border border-gray-200"
+                                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold shadow-sm transition-colors bg-white text-gray-500 hover:bg-gray-50 border border-gray-200"
                             >
-                                <EyeOff className="w-4 h-4" />
+                                <EyeOff className="w-3.5 h-3.5" /> {t('exempt') || 'Eximir'}
                             </button>
                         )}
                     </>

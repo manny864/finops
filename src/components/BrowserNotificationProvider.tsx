@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { usePendingDeletionsStore } from '@/store/pendingDeletionsStore';
 import { useTranslations } from 'next-intl';
 
@@ -9,15 +9,21 @@ export default function BrowserNotificationProvider() {
   const pendingDeletions = usePendingDeletionsStore((state) => state.pending);
   const removePending = usePendingDeletionsStore((state) => state.removePending);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [permissionState, setPermissionState] = useState<NotificationPermission>('default');
 
-  // Pedir permisos de notificacion al inicio de sesion si no se ha preguntado
   useEffect(() => {
     if (typeof window !== 'undefined' && 'Notification' in window) {
-      if (Notification.permission === 'default') {
-        Notification.requestPermission().catch(console.error);
-      }
+      setPermissionState(Notification.permission);
     }
   }, []);
+
+  const requestPermission = () => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      Notification.requestPermission().then((permission) => {
+        setPermissionState(permission);
+      }).catch(console.error);
+    }
+  };
 
   // Polling para chequear el estado de los recursos pendientes
   useEffect(() => {
@@ -53,8 +59,7 @@ export default function BrowserNotificationProvider() {
             const existingIds = new Set(data.existingResourceIds.map((id: string) => id.toLowerCase()));
 
             resourceIds.forEach(id => {
-              // Si el ID consultado ya no existe en ARG (y pasaron al menos 30 segundos para evitar falsos positivos iniciales de cache de ARG)
-              // Azure ARG suele tener 1-5 mins de consistencia, si desapareció, ya se borró seguro.
+              // Si el ID consultado ya no existe en ARG
               if (!existingIds.has(id.toLowerCase())) {
                 const item = pendingDeletions[id];
                 
@@ -62,7 +67,7 @@ export default function BrowserNotificationProvider() {
                 if ('Notification' in window && Notification.permission === 'granted') {
                   new Notification('FinOps: Recurso Eliminado', {
                     body: `El recurso "${item.name}" ha sido eliminado exitosamente.`,
-                    icon: '/icon.png' // Asegurate de tener un icono o se usará el default del navegador
+                    icon: '/icon.png' 
                   });
                 }
                 
@@ -89,5 +94,30 @@ export default function BrowserNotificationProvider() {
     };
   }, [pendingDeletions, removePending]);
 
-  return null; // Componente sin UI, solo lógica de fondo
+  if (permissionState === 'default') {
+    return (
+      <div className="fixed bottom-4 left-4 z-50 bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 animate-in fade-in slide-in-from-bottom-5">
+        <div>
+          <p className="font-semibold text-sm">Habilitar notificaciones</p>
+          <p className="text-xs opacity-90 mt-0.5">Recibe alertas cuando finalicen las tareas de fondo.</p>
+        </div>
+        <div className="flex items-center gap-2 ml-auto pl-4 border-l border-blue-200">
+          <button 
+            onClick={() => setPermissionState('denied')}
+            className="text-xs font-medium text-blue-600 hover:text-blue-800 transition-colors"
+          >
+            Ahora no
+          </button>
+          <button 
+            onClick={requestPermission}
+            className="text-xs font-bold bg-blue-600 text-white px-3 py-1.5 rounded-md hover:bg-blue-700 transition-colors shadow-sm"
+          >
+            Activar
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
 }
