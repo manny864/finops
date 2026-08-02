@@ -1463,7 +1463,21 @@
     "archive": "Archive",
     "recommendation": "Recomendación",
     "potentialSavings": "Ahorro Potencial",
-    "description": "Migra blobs de acceso esporádico a Cool o Archive para reducir costos."
+    "description": "Migra blobs de acceso esporádico a Cool o Archive para reducir costos.",
+    "tableTitle": "Cuentas de Almacenamiento (Storage Accounts)",
+    "tableSubtitle": "Gestión y análisis de almacenamiento por cuenta",
+    "colAccountName": "Cuenta de Almacenamiento",
+    "colResourceGroup": "Grupo de Recursos",
+    "colSubscription": "Suscripción",
+    "colTier": "Tier / Capa",
+    "colUsedStorage": "Almacenamiento Usado",
+    "colCost": "Costo Mensual",
+    "searchPlaceholder": "Buscar por cuenta o grupo de recursos...",
+    "allTiers": "Todos los Tiers",
+    "perPage": "Por página:",
+    "emptyState": "No se encontraron cuentas de almacenamiento.",
+    "paginationShowing": "Mostrando {from} a {to} de {total} cuentas",
+    "page": "Página {current} de {total}"
   },
   "ComputeEfficiency": {
     "tierLockedFeatureName": "Eficiencia de Cómputo",

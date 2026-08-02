@@ -11,6 +11,38 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";
 import { isMockTenant } from "@/lib/mockData";
+import { getResourceGraphClient } from "@/lib/azure";
+
+const MOCK_ACCOUNTS = [
+    { id: "/subscriptions/demo-sub-01/resourceGroups/rg-prod-app/providers/Microsoft.Storage/storageAccounts/stappprodwestus01", name: "stappprodwestus01", resourceGroup: "rg-prod-app", subscriptionId: "demo-sub-01", location: "westus2", tier: "Hot", sku: "Standard_LRS", usedGb: 4500.5, monthlyCost: 82.81 },
+    { id: "/subscriptions/demo-sub-01/resourceGroups/rg-prod-app/providers/Microsoft.Storage/storageAccounts/stappprodwestus02", name: "stappprodwestus02", resourceGroup: "rg-prod-app", subscriptionId: "demo-sub-01", location: "westus2", tier: "Hot", sku: "Standard_GRS", usedGb: 3200.0, monthlyCost: 58.88 },
+    { id: "/subscriptions/demo-sub-01/resourceGroups/rg-prod-backups/providers/Microsoft.Storage/storageAccounts/stbackupsprod01", name: "stbackupsprod01", resourceGroup: "rg-prod-backups", subscriptionId: "demo-sub-01", location: "eastus", tier: "Cool", sku: "Standard_LRS", usedGb: 8500.0, monthlyCost: 85.00 },
+    { id: "/subscriptions/demo-sub-01/resourceGroups/rg-archive-data/providers/Microsoft.Storage/storageAccounts/stbackupsarchive01", name: "stbackupsarchive01", resourceGroup: "rg-archive-data", subscriptionId: "demo-sub-01", location: "eastus2", tier: "Archive", sku: "Standard_LRS", usedGb: 12000.0, monthlyCost: 11.88 },
+    { id: "/subscriptions/demo-sub-02/resourceGroups/rg-monitoring/providers/Microsoft.Storage/storageAccounts/stlogsanalytics01", name: "stlogsanalytics01", resourceGroup: "rg-monitoring", subscriptionId: "demo-sub-02", location: "westeurope", tier: "Cool", sku: "Standard_ZRS", usedGb: 2400.0, monthlyCost: 24.00 },
+    { id: "/subscriptions/demo-sub-02/resourceGroups/rg-dev-test/providers/Microsoft.Storage/storageAccounts/stdevteststorage", name: "stdevteststorage", resourceGroup: "rg-dev-test", subscriptionId: "demo-sub-02", location: "eastus", tier: "Hot", sku: "Standard_LRS", usedGb: 850.0, monthlyCost: 15.64 },
+    { id: "/subscriptions/demo-sub-01/resourceGroups/rg-database-prod/providers/Microsoft.Storage/storageAccounts/stsqlauditlogs", name: "stsqlauditlogs", resourceGroup: "rg-database-prod", subscriptionId: "demo-sub-01", location: "centralus", tier: "Cold", sku: "Standard_GRS", usedGb: 3100.0, monthlyCost: 11.16 },
+    { id: "/subscriptions/demo-sub-01/resourceGroups/rg-web-frontend/providers/Microsoft.Storage/storageAccounts/stcdnstaticcontent", name: "stcdnstaticcontent", resourceGroup: "rg-web-frontend", subscriptionId: "demo-sub-01", location: "eastus2", tier: "Hot", sku: "Premium_LRS", usedGb: 1200.0, monthlyCost: 22.08 },
+    { id: "/subscriptions/demo-sub-02/resourceGroups/rg-monitoring/providers/Microsoft.Storage/storageAccounts/sttelemetrydata", name: "sttelemetrydata", resourceGroup: "rg-monitoring", subscriptionId: "demo-sub-02", location: "westeurope", tier: "Cool", sku: "Standard_LRS", usedGb: 4800.0, monthlyCost: 48.00 },
+    { id: "/subscriptions/demo-sub-01/resourceGroups/rg-media-services/providers/Microsoft.Storage/storageAccounts/stmediauploads", name: "stmediauploads", resourceGroup: "rg-media-services", subscriptionId: "demo-sub-01", location: "southcentralus", tier: "Hot", sku: "Standard_GRS", usedGb: 6200.0, monthlyCost: 114.08 },
+    { id: "/subscriptions/demo-sub-02/resourceGroups/rg-data-import/providers/Microsoft.Storage/storageAccounts/sttempimport", name: "sttempimport", resourceGroup: "rg-data-import", subscriptionId: "demo-sub-02", location: "eastus", tier: "Hot", sku: "Standard_LRS", usedGb: 350.0, monthlyCost: 6.44 },
+    { id: "/subscriptions/demo-sub-01/resourceGroups/rg-archive-data/providers/Microsoft.Storage/storageAccounts/starchivehist2023", name: "starchivehist2023", resourceGroup: "rg-archive-data", subscriptionId: "demo-sub-01", location: "eastus2", tier: "Archive", sku: "Standard_LRS", usedGb: 25000.0, monthlyCost: 24.75 },
+    { id: "/subscriptions/demo-sub-01/resourceGroups/rg-archive-data/providers/Microsoft.Storage/storageAccounts/starchivehist2024", name: "starchivehist2024", resourceGroup: "rg-archive-data", subscriptionId: "demo-sub-01", location: "eastus2", tier: "Archive", sku: "Standard_LRS", usedGb: 18500.0, monthlyCost: 18.32 },
+    { id: "/subscriptions/demo-sub-01/resourceGroups/rg-prod-backups/providers/Microsoft.Storage/storageAccounts/stvmdisksbackup", name: "stvmdisksbackup", resourceGroup: "rg-prod-backups", subscriptionId: "demo-sub-01", location: "westus2", tier: "Cool", sku: "Standard_GRS", usedGb: 7200.0, monthlyCost: 72.00 },
+    { id: "/subscriptions/demo-sub-01/resourceGroups/rg-prod-app/providers/Microsoft.Storage/storageAccounts/stuserprofiles", name: "stuserprofiles", resourceGroup: "rg-prod-app", subscriptionId: "demo-sub-01", location: "westus2", tier: "Hot", sku: "Standard_LRS", usedGb: 950.0, monthlyCost: 17.48 },
+    { id: "/subscriptions/demo-sub-03/resourceGroups/rg-analytics/providers/Microsoft.Storage/storageAccounts/streportingcache", name: "streportingcache", resourceGroup: "rg-analytics", subscriptionId: "demo-sub-03", location: "eastus", tier: "Cold", sku: "Standard_LRS", usedGb: 1800.0, monthlyCost: 6.48 },
+    { id: "/subscriptions/demo-sub-03/resourceGroups/rg-data-lake/providers/Microsoft.Storage/storageAccounts/stdatalakestore01", name: "stdatalakestore01", resourceGroup: "rg-data-lake", subscriptionId: "demo-sub-03", location: "eastus2", tier: "Hot", sku: "Premium_LRS", usedGb: 14200.0, monthlyCost: 261.28 },
+    { id: "/subscriptions/demo-sub-03/resourceGroups/rg-data-lake/providers/Microsoft.Storage/storageAccounts/stdatalakestore02", name: "stdatalakestore02", resourceGroup: "rg-data-lake", subscriptionId: "demo-sub-03", location: "eastus2", tier: "Cool", sku: "Standard_GRS", usedGb: 9800.0, monthlyCost: 98.00 },
+    { id: "/subscriptions/demo-sub-01/resourceGroups/rg-microservices/providers/Microsoft.Storage/storageAccounts/stfunctionapps01", name: "stfunctionapps01", resourceGroup: "rg-microservices", subscriptionId: "demo-sub-01", location: "westus2", tier: "Hot", sku: "Standard_LRS", usedGb: 120.0, monthlyCost: 2.21 },
+    { id: "/subscriptions/demo-sub-01/resourceGroups/rg-microservices/providers/Microsoft.Storage/storageAccounts/stfunctionapps02", name: "stfunctionapps02", resourceGroup: "rg-microservices", subscriptionId: "demo-sub-01", location: "westus2", tier: "Hot", sku: "Standard_LRS", usedGb: 85.0, monthlyCost: 1.56 },
+    { id: "/subscriptions/demo-sub-01/resourceGroups/rg-aks-cluster/providers/Microsoft.Storage/storageAccounts/stk8spersistentvol", name: "stk8spersistentvol", resourceGroup: "rg-aks-cluster", subscriptionId: "demo-sub-01", location: "westus2", tier: "Hot", sku: "Premium_LRS", usedGb: 2100.0, monthlyCost: 38.64 },
+    { id: "/subscriptions/demo-sub-04/resourceGroups/rg-security-audit/providers/Microsoft.Storage/storageAccounts/stsecauditvault", name: "stsecauditvault", resourceGroup: "rg-security-audit", subscriptionId: "demo-sub-04", location: "eastus", tier: "Archive", sku: "Standard_GRS", usedGb: 5400.0, monthlyCost: 5.35 },
+    { id: "/subscriptions/demo-sub-04/resourceGroups/rg-ai-models/providers/Microsoft.Storage/storageAccounts/stmlmodelweights", name: "stmlmodelweights", resourceGroup: "rg-ai-models", subscriptionId: "demo-sub-04", location: "eastus2", tier: "Hot", sku: "Premium_ZRS", usedGb: 8900.0, monthlyCost: 163.76 },
+    { id: "/subscriptions/demo-sub-04/resourceGroups/rg-ai-models/providers/Microsoft.Storage/storageAccounts/stmltrainingdata", name: "stmltrainingdata", resourceGroup: "rg-ai-models", subscriptionId: "demo-sub-04", location: "eastus2", tier: "Cool", sku: "Standard_GRS", usedGb: 15300.0, monthlyCost: 153.00 },
+    { id: "/subscriptions/demo-sub-02/resourceGroups/rg-dev-test/providers/Microsoft.Storage/storageAccounts/ststagingtemp", name: "ststagingtemp", resourceGroup: "rg-dev-test", subscriptionId: "demo-sub-02", location: "eastus", tier: "Hot", sku: "Standard_LRS", usedGb: 420.0, monthlyCost: 7.73 },
+    { id: "/subscriptions/demo-sub-03/resourceGroups/rg-analytics/providers/Microsoft.Storage/storageAccounts/stbiexports", name: "stbiexports", resourceGroup: "rg-analytics", subscriptionId: "demo-sub-03", location: "eastus", tier: "Cold", sku: "Standard_LRS", usedGb: 2900.0, monthlyCost: 10.44 },
+    { id: "/subscriptions/demo-sub-02/resourceGroups/rg-monitoring/providers/Microsoft.Storage/storageAccounts/stlogsbkup2025", name: "stlogsbkup2025", resourceGroup: "rg-monitoring", subscriptionId: "demo-sub-02", location: "westeurope", tier: "Cool", sku: "Standard_LRS", usedGb: 6400.0, monthlyCost: 64.00 },
+    { id: "/subscriptions/demo-sub-01/resourceGroups/rg-web-frontend/providers/Microsoft.Storage/storageAccounts/stwebassetscdn", name: "stwebassetscdn", resourceGroup: "rg-web-frontend", subscriptionId: "demo-sub-01", location: "eastus2", tier: "Hot", sku: "Standard_LRS", usedGb: 1750.0, monthlyCost: 32.20 },
+];
 
 const MOCK_PAYLOAD = {
     success: true,
@@ -30,6 +62,7 @@ const MOCK_PAYLOAD = {
         fromTier: "hot",
         toTier: "cool",
     },
+    accounts: MOCK_ACCOUNTS,
 };
 
 // Tier rates $/GB
@@ -193,6 +226,59 @@ export async function GET(request: NextRequest) {
                 ((TIER_RATES.hot - TIER_RATES.cool) * movableGb).toFixed(2)
             );
 
+            let accounts: any[] = [];
+            try {
+                const argClient = await getResourceGraphClient(tenantId);
+                const query = `
+                    Resources
+                    | where type =~ 'microsoft.storage/storageaccounts'
+                    | project id, name, location, resourceGroup, subscriptionId, sku = tostring(sku.name), kind = tostring(kind), accessTier = tostring(properties.accessTier)
+                `;
+                const resARG: any = await argClient.resources({ query, options: { resultFormat: "objectArray", top: 1000 } });
+                const rawAccounts = (resARG.data as any[]) || [];
+
+                const costByRg = new Map<string, { cost: number; qty: number }>();
+                for (const r of rows) {
+                    const rg = (r.resource_group || r.ResourceGroup || "").toLowerCase();
+                    if (rg) {
+                        const current = costByRg.get(rg) || { cost: 0, qty: 0 };
+                        const cost = parseFloat(r.billedCost) || 0;
+                        const tier = detectTier(r.MeterSubCategory, r.MeterName, r.MeterCategory, r.service_name);
+                        const uom = String(r.UnitOfMeasure || "").toLowerCase();
+                        const reportedQty = parseFloat(r.quantity) || 0;
+                        const inferredGb = TIER_RATES[tier] > 0 ? cost / TIER_RATES[tier] : 0;
+                        const gb = (reportedQty > 0 && (uom.includes("gb") || uom.includes("byte"))) ? reportedQty : inferredGb;
+                        costByRg.set(rg, { cost: current.cost + cost, qty: current.qty + gb });
+                    }
+                }
+
+                accounts = rawAccounts.map((acc: any) => {
+                    const rawTier = acc.accessTier || (acc.sku?.includes("Premium") ? "Premium" : "Hot");
+                    const tierFormatted = rawTier ? rawTier.charAt(0).toUpperCase() + rawTier.slice(1).toLowerCase() : "Hot";
+                    const rg = (acc.resourceGroup || "").toLowerCase();
+                    const rgStats = costByRg.get(rg);
+                    const countInRg = rawAccounts.filter((a: any) => (a.resourceGroup || "").toLowerCase() === rg).length || 1;
+                    
+                    const cost = rgStats ? (rgStats.cost / countInRg) : 0;
+                    const gb = rgStats ? (rgStats.qty / countInRg) : 0;
+
+                    return {
+                        id: acc.id,
+                        name: acc.name,
+                        resourceGroup: acc.resourceGroup,
+                        subscriptionId: acc.subscriptionId,
+                        location: acc.location,
+                        tier: tierFormatted,
+                        kind: acc.kind,
+                        sku: acc.sku,
+                        usedGb: parseFloat(gb.toFixed(2)),
+                        monthlyCost: parseFloat(cost.toFixed(2))
+                    };
+                });
+            } catch (e) {
+                console.warn("[storage-efficiency] Could not fetch ARG storage accounts:", e);
+            }
+
             if (rows.length === 0) {
                 return NextResponse.json({
                     success: true,
@@ -203,6 +289,7 @@ export async function GET(request: NextRequest) {
                     totalGb: 0,
                     totalCost: 0,
                     costPerGb: 0,
+                    accounts,
                     diagnostics: { rowsFound: 0, requestedDays: days, effectiveDays: 365, widened: false, source }
                 });
             }
@@ -220,6 +307,7 @@ export async function GET(request: NextRequest) {
                     fromTier: "hot",
                     toTier: "cool",
                 },
+                accounts,
                 diagnostics: { rowsFound: rows.length, requestedDays: days, effectiveDays, widened, source }
             });
         } catch (dbErr: any) {

@@ -1463,7 +1463,21 @@
     "archive": "Archive",
     "recommendation": "Recomendação",
     "potentialSavings": "Economia Potencial",
-    "description": "Mova blobs com acesso esporádico para Cool ou Archive para reduzir custos."
+    "description": "Mova blobs com acesso esporádico para Cool ou Archive para reduzir custos.",
+    "tableTitle": "Contas de Armazenamento (Storage Accounts)",
+    "tableSubtitle": "Gestão e análise de armazenamento por conta",
+    "colAccountName": "Conta de Armazenamento",
+    "colResourceGroup": "Grupo de Recursos",
+    "colSubscription": "Assinatura",
+    "colTier": "Camada / Tier",
+    "colUsedStorage": "Armazenamento Usado",
+    "colCost": "Custo Mensal",
+    "searchPlaceholder": "Buscar por conta ou grupo de recursos...",
+    "allTiers": "Todos os Tiers",
+    "perPage": "Por página:",
+    "emptyState": "Nenhuma conta de armazenamento encontrada.",
+    "paginationShowing": "Mostrando {from} a {to} de {total} contas",
+    "page": "Página {current} de {total}"
   },
   "ComputeEfficiency": {
     "tierLockedFeatureName": "Eficiência de Computação",

@@ -1463,7 +1463,21 @@
     "archive": "Archive",
     "recommendation": "Recommendation",
     "potentialSavings": "Potential Savings",
-    "description": "Move infrequently-accessed blobs to Cool or Archive to reduce cost."
+    "description": "Move infrequently-accessed blobs to Cool or Archive to reduce cost.",
+    "tableTitle": "Storage Accounts",
+    "tableSubtitle": "Storage management and analysis per account",
+    "colAccountName": "Storage Account",
+    "colResourceGroup": "Resource Group",
+    "colSubscription": "Subscription",
+    "colTier": "Access Tier",
+    "colUsedStorage": "Used Storage",
+    "colCost": "Monthly Cost",
+    "searchPlaceholder": "Search by account name or resource group...",
+    "allTiers": "All Tiers",
+    "perPage": "Per page:",
+    "emptyState": "No storage accounts found.",
+    "paginationShowing": "Showing {from} to {to} of {total} accounts",
+    "page": "Page {current} of {total}"
   },
   "ComputeEfficiency": {
     "tierLockedFeatureName": "Compute Efficiency",
