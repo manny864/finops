@@ -183,14 +183,14 @@ export default function AiConfigGlobalPage() {
 
     return (
         <div className="content animate-in fade-in max-w-2xl space-y-6">
-            <div>
-                <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                    <Sparkles className="w-6 h-6 text-brand-deep dark:text-brand-bright" /> {t("title")}
-                </h1>
-                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                    {t("subtitle")}
-                </p>
-            </div>
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                        <Sparkles className="w-6 h-6 text-brand-deep dark:text-brand-bright" /> {t("title")}
+                    </h1>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                        {t("subtitle")}
+                    </p>
+                </div>
 
             {loading ? (
                 <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
@@ -259,11 +259,7 @@ export default function AiConfigGlobalPage() {
                             </p>
                         </div>
 
-                        {error && (
-                            <div className="bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800/50 text-rose-700 dark:text-rose-300 text-sm px-3 py-2 rounded-lg">
-                                {error}
-                            </div>
-                        )}
+
 
                         {testResult && (
                             <div className={`flex items-start gap-2 text-sm px-3 py-2 rounded-lg border ${testResult.ok
@@ -275,13 +271,6 @@ export default function AiConfigGlobalPage() {
                         )}
 
                         <div className="flex items-center gap-2 pt-1">
-                            <button
-                                onClick={save}
-                                disabled={saving}
-                                className="px-4 py-2 bg-brand-deep hover:bg-brand-bright text-white text-sm font-bold rounded-lg disabled:opacity-50 flex items-center gap-2"
-                            >
-                                {saving && <Loader2 className="w-4 h-4 animate-spin" />} {t("save")}
-                            </button>
                             <button
                                 onClick={() => testConnection('standard')}
                                 disabled={testing || !hasApiKey}
@@ -350,13 +339,6 @@ export default function AiConfigGlobalPage() {
 
                         <div className="flex items-center gap-2 pt-1">
                             <button
-                                onClick={save}
-                                disabled={saving}
-                                className="px-4 py-2 bg-brand-deep hover:bg-brand-bright text-white text-sm font-bold rounded-lg disabled:opacity-50 flex items-center gap-2"
-                            >
-                                {saving && <Loader2 className="w-4 h-4 animate-spin" />} {t("save")}
-                            </button>
-                            <button
                                 onClick={() => testConnection('enterprise')}
                                 disabled={testingEnterprise || !hasEnterpriseApiKey}
                                 title={!hasEnterpriseApiKey ? t("apiKey.saveKeyFirst") : t("apiKey.testConnectionTitle")}
@@ -422,6 +404,25 @@ export default function AiConfigGlobalPage() {
                                 <p className="text-xs text-slate-500">{t("dataSharing.tags.description")}</p>
                             </div>
                         </label>
+                    </div>
+                    <div className="pt-4 flex flex-col items-end gap-4">
+                        {error && (
+                            <div className="w-full bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800/50 text-rose-700 dark:text-rose-300 text-sm px-4 py-3 rounded-xl flex items-start gap-2">
+                                <ShieldAlert className="w-5 h-5 shrink-0 mt-0.5" />
+                                <div>
+                                    <strong className="block font-semibold mb-1">Error al guardar</strong>
+                                    {error}
+                                </div>
+                            </div>
+                        )}
+                        <button
+                            onClick={save}
+                            disabled={saving}
+                            className="px-6 py-3 bg-brand-deep hover:bg-brand-bright text-white text-sm font-bold rounded-xl disabled:opacity-50 flex items-center gap-2 shadow-sm"
+                        >
+                            {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
+                            {t("save")}
+                        </button>
                     </div>
                 </div>
             )}
