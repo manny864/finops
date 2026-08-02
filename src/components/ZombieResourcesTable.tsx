@@ -23,7 +23,7 @@ import {
   ColumnDef,
   SortingState
 } from '@tanstack/react-table';
-import { EyeOff, Eye, X, MessageSquare, AlertTriangle } from 'lucide-react';
+import { EyeOff, Eye, X, MessageSquare, AlertTriangle , ShieldCheck, Shield, Edit3, Trash2} from 'lucide-react';
 
 export default function ZombieResourcesTable({ forceFilterType }: { forceFilterType?: string }) {
   const { instance, accounts } = useMsal();
@@ -608,7 +608,36 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
         header: t('colResource'),
         cell: ({ row }) => {
             const item = row.original;
-            return <span className={`font-semibold text-gray-800 dark:text-gray-200 ${item.isLocked ? 'filter blur-sm select-none' : ''}`}>{item.resourceName}</span>;
+            return (
+                <div className="flex flex-col">
+                    <div className="flex items-center gap-[7px] font-bold text-ink">
+                        {item.isExempted ? (
+                            <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
+                        ) : (
+                            <AlertTriangle className={`w-4 h-4 text-amber`} />
+                        )}
+                        <span className={`font-semibold text-gray-800 dark:text-gray-200 ${item.isLocked ? 'filter blur-sm select-none' : ''}`}>{item.resourceName}</span>
+                    </div>
+                    {item.isExempted && (
+                        <div className="mt-1.5 ml-6 flex flex-col gap-1">
+                            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 w-fit">
+                                <Shield className="w-3 h-3" />
+                                {t("badge_exempted")}
+                            </span>
+                            {item.exemptionReason && (
+                                <p className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 m-0">
+                                    📌 {item.exemptionReason}
+                                </p>
+                            )}
+                            {item.exemptionComment && (
+                                <p className="text-[10px] text-slate-500 dark:text-slate-400 italic m-0 bg-surface-2 p-1.5 rounded border border-line/60 max-w-md">
+                                    💬 "{item.exemptionComment}"
+                                </p>
+                            )}
+                        </div>
+                    )}
+                </div>
+            );
         },
       }
     ];
@@ -741,20 +770,32 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                             </span>
                         )}
                         {item.isExempted ? (
-                            <button
-                                onClick={() => handleRemoveExemption(item)}
-                                title="Revertir exención"
-                                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold shadow-sm transition-colors bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200"
-                            >
-                                <Eye className="w-3.5 h-3.5" /> {t('revert') || 'Revertir'}
-                            </button>
+                            <>
+                                <button
+                                    onClick={() => handleOpenExemptionModal(item)}
+                                    className="font-heading font-semibold text-[11px] rounded-lg bg-surface-2 hover:bg-surface-3 text-ink border border-line p-[6px_10px] cursor-pointer active:scale-95 transition-all inline-flex items-center gap-1 shadow-xs"
+                                    title={t("btn_edit_exemption")}
+                                >
+                                    <Edit3 className="w-3.5 h-3.5 text-primary" />
+                                    {t("btn_edit_exemption")}
+                                </button>
+                                <button
+                                    onClick={() => handleRemoveExemption(item)}
+                                    className="font-heading font-semibold text-[11px] rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30 p-[6px_10px] cursor-pointer active:scale-95 transition-all inline-flex items-center gap-1 shadow-xs"
+                                    title={t("btn_remove_exemption")}
+                                >
+                                    <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                                    {t("btn_remove_exemption")}
+                                </button>
+                            </>
                         ) : (
                             <button
                                 onClick={() => handleOpenExemptionModal(item)}
-                                title="Eximir / Ignorar recurso"
-                                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold shadow-sm transition-colors bg-white text-gray-500 hover:bg-gray-50 border border-gray-200"
+                                className="font-heading font-semibold text-[11px] rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-line p-[7px_10px] cursor-pointer active:scale-95 transition-all inline-flex items-center gap-1 shadow-xs"
+                                title={t("btn_exempt")}
                             >
-                                <EyeOff className="w-3.5 h-3.5" /> {t('exempt') || 'Eximir'}
+                                <Shield className="w-3.5 h-3.5 text-amber" />
+                                {t("btn_exempt")}
                             </button>
                         )}
                     </>

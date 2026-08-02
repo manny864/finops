@@ -6,7 +6,8 @@ import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Loader2, Network, AlertCircle, Info, DollarSign, Trash2, Tag, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2, Network, AlertCircle, Info, DollarSign, Trash2, Tag, ChevronLeft, ChevronRight, ShieldCheck, Shield, Edit3, EyeOff, X, MessageSquare, Zap } from "lucide-react";
+
 import { isMockTenant } from "@/lib/mockData";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { canDeleteResources } from "@/lib/tierLogic";
@@ -23,6 +24,9 @@ type ZombieItem = {
     monthlyCost: number;
     reason: string;
     daysIdle: number;
+    isExempted?: boolean;
+    exemptionReason?: string;
+    exemptionComment?: string;
 };
 
 const TYPE_BADGE: Record<string, string> = {
@@ -68,6 +72,65 @@ export default function NetworkingZombiesPanel() {
     const [taggingItems, setTaggingItems] = useState<ZombieItem[]>([]);
     const [tagValues, setTagValues] = useState({ CostCenter: "", Environment: "", Owner: "" });
     const [isTagging, setIsTagging] = useState(false);
+
+    const [exemptionModalOpen, setExemptionModalOpen] = useState(false);
+    const [exemptionItem, setExemptionItem] = useState<ZombieItem | null>(null);
+    const [reasonInput, setReasonInput] = useState("");
+    const [commentInput, setCommentInput] = useState("");
+    const [savingExemption, setSavingExemption] = useState(false);
+
+    const handleOpenExemptionModal = (item: ZombieItem) => {
+        setExemptionItem(item);
+        setReasonInput(item.exemptionReason || "");
+        setCommentInput(item.exemptionComment || "");
+        setExemptionModalOpen(true);
+    };
+
+    const handleSaveExemption = async () => {
+        if (!exemptionItem) return;
+        setSavingExemption(true);
+        try {
+            const idToken = await getFreshIdToken(instance, accounts[0]);
+            const res = await fetch("/api/intelligence/zombies/exemptions", {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${idToken}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    tenantId: selectedTenant?.id,
+                    recommendationType: "zombies",
+                    resourceId: exemptionItem.resourceId,
+                    reason: reasonInput,
+                    comment: commentInput
+                })
+            });
+            if (!res.ok) throw new Error("Error guardando exención");
+            mutate();
+            setExemptionModalOpen(false);
+            toast.success(t("exemptionSaved", { defaultMessage: "Exención guardada" }));
+        } catch (err) {
+            toast.error(t("errorServer", { defaultMessage: "Error" }));
+        } finally {
+            setSavingExemption(false);
+        }
+    };
+
+    const handleRemoveExemption = async (item: ZombieItem) => {
+        if (!window.confirm(t("confirm_remove_exemption", { name: item.resourceName }))) return;
+        try {
+            const idToken = await getFreshIdToken(instance, accounts[0]);
+            const res = await fetch(`/api/intelligence/zombies/exemptions?resourceId=${encodeURIComponent(item.resourceId)}`, {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${idToken}` }
+            });
+            if (!res.ok) throw new Error("Error removiendo exención");
+            mutate();
+            toast.success("Exención eliminada", { description: "La sugerencia ha sido restaurada." });
+        } catch (err) {
+            toast.error("Error", { description: "No se pudo remover la exención." });
+        }
+    };
 
     const fetcher = async (url: string) => {
         const idToken = await getFreshIdToken(instance, accounts[0]);
@@ -452,8 +515,35 @@ export default function NetworkingZombiesPanel() {
                                                     className="cursor-pointer"
                                                 />
                                             </td>
-                                            <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-200 max-w-[220px] truncate" title={item.resourceName}>
-                                                {item.resourceName}
+                                            <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-200" title={item.resourceName}>
+                                                <div className="flex flex-col">
+                                                    <div className="flex items-center gap-[7px] font-bold text-ink">
+                                                        {item.isExempted ? (
+                                                            <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
+                                                        ) : (
+                                                            <Network className="w-4 h-4 text-cyan-500" />
+                                                        )}
+                                                        <span className="max-w-[220px] truncate">{item.resourceName}</span>
+                                                    </div>
+                                                    {item.isExempted && (
+                                                        <div className="mt-1.5 ml-6 flex flex-col gap-1">
+                                                            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 w-fit">
+                                                                <Shield className="w-3 h-3" />
+                                                                {t("badge_exempted")}
+                                                            </span>
+                                                            {item.exemptionReason && (
+                                                                <p className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 m-0">
+                                                                    📌 {item.exemptionReason}
+                                                                </p>
+                                                            )}
+                                                            {item.exemptionComment && (
+                                                                <p className="text-[10px] text-slate-500 dark:text-slate-400 italic m-0 bg-surface-2 p-1.5 rounded border border-line/60 max-w-md">
+                                                                    💬 "{item.exemptionComment}"
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td className="px-4 py-3">
                                                 <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${TYPE_BADGE[item.resourceType] || "bg-gray-100 text-gray-600"}`}>
@@ -473,20 +563,51 @@ export default function NetworkingZombiesPanel() {
                                                 ${item.monthlyCost.toFixed(2)}
                                             </td>
                                             {canDelete && (
-                                                <td className="px-4 py-3 text-right">
-                                                    <button
-                                                        onClick={() => handleDelete(item)}
-                                                        disabled={deletingId === item.resourceId || isPending(item.resourceId)}
-                                                        className="inline-flex items-center gap-1 text-xs font-semibold text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 disabled:opacity-50"
-                                                        title={t("deleteTitle", { name: item.resourceName })}
-                                                    >
-                                                        {deletingId === item.resourceId || isPending(item.resourceId) ? (
-                                                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                                        ) : (
-                                                            <Trash2 className="w-3.5 h-3.5" />
-                                                        )}
-                                                        {isPending(item.resourceId) ? "Borrando..." : t("delete")}
-                                                    </button>
+                                                <td className="px-4 py-3 flex justify-end gap-2 text-right items-start">
+                                                    {item.isExempted ? (
+                                                        <>
+                                                            <button
+                                                                onClick={() => handleOpenExemptionModal(item)}
+                                                                className="font-heading font-semibold text-[11px] rounded-lg bg-surface-2 hover:bg-surface-3 text-ink border border-line p-[6px_10px] cursor-pointer active:scale-95 transition-all inline-flex items-center gap-1 shadow-xs h-fit"
+                                                                title={t("btn_edit_exemption")}
+                                                            >
+                                                                <Edit3 className="w-3.5 h-3.5 text-primary" />
+                                                                {t("btn_edit_exemption")}
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleRemoveExemption(item)}
+                                                                className="font-heading font-semibold text-[11px] rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30 p-[6px_10px] cursor-pointer active:scale-95 transition-all inline-flex items-center gap-1 shadow-xs h-fit"
+                                                                title={t("btn_remove_exemption")}
+                                                            >
+                                                                <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                                                                {t("btn_remove_exemption")}
+                                                            </button>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <button
+                                                                onClick={() => handleOpenExemptionModal(item)}
+                                                                className="font-heading font-semibold text-[11px] rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-line p-[7px_10px] cursor-pointer active:scale-95 transition-all inline-flex items-center gap-1 shadow-xs h-fit"
+                                                                title={t("btn_exempt")}
+                                                            >
+                                                                <Shield className="w-3.5 h-3.5 text-amber" />
+                                                                {t("btn_exempt")}
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDelete(item)}
+                                                                disabled={deletingId === item.resourceId || isPending(item.resourceId)}
+                                                                className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 disabled:opacity-50 p-[7px_10px] rounded-lg border border-transparent h-fit"
+                                                                title={t("deleteTitle", { name: item.resourceName })}
+                                                            >
+                                                                {deletingId === item.resourceId || isPending(item.resourceId) ? (
+                                                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                                ) : (
+                                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                                )}
+                                                                {isPending(item.resourceId) ? "Borrando..." : t("delete")}
+                                                            </button>
+                                                        </>
+                                                    )}
                                                 </td>
                                             )}
                                         </tr>
@@ -594,6 +715,75 @@ export default function NetworkingZombiesPanel() {
                                 className="px-4 py-2 text-sm font-semibold text-white bg-[#0054A6] hover:bg-[#00AEEF] rounded-md transition-colors disabled:opacity-50 flex items-center"
                             >
                                 {isTagging ? t("applying") : t("applyTags")}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {exemptionModalOpen && exemptionItem && (
+                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative">
+                        <button
+                            onClick={() => setExemptionModalOpen(false)}
+                            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 cursor-pointer transition-colors"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="p-3 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber">
+                                <Shield className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">{t("modal_exemption_title")}</h3>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">{exemptionItem.resourceName}</p>
+                            </div>
+                        </div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 leading-relaxed">
+                            {t("modal_exemption_desc")}
+                        </p>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                                    {t("field_reason")}
+                                </label>
+                                <input
+                                    type="text"
+                                    value={reasonInput}
+                                    onChange={(e) => setReasonInput(e.target.value)}
+                                    placeholder={t("field_reason_placeholder")}
+                                    className="w-full bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500 transition-all"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                                    <MessageSquare className="w-3.5 h-3.5 text-blue-500" />
+                                    {t("field_comment")}
+                                </label>
+                                <textarea
+                                    rows={4}
+                                    value={commentInput}
+                                    onChange={(e) => setCommentInput(e.target.value)}
+                                    placeholder={t("field_comment_placeholder")}
+                                    className="w-full bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-xl p-3 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500 transition-all resize-none"
+                                />
+                            </div>
+                        </div>
+                        <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-gray-100 dark:border-slate-800">
+                            <button
+                                type="button"
+                                onClick={() => setExemptionModalOpen(false)}
+                                className="px-4 py-2 text-xs font-semibold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 rounded-xl border border-transparent cursor-pointer transition-all"
+                            >
+                                {t("cancel", { defaultMessage: "Cancelar" })}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleSaveExemption}
+                                disabled={savingExemption}
+                                className="px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md cursor-pointer transition-all disabled:opacity-50 inline-flex items-center gap-2"
+                            >
+                                {savingExemption ? <Zap className="w-4 h-4 animate-bounce" /> : <ShieldCheck className="w-4 h-4" />}
+                                {t("btn_save_exemption")}
                             </button>
                         </div>
                     </div>
