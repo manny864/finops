@@ -60,8 +60,22 @@ export async function POST(request: NextRequest) {
     const keysToInvalidate = [
       `audit:full:v1:${tenantId}:all`,
       `audit:ttl:v1:${tenantId}`,
+      `cleanup:zombies-networking:v1:${tenantId}:all`,
+      `cleanup:zombies:v2:azure:${tenantId}:all`,
+      `advisor:${tenantId}:es`,
+      `advisor:${tenantId}:en`,
+      `advisor:${tenantId}:pt-BR`
     ];
-    if (subscriptionId) keysToInvalidate.push(`audit:full:v1:${tenantId}:${String(subscriptionId).toLowerCase()}`);
+
+    if (subscriptionId) {
+      const subIdStr = String(subscriptionId).toLowerCase();
+      keysToInvalidate.push(
+        `audit:full:v1:${tenantId}:${subIdStr}`,
+        `cleanup:zombies-networking:v1:${tenantId}:${subIdStr}`,
+        `cleanup:zombies:v2:azure:${tenantId}:${subIdStr}`
+      );
+    }
+
     await redis.del(...keysToInvalidate).catch((e) => console.warn("[Remediation] No se pudo invalidar cache de audit:", e?.message));
 
     return NextResponse.json({ success: true });
