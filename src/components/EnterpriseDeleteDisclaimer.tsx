@@ -31,7 +31,7 @@ export default function EnterpriseDeleteDisclaimer({ domain = 'ttl' }: Enterpris
             <Crown className="w-5 h-5 shrink-0 mt-0.5" />
             <div className="text-sm">
                 <span className="font-bold mr-2 px-1.5 py-0.5 bg-indigo-200 dark:bg-indigo-800 rounded text-xs">{requiredTier}</span>
-                La eliminación de recursos es una capacidad del plan {requiredTier}. En tu plan actual podés detectar y revisar estos recursos, pero borrarlos desde la plataforma requiere upgrade a {requiredTier}.
+                La remediación (eliminación y etiquetado) de recursos es una capacidad del plan {requiredTier}. En tu plan actual podés detectar y revisar estos recursos, pero modificarlos o borrarlos desde la plataforma requiere upgrade a {requiredTier}.
             </div>
         </div>
     );

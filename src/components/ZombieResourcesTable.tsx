@@ -11,7 +11,7 @@ import { useTranslations } from 'next-intl';
 import { useAIContext } from '@/hooks/useAIContext';
 import { getMockDataForRoute, isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
-import { canDeleteResources } from '@/lib/tierLogic';
+import { canDeleteResources, canRemediateTags } from '@/lib/tierLogic';
 import EnterpriseDeleteDisclaimer from '@/components/EnterpriseDeleteDisclaimer';
 import {
   useReactTable,
@@ -438,6 +438,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
 
   const hasLockedItems = useMemo(() => filteredData.some(item => item.isLocked), [filteredData]);
   const canDelete = canDeleteResources(selectedTenant.tier, 'zombies');
+  const canTag = canRemediateTags(selectedTenant.tier);
   // Borrado directo: Admin/Owner/SuperAdmin. Colaborador (con tier habilitado)
   // solo puede solicitar la eliminación — ver requestDeletion() — porque
   // /api/remediation exige Admin/Owner server-side (403 si no).
@@ -573,7 +574,9 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                                 setTaggingItems([item]);
                                 setTagValues({ CostCenter: '', Environment: '', Owner: '' });
                             }}
-                            className="px-3 py-1 rounded-md text-xs font-semibold shadow-sm transition-colors bg-[#0054A6] text-white hover:bg-[#00AEEF]"
+                            disabled={!canTag}
+                            title={!canTag ? t('enterpriseTooltip') : ''}
+                            className={`px-3 py-1 rounded-md text-xs font-semibold shadow-sm transition-colors ${!canTag ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-[#0054A6] text-white hover:bg-[#00AEEF]'}`}
                         >
                             {t('setTags')}
                         </button>
@@ -724,7 +727,9 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                       setTaggingItems(filteredData.filter(i => selectedIds.has(i.id)));
                       setTagValues({ CostCenter: '', Environment: '', Owner: '' });
                   }}
-                  className="px-3 py-1.5 rounded-md text-xs font-semibold bg-white dark:bg-slate-800 border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+                  disabled={!canTag}
+                  title={!canTag ? t('enterpriseTooltip') : ''}
+                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${!canTag ? 'bg-gray-100 dark:bg-slate-800 text-gray-400 dark:text-slate-500 border border-gray-200 dark:border-slate-700 cursor-not-allowed' : 'bg-white dark:bg-slate-800 border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40'}`}
               >
                   {t('tagSelected')}
               </button>
