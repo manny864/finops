@@ -1104,7 +1104,9 @@
     "field_comment": "Comentario adicional (opcional)",
     "field_comment_placeholder": "Detalles técnicos adicionales...",
     "btn_save_exemption": "Guardar Exención",
-    "confirm_remove_exemption": "¿Estás seguro de que deseas eliminar la exención para el recurso {name}? Volverá a aparecer como sugerencia de limpieza."
+    "confirm_remove_exemption": "¿Estás seguro de que deseas eliminar la exención para el recurso {name}? Volverá a aparecer como sugerencia de limpieza.",
+    "exemptionSaved": "Exención guardada",
+    "exemptionSavedDesc": "La recomendación ya no aparecerá como pendiente."
   },
   "Copilot": {
     "welcome_message": "¡Hola! Soy tu asistente de FinOps y estoy aquí para ayudarte. Estoy analizando el módulo <b>{page}</b>; puedes preguntarme cualquier cosa relacionada con los datos que muestra esta página.",
@@ -4315,7 +4317,9 @@
     "field_comment": "Comentario adicional (opcional)",
     "field_comment_placeholder": "Detalles técnicos adicionales...",
     "btn_save_exemption": "Guardar Exención",
-    "confirm_remove_exemption": "¿Estás seguro de que deseas eliminar la exención para el recurso {name}? Volverá a aparecer como sugerencia de limpieza."
+    "confirm_remove_exemption": "¿Estás seguro de que deseas eliminar la exención para el recurso {name}? Volverá a aparecer como sugerencia de limpieza.",
+    "exemptionSaved": "Exención guardada",
+    "exemptionSavedDesc": "La recomendación ya no aparecerá como pendiente."
   },
   "MyDashboard": {
     "title": "Mi Dashboard",
