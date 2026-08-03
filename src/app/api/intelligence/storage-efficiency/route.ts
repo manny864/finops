@@ -259,6 +259,28 @@ export async function GET(request: NextRequest) {
                 widened = rows.length > 0;
             }
 
+            // 1. Compute tenant-wide tierMap, totalGb, and totalCost from DB billing rows first
+            const tierMap: Record<string, { gb: number; cost: number }> = {
+                hot: { gb: 0, cost: 0 },
+                cool: { gb: 0, cost: 0 },
+                cold: { gb: 0, cost: 0 },
+                archive: { gb: 0, cost: 0 },
+            };
+
+            for (const row of rows) {
+                const tier = detectTier(row.MeterSubCategory, row.MeterName, row.MeterCategory, row.service_name);
+                const cost = parseFloat(row.billedCost) || 0;
+                const uom = String(row.UnitOfMeasure || "").toLowerCase();
+                const reportedQty = parseFloat(row.quantity) || 0;
+                const inferredGb = TIER_RATES[tier] > 0 ? cost / TIER_RATES[tier] : 0;
+                const gb = (reportedQty > 0 && (uom.includes("gb") || uom.includes("byte"))) ? reportedQty : inferredGb;
+                tierMap[tier].cost += cost;
+                tierMap[tier].gb += gb;
+            }
+
+            const totalCostFromRows = Object.values(tierMap).reduce((s, t) => s + t.cost, 0);
+            const totalGbFromRows   = Object.values(tierMap).reduce((s, t) => s + t.gb, 0);
+
             let accounts: any[] = [];
             try {
                 let subs = await getUntruncatedSubscriptions(tenantId);
@@ -328,37 +350,38 @@ export async function GET(request: NextRequest) {
                             monthlyCost: parseFloat(cost.toFixed(2))
                         };
                     });
+
+                    // Proportional Fallback: if total tenant GB/Cost > 0 and some accounts have 0 GB/Cost, allocate remaining
+                    const mappedGb = accounts.reduce((s, a) => s + a.usedGb, 0);
+                    const mappedCost = accounts.reduce((s, a) => s + a.monthlyCost, 0);
+                    const remainingGb = totalGbFromRows - mappedGb;
+                    const remainingCost = totalCostFromRows - mappedCost;
+                    const unmappedAccounts = accounts.filter(a => a.usedGb === 0 && a.monthlyCost === 0);
+
+                    if (unmappedAccounts.length > 0 && (remainingGb > 0 || remainingCost > 0)) {
+                        const addGb = Math.max(0, remainingGb / unmappedAccounts.length);
+                        const addCost = Math.max(0, remainingCost / unmappedAccounts.length);
+                        for (const acc of unmappedAccounts) {
+                            acc.usedGb = parseFloat(addGb.toFixed(2));
+                            acc.monthlyCost = parseFloat(addCost.toFixed(2));
+                        }
+                    }
                 }
             } catch (e: unknown) {
                 const msg = e instanceof Error ? e.message : String(e);
                 console.error(`[storage-efficiency] Could not fetch ARG storage accounts for tenant ${tenantId}:`, msg);
             }
 
-            // Build tierMap from accounts to reflect exact Storage Account tiers (Hot, Cool, Cold, Archive)
-            const tierMap: Record<string, { gb: number; cost: number }> = {
-                hot: { gb: 0, cost: 0 },
-                cool: { gb: 0, cost: 0 },
-                cold: { gb: 0, cost: 0 },
-                archive: { gb: 0, cost: 0 },
-            };
-
+            // Sync tierMap from accounts if accounts exist (so tiers match accounts table)
             if (accounts.length > 0) {
+                for (const k of ["hot", "cool", "cold", "archive"]) {
+                    tierMap[k] = { gb: 0, cost: 0 };
+                }
                 for (const acc of accounts) {
                     const t = (acc.tier || "hot").toLowerCase();
                     const key = tierMap[t] ? t : "hot";
                     tierMap[key].gb += acc.usedGb || 0;
                     tierMap[key].cost += acc.monthlyCost || 0;
-                }
-            } else {
-                for (const row of rows) {
-                    const tier = detectTier(row.MeterSubCategory, row.MeterName, row.MeterCategory, row.service_name);
-                    const cost = parseFloat(row.billedCost) || 0;
-                    const uom = String(row.UnitOfMeasure || "").toLowerCase();
-                    const reportedQty = parseFloat(row.quantity) || 0;
-                    const inferredGb = TIER_RATES[tier] > 0 ? cost / TIER_RATES[tier] : 0;
-                    const gb = (reportedQty > 0 && (uom.includes("gb") || uom.includes("byte"))) ? reportedQty : inferredGb;
-                    tierMap[tier].cost += cost;
-                    tierMap[tier].gb += gb;
                 }
             }
 
