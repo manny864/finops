@@ -99,7 +99,6 @@ async function queryMeterRows(tenantId: string, days: number) {
     const [rows]: any = await pool.query(
         `SELECT
             subscription_id,
-            resource_group,
             MeterName,
             MeterSubCategory,
             MeterCategory,
