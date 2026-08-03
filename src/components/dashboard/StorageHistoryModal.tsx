@@ -295,23 +295,34 @@ export default function StorageHistoryModal({ isOpen, onClose, tenantId }: Stora
                                     </div>
                                 </div>
 
-                                <div className="h-44 flex items-end justify-between gap-2 pt-6 pb-2 px-2 border-b border-slate-800">
+                                <div className="h-48 flex items-end justify-between gap-1.5 pt-6 pb-2 px-2 border-b border-slate-800">
                                     {filteredHistory.map((h) => {
-                                        const heightPercent = Math.max(8, (h.totalCost / maxCost) * 100);
+                                        const maxGb = Math.max(...filteredHistory.map(item => item.totalGb), 0.001);
+                                        const costHeight = h.totalCost > 0 ? Math.max(10, (h.totalCost / maxCost) * 100) : 4;
+                                        const gbHeight = h.totalGb > 0 ? Math.max(10, (h.totalGb / maxGb) * 100) : 4;
+
                                         return (
                                             <div key={h.month} className="flex-1 flex flex-col items-center group relative">
                                                 
                                                 {/* Tooltip */}
-                                                <div className="absolute -top-12 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 text-white text-[10px] py-1 px-2 rounded shadow-lg pointer-events-none z-20 whitespace-nowrap border border-slate-700">
+                                                <div className="absolute -top-14 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 text-white text-[10px] py-1.5 px-2.5 rounded shadow-lg pointer-events-none z-20 whitespace-nowrap border border-slate-700">
                                                     <div><strong>{h.month}</strong></div>
                                                     <div>Costo: {format(h.totalCost)}</div>
                                                     <div>Capacidad: {formatStorageSize(h.totalGb)}</div>
                                                 </div>
 
-                                                <div 
-                                                    className="w-full max-w-[28px] bg-gradient-to-t from-blue-600 to-indigo-400 group-hover:from-blue-500 group-hover:to-indigo-300 rounded-t-md transition-all relative"
-                                                    style={{ height: `${heightPercent}%` }}
-                                                />
+                                                <div className="w-full flex items-end justify-center gap-0.5 h-full">
+                                                    <div 
+                                                        className="w-1/2 max-w-[14px] bg-gradient-to-t from-blue-600 to-indigo-400 group-hover:from-blue-500 group-hover:to-indigo-300 rounded-t-sm transition-all"
+                                                        style={{ height: `${costHeight}%` }}
+                                                        title={`Costo: ${format(h.totalCost)}`}
+                                                    />
+                                                    <div 
+                                                        className="w-1/2 max-w-[14px] bg-gradient-to-t from-emerald-600 to-teal-400 group-hover:from-emerald-500 group-hover:to-teal-300 rounded-t-sm transition-all"
+                                                        style={{ height: `${gbHeight}%` }}
+                                                        title={`Capacidad: ${formatStorageSize(h.totalGb)}`}
+                                                    />
+                                                </div>
                                             </div>
                                         );
                                     })}

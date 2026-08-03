@@ -39,9 +39,11 @@ describe("storage-efficiency history route", () => {
 
         expect(res.status).toBe(200);
         expect(body.success).toBe(true);
-        expect(body.history.length).toBe(2);
-        expect(body.history[0].month).toBe("2025-08");
-        expect(body.history[1].momChangePercent).toBe(20); // (15 - 12.5)/12.5 * 100 = 20%
+        expect(body.history.length).toBe(13);
+        const itemAug = body.history.find((h: any) => h.month === "2025-08");
+        const itemSep = body.history.find((h: any) => h.month === "2025-09");
+        expect(itemAug?.totalCost).toBe(12.5);
+        expect(itemSep?.momChangePercent).toBe(20); // (15 - 12.5)/12.5 * 100 = 20%
     });
 
     it("requiere tenantId", async () => {

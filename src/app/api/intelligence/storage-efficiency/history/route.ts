@@ -144,18 +144,29 @@ export async function GET(request: NextRequest) {
         let history: MonthlyStorageHistoryItem[] = [];
 
         if (rows && rows.length > 0) {
-            history = rows.map((r: any) => {
-                const cost = parseFloat(r.totalCost) || 0;
-                const gb = parseFloat(r.totalGb) || 0;
-                const costPerGb = gb > 0 ? parseFloat((cost / gb).toFixed(5)) : 0;
-                return {
-                    month: r.month,
-                    totalCost: parseFloat(cost.toFixed(4)),
-                    totalGb: parseFloat(gb.toFixed(4)),
+            const dbMap = new Map<string, { totalCost: number; totalGb: number }>();
+            for (const r of rows) {
+                dbMap.set(r.month, {
+                    totalCost: parseFloat(r.totalCost) || 0,
+                    totalGb: parseFloat(r.totalGb) || 0
+                });
+            }
+
+            // Build full 13-month timeline filling missing months with 0
+            const now = new Date();
+            for (let i = 12; i >= 0; i--) {
+                const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                const monthStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                const entry = dbMap.get(monthStr) || { totalCost: 0, totalGb: 0 };
+                const costPerGb = entry.totalGb > 0 ? parseFloat((entry.totalCost / entry.totalGb).toFixed(5)) : 0;
+                history.push({
+                    month: monthStr,
+                    totalCost: parseFloat(entry.totalCost.toFixed(4)),
+                    totalGb: parseFloat(entry.totalGb.toFixed(4)),
                     costPerGb,
                     momChangePercent: 0
-                };
-            });
+                });
+            }
 
             // Calculate MoM change
             for (let i = 1; i < history.length; i++) {
