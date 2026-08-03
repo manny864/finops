@@ -194,7 +194,7 @@ async function fetchAllStorageAccountsFromARG(tenantId: string, subs: string[]):
     const query = `
         Resources
         | where type =~ 'microsoft.storage/storageaccounts' or type =~ 'microsoft.classicstorage/storageaccounts'
-        | project id, name, location, resourceGroup, subscriptionId, sku = tostring(sku.name), kind = tostring(kind), accessTier = tostring(properties.accessTier)
+        | project id, name, location, resourceGroup, subscriptionId, sku, kind, properties
     `;
 
     const allAccounts: any[] = [];
@@ -320,7 +320,8 @@ export async function GET(request: NextRequest) {
                     }
 
                     accounts = rawAccounts.map((acc: any) => {
-                        const rawTier = acc.accessTier || (acc.sku?.toLowerCase().includes("premium") ? "Premium" : "Hot");
+                        const skuStr = String(acc.sku?.name || acc.sku || "");
+                        const rawTier = acc.properties?.accessTier || (skuStr.toLowerCase().includes("premium") ? "Premium" : "Hot");
                         const tierFormatted = rawTier ? rawTier.charAt(0).toUpperCase() + rawTier.slice(1).toLowerCase() : "Hot";
                         const rg = (acc.resourceGroup || "").toLowerCase();
                         const rgStats = costByRg.get(rg);
@@ -337,7 +338,7 @@ export async function GET(request: NextRequest) {
                             location: acc.location,
                             tier: tierFormatted,
                             kind: acc.kind,
-                            sku: acc.sku,
+                            sku: acc.sku?.name || acc.sku,
                             usedGb: parseFloat(gb.toFixed(2)),
                             monthlyCost: parseFloat(cost.toFixed(2))
                         };
