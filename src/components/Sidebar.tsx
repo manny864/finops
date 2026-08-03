@@ -272,7 +272,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
     // ProductOwner) = DOMINIO: qué páginas puede ver — son independientes y
     // se aplican JUNTAS, no una en lugar de la otra. Un usuario puede ser
     // Reader (solo lectura) + permiso FinOps (solo ve páginas de ese dominio).
-    const { userRole, userPermissions } = useTenant();
+    const { userRole, userPermissions, systemRole } = useTenant();
     // Rutas siempre visibles con cualquier combinación de rol/permisos (orientación mínima).
     const ALWAYS_VISIBLE_HREFS = ['/', '/support', '/academy'];
     // Admin/Owner no se acotan por permisos: gestionan la plataforma completa
@@ -282,6 +282,9 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
     const restrictByPermissions = userPermissions.length > 0 && userRole !== 'Admin' && userRole !== 'Owner';
     const roleCategories = categories.map(cat => {
         let items = cat.items;
+        if (systemRole === 'SUPERADMIN') {
+            items = items.filter(i => i.href !== '/academy');
+        }
         if (restrictByPermissions) {
             items = items.filter(i => ALWAYS_VISIBLE_HREFS.includes(i.href) || hasAnyTag(userPermissions, getTagsForRoute(i.href)));
             if (items.length === 0) return null;
