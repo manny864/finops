@@ -13,7 +13,9 @@ import {
     Download, 
     BarChart2, 
     AlertCircle,
-    Loader2 
+    Loader2,
+    ChevronLeft,
+    ChevronRight 
 } from "lucide-react";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
@@ -40,6 +42,8 @@ export default function StorageHistoryModal({ isOpen, onClose, tenantId }: Stora
     const [timeRangeMonths, setTimeRangeMonths] = useState<number | "custom">(13);
     const [customStartDate, setCustomStartDate] = useState<string>("");
     const [customEndDate, setCustomEndDate] = useState<string>("");
+    const [tablePage, setTablePage] = useState<number>(1);
+    const tablePageSize = 5;
 
     const fetcher = async (url: string) => {
         const idToken = await getFreshIdToken(instance, accounts[0], ["User.Read"]).catch(() => "");
@@ -78,6 +82,14 @@ export default function StorageHistoryModal({ isOpen, onClose, tenantId }: Stora
         if (timeRangeMonths === "custom") return rawHistory;
         return rawHistory.slice(-timeRangeMonths);
     }, [rawHistory, timeRangeMonths]);
+
+    // Paginated history for table view
+    const totalTablePages = Math.max(1, Math.ceil(filteredHistory.length / tablePageSize));
+    const paginatedTableHistory = useMemo(() => {
+        const reversed = [...filteredHistory].reverse();
+        const start = (tablePage - 1) * tablePageSize;
+        return reversed.slice(start, start + tablePageSize);
+    }, [filteredHistory, tablePage, tablePageSize]);
 
     // Summary statistics
     const stats = useMemo(() => {
@@ -356,7 +368,7 @@ export default function StorageHistoryModal({ isOpen, onClose, tenantId }: Stora
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
-                                            {filteredHistory.map((h) => (
+                                            {paginatedTableHistory.map((h) => (
                                                 <tr key={h.month} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
                                                     <td className="py-2.5 px-4 font-semibold text-slate-800 dark:text-slate-200">
                                                         {h.month}
@@ -385,6 +397,27 @@ export default function StorageHistoryModal({ isOpen, onClose, tenantId }: Stora
                                             ))}
                                         </tbody>
                                     </table>
+                                </div>
+
+                                {/* Table Pagination Footer */}
+                                <div className="px-4 py-2.5 bg-slate-50/60 dark:bg-slate-800/40 border-t border-gray-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500">
+                                    <span>Página {tablePage} de {totalTablePages} ({filteredHistory.length} meses)</span>
+                                    <div className="flex items-center gap-1">
+                                        <button
+                                            onClick={() => setTablePage(p => Math.max(1, p - 1))}
+                                            disabled={tablePage === 1}
+                                            className="p-1 rounded-md border border-gray-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 disabled:opacity-40 transition-colors"
+                                        >
+                                            <ChevronLeft className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                            onClick={() => setTablePage(p => Math.min(totalTablePages, p + 1))}
+                                            disabled={tablePage >= totalTablePages}
+                                            className="p-1 rounded-md border border-gray-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 disabled:opacity-40 transition-colors"
+                                        >
+                                            <ChevronRight className="w-4 h-4" />
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </>
