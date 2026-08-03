@@ -245,8 +245,28 @@ async function fetchZombies(tenantId: string, subscriptionId: string | null): Pr
         }));
     }));
 
-    // Lógica Freemium Teaser (Removido el enmascaramiento por solicitud)
-    // El nombre real ahora se enviará como texto plano.
+    try {
+        const { getExemptionsForTenant } = await import('@/modules/storage/recommendationExemptions');
+        const exemptions = await getExemptionsForTenant(tenantId);
+        const exemptionsMap = new Map(
+            exemptions
+                .filter((e: any) => e.recommendationType === 'zombies')
+                .map((e: any) => [(e.resourceId || '').toLowerCase(), e])
+        );
+
+        allZombies.forEach((item: any) => {
+            const ex = exemptionsMap.get((item.resourceId || item.id || '').toLowerCase());
+            if (ex) {
+                item.isExempted = true;
+                item.exemptionReason = ex.reason || null;
+                item.exemptionComment = ex.comment || null;
+            } else {
+                item.isExempted = false;
+            }
+        });
+    } catch (err) {
+        console.error('[Zombies API] Failed to attach exemptions:', err);
+    }
 
     return allZombies;
 }
