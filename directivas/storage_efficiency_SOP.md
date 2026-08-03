@@ -1,0 +1,14 @@
+# Directiva: Storage Efficiency Dashboard
+
+## Objetivo
+Mantener el dashboard de Eficiencia de Storage mostrando siempre los datos reales de Azure (Cuentas de Almacenamiento, Tiers, y Costos) para el tenant correspondiente.
+
+## Restricciones y Casos Borde (El Protocolo de Auto-Corrección)
+1. **Nombres de Tenants:** Nombres inventados o sintéticos (ej. `stMath.random()`) SOLO deben utilizarse para los tenants de demostración (`tenantId.startsWith("mock-")`). En tenants productivos SIEMPRE el nombre tiene que venir de Azure Resource Graph. No se debe caer en fallbacks sintéticos si la llamada a ARG falla.
+2. **Límites de Suscripción (Truncamiento):** La función `getSubscriptionsForTenant(tenantId)` por diseño trunca el número de suscripciones devueltas basándose en el Tier del tenant (ej. Essential=1). Sin embargo, para la tabla de inventario de Storage Accounts, debemos mostrar **todas** las cuentas del tenant independientemente del plan, para evitar el bug donde "solo trae 1 SA cuando hay 5". Para lograrlo, utilizar un listado sin truncamiento de la API de Management (`getUntruncatedSubscriptions`) al buscar en ARG, para garantizar que ARG devuelva todos los recursos sin ser limitado por la capa de aplicación.
+3. **Manejo de Arrays Vacíos:** Antes de completar una implementación, asegurarse que no se devuelvan arrays vacíos `[]` por error al consultar ARG. Si ARG requiere el parámetro `subscriptions` obligatoriamente (para no tirar 403 o arrojar excepciones de SDK), asegúrese de pasar un array válido de IDs de suscripciones. Si no hay suscripciones, omita la llamada a ARG de manera segura pero siga enviando los datos de Costos (`totalGb`, `totalCost`) si existen en la BD.
+4. **Tipos de Recursos:** Al consultar ARG (`microsoft.storage/storageaccounts`), incluir también explícitamente `microsoft.classicstorage/storageaccounts` para evitar omitir cuentas de almacenamiento heredadas.
+5. **Git Push:** NUNCA enviar código a github (`git push`) a menos que el usuario lo ordene explícitamente. Solo realizar `git commit` a nivel local para asentar los arreglos en el flujo de desarrollo.
+6. **CostMeterSnapshots y resource_group:** La tabla `CostMeterSnapshots` (a diferencia de `CostSnapshots` legacy) NO contiene la columna `resource_group`.
+   - **Nota: No agregar `resource_group` al `SELECT` de `queryMeterRows`.** Hacerlo causará un error `ER_BAD_FIELD_ERROR` que rompe el endpoint devolviendo datos vacíos (`totalCost: 0, cuentas vacías`).
+   - **En su lugar:** Mantener un bloque `try/catch` en la función `runQuery` que capture este error específico y active como fallback `queryLegacyRows` para los endpoints (como `storage-efficiency`) que necesitan agrupar o mapear por Grupo de Recursos de forma estricta.
