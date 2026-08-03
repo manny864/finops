@@ -11,6 +11,7 @@ import { getFreshIdToken } from '@/lib/msalToken';
 import MockBanner from '@/components/MockBanner';
 import HistoryButton from '@/components/history/HistoryButton';
 import Pagination, { usePagination } from '@/components/Pagination';
+import PageHeaderTierBadge from '@/components/dashboard/PageHeaderTierBadge';
 
 export default function RightsizingPage() {
   const t = useTranslations("Rightsizing");
@@ -250,7 +251,7 @@ export default function RightsizingPage() {
              <span className="vico bg-gradient-to-br from-[#0054A6] to-[#00AEEF]"><Ruler className="w-5 h-5" /></span>
              {t("title")}
           </div>
-          <div className="vs">{t("subtitle")}</div>
+          <div className="vs">{t("subtitle")} <PageHeaderTierBadge tier="Enterprise" /></div>
         </div>
         <div className="right">
           <HistoryButton domain="rightsizing" title={t("title")} />

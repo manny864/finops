@@ -1,5 +1,6 @@
 "use client";
 import MockBanner from '@/components/MockBanner';
+import PageHeaderTierBadge from '@/components/dashboard/PageHeaderTierBadge';
 import React, { useEffect, useState } from 'react';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
@@ -273,7 +274,7 @@ export default function MaturityPage() {
                       </span>
                       {t('pageTitle')}
                   </div>
-                  <div className="text-[13px] text-ink-soft mt-[3px]">{t('pageSubtitle')}</div>
+                  <div className="text-[13px] text-ink-soft mt-[3px]">{t('pageSubtitle')} <PageHeaderTierBadge tier="Essential" /></div>
               </div>
               <div className="ml-auto flex gap-[9px] items-center">
                   <button onClick={() => setShowWizard(true)} className="text-[12px] font-bold tracking-[0.4px] bg-white border border-brand text-brand hover:bg-brand-soft px-[12px] py-[6px] rounded-lg transition-colors mr-2">

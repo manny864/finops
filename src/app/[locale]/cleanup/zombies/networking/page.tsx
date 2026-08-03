@@ -2,7 +2,7 @@ import React from "react";
 import { getTranslations } from "next-intl/server";
 import MockBanner from '@/components/MockBanner';
 import NetworkingZombiesPanel from "@/components/dashboard/NetworkingZombiesPanel";
-import { Network } from "lucide-react";
+import PageHeaderTierBadge from "@/components/dashboard/PageHeaderTierBadge";
 
 export default async function NetworkingZombiesPage() {
     const t = await getTranslations("NetworkingZombies");
@@ -17,11 +17,7 @@ export default async function NetworkingZombiesPage() {
                         {t("pageTitle")}
                     </div>
                     <div className="vs">
-                        {t("pageSubtitle")}{" "}
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-violet-100 dark:bg-violet-950/40 text-violet-700 dark:text-violet-400 ml-1">
-                            <Network className="w-3 h-3" />
-                            Essential
-                        </span>
+                        {t("pageSubtitle")} <PageHeaderTierBadge tier="Essential" />
                     </div>
                 </div>
             </div>
