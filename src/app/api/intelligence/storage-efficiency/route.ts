@@ -98,6 +98,8 @@ const STORAGE_SERVICE_FILTER = `(
 async function queryMeterRows(tenantId: string, days: number) {
     const [rows]: any = await pool.query(
         `SELECT
+            subscription_id,
+            resource_group,
             MeterName,
             MeterSubCategory,
             MeterCategory,
@@ -127,6 +129,8 @@ async function queryMeterRows(tenantId: string, days: number) {
 async function queryLegacyRows(tenantId: string, days: number) {
     const [rows]: any = await pool.query(
         `SELECT
+            subscription_id,
+            resource_group,
             MeterName,
             MeterSubCategory,
             MeterCategory,
@@ -262,14 +266,18 @@ export async function GET(request: NextRequest) {
 
             let accounts: any[] = [];
             try {
-                const subs = await getSubscriptionsForTenant(tenantId);
+                let subs = await getSubscriptionsForTenant(tenantId);
+                if (!subs || subs.length === 0) {
+                    subs = Array.from(new Set(rows.map(r => String(r.subscription_id || r.subscriptionId || '')).filter(s => s && s !== 'default')));
+                }
+
                 if (subs.length > 0) {
                     const rawAccounts = await fetchAllStorageAccountsFromARG(tenantId, subs);
 
                     const costByRg = new Map<string, { cost: number; qty: number }>();
                     for (const r of rows) {
                         const rg = (r.resource_group || r.ResourceGroup || "").toLowerCase();
-                        if (rg) {
+                        if (rg && rg !== '*') {
                             const current = costByRg.get(rg) || { cost: 0, qty: 0 };
                             const cost = parseFloat(r.billedCost) || 0;
                             const tier = detectTier(r.MeterSubCategory, r.MeterName, r.MeterCategory, r.service_name);
@@ -305,8 +313,9 @@ export async function GET(request: NextRequest) {
                         };
                     });
                 }
-            } catch (e) {
-                console.warn("[storage-efficiency] Could not fetch ARG storage accounts:", e);
+            } catch (e: unknown) {
+                const msg = e instanceof Error ? e.message : String(e);
+                console.error(`[storage-efficiency] Could not fetch ARG storage accounts for tenant ${tenantId}:`, msg);
             }
 
             if (rows.length === 0) {
