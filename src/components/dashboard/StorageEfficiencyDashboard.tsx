@@ -6,9 +6,10 @@ import { useMsal } from "@azure/msal-react";
 import { useTranslations } from "next-intl";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { useCurrency } from "@/components/CurrencyProvider";
-import { Loader2, HardDrive, TrendingDown, AlertCircle, Info, Search, ChevronLeft, ChevronRight, ArrowUpDown, Server } from "lucide-react";
+import { Loader2, HardDrive, TrendingDown, AlertCircle, Info, Search, ChevronLeft, ChevronRight, ArrowUpDown, Server, Calendar, BarChart2 } from "lucide-react";
 import { isMockTenant } from "@/lib/mockData";
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
+import StorageHistoryModal from "@/components/dashboard/StorageHistoryModal";
 
 const TIER_COLORS: Record<string, string> = {
     hot:     "bg-orange-400",
@@ -58,6 +59,7 @@ export default function StorageEfficiencyDashboard() {
     const [currentPage, setCurrentPage] = useState<number>(1);
     const [sortField, setSortField] = useState<"name" | "resourceGroup" | "tier" | "usedGb" | "monthlyCost">("monthlyCost");
     const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+    const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
 
     const fetcher = async (url: string) => {
         const idToken = await getFreshIdToken(instance, accounts[0], ["User.Read"]);
@@ -177,6 +179,26 @@ export default function StorageEfficiencyDashboard() {
                     </div>
                 </div>
             )}
+
+            {/* Action Bar */}
+            <div className="flex items-center justify-between bg-white dark:bg-slate-900 p-4 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm">
+                <div>
+                    <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                        <HardDrive className="w-4 h-4 text-blue-500" />
+                        Resumen de Almacenamiento
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Análisis de optimización y desglose por tiers
+                    </p>
+                </div>
+                <button
+                    onClick={() => setIsHistoryModalOpen(true)}
+                    className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 rounded-lg shadow-sm transition-all"
+                >
+                    <BarChart2 className="w-4 h-4" />
+                    Ver Histórico (13 Meses)
+                </button>
+            </div>
 
             {/* KPI Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -465,6 +487,13 @@ export default function StorageEfficiencyDashboard() {
                     </div>
                 </div>
             </div>
+
+            {/* Storage History Modal */}
+            <StorageHistoryModal
+                isOpen={isHistoryModalOpen}
+                onClose={() => setIsHistoryModalOpen(false)}
+                tenantId={selectedTenant.id}
+            />
         </div>
     );
 }
