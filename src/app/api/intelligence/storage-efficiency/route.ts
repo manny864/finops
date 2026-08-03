@@ -449,6 +449,28 @@ export async function GET(request: NextRequest) {
                             }
                         }
                     }
+
+                    // Auto-persist snapshots to DB for initial onboarding / missing history
+                    try {
+                        const todayStr = new Date().toISOString().substring(0, 10);
+                        for (const acc of accounts) {
+                            if (acc.usedGb > 0 || acc.monthlyCost > 0) {
+                                const subId = acc.subscriptionId || "default";
+                                const meterName = `${acc.tier || "Hot"} LRS Data Stored`;
+                                const meterSubCat = `${acc.tier || "Hot"} LRS`;
+                                await pool.query(
+                                    `INSERT INTO CostMeterSnapshots 
+                                        (tenant_id, subscription_id, date, service_name, MeterCategory, MeterSubCategory, MeterName, Quantity, UnitOfMeasure, cost_usd, resource_location)
+                                     VALUES (?, ?, ?, 'Storage', 'Storage', ?, ?, ?, 'GB', ?, ?)
+                                     ON DUPLICATE KEY UPDATE 
+                                        Quantity = VALUES(Quantity), cost_usd = VALUES(cost_usd)`,
+                                    [tenantId, subId, todayStr, meterSubCat, meterName, acc.usedGb, acc.monthlyCost, acc.location || '']
+                                );
+                            }
+                        }
+                    } catch (persistErr) {
+                        console.error(`[storage-efficiency] Persist telemetry to DB error for tenant ${tenantId}:`, persistErr);
+                    }
                 }
             } catch (e: unknown) {
                 const msg = e instanceof Error ? e.message : String(e);
