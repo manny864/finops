@@ -233,6 +233,11 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             icon: LifeBuoy
         } as any);
         categories.find(c => c.id === 'admin')?.items.push({
+            href: '/superadmin/ops',
+            label: t('superadmin_ops', { fallback: 'Operaciones SaaS' }),
+            icon: HeartPulse
+        } as any);
+        categories.find(c => c.id === 'admin')?.items.push({
             href: '/admin/pricing-units',
             label: 'Pricing Units',
             icon: Database

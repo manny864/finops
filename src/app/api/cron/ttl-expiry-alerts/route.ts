@@ -5,6 +5,7 @@ import { sendEmailAsync } from "@/lib/emailHelper";
 import { sendLegacyWebhookAlert } from "@/lib/notifications";
 import { findExpiredResources } from "@/services/ttlService";
 import { createNotification } from "@/lib/notify";
+import { recordCronRun } from "@/lib/cronRunTracker";
 
 /**
  * Evaluador de reglas de alerta `ttl_expiry` (AlertRules): "El sistema te
@@ -46,6 +47,7 @@ function buildTtlAlertEmailHtml(ruleName: string, thresholdDays: number, resourc
 }
 
 export async function GET(request: NextRequest) {
+    const startedAt = Date.now();
     try {
         const cronSecret = process.env.CRON_SECRET;
         if (!cronSecret || cronSecret.length < 16) {
@@ -125,13 +127,28 @@ export async function GET(request: NextRequest) {
             }
         }
 
-        return NextResponse.json({
+        const response = {
             success: true,
             evaluated: rules.length,
             notified,
             ...(errors.length ? { errors: errors.slice(0, 10) } : {}),
+        };
+        await recordCronRun({
+            cronName: "ttl-expiry-alerts",
+            status: errors.length > 0 ? "warning" : "ok",
+            durationMs: Date.now() - startedAt,
+            summary: `evaluated=${rules.length} notified=${notified}`,
+            details: response as unknown as Record<string, unknown>,
         });
+        return NextResponse.json(response);
     } catch (e: unknown) {
+        await recordCronRun({
+            cronName: "ttl-expiry-alerts",
+            status: "error",
+            durationMs: Date.now() - startedAt,
+            summary: e instanceof Error ? e.message : "cron failed",
+            details: { error: e instanceof Error ? e.message : String(e) },
+        });
         return serverError(e, { context: "GET /api/cron/ttl-expiry-alerts" });
     }
 }
