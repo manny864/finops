@@ -80,25 +80,20 @@ export default function StorageEfficiencyDashboard() {
 
     const filteredAccounts = useMemo(() => {
         return rawAccountsList.filter((item) => {
-            const name = item?.name || "";
-            const rg = item?.resourceGroup || "";
-            const subId = item?.subscriptionId || "";
-            const tier = item?.tier || "";
-
             const matchesSearch =
                 searchQuery === "" ||
-                name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                rg.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                subId.toLowerCase().includes(searchQuery.toLowerCase());
+                item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                item.resourceGroup.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (item.subscriptionId && item.subscriptionId.toLowerCase().includes(searchQuery.toLowerCase()));
 
             const matchesTier =
                 selectedTierFilter === "all" ||
-                tier.toLowerCase() === selectedTierFilter.toLowerCase();
+                item.tier.toLowerCase() === selectedTierFilter.toLowerCase();
 
             return matchesSearch && matchesTier;
         }).sort((a, b) => {
-            let valA: any = a[sortField] ?? "";
-            let valB: any = b[sortField] ?? "";
+            let valA: any = a[sortField];
+            let valB: any = b[sortField];
             if (typeof valA === "string") valA = valA.toLowerCase();
             if (typeof valB === "string") valB = valB.toLowerCase();
 
