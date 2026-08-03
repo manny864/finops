@@ -9,7 +9,7 @@ import {
     LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
     XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts";
-import { Loader2, AlertCircle, Info, TrendingUp, TrendingDown, MapPin, ShieldAlert, Lightbulb, ChevronRight, DollarSign, Recycle, PiggyBank, Leaf, X, PanelRightOpen, PanelRightClose, Eye, EyeOff, RotateCcw, LayoutGrid } from "lucide-react";
+import { Loader2, AlertCircle, Info, TrendingUp, TrendingDown, MapPin, ShieldAlert, Lightbulb, ChevronRight, DollarSign, Recycle, PiggyBank, Leaf, X, Eye, EyeOff, RotateCcw, LayoutGrid } from "lucide-react";
 import { isMockTenant } from "@/lib/mockData";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { formatResourceType } from "@/lib/resourceTypeLabels";
@@ -148,7 +148,6 @@ export default function ExecutiveSummaryBoard() {
     const { instance, accounts } = useMsal();
     const { format } = useCurrency();
 
-    const [drawerOpen, setDrawerOpen] = useState(false);
     const [hiddenCards, setHiddenCards] = useState<string[]>([]);
 
     const fetcher = async (url: string) => {
@@ -375,15 +374,13 @@ export default function ExecutiveSummaryBoard() {
 
             <div className="flex items-center justify-between gap-4 flex-wrap pt-2">
                 <p className="text-[11px] text-slate-400">{t("drag_resize_hint")}</p>
-                <button
-                    onClick={() => setDrawerOpen(true)}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:border-brand hover:text-brand transition-all shadow-xs"
-                >
-                    <PanelRightOpen className="w-4 h-4 text-brand-bright" />
-                    <span>Personalizar Tarjetas {hiddenCards.length > 0 && `(${hiddenCards.length} ocultas)`}</span>
-                </button>
+                <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 text-slate-700 dark:text-slate-200">
+                    Personalizar Tarjetas {hiddenCards.length > 0 && `(${hiddenCards.length} ocultas)`}
+                </span>
             </div>
 
+            <div className="flex flex-col 2xl:flex-row gap-6 items-start">
+            <div className="w-full min-w-0">
             <ResponsiveGridLayout
                 className="layout"
                 layouts={layouts}
@@ -665,98 +662,81 @@ export default function ExecutiveSummaryBoard() {
                     </div>
                 )}
             </ResponsiveGridLayout>
+            </div>
 
-            {drawerOpen && (
-                <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/50 backdrop-blur-xs flex justify-end animate-in fade-in duration-200">
-                    <div className="w-full max-w-md bg-white dark:bg-slate-900 h-full shadow-2xl border-l border-gray-200 dark:border-slate-800 flex flex-col justify-between animate-in slide-in-from-right duration-300">
-                        <div>
-                            <div className="p-5 border-b border-gray-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">
-                                <div className="flex items-center gap-2.5">
-                                    <div className="w-8 h-8 rounded-lg bg-brand-deep/10 text-brand-deep flex items-center justify-center">
-                                        <LayoutGrid className="w-4 h-4" />
-                                    </div>
-                                    <div>
-                                        <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm">Personalizar Tarjetas de la Pizarra</h3>
-                                        <p className="text-xs text-slate-500">Gestioná la visibilidad de los paneles en tu Whiteboard</p>
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={() => setDrawerOpen(false)}
-                                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
-                                >
-                                    <X className="w-5 h-5 text-gray-800 dark:text-gray-200 hover:text-white stroke-[2.5]" />
-                                </button>
+            <aside className="w-full 2xl:w-[340px] 2xl:sticky 2xl:top-24">
+                <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm overflow-hidden">
+                    <div className="p-5 border-b border-gray-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+                        <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-lg bg-brand-deep/10 text-brand-deep flex items-center justify-center">
+                                <LayoutGrid className="w-4 h-4" />
                             </div>
-
-                            <div className="p-5 space-y-3 max-h-[calc(100vh-140px)] overflow-y-auto">
-                                {hiddenCards.length > 0 && (
-                                    <div className="mb-4 flex items-center justify-between bg-amber-50 dark:bg-amber-950/30 p-3 rounded-xl border border-amber-200 dark:border-amber-800/50">
-                                        <span className="text-xs text-amber-800 dark:text-amber-300 font-medium">
-                                            {hiddenCards.length} {hiddenCards.length === 1 ? 'tarjeta oculta' : 'tarjetas ocultas'}
-                                        </span>
-                                        <button
-                                            onClick={handleRestoreAllCards}
-                                            className="inline-flex items-center gap-1 text-xs font-bold text-amber-700 dark:text-amber-400 hover:underline cursor-pointer"
-                                        >
-                                            <RotateCcw className="w-3.5 h-3.5" /> Restaurar todas
-                                        </button>
-                                    </div>
-                                )}
-
-                                <div className="space-y-2">
-                                    {LG_ITEMS.map((item) => {
-                                        const meta = CARD_METADATA[item.i] || { label: item.i, description: "" };
-                                        const isHidden = hiddenCards.includes(item.i);
-
-                                        return (
-                                            <div
-                                                key={item.i}
-                                                className={`p-3 rounded-xl border flex items-center justify-between transition-all ${
-                                                    isHidden
-                                                        ? "bg-slate-50 dark:bg-slate-950/50 border-gray-200 dark:border-slate-800 opacity-60"
-                                                        : "bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-800 shadow-xs"
-                                                }`}
-                                            >
-                                                <div className="min-w-0 pr-3">
-                                                    <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">{meta.label}</p>
-                                                    {meta.description && <p className="text-[11px] text-slate-400 truncate">{meta.description}</p>}
-                                                </div>
-                                                <button
-                                                    onClick={() => (isHidden ? handleRestoreCard(item.i) : handleHideCard(item.i))}
-                                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 transition-colors inline-flex items-center gap-1.5 cursor-pointer ${
-                                                        isHidden
-                                                            ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
-                                                            : "bg-gray-100 hover:bg-rose-50 hover:text-rose-600 dark:bg-slate-800 dark:hover:bg-rose-950/40 text-slate-600 dark:text-slate-300"
-                                                    }`}
-                                                >
-                                                    {isHidden ? (
-                                                        <>
-                                                            <Eye className="w-3.5 h-3.5" /> Mostrar
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <EyeOff className="w-3.5 h-3.5" /> Ocultar
-                                                        </>
-                                                    )}
-                                                </button>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
+                            <div>
+                                <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm">Personalizar Tarjetas de la Pizarra</h3>
+                                <p className="text-xs text-slate-500">Gestioná la visibilidad de los paneles en tu Whiteboard</p>
                             </div>
                         </div>
+                    </div>
 
-                        <div className="p-4 border-t border-gray-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex justify-end">
-                            <button
-                                onClick={() => setDrawerOpen(false)}
-                                className="px-5 py-2 bg-brand-deep text-white font-bold rounded-lg text-xs hover:bg-brand-bright transition-colors shadow-sm"
-                            >
-                                Listo
-                            </button>
+                    <div className="p-5 space-y-3 max-h-[calc(100vh-220px)] overflow-y-auto">
+                        {hiddenCards.length > 0 && (
+                            <div className="mb-4 flex items-center justify-between bg-amber-50 dark:bg-amber-950/30 p-3 rounded-xl border border-amber-200 dark:border-amber-800/50">
+                                <span className="text-xs text-amber-800 dark:text-amber-300 font-medium">
+                                    {hiddenCards.length} {hiddenCards.length === 1 ? 'tarjeta oculta' : 'tarjetas ocultas'}
+                                </span>
+                                <button
+                                    onClick={handleRestoreAllCards}
+                                    className="inline-flex items-center gap-1 text-xs font-bold text-amber-700 dark:text-amber-400 hover:underline cursor-pointer"
+                                >
+                                    <RotateCcw className="w-3.5 h-3.5" /> Restaurar todas
+                                </button>
+                            </div>
+                        )}
+
+                        <div className="space-y-2">
+                            {LG_ITEMS.map((item) => {
+                                const meta = CARD_METADATA[item.i] || { label: item.i, description: "" };
+                                const isHidden = hiddenCards.includes(item.i);
+
+                                return (
+                                    <div
+                                        key={item.i}
+                                        className={`p-3 rounded-xl border flex items-center justify-between transition-all ${
+                                            isHidden
+                                                ? "bg-slate-50 dark:bg-slate-950/50 border-gray-200 dark:border-slate-800 opacity-60"
+                                                : "bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-800 shadow-xs"
+                                        }`}
+                                    >
+                                        <div className="min-w-0 pr-3">
+                                            <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">{meta.label}</p>
+                                            {meta.description && <p className="text-[11px] text-slate-400 truncate">{meta.description}</p>}
+                                        </div>
+                                        <button
+                                            onClick={() => (isHidden ? handleRestoreCard(item.i) : handleHideCard(item.i))}
+                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 transition-colors inline-flex items-center gap-1.5 cursor-pointer ${
+                                                isHidden
+                                                    ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+                                                    : "bg-gray-100 hover:bg-rose-50 hover:text-rose-600 dark:bg-slate-800 dark:hover:bg-rose-950/40 text-slate-600 dark:text-slate-300"
+                                            }`}
+                                        >
+                                            {isHidden ? (
+                                                <>
+                                                    <Eye className="w-3.5 h-3.5" /> Mostrar
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <EyeOff className="w-3.5 h-3.5" /> Ocultar
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
                 </div>
-            )}
+            </aside>
+            </div>
         </div>
     );
 }
