@@ -11,7 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
-import { getResourceGraphClient, getSubscriptionsForTenant } from "@/lib/azure";
+import { getResourceGraphClient, getSubscriptionsForTenant, getAzureCredential } from "@/lib/azure";
 import { withArgLimit } from "@/lib/argConcurrency";
 
 const MOCK_ACCOUNTS = [
@@ -96,6 +96,39 @@ function detectTier(...fields: Array<string | null | undefined>): string {
 function normalizeLoc(loc: string): string {
     let s = String(loc || '').toLowerCase().replace(/[^a-z0-9]/g, '');
     return s.replace(/^us(east|west|central|northcentral|southcentral|westcentral)(\d*)$/, '$1us$2');
+}
+
+async function fetchStorageAccountMetricsBatch(tenantId: string, accounts: any[]): Promise<Map<string, number>> {
+    const bytesMap = new Map<string, number>();
+    try {
+        const cred = await getAzureCredential(tenantId);
+        const tokenResponse = await cred.getToken("https://management.azure.com/.default");
+        const headers = { Authorization: "Bearer " + tokenResponse.token };
+
+        await Promise.all(
+            accounts.map(async (acc) => {
+                if (!acc.id) return;
+                try {
+                    const url = `https://management.azure.com${acc.id}/providers/Microsoft.Insights/metrics?api-version=2018-01-01&metricnames=UsedCapacity&timespan=PT6H&interval=PT1H`;
+                    const res = await fetch(url, { headers });
+                    if (res.ok) {
+                        const data = await res.json();
+                        const ts = data.value?.[0]?.timeseries?.[0]?.data || [];
+                        const last = ts.slice(-1)[0];
+                        const bytes = last?.average ?? last?.total ?? last?.maximum ?? 0;
+                        if (bytes > 0) {
+                            bytesMap.set(acc.id, bytes);
+                        }
+                    }
+                } catch {
+                    // Ignore single account failure
+                }
+            })
+        );
+    } catch {
+        // Fallback gracefully
+    }
+    return bytesMap;
 }
 
 const STORAGE_SERVICE_FILTER = `(
@@ -322,6 +355,8 @@ export async function GET(request: NextRequest) {
                         }
                     }
 
+                    const liveMetricsMap = await fetchStorageAccountMetricsBatch(tenantId, rawAccounts);
+
                     accounts = rawAccounts.map((acc: any) => {
                         const skuStr = String(acc.sku?.name || acc.sku || "");
                         const rawTier = acc.properties?.accessTier || (skuStr.toLowerCase().includes("premium") ? "Premium" : "Hot");
@@ -342,8 +377,18 @@ export async function GET(request: NextRequest) {
                             }
                         }
 
-                        const cost = stats ? (stats.cost / countInGroup) : 0;
-                        const gb = stats ? (stats.qty / countInGroup) : 0;
+                        let cost = stats ? (stats.cost / countInGroup) : 0;
+                        let gb = stats ? (stats.qty / countInGroup) : 0;
+
+                        // Override with live UsedCapacity metric from Azure Monitor if available
+                        const liveBytes = liveMetricsMap.get(acc.id);
+                        if (liveBytes && liveBytes > 0) {
+                            gb = liveBytes / (1024 * 1024 * 1024);
+                            if (cost === 0) {
+                                const tKey = tierFormatted.toLowerCase();
+                                cost = gb * (TIER_RATES[tKey] || TIER_RATES.hot);
+                            }
+                        }
 
                         return {
                             id: acc.id,
@@ -354,8 +399,8 @@ export async function GET(request: NextRequest) {
                             tier: tierFormatted,
                             kind: acc.kind,
                             sku: acc.sku?.name || acc.sku,
-                            usedGb: parseFloat(gb.toFixed(2)),
-                            monthlyCost: parseFloat(cost.toFixed(2))
+                            usedGb: parseFloat(gb.toFixed(4)),
+                            monthlyCost: parseFloat(cost.toFixed(4))
                         };
                     });
 
