@@ -4,6 +4,7 @@ import { getYesterdaysCost, getYesterdaysDetailedCosts } from "@/modules/collect
 import { getYesterdaysAIUsage } from "@/modules/collectors/azure/aiUsageCollector";
 import { getTenantCredentials } from "@/lib/secrets/tenantCredentials";
 import { redis } from "@/lib/redis";
+import { recordCronRun } from "@/lib/cronRunTracker";
 
 /**
  * DISPARAR Y CONSULTAR, NO ESPERAR (2026-07-30).
@@ -102,10 +103,35 @@ async function handleRequest(request: NextRequest): Promise<NextResponse> {
 
     // Fire-and-forget deliberado: NO se espera acá (ver comentario grande arriba).
     runSyncCore()
-        .then((result) => writeSyncStatus({ startedAt, finishedAt: Date.now(), done: true, ok: true, ...result }))
+        .then(async (result) => {
+            const finishedAt = Date.now();
+            await writeSyncStatus({ startedAt, finishedAt, done: true, ok: true, ...result });
+            await recordCronRun({
+                cronName: "sync",
+                status: result.timedOutTenants > 0 ? "warning" : "ok",
+                durationMs: finishedAt - startedAt,
+                summary: `processed=${result.processed}/${result.tenantsTotal} timedOut=${result.timedOutTenants}`,
+                details: {
+                    processed: result.processed,
+                    tenantsTotal: result.tenantsTotal,
+                    timedOutTenants: result.timedOutTenants,
+                    detailedRows: result.detailedRows,
+                    backfilledDays: result.backfilledDays,
+                },
+            });
+        })
         .catch((e: any) => {
             console.error("Cron sync fatal failure:", e);
-            return writeSyncStatus({ startedAt, finishedAt: Date.now(), done: true, ok: false, error: e?.message || String(e) });
+            return Promise.all([
+                writeSyncStatus({ startedAt, finishedAt: Date.now(), done: true, ok: false, error: e?.message || String(e) }),
+                recordCronRun({
+                    cronName: "sync",
+                    status: "error",
+                    durationMs: Date.now() - startedAt,
+                    summary: e?.message || "sync failed",
+                    details: { error: e?.message || String(e) },
+                }),
+            ]);
         })
         .finally(() => redis.del(SYNC_LOCK_KEY));
 

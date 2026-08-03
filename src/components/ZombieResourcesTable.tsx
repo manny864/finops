@@ -512,6 +512,38 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
         if (forceFilterType) {
             allMappedData = allMappedData.filter(d => d.type === forceFilterType);
         }
+
+        if (!isMockTenant(tenantId)) {
+            const exemptionsRes = await fetch('/api/intelligence/zombies/exemptions', {
+                headers: {
+                    ...headers,
+                    'x-tenant-id': tenantId
+                }
+            });
+            if (exemptionsRes.ok) {
+                const exemptionsJson = await exemptionsRes.json();
+                const exemptions = Array.isArray(exemptionsJson?.data) ? exemptionsJson.data : [];
+                const exMap = new Map(
+                    exemptions
+                        .filter((e: any) => e.recommendationType === 'zombies')
+                        .map((e: any) => [String(e.resourceId || '').toLowerCase(), e])
+                );
+
+                allMappedData = allMappedData.map((item) => {
+                    const ex = exMap.get(String(item.id || '').toLowerCase()) as any;
+                    if (!ex) {
+                        return { ...item, isExempted: false, exemptionReason: null, exemptionComment: null };
+                    }
+                    return {
+                        ...item,
+                        isExempted: true,
+                        exemptionReason: ex.reason || null,
+                        exemptionComment: ex.comment || null
+                    };
+                });
+            }
+        }
+
         setData(allMappedData);
         setError(null);
         setLoading(false);

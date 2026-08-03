@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getResourceGraphClient, getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { runGraphAudits } from "@/services/auditService";
 import { getMonthlyCostEstimate } from "@/services/pricingService";
-import { tenants } from "@/lib/tenants";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
+import { getExemptionsForTenant } from "@/modules/storage/recommendationExemptions";
 
 async function queryResourceGraphWithRetry(client: any, query: string, subscriptions: string[], retries = 3, initialDelay = 3000): Promise<any> {
     let currentDelay = initialDelay;
@@ -25,6 +25,28 @@ async function queryResourceGraphWithRetry(client: any, query: string, subscript
     }
 }
 
+async function attachZombieExemptions<T extends { resourceId?: string; id?: string }>(tenantId: string, items: T[]): Promise<T[]> {
+    const exemptions = await getExemptionsForTenant(tenantId);
+    const exemptionsMap = new Map(
+        exemptions
+            .filter((e) => e.recommendationType === "zombies")
+            .map((e) => [(e.resourceId || "").toLowerCase(), e])
+    );
+
+    return items.map((item: any) => {
+        const ex = exemptionsMap.get((item.resourceId || item.id || "").toLowerCase()) as any;
+        if (!ex) {
+            return { ...item, isExempted: false, exemptionReason: null, exemptionComment: null };
+        }
+        return {
+            ...item,
+            isExempted: true,
+            exemptionReason: ex.reason || null,
+            exemptionComment: ex.comment || null,
+        };
+    });
+}
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -40,8 +62,9 @@ export async function GET(request: NextRequest) {
     const cacheKey = `cleanup:zombies:v2:azure:${tenantId}:${subscriptionId || 'all'}`;
     const fetcher = () => fetchZombies(tenantId, subscriptionId);
     const allZombies = await getWithStaleWhileRevalidate(cacheKey, fetcher, 1800, 600);
+    const allZombiesWithExemptions = await attachZombieExemptions(tenantId, allZombies);
 
-    return NextResponse.json({ success: true, data: allZombies });
+    return NextResponse.json({ success: true, data: allZombiesWithExemptions });
 
   } catch (error: unknown) {
     if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
@@ -245,9 +268,5 @@ async function fetchZombies(tenantId: string, subscriptionId: string | null): Pr
         }));
     }));
 
-    // Lógica Freemium Teaser (Removido el enmascaramiento por solicitud)
-    // El nombre real ahora se enviará como texto plano.
-
     return allZombies;
 }
-

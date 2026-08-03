@@ -3,6 +3,7 @@ import pool, { initializeDatabase } from "@/modules/storage/db";
 import { sendEmailAsync } from "@/lib/emailHelper";
 import { mapCostSnapshotToFocus, type CostSnapshotRow } from "@/lib/focus/mapper";
 import { buildFocusCsv, buildFocusJson } from "@/lib/focus/csv";
+import { recordCronRun } from "@/lib/cronRunTracker";
 
 /**
  * Genera y manda por email el export FOCUS 1.1 del día anterior para cada
@@ -46,6 +47,7 @@ function buildEmailHtml(tenantName: string, date: string, count: number, format:
 }
 
 export async function GET(request: NextRequest) {
+    const startedAt = Date.now();
     try {
         const cronSecret = process.env.CRON_SECRET;
         if (!cronSecret || cronSecret.length < 16) {
@@ -108,9 +110,24 @@ export async function GET(request: NextRequest) {
             }
         }
 
-        return NextResponse.json({ success: true, date: yesterday, processed: results.length, results });
+        const response = { success: true, date: yesterday, processed: results.length, results };
+        await recordCronRun({
+            cronName: "focus-export-daily",
+            status: results.some((r) => !!r.error) ? "warning" : "ok",
+            durationMs: Date.now() - startedAt,
+            summary: `processed=${results.length} sent=${results.filter((r) => r.sent).length}`,
+            details: response as unknown as Record<string, unknown>,
+        });
+        return NextResponse.json(response);
     } catch (error: unknown) {
         console.error("[cron/focus-export-daily] error:", error);
+        await recordCronRun({
+            cronName: "focus-export-daily",
+            status: "error",
+            durationMs: Date.now() - startedAt,
+            summary: error instanceof Error ? error.message : "cron failed",
+            details: { error: error instanceof Error ? error.message : String(error) },
+        });
         return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }

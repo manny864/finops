@@ -9,7 +9,7 @@ import {
     LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
     XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts";
-import { Loader2, AlertCircle, Info, TrendingUp, TrendingDown, MapPin, ShieldAlert, Lightbulb, ChevronRight, DollarSign, Recycle, PiggyBank, Leaf } from "lucide-react";
+import { Loader2, AlertCircle, Info, TrendingUp, TrendingDown, MapPin, ShieldAlert, Lightbulb, ChevronRight, DollarSign, Recycle, PiggyBank, Leaf, X, Eye, EyeOff, RotateCcw, LayoutGrid } from "lucide-react";
 import { isMockTenant } from "@/lib/mockData";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { formatResourceType } from "@/lib/resourceTypeLabels";
@@ -29,12 +29,8 @@ import { getCookie, setCookie } from "@/lib/clientCookie";
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
-// Layout persistido de las tarjetas resizeables/reubicables — separado del
-// (ya eliminado) key del viejo Dashboard General para no heredar un layout
-// con items que ya no existen. Se persiste por cookie (sobrevive a un
-// localStorage.clear() del usuario); localStorage queda como fallback de
-// lectura para migrar preferencias guardadas antes de este cambio.
 const LAYOUT_STORAGE_KEY = "finops_whiteboard_layout_v1";
+const HIDDEN_CARDS_STORAGE_KEY = "finops_whiteboard_hidden_cards_v1";
 const GRID_COLS = { lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 };
 
 const LG_ITEMS = [
@@ -56,14 +52,25 @@ const LG_ITEMS = [
     { i: "logAnalytics", x: 6, y: 21, w: 6, h: 5 },
 ];
 
-// Deriva un layout válido para un breakpoint angosto a partir del de `lg`
-// (12 columnas). Debajo de 6 columnas apilamos todo a ancho completo — con
-// tarjetas de hasta w:8 en el layout base, cualquier intento de conservar
-// varias columnas en pantallas chicas termina en overflow horizontal o
-// tarjetas amontonadas ilegibles; apilar es lo único que se ve bien en un
-// teléfono. De 6 columnas para arriba escalamos ancho/posición
-// proporcionalmente y dejamos que el compactado vertical de la librería
-// resuelva las colisiones que queden.
+const CARD_METADATA: Record<string, { label: string; description: string }> = {
+    budget: { label: "Tenant Budget Burn", description: "Consumo acumulado y velocidad de gasto contra presupuestos" },
+    projection: { label: "Proyección de Gastos", description: "Pronóstico de costos con tendencia acumulada" },
+    ha: { label: "Alta Disponibilidad (HA)", description: "Recomendaciones de arquitectura resiliente" },
+    costs: { label: "Resumen de Costos FY", description: "Comparativa de ejercicio fiscal actual vs anterior" },
+    trend3m: { label: "Tendencia Últimos 3 Meses", description: "Evolución histórica de gasto trimestral" },
+    top3services: { label: "TOP 3 Servicios de Mayor Gasto", description: "Servicios con mayor impacto presupuestario" },
+    security: { label: "Postura de Seguridad y Vulnerabilidades", description: "Calificación y hallazgos críticos de seguridad" },
+    governance: { label: "Gobernanza y Etiquetado (Tags)", description: "Cumplimiento de tags y recursos no etiquetados" },
+    threats: { label: "Top Categorías de Amenazas", description: "Eventos de seguridad y amenazas identificadas" },
+    locations: { label: "Top Regiones de Despliegue", description: "Distribución geográfica de infraestructura" },
+    inventory: { label: "Top Inventario por Tipo", description: "Recursos más desplegados en la nube" },
+    advisorRec: { label: "Recomendaciones Azure Advisor", description: "Optimizaciones sugeridas por Microsoft" },
+    recTrend: { label: "Tendencia de Recomendaciones y Anomalías", description: "Evolución mensual de sugerencias y desvíos" },
+    costGroups: { label: "Top Cost Groups / Unidades de Negocio", description: "Distribución de costo por área de negocio" },
+    containerApps: { label: "Infraestructura de Contenedores", description: "Eficiencia y recursos en Container Apps" },
+    logAnalytics: { label: "Ingesta Log Analytics", description: "Volumen y gasto de retención de logs" },
+};
+
 function deriveLayoutForCols(baseItems: typeof LG_ITEMS, cols: number, baseCols = 12) {
     if (cols <= 4) {
         let y = 0;
@@ -89,6 +96,49 @@ const DEFAULT_LAYOUT = {
     xxs: deriveLayoutForCols(LG_ITEMS, GRID_COLS.xxs),
 };
 
+function collides(a: any, b: any): boolean {
+    if (a.i === b.i) return false;
+    if (a.x + a.w <= b.x) return false;
+    if (b.x + b.w <= a.x) return false;
+    if (a.y + a.h <= b.y) return false;
+    if (b.y + b.h <= a.y) return false;
+    return true;
+}
+
+function normalizeBreakpointLayout(items: any[], cols: number): any[] {
+    const placed: any[] = [];
+    const ordered = [...items].sort((a, b) => (a.y - b.y) || (a.x - b.x));
+
+    for (const raw of ordered) {
+        const item = {
+            ...raw,
+            w: Math.max(1, Math.min(cols, Number(raw.w) || 1)),
+            h: Math.max(1, Number(raw.h) || 1),
+            x: Math.max(0, Number(raw.x) || 0),
+            y: Math.max(0, Number(raw.y) || 0),
+        };
+
+        if (item.x + item.w > cols) item.x = Math.max(0, cols - item.w);
+
+        while (placed.some((p) => collides(item, p))) {
+            item.y += 1;
+        }
+        placed.push(item);
+    }
+
+    return placed;
+}
+
+function normalizeLayouts(allLayouts: any): any {
+    if (!allLayouts) return allLayouts;
+    const next = { ...allLayouts };
+    (Object.keys(GRID_COLS) as Array<keyof typeof GRID_COLS>).forEach((bp) => {
+        const list = Array.isArray(next[bp]) ? next[bp] : [];
+        next[bp] = normalizeBreakpointLayout(list, GRID_COLS[bp]);
+    });
+    return next;
+}
+
 const COLORS = {
     high: "#dc2626",
     medium: "#f59e0b",
@@ -98,10 +148,22 @@ const COLORS = {
     violet: "#8b5cf6",
 };
 
-function Card({ title, className = "", children }: { title?: string; className?: string; children: React.ReactNode }) {
+function Card({ title, onClose, className = "", children }: { title?: string; onClose?: () => void; className?: string; children: React.ReactNode }) {
     return (
-        <div className={`drag-handle cursor-move bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm p-4 flex flex-col h-full overflow-auto ${className}`}>
-            {title && <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-3">{title}</h3>}
+        <div className={`drag-handle cursor-move bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm p-4 flex flex-col h-full overflow-auto relative group ${className}`}>
+            {onClose && (
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onClose();
+                    }}
+                    className="absolute top-3 right-3 p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 opacity-0 group-hover:opacity-100 transition-all z-20 cursor-pointer"
+                    title="Cerrar tarjeta de la pizarra"
+                >
+                    <X className="w-4 h-4 text-gray-800 dark:text-gray-200 hover:text-white stroke-[2.5]" />
+                </button>
+            )}
+            {title && <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-3 pr-6">{title}</h3>}
             {children}
         </div>
     );
@@ -129,6 +191,9 @@ export default function ExecutiveSummaryBoard() {
     const { instance, accounts } = useMsal();
     const { format } = useCurrency();
 
+    const [hiddenCards, setHiddenCards] = useState<string[]>([]);
+    const [cardsPanelVisible, setCardsPanelVisible] = useState(true);
+
     const fetcher = async (url: string) => {
         const idToken = await getFreshIdToken(instance, accounts[0]);
         const res = await fetch(url, { headers: { Authorization: `Bearer ${idToken}` } });
@@ -147,45 +212,21 @@ export default function ExecutiveSummaryBoard() {
         { revalidateOnFocus: false }
     );
 
-    // KPIs (mismos 4 que el Dashboard General: costo actual, recursos
-    // zombies, ahorro potencial e impacto ambiental) — se reusa
-    // /api/dashboard/summary en vez de duplicar su lógica de auditoría.
-    // El White Board es un resumen EJECUTIVO del tenant completo: las ~13
-    // tarjetas de abajo se alimentan de /api/intelligence/whiteboard, que no
-    // acepta subscriptionId y siempre agrega todo el tenant (getCostFigures y
-    // compañía no filtran por suscripción).
-    //
-    // Antes esta fila pasaba `selectedSubscription`, así que con una suscripción
-    // puntual elegida la mitad de arriba del board mostraba UNA suscripción y la
-    // mitad de abajo el tenant entero — dos respuestas a preguntas distintas, sin
-    // nada en pantalla que lo dijera. Se fuerza el alcance del tenant para que
-    // todo el board hable del mismo universo; el drill-down por suscripción vive
-    // en las páginas dedicadas (/intelligence/billing, cost-projection, etc.).
     const summarySub = "All";
     const { data: summaryData, isLoading: summaryLoading } = useSWR(
         canFetch ? `/api/dashboard/summary?tenantId=${selectedTenant!.id}&subscriptionId=${summarySub}` : null,
         fetcher,
         { revalidateOnFocus: false }
     );
-    // totalSavings viene directo del backend (mismo valor que sum(dashboardData.potentialSavings)
-    // en datos reales — ver /api/dashboard/summary — pero en mock dashboardData es una lista de
-    // ejemplo fija que no escala por tier, mientras que este campo sí).
     const totalSavings = Number(summaryData?.totalSavings || 0);
-    // 'snapshot' = el costo salió de CostSnapshots porque la consulta a Cost
-    // Management falló (429). Puede estar incompleto: se marca, no se disimula.
     const costIsPartial = !summaryLoading && summaryData?.costSource === 'snapshot';
 
-    // Layout de tarjetas resizeables/reubicables — persistido por cookie
-    // (Max-Age 1 año), con localStorage como fallback de lectura para migrar
-    // preferencias guardadas por la versión anterior de este componente.
     const [layouts, setLayouts] = useState<any>(null);
     useEffect(() => {
         const raw = getCookie(LAYOUT_STORAGE_KEY) || localStorage.getItem(LAYOUT_STORAGE_KEY);
         if (raw) {
             try {
                 const parsed = JSON.parse(raw);
-                // Migración: agregar tarjetas nuevas (o breakpoints nuevos, ver
-                // fix de responsive) si el layout guardado no las incluye todavía.
                 Object.keys(DEFAULT_LAYOUT).forEach((bp: string) => {
                     if (!parsed[bp]) {
                         parsed[bp] = DEFAULT_LAYOUT[bp as keyof typeof DEFAULT_LAYOUT];
@@ -196,21 +237,26 @@ export default function ExecutiveSummaryBoard() {
                         if (!existing.has(item.i)) parsed[bp].push(item);
                     });
                 });
-                setLayouts(parsed);
+                setLayouts(normalizeLayouts(parsed));
             } catch {
                 setLayouts(DEFAULT_LAYOUT);
             }
         } else {
             setLayouts(DEFAULT_LAYOUT);
         }
+
+        const hiddenRaw = getCookie(HIDDEN_CARDS_STORAGE_KEY) || localStorage.getItem(HIDDEN_CARDS_STORAGE_KEY);
+        if (hiddenRaw) {
+            try {
+                const parsedHidden = JSON.parse(hiddenRaw);
+                if (Array.isArray(parsedHidden)) setHiddenCards(parsedHidden);
+            } catch {}
+        }
     }, []);
 
-    // Debounce de la escritura: onLayoutChange dispara en cada frame durante
-    // un drag/resize — escribir la cookie en cada uno sería ruidoso y
-    // costoso (la cookie viaja en cada request de la pestaña). El estado en
-    // memoria (setLayouts) sí se actualiza al instante para que el grid no
-    // se sienta con lag.
     const persistTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    const hiddenLayoutSnapshotRef = React.useRef<Record<string, Record<string, any>>>({});
+
     const persistLayouts = useCallback((allLayouts: any) => {
         if (persistTimeoutRef.current) clearTimeout(persistTimeoutRef.current);
         persistTimeoutRef.current = setTimeout(() => {
@@ -220,9 +266,83 @@ export default function ExecutiveSummaryBoard() {
         }, 400);
     }, []);
 
+    const snapshotCardLayout = useCallback((cardId: string) => {
+        if (!layouts) return;
+        const snapshot: Record<string, any> = {};
+        Object.keys(DEFAULT_LAYOUT).forEach((bp) => {
+            const current = (layouts[bp] || []).find((l: any) => l.i === cardId);
+            const fallback = (DEFAULT_LAYOUT[bp as keyof typeof DEFAULT_LAYOUT] as any[]).find((l: any) => l.i === cardId);
+            if (current || fallback) snapshot[bp] = { ...(current || fallback) };
+        });
+        hiddenLayoutSnapshotRef.current[cardId] = snapshot;
+    }, [layouts]);
+
+    const restoreCardsLayout = useCallback((cardIds: string[]) => {
+        setLayouts((prev: any) => {
+            if (!prev || cardIds.length === 0) return prev;
+            let changed = false;
+            const nextLayouts = { ...prev };
+
+            Object.keys(DEFAULT_LAYOUT).forEach((bp) => {
+                const bpItems = Array.isArray(nextLayouts[bp]) ? [...nextLayouts[bp]] : [];
+                cardIds.forEach((cardId) => {
+                    const exists = bpItems.some((l: any) => l.i === cardId);
+                    if (exists) return;
+
+                    const snapshot = hiddenLayoutSnapshotRef.current[cardId]?.[bp];
+                    const fallback = (DEFAULT_LAYOUT[bp as keyof typeof DEFAULT_LAYOUT] as any[]).find((l: any) => l.i === cardId);
+                    const toInsert = snapshot || fallback;
+                    if (toInsert) {
+                        bpItems.push({ ...toInsert });
+                        changed = true;
+                    }
+                });
+                nextLayouts[bp] = bpItems;
+            });
+
+            if (!changed) return prev;
+            const normalized = normalizeLayouts(nextLayouts);
+            persistLayouts(normalized);
+            return normalized;
+        });
+    }, [persistLayouts]);
+
     const onLayoutChange = (_layout: any, allLayouts: any) => {
-        setLayouts(allLayouts);
-        persistLayouts(allLayouts);
+        const normalized = normalizeLayouts(allLayouts);
+        setLayouts(normalized);
+        persistLayouts(normalized);
+    };
+
+    const handleHideCard = (cardId: string) => {
+        snapshotCardLayout(cardId);
+        setHiddenCards((prev) => {
+            if (prev.includes(cardId)) return prev;
+            const updated = [...prev, cardId];
+            const serialized = JSON.stringify(updated);
+            setCookie(HIDDEN_CARDS_STORAGE_KEY, serialized);
+            localStorage.setItem(HIDDEN_CARDS_STORAGE_KEY, serialized);
+            return updated;
+        });
+    };
+
+    const handleRestoreCard = (cardId: string) => {
+        restoreCardsLayout([cardId]);
+        setHiddenCards((prev) => {
+            const updated = prev.filter((id) => id !== cardId);
+            const serialized = JSON.stringify(updated);
+            setCookie(HIDDEN_CARDS_STORAGE_KEY, serialized);
+            localStorage.setItem(HIDDEN_CARDS_STORAGE_KEY, serialized);
+            return updated;
+        });
+    };
+
+    const handleRestoreAllCards = () => {
+        setHiddenCards((prev) => {
+            restoreCardsLayout(prev);
+            setCookie(HIDDEN_CARDS_STORAGE_KEY, JSON.stringify([]));
+            localStorage.setItem(HIDDEN_CARDS_STORAGE_KEY, JSON.stringify([]));
+            return [];
+        });
     };
 
     const handleBudgetResize = useCallback((newH: number) => {
@@ -290,8 +410,10 @@ export default function ExecutiveSummaryBoard() {
         count: r.count,
     }));
 
+    const isCardVisible = (cardId: string) => !hiddenCards.includes(cardId);
+
     return (
-        <div className="w-full space-y-6">
+        <div className="w-full space-y-6 relative">
             {data.mock && (
                 <div className="bg-amber-50 dark:bg-amber-900/20 p-3 flex gap-3 rounded-xl border border-amber-200 dark:border-amber-800/50 text-amber-800 dark:text-amber-300">
                     <Info className="w-5 h-5 shrink-0 mt-0.5" />
@@ -299,17 +421,11 @@ export default function ExecutiveSummaryBoard() {
                 </div>
             )}
 
-            {/* KPIs — mismos del Dashboard General */}
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
                 <KpiCard
                     icon={DollarSign}
                     label={t("kpi_current_cost")}
                     value={summaryLoading ? "…" : format(Number(summaryData?.actualCost || 0))}
-                    /* costSource === 'snapshot': el número viene del snapshot en base
-                       porque Cost Management throttleó, así que puede estar
-                       incompleto. Se avisa en vez de presentarlo como el gasto real
-                       del mes — mostrar un parcial como definitivo es lo que hacía
-                       que el KPI no cerrara con el portal sin que nadie lo notara. */
                     sub={costIsPartial ? t("kpi_cost_partial") : t("kpi_current_cost_sub")}
                     tone={costIsPartial
                         ? "bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400"
@@ -319,7 +435,6 @@ export default function ExecutiveSummaryBoard() {
                     icon={TrendingUp}
                     label={t("kpi_projected_cost")}
                     value={summaryLoading ? "…" : format(Number(summaryData?.projectedCost || 0))}
-                    /* La proyección se deriva de actualCost, así que hereda el aviso. */
                     sub={costIsPartial ? t("kpi_cost_partial") : t("kpi_projected_cost_sub")}
                     tone={costIsPartial
                         ? "bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400"
@@ -342,27 +457,27 @@ export default function ExecutiveSummaryBoard() {
                 <KpiCard
                     icon={Leaf}
                     label={t("kpi_environmental_impact")}
-                    /* kgCO2e evitado al limpiar los discos zombie detectados por Green
-                       FinOps (Resource Graph) — antes era una fórmula inventada sobre
-                       totalSavings sin relación con emisiones reales. `null` = no se
-                       pudo calcular (sin credenciales / Resource Graph no respondió),
-                       se muestra "—" en vez de fingir un 0. */
                     value={summaryLoading ? "…" : summaryData?.environmentalImpact == null ? "—" : `${summaryData.environmentalImpact} kg`}
                     sub={t("kpi_environmental_impact_sub")}
                     tone="bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400"
                 />
             </div>
 
-            {/* "Mi Dashboard" — pineo de tarjetas, vivía en el Dashboard General
-                (ruta "/", eliminada del Sidebar al pasar White Board a cumplir ese
-                rol). Mismo componente, sin cambios: cada usuario sigue viendo sus
-                propios pins acá. */}
             <MyPinnedWidgets />
 
-            {/* Tarjetas resizeables/reubicables (arrastrar desde el título,
-                redimensionar desde la esquina inferior derecha) — mismo patrón
-                react-grid-layout que tenía el viejo Dashboard General. */}
-            <p className="text-[11px] text-slate-400 -mb-2">{t("drag_resize_hint")}</p>
+            <div className="flex items-center justify-between gap-4 flex-wrap pt-2">
+                <p className="text-[11px] text-slate-400">{t("drag_resize_hint")}</p>
+                <button
+                    onClick={() => setCardsPanelVisible((prev) => !prev)}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:border-brand hover:text-brand transition-all shadow-xs"
+                >
+                    <LayoutGrid className="w-3.5 h-3.5" />
+                    {cardsPanelVisible ? "Ocultar panel de tarjetas" : "Mostrar panel de tarjetas"} {hiddenCards.length > 0 && `(${hiddenCards.length} ocultas)`}
+                </button>
+            </div>
+
+            <div className="flex flex-col 2xl:flex-row gap-6 items-start">
+            <div className="w-full min-w-0">
             <ResponsiveGridLayout
                 className="layout"
                 layouts={layouts}
@@ -371,294 +486,358 @@ export default function ExecutiveSummaryBoard() {
                 rowHeight={80}
                 onLayoutChange={onLayoutChange}
                 draggableHandle=".drag-handle"
+                allowOverlap={false}
+                compactType="vertical"
             >
-                <div key="budget">
-                    <div className="drag-handle cursor-move h-full w-full">
-                        <BudgetBurnChart onHeightChange={handleBudgetResize} />
+                {isCardVisible("budget") && (
+                    <div key="budget">
+                        <div className="drag-handle cursor-move h-full w-full relative group">
+                            <button
+                                onClick={(e) => { e.stopPropagation(); handleHideCard("budget"); }}
+                                className="absolute top-3 right-3 p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 opacity-0 group-hover:opacity-100 transition-all z-20 cursor-pointer"
+                                title="Cerrar tarjeta de la pizarra"
+                            >
+                                <X className="w-4 h-4 text-gray-800 dark:text-gray-200 hover:text-white stroke-[2.5]" />
+                            </button>
+                            <BudgetBurnChart onHeightChange={handleBudgetResize} />
+                        </div>
                     </div>
-                </div>
+                )}
 
-                <div key="projection">
-                    <FeatureGuard requiredTier="Enterprise" featureName={t("cost_projection_feature_name")} className="h-full w-full drag-handle cursor-move">
-                        <CostProjectionCard showFullPageLink />
-                    </FeatureGuard>
-                </div>
+                {isCardVisible("projection") && (
+                    <div key="projection">
+                        <FeatureGuard requiredTier="Enterprise" featureName={t("cost_projection_feature_name")} className="h-full w-full drag-handle cursor-move relative group">
+                            <button
+                                onClick={(e) => { e.stopPropagation(); handleHideCard("projection"); }}
+                                className="absolute top-3 right-3 p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 opacity-0 group-hover:opacity-100 transition-all z-20 cursor-pointer"
+                                title="Cerrar tarjeta de la pizarra"
+                            >
+                                <X className="w-4 h-4 text-gray-800 dark:text-gray-200 hover:text-white stroke-[2.5]" />
+                            </button>
+                            <CostProjectionCard showFullPageLink />
+                        </FeatureGuard>
+                    </div>
+                )}
 
-                <div key="ha">
-                    <FeatureGuard requiredTier="Business" featureName={t("ha_feature_name")} className="h-full w-full drag-handle cursor-move">
-                        <HABreakdownCard />
-                    </FeatureGuard>
-                </div>
+                {isCardVisible("ha") && (
+                    <div key="ha">
+                        <FeatureGuard requiredTier="Business" featureName={t("ha_feature_name")} className="h-full w-full drag-handle cursor-move relative group">
+                            <button
+                                onClick={(e) => { e.stopPropagation(); handleHideCard("ha"); }}
+                                className="absolute top-3 right-3 p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 opacity-0 group-hover:opacity-100 transition-all z-20 cursor-pointer"
+                                title="Cerrar tarjeta de la pizarra"
+                            >
+                                <X className="w-4 h-4 text-gray-800 dark:text-gray-200 hover:text-white stroke-[2.5]" />
+                            </button>
+                            <HABreakdownCard />
+                        </FeatureGuard>
+                    </div>
+                )}
 
-                <div key="costs">
-                    <Card title={t("costs")}>
-                        <p className="text-[11px] text-slate-400 mb-1">{t("current_fy_cost")}</p>
-                        <p className="text-2xl font-extrabold text-slate-800 dark:text-slate-100">{format(costs?.currentFYCost)}</p>
+                {isCardVisible("costs") && (
+                    <div key="costs">
+                        <Card title={t("costs")} onClose={() => handleHideCard("costs")}>
+                            <p className="text-[11px] text-slate-400 mb-1">{t("current_fy_cost")}</p>
+                            <p className="text-2xl font-extrabold text-slate-800 dark:text-slate-100">{format(costs?.currentFYCost)}</p>
 
-                        <p className="text-[11px] text-slate-400 mt-4 mb-1">{t("cost_projected")}</p>
-                        <div className="flex items-center gap-2">
-                            <p className="text-lg font-bold text-slate-700 dark:text-slate-200">{format(costs?.costProjected)}</p>
-                            <span className={`inline-flex items-center gap-1 text-xs font-bold ${costUp ? "text-red-600" : "text-emerald-600"}`}>
-                                {costUp ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-                                {Math.abs(costs?.costChangePct || 0)}%
-                            </span>
-                        </div>
-
-                        <div className="mt-4 pt-3 border-t border-gray-100 dark:border-slate-800">
-                            <p className="text-[11px] text-slate-400 mb-1">{t("previous_fy")}</p>
-                            <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">{format(costs?.previousFYCost)}</p>
-                        </div>
-                    </Card>
-                </div>
-
-                <div key="trend3m">
-                    <Card title={t("last_3_months_trend")}>
-                        <ResponsiveContainer width="100%" height="100%" minHeight={120}>
-                            <LineChart data={costs?.last3MonthsTrend || []}>
-                                <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                                <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                                <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} width={45} />
-                                <Tooltip formatter={(v: any) => format(Number(v))} />
-                                <Line type="monotone" dataKey="cost" stroke={COLORS.blue} strokeWidth={2} dot={{ r: 3 }} />
-                            </LineChart>
-                        </ResponsiveContainer>
-                    </Card>
-                </div>
-
-                <div key="top3services">
-                    <Card title={t("top3_services")}>
-                        <ResponsiveContainer width="100%" height="100%" minHeight={120}>
-                            <BarChart data={servicesBarData} layout="vertical" margin={{ left: 8, right: 16 }}>
-                                <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
-                                <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={100} />
-                                <Tooltip formatter={(v: any) => format(Number(v))} />
-                                <Bar dataKey="cost" radius={[0, 4, 4, 0]}>
-                                    {servicesBarData.map((entry, i) => (
-                                        <Cell key={i} fill={i === servicesBarData.length - 1 ? COLORS.cyan : COLORS.blue} />
-                                    ))}
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </Card>
-                </div>
-
-                <div key="security">
-                    <Card title={t("security_vulnerabilities")}>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <p className="text-[11px] text-slate-400 mb-1">{t("security")}</p>
-                                <p className="text-2xl font-extrabold text-slate-800 dark:text-slate-100">{security?.pct}%</p>
-                                <div className="mt-3 pt-3 border-t border-gray-100 dark:border-slate-800">
-                                    <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">{security?.withMfa} {t("of")} {security?.total}</p>
-                                </div>
+                            <p className="text-[11px] text-slate-400 mt-4 mb-1">{t("cost_projected")}</p>
+                            <div className="flex items-center gap-2">
+                                <p className="text-lg font-bold text-slate-700 dark:text-slate-200">{format(costs?.costProjected)}</p>
+                                <span className={`inline-flex items-center gap-1 text-xs font-bold ${costUp ? "text-red-600" : "text-emerald-600"}`}>
+                                    {costUp ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                                    {Math.abs(costs?.costChangePct || 0)}%
+                                </span>
                             </div>
-                            <div>
-                                <p className="text-[11px] text-slate-400 mb-1">{t("vulnerabilities")}</p>
-                                <ResponsiveContainer width="100%" height={130}>
-                                    <PieChart>
-                                        <Pie data={vulnData} dataKey="value" nameKey="name" innerRadius={28} outerRadius={50}>
-                                            {vulnData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                                        </Pie>
-                                        <Tooltip />
-                                    </PieChart>
-                                </ResponsiveContainer>
-                                <div className="flex justify-center gap-3 text-[10px] mt-1">
-                                    {vulnData.map((v) => (
-                                        <span key={v.name} className="flex items-center gap-1">
-                                            <span className="w-2 h-2 rounded-full inline-block" style={{ background: v.color }} />
-                                            {v.name} {v.value}
-                                        </span>
-                                    ))}
-                                </div>
+
+                            <div className="mt-4 pt-3 border-t border-gray-100 dark:border-slate-800">
+                                <p className="text-[11px] text-slate-400 mb-1">{t("previous_fy")}</p>
+                                <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">{format(costs?.previousFYCost)}</p>
                             </div>
-                        </div>
-                    </Card>
-                </div>
+                        </Card>
+                    </div>
+                )}
 
-                <div key="governance">
-                    <Card title={t("governance")}>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                                <p className="text-[11px] text-slate-400 mb-2">{t("untagged_resources_trend")}</p>
-                                <ResponsiveContainer width="100%" height={100}>
-                                    <LineChart data={untagged.trend || []}>
-                                        <XAxis dataKey="month" tick={{ fontSize: 10 }} />
-                                        <Tooltip formatter={(v: any) => format(Number(v))} />
-                                        <Line type="monotone" dataKey="cost" stroke={COLORS.violet} strokeWidth={2} dot={{ r: 2 }} />
-                                    </LineChart>
-                                </ResponsiveContainer>
-                            </div>
-                            <div className="grid grid-rows-2 gap-3">
-                                <div className="bg-gray-50 dark:bg-slate-800/50 rounded-lg p-3">
-                                    <p className="text-[10px] text-slate-400 mb-1">{t("untagged_resources_count")}</p>
-                                    <p className="text-lg font-extrabold text-slate-800 dark:text-slate-100">{untagged.count}</p>
-                                    <p className="text-[11px] text-slate-500">{untagged.countPct}%</p>
-                                </div>
-                                <div className="bg-gray-50 dark:bg-slate-800/50 rounded-lg p-3">
-                                    <p className="text-[10px] text-slate-400 mb-1">{t("untagged_resources_cost")}</p>
-                                    <p className="text-lg font-extrabold text-slate-800 dark:text-slate-100">{format(untagged.cost)}</p>
-                                    <p className="text-[11px] text-slate-500">{untagged.costPct}% {t("monthly_cost_pct")}</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="mt-4 pt-3 border-t border-gray-100 dark:border-slate-800">
-                            <p className="text-[11px] text-slate-400 mb-2">{t("top3_compliance_wins")}</p>
-                            <ResponsiveContainer width="100%" height={110}>
-                                <BarChart data={complianceWins}>
-                                    <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                                    <YAxis hide domain={[0, 100]} />
-                                    <Tooltip formatter={(v: any) => `${v}%`} />
-                                    <Bar dataKey="pct" fill={COLORS.blue} radius={[4, 4, 0, 0]} label={{ position: "top", fontSize: 11, formatter: (v: any) => `${v}%` }} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </Card>
-                </div>
-
-                <div key="threats">
-                    <Card title={t("top3_threat_categories")}>
-                        <div className="flex flex-col gap-3">
-                            {(top3ThreatCategories || []).map((cat: any, i: number) => (
-                                <div key={i}>
-                                    <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate mb-1" title={cat.name}>
-                                        {(() => {
-                                            const key = cat.name.toLowerCase().replace(/ /g, '_');
-                                            try {
-                                                const translated = t(`threat_cats.${key}` as any);
-                                                if (translated && !translated.includes('threat_cats.')) {
-                                                    return translated;
-                                                }
-                                                return cat.name.replace(/_/g, ' ');
-                                            } catch {
-                                                return cat.name.replace(/_/g, ' ');
-                                            }
-                                        })()}
-                                    </p>
-                                    <div className="flex h-3 rounded-full overflow-hidden bg-gray-100 dark:bg-slate-800">
-                                        {cat.high > 0 && <div style={{ width: `${(cat.high / cat.total) * 100}%`, background: COLORS.high }} title={`${t("high")}: ${cat.high}`} />}
-                                        {cat.medium > 0 && <div style={{ width: `${(cat.medium / cat.total) * 100}%`, background: COLORS.medium }} title={`${t("medium")}: ${cat.medium}`} />}
-                                        {cat.low > 0 && <div style={{ width: `${(cat.low / cat.total) * 100}%`, background: COLORS.low }} title={`${t("low")}: ${cat.low}`} />}
-                                    </div>
-                                    <p className="text-[10px] text-slate-400 mt-1">{cat.total} {t("total").toLowerCase()}</p>
-                                </div>
-                            ))}
-                            {(!top3ThreatCategories || top3ThreatCategories.length === 0) && (
-                                <p className="text-sm text-slate-400 flex items-center gap-2"><ShieldAlert className="w-4 h-4" /> {t("no_findings")}</p>
-                            )}
-                        </div>
-                    </Card>
-                </div>
-
-                <div key="locations">
-                    <Card title={t("top5_locations")}>
-                        <div className="flex flex-col gap-2">
-                            {(top5Locations || []).map((loc: any, i: number) => {
-                                const max = Math.max(...(top5Locations || []).map((l: any) => l.count), 1);
-                                return (
-                                    <div key={i} className="flex items-center gap-2">
-                                        <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                                        <span className="text-xs text-slate-600 dark:text-slate-300 w-24 truncate">{loc.name}</span>
-                                        <div className="flex-1 bg-gray-100 dark:bg-slate-800 rounded-full h-2.5">
-                                            <div className="h-2.5 rounded-full bg-cyan-500" style={{ width: `${(loc.count / max) * 100}%` }} />
-                                        </div>
-                                        <span className="text-xs font-semibold text-slate-500 w-10 text-right">{loc.count}</span>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </Card>
-                </div>
-
-                <div key="inventory">
-                    <Card title={t("top5_inventory")}>
-                        <ResponsiveContainer width="100%" height="100%" minHeight={140}>
-                            <BarChart data={top5InventoryData} layout="vertical" margin={{ left: 8, right: 16 }}>
-                                <XAxis type="number" tick={{ fontSize: 10 }} />
-                                <YAxis type="category" dataKey="label" tick={{ fontSize: 9 }} width={130} />
-                                <Tooltip labelFormatter={(_: any, payload: any) => payload?.[0]?.payload?.fullName || ""} />
-                                <Bar dataKey="count" fill={COLORS.blue} radius={[0, 4, 4, 0]} />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </Card>
-                </div>
-
-                <div key="advisorRec">
-                    <Card title={t("advisor_recommendations")}>
-                        <Link
-                            href={`/${locale}/advisor`}
-                            className="grid grid-cols-2 gap-3 h-full group -m-1 p-1 rounded-lg transition-colors hover:bg-gray-50 dark:hover:bg-slate-800/40"
-                        >
-                            <div className="bg-gray-50 dark:bg-slate-800/50 rounded-lg p-3 flex flex-col justify-center">
-                                <p className="text-[10px] text-slate-400 mb-1 flex items-center gap-1">
-                                    {t("open_recommendations")}
-                                    <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                </p>
-                                <p className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                                    <Lightbulb className="w-5 h-5 text-amber-500" />{recommendations?.open}
-                                </p>
-                            </div>
-                            <div className="bg-gray-50 dark:bg-slate-800/50 rounded-lg p-3 flex flex-col justify-center">
-                                <p className="text-[10px] text-slate-400 mb-1">{t("potential_cost_savings")}</p>
-                                <p className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400">{format(recommendations?.potentialCostSavings)}</p>
-                            </div>
-                        </Link>
-                    </Card>
-                </div>
-
-                <div key="recTrend">
-                    <Card>
-                        <p className="text-[11px] text-slate-400 mb-1">{t("recommendation_trend")}</p>
-                        <ResponsiveContainer width="100%" height={90}>
-                            <LineChart data={recommendations?.trend || []}>
-                                <XAxis dataKey="month" tick={{ fontSize: 10 }} />
-                                <Tooltip />
-                                <Line type="monotone" dataKey="count" stroke={COLORS.blue} strokeWidth={2} dot={{ r: 2 }} />
-                            </LineChart>
-                        </ResponsiveContainer>
-                        <p className="text-[11px] text-slate-400 mt-3 mb-1">{t("cost_anomaly_trend")}</p>
-                        <ResponsiveContainer width="100%" height={90}>
-                            <LineChart data={costAnomalyTrend || []}>
-                                <XAxis dataKey="month" tick={{ fontSize: 10 }} />
-                                <Tooltip />
-                                <Line type="monotone" dataKey="count" stroke={COLORS.high} strokeWidth={2} dot={{ r: 2 }} />
-                            </LineChart>
-                        </ResponsiveContainer>
-                    </Card>
-                </div>
-
-                <div key="costGroups">
-                    <FeatureGuard requiredTier="Business" featureName="Cost Groups" className="h-full w-full drag-handle cursor-move">
-                        <Card title={t("top5_cost_groups")}>
-                            <p className="text-lg font-extrabold text-slate-800 dark:text-slate-100 mb-2">{format(top5CostGroups?.totalCost)}</p>
-                            <ResponsiveContainer width="100%" height="100%" minHeight={100}>
-                                <BarChart data={top5CostGroups?.groups || []}>
-                                    <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                                    <YAxis tick={{ fontSize: 9 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} width={40} />
+                {isCardVisible("trend3m") && (
+                    <div key="trend3m">
+                        <Card title={t("last_3_months_trend")} onClose={() => handleHideCard("trend3m")}>
+                            <ResponsiveContainer width="100%" height="100%" minHeight={120}>
+                                <LineChart data={costs?.last3MonthsTrend || []}>
+                                    <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                                    <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                                    <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} width={45} />
                                     <Tooltip formatter={(v: any) => format(Number(v))} />
-                                    <Bar dataKey="cost" fill={COLORS.cyan} radius={[4, 4, 0, 0]} />
+                                    <Line type="monotone" dataKey="cost" stroke={COLORS.blue} strokeWidth={2} dot={{ r: 3 }} />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </Card>
+                    </div>
+                )}
+
+                {isCardVisible("top3services") && (
+                    <div key="top3services">
+                        <Card title={t("top3_services")} onClose={() => handleHideCard("top3services")}>
+                            <ResponsiveContainer width="100%" height="100%" minHeight={120}>
+                                <BarChart data={servicesBarData} layout="vertical" margin={{ left: 8, right: 16 }}>
+                                    <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
+                                    <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={100} />
+                                    <Tooltip formatter={(v: any) => format(Number(v))} />
+                                    <Bar dataKey="cost" radius={[0, 4, 4, 0]}>
+                                        {servicesBarData.map((entry, i) => (
+                                            <Cell key={i} fill={i === servicesBarData.length - 1 ? COLORS.cyan : COLORS.blue} />
+                                        ))}
+                                    </Bar>
                                 </BarChart>
                             </ResponsiveContainer>
                         </Card>
-                    </FeatureGuard>
-                </div>
+                    </div>
+                )}
 
-                {(
+                {isCardVisible("security") && (
+                    <div key="security">
+                        <Card title={t("security_vulnerabilities")} onClose={() => handleHideCard("security")}>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <p className="text-[11px] text-slate-400 mb-1">{t("security")}</p>
+                                    <p className="text-2xl font-extrabold text-slate-800 dark:text-slate-100">{security?.pct}%</p>
+                                </div>
+                                <div>
+                                    <p className="text-[11px] text-slate-400 mb-1">{t("vulnerabilities")}</p>
+                                    <ResponsiveContainer width="100%" height={100}>
+                                        <PieChart>
+                                            <Pie data={vulnData} dataKey="value" nameKey="name" innerRadius={20} outerRadius={40}>
+                                                {vulnData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                                            </Pie>
+                                            <Tooltip />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
+                        </Card>
+                    </div>
+                )}
+
+                {isCardVisible("governance") && (
+                    <div key="governance">
+                        <Card title={t("governance")} onClose={() => handleHideCard("governance")}>
+                            <div className="grid grid-cols-1 gap-4">
+                                <div>
+                                    <p className="text-[11px] text-slate-400 mb-1">{t("untagged_resources_count")}</p>
+                                    <p className="text-lg font-extrabold text-slate-800 dark:text-slate-100">{untagged.count}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[11px] text-slate-400 mb-1">{t("untagged_resources_cost")}</p>
+                                    <p className="text-lg font-extrabold text-slate-800 dark:text-slate-100">{format(untagged.cost)}</p>
+                                </div>
+                            </div>
+                        </Card>
+                    </div>
+                )}
+
+                {isCardVisible("threats") && (
+                    <div key="threats">
+                        <Card title={t("top3_threat_categories")} onClose={() => handleHideCard("threats")}>
+                            <div className="flex flex-col gap-3">
+                                {(top3ThreatCategories || []).map((cat: any, i: number) => (
+                                    <div key={i}>
+                                        <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">{cat.name}</p>
+                                        <div className="w-full bg-gray-100 rounded-full h-2 mt-1">
+                                            <div className="h-2 rounded-full bg-red-500" style={{ width: `${(cat.high / (cat.total || 1)) * 100}%` }}></div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </Card>
+                    </div>
+                )}
+
+                {isCardVisible("locations") && (
+                    <div key="locations">
+                        <Card title={t("top5_locations")} onClose={() => handleHideCard("locations")}>
+                            <div className="flex flex-col gap-2">
+                                {(top5Locations || []).map((loc: any, i: number) => {
+                                    const max = Math.max(...(top5Locations || []).map((l: any) => l.count), 1);
+                                    return (
+                                        <div key={i} className="flex items-center gap-2">
+                                            <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                            <span className="text-xs text-slate-600 dark:text-slate-300 w-24 truncate">{loc.name}</span>
+                                            <div className="flex-1 bg-gray-100 dark:bg-slate-800 rounded-full h-2.5">
+                                                <div className="h-2.5 rounded-full bg-cyan-500" style={{ width: `${(loc.count / max) * 100}%` }} />
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </Card>
+                    </div>
+                )}
+
+                {isCardVisible("inventory") && (
+                    <div key="inventory">
+                        <Card title={t("top5_inventory")} onClose={() => handleHideCard("inventory")}>
+                            <ResponsiveContainer width="100%" height="100%" minHeight={140}>
+                                <BarChart data={top5InventoryData} layout="vertical" margin={{ left: 8, right: 16 }}>
+                                    <XAxis type="number" tick={{ fontSize: 10 }} />
+                                    <YAxis type="category" dataKey="label" tick={{ fontSize: 9 }} width={130} />
+                                    <Tooltip labelFormatter={(_: any, payload: any) => payload?.[0]?.payload?.fullName || ""} />
+                                    <Bar dataKey="count" fill={COLORS.blue} radius={[0, 4, 4, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </Card>
+                    </div>
+                )}
+
+                {isCardVisible("advisorRec") && (
+                    <div key="advisorRec">
+                        <Card title={t("advisor_recommendations")} onClose={() => handleHideCard("advisorRec")}>
+                            <Link href={`/${locale}/advisor`} className="h-full block">
+                                <p className="text-2xl font-extrabold text-slate-800">{recommendations?.open}</p>
+                                <p className="text-xs text-slate-400">{t("open_recommendations")}</p>
+                            </Link>
+                        </Card>
+                    </div>
+                )}
+
+                {isCardVisible("recTrend") && (
+                    <div key="recTrend">
+                        <Card title={t("recommendation_trend")} onClose={() => handleHideCard("recTrend")}>
+                            <ResponsiveContainer width="100%" height={90}>
+                                <LineChart data={recommendations?.trend || []}>
+                                    <Line type="monotone" dataKey="count" stroke={COLORS.blue} />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </Card>
+                    </div>
+                )}
+
+                {isCardVisible("costGroups") && (
+                    <div key="costGroups">
+                        <FeatureGuard requiredTier="Business" featureName="Cost Groups" className="h-full w-full drag-handle cursor-move relative group">
+                            <button
+                                onClick={(e) => { e.stopPropagation(); handleHideCard("costGroups"); }}
+                                className="absolute top-3 right-3 p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 opacity-0 group-hover:opacity-100 transition-all z-20 cursor-pointer"
+                                title="Cerrar tarjeta de la pizarra"
+                            >
+                                <X className="w-4 h-4 text-gray-800 dark:text-gray-200 hover:text-white stroke-[2.5]" />
+                            </button>
+                            <Card title={t("top5_cost_groups")}>
+                                <ResponsiveContainer width="100%" height="100%" minHeight={100}>
+                                    <BarChart data={top5CostGroups?.groups || []}>
+                                        <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                                        <Bar dataKey="cost" fill={COLORS.cyan} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </Card>
+                        </FeatureGuard>
+                    </div>
+                )}
+
+                {isCardVisible("containerApps") && (
                     <div key="containerApps">
-                        <FeatureGuard requiredTier="Business" featureName={t("container_apps_feature_name")} className="h-full w-full drag-handle cursor-move">
+                        <FeatureGuard requiredTier="Business" featureName={t("container_apps_feature_name")} className="h-full w-full drag-handle cursor-move relative group">
+                            <button
+                                onClick={(e) => { e.stopPropagation(); handleHideCard("containerApps"); }}
+                                className="absolute top-3 right-3 p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 opacity-0 group-hover:opacity-100 transition-all z-20 cursor-pointer"
+                                title="Cerrar tarjeta de la pizarra"
+                            >
+                                <X className="w-4 h-4 text-gray-800 dark:text-gray-200 hover:text-white stroke-[2.5]" />
+                            </button>
                             <ContainerAppsCard />
                         </FeatureGuard>
                     </div>
                 )}
 
-                {(
+                {isCardVisible("logAnalytics") && (
                     <div key="logAnalytics">
-                        <FeatureGuard requiredTier="Business" featureName={t("log_analytics_feature_name")} className="h-full w-full drag-handle cursor-move">
+                        <FeatureGuard requiredTier="Business" featureName={t("log_analytics_feature_name")} className="h-full w-full drag-handle cursor-move relative group">
+                            <button
+                                onClick={(e) => { e.stopPropagation(); handleHideCard("logAnalytics"); }}
+                                className="absolute top-3 right-3 p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 opacity-0 group-hover:opacity-100 transition-all z-20 cursor-pointer"
+                                title="Cerrar tarjeta de la pizarra"
+                            >
+                                <X className="w-4 h-4 text-gray-800 dark:text-gray-200 hover:text-white stroke-[2.5]" />
+                            </button>
                             <LogAnalyticsCard />
                         </FeatureGuard>
                     </div>
                 )}
             </ResponsiveGridLayout>
+            </div>
+
+            {cardsPanelVisible && (
+            <aside className="w-full 2xl:w-[340px] 2xl:sticky 2xl:top-24">
+                <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm overflow-hidden">
+                    <div className="p-5 border-b border-gray-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+                        <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-lg bg-brand-deep/10 text-brand-deep flex items-center justify-center">
+                                <LayoutGrid className="w-4 h-4" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm">Personalizar Tarjetas de la Pizarra</h3>
+                                <p className="text-xs text-slate-500">Gestioná la visibilidad de los paneles en tu Whiteboard</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="p-5 space-y-3 max-h-[calc(100vh-220px)] overflow-y-auto">
+                        {hiddenCards.length > 0 && (
+                            <div className="mb-4 flex items-center justify-between bg-amber-50 dark:bg-amber-950/30 p-3 rounded-xl border border-amber-200 dark:border-amber-800/50">
+                                <span className="text-xs text-amber-800 dark:text-amber-300 font-medium">
+                                    {hiddenCards.length} {hiddenCards.length === 1 ? 'tarjeta oculta' : 'tarjetas ocultas'}
+                                </span>
+                                <button
+                                    onClick={handleRestoreAllCards}
+                                    className="inline-flex items-center gap-1 text-xs font-bold text-amber-700 dark:text-amber-400 hover:underline cursor-pointer"
+                                >
+                                    <RotateCcw className="w-3.5 h-3.5" /> Restaurar todas
+                                </button>
+                            </div>
+                        )}
+
+                        <div className="space-y-2">
+                            {LG_ITEMS.map((item) => {
+                                const meta = CARD_METADATA[item.i] || { label: item.i, description: "" };
+                                const isHidden = hiddenCards.includes(item.i);
+
+                                return (
+                                    <div
+                                        key={item.i}
+                                        className={`p-3 rounded-xl border flex items-center justify-between transition-all ${
+                                            isHidden
+                                                ? "bg-slate-50 dark:bg-slate-950/50 border-gray-200 dark:border-slate-800 opacity-60"
+                                                : "bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-800 shadow-xs"
+                                        }`}
+                                    >
+                                        <div className="min-w-0 pr-3">
+                                            <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">{meta.label}</p>
+                                            {meta.description && <p className="text-[11px] text-slate-400 truncate">{meta.description}</p>}
+                                        </div>
+                                        <button
+                                            onClick={() => (isHidden ? handleRestoreCard(item.i) : handleHideCard(item.i))}
+                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 transition-colors inline-flex items-center gap-1.5 cursor-pointer ${
+                                                isHidden
+                                                    ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+                                                    : "bg-gray-100 hover:bg-rose-50 hover:text-rose-600 dark:bg-slate-800 dark:hover:bg-rose-950/40 text-slate-600 dark:text-slate-300"
+                                            }`}
+                                        >
+                                            {isHidden ? (
+                                                <>
+                                                    <Eye className="w-3.5 h-3.5" /> Mostrar
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <EyeOff className="w-3.5 h-3.5" /> Ocultar
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            </aside>
+            )}
+            </div>
         </div>
     );
 }

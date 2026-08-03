@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool, { initializeDatabase } from "@/modules/storage/db";
+import { recordCronRun } from "@/lib/cronRunTracker";
 
 type ComponentStatus = "operational" | "degraded" | "down";
 type OverallStatus = "operational" | "degraded" | "down";
@@ -60,6 +61,7 @@ async function checkPaddleBillingHealth(): Promise<ComponentStatus> {
 }
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
+  const startedAt = Date.now();
   try {
     // Verify cron secret
     const secret = request.nextUrl.searchParams.get("secret");
@@ -111,13 +113,28 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const uptime =
       rows && rows.length > 0 && rows[0].total_count > 0 ? (rows[0].operational_count / rows[0].total_count) * 100 : 100.0;
 
-    return NextResponse.json({
+    const response = {
       success: true,
       overall_status: overallStatus,
       uptime_30d_pct: Math.round(uptime * 100) / 100,
+    };
+    await recordCronRun({
+      cronName: "status-snapshot",
+      status: overallStatus === "operational" ? "ok" : "warning",
+      durationMs: Date.now() - startedAt,
+      summary: `overall=${overallStatus} uptime30d=${response.uptime_30d_pct}`,
+      details: response as unknown as Record<string, unknown>,
     });
+    return NextResponse.json(response);
   } catch (e) {
     console.error("Snapshot capture error:", e);
+    await recordCronRun({
+      cronName: "status-snapshot",
+      status: "error",
+      durationMs: Date.now() - startedAt,
+      summary: e instanceof Error ? e.message : "snapshot failed",
+      details: { error: e instanceof Error ? e.message : String(e) },
+    });
     return NextResponse.json({ error: "Failed to capture snapshot" }, { status: 500 });
   }
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import pool, { initializeDatabase } from "@/modules/storage/db";
 import { serverError } from "@/lib/apiErrors";
 import { runAnomalyDetection, persistAndNotifyAnomalies } from "@/services/anomalyDetectionService";
+import { recordCronRun } from "@/lib/cronRunTracker";
 
 /**
  * Evaluador REAL de detección de anomalías — antes esta feature solo se
@@ -30,6 +31,7 @@ import { runAnomalyDetection, persistAndNotifyAnomalies } from "@/services/anoma
  * cálculo de Z-Score en memoria, sub-segundo).
  */
 export async function GET(request: NextRequest) {
+    const startedAt = Date.now();
     try {
         const cronSecret = process.env.CRON_SECRET;
         if (!cronSecret || cronSecret.length < 16) {
@@ -69,14 +71,31 @@ export async function GET(request: NextRequest) {
             }
         }
 
-        return NextResponse.json({
+        const response = {
             success: true,
             evaluated,
             withAnomalies,
             notified: totalNotified,
             ...(errors.length ? { errors: errors.slice(0, 10) } : {}),
+        };
+
+        await recordCronRun({
+            cronName: "anomaly-detection",
+            status: errors.length > 0 ? "warning" : "ok",
+            durationMs: Date.now() - startedAt,
+            summary: `evaluated=${evaluated} anomalies=${withAnomalies} notified=${totalNotified}`,
+            details: response as unknown as Record<string, unknown>,
         });
+
+        return NextResponse.json(response);
     } catch (e: unknown) {
+        await recordCronRun({
+            cronName: "anomaly-detection",
+            status: "error",
+            durationMs: Date.now() - startedAt,
+            summary: e instanceof Error ? e.message : "cron failed",
+            details: { error: e instanceof Error ? e.message : String(e) },
+        });
         return serverError(e, { context: "GET /api/cron/anomaly-detection" });
     }
 }

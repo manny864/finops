@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import pool, { initializeDatabase } from "@/modules/storage/db";
 import { serverError } from "@/lib/apiErrors";
 import { sendEmailAsync, getCriticalSystemAlertEmailHtml } from "@/lib/emailHelper";
+import { recordCronRun } from "@/lib/cronRunTracker";
 
 /**
  * Verifica que `/api/cron/sync` haya poblado CostSnapshots en las últimas 36h
@@ -39,6 +40,7 @@ const STALE_HOURS = 36;
 const DEDUP_WINDOW_HOURS = 20;
 
 export async function GET(request: NextRequest) {
+    const startedAt = Date.now();
     try {
         const cronSecret = process.env.CRON_SECRET;
         if (!cronSecret || cronSecret.length < 16) {
@@ -60,7 +62,15 @@ export async function GET(request: NextRequest) {
         const tenants = Array.isArray(tenantRows) ? (tenantRows as any[]) : [];
 
         if (tenants.length === 0) {
-            return NextResponse.json({ success: true, checked: 0, stale: 0, message: "No hay tenants activos con Azure conectado." });
+            const response = { success: true, checked: 0, stale: 0, message: "No hay tenants activos con Azure conectado." };
+            await recordCronRun({
+                cronName: "cost-sync-staleness-check",
+                status: "ok",
+                durationMs: Date.now() - startedAt,
+                summary: "no active tenants",
+                details: response as unknown as Record<string, unknown>,
+            });
+            return NextResponse.json(response);
         }
 
         const [freshnessRows]: any = await pool.query(
@@ -103,7 +113,15 @@ export async function GET(request: NextRequest) {
             .filter((t) => t.lastSyncAt === null || (t.syncAgeHours as number) > STALE_HOURS);
 
         if (staleTenants.length === 0) {
-            return NextResponse.json({ success: true, checked: tenants.length, stale: 0 });
+            const response = { success: true, checked: tenants.length, stale: 0 };
+            await recordCronRun({
+                cronName: "cost-sync-staleness-check",
+                status: "ok",
+                durationMs: Date.now() - startedAt,
+                summary: `checked=${tenants.length} stale=0`,
+                details: response as unknown as Record<string, unknown>,
+            });
+            return NextResponse.json(response);
         }
 
         const allStale = staleTenants.length === tenants.length;
@@ -132,7 +150,15 @@ export async function GET(request: NextRequest) {
             [DEDUP_WINDOW_HOURS]
         );
         if (Array.isArray(recentRows) && recentRows.length > 0) {
-            return NextResponse.json({ success: true, checked: tenants.length, stale: staleTenants.length, deduped: true });
+            const response = { success: true, checked: tenants.length, stale: staleTenants.length, deduped: true };
+            await recordCronRun({
+                cronName: "cost-sync-staleness-check",
+                status: "warning",
+                durationMs: Date.now() - startedAt,
+                summary: `stale=${staleTenants.length}/${tenants.length} deduped`,
+                details: response as unknown as Record<string, unknown>,
+            });
+            return NextResponse.json(response);
         }
 
         const [insertRes]: any = await pool.query(
@@ -145,14 +171,29 @@ export async function GET(request: NextRequest) {
             sendEmailAsync(`🚨 Alerta crítica: ${message}`, html, "soporte@cscloudsolutions.com.ar");
         }
 
-        return NextResponse.json({
+        const response = {
             success: true,
             checked: tenants.length,
             stale: staleTenants.length,
             alertId: insertRes.insertId,
             severity,
+        };
+        await recordCronRun({
+            cronName: "cost-sync-staleness-check",
+            status: severity === "critical" ? "error" : "warning",
+            durationMs: Date.now() - startedAt,
+            summary: `stale=${staleTenants.length}/${tenants.length} severity=${severity}`,
+            details: response as unknown as Record<string, unknown>,
         });
+        return NextResponse.json(response);
     } catch (e: unknown) {
+        await recordCronRun({
+            cronName: "cost-sync-staleness-check",
+            status: "error",
+            durationMs: Date.now() - startedAt,
+            summary: e instanceof Error ? e.message : "cron failed",
+            details: { error: e instanceof Error ? e.message : String(e) },
+        });
         return serverError(e, { context: "GET /api/cron/cost-sync-staleness-check" });
     }
 }

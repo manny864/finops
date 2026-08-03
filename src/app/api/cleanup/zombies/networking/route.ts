@@ -8,6 +8,59 @@ import { getMonthlyCostEstimate } from "@/services/pricingService";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { getExemptionsForTenant } from "@/modules/storage/recommendationExemptions";
 
+type NetworkingZombieItem = {
+    resourceId: string;
+    resourceName: string;
+    resourceType: string;
+    armType: string;
+    resourceGroup: string;
+    subscriptionId: string;
+    monthlyCost: number;
+    reason: string;
+    daysIdle: number;
+    isExempted?: boolean;
+    exemptionReason?: string | null;
+    exemptionComment?: string | null;
+};
+
+type NetworkingZombiePayload = {
+    items: NetworkingZombieItem[];
+    totalMonthlyWaste: number;
+    privateEndpointAccumulation: { totalCount: number; estimatedMonthlyCost: number };
+    privateEndpointsDetail: Array<{
+        resourceId: string;
+        resourceName: string;
+        resourceGroup: string;
+        subscriptionId: string;
+        connectionState: string;
+        monthlyCost: number;
+    }>;
+};
+
+async function attachZombieExemptions(tenantId: string, payload: NetworkingZombiePayload): Promise<NetworkingZombiePayload> {
+    const exemptions = await getExemptionsForTenant(tenantId);
+    const exemptionsMap = new Map(
+        exemptions
+            .filter((e) => e.recommendationType === "zombies")
+            .map((e) => [(e.resourceId || "").toLowerCase(), e])
+    );
+
+    const items = payload.items.map((item) => {
+        const ex = exemptionsMap.get((item.resourceId || "").toLowerCase());
+        if (!ex) {
+            return { ...item, isExempted: false, exemptionReason: null, exemptionComment: null };
+        }
+        return {
+            ...item,
+            isExempted: true,
+            exemptionReason: ex.reason || null,
+            exemptionComment: ex.comment || null,
+        };
+    });
+
+    return { ...payload, items };
+}
+
 export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
@@ -42,7 +95,8 @@ export async function GET(request: NextRequest) {
         const subscriptionId = searchParams.get("subscriptionId") || undefined;
         const cacheKey = `cleanup:zombies-networking:v1:${tenantId}:${subscriptionId || 'all'}`;
         const payload = await getWithStaleWhileRevalidate(cacheKey, () => fetchNetworkingZombies(tenantId, subscriptionId), 1800, 600);
-        return NextResponse.json({ success: true, mock: false, ...payload });
+        const payloadWithExemptions = await attachZombieExemptions(tenantId, payload);
+        return NextResponse.json({ success: true, mock: false, ...payloadWithExemptions });
     } catch (err: unknown) {
         console.error("[zombies/networking] error:", err instanceof Error ? err.message : err);
         const code = (err as any)?.code;
@@ -53,16 +107,12 @@ export async function GET(request: NextRequest) {
     }
 }
 
-async function fetchNetworkingZombies(tenantId: string, subscriptionId: string | undefined) {
+async function fetchNetworkingZombies(tenantId: string, subscriptionId: string | undefined): Promise<NetworkingZombiePayload> {
         const credential = await getAzureCredential(tenantId);
         const resourceGraphClient = new ResourceGraphClient(credential);
         const graphResults = await runGraphAudits(resourceGraphClient, credential, subscriptionId);
 
-        const items: Array<{
-            resourceId: string; resourceName: string; resourceType: string; armType: string;
-            resourceGroup: string; subscriptionId: string; monthlyCost: number;
-            reason: string; daysIdle: number;
-        }> = [];
+        const items: NetworkingZombieItem[] = [];
 
         const unusedAppGateways = (graphResults as any)?.unusedAppGateways as any[] | undefined;
         for (const agw of unusedAppGateways || []) {
@@ -174,20 +224,6 @@ async function fetchNetworkingZombies(tenantId: string, subscriptionId: string |
             totalCount: allPrivateEndpoints.length,
             estimatedMonthlyCost: Number((allPrivateEndpoints.length * PE_FIXED_MONTHLY_COST).toFixed(2)),
         };
-
-const exemptions = await getExemptionsForTenant(tenantId);
-        const exemptionsMap = new Map(exemptions.filter((e: any) => e.recommendationType === 'zombies').map((e: any) => [(e.resourceId || '').toLowerCase(), e]));
-
-        items.forEach((res: any) => {
-            const ex = exemptionsMap.get((res.resourceId || '').toLowerCase());
-            if (ex) {
-                res.isExempted = true;
-                res.exemptionReason = ex.reason || null;
-                res.exemptionComment = ex.comment || null;
-            } else {
-                res.isExempted = false;
-            }
-        });
 
         return { items, totalMonthlyWaste, privateEndpointAccumulation, privateEndpointsDetail };
 
