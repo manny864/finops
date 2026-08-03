@@ -211,14 +211,14 @@ async function queryLegacyRows(tenantId: string, days: number, startDate?: strin
 }
 
 async function runQuery(tenantId: string, days: number, startDate?: string | null, endDate?: string | null): Promise<{ rows: any[]; source: 'meters' | 'legacy' }> {
-    const legacyRows = await queryLegacyRows(tenantId, days, startDate, endDate);
-    if (legacyRows.length > 0) return { rows: legacyRows, source: 'legacy' };
     try {
         const meterRows = await queryMeterRows(tenantId, days, startDate, endDate);
         if (meterRows.length > 0) return { rows: meterRows, source: 'meters' };
     } catch (e: any) {
         console.error(`[storage-efficiency] Error queryMeterRows para ${tenantId}:`, e);
     }
+    const legacyRows = await queryLegacyRows(tenantId, days, startDate, endDate);
+    if (legacyRows.length > 0) return { rows: legacyRows, source: 'legacy' };
     return { rows: [], source: 'legacy' };
 }
 

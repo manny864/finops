@@ -103,7 +103,11 @@ export async function GET(request: NextRequest) {
             `SELECT 
                 DATE_FORMAT(date, '%Y-%m') AS month,
                 SUM(cost_usd) AS totalCost,
-                SUM(COALESCE(Quantity, 0)) AS totalGb
+                SUM(CASE 
+                    WHEN UPPER(COALESCE(UnitOfMeasure, '')) IN ('GB', 'GB/MONTH', 'GB-MONTHS', 'GIGABYTES') OR MeterName LIKE '%Data Stored%' OR MeterSubCategory LIKE '%Data Stored%'
+                    THEN COALESCE(Quantity, 0)
+                    ELSE 0 
+                END) AS totalGb
              FROM CostMeterSnapshots
              WHERE tenant_id = ?
                AND (
