@@ -96,6 +96,49 @@ const DEFAULT_LAYOUT = {
     xxs: deriveLayoutForCols(LG_ITEMS, GRID_COLS.xxs),
 };
 
+function collides(a: any, b: any): boolean {
+    if (a.i === b.i) return false;
+    if (a.x + a.w <= b.x) return false;
+    if (b.x + b.w <= a.x) return false;
+    if (a.y + a.h <= b.y) return false;
+    if (b.y + b.h <= a.y) return false;
+    return true;
+}
+
+function normalizeBreakpointLayout(items: any[], cols: number): any[] {
+    const placed: any[] = [];
+    const ordered = [...items].sort((a, b) => (a.y - b.y) || (a.x - b.x));
+
+    for (const raw of ordered) {
+        const item = {
+            ...raw,
+            w: Math.max(1, Math.min(cols, Number(raw.w) || 1)),
+            h: Math.max(1, Number(raw.h) || 1),
+            x: Math.max(0, Number(raw.x) || 0),
+            y: Math.max(0, Number(raw.y) || 0),
+        };
+
+        if (item.x + item.w > cols) item.x = Math.max(0, cols - item.w);
+
+        while (placed.some((p) => collides(item, p))) {
+            item.y += 1;
+        }
+        placed.push(item);
+    }
+
+    return placed;
+}
+
+function normalizeLayouts(allLayouts: any): any {
+    if (!allLayouts) return allLayouts;
+    const next = { ...allLayouts };
+    (Object.keys(GRID_COLS) as Array<keyof typeof GRID_COLS>).forEach((bp) => {
+        const list = Array.isArray(next[bp]) ? next[bp] : [];
+        next[bp] = normalizeBreakpointLayout(list, GRID_COLS[bp]);
+    });
+    return next;
+}
+
 const COLORS = {
     high: "#dc2626",
     medium: "#f59e0b",
@@ -149,6 +192,7 @@ export default function ExecutiveSummaryBoard() {
     const { format } = useCurrency();
 
     const [hiddenCards, setHiddenCards] = useState<string[]>([]);
+    const [cardsPanelVisible, setCardsPanelVisible] = useState(true);
 
     const fetcher = async (url: string) => {
         const idToken = await getFreshIdToken(instance, accounts[0]);
@@ -193,7 +237,7 @@ export default function ExecutiveSummaryBoard() {
                         if (!existing.has(item.i)) parsed[bp].push(item);
                     });
                 });
-                setLayouts(parsed);
+                setLayouts(normalizeLayouts(parsed));
             } catch {
                 setLayouts(DEFAULT_LAYOUT);
             }
@@ -211,6 +255,8 @@ export default function ExecutiveSummaryBoard() {
     }, []);
 
     const persistTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    const hiddenLayoutSnapshotRef = React.useRef<Record<string, Record<string, any>>>({});
+
     const persistLayouts = useCallback((allLayouts: any) => {
         if (persistTimeoutRef.current) clearTimeout(persistTimeoutRef.current);
         persistTimeoutRef.current = setTimeout(() => {
@@ -220,12 +266,55 @@ export default function ExecutiveSummaryBoard() {
         }, 400);
     }, []);
 
+    const snapshotCardLayout = useCallback((cardId: string) => {
+        if (!layouts) return;
+        const snapshot: Record<string, any> = {};
+        Object.keys(DEFAULT_LAYOUT).forEach((bp) => {
+            const current = (layouts[bp] || []).find((l: any) => l.i === cardId);
+            const fallback = (DEFAULT_LAYOUT[bp as keyof typeof DEFAULT_LAYOUT] as any[]).find((l: any) => l.i === cardId);
+            if (current || fallback) snapshot[bp] = { ...(current || fallback) };
+        });
+        hiddenLayoutSnapshotRef.current[cardId] = snapshot;
+    }, [layouts]);
+
+    const restoreCardsLayout = useCallback((cardIds: string[]) => {
+        setLayouts((prev: any) => {
+            if (!prev || cardIds.length === 0) return prev;
+            let changed = false;
+            const nextLayouts = { ...prev };
+
+            Object.keys(DEFAULT_LAYOUT).forEach((bp) => {
+                const bpItems = Array.isArray(nextLayouts[bp]) ? [...nextLayouts[bp]] : [];
+                cardIds.forEach((cardId) => {
+                    const exists = bpItems.some((l: any) => l.i === cardId);
+                    if (exists) return;
+
+                    const snapshot = hiddenLayoutSnapshotRef.current[cardId]?.[bp];
+                    const fallback = (DEFAULT_LAYOUT[bp as keyof typeof DEFAULT_LAYOUT] as any[]).find((l: any) => l.i === cardId);
+                    const toInsert = snapshot || fallback;
+                    if (toInsert) {
+                        bpItems.push({ ...toInsert });
+                        changed = true;
+                    }
+                });
+                nextLayouts[bp] = bpItems;
+            });
+
+            if (!changed) return prev;
+            const normalized = normalizeLayouts(nextLayouts);
+            persistLayouts(normalized);
+            return normalized;
+        });
+    }, [persistLayouts]);
+
     const onLayoutChange = (_layout: any, allLayouts: any) => {
-        setLayouts(allLayouts);
-        persistLayouts(allLayouts);
+        const normalized = normalizeLayouts(allLayouts);
+        setLayouts(normalized);
+        persistLayouts(normalized);
     };
 
     const handleHideCard = (cardId: string) => {
+        snapshotCardLayout(cardId);
         setHiddenCards((prev) => {
             if (prev.includes(cardId)) return prev;
             const updated = [...prev, cardId];
@@ -237,6 +326,7 @@ export default function ExecutiveSummaryBoard() {
     };
 
     const handleRestoreCard = (cardId: string) => {
+        restoreCardsLayout([cardId]);
         setHiddenCards((prev) => {
             const updated = prev.filter((id) => id !== cardId);
             const serialized = JSON.stringify(updated);
@@ -247,9 +337,12 @@ export default function ExecutiveSummaryBoard() {
     };
 
     const handleRestoreAllCards = () => {
-        setHiddenCards([]);
-        setCookie(HIDDEN_CARDS_STORAGE_KEY, JSON.stringify([]));
-        localStorage.setItem(HIDDEN_CARDS_STORAGE_KEY, JSON.stringify([]));
+        setHiddenCards((prev) => {
+            restoreCardsLayout(prev);
+            setCookie(HIDDEN_CARDS_STORAGE_KEY, JSON.stringify([]));
+            localStorage.setItem(HIDDEN_CARDS_STORAGE_KEY, JSON.stringify([]));
+            return [];
+        });
     };
 
     const handleBudgetResize = useCallback((newH: number) => {
@@ -374,9 +467,13 @@ export default function ExecutiveSummaryBoard() {
 
             <div className="flex items-center justify-between gap-4 flex-wrap pt-2">
                 <p className="text-[11px] text-slate-400">{t("drag_resize_hint")}</p>
-                <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 text-slate-700 dark:text-slate-200">
-                    Personalizar Tarjetas {hiddenCards.length > 0 && `(${hiddenCards.length} ocultas)`}
-                </span>
+                <button
+                    onClick={() => setCardsPanelVisible((prev) => !prev)}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:border-brand hover:text-brand transition-all shadow-xs"
+                >
+                    <LayoutGrid className="w-3.5 h-3.5" />
+                    {cardsPanelVisible ? "Ocultar panel de tarjetas" : "Mostrar panel de tarjetas"} {hiddenCards.length > 0 && `(${hiddenCards.length} ocultas)`}
+                </button>
             </div>
 
             <div className="flex flex-col 2xl:flex-row gap-6 items-start">
@@ -389,6 +486,8 @@ export default function ExecutiveSummaryBoard() {
                 rowHeight={80}
                 onLayoutChange={onLayoutChange}
                 draggableHandle=".drag-handle"
+                allowOverlap={false}
+                compactType="vertical"
             >
                 {isCardVisible("budget") && (
                     <div key="budget">
@@ -664,6 +763,7 @@ export default function ExecutiveSummaryBoard() {
             </ResponsiveGridLayout>
             </div>
 
+            {cardsPanelVisible && (
             <aside className="w-full 2xl:w-[340px] 2xl:sticky 2xl:top-24">
                 <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm overflow-hidden">
                     <div className="p-5 border-b border-gray-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
@@ -736,6 +836,7 @@ export default function ExecutiveSummaryBoard() {
                     </div>
                 </div>
             </aside>
+            )}
             </div>
         </div>
     );
