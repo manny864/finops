@@ -259,42 +259,6 @@ export async function GET(request: NextRequest) {
                 widened = rows.length > 0;
             }
 
-            const tierMap: Record<string, { gb: number; cost: number }> = {
-                hot: { gb: 0, cost: 0 },
-                cool: { gb: 0, cost: 0 },
-                cold: { gb: 0, cost: 0 },
-                archive: { gb: 0, cost: 0 },
-            };
-
-            for (const row of rows) {
-                const tier = detectTier(row.MeterSubCategory, row.MeterName, row.MeterCategory, row.service_name);
-                const cost = parseFloat(row.billedCost) || 0;
-                // Prefer reported Quantity (in GB-month) if available; else infer from cost / rate
-                const uom = String(row.UnitOfMeasure || "").toLowerCase();
-                const reportedQty = parseFloat(row.quantity) || 0;
-                const inferredGb = TIER_RATES[tier] > 0 ? cost / TIER_RATES[tier] : 0;
-                const gb = (reportedQty > 0 && (uom.includes("gb") || uom.includes("byte"))) ? reportedQty : inferredGb;
-                tierMap[tier].cost += cost;
-                tierMap[tier].gb += gb;
-            }
-
-            const totalCost = Object.values(tierMap).reduce((s, t) => s + t.cost, 0);
-            const totalGb   = Object.values(tierMap).reduce((s, t) => s + t.gb, 0);
-            const costPerGb = totalGb > 0 ? totalCost / totalGb : 0;
-
-            const tiersWithPercent = Object.fromEntries(
-                Object.entries(tierMap).map(([k, v]) => [
-                    k,
-                    { gb: parseFloat(v.gb.toFixed(2)), cost: parseFloat(v.cost.toFixed(2)), percent: totalGb > 0 ? Math.round((v.gb / totalGb) * 100) : 0 },
-                ])
-            );
-
-            const hotGb = tierMap.hot.gb;
-            const movableGb = Math.round(hotGb * 0.28);
-            const potentialSavings = parseFloat(
-                ((TIER_RATES.hot - TIER_RATES.cool) * movableGb).toFixed(2)
-            );
-
             let accounts: any[] = [];
             try {
                 let subs = await getUntruncatedSubscriptions(tenantId);
@@ -364,29 +328,58 @@ export async function GET(request: NextRequest) {
                             monthlyCost: parseFloat(cost.toFixed(2))
                         };
                     });
-
-                    // Proportional Fallback: if total tenant GB/Cost > 0 and some accounts have 0 GB/Cost, allocate remaining
-                    const mappedGb = accounts.reduce((s, a) => s + a.usedGb, 0);
-                    const mappedCost = accounts.reduce((s, a) => s + a.monthlyCost, 0);
-                    const remainingGb = totalGb - mappedGb;
-                    const remainingCost = totalCost - mappedCost;
-                    const unmappedAccounts = accounts.filter(a => a.usedGb === 0 && a.monthlyCost === 0);
-
-                    if (unmappedAccounts.length > 0 && (remainingGb > 0 || remainingCost > 0)) {
-                        const addGb = Math.max(0, remainingGb / unmappedAccounts.length);
-                        const addCost = Math.max(0, remainingCost / unmappedAccounts.length);
-                        for (const acc of unmappedAccounts) {
-                            acc.usedGb = parseFloat(addGb.toFixed(2));
-                            acc.monthlyCost = parseFloat(addCost.toFixed(2));
-                        }
-                    }
                 }
             } catch (e: unknown) {
                 const msg = e instanceof Error ? e.message : String(e);
                 console.error(`[storage-efficiency] Could not fetch ARG storage accounts for tenant ${tenantId}:`, msg);
             }
 
-            if (rows.length === 0) {
+            // Build tierMap from accounts to reflect exact Storage Account tiers (Hot, Cool, Cold, Archive)
+            const tierMap: Record<string, { gb: number; cost: number }> = {
+                hot: { gb: 0, cost: 0 },
+                cool: { gb: 0, cost: 0 },
+                cold: { gb: 0, cost: 0 },
+                archive: { gb: 0, cost: 0 },
+            };
+
+            if (accounts.length > 0) {
+                for (const acc of accounts) {
+                    const t = (acc.tier || "hot").toLowerCase();
+                    const key = tierMap[t] ? t : "hot";
+                    tierMap[key].gb += acc.usedGb || 0;
+                    tierMap[key].cost += acc.monthlyCost || 0;
+                }
+            } else {
+                for (const row of rows) {
+                    const tier = detectTier(row.MeterSubCategory, row.MeterName, row.MeterCategory, row.service_name);
+                    const cost = parseFloat(row.billedCost) || 0;
+                    const uom = String(row.UnitOfMeasure || "").toLowerCase();
+                    const reportedQty = parseFloat(row.quantity) || 0;
+                    const inferredGb = TIER_RATES[tier] > 0 ? cost / TIER_RATES[tier] : 0;
+                    const gb = (reportedQty > 0 && (uom.includes("gb") || uom.includes("byte"))) ? reportedQty : inferredGb;
+                    tierMap[tier].cost += cost;
+                    tierMap[tier].gb += gb;
+                }
+            }
+
+            const totalCost = Object.values(tierMap).reduce((s, t) => s + t.cost, 0);
+            const totalGb   = Object.values(tierMap).reduce((s, t) => s + t.gb, 0);
+            const costPerGb = totalGb > 0 ? totalCost / totalGb : 0;
+
+            const tiersWithPercent = Object.fromEntries(
+                Object.entries(tierMap).map(([k, v]) => [
+                    k,
+                    { gb: parseFloat(v.gb.toFixed(2)), cost: parseFloat(v.cost.toFixed(2)), percent: totalGb > 0 ? Math.round((v.gb / totalGb) * 100) : 0 },
+                ])
+            );
+
+            const hotGb = tierMap.hot.gb;
+            const movableGb = Math.round(hotGb * 0.28);
+            const potentialSavings = parseFloat(
+                ((TIER_RATES.hot - TIER_RATES.cool) * movableGb).toFixed(2)
+            );
+
+            if (rows.length === 0 && accounts.length === 0) {
                 return NextResponse.json({
                     success: true,
                     mock: false,
