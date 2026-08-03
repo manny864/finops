@@ -154,6 +154,39 @@ async function runQuery(tenantId: string, days: number): Promise<{ rows: any[]; 
     return { rows: await queryLegacyRows(tenantId, days), source: 'legacy' };
 }
 
+async function fetchAllStorageAccountsFromARG(tenantId: string, subs: string[]): Promise<any[]> {
+    if (!subs || subs.length === 0) return [];
+    const argClient = await getResourceGraphClient(tenantId);
+    const query = `
+        Resources
+        | where type =~ 'microsoft.storage/storageaccounts'
+        | project id, name, location, resourceGroup, subscriptionId, sku = tostring(sku.name), kind = tostring(kind), accessTier = tostring(properties.accessTier)
+    `;
+
+    const allAccounts: any[] = [];
+    let skipToken: string | undefined = undefined;
+
+    do {
+        const resARG: any = await withArgLimit(() =>
+            argClient.resources({
+                subscriptions: subs,
+                query,
+                options: {
+                    resultFormat: "objectArray",
+                    top: 1000,
+                    ...(skipToken ? { skipToken } : {})
+                }
+            })
+        );
+
+        const pageData = (resARG?.data as any[]) || [];
+        allAccounts.push(...pageData);
+        skipToken = resARG?.skipToken;
+    } while (skipToken);
+
+    return allAccounts;
+}
+
 export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
@@ -231,16 +264,7 @@ export async function GET(request: NextRequest) {
             try {
                 const subs = await getSubscriptionsForTenant(tenantId);
                 if (subs.length > 0) {
-                    const argClient = await getResourceGraphClient(tenantId);
-                    const query = `
-                        Resources
-                        | where type =~ 'microsoft.storage/storageaccounts'
-                        | project id, name, location, resourceGroup, subscriptionId, sku = tostring(sku.name), kind = tostring(kind), accessTier = tostring(properties.accessTier)
-                    `;
-                    const resARG: any = await withArgLimit(() =>
-                        argClient.resources({ query, subscriptions: subs, options: { resultFormat: "objectArray", top: 1000 } })
-                    );
-                    const rawAccounts = (resARG.data as any[]) || [];
+                    const rawAccounts = await fetchAllStorageAccountsFromARG(tenantId, subs);
 
                     const costByRg = new Map<string, { cost: number; qty: number }>();
                     for (const r of rows) {
@@ -258,7 +282,7 @@ export async function GET(request: NextRequest) {
                     }
 
                     accounts = rawAccounts.map((acc: any) => {
-                        const rawTier = acc.accessTier || (acc.sku?.includes("Premium") ? "Premium" : "Hot");
+                        const rawTier = acc.accessTier || (acc.sku?.toLowerCase().includes("premium") ? "Premium" : "Hot");
                         const tierFormatted = rawTier ? rawTier.charAt(0).toUpperCase() + rawTier.slice(1).toLowerCase() : "Hot";
                         const rg = (acc.resourceGroup || "").toLowerCase();
                         const rgStats = costByRg.get(rg);
@@ -283,41 +307,6 @@ export async function GET(request: NextRequest) {
                 }
             } catch (e) {
                 console.warn("[storage-efficiency] Could not fetch ARG storage accounts:", e);
-            }
-
-            // Fallback: If ARG returned 0 storage accounts, but cost records exist in DB
-            if (accounts.length === 0 && rows.length > 0) {
-                const costByRg = new Map<string, { cost: number; qty: number; tiers: Set<string> }>();
-                for (const r of rows) {
-                    const rg = r.resource_group || r.ResourceGroup || "rg-storage";
-                    const key = rg.toLowerCase();
-                    const current = costByRg.get(key) || { cost: 0, qty: 0, tiers: new Set<string>() };
-                    const cost = parseFloat(r.billedCost) || 0;
-                    const tier = detectTier(r.MeterSubCategory, r.MeterName, r.MeterCategory, r.service_name);
-                    const uom = String(r.UnitOfMeasure || "").toLowerCase();
-                    const reportedQty = parseFloat(r.quantity) || 0;
-                    const inferredGb = TIER_RATES[tier] > 0 ? cost / TIER_RATES[tier] : 0;
-                    const gb = (reportedQty > 0 && (uom.includes("gb") || uom.includes("byte"))) ? reportedQty : inferredGb;
-                    current.tiers.add(tier);
-                    costByRg.set(key, { cost: current.cost + cost, qty: current.qty + gb, tiers: current.tiers });
-                }
-
-                for (const [rgKey, stats] of costByRg.entries()) {
-                    const primaryTier = Array.from(stats.tiers)[0] || "hot";
-                    const tierFormatted = primaryTier.charAt(0).toUpperCase() + primaryTier.slice(1).toLowerCase();
-                    accounts.push({
-                        id: `/subscriptions/default/resourceGroups/${rgKey}/providers/Microsoft.Storage/storageAccounts/st-${rgKey}`,
-                        name: `st-${rgKey}`,
-                        resourceGroup: rgKey,
-                        subscriptionId: "default",
-                        location: "global",
-                        tier: tierFormatted,
-                        kind: "StorageV2",
-                        sku: "Standard_LRS",
-                        usedGb: parseFloat(stats.qty.toFixed(2)),
-                        monthlyCost: parseFloat(stats.cost.toFixed(2))
-                    });
-                }
             }
 
             if (rows.length === 0) {
