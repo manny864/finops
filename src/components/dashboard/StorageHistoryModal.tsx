@@ -307,31 +307,34 @@ export default function StorageHistoryModal({ isOpen, onClose, tenantId }: Stora
                                     </div>
                                 </div>
 
-                                <div className="h-48 flex items-end justify-between gap-1.5 pt-6 pb-2 px-2 border-b border-slate-800">
+                                <div className="h-52 flex items-end justify-between gap-1.5 pt-8 pb-2 px-2 border-b border-slate-800 relative">
                                     {filteredHistory.map((h) => {
                                         const maxGb = Math.max(...filteredHistory.map(item => item.totalGb), 0.001);
-                                        const costHeight = h.totalCost > 0 ? Math.max(10, (h.totalCost / maxCost) * 100) : 4;
-                                        const gbHeight = h.totalGb > 0 ? Math.max(10, (h.totalGb / maxGb) * 100) : 4;
+                                        const costHeightPct = maxCost > 0 ? (h.totalCost / maxCost) * 100 : 0;
+                                        const gbHeightPct = maxGb > 0 ? (h.totalGb / maxGb) * 100 : 0;
+
+                                        const costHeight = h.totalCost > 0 ? `${Math.max(12, costHeightPct)}%` : "6px";
+                                        const gbHeight = h.totalGb > 0 ? `${Math.max(12, gbHeightPct)}%` : "6px";
 
                                         return (
-                                            <div key={h.month} className="flex-1 flex flex-col items-center group relative">
+                                            <div key={h.month} className="flex-1 h-full flex flex-col justify-end items-center group relative">
                                                 
                                                 {/* Tooltip */}
-                                                <div className="absolute -top-14 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 text-white text-[10px] py-1.5 px-2.5 rounded shadow-lg pointer-events-none z-20 whitespace-nowrap border border-slate-700">
-                                                    <div><strong>{h.month}</strong></div>
-                                                    <div>Costo: {format(h.totalCost)}</div>
-                                                    <div>Capacidad: {formatStorageSize(h.totalGb)}</div>
+                                                <div className="absolute -top-12 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 text-white text-[10px] py-1.5 px-2.5 rounded-lg shadow-xl pointer-events-none z-30 whitespace-nowrap border border-slate-700">
+                                                    <div className="font-bold border-b border-slate-700 pb-1 mb-1">{h.month}</div>
+                                                    <div>Costo: <span className="font-semibold text-blue-400">{format(h.totalCost)}</span></div>
+                                                    <div>Capacidad: <span className="font-semibold text-emerald-400">{formatStorageSize(h.totalGb)}</span></div>
                                                 </div>
 
-                                                <div className="w-full flex items-end justify-center gap-0.5 h-full">
+                                                <div className="w-full flex items-end justify-center gap-1 h-full">
                                                     <div 
-                                                        className="w-1/2 max-w-[14px] bg-gradient-to-t from-blue-600 to-indigo-400 group-hover:from-blue-500 group-hover:to-indigo-300 rounded-t-sm transition-all"
-                                                        style={{ height: `${costHeight}%` }}
+                                                        className="w-1/2 max-w-[16px] bg-blue-500 hover:bg-blue-400 rounded-t-sm transition-all shadow-sm"
+                                                        style={{ height: costHeight }}
                                                         title={`Costo: ${format(h.totalCost)}`}
                                                     />
                                                     <div 
-                                                        className="w-1/2 max-w-[14px] bg-gradient-to-t from-emerald-600 to-teal-400 group-hover:from-emerald-500 group-hover:to-teal-300 rounded-t-sm transition-all"
-                                                        style={{ height: `${gbHeight}%` }}
+                                                        className="w-1/2 max-w-[16px] bg-emerald-400 hover:bg-emerald-300 rounded-t-sm transition-all shadow-sm"
+                                                        style={{ height: gbHeight }}
                                                         title={`Capacidad: ${formatStorageSize(h.totalGb)}`}
                                                     />
                                                 </div>
