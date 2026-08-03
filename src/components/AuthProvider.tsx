@@ -13,7 +13,13 @@ const pca = new PublicClientApplication({
         clientId: process.env.NEXT_PUBLIC_CLIENT_ID || "not-configured",
         authority: "https://login.microsoftonline.com/common",
         redirectUri: typeof window !== "undefined" ? window.location.origin : "/",
-    }
+    },
+    cache: {
+        // Persistir sesión entre pestañas/ventanas del mismo navegador.
+        // Con sessionStorage, al abrir un link en nueva pestaña se pierde la
+        // cuenta activa de MSAL y vuelve a pedir login.
+        cacheLocation: "localStorage",
+    },
 });
 
 export const AuthLoadingContext = createContext({ isInitializing: true });

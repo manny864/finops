@@ -12,6 +12,7 @@ import { getFreshIdToken } from '@/lib/msalToken';
 import { compactPayloadString } from '@/lib/copilotPayload';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import Decimal from 'decimal.js';
 
 const RESOURCE_CONFIG: Record<string, { type: string; savings: number; issueType: string }> = {
     unattachedDisks: { type: "Disk", savings: 15.0, issueType: "cost" },
@@ -42,6 +43,8 @@ const SUGGESTIONS: Record<string, string> = {
     "Sin Recursos": "Desactivar planes DDoS sin VNETs públicas vinculadas.",
     "Sin Conexiones": "Eliminar VNet Gateways sin conexiones activas (alto costo por hora).",
 };
+const EXECUTIVE_HISTORY_MONTHS = 6;
+type SubscriptionOption = { id: string; name: string; state?: string };
 
 function fmtUSD(n: number) {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n || 0);
@@ -63,12 +66,66 @@ export default function ReportGeneratorPage() {
     const [budgets, setBudgets] = useState<any>(null);
     const [hybridBenefit, setHybridBenefit] = useState<any>(null);
     const [chargeback, setChargeback] = useState<any>(null);
-    const [history, setHistory] = useState<any>(null);
+    const [summaryHistory, setSummaryHistory] = useState<any>(null);
+    const [subscriptions, setSubscriptions] = useState<SubscriptionOption[]>([]);
+    const [loadingSubscriptions, setLoadingSubscriptions] = useState(false);
+    const [selectedSubscriptionId, setSelectedSubscriptionId] = useState<string>('All');
     const [loadingData, setLoadingData] = useState(false);
 
     const [aiReport, setAiReport] = useState<string>("");
     const [aiLoading, setAiLoading] = useState(false);
     const [aiError, setAiError] = useState<string | null>(null);
+
+    const selectedSubscriptionName = useMemo(() => {
+        if (selectedSubscriptionId === 'All') return t('allSubscriptionsOption');
+        return subscriptions.find((s) => s.id === selectedSubscriptionId)?.name || selectedSubscriptionId;
+    }, [selectedSubscriptionId, subscriptions, t]);
+
+    useEffect(() => {
+        if ((accounts.length === 0 && !isMockTenant(selectedTenant?.id || '')) || selectedTenant.id === 'default') return;
+        let cancelled = false;
+
+        const run = async () => {
+            if (isMockTenant(selectedTenant.id)) {
+                if (!cancelled) {
+                    setSubscriptions([]);
+                    setSelectedSubscriptionId('All');
+                }
+                return;
+            }
+            setLoadingSubscriptions(true);
+            try {
+                const idToken = accounts[0] ? await getFreshIdToken(instance, accounts[0]) : '';
+                const res = await fetch(`/api/subscriptions?tenantId=${encodeURIComponent(selectedTenant.id)}`, {
+                    headers: { Authorization: `Bearer ${idToken}` }
+                });
+                if (!res.ok) throw new Error(`subscriptions ${res.status}`);
+                const json = await res.json();
+                const list = Array.isArray(json?.subscriptions) ? json.subscriptions : [];
+                if (!cancelled) {
+                    setSubscriptions(list);
+                    setSelectedSubscriptionId((prev) => (prev === 'All' || list.some((s: SubscriptionOption) => s.id === prev)) ? prev : 'All');
+                }
+            } catch {
+                if (!cancelled) {
+                    setSubscriptions([]);
+                    setSelectedSubscriptionId('All');
+                }
+            } finally {
+                if (!cancelled) setLoadingSubscriptions(false);
+            }
+        };
+        run();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [selectedTenant, accounts, instance]);
+
+    useEffect(() => {
+        setAiReport("");
+        setAiError(null);
+    }, [selectedTenant.id, selectedSubscriptionId]);
 
     // ===== Fetch de datos paralelo =====
     useEffect(() => {
@@ -79,31 +136,33 @@ export default function ReportGeneratorPage() {
             try {
                 const idToken = accounts[0] ? await getFreshIdToken(instance, accounts[0]) : '';
                 const headers: any = { 'Authorization': `Bearer ${idToken}` };
-                const billingHeaders: any = { ...headers, 'x-tenant-id': selectedTenant.id, 'x-subscription-id': 'All' };
+                const billingHeaders: any = { ...headers, 'x-tenant-id': selectedTenant.id, 'x-subscription-id': selectedSubscriptionId };
+                const rightsizingHeaders: any = { ...headers, 'x-tenant-id': selectedTenant.id, 'x-subscription-id': selectedSubscriptionId };
                 const tid = selectedTenant.id;
+                const scopeSub = encodeURIComponent(selectedSubscriptionId);
                 const safe = (p: Promise<Response | null>) => p.then(r => r && r.ok ? r.json() : null).catch(() => null);
 
                 const [
                     auditJ, summaryJ, haJ, forecastJ,
-                    tagsJ, commitJ, anomJ, rsJ, budgetJ, ahubJ, chargeJ, histJ
+                    tagsJ, commitJ, anomJ, rsJ, budgetJ, ahubJ, chargeJ, summaryHistJ
                 ] = await Promise.all([
-                    safe(fetch(`/api/audit/full?tenantId=${tid}`, { headers })),
-                    safe(fetch(`/api/dashboard/summary?tenantId=${tid}&subscriptionId=All`, { headers })),
+                    safe(fetch(`/api/audit/full?tenantId=${tid}&subscriptionId=${scopeSub}`, { headers })),
+                    safe(fetch(`/api/dashboard/summary?tenantId=${tid}&subscriptionId=${scopeSub}`, { headers })),
                     safe(fetch(`/api/governance/ha?tenantId=${tid}`, { headers })),
-                    safe(fetch(`/api/intelligence/forecast?tenantId=${tid}&subscriptionId=All`, { headers })),
-                    safe(fetch(`/api/tags/compliance?tenantId=${tid}`, { headers })),
+                    safe(fetch(`/api/intelligence/forecast?tenantId=${tid}&subscriptionId=${scopeSub}`, { headers })),
+                    safe(fetch(`/api/tags/compliance?tenantId=${tid}&subscriptionId=${scopeSub}`, { headers })),
                     safe(fetch(`/api/intelligence/commitments?tenantId=${tid}`, { headers })),
-                    safe(fetch(`/api/intelligence/anomalies?tenantId=${tid}`, { headers })),
-                    safe(fetch(`/api/intelligence/rightsizing?tenantId=${tid}`, { headers })),
-                    safe(fetch(`/api/budgets?tenantId=${tid}`, { headers })),
+                    safe(fetch(`/api/intelligence/anomalies?tenantId=${tid}&subscriptionId=${scopeSub}`, { headers })),
+                    safe(fetch(`/api/intelligence/rightsizing`, { headers: rightsizingHeaders })),
+                    safe(fetch(`/api/budgets?tenantId=${tid}&subscriptionId=${scopeSub}`, { headers })),
                     safe(fetch(`/api/intelligence/hybrid-benefit?tenantId=${tid}`, { headers })),
-                    safe(fetch(`/api/intelligence/chargeback?tenantId=${tid}`, { headers })),
-                    safe(fetch(`/api/intelligence/history?tenantId=${tid}&subscriptionId=All`, { headers: billingHeaders })),
+                    safe(fetch(`/api/intelligence/chargeback?tenantId=${tid}&subscriptionId=${scopeSub}`, { headers })),
+                    safe(fetch(`/api/dashboard/summary?tenantId=${tid}&subscriptionId=${scopeSub}&months=${EXECUTIVE_HISTORY_MONTHS}`, { headers: billingHeaders })),
                 ]);
                 setAudit(auditJ); setSummary(summaryJ); setHa(haJ); setForecast(forecastJ);
                 setTagCompliance(tagsJ); setCommitments(commitJ); setAnomalies(anomJ);
                 setRightsizing(rsJ); setBudgets(budgetJ); setHybridBenefit(ahubJ);
-                setChargeback(chargeJ); setHistory(histJ);
+                setChargeback(chargeJ); setSummaryHistory(summaryHistJ);
             } catch (e) {
                 console.warn('[Report] fetch error', e);
             } finally {
@@ -111,7 +170,7 @@ export default function ReportGeneratorPage() {
             }
         };
         run();
-    }, [selectedTenant, accounts, instance]);
+    }, [selectedTenant, accounts, instance, selectedSubscriptionId]);
 
     // ===== Mappers / derived data =====
     const mappedFindings = useMemo(() => {
@@ -209,16 +268,88 @@ export default function ReportGeneratorPage() {
         return { totalCenters: centers.length, top };
     }, [chargeback]);
 
-    const historyKpi = useMemo(() => {
-        const h: any = history || {};
-        const series = Array.isArray(h.data) ? h.data : (Array.isArray(h.history) ? h.history : []);
-        if (series.length < 2) return { prevMonth: 0, deltaPct: 0 };
-        const sorted = [...series].sort((a: any, b: any) => String(a.date || a.month).localeCompare(String(b.date || b.month)));
-        const prev = Number(sorted[sorted.length - 2]?.cost || sorted[sorted.length - 2]?.amount || 0);
-        const curr = Number(sorted[sorted.length - 1]?.cost || sorted[sorted.length - 1]?.amount || actualCost);
-        const deltaPct = prev > 0 ? ((curr - prev) / prev) * 100 : 0;
-        return { prevMonth: prev, deltaPct };
-    }, [history, actualCost]);
+    const historicalFinanceKpi = useMemo(() => {
+        const histogram = Array.isArray(summaryHistory?.histogram) ? summaryHistory.histogram : [];
+        const monthTotals = new Map<string, Decimal>();
+
+        histogram.forEach((item: any) => {
+            const dateRaw = String(item?.date || '');
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(dateRaw)) return;
+            const monthKey = dateRaw.slice(0, 7);
+            const prev = monthTotals.get(monthKey) || new Decimal(0);
+            monthTotals.set(monthKey, prev.plus(new Decimal(item?.cost || 0)));
+        });
+
+        const monthDate = new Date();
+        const previousMonths = Array.from({ length: EXECUTIVE_HISTORY_MONTHS }, (_, idx) => {
+            const base = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+            base.setMonth(base.getMonth() - EXECUTIVE_HISTORY_MONTHS + idx);
+            const monthKey = `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, '0')}`;
+            return {
+                monthKey,
+                monthLabel: base.toLocaleDateString(undefined, { month: 'short', year: 'numeric' }),
+                cost: monthTotals.get(monthKey) || new Decimal(0),
+            };
+        });
+        const previousMonthsWithDelta = previousMonths.map((row, idx) => {
+            if (idx === 0) return { ...row, deltaPctFromPrevious: null as number | null };
+            const prevCost = previousMonths[idx - 1].cost;
+            if (prevCost.lte(0)) return { ...row, deltaPctFromPrevious: null as number | null };
+            const delta = row.cost.minus(prevCost).dividedBy(prevCost).times(100);
+            return { ...row, deltaPctFromPrevious: delta.toDecimalPlaces(1, Decimal.ROUND_HALF_UP).toNumber() };
+        });
+
+        const previousTotal = previousMonths.reduce((acc, row) => acc.plus(row.cost), new Decimal(0));
+        const previousAverage = previousTotal.dividedBy(EXECUTIVE_HISTORY_MONTHS);
+        const lastMonthCost = previousMonths[EXECUTIVE_HISTORY_MONTHS - 1]?.cost || new Decimal(0);
+        const projected = new Decimal(projectedCost || 0);
+
+        const projectionVsLastMonthPct = lastMonthCost.greaterThan(0)
+            ? projected.minus(lastMonthCost).dividedBy(lastMonthCost).times(100)
+            : new Decimal(0);
+        const projectionVsSixMonthAvgPct = previousAverage.greaterThan(0)
+            ? projected.minus(previousAverage).dividedBy(previousAverage).times(100)
+            : new Decimal(0);
+
+        const firstHalfAvg = previousMonths
+            .slice(0, 3)
+            .reduce((acc, row) => acc.plus(row.cost), new Decimal(0))
+            .dividedBy(3);
+        const secondHalfAvg = previousMonths
+            .slice(3)
+            .reduce((acc, row) => acc.plus(row.cost), new Decimal(0))
+            .dividedBy(3);
+        const trend = secondHalfAvg.greaterThan(firstHalfAvg)
+            ? 'up'
+            : secondHalfAvg.lessThan(firstHalfAvg)
+                ? 'down'
+                : 'stable';
+
+        const finopsScore =
+            (tagging.pct >= 90 ? 2 : tagging.pct >= 80 ? 1 : 0) +
+            (commitmentsKpi.coverage >= 80 ? 2 : commitmentsKpi.coverage >= 70 ? 1 : 0) +
+            (budgetsKpi.count > 0 ? 1 : 0) +
+            (budgetsKpi.exceeding === 0 && budgetsKpi.count > 0 ? 1 : 0) +
+            (anomaliesKpi.count <= 1 ? 1 : 0) +
+            (haCritical === 0 ? 1 : 0) +
+            (rightsizingKpi.monthlySav > 0 ? 1 : 0);
+
+        const finopsStatus = finopsScore >= 7 ? 'healthy' : finopsScore >= 4 ? 'attention' : 'urgent';
+
+        return {
+            months: previousMonthsWithDelta,
+            sixMonthAccumulated: previousTotal.toNumber(),
+            previousAverage: previousAverage.toNumber(),
+            lastMonthCost: lastMonthCost.toNumber(),
+            projectedByAccumulatedRate: projected.toNumber(),
+            projectedByLastMonth: lastMonthCost.toNumber(),
+            projectionVsLastMonthPct: projectionVsLastMonthPct.toDecimalPlaces(1, Decimal.ROUND_HALF_UP).toNumber(),
+            projectionVsSixMonthAvgPct: projectionVsSixMonthAvgPct.toDecimalPlaces(1, Decimal.ROUND_HALF_UP).toNumber(),
+            trend,
+            finopsScore,
+            finopsStatus,
+        };
+    }, [summaryHistory, projectedCost, tagging.pct, commitmentsKpi.coverage, budgetsKpi.count, budgetsKpi.exceeding, anomaliesKpi.count, haCritical, rightsizingKpi.monthlySav]);
 
     // ===== AI narrative generation =====
     const generateAiReport = async () => {
@@ -228,15 +359,41 @@ export default function ReportGeneratorPage() {
 
         const compactPayload = {
             tenant: selectedTenant.name,
-            scope: 'All subscriptions',
+            scope: selectedSubscriptionId === 'All'
+                ? t('allSubscriptionsOption')
+                : `${selectedSubscriptionName} (${selectedSubscriptionId})`,
             // §1 Resumen alto nivel
             costs: {
                 mtd: actualCost,
                 projected: projectedCost,
                 deltaVsProjected: projectionDelta,
-                previousMonth: historyKpi.prevMonth,
-                monthOverMonthPct: Number(historyKpi.deltaPct.toFixed(1)),
+                previousMonth: historicalFinanceKpi.lastMonthCost,
+                monthOverMonthPct: historicalFinanceKpi.projectionVsLastMonthPct,
                 environmentalKgCO2: envImpact
+            },
+            historicalBaseline: {
+                previousMonthsCount: EXECUTIVE_HISTORY_MONTHS,
+                trend: historicalFinanceKpi.trend,
+                sixMonthAccumulated: historicalFinanceKpi.sixMonthAccumulated,
+                sixMonthAverage: historicalFinanceKpi.previousAverage,
+                projectionVsSixMonthAvgPct: historicalFinanceKpi.projectionVsSixMonthAvgPct,
+                projectionVsLastMonthPct: historicalFinanceKpi.projectionVsLastMonthPct,
+                projectedByAccumulatedRate: historicalFinanceKpi.projectedByAccumulatedRate,
+                projectedByLastMonth: historicalFinanceKpi.projectedByLastMonth,
+                months: historicalFinanceKpi.months.map((m) => ({
+                    month: m.monthKey,
+                    cost: m.cost.toNumber(),
+                    deltaPctFromPrevious: m.deltaPctFromPrevious
+                })),
+            },
+            finopsStatus: {
+                score: historicalFinanceKpi.finopsScore,
+                status: historicalFinanceKpi.finopsStatus,
+                commitmentsCoveragePct: commitmentsKpi.coverage,
+                taggingCoveragePct: tagging.pct,
+                budgetBurnPct: budgetsKpi.burnPct,
+                openAnomalies: anomaliesKpi.count,
+                haCriticalHigh: haCritical,
             },
             // §2 Visibilidad y asignación
             tagging,
@@ -265,11 +422,16 @@ export default function ReportGeneratorPage() {
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
                 body: JSON.stringify({
                     prompt:
-                        `Generá un **REPORTE EJECUTIVO FINOPS** para comité directivo del tenant "${selectedTenant.name}". ` +
+                        `Generá un **REPORTE EJECUTIVO FINOPS** para comité directivo del tenant "${selectedTenant.name}" en el alcance "${selectedSubscriptionName}". ` +
+                        `Debés utilizar una línea base histórica mínima de 6 meses previos a la fecha actual para justificar tendencias y proyecciones. ` +
                         `Basate ESTRICTAMENTE en el payload. Seguí EXACTAMENTE esta estructura (FinOps Foundation framework):\n\n` +
                         `### 1️⃣ Resumen de Alto Nivel\n` +
-                        `Tabla Markdown: **Indicador | Valor | Comentario**. Incluí: Gasto Total MTD, Proyección fin de mes, Variación vs mes anterior (%), Costo como % del margen estimado (si no hay margen → "n/d, requiere input financiero"), Impacto CO₂.\n` +
+                        `Tabla Markdown: **Indicador | Valor | Comentario**. Incluí: Gasto Total MTD, Proyección fin de mes, Variación vs mes anterior (%), Variación vs promedio móvil de 6 meses (%), Costo como % del margen estimado (si no hay margen → "n/d, requiere input financiero"), Impacto CO₂.\n` +
                         `Cerrá con 2-3 líneas de lectura ejecutiva del estado financiero general.\n\n` +
+                        `### 1.1️⃣ Análisis Histórico (mínimo 6 meses previos)\n` +
+                        `Tabla obligatoria: **Mes | Costo mensual USD | Variación vs mes previo % | Comentario** para los últimos 6 meses previos y una fila final de proyección del mes actual.\n` +
+                        `Incluí resumen con: gasto acumulado 6 meses, proyección si se mantiene el porcentaje de gasto acumulado actual y proyección alternativa si se mantiene el gasto del último mes.\n` +
+                        `Determiná tendencia (alcista/bajista/estable) y volatilidad de gasto usando SOLO los datos del payload.\n\n` +
                         `### 2️⃣ Visibilidad y Asignación de Costos\n` +
                         `- **Asignación correcta**: X% del gasto etiquetado por departamento/centro de costos.\n` +
                         `- **Costos no asignados**: X% (recursos huérfanos o compartidos requieren acción de ingeniería).\n` +
@@ -289,7 +451,7 @@ export default function ReportGeneratorPage() {
                         `Tabla **Plan 30/60/90 días**: Horizonte | Acción | Owner sugerido | Ahorro esperado | KPI de éxito (6-9 filas).\n` +
                         `Incluí explícitamente: automatización (apagado fuera de horario), estandarización FOCUS, mejora de tagging policy, expansión de commitments coverage.\n\n` +
                         `### 🧭 Veredicto Ejecutivo\n` +
-                        `3-4 líneas: estado general (saludable / requiere atención / acción urgente), prioridad #1 inmediata, presupuesto sugerido próximo mes.\n\n` +
+                        `3-4 líneas: estado general (saludable / requiere atención / acción urgente), prioridad #1 inmediata, presupuesto sugerido próximo mes, y estado FinOps del tenant.\n\n` +
                         `**REGLAS ESTRICTAS**:\n` +
                         `- TODAS las cifras del payload (USD, %, conteos). NUNCA inventes valores.\n` +
                         `- Si un dato falta → "n/d" y explicá en Gobernanza qué se necesita.\n` +
@@ -356,6 +518,25 @@ export default function ReportGeneratorPage() {
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2">
+                        <label htmlFor="report-scope" className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                            {t('scopeLabel')}
+                        </label>
+                        <select
+                            id="report-scope"
+                            value={selectedSubscriptionId}
+                            onChange={(e) => setSelectedSubscriptionId(e.target.value)}
+                            className="h-9 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-700"
+                            disabled={loadingData || loadingSubscriptions}
+                        >
+                            <option value="All">{t('allSubscriptionsOption')}</option>
+                            {subscriptions.map((sub) => (
+                                <option key={sub.id} value={sub.id}>
+                                    {sub.name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
                     <button
                         onClick={generateAiReport}
                         disabled={aiLoading || loadingData}
@@ -378,12 +559,13 @@ export default function ReportGeneratorPage() {
                     <div className="text-center mb-8 border-b border-gray-200 pb-6">
                         <h2 className="text-3xl font-extrabold text-[#0054A6]">{t('reportTitle')}</h2>
                         <p className="text-gray-500 mt-2 text-lg">{t('organizationLabel', { name: selectedTenant.name })}</p>
+                        <p className="text-gray-400 mt-1 text-sm">{t('scopeValueLabel', { scope: selectedSubscriptionName })}</p>
                         <p className="text-gray-400 mt-1 text-sm">{t('generatedLabel', { date: new Date().toLocaleString('es-AR') })}</p>
                     </div>
 
                     {/* KPI STRIP (10 indicadores en 2 filas) */}
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-                        <KPI icon={<DollarSign className="w-4 h-4" />} label={t('kpiMtdSpend')} value={fmtUSD(actualCost)} sub={historyKpi.deltaPct ? t('kpiVsLastMonth', { value: `${historyKpi.deltaPct > 0 ? '+' : ''}${historyKpi.deltaPct.toFixed(1)}` }) : undefined} color="text-blue-700 bg-blue-50 border-blue-200" />
+                        <KPI icon={<DollarSign className="w-4 h-4" />} label={t('kpiMtdSpend')} value={fmtUSD(actualCost)} sub={t('kpiVsLastMonth', { value: `${historicalFinanceKpi.projectionVsLastMonthPct > 0 ? '+' : ''}${historicalFinanceKpi.projectionVsLastMonthPct.toFixed(1)}` })} color="text-blue-700 bg-blue-50 border-blue-200" />
                         <KPI icon={<TrendingUp className="w-4 h-4" />} label={t('kpiMonthProjection')} value={fmtUSD(projectedCost)} color="text-indigo-700 bg-indigo-50 border-indigo-200" />
                         <KPI icon={<TrendingDown className="w-4 h-4" />} label={t('kpiMonthlySavings')} value={fmtUSD(totalSavings)} sub={t('kpiAnnualized', { value: fmtUSD(annualSavings) })} color="text-emerald-700 bg-emerald-50 border-emerald-200" />
                         <KPI icon={<ShieldAlert className="w-4 h-4" />} label={t('kpiHaCriticalHigh')} value={String(haCritical)} sub={t('kpiTotalCount', { count: haItems.length })} color="text-rose-700 bg-rose-50 border-rose-200" />
@@ -395,6 +577,75 @@ export default function ReportGeneratorPage() {
                         <KPI icon={<Cpu className="w-4 h-4" />} label={t('kpiRightSizing')} value={String(rightsizingKpi.count)} sub={rightsizingKpi.monthlySav ? t('kpiPerMonth', { value: fmtUSD(rightsizingKpi.monthlySav) }) : t('notAvailable')} color="text-orange-700 bg-orange-50 border-orange-200" />
                         <KPI icon={<AlertCircle className="w-4 h-4" />} label={t('kpiAnomalies')} value={String(anomaliesKpi.count)} sub={anomaliesKpi.totalImpact ? t('kpiImpactValue', { value: fmtUSD(anomaliesKpi.totalImpact) }) : t('kpiNoAlerts')} color="text-yellow-700 bg-yellow-50 border-yellow-200" />
                         <KPI icon={<DollarSign className="w-4 h-4" />} label={t('kpiBudgetBurn')} value={budgetsKpi.totalBudget > 0 ? `${budgetsKpi.burnPct.toFixed(0)}%` : t('notAvailable')} sub={budgetsKpi.exceeding ? t('kpiExceededCount', { count: budgetsKpi.exceeding }) : t('kpiConfiguredCount', { count: budgetsKpi.count })} color={budgetsKpi.burnPct > 90 ? "text-rose-700 bg-rose-50 border-rose-200" : "text-slate-700 bg-slate-50 border-slate-200"} />
+                    </div>
+
+                    <div className="mt-8 mb-10 pt-8 border-t border-gray-200">
+                        <h3 className="text-2xl font-extrabold text-[#0054A6] mb-2">{t('historicalAnalysisTitle')}</h3>
+                        <p className="text-sm text-gray-500 mb-4">
+                            {t('historicalAnalysisSummary', {
+                                months: EXECUTIVE_HISTORY_MONTHS,
+                                avg: fmtUSD(historicalFinanceKpi.previousAverage),
+                                deltaAvg: `${historicalFinanceKpi.projectionVsSixMonthAvgPct > 0 ? '+' : ''}${historicalFinanceKpi.projectionVsSixMonthAvgPct.toFixed(1)}%`,
+                                deltaLast: `${historicalFinanceKpi.projectionVsLastMonthPct > 0 ? '+' : ''}${historicalFinanceKpi.projectionVsLastMonthPct.toFixed(1)}%`,
+                            })}
+                        </p>
+                        <div className="overflow-x-auto mb-4">
+                            <table className="min-w-full text-xs border-collapse border border-gray-200">
+                                <thead className="bg-gray-100">
+                                    <tr>
+                                        <th className="border border-gray-200 px-3 py-2 text-left">{t('tableMonth')}</th>
+                                        <th className="border border-gray-200 px-3 py-2 text-right">{t('tableMonthlyCost')}</th>
+                                        <th className="border border-gray-200 px-3 py-2 text-right">{t('tableMonthComparison')}</th>
+                                        <th className="border border-gray-200 px-3 py-2 text-left">{t('tableTrend')}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {historicalFinanceKpi.months.map((row) => (
+                                        <tr key={row.monthKey} className="odd:bg-white even:bg-gray-50">
+                                            <td className="border border-gray-200 px-3 py-2">{row.monthLabel}</td>
+                                            <td className="border border-gray-200 px-3 py-2 text-right">{fmtUSD(row.cost.toNumber())}</td>
+                                            <td className="border border-gray-200 px-3 py-2 text-right">
+                                                {row.deltaPctFromPrevious === null
+                                                    ? t('notAvailable')
+                                                    : `${row.deltaPctFromPrevious > 0 ? '+' : ''}${row.deltaPctFromPrevious.toFixed(1)}%`}
+                                            </td>
+                                            <td className="border border-gray-200 px-3 py-2">
+                                                {row.deltaPctFromPrevious === null
+                                                    ? '—'
+                                                    : row.deltaPctFromPrevious > 0
+                                                        ? t('trendUp')
+                                                        : row.deltaPctFromPrevious < 0
+                                                            ? t('trendDown')
+                                                            : t('trendStable')}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    <tr className="bg-indigo-50 font-semibold">
+                                        <td className="border border-gray-200 px-3 py-2">{t('projectedMonthLabel')}</td>
+                                        <td className="border border-gray-200 px-3 py-2 text-right">{fmtUSD(projectedCost)}</td>
+                                        <td className="border border-gray-200 px-3 py-2 text-right">{`${historicalFinanceKpi.projectionVsLastMonthPct > 0 ? '+' : ''}${historicalFinanceKpi.projectionVsLastMonthPct.toFixed(1)}%`}</td>
+                                        <td className="border border-gray-200 px-3 py-2">
+                                            {historicalFinanceKpi.trend === 'up'
+                                                ? t('trendUp')
+                                                : historicalFinanceKpi.trend === 'down'
+                                                    ? t('trendDown')
+                                                    : t('trendStable')}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div className="flex flex-wrap gap-3 text-xs">
+                            <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-700">{t('sixMonthAccumulated', { value: fmtUSD(historicalFinanceKpi.sixMonthAccumulated) })}</span>
+                            <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-700">{t('sixMonthAverage', { value: fmtUSD(historicalFinanceKpi.previousAverage) })}</span>
+                            <span className="px-3 py-1 rounded-full bg-indigo-100 text-indigo-700">{t('projectionVs6mAvg', { value: `${historicalFinanceKpi.projectionVsSixMonthAvgPct > 0 ? '+' : ''}${historicalFinanceKpi.projectionVsSixMonthAvgPct.toFixed(1)}%` })}</span>
+                            <span className="px-3 py-1 rounded-full bg-blue-100 text-blue-700">{t('projectionVsLastMonth', { value: `${historicalFinanceKpi.projectionVsLastMonthPct > 0 ? '+' : ''}${historicalFinanceKpi.projectionVsLastMonthPct.toFixed(1)}%` })}</span>
+                            <span className="px-3 py-1 rounded-full bg-indigo-100 text-indigo-700">{t('projectionByAccumulatedRate', { value: fmtUSD(historicalFinanceKpi.projectedByAccumulatedRate) })}</span>
+                            <span className="px-3 py-1 rounded-full bg-blue-100 text-blue-700">{t('projectionByLastMonth', { value: fmtUSD(historicalFinanceKpi.projectedByLastMonth) })}</span>
+                            <span className={`px-3 py-1 rounded-full ${historicalFinanceKpi.finopsStatus === 'healthy' ? 'bg-emerald-100 text-emerald-700' : historicalFinanceKpi.finopsStatus === 'attention' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'}`}>
+                                {t(`finopsStatus_${historicalFinanceKpi.finopsStatus}`)}
+                            </span>
+                        </div>
                     </div>
 
                     {/* AI NARRATIVE */}
