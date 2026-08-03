@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { getResourceGraphClient, getSubscriptionsForTenant } from "@/lib/azure";
 import { withArgLimit } from "@/lib/argConcurrency";
 
@@ -75,10 +75,10 @@ const TIER_RATES: Record<string, number> = {
 };
 
 const BASELINE_GB_BY_TIER: Record<string, number> = {
-    hot:     15.2,
-    cool:    24.5,
-    cold:    12.8,
-    archive: 55.0,
+    hot:     0.05, // 50 MB
+    cool:    0.06, // 60 MB
+    cold:    0.04, // 40 MB
+    archive: 0.10, // 100 MB
 };
 
 function detectTier(...fields: Array<string | null | undefined>): string {
@@ -246,8 +246,9 @@ export async function GET(request: NextRequest) {
             throw e;
         }
 
-        if (isMockTenant(tenantId)) {
-            return NextResponse.json(MOCK_PAYLOAD);
+        if (isMockTenant(tenantId) || tenantId.startsWith("mock-") || request.nextUrl.searchParams.get("mock") === "true") {
+            const mockData = getMockDataForRoute("storage_efficiency", tenantId);
+            return NextResponse.json(mockData || MOCK_PAYLOAD);
         }
 
         try {

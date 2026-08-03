@@ -177,6 +177,45 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                 isCertified: false,
             };
         }
+        case 'storage_efficiency':
+        case 'storage-efficiency': {
+            const baseGb = parseFloat((2010 * multiplier).toFixed(2));
+            const baseCost = parseFloat((28.67 * multiplier).toFixed(2));
+            const movableGb = Math.round(baseGb * 0.28);
+            const potentialSavings = parseFloat((movableGb * 0.0084).toFixed(2));
+
+            const accounts = [
+                { id: "/subscriptions/demo-sub-01/resourceGroups/rg-prod-app/providers/Microsoft.Storage/storageAccounts/stappprodwestus01", name: "stappprodwestus01", resourceGroup: "rg-prod-app", subscriptionId: "demo-sub-01", location: "westus2", tier: "Hot", sku: "Standard_LRS", usedGb: parseFloat((450.5 * multiplier).toFixed(2)), monthlyCost: parseFloat((8.28 * multiplier).toFixed(2)) },
+                { id: "/subscriptions/demo-sub-01/resourceGroups/rg-prod-app/providers/Microsoft.Storage/storageAccounts/stappprodwestus02", name: "stappprodwestus02", resourceGroup: "rg-prod-app", subscriptionId: "demo-sub-01", location: "westus2", tier: "Hot", sku: "Standard_GRS", usedGb: parseFloat((320.0 * multiplier).toFixed(2)), monthlyCost: parseFloat((5.88 * multiplier).toFixed(2)) },
+                { id: "/subscriptions/demo-sub-01/resourceGroups/rg-prod-backups/providers/Microsoft.Storage/storageAccounts/stbackupsprod01", name: "stbackupsprod01", resourceGroup: "rg-prod-backups", subscriptionId: "demo-sub-01", location: "eastus", tier: "Cool", sku: "Standard_LRS", usedGb: parseFloat((850.0 * multiplier).toFixed(2)), monthlyCost: parseFloat((8.50 * multiplier).toFixed(2)) },
+                { id: "/subscriptions/demo-sub-01/resourceGroups/rg-archive-data/providers/Microsoft.Storage/storageAccounts/stbackupsarchive01", name: "stbackupsarchive01", resourceGroup: "rg-archive-data", subscriptionId: "demo-sub-01", location: "eastus2", tier: "Archive", sku: "Standard_LRS", usedGb: parseFloat((1200.0 * multiplier).toFixed(2)), monthlyCost: parseFloat((1.18 * multiplier).toFixed(2)) },
+                { id: "/subscriptions/demo-sub-02/resourceGroups/rg-monitoring/providers/Microsoft.Storage/storageAccounts/stlogsanalytics01", name: "stlogsanalytics01", resourceGroup: "rg-monitoring", subscriptionId: "demo-sub-02", location: "westeurope", tier: "Cool", sku: "Standard_ZRS", usedGb: parseFloat((240.0 * multiplier).toFixed(2)), monthlyCost: parseFloat((2.40 * multiplier).toFixed(2)) },
+                { id: "/subscriptions/demo-sub-02/resourceGroups/rg-dev-test/providers/Microsoft.Storage/storageAccounts/stdevteststorage", name: "stdevteststorage", resourceGroup: "rg-dev-test", subscriptionId: "demo-sub-02", location: "eastus", tier: "Hot", sku: "Standard_LRS", usedGb: parseFloat((85.0 * multiplier).toFixed(2)), monthlyCost: parseFloat((1.56 * multiplier).toFixed(2)) },
+                { id: "/subscriptions/demo-sub-01/resourceGroups/rg-database-prod/providers/Microsoft.Storage/storageAccounts/stsqlauditlogs", name: "stsqlauditlogs", resourceGroup: "rg-database-prod", subscriptionId: "demo-sub-01", location: "centralus", tier: "Cold", sku: "Standard_GRS", usedGb: parseFloat((310.0 * multiplier).toFixed(2)), monthlyCost: parseFloat((1.11 * multiplier).toFixed(2)) },
+                { id: "/subscriptions/demo-sub-01/resourceGroups/rg-web-frontend/providers/Microsoft.Storage/storageAccounts/stcdnstaticcontent", name: "stcdnstaticcontent", resourceGroup: "rg-web-frontend", subscriptionId: "demo-sub-01", location: "eastus2", tier: "Hot", sku: "Premium_LRS", usedGb: parseFloat((120.0 * multiplier).toFixed(2)), monthlyCost: parseFloat((2.20 * multiplier).toFixed(2)) },
+            ];
+
+            return {
+                success: true,
+                mock: true,
+                tiers: {
+                    hot:     { percent: 55, gb: parseFloat((baseGb * 0.55).toFixed(2)), cost: parseFloat((baseCost * 0.60).toFixed(2)) },
+                    cool:    { percent: 28, gb: parseFloat((baseGb * 0.28).toFixed(2)), cost: parseFloat((baseCost * 0.25).toFixed(2)) },
+                    cold:    { percent: 10, gb: parseFloat((baseGb * 0.10).toFixed(2)), cost: parseFloat((baseCost * 0.10).toFixed(2)) },
+                    archive: { percent: 7,  gb: parseFloat((baseGb * 0.07).toFixed(2)), cost: parseFloat((baseCost * 0.05).toFixed(2)) },
+                },
+                totalGb: baseGb,
+                totalCost: baseCost,
+                costPerGb: parseFloat((baseCost / baseGb).toFixed(5)),
+                recommendation: {
+                    movableGb,
+                    potentialSavings,
+                    fromTier: "hot",
+                    toTier: "cool",
+                },
+                accounts,
+            };
+        }
         case 'advisor':
             return { success: true, ...getAdvisorMock(multiplier, locale) };
         case 'advisor_legacy_unused':

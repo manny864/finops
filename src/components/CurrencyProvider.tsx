@@ -113,7 +113,10 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     const format = useCallback((amountUSD: number | string, opts?: { compact?: boolean; fractionDigits?: number }) => {
         const value = new Decimal(amountUSD).mul(rate);
         const defaultFractionDigits = NO_DECIMALS.has(currency) ? 0 : 2;
-        const fractionDigits = opts?.fractionDigits ?? defaultFractionDigits;
+        let fractionDigits = opts?.fractionDigits ?? defaultFractionDigits;
+        if (!opts?.fractionDigits && value.greaterThan(0) && value.lessThan(0.01) && !NO_DECIMALS.has(currency)) {
+            fractionDigits = 4;
+        }
         const num = Number(value.toFixed(fractionDigits));
         try {
             const f = new Intl.NumberFormat("en-US", {

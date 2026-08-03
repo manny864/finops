@@ -36,6 +36,13 @@ interface StorageAccountItem {
     monthlyCost: number;
 }
 
+function formatStorageSize(gb: number): string {
+    if (!gb || gb <= 0) return "0 GB";
+    if (gb >= 1000) return `${(gb / 1024).toFixed(2)} TB`;
+    if (gb < 1) return `${Math.round(gb * 1024)} MB`;
+    return `${gb.toLocaleString(undefined, { maximumFractionDigits: 2 })} GB`;
+}
+
 export default function StorageEfficiencyDashboard() {
     const t = useTranslations("StorageEfficiency");
     const tm = useTranslations("Mock");
@@ -183,7 +190,7 @@ export default function StorageEfficiencyDashboard() {
                 <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-5 shadow-sm">
                     <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t("totalGb")}</p>
                     <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">
-                        {(data.totalGb ?? 0).toLocaleString()} GB
+                        {formatStorageSize(data.totalGb ?? 0)}
                     </p>
                     <p className="text-xs text-slate-400 mt-1">almacenamiento total</p>
                 </div>
@@ -228,7 +235,7 @@ export default function StorageEfficiencyDashboard() {
                                     <span className={`w-3 h-3 rounded-sm ${TIER_COLORS[tier]}`} />
                                     <span className={`text-xs font-bold uppercase ${TIER_TEXT_COLORS[tier]}`}>{t(tier as "hot" | "cool" | "cold" | "archive")}</span>
                                 </div>
-                                <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{d.gb.toLocaleString()} GB</p>
+                                <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{formatStorageSize(d.gb)}</p>
                                 <p className="text-xs text-slate-500">{format(d.cost)}</p>
                                 <p className="text-xs text-slate-400">{d.percent}%</p>
                             </div>
@@ -389,9 +396,7 @@ export default function StorageEfficiencyDashboard() {
                                             </span>
                                         </td>
                                         <td className="py-3 px-4 text-right font-semibold text-slate-800 dark:text-slate-200">
-                                            {account.usedGb >= 1000
-                                                ? `${(account.usedGb / 1024).toFixed(2)} TB`
-                                                : `${account.usedGb.toLocaleString()} GB`}
+                                            {formatStorageSize(account.usedGb)}
                                         </td>
                                         <td className="py-3 px-4 text-right font-bold text-slate-900 dark:text-slate-100">
                                             {format(account.monthlyCost)}
