@@ -30,7 +30,8 @@ Para que un nuevo tenant pueda operar dentro de la plataforma (si no pasó por r
 
 1. **Registrar Tenant Manual:** Dirígete a la sección `Gestión de Tenants` (`/admin/tenants`). Aquí debes ingresar el Entra ID del Tenant, el nombre comercial de la empresa y asignar un Tier inicial. **Nota:** Si tu cuenta de Microsoft Entra oculta tu correo en la propiedad `upn`, la plataforma ya está parcheada para reconocer tu identidad y otorgarte acceso de SuperAdmin.
 2. **Generar Credenciales:** Una vez creado en la base de datos, ve a `Onboarding de Clientes` (`/admin/onboarding`). Solo ahora aparecerán las casillas de **Client ID** y **Client Secret** junto al nombre del entorno, permitiéndote pegar las credenciales del Service Principal generadas por el script de PowerShell.
-3. **Etiquetar origen comercial (opcional):** en el mismo panel expandido de cada tenant del **Directorio de Entornos**, el campo **"Origen comercial / Referido por"** permite anotar qué comercial vendió o refirió al cliente, para tracking interno de ventas. Es visible y editable solo por SuperAdmin; el propio tenant nunca lo ve.
+3. **Etiquetar origen comercial y comisión (opcional):** en el mismo panel expandido de cada tenant del **Directorio de Entornos**, SuperAdmin puede completar **"Origen comercial / Referido por"** y **"Comisión (%)"** para liquidación interna de comisiones. Es visible y editable solo por SuperAdmin; el propio tenant nunca lo ve.
+4. **Asociación de partner (PAL / CPOR):** tras cargar credenciales, el bloque de aprobación/rechazo de asociación se mantiene visible hasta que el estado quede **vinculado (LINKED)**. Si quedó en `FAILED` o `DECLINED`, puede reintentarse sin reinicios manuales.
 
 ### 3.1. Roles Azure que el script PowerShell asigna (por tier)
 

@@ -3434,7 +3434,12 @@
     "colTenantId": "Tenant ID",
     "colSubscription": "Suscripción",
     "colCurrentTier": "Tier Actual",
+    "colSeller": "Vendedor",
+    "colCommissionPct": "Comisión (%)",
     "colChargePaddle": "Cobrar vía Paddle",
+    "sellerPlaceholder": "Nombre del vendedor / referidor",
+    "saveCommercialButton": "Guardar comercial",
+    "savingCommercialButton": "Guardando...",
     "generateLinkTitle": "Genera un link de checkout de Paddle (customData: tenant_id + tier) para mandarle al cliente",
     "generatingButton": "Generando...",
     "generateLinkButton": "Generar link",
@@ -3450,7 +3455,10 @@
     "toastTierUpdated": "Tier actualizado exitosamente.",
     "toastUpdateTierError": "Error al actualizar Tier.",
     "toastSubscriptionUpdated": "Estado de suscripción actualizado exitosamente.",
-    "toastUpdateSubscriptionError": "Error al actualizar el estado de suscripción."
+    "toastUpdateSubscriptionError": "Error al actualizar el estado de suscripción.",
+    "toastCommissionInvalid": "La comisión debe ser un porcentaje válido entre 0 y 100 con hasta 2 decimales.",
+    "toastCommercialUpdated": "Datos comerciales actualizados exitosamente.",
+    "toastUpdateCommercialError": "Error al actualizar vendedor/comisión."
   },
   "History": {
     "button": "Historial",

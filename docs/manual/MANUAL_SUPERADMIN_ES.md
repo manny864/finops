@@ -69,7 +69,8 @@ Si sos SuperAdmin de CSCloudSolutions dando de alta un tenant nuevo:
 
 1. **Registrar el Tenant:** andá a `/admin/tenants` → **Gestión de Tenants** → ingresá el Entra ID del tenant del cliente, el nombre comercial y el Tier inicial.
 2. **Generar credenciales:** una vez creado en la base, andá a `/admin/onboarding` → **Onboarding de Clientes**. Ahí aparecen los campos **Client ID** y **Client Secret** para pegar las credenciales del Service Principal generadas por el script de PowerShell que le compartís al cliente.
-3. **Etiquetar origen comercial (opcional):** en el panel expandido de cada tenant en el Directorio de Entornos, el campo **"Origen comercial / Referido por"** te permite anotar qué comercial vendió o refirió al cliente — solo visible para SuperAdmin.
+3. **Etiquetar origen comercial y comisión (opcional):** en el panel expandido de cada tenant en el Directorio de Entornos, completás **"Origen comercial / Referido por"** y **"Comisión (%)"** para cálculo interno de comisiones — solo visible para SuperAdmin.
+4. **Asociación de partner (PAL / CPOR):** luego de cargar credenciales, el bloque de aprobación/rechazo queda visible hasta estado **vinculado (LINKED)**. Si quedó en `FAILED` o `DECLINED`, podés reintentar sin reset manual.
 
 **Roles Azure que asigna el script, por tier contratado:**
 
@@ -450,11 +451,22 @@ Tres canales soportados: **Slack**, **Microsoft Teams**, **Email (SMTP)**.
 
 Generación automatizada de reportes periódicos de alto nivel, pensados para presentar a dirección — resumen ejecutivo descargable.
 
-### 8.7-8.17. Resto de módulos de Administración
+### 8.7. Operaciones SaaS (SuperAdmin) (`/superadmin/ops`)
+
+Centro de operaciones global para monitoreo del SaaS:
+
+1. Visualizás estado general de la plataforma y alertas sin reconocer.
+2. Revisás salud de componentes y ejecución de crons (última corrida, edad, resumen, estado).
+3. Verificás cobertura de canales de notificación por tenant SuperAdmin.
+4. Podés disparar notificaciones operativas a los canales configurados cuando detectás degradación.
+
+### 8.8-8.18. Resto de módulos de Administración
 
 | Módulo | Tier | Uso |
 |---|---|---|
 | **Onboarding de Clientes** | Admin | Ver sección 1.3 — alta de tenants y credenciales del Service Principal. |
+| **Gestión de Tenants (Comercial)** | SuperAdmin | `/admin/tenants`: alta manual, tier/status, etiqueta de vendedor/referido y comisión (%) por tenant. |
+| **Operaciones SaaS** | SuperAdmin | `/superadmin/ops`: estado de componentes + estado de crons + envío de notificaciones operativas. |
 | **Azure Lighthouse Onboarding** | Enterprise | Generación de plantilla ARM para delegación cross-tenant, en `/admin/onboarding/lighthouse`. |
 | **Configuración de IA** | Professional | Habilitar/deshabilitar funciones de IA, elegir modelo, ajustar sensibilidad de detecciones y qué datos se comparten. |
 | **Invoicing Report** | Enterprise | Export en JSON/CSV/PBIT stub con detalle por billing profile, invoice section y customer, en `/admin/report`. |

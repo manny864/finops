@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **120** páginas, bajo `src/app/[locale]/`.
+Total: **121** páginas, bajo `src/app/[locale]/`.
 Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 
 ## `(raíz)` (1)
@@ -169,10 +169,11 @@ Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 
 - `/status`
 
-## `superadmin` (5)
+## `superadmin` (6)
 
 - `/superadmin/funnel`
 - `/superadmin/health`
+- `/superadmin/ops`
 - `/superadmin/support`
 - `/superadmin/tenants`
 - `/superadmin/users`

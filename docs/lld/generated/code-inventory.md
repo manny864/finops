@@ -21,13 +21,13 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/tagInheritanceService.ts` | 186 | `MissingTagsRow`, `ApplyOp`, `ApplyResult`, `analyzeMissingTags`, `applyTagInheritance` |
 | `src/services/governanceReportingService.ts` | 184 | `PolicyComplianceDetail`, `GovernanceReport`, `getGovernanceReport` |
 | `src/services/remediationService.ts` | 179 | `deleteResource`, `deallocateVirtualMachine`, `startVirtualMachine`, `restartVirtualMachine`, `downgradeVirtualMachine` |
+| `src/services/aiService.ts` | 173 | `isAiGloballyEnabled`, `getAIConfig`, `generateFinOpsReport` |
 | `src/services/costGroupDetailMetricsService.ts` | 168 | `getCurrentFY`, `getMonthlyCostTrend`, `getAnomalyCount`, `getPeriodComparison`, `getTopBreakdown` |
 | `src/services/snapshotService.ts` | 167 | `SNAPSHOT_RETENTION_DAYS`, `SNAPSHOT_DOMAINS`, `SnapshotDomain`, `SnapshotPoint`, `recordDailySnapshot`, `recordDailySnapshotAsync`, … |
 | `src/services/credentialExpiryService.ts` | 159 | `CredItem`, `severityFor`, `getGraphTokenForTenant`, `fetchAllApplications`, `extractExpiringCreds`, `getExpiringCredentials`, … |
 | `src/services/licenseService.ts` | 154 | `LicenseSku`, `InactiveUser`, `getTenantLicensesAndInactiveUsers` |
 | `src/services/invoicingAggregationService.ts` | 150 | `buildInvoicingPayload` |
 | `src/services/auditService.ts` | 148 | `runGraphAudits`, `runMonitorAudits`, `runM365Audits` |
-| `src/services/aiService.ts` | 141 | `isAiGloballyEnabled`, `getAIConfig`, `generateFinOpsReport` |
 | `src/services/ttlService.ts` | 137 | `TTL_RESOURCE_TYPES`, `TtlResourceType`, `findExpiredResources`, `getUnlabeledResources` |
 | `src/services/commitmentSimulatorService.ts` | 130 | `CommitmentSimulation`, `getCommitmentSimulation` |
 | `src/services/rateService.ts` | 126 | `calculateReservationSavings` |
@@ -48,11 +48,11 @@ Integración con SDKs de Azure (`collectors/`), motores agnósticos (`core/`) y 
 
 | Archivo | Líneas | Exports principales |
 |---|---|---|
-| `src/modules/collectors/azure/containerAppsCostService.ts` | 399 | `ContainerAppCostRow`, `ContainerRegistryCostRow`, `ContainerEnvironmentCostRow`, `ContainerAppsCostResult`, `getContainerAppsCost` |
+| `src/modules/collectors/azure/containerAppsCostService.ts` | 392 | `ContainerAppCostRow`, `ContainerRegistryCostRow`, `ContainerEnvironmentCostRow`, `ContainerAppsCostResult`, `getContainerAppsCost` |
 | `src/modules/collectors/azure/resourceInventoryService.ts` | 368 | `InventoryResourceRow`, `SearchResourcesFilters`, `searchResources`, `getResourceCostsById`, `getInventoryDistribution`, `getCreatedByAggregation`, … |
+| `src/modules/core/aiProvider.ts` | 354 | `invalidateAIConfigCache`, `redactForDataSharing`, `AIProviderFactory`, `getAssessment`, `focusCostEntrySchema`, `normalizeBillingCsv` |
 | `src/modules/collectors/azure/billing/historicalBillingService.ts` | 353 | `getHistoricalDailyCosts`, `getHistoricalDetailedCosts` |
 | `src/modules/collectors/azure/logAnalyticsCostService.ts` | 342 | `LogAnalyticsRecommendation`, `LogAnalyticsWorkspaceRow`, `LogAnalyticsCostResult`, `getLogAnalyticsCost` |
-| `src/modules/core/aiProvider.ts` | 333 | `invalidateAIConfigCache`, `redactForDataSharing`, `AIProviderFactory`, `getAssessment`, `focusCostEntrySchema`, `normalizeBillingCsv` |
 | `src/modules/collectors/azure/billing/mtdBillingService.ts` | 307 | `getCurrentMonthAmortizedCostsWithDiagnostics`, `getCurrentMonthAmortizedCosts` |
 | `src/modules/collectors/azure/m365UsersService.ts` | 279 | `getUsersDetail`, `summarizeLicenses`, `getMfaAndAuthMethods`, `getGroups`, `getM365Overview`, `getUserActivity` |
 | `src/modules/collectors/azure/billing/yesterdayBillingService.ts` | 259 | `getYesterdaysCost`, `getYesterdaysDetailedCosts` |
@@ -63,10 +63,10 @@ Integración con SDKs de Azure (`collectors/`), motores agnósticos (`core/`) y 
 | `src/modules/collectors/azure/sqlDbRightsizingService.ts` | 171 | `SqlDbRightsizingRow`, `SqlDbRightsizingResult`, `getSqlDbRightsizingRecommendations` |
 | `src/modules/storage/migrations.ts` | 165 | `MigrationResult`, `runMigrations`, `getMigrationsStatus` |
 | `src/modules/collectors/azure/storageTieringService.ts` | 162 | `StorageTieringRow`, `StorageTieringResult`, `getStorageTieringRecommendations` |
+| `src/modules/storage/recommendationExemptions.ts` | 152 | `RecommendationExemption`, `getExemptionsForTenant`, `upsertExemption`, `deleteExemption` |
 | `src/modules/collectors/azure/aksCostService.ts` | 150 | `vmSizeToCores`, `getAksChargebackCost` |
 | `src/modules/collectors/azure/billing/forecastBillingService.ts` | 144 | `getCostForecast` |
 | `src/modules/collectors/azure/defenderCostService.ts` | 143 | `DefenderPlanRow`, `DefenderCostResult`, `getDefenderCost`, `setDefenderPlanTier` |
-| `src/modules/storage/recommendationExemptions.ts` | 141 | `RecommendationExemption`, `getExemptionsForTenant`, `upsertExemption`, `deleteExemption` |
 | `src/modules/collectors/azure/backupOrphanService.ts` | 130 | `OrphanedBackupItemRow`, `BackupOrphanResult`, `getOrphanedBackupItems` |
 | `src/modules/collectors/azure/aiUsageCollector.ts` | 125 | `AIUsageRow`, `getYesterdaysAIUsage` |
 | `src/modules/collectors/azure/perimeterNetworkCostService.ts` | 121 | `PerimeterCostRow`, `PerimeterCostResult`, `getPerimeterNetworkCost` |

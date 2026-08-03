@@ -95,6 +95,13 @@ When you connect your Azure subscription (step 2 of the onboarding wizard, or fr
 | `NO_SUBSCRIPTIONS` | The SP sees no subscriptions | Assign `Reader` on at least one |
 | `NO_CONSUMPTION` | Everything OK but no spend in the current cycle | Wait for the billing cycle to close or check another subscription |
 
+### 1.4. SuperAdmin note (commercial and partner management)
+
+In CSCloudSolutions-managed environments, SuperAdmin has extra capabilities:
+
+- In `/admin/tenants`, they can store **seller/referrer** and **commission (%)** per tenant for internal payouts.
+- In onboarding, the **PAL/CPOR** association block remains visible until `LINKED`; if it ends in `FAILED` or `DECLINED`, it can be retried.
+
 ---
 
 ## 2. Roles and Permissions

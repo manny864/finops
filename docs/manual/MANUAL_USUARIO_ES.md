@@ -95,6 +95,13 @@ Cuando conectás Azure en el paso 2 del asistente (o desde `/admin/onboarding`),
 | `NO_SUBSCRIPTIONS` | El SP no ve ninguna suscripción | Asignar `Reader` en al menos una |
 | `NO_CONSUMPTION` | Todo OK pero sin consumo en el mes en curso | Esperar al cierre del ciclo o revisar otra suscripción |
 
+### 1.4. Nota para SuperAdmin (gestión comercial y partner)
+
+En entornos administrados por CSCloudSolutions, SuperAdmin dispone de capacidades adicionales:
+
+- En `/admin/tenants` puede registrar por tenant el **vendedor/referido** y la **comisión (%)** para liquidación interna.
+- En onboarding, el bloque de asociación **PAL/CPOR** permanece visible hasta estado `LINKED`; si queda `FAILED` o `DECLINED`, se puede reintentar.
+
 ---
 
 ## 2. Roles y Permisos

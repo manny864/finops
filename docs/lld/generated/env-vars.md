@@ -9,7 +9,7 @@ Una variable con 0 usos está declarada pero no la lee nadie: o es de build/infr
 
 | Variable | Usos en src/ | Ejemplo de consumidor |
 |---|---|---|
-| `AI_PROVIDER` | 1 | `src/services/aiService.ts` |
+| `AI_PROVIDER` | 0 | — |
 | `ANOMALY_DETECTION_HEALTHCHECK_URL` | 0 | — |
 | `AZURE_CLIENT_ID` | 8 | `src/app/api/admin/report/invoicing/email/route.ts`, `src/app/api/leads/demo/route.ts` |
 | `AZURE_CLIENT_SECRET` | 6 | `src/app/api/admin/report/invoicing/email/route.ts`, `src/app/api/leads/demo/route.ts` |

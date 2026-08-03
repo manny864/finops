@@ -1,7 +1,7 @@
 # High-Level Design (HLD) — CSCloudSolutions FinOps Platform
 
-**Versión:** 1.0  
-**Fecha:** 2026-07-31  
+**Versión:** 1.1  
+**Fecha:** 2026-08-03  
 **Autor:** Equipo de Arquitectura Cloud & FinOps — CSCloudSolutions  
 **Estado:** Aprobado para Producción
 
@@ -518,4 +518,40 @@ gantt
 ---
 
 *CSCloudSolutions FinOps Platform — High-Level Design Architecture Document*  
+
+---
+
+## 11. Addendum 2026-08-03 — SuperAdmin Operations & Commercial Governance
+
+### 11.1 SaaS Operations Control Plane (SuperAdmin)
+
+Se incorpora un nuevo módulo de operaciones globales (`/superadmin/ops`) con
+visión consolidada de estado de plataforma:
+
+- Salud de componentes SaaS (API, DB, Sync, colas y alertas).
+- Estado de crons críticos por frescura de ejecución y severidad.
+- Cobertura de canales de notificación para tenants administrados.
+- Dispatch de notificaciones operativas desde un único punto de control.
+
+Este módulo opera bajo principio de menor privilegio con acceso exclusivo
+`SUPERADMIN` y no expone datos de tenant a usuarios no autorizados.
+
+### 11.2 Cron Reliability Layer
+
+Se agrega una capa de observabilidad persistente para jobs programados:
+
+- Registro de ejecución por cron (estado, duración, resumen y detalle).
+- Evaluación de frescura contra expectativa de cadencia (on-time vs late).
+- Señal temprana para detección de degradación operacional sin depender de logs
+  efímeros del contenedor.
+
+### 11.3 Commercial Metadata Governance
+
+El dominio de gestión de tenants amplía metadatos comerciales por cliente:
+
+- **Vendedor/Referido** (`sales_referrer`)
+- **Comisión (%)** (`sales_commission_pct`)
+
+Ambos campos quedan restringidos a operación de SuperAdmin y auditados
+(`updated_by`, `updated_at`) para trazabilidad financiera interna.
 *© 2026 CSCloudSolutions. Todos los derechos reservados. — CONFIDENCIAL*

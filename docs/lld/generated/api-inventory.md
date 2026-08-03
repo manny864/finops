@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **239** rutas.
+Total: **244** rutas.
 
 La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archivo.
 `_CRON_SECRET_` = no usa guard de tenant; autentica con el header `Authorization: Bearer $CRON_SECRET`.
@@ -140,6 +140,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/intelligence/compute-cost-per-core` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/container-apps` | GET | requireTenantTier, requireTenantAccess | Business | sí |
 | `/api/intelligence/copilot` | POST | requireTenantTier, requireRequestIdentity | Professional | sí |
+| `/api/intelligence/copilot/quota` | GET | requireRequestIdentity | — | sí |
 | `/api/intelligence/cosmos-db` | GET | requireTenantTier, requireTenantAccess | Business | sí |
 | `/api/intelligence/cost-by-category` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/cost-centers` | GET, PUT, DELETE | requireTenantRole, requireTenantTier | Business | sí |
@@ -167,6 +168,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/intelligence/simulator/scenarios` | GET, POST | requireTenantRole, requireTenantTier | Business | sí |
 | `/api/intelligence/simulator/scenarios/[id]` | DELETE | requireTenantRole | — | — |
 | `/api/intelligence/storage-efficiency` | GET | requireTenantAccess | — | sí |
+| `/api/intelligence/storage-efficiency/history` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/sustainability` | GET | requireTenantAccess | — | — |
 | `/api/intelligence/tenant-health` | GET | requireTenantTier | Business | sí |
 | `/api/intelligence/top-expenses` | GET | requireTenantAccess | — | sí |
@@ -174,6 +176,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/intelligence/upload` | POST | requireRequestIdentity | — | — |
 | `/api/intelligence/whiteboard` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/zero-cost` | GET | requireTenantAccess | — | sí |
+| `/api/intelligence/zombies/exemptions` | GET, POST, DELETE | requireTenantRole | — | — |
 | `/api/leads` | POST | — | — | — |
 | `/api/leads/demo` | POST | — | — | — |
 | `/api/legal/sign` | GET, POST | requireTenantRole | — | — |
@@ -208,6 +211,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/resources/created-by` | GET | requireTenantTier | Professional | sí |
 | `/api/resources/inventory` | GET | requireTenantTier | Professional | sí |
 | `/api/resources/search` | GET | requireTenantTier | Professional | sí |
+| `/api/resources/status` | POST | requireTenantRole | — | — |
 | `/api/rightsizing/appservice` | GET | requireTenantRole | — | sí |
 | `/api/rightsizing/sqldb` | GET | requireTenantRole, requireTenantTier | Business | sí |
 | `/api/rightsizing/storage` | GET | requireTenantRole, requireTenantTier | Business | sí |
@@ -217,6 +221,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/status/incidents/[id]` | PATCH | requireSuperAdmin | — | — |
 | `/api/subscriptions` | GET | requireTenantAccess | — | — |
 | `/api/superadmin/funnel` | GET | requireSuperAdmin | — | — |
+| `/api/superadmin/ops` | GET, POST | requireSuperAdmin | — | — |
 | `/api/superadmin/tenants/create` | POST | requireSuperAdmin | — | — |
 | `/api/superadmin/tenants/extend-trial` | POST | requireSuperAdmin | — | — |
 | `/api/superadmin/users` | GET | requireSuperAdmin | — | — |

@@ -6,6 +6,19 @@ import { AuthError, requireRequestIdentity, requireSuperAdmin, requireTenantRole
 import { setTenantCredentials } from "@/lib/secrets/tenantCredentials";
 import { assertProviderIngestable, ProviderDisabledError } from "@/services/providerLifecycleService";
 
+async function hasTenantColumn(columnName: string): Promise<boolean> {
+    const [rows] = await pool.query(
+        `SELECT 1
+           FROM information_schema.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE()
+            AND TABLE_NAME = 'Tenants'
+            AND COLUMN_NAME = ?
+          LIMIT 1`,
+        [columnName]
+    );
+    return Array.isArray(rows) && rows.length > 0;
+}
+
 export async function GET(request: NextRequest) {
     try {
         await initializeDatabase();
@@ -49,12 +62,17 @@ export async function GET(request: NextRequest) {
         // the right call-to-action ("complete onboarding" vs "ready").
         // sales_referrer: etiqueta comercial interna (origen de venta/referido),
         // solo visible para SUPERADMIN — no forma parte del SELECT por-usuario.
+        const hasSalesReferrer = await hasTenantColumn("sales_referrer");
+        const hasSalesCommissionPct = await hasTenantColumn("sales_commission_pct");
+        const salesReferrerSelect = hasSalesReferrer ? "sales_referrer" : "NULL as sales_referrer";
+        const salesCommissionSelect = hasSalesCommissionPct ? "sales_commission_pct" : "NULL as sales_commission_pct";
+
         let query = `SELECT tenant_id as id, company_name as name, client_id,
                             (client_secret IS NOT NULL AND client_secret <> '') as has_client_secret,
                             tier, trial_ends_at, subscription_status, access_until, is_onboarded,
                             partner_link_status, partner_link_detail,
                             provider, provider_archived, provider_purge_at, timezone,
-                            sales_referrer, (logo_stored_name IS NOT NULL) as has_logo,
+                            ${salesReferrerSelect}, ${salesCommissionSelect}, (logo_stored_name IS NOT NULL) as has_logo,
                             SUBSTRING(MD5(logo_stored_name), 1, 10) as logo_version
                      FROM Tenants ORDER BY created_at ASC`;
         let queryParams: any[] = [];

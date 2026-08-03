@@ -15,10 +15,13 @@ const CRON_EXPECTED_WINDOWS_MIN: Record<string, number> = {
     "credential-expiry-alerts": 24 * 60,
     "ttl-expiry-alerts": 24 * 60,
     "focus-export-daily": 24 * 60,
+    "support-attachments-cleanup": 24 * 60,
+    "open-data": 7 * 24 * 60,
     "status-snapshot": 5,
     "trial-expiry": 24 * 60,
     "subscription-expiry": 24 * 60,
 };
+const AZURE_PROD_CRON_NAMES = Object.keys(CRON_EXPECTED_WINDOWS_MIN);
 
 function evaluateCronState(rawStatus: string, runAt: string | Date, expectedMinutes?: number): { state: CronState; isLate: boolean; ageMinutes: number } {
     const runAtTs = new Date(runAt).getTime();
@@ -82,7 +85,14 @@ export async function GET(request: NextRequest) {
              ORDER BY c.cron_name ASC`
         );
 
-        const knownCrons = Object.keys(CRON_EXPECTED_WINDOWS_MIN);
+        const observedCronNames = (cronRows || []).map((r: any) => r.cron_name);
+        const knownCrons = Array.from(
+            new Set(
+                process.env.NODE_ENV === "production"
+                    ? AZURE_PROD_CRON_NAMES
+                    : [...AZURE_PROD_CRON_NAMES, ...observedCronNames]
+            )
+        ).sort();
         const cronByName = new Map<string, any>((cronRows || []).map((r: any) => [r.cron_name, r]));
         const crons = knownCrons.map((name) => {
             const row = cronByName.get(name);
@@ -92,20 +102,20 @@ export async function GET(request: NextRequest) {
                     state: "unknown" as CronState,
                     runAt: null,
                     ageMinutes: null,
-                    expectedEveryMinutes: CRON_EXPECTED_WINDOWS_MIN[name],
+                    expectedEveryMinutes: CRON_EXPECTED_WINDOWS_MIN[name] || 60,
                     isLate: false,
                     status: "unknown",
                     durationMs: null,
                     summary: "Sin corridas registradas todavía.",
                 };
             }
-            const evalState = evaluateCronState(row.status, row.run_at, CRON_EXPECTED_WINDOWS_MIN[name]);
+            const evalState = evaluateCronState(row.status, row.run_at, CRON_EXPECTED_WINDOWS_MIN[name] || 60);
             return {
                 name,
                 state: evalState.state,
                 runAt: row.run_at,
                 ageMinutes: evalState.ageMinutes,
-                expectedEveryMinutes: CRON_EXPECTED_WINDOWS_MIN[name],
+                expectedEveryMinutes: CRON_EXPECTED_WINDOWS_MIN[name] || 60,
                 isLate: evalState.isLate,
                 status: row.status,
                 durationMs: row.duration_ms,

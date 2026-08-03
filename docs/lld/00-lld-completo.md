@@ -1,7 +1,7 @@
 # Low-Level Design (LLD) — CSCloudSolutions FinOps Platform
 
-**Versión:** 1.0  
-**Fecha:** 2026-07-31  
+**Versión:** 1.1  
+**Fecha:** 2026-08-03  
 **Autor:** Relevamiento automatizado sobre el codebase en `main` (commit post-PR #99)
 
 ---
@@ -571,3 +571,43 @@ Las variables críticas están en Key Vault:
 - `infra-db-password`, `infra-redis-password`, `infra-cron-secret`
 - `tenant-{id}-client-id`, `tenant-{id}-client-secret`
 - `infra-paddle-api-key`, `infra-paddle-webhook-secret`
+
+---
+
+## 16. Addendum 2026-08-03 — Operaciones SuperAdmin, PAL/CPOR y comisiones
+
+### 16.1 Centro de Operaciones SaaS (SuperAdmin)
+
+- **Nueva UI:** `/superadmin/ops` (solo `SUPERADMIN`).
+- **Nueva API:** `GET/POST /api/superadmin/ops`.
+  - `GET`: resumen de salud de componentes, cron status y cobertura de canales.
+  - `POST`: dispatch de notificación operativa a tenants administrados.
+- **RBAC:** guard estricto `requireSuperAdmin`.
+
+### 16.2 Observabilidad persistente de crons
+
+- **Nueva tabla:** `SystemCronRuns` (migración `20260803-001-system-cron-runs.sql`).
+- **Helper reusable:** `src/lib/cronRunTracker.ts`.
+- **Instrumentación aplicada** en crons críticos (`sync`, `power-schedules`,
+  `status-snapshot`, `anomaly-detection`, `credential-expiry-alerts`,
+  `ttl-expiry-alerts`, `cost-sync-staleness-check`, `focus-export-daily`,
+  `historical-gap-backfill`).
+- Cada ejecución registra `cron_name`, `status`, `duration_ms`, `summary`,
+  `details`, timestamp y contexto de error.
+
+### 16.3 Gestión comercial por tenant (vendedor + comisión)
+
+- **UI SuperAdmin:** `/admin/tenants` incorpora edición por fila de:
+  - `sales_referrer` (vendedor/referido)
+  - `sales_commission_pct` (DECIMAL, 0–100, 2 decimales)
+- **API:** `PATCH /api/admin/tenants` extendido para `salesCommissionPct`.
+- **DB:** migración `20260803-002-tenants-sales-commission.sql` agrega:
+  - `sales_commission_pct DECIMAL(5,2)`
+  - `sales_commission_updated_by VARCHAR(320)`
+  - `sales_commission_updated_at DATETIME`
+
+### 16.4 PAL/CPOR (UX de recuperación)
+
+- El bloque de asociación PAL/CPOR en onboarding vuelve a mostrarse mientras el
+  estado no sea `LINKED` (incluye `FAILED`/`DECLINED`), permitiendo reintento
+  sin depender de resets manuales de estado.

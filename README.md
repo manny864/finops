@@ -332,6 +332,23 @@ segundo.
 
 ## 📈 Recent Major Updates
 
+### 2026-08-03 — Operaciones SuperAdmin + comercial por tenant + PAL/CPOR resiliente
+
+- **Centro de Operaciones SaaS (SuperAdmin):** nueva vista `/superadmin/ops` + API
+  `/api/superadmin/ops` para monitorear estado global de componentes, salud de
+  crons y distribución de notificaciones a canales configurados por tenant.
+- **Trazabilidad de crons:** nueva tabla `SystemCronRuns` (migración
+  `20260803-001-system-cron-runs.sql`) y helper `src/lib/cronRunTracker.ts`.
+  Los crons críticos ya registran inicio/fin, duración y estado (`ok/warning/error`).
+- **Gestión comercial en tenants:** en `/admin/tenants` se agregó edición por
+  fila de **vendedor/referido** + **comisión (%)** (con validación 0–100 y 2
+  decimales). Persistencia en `sales_referrer` + `sales_commission_pct` con
+  auditoría de quién/cuándo actualizó.
+- **Asociación PAL/CPOR visible hasta quedar vinculada:** el bloque interactivo
+  de asociación de partner vuelve a mostrarse en onboarding mientras el estado
+  no sea `LINKED`, permitiendo reintentos controlados en estados `FAILED` o
+  `DECLINED`.
+
 ### 2026-07-30 — Recursos: orden por costo real (no por nombre)
 
 `GET /api/resources/search` ordenaba siempre por nombre alfabético — Resource

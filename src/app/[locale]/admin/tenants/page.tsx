@@ -34,6 +34,9 @@ export default function SuperAdminTenantsPage() {
     const [generatingLink, setGeneratingLink] = useState<Record<string, boolean>>({});
     const [checkoutLinks, setCheckoutLinks] = useState<Record<string, string>>({});
     const [copiedTenantId, setCopiedTenantId] = useState<string | null>(null);
+    const [salesReferrerDraft, setSalesReferrerDraft] = useState<Record<string, string>>({});
+    const [salesCommissionDraft, setSalesCommissionDraft] = useState<Record<string, string>>({});
+    const [savingCommercialTenantId, setSavingCommercialTenantId] = useState<string | null>(null);
 
     const isSuperAdmin = systemRole === 'SUPERADMIN';
 
@@ -202,6 +205,51 @@ export default function SuperAdminTenantsPage() {
         }
     };
 
+    const handleSaveCommercialData = async (tenantId: string) => {
+        const tenant = tenants.find((t) => t.id === tenantId);
+        if (!tenant) return;
+
+        const salesReferrer = (salesReferrerDraft[tenantId] ?? tenant.sales_referrer ?? '').trim();
+        const rawCommission = (salesCommissionDraft[tenantId] ?? (tenant.sales_commission_pct == null ? '' : String(tenant.sales_commission_pct))).trim();
+
+        if (rawCommission.length > 0) {
+            const asNumber = Number(rawCommission);
+            if (!Number.isFinite(asNumber) || asNumber < 0 || asNumber > 100 || !/^\d+(\.\d{1,2})?$/.test(rawCommission)) {
+                toast.error(t('toastCommissionInvalid'));
+                return;
+            }
+        }
+
+        setSavingCommercialTenantId(tenantId);
+        try {
+            const tokenResponse = { idToken: await getFreshIdToken(instance, accounts[0]) };
+            const res = await fetch('/api/admin/tenants', {
+                method: 'PATCH',
+                headers: {
+                    'Authorization': `Bearer ${tokenResponse.idToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    tenantId,
+                    salesReferrer,
+                    salesCommissionPct: rawCommission.length > 0 ? rawCommission : null,
+                })
+            });
+            const json = await res.json();
+
+            if (res.ok) {
+                toast.success(t('toastCommercialUpdated'));
+                await loadTenants();
+            } else {
+                toast.error(json.error || t('toastUpdateCommercialError'));
+            }
+        } catch (e) {
+            console.error("Error updating commercial tenant data:", e);
+            toast.error(t('toastConnectionError'));
+        }
+        setSavingCommercialTenantId(null);
+    };
+
     if (!isSuperAdmin) {
         return (
             <div className="p-6 max-w-5xl mx-auto flex flex-col items-center justify-center min-h-[50vh]">
@@ -319,6 +367,8 @@ export default function SuperAdminTenantsPage() {
                                         <th scope="col" className="w-44 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('colTenantId')}</th>
                                         <th scope="col" className="w-32 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('colSubscription')}</th>
                                         <th scope="col" className="w-32 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('colCurrentTier')}</th>
+                                        <th scope="col" className="w-52 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('colSeller')}</th>
+                                        <th scope="col" className="w-44 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('colCommissionPct')}</th>
                                         <th scope="col" className="w-72 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('colChargePaddle')}</th>
                                     </tr>
                                 </thead>
@@ -351,6 +401,38 @@ export default function SuperAdminTenantsPage() {
                                                     <option value="Business">Business</option>
                                                     <option value="Enterprise">Enterprise</option>
                                                 </select>
+                                            </td>
+                                            <td className="px-6 py-4 text-sm">
+                                                <input
+                                                    type="text"
+                                                    value={salesReferrerDraft[tenant.id] ?? tenant.sales_referrer ?? ''}
+                                                    onChange={(e) => setSalesReferrerDraft(prev => ({ ...prev, [tenant.id]: e.target.value }))}
+                                                    placeholder={t('sellerPlaceholder')}
+                                                    maxLength={255}
+                                                    className="w-full px-2 py-1 border border-gray-300 dark:border-slate-700 rounded bg-white dark:bg-slate-900 text-xs"
+                                                />
+                                            </td>
+                                            <td className="px-6 py-4 text-sm">
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        max="100"
+                                                        step="0.01"
+                                                        value={salesCommissionDraft[tenant.id] ?? (tenant.sales_commission_pct == null ? '' : String(tenant.sales_commission_pct))}
+                                                        onChange={(e) => setSalesCommissionDraft(prev => ({ ...prev, [tenant.id]: e.target.value }))}
+                                                        placeholder="0.00"
+                                                        className="w-24 px-2 py-1 border border-gray-300 dark:border-slate-700 rounded bg-white dark:bg-slate-900 text-xs"
+                                                    />
+                                                    <span className="text-xs text-gray-500">%</span>
+                                                    <button
+                                                        onClick={() => handleSaveCommercialData(tenant.id)}
+                                                        disabled={savingCommercialTenantId === tenant.id}
+                                                        className="px-2 py-1 rounded border border-gray-300 dark:border-slate-700 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-800 disabled:opacity-50"
+                                                    >
+                                                        {savingCommercialTenantId === tenant.id ? t('savingCommercialButton') : t('saveCommercialButton')}
+                                                    </button>
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4 text-sm">
                                                 <div className="flex flex-col sm:flex-row sm:items-center gap-1.5">

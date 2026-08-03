@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **85** tablas. Migraciones aplicables: **58**.
+Total: **86** tablas. Migraciones aplicables: **61**.
 
 `schema.sql` es el baseline de referencia y **no se ejecuta**; `migrations/` es la
 fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.md`).
@@ -80,6 +80,7 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 | `SupportTicketMessages` | — | `20260706-001-create-support-tickets.sql` |
 | `SupportTickets` | — | `20260706-001-create-support-tickets.sql` |
 | `SystemAlerts` | — | `20260714-001-create-load-test-alerts.sql` |
+| `SystemCronRuns` | — | `20260803-001-system-cron-runs.sql` |
 | `TaggingPolicies` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `tenant_health` | sí | `20260628-001-core-bootstrap.sql` |
 | `TenantDelegations` | — | `20260728-003-sincronizar-esquema-vps.sql` |
@@ -155,3 +156,6 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 - `migrations/20260731-001-tenant-timezone.sql`
 - `migrations/20260731-002-eliminar-tenant-directorio-msa.sql`
 - `migrations/20260731-003-recommendation-exemptions.sql`
+- `migrations/20260801-001-copilot-usage-tokens.sql`
+- `migrations/20260803-001-system-cron-runs.sql`
+- `migrations/20260803-002-tenants-sales-commission.sql`

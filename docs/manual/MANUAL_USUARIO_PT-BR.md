@@ -95,6 +95,13 @@ Quando você conecta sua assinatura do Azure (passo 2 do assistente de onboardin
 | `NO_SUBSCRIPTIONS` | O SP não vê nenhuma assinatura | Atribuir `Reader` em pelo menos uma |
 | `NO_CONSUMPTION` | Tudo OK mas sem consumo no ciclo atual | Aguardar o fechamento do ciclo ou verificar outra assinatura |
 
+### 1.4. Nota para SuperAdmin (gestão comercial e partner)
+
+Em ambientes gerenciados pela CSCloudSolutions, SuperAdmin possui capacidades extras:
+
+- Em `/admin/tenants`, pode registrar por tenant **vendedor/indicador** e **comissão (%)** para liquidação interna.
+- No onboarding, o bloco de associação **PAL/CPOR** permanece visível até `LINKED`; se ficar `FAILED` ou `DECLINED`, pode ser tentado novamente.
+
 ---
 
 ## 2. Papéis e Permissões
