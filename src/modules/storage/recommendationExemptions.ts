@@ -35,6 +35,10 @@ const inMemoryExemptions: Record<string, Map<string, RecommendationExemption>> =
     ])
 };
 
+function isDemoTenant(tenantId: string): boolean {
+    return tenantId === "demo_tenant";
+}
+
 export async function getExemptionsForTenant(tenantId: string): Promise<RecommendationExemption[]> {
     try {
         const [rows] = await pool.query<any[]>(
@@ -58,7 +62,9 @@ export async function getExemptionsForTenant(tenantId: string): Promise<Recommen
             updatedAt: r.updatedAt ? new Date(r.updatedAt).toISOString() : new Date().toISOString(),
         }));
     } catch (e) {
-        // Fallback a in-memory store if DB query fails or table is being created
+        if (!isDemoTenant(tenantId)) {
+            throw e;
+        }
         const map = inMemoryExemptions[tenantId] || new Map();
         return Array.from(map.values());
     }
@@ -95,6 +101,14 @@ export async function upsertExemption(
         updatedAt: now,
     };
 
+    if (isDemoTenant(tenantId)) {
+        if (!inMemoryExemptions[tenantId]) {
+            inMemoryExemptions[tenantId] = new Map();
+        }
+        inMemoryExemptions[tenantId].set(data.resourceId.toLowerCase(), resultObj);
+        return resultObj;
+    }
+
     try {
         await pool.query(
             `INSERT INTO recommendation_exemptions
@@ -110,31 +124,27 @@ export async function upsertExemption(
             [id, tenantId, data.resourceId, data.resourceName, recType, reason, comment, createdBy]
         );
     } catch (e) {
-        // Update in-memory fallback
-        if (!inMemoryExemptions[tenantId]) {
-            inMemoryExemptions[tenantId] = new Map();
-        }
-        inMemoryExemptions[tenantId].set(data.resourceId.toLowerCase(), resultObj);
+        throw e;
     }
 
     return resultObj;
 }
 
 export async function deleteExemption(tenantId: string, resourceId: string): Promise<boolean> {
+    if (isDemoTenant(tenantId)) {
+        if (inMemoryExemptions[tenantId]) {
+            inMemoryExemptions[tenantId].delete(resourceId.toLowerCase());
+        }
+        return true;
+    }
+
     try {
         await pool.query(
             `DELETE FROM recommendation_exemptions WHERE tenant_id = ? AND LOWER(resource_id) = LOWER(?)`,
             [tenantId, resourceId]
         );
     } catch (e) {
-        // Remove from in-memory fallback
-        if (inMemoryExemptions[tenantId]) {
-            inMemoryExemptions[tenantId].delete(resourceId.toLowerCase());
-        }
-    }
-
-    if (inMemoryExemptions[tenantId]) {
-        inMemoryExemptions[tenantId].delete(resourceId.toLowerCase());
+        throw e;
     }
 
     return true;
