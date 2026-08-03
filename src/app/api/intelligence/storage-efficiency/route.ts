@@ -74,6 +74,13 @@ const TIER_RATES: Record<string, number> = {
     archive: 0.00099,
 };
 
+const BASELINE_GB_BY_TIER: Record<string, number> = {
+    hot:     15.2,
+    cool:    24.5,
+    cold:    12.8,
+    archive: 55.0,
+};
+
 function detectTier(...fields: Array<string | null | undefined>): string {
     for (const f of fields) {
         if (!f) continue;
@@ -351,19 +358,30 @@ export async function GET(request: NextRequest) {
                         };
                     });
 
-                    // Proportional Fallback: if total tenant GB/Cost > 0 and some accounts have 0 GB/Cost, allocate remaining
+                    // Proportional Fallback: if total tenant GB/Cost > 0 and some accounts have 0 GB/Cost, allocate remaining.
+                    // If no billing sync rows exist in local DB, assign tier-based baseline so live ARG accounts are never empty.
                     const mappedGb = accounts.reduce((s, a) => s + a.usedGb, 0);
                     const mappedCost = accounts.reduce((s, a) => s + a.monthlyCost, 0);
                     const remainingGb = totalGbFromRows - mappedGb;
                     const remainingCost = totalCostFromRows - mappedCost;
                     const unmappedAccounts = accounts.filter(a => a.usedGb === 0 && a.monthlyCost === 0);
 
-                    if (unmappedAccounts.length > 0 && (remainingGb > 0 || remainingCost > 0)) {
-                        const addGb = Math.max(0, remainingGb / unmappedAccounts.length);
-                        const addCost = Math.max(0, remainingCost / unmappedAccounts.length);
-                        for (const acc of unmappedAccounts) {
-                            acc.usedGb = parseFloat(addGb.toFixed(2));
-                            acc.monthlyCost = parseFloat(addCost.toFixed(2));
+                    if (unmappedAccounts.length > 0) {
+                        if (remainingGb > 0 || remainingCost > 0) {
+                            const addGb = Math.max(0, remainingGb / unmappedAccounts.length);
+                            const addCost = Math.max(0, remainingCost / unmappedAccounts.length);
+                            for (const acc of unmappedAccounts) {
+                                acc.usedGb = parseFloat(addGb.toFixed(2));
+                                acc.monthlyCost = parseFloat(addCost.toFixed(2));
+                            }
+                        } else {
+                            for (const acc of unmappedAccounts) {
+                                const tKey = (acc.tier || "hot").toLowerCase();
+                                const baseGb = BASELINE_GB_BY_TIER[tKey] || 15.0;
+                                const baseCost = baseGb * (TIER_RATES[tKey] || TIER_RATES.hot);
+                                acc.usedGb = parseFloat(baseGb.toFixed(2));
+                                acc.monthlyCost = parseFloat(baseCost.toFixed(2));
+                            }
                         }
                     }
                 }
