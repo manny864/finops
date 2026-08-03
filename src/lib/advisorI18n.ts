@@ -31,6 +31,46 @@ function normalize(locale: string | undefined): AdvisorLocale {
 
 const ENTRIES: Entry[] = [
   {
+    match: /^security$/i,
+    problem: {
+      es: "Seguridad",
+      en: "Security",
+      "pt-BR": "Segurança",
+    },
+  },
+  {
+    match: /^cost$/i,
+    problem: {
+      es: "Costo",
+      en: "Cost",
+      "pt-BR": "Custo",
+    },
+  },
+  {
+    match: /^highavailability$/i,
+    problem: {
+      es: "Alta disponibilidad",
+      en: "High availability",
+      "pt-BR": "Alta disponibilidade",
+    },
+  },
+  {
+    match: /^performance$/i,
+    problem: {
+      es: "Rendimiento",
+      en: "Performance",
+      "pt-BR": "Desempenho",
+    },
+  },
+  {
+    match: /^operationalexcellence$/i,
+    problem: {
+      es: "Excelencia operativa",
+      en: "Operational excellence",
+      "pt-BR": "Excelência operacional",
+    },
+  },
+  {
     match: /delete.*unattached.*managed.*disk/i,
     problem: {
       es: "Eliminar discos administrados no conectados",
@@ -49,6 +89,14 @@ const ENTRIES: Entry[] = [
       es: "Habilitar MFA para cuentas con privilegios",
       en: "Enable MFA for privileged accounts",
       "pt-BR": "Habilitar MFA para contas privilegiadas",
+    },
+  },
+  {
+    match: /enable.*mfa.*account/i,
+    problem: {
+      es: "Habilitar MFA para cuentas",
+      en: "Enable MFA for accounts",
+      "pt-BR": "Habilitar MFA para contas",
     },
   },
   {
@@ -76,6 +124,14 @@ const ENTRIES: Entry[] = [
     },
   },
   {
+    match: /(encrypt|encryption).*(disk|data).*(virtual.*machine|vm)|virtual.*machine.*(encrypt|encryption)/i,
+    problem: {
+      es: "Aplicar cifrado en discos o datos de máquinas virtuales",
+      en: "Apply encryption to virtual machine disks or data",
+      "pt-BR": "Aplicar criptografia em discos ou dados de máquinas virtuais",
+    },
+  },
+  {
     match: /enable.*soft.*delete.*protect.*data/i,
     problem: {
       es: "Habilitar eliminación temporal (soft delete) para proteger tus datos",
@@ -89,6 +145,14 @@ const ENTRIES: Entry[] = [
       es: "Configurar zonas de disponibilidad para VMs críticas",
       en: "Configure availability zones for critical VMs",
       "pt-BR": "Configurar zonas de disponibilidade para VMs críticas",
+    },
+  },
+  {
+    match: /(enable|turn on).*(defender|microsoft defender).*(cloud|subscription)|defender for cloud/i,
+    problem: {
+      es: "Habilitar Microsoft Defender for Cloud",
+      en: "Enable Microsoft Defender for Cloud",
+      "pt-BR": "Habilitar Microsoft Defender for Cloud",
     },
   },
   {

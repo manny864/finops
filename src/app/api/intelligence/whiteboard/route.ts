@@ -246,7 +246,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(getMockDataForRoute("white_board", tenantId));
         }
 
-        const cacheKey = `whiteboard:v2:azure:${tenantId}`;
+        const cacheKey = `whiteboard:v3:azure:${tenantId}:${locale}`;
         const data = await getWithStaleWhileRevalidate(cacheKey, async () => {
             const argClient = new ResourceGraphClient(await getAzureCredential(tenantId));
 
@@ -296,7 +296,8 @@ export async function GET(request: NextRequest) {
                 // traducir (ver post-cache más abajo) — truncar el texto en inglés
                 // ANTES de intentar el match rompe los patrones de
                 // translateAdvisorText en cualquier frase más larga que eso.
-                const name = r.shortDescription?.problem || r.category || "Security";
+                const rawName = r.shortDescription?.problem || r.category || "Security";
+                const name = translateAdvisorText(rawName, locale, 'problem');
                 const bucket = threatMap.get(name) || { high: 0, medium: 0, low: 0 };
                 const impact = String(r.impact || "").toLowerCase();
                 if (impact === "high") bucket.high++;
@@ -330,13 +331,8 @@ export async function GET(request: NextRequest) {
             };
         }, 3600, 900);
 
-        // La traducción NO puede vivir dentro del bloque cacheado de arriba: el
-        // cache key (`whiteboard:v2:azure:${tenantId}`) no incluye locale, así que
-        // el primer idioma que lo pobló quedaría pegado para todos los demás hasta
-        // que expire. Se traduce acá, después de leer el cache, con el locale de
-        // ESTE request — el texto crudo que persiste en Redis no depende del
-        // idioma (shortDescription.problem vuelve en inglés de Azure salvo casos
-        // ya cubiertos por Accept-Language).
+        // Traducción post-cache defensiva para cubrir texto que no quedó
+        // localizado por Azure en tiempo de recolección.
         const localizedData = {
             ...data,
             top3ThreatCategories: (data.top3ThreatCategories || []).map((cat: any) => ({

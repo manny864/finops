@@ -21,6 +21,13 @@ import {
 
 const PAGE_SIZE = 8;
 
+function fallbackRecommendationLabel(locale: string): string {
+  const normalized = locale.toLowerCase();
+  if (normalized.startsWith('pt')) return 'Recomendação';
+  if (normalized.startsWith('en')) return 'Recommendation';
+  return 'Recomendación';
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Normalización DINÁMICA de datos reales de Azure: se agrupan por
 // recommendationTypeId y las columnas del modal se derivan de los
@@ -93,7 +100,7 @@ function normalizeGroup(
     // filtro de Commitments en el portal.
     const commitment = ext.term && ext.lookbackPeriod ? `${ext.term}/${ext.lookbackPeriod}` : '';
     const key = (r.recommendationTypeId || r.shortDescription?.problem || r.id || 'unknown') + (commitment ? `::${commitment}` : '');
-    const problem = translateAdvisorText(r.shortDescription?.problem, locale, 'problem') || 'Recomendación';
+    const problem = translateAdvisorText(r.shortDescription?.problem, locale, 'problem') || fallbackRecommendationLabel(locale);
     const solution = translateAdvisorText(r.shortDescription?.solution, locale, 'solution') || '';
     const subId = r.subscriptionId || 'N/A';
     const subName = subMap[subId] || subId;

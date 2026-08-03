@@ -54,7 +54,7 @@ const TenantContext = createContext<TenantContextType | undefined>(undefined);
 export function TenantProvider({ children, demoSession }: { children: React.ReactNode, demoSession?: { isDemo: boolean; tier: string; provider?: string } | null }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { instance, accounts } = useMsal();
+  const { instance, accounts, inProgress } = useMsal();
   const [tenantsList, setTenantsList] = useState<Tenant[]>([{ id: 'default', name: 'Cargando entornos...' }]);
   const [selectedTenant, setSelectedTenant] = useState<Tenant>(() => {
     if (demoSession?.isDemo) {
@@ -866,16 +866,24 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
   useEffect(() => {
       if (demoSession?.isDemo) return;
       // Fetch the role for the current tenant
-      if (selectedTenant.id !== 'default' && accounts.length > 0) {
+      if (selectedTenant.id !== 'default' && accounts.length > 0 && inProgress === 'none') {
           const fetchRole = async () => {
               try {
-                  const tokenResponse = await instance.acquireTokenSilent({
-                      scopes: ["User.Read"],
-                      account: accounts[0]
+                  let idToken = await getFreshIdToken(instance, accounts[0], ['User.Read']);
+                  let res = await fetch(`/api/admin/config/users?tenantId=${selectedTenant.id}`, {
+                      headers: { Authorization: `Bearer ${idToken}` }
                   });
-                  const res = await fetch(`/api/admin/config/users?tenantId=${selectedTenant.id}`, {
-                      headers: { Authorization: `Bearer ${tokenResponse.idToken}` }
-                  });
+                  if (res.status === 401) {
+                      const fresh = await instance.acquireTokenSilent({
+                          scopes: ['User.Read'],
+                          account: accounts[0],
+                          forceRefresh: true
+                      });
+                      idToken = fresh.idToken;
+                      res = await fetch(`/api/admin/config/users?tenantId=${selectedTenant.id}`, {
+                          headers: { Authorization: `Bearer ${idToken}` }
+                      });
+                  }
                   if (res.ok) {
                       const data = await res.json();
                       if (data.isSuperAdmin) {
@@ -901,7 +909,9 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                           }
                       }
                   } else {
-                      console.error("[TenantProvider] API Error fetching role. Status:", res.status);
+                      if (res.status !== 401) {
+                          console.error("[TenantProvider] API Error fetching role. Status:", res.status);
+                      }
                       if (isAdmin || accounts[0].tenantId === selectedTenant.id || process.env.NODE_ENV === 'development') {
                           console.warn("[TenantProvider] Fallback on API Error: assigning Admin role");
                           setUserRole('Admin');
@@ -918,7 +928,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
           };
           fetchRole();
       }
-  }, [selectedTenant.id, accounts, instance, isAdmin]);
+  }, [selectedTenant.id, accounts, instance, isAdmin, inProgress]);
 
   const requiresRbacUpdate = selectedTenant?.requires_rbac_update;
 
