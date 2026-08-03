@@ -86,6 +86,11 @@ function detectTier(...fields: Array<string | null | undefined>): string {
     return "hot";
 }
 
+function normalizeLoc(loc: string): string {
+    let s = String(loc || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    return s.replace(/^us(east|west|central|northcentral|southcentral|westcentral)(\d*)$/, '$1us$2');
+}
+
 const STORAGE_SERVICE_FILTER = `(
                 service_name LIKE '%Storage%'
              OR service_name LIKE '%Blob%'
@@ -301,17 +306,25 @@ export async function GET(request: NextRequest) {
                     const rawAccounts = await fetchAllStorageAccountsFromARG(tenantId, subs);
 
                     const costByRg = new Map<string, { cost: number; qty: number }>();
+                    const costByLoc = new Map<string, { cost: number; qty: number }>();
+
                     for (const r of rows) {
                         const rg = (r.resource_group || r.ResourceGroup || "").toLowerCase();
+                        const loc = normalizeLoc(r.resource_location || r.location || "");
+                        const cost = parseFloat(r.billedCost) || 0;
+                        const tier = detectTier(r.MeterSubCategory, r.MeterName, r.MeterCategory, r.service_name);
+                        const uom = String(r.UnitOfMeasure || "").toLowerCase();
+                        const reportedQty = parseFloat(r.quantity) || 0;
+                        const inferredGb = TIER_RATES[tier] > 0 ? cost / TIER_RATES[tier] : 0;
+                        const gb = (reportedQty > 0 && (uom.includes("gb") || uom.includes("byte"))) ? reportedQty : inferredGb;
+
                         if (rg && rg !== '*') {
                             const current = costByRg.get(rg) || { cost: 0, qty: 0 };
-                            const cost = parseFloat(r.billedCost) || 0;
-                            const tier = detectTier(r.MeterSubCategory, r.MeterName, r.MeterCategory, r.service_name);
-                            const uom = String(r.UnitOfMeasure || "").toLowerCase();
-                            const reportedQty = parseFloat(r.quantity) || 0;
-                            const inferredGb = TIER_RATES[tier] > 0 ? cost / TIER_RATES[tier] : 0;
-                            const gb = (reportedQty > 0 && (uom.includes("gb") || uom.includes("byte"))) ? reportedQty : inferredGb;
                             costByRg.set(rg, { cost: current.cost + cost, qty: current.qty + gb });
+                        }
+                        if (loc) {
+                            const current = costByLoc.get(loc) || { cost: 0, qty: 0 };
+                            costByLoc.set(loc, { cost: current.cost + cost, qty: current.qty + gb });
                         }
                     }
 
@@ -320,11 +333,23 @@ export async function GET(request: NextRequest) {
                         const rawTier = acc.properties?.accessTier || (skuStr.toLowerCase().includes("premium") ? "Premium" : "Hot");
                         const tierFormatted = rawTier ? rawTier.charAt(0).toUpperCase() + rawTier.slice(1).toLowerCase() : "Hot";
                         const rg = (acc.resourceGroup || "").toLowerCase();
-                        const rgStats = costByRg.get(rg);
-                        const countInRg = rawAccounts.filter((a: any) => (a.resourceGroup || "").toLowerCase() === rg).length || 1;
-                        
-                        const cost = rgStats ? (rgStats.cost / countInRg) : 0;
-                        const gb = rgStats ? (rgStats.qty / countInRg) : 0;
+                        const loc = normalizeLoc(acc.location || "");
+
+                        let stats = costByRg.get(rg);
+                        let countInGroup = rawAccounts.filter((a: any) => (a.resourceGroup || "").toLowerCase() === rg).length || 1;
+
+                        if (!stats || (stats.cost === 0 && stats.qty === 0)) {
+                            // Fallback to location match
+                            const locStats = costByLoc.get(loc);
+                            if (locStats && (locStats.qty > 0 || locStats.cost > 0)) {
+                                const countInLoc = rawAccounts.filter((a: any) => normalizeLoc(a.location || "") === loc).length || 1;
+                                stats = { cost: locStats.cost / countInLoc, qty: locStats.qty / countInLoc };
+                                countInGroup = 1;
+                            }
+                        }
+
+                        const cost = stats ? (stats.cost / countInGroup) : 0;
+                        const gb = stats ? (stats.qty / countInGroup) : 0;
 
                         return {
                             id: acc.id,
@@ -339,6 +364,22 @@ export async function GET(request: NextRequest) {
                             monthlyCost: parseFloat(cost.toFixed(2))
                         };
                     });
+
+                    // Proportional Fallback: if total tenant GB/Cost > 0 and some accounts have 0 GB/Cost, allocate remaining
+                    const mappedGb = accounts.reduce((s, a) => s + a.usedGb, 0);
+                    const mappedCost = accounts.reduce((s, a) => s + a.monthlyCost, 0);
+                    const remainingGb = totalGb - mappedGb;
+                    const remainingCost = totalCost - mappedCost;
+                    const unmappedAccounts = accounts.filter(a => a.usedGb === 0 && a.monthlyCost === 0);
+
+                    if (unmappedAccounts.length > 0 && (remainingGb > 0 || remainingCost > 0)) {
+                        const addGb = Math.max(0, remainingGb / unmappedAccounts.length);
+                        const addCost = Math.max(0, remainingCost / unmappedAccounts.length);
+                        for (const acc of unmappedAccounts) {
+                            acc.usedGb = parseFloat(addGb.toFixed(2));
+                            acc.monthlyCost = parseFloat(addCost.toFixed(2));
+                        }
+                    }
                 }
             } catch (e: unknown) {
                 const msg = e instanceof Error ? e.message : String(e);
