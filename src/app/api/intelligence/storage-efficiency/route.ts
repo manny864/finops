@@ -140,7 +140,14 @@ const STORAGE_SERVICE_FILTER = `(
 
 // Fuente primaria: filas a nivel de meter (CostMeterSnapshots), que traen la
 // subcategoría real (Hot/Cool/Archive/...) necesaria para detectar tiers.
-async function queryMeterRows(tenantId: string, days: number) {
+async function queryMeterRows(tenantId: string, days: number, startDate?: string | null, endDate?: string | null) {
+    let dateCond = "AND date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)";
+    let params: any[] = [tenantId, days];
+    if (startDate && endDate) {
+        dateCond = "AND date >= ? AND date <= ?";
+        params = [tenantId, startDate, endDate];
+    }
+
     const [rows]: any = await pool.query(
         `SELECT
             subscription_id,
@@ -161,8 +168,8 @@ async function queryMeterRows(tenantId: string, days: number) {
              OR MeterSubCategory LIKE '%ZRS%'
              OR ${STORAGE_SERVICE_FILTER}
            )
-           AND date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)`,
-        [tenantId, days]
+           ${dateCond}`,
+        params
     );
     return rows as any[];
 }
@@ -170,7 +177,14 @@ async function queryMeterRows(tenantId: string, days: number) {
 // Fallback: filas de chargeback (CostSnapshots) para tenants cuyos syncs son
 // anteriores a la tabla de meters. Sin subcategoría, el tier se infiere del
 // nombre del servicio (usualmente cae en 'hot').
-async function queryLegacyRows(tenantId: string, days: number) {
+async function queryLegacyRows(tenantId: string, days: number, startDate?: string | null, endDate?: string | null) {
+    let dateCond = "AND date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)";
+    let params: any[] = [tenantId, days];
+    if (startDate && endDate) {
+        dateCond = "AND date >= ? AND date <= ?";
+        params = [tenantId, startDate, endDate];
+    }
+
     const [rows]: any = await pool.query(
         `SELECT
             subscription_id,
@@ -190,17 +204,17 @@ async function queryLegacyRows(tenantId: string, days: number) {
              OR LOWER(COALESCE(MeterCategory,'')) IN ('storage','azure storage','disks','disk storage')
              OR ${STORAGE_SERVICE_FILTER}
            )
-           AND date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)`,
-        [tenantId, days]
+           ${dateCond}`,
+        params
     );
     return rows as any[];
 }
 
-async function runQuery(tenantId: string, days: number): Promise<{ rows: any[]; source: 'meters' | 'legacy' }> {
-    const legacyRows = await queryLegacyRows(tenantId, days);
+async function runQuery(tenantId: string, days: number, startDate?: string | null, endDate?: string | null): Promise<{ rows: any[]; source: 'meters' | 'legacy' }> {
+    const legacyRows = await queryLegacyRows(tenantId, days, startDate, endDate);
     if (legacyRows.length > 0) return { rows: legacyRows, source: 'legacy' };
     try {
-        const meterRows = await queryMeterRows(tenantId, days);
+        const meterRows = await queryMeterRows(tenantId, days, startDate, endDate);
         if (meterRows.length > 0) return { rows: meterRows, source: 'meters' };
     } catch (e: any) {
         console.error(`[storage-efficiency] Error queryMeterRows para ${tenantId}:`, e);
@@ -286,17 +300,20 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(mockData || MOCK_PAYLOAD);
         }
 
+        const startDate = searchParams.get("startDate");
+        const endDate = searchParams.get("endDate");
+
         try {
-            // Try requested window first; if empty, widen to 90 days, then 365
-            let { rows, source } = await runQuery(tenantId, days);
+            // Try requested window or custom range
+            let { rows, source } = await runQuery(tenantId, days, startDate, endDate);
             let effectiveDays = days;
             let widened = false;
-            if (rows.length === 0 && days < 90) {
+            if (rows.length === 0 && days < 90 && !startDate) {
                 ({ rows, source } = await runQuery(tenantId, 90));
                 effectiveDays = 90;
                 widened = rows.length > 0;
             }
-            if (rows.length === 0) {
+            if (rows.length === 0 && !startDate) {
                 ({ rows, source } = await runQuery(tenantId, 365));
                 effectiveDays = 365;
                 widened = rows.length > 0;

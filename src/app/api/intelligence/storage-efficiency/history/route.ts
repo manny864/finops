@@ -60,10 +60,21 @@ export async function GET(request: NextRequest) {
             throw e;
         }
 
+        const startDate = reqUrl.searchParams.get("startDate");
+        const endDate = reqUrl.searchParams.get("endDate");
+
         const isMockParam = reqUrl.searchParams?.get("mock") === "true";
         if (isMockTenant(tenantId) || tenantId.startsWith("mock-") || isMockParam) {
             const mockData = getMockDataForRoute("storage_efficiency", tenantId);
-            const history = generateFallbackHistory(mockData?.totalGb || 2010, mockData?.totalCost || 28.67);
+            let history = generateFallbackHistory(mockData?.totalGb || 2010, mockData?.totalCost || 28.67);
+            if (startDate || endDate) {
+                history = history.filter(h => {
+                    const monthDate = `${h.month}-01`;
+                    if (startDate && monthDate < startDate.substring(0, 7) + "-01") return false;
+                    if (endDate && monthDate > endDate.substring(0, 7) + "-01") return false;
+                    return true;
+                });
+            }
             return NextResponse.json({
                 success: true,
                 mock: true,
@@ -73,7 +84,21 @@ export async function GET(request: NextRequest) {
             });
         }
 
-        // 1. Query CostMeterSnapshots up to 13 months ago
+        let dateCondition = "AND date >= DATE_SUB(CURDATE(), INTERVAL 13 MONTH)";
+        const queryParams: any[] = [tenantId];
+
+        if (startDate && endDate) {
+            dateCondition = "AND date >= ? AND date <= ?";
+            queryParams.push(startDate, endDate);
+        } else if (startDate) {
+            dateCondition = "AND date >= ?";
+            queryParams.push(startDate);
+        } else if (endDate) {
+            dateCondition = "AND date <= ?";
+            queryParams.push(endDate);
+        }
+
+        // 1. Query CostMeterSnapshots up to 13 months ago or custom date range
         let [rows]: any = await pool.query(
             `SELECT 
                 DATE_FORMAT(date, '%Y-%m') AS month,
@@ -89,10 +114,10 @@ export async function GET(request: NextRequest) {
                  OR MeterSubCategory LIKE '%ZRS%'
                  OR service_name LIKE '%Storage%'
                )
-               AND date >= DATE_SUB(CURDATE(), INTERVAL 13 MONTH)
+               ${dateCondition}
              GROUP BY DATE_FORMAT(date, '%Y-%m')
              ORDER BY month ASC`,
-            [tenantId]
+            queryParams
         );
 
         let source = "meter";
@@ -108,10 +133,10 @@ export async function GET(request: NextRequest) {
                  FROM CostSnapshots
                  WHERE tenant_id = ?
                    AND (service_name LIKE '%Storage%' OR MeterCategory LIKE '%Storage%')
-                   AND date >= DATE_SUB(CURDATE(), INTERVAL 13 MONTH)
+                   ${dateCondition}
                  GROUP BY DATE_FORMAT(date, '%Y-%m')
                  ORDER BY month ASC`,
-                [tenantId]
+                queryParams
             );
             rows = legacyRows;
         }

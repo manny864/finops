@@ -36,21 +36,30 @@ function formatStorageSize(gb: number): string {
 export default function StorageHistoryModal({ isOpen, onClose, tenantId }: StorageHistoryModalProps) {
     const t = useTranslations("StorageEfficiency");
     const { format } = useCurrency();
-    const [timeRangeMonths, setTimeRangeMonths] = useState<number>(13);
+    const [timeRangeMonths, setTimeRangeMonths] = useState<number | "custom">(13);
+    const [customStartDate, setCustomStartDate] = useState<string>("");
+    const [customEndDate, setCustomEndDate] = useState<string>("");
+
+    const swrUrl = useMemo(() => {
+        if (!isOpen || !tenantId) return null;
+        let url = `/api/intelligence/storage-efficiency/history?tenantId=${tenantId}`;
+        if (timeRangeMonths === "custom" && customStartDate && customEndDate) {
+            url += `&startDate=${customStartDate}&endDate=${customEndDate}`;
+        }
+        return url;
+    }, [isOpen, tenantId, timeRangeMonths, customStartDate, customEndDate]);
 
     const { data, error, isLoading } = useSWR<{
         success: boolean;
         history: MonthlyStorageHistoryItem[];
-    }>(
-        isOpen && tenantId ? `/api/intelligence/storage-efficiency/history?tenantId=${tenantId}` : null,
-        fetcher
-    );
+    }>(swrUrl, fetcher);
 
     const rawHistory = data?.history || [];
 
     // Filter history based on selected month range
     const filteredHistory = useMemo(() => {
         if (!rawHistory.length) return [];
+        if (timeRangeMonths === "custom") return rawHistory;
         return rawHistory.slice(-timeRangeMonths);
     }, [rawHistory, timeRangeMonths]);
 
@@ -159,21 +168,22 @@ export default function StorageHistoryModal({ isOpen, onClose, tenantId }: Stora
                 <div className="p-6 overflow-y-auto space-y-6 flex-1">
 
                     {/* Time Range Filter Bar */}
-                    <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-800/50 p-1.5 rounded-xl border border-gray-200/60 dark:border-slate-800">
+                    <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 dark:bg-slate-800/50 p-2 rounded-xl border border-gray-200/60 dark:border-slate-800">
                         <div className="flex items-center gap-2 px-2 text-xs font-medium text-slate-500 dark:text-slate-400">
                             <Calendar className="w-4 h-4 text-blue-500" />
                             <span>Período de consulta:</span>
                         </div>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                             {[
                                 { label: "3 Meses", value: 3 },
                                 { label: "6 Meses", value: 6 },
                                 { label: "12 Meses", value: 12 },
                                 { label: "13 Meses", value: 13 },
+                                { label: "Personalizado", value: "custom" },
                             ].map((r) => (
                                 <button
-                                    key={r.value}
-                                    onClick={() => setTimeRangeMonths(r.value)}
+                                    key={String(r.value)}
+                                    onClick={() => setTimeRangeMonths(r.value as any)}
                                     className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
                                         timeRangeMonths === r.value
                                             ? "bg-blue-600 text-white shadow-sm"
@@ -184,6 +194,25 @@ export default function StorageHistoryModal({ isOpen, onClose, tenantId }: Stora
                                 </button>
                             ))}
                         </div>
+
+                        {timeRangeMonths === "custom" && (
+                            <div className="w-full flex items-center gap-2 pt-2 border-t border-gray-200/60 dark:border-slate-700/60 text-xs">
+                                <span className="text-slate-500 dark:text-slate-400">Desde:</span>
+                                <input
+                                    type="date"
+                                    value={customStartDate}
+                                    onChange={(e) => setCustomStartDate(e.target.value)}
+                                    className="px-2.5 py-1 rounded-lg border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                />
+                                <span className="text-slate-500 dark:text-slate-400">Hasta:</span>
+                                <input
+                                    type="date"
+                                    value={customEndDate}
+                                    onChange={(e) => setCustomEndDate(e.target.value)}
+                                    className="px-2.5 py-1 rounded-lg border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                />
+                            </div>
+                        )}
                     </div>
 
                     {isLoading ? (
