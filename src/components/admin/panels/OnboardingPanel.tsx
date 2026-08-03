@@ -339,7 +339,7 @@ export default function OnboardingPage() {
                                       </button>
                                   </div>
 
-                                  {tenant.has_client_secret && (!tenant.partner_link_status || tenant.partner_link_status === 'NONE') && (
+                                  {tenant.has_client_secret && tenant.partner_link_status !== 'LINKED' && (
                                       <div className="mt-4 border-t border-gray-200 dark:border-slate-700 pt-4 flex flex-col gap-2">
                                           <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">{tA('partnerLinkTitle')}</p>
                                           <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-relaxed">

@@ -483,7 +483,7 @@ export default function OnboardingPage() {
                             </div>
                         )}
 
-                        {selectedTenant?.has_client_secret && (!selectedTenant.partner_link_status || selectedTenant.partner_link_status === 'NONE') && (
+                        {selectedTenant?.has_client_secret && selectedTenant.partner_link_status !== 'LINKED' && (
                             <div className="p-4 rounded-lg bg-blue-50 border border-blue-200 space-y-3">
                                 <p className="text-xs font-semibold text-gray-700 flex items-center gap-2">
                                     <Handshake className="w-4 h-4 text-blue-600" /> Asociación de partner (PAL / CPOR)
