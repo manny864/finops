@@ -279,7 +279,9 @@ export async function GET(request: NextRequest) {
             throw e;
         }
 
-        if (isMockTenant(tenantId) || tenantId.startsWith("mock-") || request.nextUrl.searchParams.get("mock") === "true") {
+        const requestUrl = (request as any).nextUrl ? (request as any).nextUrl : new URL((request as any).url || "http://localhost", "http://localhost");
+        const isMockParam = requestUrl.searchParams?.get("mock") === "true";
+        if (isMockTenant(tenantId) || tenantId.startsWith("mock-") || isMockParam) {
             const mockData = getMockDataForRoute("storage_efficiency", tenantId);
             return NextResponse.json(mockData || MOCK_PAYLOAD);
         }
