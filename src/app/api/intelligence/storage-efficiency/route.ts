@@ -158,12 +158,11 @@ async function runQuery(tenantId: string, days: number): Promise<{ rows: any[]; 
     return { rows: await queryLegacyRows(tenantId, days), source: 'legacy' };
 }
 
-async function fetchAllStorageAccountsFromARG(tenantId: string, subs: string[]): Promise<any[]> {
-    if (!subs || subs.length === 0) return [];
+async function fetchAllStorageAccountsFromARG(tenantId: string, subs?: string[]): Promise<any[]> {
     const argClient = await getResourceGraphClient(tenantId);
     const query = `
         Resources
-        | where type =~ 'microsoft.storage/storageaccounts'
+        | where type =~ 'microsoft.storage/storageaccounts' or type =~ 'microsoft.classicstorage/storageaccounts'
         | project id, name, location, resourceGroup, subscriptionId, sku = tostring(sku.name), kind = tostring(kind), accessTier = tostring(properties.accessTier)
     `;
 
@@ -171,18 +170,19 @@ async function fetchAllStorageAccountsFromARG(tenantId: string, subs: string[]):
     let skipToken: string | undefined = undefined;
 
     do {
-        const resARG: any = await withArgLimit(() =>
-            argClient.resources({
-                subscriptions: subs,
-                query,
-                options: {
-                    resultFormat: "objectArray",
-                    top: 1000,
-                    ...(skipToken ? { skipToken } : {})
-                }
-            })
-        );
+        const payload: any = {
+            query,
+            options: {
+                resultFormat: "objectArray",
+                top: 1000,
+                ...(skipToken ? { skipToken } : {})
+            }
+        };
+        if (subs && subs.length > 0) {
+            payload.subscriptions = subs;
+        }
 
+        const resARG: any = await withArgLimit(() => argClient.resources(payload));
         const pageData = (resARG?.data as any[]) || [];
         allAccounts.push(...pageData);
         skipToken = resARG?.skipToken;
@@ -271,48 +271,46 @@ export async function GET(request: NextRequest) {
                     subs = Array.from(new Set(rows.map(r => String(r.subscription_id || r.subscriptionId || '')).filter(s => s && s !== 'default')));
                 }
 
-                if (subs.length > 0) {
-                    const rawAccounts = await fetchAllStorageAccountsFromARG(tenantId, subs);
+                const rawAccounts = await fetchAllStorageAccountsFromARG(tenantId, subs.length > 0 ? subs : undefined);
 
-                    const costByRg = new Map<string, { cost: number; qty: number }>();
-                    for (const r of rows) {
-                        const rg = (r.resource_group || r.ResourceGroup || "").toLowerCase();
-                        if (rg && rg !== '*') {
-                            const current = costByRg.get(rg) || { cost: 0, qty: 0 };
-                            const cost = parseFloat(r.billedCost) || 0;
-                            const tier = detectTier(r.MeterSubCategory, r.MeterName, r.MeterCategory, r.service_name);
-                            const uom = String(r.UnitOfMeasure || "").toLowerCase();
-                            const reportedQty = parseFloat(r.quantity) || 0;
-                            const inferredGb = TIER_RATES[tier] > 0 ? cost / TIER_RATES[tier] : 0;
-                            const gb = (reportedQty > 0 && (uom.includes("gb") || uom.includes("byte"))) ? reportedQty : inferredGb;
-                            costByRg.set(rg, { cost: current.cost + cost, qty: current.qty + gb });
-                        }
+                const costByRg = new Map<string, { cost: number; qty: number }>();
+                for (const r of rows) {
+                    const rg = (r.resource_group || r.ResourceGroup || "").toLowerCase();
+                    if (rg && rg !== '*') {
+                        const current = costByRg.get(rg) || { cost: 0, qty: 0 };
+                        const cost = parseFloat(r.billedCost) || 0;
+                        const tier = detectTier(r.MeterSubCategory, r.MeterName, r.MeterCategory, r.service_name);
+                        const uom = String(r.UnitOfMeasure || "").toLowerCase();
+                        const reportedQty = parseFloat(r.quantity) || 0;
+                        const inferredGb = TIER_RATES[tier] > 0 ? cost / TIER_RATES[tier] : 0;
+                        const gb = (reportedQty > 0 && (uom.includes("gb") || uom.includes("byte"))) ? reportedQty : inferredGb;
+                        costByRg.set(rg, { cost: current.cost + cost, qty: current.qty + gb });
                     }
-
-                    accounts = rawAccounts.map((acc: any) => {
-                        const rawTier = acc.accessTier || (acc.sku?.toLowerCase().includes("premium") ? "Premium" : "Hot");
-                        const tierFormatted = rawTier ? rawTier.charAt(0).toUpperCase() + rawTier.slice(1).toLowerCase() : "Hot";
-                        const rg = (acc.resourceGroup || "").toLowerCase();
-                        const rgStats = costByRg.get(rg);
-                        const countInRg = rawAccounts.filter((a: any) => (a.resourceGroup || "").toLowerCase() === rg).length || 1;
-                        
-                        const cost = rgStats ? (rgStats.cost / countInRg) : 0;
-                        const gb = rgStats ? (rgStats.qty / countInRg) : 0;
-
-                        return {
-                            id: acc.id,
-                            name: acc.name,
-                            resourceGroup: acc.resourceGroup,
-                            subscriptionId: acc.subscriptionId,
-                            location: acc.location,
-                            tier: tierFormatted,
-                            kind: acc.kind,
-                            sku: acc.sku,
-                            usedGb: parseFloat(gb.toFixed(2)),
-                            monthlyCost: parseFloat(cost.toFixed(2))
-                        };
-                    });
                 }
+
+                accounts = rawAccounts.map((acc: any) => {
+                    const rawTier = acc.accessTier || (acc.sku?.toLowerCase().includes("premium") ? "Premium" : "Hot");
+                    const tierFormatted = rawTier ? rawTier.charAt(0).toUpperCase() + rawTier.slice(1).toLowerCase() : "Hot";
+                    const rg = (acc.resourceGroup || "").toLowerCase();
+                    const rgStats = costByRg.get(rg);
+                    const countInRg = rawAccounts.filter((a: any) => (a.resourceGroup || "").toLowerCase() === rg).length || 1;
+                    
+                    const cost = rgStats ? (rgStats.cost / countInRg) : 0;
+                    const gb = rgStats ? (rgStats.qty / countInRg) : 0;
+
+                    return {
+                        id: acc.id,
+                        name: acc.name,
+                        resourceGroup: acc.resourceGroup,
+                        subscriptionId: acc.subscriptionId,
+                        location: acc.location,
+                        tier: tierFormatted,
+                        kind: acc.kind,
+                        sku: acc.sku,
+                        usedGb: parseFloat(gb.toFixed(2)),
+                        monthlyCost: parseFloat(cost.toFixed(2))
+                    };
+                });
             } catch (e: unknown) {
                 const msg = e instanceof Error ? e.message : String(e);
                 console.error(`[storage-efficiency] Could not fetch ARG storage accounts for tenant ${tenantId}:`, msg);
