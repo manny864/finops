@@ -153,18 +153,15 @@ async function queryLegacyRows(tenantId: string, days: number) {
 }
 
 async function runQuery(tenantId: string, days: number): Promise<{ rows: any[]; source: 'meters' | 'legacy' }> {
+    const legacyRows = await queryLegacyRows(tenantId, days);
+    if (legacyRows.length > 0) return { rows: legacyRows, source: 'legacy' };
     try {
         const meterRows = await queryMeterRows(tenantId, days);
         if (meterRows.length > 0) return { rows: meterRows, source: 'meters' };
     } catch (e: any) {
-        if (e.code === 'ER_BAD_FIELD_ERROR' && e.message.includes("Unknown column 'resource_group'")) {
-            console.warn(`[storage-efficiency] Tabla CostMeterSnapshots sin resource_group, cayendo a legacy para tenant ${tenantId}.`);
-            // fallthrough
-        } else {
-            console.error(`[storage-efficiency] Error queryMeterRows para ${tenantId}:`, e);
-        }
+        console.error(`[storage-efficiency] Error queryMeterRows para ${tenantId}:`, e);
     }
-    return { rows: await queryLegacyRows(tenantId, days), source: 'legacy' };
+    return { rows: [], source: 'legacy' };
 }
 
 async function getUntruncatedSubscriptions(tenantId: string): Promise<string[]> {
