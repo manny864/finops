@@ -15,16 +15,10 @@ import {
     AlertCircle,
     Loader2 
 } from "lucide-react";
+import { useMsal } from "@azure/msal-react";
+import { getFreshIdToken } from "@/lib/msalToken";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { MonthlyStorageHistoryItem } from "@/app/api/intelligence/storage-efficiency/history/route";
-
-interface StorageHistoryModalProps {
-    isOpen: boolean;
-    onClose: () => void;
-    tenantId: string;
-}
-
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 function formatStorageSize(gb: number): string {
     if (!gb || gb <= 0) return "0 GB";
@@ -33,12 +27,34 @@ function formatStorageSize(gb: number): string {
     return `${gb.toLocaleString(undefined, { maximumFractionDigits: 2 })} GB`;
 }
 
+interface StorageHistoryModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    tenantId: string;
+}
+
 export default function StorageHistoryModal({ isOpen, onClose, tenantId }: StorageHistoryModalProps) {
     const t = useTranslations("StorageEfficiency");
+    const { instance, accounts } = useMsal();
     const { format } = useCurrency();
     const [timeRangeMonths, setTimeRangeMonths] = useState<number | "custom">(13);
     const [customStartDate, setCustomStartDate] = useState<string>("");
     const [customEndDate, setCustomEndDate] = useState<string>("");
+
+    const fetcher = async (url: string) => {
+        const idToken = await getFreshIdToken(instance, accounts[0], ["User.Read"]).catch(() => "");
+        const res = await fetch(url, {
+            headers: {
+                ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+                "x-tenant-id": tenantId,
+            },
+        });
+        if (!res.ok) {
+            const json = await res.json().catch(() => ({}));
+            throw new Error(json.details || json.error || "Error al cargar histórico");
+        }
+        return res.json();
+    };
 
     const swrUrl = useMemo(() => {
         if (!isOpen || !tenantId) return null;
