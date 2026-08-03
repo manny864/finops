@@ -68,7 +68,7 @@ export default function StorageEfficiencyDashboard() {
     };
 
     const { data, error, isLoading } = useSWR(
-        selectedTenant && selectedTenant.id !== "default" && (accounts.length > 0 || isMockTenant(selectedTenant.id))
+        selectedTenant && selectedTenant.id !== "default"
             ? `/api/intelligence/storage-efficiency?tenantId=${selectedTenant.id}&days=${days}`
             : null,
         fetcher,
