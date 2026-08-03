@@ -158,12 +158,33 @@ async function runQuery(tenantId: string, days: number): Promise<{ rows: any[]; 
     return { rows: await queryLegacyRows(tenantId, days), source: 'legacy' };
 }
 
+async function getUntruncatedSubscriptions(tenantId: string): Promise<string[]> {
+    const { getAzureCredential } = await import('@/lib/azure');
+    const cred = await getAzureCredential(tenantId);
+    const subs: string[] = [];
+    try {
+        const tokenResponse = await cred.getToken("https://management.azure.com/.default");
+        const fetchRes = await fetch("https://management.azure.com/subscriptions?api-version=2020-01-01", {
+            headers: { "Authorization": `Bearer ${tokenResponse.token}` }
+        });
+        if (fetchRes.ok) {
+            const data = await fetchRes.json();
+            for (const sub of (data.value || [])) {
+                if (sub.subscriptionId) subs.push(sub.subscriptionId);
+            }
+        }
+    } catch (e) {
+        console.error(`[storage-efficiency] Error fetching untruncated subscriptions for tenant ${tenantId}:`, e);
+    }
+    return subs;
+}
+
 async function fetchAllStorageAccountsFromARG(tenantId: string, subs: string[]): Promise<any[]> {
     if (!subs || subs.length === 0) return [];
     const argClient = await getResourceGraphClient(tenantId);
     const query = `
         Resources
-        | where type =~ 'microsoft.storage/storageaccounts'
+        | where type =~ 'microsoft.storage/storageaccounts' or type =~ 'microsoft.classicstorage/storageaccounts'
         | project id, name, location, resourceGroup, subscriptionId, sku = tostring(sku.name), kind = tostring(kind), accessTier = tostring(properties.accessTier)
     `;
 
@@ -266,7 +287,7 @@ export async function GET(request: NextRequest) {
 
             let accounts: any[] = [];
             try {
-                let subs = await getSubscriptionsForTenant(tenantId);
+                let subs = await getUntruncatedSubscriptions(tenantId);
                 if (!subs || subs.length === 0) {
                     subs = Array.from(new Set(rows.map(r => String(r.subscription_id || r.subscriptionId || '')).filter(s => s && s !== 'default')));
                 }
