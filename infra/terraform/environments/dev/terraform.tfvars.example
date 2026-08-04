@@ -101,7 +101,9 @@ allowed_ip_ranges = []
 # El resto del .env que NO es secreto. Los secretos van por key_vault_secret_ids.
 extra_env_vars = {
   NEXT_PUBLIC_SSO_ENABLED = "true"
-  # APP_BASE_URL, NEXT_PUBLIC_CLIENT_ID, AZURE_TENANT_ID, PARTNER_MPN_ID, etc.
+  # APP_BASE_URL, NEXT_PUBLIC_CLIENT_ID, AZURE_TENANT_ID, etc.
+  # Local/dev fallback:
+  # PARTNER_MPN_ID = "7111700"
 }
 
 # Secretos que la app lee como env var. El id sale del Key Vault existente:
@@ -114,6 +116,7 @@ key_vault_secret_ids = {
   # smtp-password        = "https://<vault>.vault.azure.net/secrets/smtp-password"
   # mfa-encryption-key   = "https://<vault>.vault.azure.net/secrets/mfa-encryption-key"
   # sso-session-secret   = "https://<vault>.vault.azure.net/secrets/sso-session-secret"
+  # finops-infra-partner-id = "https://<vault>.vault.azure.net/secrets/finops-infra-partner-id"
 }
 
 key_vault_secret_env = {
@@ -123,6 +126,7 @@ key_vault_secret_env = {
   # SMTP_PASSWORD         = "smtp-password"
   # MFA_ENCRYPTION_KEY    = "mfa-encryption-key"
   # SSO_SESSION_SECRET    = "sso-session-secret"
+  # PARTNER_MPN_ID        = "finops-infra-partner-id"
 }
 
 log_retention_days = 30

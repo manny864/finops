@@ -16,6 +16,7 @@ const CRON_EXPECTED_WINDOWS_MIN: Record<string, number> = {
     "ttl-expiry-alerts": 24 * 60,
     "focus-export-daily": 24 * 60,
     "support-attachments-cleanup": 24 * 60,
+    "partner-link-retry": 24 * 60,
     "open-data": 7 * 24 * 60,
     "status-snapshot": 5,
     "trial-expiry": 24 * 60,

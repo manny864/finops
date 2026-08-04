@@ -15,11 +15,53 @@ import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { AuthError, requireTenantRole } from "@/lib/requestAuth";
 import { linkPal } from "@/lib/partner/pal";
+import { notifyTenant } from "@/lib/notifications";
 
 interface TenantRow {
   tenant_id: string;
+  company_name: string;
   has_client_secret: number;
   partner_link_status: string;
+}
+
+async function notifySuperAdminsPartnerEvent(args: {
+  status: string;
+  tenantId: string;
+  tenantName: string;
+  detail: string;
+  origin: string;
+}): Promise<void> {
+  const [rows] = await pool.query(
+    `SELECT DISTINCT tenant_id
+       FROM Users
+      WHERE system_role='SUPERADMIN'`
+  );
+  const superAdminTenantIds = (rows as Array<{ tenant_id: string }>).map((r) => r.tenant_id);
+  if (superAdminTenantIds.length === 0) return;
+
+  const severity = args.status === "FAILED" ? "error" : args.status === "APPROVED" ? "warning" : "info";
+  const title = `PAL/CPOR tenant ${args.status}`;
+  const message =
+    `Tenant: ${args.tenantName} (${args.tenantId}) · ` +
+    `Estado: ${args.status} · ` +
+    `Detalle: ${args.detail || "-"}`;
+
+  await Promise.all(
+    superAdminTenantIds.map((superAdminTenantId) =>
+      notifyTenant(superAdminTenantId, {
+        title,
+        message,
+        severity,
+        link: `${args.origin}/superadmin/partner-alerts`,
+        metadata: {
+          source: "partner_link",
+          tenantId: args.tenantId,
+          tenantName: args.tenantName,
+          status: args.status,
+        },
+      })
+    )
+  );
 }
 
 export async function POST(request: NextRequest) {
@@ -35,7 +77,7 @@ export async function POST(request: NextRequest) {
     const identity = await requireTenantRole(request, tenantId, ["Admin", "Owner"]);
 
     const [rows] = await pool.query(
-      `SELECT tenant_id, (client_secret IS NOT NULL AND client_secret <> '') as has_client_secret,
+      `SELECT tenant_id, company_name, (client_secret IS NOT NULL AND client_secret <> '') as has_client_secret,
               partner_link_status
          FROM Tenants WHERE tenant_id = ? LIMIT 1`,
       [tenantId]
@@ -50,6 +92,17 @@ export async function POST(request: NextRequest) {
            partner_link_detail = 'Rechazado por el cliente' WHERE tenant_id = ?`,
         [identity.email, tenantId]
       );
+      try {
+        await notifySuperAdminsPartnerEvent({
+          status: "DECLINED",
+          tenantId,
+          tenantName: tenant.company_name || tenantId,
+          detail: "Rechazado por el cliente",
+          origin: request.nextUrl.origin,
+        });
+      } catch (notifyError) {
+        console.warn("[api/tenants/partner-link] notify declination failed:", notifyError);
+      }
       return NextResponse.json({ success: true, status: "DECLINED" });
     }
 
@@ -69,11 +122,28 @@ export async function POST(request: NextRequest) {
     );
 
     const result = await linkPal(tenantId);
-    const status = result.linked ? "LINKED" : "FAILED";
+    // Si falta config interna del Partner ID, mantenemos APPROVED (consentimiento
+    // del cliente ya registrado) en lugar de marcar FAILED al tenant.
+    const status = result.linked
+      ? "LINKED"
+      : result.reason === "NOT_CONFIGURED"
+        ? "APPROVED"
+        : "FAILED";
     await pool.query(
       "UPDATE Tenants SET partner_link_status = ?, partner_link_detail = ? WHERE tenant_id = ?",
       [status, result.detail.slice(0, 500), tenantId]
     );
+    try {
+      await notifySuperAdminsPartnerEvent({
+        status,
+        tenantId,
+        tenantName: tenant.company_name || tenantId,
+        detail: result.detail,
+        origin: request.nextUrl.origin,
+      });
+    } catch (notifyError) {
+      console.warn("[api/tenants/partner-link] notify status failed:", notifyError);
+    }
 
     return NextResponse.json({ success: true, status, detail: result.detail });
   } catch (e: unknown) {

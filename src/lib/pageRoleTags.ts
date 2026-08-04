@@ -141,6 +141,7 @@ export const PAGE_ROLE_TAGS: Record<string, RoleTag[]> = {
     "/superadmin/funnel": ["Platform"],
     "/superadmin/support": ["Platform"],
     "/superadmin/ops": ["Platform"],
+    "/superadmin/partner-alerts": ["Platform"],
     "/admin/pricing-units": ["Platform"],
     "/admin/load-test": ["Platform"],
     "/admin/system-alerts": ["Platform"],

@@ -238,6 +238,11 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             icon: HeartPulse
         } as any);
         categories.find(c => c.id === 'admin')?.items.push({
+            href: '/superadmin/partner-alerts',
+            label: t('superadmin_partner_alerts', { fallback: 'Alertas Partner Center' }),
+            icon: BellRing
+        } as any);
+        categories.find(c => c.id === 'admin')?.items.push({
             href: '/admin/pricing-units',
             label: 'Pricing Units',
             icon: Database

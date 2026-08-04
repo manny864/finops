@@ -23,18 +23,33 @@ const API_VERSION = "2018-02-01";
 export async function getPartnerId(): Promise<string | null> {
   if (isKeyVaultEnabled()) {
     try {
-      const fromKv = await getSecret("finops-infra-partner-id");
-      if (fromKv) return fromKv;
+      // Backward-compatible lookup: algunos entornos históricos guardaron el
+      // Partner ID con nombres distintos.
+      const kvCandidates = [
+        "finops-infra-partner-id",
+        "partner-mpn-id",
+        "partner-mpn",
+      ];
+      for (const secretName of kvCandidates) {
+        const fromKv = await getSecret(secretName);
+        if (fromKv?.trim()) return fromKv.trim();
+      }
     } catch (e: unknown) {
       console.warn("[pal] KV no respondió para el Partner ID:", e instanceof Error ? e.message : String(e));
     }
   }
-  return process.env.PARTNER_MPN_ID ?? null;
+  const fromEnv =
+    process.env.PARTNER_MPN_ID ??
+    process.env.FINOPS_INFRA_PARTNER_ID ??
+    process.env.PARTNER_ID ??
+    null;
+  return fromEnv?.trim() || null;
 }
 
 export interface PalResult {
   linked: boolean;
   detail: string;
+  reason?: "NOT_CONFIGURED" | "CONFLICT" | "HTTP_ERROR";
 }
 
 /**
@@ -45,7 +60,11 @@ export interface PalResult {
 export async function linkPal(azureTenantId: string): Promise<PalResult> {
   const partnerId = await getPartnerId();
   if (!partnerId) {
-    return { linked: false, detail: "Partner ID no configurado (PARTNER_MPN_ID / finops-infra-partner-id)" };
+    return {
+      linked: false,
+      reason: "NOT_CONFIGURED",
+      detail: "Partner ID no configurado (PARTNER_MPN_ID / FINOPS_INFRA_PARTNER_ID / finops-infra-partner-id)",
+    };
   }
 
   const credential = await getAzureCredential(azureTenantId);
@@ -72,7 +91,15 @@ export async function linkPal(azureTenantId: string): Promise<PalResult> {
   const body = await res.text();
   if (res.status === 409) {
     // Conflict: la credencial ya tiene OTRO partner asociado; no pisar.
-    return { linked: false, detail: `Ya existe otra asociación PAL para esta credencial (409): ${body.slice(0, 200)}` };
+    return {
+      linked: false,
+      reason: "CONFLICT",
+      detail: `Ya existe otra asociación PAL para esta credencial (409): ${body.slice(0, 200)}`,
+    };
   }
-  return { linked: false, detail: `PAL falló (HTTP ${res.status}): ${body.slice(0, 250)}` };
+  return {
+    linked: false,
+    reason: "HTTP_ERROR",
+    detail: `PAL falló (HTTP ${res.status}): ${body.slice(0, 250)}`,
+  };
 }

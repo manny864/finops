@@ -486,7 +486,8 @@
     "notifications": "Notifications",
     "billing_subscription": "Billing",
     "cloud_accounts": "Azure Accounts",
-    "superadmin_ops": "SaaS Operations"
+    "superadmin_ops": "SaaS Operations",
+    "superadmin_partner_alerts": "Partner Center Alerts"
   },
   "Dashboard": {
     "title": "General Dashboard",
@@ -3733,6 +3734,32 @@
     "cronLastRun": "Last run",
     "cronSummary": "Summary",
     "neverRun": "Never run"
+  },
+  "SuperAdminPartnerAlerts": {
+    "title": "Partner Center Subscription Alerts",
+    "subtitle": "Monitoring tenants that approved or linked PAL/CPOR for SuperAdmin follow-up.",
+    "loading": "Loading Partner Center alerts...",
+    "emptyError": "Could not load Partner Center alerts.",
+    "loadError": "Failed to load Partner Center alerts.",
+    "noAccess": "Access denied. SuperAdmin required.",
+    "refresh": "Refresh",
+    "schemaNotReady": "Database schema does not yet include PAL/CPOR columns in this environment.",
+    "recentAlert": "{count} PAL/CPOR events were detected in the last 7 days.",
+    "linked": "Linked (PAL)",
+    "approvedPending": "Approved pending",
+    "failed": "Link failures",
+    "recent7d": "Events last 7d",
+    "tableTitle": "PAL/CPOR status history by tenant",
+    "tenant": "Tenant",
+    "status": "Status",
+    "approvedAt": "Date",
+    "approvedBy": "Approved by",
+    "detail": "Detail",
+    "empty": "No PAL/CPOR events registered.",
+    "status_LINKED": "Linked",
+    "status_APPROVED": "Approved",
+    "status_FAILED": "Failed",
+    "status_DECLINED": "Declined"
   },
   "Profile": {
     "openProfile": "Open profile",

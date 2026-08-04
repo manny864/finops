@@ -486,7 +486,8 @@
     "notifications": "Notificaciones",
     "billing_subscription": "Facturación",
     "cloud_accounts": "Cuentas Azure",
-    "superadmin_ops": "Operaciones SaaS"
+    "superadmin_ops": "Operaciones SaaS",
+    "superadmin_partner_alerts": "Alertas Partner Center"
   },
   "Dashboard": {
     "title": "Dashboard General",
@@ -3733,6 +3734,32 @@
     "cronLastRun": "Última ejecución",
     "cronSummary": "Resumen",
     "neverRun": "Nunca ejecutado"
+  },
+  "SuperAdminPartnerAlerts": {
+    "title": "Alertas de Suscripción Partner Center",
+    "subtitle": "Monitoreo de tenants que aprobaron o vincularon PAL/CPOR para seguimiento SuperAdmin.",
+    "loading": "Cargando alertas de Partner Center...",
+    "emptyError": "No se pudieron cargar las alertas de Partner Center.",
+    "loadError": "Error al cargar alertas de Partner Center.",
+    "noAccess": "Acceso denegado. Se requiere SuperAdmin.",
+    "refresh": "Actualizar",
+    "schemaNotReady": "El esquema de base de datos aún no tiene columnas PAL/CPOR en este entorno.",
+    "recentAlert": "Se detectaron {count} eventos PAL/CPOR en los últimos 7 días.",
+    "linked": "Vinculados (PAL)",
+    "approvedPending": "Aprobados pendientes",
+    "failed": "Con error de vínculo",
+    "recent7d": "Eventos últimos 7d",
+    "tableTitle": "Historial de estados PAL/CPOR por tenant",
+    "tenant": "Tenant",
+    "status": "Estado",
+    "approvedAt": "Fecha",
+    "approvedBy": "Aprobado por",
+    "detail": "Detalle",
+    "empty": "No hay eventos PAL/CPOR registrados.",
+    "status_LINKED": "Vinculado",
+    "status_APPROVED": "Aprobado",
+    "status_FAILED": "Error",
+    "status_DECLINED": "Rechazado"
   },
   "Profile": {
     "openProfile": "Abrir perfil",
