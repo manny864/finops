@@ -25,6 +25,13 @@ export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
         const tenantId = searchParams.get("tenantId");
+        const pageParam = parseInt(searchParams.get("page") || "1", 10);
+        const pageSizeParam = parseInt(searchParams.get("pageSize") || "15", 10);
+        
+        // Paginación: 15/30/45/60 items por página
+        const pageSize = Math.min(60, Math.max(15, [15, 30, 45, 60].find((s) => s >= pageSizeParam) || 15));
+        const page = Math.max(1, pageParam);
+        
         if (!tenantId) {
             return NextResponse.json({ error: "Falta parámetro: tenantId" }, { status: 400 });
         }
@@ -92,10 +99,20 @@ export async function GET(request: NextRequest) {
             const resp = await argClient.resources({ query, subscriptions: subs });
             accounts.push(...((resp.data as any[]) || []));
             const resourceTypes = Array.from(new Set((accounts as any[]).map((a: any) => a.type))).join(', ');
+            
+            // Paginación de cuentas para el reporte
+            const accountsMapped = accounts.map((a: any) => ({ name: a.name, kind: a.kind, type: a.type, resourceGroup: a.resourceGroup, subscriptionId: a.subscriptionId, location: a.location, sku: a.sku }));
+            const totalAccounts = accountsMapped.length;
+            const startIdx = (page - 1) * pageSize;
+            const endIdx = startIdx + pageSize;
+            const accountsPage = accountsMapped.slice(startIdx, endIdx);
+            
             diagnostics.steps.cognitiveAccounts = {
-                count: accounts.length,
+                count: totalAccounts,
+                page,
+                pageSize,
                 resourceTypes,
-                accounts: accounts.map((a: any) => ({ name: a.name, kind: a.kind, type: a.type, resourceGroup: a.resourceGroup, subscriptionId: a.subscriptionId, location: a.location, sku: a.sku })),
+                accounts: accountsPage,
             };
         } catch (e: any) {
             diagnostics.steps.cognitiveAccounts = { error: e?.message };
@@ -177,9 +194,13 @@ export async function GET(request: NextRequest) {
         // 5) Qué filas produciría realmente el colector ahora mismo.
         try {
             const rows = await getYesterdaysAIUsage(tenantId);
+            const startIdx = (page - 1) * pageSize;
+            const endIdx = startIdx + pageSize;
             diagnostics.steps.collectorRows = {
                 count: rows.length,
-                sample: rows.slice(0, 20),
+                page,
+                pageSize,
+                rows: rows.slice(startIdx, endIdx),
             };
         } catch (e: any) {
             diagnostics.steps.collectorRows = { error: e?.message };

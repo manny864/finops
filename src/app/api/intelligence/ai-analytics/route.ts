@@ -169,7 +169,7 @@ async function fetchAIAnalytics(tenantId: string, days: number) {
                 OR LOWER(MeterSubCategory) LIKE '%openai%'
                 OR LOWER(MeterSubCategory) LIKE '%foundry%'
            )
-         GROUP BY model_name, application, team, date
+         GROUP BY COALESCE(NULLIF(MeterSubCategory, ''), NULLIF(MeterName, ''), service_name), resource_group, COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(Tags, '$.Team')), 'null'), 'Sin asignar'), date
          ORDER BY date ASC`,
         [tenantId, days]
     );
