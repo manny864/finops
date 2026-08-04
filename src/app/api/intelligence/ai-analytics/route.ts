@@ -133,7 +133,7 @@ async function fetchAIAnalytics(tenantId: string, days: number) {
             SUM(output_tokens) AS outputTokens
          FROM AICostSnapshots
          WHERE tenant_id = ? AND date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
-         GROUP BY model_name, application, team, date
+         GROUP BY model_name, resource_name, application, team, date
          ORDER BY date ASC`,
         [tenantId, days]
     );
