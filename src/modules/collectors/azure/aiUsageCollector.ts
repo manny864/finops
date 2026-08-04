@@ -38,6 +38,14 @@ export interface AIUsageRow {
     billedCost: number;
 }
 
+// Métricas de tokens por recurso Cognitive Services / Foundry. Se piden UNA
+// POR UNA a propósito: Azure Monitor rechaza TODO el batch con 400
+// (BadRequest) si cualquiera de los metricnames no existe para ese recurso
+// concreto (p.ej. ProcessedInferenceTokens no existe en cuentas OpenAI
+// clásicas). Pidiéndolas por separado, una métrica inexistente sólo falla su
+// propia llamada y no tumba las demás.
+const TOKEN_METRIC_NAMES = ["ProcessedPromptTokens", "GeneratedTokens", "ProcessedInferenceTokens"];
+
 /**
  * Uso real de Azure OpenAI / Cognitive Services por día (ayer + hoy parcial),
  * por deployment (modelo). Fuente: Azure Monitor Metrics de cada cuenta
@@ -60,10 +68,11 @@ export async function getYesterdaysAIUsage(tenantId: string): Promise<AIUsageRow
     const query = `
         Resources
         | where type =~ 'microsoft.cognitiveservices/accounts'
-        | project id, name, resourceGroup, subscriptionId
+        | project id, name, resourceGroup, subscriptionId, kind
     `;
     const resp = await argClient.resources({ query, subscriptions: subs });
     const accounts = (resp.data as any[]) || [];
+    console.log(`[aiUsageCollector] tenant=${tenantId} subs=${subs.length} cognitiveAccounts=${accounts.length}`);
     if (accounts.length === 0) return [];
 
     const now = new Date();
@@ -78,34 +87,30 @@ export async function getYesterdaysAIUsage(tenantId: string): Promise<AIUsageRow
     for (const account of accounts) {
         try {
             const client = new MonitorClient(credential, account.subscriptionId);
-            const metricnames = "ProcessedPromptTokens,GeneratedTokens,ProcessedInferenceTokens";
-            let metrics = await client.metrics.list(account.id, {
-                timespan,
-                interval: "P1D",
-                metricnames,
-                aggregation: "Total",
-                // Escenario estándar de Azure OpenAI: serie separada por deployment.
-                filter: "ModelDeploymentName eq '*'",
-            });
 
-            // En algunos recursos de Microsoft Foundry no siempre se expone
-            // ModelDeploymentName en todas las series. Si no vuelve ninguna serie,
-            // reintentamos sin filtro y usamos ModelName cuando exista.
-            const hasSeries = (metrics.value || []).some((m) => (m.timeseries || []).length > 0);
-            if (!hasSeries) {
-                metrics = await client.metrics.list(account.id, {
-                    timespan,
-                    interval: "P1D",
-                    metricnames,
-                    aggregation: "Total",
-                });
-            }
+            // Pide cada métrica por separado (ver TOKEN_METRIC_NAMES) para que
+            // una métrica inexistente no tumbe todo el batch con un 400.
+            const fetchMetric = async (metricName: string, withFilter: boolean) => {
+                try {
+                    const opts: any = {
+                        timespan,
+                        interval: "P1D",
+                        metricnames: metricName,
+                        aggregation: "Total",
+                    };
+                    // Escenario estándar de Azure OpenAI: serie por deployment.
+                    if (withFilter) opts.filter = "ModelDeploymentName eq '*'";
+                    return await client.metrics.list(account.id, opts);
+                } catch {
+                    return null;
+                }
+            };
 
             // Se acumula por deployment + día (UTC) para persistir ayer y hoy parcial.
             const byDeploymentDay = new Map<string, { date: string; modelName: string; input: number; output: number; inference: number }>();
-            for (const metric of metrics.value || []) {
-                const metricName = metric.name?.value;
-                for (const ts of metric.timeseries || []) {
+
+            const ingestMetric = (metricName: string | undefined, metricValue: any) => {
+                for (const ts of metricValue?.timeseries || []) {
                     const metadata = ts.metadatavalues || [];
                     const deployment =
                         metadata.find((m: any) => m.name?.value?.toLowerCase() === "modeldeploymentname")?.value ||
@@ -130,8 +135,25 @@ export async function getYesterdaysAIUsage(tenantId: string): Promise<AIUsageRow
                         byDeploymentDay.set(key, entry);
                     }
                 }
+            };
+
+            for (const metricName of TOKEN_METRIC_NAMES) {
+                // Intento 1: segmentado por deployment (filtro ModelDeploymentName).
+                let metrics = await fetchMetric(metricName, true);
+                let hasSeries = (metrics?.value || []).some((m: any) => (m.timeseries || []).length > 0);
+                // Intento 2: sin filtro (algunos recursos Foundry no exponen la
+                // dimensión ModelDeploymentName en todas las series).
+                if (!hasSeries) {
+                    metrics = await fetchMetric(metricName, false);
+                    hasSeries = (metrics?.value || []).some((m: any) => (m.timeseries || []).length > 0);
+                }
+                if (!metrics) continue;
+                for (const metric of metrics.value || []) {
+                    ingestMetric(metric.name?.value, metric);
+                }
             }
 
+            const rowsBefore = rows.length;
             for (const entry of byDeploymentDay.values()) {
                 // Para modelos Foundry no-OpenAI puede venir solo
                 // ProcessedInferenceTokens (sin split prompt/output).
@@ -149,10 +171,14 @@ export async function getYesterdaysAIUsage(tenantId: string): Promise<AIUsageRow
                     billedCost: estimateCost(entry.modelName, inputTokens, outputTokens),
                 });
             }
+            console.log(
+                `[aiUsageCollector] account=${account.name} kind=${account.kind || "?"} deploymentDays=${byDeploymentDay.size} rowsAdded=${rows.length - rowsBefore}`,
+            );
         } catch (err: any) {
             console.warn(`[aiUsageCollector] Error fetching metrics for ${account.id}:`, err?.message);
         }
     }
 
+    console.log(`[aiUsageCollector] tenant=${tenantId} totalRows=${rows.length}`);
     return rows;
 }
