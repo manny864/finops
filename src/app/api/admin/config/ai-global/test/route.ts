@@ -20,9 +20,9 @@ export async function POST(request: NextRequest) {
         const isEnterprise = body.testType === 'enterprise';
         const overrideProvider = isEnterprise ? body.enterpriseProvider : body.provider;
         const overrideApiKey = isEnterprise ? body.enterpriseApiKey : body.apiKey;
-        const overrideEndpoint = isEnterprise ? body.enterpriseEndpoint : undefined;
+        const overrideEndpoint = isEnterprise ? body.enterpriseEndpoint : body.endpoint;
         const overrideResourceName = isEnterprise ? body.enterpriseResourceName : undefined;
-        const overrideDeployment = isEnterprise ? body.enterpriseDeployment : undefined;
+        const overrideDeployment = isEnterprise ? body.enterpriseDeployment : body.deployment;
 
         const overrideConfig = overrideProvider && overrideApiKey 
             ? {

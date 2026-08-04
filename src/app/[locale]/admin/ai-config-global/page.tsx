@@ -27,6 +27,8 @@ export default function AiConfigGlobalPage() {
     const [provider, setProvider] = useState("google");
     const [hasApiKey, setHasApiKey] = useState(false);
     const [apiKeyInput, setApiKeyInput] = useState("");
+    const [endpoint, setEndpoint] = useState("");
+    const [deployment, setDeployment] = useState("gpt-4o");
     
     const [enterpriseProvider, setEnterpriseProvider] = useState("azure_openai");
     const [hasEnterpriseApiKey, setHasEnterpriseApiKey] = useState(false);
@@ -56,6 +58,8 @@ export default function AiConfigGlobalPage() {
             if (!json.success) throw new Error(json.error || t("errors.loadFailed"));
             setProvider(json.provider);
             setHasApiKey(json.hasApiKey);
+            setEndpoint(json.endpoint || "");
+            setDeployment(json.deployment || "gpt-4o");
             setEnterpriseProvider(json.enterpriseProvider || "azure_openai");
             setHasEnterpriseApiKey(json.hasEnterpriseApiKey);
             setEnterpriseEndpoint(json.enterpriseEndpoint || "");
@@ -85,6 +89,8 @@ export default function AiConfigGlobalPage() {
                 body: JSON.stringify({
                     provider,
                     apiKey: apiKeyInput || undefined,
+                    endpoint,
+                    deployment,
                     enterpriseProvider,
                     enterpriseApiKey: enterpriseApiKeyInput || undefined,
                     enterpriseEndpoint,
@@ -172,6 +178,8 @@ export default function AiConfigGlobalPage() {
                     testType: type,
                     provider,
                     apiKey: apiKeyInput || undefined,
+                    endpoint,
+                    deployment,
                     enterpriseProvider,
                     enterpriseApiKey: enterpriseApiKeyInput || undefined,
                     enterpriseEndpoint,
@@ -237,6 +245,14 @@ export default function AiConfigGlobalPage() {
                     </div>
 
                     <div className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-4 ${!aiEnabled ? "opacity-50" : ""}`}>
+                        <div className="border-b border-slate-200 dark:border-slate-800 pb-4 mb-4">
+                            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                                <Sparkles className="w-4 h-4 text-brand-deep" />
+                                {t("standard.sectionTitle")}
+                            </h3>
+                            <p className="text-xs text-slate-500 mt-1">{t("standard.sectionDescription")}</p>
+                        </div>
+
                         <div>
                             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">{t("provider.label")}</label>
                             <select
@@ -273,7 +289,34 @@ export default function AiConfigGlobalPage() {
                             </p>
                         </div>
 
-
+                        {provider === "azure_openai" && (
+                            <>
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                                        {t("enterprise.endpointLabel")}
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={endpoint}
+                                        onChange={(e) => setEndpoint(e.target.value)}
+                                        placeholder={t("enterprise.endpointPlaceholder")}
+                                        className="w-full border border-slate-300 dark:border-slate-700 dark:bg-slate-800 rounded-lg px-3 py-2 text-sm font-mono"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                                        {t("enterprise.deploymentLabel")}
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={deployment}
+                                        onChange={(e) => setDeployment(e.target.value)}
+                                        placeholder={t("enterprise.deploymentPlaceholder")}
+                                        className="w-full border border-slate-300 dark:border-slate-700 dark:bg-slate-800 rounded-lg px-3 py-2 text-sm font-mono"
+                                    />
+                                </div>
+                            </>
+                        )}
 
                         {testResult && (
                             <div className={`flex items-start gap-2 text-sm px-3 py-2 rounded-lg border ${testResult.ok

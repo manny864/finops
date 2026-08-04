@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
         await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
 
         const [rows] = await pool.query(
-            `SELECT ai_provider, ai_api_key, ai_enabled, ai_anomaly_sensitivity,
+            `SELECT ai_provider, ai_api_key, ai_endpoint, ai_deployment, ai_enabled, ai_anomaly_sensitivity,
                     ai_share_resource_names, ai_share_tags
              FROM Tenants WHERE tenant_id = ? LIMIT 1`,
             [tenantId]
@@ -31,6 +31,8 @@ export async function GET(request: NextRequest) {
             aiProvider: row.ai_provider || 'system',
             // La API key nunca se devuelve al cliente, solo si hay una guardada.
             hasApiKey: Boolean(row.ai_api_key),
+            aiEndpoint: row.ai_endpoint || '',
+            aiDeployment: row.ai_deployment || 'gpt-4o',
             aiEnabled: Boolean(row.ai_enabled ?? true),
             anomalySensitivity: row.ai_anomaly_sensitivity || 'medium',
             shareResourceNames: Boolean(row.ai_share_resource_names ?? true),
@@ -50,6 +52,8 @@ export async function PATCH(request: NextRequest) {
             tenantId,
             aiProvider,
             aiApiKey,
+            aiEndpoint,
+            aiDeployment,
             aiEnabled,
             anomalySensitivity,
             shareResourceNames,
@@ -95,6 +99,16 @@ export async function PATCH(request: NextRequest) {
         if (Object.prototype.hasOwnProperty.call(body, 'aiApiKey')) {
             setClauses.push('ai_api_key = ?');
             params.push(aiApiKey ? encryptSecret(aiApiKey) : null);
+        }
+
+        // Azure IA BYOK: endpoint URL + deployment (modelo).
+        if (Object.prototype.hasOwnProperty.call(body, 'aiEndpoint')) {
+            setClauses.push('ai_endpoint = ?');
+            params.push(typeof aiEndpoint === 'string' && aiEndpoint.trim() ? aiEndpoint.trim() : null);
+        }
+        if (Object.prototype.hasOwnProperty.call(body, 'aiDeployment')) {
+            setClauses.push('ai_deployment = ?');
+            params.push(typeof aiDeployment === 'string' && aiDeployment.trim() ? aiDeployment.trim() : null);
         }
 
         params.push(tenantId);

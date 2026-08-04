@@ -23,11 +23,16 @@ export async function isAiGloballyEnabled(): Promise<boolean> {
 export async function getAIConfig(tenantId?: string, forceEnterpriseTier?: boolean) {
     let tenantProvider = null;
     let tenantApiKey = null;
+    let tenantAzureEndpoint = '';
+    let tenantAzureDeployment = '';
 
     let tenantTier = 'Essential';
 
     if (tenantId) {
-        const [tenantRows] = await pool.query<RowDataPacket[]>('SELECT tier, ai_provider, ai_api_key FROM Tenants WHERE tenant_id = ? LIMIT 1', [tenantId]);
+        const [tenantRows] = await pool.query<RowDataPacket[]>(
+            'SELECT tier, ai_provider, ai_api_key, ai_endpoint, ai_deployment FROM Tenants WHERE tenant_id = ? LIMIT 1',
+            [tenantId]
+        );
         if (tenantRows.length > 0) {
             tenantTier = tenantRows[0].tier || 'Essential';
             if (tenantRows[0].ai_provider && tenantRows[0].ai_provider !== 'system') {
@@ -35,12 +40,14 @@ export async function getAIConfig(tenantId?: string, forceEnterpriseTier?: boole
                 // Descifra la key almacenada (IA-2). decryptSecret devuelve el valor
                 // tal cual si es plaintext legacy (sin prefijo enc:v1:).
                 tenantApiKey = decryptSecret(tenantRows[0].ai_api_key);
+                tenantAzureEndpoint = (tenantRows[0].ai_endpoint as string) || '';
+                tenantAzureDeployment = (tenantRows[0].ai_deployment as string) || '';
             }
         }
     }
 
     const [rows] = await pool.query<RowDataPacket[]>(
-        'SELECT setting_key, setting_value FROM GlobalSettings WHERE setting_key IN ("ai_provider", "ai_api_key", "enterprise_ai_provider", "enterprise_ai_api_key", "enterprise_ai_endpoint", "enterprise_ai_resource_name", "enterprise_ai_deployment")'
+        'SELECT setting_key, setting_value FROM GlobalSettings WHERE setting_key IN ("ai_provider", "ai_api_key", "ai_endpoint", "ai_deployment", "enterprise_ai_provider", "enterprise_ai_api_key", "enterprise_ai_endpoint", "enterprise_ai_resource_name", "enterprise_ai_deployment")'
     );
     const config: Record<string, string> = {};
     for (const row of rows) {
@@ -53,22 +60,26 @@ export async function getAIConfig(tenantId?: string, forceEnterpriseTier?: boole
     const isEnterprise = tenantTier === 'Enterprise' || forceEnterpriseTier;
     const defaultProvider = isEnterprise ? (config['enterprise_ai_provider'] || config['ai_provider'] || 'azure_openai') : (config['ai_provider'] || 'google');
     const defaultApiKey = isEnterprise ? (enterpriseApiKey || globalApiKey || process.env.AZURE_OPENAI_API_KEY || '') : (globalApiKey || process.env.GEMINI_API_KEY || '');
+    // Azure IA (no-Enterprise y Enterprise) usa API key + Endpoint URL + Deployment
+    // (modelo). Los settings estándar viven en ai_endpoint / ai_deployment.
     const defaultAzureEndpoint = isEnterprise
         ? (config['enterprise_ai_endpoint'] || process.env.AZURE_OPENAI_ENDPOINT || '')
-        : (process.env.AZURE_OPENAI_ENDPOINT || '');
+        : (config['ai_endpoint'] || process.env.AZURE_OPENAI_ENDPOINT || '');
     const defaultAzureResourceName = isEnterprise
         ? (config['enterprise_ai_resource_name'] || process.env.AZURE_OPENAI_RESOURCE_NAME || '')
         : (process.env.AZURE_OPENAI_RESOURCE_NAME || '');
     const defaultAzureDeployment = isEnterprise
         ? (config['enterprise_ai_deployment'] || process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o')
-        : (process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o');
+        : (config['ai_deployment'] || process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o');
 
     return {
         provider: tenantProvider || defaultProvider,
         apiKey: tenantApiKey || defaultApiKey,
-        azureOpenAIEndpoint: defaultAzureEndpoint,
+        // BYOK Azure: el tenant puede traer su propio endpoint + deployment;
+        // si no, cae al fallback global / Enterprise / env.
+        azureOpenAIEndpoint: tenantAzureEndpoint || defaultAzureEndpoint,
         azureOpenAIResourceName: defaultAzureResourceName,
-        azureOpenAIDeployment: defaultAzureDeployment,
+        azureOpenAIDeployment: tenantAzureDeployment || defaultAzureDeployment,
         // FinOps: distingue quién paga la llamada — 'byok' es gasto del tenant
         // (key propia), 'platform' es gasto que absorbe la plataforma (key
         // global de fallback). Ver PlatformAiUsage / insertPlatformAiUsage.

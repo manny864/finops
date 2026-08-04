@@ -18,6 +18,8 @@ export default function AiConfigPage() {
     const [apiKey, setApiKey] = useState('');
     const [apiKeyDirty, setApiKeyDirty] = useState(false);
     const [hasApiKey, setHasApiKey] = useState(false);
+    const [endpoint, setEndpoint] = useState('');
+    const [deployment, setDeployment] = useState('gpt-4o');
     const [aiEnabled, setAiEnabled] = useState(true);
     const [sensitivity, setSensitivity] = useState<Sensitivity>('medium');
     const [shareResourceNames, setShareResourceNames] = useState(true);
@@ -48,6 +50,8 @@ export default function AiConfigPage() {
                     const data = await res.json();
                     setProvider(data.aiProvider || 'system');
                     setHasApiKey(Boolean(data.hasApiKey));
+                    setEndpoint(data.aiEndpoint || '');
+                    setDeployment(data.aiDeployment || 'gpt-4o');
                     setAiEnabled(data.aiEnabled ?? true);
                     setSensitivity((data.anomalySensitivity as Sensitivity) || 'medium');
                     setShareResourceNames(data.shareResourceNames ?? true);
@@ -91,6 +95,16 @@ export default function AiConfigPage() {
                 body.aiApiKey = apiKey;
             }
 
+            if (provider === 'azure_openai') {
+                body.aiEndpoint = endpoint;
+                body.aiDeployment = deployment;
+            } else {
+                // Limpiar endpoint/deployment si deja de usarse Azure IA
+                // (system u otro proveedor).
+                body.aiEndpoint = null;
+                body.aiDeployment = null;
+            }
+
             const res = await fetch('/api/admin/config/ai', {
                 method: 'PATCH',
                 headers: {
@@ -104,6 +118,8 @@ export default function AiConfigPage() {
                 toast.success(t('toasts.saveSuccess'));
                 if (provider === 'system') {
                     setHasApiKey(false);
+                    setEndpoint('');
+                    setDeployment('gpt-4o');
                 } else if (apiKeyDirty) {
                     setHasApiKey(Boolean(apiKey));
                 }
@@ -140,6 +156,8 @@ export default function AiConfigPage() {
                     tenantId: selectedTenant.id,
                     aiProvider: 'system',
                     aiApiKey: null,
+                    aiEndpoint: null,
+                    aiDeployment: null,
                     aiEnabled,
                     anomalySensitivity: sensitivity,
                     shareResourceNames,
@@ -153,6 +171,8 @@ export default function AiConfigPage() {
                 setHasApiKey(false);
                 setApiKey('');
                 setApiKeyDirty(false);
+                setEndpoint('');
+                setDeployment('gpt-4o');
             } else {
                 const data = await res.json();
                 toast.error(data.error || t('errors.deleteFailed'));
@@ -181,6 +201,8 @@ export default function AiConfigPage() {
                     tenantId: selectedTenant.id,
                     provider,
                     apiKey: apiKeyDirty ? apiKey : undefined,
+                    endpoint: provider === 'azure_openai' ? endpoint : undefined,
+                    deployment: provider === 'azure_openai' ? deployment : undefined,
                 })
             });
             const json = await res.json();
@@ -193,7 +215,14 @@ export default function AiConfigPage() {
         setTesting(false);
     };
 
-    if (userRole !== 'Admin' && systemRole !== 'SUPERADMIN') {
+    // Owner y Admin pueden configurar IA del tenant (API: requireTenantRole
+    // Admin|Owner). SuperAdmin también vía systemRole.
+    const canConfigureAi =
+        userRole === 'Admin' ||
+        userRole === 'Owner' ||
+        systemRole === 'SUPERADMIN';
+
+    if (!canConfigureAi) {
         return (
             <div className="flex flex-col items-center justify-center h-96">
                 <Lock className="w-12 h-12 text-gray-400 mb-4" />
@@ -293,6 +322,35 @@ export default function AiConfigPage() {
                                     {hasApiKey && !apiKeyDirty && (
                                         <p className="text-xs text-green-600 dark:text-green-400 mt-1">{t('provider.apiKeySavedNotice')}</p>
                                     )}
+                                </div>
+                            )}
+
+                            {provider === 'azure_openai' && (
+                                <div className="space-y-4 mb-4 max-w-md">
+                                    <div className="flex flex-col">
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                            {t('provider.endpointLabel')}
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={endpoint}
+                                            onChange={(e) => setEndpoint(e.target.value)}
+                                            placeholder={t('provider.endpointPlaceholder')}
+                                            className="w-full px-4 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-md focus:ring-[#0054A6] focus:border-[#0054A6] sm:text-sm font-mono"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                            {t('provider.deploymentLabel')}
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={deployment}
+                                            onChange={(e) => setDeployment(e.target.value)}
+                                            placeholder={t('provider.deploymentPlaceholder')}
+                                            className="w-full px-4 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-md focus:ring-[#0054A6] focus:border-[#0054A6] sm:text-sm font-mono"
+                                        />
+                                    </div>
                                 </div>
                             )}
 
