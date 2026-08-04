@@ -65,14 +65,20 @@ export async function getYesterdaysAIUsage(tenantId: string): Promise<AIUsageRow
     if (subs.length === 0) return [];
 
     const argClient = new ResourceGraphClient(credential);
+    // Busca cuentas que puedan emitir métricas de token:
+    // 1. microsoft.cognitiveservices/accounts (Azure OpenAI, Azure AI Services)
+    // 2. microsoft.ai/* (tipos Foundry-specific potenciales)
+    // El filtro es permisivo porque el downstream (Azure Monitor Metrics) rechazará
+    // cualquier recurso que no tenga las métricas requeridas de todas formas.
     const query = `
         Resources
-        | where type =~ 'microsoft.cognitiveservices/accounts'
-        | project id, name, resourceGroup, subscriptionId, kind
+        | where type =~ 'microsoft.cognitiveservices/accounts' or type =~ 'microsoft.ai.*'
+        | project id, name, resourceGroup, subscriptionId, kind, type
     `;
     const resp = await argClient.resources({ query, subscriptions: subs });
     const accounts = (resp.data as any[]) || [];
-    console.log(`[aiUsageCollector] tenant=${tenantId} subs=${subs.length} cognitiveAccounts=${accounts.length}`);
+    const resourceTypes = Array.from(new Set((accounts as any[]).map((a: any) => a.type))).join(', ');
+    console.log(`[aiUsageCollector] tenant=${tenantId} subs=${subs.length} aiResources=${accounts.length} types=[${resourceTypes}]`);
     if (accounts.length === 0) return [];
 
     const now = new Date();
