@@ -27,8 +27,16 @@ export async function POST(request: NextRequest) {
 
         const overrideProvider = body.provider;
         const overrideApiKey = body.apiKey;
-        const overrideConfig = overrideProvider && overrideApiKey 
-            ? { provider: overrideProvider, apiKey: overrideApiKey, source: 'byok' as const } 
+        const overrideEndpoint = typeof body.endpoint === "string" ? body.endpoint.trim() : undefined;
+        const overrideDeployment = typeof body.deployment === "string" ? body.deployment.trim() : undefined;
+        const overrideConfig = overrideProvider && overrideApiKey
+            ? {
+                provider: overrideProvider,
+                apiKey: overrideApiKey,
+                source: 'byok' as const,
+                azureOpenAIEndpoint: overrideEndpoint,
+                azureOpenAIDeployment: overrideDeployment,
+            }
             : undefined;
 
         const { model, modelName, config } = await AIProviderFactory.getGeminiModel(tenantId, false, overrideConfig);

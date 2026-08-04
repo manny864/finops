@@ -318,7 +318,7 @@ export async function GET(request: NextRequest) {
 
     await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
 
-    const cacheKey = `dashboard:summary:v6:${tenantId}:${subscriptionId.toLowerCase()}:${histogramMonths}m`;
+    const cacheKey = `dashboard:summary:v7:${tenantId}:${subscriptionId.toLowerCase()}:${histogramMonths}m`;
 
     // Bust cache on explicit retry (bust=1) so re-configured tenants see fresh data immediately.
     const bust = searchParams.get("bust") === "1";
@@ -410,19 +410,29 @@ export async function GET(request: NextRequest) {
 
         // Antes: `Number(((totalSavings / 100) * 15).toFixed(1))` — una fórmula
         // inventada sobre el ahorro en dólares, sin relación con emisiones reales,
-        // duplicada además en el cliente (ExecutiveSummaryBoard.tsx). El label de
-        // la tarjeta dice "CO2 evitado", así que corresponde el `avoided` real de
-        // Green FinOps: kgCO2e que se dejarían de emitir si se limpian los discos
-        // zombie detectados por Resource Graph. Cacheado (getCachedCarbonFootprint,
-        // 30 min) y compartido con /api/intelligence/sustainability — no duplica
-        // consultas ARG entre las dos pantallas.
+        // duplicada además en el cliente (ExecutiveSummaryBoard.tsx). Ahora se usa
+        // Green FinOps (Resource Graph): se prioriza CO2 evitado por limpieza de
+        // discos zombie y, si ese valor da 0, se usa la huella total del tenant
+        // (VMs + storage) para no mostrar falsos "0" cuando sí hay consumo real.
         const carbonFootprint = await getCachedCarbonFootprint(tenantId, subscriptionId).catch((e: any) => {
             console.warn('[Summary] getCachedCarbonFootprint failed (degraded):', e?.message);
             return null;
         });
-        const environmentalImpact = carbonFootprint && !carbonFootprint.degraded
-            ? carbonFootprint.avoided
-            : null;
+        let environmentalImpact: number | null = null;
+        let environmentalImpactSource: 'avoided' | 'footprint' | 'none' = 'none';
+        if (carbonFootprint && !carbonFootprint.degraded) {
+          const avoided = Number(carbonFootprint.avoided || 0);
+          const footprint = Number(carbonFootprint.footprint || 0);
+          if (avoided > 0) {
+            environmentalImpact = avoided;
+            environmentalImpactSource = 'avoided';
+          } else if (footprint > 0) {
+            environmentalImpact = footprint;
+            environmentalImpactSource = 'footprint';
+          } else {
+            environmentalImpact = 0;
+          }
+        }
 
         // actualCost: fuente primaria — forecast data (que incluye live Azure MTD)
         // Si forecast vino vacío/falló, fallback a CostSnapshots DB (MTD).
@@ -611,6 +621,7 @@ export async function GET(request: NextRequest) {
           zombieCount,
           totalSavings,
           environmentalImpact,
+          environmentalImpactSource,
           histogram,
           dashboardData: mappedData,
           auditResults,

@@ -31,6 +31,7 @@ const ResponsiveGridLayout = WidthProvider(Responsive);
 
 const LAYOUT_STORAGE_KEY = "finops_whiteboard_layout_v1";
 const HIDDEN_CARDS_STORAGE_KEY = "finops_whiteboard_hidden_cards_v1";
+const CARDS_PANEL_VISIBLE_STORAGE_KEY = "finops_whiteboard_cards_panel_visible_v1";
 const GRID_COLS = { lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 };
 
 const LG_ITEMS = [
@@ -252,6 +253,14 @@ export default function ExecutiveSummaryBoard() {
                 if (Array.isArray(parsedHidden)) setHiddenCards(parsedHidden);
             } catch {}
         }
+
+        const panelVisibleRaw = getCookie(CARDS_PANEL_VISIBLE_STORAGE_KEY) || localStorage.getItem(CARDS_PANEL_VISIBLE_STORAGE_KEY);
+        if (panelVisibleRaw) {
+            try {
+                const parsedVisible = JSON.parse(panelVisibleRaw);
+                if (typeof parsedVisible === "boolean") setCardsPanelVisible(parsedVisible);
+            } catch {}
+        }
     }, []);
 
     const persistTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -342,6 +351,16 @@ export default function ExecutiveSummaryBoard() {
             setCookie(HIDDEN_CARDS_STORAGE_KEY, JSON.stringify([]));
             localStorage.setItem(HIDDEN_CARDS_STORAGE_KEY, JSON.stringify([]));
             return [];
+        });
+    };
+
+    const toggleCardsPanel = () => {
+        setCardsPanelVisible((prev) => {
+            const next = !prev;
+            const serialized = JSON.stringify(next);
+            setCookie(CARDS_PANEL_VISIBLE_STORAGE_KEY, serialized);
+            localStorage.setItem(CARDS_PANEL_VISIBLE_STORAGE_KEY, serialized);
+            return next;
         });
     };
 
@@ -458,7 +477,11 @@ export default function ExecutiveSummaryBoard() {
                     icon={Leaf}
                     label={t("kpi_environmental_impact")}
                     value={summaryLoading ? "…" : summaryData?.environmentalImpact == null ? "—" : `${summaryData.environmentalImpact} kg`}
-                    sub={t("kpi_environmental_impact_sub")}
+                    sub={
+                        summaryData?.environmentalImpactSource === "footprint"
+                            ? t("kpi_environmental_impact_sub_footprint")
+                            : t("kpi_environmental_impact_sub")
+                    }
                     tone="bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400"
                 />
             </div>
@@ -468,8 +491,8 @@ export default function ExecutiveSummaryBoard() {
             <div className="flex items-center justify-between gap-4 flex-wrap pt-2">
                 <p className="text-[11px] text-slate-400">{t("drag_resize_hint")}</p>
                 <button
-                    onClick={() => setCardsPanelVisible((prev) => !prev)}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:border-brand hover:text-brand transition-all shadow-xs"
+                    onClick={toggleCardsPanel}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:border-brand hover:text-brand transition-all shadow-xs sticky top-24 z-20"
                 >
                     <LayoutGrid className="w-3.5 h-3.5" />
                     {cardsPanelVisible ? "Ocultar panel de tarjetas" : "Mostrar panel de tarjetas"} {hiddenCards.length > 0 && `(${hiddenCards.length} ocultas)`}
@@ -767,7 +790,8 @@ export default function ExecutiveSummaryBoard() {
             <aside className="w-full 2xl:w-[340px] 2xl:sticky 2xl:top-24">
                 <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm overflow-hidden">
                     <div className="p-5 border-b border-gray-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
-                        <div className="flex items-center gap-2.5">
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2.5">
                             <div className="w-8 h-8 rounded-lg bg-brand-deep/10 text-brand-deep flex items-center justify-center">
                                 <LayoutGrid className="w-4 h-4" />
                             </div>
@@ -775,6 +799,14 @@ export default function ExecutiveSummaryBoard() {
                                 <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm">Personalizar Tarjetas de la Pizarra</h3>
                                 <p className="text-xs text-slate-500">Gestioná la visibilidad de los paneles en tu Whiteboard</p>
                             </div>
+                            </div>
+                            <button
+                                onClick={toggleCardsPanel}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-brand hover:text-brand transition-all shadow-xs sticky top-2 z-20"
+                            >
+                                <EyeOff className="w-3.5 h-3.5" />
+                                Ocultar
+                            </button>
                         </div>
                     </div>
 

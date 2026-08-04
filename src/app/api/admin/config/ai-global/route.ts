@@ -26,6 +26,8 @@ const VALID_SENSITIVITIES = new Set(["low", "medium", "high"]);
 const GLOBAL_KEYS = [
     "ai_provider",
     "ai_api_key",
+    "ai_endpoint",
+    "ai_deployment",
     "enterprise_ai_provider",
     "enterprise_ai_api_key",
     "enterprise_ai_endpoint",
@@ -53,6 +55,8 @@ export async function GET(request: NextRequest) {
             success: true,
             provider: map.ai_provider || "google",
             hasApiKey: Boolean(map.ai_api_key),
+            endpoint: map.ai_endpoint || process.env.AZURE_OPENAI_ENDPOINT || "",
+            deployment: map.ai_deployment || process.env.AZURE_OPENAI_DEPLOYMENT || "gpt-4o",
             enterpriseProvider: map.enterprise_ai_provider || "azure_openai",
             hasEnterpriseApiKey: Boolean(map.enterprise_ai_api_key),
             enterpriseEndpoint: map.enterprise_ai_endpoint || process.env.AZURE_OPENAI_ENDPOINT || "",
@@ -86,6 +90,8 @@ export async function PATCH(request: NextRequest) {
         const body = await request.json().catch(() => ({}));
         const provider = String(body.provider || "google");
         const apiKey = typeof body.apiKey === "string" ? body.apiKey.trim() : "";
+        const endpoint = typeof body.endpoint === "string" ? body.endpoint.trim() : undefined;
+        const deployment = typeof body.deployment === "string" ? body.deployment.trim() : undefined;
         const enterpriseProvider = body.enterpriseProvider ? String(body.enterpriseProvider) : undefined;
         const enterpriseApiKey = typeof body.enterpriseApiKey === "string" ? body.enterpriseApiKey.trim() : "";
         const enterpriseEndpoint =
@@ -114,6 +120,23 @@ export async function PATCH(request: NextRequest) {
             await upsertGlobalSetting("ai_api_key", encryptSecret(apiKey));
         } else if (body.apiKey === null) {
             await pool.query(`DELETE FROM GlobalSettings WHERE setting_key = 'ai_api_key'`);
+        }
+
+        // Endpoint URL + deployment (modelo) para Azure IA en planes no-Enterprise
+        // — misma forma que enterprise_ai_endpoint / enterprise_ai_deployment.
+        if (endpoint !== undefined) {
+            if (endpoint) {
+                await upsertGlobalSetting("ai_endpoint", endpoint);
+            } else {
+                await pool.query(`DELETE FROM GlobalSettings WHERE setting_key = 'ai_endpoint'`);
+            }
+        }
+        if (deployment !== undefined) {
+            if (deployment) {
+                await upsertGlobalSetting("ai_deployment", deployment);
+            } else {
+                await pool.query(`DELETE FROM GlobalSettings WHERE setting_key = 'ai_deployment'`);
+            }
         }
 
         if (enterpriseProvider) {
