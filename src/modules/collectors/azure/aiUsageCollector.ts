@@ -75,44 +75,65 @@ export async function getYesterdaysAIUsage(tenantId: string): Promise<AIUsageRow
     for (const account of accounts) {
         try {
             const client = new MonitorClient(credential, account.subscriptionId);
-            const metrics = await client.metrics.list(account.id, {
+            const metricnames = "ProcessedPromptTokens,GeneratedTokens,ProcessedInferenceTokens";
+            let metrics = await client.metrics.list(account.id, {
                 timespan,
                 interval: "P1D",
-                metricnames: "ProcessedPromptTokens,GeneratedTokens",
+                metricnames,
                 aggregation: "Total",
+                // Escenario estándar de Azure OpenAI: serie separada por deployment.
                 filter: "ModelDeploymentName eq '*'",
             });
 
+            // En algunos recursos de Microsoft Foundry no siempre se expone
+            // ModelDeploymentName en todas las series. Si no vuelve ninguna serie,
+            // reintentamos sin filtro y usamos ModelName cuando exista.
+            const hasSeries = (metrics.value || []).some((m) => (m.timeseries || []).length > 0);
+            if (!hasSeries) {
+                metrics = await client.metrics.list(account.id, {
+                    timespan,
+                    interval: "P1D",
+                    metricnames,
+                    aggregation: "Total",
+                });
+            }
+
             // Cada metric (Prompt/Generated) trae una timeserie por deployment
             // (dimensión ModelDeploymentName) — se acumulan juntas por nombre.
-            const byDeployment = new Map<string, { input: number; output: number }>();
+            const byDeployment = new Map<string, { input: number; output: number; inference: number }>();
             for (const metric of metrics.value || []) {
                 const metricName = metric.name?.value;
                 for (const ts of metric.timeseries || []) {
+                    const metadata = ts.metadatavalues || [];
                     const deployment =
-                        ts.metadatavalues?.find(
-                            (m: any) => m.name?.value?.toLowerCase() === "modeldeploymentname"
-                        )?.value || "unknown";
-                    const entry = byDeployment.get(deployment) || { input: 0, output: 0 };
+                        metadata.find((m: any) => m.name?.value?.toLowerCase() === "modeldeploymentname")?.value ||
+                        metadata.find((m: any) => m.name?.value?.toLowerCase() === "modelname")?.value ||
+                        "unknown";
+                    const entry = byDeployment.get(deployment) || { input: 0, output: 0, inference: 0 };
                     for (const point of ts.data || []) {
                         const total = point.total || 0;
                         if (metricName === "ProcessedPromptTokens") entry.input += total;
-                        else if (metricName === "GeneratedTokens") entry.output += total;
+                        else if (metricName === "GeneratedTokens" || metricName === "GeneratedCompletionTokens") entry.output += total;
+                        else if (metricName === "ProcessedInferenceTokens") entry.inference += total;
                     }
                     byDeployment.set(deployment, entry);
                 }
             }
 
             for (const [modelName, tokens] of byDeployment.entries()) {
-                if (tokens.input === 0 && tokens.output === 0) continue;
+                // Para modelos Foundry no-OpenAI puede venir solo
+                // ProcessedInferenceTokens (sin split prompt/output).
+                const inputTokens = tokens.input > 0 || tokens.output > 0 ? tokens.input : tokens.inference;
+                const outputTokens = tokens.output;
+                if (inputTokens === 0 && outputTokens === 0) continue;
                 rows.push({
                     subscriptionId: account.subscriptionId,
                     resourceName: account.name,
                     resourceGroup: account.resourceGroup,
                     modelName,
-                    inputTokens: Math.round(tokens.input),
-                    outputTokens: Math.round(tokens.output),
-                    billedCost: estimateCost(modelName, tokens.input, tokens.output),
+                    inputTokens: Math.round(inputTokens),
+                    outputTokens: Math.round(outputTokens),
+                    billedCost: estimateCost(modelName, inputTokens, outputTokens),
                 });
             }
         } catch (err: any) {

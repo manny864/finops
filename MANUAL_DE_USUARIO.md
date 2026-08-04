@@ -54,6 +54,8 @@ El script de onboarding asigna los roles RBAC al Service Principal a nivel **sus
 
 > **Importante:** Los 4 roles de Essential son el mínimo absoluto para que la página **Consumo Real** muestre datos. Si falta `Cost Management Reader` o `Billing Reader`, Azure devuelve 0 filas silenciosamente.
 
+> **AI Cost Analytics (Microsoft Foundry / Azure OpenAI):** no requiere rol adicional; usa los mismos 4 roles base de Essential.
+
 > **Suscripciones EA/MCA:** Las suscripciones bajo Enterprise Agreement o Microsoft Customer Agreement requieren que el `Billing Admin` asigne adicionalmente `Enrollment Reader` o `Billing Account Reader` al SP en el scope de billing account. El script no puede hacerlo automáticamente — debe coordinarse con el cliente.
 
 ### 3.2. Verificación automática de permisos (post-onboarding)
@@ -110,7 +112,7 @@ El sistema está dividido en cinco (5) pilares estratégicos en el menú lateral
 - **Storage Efficiency (Business):** análisis de cuentas de Storage con simulación de ahorro al mover blobs entre Hot/Cool/Archive (`/intelligence/storage-efficiency`).
 - **Compute $/Core (Pro):** desglose del costo por núcleo vCPU para comparar familias de VM (`/intelligence/compute-efficiency`).
 - **Alertas Self-Service (Pro):** creación/edición de reglas de alerta de presupuesto y anomalía sin intervención de soporte (`/intelligence/alerts`).
-- **AI Analytics (Enterprise):** consumo de Azure OpenAI (tokens, modelos, $/1k tokens) en `/intelligence/ai-analytics`.
+- **AI Analytics (Enterprise):** consumo de Microsoft Foundry / Azure OpenAI (tokens, modelos, $/1k tokens) en `/intelligence/ai-analytics`.
 - **MACC Tracker (Enterprise):** seguimiento del consumo de compromiso anual EA/MCA en `/intelligence/macc`.
 - **Descuentos por Compromiso — Reservas Activas:** en `/intelligence/commitments`, además de la cobertura y utilización global, la tabla **Reservas Activas** replica el blade *Reservations* de Azure y muestra por reserva: **Nombre, Estado, Expiración, Alcance, Tipo, Nombre del producto, Región, Renovación, Cantidad**, y la **utilización del último día y de los últimos 7 días**.
   - Haz clic en el botón de **Renovación** para abrir el modal que permite **activar o deshabilitar la auto-renovación** de esa reserva (el cambio se aplica directamente en Azure; requiere rol **Admin/Owner** del tenant y permisos *Reservations Contributor/Owner* en Azure).

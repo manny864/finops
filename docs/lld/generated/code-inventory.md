@@ -18,10 +18,10 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/powerScheduleService.ts` | 321 | `PowerScheduleAction`, `PowerScheduleInput`, `PowerScheduleRow`, `upsertPowerSchedule`, `listPowerSchedules`, `deletePowerSchedule`, … |
 | `src/services/haService.ts` | 259 | `HASeverity`, `HAItem`, `HAEvalResult`, `evaluateHALive` |
 | `src/services/budgetService.ts` | 241 | `getNativeBudgets`, `getBudgetConsumption`, `getBudgetCostCenterMonthlyHistory`, `createSubscriptionBudget` |
+| `src/services/aiService.ts` | 207 | `isAiGloballyEnabled`, `getAIConfig`, `generateFinOpsReport` |
 | `src/services/tagInheritanceService.ts` | 186 | `MissingTagsRow`, `ApplyOp`, `ApplyResult`, `analyzeMissingTags`, `applyTagInheritance` |
 | `src/services/governanceReportingService.ts` | 184 | `PolicyComplianceDetail`, `GovernanceReport`, `getGovernanceReport` |
 | `src/services/remediationService.ts` | 179 | `deleteResource`, `deallocateVirtualMachine`, `startVirtualMachine`, `restartVirtualMachine`, `downgradeVirtualMachine` |
-| `src/services/aiService.ts` | 173 | `isAiGloballyEnabled`, `getAIConfig`, `generateFinOpsReport` |
 | `src/services/costGroupDetailMetricsService.ts` | 168 | `getCurrentFY`, `getMonthlyCostTrend`, `getAnomalyCount`, `getPeriodComparison`, `getTopBreakdown` |
 | `src/services/snapshotService.ts` | 167 | `SNAPSHOT_RETENTION_DAYS`, `SNAPSHOT_DOMAINS`, `SnapshotDomain`, `SnapshotPoint`, `recordDailySnapshot`, `recordDailySnapshotAsync`, … |
 | `src/services/credentialExpiryService.ts` | 159 | `CredItem`, `severityFor`, `getGraphTokenForTenant`, `fetchAllApplications`, `extractExpiringCreds`, `getExpiringCredentials`, … |
@@ -49,8 +49,8 @@ Integración con SDKs de Azure (`collectors/`), motores agnósticos (`core/`) y 
 | Archivo | Líneas | Exports principales |
 |---|---|---|
 | `src/modules/collectors/azure/containerAppsCostService.ts` | 392 | `ContainerAppCostRow`, `ContainerRegistryCostRow`, `ContainerEnvironmentCostRow`, `ContainerAppsCostResult`, `getContainerAppsCost` |
+| `src/modules/core/aiProvider.ts` | 373 | `invalidateAIConfigCache`, `redactForDataSharing`, `AIProviderFactory`, `getAssessment`, `focusCostEntrySchema`, `normalizeBillingCsv` |
 | `src/modules/collectors/azure/resourceInventoryService.ts` | 368 | `InventoryResourceRow`, `SearchResourcesFilters`, `searchResources`, `getResourceCostsById`, `getInventoryDistribution`, `getCreatedByAggregation`, … |
-| `src/modules/core/aiProvider.ts` | 354 | `invalidateAIConfigCache`, `redactForDataSharing`, `AIProviderFactory`, `getAssessment`, `focusCostEntrySchema`, `normalizeBillingCsv` |
 | `src/modules/collectors/azure/billing/historicalBillingService.ts` | 353 | `getHistoricalDailyCosts`, `getHistoricalDetailedCosts` |
 | `src/modules/collectors/azure/logAnalyticsCostService.ts` | 342 | `LogAnalyticsRecommendation`, `LogAnalyticsWorkspaceRow`, `LogAnalyticsCostResult`, `getLogAnalyticsCost` |
 | `src/modules/collectors/azure/billing/mtdBillingService.ts` | 307 | `getCurrentMonthAmortizedCostsWithDiagnostics`, `getCurrentMonthAmortizedCosts` |
@@ -65,10 +65,10 @@ Integración con SDKs de Azure (`collectors/`), motores agnósticos (`core/`) y 
 | `src/modules/collectors/azure/storageTieringService.ts` | 162 | `StorageTieringRow`, `StorageTieringResult`, `getStorageTieringRecommendations` |
 | `src/modules/storage/recommendationExemptions.ts` | 152 | `RecommendationExemption`, `getExemptionsForTenant`, `upsertExemption`, `deleteExemption` |
 | `src/modules/collectors/azure/aksCostService.ts` | 150 | `vmSizeToCores`, `getAksChargebackCost` |
+| `src/modules/collectors/azure/aiUsageCollector.ts` | 146 | `AIUsageRow`, `getYesterdaysAIUsage` |
 | `src/modules/collectors/azure/billing/forecastBillingService.ts` | 144 | `getCostForecast` |
 | `src/modules/collectors/azure/defenderCostService.ts` | 143 | `DefenderPlanRow`, `DefenderCostResult`, `getDefenderCost`, `setDefenderPlanTier` |
 | `src/modules/collectors/azure/backupOrphanService.ts` | 130 | `OrphanedBackupItemRow`, `BackupOrphanResult`, `getOrphanedBackupItems` |
-| `src/modules/collectors/azure/aiUsageCollector.ts` | 125 | `AIUsageRow`, `getYesterdaysAIUsage` |
 | `src/modules/collectors/azure/perimeterNetworkCostService.ts` | 121 | `PerimeterCostRow`, `PerimeterCostResult`, `getPerimeterNetworkCost` |
 | `src/modules/collectors/azure/miscServicesCostService.ts` | 116 | `MISC_SERVICE_TYPES`, `MiscServiceCostRow`, `MiscServicesCostResult`, `getMiscServicesCost` |
 | `src/modules/collectors/azure/appInsightsCostService.ts` | 108 | `AppInsightsCostRow`, `AppInsightsCostResult`, `getAppInsightsCost` |

@@ -84,6 +84,8 @@ Quando você conecta sua assinatura do Azure (passo 2 do assistente de onboardin
 
 > ⚠️ **Os 4 papéis do Essential são o mínimo absoluto** para que a página Consumo Real mostre dados. Se faltar `Cost Management Reader` ou `Billing Reader`, o Azure retorna 0 linhas silenciosamente.
 
+> ℹ️ **AI Cost Analytics (Microsoft Foundry / Azure OpenAI)** usa os mesmos papéis base (`Reader`, `Cost Management Reader`, `Monitoring Reader`, `Billing Reader`): **não requer papel adicional**.
+
 > ⚠️ **Assinaturas EA/MCA** (Enterprise Agreement / Microsoft Customer Agreement) exigem que o Billing Admin do cliente atribua também `Enrollment Reader` ou `Billing Account Reader` ao Service Principal no escopo da billing account — o script não pode fazer isso automaticamente, precisa ser coordenado com o cliente.
 
 **Verificar se as permissões foram atribuídas corretamente**, depois que o cliente executar o script:
@@ -307,7 +309,7 @@ Simule o impacto de escalar computação/armazenamento, variar tráfego de rede,
 | **Custo Zero** | Todos | Quais recursos são gratuitos na sua assinatura (free tier, créditos) para maximizar seu uso. |
 | **Rateio (Allocation)** | Enterprise | Regras de distribuição de custos compartilhados entre múltiplas áreas (por uso real, proporcional ou fixo). |
 | **MACC Tracking** | Enterprise | Rastreamento do compromisso mínimo anual (EA/MCA) — consumido vs. comprometido, com projeção de cumprimento. |
-| **AI Cost Analytics** | Enterprise | Custo por modelo de IA e consumo de tokens no Azure OpenAI, com recomendações de otimização de chamadas. |
+| **AI Cost Analytics** | Enterprise | Custo por modelo de IA e consumo de tokens no Microsoft Foundry / Azure OpenAI, com recomendações de otimização de chamadas. |
 
 ---
 

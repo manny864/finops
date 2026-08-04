@@ -175,8 +175,12 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
    **Todos los tiers (Essential):**
    - `Reader` — Resource Graph, Advisor, listado de recursos.
    - `Cost Management Reader` — API de Consumo Real (`/api/intelligence/billing`).
-   - `Monitoring Reader` — Métricas para rightsizing.
+   - `Monitoring Reader` — Métricas para rightsizing y AI Cost Analytics (tokens de Microsoft Foundry/Azure OpenAI).
    - `Billing Reader` — Visibilidad de facturación a nivel suscripción.
+
+   > Para **AI Cost Analytics (Microsoft Foundry / Azure OpenAI)** no se agregó
+   > ningún rol nuevo: se mantiene el principio de menor privilegio con estos 4
+   > roles base.
 
    **Professional (Essential +):**
    - `Tag Contributor` — Auto-tagging.
@@ -347,6 +351,11 @@ segundo.
 - **Azure IA (Enterprise):** la configuración global de IA ahora soporta
   **endpoint URL completo** + deployment (con fallback por nombre de recurso),
   alineado al formato real de Azure AI Foundry/OpenAI Responses API.
+- **AI Cost Analytics (Enterprise):** el colector ahora soporta métricas de
+  Foundry/OpenAI con fallback por `ModelName` y el endpoint
+  `/api/intelligence/ai-analytics` amplió la detección de costo para Microsoft
+  Foundry / Azure AI Services en `CostSnapshots`, evitando paneles en blanco
+  cuando hay consumo real.
 
 ### 2026-08-03 — Operaciones SuperAdmin + comercial por tenant + PAL/CPOR resiliente
 
@@ -522,7 +531,7 @@ Auditoría completa de las ~50 features anunciadas en la pantalla de precios con
 - **M365 Copilot Connector + Studio Agent** → "Configuración de Costos de M365 Copilot". El propio código lo admite: `// NOTE: This is a mock-first implementation. No real Microsoft Graph API calls are made.`
 - **SSO Federado (SAML / OIDC)** → "SSO Federado (SAML)". Solo SAML vía WorkOS está implementado; cero OIDC en el código de auth.
 - **Residencia de Datos Multi-Región (UE / US / BR)** → removida del pricing Enterprise. Mismo hallazgo que la entrada de Sidebar ya oculta: sólo hay un datacenter real (Brasil).
-- **Tarifas Custom (EA)** y **Azure OpenAI Cost Analytics** → removidas (sin evidencia de implementación real en el código).
+- **Tarifas Custom (EA)** y **Azure OpenAI Cost Analytics** → removidas en ese momento (sin evidencia de implementación real en ese corte; AI Cost Analytics fue reintroducida y corregida el 2026-08-04 para Microsoft Foundry / Azure OpenAI).
 - **Gamificación y Scorecard** → "Scorecard y Ranking de Equipos". Existe un ranking real por equipo con score y penalizaciones, pero no hay mecánica de gamificación (badges, puntos, niveles).
 - **Monitoreo de Frescura de Datos (Pipeline Health)** → removida de Essential. Es una herramienta interna de super-admin (`requireSuperAdmin`), sin panel visible para el cliente.
 - **Detección de Anomalías** (duplicado en Business) → removida; el motor real (Z-Score) ya se lista en Professional y los tiers son acumulativos ("Todo lo de X").

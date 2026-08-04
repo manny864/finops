@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **244** rutas.
+Total: **246** rutas.
 
 La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archivo.
 `_CRON_SECRET_` = no usa guard de tenant; autentica con el header `Authorization: Bearer $CRON_SECRET`.
@@ -98,6 +98,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/cron/focus-export-daily` | GET | _CRON_SECRET_ | — | — |
 | `/api/cron/historical-gap-backfill` | GET, POST | _CRON_SECRET_ | — | — |
 | `/api/cron/open-data` | GET, POST | _CRON_SECRET_ | — | — |
+| `/api/cron/partner-link-retry` | GET | _CRON_SECRET_ | — | — |
 | `/api/cron/power-schedules` | GET, POST | _CRON_SECRET_ | — | — |
 | `/api/cron/prewarm-dashboard` | GET, POST | _CRON_SECRET_ | — | — |
 | `/api/cron/status-snapshot` | GET | _CRON_SECRET_ | — | — |
@@ -120,7 +121,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/health` | GET | — | — | — |
 | `/api/history` | GET | requireTenantAccess | — | sí |
 | `/api/integrations/itsm` | POST | requireTenantAccess | — | — |
-| `/api/intelligence/ai-analytics` | GET | requireTenantAccess | — | sí |
+| `/api/intelligence/ai-analytics` | GET | requireSuperAdmin, requireTenantAccess | — | sí |
 | `/api/intelligence/ai-report` | POST | requireTenantAccess | — | — |
 | `/api/intelligence/aks` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/aks-chargeback` | GET | requireTenantTier, requireTenantAccess | Business | sí |
@@ -222,6 +223,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/subscriptions` | GET | requireTenantAccess | — | — |
 | `/api/superadmin/funnel` | GET | requireSuperAdmin | — | — |
 | `/api/superadmin/ops` | GET, POST | requireSuperAdmin | — | — |
+| `/api/superadmin/partner-alerts` | GET | requireSuperAdmin | — | — |
 | `/api/superadmin/tenants/create` | POST | requireSuperAdmin | — | — |
 | `/api/superadmin/tenants/extend-trial` | POST | requireSuperAdmin | — | — |
 | `/api/superadmin/users` | GET | requireSuperAdmin | — | — |
