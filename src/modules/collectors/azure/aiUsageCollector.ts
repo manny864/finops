@@ -125,8 +125,17 @@ export async function getYesterdaysAIUsage(tenantId: string): Promise<AIUsageRow
                     for (const point of ts.data || []) {
                         const total = point.total || 0;
                         if (!total) continue;
-                        const pointDate = String(point.timeStamp || "").substring(0, 10);
-                        if (!pointDate) continue;
+                        // Asegurar formato YYYY-MM-DD: si timeStamp es Date, usar toISOString(), si es string ya está
+                        let pointDate = "";
+                        const ts = point.timeStamp;
+                        if (ts instanceof Date) {
+                            pointDate = ts.toISOString().substring(0, 10);
+                        } else if (typeof ts === "string") {
+                            pointDate = ts.substring(0, 10);
+                        } else {
+                            pointDate = String(ts || "").substring(0, 10);
+                        }
+                        if (!pointDate || !pointDate.match(/^\d{4}-\d{2}-\d{2}$/)) continue;
                         const key = `${deployment}::${pointDate}`;
                         const entry = byDeploymentDay.get(key) || {
                             date: pointDate,
