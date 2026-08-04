@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **86** tablas. Migraciones aplicables: **61**.
+Total: **86** tablas. Migraciones aplicables: **62**.
 
 `schema.sql` es el baseline de referencia y **no se ejecuta**; `migrations/` es la
 fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.md`).
@@ -159,3 +159,4 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 - `migrations/20260801-001-copilot-usage-tokens.sql`
 - `migrations/20260803-001-system-cron-runs.sql`
 - `migrations/20260803-002-tenants-sales-commission.sql`
+- `migrations/20260804-001-tenant-ai-azure-endpoint.sql`

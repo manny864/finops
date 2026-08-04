@@ -1527,8 +1527,8 @@
     "daysUnit": "days"
   },
   "AIAnalytics": {
-    "title": "Azure OpenAI Cost Analytics",
-    "subtitle": "Azure OpenAI cost breakdown by application, model, and tokens",
+    "title": "Microsoft Foundry AI Cost Analytics",
+    "subtitle": "Microsoft Foundry / Azure OpenAI cost breakdown by application, model, and tokens",
     "byModel": "Cost by Model",
     "byApplication": "Cost by Application",
     "byTeam": "Cost by Team",
@@ -1540,11 +1540,11 @@
     "application": "Application",
     "team": "Team",
     "environment": "Environment",
-    "noData": "No Azure OpenAI resources detected.",
+    "noData": "No Microsoft Foundry / Azure OpenAI resources detected.",
     "fetch_error": "Error loading AI Analytics",
     "loading": "Loading AI Analytics...",
     "error_title": "Error",
-    "azure_openai_note": "Actual Cognitive Services / Azure OpenAI cost from Cost Management. No per-model token breakdown available — requires integrating the Azure OpenAI usage API.",
+    "azure_openai_note": "Actual Microsoft Foundry / Cognitive Services / Azure OpenAI cost from Cost Management. If per-model token metrics are unavailable, the panel falls back to aggregated service/meter cost.",
     "period": "Period:",
     "total_cost": "Total Cost",
     "active_models": "Active Models",
@@ -3260,7 +3260,7 @@
     "saveConfiguration": "Save Configuration",
     "accessDenied": {
       "title": "Access Denied",
-      "description": "Only administrators can configure AI."
+      "description": "Only Owners and Administrators can configure AI."
     },
     "aiFeatures": {
       "heading": "AI Features",
@@ -3282,6 +3282,10 @@
       "apiKeyLabel": "API Key",
       "apiKeyPlaceholderSaved": "•••••••••••••••• (already saved, leave empty to keep it)",
       "apiKeySavedNotice": "An API key is already saved for this provider.",
+      "endpointLabel": "Azure OpenAI Endpoint URL",
+      "endpointPlaceholder": "e.g. https://your-resource.services.ai.azure.com/openai/v1/responses",
+      "deploymentLabel": "Deployment (model)",
+      "deploymentPlaceholder": "e.g. gpt-4o",
       "saveKeyFirst": "Save a key first",
       "testConnectionTitle": "Test a real connection with the saved provider",
       "testConnection": "Test connection",
@@ -3343,6 +3347,10 @@
     "aiFeatures": {
       "toggleLabel": "Enable AI features (platform)",
       "toggleDescription": "Master switch: if turned off, AI is disabled for ALL tenants (Copilot and AI Executive Report), regardless of their own per-tenant toggle. Intended for provider incidents or costs spiraling out of control."
+    },
+    "standard": {
+      "sectionTitle": "AI Provider - Non-Enterprise Plans",
+      "sectionDescription": "Configure the fallback provider for Essential, Professional, and Business customers. If you choose Azure IA, you need API Key, Endpoint URL, and Deployment (model) — same as Enterprise."
     },
     "enterprise": {
       "sectionTitle": "AI Provider - Enterprise Plans",
@@ -3939,6 +3947,7 @@
     "kpi_potential_savings_sub": "projected monthly",
     "kpi_environmental_impact": "Environmental Impact",
     "kpi_environmental_impact_sub": "CO2 avoided",
+    "kpi_environmental_impact_sub_footprint": "Estimated CO2 (actual footprint)",
     "ha_feature_name": "High Availability",
     "cost_projection_feature_name": "Cost Projection",
     "ha_title": "High Availability",

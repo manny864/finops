@@ -546,6 +546,14 @@ flowchart TD
     P --> J
 ```
 
+### 13.1 Flujo de AI Cost Analytics (Microsoft Foundry / Azure OpenAI)
+
+- **Ruta:** `GET /api/intelligence/ai-analytics`.
+- **Fuente primaria:** `AICostSnapshots` (tokens por modelo desde Azure Monitor sobre `Microsoft.CognitiveServices/accounts`).
+- **Métricas soportadas:** `ProcessedPromptTokens`, `GeneratedTokens` y `ProcessedInferenceTokens`.
+- **Fallback de costos:** cuando no hay desglose de tokens, consulta `CostSnapshots` por huellas de Microsoft Foundry / Azure AI Services / OpenAI (service + meter).
+- **RBAC mínimo:** no requiere rol nuevo; usa `Reader`, `Cost Management Reader`, `Monitoring Reader`, `Billing Reader`.
+
 ---
 
 ## 14. Convenciones del Proyecto

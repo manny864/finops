@@ -89,6 +89,8 @@ Si sos SuperAdmin de CSCloudSolutions dando de alta un tenant nuevo:
 
 > ⚠️ **Los 4 roles de Essential son el mínimo absoluto** para que la página Consumo Real muestre datos. Si falta `Cost Management Reader` o `Billing Reader`, Azure devuelve 0 filas sin avisar.
 
+> ℹ️ **AI Cost Analytics (Microsoft Foundry / Azure OpenAI)** usa los mismos roles base (`Reader`, `Cost Management Reader`, `Monitoring Reader`, `Billing Reader`): **no requiere un rol adicional**.
+
 > ⚠️ **Suscripciones EA/MCA** (Enterprise Agreement / Microsoft Customer Agreement) requieren que el Billing Admin del cliente asigne además `Enrollment Reader` o `Billing Account Reader` al Service Principal a nivel de billing account — el script no puede hacer esto automáticamente, hay que coordinarlo con el cliente.
 
 **Verificar que los permisos quedaron bien asignados**, después de que el cliente corrió el script:
@@ -306,7 +308,7 @@ Simulá el impacto de escalar cómputo/storage, variar tráfico de red, o activa
 | **Costo Cero** | Todos | Qué recursos son gratis en tu suscripción (free tier, créditos) para maximizar su uso. |
 | **Prorrateo (Allocation)** | Enterprise | Reglas de distribución de costos compartidos entre múltiples áreas (por uso real, proporcional o fijo). |
 | **MACC Tracking** | Enterprise | Seguimiento del compromiso mínimo anual (EA/MCA) — consumido vs. comprometido, con proyección de cumplimiento. |
-| **AI Cost Analytics** | Enterprise | Costo por modelo de IA y consumo de tokens en Azure OpenAI, con recomendaciones de optimización de llamadas. |
+| **AI Cost Analytics** | Enterprise | Costo por modelo de IA y consumo de tokens en Microsoft Foundry / Azure OpenAI, con recomendaciones de optimización de llamadas. |
 
 ---
 

@@ -1527,8 +1527,8 @@
     "daysUnit": "dias"
   },
   "AIAnalytics": {
-    "title": "Azure OpenAI Cost Analytics",
-    "subtitle": "Decomposição de custos do Azure OpenAI por aplicação, modelo e tokens",
+    "title": "Microsoft Foundry AI Cost Analytics",
+    "subtitle": "Decomposição de custos do Microsoft Foundry / Azure OpenAI por aplicação, modelo e tokens",
     "byModel": "Custo por Modelo",
     "byApplication": "Custo por Aplicação",
     "byTeam": "Custo por Equipe",
@@ -1540,11 +1540,11 @@
     "application": "Aplicação",
     "team": "Equipe",
     "environment": "Ambiente",
-    "noData": "Nenhum recurso Azure OpenAI detectado.",
+    "noData": "Nenhum recurso Microsoft Foundry / Azure OpenAI detectado.",
     "fetch_error": "Erro ao carregar AI Analytics",
     "loading": "Carregando AI Analytics...",
     "error_title": "Erro",
-    "azure_openai_note": "Custo real do Cognitive Services / Azure OpenAI a partir do Cost Management. Não há detalhamento de tokens por modelo — requer integrar a API de uso do Azure OpenAI.",
+    "azure_openai_note": "Custo real do Microsoft Foundry / Cognitive Services / Azure OpenAI via Cost Management. Se métricas de tokens por modelo não estiverem disponíveis, o painel usa custo agregado por serviço/meter.",
     "period": "Período:",
     "total_cost": "Custo Total",
     "active_models": "Modelos Ativos",
@@ -3260,7 +3260,7 @@
     "saveConfiguration": "Salvar Configuração",
     "accessDenied": {
       "title": "Acesso Negado",
-      "description": "Somente administradores podem configurar a IA."
+      "description": "Somente Owners e Administradores podem configurar a IA."
     },
     "aiFeatures": {
       "heading": "Recursos de IA",
@@ -3282,6 +3282,10 @@
       "apiKeyLabel": "API Key",
       "apiKeyPlaceholderSaved": "•••••••••••••••• (já salva, deixe vazio para mantê-la)",
       "apiKeySavedNotice": "Já existe uma API key salva para este provedor.",
+      "endpointLabel": "Azure OpenAI Endpoint URL",
+      "endpointPlaceholder": "ex: https://seu-recurso.services.ai.azure.com/openai/v1/responses",
+      "deploymentLabel": "Deployment (modelo)",
+      "deploymentPlaceholder": "ex: gpt-4o",
       "saveKeyFirst": "Salve uma key primeiro",
       "testConnectionTitle": "Testar conexão real com o provedor salvo",
       "testConnection": "Testar conexão",
@@ -3343,6 +3347,10 @@
     "aiFeatures": {
       "toggleLabel": "Ativar recursos de IA (plataforma)",
       "toggleDescription": "Interruptor mestre: se desativado, a IA fica desabilitada para TODOS os tenants (Copilot e Relatório Executivo com IA), independentemente do próprio toggle por tenant. Pensado para incidentes com o provedor ou custos fora de controle."
+    },
+    "standard": {
+      "sectionTitle": "Provedor de IA - Planos não Enterprise",
+      "sectionDescription": "Configure o provedor de fallback para clientes Essential, Professional e Business. Se escolher Azure IA, precisa de API Key, Endpoint URL e Deployment (modelo) — igual ao Enterprise."
     },
     "enterprise": {
       "sectionTitle": "Provedor de IA - Planos Enterprise",
@@ -3939,6 +3947,7 @@
     "kpi_potential_savings_sub": "projetada mensal",
     "kpi_environmental_impact": "Impacto Ambiental",
     "kpi_environmental_impact_sub": "CO2 evitado",
+    "kpi_environmental_impact_sub_footprint": "CO2 estimado (pegada real)",
     "ha_feature_name": "Alta Disponibilidade",
     "cost_projection_feature_name": "Projeção de Gastos",
     "ha_title": "Alta Disponibilidade",

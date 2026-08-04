@@ -118,17 +118,17 @@ function aggregate(rows: AggRow[], tokensAvailable: boolean) {
 const EMPTY_RESPONSE = { success: true, mock: false, tokensAvailable: false, summary: null, byModel: [], byApplication: [], byTeam: [], trend: [] };
 
 async function fetchAIAnalytics(tenantId: string, days: number) {
-    // 1) Fuente primaria: AICostSnapshots — uso real por modelo (tokens de
-    //    entrada/salida) sincronizado a diario desde Azure Monitor Metrics
-    //    (ver aiUsageCollector.ts). Puede estar vacía si el cron todavía no
-    //    corrió para este tenant, o si no tiene cuentas Cognitive Services.
+    // 1) Fuente primaria: AICostSnapshots — uso real por modelo (tokens) de
+    //    Microsoft Foundry / Azure OpenAI sincronizado desde Azure Monitor
+    //    Metrics (ver aiUsageCollector.ts). Puede estar vacía si el cron todavía
+    //    no corrió para este tenant, o si no tiene cuentas AI compatibles.
     const [aiRows]: any = await pool.query(
         `SELECT
             COALESCE(NULLIF(model_name, ''), 'unknown') AS model_name,
             COALESCE(NULLIF(application, ''), NULLIF(resource_name, ''), 'unknown') AS application,
             COALESCE(NULLIF(team, ''), 'Sin asignar') AS team,
             date,
-            SUM(billed_cost) AS cost,
+            SUM(COALESCE(NULLIF(billed_cost, 0), effective_cost, 0)) AS cost,
             SUM(input_tokens) AS inputTokens,
             SUM(output_tokens) AS outputTokens
          FROM AICostSnapshots
@@ -142,7 +142,7 @@ async function fetchAIAnalytics(tenantId: string, days: number) {
         return aggregate(aiRows, true);
     }
 
-    // 2) Fallback: costo real de Cognitive Services/OpenAI desde CostSnapshots
+    // 2) Fallback: costo real de Foundry/OpenAI/AI Services desde CostSnapshots
     //    (ya sincronizado por el cron de costos vía Cost Management), sin
     //    desglose de tokens — ver comentario de tokensAvailable más abajo.
     const [costRows]: any = await pool.query(
@@ -156,7 +156,19 @@ async function fetchAIAnalytics(tenantId: string, days: number) {
             0 AS outputTokens
          FROM CostSnapshots
          WHERE tenant_id = ? AND date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
-           AND (service_name LIKE '%Cognitive Services%' OR service_name LIKE '%OpenAI%' OR MeterCategory LIKE '%Cognitive Services%' OR MeterCategory LIKE '%OpenAI%')
+           AND (
+                LOWER(service_name) LIKE '%cognitive services%'
+                OR LOWER(service_name) LIKE '%openai%'
+                OR LOWER(service_name) LIKE '%azure ai%'
+                OR LOWER(service_name) LIKE '%ai services%'
+                OR LOWER(ServiceFamily) LIKE '%ai%'
+                OR LOWER(MeterCategory) LIKE '%cognitive services%'
+                OR LOWER(MeterCategory) LIKE '%openai%'
+                OR LOWER(MeterCategory) LIKE '%azure ai%'
+                OR LOWER(MeterCategory) LIKE '%ai services%'
+                OR LOWER(MeterSubCategory) LIKE '%openai%'
+                OR LOWER(MeterSubCategory) LIKE '%foundry%'
+           )
          GROUP BY model_name, application, team, date
          ORDER BY date ASC`,
         [tenantId, days]
