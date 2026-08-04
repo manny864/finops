@@ -336,6 +336,20 @@ segundo.
 
 ## 📈 Recent Major Updates
 
+### 2026-08-05 — SQL GROUP BY fix + Pagination en diagnostics
+
+- **Fix crítico SQL (MySQL `only_full_group_by`):** el endpoint
+  `/api/intelligence/ai-analytics` fallaba silenciosamente cuando consultaba el
+  fallback `CostSnapshots` — query tenía columnas `resource_group` y `team` en el
+  SELECT pero fuera del GROUP BY, violando `sql_mode=only_full_group_by` de
+  Azure MySQL. Se agregaron todas las columnas/expresiones no agregadas al
+  GROUP BY. Esto impedía que **ningún dato** se retornara incluso cuando
+  existían filas válidas en la BD.
+- **Paginación en diagnostics:** endpoint `/api/intelligence/ai-analytics/diagnostics`
+  ahora pagina los reportes `cognitiveAccounts` y `collectorRows` con soporte
+  15/30/45/60 items por página (parámetro `pageSize`), alineado a la directiva
+  de pagination para todas las tablas.
+
 ### 2026-08-05 — AI Cost Analytics: fix de ingesta por métrica + endpoint de diagnóstico
 
 - **Fix crítico de ingesta (Microsoft Foundry / Azure OpenAI):** el colector
