@@ -202,7 +202,7 @@ async function getRecommendationTrend(tenantId: string) {
     const trend = [];
     for (const m of months) {
         const [r]: any = await pool.query(
-            `SELECT COUNT(*) AS c FROM RecommendationActions WHERE tenant_id = ? AND updated_at BETWEEN ? AND ?`,
+            `SELECT COUNT(*) AS c FROM RecommendationActions WHERE tenant_id = ? AND status='open' AND created_at BETWEEN ? AND ?`,
             [tenantId, m.start, m.end]
         );
         trend.push({ month: m.label, count: Number(r?.[0]?.c || 0) });
