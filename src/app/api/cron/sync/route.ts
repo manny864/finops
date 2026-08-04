@@ -388,6 +388,9 @@ async function invalidateCostCaches(tenantId: string): Promise<void> {
         const patterns = [
             `costProjection:v4:${tenantId}:*`,
             `whiteboard:v2:azure:${tenantId}`,
+            // AI Cost Analytics (7/30/60/90 días): sin invalidación explícita
+            // puede mostrar ceros/datos viejos hasta que expire el TTL.
+            `ai-analytics:v2:${tenantId}:*`,
         ];
         const keys = (await Promise.all(patterns.map((p) => redis.keys(p)))).flat();
         if (keys.length > 0) {
