@@ -81,23 +81,28 @@ export async function GET(request: NextRequest) {
         const accounts: any[] = [];
         try {
             const argClient = new ResourceGraphClient(credential);
+            // Mismo KQL que en aiUsageCollector.ts — busca:
+            // 1. microsoft.cognitiveservices/accounts (Azure OpenAI, Azure AI Services)
+            // 2. microsoft.ai/* (tipos Foundry-specific potenciales)
             const query = `
                 Resources
-                | where type =~ 'microsoft.cognitiveservices/accounts'
-                | project id, name, resourceGroup, subscriptionId, kind, location, sku=tostring(sku.name)
+                | where type =~ 'microsoft.cognitiveservices/accounts' or type =~ 'microsoft.ai.*'
+                | project id, name, resourceGroup, subscriptionId, kind, location, sku=tostring(sku.name), type
             `;
             const resp = await argClient.resources({ query, subscriptions: subs });
             accounts.push(...((resp.data as any[]) || []));
+            const resourceTypes = Array.from(new Set((accounts as any[]).map((a: any) => a.type))).join(', ');
             diagnostics.steps.cognitiveAccounts = {
                 count: accounts.length,
-                accounts: accounts.map((a) => ({ name: a.name, kind: a.kind, resourceGroup: a.resourceGroup, subscriptionId: a.subscriptionId, location: a.location, sku: a.sku })),
+                resourceTypes,
+                accounts: accounts.map((a: any) => ({ name: a.name, kind: a.kind, type: a.type, resourceGroup: a.resourceGroup, subscriptionId: a.subscriptionId, location: a.location, sku: a.sku })),
             };
         } catch (e: any) {
             diagnostics.steps.cognitiveAccounts = { error: e?.message };
             return NextResponse.json(diagnostics);
         }
         if (accounts.length === 0) {
-            diagnostics.steps.conclusion = "No se encontró ninguna cuenta 'Microsoft.CognitiveServices/accounts' en las suscripciones visibles. Si Foundry está en un tipo de recurso distinto o en una suscripción fuera del límite de tier, no se ingiere. Verifique el tipo del recurso Foundry.";
+            diagnostics.steps.conclusion = "No se encontró ninguna cuenta AI (microsoft.cognitiveservices/accounts o microsoft.ai.*) en las suscripciones visibles. Si Foundry está en un tipo de recurso distinto o en una suscripción fuera del límite de tier, no se ingiere. Verifique el tipo del recurso Foundry.";
             return NextResponse.json(diagnostics);
         }
 
