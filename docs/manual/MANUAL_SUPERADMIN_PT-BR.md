@@ -107,6 +107,22 @@ Se você é SuperAdmin da CSCloudSolutions dando alta a um tenant novo:
 | `NO_SUBSCRIPTIONS` | O SP não vê nenhuma assinatura | Atribuir `Reader` em pelo menos uma |
 | `NO_CONSUMPTION` | Tudo OK mas sem consumo no ciclo atual | Aguardar o fechamento do ciclo ou verificar outra assinatura |
 
+**Troubleshooting — "AI Cost Analytics (Microsoft Foundry) mostra 0 tokens / $0":**
+
+Mesmo que os modelos (ex.: gpt-5.1, gpt-5.3-codex) tenham consumo real no Microsoft Foundry, o painel pode ficar em zero por vários motivos. Use o **endpoint de diagnóstico** (não requer acesso ao banco de dados nem aos logs do cron):
+
+- `GET /api/intelligence/ai-analytics/diagnostics?tenantId=<tenant-id>` — retorna, passo a passo: linhas atuais em `AICostSnapshots`, assinaturas visíveis (com o truncamento por tier), contas `Microsoft.CognitiveServices/accounts` encontradas e seu `kind`, as **métricas realmente disponíveis** por conta, um **teste ao vivo** de cada métrica de token (nº de séries + soma) e as linhas que o coletor produziria, além de uma **conclusão** indicando a causa provável.
+
+| Conclusão do diagnóstico | Causa | Solução |
+|---|---|---|
+| `Nenhuma assinatura visível` | O SP não tem `Reader`, ou o tier trunca as assinaturas | Atribuir `Reader` / revisar o tier |
+| `Nenhuma conta CognitiveServices encontrada` | O recurso Foundry é de outro tipo ou está numa assinatura fora do limite do tier | Verificar o tipo/assinatura do recurso Foundry |
+| `As contas de IA NÃO expõem métricas de token` | Os modelos Foundry não emitem `ProcessedPromptTokens`/`GeneratedTokens` ao Azure Monitor | O custo chega pelo fallback `CostSnapshots` (Cost Management, 8–24 h de latência) |
+| `As métricas existem mas retornam 0` | Latência do Azure Monitor (~15 min) ou consumo fora da janela ontem+hoje | Tentar novamente em alguns minutos e reexecutar o cron `/api/cron/sync` |
+| `O coletor produz linhas` | Tudo OK; falta persistir | Executar o cron `/api/cron/sync` (invalida o cache automaticamente) |
+
+> ℹ️ **Fix 2026-08-05:** o coletor agora pede cada métrica de token **separadamente** ao Azure Monitor. Antes as pedia num único batch e, se uma não existisse para o recurso (ex.: `ProcessedInferenceTokens` no Azure OpenAI clássico), o Azure rejeitava **todo** o batch com 400 e o painel ficava em zero.
+
 ---
 
 ## 2. Papéis e Permissões

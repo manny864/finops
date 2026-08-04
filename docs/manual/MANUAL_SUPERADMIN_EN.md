@@ -108,6 +108,22 @@ If you're a CSCloudSolutions SuperAdmin onboarding a new tenant:
 | `NO_SUBSCRIPTIONS` | The SP sees no subscriptions | Assign `Reader` on at least one |
 | `NO_CONSUMPTION` | Everything OK but no spend in the current cycle | Wait for the billing cycle to close or check another subscription |
 
+**Troubleshooting — "AI Cost Analytics (Microsoft Foundry) shows 0 tokens / $0":**
+
+Even when models (e.g. gpt-5.1, gpt-5.3-codex) have real usage in Microsoft Foundry, the panel may stay at zero for several reasons. Use the **diagnostics endpoint** (no database or cron-log access required):
+
+- `GET /api/intelligence/ai-analytics/diagnostics?tenantId=<tenant-id>` — returns, step by step: current rows in `AICostSnapshots`, visible subscriptions (with tier truncation), discovered `Microsoft.CognitiveServices/accounts` and their `kind`, the **metrics actually available** per account, a **live probe** of each token metric (series count + sum) and the rows the collector would produce, plus a **conclusion** pointing to the likely cause.
+
+| Diagnostics conclusion | Cause | Fix |
+|---|---|---|
+| `No visible subscriptions` | The SP lacks `Reader`, or the tier truncates subscriptions | Assign `Reader` / review tier |
+| `No CognitiveServices account found` | The Foundry resource is a different type or in a subscription beyond the tier limit | Verify the Foundry resource type/subscription |
+| `AI accounts do NOT expose token metrics` | Foundry models don't emit `ProcessedPromptTokens`/`GeneratedTokens` to Azure Monitor | Cost arrives via the `CostSnapshots` fallback (Cost Management, 8–24 h latency) |
+| `Metrics exist but return 0` | Azure Monitor latency (~15 min) or usage outside the yesterday+today window | Retry in a few minutes and re-run the `/api/cron/sync` cron |
+| `Collector produces rows` | All OK; just needs persisting | Run the `/api/cron/sync` cron (invalidates the cache automatically) |
+
+> ℹ️ **Fix 2026-08-05:** the collector now requests each token metric **separately** from Azure Monitor. It previously requested them in a single batch and, if one didn't exist for the resource (e.g. `ProcessedInferenceTokens` on classic Azure OpenAI), Azure rejected the **whole** batch with a 400 and the panel stayed at zero.
+
 ---
 
 ## 2. Roles and Permissions

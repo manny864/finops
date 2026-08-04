@@ -336,6 +336,28 @@ segundo.
 
 ## 📈 Recent Major Updates
 
+### 2026-08-05 — AI Cost Analytics: fix de ingesta por métrica + endpoint de diagnóstico
+
+- **Fix crítico de ingesta (Microsoft Foundry / Azure OpenAI):** el colector
+  `aiUsageCollector.ts` pedía las métricas de token en un solo batch
+  (`ProcessedPromptTokens,GeneratedTokens,ProcessedInferenceTokens`). Azure
+  Monitor **rechaza todo el batch con 400 (BadRequest)** si cualquiera de esos
+  nombres no existe para el recurso (p.ej. `ProcessedInferenceTokens` no existe
+  en cuentas Azure OpenAI clásicas), por lo que **ninguna** serie se ingería y
+  el panel quedaba en cero. Ahora cada métrica se pide **por separado** con
+  reintento sin filtro `ModelDeploymentName`, de modo que una métrica
+  inexistente sólo falla su propia llamada. Se agregó logging (`[aiUsageCollector]`)
+  con nº de cuentas, `kind`, días por deployment y filas insertadas.
+- **Nuevo endpoint de diagnóstico:** `GET /api/intelligence/ai-analytics/diagnostics?tenantId=…`
+  (guard `requireTenantAccess`, sin roles Azure nuevos). Reporta: estado de la
+  tabla `AICostSnapshots`, suscripciones visibles (con truncado por tier),
+  cuentas `Microsoft.CognitiveServices/accounts` con su `kind`, las
+  **definiciones de métricas disponibles** por cuenta, una **prueba real** de
+  cada métrica de token (series + suma) y las filas que produciría el colector,
+  con una **conclusión heurística** de por qué el panel está en cero (recurso no
+  descubierto, métricas ausentes, latencia de Azure Monitor, o tier). Elimina la
+  necesidad de acceso a la DB de prod o a los logs del cron para diagnosticar.
+
 ### 2026-08-04 — Alertas PAL/CPOR, automatización de reintentos e IA Enterprise por endpoint
 
 - **SuperAdmin Partner Alerts:** nueva página `/superadmin/partner-alerts` con
