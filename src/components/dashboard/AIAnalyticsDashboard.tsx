@@ -4,18 +4,42 @@ import useSWR from "swr";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { useTranslations } from "next-intl";
-import { Loader2, BrainCircuit, AlertTriangle, TrendingUp, Cpu, DollarSign, Zap } from "lucide-react";
+import { Loader2, BrainCircuit, AlertTriangle, TrendingUp, Cpu, DollarSign, Zap, Info, Clock, Activity } from "lucide-react";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { isMockTenant } from '@/lib/mockData';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip, CartesianGrid, Legend, AreaChart, Area } from "recharts";
 
 // ── KPI card ──────────────────────────────────────────────────────────────────
-function KpiCard({ label, value, sub, icon }: { label: string; value: string; sub?: string; icon: React.ReactNode }) {
+function KpiCard({
+    label,
+    value,
+    sub,
+    icon,
+    tooltip,
+}: {
+    label: string;
+    value: string;
+    sub?: string;
+    icon: React.ReactNode;
+    tooltip?: string;
+}) {
     return (
-        <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-4 flex items-start gap-3">
+        <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-4 flex items-start gap-3 relative group">
             <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 shrink-0">{icon}</div>
-            <div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mb-0.5">{label}</p>
+            <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 mb-0.5">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{label}</p>
+                    {tooltip && (
+                        <div className="relative group/tip inline-flex items-center">
+                            <Info className="w-3.5 h-3.5 text-slate-400 hover:text-blue-500 cursor-pointer transition-colors" />
+                            <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover/tip:block w-64 p-2.5 bg-slate-900 text-white text-[11px] rounded-lg shadow-xl z-30 leading-tight">
+                                {tooltip}
+                                <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-x-4 border-x-transparent border-t-4 border-t-slate-900" />
+                            </div>
+                        </div>
+                    )}
+                </div>
                 <p className="text-lg font-bold text-slate-800 dark:text-slate-100">{value}</p>
                 {sub && <p className="text-xs text-slate-400">{sub}</p>}
             </div>
@@ -28,32 +52,12 @@ function BarRow({ label, value, max, color = "bg-blue-500" }: { label: string; v
     const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
     return (
         <div className="flex items-center gap-3 text-sm">
-            <span className="w-44 truncate text-slate-700 dark:text-slate-300 text-xs" title={label}>{label}</span>
+            <span className="w-44 truncate text-slate-700 dark:text-slate-300 text-xs font-semibold" title={label}>{label}</span>
             <div className="flex-1 h-2 bg-gray-100 dark:bg-slate-800 rounded-full overflow-hidden">
                 <div className={`h-2 rounded-full ${color}`} style={{ width: `${pct}%` }} />
             </div>
             <span className="w-20 text-right font-mono text-xs text-slate-600 dark:text-slate-400">${value.toLocaleString()}</span>
         </div>
-    );
-}
-
-// ── Simple SVG trend line ─────────────────────────────────────────────────────
-function TrendLine({ points }: { points: { date: string; cost: number }[] }) {
-    if (!points || points.length < 2) return null;
-    const w = 400, h = 80;
-    const maxCost = Math.max(...points.map(p => p.cost));
-    const minCost = Math.min(...points.map(p => p.cost));
-    const range = maxCost - minCost || 1;
-    const xs = points.map((_, i) => (i / (points.length - 1)) * w);
-    const ys = points.map(p => h - ((p.cost - minCost) / range) * (h - 10) - 5);
-    const d = xs.map((x, i) => `${i === 0 ? "M" : "L"}${x},${ys[i]}`).join(" ");
-    return (
-        <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-16" preserveAspectRatio="none">
-            <path d={d} fill="none" stroke="#0054a6" strokeWidth="2" strokeLinejoin="round" />
-            {xs.map((x, i) => (
-                <circle key={i} cx={x} cy={ys[i]} r="3" fill="#0054a6" />
-            ))}
-        </svg>
     );
 }
 
@@ -124,8 +128,29 @@ export default function AIAnalyticsDashboard() {
         appSort === "cost" ? b.cost - a.cost : a.application.localeCompare(b.application)
     );
 
+    const chartTrendData = (trend ?? []).map((tItem: any) => {
+        const inp = Number(tItem.inputTokens) || 0;
+        const out = Number(tItem.outputTokens) || 0;
+        return {
+            date: String(tItem.date).substring(5), // MM-DD
+            fullDate: tItem.date,
+            cost: Number(tItem.cost || 0),
+            inputTokens: inp,
+            outputTokens: out,
+            totalTokens: inp + out,
+        };
+    });
+
     return (
         <div className="w-full space-y-6">
+            {/* Disclaimer Banner de latencia de facturación Azure Cost Management */}
+            <div className="bg-sky-50/80 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800/50 text-sky-800 dark:text-sky-300 rounded-xl px-4 py-3 flex items-center gap-3 text-xs shadow-xs">
+                <Clock className="w-4 h-4 text-sky-600 dark:text-sky-400 shrink-0" />
+                <span>
+                    <strong>{t("billing_latency_title")}</strong> {t("billing_latency_disclaimer")}
+                </span>
+            </div>
+
             {/* Mock banner */}
             {mock && (
                 <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 text-amber-700 dark:text-amber-300 rounded-xl px-4 py-3 flex items-center gap-3 text-sm">
@@ -147,7 +172,7 @@ export default function AIAnalyticsDashboard() {
                     <button
                         key={d}
                         onClick={() => setDays(d)}
-                        className={`px-3 py-1 rounded-lg border text-xs font-medium transition-colors ${days === d ? "bg-blue-600 border-blue-600 text-white" : "border-gray-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-800"}`}
+                        className={`px-3 py-1 rounded-lg border text-xs font-medium transition-colors cursor-pointer ${days === d ? "bg-blue-600 border-blue-600 text-white" : "border-gray-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-800"}`}
                     >
                         {d}d
                     </button>
@@ -157,7 +182,12 @@ export default function AIAnalyticsDashboard() {
             {/* KPI cards */}
             {summary && (
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    <KpiCard label={t("total_cost")} value={`$${summary.totalCost.toLocaleString()}`} icon={<DollarSign className="w-5 h-5" />} />
+                    <KpiCard
+                        label={t("total_cost")}
+                        value={`$${summary.totalCost.toLocaleString()}`}
+                        icon={<DollarSign className="w-5 h-5" />}
+                        tooltip={t("cost_forecast_tooltip")}
+                    />
                     {showTokens ? (
                         <>
                             <KpiCard
@@ -203,6 +233,96 @@ export default function AIAnalyticsDashboard() {
                 </div>
             )}
 
+            {/* Gráfico de Coste Estimado Diario (Estilo Azure AI Studio / Azure Portal) */}
+            <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-5 shadow-xs">
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                        <DollarSign className="w-4 h-4 text-emerald-600" />
+                        Coste estimado por día ($ USD)
+                    </h3>
+                    <span className="text-[11px] text-slate-400">Desglose histórico en el período</span>
+                </div>
+                <div className="h-56 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={chartTrendData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                            <defs>
+                                <linearGradient id="costGradient" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.25} />
+                                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+                            <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                            <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `$${v}`} />
+                            <RechartsTooltip formatter={(v: any) => [`$${Number(v).toFixed(2)}`, "Coste Estimado"]} />
+                            <Area type="monotone" dataKey="cost" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#costGradient)" />
+                        </AreaChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+
+            {/* Gráficos de Tokens por Modelo / Métricas de Despliegue (Entrada, Salida y Total) */}
+            {showTokens && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-5 shadow-xs">
+                        <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 mb-1 flex items-center gap-2">
+                            <Zap className="w-4 h-4 text-blue-500" />
+                            Tokens de entrada frente a salida frente a total
+                        </h3>
+                        <p className="text-xs text-slate-400 mb-4">Realiza un seguimiento de las tendencias de uso de tokens en la entrada, la salida y el total.</p>
+                        <div className="h-56 w-full">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <LineChart data={chartTrendData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                                    <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+                                    <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                                    <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}K`} />
+                                    <RechartsTooltip formatter={(v: any) => [Number(v).toLocaleString(), "Tokens"]} />
+                                    <Legend iconType="circle" wrapperStyle={{ fontSize: 11 }} />
+                                    <Line type="monotone" name="Tokens de entrada" dataKey="inputTokens" stroke="#3b82f6" strokeWidth={2} dot={{ r: 2 }} />
+                                    <Line type="monotone" name="Tokens de salida" dataKey="outputTokens" stroke="#ec4899" strokeWidth={2} dot={{ r: 2 }} />
+                                    <Line type="monotone" name="Total de tokens" dataKey="totalTokens" stroke="#10b981" strokeWidth={2} dot={{ r: 2 }} />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+
+                    <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-5 shadow-xs">
+                        <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 mb-1 flex items-center gap-2">
+                            <Activity className="w-4 h-4 text-purple-500" />
+                            Distribución de Tokens por Modelo
+                        </h3>
+                        <p className="text-xs text-slate-400 mb-4">Muestra la carga de trabajo y volumen procesado por cada modelo desplegado.</p>
+                        <div className="space-y-4">
+                            {(byModel ?? []).map((m: any) => {
+                                const total = m.inputTokens + m.outputTokens;
+                                return (
+                                    <div key={m.model} className="p-3 bg-gray-50 dark:bg-slate-800/50 rounded-lg">
+                                        <div className="flex items-center justify-between mb-1.5">
+                                            <span className="font-bold text-xs text-slate-800 dark:text-slate-200">{m.model}</span>
+                                            <span className="font-mono text-xs text-blue-600 dark:text-blue-400 font-bold">${m.cost.toLocaleString()}</span>
+                                        </div>
+                                        <div className="grid grid-cols-3 gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+                                            <div>
+                                                <span className="block text-[10px] text-slate-400">Input:</span>
+                                                <span className="font-semibold text-slate-700 dark:text-slate-300">{(m.inputTokens / 1000).toFixed(1)}K</span>
+                                            </div>
+                                            <div>
+                                                <span className="block text-[10px] text-slate-400">Output:</span>
+                                                <span className="font-semibold text-slate-700 dark:text-slate-300">{(m.outputTokens / 1000).toFixed(1)}K</span>
+                                            </div>
+                                            <div>
+                                                <span className="block text-[10px] text-slate-400">Costo/1K:</span>
+                                                <span className="font-semibold text-slate-700 dark:text-slate-300">${m.costPer1k?.toFixed(4)}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* byModel + byApplication */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* byModel */}
@@ -235,7 +355,7 @@ export default function AIAnalyticsDashboard() {
                         <select
                             value={appSort}
                             onChange={e => setAppSort(e.target.value as "cost" | "application")}
-                            className="text-xs px-2 py-1 rounded border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                            className="text-xs px-2 py-1 rounded border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 cursor-pointer"
                         >
                             <option value="cost">{t("sort_by_cost")}</option>
                             <option value="application">{t("sort_by_name")}</option>
@@ -284,14 +404,16 @@ export default function AIAnalyticsDashboard() {
                         <TrendingUp className="w-4 h-4 text-emerald-500" />
                         {t("tokensTrend")}
                     </h3>
-                    <TrendLine points={trend ?? []} />
-                    <div className="mt-3 flex flex-wrap gap-3">
-                        {(trend ?? []).map((p: any) => (
-                            <div key={p.date} className="text-center">
-                                <p className="text-xs text-slate-400">{p.date.substring(5)}</p>
-                                <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">${p.cost}</p>
-                            </div>
-                        ))}
+                    <div className="h-44 w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={chartTrendData}>
+                                <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+                                <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                                <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `$${v}`} />
+                                <RechartsTooltip formatter={(v: any) => [`$${Number(v).toFixed(2)}`, "Costo"]} />
+                                <Line type="monotone" dataKey="cost" stroke="#0054a6" strokeWidth={2} dot={{ r: 2 }} />
+                            </LineChart>
+                        </ResponsiveContainer>
                     </div>
                 </div>
 
