@@ -140,7 +140,18 @@ async function withExponentialBackoff<T>(fn: () => Promise<T>, maxRetries = 3): 
 
 export class AIProviderFactory {
     /** Devuelve también `config` (incluye `source`: 'byok'|'platform') y `modelName`, para que el caller pueda loggear PlatformAiUsage sin reimplementar el switch. */
-    static async getGeminiModel(tenantId?: string, forceEnterpriseTier?: boolean, overrideConfig?: { provider: string, apiKey: string, source: 'byok'|'platform' }) {
+    static async getGeminiModel(
+        tenantId?: string,
+        forceEnterpriseTier?: boolean,
+        overrideConfig?: {
+            provider: string;
+            apiKey: string;
+            source: 'byok' | 'platform';
+            azureOpenAIEndpoint?: string;
+            azureOpenAIResourceName?: string;
+            azureOpenAIDeployment?: string;
+        }
+    ) {
         const config = overrideConfig || await getCachedAIConfig(tenantId, forceEnterpriseTier);
         if (!config.apiKey) {
             throw new Error("AI API Key not configured.");
@@ -153,12 +164,20 @@ export class AIProviderFactory {
                 return { model: openai(modelName) as any, modelName, config };
             }
             case 'azure_openai': {
-                const azure = createAzure({ apiKey: config.apiKey, resourceName: process.env.AZURE_OPENAI_RESOURCE_NAME });
+                const modelName = config.azureOpenAIDeployment || 'gpt-4o';
+                if (config.azureOpenAIEndpoint) {
+                    const normalized = config.azureOpenAIEndpoint.replace(/\/responses\/?$/i, "").replace(/\/+$/, "");
+                    const azureOpenai = createOpenAI({ apiKey: config.apiKey, baseURL: normalized });
+                    return { model: azureOpenai(modelName) as any, modelName, config };
+                }
+                if (!config.azureOpenAIResourceName) {
+                    throw new Error("Azure OpenAI no configurado: faltan endpoint o resource name.");
+                }
+                const azure = createAzure({ apiKey: config.apiKey, resourceName: config.azureOpenAIResourceName });
                 // azure(...) sin .chat usa por defecto la Responses API, que requiere
                 // una apiVersion reciente + deployment habilitado (muchos recursos no
                 // lo tienen). .chat apunta al deployment de Chat Completions estándar
                 // ('gpt-4o' acá es el nombre del deployment), el camino universal.
-                const modelName = 'gpt-4o';
                 return { model: azure.chat(modelName) as any, modelName, config };
             }
             case 'anthropic': {

@@ -3270,7 +3270,7 @@
       "options": {
         "system": "System (Shared - With quota limits)",
         "openai": "OpenAI (Bring your own API Key)",
-        "azureOpenai": "Azure OpenAI (Private and Secure)",
+        "azureOpenai": "Azure IA (Private and Secure)",
         "anthropic": "Anthropic (Claude Sonnet 5)",
         "google": "Google (Gemini Flash · latest version free)",
         "deepseek": "DeepSeek (DeepSeek Chat)"
@@ -3333,13 +3333,21 @@
     "providers": {
       "google": "Google Gemini (Flash — free on free tier)",
       "openai": "OpenAI (GPT-4o)",
-      "azureOpenai": "Azure OpenAI (GPT-4o)",
+      "azureOpenai": "Azure IA",
       "anthropic": "Anthropic (Claude Sonnet 5)",
       "deepseek": "DeepSeek"
     },
     "aiFeatures": {
       "toggleLabel": "Enable AI features (platform)",
       "toggleDescription": "Master switch: if turned off, AI is disabled for ALL tenants (Copilot and AI Executive Report), regardless of their own per-tenant toggle. Intended for provider incidents or costs spiraling out of control."
+    },
+    "enterprise": {
+      "sectionTitle": "AI Provider - Enterprise Plans",
+      "sectionDescription": "Configure the dedicated provider for Enterprise-tier customers.",
+      "endpointLabel": "Azure OpenAI Endpoint URL",
+      "endpointPlaceholder": "e.g. https://your-resource.services.ai.azure.com/openai/v1/responses",
+      "deploymentLabel": "Deployment (model)",
+      "deploymentPlaceholder": "e.g. gpt-4o"
     },
     "provider": {
       "label": "Provider"

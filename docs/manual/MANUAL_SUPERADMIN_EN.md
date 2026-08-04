@@ -2,7 +2,7 @@
 <img src="../../public/CSCloudSolutions.png" alt="CSCloudSolutions" class="cover-logo" width="360" />
 <h1 class="cover-title">SuperAdmin Manual</h1>
 <p class="cover-sub">FinOps SaaS · CSCloudSolutions</p>
-<p class="cover-meta">Version 2.0 · July 2026</p>
+<p class="cover-meta">Version 2.0 · August 2026</p>
 <p class="cover-copyright">© 2026 CSCloudSolutions. All rights reserved.</p>
 </div>
 
@@ -10,10 +10,16 @@
 
 **Version:** 2.0 (detailed)
 **Language:** English
-**Last updated:** July 2026
+**Last updated:** August 2026
 **Audience:** CSCloudSolutions internal team only (SuperAdmin). Includes everything in the User Manual plus platform administration flows (tenant onboarding, customer onboarding, sales tracking).
 
 ---
+
+## Recent updates (August 2026)
+
+- **New SuperAdmin panel:** `Partner Center Alerts` (`/superadmin/partner-alerts`) to monitor PAL/CPOR status by tenant and detect recent events.
+- **PAL operational automation:** when partner association is approved, events are logged and automatic retry (cron) updates status and detail.
+- **Enterprise AI (Azure IA):** global configuration now stores and tests **endpoint URL** + deployment in addition to API key, with backward-compatible fallback.
 
 ## How to use this manual
 

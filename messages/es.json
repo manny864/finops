@@ -3270,7 +3270,7 @@
       "options": {
         "system": "Sistema (Compartido - Con límites de cuota)",
         "openai": "OpenAI (Trae tu propia API Key)",
-        "azureOpenai": "Azure OpenAI (Privado y Seguro)",
+        "azureOpenai": "Azure IA (Privado y Seguro)",
         "anthropic": "Anthropic (Claude Sonnet 5)",
         "google": "Google (Gemini Flash · última versión gratis)",
         "deepseek": "DeepSeek (DeepSeek Chat)"
@@ -3333,13 +3333,21 @@
     "providers": {
       "google": "Google Gemini (Flash — gratis en free tier)",
       "openai": "OpenAI (GPT-4o)",
-      "azureOpenai": "Azure OpenAI (GPT-4o)",
+      "azureOpenai": "Azure IA",
       "anthropic": "Anthropic (Claude Sonnet 5)",
       "deepseek": "DeepSeek"
     },
     "aiFeatures": {
       "toggleLabel": "Habilitar funciones de IA (plataforma)",
       "toggleDescription": "Interruptor maestro: si se apaga, la IA queda inhabilitada para TODOS los tenants (Copilot y Reporte Ejecutivo con IA), sin importar su propio toggle per-tenant. Pensado para incidentes con el proveedor o costos fuera de control."
+    },
+    "enterprise": {
+      "sectionTitle": "Proveedor IA - Planes Enterprise",
+      "sectionDescription": "Configura el proveedor exclusivo para clientes del plan Enterprise.",
+      "endpointLabel": "Azure OpenAI Endpoint URL",
+      "endpointPlaceholder": "ej: https://tu-recurso.services.ai.azure.com/openai/v1/responses",
+      "deploymentLabel": "Deployment (modelo)",
+      "deploymentPlaceholder": "ej: gpt-4o"
     },
     "provider": {
       "label": "Proveedor"

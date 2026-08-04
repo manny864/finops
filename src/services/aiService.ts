@@ -39,7 +39,9 @@ export async function getAIConfig(tenantId?: string, forceEnterpriseTier?: boole
         }
     }
 
-    const [rows] = await pool.query<RowDataPacket[]>('SELECT setting_key, setting_value FROM GlobalSettings WHERE setting_key IN ("ai_provider", "ai_api_key", "enterprise_ai_provider", "enterprise_ai_api_key")');
+    const [rows] = await pool.query<RowDataPacket[]>(
+        'SELECT setting_key, setting_value FROM GlobalSettings WHERE setting_key IN ("ai_provider", "ai_api_key", "enterprise_ai_provider", "enterprise_ai_api_key", "enterprise_ai_endpoint", "enterprise_ai_resource_name", "enterprise_ai_deployment")'
+    );
     const config: Record<string, string> = {};
     for (const row of rows) {
         config[row.setting_key] = row.setting_value;
@@ -51,10 +53,22 @@ export async function getAIConfig(tenantId?: string, forceEnterpriseTier?: boole
     const isEnterprise = tenantTier === 'Enterprise' || forceEnterpriseTier;
     const defaultProvider = isEnterprise ? (config['enterprise_ai_provider'] || config['ai_provider'] || 'azure_openai') : (config['ai_provider'] || 'google');
     const defaultApiKey = isEnterprise ? (enterpriseApiKey || globalApiKey || process.env.AZURE_OPENAI_API_KEY || '') : (globalApiKey || process.env.GEMINI_API_KEY || '');
+    const defaultAzureEndpoint = isEnterprise
+        ? (config['enterprise_ai_endpoint'] || process.env.AZURE_OPENAI_ENDPOINT || '')
+        : (process.env.AZURE_OPENAI_ENDPOINT || '');
+    const defaultAzureResourceName = isEnterprise
+        ? (config['enterprise_ai_resource_name'] || process.env.AZURE_OPENAI_RESOURCE_NAME || '')
+        : (process.env.AZURE_OPENAI_RESOURCE_NAME || '');
+    const defaultAzureDeployment = isEnterprise
+        ? (config['enterprise_ai_deployment'] || process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o')
+        : (process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o');
 
     return {
         provider: tenantProvider || defaultProvider,
         apiKey: tenantApiKey || defaultApiKey,
+        azureOpenAIEndpoint: defaultAzureEndpoint,
+        azureOpenAIResourceName: defaultAzureResourceName,
+        azureOpenAIDeployment: defaultAzureDeployment,
         // FinOps: distingue quién paga la llamada — 'byok' es gasto del tenant
         // (key propia), 'platform' es gasto que absorbe la plataforma (key
         // global de fallback). Ver PlatformAiUsage / insertPlatformAiUsage.
@@ -89,12 +103,21 @@ export async function generateFinOpsReport(tenantId: string, metricsData: any, l
             model = anthropic(modelName);
             break;
         case 'azure_openai':
-            const azure = createAzure({ apiKey: config.apiKey, resourceName: process.env.AZURE_OPENAI_RESOURCE_NAME });
+            modelName = config.azureOpenAIDeployment || 'gpt-4o';
+            if (config.azureOpenAIEndpoint) {
+                const normalized = config.azureOpenAIEndpoint.replace(/\/responses\/?$/i, "").replace(/\/+$/, "");
+                const azureOpenai = createOpenAI({ apiKey: config.apiKey, baseURL: normalized });
+                model = azureOpenai(modelName);
+                break;
+            }
+            if (!config.azureOpenAIResourceName) {
+                throw new Error("Azure OpenAI no configurado: faltan endpoint o resource name para Enterprise.");
+            }
+            const azure = createAzure({ apiKey: config.apiKey, resourceName: config.azureOpenAIResourceName });
             // azure(...) sin .chat usa por defecto la Responses API, que requiere
             // una apiVersion reciente + deployment habilitado (muchos recursos no
             // lo tienen). .chat apunta al deployment de Chat Completions estándar
             // ('gpt-4o' acá es el nombre del deployment), el camino universal.
-            modelName = 'gpt-4o';
             model = azure.chat(modelName);
             break;
         case 'deepseek':

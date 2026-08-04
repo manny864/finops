@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
+import { requireTenantAccess, requireSuperAdmin, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import pool from "@/modules/storage/db";
@@ -173,14 +173,21 @@ export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
         const tenantId = searchParams.get("tenantId");
-        const days = parseInt(searchParams.get("days") || "30", 10);
+        const parsedDays = parseInt(searchParams.get("days") || "30", 10);
+        const days = Number.isFinite(parsedDays) ? Math.min(365, Math.max(1, parsedDays)) : 30;
 
         if (!tenantId) {
             return NextResponse.json({ error: "Falta parámetro: tenantId" }, { status: 400 });
         }
 
-        const identity = await requireTenantAccess(request, tenantId);
-        const isSuperAdmin = identity.isCorporateDomain;
+        await requireTenantAccess(request, tenantId);
+        let isSuperAdmin = false;
+        try {
+            await requireSuperAdmin(request);
+            isSuperAdmin = true;
+        } catch {
+            isSuperAdmin = false;
+        }
 
         if (isMockTenant(tenantId)) {
             return NextResponse.json(MOCK_PAYLOAD);
