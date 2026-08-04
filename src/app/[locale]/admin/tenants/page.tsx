@@ -261,7 +261,7 @@ export default function SuperAdminTenantsPage() {
     }
 
     return (
-        <div className="p-6 max-w-6xl mx-auto animate-in fade-in duration-500">
+        <div className="w-full p-6 max-w-[1700px] mx-auto animate-in fade-in duration-500">
             <div className="mb-8 border-b border-gray-200 dark:border-gray-800 pb-4">
                 <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight flex items-center">
                     <Building2 className="w-8 h-8 mr-3 text-[#0054A6] dark:text-[#00AEEF]" />
@@ -360,7 +360,7 @@ export default function SuperAdminTenantsPage() {
                         <div className="text-sm text-gray-500">{t('noTenants')}</div>
                     ) : (
                         <div className="overflow-x-auto custom-scrollbar pb-2">
-                            <table className="min-w-full table-fixed divide-y divide-gray-200 dark:divide-slate-700">
+                            <table className="min-w-[1500px] table-auto divide-y divide-gray-200 dark:divide-slate-700">
                                 <thead className="bg-gray-50 dark:bg-slate-900">
                                     <tr>
                                         <th scope="col" className="w-40 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('colCompany')}</th>

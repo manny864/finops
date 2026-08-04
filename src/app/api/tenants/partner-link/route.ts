@@ -121,7 +121,17 @@ export async function POST(request: NextRequest) {
       [identity.email, tenantId]
     );
 
-    const result = await linkPal(tenantId);
+    let result: { linked: boolean; detail: string; reason?: "NOT_CONFIGURED" | "CONFLICT" | "HTTP_ERROR" };
+    try {
+      result = await linkPal(tenantId);
+    } catch (palError: unknown) {
+      const message = palError instanceof Error ? palError.message : String(palError);
+      result = {
+        linked: false,
+        reason: "HTTP_ERROR",
+        detail: `PAL falló por excepción: ${message}`.slice(0, 500),
+      };
+    }
     // Si falta config interna del Partner ID, mantenemos APPROVED (consentimiento
     // del cliente ya registrado) en lugar de marcar FAILED al tenant.
     const status = result.linked
@@ -148,6 +158,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, status, detail: result.detail });
   } catch (e: unknown) {
     if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
+    if ((e as any)?.code === "ER_BAD_FIELD_ERROR") {
+      return NextResponse.json(
+        { error: "Schema desactualizado para PAL/CPOR. Ejecutar migraciones de Tenants." },
+        { status: 409 }
+      );
+    }
     console.error("[api/tenants/partner-link] error:", e);
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
