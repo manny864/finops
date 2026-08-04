@@ -1558,7 +1558,10 @@
     "by_meter_type": "By meter type (model proxy)",
     "sort_by_cost": "By cost",
     "sort_by_name": "By name",
-    "col_cost": "Cost"
+    "col_cost": "Cost",
+    "billing_latency_title": "Cost data freshness note:",
+    "billing_latency_disclaimer": "Azure Cost Management billing data ($ USD) is updated with an 8 to 24 hour latency.",
+    "cost_forecast_tooltip": "Forecasts are usage-based estimates. Actual costs may differ from forecasts. Real-time cost data may be delayed."
   },
   "MACC": {
     "tierLockedFeatureName": "MACC Tracker",

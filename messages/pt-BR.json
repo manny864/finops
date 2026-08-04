@@ -1558,7 +1558,10 @@
     "by_meter_type": "Por tipo de meter (proxy de modelo)",
     "sort_by_cost": "Por custo",
     "sort_by_name": "Por nome",
-    "col_cost": "Custo"
+    "col_cost": "Custo",
+    "billing_latency_title": "Nota sobre atualização de custos:",
+    "billing_latency_disclaimer": "Os dados de faturamento ($ USD) do Azure Cost Management são atualizados com uma latência de 8 a 24 horas.",
+    "cost_forecast_tooltip": "As previsões são estimativas baseadas no uso. Os custos reais podem diferir das previsões. Os dados de custos em tempo real podem sofrer atraso."
   },
   "MACC": {
     "tierLockedFeatureName": "MACC Tracker",
