@@ -2,7 +2,15 @@
 
 Bienvenido a la Plataforma FinOps de CSCloudSolutions. Este manual está diseñado para ayudarte a navegar, comprender y aprovechar al máximo las capacidades de gobernanza, optimización y gestión financiera de recursos en la nube.
 
+**Última actualización:** Agosto 2026
+
 ---
+
+## Novedades recientes (Agosto 2026)
+
+- **PAL/CPOR con alertas para SuperAdmin:** nueva página `SuperAdmin → Alertas Partner Center` para ver estados `APPROVED/LINKED/FAILED/DECLINED` por tenant, con foco en eventos recientes.
+- **Reintento automático PAL:** al aprobar la asociación de partner, el sistema ya puede reintentar de forma programada y actualizar estado/detalle automáticamente.
+- **Configuración IA Enterprise (Azure IA):** la configuración global ahora permite definir **endpoint URL** y deployment del proveedor Azure IA para planes Enterprise.
 
 ## 1. Introducción y Acceso
 

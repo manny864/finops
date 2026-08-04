@@ -332,6 +332,22 @@ segundo.
 
 ## 📈 Recent Major Updates
 
+### 2026-08-04 — Alertas PAL/CPOR, automatización de reintentos e IA Enterprise por endpoint
+
+- **SuperAdmin Partner Alerts:** nueva página `/superadmin/partner-alerts` con
+  resumen de estados PAL/CPOR por tenant (`APPROVED`, `LINKED`, `FAILED`,
+  `DECLINED`) para detección temprana de desvíos de vinculación.
+- **Reintento automático PAL:** nuevo cron
+  `/api/cron/partner-link-retry` incorporado al panel de Ops para reintentar
+  vínculos cuando aplica, actualizar estado en tenant y dejar trazabilidad de
+  ejecución.
+- **Endpoint PAL/CPOR más resiliente:** `POST /api/tenants/partner-link` evita
+  500 genérico en fallos de enlace, registra detalle del error en estado
+  controlado y devuelve `409` cuando hay incompatibilidad de esquema.
+- **Azure IA (Enterprise):** la configuración global de IA ahora soporta
+  **endpoint URL completo** + deployment (con fallback por nombre de recurso),
+  alineado al formato real de Azure AI Foundry/OpenAI Responses API.
+
 ### 2026-08-03 — Operaciones SuperAdmin + comercial por tenant + PAL/CPOR resiliente
 
 - **Centro de Operaciones SaaS (SuperAdmin):** nueva vista `/superadmin/ops` + API

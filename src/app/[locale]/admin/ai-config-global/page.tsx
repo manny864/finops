@@ -16,7 +16,7 @@ export default function AiConfigGlobalPage() {
         { value: "google", label: t("providers.google") || "Google Gemini" },
         { value: "openai", label: t("providers.openai") || "OpenAI" },
         { value: "chatgpt", label: "ChatGPT" },
-        { value: "azure_openai", label: t("providers.azureOpenai") || "Azure OpenAI" },
+        { value: "azure_openai", label: t("providers.azureOpenai") || "Azure IA" },
         { value: "anthropic", label: t("providers.anthropic") || "Anthropic Claude" },
         { value: "deepseek", label: t("providers.deepseek") || "DeepSeek" },
         { value: "kimi", label: "Kimi (Moonshot)" },
@@ -31,6 +31,8 @@ export default function AiConfigGlobalPage() {
     const [enterpriseProvider, setEnterpriseProvider] = useState("azure_openai");
     const [hasEnterpriseApiKey, setHasEnterpriseApiKey] = useState(false);
     const [enterpriseApiKeyInput, setEnterpriseApiKeyInput] = useState("");
+    const [enterpriseEndpoint, setEnterpriseEndpoint] = useState("");
+    const [enterpriseDeployment, setEnterpriseDeployment] = useState("gpt-4o");
     const [aiEnabled, setAiEnabled] = useState(true);
     const [sensitivity, setSensitivity] = useState<Sensitivity>("medium");
     const [shareResourceNames, setShareResourceNames] = useState(true);
@@ -56,6 +58,8 @@ export default function AiConfigGlobalPage() {
             setHasApiKey(json.hasApiKey);
             setEnterpriseProvider(json.enterpriseProvider || "azure_openai");
             setHasEnterpriseApiKey(json.hasEnterpriseApiKey);
+            setEnterpriseEndpoint(json.enterpriseEndpoint || "");
+            setEnterpriseDeployment(json.enterpriseDeployment || "gpt-4o");
             setAiEnabled(json.aiEnabled ?? true);
             setSensitivity((json.anomalySensitivity as Sensitivity) || "medium");
             setShareResourceNames(json.shareResourceNames ?? true);
@@ -83,6 +87,8 @@ export default function AiConfigGlobalPage() {
                     apiKey: apiKeyInput || undefined,
                     enterpriseProvider,
                     enterpriseApiKey: enterpriseApiKeyInput || undefined,
+                    enterpriseEndpoint,
+                    enterpriseDeployment,
                     aiEnabled,
                     anomalySensitivity: sensitivity,
                     shareResourceNames,
@@ -168,6 +174,8 @@ export default function AiConfigGlobalPage() {
                     apiKey: apiKeyInput || undefined,
                     enterpriseProvider,
                     enterpriseApiKey: enterpriseApiKeyInput || undefined,
+                    enterpriseEndpoint,
+                    enterpriseDeployment,
                 })
             });
             const json = await res.json();
@@ -300,9 +308,9 @@ export default function AiConfigGlobalPage() {
                         <div className="border-b border-slate-200 dark:border-slate-800 pb-4 mb-4">
                             <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2">
                                 <Sparkles className="w-4 h-4 text-brand-deep" />
-                                Proveedor IA - Planes Enterprise
+                                {t("enterprise.sectionTitle")}
                             </h3>
-                            <p className="text-xs text-slate-500 mt-1">Configura el proveedor exclusivo para clientes del plan Enterprise.</p>
+                            <p className="text-xs text-slate-500 mt-1">{t("enterprise.sectionDescription")}</p>
                         </div>
                         
                         <div>
@@ -333,6 +341,35 @@ export default function AiConfigGlobalPage() {
                                 {hasEnterpriseApiKey ? t("apiKey.configuredNotice") : t("apiKey.missingNotice")}
                             </p>
                         </div>
+
+                        {enterpriseProvider === "azure_openai" && (
+                            <>
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                                        {t("enterprise.endpointLabel")}
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={enterpriseEndpoint}
+                                        onChange={(e) => setEnterpriseEndpoint(e.target.value)}
+                                        placeholder={t("enterprise.endpointPlaceholder")}
+                                        className="w-full border border-slate-300 dark:border-slate-700 dark:bg-slate-800 rounded-lg px-3 py-2 text-sm font-mono"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                                        {t("enterprise.deploymentLabel")}
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={enterpriseDeployment}
+                                        onChange={(e) => setEnterpriseDeployment(e.target.value)}
+                                        placeholder={t("enterprise.deploymentPlaceholder")}
+                                        className="w-full border border-slate-300 dark:border-slate-700 dark:bg-slate-800 rounded-lg px-3 py-2 text-sm font-mono"
+                                    />
+                                </div>
+                            </>
+                        )}
                         
                         {testResultEnterprise && (
                             <div className={`flex items-start gap-2 text-sm px-3 py-2 rounded-lg border ${testResultEnterprise.ok

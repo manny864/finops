@@ -2,7 +2,7 @@
 <img src="../../public/CSCloudSolutions.png" alt="CSCloudSolutions" class="cover-logo" width="360" />
 <h1 class="cover-title">Manual do Usuário</h1>
 <p class="cover-sub">FinOps SaaS · CSCloudSolutions</p>
-<p class="cover-meta">Versão 2.0 · Julho 2026</p>
+<p class="cover-meta">Versão 2.0 · Agosto 2026</p>
 <p class="cover-copyright">© 2026 CSCloudSolutions. Todos os direitos reservados.</p>
 </div>
 
@@ -10,10 +10,16 @@
 
 **Versão:** 2.0 (detalhada)
 **Idioma:** Português Brasileiro
-**Última atualização:** Julho 2026
+**Última atualização:** Agosto 2026
 **Público:** usuários técnicos (Cloud Admin, DevOps, FinOps Analyst) e não técnicos (financeiro, gerência, product owners)
 
 ---
+
+## Atualizações recentes (Agosto 2026)
+
+- **Alertas do Partner Center para SuperAdmin:** nova tela para acompanhar status PAL/CPOR por tenant (`APPROVED`, `LINKED`, `FAILED`, `DECLINED`).
+- **Automação de PAL:** foram adicionadas tentativas automáticas e notificações ativas para SuperAdmin quando o status de vínculo muda.
+- **IA Enterprise (Azure IA):** a configuração global de IA agora suporta **URL de endpoint** + deployment para Azure IA, em vez de depender apenas do nome do recurso.
 
 ## Como usar este manual
 

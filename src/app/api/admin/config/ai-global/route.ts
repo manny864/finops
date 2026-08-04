@@ -28,6 +28,9 @@ const GLOBAL_KEYS = [
     "ai_api_key",
     "enterprise_ai_provider",
     "enterprise_ai_api_key",
+    "enterprise_ai_endpoint",
+    "enterprise_ai_resource_name",
+    "enterprise_ai_deployment",
     "ai_enabled",
     "ai_anomaly_sensitivity",
     "ai_share_resource_names",
@@ -52,6 +55,9 @@ export async function GET(request: NextRequest) {
             hasApiKey: Boolean(map.ai_api_key),
             enterpriseProvider: map.enterprise_ai_provider || "azure_openai",
             hasEnterpriseApiKey: Boolean(map.enterprise_ai_api_key),
+            enterpriseEndpoint: map.enterprise_ai_endpoint || process.env.AZURE_OPENAI_ENDPOINT || "",
+            enterpriseResourceName: map.enterprise_ai_resource_name || process.env.AZURE_OPENAI_RESOURCE_NAME || "",
+            enterpriseDeployment: map.enterprise_ai_deployment || process.env.AZURE_OPENAI_DEPLOYMENT || "gpt-4o",
             aiEnabled: map.ai_enabled !== "false",
             anomalySensitivity: (map.ai_anomaly_sensitivity as string) || "medium",
             shareResourceNames: map.ai_share_resource_names !== "false",
@@ -82,6 +88,12 @@ export async function PATCH(request: NextRequest) {
         const apiKey = typeof body.apiKey === "string" ? body.apiKey.trim() : "";
         const enterpriseProvider = body.enterpriseProvider ? String(body.enterpriseProvider) : undefined;
         const enterpriseApiKey = typeof body.enterpriseApiKey === "string" ? body.enterpriseApiKey.trim() : "";
+        const enterpriseEndpoint =
+            typeof body.enterpriseEndpoint === "string" ? body.enterpriseEndpoint.trim() : undefined;
+        const enterpriseResourceName =
+            typeof body.enterpriseResourceName === "string" ? body.enterpriseResourceName.trim() : undefined;
+        const enterpriseDeployment =
+            typeof body.enterpriseDeployment === "string" ? body.enterpriseDeployment.trim() : undefined;
         const { aiEnabled, anomalySensitivity, shareResourceNames, shareTags } = body;
 
         if (!PROVIDERS.has(provider)) {
@@ -112,6 +124,27 @@ export async function PATCH(request: NextRequest) {
             await upsertGlobalSetting("enterprise_ai_api_key", encryptSecret(enterpriseApiKey));
         } else if (body.enterpriseApiKey === null) {
             await pool.query(`DELETE FROM GlobalSettings WHERE setting_key = 'enterprise_ai_api_key'`);
+        }
+        if (enterpriseEndpoint !== undefined) {
+            if (enterpriseEndpoint) {
+                await upsertGlobalSetting("enterprise_ai_endpoint", enterpriseEndpoint);
+            } else {
+                await pool.query(`DELETE FROM GlobalSettings WHERE setting_key = 'enterprise_ai_endpoint'`);
+            }
+        }
+        if (enterpriseResourceName !== undefined) {
+            if (enterpriseResourceName) {
+                await upsertGlobalSetting("enterprise_ai_resource_name", enterpriseResourceName);
+            } else {
+                await pool.query(`DELETE FROM GlobalSettings WHERE setting_key = 'enterprise_ai_resource_name'`);
+            }
+        }
+        if (enterpriseDeployment !== undefined) {
+            if (enterpriseDeployment) {
+                await upsertGlobalSetting("enterprise_ai_deployment", enterpriseDeployment);
+            } else {
+                await pool.query(`DELETE FROM GlobalSettings WHERE setting_key = 'enterprise_ai_deployment'`);
+            }
         }
 
         if (aiEnabled !== undefined) await upsertGlobalSetting("ai_enabled", aiEnabled ? "true" : "false");
