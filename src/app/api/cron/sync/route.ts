@@ -360,7 +360,7 @@ async function syncTenant(
     try {
         const aiRows = await getYesterdaysAIUsage(tenantId);
         for (const row of aiRows) {
-            await insertAICostSnapshotRow(tenantId, yesterdayStr, row);
+            await insertAICostSnapshotRow(tenantId, row.date || yesterdayStr, row);
         }
         if (aiRows.length > 0) {
             console.log(`[cron-sync] tenant=${tenantId} AI usage rows inserted=${aiRows.length}`);

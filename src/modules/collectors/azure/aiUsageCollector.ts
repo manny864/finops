@@ -28,6 +28,7 @@ function estimateCost(modelName: string, inputTokens: number, outputTokens: numb
 }
 
 export interface AIUsageRow {
+    date: string; // YYYY-MM-DD (UTC)
     subscriptionId: string;
     resourceName: string;
     resourceGroup: string;
@@ -38,8 +39,8 @@ export interface AIUsageRow {
 }
 
 /**
- * Uso real de Azure OpenAI / Cognitive Services del día anterior, por
- * deployment (modelo). Fuente: Azure Monitor Metrics de cada cuenta
+ * Uso real de Azure OpenAI / Cognitive Services por día (ayer + hoy parcial),
+ * por deployment (modelo). Fuente: Azure Monitor Metrics de cada cuenta
  * `Microsoft.CognitiveServices/accounts` (métricas ProcessedPromptTokens /
  * GeneratedTokens, segmentadas por la dimensión ModelDeploymentName). Usa el
  * rol "Monitoring Reader" que el Service Principal ya tiene asignado (mismo
@@ -66,9 +67,11 @@ export async function getYesterdaysAIUsage(tenantId: string): Promise<AIUsageRow
     if (accounts.length === 0) return [];
 
     const now = new Date();
-    const dayEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-    const dayStart = new Date(dayEnd.getTime() - 24 * 60 * 60 * 1000);
-    const timespan = `${dayStart.toISOString()}/${dayEnd.toISOString()}`;
+    const todayStartUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const yesterdayStartUtc = new Date(todayStartUtc.getTime() - 24 * 60 * 60 * 1000);
+    // Incluye ayer completo + hoy parcial para evitar panel en cero cuando el
+    // consumo empezó hoy y se fuerza sync manual antes del próximo corte diario.
+    const timespan = `${yesterdayStartUtc.toISOString()}/${now.toISOString()}`;
 
     const rows: AIUsageRow[] = [];
 
@@ -98,9 +101,8 @@ export async function getYesterdaysAIUsage(tenantId: string): Promise<AIUsageRow
                 });
             }
 
-            // Cada metric (Prompt/Generated) trae una timeserie por deployment
-            // (dimensión ModelDeploymentName) — se acumulan juntas por nombre.
-            const byDeployment = new Map<string, { input: number; output: number; inference: number }>();
+            // Se acumula por deployment + día (UTC) para persistir ayer y hoy parcial.
+            const byDeploymentDay = new Map<string, { date: string; modelName: string; input: number; output: number; inference: number }>();
             for (const metric of metrics.value || []) {
                 const metricName = metric.name?.value;
                 for (const ts of metric.timeseries || []) {
@@ -109,31 +111,42 @@ export async function getYesterdaysAIUsage(tenantId: string): Promise<AIUsageRow
                         metadata.find((m: any) => m.name?.value?.toLowerCase() === "modeldeploymentname")?.value ||
                         metadata.find((m: any) => m.name?.value?.toLowerCase() === "modelname")?.value ||
                         "unknown";
-                    const entry = byDeployment.get(deployment) || { input: 0, output: 0, inference: 0 };
                     for (const point of ts.data || []) {
                         const total = point.total || 0;
+                        if (!total) continue;
+                        const pointDate = String(point.timeStamp || "").substring(0, 10);
+                        if (!pointDate) continue;
+                        const key = `${deployment}::${pointDate}`;
+                        const entry = byDeploymentDay.get(key) || {
+                            date: pointDate,
+                            modelName: deployment,
+                            input: 0,
+                            output: 0,
+                            inference: 0,
+                        };
                         if (metricName === "ProcessedPromptTokens") entry.input += total;
                         else if (metricName === "GeneratedTokens" || metricName === "GeneratedCompletionTokens") entry.output += total;
                         else if (metricName === "ProcessedInferenceTokens") entry.inference += total;
+                        byDeploymentDay.set(key, entry);
                     }
-                    byDeployment.set(deployment, entry);
                 }
             }
 
-            for (const [modelName, tokens] of byDeployment.entries()) {
+            for (const entry of byDeploymentDay.values()) {
                 // Para modelos Foundry no-OpenAI puede venir solo
                 // ProcessedInferenceTokens (sin split prompt/output).
-                const inputTokens = tokens.input > 0 || tokens.output > 0 ? tokens.input : tokens.inference;
-                const outputTokens = tokens.output;
+                const inputTokens = entry.input > 0 || entry.output > 0 ? entry.input : entry.inference;
+                const outputTokens = entry.output;
                 if (inputTokens === 0 && outputTokens === 0) continue;
                 rows.push({
+                    date: entry.date,
                     subscriptionId: account.subscriptionId,
                     resourceName: account.name,
                     resourceGroup: account.resourceGroup,
-                    modelName,
+                    modelName: entry.modelName,
                     inputTokens: Math.round(inputTokens),
                     outputTokens: Math.round(outputTokens),
-                    billedCost: estimateCost(modelName, inputTokens, outputTokens),
+                    billedCost: estimateCost(entry.modelName, inputTokens, outputTokens),
                 });
             }
         } catch (err: any) {
