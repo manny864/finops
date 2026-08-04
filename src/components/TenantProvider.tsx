@@ -86,6 +86,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
   const [userRole, setUserRole] = useState<string>(demoSession?.isDemo ? 'Admin' : 'Reader'); // Default to lowest privilege
   const [userPermissions, setUserPermissions] = useState<RoleTag[]>([]);
   const [systemRole, setSystemRole] = useState<string>('USER');
+  const [authzResolved, setAuthzResolved] = useState<boolean>(!!demoSession?.isDemo);
   const [userScope, setUserScope] = useState<any>(null);
 
   // Estado de certificación de Academia FinOps del USUARIO actual. Deliberadamente
@@ -98,6 +99,11 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
   const [academyCertified, setAcademyCertified] = useState<boolean | null>(null);
 
   useEffect(() => {
+    if (!authzResolved) return;
+    if (systemRole === 'SUPERADMIN') {
+        setAcademyCertified(null);
+        return;
+    }
     if (demoSession?.isDemo || selectedTenant.id === 'default' || isMockTenant(selectedTenant.id)) {
         setAcademyCertified(null);
         return;
@@ -118,7 +124,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
         }
     })();
     return () => { cancelled = true; };
-  }, [selectedTenant.id, accounts.length, instance, demoSession]);
+  }, [selectedTenant.id, accounts.length, instance, demoSession, authzResolved, systemRole]);
 
   // Enforce Academy completion: debe ser la primera página que ve un usuario
   // nuevo de la organización — si no la completó, no puede acceder al resto
@@ -128,6 +134,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
     if (selectedTenant.id !== 'default' && typeof window !== 'undefined') {
         // Skip redirect for demo/mock tenants
         if (isMockTenant(selectedTenant.id) || demoSession?.isDemo) return;
+        if (!authzResolved) return;
         if (systemRole === 'SUPERADMIN') return;
 
         if (academyCertified === false) {
@@ -139,7 +146,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
             }
         }
     }
-  }, [selectedTenant, pathname, router, demoSession, academyCertified, systemRole]);
+  }, [selectedTenant, pathname, router, demoSession, academyCertified, systemRole, authzResolved]);
 
   // Leer Base de Datos MySQL de forma segura con token
   useEffect(() => {
@@ -868,6 +875,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
       // Fetch the role for the current tenant
       if (selectedTenant.id !== 'default' && accounts.length > 0 && inProgress === 'none') {
           const fetchRole = async () => {
+              setAuthzResolved(false);
               try {
                   let idToken = await getFreshIdToken(instance, accounts[0], ['User.Read']);
                   let res = await fetch(`/api/admin/config/users?tenantId=${selectedTenant.id}`, {
@@ -924,9 +932,13 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                       console.warn("[TenantProvider] Fallback on Exception: assigning Admin role");
                       setUserRole('Admin');
                   }
+              } finally {
+                  setAuthzResolved(true);
               }
           };
           fetchRole();
+      } else {
+          setAuthzResolved(true);
       }
   }, [selectedTenant.id, accounts, instance, isAdmin, inProgress]);
 
