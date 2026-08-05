@@ -4872,5 +4872,14 @@
       "savingsPlans": "Savings Plans"
     },
     "savingsPlansNote": "Azure Savings Plans content and management coming soon."
+  },
+  "Efficiency": {
+    "title": "Efficiency",
+    "subtitle": "Storage, Compute, and AI cost optimization",
+    "tabs": {
+      "storage": "Storage Efficiency",
+      "compute": "Compute Efficiency",
+      "ai": "AI Analytics"
+    }
   }
 }

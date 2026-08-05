@@ -4872,5 +4872,14 @@
       "savingsPlans": "Planes de Ahorro"
     },
     "savingsPlansNote": "Contenido y gestión de Azure Savings Plans próximamente."
+  },
+  "Efficiency": {
+    "title": "Eficiencia",
+    "subtitle": "Optimización de costos de almacenamiento, cómputo e IA",
+    "tabs": {
+      "storage": "Eficiencia de Almacenamiento",
+      "compute": "Eficiencia de Cómputo",
+      "ai": "Análisis de IA"
+    }
   }
 }
