@@ -27,12 +27,12 @@ export async function GET(request: NextRequest) {
         try {
             const query = `
                 SELECT 
-                    COALESCE(SUM(CAST(billed_cost AS DECIMAL(19,2))), 0) as total_cost,
-                    COUNT(DISTINCT DATE(snapshot_date)) as days_with_data
+                    COALESCE(SUM(cost_usd), 0) as total_cost,
+                    COUNT(DISTINCT date) as days_with_data
                 FROM CostMeterSnapshots
                 WHERE 
                     tenant_id = ?
-                    AND snapshot_date >= DATE_SUB(NOW(), INTERVAL ? DAY)
+                    AND date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
                 LIMIT 1
             `;
             const [rows]: any = await conn.execute(query, [tenantId, days]);
@@ -41,14 +41,14 @@ export async function GET(request: NextRequest) {
             // Breakdown by category
             const breakdownQuery = `
                 SELECT 
-                    meter_category,
-                    COALESCE(SUM(CAST(billed_cost AS DECIMAL(19,2))), 0) as cost,
-                    ROUND(COALESCE(SUM(CAST(billed_cost AS DECIMAL(19,2))), 0) / ? * 100, 1) as pct
+                    MeterCategory,
+                    COALESCE(SUM(cost_usd), 0) as cost,
+                    ROUND(COALESCE(SUM(cost_usd), 0) / ?, 4) * 100 as pct
                 FROM CostMeterSnapshots
                 WHERE 
                     tenant_id = ?
-                    AND snapshot_date >= DATE_SUB(NOW(), INTERVAL ? DAY)
-                GROUP BY meter_category
+                    AND date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+                GROUP BY MeterCategory
                 ORDER BY cost DESC
             `;
             const [breakdown]: any = await conn.execute(breakdownQuery, [totalCost || 1, tenantId, days]);
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
                 mock: false,
                 totalCost: Number(totalCost),
                 breakdown: breakdown.map((row: any) => ({
-                    name: row.meter_category || "Other",
+                    name: row.MeterCategory || "Other",
                     cost: Number(row.cost),
                     pct: Number(row.pct),
                 })),
@@ -79,4 +79,3 @@ export async function GET(request: NextRequest) {
         );
     }
 }
-
