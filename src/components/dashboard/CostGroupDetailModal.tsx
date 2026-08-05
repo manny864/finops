@@ -417,25 +417,23 @@ export default function CostGroupDetailModal({ name, tenantId, onClose, onUpdate
                             <h2 className="text-lg font-bold text-gray-900 dark:text-white">{name}</h2>
                             {data?.description && <p className="text-sm text-gray-500 dark:text-gray-400">{data.description}</p>}
                         </div>
-                        {data?.isCustom && (
-                            <>
-                                <button
-                                    onClick={() => setEditing(true)}
-                                    title={t("edit_button")}
-                                    className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-400 hover:text-brand-deep dark:hover:text-brand-bright cursor-pointer shrink-0"
-                                >
-                                    <Pencil className="w-4 h-4" />
-                                </button>
-                                <button
-                                    onClick={handleDelete}
-                                    disabled={deleting}
-                                    title={t("delete_button")}
-                                    className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-600 dark:hover:text-red-400 cursor-pointer shrink-0 disabled:opacity-50"
-                                >
-                                    {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                                </button>
-                            </>
-                        )}
+                        <>
+                            <button
+                                onClick={() => setEditing(true)}
+                                title={t("edit_button")}
+                                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-400 hover:text-brand-deep dark:hover:text-brand-bright cursor-pointer shrink-0"
+                            >
+                                <Pencil className="w-4 h-4" />
+                            </button>
+                            <button
+                                onClick={handleDelete}
+                                disabled={deleting}
+                                title={t("delete_button")}
+                                className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-600 dark:hover:text-red-400 cursor-pointer shrink-0 disabled:opacity-50"
+                            >
+                                {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                            </button>
+                        </>
                     </div>
                     <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-500 dark:text-gray-400 cursor-pointer">
                         <X className="w-5 h-5" />
@@ -804,7 +802,7 @@ export default function CostGroupDetailModal({ name, tenantId, onClose, onUpdate
                 </div>
             </div>
 
-            {editing && data?.isCustom && (
+            {editing && (
                 <EditCostGroupModal
                     name={name}
                     tenantId={tenantId}
