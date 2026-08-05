@@ -121,19 +121,12 @@ export default function FinancialLeaksBoard() {
                 </div>
             </div>
 
-            {selectedCategory && (
-                <div className="animate-in slide-in-from-bottom-4 duration-500 card">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-xl font-bold text-[var(--brand-deep)]">
-                            {t("affectedResources")}: <span className="text-[var(--brand)]">{selectedCategory}</span>
-                        </h3>
-                        <button onClick={() => setSelectedCategory(null)} className="text-sm text-gray-500 hover:text-[var(--brand-deep)] transition-colors inline-flex items-center gap-1.5">
-                            <X className="w-4 h-4" /> {t("clearFilter")}
-                        </button>
-                    </div>
-                    <ZombieResourcesTable forceFilterType={selectedCategory} />
-                </div>
-            )}
+            <div className="card">
+                <h3 className="text-lg font-bold text-[var(--brand-deep)] mb-4">
+                    {t("affectedResources", { fallback: "Recursos con Fuga Financiera" })}
+                </h3>
+                <ZombieResourcesTable forceFilterType={selectedCategory || undefined} />
+            </div>
         </div>
     );
 }
