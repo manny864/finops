@@ -71,6 +71,7 @@ export default function CapturedSavingsBoard() {
     const history = data?.history || [];
     const current = data?.current;
     const changePct = data?.changePct || 0;
+    const topResources = data?.topResources || [];
     const potentialSavingsLabel = t("potentialSavings");
     const wastedDetectedLabel = t("wastedDetected");
     const chartData = history.map((h: any) => ({ date: h.date, [potentialSavingsLabel]: h.potentialSavings, [wastedDetectedLabel]: h.totalWasted }));
@@ -119,6 +120,31 @@ export default function CapturedSavingsBoard() {
                     </ResponsiveContainer>
                 )}
             </Card>
+
+            {topResources.length > 0 && (
+                <Card title={t("topResourcesContributing", { fallback: "Recursos con Mayor Ahorro" })}>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="border-b border-gray-200 dark:border-slate-700">
+                                    <th className="text-left py-2 px-2 font-semibold text-slate-700 dark:text-slate-300">{t("resource", { fallback: "Recurso" })}</th>
+                                    <th className="text-left py-2 px-2 font-semibold text-slate-700 dark:text-slate-300">{t("category", { fallback: "Categoría" })}</th>
+                                    <th className="text-right py-2 px-2 font-semibold text-slate-700 dark:text-slate-300">{t("estimatedSavings", { fallback: "Ahorro Estimado" })}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {topResources.map((r: any, idx: number) => (
+                                    <tr key={idx} className="border-b border-gray-100 dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-800/50">
+                                        <td className="py-2 px-2 font-mono text-xs text-gray-700 dark:text-gray-300 truncate">{r.resourceId}</td>
+                                        <td className="py-2 px-2 text-gray-600 dark:text-gray-400">{r.category}</td>
+                                        <td className="py-2 px-2 text-right font-semibold text-emerald-600 dark:text-emerald-400">{fmtUsd(r.estimatedSavings)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </Card>
+            )}
         </div>
     );
 }

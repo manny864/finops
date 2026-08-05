@@ -3,6 +3,7 @@ import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { getSnapshotHistory } from "@/services/snapshotService";
+import pool from "@/modules/storage/db";
 
 // Detalle de "Ahorro Capturado" (tarjeta `exec` del Dashboard General).
 //
@@ -20,6 +21,28 @@ import { getSnapshotHistory } from "@/services/snapshotService";
 // se ahorraría eliminando el desperdicio detectado) — se expone el mismo
 // valor en ambos campos hasta que exista una métrica de "gasto actual en
 // recursos zombie" genuinamente distinta.
+
+async function getTopSavingsResources(tenantId: string, limit = 10) {
+    try {
+        const [rows]: any = await pool.query(
+            `SELECT resource_id, category, SUM(CAST(metadata LIKE '%"annualSavingsAmount":%' AS UNSIGNED)) AS estimated_savings
+             FROM RecommendationActions
+             WHERE tenant_id = ? AND status = 'open' AND resource_id IS NOT NULL AND resource_id != ''
+             GROUP BY resource_id, category
+             ORDER BY estimated_savings DESC LIMIT ?`,
+            [tenantId, limit]
+        );
+        return (rows || []).map((r: any) => ({
+            resourceId: r.resource_id,
+            category: r.category || 'Unknown',
+            estimatedSavings: Number(r.estimated_savings) || 0,
+        }));
+    } catch (e) {
+        console.warn("[captured-savings] topSavingsResources error:", (e as any)?.message);
+        return [];
+    }
+}
+
 export async function GET(request: NextRequest) {
     try {
         const tenantId = request.nextUrl.searchParams.get("tenantId");
@@ -57,11 +80,14 @@ export async function GET(request: NextRequest) {
                 ? Number((((latest!.potentialSavings - previous.potentialSavings) / previous.potentialSavings) * 100).toFixed(1))
                 : 0;
 
+            const topResources = await getTopSavingsResources(tenantId, 10);
+
             return {
                 success: true,
                 history,
                 current: latest ? { potentialSavings: latest.potentialSavings, totalWasted: latest.totalWasted, date: latest.date } : null,
                 changePct,
+                topResources,
             };
         }, 3600);
 
