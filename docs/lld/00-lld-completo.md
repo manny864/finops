@@ -621,3 +621,43 @@ Las variables críticas están en Key Vault:
 - El bloque de asociación PAL/CPOR en onboarding vuelve a mostrarse mientras el
   estado no sea `LINKED` (incluye `FAILED`/`DECLINED`), permitiendo reintento
   sin depender de resets manuales de estado.
+
+## 17. Dashboard & UI Fixes (Agosto 2026 - Sprint Whiteboard)
+
+### 17.1 AI Cost Analytics Fixes (Commits 5035ad0, 6a79b52, 1be9ba6)
+
+- **SQL `only_full_group_by` fix:** Corregidas queries en `/api/intelligence/ai-analytics/route.ts`
+  - Las columnas en SELECT ahora coinciden con las expresiones COALESCE en GROUP BY
+  - Previene silent failures (0 rows returned) en MySQL 8+
+- **Date format fix:** Azure SDK devuelve Date objects, no ISO strings
+  - Agregada detección en `aiUsageCollector.ts`: `dateObject.toISOString().substring(0, 10)`
+  - Valida formato YYYY-MM-DD antes de INSERT en AICostSnapshots
+
+### 17.2 Dashboard Feature Fixes
+
+#### Whiteboard - Tendencia Recomendaciones (Commit a43da23)
+- Cambio de filtro: `updated_at BETWEEN` → `created_at` con `status='open'`
+- Ahora muestra recomendaciones activas incluso si son viejas (no fueron tocadas)
+
+#### Ahorro Capturado (Commit aacf5b5)
+- Nueva función `getTopSavingsResources()` en `/api/intelligence/captured-savings/route.ts`
+- UI muestra tabla de top 10 recursos por ahorro estimado
+- Permite visibility de qué assets generan más savings
+
+#### Fugas Financieras (Commit a02e65d)
+- ZombieResourcesTable ahora siempre visible (antes solo en click)
+- Simplificado UI flow
+
+#### Grupos de Costos - Error Untagged/unknown (Commit 37e07f1)
+- Problema: Forward slash en `"Untagged/Unknown"` causaba error de pattern matching en rutas dinámicas
+- Solución: Renombrado a `"Untagged"` en 6 archivos
+- Archivos afectados: `cost-groups/[name]/route.ts`, `cost-groups/route.ts`, whiteboard, top-expenses, scorecard, mockData
+
+#### Centros de Costos - Editables (Commit c66f976)
+- Removida condición `data?.isCustom` para mostrar botones edit/delete
+- Ahora todos los cost groups pueden ser editados, no solo los custom
+
+#### Unit Economics - Formato Moneda (Commit f1795d8)
+- Cambio: `costPerUserCents` → `costPerUserDollars` (sin *100)
+- Tooltip formatter usa `format()` en lugar de mostrar `¢`
+- Gráfico ahora muestra $1.23 en lugar de 123¢
