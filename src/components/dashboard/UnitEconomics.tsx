@@ -102,7 +102,7 @@ export default function UnitEconomics() {
         const chartData = rawData.map((d: any) => ({
             ...d,
             costDisplay: Number((d.cost || 0).toFixed(2)),
-            costPerUserCents: d.costPerUser != null ? Number((d.costPerUser * 100).toFixed(4)) : null,
+            costPerUserDollars: d.costPerUser != null ? Number((d.costPerUser).toFixed(4)) : null,
         }));
 
         return {
@@ -242,14 +242,14 @@ export default function UnitEconomics() {
                                 contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}
                                 formatter={(value: any, name: any) => {
                                     if (name === t("series_cloud_cost")) return [format(value), name];
-                                    if (name === t("series_cost_per_user_cents")) return [`${value}¢`, name];
+                                    if (name === t("series_cost_per_user_cents")) return [format(value), name];
                                     return [value, name];
                                 }}
                             />
                             <Legend wrapperStyle={{ paddingTop: '20px' }} />
                             <Bar yAxisId="left" dataKey="costDisplay" name={t("series_cloud_cost")} fill="#E0E7FF" radius={[4, 4, 0, 0]} />
                             {metrics.hasDau && (
-                                <Line yAxisId="right" type="monotone" dataKey="costPerUserCents" name={t("series_cost_per_user_cents")} stroke="#0054A6" strokeWidth={3} dot={{ r: 3, fill: '#0054A6', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6 }} connectNulls={false} />
+                                <Line yAxisId="right" type="monotone" dataKey="costPerUserDollars" name={t("series_cost_per_user_cents")} stroke="#0054A6" strokeWidth={3} dot={{ r: 3, fill: '#0054A6', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6 }} connectNulls={false} />
                             )}
                         </ComposedChart>
                     </ResponsiveContainer>
