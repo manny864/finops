@@ -1898,7 +1898,7 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
         case 'top_expenses': {
             const round2 = (x: number) => Math.round(x * 100) / 100;
             const groups = MOCK_COST_GROUPS(multiplier)
-                .filter(g => g.name !== 'Untagged/Unknown')
+                .filter(g => g.name !== 'Untagged')
                 .sort((a, b) => b.periodCost - a.periodCost)
                 .slice(0, 3)
                 .map(g => ({ name: g.name, cost: g.periodCost }));
@@ -2163,7 +2163,7 @@ const MOCK_COST_GROUPS = (multiplier: number) => {
         { name: 'marketing', description: 'Sitios web, CDN y analítica del equipo de Marketing', periodCost: 400 * multiplier * 0.91, budget: 400 * multiplier, owner: 'Carlos Ruiz', subscriptions: 1, resourceGroups: 4, resources: 22, daysAgo: 2 },
         { name: 'data-platform', description: 'Data Lake, Synapse y pipelines de analítica', periodCost: 2500 * multiplier * 0.58, budget: 2500 * multiplier, owner: 'Ana Torres', subscriptions: 2, resourceGroups: 9, resources: 74, daysAgo: 0 },
         { name: 'shared-services', description: 'Networking, identidad y servicios compartidos entre BUs', periodCost: 900 * multiplier * 1.03, budget: 900 * multiplier, owner: 'Diego Fernández', subscriptions: 4, resourceGroups: 15, resources: 130, daysAgo: 3 },
-        { name: 'Untagged/Unknown', description: 'Recursos sin tag CostCenter asignado', periodCost: 300 * multiplier * 0.35, budget: 0, owner: null, subscriptions: 1, resourceGroups: 3, resources: 18, daysAgo: 12 },
+        { name: 'Untagged', description: 'Recursos sin tag CostCenter asignado', periodCost: 300 * multiplier * 0.35, budget: 0, owner: null, subscriptions: 1, resourceGroups: 3, resources: 18, daysAgo: 12 },
     ];
     return base.map(g => ({
         name: g.name,

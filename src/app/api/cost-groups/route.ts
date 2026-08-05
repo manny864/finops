@@ -67,7 +67,7 @@ async function fetchCostGroups(tenantId: string, period: string) {
         // con una que no existe.
         const [rows]: any = await pool.query(
             `SELECT
-                COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(Tags, '$.CostCenter')), 'null'), 'Untagged/Unknown') AS name,
+                COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(Tags, '$.CostCenter')), 'null'), 'Untagged') AS name,
                 SUM(COALESCE(EffectiveCost, BilledCost, cost_usd, 0)) AS periodCost,
                 COUNT(DISTINCT CASE WHEN subscription_id NOT IN ('mg-aggregated', 'default') THEN subscription_id END) AS subscriptions,
                 COUNT(DISTINCT resource_group) AS resourceGroups,

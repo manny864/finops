@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
                 const costByTeam = new Map<string, number>();
                 try {
                     const [costRows]: any = await pool.query(
-                        `SELECT COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(Tags, '$.CostCenter')), 'null'), 'Untagged/Unknown') AS costCenter,
+                        `SELECT COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(Tags, '$.CostCenter')), 'null'), 'Untagged') AS costCenter,
                                 SUM(COALESCE(EffectiveCost, cost_usd, 0)) AS total
                          FROM CostSnapshots
                          WHERE tenant_id = ?

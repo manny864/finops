@@ -99,7 +99,7 @@ async function getCostFigures(tenantId: string) {
 
 async function getTop5CostGroups(tenantId: string) {
     const [rows]: any = await pool.query(
-        `SELECT COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(Tags, '$.CostCenter')), 'null'), 'Untagged/Unknown') AS name,
+        `SELECT COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(Tags, '$.CostCenter')), 'null'), 'Untagged') AS name,
                 SUM(COALESCE(EffectiveCost, cost_usd, 0)) AS total
          FROM CostSnapshots
          WHERE tenant_id = ? AND DATE(COALESCE(ChargePeriodStart, date)) >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)

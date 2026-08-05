@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
 
         const [topCostGroupsRaw, topResourceGroups, topResourcesRaw] = await Promise.all([
             pool.query(
-                `SELECT COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(Tags, '$.CostCenter')), 'null'), 'Untagged/Unknown') AS name,
+                `SELECT COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(Tags, '$.CostCenter')), 'null'), 'Untagged') AS name,
                         SUM(COALESCE(EffectiveCost, BilledCost, cost_usd, 0)) AS cost
                  FROM CostSnapshots
                  WHERE tenant_id = ? AND DATE(COALESCE(ChargePeriodStart, date)) >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
