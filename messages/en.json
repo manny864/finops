@@ -3547,6 +3547,24 @@
     "topCategory": "Top category",
     "source": "Categories from the Microsoft FinOps Toolkit open data (ResourceType → ServiceCategory)."
   },
+  "Billing": {
+    "title": "Real Consumption",
+    "subtitle": "Detailed analysis of actual cloud consumption and spending",
+    "loading": "Loading billing data...",
+    "error": "Error loading billing",
+    "mockData": "This is mock data for demonstration purposes",
+    "tabs": {
+      "real": "Real Consumption",
+      "category": "By Category",
+      "environmental": "Environmental Impact"
+    },
+    "realConsumption": {
+      "subtitle": "Total spend (last 30 days)"
+    },
+    "environmental": {
+      "placeholder": "Environmental impact metrics coming soon"
+    }
+  },
   "CommitmentSimulator": {
     "title": "Savings Plan vs Reservation",
     "subtitle": "Azure's native recommendation: which commitment saves more, by term",

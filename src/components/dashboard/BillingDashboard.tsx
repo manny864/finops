@@ -1,0 +1,149 @@
+"use client";
+import React, { useState } from "react";
+import useSWR from "swr";
+import { useTenant } from "@/components/TenantProvider";
+import { useMsal } from "@azure/msal-react";
+import { useTranslations } from "next-intl";
+import { useProviderTranslations } from "@/lib/useProviderTranslations";
+import { getFreshIdToken } from "@/lib/msalToken";
+import { useCurrency } from "@/components/CurrencyProvider";
+import { Loader2, AlertCircle } from "lucide-react";
+import { isMockTenant } from '@/lib/mockData';
+import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
+import CostByCategoryDashboard from "./CostByCategoryDashboard";
+
+export default function BillingDashboard() {
+    const t = useProviderTranslations("Billing");
+    const { selectedTenant } = useTenant();
+    const { instance, accounts } = useMsal();
+    const { format } = useCurrency();
+    const [days] = useState(30);
+    const [activeTab, setActiveTab] = useState<"real" | "category" | "environmental">("real");
+
+    const fetcher = async (url: string) => {
+        const idToken = await getFreshIdToken(instance, accounts[0], ["User.Read"]);
+        const res = await fetch(url, {
+            headers: {
+                Authorization: `Bearer ${idToken}`,
+                "x-tenant-id": selectedTenant?.id ?? "",
+            },
+        });
+        if (!res.ok) {
+            const json = await res.json();
+            throw new Error(json.details || json.error || "Error");
+        }
+        return res.json();
+    };
+
+    const { data, error, isLoading } = useSWR(
+        selectedTenant?.id ? `/api/intelligence/billing?days=${days}&tenantId=${selectedTenant.id}` : null,
+        fetcher,
+        { revalidateOnFocus: false }
+    );
+
+    if (error) {
+        const tierError = parseTierRequiredError(error.message);
+        if (tierError) {
+            return <TierLockedNotice {...tierError} />;
+        }
+        return (
+            <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                <AlertCircle className="w-5 h-5" />
+                <div>
+                    <div className="font-semibold">{t("error")}</div>
+                    <div className="text-sm">{error.message}</div>
+                </div>
+            </div>
+        );
+    }
+
+    const isMock = selectedTenant?.id ? isMockTenant(selectedTenant.id) : false;
+
+    return (
+        <div className="space-y-6">
+            {isMock && (
+                <div className="flex items-center gap-2 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-sm text-amber-700 dark:text-amber-300">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    <span>{t("mockData")}</span>
+                </div>
+            )}
+
+            {/* Tab Navigation */}
+            <div className="flex border-b border-gray-200 dark:border-slate-700 gap-6">
+                <button
+                    onClick={() => setActiveTab("real")}
+                    className={`pb-3 px-1 font-medium transition-colors ${
+                        activeTab === "real"
+                            ? "border-b-2 border-blue-600 text-blue-600 dark:text-blue-400"
+                            : "text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200"
+                    }`}
+                >
+                    {t("tabs.real")}
+                </button>
+                <button
+                    onClick={() => setActiveTab("category")}
+                    className={`pb-3 px-1 font-medium transition-colors ${
+                        activeTab === "category"
+                            ? "border-b-2 border-blue-600 text-blue-600 dark:text-blue-400"
+                            : "text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200"
+                    }`}
+                >
+                    {t("tabs.category")}
+                </button>
+                <button
+                    onClick={() => setActiveTab("environmental")}
+                    className={`pb-3 px-1 font-medium transition-colors ${
+                        activeTab === "environmental"
+                            ? "border-b-2 border-blue-600 text-blue-600 dark:text-blue-400"
+                            : "text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200"
+                    }`}
+                >
+                    {t("tabs.environmental")}
+                </button>
+            </div>
+
+            {/* Tab Content */}
+            <div className="mt-6">
+                {isLoading ? (
+                    <div className="flex items-center justify-center gap-2 text-gray-600 dark:text-slate-400 py-8">
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <span>{t("loading")}</span>
+                    </div>
+                ) : activeTab === "real" ? (
+                    <div className="space-y-4">
+                        <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                            <div className="text-sm text-gray-600 dark:text-slate-400">{t("realConsumption.subtitle")}</div>
+                            {data?.mock ? (
+                                <div className="text-2xl font-bold text-gray-900 dark:text-white mt-2">
+                                    {format(data?.totalCost || 0)}
+                                </div>
+                            ) : (
+                                <div className="text-2xl font-bold text-gray-900 dark:text-white mt-2">
+                                    {format(data?.totalCost || 0)}
+                                </div>
+                            )}
+                        </div>
+                        {data?.breakdown && (
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                {data.breakdown.map((item: any) => (
+                                    <div key={item.name} className="p-4 border border-gray-200 dark:border-slate-700 rounded-lg">
+                                        <div className="text-sm text-gray-600 dark:text-slate-400">{item.name}</div>
+                                        <div className="text-lg font-semibold text-gray-900 dark:text-white mt-2">
+                                            {format(item.cost)}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                ) : activeTab === "category" ? (
+                    <CostByCategoryDashboard />
+                ) : (
+                    <div className="p-4 bg-gray-50 dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 text-center text-gray-600 dark:text-slate-400">
+                        {t("environmental.placeholder")}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}

@@ -3547,6 +3547,24 @@
     "topCategory": "Categoría principal",
     "source": "Categorías del Open Data del Microsoft FinOps Toolkit (ResourceType → ServiceCategory)."
   },
+  "Billing": {
+    "title": "Consumo Real",
+    "subtitle": "Análisis detallado del consumo y gasto real de nube",
+    "loading": "Cargando datos de facturación...",
+    "error": "Error al cargar facturación",
+    "mockData": "Estos son datos de demostración",
+    "tabs": {
+      "real": "Consumo Real",
+      "category": "Por Categoría",
+      "environmental": "Impacto Ambiental"
+    },
+    "realConsumption": {
+      "subtitle": "Gasto total (últimos 30 días)"
+    },
+    "environmental": {
+      "placeholder": "Métricas de impacto ambiental próximamente"
+    }
+  },
   "CommitmentSimulator": {
     "title": "Savings Plan vs Reserva",
     "subtitle": "Recomendación nativa de Azure: qué compromiso ahorra más, por término",
