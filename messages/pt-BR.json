@@ -744,10 +744,13 @@
       "environmental": "Impacto Ambiental"
     },
     "realConsumption": {
-      "subtitle": "Gasto total (últimos 30 dias)"
+      "subtitle": "Gasto total (mês atual)"
     },
     "environmental": {
-      "placeholder": "Métricas de impacto ambiental em breve"
+      "title": "Impacto ambiental alinhado com Green FinOps",
+      "sourceAvoided": "Fonte: CO2 evitado (limpeza de zombies)",
+      "sourceFootprint": "Fonte: pegada estimada do tenant",
+      "sourceNone": "Fonte: sem dados ambientais disponíveis"
     }
   },
   "Network": {

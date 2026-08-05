@@ -744,10 +744,13 @@
       "environmental": "Environmental Impact"
     },
     "realConsumption": {
-      "subtitle": "Total spend (last 30 days)"
+      "subtitle": "Total spend (month to date)"
     },
     "environmental": {
-      "placeholder": "Environmental impact metrics coming soon"
+      "title": "Environmental impact aligned with Green FinOps",
+      "sourceAvoided": "Source: CO2 avoided (zombie cleanup)",
+      "sourceFootprint": "Source: estimated tenant footprint",
+      "sourceNone": "Source: no environmental data available"
     }
   },
   "Network": {

@@ -3,7 +3,6 @@ import React, { useState } from "react";
 import useSWR from "swr";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
-import { useTranslations } from "next-intl";
 import { useProviderTranslations } from "@/lib/useProviderTranslations";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { useCurrency } from "@/components/CurrencyProvider";
@@ -17,7 +16,7 @@ export default function BillingDashboard() {
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const { format } = useCurrency();
-    const [days] = useState(30);
+    const [days] = useState(new Date().getDate());
     const [activeTab, setActiveTab] = useState<"real" | "category" | "environmental">("real");
 
     const fetcher = async (url: string) => {
@@ -113,15 +112,9 @@ export default function BillingDashboard() {
                     <div className="space-y-4">
                         <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                             <div className="text-sm text-gray-600 dark:text-slate-400">{t("realConsumption.subtitle")}</div>
-                            {data?.mock ? (
-                                <div className="text-2xl font-bold text-gray-900 dark:text-white mt-2">
-                                    {format(data?.totalCost || 0)}
-                                </div>
-                            ) : (
-                                <div className="text-2xl font-bold text-gray-900 dark:text-white mt-2">
-                                    {format(data?.totalCost || 0)}
-                                </div>
-                            )}
+                            <div className="text-2xl font-bold text-gray-900 dark:text-white mt-2">
+                                {format(data?.totalCost || 0)}
+                            </div>
                         </div>
                         {data?.breakdown && (
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -139,8 +132,32 @@ export default function BillingDashboard() {
                 ) : activeTab === "category" ? (
                     <CostByCategoryDashboard />
                 ) : (
-                    <div className="p-4 bg-gray-50 dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 text-center text-gray-600 dark:text-slate-400">
-                        {t("environmental.placeholder")}
+                    <div className="space-y-4">
+                        <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                            <div className="text-sm text-gray-600 dark:text-slate-400">{t("environmental.title")}</div>
+                            <div className="text-2xl font-bold text-gray-900 dark:text-white mt-2">
+                                {Number(data?.environmentalImpact || 0).toFixed(2)} kg CO2e
+                            </div>
+                            <div className="text-sm text-gray-600 dark:text-slate-400 mt-1">
+                                {data?.environmentalImpactSource === "avoided"
+                                    ? t("environmental.sourceAvoided")
+                                    : data?.environmentalImpactSource === "footprint"
+                                        ? t("environmental.sourceFootprint")
+                                        : t("environmental.sourceNone")}
+                            </div>
+                        </div>
+                        {Array.isArray(data?.byRegion) && data.byRegion.length > 0 && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {data.byRegion.slice(0, 4).map((item: any) => (
+                                    <div key={item.region} className="p-4 border border-gray-200 dark:border-slate-700 rounded-lg">
+                                        <div className="text-sm text-gray-600 dark:text-slate-400">{item.region}</div>
+                                        <div className="text-lg font-semibold text-gray-900 dark:text-white mt-2">
+                                            {Number(item.kgCO2e || 0).toFixed(2)} kg CO2e
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
