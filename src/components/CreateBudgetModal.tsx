@@ -292,8 +292,7 @@ export default function CreateBudgetModal({ isOpen, onClose, onSuccess, subscrip
 
                     {mode === 'create' && (
                         <KillSwitchConfig
-                            timeGrain={timeGrain}
-                            onTimeGrainChange={setTimeGrain}
+                            subscriptionId={subscriptionId}
                         />
                     )}
 

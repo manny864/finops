@@ -44,7 +44,7 @@ export default function BillingDashboard() {
     if (error) {
         const tierError = parseTierRequiredError(error.message);
         if (tierError) {
-            return <TierLockedNotice {...tierError} />;
+            return <TierLockedNotice requiredTier={tierError} />;
         }
         return (
             <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
