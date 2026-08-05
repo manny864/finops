@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import HybridBenefitCard from "@/components/dashboard/HybridBenefitCard";
 import Commitments from "@/components/dashboard/Commitments";
 import RatesOptimization from "@/components/dashboard/RatesOptimization";
+import CommitmentSimulatorDashboard from "@/components/dashboard/CommitmentSimulatorDashboard";
 
 export default function OptimizationDashboard() {
     const t = useTranslations("Optimization");
@@ -12,8 +13,9 @@ export default function OptimizationDashboard() {
     const tabs = [
         { id: "rates", label: t("tabs.rates"), icon: "💰" },
         { id: "hybrid", label: t("tabs.hybrid"), icon: "🏷️" },
-        { id: "commitments", label: t("tabs.commitments"), icon: "🔖" },
+        { id: "ri", label: t("tabs.ri"), icon: "🔖" },
         { id: "savingsPlans", label: t("tabs.savingsPlans"), icon: "📊" },
+        { id: "reservations", label: t("tabs.reservations"), icon: "🧾" },
     ];
 
     return (
@@ -38,12 +40,13 @@ export default function OptimizationDashboard() {
             <div className="mt-6">
                 {activeTab === "rates" && <RatesOptimization />}
                 {activeTab === "hybrid" && <HybridBenefitCard />}
-                {activeTab === "commitments" && <Commitments />}
+                {activeTab === "ri" && <Commitments />}
                 {activeTab === "savingsPlans" && (
                     <div className="p-6 bg-blue-50 dark:bg-slate-800 border border-blue-200 dark:border-slate-700 rounded-lg text-center">
                         <p className="text-slate-600 dark:text-slate-300">{t("savingsPlansNote")}</p>
                     </div>
                 )}
+                {activeTab === "reservations" && <CommitmentSimulatorDashboard />}
             </div>
         </div>
     );

@@ -31,6 +31,8 @@ export const PAGES: PageEntry[] = [
     { id: "int-aks-chargeback", path: "/intelligence/aks-chargeback", title: "AKS Chargeback", description: "Asignación de costos AKS por workload/namespace.", icon: "Container", category: "intelligence" },
     { id: "int-compute-efficiency", path: "/intelligence/compute-efficiency", title: "Compute Efficiency", description: "Eficiencia y costo por core de compute.", icon: "Cpu", category: "intelligence" },
     { id: "int-network", path: "/intelligence/network", title: "Networking", description: "Análisis de costos de red y egreso.", icon: "Network", category: "intelligence" },
+    { id: "int-optimization", path: "/intelligence/optimization", title: "Optimización", description: "Tarifas, Hybrid Benefits, RIs, Savings Plan y Reservas en pestañas.", icon: "Target", category: "intelligence" },
+    { id: "int-efficiency", path: "/intelligence/efficiency", title: "Eficiencia", description: "Storage, Compute y AI Cost Analytics en pestañas.", icon: "Cloud", category: "intelligence" },
     { id: "int-macc", path: "/intelligence/macc", title: "MACC", description: "Microsoft Azure Consumption Commitment.", icon: "FileText", category: "intelligence" },
     { id: "int-rs-appservice", path: "/intelligence/rightsizing/appservice", title: "Rightsizing — App Service", description: "Recomendaciones de tamaño para App Service.", icon: "Maximize2", category: "intelligence" },
     { id: "int-rs-vmss", path: "/intelligence/rightsizing/vmss", title: "Rightsizing — VMSS", description: "Recomendaciones para Virtual Machine Scale Sets.", icon: "Server", category: "intelligence" },

@@ -4875,7 +4875,9 @@
       "rates": "Otimização de Tarifas",
       "hybrid": "Benefícios Híbridos",
       "commitments": "Compromissos",
-      "savingsPlans": "Planos de Poupança"
+      "ri": "Reservas (RIs)",
+      "savingsPlans": "Saving Plan",
+      "reservations": "Reservas"
     },
     "savingsPlansNote": "Conteúdo e gerenciamento de Azure Savings Plans em breve."
   },
