@@ -98,6 +98,18 @@ function normalizeLoc(loc: string): string {
     return s.replace(/^us(east|west|central|northcentral|southcentral|westcentral)(\d*)$/, '$1us$2');
 }
 
+function quantityToGb(quantity: number, unitOfMeasure: string): number | null {
+    if (!Number.isFinite(quantity) || quantity <= 0) return null;
+    const uom = String(unitOfMeasure || "").toLowerCase();
+    if (!uom) return null;
+    if (uom.includes("tb")) return quantity * 1024;
+    if (uom.includes("gb")) return quantity;
+    if (uom.includes("mb")) return quantity / 1024;
+    if (uom.includes("kb")) return quantity / (1024 * 1024);
+    if (uom.includes("byte")) return quantity / (1024 * 1024 * 1024);
+    return null;
+}
+
 async function fetchStorageAccountMetricsBatch(tenantId: string, accounts: any[]): Promise<Map<string, number>> {
     const bytesMap = new Map<string, number>();
     try {
@@ -333,7 +345,8 @@ export async function GET(request: NextRequest) {
                 const uom = String(row.UnitOfMeasure || "").toLowerCase();
                 const reportedQty = parseFloat(row.quantity) || 0;
                 const inferredGb = TIER_RATES[tier] > 0 ? cost / TIER_RATES[tier] : 0;
-                const gb = (reportedQty > 0 && (uom.includes("gb") || uom.includes("byte"))) ? reportedQty : inferredGb;
+                const reportedGb = quantityToGb(reportedQty, uom);
+                const gb = reportedGb ?? inferredGb;
                 tierMap[tier].cost += cost;
                 tierMap[tier].gb += gb;
             }
@@ -362,7 +375,8 @@ export async function GET(request: NextRequest) {
                         const uom = String(r.UnitOfMeasure || "").toLowerCase();
                         const reportedQty = parseFloat(r.quantity) || 0;
                         const inferredGb = TIER_RATES[tier] > 0 ? cost / TIER_RATES[tier] : 0;
-                        const gb = (reportedQty > 0 && (uom.includes("gb") || uom.includes("byte"))) ? reportedQty : inferredGb;
+                        const reportedGb = quantityToGb(reportedQty, uom);
+                        const gb = reportedGb ?? inferredGb;
 
                         if (rg && rg !== '*') {
                             const current = costByRg.get(rg) || { cost: 0, qty: 0 };
