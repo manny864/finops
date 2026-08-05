@@ -733,45 +733,22 @@
     "exemption_removed": "Exemption removed successfully"
   },
   "Billing": {
-    "changePaymentMethod": "Change Payment Method",
-    "cancelSubscription": "Cancel Subscription",
-    "confirmCancel": "Are you sure you want to cancel your subscription? This action will take effect immediately.",
-    "title": "Consumption & Billing",
-    "subtitle": "Amortized costs visibility for the current month.",
-    "missing_consent": "Missing Admin Consent in Tenant",
-    "missing_consent_desc": "CSCloudSolutions app has not been consented in this Tenant. Create the Service Principal in Azure Cloud Shell:",
-    "permissions_title": "Restricted Cost Management Permissions",
-    "permissions_desc": "Azure Cost Management blocked reading costs. Common reasons:",
-    "permissions_reason1": "Service Principal lacks Cost Management Reader role.",
-    "permissions_reason2": "Subscription does not exist or was cancelled.",
-    "amortized_cost": "Amortized Cost (MTD)",
-    "daily_trend": "Daily Consumption Trend",
-    "cost_breakdown": "Cost Breakdown by Service",
-    "no_costs": "No costs detected in this period.",
-    "cost_label": "Cost",
-    "synced_tenant": "Synced Tenant",
-    "mins_ago": "4 mins ago",
-    "full_tenant": "Full Tenant",
-    "mtd_spend": "MTD Spend",
-    "identified_savings": "Identified Savings",
-    "pending_apply": "pending application",
-    "applied_savings": "Applied Savings",
-    "captured_percent": "0% captured",
-    "annual_projection": "Annual Projection",
-    "zombie_resources": "Zombie Resources",
-    "inactive_resources": "inactive resources",
-    "tag_compliance": "Tag Compliance",
-    "untagged_resources": "untagged resources",
-    "monthly_spend_evolution": "Monthly Spend Evolution",
-    "spend_label": "Spend",
-    "potential_label": "Potential",
-    "spend_by_subscription": "Spend by Subscription",
-    "btn_apply": "Apply",
-    "potentialSavingsTitle": "Potential Savings",
-    "potentialSavingsDesc": "Waste & Rightsizing",
-    "viewDetails": "View Optimization Details",
-    "environmental_impact": "Environmental Impact",
-    "estimated_co2e": "estimated kg CO2e"
+    "title": "Real Consumption",
+    "subtitle": "Detailed analysis of actual cloud consumption and spending",
+    "loading": "Loading billing data...",
+    "error": "Error loading billing",
+    "mockData": "This is mock data for demonstration purposes",
+    "tabs": {
+      "real": "Real Consumption",
+      "category": "By Category",
+      "environmental": "Environmental Impact"
+    },
+    "realConsumption": {
+      "subtitle": "Total spend (last 30 days)"
+    },
+    "environmental": {
+      "placeholder": "Environmental impact metrics coming soon"
+    }
   },
   "Network": {
     "title": "Network & Egress Analysis",
@@ -3547,24 +3524,6 @@
     "topCategory": "Top category",
     "source": "Categories from the Microsoft FinOps Toolkit open data (ResourceType → ServiceCategory)."
   },
-  "Billing": {
-    "title": "Real Consumption",
-    "subtitle": "Detailed analysis of actual cloud consumption and spending",
-    "loading": "Loading billing data...",
-    "error": "Error loading billing",
-    "mockData": "This is mock data for demonstration purposes",
-    "tabs": {
-      "real": "Real Consumption",
-      "category": "By Category",
-      "environmental": "Environmental Impact"
-    },
-    "realConsumption": {
-      "subtitle": "Total spend (last 30 days)"
-    },
-    "environmental": {
-      "placeholder": "Environmental impact metrics coming soon"
-    }
-  },
   "CommitmentSimulator": {
     "title": "Savings Plan vs Reservation",
     "subtitle": "Azure's native recommendation: which commitment saves more, by term",
@@ -4902,5 +4861,16 @@
     "title": "Feature not available for {provider}",
     "description": "This page has no {provider} equivalent yet: it relies on data that only Azure provides.",
     "hint": "If your organization also has Azure, switch providers using the selector in the top bar."
+  },
+  "Optimization": {
+    "title": "Optimization",
+    "subtitle": "Cost optimization strategies and recommendations",
+    "tabs": {
+      "rates": "Rate Optimization",
+      "hybrid": "Hybrid Benefits",
+      "commitments": "Commitments",
+      "savingsPlans": "Savings Plans"
+    },
+    "savingsPlansNote": "Azure Savings Plans content and management coming soon."
   }
 }

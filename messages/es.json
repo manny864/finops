@@ -733,45 +733,22 @@
     "exemption_removed": "Exención eliminada correctamente"
   },
   "Billing": {
-    "changePaymentMethod": "Cambiar Método de Pago",
-    "cancelSubscription": "Cancelar Suscripción",
-    "confirmCancel": "¿Estás seguro de que deseas cancelar tu suscripción? Esta acción tendrá efecto inmediato.",
-    "title": "Consumo y Facturación",
-    "subtitle": "Visibilidad de costos amortizados en el mes en curso.",
-    "missing_consent": "Falta Admin Consent en el Tenant",
-    "missing_consent_desc": "La aplicación de CSCloudSolutions no ha sido consentida en este Tenant. Crea el Service Principal en Azure Cloud Shell con el siguiente comando:",
-    "permissions_title": "Permisos de Cost Management Restringidos",
-    "permissions_desc": "Azure Cost Management ha bloqueado la lectura de costos para la suscripción solicitada. Esto sucede comúnmente por dos razones:",
-    "permissions_reason1": "El Service Principal (Enterprise App) no tiene el rol de Cost Management Reader asignado a nivel Suscripción.",
-    "permissions_reason2": "La suscripción proporcionada no existe en este Tenant o ha sido cancelada.",
-    "amortized_cost": "Costo Amortizado (MTD)",
-    "daily_trend": "Tendencia Diaria de Consumo",
-    "cost_breakdown": "Desglose de Costos por Servicio",
-    "no_costs": "No se detectaron costos en este periodo.",
-    "cost_label": "Costo",
-    "synced_tenant": "Tenant sincronizado",
-    "mins_ago": "hace 4 min",
-    "full_tenant": "Tenant completo",
-    "mtd_spend": "Gasto MTD",
-    "identified_savings": "Ahorro Identificado",
-    "pending_apply": "pendiente de aplicar",
-    "applied_savings": "Ahorro Aplicado",
-    "captured_percent": "0% capturado",
-    "annual_projection": "Proyección Anual",
-    "zombie_resources": "Recursos Zombis",
-    "inactive_resources": "recursos inactivos",
-    "tag_compliance": "Compliance Etiquetas",
-    "untagged_resources": "recursos sin tag",
-    "monthly_spend_evolution": "Evolución del gasto mensual",
-    "spend_label": "Gasto",
-    "potential_label": "Potencial",
-    "spend_by_subscription": "Gasto por suscripción",
-    "btn_apply": "Aplicar Ahora",
-    "potentialSavingsTitle": "Ahorro Potencial",
-    "potentialSavingsDesc": "Fugas y redimensionamiento",
-    "viewDetails": "Ver Detalles de Optimización",
-    "environmental_impact": "Impacto ambiental",
-    "estimated_co2e": "kg CO2e estimado"
+    "title": "Consumo Real",
+    "subtitle": "Análisis detallado del consumo y gasto real de nube",
+    "loading": "Cargando datos de facturación...",
+    "error": "Error al cargar facturación",
+    "mockData": "Estos son datos de demostración",
+    "tabs": {
+      "real": "Consumo Real",
+      "category": "Por Categoría",
+      "environmental": "Impacto Ambiental"
+    },
+    "realConsumption": {
+      "subtitle": "Gasto total (últimos 30 días)"
+    },
+    "environmental": {
+      "placeholder": "Métricas de impacto ambiental próximamente"
+    }
   },
   "Network": {
     "title": "Análisis de Red y Egress",
@@ -3547,24 +3524,6 @@
     "topCategory": "Categoría principal",
     "source": "Categorías del Open Data del Microsoft FinOps Toolkit (ResourceType → ServiceCategory)."
   },
-  "Billing": {
-    "title": "Consumo Real",
-    "subtitle": "Análisis detallado del consumo y gasto real de nube",
-    "loading": "Cargando datos de facturación...",
-    "error": "Error al cargar facturación",
-    "mockData": "Estos son datos de demostración",
-    "tabs": {
-      "real": "Consumo Real",
-      "category": "Por Categoría",
-      "environmental": "Impacto Ambiental"
-    },
-    "realConsumption": {
-      "subtitle": "Gasto total (últimos 30 días)"
-    },
-    "environmental": {
-      "placeholder": "Métricas de impacto ambiental próximamente"
-    }
-  },
   "CommitmentSimulator": {
     "title": "Savings Plan vs Reserva",
     "subtitle": "Recomendación nativa de Azure: qué compromiso ahorra más, por término",
@@ -4902,5 +4861,16 @@
     "title": "Función no disponible para {provider}",
     "description": "Esta página todavía no tiene equivalente para {provider}: depende de datos que solo entrega Azure.",
     "hint": "Si su organización también tiene Azure, cambie de proveedor con el selector de la barra superior."
+  },
+  "Optimization": {
+    "title": "Optimización",
+    "subtitle": "Estrategias y recomendaciones de optimización de costos",
+    "tabs": {
+      "rates": "Optimización de Tarifas",
+      "hybrid": "Beneficios Híbridos",
+      "commitments": "Compromisos",
+      "savingsPlans": "Planes de Ahorro"
+    },
+    "savingsPlansNote": "Contenido y gestión de Azure Savings Plans próximamente."
   }
 }
