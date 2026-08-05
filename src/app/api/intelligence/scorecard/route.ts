@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
                 const query = `
                     Resources
                     | extend costCenter = tostring(tags.CostCenter)
-                    | extend costCenter = iff(isnotempty(costCenter), costCenter, "Untagged/Unknown")
+                    | extend costCenter = iff(isnotempty(costCenter), costCenter, "Untagged")
                     | summarize totalResources = count(),
                                 untaggedResources = countif(isnull(tags) or array_length(bag_keys(tags)) == 0)
                                 by costCenter

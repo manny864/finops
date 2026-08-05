@@ -155,7 +155,7 @@ async function fetchCostGroups(tenantId: string, period: string) {
 }
 
 const NAME_MAX_LEN = 255;
-const RESERVED_NAME = "Untagged/Unknown";
+const RESERVED_NAME = "Untagged";
 
 /**
  * POST /api/cost-groups — crea un Cost Group con una regla de membresía

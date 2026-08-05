@@ -1259,7 +1259,7 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
                         { name: "Data", cost: round2(currentFYCost * 0.18) },
                         { name: "Marketing", cost: round2(currentFYCost * 0.13) },
                         { name: "HR", cost: round2(currentFYCost * 0.09) },
-                        { name: "Untagged/Unknown", cost: round2(currentFYCost * 0.08) },
+                        { name: "Untagged", cost: round2(currentFYCost * 0.08) },
                     ],
                 },
             };

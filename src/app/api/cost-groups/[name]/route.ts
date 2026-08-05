@@ -196,7 +196,7 @@ async function getAuditLogs(tenantId: string, resourceGroupSet: Set<string>) {
  */
 async function resolveGroupFilters(tenantId: string, name: string, meta: any) {
     if (meta?.match_type == null) {
-        const isUntagged = name === "Untagged/Unknown";
+        const isUntagged = name === "Untagged";
         const tagFilter = isUntagged
             ? `(JSON_EXTRACT(Tags, '$.CostCenter') IS NULL OR JSON_UNQUOTE(JSON_EXTRACT(Tags, '$.CostCenter')) = 'null')`
             : `JSON_UNQUOTE(JSON_EXTRACT(Tags, '$.CostCenter')) = ?`;
@@ -314,7 +314,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
                 tagCoverage: [
                     { name: "Environment", pct: pct(Number(govRow.environment) || 0) },
                     { name: "Owner", pct: pct(Number(govRow.owner) || 0) },
-                    { name: "CostCenter", pct: name === "Untagged/Unknown" ? 0 : 100 },
+                    { name: "CostCenter", pct: name === "Untagged" ? 0 : 100 },
                 ],
             };
         } catch (e: any) {
