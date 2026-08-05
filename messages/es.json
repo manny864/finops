@@ -1456,7 +1456,9 @@
     "perPage": "Por página:",
     "emptyState": "No se encontraron cuentas de almacenamiento.",
     "paginationShowing": "Mostrando {from} a {to} de {total} cuentas",
-    "page": "Página {current} de {total}"
+    "page": "Página {current} de {total}",
+    "dataRefreshNote": "Nota de Actualización de Datos",
+    "dataRefreshHint": "Los datos de costo de almacenamiento se actualizan diariamente a través del proceso de sincronización en la nube. Si sus costos se ven desactualizados, se actualizarán dentro de las próximas 24 horas. Para actualizar manualmente, contacte a su administrador para ejecutar el trabajo de sincronización diario."
   },
   "ComputeEfficiency": {
     "tierLockedFeatureName": "Eficiencia de Cómputo",

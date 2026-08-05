@@ -1456,7 +1456,9 @@
     "perPage": "Per page:",
     "emptyState": "No storage accounts found.",
     "paginationShowing": "Showing {from} to {to} of {total} accounts",
-    "page": "Page {current} of {total}"
+    "page": "Page {current} of {total}",
+    "dataRefreshNote": "Data Refresh Note",
+    "dataRefreshHint": "Storage cost data is updated daily via the cloud sync process. If your costs appear outdated, costs will refresh within the next 24 hours. To manually refresh, contact your administrator to run the daily sync job."
   },
   "ComputeEfficiency": {
     "tierLockedFeatureName": "Compute Efficiency",
