@@ -4230,7 +4230,8 @@
     "col_in_use": "En Uso",
     "col_available": "Disponibles",
     "col_underutil_risk": "Riesgo Subutilización",
-    "col_wasted_spend": "Gasto Desperdiciado"
+    "col_wasted_spend": "Gasto Desperdiciado",
+    "no_graph_data": "Sin datos de Graph"
   },
   "AksChargeback": {
     "gate_title": "Kubernetes Chargeback (OpenCost)",

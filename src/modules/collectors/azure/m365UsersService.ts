@@ -81,6 +81,8 @@ export async function getUsersDetail(tenantId: string) {
         const products = (u.assignedLicenses || []).map(l => skuById.get(l.skuId)?.name).filter(Boolean) as string[];
         const monthlyCost = (u.assignedLicenses || []).reduce((sum, l) => sum + (skuById.get(l.skuId)?.price || 0), 0);
         const lastDays = daysSince(u.signInActivity?.lastSignInDateTime);
+        // When signInActivity capability is disabled, mark with -1 to distinguish from null (which means never signed in)
+        const displayLastDays = capabilities.signInActivity ? lastDays : (lastDays === null ? -1 : lastDays);
         return {
             id: u.id,
             displayName: u.displayName || u.userPrincipalName,
@@ -89,7 +91,7 @@ export async function getUsersDetail(tenantId: string) {
             products,
             licenseCount: products.length,
             monthlyCost,
-            lastActivityDays: lastDays,
+            lastActivityDays: displayLastDays,
             // "Inactive" = sin sign-in en 30+ días o nunca. Con capability off, no se puede saber.
             inactive: capabilities.signInActivity ? (lastDays === null || lastDays >= 30) : false,
         };

@@ -276,7 +276,11 @@ function UserActivityTab() {
                                             ? <span className="text-emerald-600 dark:text-emerald-400 text-xs font-semibold">{t("enabled")}</span>
                                             : <span className="text-xs font-semibold px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300">{t("disabled")}</span>}
                                     </td>
-                                    <td className="p-3 text-gray-600 dark:text-gray-300">{r.lastActivityDays != null ? r.lastActivityDays : na}</td>
+                                    <td className="p-3 text-gray-600 dark:text-gray-300">
+                                        {r.lastActivityDays === -1
+                                            ? <span className="text-amber-600 dark:text-amber-400 text-xs">{t("no_graph_data")}</span>
+                                            : (r.lastActivityDays != null ? r.lastActivityDays : na)}
+                                    </td>
                                     <td className="p-3 text-gray-600 dark:text-gray-300 max-w-[380px]">{(r.products || []).join(", ") || "—"}</td>
                                     <td className="p-3 text-gray-600 dark:text-gray-300">{r.licenseCount}</td>
                                     <td className="p-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">{r.userPrincipalName}</td>
