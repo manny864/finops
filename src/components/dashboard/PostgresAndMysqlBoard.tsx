@@ -48,7 +48,7 @@ export function PostgresBoard() {
     useEffect(() => {
         async function fetchData() {
             try {
-                const tenantId = localStorage.getItem('tenantId') || 'demo';
+                const tenantId = localStorage.getItem('tenantId') || 'demo_tenant';
                 const res = await fetch(
                     `/api/intelligence/databases/postgres-diagnostics?tenantId=${tenantId}`
                 );
@@ -162,7 +162,7 @@ export function MysqlBoard() {
     useEffect(() => {
         async function fetchData() {
             try {
-                const tenantId = localStorage.getItem('tenantId') || 'demo';
+                const tenantId = localStorage.getItem('tenantId') || 'demo_tenant';
                 const res = await fetch(
                     `/api/intelligence/databases/mysql-diagnostics?tenantId=${tenantId}`
                 );

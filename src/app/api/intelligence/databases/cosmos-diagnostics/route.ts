@@ -12,7 +12,6 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const tenantId = searchParams.get("tenantId");
 
-    // Auth check
     if (!tenantId) {
         return NextResponse.json(
             { error: "tenantId parameter is required" },
@@ -20,11 +19,11 @@ export async function GET(request: NextRequest) {
         );
     }
 
-    await requireTenantAccess(request, tenantId);
-
     if (isMockTenant(tenantId)) {
         return NextResponse.json(getMockCosmosData());
     }
+
+    await requireTenantAccess(request, tenantId);
 
     try {
         // TODO: Implement real Cosmos DB diagnostics via:

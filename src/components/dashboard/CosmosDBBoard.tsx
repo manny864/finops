@@ -24,7 +24,7 @@ export function CosmosDBBoard() {
     useEffect(() => {
         async function fetchData() {
             try {
-                const tenantId = localStorage.getItem('tenantId') || 'demo';
+                const tenantId = localStorage.getItem('tenantId') || 'demo_tenant';
                 const res = await fetch(
                     `/api/intelligence/databases/cosmos-diagnostics?tenantId=${tenantId}`
                 );

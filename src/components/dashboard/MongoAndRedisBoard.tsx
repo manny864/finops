@@ -38,7 +38,7 @@ export function MongoDBBoard() {
     useEffect(() => {
         async function fetchData() {
             try {
-                const tenantId = localStorage.getItem('tenantId') || 'demo';
+                const tenantId = localStorage.getItem('tenantId') || 'demo_tenant';
                 const res = await fetch(
                     `/api/intelligence/databases/mongo-diagnostics?tenantId=${tenantId}`
                 );
@@ -149,7 +149,7 @@ export function RedisBoard() {
     useEffect(() => {
         async function fetchData() {
             try {
-                const tenantId = localStorage.getItem('tenantId') || 'demo';
+                const tenantId = localStorage.getItem('tenantId') || 'demo_tenant';
                 const res = await fetch(
                     `/api/intelligence/databases/redis-diagnostics?tenantId=${tenantId}`
                 );

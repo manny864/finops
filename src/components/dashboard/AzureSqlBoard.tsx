@@ -30,7 +30,7 @@ export function AzureSqlBoard() {
     useEffect(() => {
         async function fetchData() {
             try {
-                const tenantId = localStorage.getItem('tenantId') || 'demo';
+                const tenantId = localStorage.getItem('tenantId') || 'demo_tenant';
                 const res = await fetch(
                     `/api/intelligence/databases/sql-diagnostics?tenantId=${tenantId}`
                 );
