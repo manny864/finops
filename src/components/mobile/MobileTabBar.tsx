@@ -30,12 +30,14 @@ export default function MobileTabBar() {
                         <Link
                             key={href}
                             href={href}
-                            className={`flex flex-col items-center gap-0.5 py-2 text-[11px] font-semibold transition-colors ${active
+                            className={`relative flex flex-col items-center gap-0.5 py-2 text-[11px] font-semibold transition-colors ${active
                                 ? "text-brand-deep dark:text-brand-sky"
                                 : "text-gray-400 dark:text-gray-500 hover:text-gray-600"}`}
+                            aria-current={active ? "page" : undefined}
                         >
                             <Icon className={`w-6 h-6 ${active ? "" : "opacity-80"}`} strokeWidth={active ? 2.4 : 2} />
                             {t(key)}
+                            {active && <span className="absolute bottom-0.5 h-1 w-1 rounded-full bg-brand-deep dark:bg-brand-sky" />}
                         </Link>
                     );
                 })}

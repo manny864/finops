@@ -266,6 +266,31 @@ export default function StorageEfficiencyDashboard() {
                 </div>
             </div>
 
+            {/* Storage Account Composition */}
+            <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-5 shadow-sm">
+                <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-4 flex items-center gap-2">
+                    <HardDrive className="w-4 h-4 text-blue-500" />
+                    {t("compositionTitle")}
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    {[
+                        { key: "blob", label: t("blobStorage") },
+                        { key: "files", label: t("azureFiles") },
+                        { key: "queue", label: t("queueStorage") },
+                        { key: "table", label: t("tableStorage") },
+                    ].map((item) => {
+                        const composition = data?.storageComposition?.[item.key] || { gb: 0, cost: 0 };
+                        return (
+                            <div key={item.key} className="rounded-lg border border-gray-100 dark:border-slate-800 p-3">
+                                <p className="text-xs text-slate-500 dark:text-slate-400">{item.label}</p>
+                                <p className="text-lg font-bold text-slate-800 dark:text-slate-100 mt-1">{formatStorageSize(Number(composition.gb || 0))}</p>
+                                <p className="text-xs text-slate-500 mt-1">{format(Number(composition.cost || 0))}</p>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+
             {/* Recommendation */}
             {data.recommendation && (
                 <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 rounded-xl p-5 shadow-sm">

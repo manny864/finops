@@ -12,7 +12,6 @@ import {
     Target,
     TrendingDown, 
     Lightbulb, 
-    PieChart, 
     Zap, 
     Trash2, 
     Clock, 
@@ -52,20 +51,17 @@ import {
     TrendingUp,
     PiggyBank,
     Network,
-    Router,
     LifeBuoy,
     HeartPulse,
     Table2,
     Boxes,
-    Blocks,
-    ScrollText,
     Wallet,
     Recycle,
     Search,
     X,
-    Receipt,
-    Cloud
+    Receipt
 } from 'lucide-react';
+import { IconCoins, IconDatabase } from '@tabler/icons-react';
 
 interface SidebarProps {
     sidebarOpen: boolean;
@@ -132,36 +128,17 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             id: 'inteligencia',
             title: t('inteligencia'),
             items: [
-                { href: '/intelligence/billing', label: t('billing'), icon: PieChart, requiredTier: 'Essential' },
-                { href: '/intelligence/budgets', label: t('budgets', { fallback: 'Tenant Budgets' }), icon: DollarSign, requiredTier: 'Essential' },
-                { href: '/intelligence/cost-groups', label: t('cost_groups', { fallback: 'Cost Groups' }), icon: Table2, requiredTier: 'Business' },
-                { href: '/intelligence/cost-centers', label: t('cost_centers', { fallback: 'Presupuesto por Centro de Costos' }), icon: Wallet, requiredTier: 'Enterprise' },
-                { href: '/intelligence/rightsizing', label: t('rightsizing'), icon: Zap, requiredTier: 'Enterprise' },
-                { href: '/intelligence/network', label: t('network_analytics'), icon: Activity, requiredTier: 'Business' },
-                { href: '/intelligence/optimization', label: t('optimization', { fallback: 'Optimización' }), icon: Target, requiredTier: 'Enterprise' },
+                { href: '/intelligence/consumo-y-presupuesto', label: 'Consumo y Presupuesto', icon: IconCoins as any, requiredTier: 'Essential' },
+                { href: '/intelligence/optimizacion-y-ahorro', label: 'Optimización y Ahorro', icon: Target, requiredTier: 'Enterprise' },
+                { href: '/intelligence/bases-de-datos', label: 'Bases de Datos', icon: Database, requiredTier: 'Business' },
+                { href: '/intelligence/computo', label: 'Cómputo', icon: Cpu, requiredTier: 'Business' },
+                { href: '/intelligence/almacenamiento', label: 'Almacenamiento', icon: IconDatabase as any, requiredTier: 'Enterprise' },
+                { href: '/intelligence/redes', label: 'Redes', icon: Network, requiredTier: 'Business' },
                 { href: '/intelligence/licenses', label: t('users_licenses', { fallback: 'Usuarios y Licencias' }), icon: Users, requiredTier: 'Enterprise' },
-                { href: '/intelligence/efficiency', label: t('efficiency', { fallback: 'Eficiencia' }), icon: Cloud, requiredTier: 'Enterprise' },
-                { href: '/intelligence/zero-cost', label: 'Costo Cero', icon: Box },
-                { href: '/intelligence/aks', label: 'Control AKS', icon: Server, requiredTier: 'Enterprise' },
-                { href: '/intelligence/aks-chargeback', label: 'AKS Chargeback', icon: Layers, requiredTier: 'Enterprise' },
-                { href: '/intelligence/container-apps', label: 'Infraestructura de Contenedores', icon: Boxes, requiredTier: 'Business' },
-                { href: '/intelligence/cosmos-db', label: t('cosmosDb', { fallback: 'Cosmos DB' }), icon: Database, requiredTier: 'Business' },
-                { href: '/intelligence/defender', label: t('defender', { fallback: 'Defender for Cloud' }), icon: ShieldCheck, requiredTier: 'Business' },
-                { href: '/intelligence/network-perimeter', label: t('network_perimeter', { fallback: 'Red Perimetral' }), icon: Router, requiredTier: 'Professional' },
-                { href: '/intelligence/app-insights', label: t('app_insights', { fallback: 'Application Insights' }), icon: Activity, requiredTier: 'Business' },
-                { href: '/intelligence/misc-services', label: t('misc_services', { fallback: 'Otros Servicios' }), icon: Blocks },
-                { href: '/intelligence/log-analytics', label: 'Log Analytics', icon: ScrollText, requiredTier: 'Business' },
-                { href: '/intelligence/unit-economics', label: 'Unit Economics', icon: Activity, requiredTier: 'Enterprise' },
-                { href: '/intelligence/allocation', label: 'Prorrateo (Allocation)', icon: PieChart, requiredTier: 'Enterprise' },
-                { href: '/intelligence/scorecard', label: 'Scorecard (Fama)', icon: Trophy, requiredTier: 'Business' },
-                { href: '/intelligence/anomalies', label: t('anomaly_detection', { fallback: 'Detección Anomalías' }), icon: ShieldAlert, requiredTier: 'Enterprise' },
-                { href: '/intelligence/optimization-index', label: t('optimization_index', { fallback: 'Índice de Optimización (COIN)' }), icon: Target, requiredTier: 'Enterprise' },
-                { href: '/intelligence/tenant-health', label: t('tenant_health', { fallback: 'Salud del Tenant' }), icon: HeartPulse, requiredTier: 'Business' },
-                { href: '/intelligence/simulator', label: t('simulator_whatif', { fallback: 'Simulador (What-If)' }), icon: Activity, requiredTier: 'Business' },
-                { href: '/intelligence/cost-projection', label: t('cost_projection', { fallback: 'Proyección de Gastos' }), icon: TrendingUp, requiredTier: 'Enterprise' },
-                { href: '/intelligence/alerts', label: t('alerts_self_service', { fallback: 'Alertas (Self-Service)' }), icon: BellRing, requiredTier: 'Business' },
-                { href: '/intelligence/macc', label: t('macc', { fallback: 'MACC Tracking' }), icon: Briefcase, requiredTier: 'Enterprise' },
-                { href: '/intelligence/upload', label: 'Ingesta CSV', icon: FileText, requiredTier: 'Business' }
+                { href: '/intelligence/ai-analytics', label: t('ai_analytics', { fallback: 'AI Cost Analytics' }), icon: Sparkles, requiredTier: 'Enterprise' },
+                { href: '/intelligence/monitoreo', label: t('monitoring_hub', { fallback: 'Monitoreo' }), icon: Activity, requiredTier: 'Business' },
+                { href: '/intelligence/seguridad', label: t('security_hub', { fallback: 'Seguridad' }), icon: ShieldCheck, requiredTier: 'Business' },
+                { href: '/intelligence/analitica-avanzada', label: t('advanced_analytics', { fallback: 'Analítica Avanzada' }), icon: BarChart3, requiredTier: 'Business' }
             ]
         },
         {
@@ -316,6 +293,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             .filter(i => normalize(i.label).includes(normalize(searchQuery.trim())))
             .map(i => ({ ...i, categoryTitle: cat.title })))
         : [];
+    const isRouteActive = (href: string) => href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(`${href}/`);
 
     return (
         <aside className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 fixed inset-y-0 left-0 z-50 md:relative ${sidebarOpen ? 'w-[252px]' : 'w-[64px]'} bg-gradient-to-b from-[var(--surface-2)] to-[var(--surface)] text-[var(--ink-soft)] border-r border-[var(--line)] transition-all duration-300 flex flex-col h-full custom-scrollbar`}>
@@ -326,7 +304,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                             <img src="/logo_29k.png" alt="Logo" className="w-[34px] h-[34px] object-contain" />
                             <div className="flex flex-col">
                                 <div className="font-heading font-extrabold text-[15px] text-[var(--ink)] tracking-[0.2px] leading-none">CS<b className="text-brand-bright font-extrabold">Cloud</b>Solutions</div>
-                                <div className="text-[9.5px] tracking-[2px] text-[var(--ink-soft)] uppercase font-semibold mt-[3px]">FinOps Platform</div>
+                                <div className="text-[9.5px] tracking-[2px] text-[var(--ink-soft)] uppercase font-semibold mt-[3px]">Cloud Management Platform</div>
                             </div>
                         </div>
                     ) : (
@@ -366,7 +344,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                             <p className="px-3 py-2 text-xs text-[var(--ink-soft)]">Sin resultados para &quot;{searchQuery}&quot;.</p>
                         ) : searchResults.map(item => {
                             const Icon = item.icon;
-                            const isActive = pathname === item.href;
+                            const isActive = isRouteActive(item.href);
                             // Mismo criterio que en roleCategories.map: navega igual, el
                             // mensaje de plan lo muestra RouteTierGate en la página destino.
                             const isLocked = (item as any).requiredTier && !hasAccess(tier, (item as any).requiredTier);
@@ -380,7 +358,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                                     }}
                                     className={`w-full flex items-center px-[11px] py-[9px] rounded-[10px] font-semibold transition-all duration-200 text-[13.5px] mb-1 ${
                                         isActive
-                                            ? 'bg-gradient-to-br from-[#0E1A2B] to-[#1B2A41] text-white shadow-[0_6px_16px_rgba(14,26,43,0.45)]'
+                                            ? 'sidebar-item-active bg-gradient-to-br from-[#0E1A2B] to-[#1B2A41] text-white shadow-[0_6px_16px_rgba(14,26,43,0.45)]'
                                             : 'text-[var(--ink-soft)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]'
                                     } ${isLocked ? 'opacity-40 grayscale' : ''}`}
                                 >
@@ -415,7 +393,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                         {(openGroups[category.id] || !sidebarOpen) && (
                             <div className="space-y-1 mt-1">
                                 {category.items.map(item => {
-                                    const isActive = pathname === item.href;
+                                    const isActive = isRouteActive(item.href);
                                     const Icon = item.icon;
                                     // Las etiquetas de rol (pageRoleTags.ts) son internas: se usan para
                                     // filtrar la navegación por rol (ver roleCategories más abajo), pero
@@ -440,7 +418,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                                             }}
                                             className={`w-full flex items-center px-[11px] py-[9px] rounded-[10px] font-semibold transition-all duration-200 text-[13.5px] mb-1 ${
                                                 isActive
-                                                    ? 'bg-gradient-to-br from-[#0E1A2B] to-[#1B2A41] text-white shadow-[0_6px_16px_rgba(14,26,43,0.45)]'
+                                                    ? 'sidebar-item-active bg-gradient-to-br from-[#0E1A2B] to-[#1B2A41] text-white shadow-[0_6px_16px_rgba(14,26,43,0.45)]'
                                                     : 'text-[var(--ink-soft)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]'
                                             } ${isLocked ? 'opacity-40 grayscale' : ''}`}
                                         >

@@ -63,6 +63,12 @@ const MOCK_PAYLOAD = {
         fromTier: "hot",
         toTier: "cool",
     },
+    storageComposition: {
+        blob: { gb: 11800, cost: 172.4 },
+        files: { gb: 4200, cost: 58.1 },
+        queue: { gb: 3200, cost: 31.7 },
+        table: { gb: 900, cost: 24.55 },
+    },
     accounts: MOCK_ACCOUNTS,
 };
 
@@ -90,7 +96,20 @@ function detectTier(...fields: Array<string | null | undefined>): string {
         if (m.includes("cool"))    return "cool";
         if (m.includes("hot"))     return "hot";
     }
+
     return "hot";
+}
+
+function detectStorageComposition(...fields: Array<string | null | undefined>): "blob" | "files" | "queue" | "table" | null {
+    for (const f of fields) {
+        if (!f) continue;
+        const value = String(f).toLowerCase();
+        if (value.includes("blob")) return "blob";
+        if (value.includes("file")) return "files";
+        if (value.includes("queue")) return "queue";
+        if (value.includes("table")) return "table";
+    }
+    return null;
 }
 
 function normalizeLoc(loc: string): string {
@@ -338,6 +357,12 @@ export async function GET(request: NextRequest) {
                 cold: { gb: 0, cost: 0 },
                 archive: { gb: 0, cost: 0 },
             };
+            const storageCompositionMap: Record<"blob" | "files" | "queue" | "table", { gb: number; cost: number }> = {
+                blob: { gb: 0, cost: 0 },
+                files: { gb: 0, cost: 0 },
+                queue: { gb: 0, cost: 0 },
+                table: { gb: 0, cost: 0 },
+            };
 
             for (const row of rows) {
                 const tier = detectTier(row.MeterSubCategory, row.MeterName, row.MeterCategory, row.service_name);
@@ -349,6 +374,12 @@ export async function GET(request: NextRequest) {
                 const gb = reportedGb ?? inferredGb;
                 tierMap[tier].cost += cost;
                 tierMap[tier].gb += gb;
+
+                const storageType = detectStorageComposition(row.MeterSubCategory, row.MeterName, row.service_name);
+                if (storageType) {
+                    storageCompositionMap[storageType].cost += cost;
+                    storageCompositionMap[storageType].gb += gb;
+                }
             }
 
             const totalCostFromRows = Object.values(tierMap).reduce((s, t) => s + t.cost, 0);
@@ -507,6 +538,24 @@ export async function GET(request: NextRequest) {
             const totalCost = Object.values(tierMap).reduce((s, t) => s + t.cost, 0);
             const totalGb   = Object.values(tierMap).reduce((s, t) => s + t.gb, 0);
             const costPerGb = totalGb > 0 ? totalCost / totalGb : 0;
+            const storageComposition = {
+                blob: {
+                    gb: Number(storageCompositionMap.blob.gb.toFixed(2)),
+                    cost: Number(storageCompositionMap.blob.cost.toFixed(2)),
+                },
+                files: {
+                    gb: Number(storageCompositionMap.files.gb.toFixed(2)),
+                    cost: Number(storageCompositionMap.files.cost.toFixed(2)),
+                },
+                queue: {
+                    gb: Number(storageCompositionMap.queue.gb.toFixed(2)),
+                    cost: Number(storageCompositionMap.queue.cost.toFixed(2)),
+                },
+                table: {
+                    gb: Number(storageCompositionMap.table.gb.toFixed(2)),
+                    cost: Number(storageCompositionMap.table.cost.toFixed(2)),
+                },
+            };
 
             const tiersWithPercent = Object.fromEntries(
                 Object.entries(tierMap).map(([k, v]) => [
@@ -531,6 +580,7 @@ export async function GET(request: NextRequest) {
                     totalGb: 0,
                     totalCost: 0,
                     costPerGb: 0,
+                    storageComposition,
                     accounts,
                     diagnostics: { rowsFound: 0, requestedDays: days, effectiveDays: 365, widened: false, source }
                 });
@@ -549,6 +599,7 @@ export async function GET(request: NextRequest) {
                     fromTier: "hot",
                     toTier: "cool",
                 },
+                storageComposition,
                 accounts,
                 diagnostics: { rowsFound: rows.length, requestedDays: days, effectiveDays, widened, source }
             });

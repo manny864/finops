@@ -303,7 +303,7 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
                       <img src="/CSCloudSolutions.png" alt="CSCloudSolutions" className="w-full max-w-[400px] h-auto object-contain" />
                   </div>
                   <p className="mt-2 text-center text-[13px] tracking-[2px] text-[#62809c] uppercase font-semibold">
-                      FinOps Platform
+                      Cloud Management Platform
                   </p>
               </div>
 

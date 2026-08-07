@@ -90,3 +90,55 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }
+
+export async function PUT(request: NextRequest) {
+    try {
+        const body = await request.json();
+        const { tenantId, id, costCenter, monthlyLimit, alertThreshold = 80.0 } = body;
+
+        if (!tenantId || !id || !costCenter || monthlyLimit === undefined) {
+            return NextResponse.json({ error: "Parámetros incompletos" }, { status: 400 });
+        }
+
+        await requireTenantRole(request, tenantId, ["Admin", "Owner"]);
+
+        await pool.query(
+            `UPDATE Budgets
+             SET cost_center_tag_value = ?, monthly_limit_usd = ?, alert_threshold = ?
+             WHERE id = ? AND tenant_id = ?`,
+            [costCenter, monthlyLimit, alertThreshold, id, tenantId]
+        );
+
+        await invalidateCachePattern(`budgets:${tenantId}:*`);
+        return NextResponse.json({ success: true, message: "Presupuesto actualizado" });
+    } catch (e: unknown) {
+        if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
+        console.error("[budgets] PUT error:", e);
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    }
+}
+
+export async function DELETE(request: NextRequest) {
+    try {
+        const body = await request.json();
+        const { tenantId, id } = body;
+
+        if (!tenantId || !id) {
+            return NextResponse.json({ error: "Parámetros incompletos" }, { status: 400 });
+        }
+
+        await requireTenantRole(request, tenantId, ["Admin", "Owner"]);
+
+        await pool.query(
+            "DELETE FROM Budgets WHERE id = ? AND tenant_id = ?",
+            [id, tenantId]
+        );
+
+        await invalidateCachePattern(`budgets:${tenantId}:*`);
+        return NextResponse.json({ success: true, message: "Presupuesto eliminado" });
+    } catch (e: unknown) {
+        if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
+        console.error("[budgets] DELETE error:", e);
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    }
+}

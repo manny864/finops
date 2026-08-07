@@ -10,6 +10,7 @@ import { useTranslations } from 'next-intl';
 import { useProviderTranslations } from '@/lib/useProviderTranslations';
 import { getFreshIdToken } from '@/lib/msalToken';
 import Pagination, { usePagination } from '@/components/Pagination';
+import { IconCoins } from '@tabler/icons-react';
 import {
 
   useReactTable,
@@ -281,7 +282,9 @@ export default function RateOptimizationPage() {
             <div className="vhead">
                 <div>
                     <div className="vt">
-                        <span className="vico bg-gradient-to-br from-[#0054A6] to-[#00AEEF]">💸</span>
+                        <span className="vico">
+                            <IconCoins className="w-5 h-5" />
+                        </span>
                         {t('title')}
                     </div>
                     <div className="vs">{t('subtitle')}</div>

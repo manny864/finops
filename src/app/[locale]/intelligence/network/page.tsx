@@ -190,7 +190,9 @@ export default function NetworkAnalyticsPage() {
             <div className="vhead">
                 <div>
                     <div className="vt">
-                        <span className="vico bg-gradient-to-br from-[#0054A6] to-[#00AEEF]">🌐</span>
+                        <span className="vico">
+                            <Network className="w-6 h-6 text-[#0054A6]" />
+                        </span>
                         {t('title')}
                     </div>
                     <div className="vs">{t('subtitle')}</div>
@@ -418,4 +420,3 @@ export default function NetworkAnalyticsPage() {
         </div>
     );
 }
-

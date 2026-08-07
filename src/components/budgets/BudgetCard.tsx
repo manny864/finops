@@ -21,11 +21,13 @@ export default function BudgetCard() {
     const [budgetsBySub, setBudgetsBySub] = useState<Record<string, { budget: number, actual: number }>>({});
     const [monthlyHistoryBySub, setMonthlyHistoryBySub] = useState<Record<string, BudgetMonthlyChartPoint[]>>({});
     const [monthlyHistoryLoading, setMonthlyHistoryLoading] = useState(false);
+    const [activeNativeBudgets, setActiveNativeBudgets] = useState<Array<{ subscriptionId: string; budgetName: string; amount: number }>>([]);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [activeSubscriptionForModal, setActiveSubscriptionForModal] = useState<string>('');
+    const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
 
-    const { selectedSubscription, subscriptions } = useSubscription();
+    const { subscriptions } = useSubscription();
     const { instance, accounts } = useMsal();
 
     useEffect(() => {
@@ -41,9 +43,7 @@ export default function BudgetCard() {
             try {
                 const idToken = await getFreshIdToken(instance, accounts[0]);
 
-                const subIds = selectedSubscription !== 'All'
-                    ? selectedSubscription
-                    : subscriptions.map(s => s.id).join(',');
+                const subIds = subscriptions.map(s => s.id).join(',');
 
                 if (!subIds) {
                     if (isMounted) setLoading(false);
@@ -73,9 +73,23 @@ export default function BudgetCard() {
                             alert_threshold: 80.00 // Default threshold
                         });
                         setBudgetsBySub(subGrouped);
+                        const deduped = new Map<string, { subscriptionId: string; budgetName: string; amount: number }>();
+                        json.burnData.forEach((item: any) => {
+                            if (!item?.subscriptionId || !item?.costCenter) return;
+                            const key = `${item.subscriptionId}::${item.costCenter}`;
+                            if (!deduped.has(key)) {
+                                deduped.set(key, {
+                                    subscriptionId: String(item.subscriptionId),
+                                    budgetName: String(item.costCenter),
+                                    amount: Number(item.budget || 0),
+                                });
+                            }
+                        });
+                        setActiveNativeBudgets(Array.from(deduped.values()));
                     } else {
                         setBudgetData(null);
                         setBudgetsBySub({});
+                        setActiveNativeBudgets([]);
                     }
                 }
             } catch (e) {
@@ -91,7 +105,7 @@ export default function BudgetCard() {
         return () => {
             isMounted = false;
         };
-    }, [selectedTenant, selectedSubscription, subscriptions, accounts, instance]);
+    }, [selectedTenant, subscriptions, accounts, instance]);
 
     // Historial de gasto mensual por suscripción (últimos 6 meses), para el
     // gráfico tipo Azure "View Monthly Cost Data" junto a cada tarjeta.
@@ -189,6 +203,7 @@ export default function BudgetCard() {
                         <button 
                             onClick={() => {
                                 setActiveSubscriptionForModal(subscriptions[0]?.id || '');
+                                setModalMode('create');
                                 setIsModalOpen(true);
                             }}
                             className="px-4 py-2 bg-brand-deep text-white rounded-md text-xs font-bold hover:bg-brand-bright transition-colors"
@@ -248,6 +263,7 @@ export default function BudgetCard() {
                             <button
                                 onClick={() => {
                                     setActiveSubscriptionForModal(sub.id);
+                                    setModalMode('edit');
                                     setIsModalOpen(true);
                                 }}
                                 className="w-full py-2 bg-gray-50 dark:bg-slate-800 hover:bg-gray-100 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-700 rounded-md text-xs font-bold text-brand-deep transition-colors"
@@ -266,6 +282,8 @@ export default function BudgetCard() {
                 }}
                 subscriptionId={activeSubscriptionForModal}
                 tenantId={selectedTenant.id}
+                initialMode={modalMode}
+                nativeBudgets={activeNativeBudgets}
             />
         </div>
     );

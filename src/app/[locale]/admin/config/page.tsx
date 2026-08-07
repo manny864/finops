@@ -19,7 +19,7 @@ export default async function ConfigHubPage({
         { key: "general", label: "General", originalHref: "/admin/config", panel: <ConfigGeneralPanel /> },
         { key: "ai", label: "IA", originalHref: "/admin/ai-config", panel: <AiConfigPanel /> },
         { key: "notifications", label: "Notificaciones", originalHref: "/admin/notifications", panel: <NotificationsPanel /> },
-        { key: "cloud-accounts", label: "Cuentas Azure", originalHref: "/admin/cloud-accounts", panel: <CloudAccountsPanel /> },
+        { key: "cloud-accounts", label: "Estado de Cuenta", originalHref: "/admin/cloud-accounts", panel: <CloudAccountsPanel /> },
         { key: "markup", label: "Partner Markup (CSP)", originalHref: "/admin/markup", panel: <MarkupPanel /> },
     ];
 

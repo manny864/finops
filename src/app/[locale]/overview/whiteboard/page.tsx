@@ -2,6 +2,7 @@ import React from 'react';
 import { getTranslations } from 'next-intl/server';
 import MockBanner from '@/components/MockBanner';
 import ExecutiveSummaryBoard from '@/components/dashboard/ExecutiveSummaryBoard';
+import { IconLayoutDashboard } from '@tabler/icons-react';
 
 export default async function WhiteBoardPage() {
     const t = await getTranslations('WhiteBoard');
@@ -11,7 +12,9 @@ export default async function WhiteBoardPage() {
             <div className="vhead">
                 <div>
                     <div className="vt">
-                        <span className="vico bg-gradient-to-br from-[#0054A6] to-[#00AEEF]">📋</span>
+                        <span className="vico bg-gradient-to-br from-[#0054A6] to-[#00AEEF] text-white p-2 rounded-xl">
+                            <IconLayoutDashboard className="w-5 h-5" />
+                        </span>
                         {t('title')}
                     </div>
                     <div className="vs">{t('subtitle')}</div>

@@ -145,6 +145,17 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Estandar corporativo: iconografía en azul de marca. */
+.lucide,
+.tabler-icon {
+  color: var(--brand-deep) !important;
+}
+
+.sidebar-item-active .lucide,
+.sidebar-item-active .tabler-icon {
+  color: #fff !important;
+}
+
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-montserrat), sans-serif;
 }
@@ -189,7 +200,17 @@ select {
 /* ===== CONTENT ===== */
 .vhead{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;margin-bottom:20px}
 .vhead .vt{font-size:23px;font-weight:800;color:var(--ink);letter-spacing:-.4px;display:flex;align-items:center;gap:11px}
-.vhead .vt .vico{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:linear-gradient(135deg,var(--brand-deep),var(--brand-bright));color:#fff}
+.vhead .vt .vico{
+  width:auto !important;
+  height:auto !important;
+  border-radius:0 !important;
+  padding:0 !important;
+  display:inline-flex;
+  place-items:center;
+  background:none !important;
+  box-shadow:none !important;
+  color:var(--brand-deep) !important;
+}
 .vhead .vs{font-size:13px;color:var(--ink-soft);margin-top:3px}
 .vhead .right{margin-left:auto;display:flex;gap:9px;align-items:center}
 .scopechip{font-size:11px;font-weight:700;letter-spacing:.4px;background:#E6F2FB;color:var(--brand-deep);padding:5px 11px;border-radius:8px}

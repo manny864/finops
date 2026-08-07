@@ -458,9 +458,13 @@ export default function ResourcesBoard() {
                     <button
                         key={tb.id}
                         onClick={() => setTab(tb.id)}
-                        className={`flex items-center gap-1.5 px-3.5 py-2 text-sm font-bold border-b-2 transition-colors ${tab === tb.id ? "border-brand-deep text-brand-deep dark:text-brand-bright" : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
+                        className={`relative flex items-center gap-1.5 px-3.5 py-2 text-sm font-bold border-b-2 transition-colors ${tab === tb.id ? "border-brand-deep text-brand-deep dark:text-brand-bright bg-brand-soft/70 dark:bg-brand-deep/10" : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
+                        aria-pressed={tab === tb.id}
                     >
                         {tb.icon} {tb.label}
+                        {tab === tb.id && (
+                            <span className="absolute -bottom-[1px] left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-brand-deep dark:bg-brand-bright" />
+                        )}
                     </button>
                 ))}
             </div>

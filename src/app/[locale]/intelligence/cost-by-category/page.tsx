@@ -2,6 +2,7 @@ import React from "react";
 import { getTranslations } from "next-intl/server";
 import MockBanner from '@/components/MockBanner';
 import CostByCategoryDashboard from "@/components/dashboard/CostByCategoryDashboard";
+import { PieChart } from "lucide-react";
 
 export default async function CostByCategoryPage() {
     const t = await getTranslations("CostByCategory");
@@ -12,7 +13,9 @@ export default async function CostByCategoryPage() {
             <div className="vhead">
                 <div>
                     <div className="vt">
-                        <span className="vico bg-gradient-to-br from-[#0054A6] to-[#00AEEF]">📊</span>
+                        <span className="vico">
+                            <PieChart className="w-5 h-5" />
+                        </span>
                         {t("title")}
                     </div>
                     <div className="vs">{t("subtitle")}</div>

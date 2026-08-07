@@ -2,7 +2,7 @@
 import React from "react";
 import { usePathname } from "next/navigation";
 import PinButton from "./PinButton";
-import { findPageForPath, pageWidgetKey } from "@/lib/pageRegistry";
+import { findPageForPath, pageWidgetKeyForPath } from "@/lib/pageRegistry";
 import { useTenant } from "@/components/TenantProvider";
 
 /**
@@ -25,11 +25,12 @@ export default function GlobalPagePinButton() {
     if (normalized === "/" || normalized === "/login" || normalized.startsWith("/demo")) return null;
 
     const entry = findPageForPath(pathname);
-    if (!entry) return null;
+    const widgetKey = pageWidgetKeyForPath(pathname);
+    const labelTitle = entry?.title || normalized.replace("/intelligence/", "").replace("/governance/", "").replace("/cleanup/", "").replace("/overview/", "").replace("/admin/", "").replaceAll("-", " ");
 
     return (
         <div className="fixed bottom-16 right-6 z-40">
-            <PinButton widgetKey={pageWidgetKey(entry)} label={`Pinear "${entry.title}" al dashboard`} />
+            <PinButton widgetKey={widgetKey} label={`Pinear "${labelTitle}" al dashboard`} />
         </div>
     );
 }

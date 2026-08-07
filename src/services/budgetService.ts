@@ -51,7 +51,13 @@ export async function getNativeBudgets(tenantId: string, subscriptionId: string)
 
     const budgetsData = [];
     try {
+        const now = new Date();
         for await (const budget of client.budgets.list(scope)) {
+            const start = budget.timePeriod?.startDate ? new Date(budget.timePeriod.startDate as any) : null;
+            const end = budget.timePeriod?.endDate ? new Date(budget.timePeriod.endDate as any) : null;
+            const isActiveByDate = (!start || now >= start) && (!end || now <= end);
+            if (!isActiveByDate) continue;
+
             // currentSpend es un campo read-only que Azure calcula para el scope
             // EXACTO del budget (incluyendo su filter por resource group / tags).
             // Reglas de precisión (Regla Cero):
@@ -238,3 +244,8 @@ export async function createSubscriptionBudget(credential: any, subscriptionId: 
     return await client.budgets.createOrUpdate(scope, budgetDetails.budgetName, budgetPayload);
 }
 
+export async function deleteSubscriptionBudget(credential: any, subscriptionId: string, budgetName: string) {
+    const client = new ConsumptionManagementClient(credential, subscriptionId);
+    const scope = `/subscriptions/${subscriptionId}`;
+    await client.budgets.delete(scope, budgetName);
+}

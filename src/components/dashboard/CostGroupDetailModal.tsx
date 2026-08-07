@@ -807,11 +807,11 @@ export default function CostGroupDetailModal({ name, tenantId, onClose, onUpdate
                     name={name}
                     tenantId={tenantId}
                     initial={{
-                        description: data.description,
-                        matchType: (data.matchType || "name_pattern") as MatchType,
-                        matchTagKey: data.matchTagKey,
-                        matchTagValue: data.matchTagValue,
-                        matchRgPattern: data.matchRgPattern,
+                        description: data?.description ?? "",
+                        matchType: (data?.matchType || "name_pattern") as MatchType,
+                        matchTagKey: data?.matchTagKey,
+                        matchTagValue: data?.matchTagValue,
+                        matchRgPattern: data?.matchRgPattern,
                     }}
                     onClose={() => setEditing(false)}
                     onSaved={() => { mutate(); onUpdated?.(); }}

@@ -31,8 +31,11 @@ export const PAGES: PageEntry[] = [
     { id: "int-aks-chargeback", path: "/intelligence/aks-chargeback", title: "AKS Chargeback", description: "Asignación de costos AKS por workload/namespace.", icon: "Container", category: "intelligence" },
     { id: "int-compute-efficiency", path: "/intelligence/compute-efficiency", title: "Compute Efficiency", description: "Eficiencia y costo por core de compute.", icon: "Cpu", category: "intelligence" },
     { id: "int-network", path: "/intelligence/network", title: "Networking", description: "Análisis de costos de red y egreso.", icon: "Network", category: "intelligence" },
+    { id: "int-network-hub", path: "/intelligence/redes", title: "Redes", description: "Análisis de red, conectividad híbrida, balanceo y acceso a internet.", icon: "Network", category: "intelligence" },
+    { id: "int-advanced-analytics", path: "/intelligence/analitica-avanzada", title: "Analítica Avanzada", description: "Unit Economics, Allocation, Scorecard, Anomalies, Tenant Health, Simulator, Alerts y MACC en pestañas.", icon: "BarChart3", category: "intelligence" },
+    { id: "int-monitoring-hub", path: "/intelligence/monitoreo", title: "Monitoreo", description: "Application Insights, Log Analytics Workspace, Azure Monitor, Alerts, Action Groups, Workbooks y Network Watcher en pestañas.", icon: "Activity", category: "intelligence" },
+    { id: "int-security-hub", path: "/intelligence/seguridad", title: "Seguridad", description: "Defender for Cloud, Microsoft Sentinel, Key Vault, Entra ID, WAF y DDoS Protection en pestañas.", icon: "ShieldCheck", category: "intelligence" },
     { id: "int-optimization", path: "/intelligence/optimization", title: "Optimización", description: "Tarifas, Hybrid Benefits, RIs, Savings Plan y Reservas en pestañas.", icon: "Target", category: "intelligence" },
-    { id: "int-efficiency", path: "/intelligence/efficiency", title: "Eficiencia", description: "Storage, Compute y AI Cost Analytics en pestañas.", icon: "Cloud", category: "intelligence" },
     { id: "int-macc", path: "/intelligence/macc", title: "MACC", description: "Microsoft Azure Consumption Commitment.", icon: "FileText", category: "intelligence" },
     { id: "int-rs-appservice", path: "/intelligence/rightsizing/appservice", title: "Rightsizing — App Service", description: "Recomendaciones de tamaño para App Service.", icon: "Maximize2", category: "intelligence" },
     { id: "int-rs-vmss", path: "/intelligence/rightsizing/vmss", title: "Rightsizing — VMSS", description: "Recomendaciones para Virtual Machine Scale Sets.", icon: "Server", category: "intelligence" },
@@ -46,9 +49,7 @@ export const PAGES: PageEntry[] = [
     { id: "int-cosmos-db", path: "/intelligence/cosmos-db", title: "Cosmos DB", description: "Cuentas Cosmos DB en Provisioned Throughput con consumo real bajo, candidatas a Serverless/Autoscale.", icon: "Database", category: "intelligence" },
     { id: "cleanup-backup-orphans", path: "/cleanup/backup-orphans", title: "Backups Huérfanos", description: "Instancias protegidas en Recovery Services Vault cuyo recurso original ya no existe.", icon: "ShieldAlert", category: "cleanup" },
     { id: "int-defender", path: "/intelligence/defender", title: "Defender for Cloud", description: "Costo por plan de Microsoft Defender for Cloud (Standard/Free) por suscripción.", icon: "ShieldCheck", category: "intelligence" },
-    { id: "int-network-perimeter", path: "/intelligence/network-perimeter", title: "Red Perimetral", description: "Costo real de Firewall, App Gateway/WAF, NAT Gateway, Front Door, VPN Gateway/ExpressRoute.", icon: "Router", category: "intelligence" },
     { id: "int-app-insights", path: "/intelligence/app-insights", title: "Application Insights", description: "Costo real por recurso Application Insights, separado de Log Analytics.", icon: "Activity", category: "intelligence" },
-    { id: "int-misc-services", path: "/intelligence/misc-services", title: "Otros Servicios", description: "Costo de AVD, ACI, Batch, NetApp Files, PostgreSQL/MySQL, Synapse/Data Factory, Databricks, Redis, Key Vault.", icon: "Blocks", category: "intelligence" },
     { id: "int-log-analytics", path: "/intelligence/log-analytics", title: "Log Analytics", description: "Control de costos de Log Analytics Workspaces: ingesta, retención y Commitment Tiers.", icon: "ScrollText", category: "intelligence" },
     { id: "int-alerts", path: "/intelligence/alerts", title: "Alertas Self-Service", description: "Reglas de alerta de costo configurables.", icon: "Bell", category: "intelligence" },
     { id: "int-simulator", path: "/intelligence/simulator", title: "Simulador de Costos", description: "Simulá cambios y proyectá impacto.", icon: "Calculator", category: "intelligence" },
@@ -56,6 +57,7 @@ export const PAGES: PageEntry[] = [
     { id: "int-budgets", path: "/intelligence/budgets", title: "Presupuestos", description: "Gestión y seguimiento de budgets.", icon: "Wallet", category: "intelligence" },
     { id: "int-zero-cost", path: "/intelligence/zero-cost", title: "Zero Cost Initiative", description: "Recursos sin uso real con costo cero esperado.", icon: "ZapOff", category: "intelligence" },
     { id: "int-storage-eff", path: "/intelligence/storage-efficiency", title: "Storage Efficiency", description: "Eficiencia y oportunidades en Storage.", icon: "HardDrive", category: "intelligence" },
+    { id: "int-storage-hub", path: "/intelligence/almacenamiento", title: "Almacenamiento", description: "Storage Accounts, Managed Disk, Backups y Data Lake Storage Gen2.", icon: "HardDrive", category: "intelligence" },
     { id: "int-cost-by-category", path: "/intelligence/cost-by-category", title: "Cost by Category", description: "Desglose de costo por categoría FinOps.", icon: "PieChart", category: "intelligence" },
     { id: "int-commitment-sim", path: "/intelligence/commitment-simulator", title: "Savings Plan vs Reservation", description: "Comparación de compromiso: qué ahorra más.", icon: "PiggyBank", category: "intelligence" },
     { id: "int-hybrid-benefit", path: "/intelligence/hybrid-benefit", title: "Azure Hybrid Benefit", description: "Aplicación y oportunidades de AHUB.", icon: "ShieldCheck", category: "intelligence" },
@@ -109,6 +111,38 @@ export function findPageForPath(pathname: string): PageEntry | null {
     return BY_PATH.get(path) || null;
 }
 
+function titleFromPath(path: string): string {
+    const parts = path.split("/").filter(Boolean);
+    const raw = parts[parts.length - 1] || "page";
+    return raw
+        .split("-")
+        .filter(Boolean)
+        .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+        .join(" ");
+}
+
+function categoryFromPath(path: string): PageEntry["category"] {
+    if (path.startsWith("/intelligence/")) return "intelligence";
+    if (path.startsWith("/governance/")) return "governance";
+    if (path.startsWith("/cleanup/")) return "cleanup";
+    if (path.startsWith("/remediation/")) return "remediation";
+    if (path.startsWith("/overview/")) return "overview";
+    return "admin";
+}
+
+function buildFallbackEntry(path: string): PageEntry {
+    const clean = stripLocale(path);
+    const id = `route-${clean.replace(/[^\w/-]/g, "").replace(/\//g, "-").replace(/^-+/, "") || "root"}`;
+    return {
+        id,
+        path: clean,
+        title: titleFromPath(clean),
+        description: "Acceso directo a esta página.",
+        icon: "LayoutDashboard",
+        category: categoryFromPath(clean),
+    };
+}
+
 export function findPageById(id: string): PageEntry | null {
     return BY_ID.get(id) || null;
 }
@@ -117,8 +151,23 @@ export function pageWidgetKey(entry: PageEntry): string {
     return `page:${entry.id}`;
 }
 
+export function pageWidgetKeyForPath(pathname: string): string {
+    const entry = findPageForPath(pathname);
+    if (entry) return pageWidgetKey(entry);
+    const clean = stripLocale(pathname);
+    return `route:${encodeURIComponent(clean)}`;
+}
+
 export function parsePageWidgetKey(widgetKey: string): PageEntry | null {
-    if (!widgetKey.startsWith("page:")) return null;
-    const id = widgetKey.slice("page:".length);
-    return findPageById(id);
+    if (widgetKey.startsWith("page:")) {
+        const id = widgetKey.slice("page:".length);
+        return findPageById(id);
+    }
+    if (widgetKey.startsWith("route:")) {
+        const encoded = widgetKey.slice("route:".length);
+        const decoded = decodeURIComponent(encoded || "");
+        if (!decoded || decoded === "/" || decoded === "/login") return null;
+        return buildFallbackEntry(decoded);
+    }
+    return null;
 }

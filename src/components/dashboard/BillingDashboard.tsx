@@ -11,13 +11,19 @@ import { isMockTenant } from '@/lib/mockData';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 import CostByCategoryDashboard from "./CostByCategoryDashboard";
 
-export default function BillingDashboard() {
+export default function BillingDashboard({
+    initialTab = "real",
+    hideTabs = false,
+}: {
+    initialTab?: "real" | "category" | "environmental";
+    hideTabs?: boolean;
+}) {
     const t = useProviderTranslations("Billing");
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const { format } = useCurrency();
     const [days] = useState(new Date().getDate());
-    const [activeTab, setActiveTab] = useState<"real" | "category" | "environmental">("real");
+    const [activeTab, setActiveTab] = useState<"real" | "category" | "environmental">(initialTab);
 
     const fetcher = async (url: string) => {
         const idToken = await getFreshIdToken(instance, accounts[0], ["User.Read"]);
@@ -67,39 +73,40 @@ export default function BillingDashboard() {
                 </div>
             )}
 
-            {/* Tab Navigation */}
-            <div className="flex border-b border-gray-200 dark:border-slate-700 gap-6">
-                <button
-                    onClick={() => setActiveTab("real")}
-                    className={`pb-3 px-1 font-medium transition-colors ${
-                        activeTab === "real"
-                            ? "border-b-2 border-blue-600 text-blue-600 dark:text-blue-400"
-                            : "text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200"
-                    }`}
-                >
-                    {t("tabs.real")}
-                </button>
-                <button
-                    onClick={() => setActiveTab("category")}
-                    className={`pb-3 px-1 font-medium transition-colors ${
-                        activeTab === "category"
-                            ? "border-b-2 border-blue-600 text-blue-600 dark:text-blue-400"
-                            : "text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200"
-                    }`}
-                >
-                    {t("tabs.category")}
-                </button>
-                <button
-                    onClick={() => setActiveTab("environmental")}
-                    className={`pb-3 px-1 font-medium transition-colors ${
-                        activeTab === "environmental"
-                            ? "border-b-2 border-blue-600 text-blue-600 dark:text-blue-400"
-                            : "text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200"
-                    }`}
-                >
-                    {t("tabs.environmental")}
-                </button>
-            </div>
+            {!hideTabs && (
+                <div className="flex border-b border-gray-200 dark:border-slate-700 gap-6">
+                    <button
+                        onClick={() => setActiveTab("real")}
+                        className={`pb-3 px-1 font-medium transition-colors ${
+                            activeTab === "real"
+                                ? "border-b-2 border-blue-600 text-blue-600 dark:text-blue-400"
+                                : "text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200"
+                        }`}
+                    >
+                        {t("tabs.real")}
+                    </button>
+                    <button
+                        onClick={() => setActiveTab("category")}
+                        className={`pb-3 px-1 font-medium transition-colors ${
+                            activeTab === "category"
+                                ? "border-b-2 border-blue-600 text-blue-600 dark:text-blue-400"
+                                : "text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200"
+                        }`}
+                    >
+                        {t("tabs.category")}
+                    </button>
+                    <button
+                        onClick={() => setActiveTab("environmental")}
+                        className={`pb-3 px-1 font-medium transition-colors ${
+                            activeTab === "environmental"
+                                ? "border-b-2 border-blue-600 text-blue-600 dark:text-blue-400"
+                                : "text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200"
+                        }`}
+                    >
+                        {t("tabs.environmental")}
+                    </button>
+                </div>
+            )}
 
             {/* Tab Content */}
             <div className="mt-6">

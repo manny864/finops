@@ -706,10 +706,14 @@ function RecDetailModal({
             <button
               key={tb.id}
               onClick={() => setTab(tb.id)}
-              className={`px-3.5 py-2 text-[13px] font-bold rounded-t-lg border-b-2 transition-colors flex items-center gap-2 ${tab === tb.id ? 'border-brand-bright text-brand-deep' : 'border-transparent text-ink-soft hover:text-ink'}`}
+              className={`relative px-3.5 py-2 text-[13px] font-bold rounded-t-lg border-b-2 transition-colors flex items-center gap-2 ${tab === tb.id ? 'border-brand-bright text-brand-deep bg-brand-soft/70 dark:bg-brand-deep/10' : 'border-transparent text-ink-soft hover:text-ink'}`}
+              aria-pressed={tab === tb.id}
             >
               {tb.label}
               <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-md bg-surface-2 text-grey">{counts[tb.id]}</span>
+              {tab === tb.id && (
+                <span className="absolute -bottom-[1px] left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-brand-bright" />
+              )}
             </button>
           ))}
         </div>

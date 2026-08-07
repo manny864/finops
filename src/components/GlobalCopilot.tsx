@@ -87,14 +87,46 @@ export default function GlobalCopilot() {
     }, [isOpen, pathname, currentDataPayload]);
     
     // Drag state
-    const [position, setPosition] = useState({ x: 0, y: 0 });
+    const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
+    const [fabPosition, setFabPosition] = useState<{ x: number; y: number } | null>(null);
     const [size, setSize] = useState({ width: 460, height: 620 });
     const [isDragging, setIsDragging] = useState(false);
+    const [isFabDragging, setIsFabDragging] = useState(false);
     const [isResizing, setIsResizing] = useState(false);
     const dragStart = useRef({ x: 0, y: 0 });
+    const fabDragStart = useRef({ x: 0, y: 0, startX: 0, startY: 0 });
+    const didDragFab = useRef(false);
+    const resizeDirection = useRef<'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw'>('se');
     const resizeStart = useRef({ x: 0, y: 0, width: 0, height: 0, posX: 0, posY: 0 });
 
+    React.useEffect(() => {
+        if (typeof window === "undefined") return;
+        try {
+            const savedWindowPos = localStorage.getItem("copilot_window_position");
+            const savedFabPos = localStorage.getItem("copilot_fab_position");
+            if (savedWindowPos) setPosition(JSON.parse(savedWindowPos));
+            else setPosition({ x: Math.max(16, window.innerWidth - 460 - 24), y: Math.max(16, window.innerHeight - 620 - 96) });
+
+            if (savedFabPos) setFabPosition(JSON.parse(savedFabPos));
+            else setFabPosition({ x: Math.max(16, window.innerWidth - 64 - 24), y: Math.max(16, window.innerHeight - 64 - 24) });
+        } catch {
+            setPosition({ x: 24, y: 24 });
+            setFabPosition({ x: 24, y: 24 });
+        }
+    }, []);
+
+    React.useEffect(() => {
+        if (!position || typeof window === "undefined") return;
+        localStorage.setItem("copilot_window_position", JSON.stringify(position));
+    }, [position]);
+
+    React.useEffect(() => {
+        if (!fabPosition || typeof window === "undefined") return;
+        localStorage.setItem("copilot_fab_position", JSON.stringify(fabPosition));
+    }, [fabPosition]);
+
     const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+        if (!position) return;
         setIsDragging(true);
         dragStart.current = {
             x: e.clientX - position.x,
@@ -104,10 +136,14 @@ export default function GlobalCopilot() {
     };
 
     const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-        if (isDragging) {
+        if (isDragging && position) {
+            const nextX = e.clientX - dragStart.current.x;
+            const nextY = e.clientY - dragStart.current.y;
+            const maxX = Math.max(0, window.innerWidth - size.width);
+            const maxY = Math.max(0, window.innerHeight - size.height);
             setPosition({
-                x: e.clientX - dragStart.current.x,
-                y: e.clientY - dragStart.current.y
+                x: Math.min(Math.max(0, nextX), maxX),
+                y: Math.min(Math.max(0, nextY), maxY),
             });
         }
     };
@@ -117,8 +153,41 @@ export default function GlobalCopilot() {
         e.currentTarget.releasePointerCapture(e.pointerId);
     };
 
-    const handleResizeDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    const handleFabPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+        if (!fabPosition) return;
+        setIsFabDragging(true);
+        didDragFab.current = false;
+        fabDragStart.current = { x: e.clientX, y: e.clientY, startX: fabPosition.x, startY: fabPosition.y };
+        e.currentTarget.setPointerCapture(e.pointerId);
+    };
+
+    const handleFabPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+        if (!isFabDragging || !fabPosition) return;
+        const dx = e.clientX - fabDragStart.current.x;
+        const dy = e.clientY - fabDragStart.current.y;
+        if (Math.abs(dx) > 6 || Math.abs(dy) > 6) didDragFab.current = true;
+        const nextX = fabDragStart.current.startX + dx;
+        const nextY = fabDragStart.current.startY + dy;
+        const maxX = Math.max(0, window.innerWidth - 64);
+        const maxY = Math.max(0, window.innerHeight - 64);
+        setFabPosition({
+            x: Math.min(Math.max(0, nextX), maxX),
+            y: Math.min(Math.max(0, nextY), maxY),
+        });
+    };
+
+    const handleFabPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+        setIsFabDragging(false);
+        e.currentTarget.releasePointerCapture(e.pointerId);
+        if (!didDragFab.current && canAccessCopilot) {
+            setIsOpen(true);
+        }
+    };
+
+    const handleResizeDown = (direction: 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw') => (e: React.PointerEvent<HTMLDivElement>) => {
         e.stopPropagation();
+        if (!position) return;
+        resizeDirection.current = direction;
         setIsResizing(true);
         resizeStart.current = {
             x: e.clientX,
@@ -132,26 +201,41 @@ export default function GlobalCopilot() {
     };
 
     const handleResizeMove = (e: React.PointerEvent<HTMLDivElement>) => {
-        if (isResizing) {
+        if (isResizing && position) {
             e.stopPropagation();
             const dx = e.clientX - resizeStart.current.x;
             const dy = e.clientY - resizeStart.current.y;
-            const newWidth = Math.max(320, resizeStart.current.width + dx);
-            const newHeight = Math.max(400, resizeStart.current.height + dy);
-            
-            const actualDx = newWidth - resizeStart.current.width;
-            const actualDy = newHeight - resizeStart.current.height;
-            
-            setSize({ width: newWidth, height: newHeight });
-            
-            // Si la ventana ya fue movida (centrada con offset), ajustamos el offset
-            // para que la esquina superior izquierda se quede quieta durante el redimensionado.
-            if (position.x !== 0 || position.y !== 0) {
-                setPosition({
-                    x: resizeStart.current.posX + actualDx / 2,
-                    y: resizeStart.current.posY + actualDy / 2
-                });
+            const dir = resizeDirection.current;
+            const minWidth = 320;
+            const minHeight = 400;
+            let newX = resizeStart.current.posX;
+            let newY = resizeStart.current.posY;
+            let newWidth = resizeStart.current.width;
+            let newHeight = resizeStart.current.height;
+
+            if (dir.includes('e')) {
+                const maxWidth = Math.max(minWidth, window.innerWidth - resizeStart.current.posX);
+                newWidth = Math.min(Math.max(minWidth, resizeStart.current.width + dx), maxWidth);
             }
+            if (dir.includes('s')) {
+                const maxHeight = Math.max(minHeight, window.innerHeight - resizeStart.current.posY);
+                newHeight = Math.min(Math.max(minHeight, resizeStart.current.height + dy), maxHeight);
+            }
+            if (dir.includes('w')) {
+                const maxWidth = resizeStart.current.posX + resizeStart.current.width;
+                const candidateWidth = resizeStart.current.width - dx;
+                newWidth = Math.min(Math.max(minWidth, candidateWidth), maxWidth);
+                newX = resizeStart.current.posX + (resizeStart.current.width - newWidth);
+            }
+            if (dir.includes('n')) {
+                const maxHeight = resizeStart.current.posY + resizeStart.current.height;
+                const candidateHeight = resizeStart.current.height - dy;
+                newHeight = Math.min(Math.max(minHeight, candidateHeight), maxHeight);
+                newY = resizeStart.current.posY + (resizeStart.current.height - newHeight);
+            }
+
+            setSize({ width: newWidth, height: newHeight });
+            setPosition({ x: newX, y: newY });
         }
     };
 
@@ -424,9 +508,30 @@ export default function GlobalCopilot() {
         return null;
     }
 
+    const resizeHandles: Array<{
+        direction: 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
+        className: string;
+    }> = [
+        { direction: 'n', className: 'top-0 left-3 right-3 h-2 -translate-y-1 cursor-n-resize' },
+        { direction: 's', className: 'bottom-0 left-3 right-3 h-2 translate-y-1 cursor-s-resize' },
+        { direction: 'e', className: 'right-0 top-3 bottom-3 w-2 translate-x-1 cursor-e-resize' },
+        { direction: 'w', className: 'left-0 top-3 bottom-3 w-2 -translate-x-1 cursor-w-resize' },
+        { direction: 'ne', className: 'top-0 right-0 h-4 w-4 translate-x-1 -translate-y-1 cursor-ne-resize' },
+        { direction: 'nw', className: 'top-0 left-0 h-4 w-4 -translate-x-1 -translate-y-1 cursor-nw-resize' },
+        { direction: 'se', className: 'bottom-0 right-0 h-4 w-4 translate-x-1 translate-y-1 cursor-se-resize' },
+        { direction: 'sw', className: 'bottom-0 left-0 h-4 w-4 -translate-x-1 translate-y-1 cursor-sw-resize' },
+    ];
+
     return (
         <>
-            <div className="fixed bottom-6 right-6 z-50">
+            <div
+                className="fixed z-50 touch-none"
+                style={fabPosition ? { left: fabPosition.x, top: fabPosition.y } : { right: 24, bottom: 24 }}
+                onPointerDown={handleFabPointerDown}
+                onPointerMove={handleFabPointerMove}
+                onPointerUp={handleFabPointerUp}
+                onPointerCancel={handleFabPointerUp}
+            >
                 <div className="w-16 h-16">
                     <div className="relative group w-full h-full">
                         {/* Halo animado periódico para llamar la atención */}
@@ -443,11 +548,11 @@ export default function GlobalCopilot() {
                             </>
                         )}
                         <button
-                            onClick={() => { if (canAccessCopilot) setIsOpen(true); }}
+                            type="button"
                             aria-label={t('tooltip')}
                             className="relative w-full h-full bg-gradient-to-br from-[#0E1A2B] to-[#00AEEF] rounded-full shadow-lg flex items-center justify-center text-white hover:scale-110 transition-transform"
                         >
-                            <MessageSquare className="w-7 h-7" />
+                            <MessageSquare className="w-7 h-7 !text-white" />
                         </button>
                         {/* Tooltip al hover */}
                         <div
@@ -463,15 +568,11 @@ export default function GlobalCopilot() {
 
             {isOpen && canAccessCopilot && (
                 <div 
-                    className={`fixed bg-surface border border-line rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden ${position.x === 0 && position.y === 0 ? 'bottom-24 right-6 animate-in slide-in-from-bottom-5' : ''}`}
+                    className="fixed bg-surface border border-line rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden"
                     style={{
-                        ...(position.x !== 0 || position.y !== 0 ? {
-                            top: '50%',
-                            left: '50%',
-                            transform: `translate(calc(-50% + ${position.x}px), calc(-50% + ${position.y}px))`
-                        } : {}),
+                        ...(position ? { left: position.x, top: position.y } : { right: 24, bottom: 96 }),
                         width: `${size.width}px`,
-                        height: `${size.height}px`
+                        height: `${size.height}px`,
                     }}
                 >
                     <div 
@@ -482,7 +583,7 @@ export default function GlobalCopilot() {
                         onPointerCancel={handlePointerUp}
                     >
                         <div className="flex items-center gap-2">
-                            <MessageSquare className="w-5 h-5 text-white" />
+                            <MessageSquare className="w-5 h-5 !text-white" />
                             <h3 className="text-white font-bold">{t('title')}</h3>
                             {quota && (
                                 <span className="ml-2 text-[11px] font-medium px-2 py-0.5 rounded-full bg-white/10 text-white/90">
@@ -564,17 +665,18 @@ export default function GlobalCopilot() {
                         />
                         <button onClick={() => handleSend()} disabled={loading} className="p-2 bg-[#0E1A2B] text-white rounded-lg hover:bg-brand-bright transition-colors disabled:opacity-50"><Send className="w-4 h-4"/></button>
                         
-                        {/* Custom Resize Handle */}
-                        <div 
-                            className="absolute bottom-0 right-0 w-6 h-6 cursor-se-resize flex items-end justify-end p-1 opacity-50 hover:opacity-100 touch-none"
-                            onPointerDown={handleResizeDown}
+                    </div>
+
+                    {resizeHandles.map((handle) => (
+                        <div
+                            key={handle.direction}
+                            className={`absolute touch-none z-10 ${handle.className}`}
+                            onPointerDown={handleResizeDown(handle.direction)}
                             onPointerMove={handleResizeMove}
                             onPointerUp={handleResizeUp}
                             onPointerCancel={handleResizeUp}
-                        >
-                            <div className="w-2 h-2 border-r-2 border-b-2 border-[#0E1A2B] rounded-br-sm" />
-                        </div>
-                    </div>
+                        />
+                    ))}
                 </div>
             )}
         </>

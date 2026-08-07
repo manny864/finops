@@ -4,6 +4,7 @@ import MockBanner from '@/components/MockBanner';
 import StorageEfficiencyDashboard from "@/components/dashboard/StorageEfficiencyDashboard";
 import PageHeaderTierBadge from "@/components/dashboard/PageHeaderTierBadge";
 import { AlertCircle } from "lucide-react";
+import { IconDatabaseCog } from "@tabler/icons-react";
 
 export default async function StorageEfficiencyPage() {
     const t = await getTranslations("StorageEfficiency");
@@ -14,7 +15,9 @@ export default async function StorageEfficiencyPage() {
             <div className="vhead">
                 <div>
                     <div className="vt">
-                        <span className="vico bg-gradient-to-br from-[#0054A6] to-[#00AEEF]">🗄️</span>
+                        <span className="vico">
+                            <IconDatabaseCog className="w-5 h-5" />
+                        </span>
                         {t("title")}
                     </div>
                     <div className="vs">{t("subtitle")} <PageHeaderTierBadge tier="Enterprise" /></div>

@@ -2,6 +2,7 @@ import React from 'react';
 import { getTranslations } from 'next-intl/server';
 import HybridBenefitCard from '@/components/dashboard/HybridBenefitCard';
 import MockBanner from '@/components/MockBanner';
+import { IconTag } from '@tabler/icons-react';
 
 export default async function HybridBenefitPage() {
     const t = await getTranslations('IntelligenceHybridBenefit');
@@ -12,7 +13,9 @@ export default async function HybridBenefitPage() {
             <div className="vhead">
                 <div>
                     <div className="vt">
-                        <span className="vico bg-gradient-to-br from-green-500 to-emerald-600">🏷️</span>
+                        <span className="vico">
+                            <IconTag className="w-5 h-5" />
+                        </span>
                         {t('title')}
                     </div>
                     <div className="vs">{t('subtitle')}</div>

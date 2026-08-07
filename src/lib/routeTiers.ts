@@ -10,6 +10,7 @@ export const ROUTE_TIERS: Record<string, 'Essential' | 'Professional' | 'Busines
     '/intelligence/budgets': 'Essential',
     '/intelligence/rightsizing': 'Enterprise',
     '/intelligence/network': 'Business',
+    '/intelligence/redes': 'Business',
     '/intelligence/optimization': 'Enterprise',
     '/intelligence/rates': 'Enterprise',
     '/intelligence/licenses': 'Enterprise',
@@ -21,9 +22,9 @@ export const ROUTE_TIERS: Record<string, 'Essential' | 'Professional' | 'Busines
     '/intelligence/cosmos-db': 'Business',
     '/cleanup/backup-orphans': 'Essential',
     '/intelligence/defender': 'Business',
-    '/intelligence/network-perimeter': 'Professional',
+    '/intelligence/seguridad': 'Business',
     '/intelligence/app-insights': 'Business',
-    '/intelligence/misc-services': 'Essential',
+    '/intelligence/monitoreo': 'Business',
     '/intelligence/log-analytics': 'Business',
     '/intelligence/unit-economics': 'Enterprise',
     // Cost Groups (Budget & Forecast por Business Unit) — Business y Enterprise.
@@ -38,7 +39,7 @@ export const ROUTE_TIERS: Record<string, 'Essential' | 'Professional' | 'Busines
     '/intelligence/simulator': 'Business',
     '/intelligence/cost-projection': 'Enterprise',
     '/intelligence/storage-efficiency': 'Enterprise',
-    '/intelligence/efficiency': 'Enterprise',
+    '/intelligence/almacenamiento': 'Enterprise',
     '/intelligence/compute-efficiency': 'Enterprise',
     '/intelligence/cost-by-category': 'Business',
     '/intelligence/commitment-simulator': 'Professional',
@@ -46,6 +47,7 @@ export const ROUTE_TIERS: Record<string, 'Essential' | 'Professional' | 'Busines
     '/intelligence/ai-analytics': 'Enterprise',
     '/intelligence/macc': 'Enterprise',
     '/intelligence/upload': 'Business',
+    '/intelligence/analitica-avanzada': 'Business',
     // Limpieza — TTL Business (vista y remediación quedan separadas dentro de
     // la página, ver canDeleteResources en tierLogic.ts). Networking Zombies
     // gratis desde Essential (vista; remediación desde Business).
