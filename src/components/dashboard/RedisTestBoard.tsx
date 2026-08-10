@@ -162,7 +162,7 @@ export default function RedisTestBoard() {
 
             const params = new URLSearchParams({
                 tenantId,
-                realtime: "true"
+                bust: "1"
             });
 
             const response = await fetch(`/api/intelligence/databases/redis-metrics?${params.toString()}`, {
