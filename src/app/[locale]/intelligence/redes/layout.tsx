@@ -17,6 +17,11 @@ export default async function RedesLayout({ children }: { children: ReactNode })
         { href: "/intelligence/redes/conectividad-hibrida", label: t("tabHybrid"), icon: <GitMerge className="w-4 h-4 text-[#0054A6]" /> },
         { href: "/intelligence/redes/balanceo-y-publicacion", label: t("tabBalancing"), icon: <Shuffle className="w-4 h-4 text-[#0054A6]" /> },
         { href: "/intelligence/redes/acceso-a-internet", label: t("tabInternet"), icon: <Globe className="w-4 h-4 text-[#0054A6]" /> },
+        { href: "/intelligence/redes/analisis-de-red-finops", label: t("tabAnalysisFinops"), icon: <Network className="w-4 h-4 text-[#0054A6]" /> },
+        { href: "/intelligence/redes/redes-basicas-finops", label: t("tabBasicFinops"), icon: <Network className="w-4 h-4 text-[#0054A6]" /> },
+        { href: "/intelligence/redes/conectividad-hibrida-finops", label: t("tabHybridFinops"), icon: <GitMerge className="w-4 h-4 text-[#0054A6]" /> },
+        { href: "/intelligence/redes/balanceo-y-publicacion-finops", label: t("tabBalancingFinops"), icon: <Shuffle className="w-4 h-4 text-[#0054A6]" /> },
+        { href: "/intelligence/redes/acceso-a-internet-finops", label: t("tabInternetFinops"), icon: <Globe className="w-4 h-4 text-[#0054A6]" /> },
     ];
 
     return (

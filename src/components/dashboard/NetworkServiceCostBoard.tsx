@@ -18,11 +18,13 @@ export default function NetworkServiceCostBoard({
     title,
     subtitle,
     icon,
+    apiPath = "/api/intelligence/network/service-cost",
 }: {
     family: "analysis" | "basic" | "hybrid" | "balancing" | "internet";
     title: string;
     subtitle: string;
     icon?: React.ReactNode;
+    apiPath?: string;
 }) {
     const t = useTranslations("NetworkFamilies");
     const { selectedTenant } = useTenant();
@@ -46,7 +48,7 @@ export default function NetworkServiceCostBoard({
             setLoading(true);
             try {
                 const idToken = await getFreshIdToken(instance, accounts[0]);
-                const url = new URL("/api/intelligence/network/service-cost", window.location.origin);
+                const url = new URL(apiPath, window.location.origin);
                 url.searchParams.set("tenantId", selectedTenant.id);
                 url.searchParams.set("family", family);
                 const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${idToken}` } });
@@ -69,7 +71,7 @@ export default function NetworkServiceCostBoard({
         return () => {
             cancelled = true;
         };
-    }, [selectedTenant.id, accounts.length, instance, family, t]);
+    }, [selectedTenant.id, accounts.length, instance, family, t, apiPath]);
 
     const filteredItems = useMemo(() => {
         const items = data?.rows || [];
