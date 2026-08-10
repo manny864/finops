@@ -182,7 +182,8 @@ const STORAGE_SERVICE_FILTER = `(
                 service_name LIKE '%Storage%'
              OR service_name LIKE '%Blob%'
              OR service_name LIKE '%File%'
-             OR service_name LIKE '%Disk%'
+             OR service_name LIKE '%Queue%'
+             OR service_name LIKE '%Table%'
            )`;
 
 // Fuente primaria: filas a nivel de meter (CostMeterSnapshots), que traen la
@@ -208,7 +209,7 @@ async function queryMeterRows(tenantId: string, days: number, startDate?: string
          FROM CostMeterSnapshots
          WHERE tenant_id = ?
            AND (
-                LOWER(MeterCategory) IN ('storage','azure storage','disks','disk storage')
+                LOWER(MeterCategory) IN ('storage','azure storage')
              OR MeterSubCategory LIKE '%Blob%'
              OR MeterSubCategory LIKE '%LRS%'
              OR MeterSubCategory LIKE '%GRS%'
@@ -248,7 +249,7 @@ async function queryLegacyRows(tenantId: string, days: number, startDate?: strin
          WHERE tenant_id = ?
            AND (
                 LOWER(COALESCE(ServiceFamily,'')) = 'storage'
-             OR LOWER(COALESCE(MeterCategory,'')) IN ('storage','azure storage','disks','disk storage')
+             OR LOWER(COALESCE(MeterCategory,'')) IN ('storage','azure storage')
              OR ${STORAGE_SERVICE_FILTER}
            )
            ${dateCond}`,
@@ -536,6 +537,38 @@ export async function GET(request: NextRequest) {
                     ...acc,
                     monthlyCost: parseFloat(distributed[index].toFixed(4)),
                 }));
+            }
+
+            // Reconciliar total de cuentas con total de costos consultados:
+            // el mapeo por RG/location puede quedar parcial y dejar costo sin asignar.
+            if (accounts.length > 0 && rowsTotalCost > 0) {
+                const currentTotal = accounts.reduce((sum, acc) => sum + (Number(acc.monthlyCost) || 0), 0);
+                const delta = rowsTotalCost - currentTotal;
+                if (Math.abs(delta) > 0.01) {
+                    if (delta > 0) {
+                        const distributed = accounts.map((acc) => Number(acc.monthlyCost) || 0);
+                        const totalWeight = accounts.reduce((acc, item) => acc + Math.max(0, Number(item.usedGb) || 0), 0);
+                        if (totalWeight > 0) {
+                            for (let i = 0; i < accounts.length; i++) {
+                                const weight = Math.max(0, Number(accounts[i].usedGb) || 0);
+                                distributed[i] += (delta * weight) / totalWeight;
+                            }
+                        } else {
+                            const evenDelta = delta / accounts.length;
+                            for (let i = 0; i < accounts.length; i++) distributed[i] += evenDelta;
+                        }
+                        accounts = accounts.map((acc, index) => ({
+                            ...acc,
+                            monthlyCost: parseFloat(Math.max(0, distributed[index]).toFixed(4)),
+                        }));
+                    } else if (currentTotal > 0) {
+                        const factor = rowsTotalCost / currentTotal;
+                        accounts = accounts.map((acc) => ({
+                            ...acc,
+                            monthlyCost: parseFloat((Math.max(0, Number(acc.monthlyCost) || 0) * factor).toFixed(4)),
+                        }));
+                    }
+                }
             }
 
             // Sync tierMap from accounts if accounts exist (so tiers match accounts table)
