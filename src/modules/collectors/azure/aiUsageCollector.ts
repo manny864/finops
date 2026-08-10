@@ -59,7 +59,8 @@ const TOKEN_METRIC_NAMES = ["ProcessedPromptTokens", "GeneratedTokens", "Process
  * CostSnapshots vía Cost Management, que sigue siendo la fuente de verdad
  * para el KPI "Total Cost" cuando esta colección no tiene datos.
  */
-export async function getYesterdaysAIUsage(tenantId: string): Promise<AIUsageRow[]> {
+export async function getYesterdaysAIUsage(tenantId: string, signal?: AbortSignal): Promise<AIUsageRow[]> {
+    if (signal?.aborted) throw signal.reason;
     const credential = await getAzureCredential(tenantId);
     const subs = await getSubscriptionsForTenant(tenantId, credential);
     if (subs.length === 0) return [];
@@ -75,7 +76,9 @@ export async function getYesterdaysAIUsage(tenantId: string): Promise<AIUsageRow
         | where type =~ 'microsoft.cognitiveservices/accounts' or type =~ 'microsoft.ai.*'
         | project id, name, resourceGroup, subscriptionId, kind, type
     `;
-    const resp = await argClient.resources({ query, subscriptions: subs });
+    // This installed Resource Graph SDK has legacy ms-rest-js types whose
+    // AbortSignalLike predates the DOM signal's `reason` property.
+    const resp = await argClient.resources({ query, subscriptions: subs }, { abortSignal: signal as never });
     const accounts = (resp.data as any[]) || [];
     const resourceTypes = Array.from(new Set((accounts as any[]).map((a: any) => a.type))).join(', ');
     console.log(`[aiUsageCollector] tenant=${tenantId} subs=${subs.length} aiResources=${accounts.length} types=[${resourceTypes}]`);
@@ -91,6 +94,7 @@ export async function getYesterdaysAIUsage(tenantId: string): Promise<AIUsageRow
     const rows: AIUsageRow[] = [];
 
     for (const account of accounts) {
+        if (signal?.aborted) throw signal.reason;
         try {
             const client = new MonitorClient(credential, account.subscriptionId);
 
@@ -103,11 +107,13 @@ export async function getYesterdaysAIUsage(tenantId: string): Promise<AIUsageRow
                         interval: "P1D",
                         metricnames: metricName,
                         aggregation: "Total",
+                        abortSignal: signal,
                     };
                     // Escenario estándar de Azure OpenAI: serie por deployment.
                     if (withFilter) opts.filter = "ModelDeploymentName eq '*'";
                     return await client.metrics.list(account.id, opts);
-                } catch {
+                } catch (error) {
+                    if (signal?.aborted) throw error;
                     return null;
                 }
             };
