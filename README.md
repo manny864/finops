@@ -899,6 +899,8 @@ Endpoints internos protegidos por `Authorization: Bearer ${CRON_SECRET}`. Los in
 | `GET /api/cron/historical-gap-backfill` | Diaria 03:00 UTC     | Re-consulta los últimos 2 meses de `getHistoricalDetailedCosts`/`getHistoricalDailyCosts` para todos los tenants activos y upsertea (`ON DUPLICATE KEY UPDATE`, nunca `DELETE`) — cierra huecos que el backfill liviano de `/api/cron/sync` (ventana de 7 días) no alcanza a ver, típicamente una suscripción que pierde el sync diario por 429 sostenido durante semanas (ver incidente RPA365 2026-07 abajo). También se dispara on-demand (fire-and-forget, debounced 6h por Redis) al abrir el Invoicing Report si el tenant tiene datos stale — `src/lib/historicalGapBackfill.ts`. |
 | `GET /api/cron/prewarm-dashboard`     | Cada 10 min            | Pre-calienta el cache SWR del Dashboard General (`/api/dashboard/summary`) por tenant activo.  |
 | `GET /api/cron/prewarm-databases`     | Cada 15 min            | Pre-calienta los cachés de diagnósticos de base de datos y métricas de Redis de todos los tenants activos. |
+| `GET /api/cron/prewarm-cosmos-finops` | Cada 20 min            | Pre-calienta el cockpit FinOps/CMP de Cosmos DB (`/api/intelligence/databases/cosmos-metrics`) para todos los tenants activos. |
+| `GET /api/cron/prewarm-mongo-finops`  | Cada 20 min            | Pre-calienta el cockpit FinOps/CMP de MongoDB (`/api/intelligence/databases/mongo-metrics`) para todos los tenants activos. |
 | `GET /api/cron/prewarm-sql-finops`    | Cada 20 min            | Pre-calienta el cockpit FinOps/CMP de Azure SQL / Managed Instance (`/api/intelligence/databases/sql-metrics`) para todos los tenants activos. |
 | `GET /api/cron/prewarm-mysql-finops`  | Cada 20 min            | Pre-calienta el cockpit FinOps/CMP de MySQL (`/api/intelligence/databases/mysql-metrics`) para todos los tenants activos. |
 | `GET /api/cron/prewarm-postgres-finops` | Cada 20 min          | Pre-calienta el cockpit FinOps/CMP de PostgreSQL (`/api/intelligence/databases/postgres-metrics`) para todos los tenants activos. |
@@ -928,6 +930,8 @@ por eso no coinciden literalmente con la columna UTC de la tabla de arriba:
 | `historical-gap-backfill` | `0 0 * * *` | 03:00 | 3600s |
 | `prewarm-dashboard` | `*/10 * * * *` | cada 10 min | 300s |
 | `prewarm-databases` | `*/15 * * * *` | cada 15 min | 300s |
+| `prewarm-cosmos-finops` | `*/20 * * * *` | cada 20 min | 300s |
+| `prewarm-mongo-finops` | `*/20 * * * *` | cada 20 min | 300s |
 | `prewarm-sql-finops` | `*/20 * * * *` | cada 20 min | 300s |
 | `prewarm-mysql-finops` | `*/20 * * * *` | cada 20 min | 300s |
 | `prewarm-postgres-finops` | `*/20 * * * *` | cada 20 min | 300s |
@@ -948,6 +952,8 @@ por eso no coinciden literalmente con la columna UTC de la tabla de arriba:
 Con `npm run dev` activo y `CRON_SECRET` cargado en `.env.development`:
 
 ```bash
+npm run cron:prewarm:cosmos-finops
+npm run cron:prewarm:mongo-finops
 npm run cron:prewarm:sql-finops
 npm run cron:prewarm:mysql-finops
 npm run cron:prewarm:postgres-finops

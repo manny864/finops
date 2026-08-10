@@ -4914,11 +4914,11 @@
     "tabRedistest": "Azure Cache for Redis",
     "tabTestmysql": "Mysql",
     "cosmosTitle": "Azure Cosmos DB",
-    "cosmosSubtitle": "Métricas de consumo de RU, throttling, armazenamento e desempenho",
+    "cosmosSubtitle": "Cockpit FinOps/CMP para Azure Cosmos DB com foco em custo, eficiência e risco.",
     "sqlTitle": "Azure SQL & Managed Instance",
     "sqlSubtitle": "Cockpit FinOps/CMP para Azure SQL Database, Elastic Pools e Managed Instance.",
     "mongoTitle": "Azure Cosmos DB for MongoDB",
-    "mongoSubtitle": "Consumo de RU, distribuição de shards e métricas de operações",
+    "mongoSubtitle": "Cockpit FinOps/CMP para Azure Cosmos DB for MongoDB e Mongo clusters.",
     "redisTitle": "Azure Cache for Redis",
     "redisSubtitle": "Uso de memória, taxa de acerto do cache, despejos e desempenho"
   },

@@ -89,6 +89,20 @@ cron_jobs = {
     name            = "prewarm-mysql-finops"
     async_poll      = false
   }
+  prewarm-cosmos-finops = {
+    cron            = "*/20 * * * *"
+    timeout_seconds = 300
+    auth_mode       = "header"
+    name            = "prewarm-cosmos-finops"
+    async_poll      = false
+  }
+  prewarm-mongo-finops = {
+    cron            = "*/20 * * * *"
+    timeout_seconds = 300
+    auth_mode       = "header"
+    name            = "prewarm-mongo-finops"
+    async_poll      = false
+  }
   prewarm-sql-finops = {
     cron            = "*/20 * * * *"
     timeout_seconds = 300

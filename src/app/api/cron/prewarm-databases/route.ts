@@ -6,11 +6,13 @@ export const dynamic = "force-dynamic";
 
 const DATABASE_ENDPOINTS = [
     "cosmos-diagnostics",
+    "cosmos-metrics",
     "sql-diagnostics",
     "sql-metrics",
     "postgres-diagnostics",
     "mysql-diagnostics",
     "mongo-diagnostics",
+    "mongo-metrics",
     "redis-diagnostics",
     "redis-metrics",
     "mysql-metrics",

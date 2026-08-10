@@ -1,6 +1,6 @@
 # Patrón FinOps/CMP para cockpits de bases de datos
 
-Este documento define el estilo aplicado en `redis-metrics`, `mysql-metrics`, `postgres-metrics` y `sql-metrics` para convertir tableros técnicos en cockpits de decisión FinOps/CMP.
+Este documento define el estilo aplicado en `redis-metrics`, `mysql-metrics`, `postgres-metrics`, `sql-metrics`, `cosmos-metrics` y `mongo-metrics` para convertir tableros técnicos en cockpits de decisión FinOps/CMP.
 
 ## Objetivo del patrón
 
@@ -42,9 +42,9 @@ Esto permite mantener valor FinOps aunque una parte de telemetría operativa fal
 
 ## Ejecución operativa (Azure + local)
 
-- **Azure (prod):** cron jobs `prewarm-sql-finops`, `prewarm-mysql-finops` y `prewarm-postgres-finops` cada 20 minutos (`infra/terraform/environments/prod/terraform.tfvars`).
+- **Azure (prod):** cron jobs `prewarm-cosmos-finops`, `prewarm-mongo-finops`, `prewarm-sql-finops`, `prewarm-mysql-finops` y `prewarm-postgres-finops` cada 20 minutos (`infra/terraform/environments/prod/terraform.tfvars`).
 - **Azure (staging/dev ejemplo):** entrada equivalente en `staging.tfvars.example` y `dev/terraform.tfvars.example`.
-- **Local:** scripts `npm run cron:prewarm:sql-finops`, `npm run cron:prewarm:mysql-finops` y `npm run cron:prewarm:postgres-finops` que invocan sus endpoints `/api/cron/prewarm-*-finops` con `CRON_SECRET`.
+- **Local:** scripts `npm run cron:prewarm:cosmos-finops`, `npm run cron:prewarm:mongo-finops`, `npm run cron:prewarm:sql-finops`, `npm run cron:prewarm:mysql-finops` y `npm run cron:prewarm:postgres-finops` que invocan sus endpoints `/api/cron/prewarm-*-finops` con `CRON_SECRET`.
 
 ## Cómo replicarlo a otro motor (ej. PostgreSQL, MongoDB, SQL MI)
 

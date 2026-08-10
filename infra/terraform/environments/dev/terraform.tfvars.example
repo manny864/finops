@@ -82,6 +82,8 @@ cron_timezone_offset_hours = -3
 cron_jobs = {
   status-snapshot = { cron = "*/5 * * * *", timeout_seconds = 120, auth_mode = "query" }
   trial-expiry    = { cron = "0 1 * * *" }
+  prewarm-cosmos-finops = { cron = "*/20 * * * *", timeout_seconds = 300 }
+  prewarm-mongo-finops = { cron = "*/20 * * * *", timeout_seconds = 300 }
   prewarm-sql-finops = { cron = "*/20 * * * *", timeout_seconds = 300 }
   prewarm-mysql-finops = { cron = "*/20 * * * *", timeout_seconds = 300 }
   prewarm-postgres-finops = { cron = "*/20 * * * *", timeout_seconds = 300 }
