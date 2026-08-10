@@ -87,11 +87,13 @@ const CLOCK_SKEW_SECONDS = 120;
 
 export class AuthError extends Error {
   status: number;
+  code?: string;
 
-  constructor(message: string, status = 401) {
+  constructor(message: string, status = 401, code?: string) {
     super(message);
     this.name = "AuthError";
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -402,16 +404,16 @@ export async function requireTenantAccess(
   }
 
   if (!allowSuperAdmin) {
-    throw new AuthError("Acceso denegado al tenant.", 403);
+    throw new AuthError("Acceso denegado al tenant.", 403, "TENANT_ACCESS_SUPERADMIN_DISABLED");
   }
 
   if (!identity.isCorporateDomain) {
-    throw new AuthError("Acceso denegado al tenant.", 403);
+    throw new AuthError("Acceso denegado al tenant.", 403, "TENANT_ACCESS_NOT_CORPORATE_DOMAIN");
   }
 
   const superAdmin = await hasSystemRole(identity.email, "SUPERADMIN");
   if (!superAdmin) {
-    throw new AuthError("Acceso denegado al tenant.", 403);
+    throw new AuthError("Acceso denegado al tenant.", 403, "TENANT_ACCESS_MISSING_SUPERADMIN_ROLE");
   }
 
   return identity;
