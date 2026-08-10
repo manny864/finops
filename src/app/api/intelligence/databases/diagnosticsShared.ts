@@ -52,11 +52,12 @@ export async function listResourcesByTypes(
       options: { resultFormat: "objectArray", top: 1000 },
     });
     const rows = mapRows((response.data as any[]) || []);
-    if (rows.length > 0 || !credential || subscriptionIds.length === 0) {
+    if (rows.length > 0) {
       return rows;
     }
+    // If KQL returns 0 results, continue to ARM fallback below
   } catch {
-    // fallback ARM below
+    // fallback ARM below on KQL error
   }
 
   if (!credential || subscriptionIds.length === 0) return [];
