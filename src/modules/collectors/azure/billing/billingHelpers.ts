@@ -1,7 +1,26 @@
 import { FocusCostEntry } from '@/modules/core/focusMapper';
 import { CostQueryDiagnostics } from './billingTypes';
 
-export const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+export function throwIfAborted(signal?: AbortSignal): void {
+    if (signal?.aborted) {
+        throw signal.reason instanceof Error ? signal.reason : new DOMException('Operation aborted', 'AbortError');
+    }
+}
+
+export function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+    throwIfAborted(signal);
+    return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+            signal?.removeEventListener('abort', onAbort);
+            resolve();
+        }, ms);
+        const onAbort = () => {
+            clearTimeout(timer);
+            reject(signal?.reason instanceof Error ? signal.reason : new DOMException('Operation aborted', 'AbortError'));
+        };
+        signal?.addEventListener('abort', onAbort, { once: true });
+    });
+}
 
 export function extractRetryAfterMs(err: any): number | null {
     const headers = err?.response?.headers || err?.headers || {};
@@ -41,11 +60,15 @@ export function setCache(key: string, data: FocusCostEntry[], diagnostics: CostQ
     COST_CACHE.set(key, { data, diagnostics, expiresAt: Date.now() + CACHE_TTL_MS });
 }
 
-export async function withRetry<T>(fn: () => Promise<T>, opts: { maxRetries?: number; baseDelayMs?: number; label?: string } = {}): Promise<T> {
+export async function withRetry<T>(
+    fn: () => Promise<T>,
+    opts: { maxRetries?: number; baseDelayMs?: number; label?: string; signal?: AbortSignal } = {},
+): Promise<T> {
     const maxRetries = opts.maxRetries ?? 4;
     const baseDelay = opts.baseDelayMs ?? 1500;
     let attempt = 0;
     while (true) {
+        throwIfAborted(opts.signal);
         try {
             return await fn();
         } catch (e: any) {
@@ -53,17 +76,23 @@ export async function withRetry<T>(fn: () => Promise<T>, opts: { maxRetries?: nu
             const retryAfter = extractRetryAfterMs(e);
             const backoff = retryAfter ?? Math.min(30_000, baseDelay * Math.pow(2, attempt) + Math.floor(Math.random() * 500));
             console.warn(`[BillingService] 429 on ${opts.label || 'azure call'}. Retry ${attempt + 1}/${maxRetries} in ${backoff}ms`);
-            await sleep(backoff);
+            await sleep(backoff, opts.signal);
             attempt++;
         }
     }
 }
 
-export async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T, idx: number) => Promise<R>): Promise<R[]> {
+export async function mapWithConcurrency<T, R>(
+    items: T[],
+    limit: number,
+    fn: (item: T, idx: number) => Promise<R>,
+    signal?: AbortSignal,
+): Promise<R[]> {
     const results: R[] = new Array(items.length);
     let i = 0;
     const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
         while (true) {
+            throwIfAborted(signal);
             const idx = i++;
             if (idx >= items.length) return;
             results[idx] = await fn(items[idx], idx);

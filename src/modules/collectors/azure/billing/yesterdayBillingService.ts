@@ -2,9 +2,10 @@ import { CostManagementClient } from "@azure/arm-costmanagement";
 import { getAzureCredential } from '@/lib/azure';
 import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError, type CostColumn } from '@/lib/azureCostColumn';
 import { DetailedCostRow } from './billingTypes';
-import { withRetry, mapWithConcurrency } from './billingHelpers';
+import { withRetry, mapWithConcurrency, throwIfAborted } from './billingHelpers';
 
-export async function getYesterdaysCost(tenantId: string, targetDate?: Date): Promise<number> {
+export async function getYesterdaysCost(tenantId: string, targetDate?: Date, signal?: AbortSignal): Promise<number> {
+    throwIfAborted(signal);
     const credential = await getAzureCredential(tenantId);
     const client = new CostManagementClient(credential);
 
@@ -42,7 +43,8 @@ export async function getYesterdaysCost(tenantId: string, targetDate?: Date): Pr
     }
 
     const subRes = await fetch("https://management.azure.com/subscriptions?api-version=2020-01-01", {
-        headers: { 'Authorization': `Bearer ${token.token}` }
+        headers: { 'Authorization': `Bearer ${token.token}` },
+        signal,
     });
     if (!subRes.ok) {
         throw new Error(`Failed to fetch subscriptions: HTTP ${subRes.status}`);
@@ -55,8 +57,8 @@ export async function getYesterdaysCost(tenantId: string, targetDate?: Date): Pr
         const subScope = `/subscriptions/${sub.subscriptionId}`;
         try {
             const res = await withRetry(
-                () => client.query.usage(subScope, queryOptions),
-                { label: `yesterday(sub ${sub.subscriptionId})`, maxRetries: 3 }
+                () => client.query.usage(subScope, queryOptions, { abortSignal: signal }),
+                { label: `yesterday(sub ${sub.subscriptionId})`, maxRetries: 3, signal }
             );
             if (res && res.rows && res.rows.length > 0) {
                 totalCost += Number(res.rows[0][0]) || 0;
@@ -65,8 +67,8 @@ export async function getYesterdaysCost(tenantId: string, targetDate?: Date): Pr
             if (activeCol === 'CostUSD' && isCostUsdUnsupportedError(subErr)) {
                 try {
                     const res = await withRetry(
-                        () => client.query.usage(subScope, buildQueryOptions('PreTaxCost')),
-                        { label: `yesterday(sub ${sub.subscriptionId}, PreTaxCost)`, maxRetries: 3 }
+                        () => client.query.usage(subScope, buildQueryOptions('PreTaxCost'), { abortSignal: signal }),
+                        { label: `yesterday(sub ${sub.subscriptionId}, PreTaxCost)`, maxRetries: 3, signal }
                     );
                     if (res && res.rows && res.rows.length > 0) {
                         totalCost += Number(res.rows[0][0]) || 0;
@@ -78,11 +80,12 @@ export async function getYesterdaysCost(tenantId: string, targetDate?: Date): Pr
             }
             console.warn(`Failed to query yesterday's cost for subscription ${sub.subscriptionId}:`, subErr.message);
         }
-    });
+    }, signal);
     return totalCost;
 }
 
-export async function getYesterdaysDetailedCosts(tenantId: string, targetDate?: Date): Promise<DetailedCostRow[]> {
+export async function getYesterdaysDetailedCosts(tenantId: string, targetDate?: Date, signal?: AbortSignal): Promise<DetailedCostRow[]> {
+    throwIfAborted(signal);
     const credential = await getAzureCredential(tenantId);
     const client = new CostManagementClient(credential);
 
@@ -117,7 +120,10 @@ export async function getYesterdaysDetailedCosts(tenantId: string, targetDate?: 
     const buildQueryC = (col: CostColumn) => buildOpts(['ResourceType'], col);
 
     async function runOnScope(scope: string, opts: any): Promise<{ rows: any[][]; columns: any[] }> {
-        const res: any = await withRetry(() => client.query.usage(scope, opts), { label: `detailed(${scope})`, maxRetries: 3 });
+        const res: any = await withRetry(
+            () => client.query.usage(scope, opts, { abortSignal: signal }),
+            { label: `detailed(${scope})`, maxRetries: 3, signal },
+        );
         return { rows: res?.rows || [], columns: res?.columns || [] };
     }
 
@@ -244,7 +250,8 @@ export async function getYesterdaysDetailedCosts(tenantId: string, targetDate?: 
         const token = await credential.getToken('https://management.azure.com/.default');
         if (!token) throw new Error('No se pudo obtener token Azure');
         const subRes = await fetch('https://management.azure.com/subscriptions?api-version=2020-01-01', {
-            headers: { 'Authorization': `Bearer ${token.token}` }
+            headers: { 'Authorization': `Bearer ${token.token}` },
+            signal,
         });
         const subJson: any = await subRes.json();
         const subs = (subJson.value || []).filter((s: any) => s.subscriptionId && s.state === 'Enabled');
@@ -252,7 +259,7 @@ export async function getYesterdaysDetailedCosts(tenantId: string, targetDate?: 
             const subId: string = sub.subscriptionId;
             const rows = await runForScope(`/subscriptions/${subId}`, subId);
             results.push(...rows);
-        });
+        }, signal);
         return results;
     }
 }
