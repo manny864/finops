@@ -219,7 +219,12 @@ export default function RedisTestBoard() {
         };
     }, [instances]);
 
-    const topRecommendations = useMemo(() => recommendations.slice(0, 5), [recommendations]);
+    const topRecommendations = useMemo(() => {
+        const filtered = selectedInstanceId 
+            ? recommendations.filter(rec => rec.instanceId === selectedInstanceId)
+            : recommendations;
+        return filtered.slice(0, 5);
+    }, [recommendations, selectedInstanceId]);
 
     const currentInstance = useMemo(() => instances.find(i => i.id === selectedInstanceId), [instances, selectedInstanceId]);
 
