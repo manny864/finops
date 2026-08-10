@@ -113,6 +113,7 @@ function normalizeResponse(data: RedisFinOpsResponse): Required<Pick<RedisFinOps
 export default function RedisTestBoard() {
     const { selectedTenant } = useTenant();
     const { format } = useCurrency();
+    const { instance, accounts } = useMsal();
 
     const [instances, setInstances] = useState<RedisInstanceMetrics[]>([]);
     const [financialSummary, setFinancialSummary] = useState({
@@ -149,7 +150,7 @@ export default function RedisTestBoard() {
 
         try {
             const tenantId = selectedTenant.id;
-            const token = await getFreshIdToken();
+            const token = await getFreshIdToken(instance, accounts[0]);
 
             const params = new URLSearchParams({
                 tenantId,
@@ -186,7 +187,7 @@ export default function RedisTestBoard() {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [selectedTenant]);
+    }, [selectedTenant, instance, accounts]);
 
     useEffect(() => {
         fetchRedisMetrics(false);
