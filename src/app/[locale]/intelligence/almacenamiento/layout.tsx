@@ -2,7 +2,6 @@ import { ReactNode } from "react";
 import { Inter } from "next/font/google";
 import { getTranslations } from "next-intl/server";
 import RouteTabsNav from "@/components/navigation/RouteTabsNav";
-import RouteTabsFilter from "@/components/navigation/RouteTabsFilter";
 import { IconDatabase } from "@tabler/icons-react";
 import { Database, HardDrive, ShieldCheck } from "lucide-react";
 
@@ -28,7 +27,6 @@ export default async function AlmacenamientoLayout({ children }: { children: Rea
                 <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{t("subtitle")}</p>
             </div>
             <RouteTabsNav tabs={tabs} className="px-6 mt-4 mb-4" />
-            <RouteTabsFilter />
             {children}
         </div>
     );

@@ -71,6 +71,8 @@ interface ServiceCostResponse {
 interface ResourceRow {
   id: string;
   name: string;
+  resourceGroup?: string;
+  tier?: string;
   region: string;
   state: string;
   sku: string;
@@ -176,6 +178,9 @@ export default function StorageFinopsCmpBoard({ family }: { family: StorageFinop
   const [error, setError] = useState<string | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const [selectedResourceId, setSelectedResourceId] = useState<string>("");
+  const [storageAccountFilter, setStorageAccountFilter] = useState<string>("all");
+  const [tierFilter, setTierFilter] = useState<string>("all");
+  const [resourceGroupFilter, setResourceGroupFilter] = useState<string>("all");
   const [apiPotentialSavings, setApiPotentialSavings] = useState(0);
   const [efficiencyValue, setEfficiencyValue] = useState(0);
   const [tierDistribution, setTierDistribution] = useState<Record<string, TierStats>>({});
@@ -220,6 +225,8 @@ export default function StorageFinopsCmpBoard({ family }: { family: StorageFinop
         const mapped: ResourceRow[] = (body.accounts || []).map((acc) => ({
           id: acc.id,
           name: acc.name,
+          resourceGroup: acc.resourceGroup || "unknown",
+          tier: acc.tier || "N/A",
           region: acc.location || "unknown",
           state: "active",
           sku: acc.sku || "Unknown",
@@ -261,6 +268,8 @@ export default function StorageFinopsCmpBoard({ family }: { family: StorageFinop
         const mapped: ResourceRow[] = (body.items || []).map((item, index) => ({
           id: `${family}-${index}-${item.serviceLabel}`,
           name: item.serviceLabel,
+          resourceGroup: "-",
+          tier: "N/A",
           region: "global",
           state: "active",
           sku: "Standard",
@@ -297,19 +306,58 @@ export default function StorageFinopsCmpBoard({ family }: { family: StorageFinop
     if (!selectedResourceId && items.length > 0) setSelectedResourceId(items[0].id);
   }, [items, selectedResourceId]);
 
-  const selected = useMemo(() => items.find((item) => item.id === selectedResourceId) || null, [items, selectedResourceId]);
+  const storageAccountOptions = useMemo(
+    () => ["all", ...Array.from(new Set(items.map((item) => item.name))).sort()],
+    [items]
+  );
+
+  const tierOptions = useMemo(
+    () => ["all", ...Array.from(new Set(items.map((item) => String(item.tier || item.metricB || "N/A")))).sort()],
+    [items]
+  );
+
+  const resourceGroupOptions = useMemo(
+    () => ["all", ...Array.from(new Set(items.map((item) => String(item.resourceGroup || "unknown")))).sort()],
+    [items]
+  );
+
+  const filteredItems = useMemo(() => {
+    if (family !== "storage-accounts") return items;
+    return items.filter((item) => {
+      const accountOk = storageAccountFilter === "all" || item.name === storageAccountFilter;
+      const tierValue = String(item.tier || item.metricB || "N/A");
+      const tierOk = tierFilter === "all" || tierValue === tierFilter;
+      const rgValue = String(item.resourceGroup || "unknown");
+      const rgOk = resourceGroupFilter === "all" || rgValue === resourceGroupFilter;
+      return accountOk && tierOk && rgOk;
+    });
+  }, [items, family, storageAccountFilter, tierFilter, resourceGroupFilter]);
+
+  useEffect(() => {
+    setStorageAccountFilter("all");
+    setTierFilter("all");
+    setResourceGroupFilter("all");
+  }, [family, items.length]);
+
+  const selected = useMemo(() => filteredItems.find((item) => item.id === selectedResourceId) || null, [filteredItems, selectedResourceId]);
+
+  useEffect(() => {
+    if (!selectedResourceId || !filteredItems.some((item) => item.id === selectedResourceId)) {
+      setSelectedResourceId(filteredItems[0]?.id || "");
+    }
+  }, [filteredItems, selectedResourceId]);
 
   const derived = useMemo(() => {
-    const mtdCost = round2(items.reduce((acc, item) => acc + (item.monthlyCostUsd || 0), 0));
-    const eom = forecastRobust(mtdCost, new Date(), items.map((item) => item.monthlyCostUsd));
+    const mtdCost = round2(filteredItems.reduce((acc, item) => acc + (item.monthlyCostUsd || 0), 0));
+    const eom = forecastRobust(mtdCost, new Date(), filteredItems.map((item) => item.monthlyCostUsd));
     const prevMonth = mtdCost * 0.9;
     const delta = mtdCost - prevMonth;
     const deltaPct = prevMonth > 0 ? (delta / prevMonth) * 100 : 0;
-    const underutilized = items.filter((item) => toNumeric(item.metricA) <= 1).length;
-    const criticalAlerts = items.filter((item) => item.monthlyCostUsd > 0 && toNumeric(item.metricA) === 0).length;
+    const underutilized = filteredItems.filter((item) => toNumeric(item.metricA) <= 1).length;
+    const criticalAlerts = filteredItems.filter((item) => item.monthlyCostUsd > 0 && toNumeric(item.metricA) === 0).length;
     const healthScore = Math.max(0, 100 - criticalAlerts * 8);
 
-    const recommendations: Recommendation[] = items
+    const recommendations: Recommendation[] = filteredItems
       .filter((item) => item.monthlyCostUsd > 0)
       .map((item) => ({
         title: t(config.recTitle),
@@ -333,12 +381,12 @@ export default function StorageFinopsCmpBoard({ family }: { family: StorageFinop
       Math.max(apiPotentialSavings, recommendations.reduce((acc, rec) => acc + rec.monthlySavings, 0))
     );
 
-    const efficiencyComputed = items.length > 0
-      ? mtdCost / Math.max(1, items.reduce((acc, item) => acc + toNumeric(item.metricA), 0))
+    const efficiencyComputed = filteredItems.length > 0
+      ? mtdCost / Math.max(1, filteredItems.reduce((acc, item) => acc + toNumeric(item.metricA), 0))
       : 0;
 
     const byRegion = new Map<string, { count: number; cost: number }>();
-    for (const item of items) {
+    for (const item of filteredItems) {
       const key = item.region || "unknown";
       const curr = byRegion.get(key) || { count: 0, cost: 0 };
       curr.count += 1;
@@ -368,9 +416,9 @@ export default function StorageFinopsCmpBoard({ family }: { family: StorageFinop
       efficiency: efficiencyValue > 0 ? efficiencyValue : round2(efficiencyComputed),
       comparison,
     };
-  }, [items, apiPotentialSavings, efficiencyValue, t, config.recTitle, family]);
+  }, [filteredItems, apiPotentialSavings, efficiencyValue, t, config.recTitle, family]);
 
-  const { page, setPage, pageSize, setPageSize, total, totalPages, paged } = usePagination(items, 10);
+  const { page, setPage, pageSize, setPageSize, total, totalPages, paged } = usePagination(filteredItems, 10);
 
   if (!selectedTenant) {
     return <div className="rounded-2xl border border-slate-200 bg-white p-8 text-sm text-slate-600">{t("selectTenant")}</div>;
@@ -410,6 +458,50 @@ export default function StorageFinopsCmpBoard({ family }: { family: StorageFinop
         </section>
       )}
 
+      {family === "storage-accounts" && (
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div>
+            <label className="text-xs font-bold text-slate-500 uppercase">{t("filterStorageAccount")}</label>
+            <select
+              value={storageAccountFilter}
+              onChange={(e) => setStorageAccountFilter(e.target.value)}
+              className="mt-1 w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+            >
+              <option value="all">{t("allOption")}</option>
+              {storageAccountOptions.filter((value) => value !== "all").map((value) => (
+                <option key={value} value={value}>{value}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-bold text-slate-500 uppercase">{t("filterTier")}</label>
+            <select
+              value={tierFilter}
+              onChange={(e) => setTierFilter(e.target.value)}
+              className="mt-1 w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+            >
+              <option value="all">{t("allOption")}</option>
+              {tierOptions.filter((value) => value !== "all").map((value) => (
+                <option key={value} value={value}>{value}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-bold text-slate-500 uppercase">{t("filterResourceGroup")}</label>
+            <select
+              value={resourceGroupFilter}
+              onChange={(e) => setResourceGroupFilter(e.target.value)}
+              className="mt-1 w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+            >
+              <option value="all">{t("allOption")}</option>
+              {resourceGroupOptions.filter((value) => value !== "all").map((value) => (
+                <option key={value} value={value}>{value}</option>
+              ))}
+            </select>
+          </div>
+        </section>
+      )}
+
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <KpiCard title={t("kpiMtdCost")} value={format(derived.mtdCost)} icon={<Wallet className="h-5 w-5 text-sky-600" />} />
         <KpiCard title={t("kpiForecast")} value={format(derived.eom.value)} subtitle={`${format(derived.eom.low)} - ${format(derived.eom.high)}`} icon={<Gauge className="h-5 w-5 text-violet-600" />} />
@@ -418,7 +510,7 @@ export default function StorageFinopsCmpBoard({ family }: { family: StorageFinop
       </section>
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <KpiCard title={t("kpiResources")} value={String(items.length)} icon={<CheckCircle2 className="h-5 w-5 text-cyan-600" />} />
+        <KpiCard title={t("kpiResources")} value={String(filteredItems.length)} icon={<CheckCircle2 className="h-5 w-5 text-cyan-600" />} />
         <KpiCard title={t("kpiEfficiency")} value={format(derived.efficiency)} icon={<Gauge className="h-5 w-5 text-amber-600" />} />
         <KpiCard title={t("kpiUnderutilized")} value={String(derived.underutilized)} icon={<Gauge className="h-5 w-5 text-orange-600" />} />
         <KpiCard title={t("kpiHealth")} value={`${derived.healthScore.toFixed(1)} / 100`} subtitle={t("criticalAlerts", { count: derived.criticalAlerts })} icon={<ShieldAlert className="h-5 w-5 text-rose-600" />} />
@@ -489,7 +581,7 @@ export default function StorageFinopsCmpBoard({ family }: { family: StorageFinop
           onChange={(e) => setSelectedResourceId(e.target.value)}
           className="mb-4 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 hover:border-slate-400"
         >
-          {items.map((item) => (
+          {filteredItems.map((item) => (
             <option key={item.id} value={item.id}>
               {item.name} ({item.region})
             </option>
@@ -513,7 +605,7 @@ export default function StorageFinopsCmpBoard({ family }: { family: StorageFinop
 
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h3 className="mb-4 text-sm font-semibold text-slate-900">{t("allResourcesTitle")}</h3>
-        {items.length === 0 ? (
+        {filteredItems.length === 0 ? (
           <p className="text-sm text-slate-600">{t("noResources")}</p>
         ) : (
           <>
