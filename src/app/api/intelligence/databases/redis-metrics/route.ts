@@ -6,11 +6,10 @@ import {
     listResourcesByTypes,
     getDiagnosticsCacheKey,
     readDiagnosticsCache,
-    writeDiagnosticsCache,
-    getMonthlyCostByType,
-    distributeCostPerResource
+    writeDiagnosticsCache
 } from "../diagnosticsShared";
 import { redis } from "@/lib/redis";
+import { getResourceCostsById } from "@/modules/collectors/azure/resourceInventoryService";
 
 // Both lowercase and proper case to match various Azure API responses
 const REDIS_TYPES = [
@@ -416,14 +415,12 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(payload);
         }
 
-        // Obtener costos mensuales acumulados para atribuir a cada instancia de Redis
-        const { costByType } = await getMonthlyCostByType(
+        const costPerResource = await getResourceCostsById(
             tenantId,
-            credential,
-            subscriptionIds,
-            REDIS_TYPES
+            resources
+                .filter((r) => Boolean(r.subscriptionId))
+                .map((r) => ({ id: r.id, subscriptionId: String(r.subscriptionId) }))
         );
-        const costPerResource = distributeCostPerResource(resources, costByType);
 
         const tokenResponse = await credential.getToken("https://management.azure.com/.default");
         const headers = { Authorization: `Bearer ${tokenResponse.token}` };
@@ -431,7 +428,7 @@ export async function GET(request: NextRequest) {
         // Consultar métricas en paralelo para cada instancia
         const instances = await Promise.all(
             resources.map(async (resource) => {
-                const monthlyCostUsd = costPerResource.get(resource.id) || 0;
+                const monthlyCostUsd = costPerResource.get(resource.id.toLowerCase()) || 0;
                 try {
                     const isEnterprise = resource.type?.toLowerCase() === "microsoft.cache/redisenterprise";
                     const metricsToQuery = isEnterprise ? ENTERPRISE_REDIS_METRICS : STANDARD_REDIS_METRICS;
