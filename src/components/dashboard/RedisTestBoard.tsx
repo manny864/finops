@@ -16,6 +16,8 @@ import {
 import { useTenant } from "@/components/TenantProvider";
 import { isMockTenant } from "@/lib/mockData";
 import { useCurrency } from "@/components/CurrencyProvider";
+import { useMsal } from "@azure/msal-react";
+import { getFreshIdToken } from "@/lib/msalToken";
 
 interface MetricPoint {
     timestamp: string;
@@ -147,6 +149,7 @@ export default function RedisTestBoard() {
 
         try {
             const tenantId = selectedTenant.id;
+            const token = await getFreshIdToken();
 
             const params = new URLSearchParams({
                 tenantId,
@@ -154,7 +157,10 @@ export default function RedisTestBoard() {
             });
 
             const response = await fetch(`/api/intelligence/databases/redis-metrics?${params.toString()}`, {
-                cache: "no-store"
+                cache: "no-store",
+                headers: {
+                    "Authorization": `Bearer ${token}`
+                }
             });
 
             if (!response.ok) {
