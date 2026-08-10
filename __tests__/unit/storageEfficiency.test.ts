@@ -3,6 +3,8 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 // ---- Mocks -----------------------------------------------------------------
 const queryMock = vi.fn();
 const poolQueryMock = vi.fn();
+const getAzureCredentialMock = vi.fn();
+const getResourceGraphClientMock = vi.fn();
 
 vi.mock("@/modules/storage/db", () => ({
     default: { query: (...args: unknown[]) => queryMock(...args) },
@@ -29,6 +31,12 @@ vi.mock("@/lib/mockData", () => ({
     isMockTenant: () => false,
 }));
 
+vi.mock("@/lib/azure", () => ({
+    getAzureCredential: (...args: unknown[]) => getAzureCredentialMock(...args),
+    getResourceGraphClient: (...args: unknown[]) => getResourceGraphClientMock(...args),
+    getSubscriptionsForTenant: vi.fn(),
+}));
+
 import { GET } from "@/app/api/intelligence/storage-efficiency/route";
 
 function makeRequest(days = 30) {
@@ -50,6 +58,12 @@ const METER_ROWS = [
 describe("storage-efficiency route", () => {
     beforeEach(() => {
         queryMock.mockReset();
+        getAzureCredentialMock.mockReset();
+        getResourceGraphClientMock.mockReset();
+        getAzureCredentialMock.mockResolvedValue({
+            getToken: vi.fn().mockResolvedValue({ token: "test-token" }),
+        });
+        vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ value: [] }), { status: 200 })));
     });
 
     it("usa CostMeterSnapshots como fuente primaria y separa tiers por subcategoría", async () => {
@@ -88,8 +102,9 @@ describe("storage-efficiency route", () => {
 
         expect(body.success).toBe(true);
         expect(body.diagnostics.source).toBe("legacy");
-        // Sin subcategoría el tier se infiere: hot, con GB inferidos por costo/tarifa
-        expect(body.tiers.hot.gb).toBeCloseTo(1000, 0);
+        // Sin datapoint de Azure Monitor, el costo legacy no se convierte en capacidad.
+        expect(body.tiers.hot.gb).toBe(0);
+        expect(body.tiers.hot.cost).toBeCloseTo(18.4, 2);
         expect(body.tiers.cool.gb).toBe(0);
     });
 
@@ -103,6 +118,90 @@ describe("storage-efficiency route", () => {
         expect(body.empty).toBe(true);
         expect(body.totalGb).toBe(0);
         expect(body.diagnostics.effectiveDays).toBe(365);
+    });
+
+    it("no escribe snapshots ni acumula capacidad entre refreshes", async () => {
+        const fiveGbInBytes = 5 * 1024 * 1024 * 1024;
+        const fetchMock = vi.fn(async (url: string) => {
+            if (url.includes("/subscriptions?")) {
+                return new Response(JSON.stringify({ value: [{ subscriptionId: "sub-1" }] }), { status: 200 });
+            }
+            return new Response(JSON.stringify({
+                value: [{ timeseries: [{ data: [{ average: fiveGbInBytes }, { average: null }] }] }],
+            }), { status: 200 });
+        });
+        vi.stubGlobal("fetch", fetchMock);
+        getResourceGraphClientMock.mockResolvedValue({
+            resources: vi.fn().mockResolvedValue({
+                data: [{
+                    id: "/subscriptions/sub-1/resourceGroups/rg-storage/providers/Microsoft.Storage/storageAccounts/storageone",
+                    name: "storageone",
+                    resourceGroup: "rg-storage",
+                    subscriptionId: "sub-1",
+                    location: "eastus",
+                    sku: { name: "Standard_LRS" },
+                    properties: { accessTier: "Hot" },
+                }],
+            }),
+        });
+        queryMock.mockResolvedValue([METER_ROWS, []]);
+
+        const first = await (await GET(makeRequest())).json();
+        const second = await (await GET(makeRequest())).json();
+
+        expect(first.accounts[0].usedGb).toBe(5);
+        expect(second.accounts[0].usedGb).toBe(5);
+        expect(second.totalGb).toBe(first.totalGb);
+        expect(queryMock.mock.calls.some(([sql]) => String(sql).includes("INSERT INTO CostMeterSnapshots"))).toBe(false);
+    });
+
+    it("preserva valores live distintos, incluido cero, y marca telemetría ausente", async () => {
+        const gigabyte = 1024 * 1024 * 1024;
+        vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+            if (url.includes("/subscriptions?")) {
+                return new Response(JSON.stringify({ value: [{ subscriptionId: "sub-1" }] }), { status: 200 });
+            }
+            if (url.includes("storageone")) {
+                return new Response(JSON.stringify({
+                    value: [{ timeseries: [{ data: [
+                        { timeStamp: "2026-08-01T00:00:00Z", average: 2 * gigabyte },
+                        { timeStamp: "2026-08-01T01:00:00Z", average: 3 * gigabyte },
+                        { timeStamp: "2026-08-01T02:00:00Z", average: null },
+                    ] }] }],
+                }), { status: 200 });
+            }
+            if (url.includes("storagezero")) {
+                return new Response(JSON.stringify({
+                    value: [{ timeseries: [{ data: [{ timeStamp: "2026-08-01T01:00:00Z", average: 0 }] }] }],
+                }), { status: 200 });
+            }
+            return new Response(JSON.stringify({ value: [{ timeseries: [{ data: [] }] }] }), { status: 200 });
+        }));
+        getResourceGraphClientMock.mockResolvedValue({
+            resources: vi.fn().mockResolvedValue({
+                data: ["storageone", "storagezero", "storagenometric"].map((name) => ({
+                    id: `/subscriptions/sub-1/resourceGroups/rg-storage/providers/Microsoft.Storage/storageAccounts/${name}`,
+                    name,
+                    resourceGroup: "rg-storage",
+                    subscriptionId: "sub-1",
+                    location: "eastus",
+                    sku: { name: "Standard_LRS" },
+                    properties: { accessTier: "Hot" },
+                })),
+            }),
+        });
+        queryMock.mockResolvedValue([[], []]);
+
+        const body = await (await GET(makeRequest())).json();
+
+        expect(body.accounts.map((account: any) => account.usedGb)).toEqual([3, 0, null]);
+        expect(body.accounts.map((account: any) => account.capacitySource)).toEqual([
+            "azure-monitor",
+            "azure-monitor",
+            "unavailable",
+        ]);
+        expect(body.accounts[0].capacityUpdatedAt).toBe("2026-08-01T01:00:00Z");
+        expect(body.totalGb).toBe(3);
     });
 });
 

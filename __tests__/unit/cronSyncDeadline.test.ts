@@ -11,26 +11,30 @@ import { withDeadline, TenantSyncTimeout } from '@/app/api/cron/sync/route';
  */
 describe('withDeadline', () => {
     it('devuelve el resultado si el trabajo termina a tiempo', async () => {
-        await expect(withDeadline(Promise.resolve('ok'), 1000, 'tenant A')).resolves.toBe('ok');
+        await expect(withDeadline(() => Promise.resolve('ok'), 1000, 'tenant A')).resolves.toBe('ok');
     });
 
-    it('rechaza con TenantSyncTimeout si el trabajo se cuelga', async () => {
+    it('rechaza con TenantSyncTimeout y aborta el trabajo si se cuelga', async () => {
         vi.useFakeTimers();
         try {
-            // Una promesa que nunca resuelve = la llamada colgada a Azure.
-            const colgado = new Promise<string>(() => { /* nunca resuelve */ });
-            const raced = withDeadline(colgado, 5000, 'tenant colgado');
+            let aborted = false;
+            const raced = withDeadline((signal) => new Promise<string>((_resolve, reject) => {
+                signal.addEventListener('abort', () => {
+                    aborted = signal.aborted;
+                    reject(signal.reason);
+                }, { once: true });
+            }), 5000, 'tenant colgado');
             const assertion = expect(raced).rejects.toBeInstanceOf(TenantSyncTimeout);
             await vi.advanceTimersByTimeAsync(5001);
             await assertion;
+            expect(aborted).toBe(true);
         } finally {
             vi.useRealTimers();
         }
     });
 
     it('propaga el error original si el trabajo falla antes del techo', async () => {
-        const boom = Promise.reject(new Error('429 de Cost Management'));
-        await expect(withDeadline(boom, 10_000, 'tenant B')).rejects.toThrow('429 de Cost Management');
+        await expect(withDeadline(() => Promise.reject(new Error('429 de Cost Management')), 10_000, 'tenant B')).rejects.toThrow('429 de Cost Management');
     });
 
     it('un fallo posterior al techo no queda como unhandled rejection', async () => {
@@ -44,7 +48,7 @@ describe('withDeadline', () => {
             // withDeadline, esto tumbaba el proceso.
             let fail: (e: Error) => void = () => {};
             const lento = new Promise<string>((_r, reject) => { fail = reject; });
-            const raced = withDeadline(lento, 1000, 'tenant C');
+            const raced = withDeadline(() => lento, 1000, 'tenant C');
             const assertion = expect(raced).rejects.toBeInstanceOf(TenantSyncTimeout);
             await vi.advanceTimersByTimeAsync(1001);
             await assertion;
@@ -59,6 +63,6 @@ describe('withDeadline', () => {
     });
 
     it('con techo 0 o negativo no aplica deadline (permite desactivarlo)', async () => {
-        await expect(withDeadline(Promise.resolve('sin techo'), 0, 'tenant D')).resolves.toBe('sin techo');
+        await expect(withDeadline(() => Promise.resolve('sin techo'), 0, 'tenant D')).resolves.toBe('sin techo');
     });
 });
