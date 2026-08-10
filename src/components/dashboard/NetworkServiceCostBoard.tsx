@@ -10,8 +10,10 @@ import { toast } from "sonner";
 import { ChevronLeft, ChevronRight, DollarSign, Layers, Search } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
+import { Pie, PieChart, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from "recharts";
 
 const fmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const PIE_COLORS = ["#0054A6", "#00AEEF", "#F2A900", "#10B981", "#EF4444", "#8B5CF6", "#F43F5E", "#0EA5E9", "#F59E0B", "#64748B"];
 
 export default function NetworkServiceCostBoard({
     family,
@@ -141,11 +143,26 @@ export default function NetworkServiceCostBoard({
         return d.toLocaleDateString();
     };
 
+    const pieData = useMemo(() => {
+        if (family !== "analysis") return [];
+        const items = (data?.items || []) as Array<{ serviceLabel?: string; resourceCount?: number }>;
+        const direct = items
+            .map((item) => ({ name: String(item.serviceLabel || "-"), value: Number(item.resourceCount || 0) }))
+            .filter((item) => item.value > 0);
+        if (direct.length > 0) return direct;
+        const fromRows = new Map<string, number>();
+        for (const row of (data?.rows || []) as Array<{ serviceLabel?: string }>) {
+            const key = String(row.serviceLabel || "-");
+            fromRows.set(key, (fromRows.get(key) || 0) + 1);
+        }
+        return Array.from(fromRows.entries()).map(([name, value]) => ({ name, value }));
+    }, [family, data?.items, data?.rows]);
+
     if (selectedTenant.id === "default") return null;
 
     if (loading) {
         return (
-            <div className="p-6 max-w-5xl mx-auto flex items-center justify-center min-h-[320px]">
+            <div className="p-6 w-full flex items-center justify-center min-h-[320px]">
                 <div className="animate-pulse flex flex-col items-center">
                     <div className="w-12 h-12 border-4 border-brand-soft border-t-brand-deep rounded-full animate-spin mb-4"></div>
                     <p className="text-gray-500 font-semibold">{t("loading")}</p>
@@ -156,7 +173,7 @@ export default function NetworkServiceCostBoard({
 
     if (!data || (data.rows || []).length === 0) {
         return (
-            <div className="p-6 max-w-5xl mx-auto">
+            <div className="p-6 w-full">
                 <MockBanner />
                 <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-8 text-center">
                     <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{title}</h2>
@@ -168,7 +185,7 @@ export default function NetworkServiceCostBoard({
     }
 
     return (
-        <div className="p-6 max-w-5xl mx-auto animate-in fade-in duration-500">
+        <div className="p-6 w-full animate-in fade-in duration-500">
             <MockBanner />
             <div className="mb-6">
                 <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white flex items-center gap-2">
@@ -201,6 +218,35 @@ export default function NetworkServiceCostBoard({
                     </p>
                 </div>
             </div>
+
+            {family === "analysis" && pieData.length > 0 ? (
+                <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-6 mb-8">
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white border-b border-gray-100 dark:border-slate-800 pb-3 mb-4">
+                        {t("resourcesPieTitle")}
+                    </h3>
+                    <div className="h-[360px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                                <Pie
+                                    data={pieData}
+                                    dataKey="value"
+                                    nameKey="name"
+                                    cx="50%"
+                                    cy="50%"
+                                    outerRadius={120}
+                                    label={({ name, value }) => `${name}: ${value}`}
+                                >
+                                    {pieData.map((_, index) => (
+                                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                                    ))}
+                                </Pie>
+                                <RechartsTooltip />
+                                <Legend />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+            ) : null}
 
             <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-6">
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white border-b border-gray-100 dark:border-slate-800 pb-3 mb-4">{t("tableTitle")}</h3>

@@ -5278,6 +5278,7 @@
     "empty": "Nenhum recurso ativo encontrado para esta família.",
     "kpiTotalCost": "Custo mensal total",
     "kpiResourceCount": "Recursos detectados",
+    "resourcesPieTitle": "Distribuição de recursos por serviço",
     "tableTitle": "Detalhamento por serviço",
     "colService": "Serviço",
     "colResources": "Recursos",

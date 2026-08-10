@@ -5166,6 +5166,7 @@
     "loading": "Loading compute costs...",
     "kpiTotalCost": "Total monthly cost",
     "kpiResourceCount": "Detected resources",
+    "resourcesPieTitle": "Resource distribution by service",
     "tableTitle": "Service breakdown",
     "colService": "Service",
     "colResources": "Resources",
