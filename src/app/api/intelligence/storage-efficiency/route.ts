@@ -464,6 +464,8 @@ export async function GET(request: NextRequest) {
                     const attributionRows = await queryStorageAccountAttributionRows(tenantId, days, startDate, endDate);
                     const costByResourceId = new Map<string, number>();
                     const costByRg = new Map<string, number>();
+                    const compositionFromMeters = Object.values(storageCompositionMap).reduce((acc, curr) => acc + curr.cost, 0);
+                    const fillCompositionFromAttribution = compositionFromMeters <= 0;
 
                     for (const row of attributionRows) {
                         const cost = parseFloat(row.billedCost) || 0;
@@ -476,8 +478,10 @@ export async function GET(request: NextRequest) {
                         if (rg && rg !== "*") {
                             costByRg.set(rg, (costByRg.get(rg) || 0) + cost);
                         }
-                        const comp = detectStorageComposition(row.service_name);
-                        if (comp) storageCompositionMap[comp].cost += cost;
+                        if (fillCompositionFromAttribution) {
+                            const comp = detectStorageComposition(row.service_name);
+                            if (comp) storageCompositionMap[comp].cost += cost;
+                        }
                     }
 
                     const liveMetricsMap = await fetchStorageAccountMetricsBatch(tenantId, rawAccounts);
