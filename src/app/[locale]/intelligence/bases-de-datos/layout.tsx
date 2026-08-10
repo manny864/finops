@@ -2,7 +2,6 @@ import { ReactNode } from "react";
 import { Inter } from "next/font/google";
 import { getTranslations } from "next-intl/server";
 import RouteTabsNav from "@/components/navigation/RouteTabsNav";
-import RouteTabsFilter from "@/components/navigation/RouteTabsFilter";
 import { Database, Orbit, DatabaseZap, Cylinder, Leaf, AppWindow } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -15,7 +14,6 @@ export default async function BasesDatosLayout({ children }: { children: ReactNo
         { href: "/intelligence/bases-de-datos/azure-sql-sql-managed-instance", label: t("tabSql"), icon: <DatabaseZap className="w-4 h-4 text-[#0054A6]" /> },
         { href: "/intelligence/bases-de-datos/postgresql-mysql", label: t("tabPostgresMySql"), icon: <Cylinder className="w-4 h-4 text-[#0054A6]" /> },
         { href: "/intelligence/bases-de-datos/mongodb", label: t("tabMongoDb"), icon: <Leaf className="w-4 h-4 text-[#0054A6]" /> },
-        { href: "/intelligence/bases-de-datos/redis-for-cache", label: t("tabRedis"), icon: <AppWindow className="w-4 h-4 text-[#0054A6]" /> },
         { href: "/intelligence/bases-de-datos/redistest", label: t("tabRedistest"), icon: <AppWindow className="w-4 h-4 text-[#0054A6]" /> },
         { href: "/intelligence/bases-de-datos/testmysql", label: t("tabTestmysql"), icon: <Database className="w-4 h-4 text-[#0054A6]" /> },
     ];
