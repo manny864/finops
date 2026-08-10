@@ -449,12 +449,13 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
         <ActionCenterDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
 
         <main className="flex-1 overflow-y-auto p-3 sm:p-6 pb-24 md:pb-6 relative">
+          <div className="absolute top-3 right-3 sm:top-6 sm:right-6 z-30">
+            <GlobalPagePinButton />
+          </div>
           <RouteTierGate>{children}</RouteTierGate>
         </main>
 
         <MobileTabBar />
-
-        <GlobalPagePinButton />
 
         <div className="fixed bottom-4 right-6 pointer-events-none z-40 opacity-40 select-none">
             <div className="flex flex-col items-end">
