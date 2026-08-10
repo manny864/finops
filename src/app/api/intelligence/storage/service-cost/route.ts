@@ -95,7 +95,7 @@ export async function GET(request: NextRequest) {
         await requireTenantAccess(request, tenantId);
 
         const data = await getWithStaleWhileRevalidate(
-            `storage-service-cost:v2:${tenantId}:${family}`,
+            `storage-service-cost:v3:${tenantId}:${family}`,
             async () => {
                 if (isMockTenant(tenantId)) {
                     const mockMap: Record<Family, ServiceItem[]> = {
@@ -154,21 +154,31 @@ export async function GET(request: NextRequest) {
                     const backupVaultCount = Number(countsByType.get("microsoft.dataprotection/backupvaults") || 0);
                     const siteRecoveryCount = Number(countsByType.get("microsoft.recoveryservices/vaults/replicationfabrics") || 0);
 
-                    const recoveryVaultCost = await queryHybridCost(
-                        tenantId,
-                        "LOWER(COALESCE(service_name,'')) LIKE '%recovery services%'",
-                        "LOWER(COALESCE(service_name,'')) LIKE '%recovery services%'"
-                    );
-                    const backupCost = await queryHybridCost(
-                        tenantId,
-                        "LOWER(COALESCE(service_name,'')) LIKE '%backup%'",
-                        "LOWER(COALESCE(service_name,'')) LIKE '%backup%'"
-                    );
-                    const siteRecoveryCost = await queryHybridCost(
-                        tenantId,
-                        "LOWER(COALESCE(service_name,'')) LIKE '%site recovery%'",
-                        "LOWER(COALESCE(service_name,'')) LIKE '%site recovery%'"
-                    );
+                    const recoveryVaultCategoryCost = await queryCostCategorySum(tenantId, ["microsoft.recoveryservices/vaults"]);
+                    const backupVaultCategoryCost = await queryCostCategorySum(tenantId, ["microsoft.dataprotection/backupvaults"]);
+                    const siteRecoveryCategoryCost = await queryCostCategorySum(tenantId, ["microsoft.recoveryservices/vaults/replicationfabrics"]);
+
+                    const recoveryVaultCost = recoveryVaultCategoryCost > 0
+                        ? recoveryVaultCategoryCost
+                        : await queryHybridCost(
+                            tenantId,
+                            "LOWER(COALESCE(service_name,'')) LIKE '%recovery services%'",
+                            "LOWER(COALESCE(service_name,'')) LIKE '%recovery services%'"
+                        );
+                    const backupCost = backupVaultCategoryCost > 0
+                        ? backupVaultCategoryCost
+                        : await queryHybridCost(
+                            tenantId,
+                            "LOWER(COALESCE(service_name,'')) LIKE '%backup%'",
+                            "LOWER(COALESCE(service_name,'')) LIKE '%backup%'"
+                        );
+                    const siteRecoveryCost = siteRecoveryCategoryCost > 0
+                        ? siteRecoveryCategoryCost
+                        : await queryHybridCost(
+                            tenantId,
+                            "LOWER(COALESCE(service_name,'')) LIKE '%site recovery%'",
+                            "LOWER(COALESCE(service_name,'')) LIKE '%site recovery%'"
+                        );
 
                     items = [
                         {
