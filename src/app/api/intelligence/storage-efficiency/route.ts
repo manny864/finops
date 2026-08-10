@@ -107,11 +107,6 @@ function detectStorageComposition(...fields: Array<string | null | undefined>): 
     return null;
 }
 
-function normalizeLoc(loc: string): string {
-    let s = String(loc || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-    return s.replace(/^us(east|west|central|northcentral|southcentral|westcentral)(\d*)$/, '$1us$2');
-}
-
 function quantityToGb(quantity: number, unitOfMeasure: string): number | null {
     if (!Number.isFinite(quantity) || quantity <= 0) return null;
     const uom = String(unitOfMeasure || "").toLowerCase();
@@ -122,6 +117,10 @@ function quantityToGb(quantity: number, unitOfMeasure: string): number | null {
     if (uom.includes("kb")) return quantity / (1024 * 1024);
     if (uom.includes("byte")) return quantity / (1024 * 1024 * 1024);
     return null;
+}
+
+function normalizeResourceId(resourceId: string): string {
+    return String(resourceId || "").trim().toLowerCase();
 }
 
 interface LiveCapacityMetric {
@@ -259,6 +258,42 @@ async function queryLegacyRows(tenantId: string, days: number, startDate?: strin
         params
     );
     return rows as any[];
+}
+
+async function queryStorageAccountAttributionRows(
+    tenantId: string,
+    days: number,
+    startDate?: string | null,
+    endDate?: string | null
+) {
+    let dateCond = "AND date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)";
+    let params: any[] = [tenantId, days];
+    if (startDate && endDate) {
+        dateCond = "AND date >= ? AND date <= ?";
+        params = [tenantId, startDate, endDate];
+    }
+
+    try {
+        const [rows]: any = await pool.query(
+            `SELECT
+                LOWER(COALESCE(ResourceId, '')) AS resourceId,
+                LOWER(COALESCE(resource_group, '')) AS resourceGroup,
+                service_name,
+                COALESCE(BilledCost, cost_usd, 0) AS billedCost
+             FROM CostSnapshots
+             WHERE tenant_id = ?
+               AND (
+                    LOWER(COALESCE(ServiceFamily,'')) = 'storage'
+                 OR LOWER(COALESCE(MeterCategory,'')) IN ('storage','azure storage')
+                 OR ${STORAGE_SERVICE_FILTER}
+               )
+               ${dateCond}`,
+            params
+        );
+        return rows as any[];
+    } catch {
+        return [];
+    }
 }
 
 async function runQuery(tenantId: string, days: number, startDate?: string | null, endDate?: string | null): Promise<{ rows: any[]; source: 'meters' | 'legacy' }> {
@@ -426,21 +461,23 @@ export async function GET(request: NextRequest) {
 
                 if (subs.length > 0) {
                     const rawAccounts = await fetchAllStorageAccountsFromARG(tenantId, subs);
+                    const attributionRows = await queryStorageAccountAttributionRows(tenantId, days, startDate, endDate);
+                    const costByResourceId = new Map<string, number>();
+                    const costByRg = new Map<string, number>();
 
-                    const costByRg = new Map<string, { cost: number; qty: number }>();
-
-                    for (const r of rows) {
-                        const rg = (r.resource_group || r.ResourceGroup || "").toLowerCase();
-                        const cost = parseFloat(r.billedCost) || 0;
-                        const uom = String(r.UnitOfMeasure || "").toLowerCase();
-                        const reportedQty = parseFloat(r.quantity) || 0;
-                        const reportedGb = quantityToGb(reportedQty, uom);
-                        const gb = reportedGb ?? 0;
-
-                        if (rg && rg !== '*') {
-                            const current = costByRg.get(rg) || { cost: 0, qty: 0 };
-                            costByRg.set(rg, { cost: current.cost + cost, qty: current.qty + gb });
+                    for (const row of attributionRows) {
+                        const cost = parseFloat(row.billedCost) || 0;
+                        if (cost <= 0) continue;
+                        const rid = normalizeResourceId(row.resourceId || "");
+                        const rg = String(row.resourceGroup || "").toLowerCase();
+                        if (rid.includes("/providers/microsoft.storage/storageaccounts/")) {
+                            costByResourceId.set(rid, (costByResourceId.get(rid) || 0) + cost);
                         }
+                        if (rg && rg !== "*") {
+                            costByRg.set(rg, (costByRg.get(rg) || 0) + cost);
+                        }
+                        const comp = detectStorageComposition(row.service_name);
+                        if (comp) storageCompositionMap[comp].cost += cost;
                     }
 
                     const liveMetricsMap = await fetchStorageAccountMetricsBatch(tenantId, rawAccounts);
@@ -450,10 +487,11 @@ export async function GET(request: NextRequest) {
                         const rawTier = acc.properties?.accessTier || (skuStr.toLowerCase().includes("premium") ? "Premium" : "Hot");
                         const tierFormatted = rawTier ? rawTier.charAt(0).toUpperCase() + rawTier.slice(1).toLowerCase() : "Hot";
                         const rg = (acc.resourceGroup || "").toLowerCase();
-                        let stats = costByRg.get(rg);
-                        let countInGroup = rawAccounts.filter((a: any) => (a.resourceGroup || "").toLowerCase() === rg).length || 1;
-
-                        const cost = stats ? (stats.cost / countInGroup) : 0;
+                        const normalizedId = normalizeResourceId(acc.id);
+                        const directCost = costByResourceId.get(normalizedId) || 0;
+                        const countInGroup = rawAccounts.filter((a: any) => (a.resourceGroup || "").toLowerCase() === rg).length || 1;
+                        const groupCost = costByRg.get(rg) || 0;
+                        const cost = directCost > 0 ? directCost : (groupCost > 0 ? (groupCost / countInGroup) : 0);
                         const liveMetric = liveMetricsMap.get(acc.id);
                         const usedGb = liveMetric
                             ? liveMetric.bytes / (1024 * 1024 * 1024)
@@ -481,9 +519,6 @@ export async function GET(request: NextRequest) {
                 console.error(`[storage-efficiency] Could not fetch ARG storage accounts for tenant ${tenantId}:`, msg);
             }
 
-            const rowsTotalCost = rows.reduce((sum, row) => sum + (parseFloat(row.billedCost) || 0), 0);
-            const accountsTotalCost = accounts.reduce((sum, acc) => sum + (Number(acc.monthlyCost) || 0), 0);
-
             // ponytail: mantener atribución estricta por Resource Group para evitar contaminar
             // costos por cuenta con cargos no atribuibles a storage accounts. Si hace falta
             // más cobertura, upgrade path: usar ResourceId en CostMeters/FOCUS y asignar 1:1.
@@ -498,6 +533,24 @@ export async function GET(request: NextRequest) {
                     const key = tierMap[t] ? t : "hot";
                     tierMap[key].gb += acc.usedGb ?? 0;
                     tierMap[key].cost += acc.monthlyCost || 0;
+                }
+            }
+
+            const compositionTotalCost = Object.values(storageCompositionMap).reduce((acc, curr) => acc + curr.cost, 0);
+            if (compositionTotalCost <= 0 && accounts.length > 0) {
+                for (const key of ["blob", "files", "queue", "table"] as const) {
+                    storageCompositionMap[key].gb = 0;
+                    storageCompositionMap[key].cost = 0;
+                }
+                for (const acc of accounts) {
+                    const kind = String(acc.kind || "").toLowerCase();
+                    const target =
+                        kind.includes("file") ? "files" :
+                        kind.includes("queue") ? "queue" :
+                        kind.includes("table") ? "table" :
+                        "blob";
+                    storageCompositionMap[target].gb += Number(acc.usedGb) || 0;
+                    storageCompositionMap[target].cost += Number(acc.monthlyCost) || 0;
                 }
             }
 
