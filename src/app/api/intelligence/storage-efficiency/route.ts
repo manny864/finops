@@ -541,6 +541,8 @@ export async function GET(request: NextRequest) {
                     const attributionRows = await queryStorageAccountAttributionRows(tenantId, days, startDate, endDate);
                     const costByResourceId = new Map<string, number>();
                     const capacityCostByResourceId = new Map<string, number>();
+                    const tierCostByResourceId = new Map<string, Record<string, number>>();
+                    const tierGbByResourceId = new Map<string, Record<string, number>>();
                     const costByRg = new Map<string, number>();
                     const capacityCostByRg = new Map<string, number>();
                     const compositionFromMeters = Object.values(storageCompositionMap).reduce((acc, curr) => acc + curr.cost, 0);
@@ -552,10 +554,20 @@ export async function GET(request: NextRequest) {
                         const rid = normalizeResourceId(row.resourceId || "");
                         const rg = String(row.resourceGroup || "").toLowerCase();
                         const isCapacity = isCapacityCharge(row);
+                        const detectedTier = detectTier(row.MeterSubCategory, row.MeterName, row.service_name);
+                        const rowGb = quantityToGb(Number(row.quantity || 0), String(row.UnitOfMeasure || "")) || 0;
                         if (rid.includes("/providers/microsoft.storage/storageaccounts/")) {
                             costByResourceId.set(rid, (costByResourceId.get(rid) || 0) + cost);
                             if (isCapacity) {
                                 capacityCostByResourceId.set(rid, (capacityCostByResourceId.get(rid) || 0) + cost);
+                            }
+                            const tierCosts = tierCostByResourceId.get(rid) || { hot: 0, cool: 0, cold: 0, archive: 0 };
+                            tierCosts[detectedTier] = (tierCosts[detectedTier] || 0) + cost;
+                            tierCostByResourceId.set(rid, tierCosts);
+                            if (rowGb > 0) {
+                                const tierGbs = tierGbByResourceId.get(rid) || { hot: 0, cool: 0, cold: 0, archive: 0 };
+                                tierGbs[detectedTier] = (tierGbs[detectedTier] || 0) + rowGb;
+                                tierGbByResourceId.set(rid, tierGbs);
                             }
                         }
                         if (rg && rg !== "*") {
@@ -580,9 +592,20 @@ export async function GET(request: NextRequest) {
                     accounts = rawAccounts.map((acc: any) => {
                         const skuStr = String(acc.sku?.name || acc.sku || "");
                         const rawTier = acc.properties?.accessTier || (skuStr.toLowerCase().includes("premium") ? "Premium" : "Hot");
-                        const tierFormatted = rawTier ? rawTier.charAt(0).toUpperCase() + rawTier.slice(1).toLowerCase() : "Hot";
                         const rg = (acc.resourceGroup || "").toLowerCase();
                         const normalizedId = normalizeResourceId(acc.id);
+                        const tierCosts = tierCostByResourceId.get(normalizedId) || { hot: 0, cool: 0, cold: 0, archive: 0 };
+                        const tierGbs = tierGbByResourceId.get(normalizedId) || { hot: 0, cool: 0, cold: 0, archive: 0 };
+                        const hasArchiveSignal = (tierCosts.archive || 0) > 0 || (tierGbs.archive || 0) > 0;
+                        const dominantTierByCost = Object.entries(tierCosts).sort((a, b) => b[1] - a[1])[0]?.[0] || "";
+                        const dominantTierByGb = Object.entries(tierGbs).sort((a, b) => b[1] - a[1])[0]?.[0] || "";
+                        const inferredTierRaw = hasArchiveSignal
+                            ? "archive"
+                            : (dominantTierByCost || dominantTierByGb || String(rawTier || "hot")).toLowerCase();
+                        const normalizedTier = ["hot", "cool", "cold", "archive"].includes(inferredTierRaw)
+                            ? inferredTierRaw
+                            : detectTier(String(rawTier || "hot"));
+                        const tierFormatted = normalizedTier.charAt(0).toUpperCase() + normalizedTier.slice(1);
                         const directCapacityCost = capacityCostByResourceId.get(normalizedId) || 0;
                         const directCost = costByResourceId.get(normalizedId) || 0;
                         const countInGroup = rawAccounts.filter((a: any) => (a.resourceGroup || "").toLowerCase() === rg).length || 1;
