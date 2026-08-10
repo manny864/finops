@@ -5379,11 +5379,11 @@
     "tabHybrid": "Conectividade Híbrida",
     "tabBalancing": "Balanceamento e Publicação",
     "tabInternet": "Acesso à Internet",
-    "tabAnalysisFinops": "Análise de Rede (Novo)",
-    "tabBasicFinops": "Redes Básicas (Novo)",
-    "tabHybridFinops": "Conectividade Híbrida (Novo)",
-    "tabBalancingFinops": "Balanceamento e Publicação (Novo)",
-    "tabInternetFinops": "Acesso à Internet (Novo)"
+    "tabAnalysisFinops": "Análise de Rede",
+    "tabBasicFinops": "Redes Básicas",
+    "tabHybridFinops": "Conectividade Híbrida",
+    "tabBalancingFinops": "Balanceamento e Publicação",
+    "tabInternetFinops": "Acesso à Internet"
   },
   "NetworkFamilies": {
     "loading": "Carregando custos de rede...",
