@@ -22,6 +22,7 @@
     "migrate:infra-secrets": "tsx scripts/migrate-infra-secrets-to-kv.ts",
     "verify:demo-tenant": "tsx scripts/verify-demo-tenant.ts",
     "cron:power-schedules": "bash -c 'set -a; source .env.development; set +a; curl -fsS -H \"Authorization: Bearer $CRON_SECRET\" http://localhost:3000/api/cron/power-schedules'",
+    "cron:prewarm:sql-finops": "bash -c 'set -a; source .env.development; set +a; curl -fsS -H \"Authorization: Bearer $CRON_SECRET\" http://localhost:3000/api/cron/prewarm-sql-finops'",
     "cron:prewarm:mysql-finops": "bash -c 'set -a; source .env.development; set +a; curl -fsS -H \"Authorization: Bearer $CRON_SECRET\" http://localhost:3000/api/cron/prewarm-mysql-finops'",
     "cron:prewarm:postgres-finops": "bash -c 'set -a; source .env.development; set +a; curl -fsS -H \"Authorization: Bearer $CRON_SECRET\" http://localhost:3000/api/cron/prewarm-postgres-finops'"
   },

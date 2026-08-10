@@ -120,6 +120,9 @@ cron_jobs = {
   # Pre-warm dedicado del cockpit FinOps/CMP de MySQL.
   prewarm-mysql-finops = { cron = "*/20 * * * *", timeout_seconds = 300 }
 
+  # Pre-warm dedicado del cockpit FinOps/CMP de Azure SQL / MI.
+  prewarm-sql-finops = { cron = "*/20 * * * *", timeout_seconds = 300 }
+
   # Pre-warm dedicado del cockpit FinOps/CMP de PostgreSQL.
   prewarm-postgres-finops = { cron = "*/20 * * * *", timeout_seconds = 300 }
 
