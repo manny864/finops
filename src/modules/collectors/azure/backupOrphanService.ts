@@ -79,7 +79,7 @@ export const getOrphanedBackupItems = async (tenantId: string): Promise<BackupOr
         // existencia — evita N llamadas a Resource Graph, una por item protegido.
         const allRes: any = await argClient.resources({
             query: `Resources | project id`,
-            options: { resultFormat: "objectArray", top: 5000 },
+            options: { resultFormat: "objectArray", top: 1000 },
         });
         allResourceIds = new Set(((allRes.data as any[]) || []).map((r) => String(r.id).toLowerCase()));
     } catch (e: unknown) {

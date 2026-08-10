@@ -136,7 +136,7 @@ async function queryArgResourcesByType(tenantId: string, resourceTypes: string[]
                         properties.metadata.createdAt
                      ))
         `;
-        const res: any = await arg.resources({ query, options: { resultFormat: "objectArray", top: 5000 } });
+        const res: any = await arg.resources({ query, options: { resultFormat: "objectArray", top: 1000 } });
         return (res.data as any[]) || [];
     } catch {
         return [];
