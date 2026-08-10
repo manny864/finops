@@ -5358,7 +5358,17 @@
     "playbookStorageAccounts": "Aplicar lifecycle management (Hot→Cool/Cold), revisar redundância e validar acesso antes da movimentação.",
     "playbookManagedDisks": "Identificar discos com baixa atividade, reduzir SKU/tamanho e remover discos órfãos com controle de mudança.",
     "playbookBackups": "Ajustar retenção por criticidade e remover políticas duplicadas preservando o RPO/RTO alvo.",
-    "playbookDataLake": "Configurar regras de ciclo de vida por prefixo/idade e mover datasets frios para tiers de menor custo."
+    "playbookDataLake": "Configurar regras de ciclo de vida por prefixo/idade e mover datasets frios para tiers de menor custo.",
+    "tierDistributionTitle": "Distribuição por Tier",
+    "tier_hot": "Hot",
+    "tier_cool": "Cool",
+    "tier_cold": "Cold",
+    "tier_archive": "Archive",
+    "storageCompositionTitle": "Composição do Storage Account",
+    "compositionBlob": "Blob Storage",
+    "compositionFiles": "Azure Files",
+    "compositionQueue": "Queue Storage",
+    "compositionTable": "Table Storage"
   },
   "NetworkHub": {
     "title": "Redes",

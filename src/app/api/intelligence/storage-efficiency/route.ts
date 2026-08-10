@@ -428,11 +428,9 @@ export async function GET(request: NextRequest) {
                     const rawAccounts = await fetchAllStorageAccountsFromARG(tenantId, subs);
 
                     const costByRg = new Map<string, { cost: number; qty: number }>();
-                    const costByLoc = new Map<string, { cost: number; qty: number }>();
 
                     for (const r of rows) {
                         const rg = (r.resource_group || r.ResourceGroup || "").toLowerCase();
-                        const loc = normalizeLoc(r.resource_location || r.location || "");
                         const cost = parseFloat(r.billedCost) || 0;
                         const uom = String(r.UnitOfMeasure || "").toLowerCase();
                         const reportedQty = parseFloat(r.quantity) || 0;
@@ -443,10 +441,6 @@ export async function GET(request: NextRequest) {
                             const current = costByRg.get(rg) || { cost: 0, qty: 0 };
                             costByRg.set(rg, { cost: current.cost + cost, qty: current.qty + gb });
                         }
-                        if (loc) {
-                            const current = costByLoc.get(loc) || { cost: 0, qty: 0 };
-                            costByLoc.set(loc, { cost: current.cost + cost, qty: current.qty + gb });
-                        }
                     }
 
                     const liveMetricsMap = await fetchStorageAccountMetricsBatch(tenantId, rawAccounts);
@@ -456,20 +450,8 @@ export async function GET(request: NextRequest) {
                         const rawTier = acc.properties?.accessTier || (skuStr.toLowerCase().includes("premium") ? "Premium" : "Hot");
                         const tierFormatted = rawTier ? rawTier.charAt(0).toUpperCase() + rawTier.slice(1).toLowerCase() : "Hot";
                         const rg = (acc.resourceGroup || "").toLowerCase();
-                        const loc = normalizeLoc(acc.location || "");
-
                         let stats = costByRg.get(rg);
                         let countInGroup = rawAccounts.filter((a: any) => (a.resourceGroup || "").toLowerCase() === rg).length || 1;
-
-                        if (!stats || (stats.cost === 0 && stats.qty === 0)) {
-                            // Fallback to location match
-                            const locStats = costByLoc.get(loc);
-                            if (locStats && (locStats.qty > 0 || locStats.cost > 0)) {
-                                const countInLoc = rawAccounts.filter((a: any) => normalizeLoc(a.location || "") === loc).length || 1;
-                                stats = { cost: locStats.cost / countInLoc, qty: locStats.qty / countInLoc };
-                                countInGroup = 1;
-                            }
-                        }
 
                         const cost = stats ? (stats.cost / countInGroup) : 0;
                         const liveMetric = liveMetricsMap.get(acc.id);
@@ -502,88 +484,9 @@ export async function GET(request: NextRequest) {
             const rowsTotalCost = rows.reduce((sum, row) => sum + (parseFloat(row.billedCost) || 0), 0);
             const accountsTotalCost = accounts.reduce((sum, acc) => sum + (Number(acc.monthlyCost) || 0), 0);
 
-            // Cuando la fuente principal es CostMeterSnapshots no hay resource_group/location,
-            // por lo que el mapeo directo a cuenta puede quedar en 0 aunque exista costo real.
-            // Fallback: distribuir costo por tier (y por capacidad si existe) para evitar KPI en cero.
-            if (accounts.length > 0 && accountsTotalCost <= 0 && rowsTotalCost > 0) {
-                const distributed = new Array<number>(accounts.length).fill(0);
-                const weightedDistribute = (indices: number[], total: number) => {
-                    if (indices.length === 0 || total <= 0) return;
-                    const totalWeight = indices.reduce((acc, idx) => acc + Math.max(0, Number(accounts[idx].usedGb) || 0), 0);
-                    if (totalWeight > 0) {
-                        for (const idx of indices) {
-                            const weight = Math.max(0, Number(accounts[idx].usedGb) || 0);
-                            distributed[idx] += (total * weight) / totalWeight;
-                        }
-                        return;
-                    }
-                    const even = total / indices.length;
-                    for (const idx of indices) distributed[idx] += even;
-                };
-
-                let remainingCost = rowsTotalCost;
-                for (const [tier, stats] of Object.entries(tierMap)) {
-                    const tierCost = Number(stats.cost || 0);
-                    if (tierCost <= 0) continue;
-                    const tierIndices: number[] = [];
-                    for (let i = 0; i < accounts.length; i++) {
-                        const accountTier = String(accounts[i].tier || "hot").toLowerCase();
-                        const normalized = accountTier.includes("archive")
-                            ? "archive"
-                            : accountTier.includes("cold")
-                              ? "cold"
-                              : accountTier.includes("cool")
-                                ? "cool"
-                                : "hot";
-                        if (normalized === tier) tierIndices.push(i);
-                    }
-                    if (tierIndices.length === 0) continue;
-                    weightedDistribute(tierIndices, tierCost);
-                    remainingCost -= tierCost;
-                }
-
-                if (remainingCost > 0) {
-                    const allIndices = accounts.map((_, index) => index);
-                    weightedDistribute(allIndices, remainingCost);
-                }
-
-                accounts = accounts.map((acc, index) => ({
-                    ...acc,
-                    monthlyCost: parseFloat(distributed[index].toFixed(4)),
-                }));
-            }
-
-            // Reconciliar total de cuentas con total de costos consultados:
-            // el mapeo por RG/location puede quedar parcial y dejar costo sin asignar.
-            if (accounts.length > 0 && rowsTotalCost > 0) {
-                const currentTotal = accounts.reduce((sum, acc) => sum + (Number(acc.monthlyCost) || 0), 0);
-                const delta = rowsTotalCost - currentTotal;
-                if (Math.abs(delta) > 0.01) {
-                    if (delta > 0) {
-                        const distributed = accounts.map((acc) => Number(acc.monthlyCost) || 0);
-                        const totalWeight = accounts.reduce((acc, item) => acc + Math.max(0, Number(item.usedGb) || 0), 0);
-                        if (totalWeight > 0) {
-                            for (let i = 0; i < accounts.length; i++) {
-                                const weight = Math.max(0, Number(accounts[i].usedGb) || 0);
-                                distributed[i] += (delta * weight) / totalWeight;
-                            }
-                        } else {
-                            const evenDelta = delta / accounts.length;
-                            for (let i = 0; i < accounts.length; i++) distributed[i] += evenDelta;
-                        }
-                        accounts = accounts.map((acc, index) => ({
-                            ...acc,
-                            monthlyCost: parseFloat(Math.max(0, distributed[index]).toFixed(4)),
-                        }));
-                    } else if (currentTotal > 0) {
-                        const factor = rowsTotalCost / currentTotal;
-                        accounts = accounts.map((acc) => ({
-                            ...acc,
-                            monthlyCost: parseFloat((Math.max(0, Number(acc.monthlyCost) || 0) * factor).toFixed(4)),
-                        }));
-                    }
-                }
-            }
+            // ponytail: mantener atribución estricta por Resource Group para evitar contaminar
+            // costos por cuenta con cargos no atribuibles a storage accounts. Si hace falta
+            // más cobertura, upgrade path: usar ResourceId en CostMeters/FOCUS y asignar 1:1.
 
             // Sync tierMap from accounts if accounts exist (so tiers match accounts table)
             if (accounts.length > 0) {

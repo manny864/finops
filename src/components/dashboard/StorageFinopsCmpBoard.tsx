@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   Coins,
   Gauge,
+  HardDrive,
   RefreshCw,
   ShieldAlert,
   Wallet,
@@ -40,6 +41,14 @@ interface StorageEfficiencyResponse {
   message?: string;
   totalCost?: number;
   costPerGb?: number;
+  totalGb?: number;
+  tiers?: Record<string, { percent: number; gb: number; cost: number }>;
+  storageComposition?: {
+    blob?: { gb?: number; cost?: number };
+    files?: { gb?: number; cost?: number };
+    queue?: { gb?: number; cost?: number };
+    table?: { gb?: number; cost?: number };
+  };
   recommendation?: {
     potentialSavings?: number;
   };
@@ -80,12 +89,32 @@ interface Recommendation {
   playbookKey: string;
 }
 
+interface TierStats {
+  percent: number;
+  gb: number;
+  cost: number;
+}
+
+interface CompositionStats {
+  blob: { gb: number; cost: number };
+  files: { gb: number; cost: number };
+  queue: { gb: number; cost: number };
+  table: { gb: number; cost: number };
+}
+
 const FAMILY_CONFIG: Record<StorageFinopsFamily, { metricALabelKey: string; metricBLabelKey: string; recTitle: string }> = {
   "storage-accounts": { metricALabelKey: "metricAStorageAccounts", metricBLabelKey: "metricBStorageAccounts", recTitle: "recStorageAccounts" },
   "managed-disks": { metricALabelKey: "metricAManagedDisks", metricBLabelKey: "metricBManagedDisks", recTitle: "recManagedDisks" },
   backups: { metricALabelKey: "metricABackups", metricBLabelKey: "metricBBackups", recTitle: "recBackups" },
   "data-lake-gen2": { metricALabelKey: "metricADataLake", metricBLabelKey: "metricBDataLake", recTitle: "recDataLake" },
 }
+
+const TIER_COLORS: Record<"hot" | "cool" | "cold" | "archive", string> = {
+  hot: "bg-orange-400",
+  cool: "bg-blue-400",
+  cold: "bg-cyan-400",
+  archive: "bg-slate-400",
+};
 
 function formatLocalDate(date: Date): string {
   const year = date.getFullYear();
@@ -96,6 +125,13 @@ function formatLocalDate(date: Date): string {
 
 function round2(value: number) {
   return Math.round(value * 100) / 100;
+}
+
+function formatStorageSize(gb: number): string {
+  if (!gb || gb <= 0) return "0 GB";
+  if (gb >= 1000) return `${(gb / 1024).toFixed(2)} TB`;
+  if (gb < 1) return `${Math.round(gb * 1024)} MB`;
+  return `${gb.toLocaleString(undefined, { maximumFractionDigits: 2 })} GB`;
 }
 
 function toNumeric(value?: string): number {
@@ -142,6 +178,13 @@ export default function StorageFinopsCmpBoard({ family }: { family: StorageFinop
   const [selectedResourceId, setSelectedResourceId] = useState<string>("");
   const [apiPotentialSavings, setApiPotentialSavings] = useState(0);
   const [efficiencyValue, setEfficiencyValue] = useState(0);
+  const [tierDistribution, setTierDistribution] = useState<Record<string, TierStats>>({});
+  const [composition, setComposition] = useState<CompositionStats>({
+    blob: { gb: 0, cost: 0 },
+    files: { gb: 0, cost: 0 },
+    queue: { gb: 0, cost: 0 },
+    table: { gb: 0, cost: 0 },
+  });
 
   const fetchData = useCallback(async (isManual = false) => {
     if (!selectedTenant) return;
@@ -187,6 +230,25 @@ export default function StorageFinopsCmpBoard({ family }: { family: StorageFinop
         setItems(mapped);
         setApiPotentialSavings(Number(body.recommendation?.potentialSavings || 0));
         setEfficiencyValue(Number(body.costPerGb || 0));
+        setTierDistribution(body.tiers || {});
+        setComposition({
+          blob: {
+            gb: Number(body.storageComposition?.blob?.gb || 0),
+            cost: Number(body.storageComposition?.blob?.cost || 0),
+          },
+          files: {
+            gb: Number(body.storageComposition?.files?.gb || 0),
+            cost: Number(body.storageComposition?.files?.cost || 0),
+          },
+          queue: {
+            gb: Number(body.storageComposition?.queue?.gb || 0),
+            cost: Number(body.storageComposition?.queue?.cost || 0),
+          },
+          table: {
+            gb: Number(body.storageComposition?.table?.gb || 0),
+            cost: Number(body.storageComposition?.table?.cost || 0),
+          },
+        });
       } else {
         const params = new URLSearchParams({ tenantId, family });
         const response = await fetch(`/api/intelligence/storage/service-cost?${params.toString()}`, {
@@ -209,6 +271,13 @@ export default function StorageFinopsCmpBoard({ family }: { family: StorageFinop
         setItems(mapped);
         setApiPotentialSavings(0);
         setEfficiencyValue(0);
+        setTierDistribution({});
+        setComposition({
+          blob: { gb: 0, cost: 0 },
+          files: { gb: 0, cost: 0 },
+          queue: { gb: 0, cost: 0 },
+          table: { gb: 0, cost: 0 },
+        });
       }
 
       setLastUpdatedAt(new Date());
@@ -354,6 +423,64 @@ export default function StorageFinopsCmpBoard({ family }: { family: StorageFinop
         <KpiCard title={t("kpiUnderutilized")} value={String(derived.underutilized)} icon={<Gauge className="h-5 w-5 text-orange-600" />} />
         <KpiCard title={t("kpiHealth")} value={`${derived.healthScore.toFixed(1)} / 100`} subtitle={t("criticalAlerts", { count: derived.criticalAlerts })} icon={<ShieldAlert className="h-5 w-5 text-rose-600" />} />
       </section>
+
+      {family === "storage-accounts" && (
+        <>
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h3 className="mb-4 text-sm font-semibold text-slate-900 flex items-center gap-2">
+              <HardDrive className="h-4 w-4 text-blue-600" />
+              {t("tierDistributionTitle")}
+            </h3>
+            <div className="flex h-10 rounded-lg overflow-hidden mb-6">
+              {(["hot", "cool", "cold", "archive"] as const).map((tier) => {
+                const pct = tierDistribution[tier]?.percent ?? 0;
+                return pct > 0 ? (
+                  <div key={tier} className={`${TIER_COLORS[tier]} flex items-center justify-center text-white text-xs font-bold`} style={{ width: `${pct}%` }}>
+                    {pct > 8 ? `${pct}%` : ""}
+                  </div>
+                ) : null;
+              })}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {(["hot", "cool", "cold", "archive"] as const).map((tier) => {
+                const d = tierDistribution[tier] || { percent: 0, gb: 0, cost: 0 };
+                return (
+                  <article key={tier} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{t(`tier_${tier}`)}</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">{formatStorageSize(d.gb || 0)}</p>
+                    <p className="text-xs text-slate-600">{format(d.cost || 0)}</p>
+                    <p className="text-xs text-slate-500">{d.percent || 0}%</p>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h3 className="mb-4 text-sm font-semibold text-slate-900 flex items-center gap-2">
+              <HardDrive className="h-4 w-4 text-blue-600" />
+              {t("storageCompositionTitle")}
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {[
+                { key: "blob", label: t("compositionBlob") },
+                { key: "files", label: t("compositionFiles") },
+                { key: "queue", label: t("compositionQueue") },
+                { key: "table", label: t("compositionTable") },
+              ].map((item) => {
+                const comp = composition[item.key as keyof CompositionStats];
+                return (
+                  <article key={item.key} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p className="text-xs text-slate-500">{item.label}</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">{formatStorageSize(comp.gb)}</p>
+                    <p className="text-xs text-slate-600">{format(comp.cost)}</p>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        </>
+      )}
 
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h3 className="mb-3 text-sm font-semibold text-slate-900">{t("resourceDetailTitle")}</h3>
