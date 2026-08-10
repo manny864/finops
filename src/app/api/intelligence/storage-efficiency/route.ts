@@ -278,6 +278,10 @@ async function queryStorageAccountAttributionRows(
             `SELECT
                 LOWER(COALESCE(ResourceId, '')) AS resourceId,
                 LOWER(COALESCE(resource_group, '')) AS resourceGroup,
+                MeterName,
+                MeterSubCategory,
+                UnitOfMeasure,
+                COALESCE(Quantity, 0) AS quantity,
                 service_name,
                 COALESCE(BilledCost, cost_usd, 0) AS billedCost
              FROM CostSnapshots
@@ -294,6 +298,27 @@ async function queryStorageAccountAttributionRows(
     } catch {
         return [];
     }
+}
+
+function isCapacityCharge(row: any): boolean {
+    const meterName = String(row?.MeterName || "").toLowerCase();
+    const meterSubCategory = String(row?.MeterSubCategory || "").toLowerCase();
+    const serviceName = String(row?.service_name || "").toLowerCase();
+    const unit = String(row?.UnitOfMeasure || "").toLowerCase();
+    const qty = Number(row?.quantity || 0);
+
+    const looksLikeCapacityUnit =
+        unit.includes("gb") || unit.includes("tb") || unit.includes("byte");
+
+    const looksLikeCapacityText =
+        meterName.includes("data stored") ||
+        meterName.includes("capacity") ||
+        meterSubCategory.includes("capacity") ||
+        meterSubCategory.includes("data stored") ||
+        serviceName.includes("data stored") ||
+        serviceName.includes("capacity");
+
+    return qty > 0 && looksLikeCapacityUnit && looksLikeCapacityText;
 }
 
 async function runQuery(tenantId: string, days: number, startDate?: string | null, endDate?: string | null): Promise<{ rows: any[]; source: 'meters' | 'legacy' }> {
@@ -463,7 +488,9 @@ export async function GET(request: NextRequest) {
                     const rawAccounts = await fetchAllStorageAccountsFromARG(tenantId, subs);
                     const attributionRows = await queryStorageAccountAttributionRows(tenantId, days, startDate, endDate);
                     const costByResourceId = new Map<string, number>();
+                    const capacityCostByResourceId = new Map<string, number>();
                     const costByRg = new Map<string, number>();
+                    const capacityCostByRg = new Map<string, number>();
                     const compositionFromMeters = Object.values(storageCompositionMap).reduce((acc, curr) => acc + curr.cost, 0);
                     const fillCompositionFromAttribution = compositionFromMeters <= 0;
 
@@ -472,11 +499,18 @@ export async function GET(request: NextRequest) {
                         if (cost <= 0) continue;
                         const rid = normalizeResourceId(row.resourceId || "");
                         const rg = String(row.resourceGroup || "").toLowerCase();
+                        const isCapacity = isCapacityCharge(row);
                         if (rid.includes("/providers/microsoft.storage/storageaccounts/")) {
                             costByResourceId.set(rid, (costByResourceId.get(rid) || 0) + cost);
+                            if (isCapacity) {
+                                capacityCostByResourceId.set(rid, (capacityCostByResourceId.get(rid) || 0) + cost);
+                            }
                         }
                         if (rg && rg !== "*") {
                             costByRg.set(rg, (costByRg.get(rg) || 0) + cost);
+                            if (isCapacity) {
+                                capacityCostByRg.set(rg, (capacityCostByRg.get(rg) || 0) + cost);
+                            }
                         }
                         if (fillCompositionFromAttribution) {
                             const comp = detectStorageComposition(row.service_name);
@@ -492,10 +526,18 @@ export async function GET(request: NextRequest) {
                         const tierFormatted = rawTier ? rawTier.charAt(0).toUpperCase() + rawTier.slice(1).toLowerCase() : "Hot";
                         const rg = (acc.resourceGroup || "").toLowerCase();
                         const normalizedId = normalizeResourceId(acc.id);
+                        const directCapacityCost = capacityCostByResourceId.get(normalizedId) || 0;
                         const directCost = costByResourceId.get(normalizedId) || 0;
                         const countInGroup = rawAccounts.filter((a: any) => (a.resourceGroup || "").toLowerCase() === rg).length || 1;
+                        const groupCapacityCost = capacityCostByRg.get(rg) || 0;
                         const groupCost = costByRg.get(rg) || 0;
-                        const cost = directCost > 0 ? directCost : (groupCost > 0 ? (groupCost / countInGroup) : 0);
+                        const cost = directCapacityCost > 0
+                            ? directCapacityCost
+                            : directCost > 0
+                                ? directCost
+                                : groupCapacityCost > 0
+                                    ? (groupCapacityCost / countInGroup)
+                                    : (groupCost > 0 ? (groupCost / countInGroup) : 0);
                         const liveMetric = liveMetricsMap.get(acc.id);
                         const usedGb = liveMetric
                             ? liveMetric.bytes / (1024 * 1024 * 1024)
