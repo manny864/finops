@@ -82,6 +82,7 @@ function formatShortCurrency(value: number, formatter: (amountUSD: string | numb
 
 function normalizeResponse(data: RedisFinOpsResponse): Required<Pick<RedisFinOpsResponse, "instances" | "financialSummary" | "efficiency" | "risk" | "recommendations">> {
     const instances = data.instances || [];
+    console.log("[RedisTestBoard.normalizeResponse] Received instances:", instances.length, "data:", data);
 
     const financialSummary = data.financialSummary || {
         mtdCost: instances.reduce((acc, instance) => acc + (instance.monthlyCostUsd || 0), 0),
