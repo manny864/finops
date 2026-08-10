@@ -6,40 +6,190 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireTenantAccess } from "@/lib/requestAuth";
+import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
+import {
+    distributeCostPerResource,
+    getDiagnosticsCacheKey,
+    getMonthlyCostByType,
+    listResourcesByTypes,
+    readDiagnosticsCache,
+    writeDiagnosticsCache,
+} from "../diagnosticsShared";
+import { redis } from "@/lib/redis";
+
+const SQL_TYPES = [
+    "microsoft.sql/servers",
+    "microsoft.sql/servers/databases",
+    "microsoft.sql/servers/elasticpools",
+    "microsoft.sql/managedinstances",
+];
 
 export async function GET(request: NextRequest) {
-    const { searchParams } = new URL(request.url);
-    const tenantId = searchParams.get("tenantId");
-
-    if (!tenantId) {
-        return NextResponse.json(
-            { error: "tenantId parameter is required" },
-            { status: 400 }
-        );
-    }
-
-    if (isMockTenant(tenantId)) {
-        return NextResponse.json(getMockSqlData());
-    }
-
-    await requireTenantAccess(request, tenantId);
-
     try {
-        // TODO: Implement real Azure SQL diagnostics via:
-        // 1. ARM API: listDatabases, listServers, elasticPools
-        // 2. Azure Monitor Metrics: CPU%, DTU/vCore%, storage, memory
-        // 3. Data plane (DMVs): sys.dm_db_resource_stats, Query Store
-        return NextResponse.json({
-            error: "Azure SQL diagnostics not yet implemented",
+        const { searchParams } = new URL(request.url);
+        const tenantId = searchParams.get("tenantId");
+
+        if (!tenantId) {
+            return NextResponse.json(
+                { error: "tenantId parameter is required" },
+                { status: 400 },
+            );
+        }
+
+        await requireTenantAccess(request, tenantId);
+
+        if (isMockTenant(tenantId)) {
+            return NextResponse.json(getMockSqlData());
+        }
+
+        const cacheKey = getDiagnosticsCacheKey("sql", tenantId);
+        if (searchParams.get("bust") === "1") {
+            await redis.del(cacheKey).catch(() => undefined);
+        } else {
+            const cached = await readDiagnosticsCache<unknown>(cacheKey);
+            if (cached) return NextResponse.json(cached);
+        }
+
+        const credential = await getAzureCredential(tenantId);
+        const subscriptionIds = await getSubscriptionsForTenant(tenantId, credential);
+        if (subscriptionIds.length === 0) {
+            const payload = {
+                mock: false,
+                resourceExists: false,
+                message: "No existen suscripciones activas para este tenant.",
+                servers: [],
+                managedInstances: [],
+            };
+            await writeDiagnosticsCache(cacheKey, payload);
+            return NextResponse.json(payload);
+        }
+
+        const resources = await listResourcesByTypes(tenantId, SQL_TYPES, subscriptionIds, credential);
+        if (resources.length === 0) {
+            const payload = {
+                mock: false,
+                resourceExists: false,
+                message: "No existe Azure SQL Database ni Azure SQL Managed Instance en este tenant.",
+                servers: [],
+                managedInstances: [],
+            };
+            await writeDiagnosticsCache(cacheKey, payload);
+            return NextResponse.json(payload);
+        }
+
+        const { costByType, dataAvailable } = await getMonthlyCostByType(
             tenantId,
-        }, { status: 501 });
-    } catch (error) {
-        return NextResponse.json(
-            { error: error instanceof Error ? error.message : "Unknown error" },
-            { status: 500 }
+            credential,
+            subscriptionIds,
+            SQL_TYPES,
         );
+        const costPerResource = distributeCostPerResource(resources, costByType);
+
+        const dbByServer = new Map<string, any[]>();
+        const serverRegionByName = new Map<string, string>();
+        const managedInstances: any[] = [];
+
+        for (const resource of resources) {
+            if (resource.type === "microsoft.sql/servers") {
+                serverRegionByName.set(resource.name, resource.location || "unknown");
+                if (!dbByServer.has(resource.name)) {
+                    dbByServer.set(resource.name, []);
+                }
+                continue;
+            }
+
+            if (resource.type === "microsoft.sql/servers/databases") {
+                const match = resource.id.match(
+                    /\/providers\/microsoft\.sql\/servers\/([^/]+)\/databases\/([^/]+)/i,
+                );
+                const serverName = match?.[1] || "unknown-server";
+                const dbName = match?.[2] || resource.name || "unknown-db";
+                const list = dbByServer.get(serverName) || [];
+                list.push({
+                    id: resource.id,
+                    name: dbName,
+                    location: resource.location || "unknown",
+                    edition: "Unknown",
+                    serviceObjective: "Unknown",
+                    vCores: 0,
+                    maxStorageGB: 0,
+                    usedStorageGB: 0,
+                    cpuPercent: 0,
+                    memoryPercent: 0,
+                    ioPercent: 0,
+                    logWritePercent: 0,
+                    dtuUsagePercent: 0,
+                    elasticPoolName: null,
+                    ahbEnabled: false,
+                    tdeEnabled: false,
+                    tdeKeyType: "Unknown",
+                });
+                dbByServer.set(serverName, list);
+                continue;
+            }
+
+            if (resource.type === "microsoft.sql/managedinstances") {
+                managedInstances.push({
+                    id: resource.id,
+                    name: resource.name,
+                    region: resource.location || "unknown",
+                    tier: resource.skuName || "Unknown",
+                    hardwareGen: "Unknown",
+                    vCores: 0,
+                    maxStorageGB: 0,
+                    usedStorageGB: 0,
+                    cpuPercent: 0,
+                    memoryPercent: 0,
+                    ioLatencyMs: 0,
+                    maxIops: 0,
+                    usedIops: 0,
+                    ahbEnabled: false,
+                    tdeEnabled: false,
+                    databases: 0,
+                    monthlyCostUsd: costPerResource.get(resource.id) || 0,
+                });
+            }
+        }
+
+        const servers = Array.from(dbByServer.entries()).map(([name, databases]) => ({
+            id: name,
+            name,
+            type: "SQL Database Server",
+            region: serverRegionByName.get(name) || databases[0]?.location || "unknown",
+            databases,
+            elasticPools: [],
+            failoverGroups: [],
+            monthlyCostUsd: Number(
+                databases
+                    .reduce((sum, db) => sum + (costPerResource.get(db.id) || 0), 0)
+                    .toFixed(2),
+            ),
+        }));
+
+        const payload = {
+            mock: false,
+            resourceExists: true,
+            dataAvailable,
+            servers,
+            managedInstances,
+        };
+        await writeDiagnosticsCache(cacheKey, payload);
+        return NextResponse.json(payload);
+    } catch (error) {
+        if (error instanceof AuthError) {
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        }
+        return NextResponse.json({
+            mock: false,
+            resourceExists: false,
+            dataAvailable: false,
+            message: "No se pudieron consultar recursos Azure SQL en este momento.",
+            servers: [],
+            managedInstances: [],
+            errors: [{ code: "SQL_DIAGNOSTICS_UNAVAILABLE", detail: error instanceof Error ? error.message : "Unknown error" }],
+        });
     }
 }
 

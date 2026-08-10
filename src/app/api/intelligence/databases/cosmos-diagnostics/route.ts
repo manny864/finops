@@ -5,40 +5,121 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireTenantAccess } from "@/lib/requestAuth";
+import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
+import {
+    distributeCostPerResource,
+    getDiagnosticsCacheKey,
+    getMonthlyCostByType,
+    listResourcesByTypes,
+    readDiagnosticsCache,
+    writeDiagnosticsCache,
+} from "../diagnosticsShared";
+import { redis } from "@/lib/redis";
+
+const COSMOS_TYPES = ["microsoft.documentdb/databaseaccounts"];
 
 export async function GET(request: NextRequest) {
-    const { searchParams } = new URL(request.url);
-    const tenantId = searchParams.get("tenantId");
-
-    if (!tenantId) {
-        return NextResponse.json(
-            { error: "tenantId parameter is required" },
-            { status: 400 }
-        );
-    }
-
-    if (isMockTenant(tenantId)) {
-        return NextResponse.json(getMockCosmosData());
-    }
-
-    await requireTenantAccess(request, tenantId);
-
     try {
-        // TODO: Implement real Cosmos DB diagnostics via:
-        // 1. ARM API: listDatabases, listContainers, listKeys
-        // 2. Azure Monitor Metrics: RU consumption, throttling, storage
-        // 3. Data plane: Query execution metrics, document CRUD operations
-        return NextResponse.json({
-            error: "Cosmos DB diagnostics not yet implemented",
+        const { searchParams } = new URL(request.url);
+        const tenantId = searchParams.get("tenantId");
+
+        if (!tenantId) {
+            return NextResponse.json(
+                { error: "tenantId parameter is required" },
+                { status: 400 },
+            );
+        }
+
+        await requireTenantAccess(request, tenantId);
+
+        if (isMockTenant(tenantId)) {
+            return NextResponse.json(getMockCosmosData());
+        }
+
+        const cacheKey = getDiagnosticsCacheKey("cosmos", tenantId);
+        if (searchParams.get("bust") === "1") {
+            await redis.del(cacheKey).catch(() => undefined);
+        } else {
+            const cached = await readDiagnosticsCache<unknown>(cacheKey);
+            if (cached) return NextResponse.json(cached);
+        }
+
+        const credential = await getAzureCredential(tenantId);
+        const subscriptionIds = await getSubscriptionsForTenant(tenantId, credential);
+        if (subscriptionIds.length === 0) {
+            const payload = {
+                mock: false,
+                resourceExists: false,
+                message: "No existen suscripciones activas para este tenant.",
+                accounts: [],
+            };
+            await writeDiagnosticsCache(cacheKey, payload);
+            return NextResponse.json(payload);
+        }
+
+        const resources = await listResourcesByTypes(tenantId, COSMOS_TYPES, subscriptionIds, credential);
+        if (resources.length === 0) {
+            const payload = {
+                mock: false,
+                resourceExists: false,
+                message: "No existe Azure Cosmos DB en este tenant.",
+                accounts: [],
+            };
+            await writeDiagnosticsCache(cacheKey, payload);
+            return NextResponse.json(payload);
+        }
+
+        const { costByType, dataAvailable } = await getMonthlyCostByType(
             tenantId,
-        }, { status: 501 });
-    } catch (error) {
-        return NextResponse.json(
-            { error: error instanceof Error ? error.message : "Unknown error" },
-            { status: 500 }
+            credential,
+            subscriptionIds,
+            COSMOS_TYPES,
         );
+        const costPerResource = distributeCostPerResource(resources, costByType);
+
+        const accounts = resources.map((resource) => ({
+            id: resource.id,
+            name: resource.name,
+            region: resource.location || "unknown",
+            databases: [],
+            replicationRegions: [],
+            consistencyLevel: "Unknown",
+            ruConsumption: {
+                provisioned: 0,
+                consumed: 0,
+                throttled429Count: 0,
+                avgLatencyMs: 0,
+            },
+            security: {
+                tlsVersion: "Unknown",
+                privateEndpointsEnabled: false,
+                firewallRules: 0,
+            },
+            monthlyCostUsd: costPerResource.get(resource.id) || 0,
+        }));
+
+        const payload = {
+            mock: false,
+            resourceExists: true,
+            dataAvailable,
+            accounts,
+        };
+        await writeDiagnosticsCache(cacheKey, payload);
+        return NextResponse.json(payload);
+    } catch (error) {
+        if (error instanceof AuthError) {
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        }
+        return NextResponse.json({
+            mock: false,
+            resourceExists: false,
+            dataAvailable: false,
+            message: "No se pudieron consultar cuentas Cosmos DB en este momento.",
+            accounts: [],
+            errors: [{ code: "COSMOS_DIAGNOSTICS_UNAVAILABLE", detail: error instanceof Error ? error.message : "Unknown error" }],
+        });
     }
 }
 

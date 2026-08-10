@@ -6,40 +6,138 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireTenantAccess } from "@/lib/requestAuth";
+import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
+import {
+    distributeCostPerResource,
+    getDiagnosticsCacheKey,
+    getMonthlyCostByType,
+    listResourcesByTypes,
+    readDiagnosticsCache,
+    writeDiagnosticsCache,
+} from "../diagnosticsShared";
+import { redis } from "@/lib/redis";
+
+const POSTGRES_TYPES = [
+    "microsoft.dbforpostgresql/flexibleservers",
+    "microsoft.dbforpostgresql/servers",
+];
 
 export async function GET(request: NextRequest) {
-    const { searchParams } = new URL(request.url);
-    const tenantId = searchParams.get("tenantId");
-
-    if (!tenantId) {
-        return NextResponse.json(
-            { error: "tenantId parameter is required" },
-            { status: 400 }
-        );
-    }
-
-    if (isMockTenant(tenantId)) {
-        return NextResponse.json(getMockPostgresData());
-    }
-
-    await requireTenantAccess(request, tenantId);
-
     try {
-        // TODO: Implement real PostgreSQL diagnostics via:
-        // 1. ARM API: listServers, serverParameters
-        // 2. Azure Monitor Metrics: CPU%, memory, storage, IOPS, connections
-        // 3. Data plane: pg_stat_activity, pg_stat_statements, cache hit ratio
-        return NextResponse.json({
-            error: "PostgreSQL diagnostics not yet implemented",
+        const { searchParams } = new URL(request.url);
+        const tenantId = searchParams.get("tenantId");
+
+        if (!tenantId) {
+            return NextResponse.json(
+                { error: "tenantId parameter is required" },
+                { status: 400 },
+            );
+        }
+
+        await requireTenantAccess(request, tenantId);
+
+        if (isMockTenant(tenantId)) {
+            return NextResponse.json(getMockPostgresData());
+        }
+
+        const cacheKey = getDiagnosticsCacheKey("postgres", tenantId);
+        if (searchParams.get("bust") === "1") {
+            await redis.del(cacheKey).catch(() => undefined);
+        } else {
+            const cached = await readDiagnosticsCache<unknown>(cacheKey);
+            if (cached) return NextResponse.json(cached);
+        }
+
+        const credential = await getAzureCredential(tenantId);
+        const subscriptionIds = await getSubscriptionsForTenant(tenantId, credential);
+        if (subscriptionIds.length === 0) {
+            const payload = {
+                mock: false,
+                resourceExists: false,
+                message: "No existen suscripciones activas para este tenant.",
+                servers: [],
+            };
+            await writeDiagnosticsCache(cacheKey, payload);
+            return NextResponse.json(payload);
+        }
+
+        const resources = await listResourcesByTypes(tenantId, POSTGRES_TYPES, subscriptionIds, credential);
+        if (resources.length === 0) {
+            const payload = {
+                mock: false,
+                resourceExists: false,
+                message: "No existe Azure Database for PostgreSQL en este tenant.",
+                servers: [],
+            };
+            await writeDiagnosticsCache(cacheKey, payload);
+            return NextResponse.json(payload);
+        }
+
+        const { costByType, dataAvailable } = await getMonthlyCostByType(
             tenantId,
-        }, { status: 501 });
-    } catch (error) {
-        return NextResponse.json(
-            { error: error instanceof Error ? error.message : "Unknown error" },
-            { status: 500 }
+            credential,
+            subscriptionIds,
+            POSTGRES_TYPES,
         );
+        const costPerResource = distributeCostPerResource(resources, costByType);
+
+        const servers = resources.map((resource) => ({
+            id: resource.id,
+            name: resource.name,
+            region: resource.location || "unknown",
+            version: "Unknown",
+            tier: resource.skuName || "Unknown",
+            computeTier: "Unknown",
+            vCores: 0,
+            maxMemoryMB: 0,
+            maxStorageGB: 0,
+            usedStorageGB: 0,
+            storageAutoGrowEnabled: false,
+            haEnabled: false,
+            haMode: "Unknown",
+            cpuPercent: 0,
+            memoryPercent: 0,
+            storagePercent: 0,
+            ioPercent: 0,
+            activeConnections: 0,
+            maxConnections: 0,
+            connectionsFailed: 0,
+            walStorageGB: 0,
+            replicationLagSeconds: 0,
+            readReplicas: [],
+            backupRetentionDays: 0,
+            backupRedundancy: "Unknown",
+            tlsVersion: "Unknown",
+            privateEndpointEnabled: false,
+            parameters: {},
+            topQueriesByDuration: [],
+            cacheHitRatio: 0,
+            deadTuplesCount: 0,
+            monthlyCostUsd: costPerResource.get(resource.id) || 0,
+        }));
+
+        const payload = {
+            mock: false,
+            resourceExists: true,
+            dataAvailable,
+            servers,
+        };
+        await writeDiagnosticsCache(cacheKey, payload);
+        return NextResponse.json(payload);
+    } catch (error) {
+        if (error instanceof AuthError) {
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        }
+        return NextResponse.json({
+            mock: false,
+            resourceExists: false,
+            dataAvailable: false,
+            message: "No se pudieron consultar servidores PostgreSQL en este momento.",
+            servers: [],
+            errors: [{ code: "POSTGRES_DIAGNOSTICS_UNAVAILABLE", detail: error instanceof Error ? error.message : "Unknown error" }],
+        });
     }
 }
 

@@ -6,40 +6,136 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireTenantAccess } from "@/lib/requestAuth";
+import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
+import {
+    distributeCostPerResource,
+    getDiagnosticsCacheKey,
+    getMonthlyCostByType,
+    listResourcesByTypes,
+    readDiagnosticsCache,
+    writeDiagnosticsCache,
+} from "../diagnosticsShared";
+import { redis } from "@/lib/redis";
+
+const REDIS_TYPES = ["microsoft.cache/redis", "microsoft.cache/redisenterprise"];
 
 export async function GET(request: NextRequest) {
-    const { searchParams } = new URL(request.url);
-    const tenantId = searchParams.get("tenantId");
-
-    if (!tenantId) {
-        return NextResponse.json(
-            { error: "tenantId parameter is required" },
-            { status: 400 }
-        );
-    }
-
-    if (isMockTenant(tenantId)) {
-        return NextResponse.json(getMockRedisData());
-    }
-
-    await requireTenantAccess(request, tenantId);
-
     try {
-        // TODO: Implement real Redis diagnostics via:
-        // 1. ARM API: listCaches, listConnectionStrings, listKeys
-        // 2. Azure Monitor Metrics: memory usage, evictions, hits/misses, CPU, throughput
-        // 3. Data plane: INFO command, SLOWLOG, MEMORY USAGE, CONFIG GET
-        return NextResponse.json({
-            error: "Redis diagnostics not yet implemented",
+        const { searchParams } = new URL(request.url);
+        const tenantId = searchParams.get("tenantId");
+
+        if (!tenantId) {
+            return NextResponse.json(
+                { error: "tenantId parameter is required" },
+                { status: 400 },
+            );
+        }
+
+        await requireTenantAccess(request, tenantId);
+
+        if (isMockTenant(tenantId)) {
+            return NextResponse.json(getMockRedisData());
+        }
+
+        const cacheKey = getDiagnosticsCacheKey("redis", tenantId);
+        if (searchParams.get("bust") === "1") {
+            await redis.del(cacheKey).catch(() => undefined);
+        } else {
+            const cached = await readDiagnosticsCache<unknown>(cacheKey);
+            if (cached) return NextResponse.json(cached);
+        }
+
+        const credential = await getAzureCredential(tenantId);
+        const subscriptionIds = await getSubscriptionsForTenant(tenantId, credential);
+        if (subscriptionIds.length === 0) {
+            const payload = {
+                mock: false,
+                resourceExists: false,
+                message: "No existen suscripciones activas para este tenant.",
+                instances: [],
+            };
+            await writeDiagnosticsCache(cacheKey, payload);
+            return NextResponse.json(payload);
+        }
+
+        const resources = await listResourcesByTypes(tenantId, REDIS_TYPES, subscriptionIds, credential);
+        if (resources.length === 0) {
+            const payload = {
+                mock: false,
+                resourceExists: false,
+                message: "No existe Azure Cache for Redis en este tenant.",
+                instances: [],
+            };
+            await writeDiagnosticsCache(cacheKey, payload);
+            return NextResponse.json(payload);
+        }
+
+        const { costByType, dataAvailable } = await getMonthlyCostByType(
             tenantId,
-        }, { status: 501 });
-    } catch (error) {
-        return NextResponse.json(
-            { error: error instanceof Error ? error.message : "Unknown error" },
-            { status: 500 }
+            credential,
+            subscriptionIds,
+            REDIS_TYPES,
         );
+        const costPerResource = distributeCostPerResource(resources, costByType);
+
+        const instances = resources.map((resource) => ({
+            id: resource.id,
+            name: resource.name,
+            region: resource.location || "unknown",
+            sku: resource.skuName || "Unknown",
+            size: resource.skuName || "Unknown",
+            maxMemoryMB: null,
+            usedMemoryMB: null,
+            usedMemoryRssPercent: null,
+            memoryFragmentationRatio: null,
+            evictedKeys: null,
+            expiredKeys: null,
+            cacheHitRate: null,
+            cacheHits: null,
+            cacheMisses: null,
+            cpuPercent: null,
+            connectedClients: null,
+            rejectedConnections: null,
+            totalCommandsProcessed: null,
+            operationsPerSecond: null,
+            networkReadMBps: null,
+            networkWriteMBps: null,
+            clustering: null,
+            persistence: null,
+            replication: null,
+            modules: null,
+            security: null,
+            slowQueries: null,
+            telemetry: {
+                available: false,
+                source: "not_collected",
+                message: "Las métricas operativas requieren una consulta a Azure Monitor.",
+            },
+            monthlyCostUsd: costPerResource.get(resource.id) || 0,
+        }));
+
+        const payload = {
+            mock: false,
+            resourceExists: true,
+            dataAvailable,
+            instances,
+        };
+        await writeDiagnosticsCache(cacheKey, payload);
+        return NextResponse.json(payload);
+    } catch (error) {
+        if (error instanceof AuthError) {
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        }
+        return NextResponse.json({
+            mock: false,
+            resourceExists: false,
+            dataAvailable: false,
+            message: "No se pudieron consultar instancias Azure Cache for Redis en este momento.",
+            instances: [],
+            errors: [{ code: "REDIS_DIAGNOSTICS_UNAVAILABLE", detail: error instanceof Error ? error.message : "Unknown error" }],
+        });
     }
 }
 

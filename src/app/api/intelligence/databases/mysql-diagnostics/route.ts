@@ -6,40 +6,143 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireTenantAccess } from "@/lib/requestAuth";
+import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
+import {
+    distributeCostPerResource,
+    getDiagnosticsCacheKey,
+    getMonthlyCostByType,
+    listResourcesByTypes,
+    readDiagnosticsCache,
+    writeDiagnosticsCache,
+} from "../diagnosticsShared";
+import { redis } from "@/lib/redis";
+
+const MYSQL_TYPES = [
+    "microsoft.dbformysql/flexibleservers",
+    "microsoft.dbformysql/servers",
+];
 
 export async function GET(request: NextRequest) {
-    const { searchParams } = new URL(request.url);
-    const tenantId = searchParams.get("tenantId");
-
-    if (!tenantId) {
-        return NextResponse.json(
-            { error: "tenantId parameter is required" },
-            { status: 400 }
-        );
-    }
-
-    if (isMockTenant(tenantId)) {
-        return NextResponse.json(getMockMysqlData());
-    }
-
-    await requireTenantAccess(request, tenantId);
-
     try {
-        // TODO: Implement real MySQL diagnostics via:
-        // 1. ARM API: listServers, serverParameters
-        // 2. Azure Monitor Metrics: CPU%, memory, storage, IOPS, connections, QPS
-        // 3. Data plane: performance_schema, slow query log, sys schema
-        return NextResponse.json({
-            error: "MySQL diagnostics not yet implemented",
+        const { searchParams } = new URL(request.url);
+        const tenantId = searchParams.get("tenantId");
+
+        if (!tenantId) {
+            return NextResponse.json(
+                { error: "tenantId parameter is required" },
+                { status: 400 },
+            );
+        }
+
+        await requireTenantAccess(request, tenantId);
+
+        if (isMockTenant(tenantId)) {
+            return NextResponse.json(getMockMysqlData());
+        }
+
+        const cacheKey = getDiagnosticsCacheKey("mysql", tenantId);
+        if (searchParams.get("bust") === "1") {
+            await redis.del(cacheKey).catch(() => undefined);
+        } else {
+            const cached = await readDiagnosticsCache<unknown>(cacheKey);
+            if (cached) return NextResponse.json(cached);
+        }
+
+        const credential = await getAzureCredential(tenantId);
+        const subscriptionIds = await getSubscriptionsForTenant(tenantId, credential);
+        if (subscriptionIds.length === 0) {
+            const payload = {
+                mock: false,
+                resourceExists: false,
+                message: "No existen suscripciones activas para este tenant.",
+                servers: [],
+            };
+            await writeDiagnosticsCache(cacheKey, payload);
+            return NextResponse.json(payload);
+        }
+
+        const resources = await listResourcesByTypes(tenantId, MYSQL_TYPES, subscriptionIds, credential);
+        if (resources.length === 0) {
+            const payload = {
+                mock: false,
+                resourceExists: false,
+                message: "No existe Azure Database for MySQL en este tenant.",
+                servers: [],
+            };
+            await writeDiagnosticsCache(cacheKey, payload);
+            return NextResponse.json(payload);
+        }
+
+        const { costByType, dataAvailable } = await getMonthlyCostByType(
             tenantId,
-        }, { status: 501 });
-    } catch (error) {
-        return NextResponse.json(
-            { error: error instanceof Error ? error.message : "Unknown error" },
-            { status: 500 }
+            credential,
+            subscriptionIds,
+            MYSQL_TYPES,
         );
+        const costPerResource = distributeCostPerResource(resources, costByType);
+
+        const servers = resources.map((resource) => ({
+            id: resource.id,
+            name: resource.name,
+            region: resource.location || "unknown",
+            version: null,
+            tier: resource.skuName || "Unknown",
+            computeTier: null,
+            vCores: null,
+            maxMemoryMB: null,
+            maxStorageGB: null,
+            usedStorageGB: null,
+            storageAutoGrowEnabled: null,
+            haEnabled: null,
+            haMode: null,
+            cpuPercent: null,
+            memoryPercent: null,
+            storagePercent: null,
+            ioPercent: null,
+            queriesPerSecond: null,
+            activeConnections: null,
+            maxConnections: null,
+            connectionsFailed: null,
+            readReplicas: null,
+            innodbBufferPoolHitRate: null,
+            innodbDirtyPages: null,
+            slowQueryLogCount: null,
+            backupRetentionDays: null,
+            backupRedundancy: null,
+            tlsVersion: null,
+            privateEndpointEnabled: null,
+            parameters: null,
+            slowestQueries: null,
+            telemetry: {
+                available: false,
+                source: "not_collected",
+                message: "Las métricas operativas requieren una consulta a Azure Monitor.",
+            },
+            monthlyCostUsd: costPerResource.get(resource.id) || 0,
+        }));
+
+        const payload = {
+            mock: false,
+            resourceExists: true,
+            dataAvailable,
+            servers,
+        };
+        await writeDiagnosticsCache(cacheKey, payload);
+        return NextResponse.json(payload);
+    } catch (error) {
+        if (error instanceof AuthError) {
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        }
+        return NextResponse.json({
+            mock: false,
+            resourceExists: false,
+            dataAvailable: false,
+            message: "No se pudieron consultar servidores MySQL en este momento.",
+            servers: [],
+            errors: [{ code: "MYSQL_DIAGNOSTICS_UNAVAILABLE", detail: error instanceof Error ? error.message : "Unknown error" }],
+        });
     }
 }
 
