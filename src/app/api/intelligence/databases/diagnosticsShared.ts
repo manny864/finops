@@ -73,54 +73,74 @@ async function listResourcesViaArm(
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (token?.token) headers.Authorization = `Bearer ${token.token}`;
   const items: ArgResourceRow[] = [];
-  console.log(`[listResourcesViaArm] Querying ${resourceTypes.length} types in ${subscriptionIds.length} subscriptions`);
+
+  console.log(`[listResourcesViaArm] Starting ARM query for ${subscriptionIds.length} subscriptions, ${resourceTypes.length} types`);
 
   for (const subscriptionId of subscriptionIds) {
     for (const resourceType of resourceTypes) {
-      let url = `https://management.azure.com/subscriptions/${subscriptionId}/resources`;
-      const params = new URLSearchParams({
-        "api-version": "2021-04-01",
-        "$filter": `resourceType eq '${resourceType}'`,
-      });
-      url = `${url}?${params.toString()}`;
+      // Try both lowercase and proper case (Microsoft.Cache/Redis)
+      const properCaseType = resourceType
+        .split('/')
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join('/');
 
-      while (url) {
-        const response = await fetch(url, {
-          method: "GET",
-          headers,
-          cache: "no-store",
+      for (const typeToTry of [properCaseType, resourceType]) {
+        let url = `https://management.azure.com/subscriptions/${subscriptionId}/resources`;
+        const params = new URLSearchParams({
+          "api-version": "2021-04-01",
+          "$filter": `resourceType eq '${typeToTry}'`,
         });
-        if (!response.ok) {
-          console.warn(`[listResourcesViaArm] Failed ${url}: HTTP ${response.status}`);
-          break;
-        }
-        const json: any = await response.json();
-        const values = Array.isArray(json.value) ? json.value : [];
-        console.log(`[listResourcesViaArm] Got ${values.length} results for ${resourceType} in ${subscriptionId}`);
-        for (const row of values) {
-          items.push({
-            id: String(row.id || ""),
-            name: String(row.name || ""),
-            type: String(row.type || "").toLowerCase(),
-            location: row.location ? String(row.location) : undefined,
-            resourceGroup: row.resourceGroup ? String(row.resourceGroup) : undefined,
-            subscriptionId,
-            kind: row.kind ? String(row.kind) : undefined,
-            skuName:
-              row.sku && typeof row.sku === "object" && row.sku.name
-                ? String(row.sku.name)
-                : undefined,
-            properties:
-              row.properties && typeof row.properties === "object"
-                ? (row.properties as Record<string, unknown>)
-                : undefined,
+        url = `${url}?${params.toString()}`;
+
+        try {
+          console.log(`[listResourcesViaArm] Querying ${typeToTry} in ${subscriptionId}`);
+          const response = await fetch(url, {
+            method: "GET",
+            headers,
+            cache: "no-store",
           });
+
+          if (!response.ok) {
+            console.warn(
+              `[listResourcesViaArm] HTTP ${response.status} for ${typeToTry}. Status text: ${response.statusText}`
+            );
+            continue;
+          }
+
+          const json: any = await response.json();
+          const values = Array.isArray(json.value) ? json.value : [];
+          console.log(`[listResourcesViaArm] Found ${values.length} ${typeToTry} resources in ${subscriptionId}`);
+
+          if (values.length > 0) {
+            for (const row of values) {
+              items.push({
+                id: String(row.id || ""),
+                name: String(row.name || ""),
+                type: String(row.type || "").toLowerCase(),
+                location: row.location ? String(row.location) : undefined,
+                resourceGroup: row.resourceGroup ? String(row.resourceGroup) : undefined,
+                subscriptionId,
+                kind: row.kind ? String(row.kind) : undefined,
+                skuName:
+                  row.sku && typeof row.sku === "object" && row.sku.name
+                    ? String(row.sku.name)
+                    : undefined,
+                properties:
+                  row.properties && typeof row.properties === "object"
+                    ? (row.properties as Record<string, unknown>)
+                    : undefined,
+              });
+            }
+            break; // Found items, don't try other case variations
+          }
+        } catch (err) {
+          console.error(`[listResourcesViaArm] Exception for ${typeToTry}:`, err);
         }
-        url = typeof json.nextLink === "string" ? json.nextLink : "";
       }
     }
   }
-  console.log(`[listResourcesViaArm] Returning ${items.length} total items`);
+
+  console.log(`[listResourcesViaArm] Finished. Total ${items.length} items found`);
   return items;
 }
 
