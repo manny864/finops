@@ -2,7 +2,6 @@ import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { ClientSecretCredential } from "@azure/identity";
 import { ComputeManagementClient } from "@azure/arm-compute";
 import { NetworkManagementClient } from "@azure/arm-network";
-import { CostManagementClient } from "@azure/arm-costmanagement";
 import pool, { initializeDatabase } from '@/modules/storage/db';
 import { getTenantCredentials } from '@/lib/secrets/tenantCredentials';
 import { getSubscriptionLimit } from '@/lib/tierLogic';
@@ -42,7 +41,7 @@ export async function getAzureCredential(tenantId: string) {
  */
 export async function getSubscriptionsForTenant(tenantId: string, credential?: ClientSecretCredential): Promise<string[]> {
   const cred = credential || await getAzureCredential(tenantId);
-  const subs: string[] = [];
+  const subs = new Set<string>();
   try {
     const tokenResponse = await cred.getToken("https://management.azure.com/.default");
     const fetchRes = await fetch("https://management.azure.com/subscriptions?api-version=2020-01-01", {
@@ -51,28 +50,33 @@ export async function getSubscriptionsForTenant(tenantId: string, credential?: C
     if (fetchRes.ok) {
       const data = await fetchRes.json();
       for (const sub of (data.value || [])) {
-        if (sub.subscriptionId) subs.push(sub.subscriptionId);
+        if (sub.subscriptionId) subs.add(String(sub.subscriptionId));
       }
     }
   } catch (e) {
     console.error(`[azure] Error fetching subscriptions for tenant ${tenantId}:`, e);
   }
 
-  if (subs.length === 0) return subs;
+  for (const subId of await getStoredSubscriptionsForTenant(tenantId)) {
+    subs.add(subId);
+  }
+
+  const subList = Array.from(subs);
+  if (subList.length === 0) return subList;
 
   try {
     const [rows]: any = await pool.query("SELECT tier FROM Tenants WHERE tenant_id = ? LIMIT 1", [tenantId]);
     const tier = rows?.[0]?.tier || "Essential";
     const limit = getSubscriptionLimit(tier);
-    if (Number.isFinite(limit) && subs.length > limit) {
-      console.warn(`[azure] Tenant ${tenantId} (${tier}): ${subs.length} suscripciones visibles, límite del plan es ${limit}. Truncando (orden estable por ID).`);
-      return [...subs].sort().slice(0, limit);
+    if (Number.isFinite(limit) && subList.length > limit) {
+      console.warn(`[azure] Tenant ${tenantId} (${tier}): ${subList.length} suscripciones visibles, límite del plan es ${limit}. Truncando (orden estable por ID).`);
+      return [...subList].sort().slice(0, limit);
     }
   } catch (e: any) {
     console.warn(`[azure] No se pudo verificar el límite de suscripciones para ${tenantId}, devolviendo lista completa:`, e?.message);
   }
 
-  return subs;
+  return subList;
 }
 
 /**
@@ -82,7 +86,7 @@ export async function getSubscriptionsForTenant(tenantId: string, credential?: C
  */
 export async function getAllSubscriptionsForTenant(tenantId: string, credential?: ClientSecretCredential): Promise<string[]> {
   const cred = credential || await getAzureCredential(tenantId);
-  const subs: string[] = [];
+  const subs = new Set<string>();
   
   try {
     const tokenResponse = await cred.getToken("https://management.azure.com/.default");
@@ -92,50 +96,57 @@ export async function getAllSubscriptionsForTenant(tenantId: string, credential?
     if (fetchRes.ok) {
       const data = await fetchRes.json();
       for (const sub of (data.value || [])) {
-        if (sub.subscriptionId) subs.push(sub.subscriptionId);
+        if (sub.subscriptionId) subs.add(String(sub.subscriptionId));
       }
-      console.log(`[azure] getAllSubscriptionsForTenant(${tenantId}): Found ${subs.length} subscriptions via Management API`);
+      console.log(`[azure] getAllSubscriptionsForTenant(${tenantId}): Found ${subs.size} subscriptions via Management API`);
     }
   } catch (e) {
     console.error(`[azure] Error fetching subscriptions for tenant ${tenantId}:`, e);
   }
-  
-  // If no subscriptions found, try Cost Management API as fallback
-  if (subs.length === 0) {
-    console.log(`[azure] getAllSubscriptionsForTenant(${tenantId}): Attempting Cost Management API fallback`);
-    try {
-      const cm = new CostManagementClient(cred);
-      const result = await (cm.query as any).usageDetail({
-        scope: `/subscriptions/`,
-        parameters: {
-          type: "Usage",
-          timeframe: "TheLastMonth",
-          dataset: {
-            granularity: "Monthly",
-            aggregation: { totalCost: { name: "PreTaxCost", function: "Sum" } },
-            grouping: [{ type: "Dimension", name: "SubscriptionId" }]
-          }
-        }
-      }).catch(() => ({ rows: [] }));
-      
-      if (result && result.rows && Array.isArray(result.rows)) {
-        const subIds = new Set<string>();
-        for (const row of result.rows as any[]) {
-          if (row[0]) subIds.add(String(row[0]));
-        }
-        subs.push(...Array.from(subIds));
-        console.log(`[azure] getAllSubscriptionsForTenant(${tenantId}): Discovered ${subs.length} subscriptions via Cost Management API`);
-      }
-    } catch (e) {
-      console.error(`[azure] Cost Management API fallback failed for tenant ${tenantId}:`, e);
-    }
+
+  for (const subId of await getStoredSubscriptionsForTenant(tenantId)) {
+    subs.add(subId);
   }
-  
-  if (subs.length === 0) {
+
+  if (subs.size === 0) {
     console.log(`[azure] getAllSubscriptionsForTenant(${tenantId}): WARNING - No subscriptions found`);
   }
   
-  return subs;
+  return Array.from(subs);
+}
+
+async function getStoredSubscriptionsForTenant(tenantId: string): Promise<string[]> {
+  const fromDb = new Set<string>();
+
+  try {
+    const [rows]: any = await pool.query(
+      `SELECT DISTINCT managed_subscription_id AS subscription_id
+       FROM TenantDelegations
+       WHERE tenant_id = ? AND managed_subscription_id IS NOT NULL AND managed_subscription_id <> ''`,
+      [tenantId],
+    );
+    for (const row of rows || []) {
+      if (row?.subscription_id) fromDb.add(String(row.subscription_id));
+    }
+  } catch (e: any) {
+    console.warn(`[azure] TenantDelegations subscription lookup failed for ${tenantId}:`, e?.message);
+  }
+
+  try {
+    const [rows]: any = await pool.query(
+      `SELECT DISTINCT subscription_id
+       FROM CostSnapshots
+       WHERE tenant_id = ? AND subscription_id IS NOT NULL AND subscription_id NOT IN ('', 'default', 'mg-aggregated')`,
+      [tenantId],
+    );
+    for (const row of rows || []) {
+      if (row?.subscription_id) fromDb.add(String(row.subscription_id));
+    }
+  } catch (e: any) {
+    console.warn(`[azure] CostSnapshots subscription lookup failed for ${tenantId}:`, e?.message);
+  }
+
+  return Array.from(fromDb);
 }
 
 

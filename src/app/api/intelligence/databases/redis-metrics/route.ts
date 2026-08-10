@@ -387,16 +387,16 @@ export async function GET(request: NextRequest) {
         if (subscriptionIds.length > 0) {
           console.log(`[redis-metrics] subscriptionIds:`, subscriptionIds);
         }
-        
-        // Don't return early on empty subscriptions. Let listResourcesByTypes try without subscription filter.
-        // When subscriptionIds is empty, Resource Graph will search ALL accessible subscriptions.
-        
-        // TEMPORARY WORKAROUND (to be removed once subscriptions are stored in DB during onboarding):
-        // Augment with REDIS_SUBSCRIPTION_ID if configured (handles SP permissions edge cases)
-        const redisSubId = process.env.REDIS_SUBSCRIPTION_ID;
-        if (redisSubId && !subscriptionIds.includes(redisSubId)) {
-          console.log(`[redis-metrics] WORKAROUND: Adding REDIS_SUBSCRIPTION_ID from env var (this should be stored in DB)`);
-          subscriptionIds = [...subscriptionIds, redisSubId];
+
+        if (subscriptionIds.length === 0) {
+          const payload = {
+            mock: false,
+            resourceExists: false,
+            message: "No hay suscripciones visibles para este tenant.",
+            instances: []
+          };
+          await writeDiagnosticsCache(cacheKey, payload);
+          return NextResponse.json(payload);
         }
 
         const resources = await listResourcesByTypes(tenantId, REDIS_TYPES, subscriptionIds, credential);
