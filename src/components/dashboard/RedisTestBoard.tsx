@@ -132,6 +132,7 @@ export default function RedisTestBoard() {
         criticalAlerts: 0
     });
     const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+    const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null);
 
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -177,6 +178,9 @@ export default function RedisTestBoard() {
             const normalized = normalizeResponse(data);
 
             setInstances(normalized.instances);
+            if (normalized.instances.length > 0 && !selectedInstanceId) {
+                setSelectedInstanceId(normalized.instances[0].id);
+            }
             setFinancialSummary(normalized.financialSummary);
             setEfficiency(normalized.efficiency);
             setRisk(normalized.risk);
@@ -217,6 +221,8 @@ export default function RedisTestBoard() {
 
     const topRecommendations = useMemo(() => recommendations.slice(0, 5), [recommendations]);
 
+    const currentInstance = useMemo(() => instances.find(i => i.id === selectedInstanceId), [instances, selectedInstanceId]);
+
     if (!selectedTenant) {
         return (
             <div className="rounded-2xl border border-slate-200 bg-white p-8 text-sm text-slate-600">
@@ -246,6 +252,24 @@ export default function RedisTestBoard() {
                         <p className="text-sm text-slate-600">
                             Control financiero, eficiencia operativa y riesgo priorizado para decisiones CMP.
                         </p>
+                        {instances.length > 0 && (
+                            <div className="mt-3">
+                                <label className="block text-xs font-medium text-slate-700 mb-1">
+                                    Selecciona instancia:
+                                </label>
+                                <select
+                                    value={selectedInstanceId || ""}
+                                    onChange={(e) => setSelectedInstanceId(e.target.value)}
+                                    className="rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white text-slate-900 hover:border-slate-400"
+                                >
+                                    {instances.map(inst => (
+                                        <option key={inst.id} value={inst.id}>
+                                            {inst.name} ({inst.sku})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
                         {lastUpdatedAt && (
                             <p className="mt-2 text-xs text-slate-500">
                                 Actualizado: {lastUpdatedAt.toLocaleTimeString()} {isMock ? "(mock)" : "(real-time)"}
@@ -314,6 +338,18 @@ export default function RedisTestBoard() {
                     subtitle={`${risk.criticalAlerts} alertas críticas`}
                 />
             </section>
+
+            {currentInstance && (
+                <section className="rounded-2xl border border-sky-200 bg-sky-50 p-5 shadow-sm">
+                    <h3 className="mb-3 text-sm font-semibold text-slate-900">Detalles de instancia seleccionada</h3>
+                    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                        <DetailsRow label="Nombre" value={currentInstance.name} />
+                        <DetailsRow label="Región" value={currentInstance.region} />
+                        <DetailsRow label="SKU" value={currentInstance.sku} />
+                        <DetailsRow label="Costo mensual" value={formatShortCurrency(currentInstance.monthlyCostUsd, format)} />
+                    </div>
+                </section>
+            )}
 
             <section className="grid grid-cols-1 gap-4 xl:grid-cols-3">
                 <div className="xl:col-span-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -464,4 +500,13 @@ function Badge({ label, tone }: { label: string; tone: "emerald" | "amber" | "ro
     }[tone];
 
     return <span className={`rounded-full px-2 py-1 font-medium ${toneClass}`}>{label}</span>;
+}
+
+function DetailsRow({ label, value }: { label: string; value: string }) {
+    return (
+        <div className="text-sm">
+            <p className="text-slate-600 font-medium">{label}</p>
+            <p className="text-slate-900 font-semibold mt-0.5">{value}</p>
+        </div>
+    );
 }
