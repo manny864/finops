@@ -17,7 +17,7 @@ import { useTenant } from "@/components/TenantProvider";
 import { isMockTenant } from "@/lib/mockData";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { useMsal } from "@azure/msal-react";
-import { getFreshIdToken, getTenantIdFromToken } from "@/lib/msalToken";
+import { getFreshIdToken } from "@/lib/msalToken";
 
 interface MetricPoint {
     timestamp: string;
@@ -151,11 +151,7 @@ export default function RedisTestBoard() {
 
         try {
             const token = await getFreshIdToken(instance, accounts[0]);
-            const tenantId = getTenantIdFromToken(token);
-
-            if (!tenantId) {
-                throw new Error("Token no contiene tenant ID válido");
-            }
+            const tenantId = selectedTenant.id;
 
             const params = new URLSearchParams({
                 tenantId,
@@ -186,7 +182,7 @@ export default function RedisTestBoard() {
             setRisk(normalized.risk);
             setRecommendations(normalized.recommendations);
 
-            setIsMock(Boolean(data.mock) || isMockTenant(tenantId));
+            setIsMock(Boolean(data.mock) || isMockTenant(selectedTenant.id));
             setLastUpdatedAt(new Date());
         } catch (err) {
             const message = err instanceof Error ? err.message : "Error inesperado al cargar Redis FinOps cockpit";
