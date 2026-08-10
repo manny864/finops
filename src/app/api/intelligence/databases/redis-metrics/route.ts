@@ -382,7 +382,14 @@ export async function GET(request: NextRequest) {
         const credential = await getAzureCredential(tenantId);
         // Use getAllSubscriptionsForTenant to get all subscriptions the SP can access,
         // without applying plan limits. This ensures we find resources in all subscriptions.
-        const subscriptionIds = await getAllSubscriptionsForTenant(tenantId, credential);
+        let subscriptionIds = await getAllSubscriptionsForTenant(tenantId, credential);
+        
+        // Fallback: if no subscriptions found and we know the Redis subscription, try it
+        // This handles cases where the SP has resource-level permissions but can't list subscriptions
+        if (subscriptionIds.length === 0 && process.env.REDIS_SUBSCRIPTION_ID) {
+          console.log(`[redis-metrics] No subscriptions from API, using REDIS_SUBSCRIPTION_ID env var`);
+          subscriptionIds = [process.env.REDIS_SUBSCRIPTION_ID];
+        }
         
         console.log(`[redis-metrics] tenantId=${tenantId}, subscriptionIds count=${subscriptionIds.length}`);
         if (subscriptionIds.length > 0) {
