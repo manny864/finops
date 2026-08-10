@@ -20,6 +20,7 @@ import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { isMockTenant } from "@/lib/mockData";
 import Pagination, { usePagination } from "@/components/Pagination";
+import ResizableTh from "@/components/ResizableTh";
 
 type StorageFinopsFamily = "storage-accounts" | "managed-disks" | "backups" | "data-lake-gen2";
 
@@ -28,6 +29,7 @@ interface StorageAccountItem {
   name: string;
   resourceGroup: string;
   subscriptionId: string;
+  subscriptionName?: string;
   location: string;
   tier: string;
   sku?: string;
@@ -71,7 +73,9 @@ interface ServiceCostResponse {
 interface ResourceRow {
   id: string;
   name: string;
+  type: string;
   resourceGroup?: string;
+  subscriptionName: string;
   tier?: string;
   region: string;
   state: string;
@@ -117,6 +121,7 @@ const TIER_COLORS: Record<"hot" | "cool" | "cold" | "archive", string> = {
   cold: "bg-cyan-400",
   archive: "bg-slate-400",
 };
+type SortMode = "name-asc" | "name-desc" | "cost-desc" | "cost-asc";
 
 function formatLocalDate(date: Date): string {
   const year = date.getFullYear();
@@ -140,6 +145,15 @@ function toNumeric(value?: string): number {
   if (!value) return 0;
   const n = Number(String(value).replace(",", "."));
   return Number.isFinite(n) ? n : 0;
+}
+
+function resolveSubscriptionLabel(subscriptionId: string): string {
+  const normalized = String(subscriptionId || "").toLowerCase();
+  if (normalized === "demo-sub-01") return "Demo Production Subscription";
+  if (normalized === "demo-sub-02") return "Demo Operations Subscription";
+  if (normalized === "demo-sub-03") return "Demo Analytics Subscription";
+  if (normalized === "demo-sub-04") return "Demo Security Subscription";
+  return subscriptionId || "unknown";
 }
 
 function forecast(costMtd: number, now: Date) {
@@ -181,6 +195,7 @@ export default function StorageFinopsCmpBoard({ family }: { family: StorageFinop
   const [storageAccountFilter, setStorageAccountFilter] = useState<string>("all");
   const [tierFilter, setTierFilter] = useState<string>("all");
   const [resourceGroupFilter, setResourceGroupFilter] = useState<string>("all");
+  const [sortMode, setSortMode] = useState<SortMode>("cost-desc");
   const [apiPotentialSavings, setApiPotentialSavings] = useState(0);
   const [efficiencyValue, setEfficiencyValue] = useState(0);
   const [tierDistribution, setTierDistribution] = useState<Record<string, TierStats>>({});
@@ -225,7 +240,9 @@ export default function StorageFinopsCmpBoard({ family }: { family: StorageFinop
         const mapped: ResourceRow[] = (body.accounts || []).map((acc) => ({
           id: acc.id,
           name: acc.name,
+          type: "microsoft.storage/storageaccounts",
           resourceGroup: acc.resourceGroup || "unknown",
+          subscriptionName: acc.subscriptionName || resolveSubscriptionLabel(acc.subscriptionId),
           tier: acc.tier || "N/A",
           region: acc.location || "unknown",
           state: "active",
@@ -268,7 +285,9 @@ export default function StorageFinopsCmpBoard({ family }: { family: StorageFinop
         const mapped: ResourceRow[] = (body.items || []).map((item, index) => ({
           id: `${family}-${index}-${item.serviceLabel}`,
           name: item.serviceLabel,
+          type: item.serviceLabel,
           resourceGroup: "-",
+          subscriptionName: "-",
           tier: "N/A",
           region: "global",
           state: "active",
@@ -333,19 +352,29 @@ export default function StorageFinopsCmpBoard({ family }: { family: StorageFinop
     });
   }, [items, family, storageAccountFilter, tierFilter, resourceGroupFilter]);
 
+  const sortedItems = useMemo(() => {
+    const sorted = [...filteredItems];
+    if (sortMode === "name-asc") sorted.sort((a, b) => a.name.localeCompare(b.name));
+    if (sortMode === "name-desc") sorted.sort((a, b) => b.name.localeCompare(a.name));
+    if (sortMode === "cost-desc") sorted.sort((a, b) => b.monthlyCostUsd - a.monthlyCostUsd);
+    if (sortMode === "cost-asc") sorted.sort((a, b) => a.monthlyCostUsd - b.monthlyCostUsd);
+    return sorted;
+  }, [filteredItems, sortMode]);
+
   useEffect(() => {
     setStorageAccountFilter("all");
     setTierFilter("all");
     setResourceGroupFilter("all");
+    setSortMode("cost-desc");
   }, [family, items.length]);
 
-  const selected = useMemo(() => filteredItems.find((item) => item.id === selectedResourceId) || null, [filteredItems, selectedResourceId]);
+  const selected = useMemo(() => sortedItems.find((item) => item.id === selectedResourceId) || null, [sortedItems, selectedResourceId]);
 
   useEffect(() => {
-    if (!selectedResourceId || !filteredItems.some((item) => item.id === selectedResourceId)) {
-      setSelectedResourceId(filteredItems[0]?.id || "");
+    if (!selectedResourceId || !sortedItems.some((item) => item.id === selectedResourceId)) {
+      setSelectedResourceId(sortedItems[0]?.id || "");
     }
-  }, [filteredItems, selectedResourceId]);
+  }, [sortedItems, selectedResourceId]);
 
   const derived = useMemo(() => {
     const mtdCost = round2(filteredItems.reduce((acc, item) => acc + (item.monthlyCostUsd || 0), 0));
@@ -418,7 +447,7 @@ export default function StorageFinopsCmpBoard({ family }: { family: StorageFinop
     };
   }, [filteredItems, apiPotentialSavings, efficiencyValue, t, config.recTitle, family]);
 
-  const { page, setPage, pageSize, setPageSize, total, totalPages, paged } = usePagination(filteredItems, 10);
+  const { page, setPage, pageSize, setPageSize, total, totalPages, paged } = usePagination(sortedItems, 15);
 
   if (!selectedTenant) {
     return <div className="rounded-2xl border border-slate-200 bg-white p-8 text-sm text-slate-600">{t("selectTenant")}</div>;
@@ -459,7 +488,7 @@ export default function StorageFinopsCmpBoard({ family }: { family: StorageFinop
       )}
 
       {family === "storage-accounts" && (
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm grid grid-cols-1 md:grid-cols-3 gap-3">
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm grid grid-cols-1 md:grid-cols-4 gap-3">
           <div>
             <label className="text-xs font-bold text-slate-500 uppercase">{t("filterStorageAccount")}</label>
             <select
@@ -497,6 +526,19 @@ export default function StorageFinopsCmpBoard({ family }: { family: StorageFinop
               {resourceGroupOptions.filter((value) => value !== "all").map((value) => (
                 <option key={value} value={value}>{value}</option>
               ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-bold text-slate-500 uppercase">{t("sortBy")}</label>
+            <select
+              value={sortMode}
+              onChange={(e) => setSortMode(e.target.value as SortMode)}
+              className="mt-1 w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+            >
+              <option value="name-asc">{t("sortAz")}</option>
+              <option value="name-desc">{t("sortZa")}</option>
+              <option value="cost-desc">{t("sortCostDesc")}</option>
+              <option value="cost-asc">{t("sortCostAsc")}</option>
             </select>
           </div>
         </section>
@@ -581,9 +623,9 @@ export default function StorageFinopsCmpBoard({ family }: { family: StorageFinop
           onChange={(e) => setSelectedResourceId(e.target.value)}
           className="mb-4 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 hover:border-slate-400"
         >
-          {filteredItems.map((item) => (
+          {sortedItems.map((item) => (
             <option key={item.id} value={item.id}>
-              {item.name} ({item.region})
+              {item.name} ({item.subscriptionName} · {item.region})
             </option>
           ))}
         </select>
@@ -591,6 +633,9 @@ export default function StorageFinopsCmpBoard({ family }: { family: StorageFinop
           <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
             <DetailCard label={t("detailResource")} value={selected.name} />
             <DetailCard label={t("detailRegion")} value={selected.region} />
+            <DetailCard label={t("detailSubscription")} value={selected.subscriptionName || t("na")} />
+            <DetailCard label={t("detailType")} value={selected.type || t("na")} />
+            <DetailCard label={t("detailResourceGroup")} value={selected.resourceGroup || t("na")} />
             <DetailCard label={t(config.metricALabelKey)} value={selected.metricA || t("na")} />
             <DetailCard label={t(config.metricBLabelKey)} value={selected.metricB || t("na")} />
             <DetailCard label={t("detailState")} value={selected.state || t("na")} />
@@ -605,27 +650,33 @@ export default function StorageFinopsCmpBoard({ family }: { family: StorageFinop
 
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h3 className="mb-4 text-sm font-semibold text-slate-900">{t("allResourcesTitle")}</h3>
-        {filteredItems.length === 0 ? (
+        {sortedItems.length === 0 ? (
           <p className="text-sm text-slate-600">{t("noResources")}</p>
         ) : (
           <>
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full min-w-full table-fixed text-left border-collapse">
                 <thead>
                   <tr>
-                    <th className="py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colResource")}</th>
-                    <th className="py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colRegion")}</th>
-                    <th className="py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colState")}</th>
-                    <th className="py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t(config.metricALabelKey)}</th>
-                    <th className="py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t(config.metricBLabelKey)}</th>
-                    <th className="py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">{t("colMonthlyCost")}</th>
+                    <ResizableTh minWidth={180} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colResource")}</ResizableTh>
+                    <ResizableTh minWidth={130} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colRegion")}</ResizableTh>
+                    <ResizableTh minWidth={180} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colSubscription")}</ResizableTh>
+                    <ResizableTh minWidth={170} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colType")}</ResizableTh>
+                    <ResizableTh minWidth={170} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colResourceGroup")}</ResizableTh>
+                    <ResizableTh minWidth={120} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colState")}</ResizableTh>
+                    <ResizableTh minWidth={120} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t(config.metricALabelKey)}</ResizableTh>
+                    <ResizableTh minWidth={120} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t(config.metricBLabelKey)}</ResizableTh>
+                    <ResizableTh minWidth={140} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">{t("colMonthlyCost")}</ResizableTh>
                   </tr>
                 </thead>
                 <tbody>
                   {paged.map((item) => (
                     <tr key={item.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="py-3 px-4 border-b border-slate-100 text-sm font-medium text-slate-900">{item.name}</td>
-                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-600">{item.region}</td>
+                      <td className="py-3 px-4 border-b border-slate-100 text-sm font-medium text-slate-900 whitespace-normal break-words">{item.name}</td>
+                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-600 whitespace-normal break-words">{item.region}</td>
+                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-600 whitespace-normal break-words">{item.subscriptionName || t("na")}</td>
+                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-600 whitespace-normal break-words">{item.type || t("na")}</td>
+                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-600 whitespace-normal break-words">{item.resourceGroup || t("na")}</td>
                       <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-600">{item.state || t("na")}</td>
                       <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-600">{item.metricA || t("na")}</td>
                       <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-600">{item.metricB || t("na")}</td>
@@ -635,7 +686,7 @@ export default function StorageFinopsCmpBoard({ family }: { family: StorageFinop
                 </tbody>
               </table>
             </div>
-            <Pagination page={page} setPage={setPage} pageSize={pageSize} setPageSize={setPageSize} total={total} totalPages={totalPages} />
+            <Pagination page={page} setPage={setPage} pageSize={pageSize} setPageSize={setPageSize} total={total} totalPages={totalPages} pageSizes={[15,30,45,60]} />
           </>
         )}
       </section>

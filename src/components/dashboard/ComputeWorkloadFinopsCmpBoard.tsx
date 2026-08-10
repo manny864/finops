@@ -19,6 +19,8 @@ import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { isMockTenant } from "@/lib/mockData";
 import Pagination, { usePagination } from "@/components/Pagination";
+import ResizableTh from "@/components/ResizableTh";
+import FinopsTableControls, { type FinopsTableOption } from "@/components/dashboard/FinopsTableControls";
 import type { ComputeFamily, ComputeWorkloadItemBase } from "@/lib/computeWorkloadTypes";
 
 interface WorkloadsResponse {
@@ -44,6 +46,10 @@ interface Recommendation {
   playbookKey: string;
 }
 
+const FILTER_ALL = "__all__";
+
+type SortMode = "name-asc" | "name-desc" | "cost-desc" | "cost-asc";
+
 function round2(value: number) {
   return Math.round(value * 100) / 100;
 }
@@ -52,6 +58,28 @@ function toNumeric(value: string | undefined): number {
   if (!value) return 0;
   const n = Number(String(value).replace(",", "."));
   return Number.isFinite(n) ? n : 0;
+}
+
+function formatMetricValueForDisplay(
+  family: ComputeFamily,
+  metric: "A" | "B",
+  value: string | undefined,
+  naLabel: string,
+): string {
+  if (!value || value === "N/A") return naLabel;
+  const numeric = Number(String(value).replace(",", "."));
+  if (!Number.isFinite(numeric)) return value;
+
+  if ((family === "vms" || family === "vmss" || family === "aro") && metric === "A") {
+    return `${round2(numeric)}%`;
+  }
+
+  if (family === "vms" && metric === "B") {
+    const gib = numeric / (1024 * 1024 * 1024);
+    return `${round2(gib)} GiB`;
+  }
+
+  return numeric.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
 function getFamilyConfig(family: ComputeFamily) {
@@ -135,6 +163,11 @@ export default function ComputeWorkloadFinopsCmpBoard({ family }: { family: Comp
   const [error, setError] = useState<string | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const [selectedResourceId, setSelectedResourceId] = useState<string>("");
+  const [resourceFilter, setResourceFilter] = useState<string>(FILTER_ALL);
+  const [regionFilter, setRegionFilter] = useState<string>(FILTER_ALL);
+  const [typeFilter, setTypeFilter] = useState<string>(FILTER_ALL);
+  const [resourceGroupFilter, setResourceGroupFilter] = useState<string>(FILTER_ALL);
+  const [sortMode, setSortMode] = useState<SortMode>("cost-desc");
 
   const fetchData = useCallback(async (isManual = false) => {
     if (!selectedTenant) return;
@@ -173,17 +206,6 @@ export default function ComputeWorkloadFinopsCmpBoard({ family }: { family: Comp
   useEffect(() => {
     void fetchData(false);
   }, [fetchData]);
-
-  useEffect(() => {
-    if (!selectedResourceId && items.length > 0) {
-      setSelectedResourceId(items[0].id);
-    }
-  }, [items, selectedResourceId]);
-
-  const selected = useMemo(
-    () => items.find((item) => item.id === selectedResourceId) || null,
-    [items, selectedResourceId]
-  );
 
   const derived = useMemo(() => {
     const mtdCost = round2(items.reduce((acc, item) => acc + (item.monthlyCostUsd || 0), 0));
@@ -252,7 +274,102 @@ export default function ComputeWorkloadFinopsCmpBoard({ family }: { family: Comp
     };
   }, [items, t, config.recTitle, family]);
 
-  const { page, setPage, pageSize, setPageSize, total, totalPages, paged } = usePagination(items, 10);
+  const resourceOptions = useMemo<FinopsTableOption[]>(() => [
+    { value: FILTER_ALL, label: t("allOption") },
+    ...items
+      .map((item) => item.name)
+      .filter((value, index, array) => array.indexOf(value) === index)
+      .sort((a, b) => a.localeCompare(b))
+      .map((value) => ({ value, label: value })),
+  ], [items, t]);
+
+  const regionOptions = useMemo<FinopsTableOption[]>(() => [
+    { value: FILTER_ALL, label: t("allOption") },
+    ...items
+      .map((item) => item.region || "unknown")
+      .filter((value, index, array) => array.indexOf(value) === index)
+      .sort((a, b) => a.localeCompare(b))
+      .map((value) => ({ value, label: value })),
+  ], [items, t]);
+
+  const typeOptions = useMemo<FinopsTableOption[]>(() => [
+    { value: FILTER_ALL, label: t("allOption") },
+    ...items
+      .map((item) => item.type || "unknown")
+      .filter((value, index, array) => array.indexOf(value) === index)
+      .sort((a, b) => a.localeCompare(b))
+      .map((value) => ({ value, label: value })),
+  ], [items, t]);
+
+  const resourceGroupOptions = useMemo<FinopsTableOption[]>(() => [
+    { value: FILTER_ALL, label: t("allOption") },
+    ...items
+      .map((item) => item.resourceGroup || "unknown")
+      .filter((value, index, array) => array.indexOf(value) === index)
+      .sort((a, b) => a.localeCompare(b))
+      .map((value) => ({ value, label: value })),
+  ], [items, t]);
+
+  const sortOptions = useMemo<FinopsTableOption[]>(() => [
+    { value: "name-asc", label: t("sortAz") },
+    { value: "name-desc", label: t("sortZa") },
+    { value: "cost-desc", label: t("sortCostDesc") },
+    { value: "cost-asc", label: t("sortCostAsc") },
+  ], [t]);
+
+  const filteredSortedItems = useMemo(() => {
+    const filtered = items.filter((item) => {
+      if (resourceFilter !== FILTER_ALL && item.name !== resourceFilter) return false;
+      if (regionFilter !== FILTER_ALL && (item.region || "unknown") !== regionFilter) return false;
+      if (typeFilter !== FILTER_ALL && (item.type || "unknown") !== typeFilter) return false;
+      if (resourceGroupFilter !== FILTER_ALL && (item.resourceGroup || "unknown") !== resourceGroupFilter) return false;
+      return true;
+    });
+
+    const sorted = [...filtered];
+    if (sortMode === "name-asc") sorted.sort((a, b) => a.name.localeCompare(b.name));
+    if (sortMode === "name-desc") sorted.sort((a, b) => b.name.localeCompare(a.name));
+    if (sortMode === "cost-desc") sorted.sort((a, b) => (b.monthlyCostUsd || 0) - (a.monthlyCostUsd || 0));
+    if (sortMode === "cost-asc") sorted.sort((a, b) => (a.monthlyCostUsd || 0) - (b.monthlyCostUsd || 0));
+    return sorted;
+  }, [items, resourceFilter, regionFilter, typeFilter, resourceGroupFilter, sortMode]);
+
+  const filteredComparison = useMemo(() => {
+    const byRegion = new Map<string, { count: number; cost: number }>();
+    for (const item of filteredSortedItems) {
+      const key = item.region || "unknown";
+      const curr = byRegion.get(key) || { count: 0, cost: 0 };
+      curr.count += 1;
+      curr.cost += item.monthlyCostUsd || 0;
+      byRegion.set(key, curr);
+    }
+    return Array.from(byRegion.entries())
+      .map(([region, info]) => ({
+        region,
+        count: info.count,
+        cost: round2(info.cost),
+        avgCost: round2(info.cost / Math.max(1, info.count)),
+      }))
+      .sort((a, b) => b.cost - a.cost)
+      .slice(0, 8);
+  }, [filteredSortedItems]);
+
+  useEffect(() => {
+    if (filteredSortedItems.length === 0) {
+      setSelectedResourceId("");
+      return;
+    }
+    if (!filteredSortedItems.some((item) => item.id === selectedResourceId)) {
+      setSelectedResourceId(filteredSortedItems[0].id);
+    }
+  }, [filteredSortedItems, selectedResourceId]);
+
+  const selected = useMemo(
+    () => filteredSortedItems.find((item) => item.id === selectedResourceId) || null,
+    [filteredSortedItems, selectedResourceId]
+  );
+
+  const { page, setPage, pageSize, setPageSize, total, totalPages, paged } = usePagination(filteredSortedItems, 15);
 
   if (!selectedTenant) {
     return <div className="rounded-2xl border border-slate-200 bg-white p-8 text-sm text-slate-600">{t("selectTenant")}</div>;
@@ -283,6 +400,31 @@ export default function ComputeWorkloadFinopsCmpBoard({ family }: { family: Comp
         </div>
       </section>
 
+      <FinopsTableControls
+        resourceOptions={resourceOptions}
+        regionOptions={regionOptions}
+        typeOptions={typeOptions}
+        resourceGroupOptions={resourceGroupOptions}
+        sortOptions={sortOptions}
+        selectedResource={resourceFilter}
+        selectedRegion={regionFilter}
+        selectedType={typeFilter}
+        selectedResourceGroup={resourceGroupFilter}
+        selectedSort={sortMode}
+        onResourceChange={setResourceFilter}
+        onRegionChange={setRegionFilter}
+        onTypeChange={setTypeFilter}
+        onResourceGroupChange={setResourceGroupFilter}
+        onSortChange={(value) => setSortMode(value as SortMode)}
+        labels={{
+          resource: t("filterResource"),
+          region: t("filterRegion"),
+          type: t("filterType"),
+          resourceGroup: t("filterResourceGroup"),
+          sort: t("sortBy"),
+        }}
+      />
+
       {error && (
         <section className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
           <div className="flex items-start gap-2">
@@ -300,10 +442,10 @@ export default function ComputeWorkloadFinopsCmpBoard({ family }: { family: Comp
       </section>
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <KpiCard title={t("kpiResources")} value={String(items.length)} icon={<CheckCircle2 className="h-5 w-5 text-cyan-600" />} />
+        <KpiCard title={t("kpiResources")} value={String(filteredSortedItems.length)} icon={<CheckCircle2 className="h-5 w-5 text-cyan-600" />} />
         <KpiCard title={t("kpiUnderutilized")} value={String(derived.underutilized)} icon={<Gauge className="h-5 w-5 text-amber-600" />} />
         <KpiCard title={t("kpiHealth")} value={`${derived.healthScore.toFixed(1)} / 100`} subtitle={t("criticalAlerts", { count: derived.criticalAlerts })} icon={<ShieldAlert className="h-5 w-5 text-rose-600" />} />
-        <KpiCard title={t("kpiAvgCost")} value={format(items.length > 0 ? derived.mtdCost / items.length : 0)} icon={<Wallet className="h-5 w-5 text-indigo-600" />} />
+        <KpiCard title={t("kpiAvgCost")} value={format(filteredSortedItems.length > 0 ? filteredSortedItems.reduce((acc, item) => acc + (item.monthlyCostUsd || 0), 0) / filteredSortedItems.length : 0)} icon={<Wallet className="h-5 w-5 text-indigo-600" />} />
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -313,9 +455,9 @@ export default function ComputeWorkloadFinopsCmpBoard({ family }: { family: Comp
           onChange={(e) => setSelectedResourceId(e.target.value)}
           className="mb-4 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 hover:border-slate-400"
         >
-          {items.map((item) => (
+          {filteredSortedItems.map((item) => (
             <option key={item.id} value={item.id}>
-              {item.name} ({item.region})
+              {item.name} ({item.subscriptionName} · {item.region} · {item.resourceGroup})
             </option>
           ))}
         </select>
@@ -323,8 +465,11 @@ export default function ComputeWorkloadFinopsCmpBoard({ family }: { family: Comp
           <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
             <DetailCard label={t("detailResource")} value={selected.name} />
             <DetailCard label={t("detailRegion")} value={selected.region} />
-            <DetailCard label={t(config.metricALabelKey)} value={selected.metricA || t("na")} />
-            <DetailCard label={t(config.metricBLabelKey)} value={selected.metricB || t("na")} />
+            <DetailCard label={t("detailSubscription")} value={selected.subscriptionName || t("na")} />
+            <DetailCard label={t("detailType")} value={selected.type || t("na")} />
+            <DetailCard label={t("detailResourceGroup")} value={selected.resourceGroup || t("na")} />
+            <DetailCard label={t(config.metricALabelKey)} value={formatMetricValueForDisplay(family, "A", selected.metricA, t("na"))} />
+            <DetailCard label={t(config.metricBLabelKey)} value={formatMetricValueForDisplay(family, "B", selected.metricB, t("na"))} />
             <DetailCard label={t("detailState")} value={selected.state || t("na")} />
             <DetailCard label={t("detailSku")} value={selected.sku || t("na")} />
             <DetailCard label={t("detailMonthlyCost")} value={format(selected.monthlyCostUsd || 0)} />
@@ -337,37 +482,51 @@ export default function ComputeWorkloadFinopsCmpBoard({ family }: { family: Comp
 
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h3 className="mb-4 text-sm font-semibold text-slate-900">{t("allResourcesTitle")}</h3>
-        {items.length === 0 ? (
+        {filteredSortedItems.length === 0 ? (
           <p className="text-sm text-slate-600">{t("noResources")}</p>
         ) : (
           <>
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full min-w-full table-fixed text-left border-collapse">
                 <thead>
                   <tr>
-                    <th className="py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colResource")}</th>
-                    <th className="py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colRegion")}</th>
-                    <th className="py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colState")}</th>
-                    <th className="py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t(config.metricALabelKey)}</th>
-                    <th className="py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t(config.metricBLabelKey)}</th>
-                    <th className="py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">{t("colMonthlyCost")}</th>
+                    <ResizableTh minWidth={180} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colResource")}</ResizableTh>
+                    <ResizableTh minWidth={130} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colRegion")}</ResizableTh>
+                    <ResizableTh minWidth={180} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colSubscription")}</ResizableTh>
+                    <ResizableTh minWidth={170} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colType")}</ResizableTh>
+                    <ResizableTh minWidth={170} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colResourceGroup")}</ResizableTh>
+                    <ResizableTh minWidth={120} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colState")}</ResizableTh>
+                    <ResizableTh minWidth={120} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t(config.metricALabelKey)}</ResizableTh>
+                    <ResizableTh minWidth={120} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t(config.metricBLabelKey)}</ResizableTh>
+                    <ResizableTh minWidth={140} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">{t("colMonthlyCost")}</ResizableTh>
                   </tr>
                 </thead>
                 <tbody>
                   {paged.map((item) => (
                     <tr key={item.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="py-3 px-4 border-b border-slate-100 text-sm font-medium text-slate-900">{item.name}</td>
-                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-600">{item.region}</td>
+                      <td className="py-3 px-4 border-b border-slate-100 text-sm font-medium text-slate-900 whitespace-normal break-words">{item.name}</td>
+                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-600 whitespace-normal break-words">{item.region}</td>
+                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-600 whitespace-normal break-words">{item.subscriptionName || t("na")}</td>
+                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-600 whitespace-normal break-words">{item.type || t("na")}</td>
+                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-600 whitespace-normal break-words">{item.resourceGroup || t("na")}</td>
                       <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-600">{item.state || t("na")}</td>
-                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-600">{item.metricA || t("na")}</td>
-                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-600">{item.metricB || t("na")}</td>
+                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-600">{formatMetricValueForDisplay(family, "A", item.metricA, t("na"))}</td>
+                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-600">{formatMetricValueForDisplay(family, "B", item.metricB, t("na"))}</td>
                       <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-900 text-right">{format(item.monthlyCostUsd || 0)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <Pagination page={page} setPage={setPage} pageSize={pageSize} setPageSize={setPageSize} total={total} totalPages={totalPages} />
+            <Pagination
+              page={page}
+              setPage={setPage}
+              pageSize={pageSize}
+              setPageSize={setPageSize}
+              total={total}
+              totalPages={totalPages}
+              pageSizes={[15, 30, 45, 60]}
+            />
           </>
         )}
       </section>
@@ -401,23 +560,23 @@ export default function ComputeWorkloadFinopsCmpBoard({ family }: { family: Comp
 
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h3 className="mb-4 text-sm font-semibold text-slate-900">{t("comparisonTitle")}</h3>
-        {derived.comparison.length === 0 ? (
+        {filteredComparison.length === 0 ? (
           <p className="text-sm text-slate-600">{t("noComparisonData")}</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full min-w-full table-fixed text-left border-collapse">
               <thead>
                 <tr>
-                  <th className="py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colDimension")}</th>
-                  <th className="py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">{t("colResources")}</th>
-                  <th className="py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">{t("colMonthlyCost")}</th>
-                  <th className="py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">{t("colAvgCost")}</th>
+                  <ResizableTh minWidth={160} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colDimension")}</ResizableTh>
+                  <ResizableTh minWidth={120} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">{t("colResources")}</ResizableTh>
+                  <ResizableTh minWidth={140} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">{t("colMonthlyCost")}</ResizableTh>
+                  <ResizableTh minWidth={140} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">{t("colAvgCost")}</ResizableTh>
                 </tr>
               </thead>
               <tbody>
-                {derived.comparison.map((row) => (
+                {filteredComparison.map((row) => (
                   <tr key={row.region}>
-                    <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-700">{row.region}</td>
+                    <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-700 whitespace-normal break-words">{row.region}</td>
                     <td className="py-3 px-4 border-b border-slate-100 text-sm text-right text-slate-700">{row.count}</td>
                     <td className="py-3 px-4 border-b border-slate-100 text-sm text-right text-slate-900">{format(row.cost)}</td>
                     <td className="py-3 px-4 border-b border-slate-100 text-sm text-right text-slate-700">{format(row.avgCost)}</td>

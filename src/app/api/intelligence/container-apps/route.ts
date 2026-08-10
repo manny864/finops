@@ -13,7 +13,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, requireTenantTier, AuthError } from "@/lib/requestAuth";
 import { getContainerAppsCost } from "@/modules/collectors/azure/containerAppsCostService";
 import { isMockTenant } from "@/lib/mockData";
-import { getResourceGraphClient } from "@/lib/azure";
+import { getAzureCredential, getResourceGraphClient } from "@/lib/azure";
+import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { withArgLimit } from "@/lib/argConcurrency";
 
@@ -36,6 +37,7 @@ export async function GET(request: NextRequest) {
         // la primera suscripción que tenga Container Apps.
         let targetSubscriptionId = searchParams.get("subscriptionId") || "";
         let availableSubscriptions: string[] = [];
+        let selectedSubscriptionName = "N/A";
 
         if (!isMockTenant(tenantId)) {
             try {
@@ -76,6 +78,12 @@ export async function GET(request: NextRequest) {
             if (!targetSubscriptionId || !availableSubscriptions.includes(targetSubscriptionId)) {
                 targetSubscriptionId = availableSubscriptions[0];
             }
+
+            const credential = await getAzureCredential(tenantId);
+            const subscriptionNameMap = await getSubscriptionNameMap(tenantId, credential);
+            selectedSubscriptionName = resolveSubscriptionName(targetSubscriptionId, subscriptionNameMap) || targetSubscriptionId;
+        } else {
+            selectedSubscriptionName = "Demo Subscription";
         }
 
         const data = await getWithStaleWhileRevalidate(
@@ -85,7 +93,7 @@ export async function GET(request: NextRequest) {
             600
         );
 
-        return NextResponse.json({ success: true, ...data, availableSubscriptions });
+        return NextResponse.json({ success: true, ...data, availableSubscriptions, selectedSubscriptionName });
     } catch (error: unknown) {
         if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
         console.error("Container Apps API Error:", error);

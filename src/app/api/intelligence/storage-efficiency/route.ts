@@ -11,6 +11,7 @@ import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { getResourceGraphClient, getAzureCredential } from "@/lib/azure";
+import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
 import { withArgLimit } from "@/lib/argConcurrency";
 
 export const dynamic = "force-dynamic";
@@ -538,6 +539,7 @@ export async function GET(request: NextRequest) {
 
                 if (subs.length > 0) {
                     const rawAccounts = await fetchAllStorageAccountsFromARG(tenantId, subs);
+                    const credential = await getAzureCredential(tenantId);
                     const attributionRows = await queryStorageAccountAttributionRows(tenantId, days, startDate, endDate);
                     const costByResourceId = new Map<string, number>();
                     const capacityCostByResourceId = new Map<string, number>();
@@ -588,6 +590,7 @@ export async function GET(request: NextRequest) {
                     await Promise.all(uniqueRegions.map(async (region) => {
                         ratesByRegion.set(region, await fetchBlobRatesByRegion(region));
                     }));
+                    const subscriptionNameMap = await getSubscriptionNameMap(tenantId, credential);
 
                     accounts = rawAccounts.map((acc: any) => {
                         const skuStr = String(acc.sku?.name || acc.sku || "");
@@ -639,6 +642,7 @@ export async function GET(request: NextRequest) {
                             name: acc.name,
                             resourceGroup: acc.resourceGroup,
                             subscriptionId: acc.subscriptionId,
+                            subscriptionName: resolveSubscriptionName(acc.subscriptionId, subscriptionNameMap) || acc.subscriptionId,
                             location: acc.location,
                             tier: tierFormatted,
                             kind: acc.kind,

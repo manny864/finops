@@ -20,11 +20,14 @@ import { useCurrency } from "@/components/CurrencyProvider";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { isMockTenant } from "@/lib/mockData";
 import Pagination, { usePagination } from "@/components/Pagination";
+import ResizableTh from "@/components/ResizableTh";
+import FinopsTableControls, { type FinopsTableOption } from "@/components/dashboard/FinopsTableControls";
 
 type ActionType = "manual" | "guided" | "automatic";
 type RiskLevel = "low" | "medium" | "high";
 type Confidence = "low" | "medium" | "high";
 type ResourceType = "containerapp" | "registry" | "environment";
+type SortMode = "name-asc" | "name-desc" | "cost-desc" | "cost-asc";
 
 interface AppRow {
   name: string;
@@ -70,6 +73,7 @@ interface ContainersResponse {
   apps?: AppRow[];
   registries?: RegistryRow[];
   environments?: EnvironmentRow[];
+  selectedSubscriptionName?: string;
 }
 
 interface Recommendation {
@@ -87,6 +91,8 @@ interface UnifiedRow {
   type: ResourceType;
   name: string;
   resourceGroup: string;
+  region: string;
+  subscriptionName: string;
   location?: string;
   monthlyCost: number;
   potentialSaving: number;
@@ -97,6 +103,8 @@ interface UnifiedRow {
   sku?: string;
   appCount?: number;
 }
+
+const FILTER_ALL = "__all__";
 
 function round2(value: number) {
   return Math.round(value * 100) / 100;
@@ -188,6 +196,11 @@ export function ContainersFinopsCmpBoard() {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const [selectedResourceId, setSelectedResourceId] = useState<string>("");
+  const [resourceFilter, setResourceFilter] = useState<string>(FILTER_ALL);
+  const [regionFilter, setRegionFilter] = useState<string>(FILTER_ALL);
+  const [typeFilter, setTypeFilter] = useState<string>(FILTER_ALL);
+  const [resourceGroupFilter, setResourceGroupFilter] = useState<string>(FILTER_ALL);
+  const [sortMode, setSortMode] = useState<SortMode>("cost-desc");
 
   const fetchData = useCallback(async (isManual = false) => {
     if (!selectedTenant) return;
@@ -262,6 +275,8 @@ export function ContainersFinopsCmpBoard() {
         type: "containerapp" as const,
         name: a.name,
         resourceGroup: a.resourceGroup,
+        region: "-",
+        subscriptionName: data?.selectedSubscriptionName || "-",
         location: undefined,
         monthlyCost: a.monthlyCost,
         potentialSaving: a.potentialSaving,
@@ -275,6 +290,8 @@ export function ContainersFinopsCmpBoard() {
         type: "registry" as const,
         name: r.name,
         resourceGroup: r.resourceGroup,
+        region: r.location || "-",
+        subscriptionName: data?.selectedSubscriptionName || "-",
         location: r.location || "-",
         monthlyCost: r.monthlyCost,
         potentialSaving: round2(r.monthlyCost * 0.12),
@@ -285,6 +302,8 @@ export function ContainersFinopsCmpBoard() {
         type: "environment" as const,
         name: e.name,
         resourceGroup: e.resourceGroup,
+        region: e.location || "-",
+        subscriptionName: data?.selectedSubscriptionName || "-",
         location: e.location || "-",
         monthlyCost: e.monthlyCost,
         potentialSaving: e.appCount <= 1 ? round2(e.monthlyCost * 0.15) : 0,
@@ -330,15 +349,99 @@ export function ContainersFinopsCmpBoard() {
     };
   }, [data]);
 
-  useEffect(() => {
-    if (!selectedResourceId && derived.unifiedRows.length > 0) {
-      setSelectedResourceId(derived.unifiedRows[0].id);
+  const resourceOptions = useMemo<FinopsTableOption[]>(() => [
+    { value: FILTER_ALL, label: t("allOption") },
+    ...derived.unifiedRows
+      .map((row) => row.name)
+      .filter((value, index, array) => array.indexOf(value) === index)
+      .sort((a, b) => a.localeCompare(b))
+      .map((value) => ({ value, label: value })),
+  ], [derived.unifiedRows, t]);
+
+  const regionOptions = useMemo<FinopsTableOption[]>(() => [
+    { value: FILTER_ALL, label: t("allOption") },
+    ...derived.unifiedRows
+      .map((row) => row.region || "-")
+      .filter((value, index, array) => array.indexOf(value) === index)
+      .sort((a, b) => a.localeCompare(b))
+      .map((value) => ({ value, label: value })),
+  ], [derived.unifiedRows, t]);
+
+  const typeOptions = useMemo<FinopsTableOption[]>(() => [
+    { value: FILTER_ALL, label: t("allOption") },
+    ...derived.unifiedRows
+      .map((row) => row.type)
+      .filter((value, index, array) => array.indexOf(value) === index)
+      .sort((a, b) => a.localeCompare(b))
+      .map((value) => ({ value, label: t(`type_${value}`) })),
+  ], [derived.unifiedRows, t]);
+
+  const resourceGroupOptions = useMemo<FinopsTableOption[]>(() => [
+    { value: FILTER_ALL, label: t("allOption") },
+    ...derived.unifiedRows
+      .map((row) => row.resourceGroup || "unknown")
+      .filter((value, index, array) => array.indexOf(value) === index)
+      .sort((a, b) => a.localeCompare(b))
+      .map((value) => ({ value, label: value })),
+  ], [derived.unifiedRows, t]);
+
+  const sortOptions = useMemo<FinopsTableOption[]>(() => [
+    { value: "name-asc", label: t("sortAz") },
+    { value: "name-desc", label: t("sortZa") },
+    { value: "cost-desc", label: t("sortCostDesc") },
+    { value: "cost-asc", label: t("sortCostAsc") },
+  ], [t]);
+
+  const filteredRows = useMemo(() => {
+    const filtered = derived.unifiedRows.filter((row) => {
+      if (resourceFilter !== FILTER_ALL && row.name !== resourceFilter) return false;
+      if (regionFilter !== FILTER_ALL && (row.region || "-") !== regionFilter) return false;
+      if (typeFilter !== FILTER_ALL && row.type !== typeFilter) return false;
+      if (resourceGroupFilter !== FILTER_ALL && (row.resourceGroup || "unknown") !== resourceGroupFilter) return false;
+      return true;
+    });
+
+    const sorted = [...filtered];
+    if (sortMode === "name-asc") sorted.sort((a, b) => a.name.localeCompare(b.name));
+    if (sortMode === "name-desc") sorted.sort((a, b) => b.name.localeCompare(a.name));
+    if (sortMode === "cost-desc") sorted.sort((a, b) => b.monthlyCost - a.monthlyCost);
+    if (sortMode === "cost-asc") sorted.sort((a, b) => a.monthlyCost - b.monthlyCost);
+    return sorted;
+  }, [derived.unifiedRows, resourceFilter, regionFilter, typeFilter, resourceGroupFilter, sortMode]);
+
+  const filteredComparison = useMemo(() => {
+    const byResourceGroup = new Map<string, { count: number; cost: number }>();
+    for (const row of filteredRows) {
+      const key = row.resourceGroup || "unknown";
+      const curr = byResourceGroup.get(key) || { count: 0, cost: 0 };
+      curr.count += 1;
+      curr.cost += row.monthlyCost || 0;
+      byResourceGroup.set(key, curr);
     }
-  }, [derived.unifiedRows, selectedResourceId]);
+    return Array.from(byResourceGroup.entries())
+      .map(([resourceGroup, info]) => ({
+        resourceGroup,
+        count: info.count,
+        cost: round2(info.cost),
+        avgCost: round2(info.cost / Math.max(1, info.count)),
+      }))
+      .sort((a, b) => b.cost - a.cost)
+      .slice(0, 8);
+  }, [filteredRows]);
+
+  useEffect(() => {
+    if (filteredRows.length === 0) {
+      setSelectedResourceId("");
+      return;
+    }
+    if (!filteredRows.some((row) => row.id === selectedResourceId)) {
+      setSelectedResourceId(filteredRows[0].id);
+    }
+  }, [filteredRows, selectedResourceId]);
 
   const selectedResource = useMemo(
-    () => derived.unifiedRows.find((r) => r.id === selectedResourceId) || null,
-    [derived.unifiedRows, selectedResourceId]
+    () => filteredRows.find((r) => r.id === selectedResourceId) || null,
+    [filteredRows, selectedResourceId]
   );
 
   const {
@@ -349,7 +452,7 @@ export function ContainersFinopsCmpBoard() {
     total,
     totalPages,
     paged,
-  } = usePagination(derived.unifiedRows, 10);
+  } = usePagination(filteredRows, 15);
 
   if (!selectedTenant) {
     return <div className="rounded-2xl border border-slate-200 bg-white p-8 text-sm text-slate-600">{t("selectTenant")}</div>;
@@ -379,6 +482,31 @@ export function ContainersFinopsCmpBoard() {
           </button>
         </div>
       </section>
+
+      <FinopsTableControls
+        resourceOptions={resourceOptions}
+        regionOptions={regionOptions}
+        typeOptions={typeOptions}
+        resourceGroupOptions={resourceGroupOptions}
+        sortOptions={sortOptions}
+        selectedResource={resourceFilter}
+        selectedRegion={regionFilter}
+        selectedType={typeFilter}
+        selectedResourceGroup={resourceGroupFilter}
+        selectedSort={sortMode}
+        onResourceChange={setResourceFilter}
+        onRegionChange={setRegionFilter}
+        onTypeChange={setTypeFilter}
+        onResourceGroupChange={setResourceGroupFilter}
+        onSortChange={(value) => setSortMode(value as SortMode)}
+        labels={{
+          resource: t("filterResource"),
+          region: t("filterRegion"),
+          type: t("filterType"),
+          resourceGroup: t("filterResourceGroup"),
+          sort: t("sortBy"),
+        }}
+      />
 
       {error && (
         <section className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
@@ -410,15 +538,22 @@ export function ContainersFinopsCmpBoard() {
           onChange={(e) => setSelectedResourceId(e.target.value)}
           className="mb-4 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 hover:border-slate-400"
         >
-          {derived.unifiedRows.map((row) => (
+          {filteredRows.map((row) => (
             <option key={row.id} value={row.id}>
-              {row.name} ({row.resourceGroup})
+              {row.name} ({row.subscriptionName} · {row.region} · {row.resourceGroup})
             </option>
           ))}
         </select>
 
         {selectedResource ? (
           <>
+            <div className="mb-3 grid grid-cols-1 gap-3 md:grid-cols-5">
+              <DetailCard label={t("detailResource")} value={selectedResource.name} />
+              <DetailCard label={t("detailRegion")} value={selectedResource.region || "-"} />
+              <DetailCard label={t("detailSubscription")} value={selectedResource.subscriptionName || "-"} />
+              <DetailCard label={t("detailType")} value={t(`type_${selectedResource.type}`)} />
+              <DetailCard label={t("detailResourceGroup")} value={selectedResource.resourceGroup || "-"} />
+            </div>
             {selectedResource.type === "containerapp" && (
               <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
                 <DetailCard
@@ -457,27 +592,31 @@ export function ContainersFinopsCmpBoard() {
 
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h3 className="mb-4 text-sm font-semibold text-slate-900">{t("allResourcesTitle")}</h3>
-        {derived.unifiedRows.length === 0 ? (
+        {filteredRows.length === 0 ? (
           <p className="text-sm text-slate-600">{t("noResources")}</p>
         ) : (
           <>
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full min-w-full table-fixed text-left border-collapse">
                 <thead>
                   <tr>
-                    <th className="py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colName")}</th>
-                    <th className="py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colType")}</th>
-                    <th className="py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colResourceGroup")}</th>
-                    <th className="py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">{t("colMonthlyCost")}</th>
-                    <th className="py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">{t("colPotentialSaving")}</th>
+                    <ResizableTh minWidth={180} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colResource")}</ResizableTh>
+                    <ResizableTh minWidth={130} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colRegion")}</ResizableTh>
+                    <ResizableTh minWidth={180} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colSubscription")}</ResizableTh>
+                    <ResizableTh minWidth={170} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colType")}</ResizableTh>
+                    <ResizableTh minWidth={170} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colResourceGroup")}</ResizableTh>
+                    <ResizableTh minWidth={140} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">{t("colMonthlyCost")}</ResizableTh>
+                    <ResizableTh minWidth={140} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">{t("colPotentialSaving")}</ResizableTh>
                   </tr>
                 </thead>
                 <tbody>
                   {paged.map((row) => (
                     <tr key={row.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="py-3 px-4 border-b border-slate-100 font-medium text-sm text-slate-900">{row.name}</td>
-                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-600">{t(`type_${row.type}`)}</td>
-                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-600">{row.resourceGroup}</td>
+                      <td className="py-3 px-4 border-b border-slate-100 font-medium text-sm text-slate-900 whitespace-normal break-words">{row.name}</td>
+                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-600 whitespace-normal break-words">{row.region || "-"}</td>
+                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-600 whitespace-normal break-words">{row.subscriptionName || "-"}</td>
+                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-600 whitespace-normal break-words">{t(`type_${row.type}`)}</td>
+                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-600 whitespace-normal break-words">{row.resourceGroup}</td>
                       <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-900 text-right">{format(row.monthlyCost)}</td>
                       <td className="py-3 px-4 border-b border-slate-100 text-sm text-emerald-700 text-right">{format(row.potentialSaving)}</td>
                     </tr>
@@ -485,7 +624,15 @@ export function ContainersFinopsCmpBoard() {
                 </tbody>
               </table>
             </div>
-            <Pagination page={page} setPage={setPage} pageSize={pageSize} setPageSize={setPageSize} total={total} totalPages={totalPages} />
+            <Pagination
+              page={page}
+              setPage={setPage}
+              pageSize={pageSize}
+              setPageSize={setPageSize}
+              total={total}
+              totalPages={totalPages}
+              pageSizes={[15, 30, 45, 60]}
+            />
           </>
         )}
       </section>
@@ -519,23 +666,23 @@ export function ContainersFinopsCmpBoard() {
 
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h3 className="mb-4 text-sm font-semibold text-slate-900">{t("comparisonTitle")}</h3>
-        {derived.comparison.length === 0 ? (
+        {filteredComparison.length === 0 ? (
           <p className="text-sm text-slate-600">{t("noComparisonData")}</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full min-w-full table-fixed text-left border-collapse">
               <thead>
                 <tr>
-                  <th className="py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colDimension")}</th>
-                  <th className="py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">{t("colResources")}</th>
-                  <th className="py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">{t("colMonthlyCost")}</th>
-                  <th className="py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">{t("colAvgCost")}</th>
+                  <ResizableTh minWidth={160} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colDimension")}</ResizableTh>
+                  <ResizableTh minWidth={120} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">{t("colResources")}</ResizableTh>
+                  <ResizableTh minWidth={140} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">{t("colMonthlyCost")}</ResizableTh>
+                  <ResizableTh minWidth={140} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">{t("colAvgCost")}</ResizableTh>
                 </tr>
               </thead>
               <tbody>
-                {derived.comparison.map((row) => (
+                {filteredComparison.map((row) => (
                   <tr key={row.resourceGroup}>
-                    <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-700">{row.resourceGroup}</td>
+                    <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-700 whitespace-normal break-words">{row.resourceGroup}</td>
                     <td className="py-3 px-4 border-b border-slate-100 text-sm text-right text-slate-700">{row.count}</td>
                     <td className="py-3 px-4 border-b border-slate-100 text-sm text-right text-slate-900">{format(row.cost)}</td>
                     <td className="py-3 px-4 border-b border-slate-100 text-sm text-right text-slate-700">{format(row.avgCost)}</td>

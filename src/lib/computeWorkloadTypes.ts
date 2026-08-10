@@ -11,6 +11,8 @@ export interface ComputeWorkloadItemBase {
     name: string;
     type: string;
     region: string;
+    resourceGroup: string;
+    subscriptionName: string;
     state: string;
     sku: string;
     monthlyCostUsd: number;

@@ -3,6 +3,7 @@ import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
 import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
 import { isMockTenant } from "@/lib/mockData";
 import { redis } from "@/lib/redis";
+import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
 import {
     distributeCostPerResource,
     getMonthlyCostByType,
@@ -63,10 +64,10 @@ function toLowerSafe(value: unknown): string {
     return String(value || "").toLowerCase();
 }
 
-function summarizeNumeric(values: number[]): string {
-    if (values.length === 0) return "N/A";
+function summarizeNumeric(values: number[]): number | null {
+    if (values.length === 0) return null;
     const avg = values.reduce((a, b) => a + b, 0) / values.length;
-    return Number(avg.toFixed(2)).toString();
+    return Number(avg.toFixed(4));
 }
 
 function normalizeState(raw: string): string {
@@ -136,7 +137,7 @@ async function getMetricsSummary(
     credential: any,
     resourceId: string,
     metricNames: string[],
-): Promise<Record<string, string>> {
+): Promise<Record<string, number | null>> {
     try {
         const token = await credential.getToken("https://management.azure.com/.default");
         if (!token?.token) return {};
@@ -155,13 +156,18 @@ async function getMetricsSummary(
         });
         if (!response.ok) return {};
         const payload: any = await response.json();
-        const result: Record<string, string> = {};
+        const result: Record<string, number | null> = {};
         for (const metric of payload.value || []) {
             const name = String(metric?.name?.value || "");
             const points = (metric.timeseries?.[0]?.data || []) as Array<Record<string, number>>;
             const numbers = points
-                .flatMap((p) => [p.average, p.maximum, p.total])
-                .filter((v) => typeof v === "number") as number[];
+                .map((p) => {
+                    if (typeof p.average === "number") return p.average;
+                    if (typeof p.maximum === "number") return p.maximum;
+                    if (typeof p.total === "number") return p.total;
+                    return null;
+                })
+                .filter((v): v is number => typeof v === "number");
             result[name] = summarizeNumeric(numbers);
         }
         return result;
@@ -197,6 +203,8 @@ export async function GET(request: NextRequest) {
                             name: `${family}-demo-1`,
                             type: FAMILY_TYPES[family][0],
                             region: "eastus",
+                            resourceGroup: "rg-demo-finops-a",
+                            subscriptionName: "Demo Production Subscription",
                             state: "running",
                             sku: "Standard",
                             monthlyCostUsd: 210.25,
@@ -208,6 +216,8 @@ export async function GET(request: NextRequest) {
                             name: `${family}-demo-2`,
                             type: FAMILY_TYPES[family][0],
                             region: "westus2",
+                            resourceGroup: "rg-demo-finops-b",
+                            subscriptionName: "Demo Sandbox Subscription",
                             state: "running",
                             sku: "Standard",
                             monthlyCostUsd: 210.25,
@@ -285,22 +295,28 @@ export async function GET(request: NextRequest) {
             costTypes,
         );
         const costPerResource = distributeCostPerResource(resources, costByType);
+        const subscriptionNameMap = await getSubscriptionNameMap(tenantId, credential);
 
         const items: ComputeWorkloadItemBase[] = [];
         const topResources = resources.slice(0, 20);
         for (const resource of topResources) {
             const metrics = await getMetricsSummary(credential, resource.id, FAMILY_METRICS[family]);
-            const metricValues = Object.values(metrics);
+            const metricAName = FAMILY_METRICS[family][0];
+            const metricBName = FAMILY_METRICS[family][1];
+            const metricAValue = metrics[metricAName];
+            const metricBValue = metrics[metricBName];
             items.push({
                 id: resource.id,
                 name: resource.name,
                 type: resource.type,
                 region: resource.location || "unknown",
+                resourceGroup: resource.resourceGroup || "unknown",
+                subscriptionName: resolveSubscriptionName(resource.subscriptionId, subscriptionNameMap) || "unknown",
                 state: resolveState(resource, family),
                 sku: resolveSku(resource, family),
                 monthlyCostUsd: costPerResource.get(resource.id) || 0,
-                metricA: metricValues[0] || "N/A",
-                metricB: metricValues[1] || "N/A",
+                metricA: metricAValue === null || metricAValue === undefined ? "N/A" : String(metricAValue),
+                metricB: metricBValue === null || metricBValue === undefined ? "N/A" : String(metricBValue),
             });
         }
 

@@ -5,6 +5,7 @@ import { getAzureCredential, getResourceGraphClient, getSubscriptionsForTenant }
 import { withCostColumn, findCostColumnIndex } from "@/lib/azureCostColumn";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { isMockTenant } from "@/lib/mockData";
+import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
 
 type Family = "azure-monitor" | "action-groups" | "workbooks" | "network-watcher" | "microsoft-sentinel";
 
@@ -75,6 +76,12 @@ export async function GET(request: NextRequest) {
                         ]
                     };
                     const resources = mockResourcesMap[family] || [];
+                    const mappedMockResources = resources.map((resource) => ({
+                        ...resource,
+                        subscriptionName: "Demo Subscription",
+                        type: FAMILY_META[family].label,
+                        region: "global",
+                    }));
                     const monthlyCost = resources.reduce((acc, r) => acc + r.monthlyCost, 0);
                     return {
                         success: true,
@@ -83,18 +90,19 @@ export async function GET(request: NextRequest) {
                         serviceLabel: FAMILY_META[family].label,
                         resourceCount: resources.length,
                         monthlyCost: Number(monthlyCost.toFixed(2)),
-                        resources,
+                        resources: mappedMockResources,
                         dataAvailable: true,
                     };
                 }
 
                 const credential = await getAzureCredential(tenantId);
                 const subs = await getSubscriptionsForTenant(tenantId, credential);
+                const subscriptionNameMap = await getSubscriptionNameMap(tenantId, credential);
 
                 let resources: any[] = [];
                 try {
                     const arg = await getResourceGraphClient(tenantId);
-                    const q = `Resources | where ${FAMILY_META[family].argTypeFilter} | project name, resourceGroup, subscriptionId, id = tolower(id)`;
+                    const q = `Resources | where ${FAMILY_META[family].argTypeFilter} | project name, resourceGroup, subscriptionId, location, type, id = tolower(id)`;
                     const argRes: any = await arg.resources({ query: q, options: { resultFormat: "objectArray", top: 1000 } });
                     resources = (argRes.data as any[]) || [];
                 } catch {
@@ -150,6 +158,9 @@ export async function GET(request: NextRequest) {
                         name: r.name,
                         resourceGroup: r.resourceGroup,
                         subscriptionId: r.subscriptionId,
+                        subscriptionName: resolveSubscriptionName(r.subscriptionId, subscriptionNameMap) || r.subscriptionId,
+                        region: r.location || "unknown",
+                        type: r.type || FAMILY_META[family].label,
                         monthlyCost: Number(cost.toFixed(2)),
                     };
                 }).sort((a, b) => b.monthlyCost - a.monthlyCost);

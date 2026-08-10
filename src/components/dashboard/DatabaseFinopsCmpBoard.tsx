@@ -18,6 +18,8 @@ import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { isMockTenant } from "@/lib/mockData";
 import Pagination, { usePagination } from "@/components/Pagination";
+import ResizableTh from "@/components/ResizableTh";
+import FinopsTableControls, { type FinopsTableOption } from "@/components/dashboard/FinopsTableControls";
 import { useTranslations } from "next-intl";
 
 type DatabaseFamily = "cosmos" | "sql" | "postgres" | "mongo" | "redis" | "mysql";
@@ -71,12 +73,29 @@ interface MetricsResponse {
 interface ResourceRow {
   id: string;
   name: string;
+  type: string;
+  resourceGroup: string;
+  subscriptionName: string;
   region: string;
   state: string;
   sku: string;
   monthlyCostUsd: number;
   metricA?: string;
   metricB?: string;
+}
+
+const FILTER_ALL = "__all__";
+type SortMode = "name-asc" | "name-desc" | "cost-desc" | "cost-asc";
+
+function parseAzureId(resourceId: string): { resourceGroup: string; subscriptionId: string } {
+  const value = String(resourceId || "");
+  const parts = value.split("/").filter(Boolean);
+  const subIndex = parts.findIndex((part) => part.toLowerCase() === "subscriptions");
+  const rgIndex = parts.findIndex((part) => part.toLowerCase() === "resourcegroups");
+  return {
+    subscriptionId: subIndex >= 0 ? parts[subIndex + 1] || "" : "",
+    resourceGroup: rgIndex >= 0 ? parts[rgIndex + 1] || "unknown" : "unknown",
+  };
 }
 
 function round2(value: number) {
@@ -154,6 +173,11 @@ export default function DatabaseFinopsCmpBoard({ family }: { family: DatabaseFam
   const [error, setError] = useState<string | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const [selectedResourceId, setSelectedResourceId] = useState<string>("");
+  const [resourceFilter, setResourceFilter] = useState<string>(FILTER_ALL);
+  const [regionFilter, setRegionFilter] = useState<string>(FILTER_ALL);
+  const [typeFilter, setTypeFilter] = useState<string>(FILTER_ALL);
+  const [resourceGroupFilter, setResourceGroupFilter] = useState<string>(FILTER_ALL);
+  const [sortMode, setSortMode] = useState<SortMode>("cost-desc");
   const [financialSummary, setFinancialSummary] = useState({
     mtdCost: 0,
     forecastEom: { value: 0, low: 0, high: 0 },
@@ -186,11 +210,29 @@ export default function DatabaseFinopsCmpBoard({ family }: { family: DatabaseFam
       const body: MetricsResponse = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error((body as any).error || body.message || `HTTP ${response.status}`);
 
+      let subscriptionNameMap = new Map<string, string>();
+      if (!isMockTenant(tenantId) && token) {
+        try {
+          const subRes = await fetch(`/api/subscriptions?tenantId=${encodeURIComponent(tenantId)}`, {
+            cache: "no-store",
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const subJson = await subRes.json().catch(() => ({ subscriptions: [] }));
+          for (const sub of subJson.subscriptions || []) {
+            if (sub?.id) subscriptionNameMap.set(String(sub.id), String(sub.name || sub.id));
+          }
+        } catch {}
+      }
+
       const mapped = (body.instances || []).map((resource) => {
         const metrics = metricAverage(resource.history);
+        const parsed = parseAzureId(resource.id);
         return {
           id: resource.id,
           name: resource.name,
+          type: resource.type || "database",
+          resourceGroup: parsed.resourceGroup,
+          subscriptionName: subscriptionNameMap.get(parsed.subscriptionId) || parsed.subscriptionId || "unknown",
           region: resource.region || "unknown",
           state: inferState(resource.history),
           sku: resource.sku || "Unknown",
@@ -223,17 +265,58 @@ export default function DatabaseFinopsCmpBoard({ family }: { family: DatabaseFam
     void fetchData(false);
   }, [fetchData]);
 
+  const resourceOptions = useMemo<FinopsTableOption[]>(() => [
+    { value: FILTER_ALL, label: t("allOption") },
+    ...items.map((item) => item.name).filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => a.localeCompare(b)).map((value) => ({ value, label: value })),
+  ], [items, t]);
+  const regionOptions = useMemo<FinopsTableOption[]>(() => [
+    { value: FILTER_ALL, label: t("allOption") },
+    ...items.map((item) => item.region || "unknown").filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => a.localeCompare(b)).map((value) => ({ value, label: value })),
+  ], [items, t]);
+  const typeOptions = useMemo<FinopsTableOption[]>(() => [
+    { value: FILTER_ALL, label: t("allOption") },
+    ...items.map((item) => item.type || "database").filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => a.localeCompare(b)).map((value) => ({ value, label: value })),
+  ], [items, t]);
+  const resourceGroupOptions = useMemo<FinopsTableOption[]>(() => [
+    { value: FILTER_ALL, label: t("allOption") },
+    ...items.map((item) => item.resourceGroup || "unknown").filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => a.localeCompare(b)).map((value) => ({ value, label: value })),
+  ], [items, t]);
+  const sortOptions = useMemo<FinopsTableOption[]>(() => [
+    { value: "name-asc", label: t("sortAz") },
+    { value: "name-desc", label: t("sortZa") },
+    { value: "cost-desc", label: t("sortCostDesc") },
+    { value: "cost-asc", label: t("sortCostAsc") },
+  ], [t]);
+
+  const filteredItems = useMemo(() => {
+    const filtered = items.filter((item) => {
+      if (resourceFilter !== FILTER_ALL && item.name !== resourceFilter) return false;
+      if (regionFilter !== FILTER_ALL && item.region !== regionFilter) return false;
+      if (typeFilter !== FILTER_ALL && item.type !== typeFilter) return false;
+      if (resourceGroupFilter !== FILTER_ALL && item.resourceGroup !== resourceGroupFilter) return false;
+      return true;
+    });
+    const sorted = [...filtered];
+    if (sortMode === "name-asc") sorted.sort((a, b) => a.name.localeCompare(b.name));
+    if (sortMode === "name-desc") sorted.sort((a, b) => b.name.localeCompare(a.name));
+    if (sortMode === "cost-desc") sorted.sort((a, b) => b.monthlyCostUsd - a.monthlyCostUsd);
+    if (sortMode === "cost-asc") sorted.sort((a, b) => a.monthlyCostUsd - b.monthlyCostUsd);
+    return sorted;
+  }, [items, resourceFilter, regionFilter, typeFilter, resourceGroupFilter, sortMode]);
+
   useEffect(() => {
-    if (!selectedResourceId && items.length > 0) setSelectedResourceId(items[0].id);
-  }, [items, selectedResourceId]);
+    if (!selectedResourceId || !filteredItems.some((item) => item.id === selectedResourceId)) {
+      setSelectedResourceId(filteredItems[0]?.id || "");
+    }
+  }, [filteredItems, selectedResourceId]);
 
   const selected = useMemo(
-    () => items.find((item) => item.id === selectedResourceId) || null,
-    [items, selectedResourceId]
+    () => filteredItems.find((item) => item.id === selectedResourceId) || null,
+    [filteredItems, selectedResourceId]
   );
 
   const derived = useMemo(() => {
-    const costs = items.map((item) => item.monthlyCostUsd || 0);
+    const costs = filteredItems.map((item) => item.monthlyCostUsd || 0);
     const mtdCost = round2(financialSummary.mtdCost || costs.reduce((acc, value) => acc + value, 0));
     const forecastValue = financialSummary.forecastEom?.value || mtdCost;
     const robustForecast = forecastRobust(forecastValue, costs);
@@ -256,7 +339,7 @@ export default function DatabaseFinopsCmpBoard({ family }: { family: DatabaseFam
     );
 
     const byRegion = new Map<string, { count: number; cost: number }>();
-    for (const item of items) {
+    for (const item of filteredItems) {
       const key = item.region || "unknown";
       const curr = byRegion.get(key) || { count: 0, cost: 0 };
       curr.count += 1;
@@ -284,9 +367,9 @@ export default function DatabaseFinopsCmpBoard({ family }: { family: DatabaseFam
       recommendations: recommendationsNormalized,
       comparison,
     };
-  }, [items, financialSummary, recommendations, efficiency, risk, t]);
+  }, [filteredItems, financialSummary, recommendations, efficiency, risk, t]);
 
-  const { page, setPage, pageSize, setPageSize, total, totalPages, paged } = usePagination(items, 10);
+  const { page, setPage, pageSize, setPageSize, total, totalPages, paged } = usePagination(filteredItems, 15);
 
   if (!selectedTenant) {
     return <div className="rounded-2xl border border-slate-200 bg-white p-8 text-sm text-slate-600">{t("selectTenant")}</div>;
@@ -317,6 +400,31 @@ export default function DatabaseFinopsCmpBoard({ family }: { family: DatabaseFam
         </div>
       </section>
 
+      <FinopsTableControls
+        resourceOptions={resourceOptions}
+        regionOptions={regionOptions}
+        typeOptions={typeOptions}
+        resourceGroupOptions={resourceGroupOptions}
+        sortOptions={sortOptions}
+        selectedResource={resourceFilter}
+        selectedRegion={regionFilter}
+        selectedType={typeFilter}
+        selectedResourceGroup={resourceGroupFilter}
+        selectedSort={sortMode}
+        onResourceChange={setResourceFilter}
+        onRegionChange={setRegionFilter}
+        onTypeChange={setTypeFilter}
+        onResourceGroupChange={setResourceGroupFilter}
+        onSortChange={(value) => setSortMode(value as SortMode)}
+        labels={{
+          resource: t("filterResource"),
+          region: t("filterRegion"),
+          type: t("filterType"),
+          resourceGroup: t("filterResourceGroup"),
+          sort: t("sortBy"),
+        }}
+      />
+
       {error && (
         <section className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
           <div className="flex items-start gap-2">
@@ -334,7 +442,7 @@ export default function DatabaseFinopsCmpBoard({ family }: { family: DatabaseFam
       </section>
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <KpiCard title={t("kpiResources")} value={String(items.length)} icon={<CheckCircle2 className="h-5 w-5 text-cyan-600" />} />
+        <KpiCard title={t("kpiResources")} value={String(filteredItems.length)} icon={<CheckCircle2 className="h-5 w-5 text-cyan-600" />} />
         <KpiCard title={t("kpiEfficiency")} value={format(derived.efficiency.costPerUsedGb || 0)} subtitle={t("kpiEfficiencySubtitle")} icon={<Gauge className="h-5 w-5 text-amber-600" />} />
         <KpiCard title={t("kpiUnderutilized")} value={String(derived.efficiency.underutilizedCount || 0)} icon={<Gauge className="h-5 w-5 text-orange-600" />} />
         <KpiCard title={t("kpiHealth")} value={`${(derived.risk.healthScore || 0).toFixed(1)} / 100`} subtitle={t("criticalAlerts", { count: derived.risk.criticalAlerts || 0 })} icon={<ShieldAlert className="h-5 w-5 text-rose-600" />} />
@@ -347,9 +455,9 @@ export default function DatabaseFinopsCmpBoard({ family }: { family: DatabaseFam
           onChange={(e) => setSelectedResourceId(e.target.value)}
           className="mb-4 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 hover:border-slate-400"
         >
-          {items.map((item) => (
+          {filteredItems.map((item) => (
             <option key={item.id} value={item.id}>
-              {item.name} ({item.region})
+              {item.name} ({item.subscriptionName} · {item.region})
             </option>
           ))}
         </select>
@@ -357,6 +465,9 @@ export default function DatabaseFinopsCmpBoard({ family }: { family: DatabaseFam
           <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
             <DetailCard label={t("detailResource")} value={selected.name} />
             <DetailCard label={t("detailRegion")} value={selected.region} />
+            <DetailCard label={t("detailSubscription")} value={selected.subscriptionName || t("na")} />
+            <DetailCard label={t("detailType")} value={selected.type || t("na")} />
+            <DetailCard label={t("detailResourceGroup")} value={selected.resourceGroup || t("na")} />
             <DetailCard label={t(config.metricALabelKey)} value={selected.metricA || t("na")} />
             <DetailCard label={t(config.metricBLabelKey)} value={selected.metricB || t("na")} />
             <DetailCard label={t("detailState")} value={selected.state || t("na")} />
@@ -371,27 +482,33 @@ export default function DatabaseFinopsCmpBoard({ family }: { family: DatabaseFam
 
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h3 className="mb-4 text-sm font-semibold text-slate-900">{t("allResourcesTitle")}</h3>
-        {items.length === 0 ? (
+        {filteredItems.length === 0 ? (
           <p className="text-sm text-slate-600">{t("noResources")}</p>
         ) : (
           <>
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full min-w-full table-fixed text-left border-collapse">
                 <thead>
                   <tr>
-                    <th className="py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colResource")}</th>
-                    <th className="py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colRegion")}</th>
-                    <th className="py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colState")}</th>
-                    <th className="py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t(config.metricALabelKey)}</th>
-                    <th className="py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t(config.metricBLabelKey)}</th>
-                    <th className="py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">{t("colMonthlyCost")}</th>
+                    <ResizableTh minWidth={180} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colResource")}</ResizableTh>
+                    <ResizableTh minWidth={130} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colRegion")}</ResizableTh>
+                    <ResizableTh minWidth={180} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colSubscription")}</ResizableTh>
+                    <ResizableTh minWidth={170} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colType")}</ResizableTh>
+                    <ResizableTh minWidth={170} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colResourceGroup")}</ResizableTh>
+                    <ResizableTh minWidth={120} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t("colState")}</ResizableTh>
+                    <ResizableTh minWidth={120} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t(config.metricALabelKey)}</ResizableTh>
+                    <ResizableTh minWidth={120} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase">{t(config.metricBLabelKey)}</ResizableTh>
+                    <ResizableTh minWidth={140} className="bg-white py-3 px-4 border-b border-slate-200 font-bold text-xs text-slate-500 uppercase text-right">{t("colMonthlyCost")}</ResizableTh>
                   </tr>
                 </thead>
                 <tbody>
                   {paged.map((item) => (
                     <tr key={item.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="py-3 px-4 border-b border-slate-100 text-sm font-medium text-slate-900">{item.name}</td>
-                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-600">{item.region}</td>
+                      <td className="py-3 px-4 border-b border-slate-100 text-sm font-medium text-slate-900 whitespace-normal break-words">{item.name}</td>
+                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-600 whitespace-normal break-words">{item.region}</td>
+                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-600 whitespace-normal break-words">{item.subscriptionName || t("na")}</td>
+                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-600 whitespace-normal break-words">{item.type || t("na")}</td>
+                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-600 whitespace-normal break-words">{item.resourceGroup || t("na")}</td>
                       <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-600">{item.state || t("na")}</td>
                       <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-600">{item.metricA || t("na")}</td>
                       <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-600">{item.metricB || t("na")}</td>
@@ -401,7 +518,7 @@ export default function DatabaseFinopsCmpBoard({ family }: { family: DatabaseFam
                 </tbody>
               </table>
             </div>
-            <Pagination page={page} setPage={setPage} pageSize={pageSize} setPageSize={setPageSize} total={total} totalPages={totalPages} />
+            <Pagination page={page} setPage={setPage} pageSize={pageSize} setPageSize={setPageSize} total={total} totalPages={totalPages} pageSizes={[15,30,45,60]} />
           </>
         )}
       </section>
@@ -491,4 +608,3 @@ function DetailCard({ label, value }: { label: string; value: string }) {
 function Badge({ label }: { label: string }) {
   return <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-700">{label}</span>;
 }
-
