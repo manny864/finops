@@ -374,10 +374,7 @@ export async function GET(request: NextRequest) {
         }
 
         const credential = await getAzureCredential(tenantId);
-        console.log(`[redis-metrics] Got credential for tenantId=${tenantId}`);
-        
         const subscriptionIds = await getSubscriptionsForTenant(tenantId, credential);
-        console.log(`[redis-metrics] tenantId=${tenantId}, subscriptionIds count=${subscriptionIds.length}`, subscriptionIds);
         
         if (subscriptionIds.length === 0) {
             const payload = {
@@ -391,8 +388,6 @@ export async function GET(request: NextRequest) {
         }
 
         const resources = await listResourcesByTypes(tenantId, REDIS_TYPES, subscriptionIds, credential);
-        
-        console.log(`[redis-metrics] Found ${resources.length} Redis resources`, REDIS_TYPES);
         
         if (resources.length === 0) {
             const payload = {

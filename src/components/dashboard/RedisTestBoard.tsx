@@ -82,7 +82,6 @@ function formatShortCurrency(value: number, formatter: (amountUSD: string | numb
 
 function normalizeResponse(data: RedisFinOpsResponse): Required<Pick<RedisFinOpsResponse, "instances" | "financialSummary" | "efficiency" | "risk" | "recommendations">> {
     const instances = data.instances || [];
-    console.log("[RedisTestBoard.normalizeResponse] Received instances:", instances.length, "data:", data);
 
     const financialSummary = data.financialSummary || {
         mtdCost: instances.reduce((acc, instance) => acc + (instance.monthlyCostUsd || 0), 0),
@@ -158,8 +157,6 @@ export default function RedisTestBoard() {
                 throw new Error("Token no contiene tenant ID válido");
             }
 
-            console.log("[RedisTestBoard] Using tenantId:", tenantId, "selectedTenant:", selectedTenant.id, "isMock:", isMockTenant(tenantId));
-
             const params = new URLSearchParams({
                 tenantId,
                 bust: "1"
@@ -178,7 +175,6 @@ export default function RedisTestBoard() {
             }
 
             const data: RedisFinOpsResponse = await response.json();
-            console.log("[RedisTestBoard] Response data:", data);
             const normalized = normalizeResponse(data);
 
             setInstances(normalized.instances);

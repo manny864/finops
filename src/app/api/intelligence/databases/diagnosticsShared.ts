@@ -39,7 +39,6 @@ export async function listResourcesByTypes(
     }));
 
   try {
-    console.log(`[listResourcesByTypes] Querying ${resourceTypes} in ${subscriptionIds.length} subscriptions: ${subscriptionIds.slice(0, 2).join(",")}`);
     const argClient = await getResourceGraphClient(tenantId);
     const types = resourceTypes.map((t) => `'${t.toLowerCase()}'`).join(",");
     const query = `
@@ -47,19 +46,16 @@ export async function listResourcesByTypes(
       | where type in~ (${types})
       | project id, name, type = tolower(type), location, resourceGroup, subscriptionId, kind, skuName = tostring(sku.name), properties
     `;
-    console.log(`[listResourcesByTypes] KQL Query: ${query.substring(0, 150)}...`);
     const response: any = await argClient.resources({
       subscriptions: subscriptionIds.length > 0 ? subscriptionIds : undefined,
       query,
       options: { resultFormat: "objectArray", top: 1000 },
     });
     const rows = mapRows((response.data as any[]) || []);
-    console.log(`[listResourcesByTypes] KQL returned ${rows.length} rows`);
     if (rows.length > 0 || !credential || subscriptionIds.length === 0) {
       return rows;
     }
-  } catch (err) {
-    console.error(`[listResourcesByTypes] KQL error:`, err);
+  } catch {
     // fallback ARM below
   }
 
