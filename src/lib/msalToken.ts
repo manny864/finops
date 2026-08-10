@@ -1,16 +1,27 @@
 import type { IPublicClientApplication, AccountInfo, AuthenticationResult } from '@azure/msal-browser';
 
 /**
+ * Decodifica JWT payload para extraer claims (sin validar firma).
+ */
+function decodeJwtPayload(token: string): Record<string, any> | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length < 2) return null;
+    return JSON.parse(
+      atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'))
+    );
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Decodifica el payload de un JWT (sin validar firma) para chequear `exp`.
  */
 function decodeJwtExp(token: string): number | null {
   try {
-    const parts = token.split('.');
-    if (parts.length < 2) return null;
-    const payload = JSON.parse(
-      atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'))
-    );
-    return typeof payload.exp === 'number' ? payload.exp : null;
+    const payload = decodeJwtPayload(token);
+    return typeof payload?.exp === 'number' ? payload.exp : null;
   } catch {
     return null;
   }
@@ -108,4 +119,13 @@ export async function fetchWithAuthRetry(
     ...init,
     headers: { ...headers, Authorization: `Bearer ${freshToken.idToken}` },
   });
+}
+
+/**
+ * Extrae el tenant ID (claim 'tid') de un JWT sin validar firma.
+ * Uso: obtener el tenant del token antes de hacer fetch a endpoint que requiere tenantId.
+ */
+export function getTenantIdFromToken(token: string): string | null {
+  const payload = decodeJwtPayload(token);
+  return payload?.tid || null;
 }

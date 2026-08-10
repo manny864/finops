@@ -17,7 +17,7 @@ import { useTenant } from "@/components/TenantProvider";
 import { isMockTenant } from "@/lib/mockData";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { useMsal } from "@azure/msal-react";
-import { getFreshIdToken } from "@/lib/msalToken";
+import { getFreshIdToken, getTenantIdFromToken } from "@/lib/msalToken";
 
 interface MetricPoint {
     timestamp: string;
@@ -149,8 +149,12 @@ export default function RedisTestBoard() {
         setError(null);
 
         try {
-            const tenantId = selectedTenant.id;
             const token = await getFreshIdToken(instance, accounts[0]);
+            const tenantId = getTenantIdFromToken(token);
+
+            if (!tenantId) {
+                throw new Error("Token no contiene tenant ID válido");
+            }
 
             const params = new URLSearchParams({
                 tenantId,
