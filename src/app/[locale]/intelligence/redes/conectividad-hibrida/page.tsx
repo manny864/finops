@@ -10,6 +10,7 @@ export default async function ConectividadHibridaPage() {
             title={t("hybridTitle")}
             subtitle={t("hybridSubtitle")}
             icon={<GitMerge className="w-7 h-7 text-[#0054A6]" />}
+            apiPath="/api/intelligence/network/service-cost-v2"
         />
     );
 }

@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
-import { getResourceGraphClient } from "@/lib/azure";
+import { getAzureCredential, getResourceGraphClient } from "@/lib/azure";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { isMockTenant } from "@/lib/mockData";
 import pool from "@/modules/storage/db";
+import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
 
 type Family = "analysis" | "basic" | "hybrid" | "balancing" | "internet";
 
@@ -24,6 +25,7 @@ interface NetworkResourceRow {
     resourceName: string;
     resourceGroup: string;
     subscriptionId: string;
+    subscriptionName: string;
     costGroupOwner: string;
     createdAt: string;
     monthlyCost: number;
@@ -335,7 +337,8 @@ export async function GET(request: NextRequest) {
                             resourceId: `/subscriptions/mock-sub/resourceGroups/mock-rg/providers/mock.network/${family}-${idx}-${rowIdx}`,
                             resourceName: `${family}-resource-${idx + 1}-${rowIdx + 1}`,
                             resourceGroup: `mock-rg-${(idx % 3) + 1}`,
-                            subscriptionId: "mock-sub",
+                            subscriptionId: `mock-sub-${(idx % 3) + 1}`,
+                            subscriptionName: ["Production", "Staging", "Sandbox"][idx % 3],
                             costGroupOwner: ["CostCenter-Platform", "CostCenter-Data", "CostCenter-Shared"][idx % 3],
                             createdAt: "2026-01-01T00:00:00Z",
                             monthlyCost: Number((item.monthlyCost / Math.max(item.resourceCount, 1)).toFixed(2)),
@@ -362,6 +365,8 @@ export async function GET(request: NextRequest) {
                     queryArgResourcesByType(tenantId, allTypes),
                     queryResourceCosts(tenantId),
                 ]);
+                const credential = await getAzureCredential(tenantId);
+                const subscriptionNameMap = await getSubscriptionNameMap(tenantId, credential);
 
                 const items = await Promise.all(
                     config.items.map(async (item) => {
@@ -387,7 +392,8 @@ export async function GET(request: NextRequest) {
                         resourceId: String(resource.id || "-"),
                         resourceName: String(resource.name || "-"),
                         resourceGroup: String(resource.resourceGroup || "-"),
-                        subscriptionId: String(resource.subscriptionId || "-"),
+                        subscriptionId: String(resource.subscriptionId || ""),
+                        subscriptionName: resolveSubscriptionName(String(resource.subscriptionId || ""), subscriptionNameMap) || "-",
                         costGroupOwner: resolveCostGroupOwner(tags),
                         createdAt: String(resource.createdAt || ""),
                         monthlyCost: Number((allResourceCosts.get(normalizedResourceId) || 0).toFixed(2)),

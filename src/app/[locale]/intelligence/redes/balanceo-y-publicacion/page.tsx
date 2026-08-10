@@ -10,6 +10,7 @@ export default async function BalanceoPublicacionPage() {
             title={t("balancingTitle")}
             subtitle={t("balancingSubtitle")}
             icon={<Shuffle className="w-7 h-7 text-[#0054A6]" />}
+            apiPath="/api/intelligence/network/service-cost-v2"
         />
     );
 }

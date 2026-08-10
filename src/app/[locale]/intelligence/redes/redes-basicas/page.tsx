@@ -10,6 +10,7 @@ export default async function RedesBasicasPage() {
             title={t("basicTitle")}
             subtitle={t("basicSubtitle")}
             icon={<Network className="w-7 h-7 text-[#0054A6]" />}
+            apiPath="/api/intelligence/network/service-cost-v2"
         />
     );
 }

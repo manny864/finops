@@ -7,9 +7,8 @@ import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { isMockTenant } from "@/lib/mockData";
 import { toast } from "sonner";
-import { ChevronLeft, ChevronRight, DollarSign, Layers, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, DollarSign, Layers } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useSearchParams } from "next/navigation";
 import { Pie, PieChart, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from "recharts";
 
 const fmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -31,14 +30,15 @@ export default function NetworkServiceCostBoard({
     const t = useTranslations("NetworkFamilies");
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
-    const searchParams = useSearchParams();
-    const filter = (searchParams.get("q") || "").toLowerCase();
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState<any>(null);
-    const [sortField, setSortField] = useState<"serviceLabel" | "resourceName" | "resourceGroup" | "subscriptionId" | "costGroupOwner" | "createdAt" | "monthlyCost">("monthlyCost");
+    const [sortField, setSortField] = useState<"serviceLabel" | "resourceName" | "resourceGroup" | "subscriptionName" | "costGroupOwner" | "createdAt" | "monthlyCost">("monthlyCost");
     const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
     const [pageSize, setPageSize] = useState<number>(15);
     const [currentPage, setCurrentPage] = useState<number>(1);
+    const [serviceFilter, setServiceFilter] = useState<string>("all");
+    const [resourceGroupFilter, setResourceGroupFilter] = useState<string>("all");
+    const [subscriptionFilter, setSubscriptionFilter] = useState<string>("all");
 
     useEffect(() => {
         if (selectedTenant.id === "default" || (accounts.length === 0 && !isMockTenant(selectedTenant.id))) {
@@ -75,25 +75,34 @@ export default function NetworkServiceCostBoard({
         };
     }, [selectedTenant.id, accounts.length, instance, family, t, apiPath]);
 
-    const filteredItems = useMemo(() => {
-        const items = data?.rows || [];
-        if (!filter) return items;
-        return items.filter((item: any) =>
-            [
-                item.serviceLabel,
-                item.resourceName,
-                item.resourceGroup,
-                item.subscriptionId,
-                item.costGroupOwner,
-            ]
-                .join(" ")
-                .toLowerCase()
-                .includes(filter)
-        );
-    }, [data?.rows, filter]);
+    const serviceOptions = useMemo<string[]>(
+        () => ["all", ...Array.from(new Set<string>((data?.rows || []).map((item: any) => String(item.serviceLabel || "-")))).sort()],
+        [data?.rows]
+    );
+
+    const resourceGroupOptions = useMemo<string[]>(
+        () => ["all", ...Array.from(new Set<string>((data?.rows || []).map((item: any) => String(item.resourceGroup || "-")))).sort()],
+        [data?.rows]
+    );
+
+    const subscriptionOptions = useMemo<string[]>(
+        () => ["all", ...Array.from(new Set<string>((data?.rows || []).map((item: any) => String(item.subscriptionName || item.subscriptionId || "-")))).sort()],
+        [data?.rows]
+    );
+
+    const filteredRows = useMemo(() => {
+        const rows = data?.rows || [];
+        return rows.filter((item: any) => {
+            const serviceOk = serviceFilter === "all" || String(item.serviceLabel || "-") === serviceFilter;
+            const rgOk = resourceGroupFilter === "all" || String(item.resourceGroup || "-") === resourceGroupFilter;
+            const subscriptionName = String(item.subscriptionName || item.subscriptionId || "-");
+            const subOk = subscriptionFilter === "all" || subscriptionName === subscriptionFilter;
+            return serviceOk && rgOk && subOk;
+        });
+    }, [data?.rows, serviceFilter, resourceGroupFilter, subscriptionFilter]);
 
     const sortedItems = useMemo(() => {
-        const items = [...filteredItems];
+        const items = [...filteredRows];
         items.sort((a: any, b: any) => {
             const valueA = a?.[sortField];
             const valueB = b?.[sortField];
@@ -114,7 +123,7 @@ export default function NetworkServiceCostBoard({
             return 0;
         });
         return items;
-    }, [filteredItems, sortField, sortOrder]);
+    }, [filteredRows, sortField, sortOrder]);
 
     const totalPages = Math.max(1, Math.ceil(sortedItems.length / pageSize));
     const pagedItems = useMemo(() => {
@@ -136,6 +145,13 @@ export default function NetworkServiceCostBoard({
         if (currentPage > totalPages) setCurrentPage(totalPages);
     }, [currentPage, totalPages]);
 
+    useEffect(() => {
+        setServiceFilter("all");
+        setResourceGroupFilter("all");
+        setSubscriptionFilter("all");
+        setCurrentPage(1);
+    }, [family, data?.rows?.length]);
+
     const formatDate = (value: string) => {
         if (!value) return "-";
         const d = new Date(value);
@@ -144,19 +160,21 @@ export default function NetworkServiceCostBoard({
     };
 
     const pieData = useMemo(() => {
-        if (family !== "analysis") return [];
-        const items = (data?.items || []) as Array<{ serviceLabel?: string; resourceCount?: number }>;
-        const direct = items
-            .map((item) => ({ name: String(item.serviceLabel || "-"), value: Number(item.resourceCount || 0) }))
-            .filter((item) => item.value > 0);
-        if (direct.length > 0) return direct;
-        const fromRows = new Map<string, number>();
-        for (const row of (data?.rows || []) as Array<{ serviceLabel?: string }>) {
+        const byService = new Map<string, number>();
+        const byServiceCount = new Map<string, number>();
+        for (const row of sortedItems) {
             const key = String(row.serviceLabel || "-");
-            fromRows.set(key, (fromRows.get(key) || 0) + 1);
+            byService.set(key, (byService.get(key) || 0) + Number(row.monthlyCost || 0));
+            byServiceCount.set(key, (byServiceCount.get(key) || 0) + 1);
         }
-        return Array.from(fromRows.entries()).map(([name, value]) => ({ name, value }));
-    }, [family, data?.items, data?.rows]);
+        const byCost = Array.from(byService.entries())
+            .map(([name, value]) => ({ name, value: Number(value.toFixed(2)) }))
+            .filter((item) => item.value > 0);
+        if (byCost.length > 0) return byCost;
+        return Array.from(byServiceCount.entries())
+            .map(([name, value]) => ({ name, value }))
+            .filter((item) => item.value > 0);
+    }, [sortedItems]);
 
     if (selectedTenant.id === "default") return null;
 
@@ -193,11 +211,57 @@ export default function NetworkServiceCostBoard({
                     {title}
                 </h1>
                 <p className="text-gray-500 dark:text-gray-400 mt-2">{subtitle}</p>
-                {filter ? (
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 inline-flex items-center gap-1">
-                        <Search className="w-3.5 h-3.5" /> {t("activeFilter", { value: searchParams.get("q") || "" })}
-                    </p>
-                ) : null}
+            </div>
+
+            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-4 mb-8 grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                    <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">{t("filterService")}</label>
+                    <select
+                        value={serviceFilter}
+                        onChange={(e) => {
+                            setServiceFilter(e.target.value);
+                            setCurrentPage(1);
+                        }}
+                        className="mt-1 w-full py-2 px-3 rounded border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200"
+                    >
+                        <option value="all">{t("allOption")}</option>
+                        {serviceOptions.filter((option) => option !== "all").map((option) => (
+                            <option key={option} value={option}>{option}</option>
+                        ))}
+                    </select>
+                </div>
+                <div>
+                    <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">{t("filterResourceGroup")}</label>
+                    <select
+                        value={resourceGroupFilter}
+                        onChange={(e) => {
+                            setResourceGroupFilter(e.target.value);
+                            setCurrentPage(1);
+                        }}
+                        className="mt-1 w-full py-2 px-3 rounded border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200"
+                    >
+                        <option value="all">{t("allOption")}</option>
+                        {resourceGroupOptions.filter((option) => option !== "all").map((option) => (
+                            <option key={option} value={option}>{option}</option>
+                        ))}
+                    </select>
+                </div>
+                <div>
+                    <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">{t("filterSubscription")}</label>
+                    <select
+                        value={subscriptionFilter}
+                        onChange={(e) => {
+                            setSubscriptionFilter(e.target.value);
+                            setCurrentPage(1);
+                        }}
+                        className="mt-1 w-full py-2 px-3 rounded border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200"
+                    >
+                        <option value="all">{t("allOption")}</option>
+                        {subscriptionOptions.filter((option) => option !== "all").map((option) => (
+                            <option key={option} value={option}>{option}</option>
+                        ))}
+                    </select>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
@@ -219,7 +283,7 @@ export default function NetworkServiceCostBoard({
                 </div>
             </div>
 
-            {family === "analysis" && pieData.length > 0 ? (
+            {pieData.length > 0 ? (
                 <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-6 mb-8">
                     <h3 className="text-lg font-bold text-gray-900 dark:text-white border-b border-gray-100 dark:border-slate-800 pb-3 mb-4">
                         {t("resourcesPieTitle")}
@@ -257,7 +321,7 @@ export default function NetworkServiceCostBoard({
                                 <th onClick={() => onSort("serviceLabel")} className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase cursor-pointer">{t("colService")}</th>
                                 <th onClick={() => onSort("resourceName")} className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase cursor-pointer">{t("colResourceName")}</th>
                                 <th onClick={() => onSort("resourceGroup")} className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase cursor-pointer">{t("colResourceGroup")}</th>
-                                <th onClick={() => onSort("subscriptionId")} className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase cursor-pointer">{t("colSubscription")}</th>
+                                <th onClick={() => onSort("subscriptionName")} className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase cursor-pointer">{t("colSubscription")}</th>
                                 <th onClick={() => onSort("costGroupOwner")} className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase cursor-pointer">{t("colCostGroupOwner")}</th>
                                 <th onClick={() => onSort("createdAt")} className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase cursor-pointer">{t("colCreatedAt")}</th>
                                 <th onClick={() => onSort("monthlyCost")} className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase text-right cursor-pointer">{t("colMonthlyCost")}</th>
@@ -269,7 +333,7 @@ export default function NetworkServiceCostBoard({
                                     <td className="py-3 px-4 border-b border-gray-100 dark:border-slate-800 font-semibold text-sm text-gray-800 dark:text-gray-200">{item.serviceLabel}</td>
                                     <td className="py-3 px-4 border-b border-gray-100 dark:border-slate-800 text-sm text-gray-700 dark:text-gray-300">{item.resourceName || "-"}</td>
                                     <td className="py-3 px-4 border-b border-gray-100 dark:border-slate-800 text-sm text-gray-700 dark:text-gray-300">{item.resourceGroup || "-"}</td>
-                                    <td className="py-3 px-4 border-b border-gray-100 dark:border-slate-800 text-sm text-gray-700 dark:text-gray-300">{item.subscriptionId || "-"}</td>
+                                    <td className="py-3 px-4 border-b border-gray-100 dark:border-slate-800 text-sm text-gray-700 dark:text-gray-300">{item.subscriptionName || item.subscriptionId || "-"}</td>
                                     <td className="py-3 px-4 border-b border-gray-100 dark:border-slate-800 text-sm text-gray-700 dark:text-gray-300">{item.costGroupOwner || "-"}</td>
                                     <td className="py-3 px-4 border-b border-gray-100 dark:border-slate-800 text-sm text-gray-700 dark:text-gray-300">{formatDate(item.createdAt)}</td>
                                     <td className="py-3 px-4 border-b border-gray-100 dark:border-slate-800 font-bold text-sm text-brand-deep text-right">{fmt.format(item.monthlyCost)}</td>
