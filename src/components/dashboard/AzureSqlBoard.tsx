@@ -1,7 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Database, HardDrive, Cpu, AlertCircle } from 'lucide-react';
+import { Database, Cpu, AlertCircle } from 'lucide-react';
+import { useTenant } from '@/components/TenantProvider';
+import { useMsal } from '@azure/msal-react';
+import { getFreshIdToken } from '@/lib/msalToken';
+import { isMockTenant } from '@/lib/mockData';
 
 interface SqlDatabase {
     id: string;
@@ -11,7 +15,6 @@ interface SqlDatabase {
     usedStorageGB: number;
     maxStorageGB: number;
     vCores?: number;
-    dtuUsagePercent?: number;
 }
 
 interface SqlServer {
@@ -25,30 +28,60 @@ interface SqlServer {
 export function AzureSqlBoard() {
     const [servers, setServers] = useState<SqlServer[]>([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const [emptyMessage, setEmptyMessage] = useState<string | null>(null);
+    const { selectedTenant } = useTenant();
+    const { instance, accounts: msalAccounts } = useMsal();
 
     useEffect(() => {
+        if (
+            !selectedTenant?.id ||
+            selectedTenant.id === 'default' ||
+            (msalAccounts.length === 0 && !isMockTenant(selectedTenant.id))
+        ) {
+            setLoading(false);
+            setServers([]);
+            setEmptyMessage(null);
+            return;
+        }
+
+        let cancelled = false;
+
         async function fetchData() {
             try {
-                const tenantId = localStorage.getItem('tenantId') || 'demo_tenant';
-                const res = await fetch(
-                    `/api/intelligence/databases/sql-diagnostics?tenantId=${tenantId}`
-                );
-                if (!res.ok) throw new Error(`API error: ${res.status}`);
+                const tenantId = selectedTenant.id;
+                const headers: HeadersInit = {};
+                if (!isMockTenant(tenantId) && msalAccounts.length > 0) {
+                    const idToken = await getFreshIdToken(instance, msalAccounts[0]);
+                    headers.Authorization = 'Bearer ' + idToken;
+                }
+                const res = await fetch(`/api/intelligence/databases/sql-diagnostics?tenantId=${tenantId}`, {
+                    headers,
+                });
                 const data = await res.json();
+                if (cancelled) return;
+                if (!res.ok) {
+                    setServers([]);
+                    setEmptyMessage(data?.message || data?.error || 'No se encontraron servidores Azure SQL en el tenant.');
+                    return;
+                }
                 setServers(data.servers || []);
+                setEmptyMessage(data.message || null);
             } catch (err) {
-                setError(err instanceof Error ? err.message : 'Unknown error');
+                if (!cancelled) {
+                    setServers([]);
+                    setEmptyMessage('No se encontraron servidores Azure SQL en el tenant.');
+                }
             } finally {
-                setLoading(false);
+                if (!cancelled) setLoading(false);
             }
         }
         fetchData();
-    }, []);
+        return () => {
+            cancelled = true;
+        };
+    }, [selectedTenant?.id, msalAccounts.length, instance]);
 
     if (loading) return <div className="p-4">Loading...</div>;
-    if (error) return <div className="p-4 text-red-600">Error: {error}</div>;
-
     return (
         <div className="space-y-6">
             {servers.map((server) => (
@@ -82,7 +115,7 @@ export function AzureSqlBoard() {
                             <div className="text-2xl font-bold text-purple-700">
                                 {(
                                     server.databases.reduce((sum, db) => sum + db.cpuPercent, 0) /
-                                    server.databases.length
+                                    Math.max(server.databases.length, 1)
                                 ).toFixed(1)}
                                 %
                             </div>
@@ -114,12 +147,10 @@ export function AzureSqlBoard() {
                                                 {db.usedStorageGB}GB / {db.maxStorageGB}GB
                                             </div>
                                         </div>
-                                        {db.vCores && (
-                                            <div>
-                                                <div className="text-gray-600">vCores</div>
-                                                <div className="font-semibold">{db.vCores}</div>
-                                            </div>
-                                        )}
+                                        <div>
+                                            <div className="text-gray-600">vCores</div>
+                                            <div className="font-semibold">{db.vCores || 0}</div>
+                                        </div>
                                     </div>
                                 </div>
                             ))}
@@ -129,8 +160,11 @@ export function AzureSqlBoard() {
             ))}
 
             {servers.length === 0 && (
-                <div className="text-center py-12 text-gray-500">
-                    No Azure SQL servers found
+                <div className="rounded-2xl border border-gray-200 bg-white px-8 py-12 text-center shadow-sm">
+                    <p className="text-lg font-semibold text-gray-900">Sin servidores Azure SQL</p>
+                    <p className="mt-2 text-gray-500">
+                        {emptyMessage || 'No se encontraron servidores Azure SQL en el tenant.'}
+                    </p>
                 </div>
             )}
         </div>

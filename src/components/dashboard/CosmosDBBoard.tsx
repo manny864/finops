@@ -1,7 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Activity, Database, HardDrive, Zap, AlertTriangle } from 'lucide-react';
+import { Database, HardDrive, Zap, AlertTriangle } from 'lucide-react';
+import { useTenant } from '@/components/TenantProvider';
+import { useMsal } from '@azure/msal-react';
+import { getFreshIdToken } from '@/lib/msalToken';
+import { isMockTenant } from '@/lib/mockData';
 
 interface CosmosAccount {
     id: string;
@@ -19,30 +23,60 @@ interface CosmosAccount {
 export function CosmosDBBoard() {
     const [accounts, setAccounts] = useState<CosmosAccount[]>([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const [emptyMessage, setEmptyMessage] = useState<string | null>(null);
+    const { selectedTenant } = useTenant();
+    const { instance, accounts: msalAccounts } = useMsal();
 
     useEffect(() => {
+        if (
+            !selectedTenant?.id ||
+            selectedTenant.id === 'default' ||
+            (msalAccounts.length === 0 && !isMockTenant(selectedTenant.id))
+        ) {
+            setLoading(false);
+            setAccounts([]);
+            setEmptyMessage(null);
+            return;
+        }
+
+        let cancelled = false;
+
         async function fetchData() {
             try {
-                const tenantId = localStorage.getItem('tenantId') || 'demo_tenant';
-                const res = await fetch(
-                    `/api/intelligence/databases/cosmos-diagnostics?tenantId=${tenantId}`
-                );
-                if (!res.ok) throw new Error(`API error: ${res.status}`);
+                const tenantId = selectedTenant.id;
+                const headers: HeadersInit = {};
+                if (!isMockTenant(tenantId) && msalAccounts.length > 0) {
+                    const idToken = await getFreshIdToken(instance, msalAccounts[0]);
+                    headers.Authorization = 'Bearer ' + idToken;
+                }
+                const res = await fetch(`/api/intelligence/databases/cosmos-diagnostics?tenantId=${tenantId}`, {
+                    headers,
+                });
                 const data = await res.json();
+                if (cancelled) return;
+                if (!res.ok) {
+                    setAccounts([]);
+                    setEmptyMessage(data?.message || data?.error || 'No se encontraron cuentas Cosmos DB en el tenant.');
+                    return;
+                }
                 setAccounts(data.accounts || []);
+                setEmptyMessage(data.message || null);
             } catch (err) {
-                setError(err instanceof Error ? err.message : 'Unknown error');
+                if (!cancelled) {
+                    setAccounts([]);
+                    setEmptyMessage('No se encontraron cuentas Cosmos DB en el tenant.');
+                }
             } finally {
-                setLoading(false);
+                if (!cancelled) setLoading(false);
             }
         }
         fetchData();
-    }, []);
+        return () => {
+            cancelled = true;
+        };
+    }, [selectedTenant?.id, msalAccounts.length, instance]);
 
     if (loading) return <div className="p-4">Loading...</div>;
-    if (error) return <div className="p-4 text-red-600">Error: {error}</div>;
-
     return (
         <div className="space-y-6">
             {accounts.map((account) => (
@@ -65,7 +99,7 @@ export function CosmosDBBoard() {
                             <div className="text-xs text-gray-500 mt-1">
                                 {(
                                     (account.ruConsumption.consumed /
-                                        account.ruConsumption.provisioned) *
+                                        Math.max(account.ruConsumption.provisioned, 1)) *
                                     100
                                 ).toFixed(1)}
                                 % utilization
@@ -91,7 +125,6 @@ export function CosmosDBBoard() {
                             <div className="text-2xl font-bold text-green-700">
                                 {account.ruConsumption.avgLatencyMs}ms
                             </div>
-                            <div className="text-xs text-gray-500 mt-1">average</div>
                         </div>
 
                         <div className="bg-purple-50 p-4 rounded">
@@ -102,27 +135,17 @@ export function CosmosDBBoard() {
                             <div className="text-2xl font-bold text-purple-700">
                                 ${account.monthlyCostUsd}
                             </div>
-                            <div className="text-xs text-gray-500 mt-1">USD</div>
-                        </div>
-                    </div>
-
-                    <div className="border-t pt-4">
-                        <h4 className="font-semibold text-sm mb-3">Databases & Containers</h4>
-                        <div className="space-y-2 text-sm">
-                            {account.monthlyCostUsd > 0 && (
-                                <div className="text-gray-600">
-                                    📊 Cosmos DB instance configured with multiple databases and
-                                    containers
-                                </div>
-                            )}
                         </div>
                     </div>
                 </div>
             ))}
 
             {accounts.length === 0 && (
-                <div className="text-center py-12 text-gray-500">
-                    No Cosmos DB accounts found
+                <div className="text-center py-12">
+                    <p className="text-lg font-semibold text-gray-700">Sin cuentas Cosmos DB</p>
+                    <p className="text-gray-500 mt-1">
+                        {emptyMessage || 'No se encontraron cuentas Cosmos DB en el tenant.'}
+                    </p>
                 </div>
             )}
         </div>

@@ -1,7 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Database, HardDrive, Zap, AlertTriangle } from 'lucide-react';
+import { Database, Zap, AlertTriangle } from 'lucide-react';
+import { useTenant } from '@/components/TenantProvider';
+import { useMsal } from '@azure/msal-react';
+import { getFreshIdToken } from '@/lib/msalToken';
+import { isMockTenant } from '@/lib/mockData';
 
 interface MongoAccount {
     id: string;
@@ -21,42 +25,91 @@ interface RedisInstance {
     name: string;
     sku: string;
     size: string;
-    region: string;
-    usedMemoryMB: number;
-    maxMemoryMB: number;
-    cacheHitRate: number;
-    evictedKeys: number;
-    cpuPercent: number;
+    usedMemoryMB: number | null;
+    maxMemoryMB: number | null;
+    cacheHitRate: number | null;
+    evictedKeys: number | null;
+    cpuPercent: number | null;
     monthlyCostUsd: number;
+}
+
+const unavailableTelemetry = 'No disponible';
+
+async function fetchDiagnostics(
+    url: string,
+    tenantId: string,
+    isMock: boolean,
+    instance: any,
+    msalAccounts: any[],
+) {
+    const headers: HeadersInit = {};
+    if (!isMock && msalAccounts.length > 0) {
+        const idToken = await getFreshIdToken(instance, msalAccounts[0]);
+        headers.Authorization = 'Bearer ' + idToken;
+    }
+    const res = await fetch(`${url}?tenantId=${tenantId}`, { headers });
+    const data = await res.json().catch(() => null);
+    return { ok: res.ok, data };
 }
 
 export function MongoDBBoard() {
     const [accounts, setAccounts] = useState<MongoAccount[]>([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const [emptyMessage, setEmptyMessage] = useState<string | null>(null);
+    const { selectedTenant } = useTenant();
+    const { instance, accounts: msalAccounts } = useMsal();
 
     useEffect(() => {
-        async function fetchData() {
-            try {
-                const tenantId = localStorage.getItem('tenantId') || 'demo_tenant';
-                const res = await fetch(
-                    `/api/intelligence/databases/mongo-diagnostics?tenantId=${tenantId}`
-                );
-                if (!res.ok) throw new Error(`API error: ${res.status}`);
-                const data = await res.json();
-                setAccounts(data.accounts || []);
-            } catch (err) {
-                setError(err instanceof Error ? err.message : 'Unknown error');
-            } finally {
-                setLoading(false);
-            }
+        if (
+            !selectedTenant?.id ||
+            selectedTenant.id === 'default' ||
+            (msalAccounts.length === 0 && !isMockTenant(selectedTenant.id))
+        ) {
+            setLoading(false);
+            setAccounts([]);
+            setEmptyMessage(null);
+            return;
         }
-        fetchData();
-    }, []);
+
+        let cancelled = false;
+        (async () => {
+            try {
+                const response = await fetchDiagnostics(
+                    '/api/intelligence/databases/mongo-diagnostics',
+                    selectedTenant.id,
+                    isMockTenant(selectedTenant.id),
+                    instance,
+                    msalAccounts,
+                );
+                if (cancelled) return;
+                if (!response.ok) {
+                    setAccounts([]);
+                    setEmptyMessage(
+                        response.data?.message ||
+                            response.data?.error ||
+                            'No se encontraron cuentas MongoDB en el tenant.',
+                    );
+                    return;
+                }
+                const json = response.data || {};
+                setAccounts(json.accounts || []);
+                setEmptyMessage(json.message || null);
+            } catch {
+                if (!cancelled) {
+                    setAccounts([]);
+                    setEmptyMessage('No se encontraron cuentas MongoDB en el tenant.');
+                }
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [selectedTenant?.id, msalAccounts.length, instance]);
 
     if (loading) return <div className="p-4">Loading...</div>;
-    if (error) return <div className="p-4 text-red-600">Error: {error}</div>;
-
     return (
         <div className="space-y-6">
             {accounts.map((account) => (
@@ -75,14 +128,6 @@ export function MongoDBBoard() {
                             <div className="text-2xl font-bold text-green-700">
                                 {account.ruConsumption.consumed.toLocaleString()} /
                                 {account.ruConsumption.provisioned.toLocaleString()}
-                            </div>
-                            <div className="text-xs text-gray-500 mt-1">
-                                {(
-                                    (account.ruConsumption.consumed /
-                                        account.ruConsumption.provisioned) *
-                                    100
-                                ).toFixed(1)}
-                                %
                             </div>
                         </div>
 
@@ -111,30 +156,15 @@ export function MongoDBBoard() {
                             </div>
                         </div>
                     </div>
-
-                    <div className="border-t pt-4">
-                        <h4 className="font-semibold text-sm mb-3">Shard Distribution</h4>
-                        <div className="grid grid-cols-3 gap-2 text-sm">
-                            <div className="bg-gray-50 p-2 rounded text-center">
-                                <div className="text-gray-600">Shard-0</div>
-                                <div className="font-semibold">32%</div>
-                            </div>
-                            <div className="bg-gray-50 p-2 rounded text-center">
-                                <div className="text-gray-600">Shard-1</div>
-                                <div className="font-semibold">35%</div>
-                            </div>
-                            <div className="bg-gray-50 p-2 rounded text-center">
-                                <div className="text-gray-600">Shard-2</div>
-                                <div className="font-semibold">33%</div>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             ))}
 
             {accounts.length === 0 && (
-                <div className="text-center py-12 text-gray-500">
-                    No MongoDB accounts found
+                <div className="rounded-2xl border border-gray-200 bg-white px-8 py-12 text-center shadow-sm">
+                    <p className="text-lg font-semibold text-gray-900">Sin cuentas MongoDB</p>
+                    <p className="mt-2 text-gray-500">
+                        {emptyMessage || 'No se encontraron cuentas MongoDB en el tenant.'}
+                    </p>
                 </div>
             )}
         </div>
@@ -144,41 +174,72 @@ export function MongoDBBoard() {
 export function RedisBoard() {
     const [instances, setInstances] = useState<RedisInstance[]>([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const [emptyMessage, setEmptyMessage] = useState<string | null>(null);
+    const { selectedTenant } = useTenant();
+    const { instance, accounts: msalAccounts } = useMsal();
 
     useEffect(() => {
-        async function fetchData() {
-            try {
-                const tenantId = localStorage.getItem('tenantId') || 'demo_tenant';
-                const res = await fetch(
-                    `/api/intelligence/databases/redis-diagnostics?tenantId=${tenantId}`
-                );
-                if (!res.ok) throw new Error(`API error: ${res.status}`);
-                const data = await res.json();
-                setInstances(data.instances || []);
-            } catch (err) {
-                setError(err instanceof Error ? err.message : 'Unknown error');
-            } finally {
-                setLoading(false);
-            }
+        if (
+            !selectedTenant?.id ||
+            selectedTenant.id === 'default' ||
+            (msalAccounts.length === 0 && !isMockTenant(selectedTenant.id))
+        ) {
+            setLoading(false);
+            setInstances([]);
+            setEmptyMessage(null);
+            return;
         }
-        fetchData();
-    }, []);
+
+        let cancelled = false;
+        (async () => {
+            try {
+                const response = await fetchDiagnostics(
+                    '/api/intelligence/databases/redis-diagnostics',
+                    selectedTenant.id,
+                    isMockTenant(selectedTenant.id),
+                    instance,
+                    msalAccounts,
+                );
+                if (cancelled) return;
+                if (!response.ok) {
+                    setInstances([]);
+                    setEmptyMessage(
+                        response.data?.message ||
+                            response.data?.error ||
+                            'No se encontraron instancias de Azure Cache for Redis en el tenant.',
+                    );
+                    return;
+                }
+                const json = response.data || {};
+                setInstances(json.instances || []);
+                setEmptyMessage(json.message || null);
+            } catch {
+                if (!cancelled) {
+                    setInstances([]);
+                    setEmptyMessage('No se encontraron instancias de Azure Cache for Redis en el tenant.');
+                }
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [selectedTenant?.id, msalAccounts.length, instance]);
 
     if (loading) return <div className="p-4">Loading...</div>;
-    if (error) return <div className="p-4 text-red-600">Error: {error}</div>;
-
     return (
         <div className="space-y-6">
-            {instances.map((instance) => (
-                <div key={instance.id} className="border border-gray-200 rounded-lg p-6">
+            {instances.map((instanceData) => (
+                <div key={instanceData.id} className="border border-gray-200 rounded-lg p-6">
                     <div className="flex items-center justify-between mb-4">
                         <h3 className="text-lg font-semibold flex items-center gap-2">
                             <Zap className="w-5 h-5 text-red-600" />
-                            {instance.name}
+                            {instanceData.name}
                         </h3>
                         <span className="text-xs text-gray-600 bg-red-50 px-2 py-1 rounded">
-                            {instance.sku} {instance.size}
+                            {instanceData.sku} {instanceData.size}
                         </span>
                     </div>
 
@@ -186,56 +247,31 @@ export function RedisBoard() {
                         <div className="bg-red-50 p-4 rounded">
                             <div className="text-sm text-gray-600">Memory</div>
                             <div className="text-2xl font-bold text-red-700">
-                                {(instance.usedMemoryMB / 1024).toFixed(2)}GB /{' '}
-                                {(instance.maxMemoryMB / 1024).toFixed(2)}GB
-                            </div>
-                            <div className="text-xs text-gray-500">
-                                {(
-                                    (instance.usedMemoryMB / instance.maxMemoryMB) *
-                                    100
-                                ).toFixed(1)}
-                                %
+                                {instanceData.usedMemoryMB === null || instanceData.maxMemoryMB === null
+                                    ? unavailableTelemetry
+                                    : `${(instanceData.usedMemoryMB / 1024).toFixed(2)}GB / ${(instanceData.maxMemoryMB / 1024).toFixed(2)}GB`}
                             </div>
                         </div>
-
                         <div className="bg-green-50 p-4 rounded">
                             <div className="text-sm text-gray-600">Hit Rate</div>
                             <div className="text-2xl font-bold text-green-700">
-                                {(instance.cacheHitRate * 100).toFixed(1)}%
+                                {instanceData.cacheHitRate === null
+                                    ? unavailableTelemetry
+                                    : `${(instanceData.cacheHitRate * 100).toFixed(1)}%`}
                             </div>
                         </div>
-
                         <div className="bg-blue-50 p-4 rounded">
                             <div className="text-sm text-gray-600">CPU Usage</div>
                             <div className="text-2xl font-bold text-blue-700">
-                                {instance.cpuPercent}%
+                                {instanceData.cpuPercent === null
+                                    ? unavailableTelemetry
+                                    : `${instanceData.cpuPercent}%`}
                             </div>
                         </div>
-
                         <div className="bg-purple-50 p-4 rounded">
                             <div className="text-sm text-gray-600">Monthly Cost</div>
                             <div className="text-2xl font-bold text-purple-700">
-                                ${instance.monthlyCostUsd}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4 pt-4 border-t">
-                        <div>
-                            <div className="text-sm text-gray-600 mb-2">Memory Usage</div>
-                            <div className="w-full bg-gray-200 rounded-full h-2">
-                                <div
-                                    className="bg-red-600 h-2 rounded-full"
-                                    style={{
-                                        width: `${(instance.usedMemoryMB / instance.maxMemoryMB) * 100}%`,
-                                    }}
-                                />
-                            </div>
-                        </div>
-                        <div>
-                            <div className="text-sm text-gray-600 mb-2">Evictions</div>
-                            <div className="font-semibold text-yellow-700">
-                                {instance.evictedKeys.toLocaleString()} keys
+                                ${instanceData.monthlyCostUsd}
                             </div>
                         </div>
                     </div>
@@ -243,8 +279,11 @@ export function RedisBoard() {
             ))}
 
             {instances.length === 0 && (
-                <div className="text-center py-12 text-gray-500">
-                    No Redis instances found
+                <div className="rounded-2xl border border-gray-200 bg-white px-8 py-12 text-center shadow-sm">
+                    <p className="text-lg font-semibold text-gray-900">Sin instancias Azure Cache for Redis</p>
+                    <p className="mt-2 text-gray-500">
+                        {emptyMessage || 'No se encontraron instancias de Azure Cache for Redis en el tenant.'}
+                    </p>
                 </div>
             )}
         </div>
