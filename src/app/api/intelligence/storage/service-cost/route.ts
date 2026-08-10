@@ -18,7 +18,7 @@ async function queryCostMeterSum(tenantId: string, whereClause: string): Promise
         `SELECT COALESCE(SUM(cost_usd), 0) AS total
          FROM CostMeterSnapshots
          WHERE tenant_id = ?
-           AND date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+           AND date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
            AND (${whereClause})`,
         [tenantId]
     );
@@ -30,9 +30,23 @@ async function queryCostSnapshotsSum(tenantId: string, whereClause: string): Pro
         `SELECT COALESCE(SUM(COALESCE(BilledCost, cost_usd, 0)), 0) AS total
          FROM CostSnapshots
          WHERE tenant_id = ?
-           AND date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+           AND date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
            AND (${whereClause})`,
         [tenantId]
+    );
+    return Number(rows?.[0]?.total || 0);
+}
+
+async function queryCostCategorySum(tenantId: string, resourceTypes: string[]): Promise<number> {
+    if (!resourceTypes.length) return 0;
+    const placeholders = resourceTypes.map(() => "?").join(",");
+    const [rows]: any = await pool.query(
+        `SELECT COALESCE(SUM(cost_usd), 0) AS total
+         FROM CostCategorySnapshots
+         WHERE tenant_id = ?
+           AND date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+           AND LOWER(resource_type) IN (${placeholders})`,
+        [tenantId, ...resourceTypes.map((type) => type.toLowerCase())]
     );
     return Number(rows?.[0]?.total || 0);
 }
@@ -81,7 +95,7 @@ export async function GET(request: NextRequest) {
         await requireTenantAccess(request, tenantId);
 
         const data = await getWithStaleWhileRevalidate(
-            `storage-service-cost:v1:${tenantId}:${family}`,
+            `storage-service-cost:v2:${tenantId}:${family}`,
             async () => {
                 if (isMockTenant(tenantId)) {
                     const mockMap: Record<Family, ServiceItem[]> = {
@@ -111,11 +125,14 @@ export async function GET(request: NextRequest) {
                         tenantId,
                         "Resources | where type =~ 'microsoft.compute/disks' | summarize resourceCount = count()"
                     );
-                    const monthlyCost = await queryHybridCost(
-                        tenantId,
-                        "(LOWER(COALESCE(MeterCategory,'')) IN ('disks','disk storage') OR LOWER(COALESCE(service_name,'')) LIKE '%disk%')",
-                        "(LOWER(COALESCE(MeterCategory,'')) IN ('disks','disk storage') OR LOWER(COALESCE(service_name,'')) LIKE '%disk%')"
-                    );
+                    const categoryCost = await queryCostCategorySum(tenantId, ["microsoft.compute/disks"]);
+                    const monthlyCost = categoryCost > 0
+                        ? categoryCost
+                        : await queryHybridCost(
+                            tenantId,
+                            "(LOWER(COALESCE(MeterCategory,'')) IN ('disks','disk storage') OR LOWER(COALESCE(service_name,'')) LIKE '%disk%')",
+                            "(LOWER(COALESCE(MeterCategory,'')) IN ('disks','disk storage') OR LOWER(COALESCE(service_name,'')) LIKE '%disk%')"
+                        );
                     items = [{ serviceLabel: "Managed Disk", monthlyCost: Number(monthlyCost.toFixed(2)), resourceCount }];
                 }
 
