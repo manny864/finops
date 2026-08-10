@@ -90,7 +90,10 @@ async function listResourcesViaArm(
           headers,
           cache: "no-store",
         });
-        if (!response.ok) break;
+        if (!response.ok) {
+          console.warn(`[listResourcesViaArm] Failed ${url}: HTTP ${response.status}`);
+          break;
+        }
         const json: any = await response.json();
         const values = Array.isArray(json.value) ? json.value : [];
         console.log(`[listResourcesViaArm] Got ${values.length} results for ${resourceType} in ${subscriptionId}`);
@@ -117,6 +120,7 @@ async function listResourcesViaArm(
       }
     }
   }
+  console.log(`[listResourcesViaArm] Returning ${items.length} total items`);
   return items;
 }
 
