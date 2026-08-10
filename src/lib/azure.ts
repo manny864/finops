@@ -2,6 +2,7 @@ import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { ClientSecretCredential } from "@azure/identity";
 import { ComputeManagementClient } from "@azure/arm-compute";
 import { NetworkManagementClient } from "@azure/arm-network";
+import { CostManagementClient } from "@azure/arm-costmanagement";
 import pool, { initializeDatabase } from '@/modules/storage/db';
 import { getTenantCredentials } from '@/lib/secrets/tenantCredentials';
 import { getSubscriptionLimit } from '@/lib/tierLogic';
@@ -82,6 +83,7 @@ export async function getSubscriptionsForTenant(tenantId: string, credential?: C
 export async function getAllSubscriptionsForTenant(tenantId: string, credential?: ClientSecretCredential): Promise<string[]> {
   const cred = credential || await getAzureCredential(tenantId);
   const subs: string[] = [];
+  
   try {
     const tokenResponse = await cred.getToken("https://management.azure.com/.default");
     const fetchRes = await fetch("https://management.azure.com/subscriptions?api-version=2020-01-01", {
@@ -92,13 +94,50 @@ export async function getAllSubscriptionsForTenant(tenantId: string, credential?
       for (const sub of (data.value || [])) {
         if (sub.subscriptionId) subs.push(sub.subscriptionId);
       }
-      console.log(`[azure] getAllSubscriptionsForTenant(${tenantId}): Found ${subs.length} subscriptions (no plan limit applied)`);
+      console.log(`[azure] getAllSubscriptionsForTenant(${tenantId}): Found ${subs.length} subscriptions via Management API`);
     }
   } catch (e) {
-    console.error(`[azure] Error fetching all subscriptions for tenant ${tenantId}:`, e);
+    console.error(`[azure] Error fetching subscriptions for tenant ${tenantId}:`, e);
   }
+  
+  // If no subscriptions found, try Cost Management API as fallback
+  if (subs.length === 0) {
+    console.log(`[azure] getAllSubscriptionsForTenant(${tenantId}): Attempting Cost Management API fallback`);
+    try {
+      const cm = new CostManagementClient(cred);
+      const result = await (cm.query as any).usageDetail({
+        scope: `/subscriptions/`,
+        parameters: {
+          type: "Usage",
+          timeframe: "TheLastMonth",
+          dataset: {
+            granularity: "Monthly",
+            aggregation: { totalCost: { name: "PreTaxCost", function: "Sum" } },
+            grouping: [{ type: "Dimension", name: "SubscriptionId" }]
+          }
+        }
+      }).catch(() => ({ rows: [] }));
+      
+      if (result && result.rows && Array.isArray(result.rows)) {
+        const subIds = new Set<string>();
+        for (const row of result.rows as any[]) {
+          if (row[0]) subIds.add(String(row[0]));
+        }
+        subs.push(...Array.from(subIds));
+        console.log(`[azure] getAllSubscriptionsForTenant(${tenantId}): Discovered ${subs.length} subscriptions via Cost Management API`);
+      }
+    } catch (e) {
+      console.error(`[azure] Cost Management API fallback failed for tenant ${tenantId}:`, e);
+    }
+  }
+  
+  if (subs.length === 0) {
+    console.log(`[azure] getAllSubscriptionsForTenant(${tenantId}): WARNING - No subscriptions found`);
+  }
+  
   return subs;
 }
+
 
 export async function getComputeClient(tenantId: string, subscriptionId: string) {
   const credential = await getAzureCredential(tenantId);
