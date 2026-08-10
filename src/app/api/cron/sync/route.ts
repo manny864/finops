@@ -42,6 +42,7 @@ const SYNC_LOCK_KEY = "cron:sync:lock:v1";
 // reintentar — mismo espíritu que "sin retry automático, el próximo tick
 // reintenta solo" del comentario en el módulo de Terraform.
 const SYNC_LOCK_TTL_SECONDS = Number(process.env.CRON_SYNC_LOCK_TTL_SECONDS || 3300);
+const SYNC_STALE_MS = Number(process.env.CRON_SYNC_STALE_MS || 20 * 60 * 1000);
 
 type SyncStatus = {
     startedAt: number;
@@ -67,40 +68,7 @@ async function readSyncStatus(): Promise<SyncStatus | null> {
     return raw ? JSON.parse(raw) : null;
 }
 
-export async function GET(request: NextRequest) {
-    return handleRequest(request);
-}
-
-export async function POST(request: NextRequest) {
-    return handleRequest(request);
-}
-
-async function handleRequest(request: NextRequest): Promise<NextResponse> {
-    // Mismo chequeo que antes, sin tocar: sólo header Bearer, fail-closed.
-    const cronSecret = process.env.CRON_SECRET;
-    if (!cronSecret || cronSecret.length < 16) {
-        console.error('CRON_SECRET not configured or too short');
-        return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
-    }
-    const authHeader = request.headers.get("authorization");
-    if (authHeader !== `Bearer ${cronSecret}`) {
-        return NextResponse.json({ error: "No autorizado." }, { status: 401 });
-    }
-
-    if (request.nextUrl.searchParams.get("status") === "1") {
-        const status = await readSyncStatus();
-        return NextResponse.json(status || { done: null });
-    }
-
-    const acquired = await redis.set(SYNC_LOCK_KEY, "1", "EX", SYNC_LOCK_TTL_SECONDS, "NX");
-    if (!acquired) {
-        const status = await readSyncStatus();
-        return NextResponse.json({ alreadyRunning: true, status: status || { done: false } });
-    }
-
-    const startedAt = Date.now();
-    await writeSyncStatus({ startedAt, finishedAt: null, done: false, ok: null });
-
+function launchSync(startedAt: number): void {
     // Fire-and-forget deliberado: NO se espera acá (ver comentario grande arriba).
     runSyncCore()
         .then(async (result) => {
@@ -134,6 +102,78 @@ async function handleRequest(request: NextRequest): Promise<NextResponse> {
             ]);
         })
         .finally(() => redis.del(SYNC_LOCK_KEY));
+}
+
+export async function GET(request: NextRequest) {
+    return handleRequest(request);
+}
+
+export async function POST(request: NextRequest) {
+    return handleRequest(request);
+}
+
+async function handleRequest(request: NextRequest): Promise<NextResponse> {
+    // Mismo chequeo que antes, sin tocar: sólo header Bearer, fail-closed.
+    const cronSecret = process.env.CRON_SECRET;
+    if (!cronSecret || cronSecret.length < 16) {
+        console.error('CRON_SECRET not configured or too short');
+        return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
+    }
+    const authHeader = request.headers.get("authorization");
+    if (authHeader !== `Bearer ${cronSecret}`) {
+        return NextResponse.json({ error: "No autorizado." }, { status: 401 });
+    }
+
+    if (request.nextUrl.searchParams.get("status") === "1") {
+        const status = await readSyncStatus();
+        return NextResponse.json(status || { done: null });
+    }
+
+    if (request.nextUrl.searchParams.get("force") === "1") {
+        await redis.del(SYNC_LOCK_KEY);
+        const previous = await readSyncStatus();
+        if (previous && previous.done === false) {
+            await writeSyncStatus({
+                ...previous,
+                done: true,
+                ok: false,
+                finishedAt: Date.now(),
+                error: "Sync anterior interrumpido por reinicio forzado.",
+            });
+        }
+    }
+
+    const acquired = await redis.set(SYNC_LOCK_KEY, "1", "EX", SYNC_LOCK_TTL_SECONDS, "NX");
+    if (!acquired) {
+        const status = await readSyncStatus();
+        const stale =
+            !!status &&
+            status.done === false &&
+            typeof status.startedAt === "number" &&
+            Date.now() - status.startedAt > SYNC_STALE_MS;
+        if (stale) {
+            await redis.del(SYNC_LOCK_KEY);
+            await writeSyncStatus({
+                ...status,
+                done: true,
+                ok: false,
+                finishedAt: Date.now(),
+                error: "Sync anterior marcado como stale y finalizado automáticamente.",
+            });
+            const recovered = await redis.set(SYNC_LOCK_KEY, "1", "EX", SYNC_LOCK_TTL_SECONDS, "NX");
+            if (recovered) {
+                const startedAt = Date.now();
+                await writeSyncStatus({ startedAt, finishedAt: null, done: false, ok: null });
+                launchSync(startedAt);
+                return NextResponse.json({ status: "started", recoveredFromStale: true, startedAt });
+            }
+        }
+        return NextResponse.json({ alreadyRunning: true, status: status || { done: false } });
+    }
+
+    const startedAt = Date.now();
+    await writeSyncStatus({ startedAt, finishedAt: null, done: false, ok: null });
+    launchSync(startedAt);
 
     return NextResponse.json({ status: "started", startedAt });
 }
@@ -150,8 +190,6 @@ const MAX_BACKFILL_DAYS_PER_RUN = 2;
 // Ventana hacia atrás en la que se buscan huecos (más allá de esto, se
 // considera que el dato ya no es recuperable / no vale la pena reintentar).
 const BACKFILL_WINDOW_DAYS = 7;
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
  * REPARTO DEL BARRIDO (2026-07-30).
@@ -230,11 +268,9 @@ async function findGapDays(tenantId: string): Promise<Date[]> {
  * timeout propio, y el fetch del cron recién aborta a los 59,5 min: ni línea de
  * fin, ni error, y `CostSnapshots` con un solo día cargado.
  *
- * LIMITACIÓN QUE HAY QUE CONOCER: Promise.race NO cancela el trabajo de abajo. La
- * llamada colgada sigue viva en background; lo que se corta es la ESPERA, para que
- * el barrido siga con el resto de los tenants. Cancelarla de verdad requiere
- * propagar un AbortSignal hasta los SDK de Azure, que hoy no lo reciben. Aun así
- * esto es lo que evita que un tenant colgado deje a todos los demás sin datos.
+ * El deadline aborta cooperativamente las llamadas Azure, esperas y mutaciones
+ * compatibles. Si una dependencia ignora la señal, el timeout se reporta como
+ * deadline excedido y las guardas posteriores impiden que escriba datos tarde.
  */
 const TENANT_TIMEOUT_MS = Number(process.env.CRON_SYNC_TENANT_TIMEOUT_MS || 6 * 60 * 1000);
 
@@ -246,28 +282,57 @@ export class TenantSyncTimeout extends Error {
     }
 }
 
-export function withDeadline<T>(work: Promise<T>, ms: number, label: string): Promise<T> {
-    if (!(ms > 0)) return work;
+function throwIfAborted(signal?: AbortSignal): void {
+    if (signal?.aborted) {
+        throw signal.reason instanceof Error ? signal.reason : new DOMException('Operation aborted', 'AbortError');
+    }
+}
+
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+    throwIfAborted(signal);
+    return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+            signal?.removeEventListener('abort', onAbort);
+            resolve();
+        }, ms);
+        const onAbort = () => {
+            clearTimeout(timer);
+            reject(signal?.reason instanceof Error ? signal.reason : new DOMException('Operation aborted', 'AbortError'));
+        };
+        signal?.addEventListener('abort', onAbort, { once: true });
+    });
+}
+
+export function withDeadline<T>(work: (signal: AbortSignal) => Promise<T>, ms: number, label: string): Promise<T> {
+    const controller = new AbortController();
+    const task = work(controller.signal);
+    if (!(ms > 0)) return task;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const deadline = new Promise<never>((_resolve, reject) => {
-        timer = setTimeout(() => reject(new TenantSyncTimeout(label, ms)), ms);
+        timer = setTimeout(() => {
+            const error = new TenantSyncTimeout(label, ms);
+            controller.abort(error);
+            reject(error);
+        }, ms);
     });
     // El catch vacío evita un unhandledRejection cuando `work` falla DESPUÉS de que
     // el deadline ya rechazó: la promesa perdedora sigue viva y nadie la escucha.
-    work.catch(() => { /* ya reportado por la race */ });
-    return Promise.race([work, deadline]).finally(() => {
+    task.catch(() => { /* la tarea puede terminar después del deadline */ });
+    return Promise.race([task, deadline]).finally(() => {
         if (timer) clearTimeout(timer);
     }) as Promise<T>;
 }
 
 /** Sincroniza el aggregate + detalle FOCUS de un tenant para un día puntual. */
-async function syncDay(tenantId: string, day: Date): Promise<{ dateStr: string; detailedRows: number }> {
+async function syncDay(tenantId: string, day: Date, signal: AbortSignal): Promise<{ dateStr: string; detailedRows: number }> {
     const dateStr = toDateStr(day);
-    const totalCost = await getYesterdaysCost(tenantId, day);
+    const totalCost = await getYesterdaysCost(tenantId, day, signal);
+    throwIfAborted(signal);
     await insertCostSnapshot(tenantId, dateStr, totalCost, 'USD');
 
-    const detailedRows = await getYesterdaysDetailedCosts(tenantId, day);
+    const detailedRows = await getYesterdaysDetailedCosts(tenantId, day, signal);
     for (const row of detailedRows) {
+        throwIfAborted(signal);
         if (row.kind === 'meter') {
             await insertCostMeterSnapshotRow(tenantId, dateStr, row);
         } else if (row.kind === 'category') {
@@ -293,25 +358,29 @@ async function syncDay(tenantId: string, day: Date): Promise<{ dateStr: string; 
 async function syncTenant(
     tenantId: string,
     yesterdayStr: string,
-    pace: (ms: number) => Promise<void>
+    pace: (ms: number, signal: AbortSignal) => Promise<void>,
+    signal: AbortSignal,
 ): Promise<{ detailRows: number; backfilledDays: number }> {
     let detailRows = 0;
     let backfilledDays = 0;
 
+    throwIfAborted(signal);
     const creds = await getTenantCredentials(tenantId);
     if (!creds) {
         throw new Error("Azure client credentials are not configured for this tenant.");
     }
 
     // a) Aggregate total (legacy table cost_snapshots used by dashboard)
-    const totalCost = await getYesterdaysCost(tenantId);
+    const totalCost = await getYesterdaysCost(tenantId, undefined, signal);
+    throwIfAborted(signal);
     await insertCostSnapshot(tenantId, yesterdayStr, totalCost, 'USD');
 
     // b) Detailed FOCUS rows (CostSnapshots — powers storage-efficiency,
     //    billing, chargeback, ai-analytics, etc.)
     try {
-        const detailedRows = await getYesterdaysDetailedCosts(tenantId);
+        const detailedRows = await getYesterdaysDetailedCosts(tenantId, undefined, signal);
         for (const row of detailedRows) {
+            throwIfAborted(signal);
             // Mismo costo, dos desgloses: chargeback (por RG) va a
             // CostSnapshots; meter (por subcategoría) a su propia
             // tabla para no duplicar sumas ni colapsar tiers.
@@ -326,6 +395,7 @@ async function syncTenant(
         detailRows += detailedRows.length;
         console.log(`[cron-sync] tenant=${tenantId} detailed rows inserted=${detailedRows.length}`);
     } catch (detailErr: any) {
+        throwIfAborted(signal);
         console.error(`[cron-sync] detailed fetch failed for tenant ${tenantId}:`, detailErr.message);
     }
 
@@ -339,17 +409,19 @@ async function syncTenant(
             // Cada día de hueco es otra tanda completa de consultas
             // sobre los MISMOS scopes que acaba de usar "ayer" (por eso
             // se pausa también antes del primero).
-            await pace(GAP_DAY_PACE_MS);
+            await pace(GAP_DAY_PACE_MS, signal);
             try {
-                const { dateStr, detailedRows } = await syncDay(tenantId, gapDay);
+                const { dateStr, detailedRows } = await syncDay(tenantId, gapDay, signal);
                 detailRows += detailedRows;
                 backfilledDays++;
                 console.log(`[cron-sync] tenant=${tenantId} backfill ${dateStr} rows=${detailedRows}`);
             } catch (gapErr: any) {
+                throwIfAborted(signal);
                 console.warn(`[cron-sync] backfill failed tenant=${tenantId} day=${toDateStr(gapDay)}:`, gapErr.message);
             }
         }
     } catch (gapDetectErr: any) {
+        throwIfAborted(signal);
         console.warn(`[cron-sync] findGapDays failed for tenant ${tenantId}:`, gapDetectErr.message);
     }
 
@@ -358,18 +430,21 @@ async function syncTenant(
     //    aislada: si el SP no tiene Monitoring Reader o el tenant no
     //    tiene cuentas Cognitive Services, no interrumpe el resto del sync.
     try {
-        const aiRows = await getYesterdaysAIUsage(tenantId);
+        const aiRows = await getYesterdaysAIUsage(tenantId, signal);
         for (const row of aiRows) {
+            throwIfAborted(signal);
             await insertAICostSnapshotRow(tenantId, row.date || yesterdayStr, row);
         }
         if (aiRows.length > 0) {
             console.log(`[cron-sync] tenant=${tenantId} AI usage rows inserted=${aiRows.length}`);
         }
     } catch (aiErr: any) {
+        throwIfAborted(signal);
         console.error(`[cron-sync] AI usage fetch failed for tenant ${tenantId}:`, aiErr.message);
     }
 
-    await invalidateCostCaches(tenantId);
+    throwIfAborted(signal);
+    await invalidateCostCaches(tenantId, signal);
 
     return { detailRows, backfilledDays };
 }
@@ -383,17 +458,20 @@ async function syncTenant(
  * `redis.keys` es aceptable acá: corre una vez por tenant al final del sync
  * diario, no en el hot path de un request de usuario.
  */
-async function invalidateCostCaches(tenantId: string): Promise<void> {
+async function invalidateCostCaches(tenantId: string, signal?: AbortSignal): Promise<void> {
     try {
+    throwIfAborted(signal);
         const patterns = [
             `costProjection:v4:${tenantId}:*`,
             `whiteboard:v2:azure:${tenantId}`,
             // AI Cost Analytics (7/30/60/90 días): sin invalidación explícita
             // puede mostrar ceros/datos viejos hasta que expire el TTL.
             `ai-analytics:v2:${tenantId}:*`,
+            `ai-analytics:v3:${tenantId}:*`,
         ];
         const keys = (await Promise.all(patterns.map((p) => redis.keys(p)))).flat();
         if (keys.length > 0) {
+            throwIfAborted(signal);
             await redis.del(...keys);
             console.log(`[cron-sync] tenant=${tenantId} cache invalidado: ${keys.join(', ')}`);
         }
@@ -438,8 +516,8 @@ async function runSyncCore() {
     const withinPaceBudget = () => Date.now() - sweepStartedAt < PACE_BUDGET_MS;
     // Pausa que respeta el presupuesto del barrido: pasado PACE_BUDGET_MS deja de
     // pausar, porque terminar importa más que espaciar.
-    const pace = async (ms: number) => {
-        if (ms > 0 && withinPaceBudget()) await sleep(ms);
+    const pace = async (ms: number, signal: AbortSignal) => {
+        if (ms > 0 && withinPaceBudget()) await sleep(ms, signal);
     };
     const sweep = rotateDaily(tenants, yesterday);
     console.log(`[cron-sync] barrido de ${sweep.length} tenants, pausa ${TENANT_PACE_MS}ms entre cada uno`);
@@ -455,7 +533,7 @@ async function runSyncCore() {
             // Techo de tiempo por tenant: uno colgado no puede dejar sin datos a
             // los que vienen detrás. Ver TENANT_TIMEOUT_MS.
             const result = await withDeadline(
-                syncTenant(tenant.id, yesterdayStr, pace),
+                (signal) => syncTenant(tenant.id, yesterdayStr, pace, signal),
                 TENANT_TIMEOUT_MS,
                 `[cron-sync] tenant ${tenant.id}`
             );
