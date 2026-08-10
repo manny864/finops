@@ -4911,7 +4911,7 @@
     "tabMongoDb": "MongoDB",
     "tabRedis": "Redis for Cache",
     "tabRedistest": "Azure Cache for Redis",
-    "tabTestmysql": "testmysql",
+    "tabTestmysql": "MySQL FinOps Cockpit",
     "cosmosTitle": "Azure Cosmos DB",
     "cosmosSubtitle": "Métricas de consumo de RU, throttling, armazenamento e desempenho",
     "sqlTitle": "Azure SQL & SQL Managed Instance",

@@ -117,6 +117,9 @@ cron_jobs = {
   # Pre-warm del dashboard (cache hard-TTL = 15 min).
   prewarm-dashboard = { cron = "*/10 * * * *", timeout_seconds = 300 }
 
+  # Pre-warm dedicado del cockpit FinOps/CMP de MySQL.
+  prewarm-mysql-finops = { cron = "*/20 * * * *", timeout_seconds = 300 }
+
   # Apagado programado de VMs. Ventana de ejecución = 8 min, por eso */2.
   power-schedules = { cron = "*/2 * * * *", timeout_seconds = 120 }
 

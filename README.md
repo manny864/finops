@@ -899,6 +899,7 @@ Endpoints internos protegidos por `Authorization: Bearer ${CRON_SECRET}`. Los in
 | `GET /api/cron/historical-gap-backfill` | Diaria 03:00 UTC     | Re-consulta los últimos 2 meses de `getHistoricalDetailedCosts`/`getHistoricalDailyCosts` para todos los tenants activos y upsertea (`ON DUPLICATE KEY UPDATE`, nunca `DELETE`) — cierra huecos que el backfill liviano de `/api/cron/sync` (ventana de 7 días) no alcanza a ver, típicamente una suscripción que pierde el sync diario por 429 sostenido durante semanas (ver incidente RPA365 2026-07 abajo). También se dispara on-demand (fire-and-forget, debounced 6h por Redis) al abrir el Invoicing Report si el tenant tiene datos stale — `src/lib/historicalGapBackfill.ts`. |
 | `GET /api/cron/prewarm-dashboard`     | Cada 10 min            | Pre-calienta el cache SWR del Dashboard General (`/api/dashboard/summary`) por tenant activo.  |
 | `GET /api/cron/prewarm-databases`     | Cada 15 min            | Pre-calienta los cachés de diagnósticos de base de datos y métricas de Redis de todos los tenants activos. |
+| `GET /api/cron/prewarm-mysql-finops`  | Cada 20 min            | Pre-calienta el cockpit FinOps/CMP de MySQL (`/api/intelligence/databases/mysql-metrics`) para todos los tenants activos. |
 | `GET /api/cron/prewarm-compute`       | Cada 15 min            | Pre-calienta los cachés de workloads de cómputo de todos los tenants activos. |
 | `GET /api/cron/power-schedules`      | Cada 2 min              | Ejecuta los horarios de apagado programado de VMs (tabla `PowerSchedules`) cuyo horario local ya se cumplió (ventana de 8 min). También se dispara al instante desde `/api/power/schedule` (POST) al crear/editar un horario, sin esperar al próximo tick, para minimizar la latencia percibida. |
 | `GET /api/cron/open-data`            | Semanal (lunes 04:00)  | Sincroniza los Open Data Sets del Microsoft FinOps Toolkit (Regions/Services/ResourceTypes/PricingUnits/CommitmentEligibility) a las tablas `OpenData*`. Sin él, los lookups (nombre canónico de región, categoría de servicio, iconos) devuelven null. |
@@ -925,6 +926,7 @@ por eso no coinciden literalmente con la columna UTC de la tabla de arriba:
 | `historical-gap-backfill` | `0 0 * * *` | 03:00 | 3600s |
 | `prewarm-dashboard` | `*/10 * * * *` | cada 10 min | 300s |
 | `prewarm-databases` | `*/15 * * * *` | cada 15 min | 300s |
+| `prewarm-mysql-finops` | `*/20 * * * *` | cada 20 min | 300s |
 | `prewarm-compute`   | `*/15 * * * *` | cada 15 min | 300s |
 | `power-schedules` | `*/2 * * * *` | cada 2 min | 120s |
 | `anomaly-detection` | `*/5 * * * *` | cada 5 min | 300s |
@@ -937,6 +939,13 @@ por eso no coinciden literalmente con la columna UTC de la tabla de arriba:
 | `ttl-expiry-alerts` | `0 6 * * *` | 09:00 | default |
 | `subscription-expiry` | `30 3 * * *` | 06:30 | default |
 | `trial-expiry` | `0 22 * * *` | 01:00 del día siguiente | default |
+
+**Local (dev) — prueba manual/cron del cockpit MySQL.**
+Con `npm run dev` activo y `CRON_SECRET` cargado en `.env.development`:
+
+```bash
+npm run cron:prewarm:mysql-finops
+```
 
 **Reparto del barrido de `sync`** (desde 2026-07-30). El barrido es secuencial por
 tenant, pero antes no tenía ninguna pausa: cada tenant disparaba "ayer" + los 3
