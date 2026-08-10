@@ -21,6 +21,14 @@
 - **Automatización PAL:** se agregaron reintentos automáticos y notificaciones activas para SuperAdmin cuando cambia el estado de vínculo.
 - **IA Enterprise (Azure IA):** la configuración global de IA ahora soporta **endpoint URL** + deployment para Azure IA en lugar de depender sólo del nombre del recurso.
 
+## Directiva operativa (repositorio y despliegues)
+
+Para cambios asistidos por agente en este repositorio:
+
+- **No hacer `push` a `staging` o `main` sin autorización explícita del usuario.**
+- **No hacer merge a `main` sin autorización explícita del usuario.**
+- Flujo por defecto: **cambios locales + commits**; promoción remota solo bajo instrucción explícita.
+
 ## Cómo usar este manual
 
 Cada sección explica **qué es** la funcionalidad, **quién puede usarla** (rol y tier de suscripción), y el **flujo de uso paso a paso** — botones concretos, rutas de URL, campos de formulario y qué esperar como resultado. Si sos usuario no técnico, podés saltar directo a la sección que te interesa: cada una es autocontenida.
@@ -310,6 +318,7 @@ Simulá el impacto de escalar cómputo/storage, variar tráfico de red, o activa
 | **Prorrateo (Allocation)** | Enterprise | Reglas de distribución de costos compartidos entre múltiples áreas (por uso real, proporcional o fijo). |
 | **MACC Tracking** | Enterprise | Seguimiento del compromiso mínimo anual (EA/MCA) — consumido vs. comprometido, con proyección de cumplimiento. |
 | **AI Cost Analytics** | Enterprise | Costo por modelo de IA y consumo de tokens en Microsoft Foundry / Azure OpenAI, con recomendaciones de optimización de llamadas. |
+| **Bases de Datos** | Business | Visibilidad, métricas en tiempo real y diagnóstico de rendimiento para CosmosDB, Azure SQL, PostgreSQL, MySQL, MongoDB y Redis. Incluye la pestaña especial **redistest** para el monitoreo detallado de las 12 métricas críticas de Azure Cache for Redis mediante gráficos de área con agregación average. |
 
 ---
 

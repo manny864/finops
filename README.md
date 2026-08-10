@@ -9,6 +9,16 @@ Terraform — ver [Infraestructura y despliegue](#-infraestructura-y-despliegue)
 - **Producción:** `https://finops.cscloudsolutions.com.ar` (detrás de Cloudflare, TLS Full strict)
 - **Región principal:** West US 2
 
+## 🚫 Directiva operativa de Git (obligatoria)
+
+Para cualquier trabajo asistido por agente en este repositorio:
+
+- **No se permite `git push` a `staging` ni a `main` sin solicitud explícita del usuario.**
+- **No se permite merge a `main` sin solicitud explícita del usuario.**
+- Por defecto, el alcance permitido es **solo cambios locales y commits**.
+
+Esta directiva aplica a todas las tareas técnicas (fixes, refactors, docs, CI/CD, infra).
+
 ---
 
 ## 🏗️ Architecture
@@ -888,6 +898,8 @@ Endpoints internos protegidos por `Authorization: Bearer ${CRON_SECRET}`. Los in
 | `GET /api/cron/sync`                  | Diaria 06:00 UTC       | Snapshot diario de costos por tenant (Azure Cost Management). Contrato disparar-y-consultar desde 2026-07-30 (ver abajo). |
 | `GET /api/cron/historical-gap-backfill` | Diaria 03:00 UTC     | Re-consulta los últimos 2 meses de `getHistoricalDetailedCosts`/`getHistoricalDailyCosts` para todos los tenants activos y upsertea (`ON DUPLICATE KEY UPDATE`, nunca `DELETE`) — cierra huecos que el backfill liviano de `/api/cron/sync` (ventana de 7 días) no alcanza a ver, típicamente una suscripción que pierde el sync diario por 429 sostenido durante semanas (ver incidente RPA365 2026-07 abajo). También se dispara on-demand (fire-and-forget, debounced 6h por Redis) al abrir el Invoicing Report si el tenant tiene datos stale — `src/lib/historicalGapBackfill.ts`. |
 | `GET /api/cron/prewarm-dashboard`     | Cada 10 min            | Pre-calienta el cache SWR del Dashboard General (`/api/dashboard/summary`) por tenant activo.  |
+| `GET /api/cron/prewarm-databases`     | Cada 15 min            | Pre-calienta los cachés de diagnósticos de base de datos y métricas de Redis de todos los tenants activos. |
+| `GET /api/cron/prewarm-compute`       | Cada 15 min            | Pre-calienta los cachés de workloads de cómputo de todos los tenants activos. |
 | `GET /api/cron/power-schedules`      | Cada 2 min              | Ejecuta los horarios de apagado programado de VMs (tabla `PowerSchedules`) cuyo horario local ya se cumplió (ventana de 8 min). También se dispara al instante desde `/api/power/schedule` (POST) al crear/editar un horario, sin esperar al próximo tick, para minimizar la latencia percibida. |
 | `GET /api/cron/open-data`            | Semanal (lunes 04:00)  | Sincroniza los Open Data Sets del Microsoft FinOps Toolkit (Regions/Services/ResourceTypes/PricingUnits/CommitmentEligibility) a las tablas `OpenData*`. Sin él, los lookups (nombre canónico de región, categoría de servicio, iconos) devuelven null. |
 | `GET /api/cron/anomaly-detection`    | Cada 5 min (mínimo)     | Corre Z-Score sobre `CostSnapshots` para todos los tenants Professional+, persiste en `Anomalies` y notifica (Slack/Teams/email + alerta de navegador) — antes la detección era 100% on-demand (solo calculaba si alguien abría `/intelligence/anomalies`), sin ningún monitoreo proactivo. |
@@ -912,6 +924,8 @@ por eso no coinciden literalmente con la columna UTC de la tabla de arriba:
 | `sync` | `0 3 * * *` | 06:00 | 3600s |
 | `historical-gap-backfill` | `0 0 * * *` | 03:00 | 3600s |
 | `prewarm-dashboard` | `*/10 * * * *` | cada 10 min | 300s |
+| `prewarm-databases` | `*/15 * * * *` | cada 15 min | 300s |
+| `prewarm-compute`   | `*/15 * * * *` | cada 15 min | 300s |
 | `power-schedules` | `*/2 * * * *` | cada 2 min | 120s |
 | `anomaly-detection` | `*/5 * * * *` | cada 5 min | 300s |
 | `status-snapshot` | `*/5 * * * *` | cada 5 min | 120s (`auth_mode = "query"`) |

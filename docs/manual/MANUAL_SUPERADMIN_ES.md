@@ -21,6 +21,14 @@
 - **Automatización operativa PAL:** al aprobar asociación de partner, se registran eventos y se habilita reintento automático (cron) con actualización de estado y detalle.
 - **IA Enterprise (Azure IA):** configuración global extendida para guardar y probar **endpoint URL** + deployment, además de la API key, con compatibilidad de fallback.
 
+## Directiva operativa de cambios (obligatoria)
+
+Para tareas asistidas por agente en este repositorio:
+
+- **No hacer `push` a `staging` ni a `main` sin instrucción explícita del usuario.**
+- **No hacer merge a `main` sin instrucción explícita del usuario.**
+- El modo por defecto es **solo commits locales** hasta nueva autorización explícita.
+
 ## Cómo usar este manual
 
 Cada sección explica **qué es** la funcionalidad, **quién puede usarla** (rol y tier de suscripción), y el **flujo de uso paso a paso** — botones concretos, rutas de URL, campos de formulario y qué esperar como resultado. Si sos usuario no técnico, podés saltar directo a la sección que te interesa: cada una es autocontenida.

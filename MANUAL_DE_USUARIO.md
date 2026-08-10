@@ -12,6 +12,14 @@ Bienvenido a la Plataforma FinOps de CSCloudSolutions. Este manual está diseña
 - **Reintento automático PAL:** al aprobar la asociación de partner, el sistema ya puede reintentar de forma programada y actualizar estado/detalle automáticamente.
 - **Configuración IA Enterprise (Azure IA):** la configuración global ahora permite definir **endpoint URL** y deployment del proveedor Azure IA para planes Enterprise.
 
+## Directiva operativa (repositorio y despliegues)
+
+Para cambios asistidos por agente en este repositorio:
+
+- **No hacer `push` a `staging` o `main` sin autorización explícita del usuario.**
+- **No hacer merge a `main` sin autorización explícita del usuario.**
+- Flujo por defecto: **cambios locales + commits**; promoción remota solo bajo instrucción explícita.
+
 ## 1. Introducción y Acceso
 
 La plataforma es una solución SaaS B2B para **Microsoft Azure**.
@@ -113,6 +121,7 @@ El sistema está dividido en cinco (5) pilares estratégicos en el menú lateral
 - **Compute $/Core (Pro):** desglose del costo por núcleo vCPU para comparar familias de VM (`/intelligence/compute-efficiency`).
 - **Alertas Self-Service (Pro):** creación/edición de reglas de alerta de presupuesto y anomalía sin intervención de soporte (`/intelligence/alerts`).
 - **AI Analytics (Enterprise):** consumo de Microsoft Foundry / Azure OpenAI (tokens, modelos, $/1k tokens) en `/intelligence/ai-analytics`.
+- **Bases de Datos (Business):** Visibilidad, métricas en tiempo real y diagnóstico de rendimiento para CosmosDB, Azure SQL, PostgreSQL, MySQL, MongoDB y Redis. Incluye la pestaña especial **redistest** para el monitoreo detallado de las 12 métricas críticas de Azure Cache for Redis mediante gráficos de área con agregación average.
 - **MACC Tracker (Enterprise):** seguimiento del consumo de compromiso anual EA/MCA en `/intelligence/macc`.
 - **Descuentos por Compromiso — Reservas Activas:** en `/intelligence/commitments`, además de la cobertura y utilización global, la tabla **Reservas Activas** replica el blade *Reservations* de Azure y muestra por reserva: **Nombre, Estado, Expiración, Alcance, Tipo, Nombre del producto, Región, Renovación, Cantidad**, y la **utilización del último día y de los últimos 7 días**.
   - Haz clic en el botón de **Renovación** para abrir el modal que permite **activar o deshabilitar la auto-renovación** de esa reserva (el cambio se aplica directamente en Azure; requiere rol **Admin/Owner** del tenant y permisos *Reservations Contributor/Owner* en Azure).

@@ -21,6 +21,14 @@
 - **PAL operational automation:** when partner association is approved, events are logged and automatic retry (cron) updates status and detail.
 - **Enterprise AI (Azure IA):** global configuration now stores and tests **endpoint URL** + deployment in addition to API key, with backward-compatible fallback.
 
+## Change-control directive (mandatory)
+
+For agent-assisted tasks in this repository:
+
+- **Do not push to `staging` or `main` without explicit user instruction.**
+- **Do not merge into `main` without explicit user instruction.**
+- Default mode is **local commits only** until an explicit promotion request is provided.
+
 ## How to use this manual
 
 Each section explains **what** the feature is, **who** can use it (role and subscription tier), and the **step-by-step usage flow** — concrete buttons, URL paths, form fields, and expected results. If you're a non-technical user, feel free to jump straight to the section you need: each one is self-contained.

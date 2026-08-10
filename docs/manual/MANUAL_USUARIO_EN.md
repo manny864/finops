@@ -21,6 +21,14 @@
 - **PAL automation:** automatic retries and active SuperAdmin notifications were added when link status changes.
 - **Enterprise AI (Azure IA):** global AI configuration now supports **endpoint URL** + deployment for Azure IA instead of relying only on resource name.
 
+## Operational directive (repository and deployments)
+
+For agent-assisted changes in this repository:
+
+- **Do not `git push` to `staging` or `main` unless the user explicitly requests it.**
+- **Do not merge into `main` unless the user explicitly requests it.**
+- Default flow is **local changes + commits only**; remote promotion only under explicit instruction.
+
 ## How to use this manual
 
 Each section explains **what** the feature is, **who** can use it (role and subscription tier), and the **step-by-step usage flow** — concrete buttons, URL paths, form fields, and expected results. If you're a non-technical user, feel free to jump straight to the section you need: each one is self-contained.
@@ -310,6 +318,7 @@ Simulate the impact of scaling compute/storage, varying network traffic, or enab
 | **Allocation** | Enterprise | Rules for distributing shared costs across multiple areas (by real usage, proportional, or fixed). |
 | **MACC Tracking** | Enterprise | Tracking of the minimum annual commitment (EA/MCA) — consumed vs. committed, with compliance projection. |
 | **AI Cost Analytics** | Enterprise | Cost per AI model and token consumption in Microsoft Foundry / Azure OpenAI, with call optimization recommendations. |
+| **Databases** | Business | Visibility, real-time metrics, and performance diagnostics for CosmosDB, Azure SQL, PostgreSQL, MySQL, MongoDB, and Redis. Includes the special **redistest** tab for detailed monitoring of 12 critical Azure Cache for Redis metrics via area charts with average aggregation. |
 
 ---
 
