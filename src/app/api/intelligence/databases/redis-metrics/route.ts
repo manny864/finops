@@ -380,31 +380,23 @@ export async function GET(request: NextRequest) {
         }
 
         const credential = await getAzureCredential(tenantId);
-        // Use getAllSubscriptionsForTenant to get all subscriptions the SP can access,
-        // without applying plan limits. This ensures we find resources in all subscriptions.
+        // First try getAllSubscriptionsForTenant (with plan limits)
         let subscriptionIds = await getAllSubscriptionsForTenant(tenantId, credential);
         
-        // Augment with REDIS_SUBSCRIPTION_ID if configured (handles SP permissions edge cases)
-        const redisSubId = process.env.REDIS_SUBSCRIPTION_ID;
-        if (redisSubId && !subscriptionIds.includes(redisSubId)) {
-          console.log(`[redis-metrics] Adding REDIS_SUBSCRIPTION_ID from env var`);
-          subscriptionIds = [...subscriptionIds, redisSubId];
-        }
-        
-        console.log(`[redis-metrics] tenantId=${tenantId}, subscriptionIds count=${subscriptionIds.length}`);
+        console.log(`[redis-metrics] getAllSubscriptionsForTenant returned ${subscriptionIds.length} subscriptions`);
         if (subscriptionIds.length > 0) {
           console.log(`[redis-metrics] subscriptionIds:`, subscriptionIds);
         }
         
-        if (subscriptionIds.length === 0) {
-            const payload = {
-                mock: false,
-                resourceExists: false,
-                message: "No existen suscripciones activas para este tenant.",
-                instances: []
-            };
-            await writeDiagnosticsCache(cacheKey, payload);
-            return NextResponse.json(payload);
+        // Don't return early on empty subscriptions. Let listResourcesByTypes try without subscription filter.
+        // When subscriptionIds is empty, Resource Graph will search ALL accessible subscriptions.
+        
+        // TEMPORARY WORKAROUND (to be removed once subscriptions are stored in DB during onboarding):
+        // Augment with REDIS_SUBSCRIPTION_ID if configured (handles SP permissions edge cases)
+        const redisSubId = process.env.REDIS_SUBSCRIPTION_ID;
+        if (redisSubId && !subscriptionIds.includes(redisSubId)) {
+          console.log(`[redis-metrics] WORKAROUND: Adding REDIS_SUBSCRIPTION_ID from env var (this should be stored in DB)`);
+          subscriptionIds = [...subscriptionIds, redisSubId];
         }
 
         const resources = await listResourcesByTypes(tenantId, REDIS_TYPES, subscriptionIds, credential);

@@ -47,6 +47,7 @@ export async function listResourcesByTypes(
       | project id, name, type = tolower(type), location, resourceGroup, subscriptionId, kind, skuName = tostring(sku.name), properties
     `;
     console.log(`[listResourcesByTypes] KQL query: where type in~ (${types})`);
+    // If subscriptionIds empty, Resource Graph will search ALL accessible subscriptions
     const response: any = await argClient.resources({
       subscriptions: subscriptionIds.length > 0 ? subscriptionIds : undefined,
       query,
