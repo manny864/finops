@@ -72,6 +72,7 @@ async function listResourcesViaArm(
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (token?.token) headers.Authorization = `Bearer ${token.token}`;
   const items: ArgResourceRow[] = [];
+  console.log(`[listResourcesViaArm] Querying ${resourceTypes.length} types in ${subscriptionIds.length} subscriptions`);
 
   for (const subscriptionId of subscriptionIds) {
     for (const resourceType of resourceTypes) {
@@ -91,6 +92,7 @@ async function listResourcesViaArm(
         if (!response.ok) break;
         const json: any = await response.json();
         const values = Array.isArray(json.value) ? json.value : [];
+        console.log(`[listResourcesViaArm] Got ${values.length} results for ${resourceType} in ${subscriptionId}`);
         for (const row of values) {
           items.push({
             id: String(row.id || ""),
