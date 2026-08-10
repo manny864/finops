@@ -226,6 +226,7 @@ La plataforma soporta **dos mecanismos** de autenticación:
 | `requireSuperAdmin` | Identity + `system_role = SUPERADMIN` |
 
 **Protección IDOR:** La regla ESLint `local/no-unauth-tenant-id` en CI bloquea cualquier ruta que lea `tenantId` sin pasar por un guard.
+Los branches de datos demo (`isMockTenant`) se ejecutan únicamente después del guard correspondiente; los mocks no son una frontera de autorización ni pueden devolver datos a un tenant no autorizado.
 
 ### 5.2 Modelo de Tiers
 
@@ -243,12 +244,14 @@ Cada tier tiene **límites de uso** y **features gated**:
 
 ### 5.3 Cron Jobs — Autenticación por `CRON_SECRET`
 
-15 cron jobs autenticados con `Authorization: Bearer $CRON_SECRET`:
+17 cron jobs autenticados con `Authorization: Bearer $CRON_SECRET`:
 
 | Job | Frecuencia | Propósito |
 |---|---|---|
-| `sync` | cada 10 min | Sincroniza costos de Azure Cost Management |
+| `sync` | cada 10 min | Sincroniza costos de Azure Cost Management con deadline cooperativo por tenant; al vencer aborta consultas, reintentos y evita escrituras o invalidaciones tardías |
 | `prewarm-dashboard` | cada 10 min | Pre-cachea datos del dashboard |
+| `prewarm-databases` | cada 15 min | Pre-cachea diagnósticos de BD y métricas Redis |
+| `prewarm-compute` | cada 15 min | Pre-cachea workloads de cómputo |
 | `anomaly-detection` | diario 04:00 | Detección de anomalías de costo |
 | `historical-gap-backfill` | diario 03:00 | Backfill de datos históricos |
 | `power-schedules` | cada hora | Ejecuta encendido/apagado programado |
@@ -553,6 +556,7 @@ flowchart TD
 - **Métricas soportadas:** `ProcessedPromptTokens`, `GeneratedTokens` y `ProcessedInferenceTokens`.
 - **Ingesta resiliente por métrica (fix 2026-08-05):** las métricas se piden **una por una** a Azure Monitor (no en un solo batch) porque el servicio rechaza todo el batch con 400 si un `metricname` no existe para ese recurso (p.ej. `ProcessedInferenceTokens` en cuentas Azure OpenAI clásicas). Cada métrica reintenta sin el filtro `ModelDeploymentName eq '*'` para cubrir recursos Foundry que no exponen esa dimensión. Ventana = ayer completo + hoy parcial; persistencia por fecha de datapoint (UTC).
 - **Fallback de costos (SQL GROUP BY fix 2026-08-05):** cuando no hay desglose de tokens, consulta `CostSnapshots` por huellas de Microsoft Foundry / Azure AI Services / OpenAI (service + meter). Query incluye todas las columnas no agregadas en el GROUP BY para cumplir con `sql_mode=only_full_group_by` de Azure MySQL — antes fallaba silenciosamente, impidiendo que **ningún dato** se retornara incluso con filas válidas en BD.
+- **Precisión de costos:** los totales, agrupaciones, tendencias y costo por 1K tokens conservan `Decimal` durante la agregación; la conversión a número ocurre solo en el límite de serialización con redondeo explícito.
 - **Endpoint de diagnóstico:** `GET /api/intelligence/ai-analytics/diagnostics?tenantId=…` (guard `requireTenantAccess`). Reporta estado de `AICostSnapshots`, suscripciones visibles (con truncado por tier), cuentas `Microsoft.CognitiveServices/accounts` + `kind`, definiciones de métricas disponibles, prueba real de cada métrica de token (series + suma) y filas que produciría el colector, con conclusión heurística de por qué el panel está en cero. No requiere acceso a DB de prod ni a logs del cron. Incluye paginación 15/30/45/60 items por página.
 - **RBAC mínimo:** no requiere rol nuevo; usa `Reader`, `Cost Management Reader`, `Monitoring Reader`, `Billing Reader`.
 
@@ -661,3 +665,41 @@ Las variables críticas están en Key Vault:
 - Cambio: `costPerUserCents` → `costPerUserDollars` (sin *100)
 - Tooltip formatter usa `format()` en lugar de mostrar `¢`
 - Gráfico ahora muestra $1.23 en lugar de 123¢
+
+## 18. Addendum 2026-08-07 — Pestaña redistest y métricas de Azure Cache for Redis
+
+### 18.1 Endpoint de Métricas API (Commit de la sesión)
+- **API Route:** `GET /api/intelligence/databases/redis-metrics`
+- **Métricas Consultadas:** Consultas en paralelo de las 12 métricas críticas de Azure Monitor utilizando agregación `Average`, intervalo `PT1H` (por hora) y ventana de tiempo `PT24H` (últimas 24 horas):
+  - CPU Usage (`PercentProcessorTime`), Server Load (`ServerLoad`), Used Memory (`UsedMemory`), Cache Hits (`CacheHits`), Cache Misses (`CacheMisses`), Connected Clients (`ConnectedClients`), Operations Per Second (`OperationsPerSecond`), Evicted Keys (`EvictedKeys`), Expired Keys (`ExpiredKeys`), Errors (`Errors`), Total Commands Processed (`TotalCommandsProcessed`), Cache Read (`CacheRead`) y Cache Write (`CacheWrite`).
+- **Mocks Enriquecidos:** Si `isMockTenant` es `true` o no hay suscripciones activas, genera series temporales de simulación realistas con patrones diarios de uso comercial (más alto entre las 9am y 6pm) e incorpora un 10% de ruido aleatorio controlado y variaciones en forma de ondas sinusoidales para cada una de las 12 métricas.
+
+### 18.2 UI de Supervisión (Pestaña redistest)
+- **Ruta de UI:** `/intelligence/bases-de-datos/redistest` (montando el componente `RedisTestBoard`)
+- **Visualización:**
+  - Panel superior con selectores de instancias de Redis, tarjetas ejecutivas para promedios de CPU, Memoria, Tasa de aciertos (Cache Hit Rate) y Carga de Servidor.
+  - Grilla de visualización responsiva con 12 paneles de gráficas de área (`AreaChart` con gradientes de relleno lineales y bordes glassmorphic) donde se detalla la evolución de cada métrica con agregación promedio de forma explícita.
+  - El gráfico 12 combina `CacheRead` (Network Read) y `CacheWrite` (Network Write) superpuestos en la misma vista de área interactiva con doble leyenda.
+
+## 19. Addendum 2026-08-08 — Pestaña testmysql y métricas de Azure Database for MySQL
+
+### 19.1 Endpoint de Métricas API (MySQL)
+- **API Route:** `GET /api/intelligence/databases/mysql-metrics`
+- **Métricas Consultadas:** Consultas en paralelo de las 8 métricas críticas de Azure Monitor utilizando agregación `Average`, intervalo `PT1H` (por hora) y ventana de tiempo `PT24H` (últimas 24 horas) para servidores flex/single:
+  - CPU Usage (`cpu_percent`), Memory Usage (`memory_percent`), Active Connections (`active_connections`), Failed Connections (`connections_failed`), Storage Usage (`storage_percent`), I/O Utilization (`io_consumption_percent`), Network Ingress (`network_bytes_ingress`) y Network Egress (`network_bytes_egress`).
+- **Mocks Enriquecidos:** Si `isMockTenant` es `true`, genera series temporales con variaciones de carga comercial en horas pico de negocio, incluyendo ruido dinámico aleatorio y fluctuaciones en conexiones y bytes de red.
+
+### 19.2 UI de Supervisión (Pestaña testmysql)
+- **Ruta de UI:** `/intelligence/bases-de-datos/testmysql` (montando el componente `MysqlTestBoard`)
+- **Visualización:**
+  - Panel superior con selectores de instancias de MySQL, tarjetas ejecutivas para promedios de CPU, RAM, Conexiones, Almacenamiento y el costo mensual acumulado real obtenido mediante `getMonthlyCostByType` y `distributeCostPerResource`.
+  - Grilla de gráficos responsiva de 7 paneles interactivos con gradientes visuales y tooltips formateados de forma nativa para bytes, porcentajes y totales numéricos.
+
+## 20. Addendum 2026-08-09 — Integridad de diagnósticos y sincronización
+
+- **Autorización antes de mocks:** los endpoints de diagnósticos de MySQL, Redis, Cosmos DB, MongoDB, PostgreSQL, SQL y sus métricas exigen `requireTenantAccess` antes de evaluar el tenant demo.
+- **Costos exactos:** la distribución de costos por recurso y las agregaciones de AI Analytics usan `decimal.js`; cada asignación se redondea explícitamente a centavos solo al formar la respuesta API.
+- **Telemetría operacional:** los diagnósticos MySQL y Redis expresan campos o muestras sin medición como `null` y exponen `telemetry.available=false` con el origen `not_collected` cuando no existe telemetría. La UI muestra `No disponible`, no valores cero fabricados. Si Azure Monitor no entrega historial Redis, la API devuelve un historial vacío y el mismo estado explícito.
+- **Sincronización cancelable:** el cron `sync` propaga un `AbortSignal` desde el deadline por tenant a Cost Management, Azure Monitor, Resource Graph, reintentos y concurrencia. Los guards locales impiden persistencias e invalidaciones de caché posteriores a una cancelación.
+
+

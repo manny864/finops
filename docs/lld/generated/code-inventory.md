@@ -17,7 +17,7 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/reservationService.ts` | 348 | `ActiveReservationDetail`, `ReservationUtilizationTrend`, `parseReservationResourceId`, `getActiveReservations`, `getReservationUtilizationTrend`, `setReservationRenew`, … |
 | `src/services/powerScheduleService.ts` | 321 | `PowerScheduleAction`, `PowerScheduleInput`, `PowerScheduleRow`, `upsertPowerSchedule`, `listPowerSchedules`, `deletePowerSchedule`, … |
 | `src/services/haService.ts` | 259 | `HASeverity`, `HAItem`, `HAEvalResult`, `evaluateHALive` |
-| `src/services/budgetService.ts` | 241 | `getNativeBudgets`, `getBudgetConsumption`, `getBudgetCostCenterMonthlyHistory`, `createSubscriptionBudget` |
+| `src/services/budgetService.ts` | 252 | `getNativeBudgets`, `getBudgetConsumption`, `getBudgetCostCenterMonthlyHistory`, `createSubscriptionBudget`, `deleteSubscriptionBudget` |
 | `src/services/aiService.ts` | 207 | `isAiGloballyEnabled`, `getAIConfig`, `generateFinOpsReport` |
 | `src/services/tagInheritanceService.ts` | 186 | `MissingTagsRow`, `ApplyOp`, `ApplyResult`, `analyzeMissingTags`, `applyTagInheritance` |
 | `src/services/governanceReportingService.ts` | 184 | `PolicyComplianceDetail`, `GovernanceReport`, `getGovernanceReport` |
@@ -54,11 +54,11 @@ Integración con SDKs de Azure (`collectors/`), motores agnósticos (`core/`) y 
 | `src/modules/collectors/azure/billing/historicalBillingService.ts` | 353 | `getHistoricalDailyCosts`, `getHistoricalDetailedCosts` |
 | `src/modules/collectors/azure/logAnalyticsCostService.ts` | 342 | `LogAnalyticsRecommendation`, `LogAnalyticsWorkspaceRow`, `LogAnalyticsCostResult`, `getLogAnalyticsCost` |
 | `src/modules/collectors/azure/billing/mtdBillingService.ts` | 307 | `getCurrentMonthAmortizedCostsWithDiagnostics`, `getCurrentMonthAmortizedCosts` |
-| `src/modules/collectors/azure/m365UsersService.ts` | 279 | `getUsersDetail`, `summarizeLicenses`, `getMfaAndAuthMethods`, `getGroups`, `getM365Overview`, `getUserActivity` |
-| `src/modules/collectors/azure/billing/yesterdayBillingService.ts` | 259 | `getYesterdaysCost`, `getYesterdaysDetailedCosts` |
+| `src/modules/collectors/azure/m365UsersService.ts` | 281 | `getUsersDetail`, `summarizeLicenses`, `getMfaAndAuthMethods`, `getGroups`, `getM365Overview`, `getUserActivity` |
+| `src/modules/collectors/azure/billing/yesterdayBillingService.ts` | 266 | `getYesterdaysCost`, `getYesterdaysDetailedCosts` |
 | `src/modules/storage/db.ts` | 257 | `initializeDatabase`, `insertCostSnapshot`, `insertCostSnapshotRow`, `insertAICostSnapshotRow`, `insertPlatformAiUsage`, `insertCostMeterSnapshotRow`, … |
 | `src/modules/collectors/azure/cosmosDbCostService.ts` | 223 | `CosmosDbAccountRow`, `CosmosDbCostResult`, `getCosmosDbCost` |
-| `src/modules/collectors/azure/aiUsageCollector.ts` | 185 | `AIUsageRow`, `getYesterdaysAIUsage` |
+| `src/modules/collectors/azure/aiUsageCollector.ts` | 206 | `AIUsageRow`, `getYesterdaysAIUsage` |
 | `src/modules/collectors/azure/vmssRightsizingService.ts` | 185 | `VmssRightsizingRow`, `VmssRightsizingResult`, `getVmssRightsizingRecommendations` |
 | `src/modules/collectors/azure/advisorCollector.ts` | 171 | `collectAdvisorData` |
 | `src/modules/collectors/azure/sqlDbRightsizingService.ts` | 171 | `SqlDbRightsizingRow`, `SqlDbRightsizingResult`, `getSqlDbRightsizingRecommendations` |
@@ -72,10 +72,10 @@ Integración con SDKs de Azure (`collectors/`), motores agnósticos (`core/`) y 
 | `src/modules/collectors/azure/perimeterNetworkCostService.ts` | 121 | `PerimeterCostRow`, `PerimeterCostResult`, `getPerimeterNetworkCost` |
 | `src/modules/collectors/azure/miscServicesCostService.ts` | 116 | `MISC_SERVICE_TYPES`, `MiscServiceCostRow`, `MiscServicesCostResult`, `getMiscServicesCost` |
 | `src/modules/collectors/azure/appInsightsCostService.ts` | 108 | `AppInsightsCostRow`, `AppInsightsCostResult`, `getAppInsightsCost` |
+| `src/modules/collectors/azure/billing/billingHelpers.ts` | 104 | `throwIfAborted`, `sleep`, `extractRetryAfterMs`, `is429`, `CacheEntry`, `COST_CACHE`, … |
 | `src/modules/core/kqlCatalog.ts` | 100 | `kqlCatalog` |
 | `src/modules/core/focusMapper.ts` | 83 | `FocusCostEntry`, `mapAzureToFocus`, `mapCsvToFocus` |
 | `src/modules/core/rightsizingEngine.ts` | 80 | `analyzeVmEfficiency` |
-| `src/modules/collectors/azure/billing/billingHelpers.ts` | 75 | `sleep`, `extractRetryAfterMs`, `is429`, `CacheEntry`, `COST_CACHE`, `CACHE_TTL_MS`, … |
 | `src/modules/collectors/azure/metricsService.ts` | 68 | `getVmUtilization` |
 | `src/modules/storage/regionPool.ts` | 60 | `getTenantPool`, `resolveTenantPool` |
 | `src/modules/storage/tenantBudget.service.ts` | 55 | `TenantBudget`, `upsertTenantBudget`, `getTenantBudgetByPeriod` |

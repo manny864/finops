@@ -32,7 +32,7 @@ Una variable con 0 usos está declarada pero no la lee nadie: o es de build/infr
 | `BACKUP_HEALTHCHECK_URL` | 0 | — |
 | `COST_SYNC_STALENESS_HEALTHCHECK_URL` | 0 | — |
 | `CREDENTIAL_EXPIRY_ALERTS_HEALTHCHECK_URL` | 0 | — |
-| `CRON_SECRET` | 16 | `src/app/api/cron/anomaly-detection/route.ts`, `src/app/api/cron/cost-sync-staleness-check/route.ts` |
+| `CRON_SECRET` | 18 | `src/app/api/cron/anomaly-detection/route.ts`, `src/app/api/cron/cost-sync-staleness-check/route.ts` |
 | `CRON_SYNC_GAP_PACE_MS` | 1 | `src/app/api/cron/sync/route.ts` |
 | `CRON_SYNC_PACE_BUDGET_MS` | 1 | `src/app/api/cron/sync/route.ts` |
 | `CRON_SYNC_TENANT_PACE_MS` | 1 | `src/app/api/cron/sync/route.ts` |
