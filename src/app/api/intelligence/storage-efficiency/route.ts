@@ -128,6 +128,10 @@ interface LiveCapacityMetric {
     timestamp: string | null;
 }
 
+type BlobRedundancy = "lrs" | "zrs" | "grs" | "ra-grs" | "gzrs" | "ra-gzrs";
+type BlobTier = "hot" | "cool" | "cold" | "archive";
+type BlobRateMap = Record<BlobTier, Partial<Record<BlobRedundancy, number>>>;
+
 async function fetchStorageAccountMetricsBatch(tenantId: string, accounts: any[]): Promise<Map<string, LiveCapacityMetric>> {
     const metricsMap = new Map<string, LiveCapacityMetric>();
     try {
@@ -178,6 +182,54 @@ async function fetchStorageAccountMetricsBatch(tenantId: string, accounts: any[]
         // Fallback gracefully
     }
     return metricsMap;
+}
+
+function detectRedundancy(...fields: Array<string | null | undefined>): BlobRedundancy {
+    const joined = fields.map((f) => String(f || "").toLowerCase()).join(" ");
+    if (joined.includes("ra-gzrs") || joined.includes("ragzrs")) return "ra-gzrs";
+    if (joined.includes("gzrs")) return "gzrs";
+    if (joined.includes("ra-grs") || joined.includes("ragrs")) return "ra-grs";
+    if (joined.includes("grs")) return "grs";
+    if (joined.includes("zrs")) return "zrs";
+    return "lrs";
+}
+
+async function fetchBlobRatesByRegion(region: string): Promise<BlobRateMap> {
+    const empty: BlobRateMap = {
+        hot: {},
+        cool: {},
+        cold: {},
+        archive: {},
+    };
+    if (!region) return empty;
+    try {
+        const filter = encodeURIComponent(
+            `serviceName eq 'Storage' and armRegionName eq '${region.toLowerCase()}' and productName eq 'Blob Storage' and contains(meterName, 'Data Stored')`
+        );
+        let nextUrl: string | null = `https://prices.azure.com/api/retail/prices?api-version=2023-01-01-preview&$filter=${filter}`;
+        const visited = new Set<string>();
+        while (nextUrl && !visited.has(nextUrl)) {
+            visited.add(nextUrl);
+            const res = await fetch(nextUrl);
+            if (!res.ok) break;
+            const payload: any = await res.json();
+            for (const item of payload?.Items || []) {
+                const tier = detectTier(item?.meterName, item?.skuName, item?.armSkuName) as BlobTier;
+                if (!["hot", "cool", "cold", "archive"].includes(tier)) continue;
+                const redundancy = detectRedundancy(item?.skuName, item?.meterName, item?.armSkuName);
+                const price = Number(item?.unitPrice ?? item?.retailPrice ?? 0);
+                if (!Number.isFinite(price) || price <= 0) continue;
+                const current = empty[tier][redundancy];
+                if (current === undefined || price < current) {
+                    empty[tier][redundancy] = price;
+                }
+            }
+            nextUrl = payload?.NextPageLink || payload?.nextPageLink || null;
+        }
+    } catch {
+        // Fall back to static tier rates
+    }
+    return empty;
 }
 
 const STORAGE_SERVICE_FILTER = `(
@@ -519,6 +571,11 @@ export async function GET(request: NextRequest) {
                     }
 
                     const liveMetricsMap = await fetchStorageAccountMetricsBatch(tenantId, rawAccounts);
+                    const uniqueRegions = Array.from(new Set(rawAccounts.map((a: any) => String(a.location || "").toLowerCase()).filter(Boolean)));
+                    const ratesByRegion = new Map<string, BlobRateMap>();
+                    await Promise.all(uniqueRegions.map(async (region) => {
+                        ratesByRegion.set(region, await fetchBlobRatesByRegion(region));
+                    }));
 
                     accounts = rawAccounts.map((acc: any) => {
                         const skuStr = String(acc.sku?.name || acc.sku || "");
@@ -542,6 +599,17 @@ export async function GET(request: NextRequest) {
                         const usedGb = liveMetric
                             ? liveMetric.bytes / (1024 * 1024 * 1024)
                             : null;
+                        const tierKey = detectTier(tierFormatted) as BlobTier;
+                        const redundancy = detectRedundancy(skuStr);
+                        const regionalRates = ratesByRegion.get(String(acc.location || "").toLowerCase());
+                        const tierRates: Partial<Record<BlobRedundancy, number>> = regionalRates?.[tierKey] ?? {};
+                        const retailRate =
+                            tierRates[redundancy]
+                            ?? tierRates.lrs
+                            ?? TIER_RATES[tierKey]
+                            ?? 0;
+                        const capacityEstimatedCost = usedGb !== null && retailRate > 0 ? usedGb * retailRate : 0;
+                        const resolvedMonthlyCost = capacityEstimatedCost > 0 ? capacityEstimatedCost : cost;
 
                         return {
                             id: acc.id,
@@ -553,7 +621,10 @@ export async function GET(request: NextRequest) {
                             kind: acc.kind,
                             sku: acc.sku?.name || acc.sku,
                             usedGb: usedGb === null ? null : parseFloat(usedGb.toFixed(4)),
-                            monthlyCost: parseFloat(cost.toFixed(4)),
+                            monthlyCost: parseFloat(resolvedMonthlyCost.toFixed(4)),
+                            billedCost: parseFloat(cost.toFixed(4)),
+                            retailRatePerGb: parseFloat(retailRate.toFixed(6)),
+                            costSource: capacityEstimatedCost > 0 ? "retail-pricing-x-used-capacity" : "billed-attribution",
                             capacitySource: liveMetric ? "azure-monitor" : "unavailable",
                             capacityUpdatedAt: liveMetric?.timestamp ?? null,
                         };
