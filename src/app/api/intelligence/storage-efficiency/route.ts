@@ -13,6 +13,9 @@ import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { getResourceGraphClient, getAzureCredential } from "@/lib/azure";
 import { withArgLimit } from "@/lib/argConcurrency";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const MOCK_ACCOUNTS = [
     { id: "/subscriptions/demo-sub-01/resourceGroups/rg-prod-app/providers/Microsoft.Storage/storageAccounts/stappprodwestus01", name: "stappprodwestus01", resourceGroup: "rg-prod-app", subscriptionId: "demo-sub-01", location: "westus2", tier: "Hot", sku: "Standard_LRS", usedGb: 4500.5, monthlyCost: 82.81 },
     { id: "/subscriptions/demo-sub-01/resourceGroups/rg-prod-app/providers/Microsoft.Storage/storageAccounts/stappprodwestus02", name: "stappprodwestus02", resourceGroup: "rg-prod-app", subscriptionId: "demo-sub-01", location: "westus2", tier: "Hot", sku: "Standard_GRS", usedGb: 3200.0, monthlyCost: 58.88 },
