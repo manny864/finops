@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { Inter } from "next/font/google";
 import { getTranslations } from "next-intl/server";
-import { Activity, Eye, Database, Bell, BellRing, BookOpen, Radar } from "lucide-react";
+import { Activity, Eye, Database, Bell, BellRing, BookOpen, Radar, Shield } from "lucide-react";
 import RouteTabsNav from "@/components/navigation/RouteTabsNav";
 import RouteTabsFilter from "@/components/navigation/RouteTabsFilter";
 
@@ -14,6 +14,7 @@ export default async function MonitoreoLayout({ children }: { children: ReactNod
         { href: "/intelligence/monitoreo", label: t("tabAppInsights"), icon: <Eye className="w-4 h-4 text-[#0054A6]" /> },
         { href: "/intelligence/monitoreo/log-analytics-workspace", label: t("tabLogAnalyticsWorkspace"), icon: <Database className="w-4 h-4 text-[#0054A6]" /> },
         { href: "/intelligence/monitoreo/azure-monitor", label: t("tabAzureMonitor"), icon: <Activity className="w-4 h-4 text-[#0054A6]" /> },
+        { href: "/intelligence/monitoreo/microsoft-sentinel", label: t("tabSentinel"), icon: <Shield className="w-4 h-4 text-[#0054A6]" /> },
         { href: "/intelligence/monitoreo/alerts", label: t("tabAlerts"), icon: <Bell className="w-4 h-4 text-[#0054A6]" /> },
         { href: "/intelligence/monitoreo/action-groups", label: t("tabActionGroups"), icon: <BellRing className="w-4 h-4 text-[#0054A6]" /> },
         { href: "/intelligence/monitoreo/workbooks", label: t("tabWorkbooks"), icon: <BookOpen className="w-4 h-4 text-[#0054A6]" /> },
