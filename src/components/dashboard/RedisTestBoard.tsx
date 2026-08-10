@@ -175,6 +175,7 @@ export default function RedisTestBoard() {
             }
 
             const data: RedisFinOpsResponse = await response.json();
+            console.log("[RedisTestBoard] Response data:", data);
             const normalized = normalizeResponse(data);
 
             setInstances(normalized.instances);
@@ -190,6 +191,7 @@ export default function RedisTestBoard() {
             setLastUpdatedAt(new Date());
         } catch (err) {
             const message = err instanceof Error ? err.message : "Error inesperado al cargar Redis FinOps cockpit";
+            console.error("[RedisTestBoard] Fetch error:", err);
             setError(message);
         } finally {
             setLoading(false);
