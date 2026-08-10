@@ -46,18 +46,23 @@ export async function listResourcesByTypes(
       | where type in~ (${types})
       | project id, name, type = tolower(type), location, resourceGroup, subscriptionId, kind, skuName = tostring(sku.name), properties
     `;
+    console.log(`[listResourcesByTypes] KQL query: where type in~ (${types})`);
     const response: any = await argClient.resources({
       subscriptions: subscriptionIds.length > 0 ? subscriptionIds : undefined,
       query,
       options: { resultFormat: "objectArray", top: 1000 },
     });
     const rows = mapRows((response.data as any[]) || []);
+    console.log(`[listResourcesByTypes] KQL returned ${rows.length} rows`);
     if (rows.length > 0) {
+      console.log(`[listResourcesByTypes] Using KQL results`);
       return rows;
     }
     // If KQL returns 0 results, continue to ARM fallback below
-  } catch {
+    console.log(`[listResourcesByTypes] KQL returned 0, will try ARM fallback`);
+  } catch (err) {
     // fallback ARM below on KQL error
+    console.log(`[listResourcesByTypes] KQL error, will try ARM fallback:`, err);
   }
 
   if (!credential || subscriptionIds.length === 0) return [];
