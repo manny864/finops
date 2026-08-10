@@ -51,7 +51,7 @@ export async function listResourcesByTypes(
     const response: any = await argClient.resources({
       subscriptions: subscriptionIds.length > 0 ? subscriptionIds : undefined,
       query,
-      options: { resultFormat: "objectArray", top: 5000 },
+      options: { resultFormat: "objectArray", top: 1000 },
     });
     const rows = mapRows((response.data as any[]) || []);
     console.log(`[listResourcesByTypes] KQL returned ${rows.length} rows`);
