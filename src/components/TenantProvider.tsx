@@ -1,9 +1,8 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useMsal } from '@azure/msal-react';
-import { getMockDataForRoute, getMockCostGroupDetail } from '@/lib/mockData';
+import { getMockDataForRoute, getMockCostGroupDetail, getMockNetworkServiceCostV2, isMockTenant } from '@/lib/mockData';
 import { usePathname, useRouter } from 'next/navigation';
-import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
 import { parsePermissions, type RoleTag } from '@/lib/pageRoleTags';
 
@@ -267,6 +266,11 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               if (url.includes('/api/audit/full')) return new Response(JSON.stringify(getMockDataForRoute('audit_full', mockKey)), {status: 200});
               if (url.includes('/api/audit/ttl')) return new Response(JSON.stringify(getMockDataForRoute('ttl', mockKey)), {status: 200});
               if (url.includes('/api/tags/compliance')) return new Response(JSON.stringify(getMockDataForRoute('tags_compliance', mockKey)), {status: 200});
+              if (url.includes('/api/intelligence/network/service-cost-v2')) {
+                  const parsed = new URL(url, window.location.origin);
+                  const family = (parsed.searchParams.get('family') || 'analysis') as "analysis" | "basic" | "hybrid" | "balancing" | "internet";
+                  return new Response(JSON.stringify(getMockNetworkServiceCostV2(mockKey, family)), {status: 200});
+              }
               if (url.includes('/api/intelligence/network')) return new Response(JSON.stringify(getMockDataForRoute('network', mockKey)), {status: 200});
               if (url.includes('/api/intelligence/rates')) return new Response(JSON.stringify(getMockDataForRoute('rates', mockKey)), {status: 200});
               if (url.includes('/api/subscriptions')) return new Response(JSON.stringify({ subscriptions: [{id: 'mock-sub', name: 'Demo Subscription'}]}), {status: 200});

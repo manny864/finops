@@ -124,6 +124,105 @@ const MOCK_TENANT_TIER: Record<string, string> = {
     "33333333-4444-5555-6666-777777777777": "enterprise",
 };
 
+type NetworkFamily = "analysis" | "basic" | "hybrid" | "balancing" | "internet";
+
+const NETWORK_SERVICES_BY_FAMILY: Record<NetworkFamily, string[]> = {
+    analysis: [
+        "Virtual Networks",
+        "Subnets",
+        "Network Security Groups (NSG)",
+        "Route Tables (UDR)",
+        "Private Endpoints",
+        "Private DNS Zones",
+        "VPN Gateway",
+        "ExpressRoute",
+        "Virtual WAN",
+        "Local Network Gateway",
+        "Load Balancer",
+        "Application Gateway",
+        "Front Door",
+        "Traffic Manager",
+        "Public IP",
+        "NAT Gateway",
+        "Azure Firewall",
+        "DDoS Protection",
+    ],
+    basic: [
+        "Virtual Networks",
+        "Subnets",
+        "Network Security Groups (NSG)",
+        "Route Tables (UDR)",
+        "Private Endpoints",
+        "Private DNS Zones",
+    ],
+    hybrid: [
+        "VPN Gateway",
+        "ExpressRoute",
+        "Virtual WAN",
+        "Local Network Gateway",
+    ],
+    balancing: [
+        "Load Balancer",
+        "Application Gateway",
+        "Front Door",
+        "Traffic Manager",
+    ],
+    internet: [
+        "Public IP",
+        "NAT Gateway",
+        "Azure Firewall",
+        "DDoS Protection",
+    ],
+};
+
+const maybePublicIpForService = (serviceLabel: string, idx: number, rowIdx: number): string => {
+    const s = serviceLabel.toLowerCase();
+    if (s.includes("public ip") || s.includes("load balancer") || s.includes("gateway") || s.includes("firewall")) {
+        return `20.${30 + (idx % 20)}.${40 + (rowIdx % 20)}.${10 + ((idx + rowIdx) % 200)}`;
+    }
+    return "-";
+};
+
+export const getMockNetworkServiceCostV2 = (arg2: string, family: NetworkFamily): any => {
+    const isTenantId = arg2 && arg2.length > 20;
+    const tier = (isTenantId ? MOCK_TENANT_TIER[arg2] : arg2) || 'essential';
+    const t = String(tier).toLowerCase();
+    const multiplier = t === 'enterprise' ? 50 : t === 'business' ? 10 : t === 'pro' || t === 'professional' ? 3 : 1;
+
+    const services = NETWORK_SERVICES_BY_FAMILY[family] || NETWORK_SERVICES_BY_FAMILY.analysis;
+    const items = services.map((serviceLabel, idx) => ({
+        serviceLabel,
+        monthlyCost: Number((35 * multiplier + (idx + 1) * 11.75 * multiplier).toFixed(2)),
+        resourceCount: 2 + (idx % 4) + (multiplier > 1 ? 1 : 0),
+    }));
+
+    const subNames = ["Production", "Staging", "Sandbox"];
+    const rows = items.flatMap((item, idx) =>
+        Array.from({ length: item.resourceCount }).map((_, rowIdx) => ({
+            serviceLabel: item.serviceLabel,
+            resourceId: `/subscriptions/mock-sub-${(idx % 3) + 1}/resourceGroups/mock-rg-${(idx % 4) + 1}/providers/mock.network/${family}-${idx}-${rowIdx}`,
+            resourceName: `${family}-${idx + 1}-${rowIdx + 1}`,
+            resourceGroup: `mock-rg-${(idx % 4) + 1}`,
+            subscriptionId: `mock-sub-${(idx % 3) + 1}`,
+            subscriptionName: subNames[idx % 3],
+            publicIp: maybePublicIpForService(item.serviceLabel, idx, rowIdx),
+            costGroupOwner: ["CostCenter-Platform", "CostCenter-Data", "CostCenter-Shared"][idx % 3],
+            createdAt: "2026-01-01T00:00:00Z",
+            monthlyCost: Number((item.monthlyCost / Math.max(item.resourceCount, 1)).toFixed(2)),
+        }))
+    );
+
+    return {
+        success: true,
+        mock: true,
+        family,
+        items,
+        rows,
+        totalMonthlyCost: Number(rows.reduce((sum: number, row: { monthlyCost: number }) => sum + Number(row.monthlyCost || 0), 0).toFixed(2)),
+        dataAvailable: true,
+    };
+};
+
 export const getMockDataForRoute = (route: string, arg2: string, locale?: string): any => {
     // Arg2 can be either a tenantId (from backend) or a tier string (from frontend mock override)
     const isTenantId = arg2 && arg2.length > 20; // tenantIds are GUIDs
@@ -2370,4 +2469,3 @@ export const MOCK_CONTAINER_DOMAIN = {
         { name: "cae-prod-westus2", resourceGroup: "rg-prod-westus2", baseCost: 15.00, location: "westus2" },
     ],
 };
-
