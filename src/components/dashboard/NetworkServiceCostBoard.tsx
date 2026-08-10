@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import MockBanner from "@/components/MockBanner";
 import { useTenant } from "@/components/TenantProvider";
+import { useCurrency } from "@/components/CurrencyProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { isMockTenant } from "@/lib/mockData";
@@ -11,7 +12,6 @@ import { ChevronLeft, ChevronRight, DollarSign, Layers } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Pie, PieChart, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from "recharts";
 
-const fmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const PIE_COLORS = ["#0054A6", "#00AEEF", "#F2A900", "#10B981", "#EF4444", "#8B5CF6", "#F43F5E", "#0EA5E9", "#F59E0B", "#64748B"];
 
 export default function NetworkServiceCostBoard({
@@ -29,6 +29,7 @@ export default function NetworkServiceCostBoard({
 }) {
     const t = useTranslations("NetworkFamilies");
     const { selectedTenant } = useTenant();
+    const { format, currency } = useCurrency();
     const { instance, accounts } = useMsal();
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState<any>(null);
@@ -170,11 +171,20 @@ export default function NetworkServiceCostBoard({
         const byCost = Array.from(byService.entries())
             .map(([name, value]) => ({ name, value: Number(value.toFixed(2)) }))
             .filter((item) => item.value > 0);
-        if (byCost.length > 0) return byCost;
+        if (byCost.length > 0) return { mode: "cost" as const, data: byCost };
         return Array.from(byServiceCount.entries())
             .map(([name, value]) => ({ name, value }))
-            .filter((item) => item.value > 0);
+            .filter((item) => item.value > 0)
+            .reduce(
+                (acc, item) => ({ mode: "count" as const, data: [...acc.data, item] }),
+                { mode: "count" as const, data: [] as Array<{ name: string; value: number }> }
+            );
     }, [sortedItems]);
+
+    const formatPieValue = (value: number, mode: "cost" | "count") => {
+        if (mode === "cost") return `${format(value)} ${currency}`;
+        return `${value}`;
+    };
 
     if (selectedTenant.id === "default") return null;
 
@@ -270,7 +280,7 @@ export default function NetworkServiceCostBoard({
                         <DollarSign className="w-4 h-4" />
                         {t("kpiTotalCost")}
                     </h3>
-                    <p className="text-2xl font-black text-gray-900 dark:text-white">{fmt.format(sortedItems.reduce((sum: number, item: any) => sum + Number(item.monthlyCost || 0), 0))}</p>
+                    <p className="text-2xl font-black text-gray-900 dark:text-white">{format(sortedItems.reduce((sum: number, item: any) => sum + Number(item.monthlyCost || 0), 0))}</p>
                 </div>
                 <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-6">
                     <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1">
@@ -283,7 +293,7 @@ export default function NetworkServiceCostBoard({
                 </div>
             </div>
 
-            {pieData.length > 0 ? (
+            {pieData.data.length > 0 ? (
                 <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-6 mb-8">
                     <h3 className="text-lg font-bold text-gray-900 dark:text-white border-b border-gray-100 dark:border-slate-800 pb-3 mb-4">
                         {t("resourcesPieTitle")}
@@ -292,19 +302,19 @@ export default function NetworkServiceCostBoard({
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
                                 <Pie
-                                    data={pieData}
+                                    data={pieData.data}
                                     dataKey="value"
                                     nameKey="name"
                                     cx="50%"
                                     cy="50%"
                                     outerRadius={120}
-                                    label={({ name, value }) => `${name}: ${value}`}
+                                    label={({ name, value }) => `${name}: ${formatPieValue(Number(value || 0), pieData.mode)}`}
                                 >
-                                    {pieData.map((_, index) => (
+                                    {pieData.data.map((_, index) => (
                                         <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                                     ))}
                                 </Pie>
-                                <RechartsTooltip />
+                                <RechartsTooltip formatter={(value) => formatPieValue(Number(value || 0), pieData.mode)} />
                                 <Legend />
                             </PieChart>
                         </ResponsiveContainer>
@@ -338,7 +348,7 @@ export default function NetworkServiceCostBoard({
                                     <td className="py-3 px-4 border-b border-gray-100 dark:border-slate-800 text-sm text-gray-700 dark:text-gray-300">{item.subscriptionName || item.subscriptionId || "-"}</td>
                                     <td className="py-3 px-4 border-b border-gray-100 dark:border-slate-800 text-sm text-gray-700 dark:text-gray-300">{item.costGroupOwner || "-"}</td>
                                     <td className="py-3 px-4 border-b border-gray-100 dark:border-slate-800 text-sm text-gray-700 dark:text-gray-300">{formatDate(item.createdAt)}</td>
-                                    <td className="py-3 px-4 border-b border-gray-100 dark:border-slate-800 font-bold text-sm text-brand-deep text-right">{fmt.format(item.monthlyCost)}</td>
+                                    <td className="py-3 px-4 border-b border-gray-100 dark:border-slate-800 font-bold text-sm text-brand-deep text-right">{format(item.monthlyCost)}</td>
                                 </tr>
                             ))}
                         </tbody>
