@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { getAzureCredential, getAllSubscriptionsForTenant } from "@/lib/azure";
 import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
 import {
@@ -12,7 +12,13 @@ import {
 } from "../diagnosticsShared";
 import { redis } from "@/lib/redis";
 
-const REDIS_TYPES = ["microsoft.cache/redis", "microsoft.cache/redisenterprise"];
+// Both lowercase and proper case to match various Azure API responses
+const REDIS_TYPES = [
+    "microsoft.cache/redis",
+    "microsoft.cache/redisenterprise",
+    "Microsoft.Cache/Redis",
+    "Microsoft.Cache/redisEnterprise"
+];
 
 // Métricas para Redis estándar (microsoft.cache/redis)
 const STANDARD_REDIS_METRICS = [
@@ -374,7 +380,9 @@ export async function GET(request: NextRequest) {
         }
 
         const credential = await getAzureCredential(tenantId);
-        const subscriptionIds = await getSubscriptionsForTenant(tenantId, credential);
+        // Use getAllSubscriptionsForTenant to get all subscriptions the SP can access,
+        // without applying plan limits. This ensures we find resources in all subscriptions.
+        const subscriptionIds = await getAllSubscriptionsForTenant(tenantId, credential);
         
         console.log(`[redis-metrics] tenantId=${tenantId}, subscriptionIds count=${subscriptionIds.length}`);
         if (subscriptionIds.length > 0) {

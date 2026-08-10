@@ -74,6 +74,32 @@ export async function getSubscriptionsForTenant(tenantId: string, credential?: C
   return subs;
 }
 
+/**
+ * Get ALL subscriptions accessible by the Service Principal, WITHOUT applying plan limits.
+ * Used by resource discovery endpoints that need to find resources across all subscriptions
+ * the SP can access, regardless of the plan tier.
+ */
+export async function getAllSubscriptionsForTenant(tenantId: string, credential?: ClientSecretCredential): Promise<string[]> {
+  const cred = credential || await getAzureCredential(tenantId);
+  const subs: string[] = [];
+  try {
+    const tokenResponse = await cred.getToken("https://management.azure.com/.default");
+    const fetchRes = await fetch("https://management.azure.com/subscriptions?api-version=2020-01-01", {
+      headers: { "Authorization": `Bearer ${tokenResponse.token}` }
+    });
+    if (fetchRes.ok) {
+      const data = await fetchRes.json();
+      for (const sub of (data.value || [])) {
+        if (sub.subscriptionId) subs.push(sub.subscriptionId);
+      }
+      console.log(`[azure] getAllSubscriptionsForTenant(${tenantId}): Found ${subs.length} subscriptions (no plan limit applied)`);
+    }
+  } catch (e) {
+    console.error(`[azure] Error fetching all subscriptions for tenant ${tenantId}:`, e);
+  }
+  return subs;
+}
+
 export async function getComputeClient(tenantId: string, subscriptionId: string) {
   const credential = await getAzureCredential(tenantId);
   return new ComputeManagementClient(credential, subscriptionId);
