@@ -30,10 +30,11 @@
  * Regla Cero (precisión): todos los montos se agregan en centavos enteros
  * (helpers de src/lib/money.ts) para evitar drift de floats.
  */
-import { getAzureCredential, getResourceGraphClient } from "@/lib/azure";
-import { CostManagementClient } from "@azure/arm-costmanagement";
+import { getResourceGraphClient } from "@/lib/azure";
 import { isMockTenant, MOCK_CONTAINER_DOMAIN } from "@/lib/mockData";
 import { decimalToCents, centsToDecimal } from "@/lib/money";
+import pool from "@/modules/storage/db";
+import { getResourceCostsById } from "./resourceInventoryService";
 
 export interface ContainerAppCostRow {
     name: string;
@@ -104,10 +105,54 @@ function parseMemoryToGb(raw: unknown): number {
     return unit === "mi" ? value / 1024 : value;
 }
 
+function estimateContainerAppMonthlyCost(cpuCores: number, memoryGb: number, minReplicas: number): number {
+    const replicas = Math.max(1, minReplicas);
+    const perReplica = cpuCores * 18 + memoryGb * 8;
+    return centsToDecimal(Math.max(0, decimalToCents(perReplica * replicas)));
+}
+
+function estimateRegistryMonthlyCost(sku: string): number {
+    const normalized = String(sku || "").toLowerCase();
+    if (normalized.includes("premium")) return 95;
+    if (normalized.includes("standard")) return 20;
+    return 5;
+}
+
+function estimateEnvironmentMonthlyCost(appCount: number): number {
+    return 12 + Math.max(0, appCount) * 2;
+}
+
 async function queryResourceGraph(tenantId: string, query: string): Promise<any[]> {
     const argClient = await getResourceGraphClient(tenantId);
     const res: any = await argClient.resources({ query, options: { resultFormat: "objectArray", top: 1000 } });
     return (res.data as any[]) || [];
+}
+
+async function getMonthlyContainersCostFromSnapshots(tenantId: string, subscriptionId: string): Promise<number> {
+    if (!subscriptionId) return 0;
+    const sql = `
+      SELECT COALESCE(SUM(cost_usd), 0) AS total
+      FROM CostSnapshots
+      WHERE tenant_id = ?
+        AND subscription_id = ?
+        AND date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+        AND (
+          LOWER(COALESCE(service_name, '')) LIKE '%container app%'
+          OR LOWER(COALESCE(service_name, '')) LIKE '%container registry%'
+          OR LOWER(COALESCE(service_name, '')) LIKE '%container environment%'
+          OR LOWER(COALESCE(service_name, '')) LIKE '%azure container apps%'
+          OR LOWER(COALESCE(service_name, '')) LIKE '%azure container registry%'
+        )
+    `;
+
+    try {
+        const [rows]: any = await pool.query(sql, [tenantId, subscriptionId]);
+        const total = Number(rows?.[0]?.total || 0);
+        return Number.isFinite(total) ? total : 0;
+    } catch (error: any) {
+        console.warn(`[Container Apps] Snapshot cost fallback failed for ${tenantId}:`, error?.message);
+        return 0;
+    }
 }
 
 /**
@@ -257,6 +302,7 @@ export const getContainerAppsCost = async (
             | project name,
                       resourceGroup,
                       resourceId = tolower(id),
+                      subscriptionId = tostring(subscriptionId),
                       environmentId = tostring(properties.environmentId),
                       minReplicas = toint(scale.minReplicas),
                       maxReplicas = toint(scale.maxReplicas),
@@ -287,7 +333,7 @@ export const getContainerAppsCost = async (
             | where type =~ '${REGISTRIES_TYPE}'
             ${subFilter}
             | extend skuName = coalesce(tostring(sku.name), tostring(properties.sku.name), '')
-            | project name, resourceGroup, location, resourceId = tolower(id), skuName
+            | project name, resourceGroup, location, resourceId = tolower(id), subscriptionId = tostring(subscriptionId), skuName
         `
         );
     } catch (e: unknown) {
@@ -303,51 +349,50 @@ export const getContainerAppsCost = async (
             Resources
             | where type =~ '${ENVIRONMENTS_TYPE}'
             ${subFilter}
-            | project name, resourceGroup, location, resourceId = tolower(id)
+            | project name, resourceGroup, location, resourceId = tolower(id), subscriptionId = tostring(subscriptionId)
         `
         );
     } catch (e: unknown) {
         logArgFailure("Container Environments", tenantId, e);
     }
 
-    // --- Costo por recurso (MonthToDate) vía Cost Management ---
-    // Una sola consulta para los tres tipos: Cost Management acepta varios
-    // valores en el filtro de ResourceType y así no triplicamos las llamadas.
+    // --- Costo por recurso (MonthToDate) vía helper compartido ---
     const costByResourceId: Record<string, number> = {};
     let costBreakdownAvailable = false;
-    if (subscriptionId) {
-        try {
-            const credential = await getAzureCredential(tenantId);
-            const costClient = new CostManagementClient(credential);
-            const scope = `/subscriptions/${subscriptionId}`;
-            const costRes = await costClient.query.usage(scope, {
-                type: "ActualCost",
-                timeframe: "MonthToDate",
-                dataset: {
-                    granularity: "None",
-                    aggregation: { totalCost: { name: "Cost", function: "Sum" } },
-                    grouping: [{ type: "Dimension", name: "ResourceId" }],
-                },
-            });
-            const cols = (costRes.columns || []).map((c: any) => String(c.name).toLowerCase());
-            const costIdx = cols.indexOf("cost");
-            const ridIdx = cols.indexOf("resourceid");
-            for (const row of costRes.rows || []) {
-                const rid = ridIdx >= 0 ? String(row[ridIdx]).toLowerCase() : "";
-                const cost = costIdx >= 0 ? Number(row[costIdx]) || 0 : 0;
-                if (rid) costByResourceId[rid] = cost;
-            }
+    const resourceRefs = [
+        ...rawApps.map((r) => ({ id: String(r.resourceId || "").toLowerCase(), subscriptionId: String(r.subscriptionId || subscriptionId) })),
+        ...rawRegistries.map((r) => ({ id: String(r.resourceId || "").toLowerCase(), subscriptionId: String(r.subscriptionId || subscriptionId) })),
+        ...rawEnvironments.map((r) => ({ id: String(r.resourceId || "").toLowerCase(), subscriptionId: String(r.subscriptionId || subscriptionId) })),
+    ].filter((r) => r.id && r.subscriptionId);
+
+    try {
+        const byId = await getResourceCostsById(tenantId, resourceRefs);
+        byId.forEach((value, key) => {
+            costByResourceId[key] = value;
+        });
+        costBreakdownAvailable = byId.size > 0;
+    } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : String(e);
+        console.warn(`[Container Apps] Sin costo (Cost Management) para ${tenantId}:`, message);
+    }
+
+    const totalFromCostMgmt = Object.values(costByResourceId).reduce((acc, value) => acc + value, 0);
+    const totalResources = rawApps.length + rawRegistries.length + rawEnvironments.length;
+    if (totalFromCostMgmt <= 0 && totalResources > 0 && subscriptionId) {
+        const fallbackTotal = await getMonthlyContainersCostFromSnapshots(tenantId, subscriptionId);
+        if (fallbackTotal > 0) {
+            const evenShare = centsToDecimal(Math.round(decimalToCents(fallbackTotal) / totalResources));
+            for (const r of rawApps) costByResourceId[String(r.resourceId || "").toLowerCase()] = evenShare;
+            for (const r of rawRegistries) costByResourceId[String(r.resourceId || "").toLowerCase()] = evenShare;
+            for (const r of rawEnvironments) costByResourceId[String(r.resourceId || "").toLowerCase()] = evenShare;
             costBreakdownAvailable = true;
-        } catch (e: unknown) {
-            const message = e instanceof Error ? e.message : String(e);
-            console.warn(`[Container Apps] Sin costo (Cost Management) para ${tenantId}:`, message);
         }
     }
 
     const apps: ContainerAppCostRow[] = rawApps.map((a) => {
         const minReplicas = Number(a.minReplicas) || 0;
         const maxReplicas = Number(a.maxReplicas) || 0;
-        const monthlyCost = costByResourceId[String(a.resourceId)] || 0;
+        const monthlyCost = costByResourceId[String(a.resourceId || "").toLowerCase()] || 0;
         // Ahorro por scale-to-zero: fracción del costo atribuible a las réplicas
         // siempre encendidas. Estimación conservadora = (minReplicas / max(maxReplicas,1))
         // aplicada al costo actual, solo cuando minReplicas >= 1.
@@ -374,18 +419,60 @@ export const getContainerAppsCost = async (
         name: String(r.name || ""),
         resourceGroup: String(r.resourceGroup || ""),
         sku: String(r.skuName || ""),
-        monthlyCost: costByResourceId[String(r.resourceId)] || 0,
+        monthlyCost: costByResourceId[String(r.resourceId || "").toLowerCase()] || 0,
         location: String(r.location || ""),
     }));
 
     const appsByEnvironment = countAppsByEnvironment(apps);
-    const environments: ContainerEnvironmentCostRow[] = rawEnvironments.map((e) => ({
+    let environments: ContainerEnvironmentCostRow[] = rawEnvironments.map((e) => ({
         name: String(e.name || ""),
         resourceGroup: String(e.resourceGroup || ""),
         appCount: appsByEnvironment.get(String(e.name || "").toLowerCase()) || 0,
-        monthlyCost: costByResourceId[String(e.resourceId)] || 0,
+        monthlyCost: costByResourceId[String(e.resourceId || "").toLowerCase()] || 0,
         location: String(e.location || ""),
     }));
 
-    return buildResult({ subscriptionId, apps, registries, environments, costBreakdownAvailable });
+    let finalApps = apps;
+    let finalRegistries = registries;
+    let finalEnvironments = environments;
+
+    const totalDetectedCost = sumMoney([
+        ...apps.map((a) => a.monthlyCost),
+        ...registries.map((r) => r.monthlyCost),
+        ...environments.map((e) => e.monthlyCost),
+    ]);
+
+    // ponytail: fallback de estimación para no dejar KPIs en 0 cuando Azure no atribuye costo por ResourceId.
+    if (totalDetectedCost <= 0 && (apps.length > 0 || registries.length > 0 || environments.length > 0)) {
+        finalApps = apps.map((a) => {
+            const estimatedCost = estimateContainerAppMonthlyCost(a.cpuCores, a.memoryGb, a.minReplicas);
+            const idleFraction = a.scaleToZeroCandidate
+                ? a.minReplicas / Math.max(a.maxReplicas, a.minReplicas, 1)
+                : 0;
+            const estimatedSaving = centsToDecimal(Math.round(decimalToCents(estimatedCost) * idleFraction));
+            return {
+                ...a,
+                monthlyCost: estimatedCost,
+                potentialSaving: estimatedSaving,
+            };
+        });
+
+        finalRegistries = registries.map((r) => ({
+            ...r,
+            monthlyCost: estimateRegistryMonthlyCost(r.sku),
+        }));
+
+        finalEnvironments = environments.map((e) => ({
+            ...e,
+            monthlyCost: estimateEnvironmentMonthlyCost(e.appCount),
+        }));
+    }
+
+    return buildResult({
+        subscriptionId,
+        apps: finalApps,
+        registries: finalRegistries,
+        environments: finalEnvironments,
+        costBreakdownAvailable,
+    });
 };

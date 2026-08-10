@@ -7,6 +7,7 @@ import {
     distributeCostPerResource,
     getMonthlyCostByType,
     listResourcesByTypes,
+    type ArgResourceRow,
 } from "@/app/api/intelligence/databases/diagnosticsShared";
 import type {
     ComputeFamily,
@@ -66,6 +67,69 @@ function summarizeNumeric(values: number[]): string {
     if (values.length === 0) return "N/A";
     const avg = values.reduce((a, b) => a + b, 0) / values.length;
     return Number(avg.toFixed(2)).toString();
+}
+
+function normalizeState(raw: string): string {
+    const v = raw.trim().toLowerCase();
+    if (!v) return "unknown";
+    if (v.includes("powerstate/")) return v.split("powerstate/")[1] || "unknown";
+    if (v.startsWith("vm ")) return v.replace(/^vm\s+/, "");
+    return v;
+}
+
+function firstString(values: unknown[]): string | null {
+    for (const value of values) {
+        if (typeof value === "string" && value.trim()) return value;
+    }
+    return null;
+}
+
+function resolveState(resource: ArgResourceRow, family: ComputeFamily): string {
+    const properties = (resource.properties || {}) as Record<string, any>;
+    const instanceViewStatuses = Array.isArray(properties?.instanceView?.statuses)
+        ? properties.instanceView.statuses
+        : [];
+    const stateFromStatuses = firstString(
+        instanceViewStatuses.flatMap((status: any) => [status?.code, status?.displayStatus]),
+    );
+
+    const candidate = firstString([
+        resource.powerState,
+        properties?.extended?.instanceView?.powerState?.code,
+        stateFromStatuses,
+        resource.provisioningState,
+        properties?.provisioningState,
+        properties?.state,
+        properties?.availabilityState,
+    ]);
+
+    if (!candidate) return "unknown";
+
+    if (family === "webapps" || family === "functions") {
+        const normalized = normalizeState(candidate);
+        if (normalized === "ready" || normalized === "running") return "running";
+        if (normalized === "stopped") return "stopped";
+        return normalized;
+    }
+
+    return normalizeState(candidate);
+}
+
+function resolveSku(resource: ArgResourceRow, family: ComputeFamily): string {
+    if (resource.skuName && resource.skuName.trim()) return resource.skuName;
+    const properties = (resource.properties || {}) as Record<string, any>;
+
+    if (family === "vms") {
+        const vmSize = properties?.hardwareProfile?.vmSize;
+        if (typeof vmSize === "string" && vmSize.trim()) return vmSize;
+    }
+
+    if (family === "vmss") {
+        const vmssSize = properties?.sku?.name || properties?.virtualMachineProfile?.hardwareProfile?.vmSize;
+        if (typeof vmssSize === "string" && vmssSize.trim()) return vmssSize;
+    }
+
+    return "Unknown";
 }
 
 async function getMetricsSummary(
@@ -232,8 +296,8 @@ export async function GET(request: NextRequest) {
                 name: resource.name,
                 type: resource.type,
                 region: resource.location || "unknown",
-                state: String((resource.properties as any)?.state || "unknown"),
-                sku: resource.skuName || "Unknown",
+                state: resolveState(resource, family),
+                sku: resolveSku(resource, family),
                 monthlyCostUsd: costPerResource.get(resource.id) || 0,
                 metricA: metricValues[0] || "N/A",
                 metricB: metricValues[1] || "N/A",

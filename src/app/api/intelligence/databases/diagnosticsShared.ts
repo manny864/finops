@@ -13,6 +13,8 @@ export type ArgResourceRow = {
   subscriptionId?: string;
   kind?: string;
   skuName?: string;
+  powerState?: string;
+  provisioningState?: string;
   properties?: Record<string, unknown>;
 };
 
@@ -32,6 +34,8 @@ export async function listResourcesByTypes(
       subscriptionId: row.subscriptionId ? String(row.subscriptionId) : undefined,
       kind: row.kind ? String(row.kind) : undefined,
       skuName: row.skuName ? String(row.skuName) : undefined,
+      powerState: row.powerState ? String(row.powerState) : undefined,
+      provisioningState: row.provisioningState ? String(row.provisioningState) : undefined,
       properties:
         row.properties && typeof row.properties === "object"
           ? (row.properties as Record<string, unknown>)
@@ -44,7 +48,9 @@ export async function listResourcesByTypes(
     const query = `
       Resources
       | where type in~ (${types})
-      | project id, name, type = tolower(type), location, resourceGroup, subscriptionId, kind, skuName = tostring(sku.name), properties
+      | extend powerState = tostring(properties.extended.instanceView.powerState.code)
+      | extend provisioningState = tostring(properties.provisioningState)
+      | project id, name, type = tolower(type), location, resourceGroup, subscriptionId, kind, skuName = tostring(sku.name), powerState, provisioningState, properties
     `;
     console.log(`[listResourcesByTypes] KQL query: where type in~ (${types})`);
     const response: any = await argClient.resources({
@@ -129,6 +135,18 @@ async function listResourcesViaArm(
                 skuName:
                   row.sku && typeof row.sku === "object" && row.sku.name
                     ? String(row.sku.name)
+                    : undefined,
+                powerState:
+                  row.properties &&
+                  typeof row.properties === "object" &&
+                  (row.properties as any).extended?.instanceView?.powerState?.code
+                    ? String((row.properties as any).extended.instanceView.powerState.code)
+                    : undefined,
+                provisioningState:
+                  row.properties &&
+                  typeof row.properties === "object" &&
+                  (row.properties as any).provisioningState
+                    ? String((row.properties as any).provisioningState)
                     : undefined,
                 properties:
                   row.properties && typeof row.properties === "object"

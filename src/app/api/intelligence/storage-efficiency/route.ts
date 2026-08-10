@@ -484,6 +484,60 @@ export async function GET(request: NextRequest) {
                 console.error(`[storage-efficiency] Could not fetch ARG storage accounts for tenant ${tenantId}:`, msg);
             }
 
+            const rowsTotalCost = rows.reduce((sum, row) => sum + (parseFloat(row.billedCost) || 0), 0);
+            const accountsTotalCost = accounts.reduce((sum, acc) => sum + (Number(acc.monthlyCost) || 0), 0);
+
+            // Cuando la fuente principal es CostMeterSnapshots no hay resource_group/location,
+            // por lo que el mapeo directo a cuenta puede quedar en 0 aunque exista costo real.
+            // Fallback: distribuir costo por tier (y por capacidad si existe) para evitar KPI en cero.
+            if (accounts.length > 0 && accountsTotalCost <= 0 && rowsTotalCost > 0) {
+                const distributed = new Array<number>(accounts.length).fill(0);
+                const weightedDistribute = (indices: number[], total: number) => {
+                    if (indices.length === 0 || total <= 0) return;
+                    const totalWeight = indices.reduce((acc, idx) => acc + Math.max(0, Number(accounts[idx].usedGb) || 0), 0);
+                    if (totalWeight > 0) {
+                        for (const idx of indices) {
+                            const weight = Math.max(0, Number(accounts[idx].usedGb) || 0);
+                            distributed[idx] += (total * weight) / totalWeight;
+                        }
+                        return;
+                    }
+                    const even = total / indices.length;
+                    for (const idx of indices) distributed[idx] += even;
+                };
+
+                let remainingCost = rowsTotalCost;
+                for (const [tier, stats] of Object.entries(tierMap)) {
+                    const tierCost = Number(stats.cost || 0);
+                    if (tierCost <= 0) continue;
+                    const tierIndices: number[] = [];
+                    for (let i = 0; i < accounts.length; i++) {
+                        const accountTier = String(accounts[i].tier || "hot").toLowerCase();
+                        const normalized = accountTier.includes("archive")
+                            ? "archive"
+                            : accountTier.includes("cold")
+                              ? "cold"
+                              : accountTier.includes("cool")
+                                ? "cool"
+                                : "hot";
+                        if (normalized === tier) tierIndices.push(i);
+                    }
+                    if (tierIndices.length === 0) continue;
+                    weightedDistribute(tierIndices, tierCost);
+                    remainingCost -= tierCost;
+                }
+
+                if (remainingCost > 0) {
+                    const allIndices = accounts.map((_, index) => index);
+                    weightedDistribute(allIndices, remainingCost);
+                }
+
+                accounts = accounts.map((acc, index) => ({
+                    ...acc,
+                    monthlyCost: parseFloat(distributed[index].toFixed(4)),
+                }));
+            }
+
             // Sync tierMap from accounts if accounts exist (so tiers match accounts table)
             if (accounts.length > 0) {
                 for (const k of ["hot", "cool", "cold", "archive"]) {

@@ -1,1 +1,1 @@
-export { default } from "../cosmos-db/page";
+export { default } from "./cosmos-db/page";

@@ -87,6 +87,7 @@ cron_jobs = {
   prewarm-sql-finops = { cron = "*/20 * * * *", timeout_seconds = 300 }
   prewarm-mysql-finops = { cron = "*/20 * * * *", timeout_seconds = 300 }
   prewarm-postgres-finops = { cron = "*/20 * * * *", timeout_seconds = 300 }
+  prewarm-storage-finops = { cron = "*/20 * * * *", timeout_seconds = 300 }
 }
 
 acr_sku    = "Basic"

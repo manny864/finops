@@ -20,7 +20,7 @@ export default function RouteTabsNav({
     const pathname = (usePathname() || "").replace(/\/$/, "");
 
     return (
-        <div className={`flex gap-1 border-b border-gray-200 dark:border-slate-800 overflow-x-auto ${className}`}>
+        <div className={`flex flex-wrap gap-1 border-b border-gray-200 dark:border-slate-800 ${className}`}>
             {tabs.map((tab) => {
                 const tabPath = tab.href.replace(/\/$/, "");
                 const active = pathname === tabPath;
