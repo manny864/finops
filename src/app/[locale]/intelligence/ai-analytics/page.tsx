@@ -1,5 +1,6 @@
 import React from "react";
 import { getTranslations } from "next-intl/server";
+import { Bot } from "lucide-react";
 import MockBanner from '@/components/MockBanner';
 import AIAnalyticsDashboard from "@/components/dashboard/AIAnalyticsDashboard";
 
@@ -12,7 +13,7 @@ export default async function AIAnalyticsPage() {
             <div className="vhead">
                 <div>
                     <div className="vt">
-                        <span className="vico bg-gradient-to-br from-[#0054a6] to-[#8b5cf6]">🤖</span>
+                        <span className="vico bg-gradient-to-br from-[#0054a6] to-[#8b5cf6]"><Bot className="h-5 w-5" /></span>
                         {t("title")}
                     </div>
                     <div className="vs">{t("subtitle")}</div>

@@ -20,6 +20,10 @@
 - **New SuperAdmin panel:** `Partner Center Alerts` (`/superadmin/partner-alerts`) to monitor PAL/CPOR status by tenant and detect recent events.
 - **PAL operational automation:** when partner association is approved, events are logged and automatic retry (cron) updates status and detail.
 - **Enterprise AI (Azure IA):** global configuration now stores and tests **endpoint URL** + deployment in addition to API key, with backward-compatible fallback.
+- **Cross-cutting FinOps/CMP table directive:** formalized for current and future tables (base filters, A-Z/Z-A/cost sorting, 15/30/45/60 pagination, responsive full-width layout, and resizable columns).
+- **Security and Monitoring standardized:** both modules now match the same style used in Databases and Compute, including pagination and resource/region/type/resource-group filters.
+- **New Security operational cron:** `prewarm-security-finops` added to Terraform cron maps (staging/prod) to prewarm `defender` and `security/service-cost`.
+- **AI Cost Analytics hardening:** fixes for real-consumption display, daily MTD trend, and cache/data-source robustness for Microsoft Foundry.
 
 ## Change-control directive (mandatory)
 

@@ -20,6 +20,10 @@
 - **Novo painel SuperAdmin:** `Alertas Partner Center` (`/superadmin/partner-alerts`) para monitorar status PAL/CPOR por tenant e detectar eventos recentes.
 - **Automação operacional PAL:** ao aprovar associação de partner, os eventos são registrados e o retry automático (cron) atualiza status e detalhe.
 - **IA Enterprise (Azure IA):** a configuração global agora salva e testa **URL de endpoint** + deployment além da API key, com fallback retrocompatível.
+- **Diretiva transversal de tabelas FinOps/CMP:** formalizada para tabelas atuais e futuras (filtros base, ordenação A-Z/Z-A/custo, paginação 15/30/45/60, layout full-width responsivo e colunas redimensionáveis).
+- **Segurança e Monitoramento padronizados:** os dois módulos agora seguem o mesmo estilo de Bancos de Dados e Computação, incluindo paginação e filtros por recurso/região/tipo/grupo.
+- **Novo cron operacional de Segurança:** `prewarm-security-finops` adicionado aos mapas de jobs do Terraform (staging/prod) para pré-aquecer `defender` e `security/service-cost`.
+- **AI Cost Analytics hardening:** correções para exibir consumo real, tendência MTD diária e maior robustez de cache/fonte de dados no Microsoft Foundry.
 
 ## Diretriz de controle de mudanças (obrigatória)
 

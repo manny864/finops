@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import useSWR from "swr";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
@@ -86,6 +86,75 @@ export default function AIAnalyticsDashboard() {
             : null;
 
     const { data, error, isLoading } = useSWR(apiUrl, fetcher, { revalidateOnFocus: false });
+    const chartTrendData = useMemo(() => {
+        const now = new Date();
+        const currentMonthDay = now.getDate();
+        const useMtdSeries = days <= currentMonthDay;
+        const source = (
+            useMtdSeries && Array.isArray(data?.trendMtd) && data.trendMtd.length > 0
+                ? data.trendMtd
+                : (data?.trend ?? [])
+        ) as any[];
+        const start = useMtdSeries
+            ? new Date(now.getFullYear(), now.getMonth(), 1)
+            : new Date(now.getFullYear(), now.getMonth(), now.getDate() - (days - 1));
+        const end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const formatDate = (date: Date) => {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, "0");
+            const d = String(date.getDate()).padStart(2, "0");
+            return `${y}-${m}-${d}`;
+        };
+        const normalizeDateKey = (value: unknown): string => {
+            if (value instanceof Date) return formatDate(value);
+            const raw = String(value || "");
+            if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.substring(0, 10);
+            const parsed = new Date(raw);
+            if (!Number.isNaN(parsed.getTime())) return formatDate(parsed);
+            return raw.substring(0, 10);
+        };
+        const sourceMap = new Map<string, any>(
+            source.map((entry) => [normalizeDateKey(entry.date), entry])
+        );
+        const out: Array<{
+            date: string;
+            fullDate: string;
+            cost: number;
+            cumulativeCost: number;
+            inputTokens: number;
+            outputTokens: number;
+            totalTokens: number;
+            cumulativeInputTokens: number;
+            cumulativeOutputTokens: number;
+            cumulativeTokens: number;
+        }> = [];
+        let runningCost = 0;
+        let runningInput = 0;
+        let runningOutput = 0;
+        for (let day = new Date(start); day <= end; day.setDate(day.getDate() + 1)) {
+            const dateKey = formatDate(day);
+            const row = sourceMap.get(dateKey) || {};
+            const dailyCost = Number(row.cost || 0);
+            const dailyInput = Number(row.inputTokens || 0);
+            const dailyOutput = Number(row.outputTokens || 0);
+            runningCost = row.cumulativeCost != null ? Number(row.cumulativeCost || 0) : runningCost + dailyCost;
+            runningInput = row.cumulativeInputTokens != null ? Number(row.cumulativeInputTokens || 0) : runningInput + dailyInput;
+            runningOutput = row.cumulativeOutputTokens != null ? Number(row.cumulativeOutputTokens || 0) : runningOutput + dailyOutput;
+            out.push({
+                date: dateKey.substring(5),
+                fullDate: dateKey,
+                cost: dailyCost,
+                cumulativeCost: runningCost,
+                inputTokens: dailyInput,
+                outputTokens: dailyOutput,
+                totalTokens: dailyInput + dailyOutput,
+                cumulativeInputTokens: runningInput,
+                cumulativeOutputTokens: runningOutput,
+                cumulativeTokens: runningInput + runningOutput,
+            });
+        }
+        return out;
+    }, [data?.trendMtd, data?.trend, days]);
 
     if (!selectedTenant || selectedTenant.id === "default") return null;
 
@@ -113,7 +182,7 @@ export default function AIAnalyticsDashboard() {
 
     if (!data) return null;
 
-    const { summary, byModel, byApplication, byTeam, trend, mock, tokensAvailable } = data;
+    const { summary, byModel, byApplication, byTeam, mock, tokensAvailable } = data;
     const showTokens = tokensAvailable !== false;
 
     if (!summary && !mock) {
@@ -127,19 +196,6 @@ export default function AIAnalyticsDashboard() {
     const sortedApps = [...(byApplication ?? [])].sort((a: any, b: any) =>
         appSort === "cost" ? b.cost - a.cost : a.application.localeCompare(b.application)
     );
-
-    const chartTrendData = (trend ?? []).map((tItem: any) => {
-        const inp = Number(tItem.inputTokens) || 0;
-        const out = Number(tItem.outputTokens) || 0;
-        return {
-            date: String(tItem.date).substring(5), // MM-DD
-            fullDate: tItem.date,
-            cost: Number(tItem.cost || 0),
-            inputTokens: inp,
-            outputTokens: out,
-            totalTokens: inp + out,
-        };
-    });
 
     return (
         <div className="w-full space-y-6">
@@ -238,9 +294,9 @@ export default function AIAnalyticsDashboard() {
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
                         <DollarSign className="w-4 h-4 text-emerald-600" />
-                        Coste estimado por día ($ USD)
+                        Progreso de costo MTD ($ USD)
                     </h3>
-                    <span className="text-[11px] text-slate-400">Desglose histórico en el período</span>
+                    <span className="text-[11px] text-slate-400">Acumulado desde el primer día del mes</span>
                 </div>
                 <div className="h-56 w-full">
                     <ResponsiveContainer width="100%" height="100%">
@@ -254,8 +310,8 @@ export default function AIAnalyticsDashboard() {
                             <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
                             <XAxis dataKey="date" tick={{ fontSize: 11 }} />
                             <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `$${v}`} />
-                            <RechartsTooltip formatter={(v: any) => [`$${Number(v).toFixed(2)}`, "Coste Estimado"]} />
-                            <Area type="monotone" dataKey="cost" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#costGradient)" />
+                            <RechartsTooltip formatter={(v: any) => [`$${Number(v).toFixed(2)}`, "Costo acumulado MTD"]} />
+                            <Area type="monotone" dataKey="cumulativeCost" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#costGradient)" />
                         </AreaChart>
                     </ResponsiveContainer>
                 </div>
@@ -267,7 +323,7 @@ export default function AIAnalyticsDashboard() {
                     <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-5 shadow-xs">
                         <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 mb-1 flex items-center gap-2">
                             <Zap className="w-4 h-4 text-blue-500" />
-                            Tokens de entrada frente a salida frente a total
+                            Progreso de tokens de entrada, salida y total (MTD)
                         </h3>
                         <p className="text-xs text-slate-400 mb-4">Realiza un seguimiento de las tendencias de uso de tokens en la entrada, la salida y el total.</p>
                         <div className="h-56 w-full">
@@ -276,11 +332,11 @@ export default function AIAnalyticsDashboard() {
                                     <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
                                     <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                                     <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}K`} />
-                                    <RechartsTooltip formatter={(v: any) => [Number(v).toLocaleString(), "Tokens"]} />
+                                    <RechartsTooltip formatter={(v: any) => [Number(v).toLocaleString(), "Tokens acumulados"]} />
                                     <Legend iconType="circle" wrapperStyle={{ fontSize: 11 }} />
-                                    <Line type="monotone" name="Tokens de entrada" dataKey="inputTokens" stroke="#3b82f6" strokeWidth={2} dot={{ r: 2 }} />
-                                    <Line type="monotone" name="Tokens de salida" dataKey="outputTokens" stroke="#ec4899" strokeWidth={2} dot={{ r: 2 }} />
-                                    <Line type="monotone" name="Total de tokens" dataKey="totalTokens" stroke="#10b981" strokeWidth={2} dot={{ r: 2 }} />
+                                    <Line type="monotone" name="Tokens de entrada" dataKey="cumulativeInputTokens" stroke="#3b82f6" strokeWidth={2} dot={{ r: 2 }} />
+                                    <Line type="monotone" name="Tokens de salida" dataKey="cumulativeOutputTokens" stroke="#ec4899" strokeWidth={2} dot={{ r: 2 }} />
+                                    <Line type="monotone" name="Total de tokens" dataKey="cumulativeTokens" stroke="#10b981" strokeWidth={2} dot={{ r: 2 }} />
                                 </LineChart>
                             </ResponsiveContainer>
                         </div>
@@ -402,7 +458,7 @@ export default function AIAnalyticsDashboard() {
                 <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-5">
                     <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2">
                         <TrendingUp className="w-4 h-4 text-emerald-500" />
-                        {t("tokensTrend")}
+                        Progreso de costo MTD
                     </h3>
                     <div className="h-44 w-full">
                         <ResponsiveContainer width="100%" height="100%">
@@ -410,8 +466,8 @@ export default function AIAnalyticsDashboard() {
                                 <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
                                 <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                                 <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `$${v}`} />
-                                <RechartsTooltip formatter={(v: any) => [`$${Number(v).toFixed(2)}`, "Costo"]} />
-                                <Line type="monotone" dataKey="cost" stroke="#0054a6" strokeWidth={2} dot={{ r: 2 }} />
+                                <RechartsTooltip formatter={(v: any) => [`$${Number(v).toFixed(2)}`, "Costo acumulado MTD"]} />
+                                <Line type="monotone" dataKey="cumulativeCost" stroke="#0054a6" strokeWidth={2} dot={{ r: 2 }} />
                             </LineChart>
                         </ResponsiveContainer>
                     </div>

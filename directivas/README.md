@@ -31,6 +31,7 @@ Cada SOP captura el **contexto** y la **lógica** detrás de una feature, módul
 | `rbac_onboarding_SOP.md` | Asignación RBAC en onboarding multi-tenant |
 | `i18n_setup_SOP.md` | Setup next-intl (en/es/pt-BR) |
 | `mock_data_SOP.md` | Convenciones para mocks por tier |
+| `tablas_finops_cmp_estandar_SOP.md` | Estándar obligatorio de tablas FinOps/CMP (filtros, columnas base, sort, paginado, full-width, resize) |
 
 ## Relación con AGENTS.md
 

@@ -55,7 +55,7 @@ export default function FinopsTableControls({
   labels,
 }: FinopsTableControlsProps) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
         <LabeledSelect
           label={labels.resource}

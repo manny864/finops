@@ -7,7 +7,7 @@ import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { isMockTenant } from "@/lib/mockData";
 import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
 
-type Family = "azure-monitor" | "action-groups" | "workbooks" | "network-watcher" | "microsoft-sentinel";
+type Family = "azure-monitor" | "alerts" | "action-groups" | "workbooks" | "network-watcher" | "microsoft-sentinel";
 
 const FAMILY_META: Record<Family, { serviceNames: string[]; argTypeFilter: string; label: string }> = {
     "azure-monitor": {
@@ -19,6 +19,11 @@ const FAMILY_META: Record<Family, { serviceNames: string[]; argTypeFilter: strin
         serviceNames: ["Azure Monitor"],
         argTypeFilter: "type =~ 'microsoft.insights/actiongroups'",
         label: "Action Groups",
+    },
+    alerts: {
+        serviceNames: ["Azure Monitor"],
+        argTypeFilter: "type in~ ('microsoft.insights/metricalerts','microsoft.insights/scheduledqueryrules')",
+        label: "Alerts",
     },
     workbooks: {
         serviceNames: ["Azure Monitor"],
@@ -57,6 +62,11 @@ export async function GET(request: NextRequest) {
                             { name: "law-network-diag", resourceGroup: "rg-network", subscriptionId: "mock-sub", monthlyCost: 95.0 },
                             { name: "law-security", resourceGroup: "rg-security", subscriptionId: "mock-sub", monthlyCost: 50.0 },
                             { name: "law-apps-dev", resourceGroup: "rg-dev", subscriptionId: "mock-sub", monthlyCost: 16.2 }
+                        ],
+                        alerts: [
+                            { name: "cpu-high-prod", resourceGroup: "rg-monitoring", subscriptionId: "mock-sub", monthlyCost: 14.4 },
+                            { name: "error-rate-api", resourceGroup: "rg-apps", subscriptionId: "mock-sub", monthlyCost: 9.1 },
+                            { name: "kql-auth-failures", resourceGroup: "rg-security", subscriptionId: "mock-sub", monthlyCost: 11.8 }
                         ],
                         "action-groups": [
                             { name: "ag-email-alerts", resourceGroup: "rg-monitoring", subscriptionId: "mock-sub", monthlyCost: 0 },

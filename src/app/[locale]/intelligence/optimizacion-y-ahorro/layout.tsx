@@ -1,7 +1,6 @@
 import { ReactNode } from "react";
 import { Inter } from "next/font/google";
 import RouteTabsNav from "@/components/navigation/RouteTabsNav";
-import RouteTabsFilter from "@/components/navigation/RouteTabsFilter";
 import { Target, Cpu, Coins, Tag, ShieldCheck, Package, Gauge } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -27,7 +26,6 @@ export default function OptimizacionAhorroLayout({ children }: { children: React
                 <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Gestión de optimización de cómputo, tarifas y compromisos.</p>
             </div>
             <RouteTabsNav tabs={tabs} className="px-6 mt-4 mb-4" />
-            <RouteTabsFilter />
             {children}
         </div>
     );

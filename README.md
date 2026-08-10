@@ -346,6 +346,25 @@ segundo.
 
 ## 📈 Recent Major Updates
 
+### 2026-08-10 — Estandarización FinOps/CMP en Monitoreo + Seguridad, AI Analytics y cron Azure
+
+- **Directiva transversal de tablas aplicada en SaaS:** se consolidó el patrón
+  obligatorio de tablas FinOps/CMP con filtros base (**Recurso, Región, Tipo,
+  Grupo de recursos**), ordenación (A-Z/Z-A/costo), paginado **15/30/45/60**,
+  layout responsive full-width y columnas redimensionables.
+- **Monitoreo homologado:** se eliminó el filtro superior global de tabs y se
+  dejó el estándar por tabla en `MonitoringServiceCostBoard`, `app-insights` y
+  `log-analytics`, con prioridad en usabilidad operativa y lectura financiera.
+- **Seguridad homologada:** `SecurityServiceCostBoard` y `Defender` quedaron con
+  el mismo estilo operativo de Bases de Datos/Cómputo, incluyendo paginado,
+  filtros estándar y orden por costo para priorización de acciones.
+- **AI Cost Analytics hardening:** corrección de hooks order en dashboard,
+  normalización robusta de fechas, tendencia MTD desde día 1 y protección de
+  fuente/costo real cuando Cost Meter supera snapshots incompletos.
+- **Nuevo cron operativo de Seguridad:** `GET /api/cron/prewarm-security-finops`
+  agregado para precalentar `defender` y `security/service-cost`; incorporado en
+  `infra/terraform/environments/{staging,prod}` para ejecución en Azure.
+
 ### 2026-08-05 — SQL GROUP BY fix + Pagination en diagnostics
 
 - **Fix crítico SQL (MySQL `only_full_group_by`):** el endpoint
@@ -906,6 +925,7 @@ Endpoints internos protegidos por `Authorization: Bearer ${CRON_SECRET}`. Los in
 | `GET /api/cron/prewarm-postgres-finops` | Cada 20 min          | Pre-calienta el cockpit FinOps/CMP de PostgreSQL (`/api/intelligence/databases/postgres-metrics`) para todos los tenants activos. |
 | `GET /api/cron/prewarm-compute`       | Cada 15 min            | Pre-calienta los cachés de workloads de cómputo de todos los tenants activos. |
 | `GET /api/cron/prewarm-storage-finops` | Cada 20 min          | Pre-calienta los cockpits FinOps/CMP de Almacenamiento (`/api/intelligence/storage-efficiency` + `/api/intelligence/storage/service-cost`) para todos los tenants activos. |
+| `GET /api/cron/prewarm-security-finops` | Cada 20 min         | Pre-calienta el módulo de Seguridad (`/api/intelligence/defender` + `/api/intelligence/security/service-cost`) para todos los tenants activos. |
 | `GET /api/cron/power-schedules`      | Cada 2 min              | Ejecuta los horarios de apagado programado de VMs (tabla `PowerSchedules`) cuyo horario local ya se cumplió (ventana de 8 min). También se dispara al instante desde `/api/power/schedule` (POST) al crear/editar un horario, sin esperar al próximo tick, para minimizar la latencia percibida. |
 | `GET /api/cron/open-data`            | Semanal (lunes 04:00)  | Sincroniza los Open Data Sets del Microsoft FinOps Toolkit (Regions/Services/ResourceTypes/PricingUnits/CommitmentEligibility) a las tablas `OpenData*`. Sin él, los lookups (nombre canónico de región, categoría de servicio, iconos) devuelven null. |
 | `GET /api/cron/anomaly-detection`    | Cada 5 min (mínimo)     | Corre Z-Score sobre `CostSnapshots` para todos los tenants Professional+, persiste en `Anomalies` y notifica (Slack/Teams/email + alerta de navegador) — antes la detección era 100% on-demand (solo calculaba si alguien abría `/intelligence/anomalies`), sin ningún monitoreo proactivo. |

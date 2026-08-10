@@ -57,6 +57,99 @@ type AggRow = {
     outputTokens: number;
 };
 
+const toCostNumber = (cost: Decimal) => cost.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber();
+const costPer1k = (cost: Decimal, tokens: number) =>
+    tokens > 0
+        ? cost.dividedBy(tokens).times(1000).toDecimalPlaces(6, Decimal.ROUND_HALF_UP).toNumber()
+        : 0;
+
+function formatDateKey(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+}
+
+function toDateKey(value: string | Date): string {
+    if (value instanceof Date) {
+        return formatDateKey(value);
+    }
+    const raw = String(value || "").trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(raw)) {
+        return raw.substring(0, 10);
+    }
+    const parsed = new Date(raw);
+    if (!Number.isNaN(parsed.getTime())) {
+        return formatDateKey(parsed);
+    }
+    return raw.substring(0, 10);
+}
+
+function filterRowsByDays(rows: AggRow[], days: number): AggRow[] {
+    const cutoff = new Date();
+    cutoff.setHours(0, 0, 0, 0);
+    cutoff.setDate(cutoff.getDate() - (days - 1));
+    const cutoffKey = formatDateKey(cutoff);
+    return rows.filter((row) => toDateKey(row.date) >= cutoffKey);
+}
+
+function buildTrendMtd(rows: AggRow[]) {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startKey = formatDateKey(start);
+    const endKey = formatDateKey(end);
+    const map = new Map<string, { cost: Decimal; inputTokens: number; outputTokens: number }>();
+
+    for (const row of rows) {
+        const key = toDateKey(row.date);
+        if (key < startKey || key > endKey) continue;
+        const entry = map.get(key) || { cost: new Decimal(0), inputTokens: 0, outputTokens: 0 };
+        entry.cost = entry.cost.plus(new Decimal(row.cost || 0));
+        entry.inputTokens += Number(row.inputTokens || 0);
+        entry.outputTokens += Number(row.outputTokens || 0);
+        map.set(key, entry);
+    }
+
+    const series: Array<{
+        date: string;
+        cost: number;
+        inputTokens: number;
+        outputTokens: number;
+        cumulativeCost: number;
+        cumulativeInputTokens: number;
+        cumulativeOutputTokens: number;
+        cumulativeTokens: number;
+    }> = [];
+
+    let runningCost = new Decimal(0);
+    let runningInput = 0;
+    let runningOutput = 0;
+    for (let day = new Date(start); day <= end; day.setDate(day.getDate() + 1)) {
+        const key = formatDateKey(day);
+        const daily = map.get(key) || { cost: new Decimal(0), inputTokens: 0, outputTokens: 0 };
+        runningCost = runningCost.plus(daily.cost);
+        runningInput += daily.inputTokens;
+        runningOutput += daily.outputTokens;
+        series.push({
+            date: key,
+            cost: toCostNumber(daily.cost),
+            inputTokens: daily.inputTokens,
+            outputTokens: daily.outputTokens,
+            cumulativeCost: toCostNumber(runningCost),
+            cumulativeInputTokens: runningInput,
+            cumulativeOutputTokens: runningOutput,
+            cumulativeTokens: runningInput + runningOutput,
+        });
+    }
+
+    return series;
+}
+
+function sumRowsCost(rows: AggRow[]): Decimal {
+    return rows.reduce((acc, row) => acc.plus(new Decimal(row.cost || 0)), new Decimal(0));
+}
+
 function aggregate(rows: AggRow[], tokensAvailable: boolean) {
     const modelMap = new Map<string, { model: string; cost: Decimal; inputTokens: number; outputTokens: number }>();
     const appMap = new Map<string, { application: string; cost: Decimal; model: string }>();
@@ -90,19 +183,13 @@ function aggregate(rows: AggRow[], tokensAvailable: boolean) {
         tEntry.cost = tEntry.cost.plus(cost);
         teamMap.set(tKey, tEntry);
 
-        const dKey = String(r.date).substring(0, 10);
+        const dKey = toDateKey(r.date);
         const dEntry = trendMap.get(dKey) || { date: dKey, cost: new Decimal(0), inputTokens: 0, outputTokens: 0 };
         dEntry.cost = dEntry.cost.plus(cost);
         dEntry.inputTokens += inp;
         dEntry.outputTokens += out;
         trendMap.set(dKey, dEntry);
     }
-
-    const toCostNumber = (cost: Decimal) => cost.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber();
-    const costPer1k = (cost: Decimal, tokens: number) =>
-        tokens > 0
-            ? cost.dividedBy(tokens).times(1000).toDecimalPlaces(6, Decimal.ROUND_HALF_UP).toNumber()
-            : 0;
 
     const byModel = Array.from(modelMap.values()).map(m => ({
         model: m.model,
@@ -142,6 +229,7 @@ function aggregate(rows: AggRow[], tokensAvailable: boolean) {
 const EMPTY_RESPONSE = { success: true, mock: false, tokensAvailable: false, summary: null, byModel: [], byApplication: [], byTeam: [], trend: [] };
 
 async function fetchAIAnalytics(tenantId: string, days: number) {
+    const daysForQuery = Math.max(days, new Date().getDate());
     // 1) Fuente primaria: AICostSnapshots — uso real por modelo (tokens) de
     //    Microsoft Foundry / Azure OpenAI sincronizado desde Azure Monitor
     //    Metrics (ver aiUsageCollector.ts). Puede estar vacía si el cron todavía
@@ -159,12 +247,8 @@ async function fetchAIAnalytics(tenantId: string, days: number) {
          WHERE tenant_id = ? AND date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
          GROUP BY COALESCE(NULLIF(model_name, ''), 'unknown'), COALESCE(NULLIF(application, ''), NULLIF(resource_name, ''), 'unknown'), COALESCE(NULLIF(team, ''), 'Sin asignar'), date
          ORDER BY date ASC`,
-        [tenantId, days]
+        [tenantId, daysForQuery]
     );
-
-    if (aiRows && aiRows.length > 0) {
-        return aggregate(aiRows, true);
-    }
 
     // 2) Fallback principal: CostMeterSnapshots (filas a nivel meter).
     //    Desde 20260704 el sync separa estos costos de CostSnapshots para evitar
@@ -195,11 +279,37 @@ async function fetchAIAnalytics(tenantId: string, days: number) {
            )
          GROUP BY COALESCE(NULLIF(MeterSubCategory, ''), NULLIF(MeterName, ''), service_name), COALESCE(NULLIF(subscription_id, ''), 'unknown-subscription'), date
          ORDER BY date ASC`,
-        [tenantId, days]
+        [tenantId, daysForQuery]
     );
 
+    if (aiRows && aiRows.length > 0) {
+        const aiTotal = sumRowsCost(aiRows);
+        const meterTotal = sumRowsCost((meterRows || []) as AggRow[]);
+        // ponytail: si AI snapshots sub-reporta costo vs Cost Management,
+        // priorizamos costo real y desactivamos tokens para evitar métricas engañosas.
+        if (meterRows && meterRows.length > 0 && meterTotal.greaterThan(aiTotal.times(1.2))) {
+            const recentRows = filterRowsByDays(meterRows, days);
+            return {
+                ...aggregate(recentRows, false),
+                trendMtd: buildTrendMtd(meterRows),
+                source: "cost-meter-gap-protection",
+            };
+        }
+        const recentRows = filterRowsByDays(aiRows, days);
+        return {
+            ...aggregate(recentRows, true),
+            trendMtd: buildTrendMtd(aiRows),
+            source: "ai-snapshots",
+        };
+    }
+
     if (meterRows && meterRows.length > 0) {
-        return aggregate(meterRows, false);
+        const recentRows = filterRowsByDays(meterRows, days);
+        return {
+            ...aggregate(recentRows, false),
+            trendMtd: buildTrendMtd(meterRows),
+            source: "cost-meter-fallback",
+        };
     }
 
     // 3) Fallback de compatibilidad: CostSnapshots legado.
@@ -229,14 +339,19 @@ async function fetchAIAnalytics(tenantId: string, days: number) {
            )
          GROUP BY COALESCE(NULLIF(MeterSubCategory, ''), NULLIF(MeterName, ''), service_name), resource_group, COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(Tags, '$.Team')), 'null'), 'Sin asignar'), date
          ORDER BY date ASC`,
-        [tenantId, days]
+        [tenantId, daysForQuery]
     );
 
     if (!costRows || costRows.length === 0) {
         return EMPTY_RESPONSE;
     }
 
-    return aggregate(costRows, false);
+    const recentRows = filterRowsByDays(costRows, days);
+    return {
+        ...aggregate(recentRows, false),
+        trendMtd: buildTrendMtd(costRows),
+        source: "cost-snapshots-fallback",
+    };
 }
 
 export async function GET(request: NextRequest) {
@@ -273,7 +388,7 @@ export async function GET(request: NextRequest) {
                 return NextResponse.json({ error: "Feature bloqueada. Requiere plan Enterprise." }, { status: 403 });
             }
 
-            const cacheKey = `ai-analytics:v3:${tenantId}:${days}`;
+            const cacheKey = `ai-analytics:v5:${tenantId}:${days}`;
             const payload = await getWithStaleWhileRevalidate(
                 cacheKey,
                 () => fetchAIAnalytics(tenantId, days),

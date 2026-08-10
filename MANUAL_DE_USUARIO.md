@@ -11,6 +11,10 @@ Bienvenido a la Plataforma FinOps de CSCloudSolutions. Este manual está diseña
 - **PAL/CPOR con alertas para SuperAdmin:** nueva página `SuperAdmin → Alertas Partner Center` para ver estados `APPROVED/LINKED/FAILED/DECLINED` por tenant, con foco en eventos recientes.
 - **Reintento automático PAL:** al aprobar la asociación de partner, el sistema ya puede reintentar de forma programada y actualizar estado/detalle automáticamente.
 - **Configuración IA Enterprise (Azure IA):** la configuración global ahora permite definir **endpoint URL** y deployment del proveedor Azure IA para planes Enterprise.
+- **Estándar de tablas FinOps/CMP (SaaS):** todas las tablas del nuevo estándar incluyen filtros base (**Recurso, Región, Tipo, Grupo de recursos**), ordenación (A-Z/Z-A/costo), paginado **15/30/45/60**, diseño responsive, ancho completo y columnas redimensionables.
+- **Monitoreo y Seguridad homologados:** las vistas de Monitoreo y Seguridad ya usan el mismo patrón visual/operativo que Bases de Datos y Cómputo, con foco en lectura rápida para decisiones FinOps.
+- **AI Cost Analytics corregido:** el panel de Microsoft Foundry/Azure OpenAI ahora prioriza consumo real, mantiene tendencia MTD desde el día 1 del mes y corrige inconsistencias de cache/fuentes.
+- **Nuevo cron de precalentamiento de Seguridad:** `GET /api/cron/prewarm-security-finops` precalienta Defender + familias de Seguridad para acelerar carga en staging y producción.
 
 ## Directiva operativa (repositorio y despliegues)
 

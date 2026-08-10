@@ -3,7 +3,6 @@ import { Inter } from "next/font/google";
 import { getTranslations } from "next-intl/server";
 import { BarChart3, Sigma, Split, Gauge, TriangleAlert, HeartPulse, FlaskConical, BellRing, HandCoins } from "lucide-react";
 import RouteTabsNav from "@/components/navigation/RouteTabsNav";
-import RouteTabsFilter from "@/components/navigation/RouteTabsFilter";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -31,7 +30,6 @@ export default async function AnaliticaAvanzadaLayout({ children }: { children: 
                 <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{t("subtitle")}</p>
             </div>
             <RouteTabsNav tabs={tabs} className="px-6 mt-4 mb-4" />
-            <RouteTabsFilter />
             {children}
         </div>
     );

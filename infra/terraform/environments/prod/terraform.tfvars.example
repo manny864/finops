@@ -135,6 +135,9 @@ cron_jobs = {
   # Pre-warm dedicado de cockpits FinOps/CMP de Almacenamiento.
   prewarm-storage-finops = { cron = "*/20 * * * *", timeout_seconds = 300 }
 
+  # Pre-warm dedicado del módulo de Seguridad (Defender + familias de costo).
+  prewarm-security-finops = { cron = "*/20 * * * *", timeout_seconds = 300 }
+
   # Apagado programado de VMs. Ventana de ejecución = 8 min, por eso */2.
   power-schedules = { cron = "*/2 * * * *", timeout_seconds = 120 }
 

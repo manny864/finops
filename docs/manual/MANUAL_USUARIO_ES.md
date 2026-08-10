@@ -20,6 +20,10 @@
 - **Alertas Partner Center para SuperAdmin:** nueva vista para seguimiento de estados PAL/CPOR por tenant (`APPROVED`, `LINKED`, `FAILED`, `DECLINED`).
 - **Automatización PAL:** se agregaron reintentos automáticos y notificaciones activas para SuperAdmin cuando cambia el estado de vínculo.
 - **IA Enterprise (Azure IA):** la configuración global de IA ahora soporta **endpoint URL** + deployment para Azure IA en lugar de depender sólo del nombre del recurso.
+- **Estándar de tablas FinOps/CMP (SaaS):** todas las tablas del nuevo estándar incluyen filtros base (**Recurso, Región, Tipo, Grupo de recursos**), ordenación (A-Z/Z-A/costo), paginado **15/30/45/60**, diseño responsive, ancho completo y columnas redimensionables.
+- **Monitoreo y Seguridad homologados:** las vistas de Monitoreo y Seguridad ya usan el mismo patrón visual/operativo que Bases de Datos y Cómputo, con foco en lectura rápida para decisiones FinOps.
+- **AI Cost Analytics corregido:** el panel de Microsoft Foundry/Azure OpenAI ahora prioriza consumo real, mantiene tendencia MTD desde el día 1 del mes y corrige inconsistencias de cache/fuentes.
+- **Nuevo cron de precalentamiento de Seguridad:** `GET /api/cron/prewarm-security-finops` precalienta Defender + familias de Seguridad para acelerar carga en entornos staging y producción.
 
 ## Directiva operativa (repositorio y despliegues)
 

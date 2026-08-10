@@ -116,6 +116,16 @@ Toda modificación, creación o feature nuevo en este repositorio debe respetar 
 - **Regla vinculante de Marca:** El nombre oficial de la marca y empresa es **CSCloudSolutions** (todo junto, sin espacios, con mayúsculas en C, S, C, S).
 - NUNCA escribir "CS Cloud Solutions", "CS Cloud", "CSCloud Solutions" u otras variaciones con espacio en interfaces de usuario, textos, videos, títulos, directivas o documentación.
 
+### 19. Estándar obligatorio de tablas FinOps/CMP (presentes y futuras)
+- **Ubicación obligatoria de filtros:** inmediatamente debajo del título/subtítulo de cada página o pestaña.
+- **Filtros obligatorios en toda tabla de recursos/costos:** Recurso, Región, Tipo, Grupo de recursos.
+- **Columnas obligatorias en toda tabla de recursos/costos:** Recurso, Región, Tipo, Grupo de recursos y Suscripción (mostrar **nombre**, no ID).
+- **Orden obligatorio:** A-Z, Z-A, costo mayor→menor y costo menor→mayor.
+- **Paginación obligatoria:** tamaños 15/30/45/60.
+- **UX obligatoria:** tablas responsive, ancho completo (`w-full`, sin `max-w-*` contenedor limitante), y columnas redimensionables por usuario.
+- **Extensibilidad:** cada módulo puede agregar columnas específicas, pero nunca quitar los campos/filtros base.
+- **Implementación base recomendada:** reutilizar `FinopsTableControls`, `Pagination` y `ResizableTh` para evitar desvíos.
+
 ---
 
 ## Resumen rápido (checklist al hacer cambios)
@@ -131,6 +141,7 @@ Toda modificación, creación o feature nuevo en este repositorio debe respetar 
 - [ ] ¿Validé `lint` + `typecheck` + `test` localmente?
 - [ ] ¿Push a `staging` primero para validar CI antes de `main`?
 - [ ] ¿Push pedido por el usuario? → Si sí, ¿controlo el deploy hasta verde?
+- [ ] ¿La tabla cumple estándar obligatorio (filtros base + columnas base + sort + paginado 15/30/45/60 + resize + full-width)?
 
 # Execution Mode
 

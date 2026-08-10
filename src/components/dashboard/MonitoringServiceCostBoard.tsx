@@ -15,7 +15,7 @@ import FinopsTableControls, { type FinopsTableOption } from "@/components/dashbo
 
 const fmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-type Family = "azure-monitor" | "action-groups" | "workbooks" | "network-watcher" | "microsoft-sentinel";
+type Family = "azure-monitor" | "alerts" | "action-groups" | "workbooks" | "network-watcher" | "microsoft-sentinel";
 const FILTER_ALL = "__all__";
 type SortMode = "name-asc" | "name-desc" | "cost-desc" | "cost-asc";
 
@@ -125,10 +125,10 @@ export default function MonitoringServiceCostBoard({
     }, [selectedTenant.id, accounts.length, instance, family, t]);
 
     if (selectedTenant.id === "default") return null;
-    if (loading) return <div className="p-6 max-w-5xl mx-auto text-gray-500">{t("loading")}</div>;
+    if (loading) return <div className="p-6 w-full text-gray-500">{t("loading")}</div>;
 
     return (
-        <div className="p-6 max-w-5xl mx-auto animate-in fade-in duration-500">
+        <div className="p-6 w-full animate-in fade-in duration-500">
             <MockBanner />
             <div className="mb-6">
                 <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white flex items-center gap-2">

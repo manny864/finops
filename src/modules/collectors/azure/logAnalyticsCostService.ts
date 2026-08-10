@@ -32,6 +32,7 @@ import { getAzureCredential, getResourceGraphClient } from "@/lib/azure";
 import { CostManagementClient } from "@azure/arm-costmanagement";
 import { isMockTenant } from "@/lib/mockData";
 import { decimalToCents, centsToDecimal } from "@/lib/money";
+import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
 
 // Precio Pay-As-You-Go de referencia (USD/GB) para Analytics Logs.
 const PAYG_PRICE_PER_GB = 2.30;
@@ -64,6 +65,10 @@ export type LogAnalyticsRecommendation =
 export interface LogAnalyticsWorkspaceRow {
     name: string;
     resourceGroup: string;
+    subscriptionId: string;
+    subscriptionName: string;
+    region: string;
+    type: string;
     sku: string;
     retentionDays: number;
     dailyQuotaGb: number | null;
@@ -110,6 +115,10 @@ function evaluateWorkspace(
     input: {
         name: string;
         resourceGroup: string;
+        subscriptionId: string;
+        subscriptionName: string;
+        region: string;
+        type: string;
         sku: string;
         retentionDays: number;
         dailyQuotaGb: number | null;
@@ -167,6 +176,10 @@ function evaluateWorkspace(
     return {
         name: input.name,
         resourceGroup: input.resourceGroup,
+        subscriptionId: input.subscriptionId,
+        subscriptionName: input.subscriptionName,
+        region: input.region,
+        type: input.type,
         sku: input.sku || "PerGB2018",
         retentionDays: input.retentionDays,
         dailyQuotaGb: input.dailyQuotaGb,
@@ -189,17 +202,21 @@ const MOCK_TIER_MULTIPLIER: Record<string, number> = {
 
 function buildMockResult(tenantId: string): LogAnalyticsCostResult {
     const multiplier = MOCK_TIER_MULTIPLIER[tenantId] || 1;
-    const base: Array<{ name: string; resourceGroup: string; sku: string; retentionDays: number; dailyQuotaGb: number | null; baseCost: number }> = [
-        { name: "law-prod-central", resourceGroup: "rg-monitoring", sku: "PerGB2018", retentionDays: 180, dailyQuotaGb: null, baseCost: 640.0 },
-        { name: "law-network-diag", resourceGroup: "rg-network", sku: "PerGB2018", retentionDays: 120, dailyQuotaGb: null, baseCost: 380.0 },
-        { name: "law-security", resourceGroup: "rg-security", sku: "PerGB2018", retentionDays: 365, dailyQuotaGb: 50, baseCost: 210.0 },
-        { name: "law-apps-dev", resourceGroup: "rg-dev", sku: "PerGB2018", retentionDays: 30, dailyQuotaGb: 10, baseCost: 45.0 },
+    const base: Array<{ name: string; resourceGroup: string; subscriptionId: string; subscriptionName: string; region: string; type: string; sku: string; retentionDays: number; dailyQuotaGb: number | null; baseCost: number }> = [
+        { name: "law-prod-central", resourceGroup: "rg-monitoring", subscriptionId: "demo-sub-01", subscriptionName: "Demo Production Subscription", region: "eastus", type: "microsoft.operationalinsights/workspaces", sku: "PerGB2018", retentionDays: 180, dailyQuotaGb: null, baseCost: 640.0 },
+        { name: "law-network-diag", resourceGroup: "rg-network", subscriptionId: "demo-sub-02", subscriptionName: "Demo Operations Subscription", region: "westus2", type: "microsoft.operationalinsights/workspaces", sku: "PerGB2018", retentionDays: 120, dailyQuotaGb: null, baseCost: 380.0 },
+        { name: "law-security", resourceGroup: "rg-security", subscriptionId: "demo-sub-04", subscriptionName: "Demo Security Subscription", region: "centralus", type: "microsoft.operationalinsights/workspaces", sku: "PerGB2018", retentionDays: 365, dailyQuotaGb: 50, baseCost: 210.0 },
+        { name: "law-apps-dev", resourceGroup: "rg-dev", subscriptionId: "demo-sub-02", subscriptionName: "Demo Operations Subscription", region: "eastus2", type: "microsoft.operationalinsights/workspaces", sku: "PerGB2018", retentionDays: 30, dailyQuotaGb: 10, baseCost: 45.0 },
     ];
 
     const workspaces = base.map((b) =>
         evaluateWorkspace({
             name: b.name,
             resourceGroup: b.resourceGroup,
+            subscriptionId: b.subscriptionId,
+            subscriptionName: b.subscriptionName,
+            region: b.region,
+            type: b.type,
             sku: b.sku,
             retentionDays: b.retentionDays,
             dailyQuotaGb: b.dailyQuotaGb,
@@ -239,6 +256,9 @@ export const getLogAnalyticsCost = async (
             ${subscriptionId ? `| where subscriptionId =~ '${subscriptionId}'` : ""}
             | project name,
                       resourceGroup,
+                      subscriptionId,
+                      location,
+                      type,
                       resourceId = tolower(id),
                       sku = tostring(properties.sku.name),
                       retentionDays = toint(properties.retentionInDays),
@@ -277,6 +297,12 @@ export const getLogAnalyticsCost = async (
 
     // --- Costo por recurso (MonthToDate) vía Cost Management ---
     const costByResourceId: Record<string, number> = {};
+    let subscriptionNameMap = new Map<string, string>();
+    try {
+        const credential = await getAzureCredential(tenantId);
+        subscriptionNameMap = await getSubscriptionNameMap(tenantId, credential);
+    } catch {}
+
     if (subscriptionId) {
         try {
             const credential = await getAzureCredential(tenantId);
@@ -317,6 +343,10 @@ export const getLogAnalyticsCost = async (
             evaluateWorkspace({
                 name: w.name,
                 resourceGroup: w.resourceGroup,
+                subscriptionId: String(w.subscriptionId || subscriptionId || ""),
+                subscriptionName: resolveSubscriptionName(String(w.subscriptionId || subscriptionId || ""), subscriptionNameMap) || String(w.subscriptionId || subscriptionId || "unknown"),
+                region: String(w.location || "unknown"),
+                type: String(w.type || "microsoft.operationalinsights/workspaces"),
                 sku: w.sku,
                 // retentionInDays puede venir como -1 (sin límite) o null.
                 retentionDays: Number(w.retentionDays) > 0 ? Number(w.retentionDays) : 0,
