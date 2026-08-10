@@ -15,6 +15,34 @@ interface FamilyItemConfig {
     snapshotWhere: string;
 }
 
+async function queryPublicIpMap(tenantId: string): Promise<Map<string, string>> {
+    try {
+        const arg = await getResourceGraphClient(tenantId);
+        const query = `
+            Resources
+            | where type =~ 'microsoft.network/publicipaddresses'
+            | project id = tolower(id), ip = tostring(properties.ipAddress)
+        `;
+        const res: any = await arg.resources({ query, options: { resultFormat: "objectArray", top: 5000 } });
+        const map = new Map<string, string>();
+        for (const row of (res.data as any[]) || []) {
+            const id = String(row.id || "").toLowerCase();
+            const ip = String(row.ip || "");
+            if (id && ip) map.set(id, ip);
+        }
+        return map;
+    } catch {
+        return new Map<string, string>();
+    }
+}
+
+function extractPublicIpIdsFromProperties(properties: unknown): string[] {
+    if (!properties) return [];
+    const raw = typeof properties === "string" ? properties : JSON.stringify(properties);
+    const matches = raw.match(/\/subscriptions\/[^"'\\\s]+\/providers\/microsoft\.network\/publicipaddresses\/[^"'\\\s]+/gi) || [];
+    return Array.from(new Set(matches.map((item) => item.toLowerCase())));
+}
+
 interface FamilyConfig {
     items: FamilyItemConfig[];
 }
@@ -26,6 +54,7 @@ interface NetworkResourceRow {
     resourceGroup: string;
     subscriptionId: string;
     subscriptionName: string;
+    publicIp: string;
     costGroupOwner: string;
     createdAt: string;
     monthlyCost: number;
@@ -247,7 +276,8 @@ async function queryArgResourcesByType(tenantId: string, resourceTypes: string[]
         const query = `
             Resources
             | where type in~ (${types})
-            | project id, name, type, resourceGroup, subscriptionId, tags,
+            | project id, name, type, resourceGroup, subscriptionId, tags, properties,
+                     publicIp = tostring(properties.ipAddress),
                      createdAt = tostring(coalesce(
                         properties.creationTime,
                         properties.createdTime,
@@ -322,7 +352,7 @@ export async function GET(request: NextRequest) {
         await requireTenantAccess(request, tenantId);
 
         const data = await getWithStaleWhileRevalidate(
-            `network-service-cost:v3:${tenantId}:${family}`,
+            `network-service-cost:v4:${tenantId}:${family}`,
             async () => {
                 if (isMockTenant(tenantId)) {
                     const multiplier = tierMultiplier(tenantId);
@@ -339,6 +369,7 @@ export async function GET(request: NextRequest) {
                             resourceGroup: `mock-rg-${(idx % 3) + 1}`,
                             subscriptionId: `mock-sub-${(idx % 3) + 1}`,
                             subscriptionName: ["Production", "Staging", "Sandbox"][idx % 3],
+                            publicIp: idx % 2 === 0 ? `20.40.${idx}.${10 + rowIdx}` : "-",
                             costGroupOwner: ["CostCenter-Platform", "CostCenter-Data", "CostCenter-Shared"][idx % 3],
                             createdAt: "2026-01-01T00:00:00Z",
                             monthlyCost: Number((item.monthlyCost / Math.max(item.resourceCount, 1)).toFixed(2)),
@@ -367,6 +398,11 @@ export async function GET(request: NextRequest) {
                 ]);
                 const credential = await getAzureCredential(tenantId);
                 const subscriptionNameMap = await getSubscriptionNameMap(tenantId, credential);
+                const normalizedSubNameMap = new Map<string, string>();
+                for (const [key, value] of subscriptionNameMap.entries()) {
+                    normalizedSubNameMap.set(String(key).toLowerCase(), String(value));
+                }
+                const publicIpMap = await queryPublicIpMap(tenantId);
 
                 const items = await Promise.all(
                     config.items.map(async (item) => {
@@ -387,13 +423,28 @@ export async function GET(request: NextRequest) {
                     );
                     const tags = parseTags(resource.tags);
                     const normalizedResourceId = String(resource.id || "").toLowerCase();
+                    const subscriptionId = String(resource.subscriptionId || "");
+                    const normalizedSubscriptionId = subscriptionId.toLowerCase();
+                    const resolvedSubscriptionName = resolveSubscriptionName(subscriptionId, subscriptionNameMap)
+                        || normalizedSubNameMap.get(normalizedSubscriptionId)
+                        || subscriptionId
+                        || "-";
+                    const directPublicIp = String(resource.publicIp || "");
+                    const referencedPublicIps = extractPublicIpIdsFromProperties(resource.properties)
+                        .map((id) => publicIpMap.get(id))
+                        .filter((ip): ip is string => Boolean(ip));
+                    const allPublicIps = Array.from(new Set([
+                        ...(directPublicIp ? [directPublicIp] : []),
+                        ...referencedPublicIps,
+                    ]));
                     return {
                         serviceLabel: service?.serviceLabel || resourceType,
                         resourceId: String(resource.id || "-"),
                         resourceName: String(resource.name || "-"),
                         resourceGroup: String(resource.resourceGroup || "-"),
-                        subscriptionId: String(resource.subscriptionId || ""),
-                        subscriptionName: resolveSubscriptionName(String(resource.subscriptionId || ""), subscriptionNameMap) || "-",
+                        subscriptionId,
+                        subscriptionName: resolvedSubscriptionName,
+                        publicIp: allPublicIps.length > 0 ? allPublicIps.join(", ") : "-",
                         costGroupOwner: resolveCostGroupOwner(tags),
                         createdAt: String(resource.createdAt || ""),
                         monthlyCost: Number((allResourceCosts.get(normalizedResourceId) || 0).toFixed(2)),

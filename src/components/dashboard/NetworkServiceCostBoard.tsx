@@ -32,7 +32,7 @@ export default function NetworkServiceCostBoard({
     const { instance, accounts } = useMsal();
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState<any>(null);
-    const [sortField, setSortField] = useState<"serviceLabel" | "resourceName" | "resourceGroup" | "subscriptionName" | "costGroupOwner" | "createdAt" | "monthlyCost">("monthlyCost");
+    const [sortField, setSortField] = useState<"serviceLabel" | "resourceName" | "publicIp" | "resourceGroup" | "subscriptionName" | "costGroupOwner" | "createdAt" | "monthlyCost">("monthlyCost");
     const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
     const [pageSize, setPageSize] = useState<number>(15);
     const [currentPage, setCurrentPage] = useState<number>(1);
@@ -320,6 +320,7 @@ export default function NetworkServiceCostBoard({
                             <tr>
                                 <th onClick={() => onSort("serviceLabel")} className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase cursor-pointer">{t("colService")}</th>
                                 <th onClick={() => onSort("resourceName")} className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase cursor-pointer">{t("colResourceName")}</th>
+                                <th onClick={() => onSort("publicIp")} className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase cursor-pointer">{t("colPublicIp")}</th>
                                 <th onClick={() => onSort("resourceGroup")} className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase cursor-pointer">{t("colResourceGroup")}</th>
                                 <th onClick={() => onSort("subscriptionName")} className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase cursor-pointer">{t("colSubscription")}</th>
                                 <th onClick={() => onSort("costGroupOwner")} className="py-3 px-4 border-b border-gray-200 dark:border-slate-700 font-bold text-xs text-gray-500 uppercase cursor-pointer">{t("colCostGroupOwner")}</th>
@@ -332,6 +333,7 @@ export default function NetworkServiceCostBoard({
                                 <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
                                     <td className="py-3 px-4 border-b border-gray-100 dark:border-slate-800 font-semibold text-sm text-gray-800 dark:text-gray-200">{item.serviceLabel}</td>
                                     <td className="py-3 px-4 border-b border-gray-100 dark:border-slate-800 text-sm text-gray-700 dark:text-gray-300">{item.resourceName || "-"}</td>
+                                    <td className="py-3 px-4 border-b border-gray-100 dark:border-slate-800 text-sm text-gray-700 dark:text-gray-300">{item.publicIp || "-"}</td>
                                     <td className="py-3 px-4 border-b border-gray-100 dark:border-slate-800 text-sm text-gray-700 dark:text-gray-300">{item.resourceGroup || "-"}</td>
                                     <td className="py-3 px-4 border-b border-gray-100 dark:border-slate-800 text-sm text-gray-700 dark:text-gray-300">{item.subscriptionName || item.subscriptionId || "-"}</td>
                                     <td className="py-3 px-4 border-b border-gray-100 dark:border-slate-800 text-sm text-gray-700 dark:text-gray-300">{item.costGroupOwner || "-"}</td>

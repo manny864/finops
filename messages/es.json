@@ -5401,6 +5401,7 @@
     "colService": "Servicio",
     "colResources": "Recursos",
     "colResourceName": "Nombre del recurso",
+    "colPublicIp": "IP pública",
     "colResourceGroup": "Grupo de recursos",
     "colSubscription": "Suscripción",
     "colCostGroupOwner": "Dueño grupo de costo",
