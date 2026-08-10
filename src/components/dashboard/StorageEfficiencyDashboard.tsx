@@ -33,8 +33,10 @@ interface StorageAccountItem {
     tier: string;
     kind?: string;
     sku?: string;
-    usedGb: number;
+    usedGb: number | null;
     monthlyCost: number;
+    capacitySource?: "azure-monitor" | "unavailable";
+    capacityUpdatedAt?: string | null;
 }
 
 function formatStorageSize(gb: number): string {
@@ -443,7 +445,17 @@ export default function StorageEfficiencyDashboard() {
                                             </span>
                                         </td>
                                         <td className="py-3 px-4 text-right font-semibold text-slate-800 dark:text-slate-200">
-                                            {formatStorageSize(account.usedGb)}
+                                            {account.usedGb === null ? t("capacityUnavailable") : formatStorageSize(account.usedGb)}
+                                            {account.capacitySource === "azure-monitor" && account.capacityUpdatedAt && (
+                                                <span className="block mt-0.5 text-[10px] font-normal text-slate-400 dark:text-slate-500">
+                                                    {t("capacityLiveAt", {
+                                                        timestamp: new Intl.DateTimeFormat(undefined, {
+                                                            dateStyle: "short",
+                                                            timeStyle: "short",
+                                                        }).format(new Date(account.capacityUpdatedAt)),
+                                                    })}
+                                                </span>
+                                            )}
                                         </td>
                                         <td className="py-3 px-4 text-right font-bold text-slate-900 dark:text-slate-100">
                                             {format(account.monthlyCost)}

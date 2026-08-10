@@ -2,16 +2,15 @@
  * GET /api/intelligence/storage-efficiency — tiers Hot/Cool/Cold/Archive y ahorro potencial.
  *
  * RBAC app: requireTenantAccess (tenant-scoped). Tier: Business (routeTiers).
- * Roles Azure requeridos: NINGUNO en el request (sirve datos ya persistidos en
- * CostMeterSnapshots/CostSnapshots). El productor de esos datos es el cron
- * /api/cron/sync, que requiere 'Cost Management Reader' (incluido en el tier
- * Essential del script de onboarding y verificado por /api/admin/check-sp-roles).
+ * Roles Azure requeridos: Reader para inventario ARG y Monitoring Reader para
+ * Microsoft.Insights/metrics/read. Los costos provienen del histórico local,
+ * cuyo productor requiere Cost Management Reader.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
-import { getResourceGraphClient, getSubscriptionsForTenant, getAzureCredential } from "@/lib/azure";
+import { getResourceGraphClient, getAzureCredential } from "@/lib/azure";
 import { withArgLimit } from "@/lib/argConcurrency";
 
 const MOCK_ACCOUNTS = [
@@ -80,13 +79,6 @@ const TIER_RATES: Record<string, number> = {
     archive: 0.00099,
 };
 
-const BASELINE_GB_BY_TIER: Record<string, number> = {
-    hot:     0.05, // 50 MB
-    cool:    0.06, // 60 MB
-    cold:    0.04, // 40 MB
-    archive: 0.10, // 100 MB
-};
-
 function detectTier(...fields: Array<string | null | undefined>): string {
     for (const f of fields) {
         if (!f) continue;
@@ -129,26 +121,50 @@ function quantityToGb(quantity: number, unitOfMeasure: string): number | null {
     return null;
 }
 
-async function fetchStorageAccountMetricsBatch(tenantId: string, accounts: any[]): Promise<Map<string, number>> {
-    const bytesMap = new Map<string, number>();
+interface LiveCapacityMetric {
+    bytes: number;
+    timestamp: string | null;
+}
+
+async function fetchStorageAccountMetricsBatch(tenantId: string, accounts: any[]): Promise<Map<string, LiveCapacityMetric>> {
+    const metricsMap = new Map<string, LiveCapacityMetric>();
     try {
         const cred = await getAzureCredential(tenantId);
         const tokenResponse = await cred.getToken("https://management.azure.com/.default");
         const headers = { Authorization: "Bearer " + tokenResponse.token };
+        const end = new Date();
+        const start = new Date(end.getTime() - 24 * 60 * 60 * 1000);
+        const timespan = `${start.toISOString()}/${end.toISOString()}`;
 
         await Promise.all(
             accounts.map(async (acc) => {
                 if (!acc.id) return;
                 try {
-                    const url = `https://management.azure.com${acc.id}/providers/Microsoft.Insights/metrics?api-version=2018-01-01&metricnames=UsedCapacity&timespan=PT6H&interval=PT1H`;
+                    const query = new URLSearchParams({
+                        "api-version": "2018-01-01",
+                        metricnames: "UsedCapacity",
+                        metricnamespace: "Microsoft.Storage/storageAccounts",
+                        timespan,
+                        interval: "PT1H",
+                        aggregation: "Average",
+                    });
+                    const url = `https://management.azure.com${acc.id}/providers/Microsoft.Insights/metrics?${query}`;
                     const res = await fetch(url, { headers });
                     if (res.ok) {
                         const data = await res.json();
-                        const ts = data.value?.[0]?.timeseries?.[0]?.data || [];
-                        const last = ts.slice(-1)[0];
-                        const bytes = last?.average ?? last?.total ?? last?.maximum ?? 0;
-                        if (bytes > 0) {
-                            bytesMap.set(acc.id, bytes);
+                        for (const metric of data.value || []) {
+                            for (const series of metric.timeseries || []) {
+                                const latestPoint = [...(series.data || [])]
+                                    .reverse()
+                                    .find((point: any) => Number.isFinite(point.average) && point.average >= 0);
+                                if (latestPoint) {
+                                    metricsMap.set(acc.id, {
+                                        bytes: latestPoint.average,
+                                        timestamp: typeof latestPoint.timeStamp === "string" ? latestPoint.timeStamp : null,
+                                    });
+                                    return;
+                                }
+                            }
                         }
                     }
                 } catch {
@@ -159,7 +175,7 @@ async function fetchStorageAccountMetricsBatch(tenantId: string, accounts: any[]
     } catch {
         // Fallback gracefully
     }
-    return bytesMap;
+    return metricsMap;
 }
 
 const STORAGE_SERVICE_FILTER = `(
@@ -259,14 +275,19 @@ async function getUntruncatedSubscriptions(tenantId: string): Promise<string[]> 
     const subs: string[] = [];
     try {
         const tokenResponse = await cred.getToken("https://management.azure.com/.default");
-        const fetchRes = await fetch("https://management.azure.com/subscriptions?api-version=2020-01-01", {
-            headers: { "Authorization": `Bearer ${tokenResponse.token}` }
-        });
-        if (fetchRes.ok) {
-            const data = await fetchRes.json();
+        const headers = { "Authorization": `Bearer ${tokenResponse.token}` };
+        let nextUrl: string | null = "https://management.azure.com/subscriptions?api-version=2020-01-01";
+        const visitedUrls = new Set<string>();
+
+        while (nextUrl && !visitedUrls.has(nextUrl)) {
+            visitedUrls.add(nextUrl);
+            const fetchRes: Response = await fetch(nextUrl, { headers });
+            if (!fetchRes.ok) break;
+            const data: { value?: Array<{ subscriptionId?: string }>; nextLink?: string } = await fetchRes.json();
             for (const sub of (data.value || [])) {
                 if (sub.subscriptionId) subs.push(sub.subscriptionId);
             }
+            nextUrl = typeof data.nextLink === "string" ? data.nextLink : null;
         }
     } catch (e) {
         console.error(`[storage-efficiency] Error fetching untruncated subscriptions for tenant ${tenantId}:`, e);
@@ -350,7 +371,7 @@ export async function GET(request: NextRequest) {
                 widened = rows.length > 0;
             }
 
-            // 1. Compute tenant-wide tierMap, totalGb, and totalCost from DB billing rows first
+            // Cost history can establish financial totals, but never account capacity.
             const tierMap: Record<string, { gb: number; cost: number }> = {
                 hot: { gb: 0, cost: 0 },
                 cool: { gb: 0, cost: 0 },
@@ -369,9 +390,8 @@ export async function GET(request: NextRequest) {
                 const cost = parseFloat(row.billedCost) || 0;
                 const uom = String(row.UnitOfMeasure || "").toLowerCase();
                 const reportedQty = parseFloat(row.quantity) || 0;
-                const inferredGb = TIER_RATES[tier] > 0 ? cost / TIER_RATES[tier] : 0;
                 const reportedGb = quantityToGb(reportedQty, uom);
-                const gb = reportedGb ?? inferredGb;
+                const gb = reportedGb ?? 0;
                 tierMap[tier].cost += cost;
                 tierMap[tier].gb += gb;
 
@@ -381,9 +401,6 @@ export async function GET(request: NextRequest) {
                     storageCompositionMap[storageType].gb += gb;
                 }
             }
-
-            const totalCostFromRows = Object.values(tierMap).reduce((s, t) => s + t.cost, 0);
-            const totalGbFromRows   = Object.values(tierMap).reduce((s, t) => s + t.gb, 0);
 
             let accounts: any[] = [];
             try {
@@ -402,12 +419,10 @@ export async function GET(request: NextRequest) {
                         const rg = (r.resource_group || r.ResourceGroup || "").toLowerCase();
                         const loc = normalizeLoc(r.resource_location || r.location || "");
                         const cost = parseFloat(r.billedCost) || 0;
-                        const tier = detectTier(r.MeterSubCategory, r.MeterName, r.MeterCategory, r.service_name);
                         const uom = String(r.UnitOfMeasure || "").toLowerCase();
                         const reportedQty = parseFloat(r.quantity) || 0;
-                        const inferredGb = TIER_RATES[tier] > 0 ? cost / TIER_RATES[tier] : 0;
                         const reportedGb = quantityToGb(reportedQty, uom);
-                        const gb = reportedGb ?? inferredGb;
+                        const gb = reportedGb ?? 0;
 
                         if (rg && rg !== '*') {
                             const current = costByRg.get(rg) || { cost: 0, qty: 0 };
@@ -441,18 +456,11 @@ export async function GET(request: NextRequest) {
                             }
                         }
 
-                        let cost = stats ? (stats.cost / countInGroup) : 0;
-                        let gb = stats ? (stats.qty / countInGroup) : 0;
-
-                        // Override with live UsedCapacity metric from Azure Monitor if available
-                        const liveBytes = liveMetricsMap.get(acc.id);
-                        if (liveBytes && liveBytes > 0) {
-                            gb = liveBytes / (1024 * 1024 * 1024);
-                            if (cost === 0) {
-                                const tKey = tierFormatted.toLowerCase();
-                                cost = gb * (TIER_RATES[tKey] || TIER_RATES.hot);
-                            }
-                        }
+                        const cost = stats ? (stats.cost / countInGroup) : 0;
+                        const liveMetric = liveMetricsMap.get(acc.id);
+                        const usedGb = liveMetric
+                            ? liveMetric.bytes / (1024 * 1024 * 1024)
+                            : null;
 
                         return {
                             id: acc.id,
@@ -463,59 +471,13 @@ export async function GET(request: NextRequest) {
                             tier: tierFormatted,
                             kind: acc.kind,
                             sku: acc.sku?.name || acc.sku,
-                            usedGb: parseFloat(gb.toFixed(4)),
-                            monthlyCost: parseFloat(cost.toFixed(4))
+                            usedGb: usedGb === null ? null : parseFloat(usedGb.toFixed(4)),
+                            monthlyCost: parseFloat(cost.toFixed(4)),
+                            capacitySource: liveMetric ? "azure-monitor" : "unavailable",
+                            capacityUpdatedAt: liveMetric?.timestamp ?? null,
                         };
                     });
 
-                    // Proportional Fallback: if total tenant GB/Cost > 0 and some accounts have 0 GB/Cost, allocate remaining.
-                    // If no billing sync rows exist in local DB, assign tier-based baseline so live ARG accounts are never empty.
-                    const mappedGb = accounts.reduce((s, a) => s + a.usedGb, 0);
-                    const mappedCost = accounts.reduce((s, a) => s + a.monthlyCost, 0);
-                    const remainingGb = totalGbFromRows - mappedGb;
-                    const remainingCost = totalCostFromRows - mappedCost;
-                    const unmappedAccounts = accounts.filter(a => a.usedGb === 0 && a.monthlyCost === 0);
-
-                    if (unmappedAccounts.length > 0) {
-                        if (remainingGb > 0 || remainingCost > 0) {
-                            const addGb = Math.max(0, remainingGb / unmappedAccounts.length);
-                            const addCost = Math.max(0, remainingCost / unmappedAccounts.length);
-                            for (const acc of unmappedAccounts) {
-                                acc.usedGb = parseFloat(addGb.toFixed(2));
-                                acc.monthlyCost = parseFloat(addCost.toFixed(2));
-                            }
-                        } else {
-                            for (const acc of unmappedAccounts) {
-                                const tKey = (acc.tier || "hot").toLowerCase();
-                                const baseGb = BASELINE_GB_BY_TIER[tKey] || 15.0;
-                                const baseCost = baseGb * (TIER_RATES[tKey] || TIER_RATES.hot);
-                                acc.usedGb = parseFloat(baseGb.toFixed(2));
-                                acc.monthlyCost = parseFloat(baseCost.toFixed(2));
-                            }
-                        }
-                    }
-
-                    // Auto-persist snapshots to DB for initial onboarding / missing history
-                    try {
-                        const todayStr = new Date().toISOString().substring(0, 10);
-                        for (const acc of accounts) {
-                            if (acc.usedGb > 0 || acc.monthlyCost > 0) {
-                                const subId = acc.subscriptionId || "default";
-                                const meterName = `${acc.tier || "Hot"} LRS Data Stored`;
-                                const meterSubCat = `${acc.tier || "Hot"} LRS`;
-                                await pool.query(
-                                    `INSERT INTO CostMeterSnapshots 
-                                        (tenant_id, subscription_id, date, service_name, MeterCategory, MeterSubCategory, MeterName, Quantity, UnitOfMeasure, cost_usd, resource_location)
-                                     VALUES (?, ?, ?, 'Storage', 'Storage', ?, ?, ?, 'GB', ?, ?)
-                                     ON DUPLICATE KEY UPDATE 
-                                        Quantity = VALUES(Quantity), cost_usd = VALUES(cost_usd)`,
-                                    [tenantId, subId, todayStr, meterSubCat, meterName, acc.usedGb, acc.monthlyCost, acc.location || '']
-                                );
-                            }
-                        }
-                    } catch (persistErr) {
-                        console.error(`[storage-efficiency] Persist telemetry to DB error for tenant ${tenantId}:`, persistErr);
-                    }
                 }
             } catch (e: unknown) {
                 const msg = e instanceof Error ? e.message : String(e);
@@ -530,7 +492,7 @@ export async function GET(request: NextRequest) {
                 for (const acc of accounts) {
                     const t = (acc.tier || "hot").toLowerCase();
                     const key = tierMap[t] ? t : "hot";
-                    tierMap[key].gb += acc.usedGb || 0;
+                    tierMap[key].gb += acc.usedGb ?? 0;
                     tierMap[key].cost += acc.monthlyCost || 0;
                 }
             }
