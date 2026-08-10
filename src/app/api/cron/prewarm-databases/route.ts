@@ -13,6 +13,7 @@ const DATABASE_ENDPOINTS = [
     "redis-diagnostics",
     "redis-metrics",
     "mysql-metrics",
+    "postgres-metrics",
 ] as const;
 
 export async function GET(request: NextRequest) {

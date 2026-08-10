@@ -900,6 +900,7 @@ Endpoints internos protegidos por `Authorization: Bearer ${CRON_SECRET}`. Los in
 | `GET /api/cron/prewarm-dashboard`     | Cada 10 min            | Pre-calienta el cache SWR del Dashboard General (`/api/dashboard/summary`) por tenant activo.  |
 | `GET /api/cron/prewarm-databases`     | Cada 15 min            | Pre-calienta los cachés de diagnósticos de base de datos y métricas de Redis de todos los tenants activos. |
 | `GET /api/cron/prewarm-mysql-finops`  | Cada 20 min            | Pre-calienta el cockpit FinOps/CMP de MySQL (`/api/intelligence/databases/mysql-metrics`) para todos los tenants activos. |
+| `GET /api/cron/prewarm-postgres-finops` | Cada 20 min          | Pre-calienta el cockpit FinOps/CMP de PostgreSQL (`/api/intelligence/databases/postgres-metrics`) para todos los tenants activos. |
 | `GET /api/cron/prewarm-compute`       | Cada 15 min            | Pre-calienta los cachés de workloads de cómputo de todos los tenants activos. |
 | `GET /api/cron/power-schedules`      | Cada 2 min              | Ejecuta los horarios de apagado programado de VMs (tabla `PowerSchedules`) cuyo horario local ya se cumplió (ventana de 8 min). También se dispara al instante desde `/api/power/schedule` (POST) al crear/editar un horario, sin esperar al próximo tick, para minimizar la latencia percibida. |
 | `GET /api/cron/open-data`            | Semanal (lunes 04:00)  | Sincroniza los Open Data Sets del Microsoft FinOps Toolkit (Regions/Services/ResourceTypes/PricingUnits/CommitmentEligibility) a las tablas `OpenData*`. Sin él, los lookups (nombre canónico de región, categoría de servicio, iconos) devuelven null. |
@@ -927,6 +928,7 @@ por eso no coinciden literalmente con la columna UTC de la tabla de arriba:
 | `prewarm-dashboard` | `*/10 * * * *` | cada 10 min | 300s |
 | `prewarm-databases` | `*/15 * * * *` | cada 15 min | 300s |
 | `prewarm-mysql-finops` | `*/20 * * * *` | cada 20 min | 300s |
+| `prewarm-postgres-finops` | `*/20 * * * *` | cada 20 min | 300s |
 | `prewarm-compute`   | `*/15 * * * *` | cada 15 min | 300s |
 | `power-schedules` | `*/2 * * * *` | cada 2 min | 120s |
 | `anomaly-detection` | `*/5 * * * *` | cada 5 min | 300s |
@@ -945,6 +947,7 @@ Con `npm run dev` activo y `CRON_SECRET` cargado en `.env.development`:
 
 ```bash
 npm run cron:prewarm:mysql-finops
+npm run cron:prewarm:postgres-finops
 ```
 
 **Reparto del barrido de `sync`** (desde 2026-07-30). El barrido es secuencial por

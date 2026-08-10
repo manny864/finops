@@ -89,6 +89,13 @@ cron_jobs = {
     name            = "prewarm-mysql-finops"
     async_poll      = false
   }
+  prewarm-postgres-finops = {
+    cron            = "*/20 * * * *"
+    timeout_seconds = 300
+    auth_mode       = "header"
+    name            = "prewarm-postgres-finops"
+    async_poll      = false
+  }
   # Opcionalmente, comentar otros jobs que no se usan en staging
   # prewarm-dashboard = { ... }
   # power-schedules = { ... }
