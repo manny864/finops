@@ -333,7 +333,9 @@ export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
         const tenantId = searchParams.get("tenantId");
-        const days = Math.max(1, Math.min(365, parseInt(searchParams.get("days") || "30", 10)));
+        const daysParam = searchParams.get("days");
+        const parsedDays = daysParam ? parseInt(daysParam, 10) : NaN;
+        const days = Number.isFinite(parsedDays) ? Math.max(1, Math.min(365, parsedDays)) : 30;
 
         if (!tenantId) {
             return NextResponse.json({ error: "Falta parámetro requerido: tenantId" }, { status: 400 });
@@ -353,20 +355,29 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(mockData || MOCK_PAYLOAD);
         }
 
-        const startDate = searchParams.get("startDate");
-        const endDate = searchParams.get("endDate");
+        const explicitStartDate = searchParams.get("startDate");
+        const explicitEndDate = searchParams.get("endDate");
+        const hasExplicitRange = Boolean(explicitStartDate && explicitEndDate);
+        const useRollingDays = Boolean(daysParam) && !hasExplicitRange;
+
+        const now = new Date();
+        const formatDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        const monthStart = formatDate(new Date(now.getFullYear(), now.getMonth(), 1));
+        const monthEnd = formatDate(now);
+        const startDate = hasExplicitRange ? explicitStartDate : (useRollingDays ? null : monthStart);
+        const endDate = hasExplicitRange ? explicitEndDate : (useRollingDays ? null : monthEnd);
 
         try {
             // Try requested window or custom range
             let { rows, source } = await runQuery(tenantId, days, startDate, endDate);
-            let effectiveDays = days;
+            let effectiveDays = useRollingDays ? days : now.getDate();
             let widened = false;
-            if (rows.length === 0 && days < 90 && !startDate) {
+            if (rows.length === 0 && useRollingDays && days < 90 && !startDate) {
                 ({ rows, source } = await runQuery(tenantId, 90));
                 effectiveDays = 90;
                 widened = rows.length > 0;
             }
-            if (rows.length === 0 && !startDate) {
+            if (rows.length === 0 && useRollingDays && !startDate) {
                 ({ rows, source } = await runQuery(tenantId, 365));
                 effectiveDays = 365;
                 widened = rows.length > 0;

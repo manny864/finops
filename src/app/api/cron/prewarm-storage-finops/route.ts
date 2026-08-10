@@ -34,9 +34,19 @@ async function runPrewarmStorage(request: NextRequest) {
     const headers: Record<string, string> = { "X-Cron-Auth": cronSecret };
     const results: Array<{ tenantId: string; endpoint: string; ok: boolean; ms: number; error?: string }> = [];
 
+    const now = new Date();
+    const toDate = (date: Date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    };
+    const startDate = toDate(new Date(now.getFullYear(), now.getMonth(), 1));
+    const endDate = toDate(now);
+
     for (const tenant of tenants) {
       const requests = [
-        `${origin}/api/intelligence/storage-efficiency?tenantId=${encodeURIComponent(tenant.id)}&days=30`,
+        `${origin}/api/intelligence/storage-efficiency?tenantId=${encodeURIComponent(tenant.id)}&startDate=${startDate}&endDate=${endDate}`,
         ...SERVICE_COST_FAMILIES.map(
           (family) =>
             `${origin}/api/intelligence/storage/service-cost?tenantId=${encodeURIComponent(tenant.id)}&family=${family}`
@@ -87,4 +97,3 @@ async function runPrewarmStorage(request: NextRequest) {
     );
   }
 }
-

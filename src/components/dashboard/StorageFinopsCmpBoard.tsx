@@ -85,7 +85,14 @@ const FAMILY_CONFIG: Record<StorageFinopsFamily, { metricALabelKey: string; metr
   "managed-disks": { metricALabelKey: "metricAManagedDisks", metricBLabelKey: "metricBManagedDisks", recTitle: "recManagedDisks" },
   backups: { metricALabelKey: "metricABackups", metricBLabelKey: "metricBBackups", recTitle: "recBackups" },
   "data-lake-gen2": { metricALabelKey: "metricADataLake", metricBLabelKey: "metricBDataLake", recTitle: "recDataLake" },
-};
+}
+
+function formatLocalDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 
 function round2(value: number) {
   return Math.round(value * 100) / 100;
@@ -153,7 +160,13 @@ export default function StorageFinopsCmpBoard({ family }: { family: StorageFinop
       const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
       if (family === "storage-accounts") {
-        const params = new URLSearchParams({ tenantId, days: "30" });
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const params = new URLSearchParams({
+          tenantId,
+          startDate: formatLocalDate(startOfMonth),
+          endDate: formatLocalDate(now),
+        });
         const response = await fetch(`/api/intelligence/storage-efficiency?${params.toString()}`, {
           cache: "no-store",
           headers,

@@ -46,13 +46,19 @@ function formatStorageSize(gb: number): string {
     return `${gb.toLocaleString(undefined, { maximumFractionDigits: 2 })} GB`;
 }
 
+function formatLocalDate(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+}
+
 export default function StorageEfficiencyDashboard() {
     const t = useTranslations("StorageEfficiency");
     const tm = useTranslations("Mock");
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const { format } = useCurrency();
-    const [days] = useState(30);
 
     // Table State
     const [searchQuery, setSearchQuery] = useState("");
@@ -80,7 +86,7 @@ export default function StorageEfficiencyDashboard() {
 
     const { data, error, isLoading } = useSWR(
         selectedTenant && selectedTenant.id !== "default"
-            ? `/api/intelligence/storage-efficiency?tenantId=${selectedTenant.id}&days=${days}`
+            ? `/api/intelligence/storage-efficiency?tenantId=${selectedTenant.id}&startDate=${currentMonthRange.startDate}&endDate=${currentMonthRange.endDate}`
             : null,
         fetcher,
         { revalidateOnFocus: false }
@@ -223,7 +229,7 @@ export default function StorageEfficiencyDashboard() {
                     <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">
                         {format(data.totalCost ?? 0)}
                     </p>
-                    <p className="text-xs text-slate-400 mt-1">últimos {days} días</p>
+                    <p className="text-xs text-slate-400 mt-1">mes actual (MTD)</p>
                 </div>
             </div>
 
@@ -534,3 +540,10 @@ export default function StorageEfficiencyDashboard() {
         </div>
     );
 }
+    const currentMonthRange = useMemo(() => {
+        const now = new Date();
+        return {
+            startDate: formatLocalDate(new Date(now.getFullYear(), now.getMonth(), 1)),
+            endDate: formatLocalDate(now),
+        };
+    }, []);
