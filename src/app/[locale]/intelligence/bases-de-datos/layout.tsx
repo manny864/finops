@@ -16,6 +16,8 @@ export default async function BasesDatosLayout({ children }: { children: ReactNo
         { href: "/intelligence/bases-de-datos/postgresql-mysql", label: t("tabPostgresMySql"), icon: <Cylinder className="w-4 h-4 text-[#0054A6]" /> },
         { href: "/intelligence/bases-de-datos/mongodb", label: t("tabMongoDb"), icon: <Leaf className="w-4 h-4 text-[#0054A6]" /> },
         { href: "/intelligence/bases-de-datos/redis-for-cache", label: t("tabRedis"), icon: <AppWindow className="w-4 h-4 text-[#0054A6]" /> },
+        { href: "/intelligence/bases-de-datos/redistest", label: t("tabRedistest"), icon: <AppWindow className="w-4 h-4 text-[#0054A6]" /> },
+        { href: "/intelligence/bases-de-datos/testmysql", label: t("tabTestmysql"), icon: <Database className="w-4 h-4 text-[#0054A6]" /> },
     ];
 
     return (
