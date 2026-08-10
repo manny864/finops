@@ -157,6 +157,8 @@ export default function RedisTestBoard() {
                 throw new Error("Token no contiene tenant ID válido");
             }
 
+            console.log("[RedisTestBoard] Using tenantId:", tenantId, "selectedTenant:", selectedTenant.id, "isMock:", isMockTenant(tenantId));
+
             const params = new URLSearchParams({
                 tenantId,
                 realtime: "true"
