@@ -384,11 +384,11 @@ export async function GET(request: NextRequest) {
         // without applying plan limits. This ensures we find resources in all subscriptions.
         let subscriptionIds = await getAllSubscriptionsForTenant(tenantId, credential);
         
-        // Fallback: if no subscriptions found and we know the Redis subscription, try it
-        // This handles cases where the SP has resource-level permissions but can't list subscriptions
-        if (subscriptionIds.length === 0 && process.env.REDIS_SUBSCRIPTION_ID) {
-          console.log(`[redis-metrics] No subscriptions from API, using REDIS_SUBSCRIPTION_ID env var`);
-          subscriptionIds = [process.env.REDIS_SUBSCRIPTION_ID];
+        // Augment with REDIS_SUBSCRIPTION_ID if configured (handles SP permissions edge cases)
+        const redisSubId = process.env.REDIS_SUBSCRIPTION_ID;
+        if (redisSubId && !subscriptionIds.includes(redisSubId)) {
+          console.log(`[redis-metrics] Adding REDIS_SUBSCRIPTION_ID from env var`);
+          subscriptionIds = [...subscriptionIds, redisSubId];
         }
         
         console.log(`[redis-metrics] tenantId=${tenantId}, subscriptionIds count=${subscriptionIds.length}`);
