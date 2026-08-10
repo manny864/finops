@@ -249,7 +249,7 @@ export default function RedisTestBoard() {
                     <div>
                         <div className="mb-2 flex items-center gap-2">
                             <Sparkles className="h-5 w-5 text-sky-600" />
-                            <h2 className="text-xl font-semibold text-slate-900">Redis FinOps Cockpit v2</h2>
+                            <h2 className="text-xl font-semibold text-slate-900">Azure Cache for Redis FinOps Cockpit</h2>
                         </div>
                         <p className="text-sm text-slate-600">
                             Control financiero, eficiencia operativa y riesgo priorizado para decisiones CMP.

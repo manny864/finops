@@ -4910,7 +4910,7 @@
     "tabPostgresMySql": "PostgreSQL / MySQL",
     "tabMongoDb": "MongoDB",
     "tabRedis": "Redis for Cache",
-    "tabRedistest": "redistest",
+    "tabRedistest": "Azure Cache for Redis",
     "tabTestmysql": "testmysql",
     "cosmosTitle": "Azure Cosmos DB",
     "cosmosSubtitle": "Métricas de consumo de RU, throttling, armazenamento e desempenho",

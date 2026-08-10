@@ -10,6 +10,7 @@ import {
 } from "../diagnosticsShared";
 import { redis } from "@/lib/redis";
 import { getResourceCostsById } from "@/modules/collectors/azure/resourceInventoryService";
+import pool from "@/modules/storage/db";
 
 // Both lowercase and proper case to match various Azure API responses
 const REDIS_TYPES = [
@@ -139,6 +140,7 @@ function deriveRecommendations(instances: Array<{ id: string; monthlyCostUsd: nu
     for (const instance of instances) {
         const monthlyCost = instance.monthlyCostUsd || 0;
         const history = instance.history || [];
+        const beforeCount = suggestions.length;
         const avgCpu = avg(history.map((point) => point.PercentProcessorTime));
         const avgConnections = avg(history.map((point) => point.ConnectedClients));
         const avgOps = avg(history.map((point) => point.OperationsPerSecond));
@@ -176,9 +178,46 @@ function deriveRecommendations(instances: Array<{ id: string; monthlyCostUsd: nu
                 actionType: "manual"
             });
         }
+
+        if (monthlyCost > 0 && suggestions.length === beforeCount) {
+            const isLikelyNonProd = /dev|stg|stage|test|qa|sandbox/i.test(instance.id);
+            suggestions.push({
+                title: isLikelyNonProd
+                    ? "Aplicar schedule no-productivo para ahorro base"
+                    : "Revisar plan de compromiso/rightsizing de Redis",
+                instanceId: instance.id,
+                monthlySavings: round2(monthlyCost * (isLikelyNonProd ? 0.3 : 0.1)),
+                risk: isLikelyNonProd ? "low" : "medium",
+                confidence: "low",
+                actionType: isLikelyNonProd ? "automatic" : "guided"
+            });
+        }
     }
 
     return suggestions.sort((a, b) => b.monthlySavings - a.monthlySavings).slice(0, 8);
+}
+
+async function getMonthlyRedisCostFromSnapshots(tenantId: string, subscriptionIds: string[]): Promise<number> {
+    if (subscriptionIds.length === 0) return 0;
+
+    const placeholders = subscriptionIds.map(() => "?").join(",");
+    const sql = `
+      SELECT COALESCE(SUM(cost_usd), 0) AS total
+      FROM CostSnapshots
+      WHERE tenant_id = ?
+        AND subscription_id IN (${placeholders})
+        AND date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+        AND LOWER(COALESCE(service_name, '')) LIKE '%redis%'
+    `;
+
+    try {
+        const [rows]: any = await pool.query(sql, [tenantId, ...subscriptionIds]);
+        const total = Number(rows?.[0]?.total || 0);
+        return Number.isFinite(total) ? round2(total) : 0;
+    } catch (error: any) {
+        console.warn(`[redis-metrics] Snapshot cost fallback failed for ${tenantId}:`, error?.message);
+        return 0;
+    }
 }
 
 function buildFinOpsSummaries(instances: Array<{ monthlyCostUsd: number; history: MetricHistoryPoint[] }>): {
@@ -421,6 +460,18 @@ export async function GET(request: NextRequest) {
                 .filter((r) => Boolean(r.subscriptionId))
                 .map((r) => ({ id: r.id, subscriptionId: String(r.subscriptionId) }))
         );
+
+        const totalCostFromCm = Array.from(costPerResource.values()).reduce((acc, value) => acc + value, 0);
+        if (totalCostFromCm <= 0 && resources.length > 0) {
+            const fallbackTotal = await getMonthlyRedisCostFromSnapshots(tenantId, subscriptionIds);
+            if (fallbackTotal > 0) {
+                const evenShare = round2(fallbackTotal / resources.length);
+                for (const resource of resources) {
+                    costPerResource.set(resource.id.toLowerCase(), evenShare);
+                }
+                console.log(`[redis-metrics] Applied CostSnapshots fallback total=${fallbackTotal} across ${resources.length} resources`);
+            }
+        }
 
         const tokenResponse = await credential.getToken("https://management.azure.com/.default");
         const headers = { Authorization: `Bearer ${tokenResponse.token}` };
