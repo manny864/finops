@@ -68,6 +68,13 @@ export default function StorageEfficiencyDashboard() {
     const [sortField, setSortField] = useState<"name" | "resourceGroup" | "tier" | "usedGb" | "monthlyCost">("monthlyCost");
     const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
     const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+    const currentMonthRange = useMemo(() => {
+        const now = new Date();
+        return {
+            startDate: formatLocalDate(new Date(now.getFullYear(), now.getMonth(), 1)),
+            endDate: formatLocalDate(now),
+        };
+    }, []);
 
     const fetcher = async (url: string) => {
         const idToken = await getFreshIdToken(instance, accounts[0], ["User.Read"]);
@@ -540,10 +547,3 @@ export default function StorageEfficiencyDashboard() {
         </div>
     );
 }
-    const currentMonthRange = useMemo(() => {
-        const now = new Date();
-        return {
-            startDate: formatLocalDate(new Date(now.getFullYear(), now.getMonth(), 1)),
-            endDate: formatLocalDate(now),
-        };
-    }, []);
