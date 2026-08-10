@@ -376,6 +376,11 @@ export async function GET(request: NextRequest) {
         const credential = await getAzureCredential(tenantId);
         const subscriptionIds = await getSubscriptionsForTenant(tenantId, credential);
         
+        console.log(`[redis-metrics] tenantId=${tenantId}, subscriptionIds count=${subscriptionIds.length}`);
+        if (subscriptionIds.length > 0) {
+          console.log(`[redis-metrics] subscriptionIds:`, subscriptionIds);
+        }
+        
         if (subscriptionIds.length === 0) {
             const payload = {
                 mock: false,
@@ -388,6 +393,10 @@ export async function GET(request: NextRequest) {
         }
 
         const resources = await listResourcesByTypes(tenantId, REDIS_TYPES, subscriptionIds, credential);
+        console.log(`[redis-metrics] listResourcesByTypes returned ${resources.length} resources`);
+        if (resources.length > 0) {
+          console.log(`[redis-metrics] resources:`, resources.map(r => ({ name: r.name, type: r.type, id: r.id })));
+        }
         
         if (resources.length === 0) {
             const payload = {
