@@ -4,6 +4,7 @@ import { requireTenantAccess, requireSuperAdmin, AuthError } from "@/lib/request
 import { isMockTenant } from "@/lib/mockData";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import pool from "@/modules/storage/db";
+import { getCurrentMonthAmortizedCosts } from "@/modules/collectors/azure/billingService";
 
 const MOCK_PAYLOAD = {
     success: true,
@@ -340,9 +341,49 @@ function aggregate(rows: AggRow[], tokensAvailable: boolean) {
 }
 
 const EMPTY_RESPONSE = { success: true, mock: false, tokensAvailable: false, summary: null, byModel: [], byApplication: [], byTeam: [], trend: [] };
+const AI_SERVICE_PATTERNS = ["openai", "foundry", "cognitive", "azure ai", "ai services", "machine learning", "azureml"] as const;
+
+function isAiServiceLabel(value: string): boolean {
+    const s = String(value || "").toLowerCase();
+    return AI_SERVICE_PATTERNS.some((token) => s.includes(token));
+}
+
+async function getLiveAiMtdTotal(tenantId: string): Promise<Decimal | null> {
+    try {
+        const entries = await getCurrentMonthAmortizedCosts(tenantId, "All", "ActualCost");
+        let total = new Decimal(0);
+        for (const entry of entries || []) {
+            if (!isAiServiceLabel(entry.ServiceName || "")) continue;
+            total = total.plus(new Decimal(entry.EffectiveCost || entry.BilledCost || 0));
+        }
+        return total.gt(0) ? total : null;
+    } catch (error) {
+        console.warn("[ai-analytics] live MTD anchor unavailable:", (error as Error)?.message || error);
+        return null;
+    }
+}
+
+function scaleRowsToLiveMonthTotal(rows: AggRow[], liveMonthTotal: Decimal | null): AggRow[] {
+    if (!liveMonthTotal || liveMonthTotal.lte(0)) return rows;
+    const monthRows = filterRowsByCurrentMonth(rows);
+    const monthCurrentTotal = sumRowsCost(monthRows);
+    if (monthCurrentTotal.lte(0)) return rows;
+    const factor = liveMonthTotal.dividedBy(monthCurrentTotal);
+    return rows.map((row) => {
+        const dateKey = toDateKey(row.date);
+        const monthStart = formatDateKey(toMonthStart(new Date()));
+        const today = formatDateKey(new Date());
+        if (dateKey < monthStart || dateKey > today) return row;
+        return {
+            ...row,
+            cost: new Decimal(row.cost || 0).times(factor).toDecimalPlaces(8, Decimal.ROUND_HALF_UP),
+        };
+    });
+}
 
 async function fetchAIAnalytics(tenantId: string, days: number) {
     const daysForQuery = Math.max(days, new Date().getDate());
+    const liveAiMtdTotal = await getLiveAiMtdTotal(tenantId);
     // 1) Fuente primaria: AICostSnapshots — uso real por modelo (tokens) de
     //    Microsoft Foundry / Azure OpenAI sincronizado desde Azure Monitor
     //    Metrics (ver aiUsageCollector.ts). Puede estar vacía si el cron todavía
@@ -415,23 +456,27 @@ async function fetchAIAnalytics(tenantId: string, days: number) {
 
     if (aiRows && aiRows.length > 0) {
         const hasMeterRows = Array.isArray(meterRows) && meterRows.length > 0;
-        const effectiveAiRows = hasMeterRows
+        const effectiveAiRowsBase = hasMeterRows
             ? reconcileAiRowsWithMeterCost(aiRows as AggRow[], meterRows as AggRow[])
             : (aiRows as AggRow[]);
+        const effectiveAiRows = scaleRowsToLiveMonthTotal(effectiveAiRowsBase, liveAiMtdTotal);
         const recentRows = filterRowsByDays(effectiveAiRows, days);
         return withMonthSummary({
             ...aggregate(recentRows, true),
             trendMtd: buildTrendMtd(effectiveAiRows),
-            source: hasMeterRows ? "ai-snapshots-reconciled-with-meter" : "ai-snapshots",
+            source: hasMeterRows
+                ? (liveAiMtdTotal ? "ai-snapshots-reconciled-with-meter-live-anchored" : "ai-snapshots-reconciled-with-meter")
+                : (liveAiMtdTotal ? "ai-snapshots-live-anchored" : "ai-snapshots"),
         }, filterRowsByCurrentMonth(effectiveAiRows));
     }
 
     if (meterRows && meterRows.length > 0) {
-        const recentRows = filterRowsByDays(meterRows, days);
+        const effectiveMeterRows = scaleRowsToLiveMonthTotal(meterRows as AggRow[], liveAiMtdTotal);
+        const recentRows = filterRowsByDays(effectiveMeterRows, days);
         return {
             ...aggregate(recentRows, false),
-            trendMtd: buildTrendMtd(meterRows),
-            source: "cost-meter-fallback",
+            trendMtd: buildTrendMtd(effectiveMeterRows),
+            source: liveAiMtdTotal ? "cost-meter-fallback-live-anchored" : "cost-meter-fallback",
         };
     }
 
@@ -486,11 +531,12 @@ async function fetchAIAnalytics(tenantId: string, days: number) {
         return EMPTY_RESPONSE;
     }
 
-    const recentRows = filterRowsByDays(costRows, days);
+    const effectiveCostRows = scaleRowsToLiveMonthTotal(costRows as AggRow[], liveAiMtdTotal);
+    const recentRows = filterRowsByDays(effectiveCostRows, days);
     return {
         ...aggregate(recentRows, false),
-        trendMtd: buildTrendMtd(costRows),
-        source: "cost-snapshots-fallback",
+        trendMtd: buildTrendMtd(effectiveCostRows),
+        source: liveAiMtdTotal ? "cost-snapshots-fallback-live-anchored" : "cost-snapshots-fallback",
     };
 }
 
@@ -528,7 +574,7 @@ export async function GET(request: NextRequest) {
                 return NextResponse.json({ error: "Feature bloqueada. Requiere plan Enterprise." }, { status: 403 });
             }
 
-            const cacheKey = `ai-analytics:v6:${tenantId}:${days}`;
+            const cacheKey = `ai-analytics:v7:${tenantId}:${days}`;
             const payload = await getWithStaleWhileRevalidate(
                 cacheKey,
                 () => fetchAIAnalytics(tenantId, days),

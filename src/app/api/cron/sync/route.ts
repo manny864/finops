@@ -471,6 +471,7 @@ async function invalidateCostCaches(tenantId: string, signal?: AbortSignal): Pro
             `ai-analytics:v4:${tenantId}:*`,
             `ai-analytics:v5:${tenantId}:*`,
             `ai-analytics:v6:${tenantId}:*`,
+            `ai-analytics:v7:${tenantId}:*`,
         ];
         const keys = (await Promise.all(patterns.map((p) => redis.keys(p)))).flat();
         if (keys.length > 0) {
