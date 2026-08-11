@@ -27,7 +27,7 @@ concurrency:
 env:
   ACR: cscsfinopsprodglobalcr  # ACR COMPARTIDO CON PROD
   IMAGE: finops
-  RG: cscs-finops-staging-westus2-rg
+  RG: cscs-finops-stg-westus2-rg
   APP: cscs-finops-staging-westus2-web
   MIGRATE_JOB: cscs-finops-staging-wus2-migrate
   MIGRATE_TAG_SUFFIX: builder
@@ -120,20 +120,56 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
+      - name: Resolve staging resources
+        id: resolve
+        run: |
+          SUB_ID=$(az account show --query id -o tsv)
+          SUB_NAME=$(az account show --query name -o tsv)
+          echo "Using subscription: $SUB_NAME ($SUB_ID)"
+
+          if [ "$(az group exists -n $RG)" != "true" ]; then
+            echo "❌ Resource Group '$RG' not found in this subscription."
+            exit 1
+          fi
+
+          APP_NAME="$APP"
+          if ! az containerapp show -n "$APP_NAME" -g "$RG" >/dev/null 2>&1; then
+            APP_NAME=$(az containerapp list -g "$RG" --query "[?contains(name, 'web')][0].name" -o tsv)
+          fi
+
+          if [ -z "$APP_NAME" ]; then
+            echo "❌ No Container App found in '$RG'."
+            exit 1
+          fi
+
+          JOB_NAME="$MIGRATE_JOB"
+          if ! az containerapp job show -n "$JOB_NAME" -g "$RG" >/dev/null 2>&1; then
+            JOB_NAME=$(az containerapp job list -g "$RG" --query "[?contains(name, 'migrate')][0].name" -o tsv)
+          fi
+
+          if [ -z "$JOB_NAME" ]; then
+            echo "❌ No migration job found in '$RG'."
+            exit 1
+          fi
+
+          echo "app_name=$APP_NAME" >> $GITHUB_OUTPUT
+          echo "job_name=$JOB_NAME" >> $GITHUB_OUTPUT
+
       # Ejecutar migraciones (Container App Job)
       - name: Run database migrations
         run: |
           IMAGE_TAG="staging-${{ github.sha }}-$MIGRATE_TAG_SUFFIX"
+          JOB_NAME="${{ steps.resolve.outputs.job_name }}"
           
           # Actualizar la imagen del job
           az containerapp job update \
-            -n $MIGRATE_JOB \
+            -n $JOB_NAME \
             -g $RG \
             --image $ACR.azurecr.io/$IMAGE:$IMAGE_TAG
           
           # Ejecutar el job
           EXEC_ID=$(az containerapp job start \
-            -n $MIGRATE_JOB \
+            -n $JOB_NAME \
             -g $RG \
             --query executionId -o tsv)
           
@@ -143,7 +179,7 @@ jobs:
           timeout 300 bash -c "
             while true; do
               STATUS=\$(az containerapp job execution show \
-                -n $MIGRATE_JOB \
+                -n $JOB_NAME \
                 -g $RG \
                 --execution-id \$EXEC_ID \
                 --query status -o tsv)
@@ -165,17 +201,19 @@ jobs:
       - name: Update Container App
         run: |
           IMAGE_TAG="staging-${{ github.sha }}"
+          APP_NAME="${{ steps.resolve.outputs.app_name }}"
           
           az containerapp update \
-            -n $APP \
+            -n $APP_NAME \
             -g $RG \
             --image $ACR.azurecr.io/$IMAGE:$IMAGE_TAG
 
       # Health check
       - name: Health check
         run: |
+          APP_NAME="${{ steps.resolve.outputs.app_name }}"
           HOSTNAME=$(az containerapp show \
-            -n $APP \
+            -n $APP_NAME \
             -g $RG \
             --query 'properties.latestRevisionFqdn' -o tsv)
           
@@ -201,10 +239,13 @@ jobs:
         if: always()
         run: |
           STATUS="${{ job.status }}"
+          APP_NAME="${{ steps.resolve.outputs.app_name }}"
+          [ -z "$APP_NAME" ] && APP_NAME="$APP"
           HOSTNAME=$(az containerapp show \
-            -n $APP \
+            -n $APP_NAME \
             -g $RG \
-            --query 'properties.latestRevisionFqdn' -o tsv)
+            --query 'properties.latestRevisionFqdn' -o tsv 2>/dev/null || true)
+          [ -z "$HOSTNAME" ] && HOSTNAME="N/A"
           
           echo "## Staging Deployment $STATUS ✅" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
