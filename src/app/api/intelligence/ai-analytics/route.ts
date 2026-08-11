@@ -309,15 +309,13 @@ async function fetchAIAnalytics(tenantId: string, days: number) {
          FROM CostMeterSnapshots
          WHERE tenant_id = ? AND date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
            AND (
-                LOWER(service_name) LIKE '%cognitive services%'
                 OR LOWER(service_name) LIKE '%openai%'
-                OR LOWER(service_name) LIKE '%azure ai%'
-                OR LOWER(service_name) LIKE '%ai services%'
-                OR LOWER(MeterCategory) LIKE '%cognitive services%'
                 OR LOWER(MeterCategory) LIKE '%openai%'
-                OR LOWER(MeterCategory) LIKE '%azure ai%'
-                OR LOWER(MeterCategory) LIKE '%ai services%'
+                OR LOWER(MeterName) LIKE '%openai%'
                 OR LOWER(MeterSubCategory) LIKE '%openai%'
+                OR LOWER(service_name) LIKE '%foundry%'
+                OR LOWER(MeterCategory) LIKE '%foundry%'
+                OR LOWER(MeterName) LIKE '%foundry%'
                 OR LOWER(MeterSubCategory) LIKE '%foundry%'
            )
          GROUP BY COALESCE(NULLIF(MeterSubCategory, ''), NULLIF(MeterName, ''), service_name), COALESCE(NULLIF(subscription_id, ''), 'unknown-subscription'), date
@@ -360,16 +358,13 @@ async function fetchAIAnalytics(tenantId: string, days: number) {
          FROM CostSnapshots
          WHERE tenant_id = ? AND date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
            AND (
-                LOWER(service_name) LIKE '%cognitive services%'
                 OR LOWER(service_name) LIKE '%openai%'
-                OR LOWER(service_name) LIKE '%azure ai%'
-                OR LOWER(service_name) LIKE '%ai services%'
-                OR LOWER(ServiceFamily) LIKE '%ai%'
-                OR LOWER(MeterCategory) LIKE '%cognitive services%'
                 OR LOWER(MeterCategory) LIKE '%openai%'
-                OR LOWER(MeterCategory) LIKE '%azure ai%'
-                OR LOWER(MeterCategory) LIKE '%ai services%'
+                OR LOWER(MeterName) LIKE '%openai%'
                 OR LOWER(MeterSubCategory) LIKE '%openai%'
+                OR LOWER(service_name) LIKE '%foundry%'
+                OR LOWER(MeterCategory) LIKE '%foundry%'
+                OR LOWER(MeterName) LIKE '%foundry%'
                 OR LOWER(MeterSubCategory) LIKE '%foundry%'
            )
          GROUP BY COALESCE(NULLIF(MeterSubCategory, ''), NULLIF(MeterName, ''), service_name), resource_group, COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(Tags, '$.Team')), 'null'), 'Sin asignar'), date
@@ -423,7 +418,7 @@ export async function GET(request: NextRequest) {
                 return NextResponse.json({ error: "Feature bloqueada. Requiere plan Enterprise." }, { status: 403 });
             }
 
-            const cacheKey = `ai-analytics:v5:${tenantId}:${days}`;
+            const cacheKey = `ai-analytics:v6:${tenantId}:${days}`;
             const payload = await getWithStaleWhileRevalidate(
                 cacheKey,
                 () => fetchAIAnalytics(tenantId, days),
