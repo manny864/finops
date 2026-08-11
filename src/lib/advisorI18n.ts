@@ -450,7 +450,6 @@ const FALLBACK_GLOSSARY: GlossaryEntry[] = [
   { match: /storage accounts?/gi, replace: { es: "cuentas de almacenamiento", "pt-BR": "contas de armazenamento" } },
   { match: /enable/gi, replace: { es: "habilitar", "pt-BR": "habilitar" } },
   { match: /configure/gi, replace: { es: "configurar", "pt-BR": "configurar" } },
-  { match: /recommendation/gi, replace: { es: "recomendación", "pt-BR": "recomendação" } },
 ];
 
 function applyFallbackGlossary(text: string, locale: AdvisorLocale): string {
