@@ -2,22 +2,33 @@ import { getAzureCredential } from "@/lib/azure";
 
 function normalizeAdvisorLocale(locale: string): string {
     const normalized = (locale || "es").toLowerCase();
-    if (normalized.startsWith("es")) return "es-ES";
+    if (normalized.startsWith("es")) return "es";
     if (normalized.startsWith("pt")) return "pt-BR";
-    if (normalized.startsWith("en")) return "en-US";
-    return "en-US";
+    if (normalized.startsWith("en")) return "en";
+    return "en";
+}
+
+function buildAzureHeaders(token: string, locale: string): Record<string, string> {
+    return {
+        Authorization: `Bearer ${token}`,
+        "Accept-Language": locale,
+        // Best-effort extra hint: varios endpoints ARM respetan este header
+        // cuando Accept-Language no alcanza para localizar descripciones.
+        "x-ms-localization-language": locale,
+    };
 }
 
 export async function collectAdvisorData(tenantId: string, locale: string) {
     const credential = await getAzureCredential(tenantId);
     const advisorLocale = normalizeAdvisorLocale(locale);
-    
+
     // Obtener suscripciones
     const tokenResponse = await credential.getToken("https://management.azure.com/.default");
+    const headers = buildAzureHeaders(tokenResponse?.token || "", advisorLocale);
     const fetchRes = await fetch("https://management.azure.com/subscriptions?api-version=2020-01-01", {
-        headers: { "Authorization": `Bearer ${tokenResponse.token}`, "Accept-Language": advisorLocale }
+        headers,
     });
-    
+
     const subs: any[] = [];
     if (fetchRes.ok) {
         const data = await fetchRes.json();
@@ -39,9 +50,9 @@ export async function collectAdvisorData(tenantId: string, locale: string) {
         Security: [],
         HighAvailability: [],
         Performance: [],
-        OperationalExcellence: []
+        OperationalExcellence: [],
     };
-    
+
     const scoresMap: Record<string, Record<string, number>> = {};
     // Peso por consumo (consumptionUnits) de cada categoría/sub, para agregar el
     // Advisor Score entre suscripciones tal como lo hace Azure: media PONDERADA
@@ -51,7 +62,7 @@ export async function collectAdvisorData(tenantId: string, locale: string) {
     // La Advisor Score API devuelve una entrada por categoría real, PERO también
     // entradas con nombre GUID (contribución por tipo de recomendación) con
     // scores 0–2 que NO son categorías. Solo capturamos las categorías conocidas.
-    const SCORE_CATS = new Set(['Advisor', 'Cost', 'Security', 'HighAvailability', 'Performance', 'OperationalExcellence']);
+    const SCORE_CATS = new Set(["Advisor", "Cost", "Security", "HighAvailability", "Performance", "OperationalExcellence"]);
 
     for (const sub of subs) {
         const subId = sub.id;
@@ -59,7 +70,7 @@ export async function collectAdvisorData(tenantId: string, locale: string) {
         // Extraer Scores REST API
         try {
             const scoreRes = await fetch(`https://management.azure.com/subscriptions/${subId}/providers/Microsoft.Advisor/advisorScore?api-version=2023-01-01`, {
-                headers: { "Authorization": `Bearer ${tokenResponse.token}`, "Accept-Language": advisorLocale }
+                headers,
             });
             if (scoreRes.ok) {
                 const scoreData = await scoreRes.json();
@@ -83,28 +94,28 @@ export async function collectAdvisorData(tenantId: string, locale: string) {
             console.warn(`Error reading scores for sub ${subId}:`, err);
         }
 
-        // Suppressions API → estado real de las recomendaciones (Postponed / Dismissed).
+        // Suppressions API -> estado real de las recomendaciones (Postponed / Dismissed).
         // Advisor no tiene "Completed" en su API pública. Una suppression con TTL
         // finito = Postponed (hasta expirationTimeStamp); sin expiración = Dismissed.
         // El id de la suppression contiene el nombre de la recomendación:
         //   .../recommendations/{recName}/suppressions/{suppName}
-        const suppByRec: Record<string, { state: 'postponed' | 'dismissed'; until?: string; on?: string }> = {};
+        const suppByRec: Record<string, { state: "postponed" | "dismissed"; until?: string; on?: string }> = {};
         try {
             const supRes = await fetch(`https://management.azure.com/subscriptions/${subId}/providers/Microsoft.Advisor/suppressions?api-version=2023-01-01`, {
-                headers: { "Authorization": `Bearer ${tokenResponse.token}`, "Accept-Language": advisorLocale }
+                headers,
             });
             if (supRes.ok) {
                 const supData = await supRes.json();
-                for (const s of (supData.value || [])) {
-                    const m = String(s.id || '').match(/\/recommendations\/([^/]+)\/suppressions\//i);
+                for (const s of supData.value || []) {
+                    const m = String(s.id || "").match(/\/recommendations\/([^/]+)\/suppressions\//i);
                     if (!m) continue;
                     const recName = m[1];
                     const exp = s.properties?.expirationTimeStamp;
                     const ttl = s.properties?.ttl;
                     const hasExpiry = !!exp && new Date(exp).getFullYear() < 9000;
                     suppByRec[recName] = hasExpiry
-                        ? { state: 'postponed', until: exp, on: s.properties?.createdOn || undefined }
-                        : { state: 'dismissed', on: s.properties?.createdOn || undefined, until: ttl };
+                        ? { state: "postponed", until: exp, on: s.properties?.createdOn || undefined }
+                        : { state: "dismissed", on: s.properties?.createdOn || undefined, until: ttl };
                 }
             }
         } catch (err) {
@@ -120,18 +131,15 @@ export async function collectAdvisorData(tenantId: string, locale: string) {
         // devuelve siempre. Usamos 2023-01-01, la misma versión que score y
         // suppressions, con paginación manual vía nextLink.
         try {
-            let url: string | null =
-                `https://management.azure.com/subscriptions/${subId}/providers/Microsoft.Advisor/recommendations?api-version=2023-01-01`;
+            let url: string | null = `https://management.azure.com/subscriptions/${subId}/providers/Microsoft.Advisor/recommendations?api-version=2023-01-01`;
             while (url) {
-                const res: Response = await fetch(url, {
-                    headers: { Authorization: `Bearer ${tokenResponse.token}`, 'Accept-Language': advisorLocale }
-                });
+                const res: Response = await fetch(url, { headers });
                 if (!res.ok) {
                     console.warn(`Advisor recommendations REST ${res.status} para sub ${subId}`);
                     break;
                 }
                 const json: any = await res.json();
-                for (const item of (json.value || [])) {
+                for (const item of json.value || []) {
                     const p = item.properties || {};
                     const cat = p.category;
                     const recName = item.name;
@@ -149,7 +157,7 @@ export async function collectAdvisorData(tenantId: string, locale: string) {
                         extendedProperties: p.extendedProperties,
                         resourceMetadata: p.resourceMetadata,
                         subscriptionId: subId,
-                        _state: supp?.state || 'active',
+                        _state: supp?.state || "active",
                         _suppressedUntil: supp?.until,
                         _suppressedOn: supp?.on,
                     };

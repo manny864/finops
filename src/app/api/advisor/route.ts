@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
 
     await requireTenantAccess(request, tenantId);
 
-    const cacheKey = `advisor:${tenantId}:${locale}`;
+    const cacheKey = `advisor:v2:${tenantId}:${locale}`;
     const data = await getWithStaleWhileRevalidate(cacheKey, async () => {
         return await collectAdvisorData(tenantId, locale);
     }, 3600);
