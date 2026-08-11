@@ -2,6 +2,7 @@ import React from "react";
 import { getTranslations } from "next-intl/server";
 import MockBanner from '@/components/MockBanner';
 import InvoicingReportPanel from "@/components/dashboard/InvoicingReportPanel";
+import { IconCoins } from '@tabler/icons-react';
 
 export default async function InvoicingReportPage() {
     const t = await getTranslations("Invoicing");
@@ -12,7 +13,9 @@ export default async function InvoicingReportPage() {
             <div className="vhead">
                 <div>
                     <div className="vt">
-                        <span className="vico bg-gradient-to-br from-[#0054A6] to-[#00AEEF]">🧾</span>
+                        <span className="vico bg-gradient-to-br from-[#0054A6] to-[#00AEEF]">
+                            <IconCoins className="w-5 h-5" />
+                        </span>
                         {t('pageTitle')}
                     </div>
                     <div className="vs">{t('pageSubtitle')}</div>

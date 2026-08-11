@@ -3,6 +3,7 @@ import { getTranslations } from 'next-intl/server';
 import MockBanner from '@/components/MockBanner';
 import HARecommendationsPanel from '@/components/dashboard/HARecommendationsPanel';
 import HistoryButton from '@/components/history/HistoryButton';
+import { IconShield } from '@tabler/icons-react';
 
 export default async function HAPage() {
     const t = await getTranslations('HA');
@@ -12,7 +13,9 @@ export default async function HAPage() {
             <div className="vhead">
                 <div>
                     <div className="vt">
-                        <span className="vico bg-gradient-to-br from-[#0054A6] to-[#00AEEF]">🛡️</span>
+                        <span className="vico bg-gradient-to-br from-[#0054A6] to-[#00AEEF]">
+                            <IconShield className="w-5 h-5" />
+                        </span>
                         {t('title')}
                     </div>
                     <div className="vs">{t('subtitle')}</div>

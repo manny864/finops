@@ -159,8 +159,8 @@ export default function MaturityPage() {
               <div className="flex items-end gap-[14px] flex-wrap">
                   <div>
                       <div className="text-[23px] font-extrabold text-ink tracking-tight flex items-center gap-[11px]">
-                          <span className="w-9 h-9 rounded-[10px] flex items-center justify-center bg-gradient-to-br from-brand-deep to-brand-bright text-white shadow-sm">
-                              <Target className="w-5 h-5" />
+                          <span className="flex items-center justify-center text-brand-deep">
+                              <Target className="w-6 h-6" />
                           </span>
                           {t('pageTitle')}
                       </div>

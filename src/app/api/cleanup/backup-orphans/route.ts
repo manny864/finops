@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
         await requireTenantAccess(request, tenantId);
 
         const data = await getWithStaleWhileRevalidate(
-            `backup-orphans:v1:${tenantId}`,
+            `backup-orphans:v2:${tenantId}`,
             () => getOrphanedBackupItems(tenantId),
             1800,
             600

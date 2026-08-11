@@ -8,6 +8,7 @@ import { fetchWithAuthRetry } from "@/lib/msalToken";
 import { toast } from 'sonner';
 import { useActionLogStore } from '@/store/actionLogStore';
 import { Clock, CheckCircle, Trash2, AlertCircle, Plus, X, Tag, History, ShieldCheck, Bell, Loader2 } from "lucide-react";
+import { IconClockHour4 } from "@tabler/icons-react";
 import MockBanner from '@/components/MockBanner';
 import Pagination, { usePagination } from '@/components/Pagination';
 import { canDeleteResources } from '@/lib/tierLogic';
@@ -248,7 +249,7 @@ export default function TtlCleanupPage() {
       <div className="vhead">
         <div>
           <div className="vt">
-            <span className="vico bg-gradient-to-br from-[#0054A6] to-[#00AEEF]">⏳</span>
+            <span className="vico"><IconClockHour4 className="w-5 h-5" /></span>
             {t("title")}
           </div>
           <div className="vs">{t("subtitle")}</div>

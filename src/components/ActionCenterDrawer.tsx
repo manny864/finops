@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useActionLogStore } from '@/store/actionLogStore';
 import { useRouter } from '@/i18n/routing';
+import { useLocale } from 'next-intl';
 import { X, CheckCircle, AlertCircle, Info, Trash2, ChevronRight, BellRing } from 'lucide-react';
 import { getNotificationPermission, requestNotificationPermission } from '@/hooks/useBrowserNotifications';
 
@@ -17,6 +18,7 @@ const MAX_VISIBLE = 5;
 export default function ActionCenterDrawer({ open, onClose }: DrawerProps) {
     const { actions, clearActions } = useActionLogStore();
     const router = useRouter();
+    const locale = useLocale();
     const [notifPermission, setNotifPermission] = useState<NotificationPermission | null>(null);
 
     useEffect(() => {
@@ -33,7 +35,8 @@ export default function ActionCenterDrawer({ open, onClose }: DrawerProps) {
     const openAction = (href?: string) => {
         if (!href) return;
         onClose();
-        router.push(href);
+        const normalized = href.startsWith(`/${locale}/`) ? href.replace(`/${locale}`, '') : href;
+        router.push(normalized);
     };
 
     return (

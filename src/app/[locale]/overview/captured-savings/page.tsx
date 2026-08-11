@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import CapturedSavingsBoard from "@/components/dashboard/CapturedSavingsBoard";
 import MockBanner from "@/components/MockBanner";
+import { IconPigMoney } from "@tabler/icons-react";
 
 export default async function CapturedSavingsPage() {
     const t = await getTranslations("OverviewCapturedSavings");
@@ -9,7 +10,12 @@ export default async function CapturedSavingsPage() {
         <div className="content animate-in fade-in duration-500">
             <div className="vhead">
                 <div className="title">
-                    <h1>{t("title")}</h1>
+                    <div className="vt">
+                        <span className="vico">
+                            <IconPigMoney className="w-5 h-5" />
+                        </span>
+                        <h1 className="font-heading">{t("title")}</h1>
+                    </div>
                     <p>{t("subtitle")}</p>
                 </div>
             </div>

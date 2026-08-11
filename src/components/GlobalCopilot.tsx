@@ -439,46 +439,8 @@ export default function GlobalCopilot() {
         setMessages([]);
     }, [currentPage, pathname]);
 
-    // Auto-reporte al abrir: dispara automáticamente un análisis de la página
-    // activa en streaming. Reemplaza el saludo estático anterior — el usuario
-    // ve el reporte materializándose token a token sin tener que escribir.
-    // Tenants DEMO siguen el mismo flujo: tienen dataPayload sintético cargado
-    // y el backend acepta el análisis sobre estos IDs de prueba.
-    // `effectiveDataPayload` incluye el fallback automático (snapshot del DOM)
-    // para páginas que no llaman a `setPageContext` manualmente — así el
-    // Copilot "lee" cualquier página y genera el reporte sin wiring extra.
-    React.useEffect(() => {
-        if (!isOpen || !canAccessCopilot || messages.length > 0 || !effectiveDataPayload || injectedPrompt) return;
-        // Camino automático (sin setPageContext manual): esperamos a que el
-        // snapshot del DOM "asiente" para no reportar sobre datos a medio cargar.
-        if (!currentDataPayload && !autoContentSettled) return;
-
-        // Dispara el reporte ejecutivo en streaming. Aspiramos a un documento
-        // accionable que el usuario pueda usar para tomar decisiones reales:
-        // contexto, hallazgos cuantificados, ahorros priorizados, riesgos y
-        // próximos pasos con responsable/esfuerzo estimado.
-        handleSend(
-            `Generá un resumen **ACOTADO y ESCANEABLE** del módulo "${effectivePageLabel}" basado estrictamente en los datos del contexto, para que un decisor (CFO/Cloud Lead/FinOps) capte el estado en 15 segundos. ` +
-            `Usá Markdown con esta estructura EXACTA (sin agregar secciones extra):\n\n` +
-            `### 🎯 Estado general\n` +
-            `1 sola línea con la lectura general (ej: "Gasto estable, 3 oportunidades de ahorro detectadas por $X/mes").\n\n` +
-            `### 📊 Hallazgos clave\n` +
-            `Tabla Markdown de MÁXIMO 5 filas con las métricas más relevantes. Columnas: **Métrica | Valor | Implicancia**.\n\n` +
-            `### 💰 Top oportunidades\n` +
-            `Máximo 3 ítems, una línea cada uno:\n` +
-            `- **[Nombre]** — **$X/mes** · Esfuerzo: bajo/medio/alto — acción concreta en pocas palabras.\n` +
-            `Si aplica, cerrá con: **Ahorro potencial total: $X/mes**.\n\n` +
-            `### ⚠️ Riesgos\n` +
-            `Máximo 2 bullets. Si no hay riesgos relevantes, omití esta sección por completo.\n\n` +
-            `Al final, en una línea aparte (sin heading): *💬 Pedime "profundizá" o "reporte completo" para el análisis extendido con plan de acción paso a paso.*\n\n` +
-            `**Reglas estrictas**:\n` +
-            `- Cifras SIEMPRE del payload (USD, %, conteos). NUNCA inventes valores.\n` +
-            `- Si un dato falta, escribí "n/d".\n` +
-            `- Sé concreto: nada de "considerar revisar"; usá verbos accionables (eliminar, redimensionar, migrar, programar apagado).\n` +
-            `- Extensión objetivo: 120-180 palabras en total (sin contar la tabla). Nada de relleno ni párrafos largos.`,
-            t('auto_report_label', { page: effectivePageLabel })
-        );
-    }, [isOpen, effectiveDataPayload, effectivePageLabel, messages.length, injectedPrompt, currentDataPayload, autoContentSettled]);
+    // Directiva: nunca autogenerar reporte ejecutivo al abrir el Copilot.
+    // El análisis debe iniciar solo por solicitud explícita del usuario.
 
     // Página de login del demo: pre-auth, sin Copilot (ver isDemoLoginRoute arriba).
     if (isDemoLoginRoute) {

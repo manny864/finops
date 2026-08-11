@@ -364,6 +364,24 @@ segundo.
 - **Nuevo cron operativo de Seguridad:** `GET /api/cron/prewarm-security-finops`
   agregado para precalentar `defender` y `security/service-cost`; incorporado en
   `infra/terraform/environments/{staging,prod}` para ejecución en Azure.
+- **FinOps Copilot (directiva ejecutiva):** cuando el usuario solicita
+  **reporte ejecutivo**, el Copilot entra en modo profundo y obliga revisión
+  transversal de métricas del tenant (KPIs financieros, unit economics,
+  allocation, optimización/waste, forecast/anomalías, gobernanza) con salida
+  estructurada para CFO/CTO/CEO y plan de acción priorizado.
+- **Reporte ejecutivo asíncrono + alerta clickable:** la generación ahora corre
+  como job en segundo plano (`ExecutiveReportJobs`) para que el usuario pueda
+  salir de la página; al finalizar se crea notificación in-app/navegador con
+  link directo a `admin/reports?tab=executive&reportJob=...`, y se habilitó
+  opción para enviar el reporte al email de sesión cuando el usuario lo activa.
+- **Persistencia de reportes en Azure Blob + historial (90 días):** cada
+  reporte ejecutivo completado se guarda en Blob Storage (`executive-reports`)
+  y puede consultarse desde la nueva pestaña **Historial Reportes** en
+  `/admin/reports`. La API limita consulta/lectura a una retención de 90 días.
+- **Limpieza de nube estandarizada:** `Networking Zombies` y `Backups Huérfanos`
+  alineados a directiva de tabla FinOps/CMP (filtros base, columnas base con
+  suscripción por nombre, orden A-Z/Z-A/costo, paginado 15/30/45/60, full-width
+  responsive, scroll horizontal y columnas redimensionables).
 
 ### 2026-08-05 — SQL GROUP BY fix + Pagination en diagnostics
 

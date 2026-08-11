@@ -4,6 +4,7 @@ import { useTenant } from './TenantProvider';
 import { useSubscription } from './SubscriptionProvider';
 import { useMsal } from '@azure/msal-react';
 import { Info, ShieldAlert, Tag, CheckCircle2, Download } from 'lucide-react';
+import { IconTag } from '@tabler/icons-react';
 import { useProviderTranslations } from '@/lib/useProviderTranslations';
 import Pagination, { usePagination } from './Pagination';
 import { isMockTenant } from '@/lib/mockData';
@@ -197,7 +198,9 @@ export default function TagManager() {
             <div className="vhead">
                 <div>
                     <div className="vt">
-                        <span className="vico bg-gradient-to-br from-[#0054A6] to-[#00AEEF]">🏷️</span>
+                        <span className="vico bg-gradient-to-br from-[#0054A6] to-[#00AEEF]">
+                            <IconTag className="w-5 h-5" />
+                        </span>
                         {t('title')}
                     </div>
                     <div className="vs">{t('subtitle')} <span className="font-semibold">{selectedTenant.name}</span></div>

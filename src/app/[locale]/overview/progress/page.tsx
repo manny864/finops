@@ -4,7 +4,8 @@ import React, { useEffect, useState } from 'react';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { useLocale, useTranslations } from 'next-intl';
-import { TrendingUp, Loader2, MapPin, BarChart3, Check, Ruler, Moon, Flag, AlertTriangle } from 'lucide-react';
+import { TrendingUp, Loader2, MapPin, BarChart3, Flag, AlertTriangle } from 'lucide-react';
+import { IconClockHour4, IconChartLine, IconPlugConnected } from '@tabler/icons-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useAIContext } from '@/hooks/useAIContext';
 import { isMockTenant, getMockDataForRoute } from '@/lib/mockData';
@@ -393,7 +394,7 @@ export default function HistoricalProgressPage() {
                                 {/* Milestone 1 */}
                                 <div className="p-4 flex items-start hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                     <div className="bg-emerald-100 dark:bg-emerald-900/30 p-2 rounded-lg mr-4 mt-1">
-                                        <Check className="w-5 h-5 text-emerald-600 dark:text-emerald-400 stroke-[3]" />
+                                        <IconPlugConnected className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                                     </div>
                                     <div>
                                         <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">{t('milestones.onboarding.title')}</h4>
@@ -403,7 +404,7 @@ export default function HistoricalProgressPage() {
                                 {/* Milestone 2 */}
                                 <div className="p-4 flex items-start hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                     <div className="bg-blue-50 dark:bg-blue-900/30 p-2 rounded-lg mr-4 mt-1 border border-blue-100 dark:border-blue-800/50">
-                                        <Ruler className="w-5 h-5 text-blue-500 dark:text-blue-400" />
+                                        <IconChartLine className="w-5 h-5 text-blue-500 dark:text-blue-400" />
                                     </div>
                                     <div>
                                         <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">{t('milestones.rightsizing.title')}</h4>
@@ -413,7 +414,7 @@ export default function HistoricalProgressPage() {
                                 {/* Milestone 3 */}
                                 <div className="p-4 flex items-start hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                     <div className="bg-amber-50 dark:bg-amber-900/30 p-2 rounded-lg mr-4 mt-1 border border-amber-100 dark:border-amber-800/50">
-                                        <Moon className="w-5 h-5 text-amber-500 dark:text-amber-400 fill-amber-500 dark:fill-amber-400" />
+                                        <IconClockHour4 className="w-5 h-5 text-amber-500 dark:text-amber-400" />
                                     </div>
                                     <div>
                                         <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">{t('milestones.autoShutdown.title')}</h4>

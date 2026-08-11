@@ -34,6 +34,9 @@ const MONTHLY_COST_BY_TYPE: Record<string, number> = {
 const DEFAULT_MONTHLY_COST = 6.0;
 
 export interface OrphanedBackupItemRow {
+    subscriptionId: string;
+    subscriptionName: string;
+    region: string;
     vaultName: string;
     resourceGroup: string;
     itemName: string;
@@ -50,8 +53,8 @@ export interface BackupOrphanResult {
 }
 
 const MOCK_ITEMS: OrphanedBackupItemRow[] = [
-    { vaultName: 'rsv-prod-backup', resourceGroup: 'rg-backups', itemName: 'vm-decommissioned-01', sourceResourceId: 'mock', backupManagementType: 'AzureIaasVM', protectionState: 'ProtectionStopped', estimatedMonthlyCost: 12.0 },
-    { vaultName: 'rsv-prod-backup', resourceGroup: 'rg-backups', itemName: 'sqldb-legacy-app', sourceResourceId: 'mock', backupManagementType: 'AzureWorkload', protectionState: 'ProtectionStopped', estimatedMonthlyCost: 8.0 },
+    { subscriptionId: 'sub-mock-01', subscriptionName: 'Subscription Mock 01', region: 'eastus', vaultName: 'rsv-prod-backup', resourceGroup: 'rg-backups', itemName: 'vm-decommissioned-01', sourceResourceId: 'mock', backupManagementType: 'AzureIaasVM', protectionState: 'ProtectionStopped', estimatedMonthlyCost: 12.0 },
+    { subscriptionId: 'sub-mock-01', subscriptionName: 'Subscription Mock 01', region: 'eastus', vaultName: 'rsv-prod-backup', resourceGroup: 'rg-backups', itemName: 'sqldb-legacy-app', sourceResourceId: 'mock', backupManagementType: 'AzureWorkload', protectionState: 'ProtectionStopped', estimatedMonthlyCost: 8.0 },
 ];
 
 async function armToken(credential: any): Promise<string> {
@@ -67,13 +70,22 @@ export const getOrphanedBackupItems = async (tenantId: string): Promise<BackupOr
 
     let vaults: any[] = [];
     let allResourceIds: Set<string> = new Set();
+    let subscriptionsById = new Map<string, string>();
     try {
         const argClient = await getResourceGraphClient(tenantId);
         const vaultsRes: any = await argClient.resources({
-            query: `Resources | where type =~ 'microsoft.recoveryservices/vaults' | project name, resourceGroup, subscriptionId, id`,
+            query: `Resources | where type =~ 'microsoft.recoveryservices/vaults' | project name, resourceGroup, subscriptionId, location, id`,
             options: { resultFormat: "objectArray", top: 1000 },
         });
         vaults = (vaultsRes.data as any[]) || [];
+
+        const subsRes: any = await argClient.resources({
+            query: `ResourceContainers | where type =~ 'microsoft.resources/subscriptions' | project subscriptionId, subscriptionName=name`,
+            options: { resultFormat: "objectArray", top: 1000 },
+        });
+        subscriptionsById = new Map(
+            (((subsRes.data as any[]) || []) as any[]).map((s: any) => [String(s.subscriptionId), String(s.subscriptionName || s.subscriptionId)])
+        );
 
         // Inventario completo de resourceIds (un solo query) para el diff de
         // existencia — evita N llamadas a Resource Graph, una por item protegido.
@@ -111,6 +123,9 @@ export const getOrphanedBackupItems = async (tenantId: string): Promise<BackupOr
                 if (allResourceIds.has(sourceResourceId)) continue; // recurso fuente sigue existiendo
                 const backupManagementType = props.backupManagementType || "—";
                 items.push({
+                    subscriptionId: vault.subscriptionId,
+                    subscriptionName: subscriptionsById.get(String(vault.subscriptionId)) || String(vault.subscriptionId),
+                    region: vault.location || "global",
                     vaultName: vault.name,
                     resourceGroup: vault.resourceGroup,
                     itemName: props.friendlyName || props.virtualMachineId?.split("/").pop() || String(item.name || "—"),

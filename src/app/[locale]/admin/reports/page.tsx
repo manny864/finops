@@ -1,5 +1,6 @@
 import AdminHubGate from "@/components/admin/AdminHubGate";
 import ExecutiveReportPanel from "@/components/admin/panels/ExecutiveReportPanel";
+import ExecutiveReportsHistoryPanel from "@/components/admin/panels/ExecutiveReportsHistoryPanel";
 import InvoicingReportPanel from "@/components/admin/panels/InvoicingReportPanel";
 import WorkbooksPanel from "@/components/admin/panels/WorkbooksPanel";
 import PowerBiTemplatesPanel from "@/components/admin/panels/PowerBiTemplatesPanel";
@@ -17,6 +18,7 @@ export default async function ReportsHubPage({
 
     const tabs = [
         { key: "executive", label: "Reporte Ejecutivo", originalHref: "/admin/report", panel: <ExecutiveReportPanel /> },
+        { key: "executive-history", label: "Historial Reportes", originalHref: "/admin/report", panel: <ExecutiveReportsHistoryPanel /> },
         { key: "invoicing", label: "Reporte de Facturación", originalHref: "/admin/report/invoicing", panel: <InvoicingReportPanel /> },
         { key: "workbooks", label: "Workbooks", originalHref: "/admin/workbooks", panel: <WorkbooksPanel /> },
         { key: "powerbi", label: "Power BI Templates", originalHref: "/admin/powerbi-templates", panel: <PowerBiTemplatesPanel /> },

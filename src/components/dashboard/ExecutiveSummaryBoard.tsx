@@ -6,7 +6,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import {
-    LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
+    AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
     XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts";
 import { Loader2, AlertCircle, Info, TrendingUp, TrendingDown, MapPin, ShieldAlert, Lightbulb, ChevronRight, DollarSign, Recycle, PiggyBank, Leaf, X, Eye, EyeOff, RotateCcw, LayoutGrid } from "lucide-react";
@@ -428,6 +428,26 @@ export default function ExecutiveSummaryBoard() {
         fullName: r.name,
         count: r.count,
     }));
+    const trend3mData = costs?.last3MonthsTrend || [];
+    const recommendationTrendData = (() => {
+        const merged = new Map<string, { month: string; recommendations: number; anomalies: number }>();
+        (recommendations?.trend || []).forEach((item: any) => {
+            const month = String(item?.month || "");
+            if (!month) return;
+            const prev = merged.get(month) || { month, recommendations: 0, anomalies: 0 };
+            prev.recommendations = Number(item?.count || 0);
+            merged.set(month, prev);
+        });
+        (costAnomalyTrend || []).forEach((item: any) => {
+            const month = String(item?.month || "");
+            if (!month) return;
+            const prev = merged.get(month) || { month, recommendations: 0, anomalies: 0 };
+            prev.anomalies = Number(item?.count || 0);
+            merged.set(month, prev);
+        });
+        return Array.from(merged.values());
+    })();
+    const latestRecommendationPoint = recommendationTrendData[recommendationTrendData.length - 1] || { recommendations: 0, anomalies: 0 };
 
     const isCardVisible = (cardId: string) => !hiddenCards.includes(cardId);
 
@@ -584,13 +604,19 @@ export default function ExecutiveSummaryBoard() {
                     <div key="trend3m">
                         <Card title={t("last_3_months_trend")} onClose={() => handleHideCard("trend3m")}>
                             <ResponsiveContainer width="100%" height="100%" minHeight={120}>
-                                <LineChart data={costs?.last3MonthsTrend || []}>
+                                <AreaChart data={trend3mData}>
+                                    <defs>
+                                        <linearGradient id="costTrendArea" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor={COLORS.blue} stopOpacity={0.35} />
+                                            <stop offset="95%" stopColor={COLORS.blue} stopOpacity={0.05} />
+                                        </linearGradient>
+                                    </defs>
                                     <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
                                     <XAxis dataKey="month" tick={{ fontSize: 11 }} />
                                     <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} width={45} />
                                     <Tooltip formatter={(v: any) => format(Number(v))} />
-                                    <Line type="monotone" dataKey="cost" stroke={COLORS.blue} strokeWidth={2} dot={{ r: 3 }} />
-                                </LineChart>
+                                    <Area type="monotone" dataKey="cost" stroke={COLORS.blue} strokeWidth={2} fill="url(#costTrendArea)" />
+                                </AreaChart>
                             </ResponsiveContainer>
                         </Card>
                     </div>
@@ -723,10 +749,34 @@ export default function ExecutiveSummaryBoard() {
                 {isCardVisible("recTrend") && (
                     <div key="recTrend">
                         <Card title={t("recommendation_trend")} onClose={() => handleHideCard("recTrend")}>
-                            <ResponsiveContainer width="100%" height={90}>
-                                <LineChart data={recommendations?.trend || []}>
-                                    <Line type="monotone" dataKey="count" stroke={COLORS.blue} />
-                                </LineChart>
+                            <p className="text-[11px] text-slate-400 mb-2">{`${t("open_recommendations")} + ${t("cost_anomalies")}`}</p>
+                            <div className="flex items-center gap-3 mb-2 text-[11px]">
+                                <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100">
+                                    {t("open_recommendations")}: {latestRecommendationPoint.recommendations}
+                                </span>
+                                <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-100">
+                                    {t("cost_anomalies")}: {latestRecommendationPoint.anomalies}
+                                </span>
+                            </div>
+                            <ResponsiveContainer width="100%" height={110}>
+                                <AreaChart data={recommendationTrendData}>
+                                    <defs>
+                                        <linearGradient id="recommendationsTrendArea" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor={COLORS.blue} stopOpacity={0.35} />
+                                            <stop offset="95%" stopColor={COLORS.blue} stopOpacity={0.05} />
+                                        </linearGradient>
+                                        <linearGradient id="anomaliesTrendArea" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.35} />
+                                            <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.05} />
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                                    <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                                    <YAxis allowDecimals={false} tick={{ fontSize: 10 }} width={30} />
+                                    <Tooltip />
+                                    <Area type="monotone" dataKey="recommendations" name={t("open_recommendations")} stroke={COLORS.blue} fill="url(#recommendationsTrendArea)" strokeWidth={2} />
+                                    <Area type="monotone" dataKey="anomalies" name={t("cost_anomalies")} stroke="#f59e0b" fill="url(#anomaliesTrendArea)" strokeWidth={2} />
+                                </AreaChart>
                             </ResponsiveContainer>
                         </Card>
                     </div>

@@ -2,6 +2,7 @@ import React from 'react';
 import { getTranslations } from 'next-intl/server';
 import RemediationApprovals from '@/components/dashboard/RemediationApprovals';
 import MockBanner from '@/components/MockBanner';
+import { IconShield } from '@tabler/icons-react';
 
 export default async function ApprovalsPage() {
     const t = await getTranslations('RemediationApprovals');
@@ -10,7 +11,9 @@ export default async function ApprovalsPage() {
             <div className="vhead">
                 <div>
                     <div className="vt">
-                        <span className="vico bg-gradient-to-br from-[#F59E0B] to-[#D97706]">🛡️</span>
+                        <span className="vico bg-gradient-to-br from-[#F59E0B] to-[#D97706]">
+                            <IconShield className="w-5 h-5" />
+                        </span>
                         {t('pageTitle')}
                     </div>
                     <div className="vs">{t('pageSubtitle')}</div>

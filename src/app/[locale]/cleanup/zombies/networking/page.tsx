@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import MockBanner from '@/components/MockBanner';
 import NetworkingZombiesPanel from "@/components/dashboard/NetworkingZombiesPanel";
 import PageHeaderTierBadge from "@/components/dashboard/PageHeaderTierBadge";
+import { IconTopologyStar3 } from '@tabler/icons-react';
 
 export default async function NetworkingZombiesPage() {
     const t = await getTranslations("NetworkingZombies");
@@ -13,7 +14,9 @@ export default async function NetworkingZombiesPage() {
             <div className="vhead">
                 <div>
                     <div className="vt">
-                        <span className="vico bg-gradient-to-br from-[#7C3AED] to-[#C4B5FD]">🌐</span>
+                        <span className="vico bg-gradient-to-br from-[#7C3AED] to-[#C4B5FD]">
+                            <IconTopologyStar3 className="w-5 h-5" />
+                        </span>
                         {t("pageTitle")}
                     </div>
                     <div className="vs">

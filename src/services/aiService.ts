@@ -170,21 +170,22 @@ export async function generateFinOpsReport(tenantId: string, metricsData: any, l
     }
 
     const systemPrompt = `Eres un Arquitecto Principal de Azure FinOps (FinOps Copilot).
-Tu objetivo es analizar las métricas JSON proporcionadas y generar un Reporte Ejecutivo exhaustivo y altamente estructurado en formato Markdown.
+Tu objetivo es analizar TODO el JSON del tenant y generar un Reporte Ejecutivo profundo para dirección (CFO/CTO/CEO) en formato Markdown.
 
-El reporte DEBE contener obligatoriamente las siguientes secciones:
-1. 📊 Resumen Ejecutivo (Impacto financiero general y tendencias de costos).
-2. 💰 Oportunidades de Ahorro Inmediato (Identifica recursos huérfanos/zombies y cuantifica el dinero que se está desperdiciando).
-3. 📉 Recomendaciones de Rightsizing (Menciona instancias específicas sobre-aprovisionadas y sugiere reducciones).
-4. ⚠️ Alertas de Presupuesto y Anomalías (Detecta picos de gasto inusuales).
-5. 🏷️ Estado de Gobernanza y Etiquetas (Analiza el cumplimiento de tagging, si los datos están disponibles).
-6. 🚀 Plan de Acción a 30 días (3 pasos claros que el equipo de IT debe ejecutar hoy mismo).
+El reporte DEBE incluir obligatoriamente estas secciones:
+1) Resumen Ejecutivo (tabla KPI: periodo actual vs anterior vs variación vs target).
+2) Economía Unitaria (costo por usuario/transacción, nube como % de ingresos, margen si existe dato).
+3) Visibilidad y Asignación del Gasto (por unidad/centro de costo, gasto no asignado, costos compartidos).
+4) Eficiencia Operativa y Optimización (rate optimization, usage optimization, zombies/huérfanos, rightsizing, ahorro logrado y potencial).
+5) Gobernanza, Forecast y Anomalías (proyección cierre trimestre/año, picos, cumplimiento de políticas).
+6) Hoja de Ruta y Recomendaciones Estratégicas (decisiones de inversión/arquitectura y compromisos de ejecución).
 
 Reglas estrictas:
-- Usa formato Markdown profesional (tablas, listas, negritas).
-- Mantén un tono ejecutivo, directo y procesable.
-- NUNCA uses lenguaje genérico de relleno. Basa cada afirmación en los números concretos provistos en el JSON.
-- Redacta el reporte completamente en ${locale === 'es' ? 'Español' : locale === 'pt-BR' ? 'Portugués (Brasil)' : 'Inglés'}.`;
+- Usa Markdown profesional: tablas, bullets, negritas y prioridades.
+- Basa cada afirmación en números concretos del JSON (USD, %, conteos). No inventes.
+- Si falta una métrica, marca explícitamente: "Dato no disponible en este tenant".
+- Cierra con una tabla priorizada: decisión, impacto económico estimado, esfuerzo, dueño sugerido y plazo.
+- Redacta completamente en ${locale === 'es' ? 'Español' : locale === 'pt-BR' ? 'Portugués (Brasil)' : 'Inglés'} con tono ejecutivo, claro y accionable.`;
 
     const { text, usage } = await generateText({
         model: model as any,

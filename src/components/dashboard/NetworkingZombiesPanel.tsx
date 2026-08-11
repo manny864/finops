@@ -1,18 +1,21 @@
 "use client";
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
 import { usePendingDeletionsStore } from '@/store/pendingDeletionsStore';
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Loader2, Network, AlertCircle, Info, DollarSign, Trash2, Tag, ChevronLeft, ChevronRight, ShieldCheck, Shield, Edit3, EyeOff, X, MessageSquare, Zap } from "lucide-react";
+import { Loader2, Network, AlertCircle, Info, DollarSign, Trash2, Tag, ShieldCheck, Shield, Edit3, EyeOff, X, MessageSquare, Zap } from "lucide-react";
 
 import { isMockTenant } from "@/lib/mockData";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { canDeleteResources } from "@/lib/tierLogic";
 import EnterpriseDeleteDisclaimer from "@/components/EnterpriseDeleteDisclaimer";
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
+import Pagination, { usePagination } from "@/components/Pagination";
+import ResizableTh from "@/components/ResizableTh";
+import FinopsTableControls, { type FinopsTableOption } from "@/components/dashboard/FinopsTableControls";
 
 type ZombieItem = {
     resourceId: string;
@@ -55,7 +58,9 @@ const TYPE_BADGE: Record<string, string> = {
     trafficAnalytics:         "bg-slate-100 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300",
 };
 
-const PAGE_SIZE = 15;
+const FILTER_ALL = "__all__";
+type SortMode = "name-asc" | "name-desc" | "cost-desc" | "cost-asc";
+const usdFmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default function NetworkingZombiesPanel() {
     const t = useTranslations("NetworkingZombies");
@@ -65,10 +70,14 @@ export default function NetworkingZombiesPanel() {
     
     const { addPending, isPending } = usePendingDeletionsStore();
     
-    const [pageIndex, setPageIndex] = useState(0);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [bulkDeleting, setBulkDeleting] = useState(false);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [resourceFilter, setResourceFilter] = useState<string>(FILTER_ALL);
+    const [regionFilter, setRegionFilter] = useState<string>(FILTER_ALL);
+    const [typeFilter, setTypeFilter] = useState<string>(FILTER_ALL);
+    const [resourceGroupFilter, setResourceGroupFilter] = useState<string>(FILTER_ALL);
+    const [sortMode, setSortMode] = useState<SortMode>("cost-desc");
     const [taggingItems, setTaggingItems] = useState<ZombieItem[]>([]);
     const [tagValues, setTagValues] = useState({ CostCenter: "", Environment: "", Owner: "" });
     const [isTagging, setIsTagging] = useState(false);
@@ -296,7 +305,71 @@ export default function NetworkingZombiesPanel() {
         if (failed > 0) toast.error(t("tagsFailedToast", { count: failed }));
     };
 
-    if (!selectedTenant || selectedTenant.id === "default") return null;
+    const tenantInactive = !selectedTenant || selectedTenant.id === "default";
+    const items: ZombieItem[] = Array.isArray(data?.items) ? data.items : [];
+    const totalWaste: number = Number(data?.totalMonthlyWaste || 0);
+    const canDelete = canDeleteResources(selectedTenant?.tier || "Essential", 'networking');
+    const filteredItems = useMemo(() => {
+        const filtered = items.filter((item) => {
+            const resourceName = String(item.resourceName || "-");
+            const region = String((item as any).region || (item as any).location || "-");
+            const type = String(item.resourceType || "-");
+            const resourceGroup = String(item.resourceGroup || "-");
+            if (resourceFilter !== FILTER_ALL && resourceName !== resourceFilter) return false;
+            if (regionFilter !== FILTER_ALL && region !== regionFilter) return false;
+            if (typeFilter !== FILTER_ALL && type !== typeFilter) return false;
+            if (resourceGroupFilter !== FILTER_ALL && resourceGroup !== resourceGroupFilter) return false;
+            return true;
+        });
+        const sorted = [...filtered];
+        if (sortMode === "name-asc") sorted.sort((a, b) => String(a.resourceName || "").localeCompare(String(b.resourceName || "")));
+        if (sortMode === "name-desc") sorted.sort((a, b) => String(b.resourceName || "").localeCompare(String(a.resourceName || "")));
+        if (sortMode === "cost-desc") sorted.sort((a, b) => Number(b.monthlyCost || 0) - Number(a.monthlyCost || 0));
+        if (sortMode === "cost-asc") sorted.sort((a, b) => Number(a.monthlyCost || 0) - Number(b.monthlyCost || 0));
+        return sorted;
+    }, [items, resourceFilter, regionFilter, typeFilter, resourceGroupFilter, sortMode]);
+    const { page, setPage, pageSize, setPageSize, total, totalPages, paged } = usePagination(filteredItems, 15);
+    const filteredTotalWaste = useMemo(
+        () => filteredItems.reduce((sum, item) => sum + Number(item.monthlyCost || 0), 0),
+        [filteredItems]
+    );
+    const pageItems = paged;
+    const pageAllSelected = pageItems.length > 0 && pageItems.every((i) => selectedIds.has(i.resourceId));
+    const pageSomeSelected = !pageAllSelected && pageItems.some((i) => selectedIds.has(i.resourceId));
+    const selectedItems = filteredItems.filter((i) => selectedIds.has(i.resourceId));
+
+    useEffect(() => {
+        setPage(1);
+    }, [resourceFilter, regionFilter, typeFilter, resourceGroupFilter, sortMode, setPage]);
+
+    const allOption = t("allOption");
+    const resourceOptions = useMemo<FinopsTableOption[]>(
+        () => [{ value: FILTER_ALL, label: allOption }, ...Array.from(new Set(filteredItems.map((item) => String(item.resourceName || "-")))).sort().map((value) => ({ value, label: value }))],
+        [filteredItems, allOption]
+    );
+    const regionOptions = useMemo<FinopsTableOption[]>(
+        () => [{ value: FILTER_ALL, label: allOption }, ...Array.from(new Set(filteredItems.map((item) => String((item as any).region || (item as any).location || "-")))).sort().map((value) => ({ value, label: value }))],
+        [filteredItems, allOption]
+    );
+    const typeOptions = useMemo<FinopsTableOption[]>(
+        () => [{ value: FILTER_ALL, label: allOption }, ...Array.from(new Set(filteredItems.map((item) => String(item.resourceType || "-")))).sort().map((value) => ({ value, label: value }))],
+        [filteredItems, allOption]
+    );
+    const resourceGroupOptions = useMemo<FinopsTableOption[]>(
+        () => [{ value: FILTER_ALL, label: allOption }, ...Array.from(new Set(filteredItems.map((item) => String(item.resourceGroup || "-")))).sort().map((value) => ({ value, label: value }))],
+        [filteredItems, allOption]
+    );
+    const sortOptions = useMemo<FinopsTableOption[]>(
+        () => [
+            { value: "name-asc", label: t("sortAz") },
+            { value: "name-desc", label: t("sortZa") },
+            { value: "cost-desc", label: t("sortCostDesc") },
+            { value: "cost-asc", label: t("sortCostAsc") },
+        ],
+        [t]
+    );
+
+    if (tenantInactive) return null;
 
     if (isLoading) {
         return (
@@ -321,17 +394,6 @@ export default function NetworkingZombiesPanel() {
     }
 
     if (!data) return null;
-
-    const items: ZombieItem[] = data.items || [];
-    const totalWaste: number = data.totalMonthlyWaste || 0;
-    const canDelete = canDeleteResources(selectedTenant.tier, 'networking');
-
-    const pageCount = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
-    const safePageIndex = Math.min(pageIndex, pageCount - 1);
-    const pageItems = items.slice(safePageIndex * PAGE_SIZE, safePageIndex * PAGE_SIZE + PAGE_SIZE);
-    const pageAllSelected = pageItems.length > 0 && pageItems.every((i) => selectedIds.has(i.resourceId));
-    const pageSomeSelected = !pageAllSelected && pageItems.some((i) => selectedIds.has(i.resourceId));
-    const selectedItems = items.filter((i) => selectedIds.has(i.resourceId));
 
     return (
         <div className="w-full space-y-6">
@@ -372,7 +434,7 @@ export default function NetworkingZombiesPanel() {
                 <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-6">
                     <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-1">{t("pePanelTitle")}</h3>
                     <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">{t("pePanelSubtitle")}</p>
-                    <div className="max-h-80 overflow-y-auto overflow-x-auto rounded-lg border border-gray-100 dark:border-slate-800">
+                    <div className="max-h-80 overflow-y-auto overflow-x-scroll custom-scrollbar pb-1 rounded-lg border border-gray-100 dark:border-slate-800">
                         <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700 text-sm">
                             <thead className="bg-gray-50 dark:bg-slate-800/50 sticky top-0">
                                 <tr>
@@ -423,12 +485,12 @@ export default function NetworkingZombiesPanel() {
                         <DollarSign className="w-3 h-3" />
                         {t("kpiWasteLabel")}
                     </p>
-                    <p className="text-2xl font-bold text-red-600 dark:text-red-400">${totalWaste.toFixed(2)}</p>
+                    <p className="text-2xl font-bold text-red-600 dark:text-red-400">{usdFmt.format(filteredTotalWaste)}</p>
                     <p className="text-xs text-slate-400 mt-1">{t("kpiWasteSub")}</p>
                 </div>
                 <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-5">
                     <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t("kpiSavingsLabel")}</p>
-                    <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">${(totalWaste * 12).toFixed(2)}</p>
+                    <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{usdFmt.format(filteredTotalWaste * 12)}</p>
                     <p className="text-xs text-slate-400 mt-1">{t("kpiSavingsSub")}</p>
                 </div>
             </div>
@@ -465,27 +527,52 @@ export default function NetworkingZombiesPanel() {
                 </div>
             )}
 
+            <FinopsTableControls
+                resourceOptions={resourceOptions}
+                regionOptions={regionOptions}
+                typeOptions={typeOptions}
+                resourceGroupOptions={resourceGroupOptions}
+                sortOptions={sortOptions}
+                selectedResource={resourceFilter}
+                selectedRegion={regionFilter}
+                selectedType={typeFilter}
+                selectedResourceGroup={resourceGroupFilter}
+                selectedSort={sortMode}
+                onResourceChange={setResourceFilter}
+                onRegionChange={setRegionFilter}
+                onTypeChange={setTypeFilter}
+                onResourceGroupChange={setResourceGroupFilter}
+                onSortChange={(value) => setSortMode(value as SortMode)}
+                labels={{
+                    resource: t("filterResource"),
+                    region: t("filterRegion"),
+                    type: t("filterType"),
+                    resourceGroup: t("filterResourceGroup"),
+                    sort: t("sortBy"),
+                }}
+            />
+
             {/* Table */}
             <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm">
                 <div className="px-4 py-3 border-b border-gray-100 dark:border-slate-800 flex items-center gap-2">
                     <Network className="w-4 h-4 text-cyan-500" />
                     <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">{t("tableTitle")}</h3>
                     <span className="ml-auto text-xs font-medium px-2 py-0.5 bg-gray-100 dark:bg-slate-800 text-gray-500 rounded-full">
-                        {items.length}
+                        {filteredItems.length}
                     </span>
                 </div>
-                {items.length === 0 ? (
+                {filteredItems.length === 0 ? (
                     <div className="py-16 text-center text-slate-500 dark:text-slate-400">
                         <Network className="w-10 h-10 mx-auto mb-3 opacity-30" />
                         <p className="font-medium">{t("emptyState")}</p>
                     </div>
                 ) : (
                     <>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm text-left">
+                        <div className="overflow-x-scroll custom-scrollbar pb-1">
+                            <table className="w-full min-w-[2100px] table-fixed text-sm text-left">
                                 <thead className="bg-gray-50 dark:bg-slate-800/50 text-xs text-slate-500 dark:text-slate-400">
                                     <tr>
-                                        <th className="px-4 py-3 w-8">
+                                        <ResizableTh minWidth={48} className="px-4 py-3 w-8">
                                             <input
                                                 type="checkbox"
                                                 checked={pageAllSelected}
@@ -500,14 +587,16 @@ export default function NetworkingZombiesPanel() {
                                                 }}
                                                 className="cursor-pointer"
                                             />
-                                        </th>
-                                        <th className="px-4 py-3 font-semibold">{t("colResource")}</th>
-                                        <th className="px-4 py-3 font-semibold">{t("colType")}</th>
-                                        <th className="px-4 py-3 font-semibold">{t("colResourceGroup")}</th>
-                                        <th className="px-4 py-3 font-semibold">{t("colReason")}</th>
-                                        <th className="px-4 py-3 font-semibold text-right">{t("colDaysIdle")}</th>
-                                        <th className="px-4 py-3 font-semibold text-right">{t("colMonthlyCost")}</th>
-                                        {canDelete && <th className="px-4 py-3 font-semibold text-right">{t("colAction")}</th>}
+                                        </ResizableTh>
+                                        <ResizableTh minWidth={220} className="px-4 py-3 font-semibold">{t("colResource")}</ResizableTh>
+                                        <ResizableTh minWidth={140} className="px-4 py-3 font-semibold">{t("colRegion")}</ResizableTh>
+                                        <ResizableTh minWidth={180} className="px-4 py-3 font-semibold">{t("colType")}</ResizableTh>
+                                        <ResizableTh minWidth={190} className="px-4 py-3 font-semibold">{t("colResourceGroup")}</ResizableTh>
+                                        <ResizableTh minWidth={200} className="px-4 py-3 font-semibold">{t("colSubscription")}</ResizableTh>
+                                        <ResizableTh minWidth={220} className="px-4 py-3 font-semibold">{t("colReason")}</ResizableTh>
+                                        <ResizableTh minWidth={100} className="px-4 py-3 font-semibold text-right">{t("colDaysIdle")}</ResizableTh>
+                                        <ResizableTh minWidth={170} className="px-4 py-3 font-semibold text-right">{t("colMonthlyCost")}</ResizableTh>
+                                        {canDelete && <ResizableTh minWidth={320} className="px-4 py-3 font-semibold text-right">{t("colAction")}</ResizableTh>}
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 dark:divide-slate-800/50">
@@ -551,12 +640,16 @@ export default function NetworkingZombiesPanel() {
                                                     )}
                                                 </div>
                                             </td>
+                                            <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400">
+                                                {(item as any).region || (item as any).location || "-"}
+                                            </td>
                                             <td className="px-4 py-3">
                                                 <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${TYPE_BADGE[item.resourceType] || "bg-gray-100 text-gray-600"}`}>
                                                     {item.resourceType}
                                                 </span>
                                             </td>
                                             <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400 font-mono">{item.resourceGroup}</td>
+                                            <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400">{(item as any).subscriptionName || item.subscriptionId}</td>
                                             <td className="px-4 py-3 text-xs text-slate-600 dark:text-slate-300 max-w-[200px] truncate" title={item.reason}>
                                                 {item.reason}
                                             </td>
@@ -565,55 +658,57 @@ export default function NetworkingZombiesPanel() {
                                                     {item.daysIdle}d
                                                 </span>
                                             </td>
-                                            <td className="px-4 py-3 text-right font-semibold text-red-600 dark:text-red-400">
-                                                ${item.monthlyCost.toFixed(2)}
+                                            <td className="px-4 py-3 text-right font-semibold text-red-600 dark:text-red-400 whitespace-nowrap tabular-nums">
+                                                {usdFmt.format(Number(item.monthlyCost || 0))}
                                             </td>
                                             {canDelete && (
-                                                <td className="px-4 py-3 flex justify-end gap-2 text-right items-start">
-                                                    {item.isExempted ? (
-                                                        <>
-                                                            <button
-                                                                onClick={() => handleOpenExemptionModal(item)}
-                                                                className="font-heading font-semibold text-[11px] rounded-lg bg-surface-2 hover:bg-surface-3 text-ink border border-line p-[6px_10px] cursor-pointer active:scale-95 transition-all inline-flex items-center gap-1 shadow-xs h-fit"
-                                                                title={t("btn_edit_exemption")}
-                                                            >
-                                                                <Edit3 className="w-3.5 h-3.5 text-primary" />
-                                                                {t("btn_edit_exemption")}
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleRemoveExemption(item)}
-                                                                className="font-heading font-semibold text-[11px] rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30 p-[6px_10px] cursor-pointer active:scale-95 transition-all inline-flex items-center gap-1 shadow-xs h-fit"
-                                                                title={t("btn_remove_exemption")}
-                                                            >
-                                                                <Trash2 className="w-3.5 h-3.5 text-rose-500" />
-                                                                {t("btn_remove_exemption")}
-                                                            </button>
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <button
-                                                                onClick={() => handleOpenExemptionModal(item)}
-                                                                className="font-heading font-semibold text-[11px] rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-line p-[7px_10px] cursor-pointer active:scale-95 transition-all inline-flex items-center gap-1 shadow-xs h-fit"
-                                                                title={t("btn_exempt")}
-                                                            >
-                                                                <Shield className="w-3.5 h-3.5 text-amber" />
-                                                                {t("btn_exempt")}
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleDelete(item)}
-                                                                disabled={deletingId === item.resourceId || isPending(item.resourceId)}
-                                                                className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 disabled:opacity-50 p-[7px_10px] rounded-lg border border-transparent h-fit"
-                                                                title={t("deleteTitle", { name: item.resourceName })}
-                                                            >
-                                                                {deletingId === item.resourceId || isPending(item.resourceId) ? (
-                                                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                                                ) : (
-                                                                    <Trash2 className="w-3.5 h-3.5" />
-                                                                )}
-                                                                {isPending(item.resourceId) ? "Borrando..." : t("delete")}
-                                                            </button>
-                                                        </>
-                                                    )}
+                                                <td className="px-4 py-3 align-top">
+                                                    <div className="flex justify-end items-start gap-2 whitespace-nowrap">
+                                                        {item.isExempted ? (
+                                                            <>
+                                                                <button
+                                                                    onClick={() => handleOpenExemptionModal(item)}
+                                                                    className="font-heading font-semibold text-[11px] rounded-lg bg-surface-2 hover:bg-surface-3 text-ink border border-line p-[6px_10px] cursor-pointer active:scale-95 transition-all inline-flex items-center gap-1 shadow-xs h-fit whitespace-nowrap"
+                                                                    title={t("btn_edit_exemption")}
+                                                                >
+                                                                    <Edit3 className="w-3.5 h-3.5 text-primary" />
+                                                                    {t("btn_edit_exemption")}
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleRemoveExemption(item)}
+                                                                    className="font-heading font-semibold text-[11px] rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30 p-[6px_10px] cursor-pointer active:scale-95 transition-all inline-flex items-center gap-1 shadow-xs h-fit whitespace-nowrap"
+                                                                    title={t("btn_remove_exemption")}
+                                                                >
+                                                                    <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                                                                    {t("btn_remove_exemption")}
+                                                                </button>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <button
+                                                                    onClick={() => handleOpenExemptionModal(item)}
+                                                                    className="font-heading font-semibold text-[11px] rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-line p-[7px_10px] cursor-pointer active:scale-95 transition-all inline-flex items-center gap-1 shadow-xs h-fit whitespace-nowrap"
+                                                                    title={t("btn_exempt")}
+                                                                >
+                                                                    <Shield className="w-3.5 h-3.5 text-amber" />
+                                                                    {t("btn_exempt")}
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleDelete(item)}
+                                                                    disabled={deletingId === item.resourceId || isPending(item.resourceId)}
+                                                                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 disabled:opacity-50 p-[7px_10px] rounded-lg border border-transparent h-fit whitespace-nowrap"
+                                                                    title={t("deleteTitle", { name: item.resourceName })}
+                                                                >
+                                                                    {deletingId === item.resourceId || isPending(item.resourceId) ? (
+                                                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                                    ) : (
+                                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                                    )}
+                                                                    {isPending(item.resourceId) ? "Borrando..." : t("delete")}
+                                                                </button>
+                                                            </>
+                                                        )}
+                                                    </div>
                                                 </td>
                                             )}
                                         </tr>
@@ -623,29 +718,16 @@ export default function NetworkingZombiesPanel() {
                         </div>
 
                         {/* Pagination */}
-                        <div className="px-4 py-3 border-t border-gray-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                            <span>
-                                {t("paginationShowing", { from: safePageIndex * PAGE_SIZE + 1, to: Math.min(items.length, safePageIndex * PAGE_SIZE + PAGE_SIZE), total: items.length })}
-                            </span>
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={() => setPageIndex((p) => Math.max(0, p - 1))}
-                                    disabled={safePageIndex === 0}
-                                    className="flex items-center gap-1 px-2 py-1 rounded-md border border-gray-200 dark:border-slate-700 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-slate-800"
-                                >
-                                    <ChevronLeft className="w-3.5 h-3.5" /> {t("previous")}
-                                </button>
-                                <span className="px-2 font-medium text-slate-700 dark:text-slate-200">
-                                    {t("paginationPage", { page: safePageIndex + 1, total: pageCount })}
-                                </span>
-                                <button
-                                    onClick={() => setPageIndex((p) => Math.min(pageCount - 1, p + 1))}
-                                    disabled={safePageIndex >= pageCount - 1}
-                                    className="flex items-center gap-1 px-2 py-1 rounded-md border border-gray-200 dark:border-slate-700 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-slate-800"
-                                >
-                                    {t("next")} <ChevronRight className="w-3.5 h-3.5" />
-                                </button>
-                            </div>
+                        <div className="px-4 py-3 border-t border-gray-100 dark:border-slate-800">
+                            <Pagination
+                                page={page}
+                                setPage={setPage}
+                                pageSize={pageSize}
+                                setPageSize={setPageSize}
+                                total={total}
+                                totalPages={totalPages}
+                                pageSizes={[15, 30, 45, 60]}
+                            />
                         </div>
                     </>
                 )}

@@ -1,6 +1,7 @@
 import React from 'react';
 import { getTranslations } from 'next-intl/server';
 import LighthouseDelegationPanel from '@/components/dashboard/LighthouseDelegationPanel';
+import { IconTopologyStar3 } from '@tabler/icons-react';
 
 export default async function LighthouseOnboardingPage() {
     const t = await getTranslations('Lighthouse');
@@ -9,7 +10,9 @@ export default async function LighthouseOnboardingPage() {
             <div className="vhead">
                 <div>
                     <div className="vt">
-                        <span className="vico bg-gradient-to-br from-[#0054A6] to-[#00AEEF]">🏮</span>
+                        <span className="vico bg-gradient-to-br from-[#0054A6] to-[#00AEEF]">
+                            <IconTopologyStar3 className="w-5 h-5" />
+                        </span>
                         {t('title')}
                     </div>
                     <div className="vs">{t('subtitle')}</div>

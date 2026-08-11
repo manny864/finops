@@ -293,7 +293,14 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             .filter(i => normalize(i.label).includes(normalize(searchQuery.trim())))
             .map(i => ({ ...i, categoryTitle: cat.title })))
         : [];
-    const isRouteActive = (href: string) => href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(`${href}/`);
+    const activeHref = React.useMemo(() => {
+        const matches = roleCategories
+            .flatMap(cat => cat.items.map(i => i.href))
+            .filter((href) => href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(`${href}/`))
+            .sort((a, b) => b.length - a.length);
+        return matches[0] || null;
+    }, [pathname, roleCategories]);
+    const isRouteActive = (href: string) => href === activeHref;
 
     return (
         <aside className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 fixed inset-y-0 left-0 z-50 md:relative ${sidebarOpen ? 'w-[252px]' : 'w-[64px]'} bg-gradient-to-b from-[var(--surface-2)] to-[var(--surface)] text-[var(--ink-soft)] border-r border-[var(--line)] transition-all duration-300 flex flex-col h-full custom-scrollbar`}>

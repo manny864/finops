@@ -2,6 +2,7 @@
 import MockBanner from '@/components/MockBanner';
 import React, { useEffect, useState, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
+import { useLocale } from 'next-intl';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import CostPieChart from '@/components/CostPieChart';
@@ -9,10 +10,10 @@ import PdfExportButton from '@/components/PdfExportButton';
 import { FileText, AlertCircle, Sparkles, RefreshCw, TrendingUp, TrendingDown, ShieldAlert, DollarSign, Cpu, Leaf } from 'lucide-react';
 import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
-import { compactPayloadString } from '@/lib/copilotPayload';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import Decimal from 'decimal.js';
+import { useSearchParams } from 'next/navigation';
 
 const RESOURCE_CONFIG: Record<string, { type: string; savings: number; issueType: string }> = {
     unattachedDisks: { type: "Disk", savings: 15.0, issueType: "cost" },
@@ -45,6 +46,7 @@ const SUGGESTIONS: Record<string, string> = {
 };
 const EXECUTIVE_HISTORY_MONTHS = 6;
 type SubscriptionOption = { id: string; name: string; state?: string };
+type ReportJobStatus = 'idle' | 'queued' | 'processing' | 'completed' | 'failed';
 
 function fmtUSD(n: number) {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n || 0);
@@ -52,8 +54,10 @@ function fmtUSD(n: number) {
 
 export default function ReportGeneratorPage() {
     const t = useTranslations('AdminReport');
+    const locale = useLocale();
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
+    const searchParams = useSearchParams();
 
     const [audit, setAudit] = useState<any>(null);
     const [summary, setSummary] = useState<any>(null);
@@ -75,6 +79,9 @@ export default function ReportGeneratorPage() {
     const [aiReport, setAiReport] = useState<string>("");
     const [aiLoading, setAiLoading] = useState(false);
     const [aiError, setAiError] = useState<string | null>(null);
+    const [reportJobId, setReportJobId] = useState<number | null>(null);
+    const [reportJobStatus, setReportJobStatus] = useState<ReportJobStatus>('idle');
+    const [sendEmailToRequester, setSendEmailToRequester] = useState(false);
 
     const selectedSubscriptionName = useMemo(() => {
         if (selectedSubscriptionId === 'All') return t('allSubscriptionsOption');
@@ -125,7 +132,20 @@ export default function ReportGeneratorPage() {
     useEffect(() => {
         setAiReport("");
         setAiError(null);
+        setReportJobId(null);
+        setReportJobStatus('idle');
     }, [selectedTenant.id, selectedSubscriptionId]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const stored = window.localStorage.getItem('exec_report_email_opt_in');
+        if (stored === '1') setSendEmailToRequester(true);
+    }, []);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        window.localStorage.setItem('exec_report_email_opt_in', sendEmailToRequester ? '1' : '0');
+    }, [sendEmailToRequester]);
 
     // ===== Fetch de datos paralelo =====
     useEffect(() => {
@@ -352,10 +372,25 @@ export default function ReportGeneratorPage() {
     }, [summaryHistory, projectedCost, tagging.pct, commitmentsKpi.coverage, budgetsKpi.count, budgetsKpi.exceeding, anomaliesKpi.count, haCritical, rightsizingKpi.monthlySav]);
 
     // ===== AI narrative generation =====
+    const fetchReportJob = async (jobId: number) => {
+        const idToken = accounts[0] ? await getFreshIdToken(instance, accounts[0]) : '';
+        const res = await fetch(
+            `/api/intelligence/executive-report/jobs?tenantId=${encodeURIComponent(selectedTenant.id)}&jobId=${jobId}`,
+            { headers: { Authorization: `Bearer ${idToken}` } }
+        );
+        if (!res.ok) {
+            const body = await res.text();
+            throw new Error(`HTTP ${res.status}: ${body.slice(0, 200)}`);
+        }
+        const data = await res.json();
+        return data?.job || null;
+    };
+
     const generateAiReport = async () => {
         setAiError(null);
         setAiLoading(true);
         setAiReport("");
+        setReportJobStatus('queued');
 
         const compactPayload = {
             tenant: selectedTenant.name,
@@ -417,82 +452,112 @@ export default function ReportGeneratorPage() {
 
         try {
             const idToken = accounts[0] ? await getFreshIdToken(instance, accounts[0]) : '';
-            const res = await fetch('/api/intelligence/copilot', {
+            const res = await fetch('/api/intelligence/executive-report/jobs', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
                 body: JSON.stringify({
-                    prompt:
-                        `Generá un **REPORTE EJECUTIVO FINOPS** para comité directivo del tenant "${selectedTenant.name}" en el alcance "${selectedSubscriptionName}". ` +
-                        `Debés utilizar una línea base histórica mínima de 6 meses previos a la fecha actual para justificar tendencias y proyecciones. ` +
-                        `Basate ESTRICTAMENTE en el payload. Seguí EXACTAMENTE esta estructura (FinOps Foundation framework):\n\n` +
-                        `### 1️⃣ Resumen de Alto Nivel\n` +
-                        `Tabla Markdown: **Indicador | Valor | Comentario**. Incluí: Gasto Total MTD, Proyección fin de mes, Variación vs mes anterior (%), Variación vs promedio móvil de 6 meses (%), Costo como % del margen estimado (si no hay margen → "n/d, requiere input financiero"), Impacto CO₂.\n` +
-                        `Cerrá con 2-3 líneas de lectura ejecutiva del estado financiero general.\n\n` +
-                        `### 1.1️⃣ Análisis Histórico (mínimo 6 meses previos)\n` +
-                        `Tabla obligatoria: **Mes | Costo mensual USD | Variación vs mes previo % | Comentario** para los últimos 6 meses previos y una fila final de proyección del mes actual.\n` +
-                        `Incluí resumen con: gasto acumulado 6 meses, proyección si se mantiene el porcentaje de gasto acumulado actual y proyección alternativa si se mantiene el gasto del último mes.\n` +
-                        `Determiná tendencia (alcista/bajista/estable) y volatilidad de gasto usando SOLO los datos del payload.\n\n` +
-                        `### 2️⃣ Visibilidad y Asignación de Costos\n` +
-                        `- **Asignación correcta**: X% del gasto etiquetado por departamento/centro de costos.\n` +
-                        `- **Costos no asignados**: X% (recursos huérfanos o compartidos requieren acción de ingeniería).\n` +
-                        `- **Top 3 Centros de Costo** (tabla: Centro | Gasto USD | % del total).\n` +
-                        `Si el chargeback está vacío → recomendá implementación de tagging policy.\n\n` +
-                        `### 3️⃣ Oportunidades de Optimización y Ahorro\n` +
-                        `- **Ahorro potencial mensual**: $X (anualizado $Y) consolidando todas las fuentes (waste audit + right-sizing + AHUB).\n` +
-                        `- **Cobertura de compromisos**: X% en RI/Savings Plans vs objetivo recomendado 70%+.\n` +
-                        `- **Right-sizing**: N recursos subutilizados → ahorro $X/mes.\n` +
-                        `- **Azure Hybrid Benefit**: N VMs elegibles / N habilitadas → potencial $X/año adicional.\n` +
-                        `Tabla **Top 5 oportunidades**: Iniciativa | Ahorro $/mes | Esfuerzo | Riesgo de cambio | Tiempo a valor.\n\n` +
-                        `### 4️⃣ Gobernanza y Gestión de Anomalías\n` +
-                        `- **Eventos anómalos detectados**: N picos de consumo este período, impacto agregado $X. Listá top 3 con fecha/recurso/causa hipotética.\n` +
-                        `- **Presupuesto vs Real**: Ejecución X% del presupuesto (N de M presupuestos excedidos). Si no hay budgets configurados → recomendá creación.\n` +
-                        `- **Riesgos de Alta Disponibilidad**: N críticos+altos (tabla top 5: Recurso | Tipo | Severidad | Mitigación).\n\n` +
-                        `### 5️⃣ Recomendaciones Estratégicas\n` +
-                        `Tabla **Plan 30/60/90 días**: Horizonte | Acción | Owner sugerido | Ahorro esperado | KPI de éxito (6-9 filas).\n` +
-                        `Incluí explícitamente: automatización (apagado fuera de horario), estandarización FOCUS, mejora de tagging policy, expansión de commitments coverage.\n\n` +
-                        `### 🧭 Veredicto Ejecutivo\n` +
-                        `3-4 líneas: estado general (saludable / requiere atención / acción urgente), prioridad #1 inmediata, presupuesto sugerido próximo mes, y estado FinOps del tenant.\n\n` +
-                        `**REGLAS ESTRICTAS**:\n` +
-                        `- TODAS las cifras del payload (USD, %, conteos). NUNCA inventes valores.\n` +
-                        `- Si un dato falta → "n/d" y explicá en Gobernanza qué se necesita.\n` +
-                        `- Acciones con verbos accionables (eliminar, redimensionar, migrar, programar, etiquetar, comprar reserva).\n` +
-                        `- Tono: profesional, decisorio, sin disclaimers. Markdown válido con tablas GFM.\n` +
-                        `- Extensión objetivo: 900-1200 palabras.`,
-                    pageContext: 'Reporte Ejecutivo FinOps Integral',
-                    dataPayload: compactPayloadString(compactPayload),
+                    metricsData: compactPayload,
                     tenantId: selectedTenant.id,
-                    locale: 'es'
+                    locale,
+                    subscriptionId: selectedSubscriptionId,
+                    subscriptionName: selectedSubscriptionName,
+                    sendEmailToRequester
                 })
             });
-            if (!res.ok || !res.body) {
+            if (!res.ok) {
                 const t = await res.text();
                 throw new Error(`HTTP ${res.status}: ${t.slice(0, 200)}`);
             }
-            const reader = res.body.getReader();
-            const decoder = new TextDecoder();
-            let acc = '';
-            while (true) {
-                const { value, done } = await reader.read();
-                if (done) break;
-                acc += decoder.decode(value, { stream: true });
-                setAiReport(acc);
-            }
-            acc += decoder.decode();
-            setAiReport(acc);
+            const data = await res.json();
+            const createdJobId = Number(data?.jobId || 0);
+            if (!createdJobId) throw new Error(t('aiGenerationError'));
+            setReportJobId(createdJobId);
+            setReportJobStatus('queued');
         } catch (e: any) {
             setAiError(e?.message || t('aiGenerationError'));
-        } finally {
             setAiLoading(false);
+            setReportJobStatus('failed');
         }
     };
 
-    // Auto-trigger AI report cuando llegan los datos
     useEffect(() => {
-        if (!loadingData && audit && !aiReport && !aiLoading && !aiError) {
-            generateAiReport();
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [loadingData, audit]);
+        const fromUrl = Number(searchParams.get('reportJob')) || 0;
+        if (!fromUrl || selectedTenant.id === 'default') return;
+
+        let cancelled = false;
+        (async () => {
+            try {
+                const job = await fetchReportJob(fromUrl);
+                if (cancelled || !job) return;
+                setReportJobId(job.id);
+                setReportJobStatus(job.status || 'idle');
+                if (job.status === 'completed') {
+                    setAiReport(String(job.report || ''));
+                    setAiLoading(false);
+                } else if (job.status === 'failed') {
+                    setAiError(job.error || t('aiGenerationError'));
+                    setAiLoading(false);
+                } else {
+                    setAiLoading(true);
+                }
+            } catch (e: any) {
+                if (!cancelled) {
+                    setAiError(e?.message || t('aiGenerationError'));
+                    setAiLoading(false);
+                }
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [searchParams, selectedTenant.id]);
+
+    useEffect(() => {
+        if (!reportJobId || (reportJobStatus !== 'queued' && reportJobStatus !== 'processing')) return;
+        let cancelled = false;
+
+        const tick = async () => {
+            try {
+                const job = await fetchReportJob(reportJobId);
+                if (cancelled || !job) return;
+                const status = (job.status || 'idle') as ReportJobStatus;
+                setReportJobStatus(status);
+
+                if (status === 'completed') {
+                    setAiReport(String(job.report || ''));
+                    setAiLoading(false);
+                } else if (status === 'failed') {
+                    setAiError(job.error || t('aiGenerationError'));
+                    setAiLoading(false);
+                } else {
+                    setAiLoading(true);
+                }
+            } catch (e: any) {
+                if (!cancelled) {
+                    setAiError(e?.message || t('aiGenerationError'));
+                    setAiLoading(false);
+                }
+            }
+        };
+
+        void tick();
+        const intervalId = setInterval(tick, 5000);
+        return () => {
+            cancelled = true;
+            clearInterval(intervalId);
+        };
+    }, [reportJobId, reportJobStatus, selectedTenant.id, selectedSubscriptionId, accounts, instance]);
+
+    const jobStatusLabel = useMemo(() => {
+        if (reportJobStatus === 'queued') return t('jobQueued');
+        if (reportJobStatus === 'processing') return t('jobProcessing');
+        if (reportJobStatus === 'completed') return t('jobCompleted');
+        if (reportJobStatus === 'failed') return t('jobFailed');
+        return '';
+    }, [reportJobStatus, t]);
+
+    // Directiva: el reporte ejecutivo se genera solo por acción explícita del usuario.
 
     if (selectedTenant.id === 'default') {
         return (
@@ -516,8 +581,11 @@ export default function ReportGeneratorPage() {
                     <p className="text-gray-500 dark:text-gray-400 mt-2">
                         {t('pageSubtitle')}
                     </p>
+                    <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1.5 inline-block mt-2">
+                        {t('aiDisclaimer')}
+                    </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col items-stretch sm:items-end gap-2 w-full md:w-auto">
                     <div className="flex items-center gap-2">
                         <label htmlFor="report-scope" className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                             {t('scopeLabel')}
@@ -537,17 +605,36 @@ export default function ReportGeneratorPage() {
                             ))}
                         </select>
                     </div>
-                    <button
-                        onClick={generateAiReport}
-                        disabled={aiLoading || loadingData}
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold disabled:opacity-50"
-                    >
-                        {aiLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                        {aiLoading ? t('generatingButton') : t('regenerateButton')}
-                    </button>
-                    <PdfExportButton targetId="pdf-export-area" tenantName={selectedTenant.name} />
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={generateAiReport}
+                            disabled={aiLoading || loadingData || loadingSubscriptions}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold disabled:opacity-50"
+                        >
+                            {aiLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                            {aiLoading ? t('generatingButton') : t('regenerateButton')}
+                        </button>
+                        <PdfExportButton targetId="pdf-export-area" tenantName={selectedTenant.name} />
+                    </div>
+                    <label className="inline-flex items-center gap-2 text-xs text-gray-600 w-full sm:w-auto">
+                        <input
+                            type="checkbox"
+                            className="h-3.5 w-3.5 rounded border-gray-300"
+                            checked={sendEmailToRequester}
+                            onChange={(e) => setSendEmailToRequester(e.target.checked)}
+                        />
+                        <span>{t('emailOptionLabel')}</span>
+                    </label>
                 </div>
             </div>
+
+            {jobStatusLabel && (
+                <div className="mb-4 flex flex-wrap items-center gap-2 text-xs">
+                    <span className="px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+                        {jobStatusLabel}
+                    </span>
+                </div>
+            )}
 
             <div className="bg-gray-100 dark:bg-slate-800 p-8 rounded-xl border border-gray-200 dark:border-slate-700">
                 <div className="mb-4 flex items-center text-sm font-bold text-gray-500 uppercase tracking-wider">

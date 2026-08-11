@@ -15,6 +15,7 @@ type NetworkingZombieItem = {
     armType: string;
     resourceGroup: string;
     subscriptionId: string;
+    region: string;
     monthlyCost: number;
     reason: string;
     daysIdle: number;
@@ -93,7 +94,7 @@ export async function GET(request: NextRequest) {
         // Se cachea (auditService) junto con el resto del audit, así este
         // endpoint no dispara llamadas extra a Resource Graph.
         const subscriptionId = searchParams.get("subscriptionId") || undefined;
-        const cacheKey = `cleanup:zombies-networking:v1:${tenantId}:${subscriptionId || 'all'}`;
+        const cacheKey = `cleanup:zombies-networking:v2:${tenantId}:${subscriptionId || 'all'}`;
         const payload = await getWithStaleWhileRevalidate(cacheKey, () => fetchNetworkingZombies(tenantId, subscriptionId), 1800, 600);
         const payloadWithExemptions = await attachZombieExemptions(tenantId, payload);
         return NextResponse.json({ success: true, mock: false, ...payloadWithExemptions });
@@ -105,6 +106,10 @@ export async function GET(request: NextRequest) {
         }
         return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
+}
+
+function resolveRegion(row: any): string {
+    return String(row?.location || row?.region || row?.resourceLocation || "-");
 }
 
 async function fetchNetworkingZombies(tenantId: string, subscriptionId: string | undefined): Promise<NetworkingZombiePayload> {
@@ -127,6 +132,7 @@ async function fetchNetworkingZombies(tenantId: string, subscriptionId: string |
                 armType: "Microsoft.Network/applicationGateways",
                 resourceGroup: agw.resourceGroup,
                 subscriptionId: agw.subscriptionId,
+                region: resolveRegion(agw),
                 monthlyCost: cost,
                 reason: "Sin backend pools o reglas de ruteo configuradas",
                 daysIdle: 30,
@@ -144,6 +150,7 @@ async function fetchNetworkingZombies(tenantId: string, subscriptionId: string |
                 armType: "Microsoft.Network/bastionHosts",
                 resourceGroup: b.resourceGroup,
                 subscriptionId: b.subscriptionId,
+                region: resolveRegion(b),
                 monthlyCost: /premium/i.test(sku) ? 280.0 : /standard/i.test(sku) ? 209.0 : 137.0,
                 reason: "Revisar uso — Bastion no expone sesiones vía Resource Graph, validar necesidad real",
                 daysIdle: 0,
@@ -194,6 +201,7 @@ async function fetchNetworkingZombies(tenantId: string, subscriptionId: string |
                     armType: cfg.armType,
                     resourceGroup: r.resourceGroup,
                     subscriptionId: r.subscriptionId,
+                    region: resolveRegion(r),
                     monthlyCost: cfg.monthlyCost,
                     reason: cfg.reason,
                     daysIdle: cfg.daysIdle ?? 30,

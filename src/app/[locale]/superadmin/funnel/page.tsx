@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useMsal } from '@azure/msal-react';
 import { getFreshIdToken } from '@/lib/msalToken';
 import Pagination, { usePagination } from '@/components/Pagination';
+import { IconChartBar } from '@tabler/icons-react';
 
 interface KPIs {
   signups_30d: number;
@@ -176,7 +177,10 @@ function FunnelContent({
   return (
     <div className="space-y-8 p-8">
       <div>
-        <h1 className="text-4xl font-bold text-gray-900">{t('title')}</h1>
+        <h1 className="text-4xl font-bold text-gray-900 flex items-center gap-2">
+          <IconChartBar className="w-8 h-8 text-brand-deep" />
+          {t('title')}
+        </h1>
         <p className="text-gray-600 mt-2">{t('subtitle')}</p>
       </div>
 

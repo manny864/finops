@@ -121,10 +121,13 @@ export default function FinancialLeaksBoard() {
                 </div>
             </div>
 
-            <div className="card">
-                <h3 className="text-lg font-bold text-[var(--brand-deep)] mb-4">
-                    {t("affectedResources", { fallback: "Recursos con Fuga Financiera" })}
-                </h3>
+            <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-sm p-4">
+                <div className="flex items-center gap-2 mb-4">
+                    <AlertCircle className="w-4 h-4 text-[var(--brand-deep)]" />
+                    <h3 className="text-sm font-heading font-bold uppercase tracking-wide text-slate-700 dark:text-slate-200">
+                        {t("affectedResources", { fallback: "Recursos con Fuga Financiera" })}
+                    </h3>
+                </div>
                 <ZombieResourcesTable forceFilterType={selectedCategory || undefined} />
             </div>
         </div>

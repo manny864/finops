@@ -26,7 +26,10 @@ export default function PdfExportButton({ targetId, tenantName, auditData }: Pdf
             // Usar html-to-image en lugar de html2canvas para soportar Tailwind V4 (lab/oklch)
             const imgData = await toPng(element, { 
                 backgroundColor: '#ffffff',
-                pixelRatio: 2 // Mayor calidad
+                pixelRatio: 2, // Mayor calidad
+                // Evita fetch de @font-face remotas (p.ej. Google Fonts) que
+                // falla en algunos entornos y corta la exportación.
+                fontEmbedCSS: ''
             });
 
             const pdf = new jsPDF({
@@ -34,21 +37,22 @@ export default function PdfExportButton({ targetId, tenantName, auditData }: Pdf
                 unit: 'mm',
                 format: 'a4'
             });
+            const margin = 20;
 
             // Añadir el Header corporativo
             pdf.setFontSize(16);
             pdf.setFont("helvetica", "bold");
             pdf.setTextColor(0, 84, 166); // Color Corporativo #0054A6
-            pdf.text('CSCloudSolutions - FinOps Executive Report', 15, 20);
+            pdf.text('CSCloudSolutions - FinOps Executive Report', margin, margin);
             
             pdf.setFontSize(10);
             pdf.setFont("helvetica", "normal");
             pdf.setTextColor(100, 100, 100);
-            pdf.text(`Tenant Auditado: ${tenantName}`, 15, 28);
-            pdf.text(`Fecha de Generación: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`, 15, 34);
+            pdf.text(`Tenant Auditado: ${tenantName}`, margin, margin + 8);
+            pdf.text(`Fecha de Generación: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`, margin, margin + 14);
 
             // Calcular dimensiones respetando márgenes
-            const pdfWidth = pdf.internal.pageSize.getWidth() - 30; // 15mm por lado
+            const pdfWidth = pdf.internal.pageSize.getWidth() - (margin * 2);
             
             // Cargar imagen temporal para sacar sus medidas
             const img = new Image();
@@ -56,9 +60,23 @@ export default function PdfExportButton({ targetId, tenantName, auditData }: Pdf
             await new Promise((resolve) => { img.onload = resolve; });
             
             const pdfHeight = (img.height * pdfWidth) / img.width;
+            const pageHeight = pdf.internal.pageSize.getHeight();
+            const topFirstPage = margin + 20; // header + separación
+            const topNextPages = margin;
+            const bottomMargin = margin;
+            const printableFirstPage = pageHeight - topFirstPage - bottomMargin;
+            const printableNextPages = pageHeight - topNextPages - bottomMargin;
 
-            // Insertar captura del dashboard
-            pdf.addImage(imgData, 'PNG', 15, 45, pdfWidth, pdfHeight);
+            // Insertar captura del dashboard en tantas páginas como sea necesario.
+            pdf.addImage(imgData, 'PNG', margin, topFirstPage, pdfWidth, pdfHeight);
+            let heightLeft = pdfHeight - printableFirstPage;
+            while (heightLeft > 0) {
+                pdf.addPage();
+                const renderedHeight = pdfHeight - heightLeft;
+                const yOffset = topNextPages - renderedHeight;
+                pdf.addImage(imgData, 'PNG', margin, yOffset, pdfWidth, pdfHeight);
+                heightLeft -= printableNextPages;
+            }
             
             if (auditData && auditData.length > 0) {
                 pdf.addPage();
@@ -66,7 +84,7 @@ export default function PdfExportButton({ targetId, tenantName, auditData }: Pdf
                 pdf.setFontSize(14);
                 pdf.setFont("helvetica", "bold");
                 pdf.setTextColor(0, 84, 166);
-                pdf.text('Desglose de Recursos Afectados e Ineficiencias', 15, 20);
+                pdf.text('Desglose de Recursos Afectados e Ineficiencias', margin, margin);
 
                 const tableBody = auditData.map(item => [
                     item.resourceName || item.name || 'N/A',
@@ -75,7 +93,7 @@ export default function PdfExportButton({ targetId, tenantName, auditData }: Pdf
                 ]);
 
                 autoTable(pdf, {
-                    startY: 30,
+                    startY: margin + 10,
                     head: [['Recurso Afectado', 'Motivo', 'Gasto Generado (USD)']],
                     body: tableBody,
                     theme: 'striped',
@@ -83,15 +101,18 @@ export default function PdfExportButton({ targetId, tenantName, auditData }: Pdf
                     styles: { fontSize: 9 }
                 });
             }
-            
-            // Abrir en nueva ventana (preview)
-            const pdfBlobUrl = pdf.output('bloburl');
-            window.open(pdfBlobUrl, '_blank');
-            
-            // Opcional: Descargar también el archivo
-            // pdf.save(filename);
-            
-            toast.success("Reporte Ejecutivo generado", { description: "El PDF se ha abierto en una nueva pestaña" });
+
+            const safeTenant = String(tenantName || "Cliente")
+                .trim()
+                .replace(/\s+/g, "_")
+                .replace(/[^a-zA-Z0-9_-]/g, "");
+            const date = new Date();
+            const fileDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+            const filename = `Reporte_Ejecutivo_${safeTenant || "Cliente"}_${fileDate}.pdf`;
+
+            pdf.save(filename);
+
+            toast.success("Reporte Ejecutivo generado", { description: "El PDF se descargó con el nombre estándar." });
             addAction({ message: `Reporte Ejecutivo PDF generado exitosamente.`, status: 'success' });
         } catch (error: any) {
             console.error(error);

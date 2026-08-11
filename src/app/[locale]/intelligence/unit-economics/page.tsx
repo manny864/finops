@@ -1,5 +1,6 @@
 import React from 'react';
 import { getTranslations } from 'next-intl/server';
+import { IconChartBar } from '@tabler/icons-react';
 import MockBanner from '@/components/MockBanner';
 import UnitEconomics from '@/components/dashboard/UnitEconomics';
 
@@ -12,7 +13,7 @@ export default async function UnitEconomicsPage() {
             <div className="vhead">
                 <div>
                     <div className="vt">
-                        <span className="vico bg-gradient-to-br from-[#0054A6] to-[#00AEEF]">📊</span>
+                        <span className="vico"><IconChartBar className="w-5 h-5" /></span>
                         {t("title")}
                     </div>
                     <div className="vs">{t("subtitle")}</div>

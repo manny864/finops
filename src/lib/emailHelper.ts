@@ -91,6 +91,74 @@ export async function sendEmailAsync(
   }
 }
 
+/**
+ * Variante síncrona/estricta para flujos que necesitan confirmar entrega.
+ * Lanza error si falta configuración o Graph responde != 2xx.
+ */
+export async function sendEmailStrict(
+  subject: string,
+  htmlContent: string,
+  recipientEmail: string,
+  attachments?: EmailAttachment[]
+): Promise<void> {
+  const senderEmail = process.env.AZURE_SENDER_EMAIL;
+  if (!senderEmail) {
+    throw new Error("AZURE_SENDER_EMAIL not configured");
+  }
+
+  const tokenResponse = await fetch(
+    `https://login.microsoftonline.com/${process.env.AZURE_TENANT_ID}/oauth2/v2.0/token`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: process.env.AZURE_CLIENT_ID || '',
+        scope: 'https://graph.microsoft.com/.default',
+        client_secret: process.env.AZURE_CLIENT_SECRET || '',
+        grant_type: 'client_credentials',
+      }),
+    }
+  );
+
+  if (!tokenResponse.ok) {
+    throw new Error(`[Email] Failed to fetch MS Graph token: ${await tokenResponse.text()}`);
+  }
+
+  const tokenData = await tokenResponse.json() as any;
+  const accessToken = tokenData.access_token;
+
+  const mailPayload = {
+    message: {
+      subject,
+      body: { contentType: 'HTML', content: htmlContent },
+      toRecipients: [{ emailAddress: { address: recipientEmail } }],
+      attachments: attachments?.map((a) => ({
+        '@odata.type': '#microsoft.graph.fileAttachment',
+        name: a.name,
+        contentType: a.contentType,
+        contentBytes: a.contentBase64,
+      })),
+    },
+    saveToSentItems: 'false',
+  };
+
+  const sendResponse = await fetch(
+    `https://graph.microsoft.com/v1.0/users/${senderEmail}/sendMail`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + accessToken,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(mailPayload),
+    }
+  );
+
+  if (!sendResponse.ok) {
+    throw new Error(`[Email] Failed to send email: ${await sendResponse.text()}`);
+  }
+}
+
 export function getWelcomeEmailHtml(userEmail: string, companyName: string, planName: string): string {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://finops.example.com';
   

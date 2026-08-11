@@ -117,6 +117,7 @@ export async function POST(request: NextRequest) {
         }
 
         const { model, modelName, config: aiConfig } = await AIProviderFactory.getGeminiModel(effectiveTenantId);
+        const wantsExecutiveReport = /reporte ejecutivo|executive report|alta direccion|alta dirección|cfo|cto|ceo|board|directorio|informe ejecutivo/i.test(String(prompt || ""));
 
         let dataString = "";
         try {
@@ -147,7 +148,21 @@ Rules:
 - Cuando recomiendes acciones: priorizá por impacto económico (USD/mes ahorrado) y esfuerzo (bajo/medio/alto), como máximo 3-5 ítems — no listes todo, elegí lo más accionable.
 - Riesgos/supuestos: 1-2 bullets como máximo, solo si son relevantes para la decisión.
 - Si el payload está vacío o no es suficiente, decílo en una línea y sugerí qué datos faltan.
-- Idioma de respuesta: ${locale === 'es' ? 'Español' : locale === 'pt-BR' ? 'Portugués (Brasil)' : 'Inglés'}.`;
+- Idioma de respuesta: ${locale === 'es' ? 'Español' : locale === 'pt-BR' ? 'Portugués (Brasil)' : 'Inglés'}.
+
+${wantsExecutiveReport ? `EXECUTIVE_REPORT_MODE (mandatory):
+- Ignore the short-answer limits above and produce a DEEP executive report.
+- Scope: review ALL available tenant metrics in context_data (cost, budget, unit economics, allocation, commitments, rightsizing, zombies/orphans, governance/tags, anomalies, forecast, and security cost impact when available).
+- Build exactly these sections:
+  1) Resumen Ejecutivo (tabla KPI actual vs periodo anterior vs variación vs target).
+  2) Economía Unitaria (costo por usuario/transacción, cloud as % ingresos, margen cuando exista dato).
+  3) Visibilidad y Asignación del Gasto (por unidad/centro de costo, gasto no asignado, costos compartidos).
+  4) Eficiencia Operativa y Optimización (rate optimization, usage optimization, recursos huérfanos/zombies, rightsizing, ahorro logrado y potencial).
+  5) Gobernanza, Forecast y Anomalías (proyección cierre trimestre/año, picos, cumplimiento de políticas).
+  6) Hoja de Ruta y Recomendaciones Estratégicas (decisiones para CFO/CTO/CEO).
+- Every section must include quantified findings (USD, %, conteos), a short business interpretation, and concrete actions.
+- If a metric is missing, explicitly mark it as "Dato no disponible en este tenant" and continue.
+- Close with a prioritized action table: decisión, impacto económico estimado, esfuerzo, dueño sugerido, plazo.` : ''}`;
 
         const userMessage = `<page_context>${pageContext ?? ''}</page_context>
 <context_data>
@@ -171,7 +186,7 @@ ${prompt ?? ''}
             // system prompt) + margen para sintaxis Markdown (tablas, bullets,
             // negritas). Antes 2500 permitía respuestas largas que tardaban
             // más y no eran "acotadas" como pide el producto.
-            maxOutputTokens: 1400,
+            maxOutputTokens: wantsExecutiveReport ? 4200 : 1400,
             // Sin esto, un modelo colgado espera hasta maxDuration (60s) sin
             // ninguna señal — el usuario ve "tarda mucho" sin explicación. 25s
             // corta antes y el error queda logueado (ver onError abajo), aunque

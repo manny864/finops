@@ -157,18 +157,18 @@ export default function SimulatorPage() {
     return (
         <div className="p-6 max-w-7xl mx-auto animate-in fade-in duration-500 space-y-8">
             <MockBanner />
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-8 rounded-3xl text-white shadow-xl relative overflow-hidden">
-                <div className="absolute -right-10 -bottom-10 w-60 h-60 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-8 rounded-3xl border border-slate-200 shadow-xl relative overflow-hidden">
+                <div className="absolute -right-10 -bottom-10 w-60 h-60 bg-indigo-200/40 rounded-full blur-3xl pointer-events-none" />
                 <div className="relative z-10">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-xs font-semibold mb-3">
-                        <Sparkles className="w-3.5 h-3.5" />
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#E6F2FB] border border-[#B9D9F5] text-[#0054A6] text-xs font-semibold mb-3">
+                        <Sparkles className="w-3.5 h-3.5 text-[#0054A6]" />
                         FinOps ROI Simulator
                     </div>
-                    <h1 className="text-3xl md:text-4xl font-black tracking-tight text-white flex items-center gap-3">
-                        <Calculator className="w-9 h-9 text-indigo-400" />
+                    <h1 className="text-3xl md:text-4xl font-black tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-3">
+                        <Calculator className="w-9 h-9 text-[#0054A6]" />
                         {t('pageTitle')}
                     </h1>
-                    <p className="text-indigo-200/80 text-sm md:text-base mt-2 max-w-2xl">
+                    <p className="text-slate-600 dark:text-slate-300 text-sm md:text-base mt-2 max-w-2xl">
                         {t('pageSubtitle')}
                     </p>
                 </div>

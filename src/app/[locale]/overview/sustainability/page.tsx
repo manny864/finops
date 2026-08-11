@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useTenant } from "@/components/TenantProvider";
 import { useSubscription } from "@/components/SubscriptionProvider";
 import { Leaf, Wind, Zap, Loader2, Car, TreePine, Smartphone, MapPin, TrendingDown } from "lucide-react";
+import { IconLeaf } from "@tabler/icons-react";
 import { useProviderTranslations } from "@/lib/useProviderTranslations";
 import MockBanner from "@/components/MockBanner";
 import { useMsal } from "@azure/msal-react";
@@ -59,7 +60,9 @@ export default function SustainabilityPage() {
             <div className="vhead">
                 <div>
                     <div className="vt">
-                        <span className="vico bg-gradient-to-br from-[#10b981] to-[#047857]">🌱</span>
+                        <span className="vico bg-gradient-to-br from-[#10b981] to-[#047857]">
+                            <IconLeaf className="w-5 h-5" />
+                        </span>
                         {t("greenFinops")}
                     </div>
                     <div className="vs">{t("subtitle")}</div>

@@ -49,9 +49,11 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<string>('all');
+  const [filterRegion, setFilterRegion] = useState<string>('all');
   const [filterGroup, setFilterGroup] = useState<string>('all');
   const [filterIssue, setFilterIssue] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [sortMode, setSortMode] = useState<'name-asc' | 'name-desc' | 'cost-desc' | 'cost-asc'>('cost-desc');
   const [sorting, setSorting] = useState<SortingState>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -410,11 +412,13 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
         const idToken = await getFreshIdToken(instance, accounts[0]);
         const headers = { 'Authorization': `Bearer ${idToken}` };
 
+        let resolvedSubscriptions = subscriptions;
         if (subscriptions.length === 0) {
             const subRes = await fetch(`/api/subscriptions?tenantId=${tenantId}`, { headers });
             if (subRes.ok) {
                 const subJson = await subRes.json();
-                setSubscriptions(subJson.subscriptions || []);
+                resolvedSubscriptions = subJson.subscriptions || [];
+                setSubscriptions(resolvedSubscriptions);
             }
         }
 
@@ -497,6 +501,8 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                 issue: config.issue,
                 issueKey: key,
                 subscriptionId: r.subscriptionId || selectedSub,
+                subscriptionName: resolvedSubscriptions.find((sub: any) => sub.id === (r.subscriptionId || selectedSub))?.name || (r.subscriptionName || r.subscriptionId || selectedSub),
+                region: r.location || r.region || r.resourceLocation || r.geo || '-',
                 potentialSavings: r.estimatedMonthlyCost || (r.diskSizeGB ? r.diskSizeGB * 0.15 : (r.sizeGB ? r.sizeGB * 0.05 : config.savings)),
                 issueType: config.issueType,
                 manualDelete: config.manualDelete,
@@ -580,18 +586,24 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
   }, [accounts, instance, selectedSub, selectedTenant, forceFilterType]);
 
   const filteredData = useMemo(() => {
-    return data.filter(item => {
-        const matchName = !searchQuery || item.resourceName.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchType = !filterType || filterType === "all" || item.type.toLowerCase().includes(filterType.toLowerCase());
-        const matchGroup = !filterGroup || filterGroup === "all" || item.resourceGroup.toLowerCase().includes(filterGroup.toLowerCase());
+    const filtered = data.filter(item => {
+    const matchName = !searchQuery || String(item.resourceName || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const matchType = !filterType || filterType === "all" || String(item.type || '').toLowerCase().includes(filterType.toLowerCase());
+        const matchRegion = !filterRegion || filterRegion === "all" || String(item.region || '').toLowerCase().includes(filterRegion.toLowerCase());
+    const matchGroup = !filterGroup || filterGroup === "all" || String(item.resourceGroup || '').toLowerCase().includes(filterGroup.toLowerCase());
         const matchIssue = filterIssue === "all" || item.issueType === filterIssue;
         const matchExemption = exemptionFilter === 'all' || 
             (exemptionFilter === 'active' && !item.isExempted) || 
             (exemptionFilter === 'exempted' && item.isExempted);
         
-        return matchName && matchType && matchGroup && matchIssue && matchExemption;
+        return matchName && matchType && matchRegion && matchGroup && matchIssue && matchExemption;
     });
-  }, [data, filterType, filterGroup, filterIssue, searchQuery, exemptionFilter]);
+    if (sortMode === 'name-asc') filtered.sort((a, b) => String(a.resourceName || '').localeCompare(String(b.resourceName || '')));
+    if (sortMode === 'name-desc') filtered.sort((a, b) => String(b.resourceName || '').localeCompare(String(a.resourceName || '')));
+    if (sortMode === 'cost-desc') filtered.sort((a, b) => Number(b.potentialSavings || 0) - Number(a.potentialSavings || 0));
+    if (sortMode === 'cost-asc') filtered.sort((a, b) => Number(a.potentialSavings || 0) - Number(b.potentialSavings || 0));
+    return filtered;
+  }, [data, filterType, filterRegion, filterGroup, filterIssue, searchQuery, exemptionFilter, sortMode]);
 
   const hasLockedItems = useMemo(() => filteredData.some(item => item.isLocked), [filteredData]);
   const canDelete = canDeleteResources(selectedTenant.tier, 'zombies');
@@ -691,15 +703,26 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
             );
         }
       });
-      cols.push({
-        accessorKey: 'subscriptionId',
-        header: t('colSubscription'),
-        cell: info => {
-            const val = info.getValue() as string;
-            return <span className="text-xs font-mono text-gray-500">{val === 'all' ? 'N/A' : val.substring(0,8) + '...'}</span>;
-        }
-      });
     }
+
+    cols.push({
+      accessorKey: 'subscriptionName',
+      header: t('colSubscription'),
+      cell: ({ row }) => {
+        const item = row.original;
+        const label = item.subscriptionName || item.subscriptionId || 'N/A';
+        return <span className={`text-xs text-gray-600 dark:text-gray-400 ${item.isLocked ? 'filter blur-sm select-none' : ''}`}>{label}</span>;
+      }
+    });
+
+    cols.push({
+      accessorKey: 'region',
+      header: t('colRegion'),
+      cell: ({ row }) => {
+        const item = row.original;
+        return <span className={`text-xs text-gray-600 dark:text-gray-400 ${item.isLocked ? 'filter blur-sm select-none' : ''}`}>{item.region || '-'}</span>;
+      }
+    });
 
     cols.push({
       accessorKey: 'type',
@@ -854,6 +877,9 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    initialState: {
+      pagination: { pageSize: 15 },
+    },
   });
 
   if ((accounts.length === 0 && !isMockTenant(selectedTenant.id)) || selectedTenant.id === 'default') {
@@ -920,6 +946,20 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                 </datalist>
             </div>
             <div className="flex items-center space-x-2">
+                <label className="text-[11px] font-bold text-grey dark:text-gray-300 uppercase tracking-[0.5px]">{t('filterRegion')}</label>
+                <input
+                    type="text"
+                    list="region-list"
+                    placeholder={t('filterAllPlaceholder')}
+                    value={filterRegion === 'all' ? '' : filterRegion}
+                    onChange={e => setFilterRegion(e.target.value)}
+                    className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] p-2 outline-none w-32 focus:border-brand-bright focus:ring-1 focus:ring-brand-bright placeholder-ink-soft"
+                />
+                <datalist id="region-list">
+                    {Array.from(new Set(data.map(d => d.region))).filter(Boolean).sort().map((region: any) => <option key={region} value={region} />)}
+                </datalist>
+            </div>
+            <div className="flex items-center space-x-2">
                 <label className="text-[11px] font-bold text-grey dark:text-gray-300 uppercase tracking-[0.5px]">{t('filterGroup')}</label>
                 <input 
                     type="text"
@@ -947,6 +987,15 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                     <option value="all">Todos</option>
                     <option value="active">Activos</option>
                     <option value="exempted">Eximidos</option>
+                </select>
+            </div>
+            <div className="flex items-center space-x-2">
+                <label className="text-[11px] font-bold text-grey dark:text-gray-300 uppercase tracking-[0.5px]">{t('sortBy')}</label>
+                <select value={sortMode} onChange={e => setSortMode(e.target.value as any)} className="bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] p-2 outline-none w-40 focus:border-brand-bright focus:ring-1 focus:ring-brand-bright placeholder-ink-soft">
+                    <option value="name-asc">{t('sortAz')}</option>
+                    <option value="name-desc">{t('sortZa')}</option>
+                    <option value="cost-desc">{t('sortCostDesc')}</option>
+                    <option value="cost-asc">{t('sortCostAsc')}</option>
                 </select>
             </div>
         </div>
@@ -1074,7 +1123,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                         }}
                         className="ml-4 bg-surface-2 border border-line text-ink text-[13px] font-bold rounded-[10px] p-2 outline-none placeholder-ink-soft"
                     >
-                        {[10, 15, 20, 25, 50, 100].map(pageSize => (
+                        {[15, 30, 45, 60].map(pageSize => (
                             <option key={pageSize} value={pageSize}>
                                 {t('showOption', { size: pageSize })}
                             </option>

@@ -88,11 +88,6 @@ export default function TopExpensesBoard() {
 
     return (
         <div className="space-y-6">
-            <div>
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white">{t("title")}</h2>
-                <p className="text-sm text-gray-500 dark:text-gray-400">{t("subtitle")}</p>
-            </div>
-
             {isLoading && (
                 <div className="flex flex-col items-center justify-center py-20">
                     <Loader2 className="w-8 h-8 animate-spin text-brand-deep mb-4" />
