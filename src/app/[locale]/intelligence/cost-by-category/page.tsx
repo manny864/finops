@@ -2,7 +2,7 @@ import React from "react";
 import { getTranslations } from "next-intl/server";
 import MockBanner from '@/components/MockBanner';
 import CostByCategoryDashboard from "@/components/dashboard/CostByCategoryDashboard";
-import { PieChart } from "lucide-react";
+import { IconChartBar } from "@tabler/icons-react";
 
 export default async function CostByCategoryPage() {
     const t = await getTranslations("CostByCategory");
@@ -14,7 +14,7 @@ export default async function CostByCategoryPage() {
                 <div>
                     <div className="vt">
                         <span className="vico">
-                            <PieChart className="w-5 h-5" />
+                            <IconChartBar className="w-5 h-5" />
                         </span>
                         {t("title")}
                     </div>

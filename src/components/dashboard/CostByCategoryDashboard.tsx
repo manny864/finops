@@ -3,13 +3,13 @@ import React, { useState } from "react";
 import useSWR from "swr";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
-import { useTranslations } from "next-intl";
 import { useProviderTranslations } from "@/lib/useProviderTranslations";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { useCurrency } from "@/components/CurrencyProvider";
-import { Loader2, AlertCircle, Info, PieChart } from "lucide-react";
+import { Loader2, AlertCircle, Info } from "lucide-react";
 import { isMockTenant } from '@/lib/mockData';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
+import { IconChartBar } from "@tabler/icons-react";
 
 // Paleta por categoría FinOps (consistente en light/dark).
 const CATEGORY_COLORS: Record<string, string> = {
@@ -145,7 +145,7 @@ export default function CostByCategoryDashboard() {
             </div>
 
             <p className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
-                <PieChart className="w-3.5 h-3.5" /> {t("source")}
+                <IconChartBar className="w-3.5 h-3.5" /> {t("source")}
             </p>
         </div>
     );

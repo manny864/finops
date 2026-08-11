@@ -155,13 +155,13 @@ export default function HistoricalProgressPage() {
             <div className="vhead">
                 <div>
                     <div className="vt">
-                        <span className="vico bg-gradient-to-br from-[#0054A6] to-[#00AEEF]"><TrendingUp className="w-4 h-4" /></span>
+                        <span className="vico"><TrendingUp className="w-4 h-4" /></span>
                         {t('pageTitle')}
                     </div>
                     <div className="vs">{t('pageSubtitle')}</div>
                 </div>
                 <div className="right">
-                    <span className="bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full text-xs font-semibold flex items-center shadow-sm">
+                    <span className="bg-surface text-ink-soft border border-line px-3 py-1.5 rounded-full text-xs font-semibold flex items-center shadow-sm">
                         <MapPin className="w-3 h-3 mr-1 text-red-500 fill-red-500" />
                         {t('fullTenant')}
                     </span>

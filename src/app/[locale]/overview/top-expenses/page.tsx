@@ -11,7 +11,7 @@ export default async function TopExpensesPage() {
             <div className="vhead">
                 <div className="title">
                     <div className="vt">
-                        <span className="vico">
+                        <span className="vico !bg-transparent !shadow-none">
                             <IconChartBar className="w-5 h-5" />
                         </span>
                         <span className="font-heading">{t("title")}</span>

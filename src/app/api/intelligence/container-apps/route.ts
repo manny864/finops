@@ -34,7 +34,8 @@ export async function GET(request: NextRequest) {
         }
 
         // Selección de suscripción: explícita vía ?subscriptionId, o autodescubrimos
-        // la primera suscripción que tenga Container Apps.
+        // la primera suscripción que tenga Container Apps. Si ARG falla, degradamos
+        // a "All" en vez de responder vacío (evita cargas intermitentes).
         let targetSubscriptionId = searchParams.get("subscriptionId") || "";
         let availableSubscriptions: string[] = [];
         let selectedSubscriptionName = "N/A";
@@ -56,32 +57,19 @@ export async function GET(request: NextRequest) {
             } catch (e: unknown) {
                 const message = e instanceof Error ? e.message : String(e);
                 console.warn(`[Container Apps] No se pudieron listar suscripciones para ${tenantId}:`, message);
-                return NextResponse.json({
-                    success: true,
-                    empty: true,
-                    message:
-                        "No se pudieron listar los Container Apps. Verifique las credenciales del tenant y el rol Reader del Service Principal.",
-                    availableSubscriptions: [],
-                });
+                availableSubscriptions = [];
             }
 
-            if (availableSubscriptions.length === 0) {
-                console.info(`[Container Apps] 0 suscripciones con containerapps encontradas para tenant ${tenantId}`);
-                return NextResponse.json({
-                    success: true,
-                    empty: true,
-                    message: "No se encontraron Azure Container Apps en el tenant.",
-                    availableSubscriptions: [],
-                });
-            }
-
-            if (!targetSubscriptionId || !availableSubscriptions.includes(targetSubscriptionId)) {
+            if (availableSubscriptions.length > 0 && (!targetSubscriptionId || !availableSubscriptions.includes(targetSubscriptionId))) {
                 targetSubscriptionId = availableSubscriptions[0];
             }
+            if (!targetSubscriptionId) targetSubscriptionId = "All";
 
             const credential = await getAzureCredential(tenantId);
             const subscriptionNameMap = await getSubscriptionNameMap(tenantId, credential);
-            selectedSubscriptionName = resolveSubscriptionName(targetSubscriptionId, subscriptionNameMap) || targetSubscriptionId;
+            selectedSubscriptionName = targetSubscriptionId === "All"
+                ? "All subscriptions"
+                : (resolveSubscriptionName(targetSubscriptionId, subscriptionNameMap) || targetSubscriptionId);
         } else {
             selectedSubscriptionName = "Demo Subscription";
         }

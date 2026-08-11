@@ -9,7 +9,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
-import { getFreshIdToken } from '@/lib/msalToken';
+import { fetchWithAuthRetry } from '@/lib/msalToken';
 import { isMockTenant } from '@/lib/mockData';
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts';
 import { Boxes, Loader2, Package, Server, Zap } from 'lucide-react';
@@ -29,13 +29,13 @@ export default function ContainerAppsCard() {
     const t = useTranslations('ContainerApps');
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
+    const account = accounts[0];
     const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string>('');
 
     useEffect(() => {
-        if (!selectedTenant?.id || selectedTenant.id === 'default' || (accounts.length === 0 && !isMockTenant(selectedTenant.id))) {
-            setLoading(false);
+        if (!selectedTenant?.id || selectedTenant.id === 'default' || (!account && !isMockTenant(selectedTenant.id))) {
             return;
         }
         let cancelled = false;
@@ -43,10 +43,12 @@ export default function ContainerAppsCard() {
             setLoading(true);
             setError('');
             try {
-                const idToken = await getFreshIdToken(instance, accounts[0], ['User.Read']);
-                const res = await fetch(`/api/intelligence/container-apps?tenantId=${selectedTenant.id}`, {
-                    headers: { Authorization: `Bearer ${idToken}` },
-                });
+                const url = `/api/intelligence/container-apps?tenantId=${selectedTenant.id}`;
+                let res = await fetchWithAuthRetry(instance, account!, url, undefined, ['User.Read']);
+                if (!res.ok && res.status >= 500) {
+                    await new Promise((resolve) => setTimeout(resolve, 300));
+                    res = await fetchWithAuthRetry(instance, account!, url, undefined, ['User.Read']);
+                }
                 const json = await res.json();
                 if (!cancelled) {
                     if (!res.ok) setError(json.error || t('no_access'));
@@ -59,7 +61,7 @@ export default function ContainerAppsCard() {
             }
         })();
         return () => { cancelled = true; };
-    }, [selectedTenant?.id, accounts.length, instance, t]);
+    }, [selectedTenant?.id, account, instance, t]);
 
     const chartData = useMemo(() => {
         const rows: AppRow[] = data?.apps || [];

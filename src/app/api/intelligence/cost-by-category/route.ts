@@ -17,49 +17,20 @@ import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { getCurrentMonthAmortizedCosts } from "@/modules/collectors/azure/billingService";
 import Decimal from "decimal.js";
 
-type CategoryRow = { category: string; cost: number };
+type CategoryRow = { category: string; cost: Decimal };
 
-async function getLiveCategoriesMtd(tenantId: string): Promise<{ categories: CategoryRow[]; total: number } | null> {
+async function getLiveMtdTotal(tenantId: string): Promise<Decimal | null> {
     try {
         const entries = await getCurrentMonthAmortizedCosts(tenantId, "All", "ActualCost");
         if (!entries || entries.length === 0) return null;
 
-        const [rows]: any = await pool.query(
-            `SELECT LOWER(consumed_service) AS consumed_service, MAX(service_category) AS category
-             FROM OpenDataServices
-             GROUP BY LOWER(consumed_service)`
-        );
-        const serviceToCategory = new Map<string, string>();
-        for (const row of rows || []) {
-            const key = String(row.consumed_service || "").trim();
-            const category = String(row.category || "").trim() || "Other";
-            if (key) serviceToCategory.set(key, category);
-        }
-
-        const categoryTotals = new Map<string, Decimal>();
         let total = new Decimal(0);
         for (const entry of entries) {
             const cost = new Decimal(entry.EffectiveCost || entry.BilledCost || 0);
             if (cost.lte(0)) continue;
-            const serviceName = String(entry.ServiceName || "").trim().toLowerCase();
-            const category = serviceToCategory.get(serviceName) || "Other";
-            categoryTotals.set(category, (categoryTotals.get(category) || new Decimal(0)).plus(cost));
             total = total.plus(cost);
         }
-
-        if (total.lte(0)) return null;
-        const categories = Array.from(categoryTotals.entries())
-            .map(([category, cost]) => ({
-                category,
-                cost: Number(cost.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString()),
-            }))
-            .filter((r) => r.cost > 0)
-            .sort((a, b) => b.cost - a.cost);
-
-        return {
-            categories,
-            total: Number(total.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString()),
-        };
+        return total.gt(0) ? total : null;
     } catch (error) {
         console.warn("[cost-by-category] live MTD fallback to snapshots:", (error as Error)?.message);
         return null;
@@ -81,6 +52,20 @@ async function runSnapshotQuery(tenantId: string, days: number) {
         [tenantId, days]
     );
     return rows as Array<{ category: string; cost: string | number }>;
+}
+
+function sumCategoryCost(rows: CategoryRow[]): Decimal {
+    return rows.reduce((acc, row) => acc.plus(row.cost), new Decimal(0));
+}
+
+function scaleCategoryRows(rows: CategoryRow[], targetTotal: Decimal): CategoryRow[] {
+    const currentTotal = sumCategoryCost(rows);
+    if (currentTotal.lte(0) || targetTotal.lte(0)) return rows;
+    const factor = targetTotal.dividedBy(currentTotal);
+    return rows.map((row) => ({
+        category: row.category,
+        cost: row.cost.times(factor).toDecimalPlaces(8, Decimal.ROUND_HALF_UP),
+    }));
 }
 
 export async function GET(request: NextRequest) {
@@ -105,22 +90,7 @@ export async function GET(request: NextRequest) {
         }
 
         try {
-            const live = await getLiveCategoriesMtd(tenantId);
-            if (live && live.categories.length > 0) {
-                const categories = live.categories.map((r) => ({
-                    category: r.category,
-                    cost: r.cost,
-                    percent: live.total > 0 ? Math.round((r.cost / live.total) * 100) : 0,
-                }));
-                return NextResponse.json({
-                    success: true,
-                    mock: false,
-                    categories,
-                    total: live.total,
-                    topCategory: categories[0]?.category || null,
-                    diagnostics: { requestedDays: days, effectiveDays: "mtd-live", rowsFound: categories.length },
-                });
-            }
+            const liveTotal = await getLiveMtdTotal(tenantId);
 
             // Ventana solicitada; si vacía, ampliar a 90 y luego 365 días.
             let rows = await runSnapshotQuery(tenantId, days);
@@ -129,15 +99,19 @@ export async function GET(request: NextRequest) {
             if (rows.length === 0) { rows = await runSnapshotQuery(tenantId, 365); effectiveDays = 365; }
 
             const parsed = rows
-                .map(r => ({ category: r.category || "Other", cost: parseFloat(String(r.cost)) || 0 }))
-                .filter(r => r.cost > 0)
-                .sort((a, b) => b.cost - a.cost);
+                .map((r) => ({ category: r.category || "Other", cost: new Decimal(r.cost || 0) }))
+                .filter((r) => r.cost.gt(0))
+                .sort((a, b) => b.cost.minus(a.cost).toNumber());
 
-            const total = parsed.reduce((s, r) => s + r.cost, 0);
-            const categories = parsed.map(r => ({
+            const effectiveRows = parsed.length > 0
+                ? (liveTotal ? scaleCategoryRows(parsed, liveTotal) : parsed)
+                : (liveTotal ? [{ category: "Other", cost: liveTotal }] : []);
+
+            const total = sumCategoryCost(effectiveRows);
+            const categories = effectiveRows.map((r) => ({
                 category: r.category,
-                cost: parseFloat(r.cost.toFixed(2)),
-                percent: total > 0 ? Math.round((r.cost / total) * 100) : 0,
+                cost: Number(r.cost.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString()),
+                percent: total.gt(0) ? Math.round(r.cost.dividedBy(total).times(100).toNumber()) : 0,
             }));
 
             if (categories.length === 0) {
@@ -152,9 +126,14 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({
                 success: true, mock: false,
                 categories,
-                total: parseFloat(total.toFixed(2)),
+                total: Number(total.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString()),
                 topCategory: categories[0]?.category || null,
-                diagnostics: { requestedDays: days, effectiveDays, rowsFound: categories.length },
+                diagnostics: {
+                    requestedDays: days,
+                    effectiveDays,
+                    rowsFound: categories.length,
+                    source: liveTotal ? "snapshot-categories-live-total-anchored" : "snapshot-categories",
+                },
             });
         } catch (dbErr: any) {
             console.error("[cost-by-category] DB error for real tenant:", tenantId, dbErr?.message);

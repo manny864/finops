@@ -4,10 +4,11 @@ import PageHeaderTierBadge from '@/components/dashboard/PageHeaderTierBadge';
 import React, { useEffect, useState } from 'react';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
-import { Target, TrendingUp, AlertTriangle, CheckCircle2, Loader2, Info, Eye, DollarSign, Settings } from 'lucide-react';
+import { Target, TrendingUp, Loader2, Info, Eye, Settings } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { isMockTenant, getMockDataForRoute } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
+import { IconRocket, IconTag, IconCoins } from '@tabler/icons-react';
 
 
 export default function MaturityPage() {
@@ -248,12 +249,12 @@ export default function MaturityPage() {
   const crawlToWalk = `${t('levels.crawl')} → ${t('levels.walk')}`;
   const walkToRun = `${t('levels.walk')} → ${t('levels.run')}`;
   const recsMock = {
-      "Auto": { title: t('recommendations.automation.title'), action: crawlToWalk, desc: t('recommendations.automation.desc'), icon: "🤖", bg: "bg-amber-soft text-amber" },
-      "Gov": { title: t('recommendations.governance.title'), action: walkToRun, desc: t('recommendations.governance.desc'), icon: "🏷️", bg: "bg-[#E6F2FB] text-brand-deep" },
-      "Visibility": { title: t('recommendations.visibility.title'), action: crawlToWalk, desc: t('recommendations.visibility.desc'), icon: "👁️", bg: "bg-amber-soft text-amber" },
-      "RateOpt": { title: t('recommendations.rateOptimization.title'), action: crawlToWalk, desc: t('recommendations.rateOptimization.desc'), icon: "💸", bg: "bg-[#E6F2FB] text-brand-deep" },
-      "UsageOpt": { title: t('recommendations.usageOptimization.title'), action: walkToRun, desc: t('recommendations.usageOptimization.desc'), icon: "📉", bg: "bg-amber-soft text-amber" },
-      "Culture": { title: t('recommendations.culture.title'), action: crawlToWalk, desc: t('recommendations.culture.desc'), icon: "👥", bg: "bg-green-soft text-green" },
+      "Auto": { title: t('recommendations.automation.title'), action: crawlToWalk, desc: t('recommendations.automation.desc'), icon: <Settings className="w-5 h-5" />, bg: "bg-amber-soft text-amber" },
+      "Gov": { title: t('recommendations.governance.title'), action: walkToRun, desc: t('recommendations.governance.desc'), icon: <IconTag className="w-5 h-5" />, bg: "bg-[#E6F2FB] text-brand-deep" },
+      "Visibility": { title: t('recommendations.visibility.title'), action: crawlToWalk, desc: t('recommendations.visibility.desc'), icon: <Eye className="w-5 h-5" />, bg: "bg-amber-soft text-amber" },
+      "RateOpt": { title: t('recommendations.rateOptimization.title'), action: crawlToWalk, desc: t('recommendations.rateOptimization.desc'), icon: <IconCoins className="w-5 h-5" />, bg: "bg-[#E6F2FB] text-brand-deep" },
+      "UsageOpt": { title: t('recommendations.usageOptimization.title'), action: walkToRun, desc: t('recommendations.usageOptimization.desc'), icon: <TrendingUp className="w-5 h-5" />, bg: "bg-amber-soft text-amber" },
+      "Culture": { title: t('recommendations.culture.title'), action: crawlToWalk, desc: t('recommendations.culture.desc'), icon: <Info className="w-5 h-5" />, bg: "bg-green-soft text-green" },
   };
 
   return (
@@ -269,8 +270,8 @@ export default function MaturityPage() {
               
               <div>
                   <div className="text-[23px] font-extrabold text-ink tracking-tight flex items-center gap-[11px]">
-                      <span className="w-9 h-9 rounded-[10px] flex items-center justify-center bg-gradient-to-br from-brand-deep to-brand-bright text-white shadow-sm">
-                          <Target className="w-5 h-5" />
+                  <span className="w-9 h-9 rounded-[10px] flex items-center justify-center text-brand-deep">
+                      <Target className="w-6 h-6" />
                       </span>
                       {t('pageTitle')}
                   </div>
@@ -343,7 +344,7 @@ export default function MaturityPage() {
               <div className="bg-surface border border-line rounded-[14px] shadow-[0_1px_2px_rgba(16,40,73,0.06),0_8px_24px_rgba(16,40,73,0.07)]">
                   <div className="flex items-center justify-between p-[15px_18px] border-b border-line">
                       <h3 className="text-[14px] font-bold text-ink flex items-center gap-[9px]">
-                          🚀 {t('levelUpTitle')}
+                          <IconRocket className="w-4 h-4 text-brand-deep" /> {t('levelUpTitle')}
                       </h3>
                   </div>
                   <div className="flex flex-col">
