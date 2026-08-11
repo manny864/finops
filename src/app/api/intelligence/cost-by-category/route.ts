@@ -14,8 +14,59 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
+import { getCurrentMonthAmortizedCosts } from "@/modules/collectors/azure/billingService";
+import Decimal from "decimal.js";
 
-async function runQuery(tenantId: string, days: number) {
+type CategoryRow = { category: string; cost: number };
+
+async function getLiveCategoriesMtd(tenantId: string): Promise<{ categories: CategoryRow[]; total: number } | null> {
+    try {
+        const entries = await getCurrentMonthAmortizedCosts(tenantId, "All", "ActualCost");
+        if (!entries || entries.length === 0) return null;
+
+        const [rows]: any = await pool.query(
+            `SELECT LOWER(consumed_service) AS consumed_service, MAX(service_category) AS category
+             FROM OpenDataServices
+             GROUP BY LOWER(consumed_service)`
+        );
+        const serviceToCategory = new Map<string, string>();
+        for (const row of rows || []) {
+            const key = String(row.consumed_service || "").trim();
+            const category = String(row.category || "").trim() || "Other";
+            if (key) serviceToCategory.set(key, category);
+        }
+
+        const categoryTotals = new Map<string, Decimal>();
+        let total = new Decimal(0);
+        for (const entry of entries) {
+            const cost = new Decimal(entry.EffectiveCost || entry.BilledCost || 0);
+            if (cost.lte(0)) continue;
+            const serviceName = String(entry.ServiceName || "").trim().toLowerCase();
+            const category = serviceToCategory.get(serviceName) || "Other";
+            categoryTotals.set(category, (categoryTotals.get(category) || new Decimal(0)).plus(cost));
+            total = total.plus(cost);
+        }
+
+        if (total.lte(0)) return null;
+        const categories = Array.from(categoryTotals.entries())
+            .map(([category, cost]) => ({
+                category,
+                cost: Number(cost.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString()),
+            }))
+            .filter((r) => r.cost > 0)
+            .sort((a, b) => b.cost - a.cost);
+
+        return {
+            categories,
+            total: Number(total.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString()),
+        };
+    } catch (error) {
+        console.warn("[cost-by-category] live MTD fallback to snapshots:", (error as Error)?.message);
+        return null;
+    }
+}
+
+async function runSnapshotQuery(tenantId: string, days: number) {
     const [rows]: any = await pool.query(
         `SELECT COALESCE(s.cat, 'Other') AS category,
                 SUM(c.cost_usd) AS cost
@@ -54,11 +105,28 @@ export async function GET(request: NextRequest) {
         }
 
         try {
+            const live = await getLiveCategoriesMtd(tenantId);
+            if (live && live.categories.length > 0) {
+                const categories = live.categories.map((r) => ({
+                    category: r.category,
+                    cost: r.cost,
+                    percent: live.total > 0 ? Math.round((r.cost / live.total) * 100) : 0,
+                }));
+                return NextResponse.json({
+                    success: true,
+                    mock: false,
+                    categories,
+                    total: live.total,
+                    topCategory: categories[0]?.category || null,
+                    diagnostics: { requestedDays: days, effectiveDays: "mtd-live", rowsFound: categories.length },
+                });
+            }
+
             // Ventana solicitada; si vacía, ampliar a 90 y luego 365 días.
-            let rows = await runQuery(tenantId, days);
+            let rows = await runSnapshotQuery(tenantId, days);
             let effectiveDays = days;
-            if (rows.length === 0 && days < 90) { rows = await runQuery(tenantId, 90); effectiveDays = 90; }
-            if (rows.length === 0) { rows = await runQuery(tenantId, 365); effectiveDays = 365; }
+            if (rows.length === 0 && days < 90) { rows = await runSnapshotQuery(tenantId, 90); effectiveDays = 90; }
+            if (rows.length === 0) { rows = await runSnapshotQuery(tenantId, 365); effectiveDays = 365; }
 
             const parsed = rows
                 .map(r => ({ category: r.category || "Other", cost: parseFloat(String(r.cost)) || 0 }))
