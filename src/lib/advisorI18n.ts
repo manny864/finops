@@ -22,6 +22,11 @@ type Entry = {
   solution?: Trio;
 };
 
+type GlossaryEntry = {
+  match: RegExp;
+  replace: Record<Exclude<AdvisorLocale, "en">, string>;
+};
+
 function normalize(locale: string | undefined): AdvisorLocale {
   const l = (locale || "es").toLowerCase();
   if (l.startsWith("pt")) return "pt-BR";
@@ -424,6 +429,39 @@ const ENTRIES: Entry[] = [
   },
 ];
 
+// Fallback de traducción para recomendaciones no cubiertas por ENTRIES.
+// Se aplica por frases completas (más seguras que palabra suelta) y mantiene
+// el texto original si no hay reemplazos.
+const FALLBACK_GLOSSARY: GlossaryEntry[] = [
+  { match: /right-?size/gi, replace: { es: "redimensionar", "pt-BR": "redimensionar" } },
+  { match: /underutilized/gi, replace: { es: "subutilizadas", "pt-BR": "subutilizadas" } },
+  { match: /virtual machines?/gi, replace: { es: "máquinas virtuales", "pt-BR": "máquinas virtuais" } },
+  { match: /sql databases?/gi, replace: { es: "bases de datos SQL", "pt-BR": "bancos de dados SQL" } },
+  { match: /reserved instances?/gi, replace: { es: "instancias reservadas", "pt-BR": "instâncias reservadas" } },
+  { match: /savings plan/gi, replace: { es: "plan de ahorro", "pt-BR": "plano de economia" } },
+  { match: /pay-?as-?you-?go/gi, replace: { es: "pago por uso", "pt-BR": "pagamento por uso" } },
+  { match: /costs?/gi, replace: { es: "costos", "pt-BR": "custos" } },
+  { match: /save money/gi, replace: { es: "ahorrar dinero", "pt-BR": "economizar dinheiro" } },
+  { match: /delete/gi, replace: { es: "eliminar", "pt-BR": "excluir" } },
+  { match: /remove/gi, replace: { es: "eliminar", "pt-BR": "remover" } },
+  { match: /unattached/gi, replace: { es: "no adjuntos", "pt-BR": "não anexados" } },
+  { match: /unassociated/gi, replace: { es: "no asociadas", "pt-BR": "não associados" } },
+  { match: /public ip addresses?/gi, replace: { es: "direcciones IP públicas", "pt-BR": "endereços IP públicos" } },
+  { match: /storage accounts?/gi, replace: { es: "cuentas de almacenamiento", "pt-BR": "contas de armazenamento" } },
+  { match: /enable/gi, replace: { es: "habilitar", "pt-BR": "habilitar" } },
+  { match: /configure/gi, replace: { es: "configurar", "pt-BR": "configurar" } },
+  { match: /recommendation/gi, replace: { es: "recomendación", "pt-BR": "recomendação" } },
+];
+
+function applyFallbackGlossary(text: string, locale: AdvisorLocale): string {
+  if (locale === "en") return text;
+  let out = text;
+  for (const entry of FALLBACK_GLOSSARY) {
+    out = out.replace(entry.match, entry.replace[locale]);
+  }
+  return out;
+}
+
 /**
  * Traduce un texto de Azure Advisor (problem o solution) al locale activo.
  * Si no hay coincidencia, devuelve el texto original.
@@ -445,7 +483,7 @@ export function translateAdvisorText(
     if (primary && primary[target]) return primary[target];
     if (secondary && secondary[target]) return secondary[target];
   }
-  return text;
+  return applyFallbackGlossary(text, target);
 }
 
 /** Nombres localizados para tipos de recursos zombie/audit. */
