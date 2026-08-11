@@ -56,7 +56,6 @@ jobs:
   build:
     needs: test
     runs-on: ubuntu-latest
-    environment: staging
     outputs:
       image_tag: ${{ steps.build.outputs.tag }}
     steps:
