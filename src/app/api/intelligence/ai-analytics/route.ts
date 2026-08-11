@@ -157,15 +157,17 @@ function reconcileAiRowsWithMeterCost(aiRows: AggRow[], meterRows: AggRow[]): Ag
     }
 
     const aiByDate = new Map<string, { totalCost: Decimal; totalTokens: number }>();
+    const aiRowCountByDate = new Map<string, number>();
     for (const row of aiRows) {
         const dateKey = toDateKey(row.date);
         const current = aiByDate.get(dateKey) || { totalCost: new Decimal(0), totalTokens: 0 };
         current.totalCost = current.totalCost.plus(new Decimal(row.cost || 0));
         current.totalTokens += Number(row.inputTokens || 0) + Number(row.outputTokens || 0);
         aiByDate.set(dateKey, current);
+        aiRowCountByDate.set(dateKey, (aiRowCountByDate.get(dateKey) || 0) + 1);
     }
 
-    return aiRows.map((row) => {
+    const reconciledRows = aiRows.map((row) => {
         const dateKey = toDateKey(row.date);
         const meterTotal = meterByDate.get(dateKey);
         if (!meterTotal || meterTotal.lte(0)) return row;
@@ -182,7 +184,21 @@ function reconcileAiRowsWithMeterCost(aiRows: AggRow[], meterRows: AggRow[]): Ag
         } else if (aiDay.totalTokens > 0) {
             share = new Decimal(rowTokens).dividedBy(aiDay.totalTokens);
         } else {
-            return row;
+            const rowCount = aiRowCountByDate.get(dateKey) || 0;
+            if (rowCount > 0) {
+                share = new Decimal(1).dividedBy(rowCount);
+            } else {
+                return row;
+            }
+        }
+
+        if (share.lte(0)) {
+            const rowCount = aiRowCountByDate.get(dateKey) || 0;
+            if (rowCount > 0) {
+                share = new Decimal(1).dividedBy(rowCount);
+            } else {
+                return row;
+            }
         }
 
         const reconciledCost = meterTotal.times(share);
@@ -191,6 +207,60 @@ function reconcileAiRowsWithMeterCost(aiRows: AggRow[], meterRows: AggRow[]): Ag
             cost: reconciledCost.toDecimalPlaces(8, Decimal.ROUND_HALF_UP),
         };
     });
+
+    // Si Cost Management tiene costo para una fecha sin filas de tokens,
+    // agregamos una fila sintética para no perder costo mensual total.
+    for (const [dateKey, meterTotal] of meterByDate.entries()) {
+        if (meterTotal.lte(0) || aiByDate.has(dateKey)) continue;
+        reconciledRows.push({
+            model_name: "unattributed-foundry-cost",
+            application: "cost-management",
+            team: "Sin asignar",
+            date: dateKey,
+            cost: meterTotal.toDecimalPlaces(8, Decimal.ROUND_HALF_UP),
+            inputTokens: 0,
+            outputTokens: 0,
+        });
+    }
+
+    return reconciledRows;
+}
+
+function toMonthStart(date: Date): Date {
+    return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function filterRowsByCurrentMonth(rows: AggRow[]): AggRow[] {
+    const now = new Date();
+    const startKey = formatDateKey(toMonthStart(now));
+    const endKey = formatDateKey(now);
+    return rows.filter((row) => {
+        const key = toDateKey(row.date);
+        return key >= startKey && key <= endKey;
+    });
+}
+
+function withMonthSummary(payload: any, rowsForMonth: AggRow[]) {
+    const monthCost = sumRowsCost(rowsForMonth);
+    const monthInput = rowsForMonth.reduce((acc, row) => acc + (Number(row.inputTokens || 0)), 0);
+    const monthOutput = rowsForMonth.reduce((acc, row) => acc + (Number(row.outputTokens || 0)), 0);
+    const totalTokens = monthInput + monthOutput;
+    return {
+        ...payload,
+        summary: {
+            ...payload.summary,
+            totalCost: toCostNumber(monthCost),
+            totalInputTokens: monthInput,
+            totalOutputTokens: monthOutput,
+            costPer1kTokens: totalTokens > 0
+                ? monthCost.dividedBy(totalTokens).times(1000).toDecimalPlaces(6, Decimal.ROUND_HALF_UP).toNumber()
+                : payload.summary?.costPer1kTokens || 0,
+        },
+    };
+}
+
+function sumRowsCost(rows: AggRow[]): Decimal {
+    return rows.reduce((acc, row) => acc.plus(new Decimal(row.cost || 0)), new Decimal(0));
 }
 
 function aggregate(rows: AggRow[], tokensAvailable: boolean) {
@@ -329,11 +399,11 @@ async function fetchAIAnalytics(tenantId: string, days: number) {
             ? reconcileAiRowsWithMeterCost(aiRows as AggRow[], meterRows as AggRow[])
             : (aiRows as AggRow[]);
         const recentRows = filterRowsByDays(effectiveAiRows, days);
-        return {
+        return withMonthSummary({
             ...aggregate(recentRows, true),
             trendMtd: buildTrendMtd(effectiveAiRows),
             source: hasMeterRows ? "ai-snapshots-reconciled-with-meter" : "ai-snapshots",
-        };
+        }, filterRowsByCurrentMonth(effectiveAiRows));
     }
 
     if (meterRows && meterRows.length > 0) {
