@@ -379,7 +379,7 @@ async function fetchAIAnalytics(tenantId: string, days: number) {
          FROM CostMeterSnapshots
          WHERE tenant_id = ? AND date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
            AND (
-                OR LOWER(service_name) LIKE '%openai%'
+                LOWER(service_name) LIKE '%openai%'
                 OR LOWER(MeterCategory) LIKE '%openai%'
                 OR LOWER(MeterName) LIKE '%openai%'
                 OR LOWER(MeterSubCategory) LIKE '%openai%'
@@ -428,7 +428,7 @@ async function fetchAIAnalytics(tenantId: string, days: number) {
          FROM CostSnapshots
          WHERE tenant_id = ? AND date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
            AND (
-                OR LOWER(service_name) LIKE '%openai%'
+                LOWER(service_name) LIKE '%openai%'
                 OR LOWER(MeterCategory) LIKE '%openai%'
                 OR LOWER(MeterName) LIKE '%openai%'
                 OR LOWER(MeterSubCategory) LIKE '%openai%'
