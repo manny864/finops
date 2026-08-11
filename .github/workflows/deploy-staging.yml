@@ -29,7 +29,7 @@ env:
   IMAGE: finops
   RG: cscs-finops-stg-westus2-rg
   APP: cscs-finops-staging-westus2-web
-  MIGRATE_JOB: cscs-finops-staging-wus2-migrate
+  MIGRATE_JOB: cscs-finops-stg-wus2-migrate
   MIGRATE_TAG_SUFFIX: builder
 
 jobs:
