@@ -123,35 +123,68 @@ jobs:
       - name: Resolve staging resources
         id: resolve
         run: |
-          SUB_ID=$(az account show --query id -o tsv)
-          SUB_NAME=$(az account show --query name -o tsv)
-          echo "Using subscription: $SUB_NAME ($SUB_ID)"
+          RESOLVED_SUB=""
+          RESOLVED_SUB_NAME=""
+          RESOLVED_RG=""
+          APP_NAME=""
+          JOB_NAME=""
 
-          if [ "$(az group exists -n $RG)" != "true" ]; then
-            echo "❌ Resource Group '$RG' not found in this subscription."
+          try_resolve_in_subscription() {
+            local sub_id="$1"
+            az account set -s "$sub_id" >/dev/null
+
+            local sub_name
+            sub_name=$(az account show --query name -o tsv)
+            echo "Checking subscription: $sub_name ($sub_id)"
+
+            local rg_candidate="$RG"
+            if [ "$(az group exists -n "$rg_candidate")" != "true" ]; then
+              rg_candidate=$(az group list --query "[?contains(name, 'finops') && contains(name, 'stg') && contains(name, 'westus2')][0].name" -o tsv)
+            fi
+            [ -z "$rg_candidate" ] && return 1
+
+            local app_candidate="$APP"
+            if ! az containerapp show -n "$app_candidate" -g "$rg_candidate" >/dev/null 2>&1; then
+              app_candidate=$(az containerapp list -g "$rg_candidate" --query "[?contains(name, 'web')][0].name" -o tsv)
+            fi
+            [ -z "$app_candidate" ] && return 1
+
+            local job_candidate="$MIGRATE_JOB"
+            if ! az containerapp job show -n "$job_candidate" -g "$rg_candidate" >/dev/null 2>&1; then
+              job_candidate=$(az containerapp job list -g "$rg_candidate" --query "[?contains(name, 'migrate')][0].name" -o tsv)
+            fi
+            [ -z "$job_candidate" ] && return 1
+
+            RESOLVED_SUB="$sub_id"
+            RESOLVED_SUB_NAME="$sub_name"
+            RESOLVED_RG="$rg_candidate"
+            APP_NAME="$app_candidate"
+            JOB_NAME="$job_candidate"
+            return 0
+          }
+
+          DEFAULT_SUB=$(az account show --query id -o tsv)
+          if ! try_resolve_in_subscription "$DEFAULT_SUB"; then
+            while read -r SUB; do
+              [ -z "$SUB" ] && continue
+              [ "$SUB" = "$DEFAULT_SUB" ] && continue
+              if try_resolve_in_subscription "$SUB"; then
+                break
+              fi
+            done < <(az account list --query "[].id" -o tsv)
+          fi
+
+          if [ -z "$RESOLVED_SUB" ]; then
+            echo "❌ Could not resolve staging Container App + migration job in available subscriptions."
+            echo "Visible subscriptions:"
+            az account list --query "[].{name:name,id:id}" -o table || true
             exit 1
           fi
 
-          APP_NAME="$APP"
-          if ! az containerapp show -n "$APP_NAME" -g "$RG" >/dev/null 2>&1; then
-            APP_NAME=$(az containerapp list -g "$RG" --query "[?contains(name, 'web')][0].name" -o tsv)
-          fi
-
-          if [ -z "$APP_NAME" ]; then
-            echo "❌ No Container App found in '$RG'."
-            exit 1
-          fi
-
-          JOB_NAME="$MIGRATE_JOB"
-          if ! az containerapp job show -n "$JOB_NAME" -g "$RG" >/dev/null 2>&1; then
-            JOB_NAME=$(az containerapp job list -g "$RG" --query "[?contains(name, 'migrate')][0].name" -o tsv)
-          fi
-
-          if [ -z "$JOB_NAME" ]; then
-            echo "❌ No migration job found in '$RG'."
-            exit 1
-          fi
-
+          az account set -s "$RESOLVED_SUB" >/dev/null
+          echo "Resolved: $RESOLVED_SUB_NAME ($RESOLVED_SUB), RG=$RESOLVED_RG, APP=$APP_NAME, JOB=$JOB_NAME"
+          echo "subscription_id=$RESOLVED_SUB" >> $GITHUB_OUTPUT
+          echo "resource_group=$RESOLVED_RG" >> $GITHUB_OUTPUT
           echo "app_name=$APP_NAME" >> $GITHUB_OUTPUT
           echo "job_name=$JOB_NAME" >> $GITHUB_OUTPUT
 
@@ -159,18 +192,21 @@ jobs:
       - name: Run database migrations
         run: |
           IMAGE_TAG="staging-${{ github.sha }}-$MIGRATE_TAG_SUFFIX"
+          SUB_ID="${{ steps.resolve.outputs.subscription_id }}"
+          RESOLVED_RG="${{ steps.resolve.outputs.resource_group }}"
           JOB_NAME="${{ steps.resolve.outputs.job_name }}"
+          az account set -s "$SUB_ID" >/dev/null
           
           # Actualizar la imagen del job
           az containerapp job update \
             -n $JOB_NAME \
-            -g $RG \
+            -g $RESOLVED_RG \
             --image $ACR.azurecr.io/$IMAGE:$IMAGE_TAG
           
           # Ejecutar el job
           EXEC_ID=$(az containerapp job start \
             -n $JOB_NAME \
-            -g $RG \
+            -g $RESOLVED_RG \
             --query executionId -o tsv)
           
           echo "Migration job started: $EXEC_ID"
@@ -180,7 +216,7 @@ jobs:
             while true; do
               STATUS=\$(az containerapp job execution show \
                 -n $JOB_NAME \
-                -g $RG \
+                -g $RESOLVED_RG \
                 --execution-id \$EXEC_ID \
                 --query status -o tsv)
               
@@ -201,20 +237,26 @@ jobs:
       - name: Update Container App
         run: |
           IMAGE_TAG="staging-${{ github.sha }}"
+          SUB_ID="${{ steps.resolve.outputs.subscription_id }}"
+          RESOLVED_RG="${{ steps.resolve.outputs.resource_group }}"
           APP_NAME="${{ steps.resolve.outputs.app_name }}"
+          az account set -s "$SUB_ID" >/dev/null
           
           az containerapp update \
             -n $APP_NAME \
-            -g $RG \
+            -g $RESOLVED_RG \
             --image $ACR.azurecr.io/$IMAGE:$IMAGE_TAG
 
       # Health check
       - name: Health check
         run: |
+          SUB_ID="${{ steps.resolve.outputs.subscription_id }}"
+          RESOLVED_RG="${{ steps.resolve.outputs.resource_group }}"
           APP_NAME="${{ steps.resolve.outputs.app_name }}"
+          az account set -s "$SUB_ID" >/dev/null
           HOSTNAME=$(az containerapp show \
             -n $APP_NAME \
-            -g $RG \
+            -g $RESOLVED_RG \
             --query 'properties.latestRevisionFqdn' -o tsv)
           
           echo "Checking $HOSTNAME..."
@@ -239,11 +281,15 @@ jobs:
         if: always()
         run: |
           STATUS="${{ job.status }}"
+          SUB_ID="${{ steps.resolve.outputs.subscription_id }}"
+          RESOLVED_RG="${{ steps.resolve.outputs.resource_group }}"
           APP_NAME="${{ steps.resolve.outputs.app_name }}"
+          [ -z "$RESOLVED_RG" ] && RESOLVED_RG="$RG"
           [ -z "$APP_NAME" ] && APP_NAME="$APP"
+          [ ! -z "$SUB_ID" ] && az account set -s "$SUB_ID" >/dev/null || true
           HOSTNAME=$(az containerapp show \
             -n $APP_NAME \
-            -g $RG \
+            -g $RESOLVED_RG \
             --query 'properties.latestRevisionFqdn' -o tsv 2>/dev/null || true)
           [ -z "$HOSTNAME" ] && HOSTNAME="N/A"
           
