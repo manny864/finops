@@ -19,6 +19,11 @@ export async function GET(request: NextRequest) {
         const tenantId = searchParams.get("tenantId");
         if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
 
+        if (isMockTenant(tenantId)) {
+            const data = await getOrphanedBackupItems(tenantId);
+            return NextResponse.json({ success: true, mock: true, ...data });
+        }
+
         // Feature Essential (gratis para todos los tenants) — solo chequeo de
         // pertenencia al tenant, sin gate de tier.
         await requireTenantAccess(request, tenantId);

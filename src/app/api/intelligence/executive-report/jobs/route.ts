@@ -9,6 +9,8 @@ import { notifyTenant } from "@/lib/notifications";
 import { sendEmailStrict, type EmailAttachment } from "@/lib/emailHelper";
 import { escapeHtml } from "@/lib/htmlEscape";
 import { jsPDF } from "jspdf";
+import { isMockTenant } from "@/lib/mockData";
+import { getMockExecutiveReportJob } from "@/lib/executiveReportMock";
 import {
     EXECUTIVE_REPORT_RETENTION_DAYS,
     saveExecutiveReportMarkdown,
@@ -333,6 +335,11 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Faltan parámetros (tenantId, metricsData)" }, { status: 400 });
         }
 
+        if (isMockTenant(tenantId)) {
+            const mockJobId = Number(Date.now());
+            return NextResponse.json({ success: true, jobId: mockJobId, status: "queued" satisfies JobStatus });
+        }
+
         if (!(await isAiGloballyEnabled())) {
             return NextResponse.json({
                 error: "Las funciones de IA están deshabilitadas a nivel plataforma por un Super Administrador.",
@@ -398,6 +405,15 @@ export async function GET(request: NextRequest) {
 
         if (!tenantId) {
             return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
+        }
+
+        if (isMockTenant(tenantId)) {
+            const mockJob = getMockExecutiveReportJob({
+                jobId: jobId > 0 ? jobId : 90003,
+                subscriptionId,
+                subscriptionName: subscriptionId === "All" ? "Tenant completo" : subscriptionId,
+            });
+            return NextResponse.json({ success: true, job: mockJob });
         }
 
         const identity = await requireTenantAccess(request, tenantId);

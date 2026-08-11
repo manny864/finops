@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { getMockDataForRoute, getMockCostGroupDetail, getMockNetworkServiceCostV2, isMockTenant } from '@/lib/mockData';
+import { getMockExecutiveReportById, getMockExecutiveReportHistory, getMockExecutiveReportJob } from '@/lib/executiveReportMock';
 import { usePathname, useRouter } from 'next/navigation';
 import { getFreshIdToken } from '@/lib/msalToken';
 import { parsePermissions, type RoleTag } from '@/lib/pageRoleTags';
@@ -281,7 +282,44 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               if (url.includes('/api/intelligence/forecast')) return new Response(JSON.stringify(getMockDataForRoute('forecast', mockKey)), {status: 200});
               if (url.includes('/api/intelligence/maturity')) return new Response(JSON.stringify(getMockDataForRoute('maturity', mockKey)), {status: 200});
               if (url.includes('/api/cleanup/zombies/networking')) return new Response(JSON.stringify(getMockDataForRoute('networking_zombies', mockKey)), {status: 200});
+              if (url.includes('/api/cleanup/backup-orphans')) return new Response(JSON.stringify(getMockDataForRoute('backup_orphans', mockKey)), {status: 200});
               if (url.includes('/api/cleanup/zombies')) return new Response(JSON.stringify(getMockDataForRoute('audit_full', mockKey)), {status: 200});
+              if (url.includes('/api/intelligence/executive-report/jobs')) {
+                  const method = (init?.method || 'GET').toUpperCase();
+                  if (method === 'POST') {
+                      return new Response(JSON.stringify({ success: true, jobId: 90003, status: 'queued' }), { status: 200 });
+                  }
+                  const parsed = new URL(url, window.location.origin);
+                  const jobId = Number(parsed.searchParams.get('jobId')) || 90003;
+                  const subscriptionId = parsed.searchParams.get('subscriptionId') || 'All';
+                  const job = getMockExecutiveReportJob({
+                      jobId,
+                      subscriptionId,
+                      subscriptionName: subscriptionId === 'All' ? 'Tenant completo' : subscriptionId,
+                  });
+                  return new Response(JSON.stringify({ success: true, job }), { status: 200 });
+              }
+              if (url.includes('/api/intelligence/executive-report/history/')) {
+                  const parsed = new URL(url, window.location.origin);
+                  const id = Number(parsed.pathname.split('/').pop() || 0);
+                  const detail = getMockExecutiveReportById(id);
+                  if (!detail) return new Response(JSON.stringify({ error: 'Reporte no encontrado' }), { status: 404 });
+                  return new Response(JSON.stringify({ success: true, retentionDays: 90, report: detail.report, metadata: detail.metadata }), { status: 200 });
+              }
+              if (url.includes('/api/intelligence/executive-report/history')) {
+                  const parsed = new URL(url, window.location.origin);
+                  const page = Number(parsed.searchParams.get('page')) || 1;
+                  const pageSize = Number(parsed.searchParams.get('pageSize')) || 15;
+                  const history = getMockExecutiveReportHistory(page, pageSize);
+                  return new Response(JSON.stringify({
+                      success: true,
+                      retentionDays: 90,
+                      page,
+                      pageSize,
+                      total: history.total,
+                      items: history.items,
+                  }), { status: 200 });
+              }
               if (url.includes('/api/cleanup/ttl/policies')) {
                   const method = (init?.method || 'GET').toUpperCase();
                   if (method === 'GET') return new Response(JSON.stringify(getMockDataForRoute('ttl_policies', mockKey)), {status: 200});

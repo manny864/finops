@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
 import { EXECUTIVE_REPORT_RETENTION_DAYS, readExecutiveReportMarkdown } from "@/lib/executiveReportStorage";
+import { isMockTenant } from "@/lib/mockData";
+import { getMockExecutiveReportById } from "@/lib/executiveReportMock";
 
 let hasStoredNameColumnCache: boolean | null = null;
 
@@ -27,6 +29,17 @@ export async function GET(
         const tenantId = searchParams.get("tenantId");
         if (!tenantId) {
             return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
+        }
+
+        if (isMockTenant(tenantId)) {
+            const mock = getMockExecutiveReportById(jobId);
+            if (!mock) return NextResponse.json({ error: "Reporte no encontrado" }, { status: 404 });
+            return NextResponse.json({
+                success: true,
+                retentionDays: EXECUTIVE_REPORT_RETENTION_DAYS,
+                report: mock.report,
+                metadata: mock.metadata,
+            });
         }
 
         await requireTenantAccess(request, tenantId);

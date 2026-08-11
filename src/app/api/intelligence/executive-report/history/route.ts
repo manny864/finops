@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
 import { EXECUTIVE_REPORT_RETENTION_DAYS } from "@/lib/executiveReportStorage";
+import { isMockTenant } from "@/lib/mockData";
+import { getMockExecutiveReportHistory } from "@/lib/executiveReportMock";
 
 let hasStoredNameColumnCache: boolean | null = null;
 
@@ -24,6 +26,18 @@ export async function GET(request: NextRequest) {
 
         if (!tenantId) {
             return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
+        }
+
+        if (isMockTenant(tenantId)) {
+            const mock = getMockExecutiveReportHistory(page, pageSize);
+            return NextResponse.json({
+                success: true,
+                retentionDays: EXECUTIVE_REPORT_RETENTION_DAYS,
+                page,
+                pageSize,
+                total: mock.total,
+                items: mock.items,
+            });
         }
 
         await requireTenantAccess(request, tenantId);

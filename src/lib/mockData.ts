@@ -670,6 +670,40 @@ export const getMockDataForRoute = (route: string, arg2: string, locale?: string
             const privateEndpointAccumulation = { totalCount: totalPrivateEndpoints, estimatedMonthlyCost: Number((totalPrivateEndpoints * 7.2).toFixed(2)) };
             return { success: true, mock: true, items, totalMonthlyWaste, privateEndpointAccumulation, privateEndpointsDetail };
         }
+        case 'backup_orphans': {
+            return {
+                success: true,
+                mock: true,
+                items: [
+                    {
+                        subscriptionId: 'mock-sub-1',
+                        subscriptionName: 'Production',
+                        region: 'eastus',
+                        vaultName: 'rsv-prod-backup',
+                        resourceGroup: 'rg-backups',
+                        itemName: 'vm-decommissioned-01',
+                        sourceResourceId: '/subscriptions/mock-sub-1/resourceGroups/rg-prod/providers/Microsoft.Compute/virtualMachines/vm-decommissioned-01',
+                        backupManagementType: 'AzureIaasVM',
+                        protectionState: 'ProtectionStopped',
+                        estimatedMonthlyCost: 12.0,
+                    },
+                    {
+                        subscriptionId: 'mock-sub-2',
+                        subscriptionName: 'Staging',
+                        region: 'westeurope',
+                        vaultName: 'rsv-stg-backup',
+                        resourceGroup: 'rg-stg-backups',
+                        itemName: 'sqldb-legacy-app',
+                        sourceResourceId: '/subscriptions/mock-sub-2/resourceGroups/rg-data/providers/Microsoft.Sql/servers/sql-legacy',
+                        backupManagementType: 'AzureWorkload',
+                        protectionState: 'ProtectionStopped',
+                        estimatedMonthlyCost: 8.0,
+                    },
+                ],
+                totalEstimatedMonthlyCost: 20.0,
+                dataAvailable: true,
+            };
+        }
         case 'history':
             // Genera 12 puntos semanales terminando hoy, con score creciente
             // según el tier (multiplier). Refleja "evolución de optimización"
