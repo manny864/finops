@@ -216,27 +216,41 @@ jobs:
 
           echo "Migration job started: $EXEC_NAME"
           
-          # Esperar a que termine (max 5 min)
-          timeout 300 bash -c "
-            while true; do
-              STATUS=\$(az containerapp job execution show \
-                -n $JOB_NAME \
-                -g $RESOLVED_RG \
-                --job-execution-name $EXEC_NAME \
-                --query status -o tsv)
-              
-              if [ \"\$STATUS\" = \"Completed\" ]; then
-                echo '✓ Migrations completed'
+          # Esperar a que termine (max 15 min)
+          DEADLINE=$((SECONDS + 900))
+          while [ $SECONDS -lt $DEADLINE ]; do
+            STATUS=$(az containerapp job execution show \
+              -n "$JOB_NAME" \
+              -g "$RESOLVED_RG" \
+              --job-execution-name "$EXEC_NAME" \
+              --query "coalesce(properties.status, status, properties.provisioningState)" \
+              -o tsv 2>/dev/null || true)
+
+            if [ -z "$STATUS" ]; then
+              STATUS=$(az containerapp job execution list \
+                -n "$JOB_NAME" \
+                -g "$RESOLVED_RG" \
+                --query "[?name=='$EXEC_NAME'] | [0].properties.status" \
+                -o tsv 2>/dev/null || true)
+            fi
+
+            case "$STATUS" in
+              Completed|Succeeded)
+                echo "✓ Migrations completed ($STATUS)"
                 exit 0
-              elif [ \"\$STATUS\" = \"Failed\" ]; then
-                echo '✗ Migrations failed'
+                ;;
+              Failed)
+                echo "✗ Migrations failed"
                 exit 1
-              fi
-              
-              echo \"Status: \$STATUS. Waiting...\"
-              sleep 10
-            done
-          " || exit 1
+                ;;
+            esac
+
+            echo "Status: ${STATUS:-unknown}. Waiting..."
+            sleep 10
+          done
+
+          echo "✗ Migration timeout after 15 minutes"
+          exit 1
 
       # Actualizar Container App (web)
       - name: Update Container App
