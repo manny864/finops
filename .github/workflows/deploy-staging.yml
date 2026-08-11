@@ -8,6 +8,12 @@ on:
       - 'infra/**'
       - 'docs/**'
       - '**.md'
+      - '**/*.png'
+      - '**/*.jpg'
+      - '**/*.jpeg'
+      - '**/*.gif'
+      - '**/*.svg'
+      - '**/*.webp'
   workflow_dispatch:
 
 permissions:
@@ -35,12 +41,13 @@ jobs:
       # Linter
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
+          cache-dependency-path: package-lock.json
 
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run typecheck
+      - run: npm ci --no-audit --no-fund --prefer-offline --loglevel=error
+      - run: npm run lint -- --quiet
+      - run: npm run typecheck -- --pretty false
       
       # Tests (staging puede fallar tests y deployar igual si el usuario lo permite)
       - run: npm run test:coverage
@@ -49,6 +56,7 @@ jobs:
   build:
     needs: test
     runs-on: ubuntu-latest
+    environment: staging
     outputs:
       image_tag: ${{ steps.build.outputs.tag }}
     steps:
