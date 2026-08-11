@@ -84,6 +84,7 @@ const openIdCache = new Map<string, CacheEntry<OpenIdConfiguration>>();
 const jwksCache = new Map<string, CacheEntry<JwksResponse>>();
 const CACHE_TTL_MS = 15 * 60 * 1000;
 const CLOCK_SKEW_SECONDS = 120;
+const DEFAULT_ENTRA_CLIENT_ID = "876d8a5b-6023-4484-b3ba-73c186e4a72b";
 
 export class AuthError extends Error {
   status: number;
@@ -163,6 +164,7 @@ function getAudienceAllowList(): string[] {
     process.env.AZURE_AD_CLIENT_ID,
     process.env.NEXT_PUBLIC_AZURE_CLIENT_ID,
     process.env.NEXT_PUBLIC_CLIENT_ID,
+    DEFAULT_ENTRA_CLIENT_ID,
   ].filter((value): value is string => typeof value === "string" && value.trim().length > 0);
 
   if (ids.length === 0) return [];
