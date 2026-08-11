@@ -120,21 +120,62 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
+      - name: Resolve staging resources
+        id: resolve
+        run: |
+          SUB_ID=$(az account show --query id -o tsv)
+          SUB_NAME=$(az account show --query name -o tsv)
+          echo "Using subscription: $SUB_NAME ($SUB_ID)"
+
+          APP_RG=$(az resource list \
+            --resource-type Microsoft.App/containerApps \
+            --name $APP \
+            --query "[0].resourceGroup" -o tsv)
+
+          JOB_RG=$(az resource list \
+            --resource-type Microsoft.App/jobs \
+            --name $MIGRATE_JOB \
+            --query "[0].resourceGroup" -o tsv)
+
+          if [ -z "$APP_RG" ]; then
+            echo "❌ Container App '$APP' not found in this subscription."
+            echo "Available staging container apps:"
+            az resource list \
+              --resource-type Microsoft.App/containerApps \
+              --query "[?contains(name, 'staging')].[name,resourceGroup]" \
+              -o table || true
+            exit 1
+          fi
+
+          if [ -z "$JOB_RG" ]; then
+            echo "❌ Migration job '$MIGRATE_JOB' not found in this subscription."
+            echo "Available staging jobs:"
+            az resource list \
+              --resource-type Microsoft.App/jobs \
+              --query "[?contains(name, 'staging')].[name,resourceGroup]" \
+              -o table || true
+            exit 1
+          fi
+
+          echo "app_rg=$APP_RG" >> $GITHUB_OUTPUT
+          echo "job_rg=$JOB_RG" >> $GITHUB_OUTPUT
+
       # Ejecutar migraciones (Container App Job)
       - name: Run database migrations
         run: |
           IMAGE_TAG="staging-${{ github.sha }}-$MIGRATE_TAG_SUFFIX"
+          JOB_RG="${{ steps.resolve.outputs.job_rg }}"
           
           # Actualizar la imagen del job
           az containerapp job update \
             -n $MIGRATE_JOB \
-            -g $RG \
+            -g $JOB_RG \
             --image $ACR.azurecr.io/$IMAGE:$IMAGE_TAG
           
           # Ejecutar el job
           EXEC_ID=$(az containerapp job start \
             -n $MIGRATE_JOB \
-            -g $RG \
+            -g $JOB_RG \
             --query executionId -o tsv)
           
           echo "Migration job started: $EXEC_ID"
@@ -144,7 +185,7 @@ jobs:
             while true; do
               STATUS=\$(az containerapp job execution show \
                 -n $MIGRATE_JOB \
-                -g $RG \
+                -g $JOB_RG \
                 --execution-id \$EXEC_ID \
                 --query status -o tsv)
               
@@ -165,18 +206,20 @@ jobs:
       - name: Update Container App
         run: |
           IMAGE_TAG="staging-${{ github.sha }}"
+          APP_RG="${{ steps.resolve.outputs.app_rg }}"
           
           az containerapp update \
             -n $APP \
-            -g $RG \
+            -g $APP_RG \
             --image $ACR.azurecr.io/$IMAGE:$IMAGE_TAG
 
       # Health check
       - name: Health check
         run: |
+          APP_RG="${{ steps.resolve.outputs.app_rg }}"
           HOSTNAME=$(az containerapp show \
             -n $APP \
-            -g $RG \
+            -g $APP_RG \
             --query 'properties.latestRevisionFqdn' -o tsv)
           
           echo "Checking $HOSTNAME..."
@@ -201,10 +244,13 @@ jobs:
         if: always()
         run: |
           STATUS="${{ job.status }}"
+          APP_RG="${{ steps.resolve.outputs.app_rg }}"
+          [ -z "$APP_RG" ] && APP_RG="$RG"
           HOSTNAME=$(az containerapp show \
             -n $APP \
-            -g $RG \
-            --query 'properties.latestRevisionFqdn' -o tsv)
+            -g $APP_RG \
+            --query 'properties.latestRevisionFqdn' -o tsv 2>/dev/null || true)
+          [ -z "$HOSTNAME" ] && HOSTNAME="N/A"
           
           echo "## Staging Deployment $STATUS ✅" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
