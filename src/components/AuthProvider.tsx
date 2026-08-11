@@ -10,7 +10,10 @@ import { toast } from "sonner";
 
 const pca = new PublicClientApplication({
     auth: {
-        clientId: process.env.NEXT_PUBLIC_CLIENT_ID || "not-configured",
+        clientId:
+            process.env.NEXT_PUBLIC_CLIENT_ID ||
+            process.env.NEXT_PUBLIC_AZURE_CLIENT_ID ||
+            "876d8a5b-6023-4484-b3ba-73c186e4a72b",
         authority: "https://login.microsoftonline.com/common",
         redirectUri: typeof window !== "undefined" ? window.location.origin : "/",
     },
