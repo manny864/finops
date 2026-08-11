@@ -62,6 +62,9 @@ jobs:
 
       # Variables públicas de build (NEXT_PUBLIC_*)
       - name: Verificar variables de build
+        env:
+          NEXT_PUBLIC_CLIENT_ID: ${{ vars.NEXT_PUBLIC_CLIENT_ID }}
+          NEXT_PUBLIC_PADDLE_CLIENT_TOKEN: ${{ vars.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN }}
         run: |
           MISSING=""
           for V in NEXT_PUBLIC_CLIENT_ID \
@@ -83,6 +86,8 @@ jobs:
             --registry $ACR \
             --image $IMAGE:$TAG \
             --image $IMAGE:staging-latest \
+            --build-arg NEXT_PUBLIC_CLIENT_ID="${{ vars.NEXT_PUBLIC_CLIENT_ID }}" \
+            --build-arg NEXT_PUBLIC_PADDLE_CLIENT_TOKEN="${{ vars.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN }}" \
             .
           echo "tag=$TAG" >> $GITHUB_OUTPUT
 
