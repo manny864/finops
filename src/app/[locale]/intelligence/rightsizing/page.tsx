@@ -248,7 +248,7 @@ export default function RightsizingPage() {
       <div className="vhead">
         <div>
           <div className="vt">
-             <span className="vico bg-gradient-to-br from-[#0054A6] to-[#00AEEF]"><Ruler className="w-5 h-5" /></span>
+             <span className="vico !bg-transparent !shadow-none"><Ruler className="w-5 h-5" /></span>
              {t("title")}
           </div>
           <div className="vs">{t("subtitle")} <PageHeaderTierBadge tier="Enterprise" /></div>

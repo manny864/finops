@@ -13,7 +13,7 @@ export default async function OptimizationPage() {
             <div className="vhead">
                 <div>
                     <div className="vt">
-                        <span className="vico bg-gradient-to-br from-amber-500 to-orange-600">⚙️</span>
+                        <span className="vico !bg-transparent !shadow-none">⚙️</span>
                         {t("title")}
                     </div>
                     <div className="vs">{t("subtitle")} <PageHeaderTierBadge tier="Professional" /></div>

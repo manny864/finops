@@ -369,31 +369,50 @@ export async function GET(request: NextRequest) {
       resources.map(async (resource) => {
         const monthlyCostUsd = costPerResource.get(resource.id.toLowerCase()) || 0;
         try {
-          const metricsUrl = `https://management.azure.com${resource.id}/providers/Microsoft.Insights/metrics?api-version=2018-01-01&metricnames=${COSMOS_METRICS.join(",")}&timespan=PT24H&interval=PT1H&aggregation=Average`;
-          const res = await fetch(metricsUrl, { headers });
-          if (!res.ok) throw new Error(`Azure Monitor API returned status ${res.status}`);
+          const metricNamespace = "Microsoft.DocumentDB/databaseAccounts";
+          const metricSeries = new Map<string, Array<{ timeStamp: string; value: number | null }>>();
 
-          const data = await res.json();
-          const metricsValue = data.value || [];
-          const sampleTimeseries = metricsValue.find((m: any) => m.timeseries?.[0]?.data?.length > 0);
-          const samplePoints = sampleTimeseries?.timeseries?.[0]?.data || [];
-          const length = samplePoints.length;
+          await Promise.all(
+            COSMOS_METRICS.map(async (metricName) => {
+              const metricUrl = `https://management.azure.com${resource.id}/providers/Microsoft.Insights/metrics?api-version=2018-01-01&metricnamespace=${encodeURIComponent(metricNamespace)}&metricnames=${encodeURIComponent(metricName)}&timespan=PT24H&interval=PT1H&aggregation=Average,Total`;
+              const res = await fetch(metricUrl, { headers });
+              if (!res.ok) return;
+              const data = await res.json();
+              const series = data?.value?.[0]?.timeseries?.[0]?.data;
+              if (!Array.isArray(series) || series.length === 0) return;
+              metricSeries.set(
+                metricName.toLowerCase(),
+                series.map((row: any) => ({
+                  timeStamp: String(row.timeStamp),
+                  value:
+                    typeof row.average === "number"
+                      ? row.average
+                      : typeof row.total === "number"
+                        ? row.total
+                        : null,
+                }))
+              );
+            })
+          );
+
+          const timestampSet = new Set<string>();
+          for (const rows of metricSeries.values()) {
+            for (const row of rows) timestampSet.add(row.timeStamp);
+          }
+          const sortedTimestamps = Array.from(timestampSet).sort();
           const history: MetricHistoryPoint[] = [];
 
-          for (let i = 0; i < length; i++) {
-            const pointDateStr = samplePoints[i].timeStamp;
+          for (const pointDateStr of sortedTimestamps) {
             const dateObj = new Date(pointDateStr);
             const timestamp = `${String(dateObj.getHours()).padStart(2, "0")}:${String(dateObj.getMinutes()).padStart(2, "0")}`;
 
             const getMetricValue = (metricName: string): number | null => {
               const aliases = metricAliases(metricName);
               for (const alias of aliases) {
-                const valueObj = metricsValue.find(
-                  (m: any) => String(m.name?.value || "").toLowerCase() === alias
-                );
-                const dataList = valueObj?.timeseries?.[0]?.data || [];
-                const value = dataList[i]?.average;
-                if (value !== undefined && value !== null) return Number(value);
+                const rows = metricSeries.get(alias);
+                if (!rows) continue;
+                const point = rows.find((row) => row.timeStamp === pointDateStr);
+                if (point?.value !== null && point?.value !== undefined) return Number(point.value);
               }
               return null;
             };

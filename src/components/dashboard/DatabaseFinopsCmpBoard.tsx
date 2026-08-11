@@ -149,8 +149,113 @@ function metricAverage(history: MetricPoint[] | undefined) {
   };
 }
 
-function inferState(history: MetricPoint[] | undefined) {
+function avgMetric(history: MetricPoint[] | undefined, key: string): number | null {
+  if (!history || history.length === 0) return null;
+  let total = 0;
+  let count = 0;
+  for (const point of history) {
+    const value = point[key];
+    if (typeof value === "number" && Number.isFinite(value)) {
+      total += value;
+      count += 1;
+    }
+  }
+  if (count === 0) return null;
+  return total / count;
+}
+
+function sumMetric(history: MetricPoint[] | undefined, key: string): number {
+  if (!history || history.length === 0) return 0;
+  return history.reduce((acc, point) => {
+    const value = point[key];
+    return acc + (typeof value === "number" && Number.isFinite(value) ? value : 0);
+  }, 0);
+}
+
+function redisMetricA(history: MetricPoint[] | undefined): string {
+  const avgMemoryBytes = avgMetric(history, "UsedMemory");
+  const avgCpu = avgMetric(history, "PercentProcessorTime") ?? avgMetric(history, "ServerLoad");
+  if (avgMemoryBytes === null && avgCpu === null) return "N/A";
+
+  const memoryMb = avgMemoryBytes !== null ? round2(avgMemoryBytes / (1024 * 1024)) : null;
+  const memoryLabel = memoryMb !== null ? `${memoryMb} MB` : "N/A";
+  const cpuLabel = avgCpu !== null ? `${round2(avgCpu)}%` : "N/A";
+  return `${memoryLabel} / ${cpuLabel}`;
+}
+
+function redisMetricB(history: MetricPoint[] | undefined): string {
+  const totalHits = sumMetric(history, "CacheHits");
+  const totalMisses = sumMetric(history, "CacheMisses");
+  const hitTotal = totalHits + totalMisses;
+  const hitRatePct = hitTotal > 0 ? round2((totalHits / hitTotal) * 100) : null;
+  const evictions = Math.round(sumMetric(history, "EvictedKeys"));
+
+  const hitRateLabel = hitRatePct !== null ? `${hitRatePct}%` : "N/A";
+  return `${hitRateLabel} / ${evictions}`;
+}
+
+function mysqlMetricA(history: MetricPoint[] | undefined): string {
+  const avgCpu = avgMetric(history, "cpu_percent");
+  const avgMemory = avgMetric(history, "memory_percent");
+  if (avgCpu === null && avgMemory === null) return "N/A";
+  const cpuLabel = avgCpu !== null ? `${round2(avgCpu)}%` : "N/A";
+  const memoryLabel = avgMemory !== null ? `${round2(avgMemory)}%` : "N/A";
+  return `${cpuLabel} / ${memoryLabel}`;
+}
+
+function mysqlMetricB(history: MetricPoint[] | undefined): string {
+  const avgConnections = avgMetric(history, "active_connections");
+  const avgIo = avgMetric(history, "io_consumption_percent");
+  if (avgConnections === null && avgIo === null) return "N/A";
+  const connectionsLabel = avgConnections !== null ? String(Math.round(avgConnections)) : "N/A";
+  const ioLabel = avgIo !== null ? `${round2(avgIo)}%` : "N/A";
+  return `${connectionsLabel} / ${ioLabel}`;
+}
+
+function sqlMetricA(history: MetricPoint[] | undefined): string {
+  const avgCpu = avgMetric(history, "cpu_percent");
+  const avgWorkload = avgMetric(history, "workload_percent");
+  if (avgCpu === null && avgWorkload === null) return "N/A";
+  const cpuLabel = avgCpu !== null ? `${round2(avgCpu)}%` : "N/A";
+  const workloadLabel = avgWorkload !== null ? `${round2(avgWorkload)}%` : "N/A";
+  return `${cpuLabel} / ${workloadLabel}`;
+}
+
+function sqlMetricB(history: MetricPoint[] | undefined): string {
+  const avgConnections = avgMetric(history, "active_connections");
+  const avgIo = avgMetric(history, "io_percent");
+  if (avgConnections === null && avgIo === null) return "N/A";
+  const connectionsLabel = avgConnections !== null ? String(Math.round(avgConnections)) : "N/A";
+  const ioLabel = avgIo !== null ? `${round2(avgIo)}%` : "N/A";
+  return `${connectionsLabel} / ${ioLabel}`;
+}
+
+function inferState(history: MetricPoint[] | undefined, family: DatabaseFamily) {
   if (!history || history.length === 0) return "unknown";
+  if (family === "redis") {
+    const avgCpu = avgMetric(history, "PercentProcessorTime") ?? avgMetric(history, "ServerLoad") ?? 0;
+    const evictions = sumMetric(history, "EvictedKeys");
+    const errors = sumMetric(history, "Errors");
+    if (errors > 0 || evictions > 0 || avgCpu > 85) return "critical";
+    if (avgCpu > 65) return "warning";
+    return "healthy";
+  }
+  if (family === "mysql") {
+    const avgCpu = avgMetric(history, "cpu_percent") ?? 0;
+    const avgMemory = avgMetric(history, "memory_percent") ?? 0;
+    const failedConnections = sumMetric(history, "connections_failed");
+    if (failedConnections > 0 || avgCpu > 85 || avgMemory > 90) return "critical";
+    if (avgCpu > 65 || avgMemory > 75) return "warning";
+    return "healthy";
+  }
+  if (family === "sql") {
+    const avgCpu = avgMetric(history, "cpu_percent") ?? 0;
+    const avgWorkload = avgMetric(history, "workload_percent") ?? 0;
+    const failedConnections = sumMetric(history, "connections_failed");
+    if (failedConnections > 0 || avgCpu > 85 || avgWorkload > 90) return "critical";
+    if (avgCpu > 65 || avgWorkload > 75) return "warning";
+    return "healthy";
+  }
   const last = history[history.length - 1];
   const values = Object.values(last).filter((value) => typeof value === "number") as number[];
   if (values.length === 0) return "unknown";
@@ -227,6 +332,28 @@ export default function DatabaseFinopsCmpBoard({ family }: { family: DatabaseFam
       const mapped = (body.instances || []).map((resource) => {
         const metrics = metricAverage(resource.history);
         const parsed = parseAzureId(resource.id);
+        const metricA =
+          family === "redis"
+            ? redisMetricA(resource.history)
+            : metrics.a > 0
+              ? String(metrics.a)
+              : "N/A";
+        const metricB =
+          family === "redis"
+            ? redisMetricB(resource.history)
+            : family === "mysql"
+              ? mysqlMetricB(resource.history)
+              : family === "sql"
+                ? sqlMetricB(resource.history)
+            : metrics.b > 0
+              ? String(metrics.b)
+              : "N/A";
+        const finalMetricA =
+          family === "mysql"
+            ? mysqlMetricA(resource.history)
+            : family === "sql"
+              ? sqlMetricA(resource.history)
+            : metricA;
         return {
           id: resource.id,
           name: resource.name,
@@ -234,11 +361,11 @@ export default function DatabaseFinopsCmpBoard({ family }: { family: DatabaseFam
           resourceGroup: parsed.resourceGroup,
           subscriptionName: subscriptionNameMap.get(parsed.subscriptionId) || parsed.subscriptionId || "unknown",
           region: resource.region || "unknown",
-          state: inferState(resource.history),
+          state: inferState(resource.history, family),
           sku: resource.sku || "Unknown",
           monthlyCostUsd: Number(resource.monthlyCostUsd || 0),
-          metricA: metrics.a > 0 ? String(metrics.a) : "N/A",
-          metricB: metrics.b > 0 ? String(metrics.b) : "N/A",
+          metricA: finalMetricA,
+          metricB,
         };
       });
 

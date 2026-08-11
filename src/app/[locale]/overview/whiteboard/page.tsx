@@ -12,7 +12,7 @@ export default async function WhiteBoardPage() {
             <div className="vhead">
                 <div>
                     <div className="vt">
-                        <span className="vico bg-gradient-to-br from-[#0054A6] to-[#00AEEF] text-white p-2 rounded-xl">
+                        <span className="vico !bg-transparent !shadow-none">
                             <IconLayoutDashboard className="w-5 h-5" />
                         </span>
                         {t('title')}

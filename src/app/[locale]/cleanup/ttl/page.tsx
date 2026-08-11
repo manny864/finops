@@ -249,7 +249,7 @@ export default function TtlCleanupPage() {
       <div className="vhead">
         <div>
           <div className="vt">
-            <span className="vico"><IconClockHour4 className="w-5 h-5" /></span>
+            <span className="vico !bg-transparent !shadow-none"><IconClockHour4 className="w-5 h-5" /></span>
             {t("title")}
           </div>
           <div className="vs">{t("subtitle")}</div>

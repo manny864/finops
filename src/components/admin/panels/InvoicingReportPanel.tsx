@@ -13,7 +13,7 @@ export default async function InvoicingReportPage() {
             <div className="vhead">
                 <div>
                     <div className="vt">
-                        <span className="vico bg-gradient-to-br from-[#0054A6] to-[#00AEEF]">
+                        <span className="vico !bg-transparent !shadow-none">
                             <IconCoins className="w-5 h-5" />
                         </span>
                         {t('pageTitle')}

@@ -11,7 +11,7 @@ export default async function ApprovalsPage() {
             <div className="vhead">
                 <div>
                     <div className="vt">
-                        <span className="vico bg-gradient-to-br from-[#F59E0B] to-[#D97706]">
+                        <span className="vico !bg-transparent !shadow-none">
                             <IconShield className="w-5 h-5" />
                         </span>
                         {t('pageTitle')}

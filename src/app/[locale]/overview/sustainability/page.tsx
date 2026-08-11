@@ -60,7 +60,7 @@ export default function SustainabilityPage() {
             <div className="vhead">
                 <div>
                     <div className="vt">
-                        <span className="vico bg-gradient-to-br from-[#10b981] to-[#047857]">
+                        <span className="vico !bg-transparent !shadow-none">
                             <IconLeaf className="w-5 h-5" />
                         </span>
                         {t("greenFinops")}

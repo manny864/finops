@@ -10,7 +10,7 @@ export default async function MarkupPage() {
             <div className="vhead">
                 <div>
                     <div className="vt">
-                        <span className="vico bg-gradient-to-br from-green-600 to-emerald-700">
+                        <span className="vico !bg-transparent !shadow-none">
                             <IconCoins className="w-5 h-5" />
                         </span>
                         {t('pageTitle')}

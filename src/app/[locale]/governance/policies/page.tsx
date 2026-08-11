@@ -11,7 +11,7 @@ export default async function PoliciesPage() {
             <div className="vhead">
                 <div>
                     <div className="vt">
-                        <span className="vico bg-gradient-to-br from-red-500 to-rose-600">
+                        <span className="vico !bg-transparent !shadow-none">
                             <IconShield className="w-5 h-5" />
                         </span>
                         {t('title')}

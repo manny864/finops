@@ -14,7 +14,7 @@ export default async function NetworkingZombiesPage() {
             <div className="vhead">
                 <div>
                     <div className="vt">
-                        <span className="vico bg-gradient-to-br from-[#7C3AED] to-[#C4B5FD]">
+                        <span className="vico !bg-transparent !shadow-none">
                             <IconTopologyStar3 className="w-5 h-5" />
                         </span>
                         {t("pageTitle")}

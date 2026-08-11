@@ -13,7 +13,7 @@ export default async function OptimizationIndexPage() {
             <div className="vhead">
                 <div>
                     <div className="vt flex items-center gap-2">
-                        <span className="vico bg-gradient-to-br from-sky-500 to-blue-700 text-white p-2 rounded-xl">
+                        <span className="vico !bg-transparent !shadow-none">
                             <Target className="w-5 h-5" />
                         </span>
                         {t('title')}
