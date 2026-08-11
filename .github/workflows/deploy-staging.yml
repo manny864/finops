@@ -204,12 +204,17 @@ jobs:
             --image $ACR.azurecr.io/$IMAGE:$IMAGE_TAG
           
           # Ejecutar el job
-          EXEC_ID=$(az containerapp job start \
+          EXEC_NAME=$(az containerapp job start \
             -n $JOB_NAME \
             -g $RESOLVED_RG \
-            --query executionId -o tsv)
+            --query name -o tsv)
           
-          echo "Migration job started: $EXEC_ID"
+          if [ -z "$EXEC_NAME" ]; then
+            echo "❌ Could not resolve migration execution name."
+            exit 1
+          fi
+
+          echo "Migration job started: $EXEC_NAME"
           
           # Esperar a que termine (max 5 min)
           timeout 300 bash -c "
@@ -217,7 +222,7 @@ jobs:
               STATUS=\$(az containerapp job execution show \
                 -n $JOB_NAME \
                 -g $RESOLVED_RG \
-                --execution-id \$EXEC_ID \
+                --job-execution-name \$EXEC_NAME \
                 --query status -o tsv)
               
               if [ \"\$STATUS\" = \"Completed\" ]; then
