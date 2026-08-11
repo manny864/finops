@@ -146,8 +146,51 @@ function buildTrendMtd(rows: AggRow[]) {
     return series;
 }
 
-function sumRowsCost(rows: AggRow[]): Decimal {
-    return rows.reduce((acc, row) => acc.plus(new Decimal(row.cost || 0)), new Decimal(0));
+function reconcileAiRowsWithMeterCost(aiRows: AggRow[], meterRows: AggRow[]): AggRow[] {
+    if (!aiRows.length || !meterRows.length) return aiRows;
+
+    const meterByDate = new Map<string, Decimal>();
+    for (const row of meterRows) {
+        const dateKey = toDateKey(row.date);
+        const current = meterByDate.get(dateKey) || new Decimal(0);
+        meterByDate.set(dateKey, current.plus(new Decimal(row.cost || 0)));
+    }
+
+    const aiByDate = new Map<string, { totalCost: Decimal; totalTokens: number }>();
+    for (const row of aiRows) {
+        const dateKey = toDateKey(row.date);
+        const current = aiByDate.get(dateKey) || { totalCost: new Decimal(0), totalTokens: 0 };
+        current.totalCost = current.totalCost.plus(new Decimal(row.cost || 0));
+        current.totalTokens += Number(row.inputTokens || 0) + Number(row.outputTokens || 0);
+        aiByDate.set(dateKey, current);
+    }
+
+    return aiRows.map((row) => {
+        const dateKey = toDateKey(row.date);
+        const meterTotal = meterByDate.get(dateKey);
+        if (!meterTotal || meterTotal.lte(0)) return row;
+
+        const aiDay = aiByDate.get(dateKey);
+        if (!aiDay) return row;
+
+        const rowCost = new Decimal(row.cost || 0);
+        const rowTokens = Number(row.inputTokens || 0) + Number(row.outputTokens || 0);
+
+        let share = new Decimal(0);
+        if (aiDay.totalCost.gt(0)) {
+            share = rowCost.dividedBy(aiDay.totalCost);
+        } else if (aiDay.totalTokens > 0) {
+            share = new Decimal(rowTokens).dividedBy(aiDay.totalTokens);
+        } else {
+            return row;
+        }
+
+        const reconciledCost = meterTotal.times(share);
+        return {
+            ...row,
+            cost: reconciledCost.toDecimalPlaces(8, Decimal.ROUND_HALF_UP),
+        };
+    });
 }
 
 function aggregate(rows: AggRow[], tokensAvailable: boolean) {
@@ -283,23 +326,15 @@ async function fetchAIAnalytics(tenantId: string, days: number) {
     );
 
     if (aiRows && aiRows.length > 0) {
-        const aiTotal = sumRowsCost(aiRows);
-        const meterTotal = sumRowsCost((meterRows || []) as AggRow[]);
-        // ponytail: si AI snapshots sub-reporta costo vs Cost Management,
-        // priorizamos costo real y desactivamos tokens para evitar métricas engañosas.
-        if (meterRows && meterRows.length > 0 && meterTotal.greaterThan(aiTotal.times(1.2))) {
-            const recentRows = filterRowsByDays(meterRows, days);
-            return {
-                ...aggregate(recentRows, false),
-                trendMtd: buildTrendMtd(meterRows),
-                source: "cost-meter-gap-protection",
-            };
-        }
-        const recentRows = filterRowsByDays(aiRows, days);
+        const hasMeterRows = Array.isArray(meterRows) && meterRows.length > 0;
+        const effectiveAiRows = hasMeterRows
+            ? reconcileAiRowsWithMeterCost(aiRows as AggRow[], meterRows as AggRow[])
+            : (aiRows as AggRow[]);
+        const recentRows = filterRowsByDays(effectiveAiRows, days);
         return {
             ...aggregate(recentRows, true),
-            trendMtd: buildTrendMtd(aiRows),
-            source: "ai-snapshots",
+            trendMtd: buildTrendMtd(effectiveAiRows),
+            source: hasMeterRows ? "ai-snapshots-reconciled-with-meter" : "ai-snapshots",
         };
     }
 

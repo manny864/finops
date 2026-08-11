@@ -468,6 +468,8 @@ async function invalidateCostCaches(tenantId: string, signal?: AbortSignal): Pro
             // puede mostrar ceros/datos viejos hasta que expire el TTL.
             `ai-analytics:v2:${tenantId}:*`,
             `ai-analytics:v3:${tenantId}:*`,
+            `ai-analytics:v4:${tenantId}:*`,
+            `ai-analytics:v5:${tenantId}:*`,
         ];
         const keys = (await Promise.all(patterns.map((p) => redis.keys(p)))).flat();
         if (keys.length > 0) {
