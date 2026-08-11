@@ -28,7 +28,7 @@ env:
   ACR: cscsfinopsprodglobalcr  # ACR COMPARTIDO CON PROD
   IMAGE: finops
   RG: cscs-finops-stg-westus2-rg
-  APP: cscs-finops-staging-westus2-web
+  APP: cscs-finops-stg-westus2-web
   MIGRATE_JOB: cscs-finops-stg-wus2-migrate
   MIGRATE_TAG_SUFFIX: builder
 
