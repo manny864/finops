@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool, { initializeDatabase } from "@/modules/storage/db";
-import { AuthError, requireRequestIdentity, requireSuperAdmin, requireTenantAccess, hasSystemRole } from "@/lib/requestAuth";
+import { AuthError, requireSuperAdmin, requireTenantAccess, hasSystemRole } from "@/lib/requestAuth";
 import { getUserLimit } from "@/lib/tierLogic";
 import { SUPERADMIN_BOOTSTRAP_TENANT_ID, isSuperAdminBootstrapEmail } from "@/lib/superAdminBootstrap";
 
@@ -104,7 +104,6 @@ export async function POST(request: NextRequest) {
         }
 
         const identity = await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
-        const currentAdminEmail = identity.email;
         // SuperAdmin real = dominio corporativo Y system_role='SUPERADMIN' en DB.
         // `isCorporateDomain` solo indica el dominio del email — NO es equivalente
         // a ser SuperAdmin (antes se confiaba solo en el dominio, permitiendo que
@@ -147,8 +146,6 @@ export async function POST(request: NextRequest) {
             let count = existingOids.size;
             const userLimit = getUserLimit(tier);
 
-            const adminDomain = currentAdminEmail.split('@')[1]?.toLowerCase();
-
             for (const user of usersToProcess) {
                 // Un usuario que YA existe (re-sync desde Entra, cambio de rol, etc.)
                 // no cuenta como alta nueva — solo bloqueamos incorporaciones
@@ -157,11 +154,10 @@ export async function POST(request: NextRequest) {
                 if (isNewUser && Number.isFinite(userLimit) && count >= userLimit) {
                     return NextResponse.json({ error: `Límite de usuarios alcanzado para el plan ${tier} (máx. ${userLimit}). Liberá un usuario o actualizá el plan para agregar más.` }, { status: 403 });
                 }
-
-                const newEmailDomain = user.email.split('@')[1]?.toLowerCase();
-                if (adminDomain && newEmailDomain && adminDomain !== newEmailDomain && !isSuperAdmin) {
-                     return NextResponse.json({ error: `El usuario ${user.email} debe pertenecer al dominio registrado (${adminDomain}).` }, { status: 403 });
-                }
+                // Dominio de email NO se usa como restricción de alta:
+                // en Entra ID un mismo tenant puede tener múltiples dominios
+                // válidos (por ejemplo custom + onmicrosoft).
+                // La pertenencia real queda validada por entra_oid + tenant RBAC.
 
                 let systemRole = 'USER';
                 const effectiveRole = user.role || 'Reader';
