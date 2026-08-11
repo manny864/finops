@@ -247,6 +247,9 @@ export default function UsersPage() {
                     initialSelected[u.id] = { selected: false, role: 'Reader', user: u };
                 });
                 setSelectedEntraUsers(initialSelected);
+                if (json.warning) {
+                    toast.warning(String(json.warning));
+                }
             } else {
                 toast.error(json.error || t('errorSyncingEntra'));
             }

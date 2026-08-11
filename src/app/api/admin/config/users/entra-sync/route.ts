@@ -12,9 +12,12 @@ export async function GET(request: NextRequest) {
     const creds = await getTenantCredentials(tenantId);
 
     if (!creds) {
-      const err: any = new Error('Missing Azure credentials in Key Vault / database');
-      err.status = 400;
-      throw err;
+      return NextResponse.json({
+        success: true,
+        users: [],
+        warning:
+          "No hay credenciales de Azure configuradas para este tenant (Key Vault/DB). Completá el onboarding para habilitar la sincronización con Entra ID.",
+      });
     }
 
     const { clientId: client_id, clientSecret: client_secret } = creds;
