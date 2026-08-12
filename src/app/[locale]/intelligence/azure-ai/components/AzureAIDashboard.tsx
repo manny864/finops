@@ -7,6 +7,7 @@ import { useMsal } from "@azure/msal-react";
 import { Loader2, Search, FileText, Mic, Eye, ShieldAlert, Cpu, Database, DollarSign, AlertTriangle } from "lucide-react";
 import { getFreshIdToken } from "@/lib/msalToken";
 import TierLockedNotice from "@/components/TierLockedNotice";
+import AIAnalyticsDashboard from "@/components/dashboard/AIAnalyticsDashboard";
 
 export type Capability = "search" | "document-intelligence" | "speech-language" | "vision-video" | "content-safety" | "aml" | "databricks" | "foundry";
 
@@ -22,6 +23,7 @@ interface CapabilityMetrics {
 }
 
 const TABS: Array<{ id: Capability; label: string; icon: any }> = [
+  { id: "foundry", label: "Azure Foundry", icon: Database },
   { id: "search", label: "AI Search", icon: Search },
   { id: "document-intelligence", label: "Document Intelligence", icon: FileText },
   { id: "speech-language", label: "Speech & Language", icon: Mic },
@@ -29,7 +31,6 @@ const TABS: Array<{ id: Capability; label: string; icon: any }> = [
   { id: "content-safety", label: "Content Safety", icon: ShieldAlert },
   { id: "aml", label: "Machine Learning", icon: Cpu },
   { id: "databricks", label: "Databricks", icon: Database },
-  { id: "foundry", label: "Azure Foundry", icon: Database },
 ];
 
 function CapabilityCard({ cap }: { cap?: CapabilityMetrics }) {
@@ -127,8 +128,9 @@ export default function AzureAIDashboard({ initialTab = "search", showInternalTa
     setActiveTab(initialTab);
   }, [initialTab]);
 
+  const isFoundryTab = activeTab === "foundry";
   const { data, error, isLoading } = useSWR(
-    tenantId ? `/api/intelligence/azure-ai?tenantId=${tenantId}` : null,
+    tenantId && !isFoundryTab ? `/api/intelligence/azure-ai?tenantId=${tenantId}` : null,
     async (url) => {
       const token = await getFreshIdToken(instance, accounts[0]);
       const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
@@ -188,7 +190,9 @@ export default function AzureAIDashboard({ initialTab = "search", showInternalTa
       </div>
       )}
 
-      {isLoading ? (
+      {isFoundryTab ? (
+        <AIAnalyticsDashboard />
+      ) : isLoading ? (
         <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 text-blue-600 dark:text-blue-400 animate-spin" /></div>
       ) : capabilities.length === 0 ? (
         <div className="h-64 flex items-center justify-center text-center">
@@ -201,7 +205,7 @@ export default function AzureAIDashboard({ initialTab = "search", showInternalTa
         <CapabilityCard cap={currentCap} />
       )}
 
-      {!isLoading && capabilities.length > 0 && (
+      {!isFoundryTab && !isLoading && capabilities.length > 0 && (
         <div className="bg-gradient-to-br from-blue-600 to-blue-700 dark:from-blue-800 dark:to-blue-900 text-white rounded-xl p-6 shadow-lg">
           <div className="flex items-center justify-between">
             <div>
