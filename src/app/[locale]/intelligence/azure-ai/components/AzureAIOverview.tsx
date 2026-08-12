@@ -33,6 +33,15 @@ export default function AzureAIOverview() {
       return res.json();
     }
   );
+  const { data: aiAnalyticsData } = useSWR(
+    tenantId ? `/api/intelligence/ai-analytics?tenantId=${tenantId}&days=30` : null,
+    async (url: string) => {
+      const token = await getFreshIdToken(instance, accounts[0]);
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) return null;
+      return res.json();
+    }
+  );
 
   if (isLoading) {
     return (
@@ -53,7 +62,17 @@ export default function AzureAIOverview() {
     );
   }
 
-  const capabilities: CapabilityMetrics[] = data?.capabilities || [];
+  const capabilitiesRaw: CapabilityMetrics[] = data?.capabilities || [];
+  const foundryMtdFromAIAnalytics = Number(aiAnalyticsData?.summary?.totalCost || 0);
+  const capabilities: CapabilityMetrics[] = capabilitiesRaw.map((cap) =>
+    cap.capability === "foundry" && foundryMtdFromAIAnalytics > 0
+      ? { ...cap, monthlyCostUSD: foundryMtdFromAIAnalytics }
+      : cap
+  );
+  const totalCostUnified = capabilities.reduce((sum, c) => sum + Number(c.monthlyCostUSD || 0), 0);
+  const baseTotal = Number(data?.totalCostUSD || 0);
+  const forecastRatio = baseTotal > 0 ? Number(data?.financialSummary?.forecastEomUSD || baseTotal) / baseTotal : 1.1;
+  const forecastUnified = totalCostUnified * forecastRatio;
   const topCaps = [...capabilities].sort((a, b) => (b.monthlyCostUSD || 0) - (a.monthlyCostUSD || 0));
   const topRecommendations = capabilities
     .flatMap((c) => (c.recommendations || []).map((r) => ({ ...r, capability: c.name })))
@@ -77,12 +96,12 @@ export default function AzureAIOverview() {
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-4">
           <p className="text-xs text-slate-500">Total Azure AI Cost (MTD)</p>
-          <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">${(data?.totalCostUSD || 0).toLocaleString("en-US", { maximumFractionDigits: 2 })}</p>
+          <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">${totalCostUnified.toLocaleString("en-US", { maximumFractionDigits: 2 })}</p>
           <DollarSign className="w-4 h-4 text-blue-500 mt-2" />
         </div>
         <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-4">
           <p className="text-xs text-slate-500">Forecast EOM</p>
-          <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">${(data?.financialSummary?.forecastEomUSD || 0).toLocaleString("en-US", { maximumFractionDigits: 2 })}</p>
+          <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">${forecastUnified.toLocaleString("en-US", { maximumFractionDigits: 2 })}</p>
           <TrendingUp className="w-4 h-4 text-blue-500 mt-2" />
         </div>
         <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-4">
