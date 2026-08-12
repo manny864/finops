@@ -581,7 +581,7 @@ export async function GET(request: NextRequest) {
                 return NextResponse.json({ error: "Feature bloqueada. Requiere plan Enterprise." }, { status: 403 });
             }
 
-            const cacheKey = `ai-analytics:v7:${tenantId}:${days}`;
+            const cacheKey = `ai-analytics:v8:${tenantId}:${days}`;
             const payload = await getWithStaleWhileRevalidate(
                 cacheKey,
                 () => fetchAIAnalytics(tenantId, days),
