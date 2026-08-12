@@ -264,13 +264,6 @@ function sumRowsCost(rows: AggRow[]): Decimal {
     return rows.reduce((acc, row) => acc.plus(new Decimal(row.cost || 0)), new Decimal(0));
 }
 
-function normalizeModelLabel(modelName: string): string {
-    const value = String(modelName || "").trim().toLowerCase();
-    if (!value || value === "unknown") return "Modelo no identificado";
-    if (value === "unattributed-foundry-cost") return "Azure Foundry (sin atribución de modelo)";
-    return modelName;
-}
-
 function aggregate(rows: AggRow[], tokensAvailable: boolean) {
     const modelMap = new Map<string, { model: string; cost: Decimal; inputTokens: number; outputTokens: number }>();
     const appMap = new Map<string, { application: string; cost: Decimal; model: string }>();
@@ -287,7 +280,7 @@ function aggregate(rows: AggRow[], tokensAvailable: boolean) {
         totalInput += inp;
         totalOutput += out;
 
-        const mKey = normalizeModelLabel(r.model_name || "unknown");
+        const mKey = r.model_name || "unknown";
         const mEntry = modelMap.get(mKey) || { model: mKey, cost: new Decimal(0), inputTokens: 0, outputTokens: 0 };
         mEntry.cost = mEntry.cost.plus(cost);
         mEntry.inputTokens += inp;
@@ -355,37 +348,6 @@ function isAiServiceLabel(value: string): boolean {
     return AI_SERVICE_PATTERNS.some((token) => s.includes(token));
 }
 
-async function getPreferredFoundryModelName(tenantId: string): Promise<string | null> {
-    try {
-        const [tenantRows]: any = await pool.query(
-            "SELECT ai_deployment FROM Tenants WHERE tenant_id = ? LIMIT 1",
-            [tenantId]
-        );
-        const tenantModel = String(tenantRows?.[0]?.ai_deployment || "").trim();
-        if (tenantModel) return tenantModel;
-
-        const [globalRows]: any = await pool.query(
-            "SELECT setting_key, setting_value FROM GlobalSettings WHERE setting_key IN ('enterprise_ai_deployment','ai_deployment')"
-        );
-        const map = new Map<string, string>();
-        for (const row of globalRows || []) map.set(String(row.setting_key), String(row.setting_value || "").trim());
-        return map.get("enterprise_ai_deployment") || map.get("ai_deployment") || null;
-    } catch {
-        return null;
-    }
-}
-
-function applyPreferredModelName(rows: AggRow[], preferredModelName: string | null): AggRow[] {
-    if (!preferredModelName) return rows;
-    return rows.map((row) => {
-        const current = String(row.model_name || "").trim().toLowerCase();
-        if (!current || current === "unknown" || current === "unattributed-foundry-cost") {
-            return { ...row, model_name: preferredModelName };
-        }
-        return row;
-    });
-}
-
 async function getLiveAiMtdTotal(tenantId: string): Promise<Decimal | null> {
     try {
         const entries = await getCurrentMonthAmortizedCosts(tenantId, "All", "ActualCost");
@@ -422,7 +384,6 @@ function scaleRowsToLiveMonthTotal(rows: AggRow[], liveMonthTotal: Decimal | nul
 async function fetchAIAnalytics(tenantId: string, days: number) {
     const daysForQuery = Math.max(days, new Date().getDate());
     const liveAiMtdTotal = await getLiveAiMtdTotal(tenantId);
-    const preferredModelName = await getPreferredFoundryModelName(tenantId);
     // 1) Fuente primaria: AICostSnapshots — uso real por modelo (tokens) de
     //    Microsoft Foundry / Azure OpenAI sincronizado desde Azure Monitor
     //    Metrics (ver aiUsageCollector.ts). Puede estar vacía si el cron todavía
@@ -498,8 +459,7 @@ async function fetchAIAnalytics(tenantId: string, days: number) {
         const effectiveAiRowsBase = hasMeterRows
             ? reconcileAiRowsWithMeterCost(aiRows as AggRow[], meterRows as AggRow[])
             : (aiRows as AggRow[]);
-        const normalizedAiRows = applyPreferredModelName(effectiveAiRowsBase, preferredModelName);
-        const effectiveAiRows = scaleRowsToLiveMonthTotal(normalizedAiRows, liveAiMtdTotal);
+        const effectiveAiRows = scaleRowsToLiveMonthTotal(effectiveAiRowsBase, liveAiMtdTotal);
         const recentRows = filterRowsByDays(effectiveAiRows, days);
         return withMonthSummary({
             ...aggregate(recentRows, true),
@@ -511,8 +471,7 @@ async function fetchAIAnalytics(tenantId: string, days: number) {
     }
 
     if (meterRows && meterRows.length > 0) {
-        const normalizedMeterRows = applyPreferredModelName(meterRows as AggRow[], preferredModelName);
-        const effectiveMeterRows = scaleRowsToLiveMonthTotal(normalizedMeterRows, liveAiMtdTotal);
+        const effectiveMeterRows = scaleRowsToLiveMonthTotal(meterRows as AggRow[], liveAiMtdTotal);
         const recentRows = filterRowsByDays(effectiveMeterRows, days);
         return {
             ...aggregate(recentRows, false),
@@ -572,8 +531,7 @@ async function fetchAIAnalytics(tenantId: string, days: number) {
         return EMPTY_RESPONSE;
     }
 
-    const normalizedCostRows = applyPreferredModelName(costRows as AggRow[], preferredModelName);
-    const effectiveCostRows = scaleRowsToLiveMonthTotal(normalizedCostRows, liveAiMtdTotal);
+    const effectiveCostRows = scaleRowsToLiveMonthTotal(costRows as AggRow[], liveAiMtdTotal);
     const recentRows = filterRowsByDays(effectiveCostRows, days);
     return {
         ...aggregate(recentRows, false),
@@ -616,7 +574,7 @@ export async function GET(request: NextRequest) {
                 return NextResponse.json({ error: "Feature bloqueada. Requiere plan Enterprise." }, { status: 403 });
             }
 
-            const cacheKey = `ai-analytics:v9:${tenantId}:${days}`;
+            const cacheKey = `ai-analytics:v7:${tenantId}:${days}`;
             const payload = await getWithStaleWhileRevalidate(
                 cacheKey,
                 () => fetchAIAnalytics(tenantId, days),
