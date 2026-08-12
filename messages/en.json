@@ -5708,5 +5708,9 @@
     "placeholder": "Filter by name or service...",
     "apply": "Apply",
     "clear": "Clear"
+  },
+  "AzureAI": {
+    "title": "Azure AI",
+    "subtitle": "AI platform: vectorial search, document processing, transcription, vision, content safety, MLOps and distributed analytics."
   }
 }

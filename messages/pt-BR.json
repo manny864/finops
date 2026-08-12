@@ -5708,5 +5708,9 @@
     "placeholder": "Filtrar por nome ou serviço...",
     "apply": "Aplicar",
     "clear": "Limpar"
+  },
+  "AzureAI": {
+    "title": "Azure AI",
+    "subtitle": "Plataforma de IA: busca vetorial, processamento de documentos, transcrição, visão, segurança de conteúdo, MLOps e análise distribuída."
   }
 }
