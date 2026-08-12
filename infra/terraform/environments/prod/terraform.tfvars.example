@@ -136,6 +136,13 @@ cron_jobs = {
   prewarm-storage-finops = { cron = "*/20 * * * *", timeout_seconds = 300 }
 
   # Pre-warm dedicado del módulo de Seguridad (Defender + familias de costo).
+  sync-azure-ai = {
+    cron            = "*/20 * * * *"  # Every 20 minutes, cache pre-warming
+    timeout_seconds = 300
+    auth_mode       = "header"
+    name            = "sync-azure-ai"
+    async_poll      = false
+  }
   prewarm-security-finops = { cron = "*/20 * * * *", timeout_seconds = 300 }
 
   # Apagado programado de VMs. Ventana de ejecución = 8 min, por eso */2.
