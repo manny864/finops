@@ -209,19 +209,28 @@ function reconcileAiRowsWithMeterCost(aiRows: AggRow[], meterRows: AggRow[]): Ag
         };
     });
 
-    // Si Cost Management tiene costo para una fecha sin filas de tokens,
-    // agregamos una fila sintética para no perder costo mensual total.
+    // Si Cost Management trae costo en fechas sin telemetría de tokens, en lugar
+    // de crear un "modelo fantasma" se prorratea ese delta entre modelos reales
+    // del período para mantener costo total sin ensuciar byModel.
+    let unattributedMeterCost = new Decimal(0);
     for (const [dateKey, meterTotal] of meterByDate.entries()) {
         if (meterTotal.lte(0) || aiByDate.has(dateKey)) continue;
-        reconciledRows.push({
-            model_name: "unattributed-foundry-cost",
-            application: "cost-management",
-            team: "Sin asignar",
-            date: dateKey,
-            cost: meterTotal.toDecimalPlaces(8, Decimal.ROUND_HALF_UP),
-            inputTokens: 0,
-            outputTokens: 0,
-        });
+        unattributedMeterCost = unattributedMeterCost.plus(meterTotal);
+    }
+
+    if (unattributedMeterCost.gt(0) && reconciledRows.length > 0) {
+        const totalBaseCost = reconciledRows.reduce((acc, row) => acc.plus(new Decimal(row.cost || 0)), new Decimal(0));
+        if (totalBaseCost.gt(0)) {
+            return reconciledRows.map((row) => {
+                const rowCost = new Decimal(row.cost || 0);
+                const share = rowCost.dividedBy(totalBaseCost);
+                const extra = unattributedMeterCost.times(share);
+                return {
+                    ...row,
+                    cost: rowCost.plus(extra).toDecimalPlaces(8, Decimal.ROUND_HALF_UP),
+                };
+            });
+        }
     }
 
     return reconciledRows;
@@ -574,7 +583,7 @@ export async function GET(request: NextRequest) {
                 return NextResponse.json({ error: "Feature bloqueada. Requiere plan Enterprise." }, { status: 403 });
             }
 
-            const cacheKey = `ai-analytics:v7:${tenantId}:${days}`;
+            const cacheKey = `ai-analytics:v10:${tenantId}:${days}`;
             const payload = await getWithStaleWhileRevalidate(
                 cacheKey,
                 () => fetchAIAnalytics(tenantId, days),
