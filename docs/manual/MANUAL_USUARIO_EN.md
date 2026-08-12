@@ -24,6 +24,9 @@
 - **Monitoring and Security aligned:** Monitoring and Security views now follow the same visual and operational pattern as Databases and Compute for faster FinOps decision-making.
 - **AI Cost Analytics fixes:** Microsoft Foundry/Azure OpenAI analytics now prioritizes real consumption, keeps MTD trend from day 1, and fixes cache/source inconsistencies.
 - **New Security prewarm cron:** `GET /api/cron/prewarm-security-finops` now prewarms Defender + Security families for faster load in staging and production.
+- **Database Intelligence hardening:** Redis, MySQL, PostgreSQL, Cosmos DB, MongoDB, and SQL/Managed Instance now expose status and metrics with per-metric fallback, avoiding `N/A/unknown` when Azure telemetry is partial.
+- **FinOps visual refresh:** key cards in Intelligence, Consumption, Governance, Cleanup, Overview, and Copilot M365 now use Tabler icons and no blue icon backgrounds for cleaner scanning.
+- **Staging deploy hardening:** the pipeline now resolves real staging resources, tracks migrations with the correct `job-execution-name`, and validates health checks accepting redirects (`200/307/308`).
 
 ## Operational directive (repository and deployments)
 

@@ -24,6 +24,9 @@
 - **Seguridad y Monitoreo estandarizados:** módulos alineados al mismo estilo de Bases de Datos y Cómputo, incluyendo paginado y filtros por recurso/región/tipo/grupo.
 - **Nuevo cron operativo de Seguridad:** `prewarm-security-finops` agregado al mapa de jobs de Terraform (staging/prod) para precalentar `defender` y `security/service-cost`.
 - **AI Cost Analytics hardening:** correcciones de consumo real, tendencia MTD diaria y robustez de fuente de datos/cache para Microsoft Foundry.
+- **Hardening de métricas de Bases de Datos:** Redis, MySQL, PostgreSQL, Cosmos DB, MongoDB y SQL/Managed Instance ahora usan fallback por métrica para evitar paneles en `N/A/unknown` con telemetría parcial de Azure.
+- **Refresh visual FinOps con Tabler:** módulos clave de Inteligencia, Consumo, Gobernanza, Cleanup, Overview y Copilot M365 se estandarizaron sin fondo azul en iconos.
+- **Pipeline de staging endurecido:** deploy con resolución dinámica de suscripción/RG/app/job, seguimiento correcto de migraciones por `job-execution-name` y health check compatible con redirects (`200/307/308`).
 
 ## Directiva operativa de cambios (obligatoria)
 

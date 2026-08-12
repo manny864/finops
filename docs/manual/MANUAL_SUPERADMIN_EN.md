@@ -24,6 +24,9 @@
 - **Security and Monitoring standardized:** both modules now match the same style used in Databases and Compute, including pagination and resource/region/type/resource-group filters.
 - **New Security operational cron:** `prewarm-security-finops` added to Terraform cron maps (staging/prod) to prewarm `defender` and `security/service-cost`.
 - **AI Cost Analytics hardening:** fixes for real-consumption display, daily MTD trend, and cache/data-source robustness for Microsoft Foundry.
+- **Database metrics hardening:** Redis, MySQL, PostgreSQL, Cosmos DB, MongoDB, and SQL/Managed Instance now use per-metric fallback to prevent `N/A/unknown` dashboards under partial Azure telemetry.
+- **Tabler-based FinOps visual refresh:** key modules in Intelligence, Consumption, Governance, Cleanup, Overview, and Copilot M365 are now standardized with no blue icon backgrounds.
+- **Staging pipeline hardening:** deployment now resolves subscription/RG/app/job dynamically, tracks migrations with the proper `job-execution-name`, and treats redirect health checks (`200/307/308`) as healthy.
 
 ## Change-control directive (mandatory)
 

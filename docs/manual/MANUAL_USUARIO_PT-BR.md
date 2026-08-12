@@ -24,6 +24,9 @@
 - **Monitoramento e Segurança alinhados:** as telas desses módulos agora seguem o mesmo padrão visual e operacional de Bancos de Dados e Computação para decisões FinOps mais rápidas.
 - **Correções no AI Cost Analytics:** o painel de Microsoft Foundry/Azure OpenAI agora prioriza consumo real, mantém tendência MTD desde o dia 1 e corrige inconsistências de cache/fontes.
 - **Novo cron de prewarm de Segurança:** `GET /api/cron/prewarm-security-finops` agora pré-aquece Defender + famílias de Segurança para carregamento mais rápido em staging e produção.
+- **Hardening da Inteligência de Bancos de Dados:** Redis, MySQL, PostgreSQL, Cosmos DB, MongoDB e SQL/Managed Instance agora exibem status e métricas com fallback por métrica, evitando `N/A/unknown` quando a telemetria do Azure vem parcial.
+- **Refresh visual de módulos FinOps:** cards principais de Inteligência, Consumo, Governança, Cleanup, Overview e Copilot M365 agora usam ícones Tabler sem fundo azul para leitura mais limpa.
+- **Hardening do deploy de staging:** o pipeline agora resolve recursos reais de staging, acompanha migrações com `job-execution-name` correto e valida health check aceitando redirects (`200/307/308`).
 
 ## Diretriz operacional (repositório e deploys)
 
