@@ -150,90 +150,118 @@ function buildTrendMtd(rows: AggRow[]) {
 function reconcileAiRowsWithMeterCost(aiRows: AggRow[], meterRows: AggRow[]): AggRow[] {
     if (!aiRows.length || !meterRows.length) return aiRows;
 
+    const normalizeModelKey = (value: string): string => {
+        const s = String(value || "").toLowerCase();
+        // Examples:
+        // "5.3 codex inp Gl 1M Tokens" -> gpt-5.3-codex
+        // "gpt-5.6-terra" -> gpt-5.6-terra
+        // "GPT 5.1 ..." -> gpt-5.1
+        const m = s.match(/(?:gpt[-\s]?)?(\d+(?:\.\d+)?)(?:[-\s]*(codex|terra|mini|nano|pro))?/i);
+        if (m) {
+            const version = m[1];
+            const flavor = (m[2] || "").toLowerCase();
+            return flavor ? `gpt-${version}-${flavor}` : `gpt-${version}`;
+        }
+        return s.trim();
+    };
+
     const meterByDate = new Map<string, Decimal>();
+    const meterByDateModel = new Map<string, Decimal>();
     for (const row of meterRows) {
         const dateKey = toDateKey(row.date);
-        const current = meterByDate.get(dateKey) || new Decimal(0);
-        meterByDate.set(dateKey, current.plus(new Decimal(row.cost || 0)));
+        const modelKey = normalizeModelKey(String(row.model_name || ""));
+        const cost = new Decimal(row.cost || 0);
+        meterByDate.set(dateKey, (meterByDate.get(dateKey) || new Decimal(0)).plus(cost));
+        if (modelKey) {
+            const key = `${dateKey}::${modelKey}`;
+            meterByDateModel.set(key, (meterByDateModel.get(key) || new Decimal(0)).plus(cost));
+        }
     }
 
-    const aiByDate = new Map<string, { totalCost: Decimal; totalTokens: number }>();
-    const aiRowCountByDate = new Map<string, number>();
-    for (const row of aiRows) {
-        const dateKey = toDateKey(row.date);
-        const current = aiByDate.get(dateKey) || { totalCost: new Decimal(0), totalTokens: 0 };
-        current.totalCost = current.totalCost.plus(new Decimal(row.cost || 0));
-        current.totalTokens += Number(row.inputTokens || 0) + Number(row.outputTokens || 0);
-        aiByDate.set(dateKey, current);
-        aiRowCountByDate.set(dateKey, (aiRowCountByDate.get(dateKey) || 0) + 1);
+    const rows = aiRows.map((r) => ({ ...r, cost: new Decimal(0) }));
+    const rowsByDate = new Map<string, number[]>();
+    for (let i = 0; i < rows.length; i++) {
+        const dateKey = toDateKey(rows[i].date);
+        const arr = rowsByDate.get(dateKey) || [];
+        arr.push(i);
+        rowsByDate.set(dateKey, arr);
     }
 
-    const reconciledRows = aiRows.map((row) => {
-        const dateKey = toDateKey(row.date);
-        const meterTotal = meterByDate.get(dateKey);
-        if (!meterTotal || meterTotal.lte(0)) return row;
+    let orphanDateCost = new Decimal(0);
 
-        const aiDay = aiByDate.get(dateKey);
-        if (!aiDay) return row;
+    for (const [dateKey, idxs] of rowsByDate.entries()) {
+        const meterTotal = meterByDate.get(dateKey) || new Decimal(0);
+        if (meterTotal.lte(0)) continue;
 
-        const rowCost = new Decimal(row.cost || 0);
-        const rowTokens = Number(row.inputTokens || 0) + Number(row.outputTokens || 0);
+        // 1) Assign cost by model when meter has model-level hints.
+        let assigned = new Decimal(0);
+        const assignedIdx = new Set<number>();
 
-        let share = new Decimal(0);
-        if (aiDay.totalCost.gt(0)) {
-            share = rowCost.dividedBy(aiDay.totalCost);
-        } else if (aiDay.totalTokens > 0) {
-            share = new Decimal(rowTokens).dividedBy(aiDay.totalTokens);
-        } else {
-            const rowCount = aiRowCountByDate.get(dateKey) || 0;
-            if (rowCount > 0) {
-                share = new Decimal(1).dividedBy(rowCount);
-            } else {
-                return row;
+        const modelBuckets = new Map<string, number[]>();
+        for (const idx of idxs) {
+            const key = normalizeModelKey(String(aiRows[idx].model_name || ""));
+            const arr = modelBuckets.get(key) || [];
+            arr.push(idx);
+            modelBuckets.set(key, arr);
+        }
+
+        for (const [modelKey, modelIdxs] of modelBuckets.entries()) {
+            const modelMeter = meterByDateModel.get(`${dateKey}::${modelKey}`);
+            if (!modelMeter || modelMeter.lte(0)) continue;
+
+            // distribute by token share inside same model/day
+            const totalTokens = modelIdxs.reduce(
+                (sum, idx) => sum + Number(aiRows[idx].inputTokens || 0) + Number(aiRows[idx].outputTokens || 0),
+                0
+            );
+            const count = modelIdxs.length || 1;
+            for (const idx of modelIdxs) {
+                const rowTokens = Number(aiRows[idx].inputTokens || 0) + Number(aiRows[idx].outputTokens || 0);
+                const share = totalTokens > 0 ? new Decimal(rowTokens).dividedBy(totalTokens) : new Decimal(1).dividedBy(count);
+                rows[idx].cost = modelMeter.times(share).toDecimalPlaces(8, Decimal.ROUND_HALF_UP);
+                assigned = assigned.plus(rows[idx].cost as Decimal);
+                assignedIdx.add(idx);
             }
         }
 
-        if (share.lte(0)) {
-            const rowCount = aiRowCountByDate.get(dateKey) || 0;
-            if (rowCount > 0) {
-                share = new Decimal(1).dividedBy(rowCount);
+        // 2) Distribute remaining daily cost to unmatched rows on that day.
+        const remaining = meterTotal.minus(assigned);
+        if (remaining.gt(0)) {
+            const unmatched = idxs.filter((idx) => !assignedIdx.has(idx));
+            if (unmatched.length > 0) {
+                const totalTokensUnmatched = unmatched.reduce(
+                    (sum, idx) => sum + Number(aiRows[idx].inputTokens || 0) + Number(aiRows[idx].outputTokens || 0),
+                    0
+                );
+                for (const idx of unmatched) {
+                    const rowTokens = Number(aiRows[idx].inputTokens || 0) + Number(aiRows[idx].outputTokens || 0);
+                    const share = totalTokensUnmatched > 0
+                        ? new Decimal(rowTokens).dividedBy(totalTokensUnmatched)
+                        : new Decimal(1).dividedBy(unmatched.length);
+                    rows[idx].cost = (rows[idx].cost as Decimal).plus(remaining.times(share)).toDecimalPlaces(8, Decimal.ROUND_HALF_UP);
+                }
             } else {
-                return row;
+                orphanDateCost = orphanDateCost.plus(remaining);
             }
         }
+    }
 
-        const reconciledCost = meterTotal.times(share);
-        return {
-            ...row,
-            cost: reconciledCost.toDecimalPlaces(8, Decimal.ROUND_HALF_UP),
-        };
-    });
-
-    // Si Cost Management trae costo en fechas sin telemetría de tokens, en lugar
-    // de crear un "modelo fantasma" se prorratea ese delta entre modelos reales
-    // del período para mantener costo total sin ensuciar byModel.
-    let unattributedMeterCost = new Decimal(0);
+    // 3) If meter has day-cost with no AI rows that day, spread across all rows.
     for (const [dateKey, meterTotal] of meterByDate.entries()) {
-        if (meterTotal.lte(0) || aiByDate.has(dateKey)) continue;
-        unattributedMeterCost = unattributedMeterCost.plus(meterTotal);
+        if (meterTotal.lte(0) || rowsByDate.has(dateKey)) continue;
+        orphanDateCost = orphanDateCost.plus(meterTotal);
     }
 
-    if (unattributedMeterCost.gt(0) && reconciledRows.length > 0) {
-        const totalBaseCost = reconciledRows.reduce((acc, row) => acc.plus(new Decimal(row.cost || 0)), new Decimal(0));
-        if (totalBaseCost.gt(0)) {
-            return reconciledRows.map((row) => {
-                const rowCost = new Decimal(row.cost || 0);
-                const share = rowCost.dividedBy(totalBaseCost);
-                const extra = unattributedMeterCost.times(share);
-                return {
-                    ...row,
-                    cost: rowCost.plus(extra).toDecimalPlaces(8, Decimal.ROUND_HALF_UP),
-                };
-            });
+    if (orphanDateCost.gt(0) && rows.length > 0) {
+        const tokenBase = rows.reduce((sum, r) => sum + Number(r.inputTokens || 0) + Number(r.outputTokens || 0), 0);
+        for (const row of rows) {
+            const rowTokens = Number(row.inputTokens || 0) + Number(row.outputTokens || 0);
+            const share = tokenBase > 0 ? new Decimal(rowTokens).dividedBy(tokenBase) : new Decimal(1).dividedBy(rows.length);
+            row.cost = (row.cost as Decimal).plus(orphanDateCost.times(share)).toDecimalPlaces(8, Decimal.ROUND_HALF_UP);
         }
     }
 
-    return reconciledRows;
+    return rows.map((r) => ({ ...r, cost: r.cost }));
 }
 
 function toMonthStart(date: Date): Date {
@@ -583,7 +611,7 @@ export async function GET(request: NextRequest) {
                 return NextResponse.json({ error: "Feature bloqueada. Requiere plan Enterprise." }, { status: 403 });
             }
 
-            const cacheKey = `ai-analytics:v10:${tenantId}:${days}`;
+            const cacheKey = `ai-analytics:v11:${tenantId}:${days}`;
             const payload = await getWithStaleWhileRevalidate(
                 cacheKey,
                 () => fetchAIAnalytics(tenantId, days),
