@@ -650,41 +650,69 @@ async function fetchRealCapabilities(tenantId: string): Promise<CapabilityMetric
 
     if (!rows || rows.length === 0) return [];
 
-    // ponytail: simplified DB fallback (full capability detection would require per-service queries)
-    return rows.map((r: any) => ({
-      capability: "foundry" as Capability,
-      name: CAPABILITIES_METADATA.foundry.name,
-      description: CAPABILITIES_METADATA.foundry.description,
-      monthlyCostUSD: parseFloat(r.total_cost || 0),
-      costBreakdown: {
-        computeCost: parseFloat(r.total_cost) * 0.58,
-        storageCost: parseFloat(r.total_cost) * 0.25,
-        queryTransactionCost: parseFloat(r.total_cost) * 0.13,
-        overheadCost: parseFloat(r.total_cost) * 0.04,
-      },
-      usage: [
-        { metric: "Resources Detected", value: rows.length, unit: "count" },
-        { metric: "Avg Cost per Resource", value: parseFloat((r.total_cost / rows.length).toFixed(2)), unit: "$/month" },
-      ],
-      resources: rows.map((rr: any) => ({
-        name: rr.resource_name || "unknown",
-        region: rr.region || "unknown",
-        resourceGroup: rr.resource_group || "unknown",
-        type: rr.resource_type || "unknown",
-        monthlyCost: parseFloat(rr.total_cost || 0),
-        utilizationPercent: Math.min(100, Math.max(10, parseFloat(rr.avg_daily_hours || 24) / 24 * 100)),
+    const classifyCapability = (serviceName: string, resourceType: string): Capability | null => {
+      const s = `${serviceName || ""} ${resourceType || ""}`.toLowerCase();
+      if (s.includes("foundry") || s.includes("openai")) return "foundry";
+      if (s.includes("databricks")) return "databricks";
+      if (s.includes("machine learning") || s.includes("azureml")) return "aml";
+      if (s.includes("search")) return "search";
+      if (s.includes("speech") || s.includes("language")) return "speech-language";
+      if (s.includes("vision") || s.includes("video indexer")) return "vision-video";
+      if (s.includes("content safety")) return "content-safety";
+      if (s.includes("document intelligence") || s.includes("form recognizer")) return "document-intelligence";
+      if (s.includes("cognitiveservices")) return "document-intelligence";
+      return null;
+    };
+
+    const grouped = new Map<Capability, any[]>();
+    for (const row of rows) {
+      const cap = classifyCapability(row.service_name, row.resource_type);
+      if (!cap) continue;
+      if (!grouped.has(cap)) grouped.set(cap, []);
+      grouped.get(cap)!.push(row);
+    }
+
+    return Array.from(grouped.entries()).map(([capability, capRows]) => {
+      const totalCost = capRows.reduce((sum, r) => sum + parseFloat(r.total_cost || 0), 0);
+      const resources = capRows.map((r) => ({
+        name: r.resource_name || "unknown",
+        region: r.region || "unknown",
+        resourceGroup: r.resource_group || "unknown",
+        type: r.resource_type || "unknown",
+        monthlyCost: parseFloat(r.total_cost || 0),
+        utilizationPercent: Math.min(100, Math.max(10, (parseFloat(r.avg_daily_hours || 0) / 24) * 100)),
         lastAccessedDaysAgo: 0,
-      })),
-      wasteMetrics: {
-        orphanedResourceCount: 0,
-        underutilizedResourceCount: 0,
-        idleResourceCount: 0,
-        estimatedWasteUSD: 0,
-      },
-      recommendations: [],
-      lastUpdated: new Date().toISOString(),
-      source: "snapshot" as const,
-    }));
+      }));
+
+      return {
+        capability,
+        name: CAPABILITIES_METADATA[capability].name,
+        description: CAPABILITIES_METADATA[capability].description,
+        monthlyCostUSD: totalCost,
+        costBreakdown: {
+          computeCost: totalCost * 0.58,
+          storageCost: totalCost * 0.25,
+          queryTransactionCost: totalCost * 0.13,
+          overheadCost: totalCost * 0.04,
+        },
+        usage: [
+          { metric: "Resources Detected", value: capRows.length, unit: "count" },
+          { metric: "Avg Cost per Resource", value: capRows.length ? parseFloat((totalCost / capRows.length).toFixed(2)) : 0, unit: "$/month" },
+        ],
+        resources,
+        wasteMetrics: {
+          orphanedResourceCount: 0,
+          underutilizedResourceCount: resources.filter((r) => (r.utilizationPercent || 0) < 20).length,
+          idleResourceCount: resources.filter((r) => (r.utilizationPercent || 0) <= 10).length,
+          estimatedWasteUSD: resources
+            .filter((r) => (r.utilizationPercent || 0) < 20)
+            .reduce((sum, r) => sum + r.monthlyCost * 0.3, 0),
+        },
+        recommendations: [],
+        lastUpdated: new Date().toISOString(),
+        source: "snapshot" as const,
+      };
+    });
   } catch (err) {
     console.error("Error fetching real capabilities:", err);
     return [];

@@ -33,7 +33,16 @@ const TABS: Array<{ id: Capability; label: string; icon: any }> = [
 ];
 
 function CapabilityCard({ cap }: { cap?: CapabilityMetrics }) {
-  if (!cap) return <div className="h-64 flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin" /></div>;
+  if (!cap) {
+    return (
+      <div className="h-64 flex items-center justify-center text-center">
+        <div>
+          <p className="text-sm font-medium text-slate-700 dark:text-slate-200">No hay datos para esta capability</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Verifica que CostMeterSnapshots tenga consumo de este servicio.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -181,6 +190,13 @@ export default function AzureAIDashboard({ initialTab = "search", showInternalTa
 
       {isLoading ? (
         <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 text-blue-600 dark:text-blue-400 animate-spin" /></div>
+      ) : capabilities.length === 0 ? (
+        <div className="h-64 flex items-center justify-center text-center">
+          <div>
+            <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Sin datos productivos todavía</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Para tenants no-demo mostramos solo datos reales; no hay fallback a mock.</p>
+          </div>
+        </div>
       ) : (
         <CapabilityCard cap={currentCap} />
       )}
