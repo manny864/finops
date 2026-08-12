@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import { Inter } from "next/font/google";
 import { getTranslations } from "next-intl/server";
 import RouteTabsNav from "@/components/navigation/RouteTabsNav";
-import { Database, Orbit, DatabaseZap, Leaf, AppWindow } from "lucide-react";
+import { Database, Orbit, DatabaseZap, Leaf, AppWindow, SquareStack } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -16,6 +16,7 @@ export default async function BasesDatosLayout({ children }: { children: ReactNo
         { href: "/intelligence/bases-de-datos/mongodb", label: t("tabMongoDb"), icon: <Leaf className="w-4 h-4 text-[#0054A6]" /> },
         { href: "/intelligence/bases-de-datos/redistest", label: t("tabRedistest"), icon: <AppWindow className="w-4 h-4 text-[#0054A6]" /> },
         { href: "/intelligence/bases-de-datos/testmysql", label: t("tabTestmysql"), icon: <Database className="w-4 h-4 text-[#0054A6]" /> },
+        { href: "/intelligence/bases-de-datos/microsoft-fabric", label: t("fabricTitle") || "Fabric", icon: <SquareStack className="w-4 h-4 text-[#6B35C1]" /> },
     ];
 
     return (

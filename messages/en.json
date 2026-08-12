@@ -5033,7 +5033,9 @@
     "mongoTitle": "Azure Cosmos DB for MongoDB",
     "mongoSubtitle": "FinOps/CMP cockpit for Azure Cosmos DB for MongoDB and Mongo clusters.",
     "redisTitle": "Azure Cache for Redis",
-    "redisSubtitle": "Memory usage, cache hit rate, evictions, and performance"
+    "redisSubtitle": "Memory usage, cache hit rate, evictions, and performance",
+    "fabricTitle": "Microsoft Fabric",
+    "fabricSubtitle": "Analytics platform with unified capacity and OneLake storage"
   },
   "DatabaseFinopsCmp": {
     "selectTenant": "Select a tenant to view the cockpit.",
