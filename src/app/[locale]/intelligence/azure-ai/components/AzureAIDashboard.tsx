@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import useSWR from "swr";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
@@ -8,7 +8,7 @@ import { Loader2, Search, FileText, Mic, Eye, ShieldAlert, Cpu, Database, Dollar
 import { getFreshIdToken } from "@/lib/msalToken";
 import TierLockedNotice from "@/components/TierLockedNotice";
 
-type Capability = "search" | "document-intelligence" | "speech-language" | "vision-video" | "content-safety" | "aml" | "databricks";
+export type Capability = "search" | "document-intelligence" | "speech-language" | "vision-video" | "content-safety" | "aml" | "databricks";
 
 interface CapabilityMetrics {
   capability: Capability;
@@ -102,11 +102,19 @@ function CapabilityCard({ cap }: { cap?: CapabilityMetrics }) {
   );
 }
 
-export default function AzureAIDashboard() {
+interface AzureAIDashboardProps {
+  initialTab?: Capability;
+}
+
+export default function AzureAIDashboard({ initialTab = "search" }: AzureAIDashboardProps) {
   const { selectedTenant } = useTenant();
   const { instance, accounts } = useMsal();
-  const [activeTab, setActiveTab] = useState<Capability>("search");
+  const [activeTab, setActiveTab] = useState<Capability>(initialTab);
   const tenantId = selectedTenant?.id;
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
 
   const { data, error, isLoading } = useSWR(
     tenantId ? `/api/intelligence/azure-ai?tenantId=${tenantId}` : null,
@@ -178,7 +186,7 @@ export default function AzureAIDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-blue-100 text-sm mb-2">Total Azure AI Monthly Cost</p>
-              <p className="text-4xl font-bold">${(data?.totalCost || 0).toLocaleString("en-US", { maximumFractionDigits: 2 })}</p>
+              <p className="text-4xl font-bold">${((data?.totalCostUSD ?? data?.totalCost) || 0).toLocaleString("en-US", { maximumFractionDigits: 2 })}</p>
             </div>
             <DollarSign className="w-16 h-16 text-blue-400 opacity-30" />
           </div>
