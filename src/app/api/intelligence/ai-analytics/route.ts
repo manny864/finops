@@ -264,6 +264,13 @@ function sumRowsCost(rows: AggRow[]): Decimal {
     return rows.reduce((acc, row) => acc.plus(new Decimal(row.cost || 0)), new Decimal(0));
 }
 
+function normalizeModelLabel(modelName: string): string {
+    const value = String(modelName || "").trim().toLowerCase();
+    if (!value || value === "unknown") return "Modelo no identificado";
+    if (value === "unattributed-foundry-cost") return "Azure Foundry (sin atribución de modelo)";
+    return modelName;
+}
+
 function aggregate(rows: AggRow[], tokensAvailable: boolean) {
     const modelMap = new Map<string, { model: string; cost: Decimal; inputTokens: number; outputTokens: number }>();
     const appMap = new Map<string, { application: string; cost: Decimal; model: string }>();
@@ -280,7 +287,7 @@ function aggregate(rows: AggRow[], tokensAvailable: boolean) {
         totalInput += inp;
         totalOutput += out;
 
-        const mKey = r.model_name || "unknown";
+        const mKey = normalizeModelLabel(r.model_name || "unknown");
         const mEntry = modelMap.get(mKey) || { model: mKey, cost: new Decimal(0), inputTokens: 0, outputTokens: 0 };
         mEntry.cost = mEntry.cost.plus(cost);
         mEntry.inputTokens += inp;
