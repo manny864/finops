@@ -3,7 +3,7 @@ import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
 import pool from "@/modules/storage/db";
 
-type Capability = "search" | "document-intelligence" | "speech-language" | "vision-video" | "content-safety" | "aml" | "databricks";
+type Capability = "search" | "document-intelligence" | "speech-language" | "vision-video" | "content-safety" | "aml" | "databricks" | "foundry";
 
 interface FinopsRecommendation {
   id: string;
@@ -78,6 +78,10 @@ const CAPABILITIES_METADATA: Record<Capability, { name: string; description: str
   databricks: {
     name: "Azure Databricks",
     description: "Analytics and ML: distributed Spark workloads, MLflow experiment tracking, LLM fine-tuning.",
+  },
+  foundry: {
+    name: "Azure AI Foundry",
+    description: "Model catalog, prompt orchestration, fine-tuning, and managed inference for enterprise GenAI workloads.",
   },
 };
 
@@ -465,6 +469,78 @@ const MOCK_CAPABILITIES: CapabilityMetrics[] = [
     source: "mock",
   },
   {
+    capability: "foundry",
+    name: CAPABILITIES_METADATA.foundry.name,
+    description: CAPABILITIES_METADATA.foundry.description,
+    monthlyCostUSD: 11240.3,
+    costBreakdown: {
+      computeCost: 7450,
+      storageCost: 1380,
+      queryTransactionCost: 1930.3,
+      overheadCost: 480,
+    },
+    usage: [
+      { metric: "Prompt Tokens", value: 42000000, unit: "tokens/month", costPer: 0.00018 },
+      { metric: "Completion Tokens", value: 18500000, unit: "tokens/month", costPer: 0.00028 },
+      { metric: "Fine-tuning Jobs", value: 14, unit: "jobs/month", costPer: 142.5 },
+      { metric: "Model Endpoints", value: 9, unit: "endpoints" },
+    ],
+    resources: [
+      {
+        name: "foundry-prod-eastus",
+        region: "East US",
+        resourceGroup: "genai-rg",
+        type: "Microsoft.CognitiveServices/accounts",
+        monthlyCost: 11240.3,
+        utilizationPercent: 69,
+        lastAccessedDaysAgo: 0,
+      },
+      {
+        name: "foundry-playground-dev",
+        region: "East US",
+        resourceGroup: "genai-rg",
+        type: "Microsoft.CognitiveServices/accounts",
+        monthlyCost: 980,
+        utilizationPercent: 9,
+        lastAccessedDaysAgo: 52,
+      },
+    ],
+    wasteMetrics: {
+      orphanedResourceCount: 1,
+      underutilizedResourceCount: 1,
+      idleResourceCount: 0,
+      estimatedWasteUSD: 820,
+    },
+    recommendations: [
+      {
+        id: "foundry-dev-playground-retire",
+        capability: "foundry",
+        title: "Retire Foundry Dev Playground Instance",
+        description: "foundry-playground-dev shows 9% utilization and no activity in 52 days. Keep IaC template and spin up on demand.",
+        potentialSavingsUSD: 980,
+        effort: "low",
+        roiMonths: 1,
+        actionType: "termination",
+        resourceAffected: "foundry-playground-dev",
+        confidence: 0.93,
+      },
+      {
+        id: "foundry-token-governance",
+        capability: "foundry",
+        title: "Apply Token Budgets and Prompt Caching",
+        description: "Introduce per-project token budgets and prompt caching for repetitive calls. Estimated 15-20% token cost reduction.",
+        potentialSavingsUSD: 1750,
+        effort: "medium",
+        roiMonths: 2,
+        actionType: "optimization",
+        resourceAffected: "foundry-prod-eastus",
+        confidence: 0.84,
+      },
+    ],
+    lastUpdated: new Date().toISOString(),
+    source: "mock",
+  },
+  {
     capability: "databricks",
     name: CAPABILITIES_METADATA.databricks.name,
     description: CAPABILITIES_METADATA.databricks.description,
@@ -576,9 +652,9 @@ async function fetchRealCapabilities(tenantId: string): Promise<CapabilityMetric
 
     // ponytail: simplified DB fallback (full capability detection would require per-service queries)
     return rows.map((r: any) => ({
-      capability: "search" as Capability,
-      name: CAPABILITIES_METADATA.search.name,
-      description: CAPABILITIES_METADATA.search.description,
+      capability: "foundry" as Capability,
+      name: CAPABILITIES_METADATA.foundry.name,
+      description: CAPABILITIES_METADATA.foundry.description,
       monthlyCostUSD: parseFloat(r.total_cost || 0),
       costBreakdown: {
         computeCost: parseFloat(r.total_cost) * 0.58,
@@ -652,9 +728,9 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Real tenant: query DB (fallback to mock if empty)
+    // Real tenant: query DB (no mock fallback for productive tenants)
     const realCapabilities = await fetchRealCapabilities(tenantId);
-    const data = realCapabilities.length > 0 ? realCapabilities : MOCK_CAPABILITIES;
+    const data = realCapabilities;
 
     const totalCost = data.reduce((sum, c) => sum + c.monthlyCostUSD, 0);
     const totalWaste = data.reduce((sum, c) => sum + c.wasteMetrics.estimatedWasteUSD, 0);
@@ -673,7 +749,7 @@ export async function GET(request: NextRequest) {
         mtdCostUSD: totalCost,
         forecastEomUSD: totalCost * 1.1,
         deltaMoMPercent: 2.5,
-        wasteRisk: totalWaste / totalCost > 0.08 ? "high" : "medium",
+        wasteRisk: totalCost > 0 && totalWaste / totalCost > 0.08 ? "high" : "medium",
       },
       timestamp: new Date().toISOString(),
     });

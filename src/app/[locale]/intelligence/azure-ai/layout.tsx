@@ -15,6 +15,7 @@ export default async function AzureAILayout({ children }: { children: ReactNode 
     { href: "/intelligence/azure-ai/content-safety", label: "Content Safety", icon: <ShieldAlert className="w-4 h-4 text-[#0078d4]" /> },
     { href: "/intelligence/azure-ai/aml", label: "Machine Learning", icon: <Cpu className="w-4 h-4 text-[#0078d4]" /> },
     { href: "/intelligence/azure-ai/databricks", label: "Databricks", icon: <Database className="w-4 h-4 text-[#0078d4]" /> },
+    { href: "/intelligence/azure-ai/foundry", label: "Azure Foundry", icon: <Database className="w-4 h-4 text-[#0078d4]" /> },
   ];
 
   return (

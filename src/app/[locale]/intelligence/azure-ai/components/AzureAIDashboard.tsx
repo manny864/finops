@@ -8,7 +8,7 @@ import { Loader2, Search, FileText, Mic, Eye, ShieldAlert, Cpu, Database, Dollar
 import { getFreshIdToken } from "@/lib/msalToken";
 import TierLockedNotice from "@/components/TierLockedNotice";
 
-export type Capability = "search" | "document-intelligence" | "speech-language" | "vision-video" | "content-safety" | "aml" | "databricks";
+export type Capability = "search" | "document-intelligence" | "speech-language" | "vision-video" | "content-safety" | "aml" | "databricks" | "foundry";
 
 interface CapabilityMetrics {
   capability: Capability;
@@ -29,6 +29,7 @@ const TABS: Array<{ id: Capability; label: string; icon: any }> = [
   { id: "content-safety", label: "Content Safety", icon: ShieldAlert },
   { id: "aml", label: "Machine Learning", icon: Cpu },
   { id: "databricks", label: "Databricks", icon: Database },
+  { id: "foundry", label: "Azure Foundry", icon: Database },
 ];
 
 function CapabilityCard({ cap }: { cap?: CapabilityMetrics }) {
@@ -104,9 +105,10 @@ function CapabilityCard({ cap }: { cap?: CapabilityMetrics }) {
 
 interface AzureAIDashboardProps {
   initialTab?: Capability;
+  showInternalTabs?: boolean;
 }
 
-export default function AzureAIDashboard({ initialTab = "search" }: AzureAIDashboardProps) {
+export default function AzureAIDashboard({ initialTab = "search", showInternalTabs = true }: AzureAIDashboardProps) {
   const { selectedTenant } = useTenant();
   const { instance, accounts } = useMsal();
   const [activeTab, setActiveTab] = useState<Capability>(initialTab);
@@ -154,6 +156,7 @@ export default function AzureAIDashboard({ initialTab = "search" }: AzureAIDashb
         </div>
       )}
 
+      {showInternalTabs && (
       <div className="flex flex-wrap gap-2 border-b border-gray-200 dark:border-slate-800 pb-4">
         {TABS.map((tab) => {
           const Icon = tab.icon;
@@ -174,6 +177,7 @@ export default function AzureAIDashboard({ initialTab = "search" }: AzureAIDashb
           );
         })}
       </div>
+      )}
 
       {isLoading ? (
         <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 text-blue-600 dark:text-blue-400 animate-spin" /></div>
