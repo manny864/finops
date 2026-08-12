@@ -11,8 +11,12 @@ const MOCK_PAYLOAD = {
     mock: true,
     summary: {
         totalCost: 8420.50,
+        totalRequests: 1680,
         totalInputTokens: 42500000,
         totalOutputTokens: 18300000,
+        avgTokensPerRequest: 36130,
+        avgInputPerRequest: 25298,
+        avgOutputPerRequest: 10892,
         costPer1kTokens: 0.139,
         activeModels: 4,
         activeApplications: 7,
@@ -54,6 +58,7 @@ type AggRow = {
     team: string;
     date: string;
     cost: Decimal.Value;
+    requestCount: number;
     inputTokens: number;
     outputTokens: number;
 };
@@ -280,6 +285,7 @@ function filterRowsByCurrentMonth(rows: AggRow[]): AggRow[] {
 
 function withMonthSummary(payload: any, rowsForMonth: AggRow[]) {
     const monthCost = sumRowsCost(rowsForMonth);
+    const monthRequests = rowsForMonth.reduce((acc, row) => acc + (Number(row.requestCount || 0)), 0);
     const monthInput = rowsForMonth.reduce((acc, row) => acc + (Number(row.inputTokens || 0)), 0);
     const monthOutput = rowsForMonth.reduce((acc, row) => acc + (Number(row.outputTokens || 0)), 0);
     const totalTokens = monthInput + monthOutput;
@@ -288,8 +294,12 @@ function withMonthSummary(payload: any, rowsForMonth: AggRow[]) {
         summary: {
             ...payload.summary,
             totalCost: toCostNumber(monthCost),
+            totalRequests: monthRequests,
             totalInputTokens: monthInput,
             totalOutputTokens: monthOutput,
+            avgTokensPerRequest: monthRequests > 0 ? Math.round(totalTokens / monthRequests) : 0,
+            avgInputPerRequest: monthRequests > 0 ? Math.round(monthInput / monthRequests) : 0,
+            avgOutputPerRequest: monthRequests > 0 ? Math.round(monthOutput / monthRequests) : 0,
             costPer1kTokens: totalTokens > 0
                 ? monthCost.dividedBy(totalTokens).times(1000).toDecimalPlaces(6, Decimal.ROUND_HALF_UP).toNumber()
                 : payload.summary?.costPer1kTokens || 0,
@@ -302,24 +312,27 @@ function sumRowsCost(rows: AggRow[]): Decimal {
 }
 
 function aggregate(rows: AggRow[], tokensAvailable: boolean) {
-    const modelMap = new Map<string, { model: string; cost: Decimal; inputTokens: number; outputTokens: number }>();
+    const modelMap = new Map<string, { model: string; cost: Decimal; requestCount: number; inputTokens: number; outputTokens: number }>();
     const appMap = new Map<string, { application: string; cost: Decimal; model: string }>();
     const teamMap = new Map<string, { team: string; cost: Decimal }>();
     const trendMap = new Map<string, { date: string; cost: Decimal; inputTokens: number; outputTokens: number }>();
 
-    let totalCost = new Decimal(0), totalInput = 0, totalOutput = 0;
+    let totalCost = new Decimal(0), totalRequests = 0, totalInput = 0, totalOutput = 0;
 
     for (const r of rows) {
         const cost = new Decimal(r.cost || 0);
+        const req = Number(r.requestCount || 0);
         const inp = Number(r.inputTokens) || 0;
         const out = Number(r.outputTokens) || 0;
         totalCost = totalCost.plus(cost);
+        totalRequests += req;
         totalInput += inp;
         totalOutput += out;
 
         const mKey = r.model_name || "unknown";
-        const mEntry = modelMap.get(mKey) || { model: mKey, cost: new Decimal(0), inputTokens: 0, outputTokens: 0 };
+        const mEntry = modelMap.get(mKey) || { model: mKey, cost: new Decimal(0), requestCount: 0, inputTokens: 0, outputTokens: 0 };
         mEntry.cost = mEntry.cost.plus(cost);
+        mEntry.requestCount += req;
         mEntry.inputTokens += inp;
         mEntry.outputTokens += out;
         modelMap.set(mKey, mEntry);
@@ -345,8 +358,10 @@ function aggregate(rows: AggRow[], tokensAvailable: boolean) {
     const byModel = Array.from(modelMap.values()).map(m => ({
         model: m.model,
         cost: toCostNumber(m.cost),
+        requestCount: m.requestCount,
         inputTokens: m.inputTokens,
         outputTokens: m.outputTokens,
+        avgTokensPerRequest: m.requestCount > 0 ? Math.round((m.inputTokens + m.outputTokens) / m.requestCount) : 0,
         costPer1k: costPer1k(m.cost, m.inputTokens + m.outputTokens),
     })).sort((a, b) => b.cost - a.cost);
 
@@ -358,8 +373,12 @@ function aggregate(rows: AggRow[], tokensAvailable: boolean) {
         tokensAvailable,
         summary: {
             totalCost: toCostNumber(totalCost),
+            totalRequests,
             totalInputTokens: totalInput,
             totalOutputTokens: totalOutput,
+            avgTokensPerRequest: totalRequests > 0 ? Math.round(totalTokens / totalRequests) : 0,
+            avgInputPerRequest: totalRequests > 0 ? Math.round(totalInput / totalRequests) : 0,
+            avgOutputPerRequest: totalRequests > 0 ? Math.round(totalOutput / totalRequests) : 0,
             costPer1kTokens: costPer1k(totalCost, totalTokens),
             activeModels: modelMap.size,
             activeApplications: appMap.size,
@@ -425,21 +444,46 @@ async function fetchAIAnalytics(tenantId: string, days: number) {
     //    Microsoft Foundry / Azure OpenAI sincronizado desde Azure Monitor
     //    Metrics (ver aiUsageCollector.ts). Puede estar vacía si el cron todavía
     //    no corrió para este tenant, o si no tiene cuentas AI compatibles.
-    const [aiRows]: any = await pool.query(
-        `SELECT
-            COALESCE(NULLIF(model_name, ''), 'unknown') AS model_name,
-            COALESCE(NULLIF(application, ''), NULLIF(resource_name, ''), 'unknown') AS application,
-            COALESCE(NULLIF(team, ''), 'Sin asignar') AS team,
-            date,
-            SUM(COALESCE(NULLIF(billed_cost, 0), effective_cost, 0)) AS cost,
-            SUM(input_tokens) AS inputTokens,
-            SUM(output_tokens) AS outputTokens
-         FROM AICostSnapshots
-         WHERE tenant_id = ? AND date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
-         GROUP BY COALESCE(NULLIF(model_name, ''), 'unknown'), COALESCE(NULLIF(application, ''), NULLIF(resource_name, ''), 'unknown'), COALESCE(NULLIF(team, ''), 'Sin asignar'), date
-         ORDER BY date ASC`,
-        [tenantId, daysForQuery]
-    );
+    let aiRows: AggRow[] = [];
+    try {
+        const [rows]: any = await pool.query(
+            `SELECT
+                COALESCE(NULLIF(model_name, ''), 'unknown') AS model_name,
+                COALESCE(NULLIF(application, ''), NULLIF(resource_name, ''), 'unknown') AS application,
+                COALESCE(NULLIF(team, ''), 'Sin asignar') AS team,
+                date,
+                SUM(COALESCE(NULLIF(billed_cost, 0), effective_cost, 0)) AS cost,
+                SUM(COALESCE(request_count, 0)) AS requestCount,
+                SUM(input_tokens) AS inputTokens,
+                SUM(output_tokens) AS outputTokens
+             FROM AICostSnapshots
+             WHERE tenant_id = ? AND date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+             GROUP BY COALESCE(NULLIF(model_name, ''), 'unknown'), COALESCE(NULLIF(application, ''), NULLIF(resource_name, ''), 'unknown'), COALESCE(NULLIF(team, ''), 'Sin asignar'), date
+             ORDER BY date ASC`,
+            [tenantId, daysForQuery]
+        );
+        aiRows = rows as AggRow[];
+    } catch (err: any) {
+        const msg = String(err?.message || "");
+        if (!msg.toLowerCase().includes("unknown column 'request_count'")) throw err;
+        const [rows]: any = await pool.query(
+            `SELECT
+                COALESCE(NULLIF(model_name, ''), 'unknown') AS model_name,
+                COALESCE(NULLIF(application, ''), NULLIF(resource_name, ''), 'unknown') AS application,
+                COALESCE(NULLIF(team, ''), 'Sin asignar') AS team,
+                date,
+                SUM(COALESCE(NULLIF(billed_cost, 0), effective_cost, 0)) AS cost,
+                0 AS requestCount,
+                SUM(input_tokens) AS inputTokens,
+                SUM(output_tokens) AS outputTokens
+             FROM AICostSnapshots
+             WHERE tenant_id = ? AND date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+             GROUP BY COALESCE(NULLIF(model_name, ''), 'unknown'), COALESCE(NULLIF(application, ''), NULLIF(resource_name, ''), 'unknown'), COALESCE(NULLIF(team, ''), 'Sin asignar'), date
+             ORDER BY date ASC`,
+            [tenantId, daysForQuery]
+        );
+        aiRows = rows as AggRow[];
+    }
 
     // 2) Fallback principal: CostMeterSnapshots (filas a nivel meter).
     //    Desde 20260704 el sync separa estos costos de CostSnapshots para evitar
@@ -452,6 +496,7 @@ async function fetchAIAnalytics(tenantId: string, days: number) {
             'Sin asignar' AS team,
             date,
             SUM(cost_usd) AS cost,
+            0 AS requestCount,
             0 AS inputTokens,
             0 AS outputTokens
          FROM CostMeterSnapshots
@@ -525,6 +570,7 @@ async function fetchAIAnalytics(tenantId: string, days: number) {
             COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(Tags, '$.Team')), 'null'), 'Sin asignar') AS team,
             date,
             SUM(cost_usd) AS cost,
+            0 AS requestCount,
             0 AS inputTokens,
             0 AS outputTokens
          FROM CostSnapshots
@@ -628,7 +674,7 @@ export async function GET(request: NextRequest) {
             console.error("AI Analytics DB error for real tenant:", tenantId, dbErr?.message);
             return NextResponse.json({
                 success: false, mock: false,
-                summary: { totalCost: 0, totalInputTokens: 0, totalOutputTokens: 0, costPer1kTokens: 0, activeModels: 0, activeApplications: 0 },
+                summary: { totalCost: 0, totalRequests: 0, totalInputTokens: 0, totalOutputTokens: 0, avgTokensPerRequest: 0, avgInputPerRequest: 0, avgOutputPerRequest: 0, costPer1kTokens: 0, activeModels: 0, activeApplications: 0 },
                 byModel: [], byApplication: [], byTeam: [], trend: [],
                 error: `Sin datos disponibles: ${dbErr?.message || "error"}`,
             });

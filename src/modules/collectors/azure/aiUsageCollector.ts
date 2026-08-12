@@ -33,6 +33,7 @@ export interface AIUsageRow {
     resourceName: string;
     resourceGroup: string;
     modelName: string;
+    requestCount: number;
     inputTokens: number;
     outputTokens: number;
     billedCost: number;
@@ -44,7 +45,7 @@ export interface AIUsageRow {
 // concreto (p.ej. ProcessedInferenceTokens no existe en cuentas OpenAI
 // clásicas). Pidiéndolas por separado, una métrica inexistente sólo falla su
 // propia llamada y no tumba las demás.
-const TOKEN_METRIC_NAMES = ["ProcessedPromptTokens", "GeneratedTokens", "ProcessedInferenceTokens"];
+const TOKEN_METRIC_NAMES = ["ProcessedPromptTokens", "GeneratedTokens", "ProcessedInferenceTokens", "Requests"];
 
 /**
  * Uso real de Azure OpenAI / Cognitive Services por día (ayer + hoy parcial),
@@ -119,7 +120,7 @@ export async function getYesterdaysAIUsage(tenantId: string, signal?: AbortSigna
             };
 
             // Se acumula por deployment + día (UTC) para persistir ayer y hoy parcial.
-            const byDeploymentDay = new Map<string, { date: string; modelName: string; input: number; output: number; inference: number }>();
+            const byDeploymentDay = new Map<string, { date: string; modelName: string; requests: number; input: number; output: number; inference: number }>();
 
             const ingestMetric = (metricName: string | undefined, metricValue: any) => {
                 for (const ts of metricValue?.timeseries || []) {
@@ -146,12 +147,14 @@ export async function getYesterdaysAIUsage(tenantId: string, signal?: AbortSigna
                         const entry = byDeploymentDay.get(key) || {
                             date: pointDate,
                             modelName: deployment,
+                            requests: 0,
                             input: 0,
                             output: 0,
                             inference: 0,
                         };
                         if (metricName === "ProcessedPromptTokens") entry.input += total;
                         else if (metricName === "GeneratedTokens" || metricName === "GeneratedCompletionTokens") entry.output += total;
+                        else if (metricName === "Requests") entry.requests += total;
                         else if (metricName === "ProcessedInferenceTokens") entry.inference += total;
                         byDeploymentDay.set(key, entry);
                     }
@@ -187,6 +190,7 @@ export async function getYesterdaysAIUsage(tenantId: string, signal?: AbortSigna
                     resourceName: account.name,
                     resourceGroup: account.resourceGroup,
                     modelName: entry.modelName,
+                    requestCount: Math.round(entry.requests),
                     inputTokens: Math.round(inputTokens),
                     outputTokens: Math.round(outputTokens),
                     billedCost: estimateCost(entry.modelName, inputTokens, outputTokens),

@@ -86,6 +86,8 @@ export default function AIAnalyticsDashboard() {
             : null;
 
     const { data, error, isLoading } = useSWR(apiUrl, fetcher, { revalidateOnFocus: false });
+    const compact = (value: number) =>
+        Intl.NumberFormat("es-ES", { notation: "compact", maximumFractionDigits: 2 }).format(value || 0);
     const chartTrendData = useMemo(() => {
         const now = new Date();
         const currentMonthDay = now.getDate();
@@ -237,35 +239,47 @@ export default function AIAnalyticsDashboard() {
 
             {/* KPI cards */}
             {summary && (
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    <KpiCard
-                        label={t("total_cost")}
-                        value={`$${summary.totalCost.toLocaleString()}`}
-                        icon={<DollarSign className="w-5 h-5" />}
-                        tooltip={t("cost_forecast_tooltip")}
-                    />
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
                     {showTokens ? (
                         <>
                             <KpiCard
-                                label="Total Tokens"
-                                value={`${((summary.totalInputTokens + summary.totalOutputTokens) / 1_000_000).toFixed(1)}M`}
-                                sub={`${t("inputTokens")}: ${(summary.totalInputTokens / 1_000_000).toFixed(1)}M`}
+                                label="Total de solicitudes"
+                                value={`${(summary.totalRequests || 0).toLocaleString("es-ES")}`}
+                                icon={<Activity className="w-5 h-5" />}
+                            />
+                            <KpiCard
+                                label="Recuento total de tokens"
+                                value={compact((summary.totalInputTokens || 0) + (summary.totalOutputTokens || 0))}
+                                sub={`${summary.avgTokensPerRequest || 0} promedio por solicitud`}
                                 icon={<Zap className="w-5 h-5" />}
                             />
                             <KpiCard
-                                label={t("costPer1k")}
-                                value={`$${summary.costPer1kTokens.toFixed(3)}`}
+                                label="Costo total estimado"
+                                value={`$${summary.totalCost.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                                 icon={<TrendingUp className="w-5 h-5" />}
+                                tooltip={t("cost_forecast_tooltip")}
                             />
                             <KpiCard
-                                label={t("active_models")}
-                                value={String(summary.activeModels)}
-                                sub={t("applications_suffix", { count: summary.activeApplications })}
+                                label="Tokens de entrada"
+                                value={compact(summary.totalInputTokens || 0)}
+                                sub={`${summary.avgInputPerRequest || 0} promedio por solicitud`}
                                 icon={<Cpu className="w-5 h-5" />}
+                            />
+                            <KpiCard
+                                label="Tokens de salida"
+                                value={compact(summary.totalOutputTokens || 0)}
+                                sub={`${summary.avgOutputPerRequest || 0} promedio por solicitud`}
+                                icon={<BrainCircuit className="w-5 h-5" />}
                             />
                         </>
                     ) : (
                         <>
+                            <KpiCard
+                                label={t("total_cost")}
+                                value={`$${summary.totalCost.toLocaleString()}`}
+                                icon={<DollarSign className="w-5 h-5" />}
+                                tooltip={t("cost_forecast_tooltip")}
+                            />
                             <KpiCard
                                 label={t("avg_daily_cost")}
                                 value={`$${(summary.totalCost / days).toFixed(2)}`}

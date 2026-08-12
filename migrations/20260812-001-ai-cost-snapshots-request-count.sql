@@ -1,0 +1,2 @@
+ALTER TABLE AICostSnapshots
+  ADD COLUMN IF NOT EXISTS request_count BIGINT NOT NULL DEFAULT 0 AFTER model_name;
