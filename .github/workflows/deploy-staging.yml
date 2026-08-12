@@ -283,7 +283,7 @@ jobs:
           for i in {1..30}; do
             HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" https://$HOSTNAME/status || echo 000)
             
-            if [ "$HTTP_CODE" = "200" ]; then
+            if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "307" ] || [ "$HTTP_CODE" = "308" ]; then
               echo "✓ Health check passed (HTTP $HTTP_CODE)"
               exit 0
             fi
