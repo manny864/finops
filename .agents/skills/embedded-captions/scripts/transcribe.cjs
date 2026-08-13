@@ -27,7 +27,7 @@ function ensureSource(project) {
   const src = path.join(project, "source.mp4");
   if (fs.existsSync(src)) return src;
   const EXCL = new Set(["final", "bg_plus_caps", "fg_caps", "audio"]);
-  let cands = fs
+  const cands = fs
     .readdirSync(project)
     .filter(
       (f) =>
@@ -36,7 +36,7 @@ function ensureSource(project) {
         !f.startsWith("index"),
     )
     .map((f) => path.join(project, f));
-  let found = cands.sort((a, b) => fs.statSync(b).size - fs.statSync(a).size)[0];
+  const found = cands.sort((a, b) => fs.statSync(b).size - fs.statSync(a).size)[0];
   if (found) {
     try {
       fs.symlinkSync(path.basename(found), src);

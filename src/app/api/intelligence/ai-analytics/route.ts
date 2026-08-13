@@ -156,18 +156,41 @@ function reconcileAiRowsWithMeterCost(aiRows: AggRow[], meterRows: AggRow[]): Ag
     if (!aiRows.length || !meterRows.length) return aiRows;
 
     const normalizeModelKey = (value: string): string => {
-        const s = String(value || "").toLowerCase();
-        // Examples:
-        // "5.3 codex inp Gl 1M Tokens" -> gpt-5.3-codex
-        // "gpt-5.6-terra" -> gpt-5.6-terra
-        // "GPT 5.1 ..." -> gpt-5.1
-        const m = s.match(/(?:gpt[-\s]?)?(\d+(?:\.\d+)?)(?:[-\s]*(codex|terra|mini|nano|pro))?/i);
+        const s = String(value || "").toLowerCase().trim();
+        if (!s) return "";
+
+        // Clean meter names that have extra descriptors
+        // e.g., "GPT 4o inp" -> "gpt-4o", "DALL-E 3 inp" -> "dall-e-3"
+        const cleaned = s
+          .replace(/\s+(inp|out|tokens?|1m|1k|gl|ad)\b/gi, "")  // remove unit/descriptor suffixes
+          .replace(/\s+/g, "-")                                   // normalize spaces to dashes
+          .replace(/-+/g, "-");                                   // collapse consecutive dashes
+
+        // Try pattern: gpt-VERSION[-FLAVOR]
+        // Matches: "gpt-4", "gpt-4o", "gpt-4-turbo", "gpt-5-codex", etc.
+        // For cases like "5.3-codex" (no "gpt" prefix), prepend "gpt-"
+        let m = cleaned.match(/^(?:gpt-)?(\d+(?:\.\d+)?(?:[a-z]+)?(?:-[a-z]+)?)/i);
         if (m) {
-            const version = m[1];
-            const flavor = (m[2] || "").toLowerCase();
-            return flavor ? `gpt-${version}-${flavor}` : `gpt-${version}`;
+          const version = m[1].toLowerCase();
+          return `gpt-${version}`;
         }
-        return s.trim();
+
+        // Try pattern: text-embedding-VERSION or similar compound names
+        // Matches: "text-embedding-3-large", "text-embedding-ada-002", etc.
+        m = cleaned.match(/^([a-z]+-(?:[a-z]+-)*\d+(?:-[a-z]+)?)/i);
+        if (m) {
+          return m[1].toLowerCase();
+        }
+
+        // Try pattern: model-VERSION (single word + version)
+        // Matches: "claude-3", "llama-2", "dall-e-3", etc.
+        m = cleaned.match(/^([a-z]+)-(\d+(?:\.\d+)?(?:[a-z]+)?)/i);
+        if (m) {
+          return `${m[1]}-${m[2]}`.toLowerCase();
+        }
+
+        // Fallback: kebab-case the entire string
+        return cleaned.toLowerCase();
     };
 
     const meterByDate = new Map<string, Decimal>();

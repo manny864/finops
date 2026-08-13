@@ -77,7 +77,7 @@ export async function getPerimeterNetworkCost(credential: any, subscriptionId: s
         },
     });
 
-    let activeCol = await resolveCostColumn(tenantId);
+    const activeCol = await resolveCostColumn(tenantId);
     let result;
     try {
         result = await client.query.usage(scope, buildQuery(activeCol) as any);

@@ -329,7 +329,7 @@ function hsv2hex(h, s, v) {
   const c = v * s,
     x = c * (1 - Math.abs(((h / 60) % 2) - 1)),
     m = v - c;
-  let [r, g, b] =
+  const [r, g, b] =
     h < 60
       ? [c, x, 0]
       : h < 120

@@ -8500,7 +8500,7 @@ const fx = frontFx();
 // bg file: plate reaction + embedded setpiece (+ body if body.layer === "bg")
 const bodyInBg = dna.body.layer === "bg";
 const poemScrimInBg = dna.body.paradigm === "poem" && dna.body.scrim;
-let bgExtra = { css: "", html: "", js: "" };
+const bgExtra = { css: "", html: "", js: "" };
 if (poemScrimInBg) {
   // poem keeps its scrim BEHIND the subject (subject stays lit) while the poem
   // itself rides the fg alpha layer

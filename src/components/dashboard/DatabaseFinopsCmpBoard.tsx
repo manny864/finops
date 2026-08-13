@@ -315,7 +315,7 @@ export default function DatabaseFinopsCmpBoard({ family }: { family: DatabaseFam
       const body: MetricsResponse = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error((body as any).error || body.message || `HTTP ${response.status}`);
 
-      let subscriptionNameMap = new Map<string, string>();
+      const subscriptionNameMap = new Map<string, string>();
       if (!isMockTenant(tenantId) && token) {
         try {
           const subRes = await fetch(`/api/subscriptions?tenantId=${encodeURIComponent(tenantId)}`, {

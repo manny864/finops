@@ -321,7 +321,7 @@ function main() {
       );
     const heroHpct = (heroFrac ? +heroFrac[1] : 0.24) * 100 * 1.12;
     const totalH = preH + heroHpct + postH;
-    let top = +Math.max(2, Math.min(96 - totalH, heroTop - heroHpct / 2 - preH)).toFixed(1);
+    const top = +Math.max(2, Math.min(96 - totalH, heroTop - heroHpct / 2 - preH)).toFixed(1);
     const css = lockupTemplate
       ? lockupTemplate.replace(/top:\s*[\d.]+%/, `top: ${top}%`)
       : a

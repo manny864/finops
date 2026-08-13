@@ -76,7 +76,7 @@ export async function getMiscServicesCost(credential: any, subscriptionId: strin
         },
     });
 
-    let activeCol = await resolveCostColumn(tenantId);
+    const activeCol = await resolveCostColumn(tenantId);
     let result;
     try {
         result = await client.query.usage(scope, buildQuery(activeCol) as any);

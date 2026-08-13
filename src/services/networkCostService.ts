@@ -40,7 +40,7 @@ export async function getNetworkEgressCosts(credential: any, subscriptionId: str
         }
     });
 
-    let activeCol = await resolveCostColumn(tenantId);
+    const activeCol = await resolveCostColumn(tenantId);
 
     try {
         return await client.query.usage(scope, buildQueryParameters(activeCol) as any);

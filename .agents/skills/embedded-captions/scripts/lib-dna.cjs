@@ -98,7 +98,7 @@ function resolveTokens(dna, project, opts) {
     /^#([0-9a-f]{6})$/i.test(accent || "")
   ) {
     const n = parseInt(accent.slice(1), 16);
-    let r = (n >> 16) / 255,
+    const r = (n >> 16) / 255,
       g2 = ((n >> 8) & 255) / 255,
       b = (n & 255) / 255;
     const mx = Math.max(r, g2, b),
@@ -139,7 +139,7 @@ function resolveTokens(dna, project, opts) {
 
   // contact shadow along the measured light direction + a soft ambient.
   // light-on-dark also gets the warm bloom layer when the DNA asks for it.
-  let shadowParts = [];
+  const shadowParts = [];
   if (dna.optics && dna.optics.contactShadow) {
     const sd = lighting.shadow || { dx: 0, dy: 3 };
     shadowParts.push(`${sd.dx}px ${sd.dy + 1}px 10px rgba(0,0,0,${dark ? 0.22 : 0.32})`);

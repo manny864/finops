@@ -21,9 +21,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const [tenants]: any = await pool.query(
-      "SELECT id FROM Tenants WHERE tier = 'Enterprise' LIMIT 100"
-    );
+    const tenantIdParam = request.nextUrl.searchParams.get("tenantId");
+    let tenants: any[] = [];
+    if (tenantIdParam) {
+      const [rows]: any = await pool.query(
+        "SELECT id FROM Tenants WHERE (id = ? OR tenant_id = ?) AND tier = 'Enterprise' LIMIT 1",
+        [tenantIdParam, tenantIdParam]
+      );
+      tenants = rows || [];
+    } else {
+      const [rows]: any = await pool.query(
+        "SELECT id FROM Tenants WHERE tier = 'Enterprise' LIMIT 100"
+      );
+      tenants = rows || [];
+    }
 
     if (!tenants || tenants.length === 0) {
       return NextResponse.json({

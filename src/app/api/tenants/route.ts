@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
         }
 
         const [rows] = await pool.query(query, queryParams);
-        let tenantRows = rows as Array<{ id: string; name: string; tier?: string; subscription_status?: string; is_onboarded?: boolean }>;
+        const tenantRows = rows as Array<{ id: string; name: string; tier?: string; subscription_status?: string; is_onboarded?: boolean }>;
 
         // NO HAY AUTO-PROVISIÓN ACÁ. Antes, si el tenant del usuario autenticado no
         // aparecía en el resultado, este GET le creaba la fila con INSERT IGNORE

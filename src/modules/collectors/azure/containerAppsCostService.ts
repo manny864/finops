@@ -424,7 +424,7 @@ export const getContainerAppsCost = async (
     }));
 
     const appsByEnvironment = countAppsByEnvironment(apps);
-    let environments: ContainerEnvironmentCostRow[] = rawEnvironments.map((e) => ({
+    const environments: ContainerEnvironmentCostRow[] = rawEnvironments.map((e) => ({
         name: String(e.name || ""),
         resourceGroup: String(e.resourceGroup || ""),
         appCount: appsByEnvironment.get(String(e.name || "").toLowerCase()) || 0,

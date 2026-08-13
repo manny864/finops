@@ -177,7 +177,7 @@ function buildPerGroupCss(groups, tokens) {
     .map((g) => {
       const parts = [];
       if (g.scale != null) parts.push(`--s: ${g.scale};`);
-      let css = (g.css || "").trim();
+      const css = (g.css || "").trim();
       if (css) parts.push(css.endsWith(";") ? css : css + ";");
       const isHero = tokens && g.hero === true;
       if (isHero) {
