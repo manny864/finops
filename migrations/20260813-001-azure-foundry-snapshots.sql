@@ -26,8 +26,14 @@ CREATE TABLE IF NOT EXISTS AzureFoundrySnapshots (
   createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   
-  UNIQUE KEY unique_foundry_snapshot (tenantId, resourceId, deploymentName, modelDeploymentName, snapshotDate),
+  UNIQUE KEY unique_foundry_snapshot (
+    tenantId(64),
+    resourceId(191),
+    deploymentName(128),
+    modelDeploymentName(128),
+    snapshotDate
+  ),
   KEY idx_tenant_date (tenantId, snapshotDate),
-  KEY idx_resource (resourceId),
-  KEY idx_model_deployment (modelDeploymentName)
+  KEY idx_resource (resourceId(191)),
+  KEY idx_model_deployment (modelDeploymentName(191))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
