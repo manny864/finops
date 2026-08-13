@@ -681,7 +681,6 @@ async function fetchAzureSearchMetrics(tenantId: string): Promise<CapabilityMetr
 
     const recommendations: FinopsRecommendation[] = [];
 
-    // Identify orphaned / underutilized resources
     for (const r of resources) {
       if ((r.utilizationPercent || 0) < 15) {
         recommendations.push({
@@ -750,16 +749,86 @@ async function fetchAzureSearchMetrics(tenantId: string): Promise<CapabilityMetr
   }
 }
 
+async function fetchAiServiceMetrics(
+  tenantId: string,
+  table: string,
+  capability: Capability,
+  costField = "monthlyCostUSD"
+): Promise<CapabilityMetrics | null> {
+  try {
+    const [rows]: any = await pool.query(
+      `SELECT * FROM ${table} WHERE tenantId = ? AND snapshotDate >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)`,
+      [tenantId]
+    );
+
+    if (!rows || rows.length === 0) return null;
+
+    const totalCost = rows.reduce((sum: number, r: any) => sum + parseFloat(r[costField] || 0), 0);
+    const resources = rows.map((r: any) => ({
+      name: r.resourceName || r.workspaceName || "unknown",
+      region: r.region || "unknown",
+      resourceGroup: r.resourceGroup || "unknown",
+      type: `Microsoft.${capability}`,
+      monthlyCost: parseFloat(r[costField] || 0),
+      utilizationPercent: r.utilizationPercent || 0,
+    }));
+
+    return {
+      capability,
+      name: CAPABILITIES_METADATA[capability].name,
+      description: CAPABILITIES_METADATA[capability].description,
+      monthlyCostUSD: totalCost,
+      costBreakdown: {
+        computeCost: totalCost * 0.6,
+        storageCost: totalCost * 0.25,
+        queryTransactionCost: totalCost * 0.1,
+        overheadCost: totalCost * 0.05,
+      },
+      usage: [
+        { metric: "Resources", value: rows.length, unit: "count" },
+        { metric: "Avg Cost/Resource", value: rows.length ? parseFloat((totalCost / rows.length).toFixed(2)) : 0, unit: "$/month" },
+      ],
+      resources,
+      wasteMetrics: {
+        orphanedResourceCount: 0,
+        underutilizedResourceCount: resources.filter((r: any) => (r.utilizationPercent || 0) < 20).length,
+        idleResourceCount: resources.filter((r: any) => (r.utilizationPercent || 0) < 10).length,
+        estimatedWasteUSD: resources
+          .filter((r: any) => (r.utilizationPercent || 0) < 20)
+          .reduce((sum: number, r: any) => sum + r.monthlyCost * 0.25, 0),
+      },
+      recommendations: [],
+      lastUpdated: new Date().toISOString(),
+      source: "snapshot" as const,
+    };
+  } catch (err) {
+    console.error(`Error fetching ${capability} metrics:`, err);
+    return null;
+  }
+}
+
 async function fetchRealCapabilities(tenantId: string): Promise<CapabilityMetrics[]> {
   try {
-    const searchMetrics = await fetchAzureSearchMetrics(tenantId);
     const results: CapabilityMetrics[] = [];
-    if (searchMetrics) results.push(searchMetrics);
 
-    // Note: fetchRealCapabilities used to query CostMeterSnapshots, but that table
-    // doesn't have resource_type/region/resource_group columns. For now, only Search
-    // has dedicated snapshot storage. Other AI services should be added similarly.
-    // This prevents fallback errors when CostMeterSnapshots exists but lacks expected columns.
+    // Fetch all AI service metrics in parallel
+    const [search, docIntel, speechLang, visionVideo, contentSafety, aml, databricks] = await Promise.all([
+      fetchAzureSearchMetrics(tenantId),
+      fetchAiServiceMetrics(tenantId, "AzureDocumentIntelligenceSnapshots", "document-intelligence"),
+      fetchAiServiceMetrics(tenantId, "AzureSpeechLanguageSnapshots", "speech-language"),
+      fetchAiServiceMetrics(tenantId, "AzureVisionVideoSnapshots", "vision-video"),
+      fetchAiServiceMetrics(tenantId, "AzureContentSafetySnapshots", "content-safety"),
+      fetchAiServiceMetrics(tenantId, "AzureMLSnapshots", "aml"),
+      fetchAiServiceMetrics(tenantId, "AzureDatabricksSnapshots", "databricks", "monthlyCostUSD"),
+    ]);
+
+    if (search) results.push(search);
+    if (docIntel) results.push(docIntel);
+    if (speechLang) results.push(speechLang);
+    if (visionVideo) results.push(visionVideo);
+    if (contentSafety) results.push(contentSafety);
+    if (aml) results.push(aml);
+    if (databricks) results.push(databricks);
 
     return results;
   } catch (err) {
