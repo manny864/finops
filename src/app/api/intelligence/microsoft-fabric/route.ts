@@ -203,7 +203,29 @@ async function fetchRealFabricMetrics(tenantId: string): Promise<FabricMetrics |
       [tenantId]
     );
 
-    if (!rows || rows.length === 0) return null;
+    if (!rows || rows.length === 0) {
+      return {
+        success: true,
+        mock: false,
+        artefacts: [],
+        capacitySummary: {
+          totalSKUCostUSD: 0,
+          totalComputeCUHoursUSD: 0,
+          totalStorageUSD: 0,
+          forecastEomUSD: 0,
+          burstingDetected: false,
+          throttlingRiskLevel: "low",
+        },
+        onelakeMetrics: {
+          totalStorageGB: 0,
+          duplicateDataGB: 0,
+          recommendedLifecycleGB: 0,
+          potentialSavingsUSD: 0,
+        },
+        recommendations: [],
+        timestamp: new Date().toISOString(),
+      };
+    }
 
     // ponytail: simplified calculation (full Fabric metrics would need Fabric API)
     const totalCost = rows.reduce((sum: number, r: any) => sum + parseFloat(r.total_cost || 0), 0);
@@ -222,7 +244,7 @@ async function fetchRealFabricMetrics(tenantId: string): Promise<FabricMetrics |
         peakDayUtilizationPercent: Math.min(100, (parseFloat(r.peak_daily_hours || 0) / 24) * 100),
         burstingRiskPercent: avgUtil > 80 ? 60 : avgUtil > 60 ? 30 : 10,
         estimatedWasteUSD: avgUtil < 30 ? parseFloat(r.total_cost || 0) * 0.35 : 0,
-        dataStoredGB: Math.floor(Math.random() * 500),
+        dataStoredGB: 0,
       })),
       capacitySummary: {
         totalSKUCostUSD: totalCost * 0.75,
@@ -233,10 +255,10 @@ async function fetchRealFabricMetrics(tenantId: string): Promise<FabricMetrics |
         throttlingRiskLevel: avgUtil > 85 ? "high" : avgUtil > 70 ? "medium" : "low",
       },
       onelakeMetrics: {
-        totalStorageGB: rows.reduce((sum: number, r: any) => sum + Math.floor(Math.random() * 300), 0),
-        duplicateDataGB: Math.floor(Math.random() * 100),
-        recommendedLifecycleGB: Math.floor(Math.random() * 150),
-        potentialSavingsUSD: Math.floor(Math.random() * 3000),
+        totalStorageGB: 0,
+        duplicateDataGB: 0,
+        recommendedLifecycleGB: 0,
+        potentialSavingsUSD: 0,
       },
       recommendations: [],
       timestamp: new Date().toISOString(),
@@ -263,11 +285,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(MOCK_FABRIC_METRICS);
     }
 
-    // Real tenant: query DB (fallback to mock if empty)
+    // Real tenant: query DB only (no mock fallback)
     const realMetrics = await fetchRealFabricMetrics(tenantId);
-    const data = realMetrics || MOCK_FABRIC_METRICS;
+    if (!realMetrics) {
+      return NextResponse.json(
+        { success: false, mock: false, error: "No se pudieron obtener métricas reales de Fabric." },
+        { status: 500 }
+      );
+    }
 
-    return NextResponse.json(data);
+    return NextResponse.json(realMetrics);
   } catch (error: any) {
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
