@@ -5260,6 +5260,8 @@
     "detailEnvironmentLocation": "Location",
     "detailEnvironmentMonthlyCost": "Cost/month",
     "type_containerapp": "Container App",
+    "clickForDetails": "click for details",
+    "clickContainerHint": "Click a Container App row to view more information.",
     "type_registry": "Container Registry",
     "type_environment": "Container Environment",
     "noResourceSelected": "No component selected.",

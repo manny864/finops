@@ -8,6 +8,7 @@ import {
   Boxes,
   CheckCircle2,
   Coins,
+  ExternalLink,
   Gauge,
   RefreshCw,
   ShieldAlert,
@@ -639,7 +640,17 @@ export function ContainersFinopsCmpBoard() {
                         }
                       }}
                     >
-                      <td className="py-3 px-4 border-b border-slate-100 font-medium text-sm text-slate-900 whitespace-normal break-words">{row.name}</td>
+                      <td className="py-3 px-4 border-b border-slate-100 font-medium text-sm text-slate-900 whitespace-normal break-words">
+                        <div className="flex items-center gap-2">
+                          <span>{row.name}</span>
+                          {row.type === "containerapp" && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">
+                              <ExternalLink className="h-3 w-3" />
+                              {t("clickForDetails")}
+                            </span>
+                          )}
+                        </div>
+                      </td>
                       <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-600 whitespace-normal break-words">{row.region || "-"}</td>
                       <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-600 whitespace-normal break-words">{row.subscriptionName || "-"}</td>
                       <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-600 whitespace-normal break-words">{t(`type_${row.type}`)}</td>
@@ -660,6 +671,7 @@ export function ContainersFinopsCmpBoard() {
               totalPages={totalPages}
               pageSizes={[15, 30, 45, 60]}
             />
+            <p className="mt-3 text-xs text-slate-500">{t("clickContainerHint")}</p>
           </>
         )}
       </section>
