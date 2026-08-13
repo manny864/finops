@@ -666,7 +666,7 @@ Las variables críticas están en Key Vault:
 - Tooltip formatter usa `format()` en lugar de mostrar `¢`
 - Gráfico ahora muestra $1.23 en lugar de 123¢
 
-## 18. Addendum 2026-08-07 — Pestaña redistest y métricas de Azure Cache for Redis
+## 18. Addendum 2026-08-07 — Pestaña acfr y métricas de Azure Cache for Redis
 
 ### 18.1 Endpoint de Métricas API (Commit de la sesión)
 - **API Route:** `GET /api/intelligence/databases/redis-metrics`
@@ -674,8 +674,8 @@ Las variables críticas están en Key Vault:
   - CPU Usage (`PercentProcessorTime`), Server Load (`ServerLoad`), Used Memory (`UsedMemory`), Cache Hits (`CacheHits`), Cache Misses (`CacheMisses`), Connected Clients (`ConnectedClients`), Operations Per Second (`OperationsPerSecond`), Evicted Keys (`EvictedKeys`), Expired Keys (`ExpiredKeys`), Errors (`Errors`), Total Commands Processed (`TotalCommandsProcessed`), Cache Read (`CacheRead`) y Cache Write (`CacheWrite`).
 - **Mocks Enriquecidos:** Si `isMockTenant` es `true` o no hay suscripciones activas, genera series temporales de simulación realistas con patrones diarios de uso comercial (más alto entre las 9am y 6pm) e incorpora un 10% de ruido aleatorio controlado y variaciones en forma de ondas sinusoidales para cada una de las 12 métricas.
 
-### 18.2 UI de Supervisión (Pestaña redistest)
-- **Ruta de UI:** `/intelligence/bases-de-datos/redistest` (montando el componente `RedisTestBoard`)
+### 18.2 UI de Supervisión (Pestaña acfr)
+- **Ruta de UI:** `/intelligence/bases-de-datos/acfr` (montando el componente `RedisTestBoard`)
 - **Visualización:**
   - Panel superior con selectores de instancias de Redis, tarjetas ejecutivas para promedios de CPU, Memoria, Tasa de aciertos (Cache Hit Rate) y Carga de Servidor.
   - Grilla de visualización responsiva con 12 paneles de gráficas de área (`AreaChart` con gradientes de relleno lineales y bordes glassmorphic) donde se detalla la evolución de cada métrica con agregación promedio de forma explícita.
@@ -701,5 +701,4 @@ Las variables críticas están en Key Vault:
 - **Costos exactos:** la distribución de costos por recurso y las agregaciones de AI Analytics usan `decimal.js`; cada asignación se redondea explícitamente a centavos solo al formar la respuesta API.
 - **Telemetría operacional:** los diagnósticos MySQL y Redis expresan campos o muestras sin medición como `null` y exponen `telemetry.available=false` con el origen `not_collected` cuando no existe telemetría. La UI muestra `No disponible`, no valores cero fabricados. Si Azure Monitor no entrega historial Redis, la API devuelve un historial vacío y el mismo estado explícito.
 - **Sincronización cancelable:** el cron `sync` propaga un `AbortSignal` desde el deadline por tenant a Cost Management, Azure Monitor, Resource Graph, reintentos y concurrencia. Los guards locales impiden persistencias e invalidaciones de caché posteriores a una cancelación.
-
 

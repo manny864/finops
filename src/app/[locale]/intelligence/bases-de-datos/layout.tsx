@@ -14,7 +14,7 @@ export default async function BasesDatosLayout({ children }: { children: ReactNo
         { href: "/intelligence/bases-de-datos/azure-sql-sql-managed-instance", label: t("tabSql"), icon: <DatabaseZap className="w-4 h-4 text-[#0054A6]" /> },
         { href: "/intelligence/bases-de-datos/postgresql", label: t("tabPostgresql"), icon: <Database className="w-4 h-4 text-[#0054A6]" /> },
         { href: "/intelligence/bases-de-datos/mongodb", label: t("tabMongoDb"), icon: <Leaf className="w-4 h-4 text-[#0054A6]" /> },
-        { href: "/intelligence/bases-de-datos/redistest", label: t("tabRedistest"), icon: <AppWindow className="w-4 h-4 text-[#0054A6]" /> },
+        { href: "/intelligence/bases-de-datos/acfr", label: t("tabRedistest"), icon: <AppWindow className="w-4 h-4 text-[#0054A6]" /> },
         { href: "/intelligence/bases-de-datos/testmysql", label: t("tabTestmysql"), icon: <Database className="w-4 h-4 text-[#0054A6]" /> },
         { href: "/intelligence/bases-de-datos/microsoft-fabric", label: t("fabricTitle") || "Fabric", icon: <SquareStack className="w-4 h-4 text-[#6B35C1]" /> },
     ];

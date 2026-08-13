@@ -325,7 +325,7 @@ Simulate the impact of scaling compute/storage, varying network traffic, or enab
 | **Allocation** | Enterprise | Rules for distributing shared costs across multiple areas (by real usage, proportional, or fixed). |
 | **MACC Tracking** | Enterprise | Tracking of the minimum annual commitment (EA/MCA) — consumed vs. committed, with compliance projection. |
 | **AI Cost Analytics** | Enterprise | Cost per AI model and token consumption in Microsoft Foundry / Azure OpenAI, with call optimization recommendations. |
-| **Databases** | Business | Visibility, real-time metrics, and performance diagnostics for CosmosDB, Azure SQL, PostgreSQL, MySQL, MongoDB, and Redis. Includes the special **redistest** tab for detailed monitoring of 12 critical Azure Cache for Redis metrics via area charts with average aggregation. |
+| **Databases** | Business | Visibility, real-time metrics, and performance diagnostics for CosmosDB, Azure SQL, PostgreSQL, MySQL, MongoDB, and Redis. Includes the special **acfr** tab for detailed monitoring of 12 critical Azure Cache for Redis metrics via area charts with average aggregation. |
 
 ---
 

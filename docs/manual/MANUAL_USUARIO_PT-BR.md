@@ -325,7 +325,7 @@ Simule o impacto de escalar computação/armazenamento, variar tráfego de rede,
 | **Rateio (Allocation)** | Enterprise | Regras de distribuição de custos compartilhados entre múltiplas áreas (por uso real, proporcional ou fixo). |
 | **MACC Tracking** | Enterprise | Rastreamento do compromisso mínimo anual (EA/MCA) — consumido vs. comprometido, com projeção de cumprimento. |
 | **AI Cost Analytics** | Enterprise | Custo por modelo de IA e consumo de tokens no Microsoft Foundry / Azure OpenAI, com recomendações de otimização de chamadas. |
-| **Bancos de Dados** | Business | Visibilidade, métricas em tempo real e diagnósticos de desempenho para CosmosDB, Azure SQL, PostgreSQL, MySQL, MongoDB e Redis. Inclui a aba especial **redistest** para monitoramento detalhado das 12 métricas críticas do Azure Cache for Redis por meio de gráficos de área com agregação média. |
+| **Bancos de Dados** | Business | Visibilidade, métricas em tempo real e diagnósticos de desempenho para CosmosDB, Azure SQL, PostgreSQL, MySQL, MongoDB e Redis. Inclui a aba especial **acfr** para monitoramento detalhado das 12 métricas críticas do Azure Cache for Redis por meio de gráficos de área com agregação média. |
 
 ---
 
