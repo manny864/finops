@@ -13,6 +13,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, requireTenantTier, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
+import { getAzureCredential } from "@/lib/azure";
+import { CostManagementClient } from "@azure/arm-costmanagement";
 
 interface WafApplication {
   name: string;
@@ -175,6 +177,161 @@ const MOCK_SUMMARY: WafSummary = {
   ],
 };
 
+async function getWafSummaryFromAzure(tenantId: string, subscriptionIds: string[]): Promise<WafSummary> {
+  try {
+    const credential = await getAzureCredential(tenantId);
+    const ARM_BASE = "https://management.azure.com";
+    const API_VERSION = "2023-05-01";
+
+    // Token para ARM API
+    const tokenData = await credential.getToken(`${ARM_BASE}/.default`);
+    if (!tokenData) throw new Error("No se pudo obtener el token de Azure Management");
+    const token = tokenData.token;
+
+    const applications: WafApplication[] = [];
+    let totalCost = 0;
+
+    // Consultar Application Gateways y Front Door con WAF
+    for (const subId of subscriptionIds) {
+      try {
+        // Application Gateways
+        const agUrl = `${ARM_BASE}/subscriptions/${subId}/providers/Microsoft.Network/applicationGateways?api-version=${API_VERSION}`;
+        const agRes = await fetch(agUrl, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (agRes.ok) {
+          const agJson: any = await agRes.json();
+          for (const ag of agJson.value || []) {
+            const agName = String(ag.name || "");
+            const agRegion = String(ag.location || "unknown");
+            const rgMatch = ag.id?.match(/\/resourceGroups\/([^/]+)\//);
+            const resourceGroup = rgMatch ? rgMatch[1] : "unknown";
+
+            // Determinar si tiene WAF habilitado
+            const hasWaf = ag.properties?.webApplicationFirewallConfiguration?.enabled === true;
+            const wafMode = ag.properties?.webApplicationFirewallConfiguration?.firewallMode || "Detection";
+            const owaspVersion = String(ag.properties?.webApplicationFirewallConfiguration?.ruleSetVersion || "3.2") as any;
+
+            if (hasWaf) {
+              applications.push({
+                name: agName,
+                type: "Application Gateway",
+                region: agRegion,
+                resourceGroup,
+                status: "Enabled",
+                mode: wafMode === "Prevention" ? "Prevention" : "Detection",
+                owaspVersion,
+                totalRequests: 0,
+                blockedRequests: 0,
+                allowedRequests: 0,
+                blockRate: 0,
+              });
+            }
+          }
+        }
+
+        // Front Door profiles
+        const fdUrl = `${ARM_BASE}/subscriptions/${subId}/providers/Microsoft.Cdn/profiles?api-version=2021-06-01`;
+        const fdRes = await fetch(fdUrl, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (fdRes.ok) {
+          const fdJson: any = await fdRes.json();
+          for (const fd of fdJson.value || []) {
+            const fdName = String(fd.name || "");
+            const rgMatch = fd.id?.match(/\/resourceGroups\/([^/]+)\//);
+            const resourceGroup = rgMatch ? rgMatch[1] : "unknown";
+
+            // Front Door es siempre Global
+            applications.push({
+              name: fdName,
+              type: "Front Door",
+              region: "Global",
+              resourceGroup,
+              status: "Enabled",
+              mode: "Prevention",
+              owaspVersion: "3.2",
+              totalRequests: 0,
+              blockedRequests: 0,
+              allowedRequests: 0,
+              blockRate: 0,
+            });
+          }
+        }
+      } catch (e) {
+        console.warn(`[WAF] Error querying resources in ${subId}:`, e instanceof Error ? e.message : e);
+      }
+    }
+
+    // Si no hay aplicaciones, lanzar error
+    if (applications.length === 0) {
+      throw new Error("No se encontraron Application Gateways o Front Door con WAF habilitado");
+    }
+
+    // Obtener costos reales
+    try {
+      const costClient = new CostManagementClient(credential);
+      if (subscriptionIds.length > 0) {
+        const costRes = await costClient.query.usage(`/subscriptions/${subscriptionIds[0]}`, {
+          type: "ActualCost",
+          timeframe: "MonthToDate",
+          dataset: {
+            granularity: "None",
+            aggregation: { totalCost: { name: "Cost", function: "Sum" } },
+            filter: {
+              dimensions: {
+                name: "ServiceName",
+                operator: "In",
+                values: [
+                  "Application Gateway",
+                  "Azure Front Door",
+                  "Web Application Firewall",
+                ],
+              },
+            },
+          },
+        });
+
+        const cols = (costRes.columns || []).map((c: any) => String(c.name).toLowerCase());
+        const costIdx = cols.indexOf("cost");
+        for (const row of costRes.rows || []) {
+          totalCost += costIdx >= 0 ? Number(row[costIdx]) || 0 : 0;
+        }
+      }
+    } catch (e) {
+      console.warn(`[WAF] Cost Management error:`, e instanceof Error ? e.message : e);
+    }
+
+    const summary: WafSummary = {
+      totalMonthlyCost: Number(totalCost.toFixed(2)),
+      applicationsProtected: applications.length,
+      totalRequests: 0,
+      totalBlockedRequests: 0,
+      overallBlockRate: 0,
+      metrics: {
+        costPerMonth: Number(totalCost.toFixed(2)),
+        costPerApplication: applications.length > 0 ? Number((totalCost / applications.length).toFixed(2)) : 0,
+        costPerMillionRequests: 0,
+        costPerGbProcessed: 0,
+        capacityUnitsConsumed: 0,
+        throughputGb: 0,
+        falsePositiveRate: 0,
+      },
+      applications,
+      topBlockedIps: [],
+      topCountries: [],
+      rulesFired: [],
+    };
+
+    return summary;
+  } catch (e) {
+    console.error(`[WAF] Fatal error querying Azure for ${tenantId}:`, e instanceof Error ? e.message : e);
+    throw e;
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -190,7 +347,7 @@ export async function GET(request: NextRequest) {
       await requireTenantAccess(request, tenantId);
     }
 
-    // Mock data para demo
+    // Mock data para demo tenants
     if (isMockTenant(tenantId)) {
       return NextResponse.json({
         success: true,
@@ -200,27 +357,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Caso real: consultar Azure APIs
-    // Por ahora, retorna estructura lista para implementar
-    const summary: WafSummary = {
-      totalMonthlyCost: 0,
-      applicationsProtected: 0,
-      totalRequests: 0,
-      totalBlockedRequests: 0,
-      overallBlockRate: 0,
-      metrics: {
-        costPerMonth: 0,
-        costPerApplication: 0,
-        costPerMillionRequests: 0,
-        costPerGbProcessed: 0,
-        capacityUnitsConsumed: 0,
-        throughputGb: 0,
-        falsePositiveRate: 0,
-      },
-      applications: [],
-      topBlockedIps: [],
-      topCountries: [],
-      rulesFired: [],
-    };
+    const subscriptionIds = searchParams.get("subscriptionIds")?.split(",") || [];
+    const summary = await getWafSummaryFromAzure(tenantId, subscriptionIds);
 
     return NextResponse.json({
       success: true,
@@ -232,6 +370,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
     console.error("WAF API Error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : "No se pudieron obtener los datos de WAF";
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
