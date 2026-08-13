@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
+import { getCachedCapabilities, cacheCapabilities } from "@/lib/aiServiceCache";
 import pool from "@/modules/storage/db";
 
 type Capability = "search" | "document-intelligence" | "speech-language" | "vision-video" | "content-safety" | "aml" | "databricks" | "foundry";
@@ -848,7 +849,7 @@ export async function GET(request: NextRequest) {
 
     await requireTenantAccess(request, tenantId);
 
-    // Demo tenant: return mock data
+    // Demo tenant: return mock data (no caching)
     if (isMockTenant(tenantId)) {
       const totalCost = MOCK_CAPABILITIES.reduce((sum, c) => sum + c.monthlyCostUSD, 0);
       const totalWaste = MOCK_CAPABILITIES.reduce((sum, c) => sum + c.wasteMetrics.estimatedWasteUSD, 0);
@@ -874,9 +875,49 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Real tenant: query DB (no mock fallback for productive tenants)
+    // Real tenant: check cache first
+    const cached = await getCachedCapabilities(tenantId);
+    if (cached) {
+      console.log(`[azure-ai] Serving cached capabilities for ${tenantId} (cached ${Math.round((Date.now() - cached.cachedAt) / 1000)}s ago)`);
+      const data = cached.capabilities;
+      const totalCost = data.reduce((sum, c) => sum + c.monthlyCostUSD, 0);
+      const totalWaste = data.reduce((sum, c) => sum + c.wasteMetrics.estimatedWasteUSD, 0);
+
+      return NextResponse.json({
+        success: true,
+        mock: false,
+        cached: true,
+        capabilities: data,
+        totalCostUSD: totalCost,
+        totalWasteUSD: totalWaste,
+        totalPotentialSavingsUSD: data.reduce(
+          (sum: number, c: CapabilityMetrics) => sum + c.recommendations.reduce((s: number, r: FinopsRecommendation) => s + r.potentialSavingsUSD, 0),
+          0
+        ),
+        financialSummary: {
+          mtdCostUSD: totalCost,
+          forecastEomUSD: totalCost * 1.1,
+          deltaMoMPercent: 2.5,
+          wasteRisk: totalCost > 0 && totalWaste / totalCost > 0.08 ? "high" : "medium",
+        },
+        timestamp: new Date().toISOString(),
+        cacheInfo: {
+          source: "redis",
+          cachedAt: new Date(cached.cachedAt).toISOString(),
+          ttlSeconds: 7200,
+        },
+      });
+    }
+
+    // Cache miss: query DB and cache result
+    console.log(`[azure-ai] Cache miss for ${tenantId}, querying Azure...`);
     const realCapabilities = await fetchRealCapabilities(tenantId);
     const data = realCapabilities;
+
+    // Cache the result (async, non-blocking)
+    cacheCapabilities(tenantId, data).catch((err) => {
+      console.error(`[azure-ai] Failed to cache capabilities for ${tenantId}:`, err);
+    });
 
     const totalCost = data.reduce((sum, c) => sum + c.monthlyCostUSD, 0);
     const totalWaste = data.reduce((sum, c) => sum + c.wasteMetrics.estimatedWasteUSD, 0);
@@ -884,6 +925,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       mock: false,
+      cached: false,
       capabilities: data,
       totalCostUSD: totalCost,
       totalWasteUSD: totalWaste,
@@ -898,6 +940,11 @@ export async function GET(request: NextRequest) {
         wasteRisk: totalCost > 0 && totalWaste / totalCost > 0.08 ? "high" : "medium",
       },
       timestamp: new Date().toISOString(),
+      cacheInfo: {
+        source: "azure",
+        cachedAt: null,
+        ttlSeconds: 7200,
+      },
     });
   } catch (error: any) {
     if (error instanceof AuthError) {
@@ -905,5 +952,46 @@ export async function GET(request: NextRequest) {
     }
     console.error("Error in Azure AI route:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
+/**
+ * POST /api/intelligence/azure-ai?tenantId=<id>
+ * 
+ * Invalidate cached capabilities for a tenant.
+ * Useful after manual sync or when cache needs refresh.
+ * 
+ * **Auth:** Requires tenant access (RBAC)
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const tenantId = searchParams.get("tenantId");
+
+    if (!tenantId) {
+      return NextResponse.json({ error: "tenantId required" }, { status: 400 });
+    }
+
+    await requireTenantAccess(request, tenantId);
+
+    const { invalidateCache } = await request.json();
+    if (!invalidateCache) {
+      return NextResponse.json({ error: "invalidateCache flag required" }, { status: 400 });
+    }
+
+    const { invalidateCapabilitiesCache } = await import("@/lib/aiServiceCache");
+    await invalidateCapabilitiesCache(tenantId);
+
+    return NextResponse.json({
+      success: true,
+      message: `Cache invalidated for tenant ${tenantId}`,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error: any) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    console.error("Error invalidating cache:", error);
+    return NextResponse.json({ error: "Failed to invalidate cache" }, { status: 500 });
   }
 }
