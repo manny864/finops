@@ -27,6 +27,7 @@ function KpiCard({ label, value, sub, icon, accent = "blue" }: { label: string; 
 
 function getPeriodOptions(): { value: string; label: string }[] {
     const opts: { value: string; label: string }[] = [
+        { value: "last30d", label: "Últimos 30 días" },
         { value: "last3m", label: "Últimos 3 meses" },
     ];
     const now = new Date();
