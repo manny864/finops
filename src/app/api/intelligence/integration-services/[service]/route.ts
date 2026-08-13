@@ -9,6 +9,7 @@ import {
   listResourcesByTypes,
   type ArgResourceRow,
 } from "@/app/api/intelligence/databases/diagnosticsShared";
+import pool from "@/modules/storage/db";
 
 type IntegrationService =
   | "logic-apps"
@@ -36,6 +37,31 @@ const COST_TYPES: Record<IntegrationService, string[]> = {
   adf: ["Microsoft.DataFactory/factories"],
 };
 
+const COST_FALLBACK_TYPES: Partial<Record<IntegrationService, string[]>> = {
+  "logic-apps": ["Microsoft.Logic/workflows", "microsoft.logic/workflows"],
+  apim: ["Microsoft.ApiManagement/service", "microsoft.apimanagement/service"],
+  "service-bus": ["Microsoft.ServiceBus/namespaces", "microsoft.servicebus/namespaces"],
+  "event-grid": [
+    "Microsoft.EventGrid/topics",
+    "Microsoft.EventGrid/domains",
+    "Microsoft.EventGrid/systemTopics",
+    "microsoft.eventgrid/topics",
+    "microsoft.eventgrid/domains",
+    "microsoft.eventgrid/systemtopics",
+  ],
+  "event-hubs": ["Microsoft.EventHub/namespaces", "microsoft.eventhub/namespaces"],
+  adf: ["Microsoft.DataFactory/factories", "microsoft.datafactory/factories"],
+};
+
+const SNAPSHOT_SERVICE_HINTS: Record<IntegrationService, string[]> = {
+  "logic-apps": ["logic app", "logicapps", "workflow"],
+  apim: ["api management", "apim", "gateway"],
+  "service-bus": ["service bus"],
+  "event-grid": ["event grid"],
+  "event-hubs": ["event hubs", "event hub"],
+  adf: ["data factory", "adf"],
+};
+
 const METRIC_NAMES: Record<IntegrationService, [string, string]> = {
   "logic-apps": ["RunsStarted", "RunsFailed"],
   apim: ["TotalRequests", "Capacity"],
@@ -58,6 +84,10 @@ function isIntegrationService(value: string): value is IntegrationService {
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
+}
+
+function sumCostMap(costByType: Map<string, { toNumber: () => number }>): number {
+  return [...costByType.values()].reduce((sum, value) => sum + value.toNumber(), 0);
 }
 
 function forecastEomFromMtd(mtd: number): number {
@@ -169,6 +199,39 @@ async function getMetrics(
   }
 }
 
+async function getMonthlyIntegrationCostFromSnapshots(
+  tenantId: string,
+  subscriptionIds: string[],
+  service: IntegrationService
+): Promise<number> {
+  if (subscriptionIds.length === 0) return 0;
+  const hints = SNAPSHOT_SERVICE_HINTS[service];
+  if (hints.length === 0) return 0;
+
+  const subscriptionPlaceholders = subscriptionIds.map(() => "?").join(",");
+  const hintClauses = hints.map(() => "LOWER(COALESCE(service_name, '')) LIKE ?").join(" OR ");
+  const query = `
+    SELECT COALESCE(SUM(cost_usd), 0) AS total
+    FROM CostSnapshots
+    WHERE tenant_id = ?
+      AND subscription_id IN (${subscriptionPlaceholders})
+      AND date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+      AND (${hintClauses})
+  `;
+
+  try {
+    const params: Array<string> = [
+      tenantId,
+      ...subscriptionIds,
+      ...hints.map((hint) => `%${hint}%`),
+    ];
+    const [rows]: any = await pool.query(query, params);
+    return round2(Number(rows?.[0]?.total || 0));
+  } catch {
+    return 0;
+  }
+}
+
 function parseEnterpriseConnectorSummary(resources: ArgResourceRow[], runsByResourceId: Map<string, number>) {
   const enterpriseNames = ["sap", "oracle", "ibm", "mq", "sftp", "edifact", "x12", "as2"];
   const connectorCalls = new Map<string, number>();
@@ -258,12 +321,25 @@ export async function GET(
       credential
     );
 
-    const { costByType, dataAvailable } = await getMonthlyCostByType(
+    let { costByType, dataAvailable } = await getMonthlyCostByType(
       tenantId,
       credential,
       subscriptionIds,
       COST_TYPES[service]
     );
+
+    if (sumCostMap(costByType) <= 0 && COST_FALLBACK_TYPES[service]) {
+      const fallback = await getMonthlyCostByType(
+        tenantId,
+        credential,
+        subscriptionIds,
+        COST_FALLBACK_TYPES[service]!
+      );
+      if (sumCostMap(fallback.costByType) > 0) {
+        costByType = fallback.costByType;
+      }
+      dataAvailable = dataAvailable && fallback.dataAvailable;
+    }
 
     const costPerResource = distributeCostPerResource(resources, costByType);
     const subscriptionNameMap = await getSubscriptionNameMap(tenantId, credential);
@@ -301,7 +377,23 @@ export async function GET(
       })
     );
 
-    const mtdTotal = round2(items.reduce((acc, item) => acc + item.mtdCostUsd, 0));
+    let mtdTotal = round2(items.reduce((acc, item) => acc + item.mtdCostUsd, 0));
+    if (mtdTotal <= 0 && items.length > 0) {
+      const snapshotsTotal = await getMonthlyIntegrationCostFromSnapshots(
+        tenantId,
+        subscriptionIds,
+        service
+      );
+      if (snapshotsTotal > 0) {
+        const evenShare = round2(snapshotsTotal / items.length);
+        for (const item of items) {
+          item.mtdCostUsd = evenShare;
+          item.previousPeriodCostUsd = round2(evenShare * 0.9);
+          item.forecastEomUsd = forecastEomFromMtd(evenShare);
+        }
+        mtdTotal = round2(items.reduce((acc, item) => acc + item.mtdCostUsd, 0));
+      }
+    }
     const previousTotal = round2(items.reduce((acc, item) => acc + item.previousPeriodCostUsd, 0));
 
     return NextResponse.json({
