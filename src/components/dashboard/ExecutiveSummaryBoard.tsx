@@ -208,7 +208,7 @@ export default function ExecutiveSummaryBoard() {
     const canFetch = !!selectedTenant && selectedTenant.id !== "default" && (accounts.length > 0 || isMockTenant(selectedTenant.id));
 
     const { data, error, isLoading } = useSWR(
-        canFetch ? `/api/intelligence/whiteboard?tenantId=${selectedTenant.id}&locale=${locale}` : null,
+        canFetch ? `/api/overview/whiteboard?tenantId=${selectedTenant.id}&locale=${locale}` : null,
         fetcher,
         { revalidateOnFocus: false }
     );
@@ -457,6 +457,24 @@ export default function ExecutiveSummaryBoard() {
                 <div className="bg-amber-50 dark:bg-amber-900/20 p-3 flex gap-3 rounded-xl border border-amber-200 dark:border-amber-800/50 text-amber-800 dark:text-amber-300">
                     <Info className="w-5 h-5 shrink-0 mt-0.5" />
                     <div className="text-sm">{t("mock_data_notice")}</div>
+                </div>
+            )}
+
+            {data.cache_source && (
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-3 flex gap-3 rounded-xl border border-blue-200 dark:border-blue-800/50 text-blue-800 dark:text-blue-300 text-sm">
+                    <Info className="w-5 h-5 shrink-0 mt-0.5" />
+                    <div>
+                        {data.cache_source === 'redis' ? (
+                            <>Datos desde <strong>Redis cache</strong> (actualizado hace menos de 2 horas)</>
+                        ) : (
+                            <>Datos obtenidos de <strong>Azure</strong> y almacenados en cache (próxima actualización en 2 horas)</>
+                        )}
+                        {data.cached_at && (
+                            <div className="text-xs opacity-75 mt-1">
+                                Cacheado: {new Date(data.cached_at).toLocaleString('es-AR')}
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
 

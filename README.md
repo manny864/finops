@@ -346,6 +346,31 @@ segundo.
 
 ## 📈 Recent Major Updates
 
+### 2026-08-13 — Whiteboard + Compliance Overview + Invoicing Period Selector
+
+- **Whiteboard Redis caching (2h TTL):** implementado estrategia de caching para la vista Whiteboard:
+  - Nuevo endpoint `/api/overview/whiteboard` que checkea Redis antes de consultar Azure
+  - Primera solicitud (o después de 2h TTL): fetch de Azure + almacenamiento en Redis
+  - Solicitudes subsecuentes dentro de 2h: servidas directamente desde cache
+  - Metadata en respuesta: `cache_source` ("azure" | "redis"), `cached_at` (ISO timestamp), `cache_ttl_seconds` (7200)
+  - UI en ExecutiveSummaryBoard: banner azul mostrando fuente de datos y timestamp de cache
+  - Integración con `ioredis` existente (compatible con Azure Cache for Redis)
+  - Fallback automático en case de error en Redis (continue con datos frescos)
+
+- **Policy Compliance Overview Dashboard (`governance/policies`):**
+  - Gráfico pastel SVG: conformes vs no conformes con % de cumplimiento central
+  - Compatibilidad por categoría de recursos: 6 categorías con barras de progreso y breakdown
+  - Estado de iniciativas: 6 iniciativas (Benchmark, Governance, Data Protection, etc.) con status cards y % compliance
+  - Endpoint `/api/governance/policies/compliance-overview`: retorna compliance metrics + resource categories + initiatives
+  - Mock data representativo: 1,847 conformes / 523 no conformes = 77.9% cumplimiento
+  - Responsive grid layout, dark mode completo
+
+- **Admin Invoicing: Período "Últimos 30 días"**
+  - Agregado a selector de período en `admin/reports?tab=invoicing`
+  - Opción aparece como primera en la lista (default visual)
+  - Backend `resolvePeriodRange()` ahora soporta `"last30d"` → calcula hoy -30 días a hoy (inclusive, UTC)
+  - Mantiene formato ISO `YYYY-MM-DD` consistente con `last3m` y meses puntuales
+
 ### 2026-08-10 — Estandarización FinOps/CMP en Monitoreo + Seguridad, AI Analytics y cron Azure
 
 - **Directiva transversal de tablas aplicada en SaaS:** se consolidó el patrón
