@@ -73,7 +73,9 @@ export default function PolicyComplianceOverview() {
         return <div className="text-red-500">{t('error')}</div>;
     }
 
-    const { compliant, nonCompliant, complianceRate, resourceCategories, initiatives, mock } = data;
+    const { compliant, nonCompliant, resourceCategories, initiatives, mock } = data;
+    const totalResources = compliant + nonCompliant;
+    const complianceRate = totalResources > 0 ? (compliant / totalResources) * 100 : 0;
 
     return (
         <div className="space-y-6">
