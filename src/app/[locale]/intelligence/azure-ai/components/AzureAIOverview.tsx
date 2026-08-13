@@ -19,6 +19,19 @@ type CapabilityMetrics = {
   recommendations?: Array<{ id: string; title: string; potentialSavingsUSD: number; effort: string; roiMonths: number }>;
 };
 
+const FOUNDRY_FALLBACK_CAPABILITY: CapabilityMetrics = {
+  capability: "foundry",
+  name: "Azure AI Foundry",
+  monthlyCostUSD: 0,
+  wasteMetrics: {
+    orphanedResourceCount: 0,
+    underutilizedResourceCount: 0,
+    idleResourceCount: 0,
+    estimatedWasteUSD: 0,
+  },
+  recommendations: [],
+};
+
 export default function AzureAIOverview() {
   const { selectedTenant } = useTenant();
   const { instance, accounts } = useMsal();
@@ -64,7 +77,12 @@ export default function AzureAIOverview() {
 
   const capabilitiesRaw: CapabilityMetrics[] = data?.capabilities || [];
   const foundryMtdFromAIAnalytics = Number(aiAnalyticsData?.summary?.totalCost || 0);
-  const capabilities: CapabilityMetrics[] = capabilitiesRaw.map((cap) =>
+  const hasFoundryCapability = capabilitiesRaw.some((cap) => cap.capability === "foundry");
+  const capabilitiesWithFoundry =
+    !hasFoundryCapability && foundryMtdFromAIAnalytics > 0
+      ? [...capabilitiesRaw, { ...FOUNDRY_FALLBACK_CAPABILITY, monthlyCostUSD: foundryMtdFromAIAnalytics }]
+      : capabilitiesRaw;
+  const capabilities: CapabilityMetrics[] = capabilitiesWithFoundry.map((cap) =>
     cap.capability === "foundry" && foundryMtdFromAIAnalytics > 0
       ? { ...cap, monthlyCostUSD: foundryMtdFromAIAnalytics }
       : cap
