@@ -97,6 +97,38 @@ function forecastEomFromMtd(mtd: number): number {
   return round2((mtd / day) * days);
 }
 
+function resolveResourceHealth(
+  service: IntegrationService,
+  resource: ArgResourceRow,
+  metrics: Record<string, number | null>,
+  provisioningState: string
+): string {
+  const properties = (resource.properties || {}) as Record<string, any>;
+  const directHealth = String(
+    properties?.availabilityState ||
+      properties?.healthStatus ||
+      properties?.resourceHealth ||
+      ""
+  ).trim();
+  if (directHealth) return directHealth;
+
+  if (service === "logic-apps") {
+    const logicState = String(properties?.state || properties?.status || "").toLowerCase();
+    if (logicState.includes("enabled") || logicState.includes("running")) return "Available";
+    if (logicState.includes("disabled") || logicState.includes("stopped")) return "Degraded";
+
+    const runsStarted = Number(metrics?.RunsStarted || 0);
+    const runsFailed = Number(metrics?.RunsFailed || 0);
+    if (runsStarted > 0 && runsFailed <= runsStarted * 0.2) return "Available";
+    if (runsStarted > 0 && runsFailed > runsStarted * 0.2) return "Degraded";
+  }
+
+  const normalizedProvisioning = provisioningState.toLowerCase();
+  if (normalizedProvisioning === "succeeded") return "Available";
+  if (normalizedProvisioning === "failed" || normalizedProvisioning === "canceled") return "Degraded";
+  return "unknown";
+}
+
 function buildMock(tenantId: string, service: IntegrationService) {
   const multiplier = MOCK_MULTIPLIER[tenantId] || 1;
   const metricNames = METRIC_NAMES[service];
@@ -352,6 +384,15 @@ export async function GET(
         runsByResourceId.set(resource.id, runs);
         const mtdCostUsd = costPerResource.get(resource.id) || 0;
         const previousPeriodCostUsd = round2(mtdCostUsd * 0.9);
+        const provisioningState =
+          resource.provisioningState ||
+          String((resource.properties as any)?.provisioningState || "unknown");
+        const resourceHealth = resolveResourceHealth(
+          service,
+          resource,
+          metrics,
+          provisioningState
+        );
         return {
           id: resource.id,
           name: resource.name,
@@ -361,10 +402,8 @@ export async function GET(
           subscriptionId: resource.subscriptionId || "",
           subscriptionName: resolveSubscriptionName(resource.subscriptionId, subscriptionNameMap) || "unknown",
           tags: ((resource as any).tags || {}) as Record<string, string>,
-          provisioningState:
-            resource.provisioningState ||
-            String((resource.properties as any)?.provisioningState || "unknown"),
-          resourceHealth: String((resource.properties as any)?.availabilityState || "unknown"),
+          provisioningState,
+          resourceHealth,
           mtdCostUsd: round2(mtdCostUsd),
           previousPeriodCostUsd,
           forecastEomUsd: forecastEomFromMtd(mtdCostUsd),
