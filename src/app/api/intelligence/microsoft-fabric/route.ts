@@ -183,6 +183,30 @@ const MOCK_FABRIC_METRICS: FabricMetrics = {
   timestamp: new Date().toISOString(),
 };
 
+function buildEmptyRealFabricMetrics(): FabricMetrics {
+  return {
+    success: true,
+    mock: false,
+    artefacts: [],
+    capacitySummary: {
+      totalSKUCostUSD: 0,
+      totalComputeCUHoursUSD: 0,
+      totalStorageUSD: 0,
+      forecastEomUSD: 0,
+      burstingDetected: false,
+      throttlingRiskLevel: "low",
+    },
+    onelakeMetrics: {
+      totalStorageGB: 0,
+      duplicateDataGB: 0,
+      recommendedLifecycleGB: 0,
+      potentialSavingsUSD: 0,
+    },
+    recommendations: [],
+    timestamp: new Date().toISOString(),
+  };
+}
+
 async function fetchRealFabricMetrics(tenantId: string): Promise<FabricMetrics | null> {
   try {
     const [rows]: any = await pool.query(
@@ -203,29 +227,7 @@ async function fetchRealFabricMetrics(tenantId: string): Promise<FabricMetrics |
       [tenantId]
     );
 
-    if (!rows || rows.length === 0) {
-      return {
-        success: true,
-        mock: false,
-        artefacts: [],
-        capacitySummary: {
-          totalSKUCostUSD: 0,
-          totalComputeCUHoursUSD: 0,
-          totalStorageUSD: 0,
-          forecastEomUSD: 0,
-          burstingDetected: false,
-          throttlingRiskLevel: "low",
-        },
-        onelakeMetrics: {
-          totalStorageGB: 0,
-          duplicateDataGB: 0,
-          recommendedLifecycleGB: 0,
-          potentialSavingsUSD: 0,
-        },
-        recommendations: [],
-        timestamp: new Date().toISOString(),
-      };
-    }
+    if (!rows || rows.length === 0) return buildEmptyRealFabricMetrics();
 
     // ponytail: simplified calculation (full Fabric metrics would need Fabric API)
     const totalCost = rows.reduce((sum: number, r: any) => sum + parseFloat(r.total_cost || 0), 0);
@@ -265,7 +267,7 @@ async function fetchRealFabricMetrics(tenantId: string): Promise<FabricMetrics |
     };
   } catch (err) {
     console.error("Error fetching real Fabric metrics:", err);
-    return null;
+    return buildEmptyRealFabricMetrics();
   }
 }
 
@@ -287,14 +289,7 @@ export async function GET(request: NextRequest) {
 
     // Real tenant: query DB only (no mock fallback)
     const realMetrics = await fetchRealFabricMetrics(tenantId);
-    if (!realMetrics) {
-      return NextResponse.json(
-        { success: false, mock: false, error: "No se pudieron obtener métricas reales de Fabric." },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json(realMetrics);
+    return NextResponse.json(realMetrics || buildEmptyRealFabricMetrics());
   } catch (error: any) {
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
