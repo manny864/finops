@@ -83,7 +83,7 @@ Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 - `/intelligence/almacenamiento`
 - `/intelligence/almacenamiento/adls2`
 - `/intelligence/almacenamiento/bkp`
-- `/intelligence/almacenamiento/md`
+- `/intelligence/almacenamiento/mdisk`
 - `/intelligence/analitica-avanzada`
 - `/intelligence/analitica-avanzada/alertas-self-service`
 - `/intelligence/analitica-avanzada/deteccion-de-anomalias`
@@ -101,7 +101,7 @@ Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 - `/intelligence/bases-de-datos/postgresql-mysql`
 - `/intelligence/bases-de-datos/redis-for-cache`
 - `/intelligence/bases-de-datos/acfr`
-- `/intelligence/bases-de-datos/testmysql`
+- `/intelligence/bases-de-datos/mysql`
 - `/intelligence/billing`
 - `/intelligence/budgets`
 - `/intelligence/chargeback`
@@ -111,10 +111,10 @@ Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 - `/intelligence/computo`
 - `/intelligence/computo/azure-batch`
 - `/intelligence/computo/arhos`
-- `/intelligence/computo/vm`
+- `/intelligence/computo/avm`
 - `/intelligence/computo/control-aks`
-- `/intelligence/computo/functions`
-- `/intelligence/computo/infraestructura-de-contenedores`
+- `/intelligence/computo/fapps`
+- `/intelligence/computo/capp`
 - `/intelligence/computo/vmss`
 - `/intelligence/computo/waas`
 - `/intelligence/consumo-y-presupuesto`
@@ -156,10 +156,11 @@ Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 - `/intelligence/optimization-index`
 - `/intelligence/rates`
 - `/intelligence/redes`
-- `/intelligence/redes/internetaccess`
-- `/intelligence/redes/balypub`
-- `/intelligence/redes/conhib`
-- `/intelligence/redes/redes-basicas`
+- `/intelligence/redes/internet`
+- `/intelligence/redes/loadbalancer`
+- `/intelligence/redes/hibridcon`
+- `/intelligence/redes/netwokbasic`
+- `/intelligence/redes/network`
 - `/intelligence/rightsizing`
 - `/intelligence/rightsizing/appservice`
 - `/intelligence/rightsizing/sqldb`
