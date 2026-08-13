@@ -6,6 +6,14 @@ import pool, { initializeDatabase } from "@/modules/storage/db";
 import { getTenantCredentials } from "@/lib/secrets/tenantCredentials";
 import { getSubscriptionLimit } from "@/lib/tierLogic";
 
+function isSubscriptionStateEligible(state: unknown): boolean {
+  const normalized = String(state || "").trim().toLowerCase();
+  if (!normalized) return true;
+  // Excluimos solo estados terminales/no utilizables; el resto se conserva
+  // para no perder subs con costo real por estados transitorios (Warned/PastDue).
+  return !["deleted", "disabled", "expired", "canceled", "cancelled"].includes(normalized);
+}
+
 async function listAccessibleSubscriptions(
   cred: ClientSecretCredential
 ): Promise<Array<{ subscriptionId: string; state?: string }>> {
@@ -70,7 +78,7 @@ export async function getSubscriptionsForTenant(
   try {
     const discovered = await listAccessibleSubscriptions(cred);
     for (const sub of discovered) {
-      if (sub.subscriptionId && (!sub.state || String(sub.state).toLowerCase() === "enabled")) {
+      if (sub.subscriptionId && isSubscriptionStateEligible(sub.state)) {
         subs.add(String(sub.subscriptionId));
       }
     }
@@ -118,7 +126,7 @@ export async function getAllSubscriptionsForTenant(
   try {
     const discovered = await listAccessibleSubscriptions(cred);
     for (const sub of discovered) {
-      if (sub.subscriptionId && (!sub.state || String(sub.state).toLowerCase() === "enabled")) {
+      if (sub.subscriptionId && isSubscriptionStateEligible(sub.state)) {
         subs.add(String(sub.subscriptionId));
       }
     }
