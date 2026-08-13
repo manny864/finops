@@ -73,7 +73,7 @@ Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 - `/governance/score`
 - `/governance/tags`
 
-## `intelligence` (104)
+## `intelligence` (111)
 
 - `/intelligence/ai-analytics`
 - `/intelligence/aks`
@@ -134,6 +134,13 @@ Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 - `/intelligence/cost-projection`
 - `/intelligence/defender`
 - `/intelligence/hybrid-benefit`
+- `/intelligence/integration-services`
+- `/intelligence/integration-services/adf`
+- `/intelligence/integration-services/apim`
+- `/intelligence/integration-services/event-grid`
+- `/intelligence/integration-services/event-hubs`
+- `/intelligence/integration-services/logic-apps`
+- `/intelligence/integration-services/service-bus`
 - `/intelligence/licenses`
 - `/intelligence/log-analytics`
 - `/intelligence/macc`

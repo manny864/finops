@@ -136,6 +136,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/intelligence/redes', label: 'Redes', icon: Network, requiredTier: 'Business' },
                 { href: '/intelligence/licenses', label: t('users_licenses', { fallback: 'Usuarios y Licencias' }), icon: Users, requiredTier: 'Enterprise' },
                 { href: '/intelligence/azure-ai', label: 'Azure AI', icon: Sparkles, requiredTier: 'Enterprise' },
+                { href: '/intelligence/integration-services', label: t('integration_services_hub', { fallback: 'Azure Integration Services (iPaaS)' }), icon: Boxes, requiredTier: 'Business' },
                 { href: '/intelligence/monitoreo', label: t('monitoring_hub', { fallback: 'Monitoreo' }), icon: Activity, requiredTier: 'Business' },
                 { href: '/intelligence/seguridad', label: t('security_hub', { fallback: 'Seguridad' }), icon: ShieldCheck, requiredTier: 'Business' },
                 { href: '/intelligence/analitica-avanzada', label: t('advanced_analytics', { fallback: 'Analítica Avanzada' }), icon: BarChart3, requiredTier: 'Business' }

@@ -23,6 +23,7 @@ export const ROUTE_TIERS: Record<string, 'Essential' | 'Professional' | 'Busines
     '/cleanup/backup-orphans': 'Essential',
     '/intelligence/defender': 'Business',
     '/intelligence/seguridad': 'Business',
+    '/intelligence/integration-services': 'Business',
     '/intelligence/app-insights': 'Business',
     '/intelligence/monitoreo': 'Business',
     '/intelligence/log-analytics': 'Business',
