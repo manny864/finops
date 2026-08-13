@@ -187,10 +187,13 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
    - `Cost Management Reader` — API de Consumo Real (`/api/intelligence/billing`).
    - `Monitoring Reader` — Métricas para rightsizing y AI Cost Analytics (tokens de Microsoft Foundry/Azure OpenAI).
    - `Billing Reader` — Visibilidad de facturación a nivel suscripción.
+   - `Security Reader` — Lectura de postura/configuración de seguridad (Defender for Cloud, WAF, DDoS).
 
    > Para **AI Cost Analytics (Microsoft Foundry / Azure OpenAI)** no se agregó
-   > ningún rol nuevo: se mantiene el principio de menor privilegio con estos 4
+   > ningún rol nuevo: se mantiene el principio de menor privilegio con estos 5
    > roles base.
+
+   > Para **Entra ID (licencias/subscriptions)** el Service Principal también requiere permisos de aplicación Microsoft Graph: `Directory.Read.All`, `Reports.Read.All`, `User.Read.All` y `Organization.Read.All` (con **Admin Consent**).
 
    **Professional (Essential +):**
    - `Tag Contributor` — Auto-tagging.
@@ -233,7 +236,7 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
     "tenantId": "8b41364f-...",
     "tier": "Essential",
     "spObjectId": "abc-...",
-    "requiredRoles": ["Reader", "Cost Management Reader", "Monitoring Reader", "Billing Reader"],
+    "requiredRoles": ["Reader", "Cost Management Reader", "Monitoring Reader", "Billing Reader", "Security Reader"],
     "totalSubscriptions": 3,
     "okCount": 1,
     "partialCount": 2,
@@ -243,18 +246,18 @@ El sistema opera un modelo de seguridad multi-nivel estricto:
   "subscriptions": [
     {
       "subscriptionId": "...",
-      "assignedRoles": ["Reader", "Cost Management Reader", "Monitoring Reader", "Billing Reader"],
+      "assignedRoles": ["Reader", "Cost Management Reader", "Monitoring Reader", "Billing Reader", "Security Reader"],
       "missingRoles": [],
       "status": "OK"
     },
     {
       "subscriptionId": "...",
       "assignedRoles": ["Reader"],
-      "missingRoles": ["Cost Management Reader", "Monitoring Reader", "Billing Reader"],
+      "missingRoles": ["Cost Management Reader", "Monitoring Reader", "Billing Reader", "Security Reader"],
       "status": "PARTIAL"
     }
   ],
-  "globalHint": "⚠️ 2 suscripción(es) con roles incompletos. Roles faltantes: Cost Management Reader, Monitoring Reader, Billing Reader. ..."
+  "globalHint": "⚠️ 2 suscripción(es) con roles incompletos. Roles faltantes: Cost Management Reader, Monitoring Reader, Billing Reader, Security Reader. ..."
 }
 ```
 

@@ -251,6 +251,7 @@ export function generateOnboardingScript(clientTenantId: string, subscriptionIds
         'Cost Management Reader',  // /api/intelligence/billing
         'Monitoring Reader',       // métricas para rightsizing
         'Billing Reader',          // visibilidad de facturación a nivel sub (MCA-friendly)
+        'Security Reader',         // lectura de Microsoft.Security/* (Defender/WAF posture)
     ];
 
     const baseRoles = [...essentialRoles];
@@ -272,8 +273,8 @@ export function generateOnboardingScript(clientTenantId: string, subscriptionIds
     // en Sidebar.tsx). Se otorga solo a los tiers con acceso a esa página.
     const needsAuditLog = hasAccess(tier, 'Enterprise');
     const graphPermsLabel = needsAuditLog
-        ? 'Directory.Read.All, Reports.Read.All, User.Read.All, AuditLog.Read.All'
-        : 'Directory.Read.All, Reports.Read.All, User.Read.All';
+        ? 'Directory.Read.All, Reports.Read.All, User.Read.All, Organization.Read.All, AuditLog.Read.All'
+        : 'Directory.Read.All, Reports.Read.All, User.Read.All, Organization.Read.All';
     const auditLogRoleLookup = needsAuditLog
         ? `$AuditRole = $GraphSp.AppRole | Where-Object { $_.Value -eq "AuditLog.Read.All" -and $_.AllowedMemberType -contains "Application" }\n`
         : '';
@@ -282,8 +283,8 @@ export function generateOnboardingScript(clientTenantId: string, subscriptionIds
         ? `\n    $bodyAudit = @{ principalId = $sp.Id; resourceId = $GraphSp.Id; appRoleId = $AuditRole.Id } | ConvertTo-Json -Depth 5\n    Invoke-AzRestMethod -Method Post -Uri "https://graph.microsoft.com/v1.0/servicePrincipals/$($sp.Id)/appRoleAssignments" -Payload $bodyAudit -ErrorAction SilentlyContinue | Out-Null`
         : '';
     const graphPermsManualHint = needsAuditLog
-        ? 'Directory.Read.All, Reports.Read.All, User.Read.All y AuditLog.Read.All'
-        : 'Directory.Read.All, Reports.Read.All y User.Read.All';
+        ? 'Directory.Read.All, Reports.Read.All, User.Read.All, Organization.Read.All y AuditLog.Read.All'
+        : 'Directory.Read.All, Reports.Read.All, User.Read.All y Organization.Read.All';
 
     const subList = subscriptions.map(s => `"${s}"`).join(", ");
 
@@ -449,15 +450,18 @@ $GraphSp = Get-AzADServicePrincipal -Filter "appId eq '00000003-0000-0000-c000-0
 $DirRole = $GraphSp.AppRole | Where-Object { $_.Value -eq "Directory.Read.All" -and $_.AllowedMemberType -contains "Application" }
 $RepRole = $GraphSp.AppRole | Where-Object { $_.Value -eq "Reports.Read.All" -and $_.AllowedMemberType -contains "Application" }
 $UserRole = $GraphSp.AppRole | Where-Object { $_.Value -eq "User.Read.All" -and $_.AllowedMemberType -contains "Application" }
+$OrgRole = $GraphSp.AppRole | Where-Object { $_.Value -eq "Organization.Read.All" -and $_.AllowedMemberType -contains "Application" }
 ${auditLogRoleLookup}
-if ($DirRole -and $RepRole -and $UserRole${auditLogCondition}) {
+if ($DirRole -and $RepRole -and $UserRole -and $OrgRole${auditLogCondition}) {
     $bodyDir = @{ principalId = $sp.Id; resourceId = $GraphSp.Id; appRoleId = $DirRole.Id } | ConvertTo-Json -Depth 5
     $bodyRep = @{ principalId = $sp.Id; resourceId = $GraphSp.Id; appRoleId = $RepRole.Id } | ConvertTo-Json -Depth 5
     $bodyUser = @{ principalId = $sp.Id; resourceId = $GraphSp.Id; appRoleId = $UserRole.Id } | ConvertTo-Json -Depth 5
+    $bodyOrg = @{ principalId = $sp.Id; resourceId = $GraphSp.Id; appRoleId = $OrgRole.Id } | ConvertTo-Json -Depth 5
 
     Invoke-AzRestMethod -Method Post -Uri "https://graph.microsoft.com/v1.0/servicePrincipals/$($sp.Id)/appRoleAssignments" -Payload $bodyDir -ErrorAction SilentlyContinue | Out-Null
     Invoke-AzRestMethod -Method Post -Uri "https://graph.microsoft.com/v1.0/servicePrincipals/$($sp.Id)/appRoleAssignments" -Payload $bodyRep -ErrorAction SilentlyContinue | Out-Null
     Invoke-AzRestMethod -Method Post -Uri "https://graph.microsoft.com/v1.0/servicePrincipals/$($sp.Id)/appRoleAssignments" -Payload $bodyUser -ErrorAction SilentlyContinue | Out-Null${auditLogAssignBlock}
+    Invoke-AzRestMethod -Method Post -Uri "https://graph.microsoft.com/v1.0/servicePrincipals/$($sp.Id)/appRoleAssignments" -Payload $bodyOrg -ErrorAction SilentlyContinue | Out-Null
     Write-Host "${S.whGraphAssigned}" -ForegroundColor Green
 } else {
     Write-Host "${S.whGraphNotFoundPre} ${graphPermsManualHint} ${S.whGraphNotFoundPost}" -ForegroundColor Yellow
@@ -524,4 +528,3 @@ Write-Host "${S.noteEaMca}" -ForegroundColor Yellow
 Write-Host "${S.noteReservations}" -ForegroundColor Yellow
 `;
 }
-

@@ -12,6 +12,7 @@ const BUILTIN_ROLE_IDS: Record<string, string> = {
     'Cost Management Reader': '72fafb9e-0641-4937-9268-a91bfd8191a3',
     'Monitoring Reader': '43d0d8ad-25c7-4714-9337-8ba259a9fe05',
     'Billing Reader': 'fa23ad8b-c56e-40d8-ac0c-ce449e1d2c64',
+    'Security Reader': '39bc4728-0917-49c7-9d2c-d95423bc2eb4',
     'Tag Contributor': '4a9ae827-6dc8-4573-8ac7-8239d42aa03f',
     'Contributor': 'b24988ac-6180-42a0-ab88-20f7382dd24c',
     'Owner': '8e3af657-a8ff-443c-a75c-2fe8c4bcb635',
@@ -30,7 +31,7 @@ type RolesByTier = {
 };
 
 function getRequiredRoles(tier: string): RolesByTier {
-    const essentialBuiltIn = ['Reader', 'Cost Management Reader', 'Monitoring Reader', 'Billing Reader'];
+    const essentialBuiltIn = ['Reader', 'Cost Management Reader', 'Monitoring Reader', 'Billing Reader', 'Security Reader'];
     const customActions = getCustomRoleActionsForTier(tier);
 
     switch ((tier || 'Essential').toLowerCase()) {
@@ -228,7 +229,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({
                 error: 'SP_NOT_FOUND_IN_GRAPH',
                 message: `No se encontró Service Principal con appId=${clientId} en el tenant ${tenantId}.`,
-                hint: 'Verifique que el App Registration y el Service Principal existan. Re-ejecute el script de onboarding si fue eliminado. También puede faltar el permiso Directory.Read.All en el SP.',
+                hint: 'Verifique que el App Registration y el Service Principal existan. Re-ejecute el script de onboarding si fue eliminado. También pueden faltar permisos Graph de aplicación en el SP (Directory.Read.All / Organization.Read.All).',
             }, { status: 404 });
         }
 
