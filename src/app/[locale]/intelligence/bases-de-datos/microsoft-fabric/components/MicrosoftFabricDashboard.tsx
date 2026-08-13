@@ -4,6 +4,8 @@ import useSWR from "swr";
 import { AlertCircle, TrendingUp, Zap, Layers, Activity } from "lucide-react";
 import { useState } from "react";
 import { useTenant } from "@/components/TenantProvider";
+import { useMsal } from "@azure/msal-react";
+import { getFreshIdToken } from "@/lib/msalToken";
 
 interface FabricArtefact {
   type: "dataFactory" | "synapse" | "dataWarehouse" | "powerBI" | "realtimeIntel";
@@ -48,8 +50,10 @@ interface FabricMetrics {
   timestamp: string;
 }
 
-const fetcher = async (url: string) => {
-  const res = await fetch(url);
+const fetcher = async (url: string, idToken: string) => {
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
   if (!res.ok) {
     const error: any = new Error(`API error ${res.status}`);
     error.status = res.status;
@@ -62,10 +66,15 @@ const fetcher = async (url: string) => {
 
 export default function MicrosoftFabricDashboard() {
   const { selectedTenant } = useTenant();
+  const { instance, accounts } = useMsal();
   const [activeTab, setActiveTab] = useState<"overview" | "artefacts" | "onelake" | "recommendations">("overview");
 
-  const apiUrl = `/api/intelligence/microsoft-fabric?tenantId=${selectedTenant?.id || ""}`;
-  const { data, error, isLoading } = useSWR<FabricMetrics>(apiUrl, fetcher, {
+  const tenantId = selectedTenant?.id;
+  const swrKey = tenantId && tenantId !== "default" ? `/api/intelligence/microsoft-fabric?tenantId=${tenantId}` : null;
+  const { data, error, isLoading } = useSWR<FabricMetrics>(swrKey, async (url: string) => {
+    const idToken = await getFreshIdToken(instance, accounts[0]);
+    return fetcher(url, idToken);
+  }, {
     revalidateOnFocus: true,
     dedupingInterval: 60000,
   });
