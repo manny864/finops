@@ -296,13 +296,30 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(payload);
         }
 
-        const costTypes = family === "webapps" ? ["Microsoft.Web/serverfarms"] : FAMILY_COST_TYPES[family];
-        const { costByType, dataAvailable } = await getMonthlyCostByType(
+        const primaryCostTypes = family === "webapps" ? ["Microsoft.Web/serverfarms"] : FAMILY_COST_TYPES[family];
+        let { costByType, dataAvailable } = await getMonthlyCostByType(
             tenantId,
             credential,
             subscriptionIds,
-            costTypes,
+            primaryCostTypes,
         );
+
+        // Web Apps can report cost either at plan level (serverfarms) or site level.
+        // Keep plan-first attribution, but fallback to full web types when plan-only returns zero.
+        if (family === "webapps") {
+            const planOnlyTotal = [...costByType.values()].reduce((sum, value) => sum + value.toNumber(), 0);
+            if (planOnlyTotal <= 0) {
+                const fallback = await getMonthlyCostByType(
+                    tenantId,
+                    credential,
+                    subscriptionIds,
+                    FAMILY_COST_TYPES.webapps,
+                );
+                costByType = fallback.costByType;
+                dataAvailable = dataAvailable && fallback.dataAvailable;
+            }
+        }
+
         const costPerResource = distributeCostPerResource(resources, costByType);
         const subscriptionNameMap = await getSubscriptionNameMap(tenantId, credential);
 
