@@ -49,6 +49,7 @@ export default function GovernanceReportingDashboard() {
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const [openDetail, setOpenDetail] = useState<DetailSection | null>(null);
+    const [selectedPolicy, setSelectedPolicy] = useState<any>(null);
 
     const fetcher = async (url: string) => {
         const idToken = await getFreshIdToken(instance, accounts[0], ["User.Read"]);
@@ -161,12 +162,16 @@ export default function GovernanceReportingDashboard() {
                             <DetailBox
                                 items={detail.nonCompliantPolicies || []}
                                 render={(p, i) => (
-                                    <div key={`${p.name}-${i}`} className="py-2 flex items-center justify-between gap-3 text-sm">
-                                        <span className="text-gray-800 dark:text-gray-100">{p.name}</span>
+                                    <button
+                                        key={`${p.name}-${i}`}
+                                        onClick={() => setSelectedPolicy(p)}
+                                        className="w-full py-2 flex items-center justify-between gap-3 text-sm hover:bg-gray-100 dark:hover:bg-slate-700/50 rounded px-2 transition-colors text-left"
+                                    >
+                                        <span className="text-gray-800 dark:text-gray-100 hover:text-brand-deep dark:hover:text-brand-sky transition-colors">{p.name}</span>
                                         <span className="shrink-0 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
                                             {p.count} {t("resourcesShort")}
                                         </span>
-                                    </div>
+                                    </button>
                                 )}
                             />
                         )}
@@ -216,6 +221,46 @@ export default function GovernanceReportingDashboard() {
             </Card>
 
             <p className="text-xs text-gray-400 dark:text-gray-500">{t("source", { subs: data.subscriptionsEvaluated })}</p>
+
+            {/* Policy Detail Modal */}
+            {selectedPolicy && (
+                <div className="fixed inset-0 bg-black/30 dark:bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white dark:bg-slate-900 rounded-lg shadow-xl max-w-md w-full max-h-[80vh] overflow-auto">
+                        <div className="p-4 border-b border-gray-200 dark:border-slate-800 flex justify-between items-start">
+                            <div>
+                                <h3 className="font-bold text-gray-900 dark:text-white">{selectedPolicy.name}</h3>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                    {selectedPolicy.count} recurso{selectedPolicy.count !== 1 ? 's' : ''} no conforme{selectedPolicy.count !== 1 ? 's' : ''}
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setSelectedPolicy(null)}
+                                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                        <div className="p-4">
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                                Recursos afectados por esta política de Azure:
+                            </p>
+                            <div className="space-y-2">
+                                <div className="p-3 bg-gray-50 dark:bg-slate-800 rounded border border-gray-200 dark:border-slate-700">
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 font-mono break-all">
+                                        {selectedPolicy.name}
+                                    </p>
+                                </div>
+                                <div className="text-sm text-gray-600 dark:text-gray-400">
+                                    <p>Para ver los recursos específicos afectados, dirígete a:</p>
+                                    <p className="mt-2 text-xs font-mono bg-blue-50 dark:bg-blue-900/20 p-2 rounded text-blue-700 dark:text-blue-400 break-all">
+                                        Azure Portal → Policy → Compliance → {selectedPolicy.name}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
