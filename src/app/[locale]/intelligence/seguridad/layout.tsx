@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { Inter } from "next/font/google";
 import { getTranslations } from "next-intl/server";
-import { ShieldCheck, Shield, KeyRound, IdCard, ShieldAlert, ShieldBan, BarChart3 } from "lucide-react";
+import { ShieldCheck, Shield, KeyRound, IdCard, ShieldAlert, ShieldBan } from "lucide-react";
 import RouteTabsNav from "@/components/navigation/RouteTabsNav";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -10,8 +10,7 @@ export default async function SeguridadLayout({ children }: { children: ReactNod
     const t = await getTranslations("SecurityHub");
 
     const tabs = [
-        { href: "/intelligence/seguridad", label: t("tabDefender"), icon: <Shield className="w-4 h-4 text-[#0054A6]" /> },
-        { href: "/intelligence/seguridad/defender-detalles", label: "Defender Detalles", icon: <BarChart3 className="w-4 h-4 text-[#0054A6]" /> },
+        { href: "/intelligence/seguridad/defender-for-cloud", label: t("tabDefender"), icon: <Shield className="w-4 h-4 text-[#0054A6]" /> },
         { href: "/intelligence/seguridad/microsoft-sentinel", label: t("tabSentinel"), icon: <ShieldCheck className="w-4 h-4 text-[#0054A6]" /> },
         { href: "/intelligence/seguridad/key-vault", label: t("tabKeyVault"), icon: <KeyRound className="w-4 h-4 text-[#0054A6]" /> },
         { href: "/intelligence/seguridad/entra-id", label: t("tabEntraId"), icon: <IdCard className="w-4 h-4 text-[#0054A6]" /> },
