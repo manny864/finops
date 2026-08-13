@@ -627,8 +627,135 @@ const MOCK_CAPABILITIES: CapabilityMetrics[] = [
   },
 ];
 
+async function fetchAzureSearchMetrics(tenantId: string): Promise<CapabilityMetrics | null> {
+  try {
+    const [rows]: any = await pool.query(
+      `
+      SELECT
+        resourceName,
+        region,
+        resourceGroup,
+        skuName,
+        replicaCount,
+        partitionCount,
+        indexCount,
+        documentCount,
+        storageGB,
+        monthlyCostUSD,
+        costBreakdown_compute,
+        costBreakdown_storage,
+        costBreakdown_queries,
+        usage_qps,
+        usage_latencyMs,
+        usage_throttledPercent,
+        usage_semanticQueriesDaily,
+        utilizationPercent,
+        lastAccessedDaysAgo
+      FROM AzureSearchSnapshots
+      WHERE tenantId = ? AND snapshotDate >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+      `,
+      [tenantId]
+    );
+
+    if (!rows || rows.length === 0) return null;
+
+    const totalCost = rows.reduce((sum: number, r: any) => sum + parseFloat(r.monthlyCostUSD || 0), 0);
+    const computeCost = rows.reduce((sum: number, r: any) => sum + parseFloat(r.costBreakdown_compute || 0), 0);
+    const storageCost = rows.reduce((sum: number, r: any) => sum + parseFloat(r.costBreakdown_storage || 0), 0);
+    const queryCost = rows.reduce((sum: number, r: any) => sum + parseFloat(r.costBreakdown_queries || 0), 0);
+
+    const avgQps = rows.length > 0 ? rows.reduce((sum: number, r: any) => sum + (r.usage_qps || 0), 0) / rows.length : 0;
+    const avgLatency = rows.length > 0 ? rows.reduce((sum: number, r: any) => sum + (r.usage_latencyMs || 0), 0) / rows.length : 0;
+    const totalDocuments = rows.reduce((sum: number, r: any) => sum + (r.documentCount || 0), 0);
+    const totalStorageGB = rows.reduce((sum: number, r: any) => sum + (r.storageGB || 0), 0);
+
+    const resources = rows.map((r: any) => ({
+      name: r.resourceName,
+      region: r.region,
+      resourceGroup: r.resourceGroup,
+      type: "Microsoft.Search/searchServices",
+      monthlyCost: parseFloat(r.monthlyCostUSD || 0),
+      utilizationPercent: r.utilizationPercent || 0,
+      lastAccessedDaysAgo: r.lastAccessedDaysAgo || 0,
+    }));
+
+    const recommendations: FinopsRecommendation[] = [];
+
+    // Identify orphaned / underutilized resources
+    for (const r of resources) {
+      if ((r.utilizationPercent || 0) < 15) {
+        recommendations.push({
+          id: `search-underutilized-${r.name}`,
+          capability: "search",
+          title: `Right-size ${r.name} (Low QPS)`,
+          description: `${r.name} shows ${r.utilizationPercent || 0}% CPU utilization. Consider reducing replicas or downsizing SKU.`,
+          potentialSavingsUSD: r.monthlyCost * 0.25,
+          effort: "low",
+          roiMonths: 1,
+          actionType: "rightsizing",
+          resourceAffected: r.name,
+          confidence: 0.8,
+        });
+      }
+
+      if ((r.lastAccessedDaysAgo || 0) > 30) {
+        recommendations.push({
+          id: `search-orphaned-${r.name}`,
+          capability: "search",
+          title: `Terminate Orphaned Index: ${r.name}`,
+          description: `No queries recorded in the last ${r.lastAccessedDaysAgo} days. Recommended for termination.`,
+          potentialSavingsUSD: r.monthlyCost,
+          effort: "low",
+          roiMonths: 1,
+          actionType: "termination",
+          resourceAffected: r.name,
+          confidence: 0.9,
+        });
+      }
+    }
+
+    return {
+      capability: "search",
+      name: CAPABILITIES_METADATA.search.name,
+      description: CAPABILITIES_METADATA.search.description,
+      monthlyCostUSD: totalCost,
+      costBreakdown: {
+        computeCost,
+        storageCost,
+        queryTransactionCost: queryCost,
+        overheadCost: 0,
+      },
+      usage: [
+        { metric: "Avg Queries/sec", value: parseFloat(avgQps.toFixed(2)), unit: "QPS", costPer: 0.0275 },
+        { metric: "Avg Latency", value: parseFloat(avgLatency.toFixed(2)), unit: "ms" },
+        { metric: "Total Indexed Docs", value: totalDocuments, unit: "docs" },
+        { metric: "Total Storage", value: parseFloat(totalStorageGB.toFixed(2)), unit: "GB", costPer: 0.25 },
+      ],
+      resources,
+      wasteMetrics: {
+        orphanedResourceCount: resources.filter((r: any) => (r.lastAccessedDaysAgo || 0) > 30).length,
+        underutilizedResourceCount: resources.filter((r: any) => (r.utilizationPercent || 0) < 20).length,
+        idleResourceCount: resources.filter((r: any) => (r.utilizationPercent || 0) < 10).length,
+        estimatedWasteUSD: resources
+          .filter((r: any) => (r.utilizationPercent || 0) < 20)
+          .reduce((sum: number, r: any) => sum + r.monthlyCost * 0.3, 0),
+      },
+      recommendations: recommendations.slice(0, 5),
+      lastUpdated: new Date().toISOString(),
+      source: "snapshot" as const,
+    };
+  } catch (err) {
+    console.error("Error fetching Azure Search metrics:", err);
+    return null;
+  }
+}
+
 async function fetchRealCapabilities(tenantId: string): Promise<CapabilityMetrics[]> {
   try {
+    const searchMetrics = await fetchAzureSearchMetrics(tenantId);
+    const results: CapabilityMetrics[] = [];
+    if (searchMetrics) results.push(searchMetrics);
+
     const [rows]: any = await pool.query(
       `
       SELECT
@@ -648,7 +775,7 @@ async function fetchRealCapabilities(tenantId: string): Promise<CapabilityMetric
       [tenantId]
     );
 
-    if (!rows || rows.length === 0) return [];
+    if (!rows || rows.length === 0) return results;
 
     const classifyCapability = (serviceName: string, resourceType: string): Capability | null => {
       const s = `${serviceName || ""} ${resourceType || ""}`.toLowerCase();
@@ -667,52 +794,56 @@ async function fetchRealCapabilities(tenantId: string): Promise<CapabilityMetric
     const grouped = new Map<Capability, any[]>();
     for (const row of rows) {
       const cap = classifyCapability(row.service_name, row.resource_type);
-      if (!cap) continue;
+      if (!cap || cap === "search") continue; // Skip search, already handled above
       if (!grouped.has(cap)) grouped.set(cap, []);
       grouped.get(cap)!.push(row);
     }
 
-    return Array.from(grouped.entries()).map(([capability, capRows]) => {
-      const totalCost = capRows.reduce((sum, r) => sum + parseFloat(r.total_cost || 0), 0);
-      const resources = capRows.map((r) => ({
-        name: r.resource_name || "unknown",
-        region: r.region || "unknown",
-        resourceGroup: r.resource_group || "unknown",
-        type: r.resource_type || "unknown",
-        monthlyCost: parseFloat(r.total_cost || 0),
-        utilizationPercent: Math.min(100, Math.max(10, (parseFloat(r.avg_daily_hours || 0) / 24) * 100)),
-        lastAccessedDaysAgo: 0,
-      }));
+    results.push(
+      ...Array.from(grouped.entries()).map(([capability, capRows]) => {
+        const totalCost = capRows.reduce((sum, r) => sum + parseFloat(r.total_cost || 0), 0);
+        const resources = capRows.map((r) => ({
+          name: r.resource_name || "unknown",
+          region: r.region || "unknown",
+          resourceGroup: r.resource_group || "unknown",
+          type: r.resource_type || "unknown",
+          monthlyCost: parseFloat(r.total_cost || 0),
+          utilizationPercent: Math.min(100, Math.max(10, (parseFloat(r.avg_daily_hours || 0) / 24) * 100)),
+          lastAccessedDaysAgo: 0,
+        }));
 
-      return {
-        capability,
-        name: CAPABILITIES_METADATA[capability].name,
-        description: CAPABILITIES_METADATA[capability].description,
-        monthlyCostUSD: totalCost,
-        costBreakdown: {
-          computeCost: totalCost * 0.58,
-          storageCost: totalCost * 0.25,
-          queryTransactionCost: totalCost * 0.13,
-          overheadCost: totalCost * 0.04,
-        },
-        usage: [
-          { metric: "Resources Detected", value: capRows.length, unit: "count" },
-          { metric: "Avg Cost per Resource", value: capRows.length ? parseFloat((totalCost / capRows.length).toFixed(2)) : 0, unit: "$/month" },
-        ],
-        resources,
-        wasteMetrics: {
-          orphanedResourceCount: 0,
-          underutilizedResourceCount: resources.filter((r) => (r.utilizationPercent || 0) < 20).length,
-          idleResourceCount: resources.filter((r) => (r.utilizationPercent || 0) <= 10).length,
-          estimatedWasteUSD: resources
-            .filter((r) => (r.utilizationPercent || 0) < 20)
-            .reduce((sum, r) => sum + r.monthlyCost * 0.3, 0),
-        },
-        recommendations: [],
-        lastUpdated: new Date().toISOString(),
-        source: "snapshot" as const,
-      };
-    });
+        return {
+          capability,
+          name: CAPABILITIES_METADATA[capability].name,
+          description: CAPABILITIES_METADATA[capability].description,
+          monthlyCostUSD: totalCost,
+          costBreakdown: {
+            computeCost: totalCost * 0.58,
+            storageCost: totalCost * 0.25,
+            queryTransactionCost: totalCost * 0.13,
+            overheadCost: totalCost * 0.04,
+          },
+          usage: [
+            { metric: "Resources Detected", value: capRows.length, unit: "count" },
+            { metric: "Avg Cost per Resource", value: capRows.length ? parseFloat((totalCost / capRows.length).toFixed(2)) : 0, unit: "$/month" },
+          ],
+          resources,
+          wasteMetrics: {
+            orphanedResourceCount: 0,
+            underutilizedResourceCount: resources.filter((r) => (r.utilizationPercent || 0) < 20).length,
+            idleResourceCount: resources.filter((r) => (r.utilizationPercent || 0) <= 10).length,
+            estimatedWasteUSD: resources
+              .filter((r) => (r.utilizationPercent || 0) < 20)
+              .reduce((sum, r) => sum + r.monthlyCost * 0.3, 0),
+          },
+          recommendations: [],
+          lastUpdated: new Date().toISOString(),
+          source: "snapshot" as const,
+        };
+      })
+    );
+
+    return results;
   } catch (err) {
     console.error("Error fetching real capabilities:", err);
     return [];
