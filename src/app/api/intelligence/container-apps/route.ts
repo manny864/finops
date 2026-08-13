@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
             600
         );
 
-        return NextResponse.json({ success: true, ...data, availableSubscriptions, selectedSubscriptionName });
+        return NextResponse.json({ success: true, ...data, availableSubscriptions, selectedSubscriptionName, selectedSubscriptionId: targetSubscriptionId });
     } catch (error: unknown) {
         if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
         console.error("Container Apps API Error:", error);
