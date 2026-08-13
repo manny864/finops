@@ -808,12 +808,80 @@ async function fetchAiServiceMetrics(
   }
 }
 
+async function fetchFoundryMetrics(tenantId: string): Promise<CapabilityMetrics | null> {
+  try {
+    const [rows]: any = await pool.query(
+      `SELECT * FROM AzureFoundrySnapshots WHERE tenantId = ? AND snapshotDate >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)`,
+      [tenantId]
+    );
+
+    if (!rows || rows.length === 0) return null;
+
+    const totalCost = rows.reduce((sum: number, r: any) => sum + parseFloat(r.monthlyCostUSD || 0), 0);
+    const computeCost = rows.reduce((sum: number, r: any) => sum + parseFloat(r.computeCost || 0), 0);
+    const storageCost = rows.reduce((sum: number, r: any) => sum + parseFloat(r.storageCost || 0), 0);
+    const queryTransactionCost = rows.reduce((sum: number, r: any) => sum + parseFloat(r.queryTransactionCost || 0), 0);
+    const overheadCost = rows.reduce((sum: number, r: any) => sum + parseFloat(r.overheadCost || 0), 0);
+
+    const uniqueModels = new Set(rows.map((r: any) => r.modelName));
+    const uniqueEndpoints = new Set(rows.map((r: any) => r.deploymentName));
+    
+    const resources = rows.map((r: any) => ({
+      name: r.modelDeploymentName || r.deploymentName || "unknown",
+      region: r.region || "unknown",
+      resourceGroup: r.resourceGroup || "unknown",
+      type: "Microsoft.CognitiveServices/accounts",
+      monthlyCost: parseFloat(r.monthlyCostUSD || 0),
+      utilizationPercent: r.utilizationPercent || 0,
+    }));
+
+    const promptTokens = rows.reduce((sum: number, r: any) => sum + (r.usage_promptTokens || 0), 0);
+    const completionTokens = rows.reduce((sum: number, r: any) => sum + (r.usage_completionTokens || 0), 0);
+    const finetuningJobs = rows.reduce((sum: number, r: any) => sum + (r.usage_finetuningJobs || 0), 0);
+
+    return {
+      capability: "foundry",
+      name: CAPABILITIES_METADATA.foundry.name,
+      description: CAPABILITIES_METADATA.foundry.description,
+      monthlyCostUSD: totalCost,
+      costBreakdown: {
+        computeCost,
+        storageCost,
+        queryTransactionCost,
+        overheadCost,
+      },
+      usage: [
+        { metric: "Prompt Tokens", value: promptTokens, unit: "tokens/month", costPer: 0.00018 },
+        { metric: "Completion Tokens", value: completionTokens, unit: "tokens/month", costPer: 0.00028 },
+        { metric: "Fine-tuning Jobs", value: finetuningJobs, unit: "jobs/month", costPer: 142.5 },
+        { metric: "Model Endpoints", value: uniqueEndpoints.size, unit: "endpoints" },
+        { metric: "Unique Models", value: uniqueModels.size, unit: "models" },
+      ],
+      resources,
+      wasteMetrics: {
+        orphanedResourceCount: 0,
+        underutilizedResourceCount: resources.filter((r: any) => (r.utilizationPercent || 0) < 20).length,
+        idleResourceCount: resources.filter((r: any) => (r.utilizationPercent || 0) < 10).length,
+        estimatedWasteUSD: resources
+          .filter((r: any) => (r.utilizationPercent || 0) < 20)
+          .reduce((sum: number, r: any) => sum + r.monthlyCost * 0.25, 0),
+      },
+      recommendations: [],
+      lastUpdated: new Date().toISOString(),
+      source: "snapshot" as const,
+    };
+  } catch (err) {
+    console.error(`Error fetching foundry metrics:`, err);
+    return null;
+  }
+}
+
 async function fetchRealCapabilities(tenantId: string): Promise<CapabilityMetrics[]> {
   try {
     const results: CapabilityMetrics[] = [];
 
     // Fetch all AI service metrics in parallel
-    const [search, docIntel, speechLang, visionVideo, contentSafety, aml, databricks] = await Promise.all([
+    const [search, docIntel, speechLang, visionVideo, contentSafety, aml, databricks, foundry] = await Promise.all([
       fetchAzureSearchMetrics(tenantId),
       fetchAiServiceMetrics(tenantId, "AzureDocumentIntelligenceSnapshots", "document-intelligence"),
       fetchAiServiceMetrics(tenantId, "AzureSpeechLanguageSnapshots", "speech-language"),
@@ -821,6 +889,7 @@ async function fetchRealCapabilities(tenantId: string): Promise<CapabilityMetric
       fetchAiServiceMetrics(tenantId, "AzureContentSafetySnapshots", "content-safety"),
       fetchAiServiceMetrics(tenantId, "AzureMLSnapshots", "aml"),
       fetchAiServiceMetrics(tenantId, "AzureDatabricksSnapshots", "databricks", "monthlyCostUSD"),
+      fetchFoundryMetrics(tenantId),
     ]);
 
     if (search) results.push(search);
@@ -830,6 +899,7 @@ async function fetchRealCapabilities(tenantId: string): Promise<CapabilityMetric
     if (contentSafety) results.push(contentSafety);
     if (aml) results.push(aml);
     if (databricks) results.push(databricks);
+    if (foundry) results.push(foundry);
 
     return results;
   } catch (err) {
