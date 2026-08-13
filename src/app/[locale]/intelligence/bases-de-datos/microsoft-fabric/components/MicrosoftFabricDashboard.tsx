@@ -68,9 +68,12 @@ export default function MicrosoftFabricDashboard() {
   const { selectedTenant } = useTenant();
   const { instance, accounts } = useMsal();
   const [activeTab, setActiveTab] = useState<"overview" | "artefacts" | "onelake" | "recommendations">("overview");
+  const hasSession = accounts.length > 0;
 
   const tenantId = selectedTenant?.id;
-  const swrKey = tenantId && tenantId !== "default" ? `/api/intelligence/microsoft-fabric?tenantId=${tenantId}` : null;
+  const swrKey = tenantId && tenantId !== "default" && hasSession
+    ? `/api/intelligence/microsoft-fabric?tenantId=${tenantId}`
+    : null;
   const { data, error, isLoading } = useSWR<FabricMetrics>(swrKey, async (url: string) => {
     const idToken = await getFreshIdToken(instance, accounts[0]);
     return fetcher(url, idToken);
@@ -81,6 +84,10 @@ export default function MicrosoftFabricDashboard() {
 
   if (!selectedTenant) {
     return <div className="text-center py-8 text-slate-500">Select a tenant to view Fabric metrics</div>;
+  }
+
+  if (!hasSession) {
+    return <div className="text-center py-8">Loading Fabric metrics...</div>;
   }
 
   if (error) {
