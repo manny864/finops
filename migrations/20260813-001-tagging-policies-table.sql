@@ -10,12 +10,14 @@ CREATE TABLE IF NOT EXISTS TaggingPolicies (
     INDEX idx_tenant (tenant_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Insert default policies for all existing tenants if they don't exist
-INSERT IGNORE INTO TaggingPolicies (tenant_id, policy_name, is_required)
-SELECT DISTINCT tenant_id, 'Environment', 1 FROM Users
-UNION
-SELECT DISTINCT tenant_id, 'Role', 1 FROM Users
-UNION
-SELECT DISTINCT tenant_id, 'CostCenter', 1 FROM Users
-UNION
-SELECT DISTINCT tenant_id, 'Department', 1 FROM Users;
+-- Insert default policies for all existing tenants if they don't exist.
+-- Intentionally avoid explicit column names to stay compatible with
+-- pre-existing camelCase schemas in some environments.
+INSERT IGNORE INTO TaggingPolicies
+SELECT NULL, tenant_id, 'Environment', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP FROM (SELECT DISTINCT tenant_id FROM Users) t
+UNION ALL
+SELECT NULL, tenant_id, 'Role', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP FROM (SELECT DISTINCT tenant_id FROM Users) t
+UNION ALL
+SELECT NULL, tenant_id, 'CostCenter', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP FROM (SELECT DISTINCT tenant_id FROM Users) t
+UNION ALL
+SELECT NULL, tenant_id, 'Department', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP FROM (SELECT DISTINCT tenant_id FROM Users) t;
