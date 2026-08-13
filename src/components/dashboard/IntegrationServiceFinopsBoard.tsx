@@ -295,11 +295,11 @@ export default function IntegrationServiceFinopsBoard({ service }: { service: Se
                 <tbody>
                   {paged.map((row) => (
                     <tr key={row.id} className="hover:bg-slate-50">
-                      <td className="py-3 px-4 border-b border-slate-100 text-sm font-medium text-slate-900">{row.name}</td>
-                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-700">{row.region}</td>
-                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-700">{row.type}</td>
-                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-700">{row.resourceGroup}</td>
-                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-700">{row.subscriptionName}</td>
+                      <td className="py-3 px-4 border-b border-slate-100 text-sm font-medium text-slate-900 whitespace-normal break-words">{row.name}</td>
+                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-700 whitespace-normal break-words">{row.region}</td>
+                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-700 whitespace-normal break-words">{row.type}</td>
+                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-700 whitespace-normal break-words">{row.resourceGroup}</td>
+                      <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-700 whitespace-normal break-words">{row.subscriptionName}</td>
                       <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-900 text-right">{format(row.mtdCostUsd)}</td>
                       <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-900 text-right">{format(row.previousPeriodCostUsd)}</td>
                       <td className="py-3 px-4 border-b border-slate-100 text-sm text-slate-900 text-right">{format(row.forecastEomUsd)}</td>
